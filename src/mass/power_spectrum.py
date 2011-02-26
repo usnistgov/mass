@@ -175,6 +175,22 @@ def hamming(n):
 # Convenience functions
 
 def computeSpectrum(data, segfactor=1, dt=None, window=None):
+    """Convenience function to compute the power spectrum of a single data array.
+    
+    <data>  Data for finding the spectrum
+    <segfactor>   How many segments to break up the data into.  The spectrum
+                  will be found on each consecutive pair of segments and
+                  will be averaged over all pairs.
+    <dt>      The sample spacing, in time.
+    <window>  The window function to apply.  Should be a function that accepts
+              a number of samples and returns an array of that length.  
+              Possible values are bartlett, welch,
+              hann, and hamming in this module, or use a function of your choosing.
+              
+    Return: either the PSD estimate as an array (non-negative frequencies only), 
+    *OR* the tuple (frequencies, PSD).  The latter returns when <dt> is not None.
+    """
+    
     N = len(data)
     M = N/(2*segfactor)
     try:
@@ -196,7 +212,7 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
         return spec.frequencies(), spec.spectrum()
 
 
-import pylab
+import matplotlib.pylab as pylab
 def demo(N=1024, window=numpy.hanning):
     data=numpy.random.standard_normal(N)
     pylab.clf()

@@ -23,16 +23,27 @@ class LJHFile(channel.pulseRecords):
         """
         super(LJHFile, self).__init__()
         self.filename = filename
+        self.__cached_segment = None
         self._read_header(filename)
         
-        self._set_segmentsize(segmentsize)
-
+        self.__set_segmentsize(segmentsize)
+        self._setup_vectors()
 #        self.good = numpy.ones(self.nPulses, dtype=numpy.bool)
 #        self.bad = numpy.zeros(self.nPulses, dtype=numpy.bool)
 
 
 
-    def _set_segmentsize(self, segmentsize):
+    def copy(self):
+        """Return a copy of the object.
+        
+        Handy when coding and you don't want to read the whole data set back in, but
+        you do want to update the method definitions."""
+        c = LJHFile(self.filename, self.segmentsize)
+        c.__dict__.update( self.__dict__ )
+        c.__cached_segment = None
+        return c
+
+    def __set_segmentsize(self, segmentsize):
         """Set the standard segmentsize used in the _read_segment() method.  This number will
         be rounded down to equal an integer number of pulses.
         
@@ -43,6 +54,7 @@ class LJHFile(channel.pulseRecords):
             raise ValueError("segmentsize=%d is not permitted to be smaller than the pulse record (%d bytes)"
                              %(segmentsize, pulse_size_bytes))
         self.segmentsize = maxitems*pulse_size_bytes
+        self.n_segments = 1+(self.binary_size-1)/self.segmentsize
 
 
         
@@ -93,6 +105,25 @@ class LJHFile(channel.pulseRecords):
 
 
     
+    def iter_segments(self, first=0, end=-1):
+        """An iterator over all segments.  Read in segments one at a time and yield triplet:
+        (first pulse number, 1+last pulse number, the segment number just read).
+        
+        <first> The first segment to read.
+        <end>   One past the last segment to read, or -1 to read through the last segment."""
+        
+        if end <= first:
+            end = self.n_segments
+        pulse_size_bytes = 6 + 2*self.nSamples
+        pulses_per_seg = self.segmentsize / pulse_size_bytes
+        for segnum in range(first,end):
+            self._read_segment(segnum)
+            first_pnum = segnum * pulses_per_seg
+            end_pnum = self.datatimes.shape[0] + first_pnum
+            yield first_pnum, end_pnum, segnum
+            
+            
+    
     def _read_segment(self, segment_num=0):
         """Read a section of the binary data of the given number (0,1,...) and size.
         It is okay to call this out of order.  The last segment might be shorter than others.
@@ -103,11 +134,25 @@ class LJHFile(channel.pulseRecords):
         -------
         <segment_num> Number of the segment to read.
         """
+        # Use cached data, if possible
+        if segment_num == self.__cached_segment:
+            return
+        
         if segment_num*self.segmentsize > self.binary_size:
             raise ValueError("File %s has only %d segments;\n\tcannot open segment %d"%
-                             (self.filename, 1+(self.binary_size-1)/self.segmentsize, segment_num))
+                             (self.filename, self.n_segments, segment_num))
+            
         self.__read_binary(self.header_size + segment_num*self.segmentsize, self.segmentsize, 
                            error_on_partial_pulse=True)
+        self.__cached_segment = segment_num
+        
+        
+    def _read_trace(self, trace_num):
+        pulse_size_bytes = 6 + 2*self.nSamples
+        pulses_per_seg = self.segmentsize / pulse_size_bytes
+        segnum = trace_num / pulses_per_seg
+        self._read_segment(segnum)
+        return self.data[trace_num % pulses_per_seg]
         
         
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
@@ -145,8 +190,8 @@ class LJHFile(channel.pulseRecords):
         array = numpy.fromfile(fp, dtype=numpy.uint16, sep="", count=wordcount)
         fp.close()
         
-        self.nPulses = len(array)/(pulse_size_bytes/2)
-        self.data = array.reshape([self.nPulses, pulse_size_bytes/2])
+        self.segment_pulses = len(array)/(pulse_size_bytes/2)
+        self.data = array.reshape([self.segment_pulses, pulse_size_bytes/2])
         
         # Careful: converting 2 little-endian 16-bit words to a single 32-bit word is tricky!
         self.datatimes = numpy.array(self.data[:,2], dtype=numpy.uint32) * (1<<16) 
