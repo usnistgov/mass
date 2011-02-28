@@ -1,14 +1,62 @@
 '''
+The mass.files module contains classes required for handling the various types
+of pulse data files.  In principle, there are several data file types:
+* LJH files
+* PLS files
+* LANL files
+
+...but in practice, we are only ever using LJH files.  Therefore, this module
+contains only one concrete class, the LJHFile (along with the abstract base
+class MicrcalFile).
+
+If you find yourself wanting to read PLS or LANL (or other?) file types,
+then make a new class that inherits from MicrocalFile and calls 
+MicrocalFile.__init__ to verify that it has the required interface:
+* iter_segments(fist, end=-1)
+* read_trace(trace_num)
+* copy()
+
+
 Created on Feb 16, 2011
 
 @author: fowlerj
 '''
 
-import channel
 import numpy
 import os
 
-class LJHFile(channel.pulseRecords):
+class MicrocalFile(object):
+    """
+    Encapsulate a set of data containing multiple triggered traces from
+    a microcalorimeter.  The pulses can be noise or X-rays.  This is meant 
+    to be an abstract class.  Use files.LJHFile(), which is currently the only 
+    derived class. In the future, other derived classes could implement 
+    iter_segments, copy, and read_trace to process other file types."""
+    
+    def __init__(self):
+        """"""
+        # These assertions ensure that we have the proper interface, which
+        # must be found in derived classes.   Roughly speaking, these make the
+        # current class an abstract base class
+        required_methods=("iter_segments", "read_trace","copy")
+        for rm in required_methods:
+            try:
+                self.__getattribute__(rm)
+            except AttributeError:
+                print self.__dict__
+                raise RuntimeError("A %s.%s object requires a method %s()"%(__name__, self.__class__.__name__, rm))
+
+    def __str__(self):
+        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
+                self.__class__.__name__, self.filename, self.nSamples, self.nPresamples, 
+                1e6*self.timebase)
+        
+    def __repr__(self):
+        return "%s('%s')"%(self.__class__.__name__, self.filename)
+    
+    
+    
+class LJHFile(MicrocalFile):
     """Process a single LJH-format file.  All non-LJH-specific data and methods
     appear in the parent pulseRecords class"""
     
@@ -24,13 +72,8 @@ class LJHFile(channel.pulseRecords):
         super(LJHFile, self).__init__()
         self.filename = filename
         self.__cached_segment = None
-        self._read_header(filename)
-        
+        self.__read_header(filename)
         self.__set_segmentsize(segmentsize)
-        self._setup_vectors()
-#        self.good = numpy.ones(self.nPulses, dtype=numpy.bool)
-#        self.bad = numpy.zeros(self.nPulses, dtype=numpy.bool)
-
 
 
     def copy(self):
@@ -42,6 +85,7 @@ class LJHFile(channel.pulseRecords):
         c.__dict__.update( self.__dict__ )
         c.__cached_segment = None
         return c
+
 
     def __set_segmentsize(self, segmentsize):
         """Set the standard segmentsize used in the _read_segment() method.  This number will
@@ -56,9 +100,8 @@ class LJHFile(channel.pulseRecords):
         self.segmentsize = maxitems*pulse_size_bytes
         self.n_segments = 1+(self.binary_size-1)/self.segmentsize
 
-
         
-    def _read_header(self, filename):
+    def __read_header(self, filename):
         """
         Read in the text header of an LJH file.
         On success, several attributes will be set: self.timebase, .nSamples,
@@ -94,17 +137,34 @@ class LJHFile(channel.pulseRecords):
         fp.close()
         
         self.nPulses = self.binary_size / (6+2*self.nSamples)
-        assert self.nPulses * (6+2*self.nSamples) == self.binary_size
         
+        # Check for major problems in the LJH file:
         if self.timebase is None:
             raise IOError("No 'Timebase' line found in header")
         if self.nSamples is None:
             raise IOError("No 'Total Samples' line found in header")
         if self.nPresamples is None:
             raise IOError("No 'Presamples' line found in header")
+        
+        # I could imagine making this one non-fatal, but for now make it fatal:
+        if self.nPulses * (6+2*self.nSamples) != self.binary_size:
+            raise IOError("The binary size of the file (%d) is not an integer multiple of the pulse size %d"
+                          %(self.binary_size, 6+2*self.nSamples))
 
+        # Record the sample times in microseconds
+        self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
     
+    def read_trace(self, trace_num):
+        """Return a single data trace (number <trace_num>),
+        either from cache or by reading off disk, if needed."""
+        pulse_size_bytes = 6 + 2*self.nSamples
+        pulses_per_seg = self.segmentsize / pulse_size_bytes
+        segnum = trace_num / pulses_per_seg
+        self.__read_segment(segnum)
+        return self.data[trace_num % pulses_per_seg]
+        
+        
     def iter_segments(self, first=0, end=-1):
         """An iterator over all segments.  Read in segments one at a time and yield triplet:
         (first pulse number, 1+last pulse number, the segment number just read).
@@ -117,14 +177,13 @@ class LJHFile(channel.pulseRecords):
         pulse_size_bytes = 6 + 2*self.nSamples
         pulses_per_seg = self.segmentsize / pulse_size_bytes
         for segnum in range(first,end):
-            self._read_segment(segnum)
+            self.__read_segment(segnum)
             first_pnum = segnum * pulses_per_seg
             end_pnum = self.datatimes.shape[0] + first_pnum
             yield first_pnum, end_pnum, segnum
             
-            
     
-    def _read_segment(self, segment_num=0):
+    def __read_segment(self, segment_num=0):
         """Read a section of the binary data of the given number (0,1,...) and size.
         It is okay to call this out of order.  The last segment might be shorter than others.
         
@@ -135,8 +194,7 @@ class LJHFile(channel.pulseRecords):
         <segment_num> Number of the segment to read.
         """
         # Use cached data, if possible
-        if segment_num == self.__cached_segment:
-            return
+        if segment_num == self.__cached_segment: return
         
         if segment_num*self.segmentsize > self.binary_size:
             raise ValueError("File %s has only %d segments;\n\tcannot open segment %d"%
@@ -145,14 +203,6 @@ class LJHFile(channel.pulseRecords):
         self.__read_binary(self.header_size + segment_num*self.segmentsize, self.segmentsize, 
                            error_on_partial_pulse=True)
         self.__cached_segment = segment_num
-        
-        
-    def _read_trace(self, trace_num):
-        pulse_size_bytes = 6 + 2*self.nSamples
-        pulses_per_seg = self.segmentsize / pulse_size_bytes
-        segnum = trace_num / pulses_per_seg
-        self._read_segment(segnum)
-        return self.data[trace_num % pulses_per_seg]
         
         
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
@@ -198,16 +248,3 @@ class LJHFile(channel.pulseRecords):
         self.datatimes += (self.data[:,1])
         self.data = self.data[:,3:] # cut out the zeros and the timestamp, which are 3 uint16 words at the start of each pulse
         
-        # Record the sample times in microseconds
-        if self.dt is None: 
-            self.dt = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
-#        self.cuts = Cuts( self.nPulses)
-                
-
-    def __str__(self):
-        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
-                self.__class__.__name__, self.filename, self.nSamples, self.nPresamples, 
-                1e6*self.timebase)
-        
-    def __repr__(self):
-        return "%s('%s')"%(self.__class__.__name__, self.filename)

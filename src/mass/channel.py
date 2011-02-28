@@ -14,16 +14,123 @@ except ImportError:
 
 # MASS modules
 import controller
+import files
+import power_spectrum
 
 
+class NoiseRecords(object):
+    """
+    Encapsulate a set of noise records, which can either be
+    assumed continuous or arbitrarily separated in time.
+    """
+    
+    def __init__(self, filename, records_are_continuous=False):
+        """
+        Load a 
 
-class pulseRecords(object):
+        If <records_are_continuous> is True, then treat all pulses as a continuous timestream.
+        """
+        self.__open_file(filename)
+        self.continuous = records_are_continuous
+        
+        
+     
+    def __open_file(self, filename):
+        """Detect the filetype and open it."""
+
+        # For now, we have only one file type, so let's just assume it!
+        self.datafile = files.LJHFile(filename)
+        self.filename = filename
+
+        # Copy up some of the most important attributes
+        for attr in ("nSamples","nPresamples","nPulses", "timebase"):
+            self.__dict__[attr] = self.datafile.__dict__[attr]
+
+        for first_pnum, end_pnum, seg_num in self.datafile.iter_segments():
+            if seg_num > 0 or first_pnum>0 or end_pnum != self.nPulses:
+                raise NotImplementedError("NoiseRecords objects can't (yet) handle multi-segment noise files.")
+            self.data = self.datafile.data
+
+    def compute_power_spectrum(self, window=power_spectrum.hann, plot=True):
+        spec = power_spectrum.PowerSpectrum(self.nSamples/2, dt=self.timebase)
+        if window is None:
+            window = numpy.ones(self.nSamples)
+        else:
+            window = window(self.nSamples)
+        for d in self.data:
+            d -= d.mean()
+            spec.addDataSegment(d, window=window)
+        self.spectrum = spec
+        if plot:
+            self.plot_power_spectrum()
+
+
+    def plot_power_spectrum(self, axis=None):
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+        spec = self.spectrum
+        axis.plot(spec.frequencies()[1:], spec.spectrum()[1:])
+        pylab.loglog()
+        axis.grid()
+        axis.set_xlim([10,3e5])
+        axis.set_xlabel("Frequency (Hz)")
+        axis.set_ylabel("Power Spectral Density (Hz$^-1$")
+        axis.set_title("Noise power spectrum for %s"%self.filename)
+
+        
+    def compute_autocorrelation(self, n_lags=None, plot=True):
+        """
+        Compute the autocorrelation averaged across all "pulses" in the file.
+        """
+        
+        if self.continuous:
+            n_data = self.nSamples*self.nPulses
+            if n_lags is None:
+                n_lags = n_data
+            if n_lags > n_data:
+                n_lags = n_data
+            paddedData = numpy.zeros(n_lags+n_data, dtype=numpy.float)
+            paddedData[:n_data] = numpy.array(self.data.ravel())
+            paddedData -= self.data.mean()
+            paddedData[n_data:] = 0.0
+            
+            ft = numpy.fft.rfft(paddedData)
+            ft[0] = 0 # this redundantly removes the mean of the data set
+            ft2 = (ft*ft.conj()).real
+            acsum = numpy.fft.irfft(ft2)
+            ac = acsum[:n_lags+1] / (n_data-numpy.arange(n_lags+1.0))
+         
+        else:
+            ac=numpy.zeros(self.nSamples, dtype=numpy.float)
+            for i in range(self.nPulses):
+                data = 1.0*self.data[i,:]
+                data -= data.mean()
+                ac += numpy.correlate(data,data,'full')[self.nSamples-1:]
+            ac /= self.nPulses
+            ac /= self.nSamples - numpy.arange(self.nSamples, dtype=numpy.float)
+        self.autocorrelation = ac
+        
+        if plot: self.plot_autocorrelation()
+        
+    def plot_autocorrelation(self, axis=None):
+        if self.autocorrelation is None:
+            print "Autocorrelation will be computed first"
+            self.compute_autocorrelation(plot=False)
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+        t = self.timebase * 1e3 * numpy.arange(len(self.autocorrelation))
+        axis.plot(t,self.autocorrelation)
+        axis.plot([0],[self.autocorrelation[0]],'o')
+        axis.set_xlabel("Time separation (ms)")
+        
+
+    
+class PulseRecords(object):
     """
     Encapsulate a set of data containing multiple triggered pulse traces.
-    The pulses can be noise or X-rays.  This is meant to be an abstract
-    class.  Use files.LJHFile(), which is currently the only derived class.
-    In the future, other derived classes could implement __readHeader and 
-    __readBinary to process other file types."""
+    The pulses should not be noise records."""
     
     ( CUT_PRETRIG_MEAN,
       CUT_PRETRIG_RMS,
@@ -34,12 +141,11 @@ class pulseRecords(object):
        ) = range(6)
     
     
-    def __init__(self):
+    def __init__(self, filename):
         self.nSamples = 0
         self.nPresamples = 0
         self.nPulses = 0
         self.segmentsize = 0
-        self.dt = None
         self.timebase = None
         
         self.p_timestamp = None
@@ -57,23 +163,22 @@ class pulseRecords(object):
         self.bad = None
         self.good = None
 
-#        self.isBiasPulse = None
-#        self.hasBiasPulses = False
-#        self.autocorrelation = None
-        
-        # These assertions ensure that we have the proper interface, which
-        # must be found in derived classes.   Roughly speaking, these make the
-        # current class an abstract base class
-        required_methods=("_read_header","iter_segments", "_read_trace")
-        for rm in required_methods:
-            try:
-                self.__getattribute__(rm)
-            except AttributeError:
-                print self.__dict__
-                raise RuntimeError("A %s.%s object requires a method %s()"%(__name__, self.__class__.__name__, rm))
+        self.__open_file(filename)
+        self.__setup_vectors()
+
+    def __open_file(self, filename):
+        """Detect the filetype and open it."""
+
+        # For now, we have only one file type, so let's just assume it!
+        self.datafile = files.LJHFile(filename)
+        self.filename = filename
+
+        # Copy up some of the most important attributes
+        for attr in ("nSamples","nPresamples","nPulses", "timebase"):
+            self.__dict__[attr] = self.datafile.__dict__[attr]
 
 
-    def _setup_vectors(self):
+    def __setup_vectors(self):
         """Given the number of pulses, build arrays to hold the relevant facts 
         about each pulse in memory."""
         
@@ -94,24 +199,44 @@ class pulseRecords(object):
         self.bad = self.cuts.bad()
 
 
+    def __str__(self):
+        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
+                self.__class__.__name__, self.filename, self.nSamples, self.nPresamples, 
+                1e6*self.timebase)
+        
+    def __repr__(self):
+        return "%s('%s')"%(self.__class__.__name__, self.filename)
+    
+    def copy(self):
+        """Return a copy of the object.
+        
+        Handy when coding and you don't want to read the whole data set back in, but
+        you do want to update the method definitions."""
+        c = PulseRecords(self.filename)
+        c.__dict__.update( self.__dict__ )
+        c.datafile = self.datafile.copy()
+        return c
+        
+
     def summarize_data(self):
         """Summarize the complete data file"""
         
         maxderiv_holdoff = int(100e-6/self.timebase) # don't look for retriggers before this # of samples
 
-        for first,end,segnum in self.iter_segments():
-            print 'Read segment #%2d with %d pulses'%(segnum, self.datatimes.shape[0])
+        for first,end,segnum in self.datafile.iter_segments():
+            data = self.datafile.data
+            print 'Read segment #%2d with %d pulses'%(segnum, self.datafile.datatimes.shape[0])
 
-            self.p_timestamp[first:end] = self.datatimes
-            self.p_peak_index[first:end] = self.data.argmax(axis=1)
-            self.p_peak_value[first:end] = self.data.max(axis=1)
-            self.p_min_value[first:end] = self.data.min(axis=1)
-            self.p_pretrig_mean[first:end] = self.data[:,:self.nPresamples-2].mean(axis=1)
-            self.p_pretrig_rms[first:end] = self.data[:,:self.nPresamples-2].std(axis=1)
-            self.p_pulse_average[first:end] = self.data[:,self.nPresamples:].mean(axis=1)
+            self.p_timestamp[first:end] = self.datafile.datatimes
+            self.p_peak_index[first:end] = data.argmax(axis=1)
+            self.p_peak_value[first:end] = data.max(axis=1)
+            self.p_min_value[first:end] = data.min(axis=1)
+            self.p_pretrig_mean[first:end] = data[:,:self.nPresamples-2].mean(axis=1)
+            self.p_pretrig_rms[first:end] = data[:,:self.nPresamples-2].std(axis=1)
+            self.p_pulse_average[first:end] = data[:,self.nPresamples:].mean(axis=1)
             self.p_pulse_average[first:end] -= self.p_pretrig_mean[first:end]
 
-            for pulsenum,pulse in enumerate(self.data):
+            for pulsenum,pulse in enumerate(data):
                 self.p_rise_time[first+pulsenum] = estimateRiseTime(pulse, 
                                                     dt=self.timebase, nPretrig = self.nPresamples)
                 self.p_max_posttrig_deriv[first+pulsenum] = \
@@ -139,12 +264,9 @@ class pulseRecords(object):
 
     def serialize(self, serialfile):
         """Store object in a pickle file"""
-        save_data = self.data
-        del self.data    # get rid of the full records before serializing 
         fp = open(serialfile, "wb")
         pickle.dump(self, fp, protocol=2)
         fp.close()
-        self.data = save_data
 
 
     def plot_summaries(self, valid='uncut', downsample=None, log=False):
@@ -239,7 +361,7 @@ class pulseRecords(object):
 
         cuts_good = self.cuts.good()[pulsenums]
         for i,pn in enumerate(pulsenums):
-            data = self._read_trace(pn)
+            data = self.datafile.read_trace(pn)
             cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1
             if not cuts_good[i]:
                 cutchar,alpha,linestyle,linewidth = 'X',1.0,'--' ,1
@@ -253,19 +375,20 @@ class pulseRecords(object):
                 pylab.text(.975, .93-.02*i, summary, color=color[i%len(color)], 
                            family='monospace', size='medium', transform = ax.transAxes, ha='right')
 
-    def cut_pretrigger_rms(self, allowed):
-        """Apply a cut on pretrigger RMS.  If <allowed> is a 2-element sequence (a,b),
-        then the cut requires a < pretrigger RMS < b.  Otherwise our heuristic rule 
-        applies.  If (a,b) is given, then a or b may be None, indicating no cut."""
-        
-        try:
-            a,b = allowed
-            if a is not None:
-                self.cuts.cut(self.CUT_PRETRIG_RMS, self.p_pretrig_rms <= a)
-            if b is not None:
-                self.cuts.cut(self.CUT_PRETRIG_RMS, self.p_pretrig_rms >= b)
-        except ValueError:
-            pass
+
+#    def cut_pretrigger_rms(self, allowed):
+#        """Apply a cut on pretrigger RMS.  If <allowed> is a 2-element sequence (a,b),
+#        then the cut requires a < pretrigger RMS < b.  Otherwise our heuristic rule 
+#        applies.  If (a,b) is given, then a or b may be None, indicating no cut."""
+#        
+#        try:
+#            a,b = allowed
+#            if a is not None:
+#                self.cuts.cut(self.CUT_PRETRIG_RMS, self.p_pretrig_rms <= a)
+#            if b is not None:
+#                self.cuts.cut(self.CUT_PRETRIG_RMS, self.p_pretrig_rms >= b)
+#        except ValueError:
+#            pass
     
     def cut_parameter(self, data, allowed, cut_id):
         """Apply a cut on some per-pulse parameter.  
@@ -292,6 +415,7 @@ class pulseRecords(object):
         except ValueError:
             pass
     
+    
     def apply_cuts(self, controls=None):
         
         if controls is None:
@@ -311,6 +435,7 @@ class pulseRecords(object):
         self.cut_parameter(self.p_max_posttrig_deriv, max_posttrig_deriv_cut, self.CUT_RETRIGGER)
         self.cut_parameter(self.p_pulse_average, min_pulse_average_cut, self.CUT_UNLOCK)
         self.cut_parameter(self.p_min_value-self.p_pretrig_mean, min_value_cut, self.CUT_UNLOCK)
+    
         
     def clear_cuts(self):
         self.cuts = Cuts(self.nPulses)

@@ -4,7 +4,7 @@ mass - Microcalorimeter Analysis Software System
 Joe Fowler, NIST.  November 2010--
 """
 
-__all__ = ['controller','power_spectrum']
+__all__ = ['channel','controller','power_spectrum']
 
 import controller
 import power_spectrum
