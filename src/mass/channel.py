@@ -58,8 +58,7 @@ class NoiseRecords(object):
         else:
             window = window(self.nSamples)
         for d in self.data:
-            d -= d.mean()
-            spec.addDataSegment(d, window=window)
+            spec.addDataSegment(d-d.mean(), window=window)
         self.spectrum = spec
         if plot:
             self.plot_power_spectrum()
@@ -91,8 +90,7 @@ class NoiseRecords(object):
             if n_lags > n_data:
                 n_lags = n_data
             paddedData = numpy.zeros(n_lags+n_data, dtype=numpy.float)
-            paddedData[:n_data] = numpy.array(self.data.ravel())
-            paddedData -= self.data.mean()
+            paddedData[:n_data] = numpy.array(self.data.ravel()) - self.data.mean()
             paddedData[n_data:] = 0.0
             
             ft = numpy.fft.rfft(paddedData)
@@ -123,7 +121,8 @@ class NoiseRecords(object):
         t = self.timebase * 1e3 * numpy.arange(len(self.autocorrelation))
         axis.plot(t,self.autocorrelation)
         axis.plot([0],[self.autocorrelation[0]],'o')
-        axis.set_xlabel("Time separation (ms)")
+        axis.set_xlabel("Lag (ms)")
+        axis.set_ylabel("Autocorrelation (counts$^2$)")
         
 
     
