@@ -6,6 +6,7 @@ Created on Feb 16, 2011
 
 print 'Loading controller module.'
 
+import numpy
 from param_dict_base import PrmDictBase 
 
 class AnalysisControl(PrmDictBase):
@@ -27,9 +28,11 @@ class AnalysisControl(PrmDictBase):
             'min_pulse_average':   None,
             'min_value':           None,
         }
-        self.analysis_prm = {}
+        self.analysis_prm = {
+            'pulse_averaging_ranges': None,
+        }
         
-        self._prm_list = [self.cuts_prm,]# self.experiment_plan_prm, self.analysis_prm]
+        self._prm_list = [self.cuts_prm, self.analysis_prm,]# self.experiment_plan_prm]
         self._type_check.update({})
         self.user_prm = None   # No extra user parameters
         self.set(**kwargs)
@@ -43,6 +46,11 @@ def standardControl():
             pretrigger_mean    = (None, 1150),
             min_pulse_average  = (0, None),
             min_value          = (-50, None),
+            
+            pulse_averaging_ranges = numpy.array((
+                                  (6400,6600),
+                                  (7200,7400),
+                                  (8000,8100),))
     )
 
     return ac

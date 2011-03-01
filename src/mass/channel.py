@@ -5,6 +5,7 @@ Created on Feb 16, 2011
 """
 
 import numpy
+import scipy.linalg
 from matplotlib import pylab
 
 try:
@@ -440,6 +441,31 @@ class PulseRecords(object):
         self.cuts = Cuts(self.nPulses)
 
 
+    def compute_average_pulse(self, controls=None):
+        
+        if controls is None:
+            controls = controller.standardControl()
+            
+        ph_bins = controls.analysis_prm['pulse_averaging_ranges']
+        nbins = ph_bins.shape[0]
+        pulse_sums = numpy.zeros((nbins,self.nSamples), dtype=numpy.float)
+        pulse_counts = numpy.zeros(nbins)
+        
+        self.good = self.cuts.good()
+        for first, end, _seg_num in self.datafile.iter_segments():
+#            n = self.datafile.data.shape[0]
+            for ibin, bin in enumerate(ph_bins):
+                bin_ctr = 0.5*(bin[0]+bin[1])
+                bin_hw = numpy.abs(bin_ctr-bin[0])
+                cuts = numpy.logical_and(
+                        numpy.abs(bin_ctr - self.datafile.data.max(axis=1)) < bin_hw,
+                        self.good[first:end])
+                good_pulses = self.datafile.data[cuts, :]
+                pulse_counts[ibin] += good_pulses.shape[0]
+                pulse_sums[ibin,:] += good_pulses.sum(axis=0)
+
+        self.average_pulse = (pulse_sums.T/pulse_counts).T
+
 ##########################################################################################
 
 def estimateRiseTime(ts, dt=1.0, nPretrig=0):
@@ -598,3 +624,92 @@ class Cuts(object):
     
     def __str__(self):
         return ("Cuts(%d) with %d cut and %d uncut"%(len(self._mask), self.nCut(), self.nUncut()))
+
+
+
+class Filter(object):
+    """A set of optimal filters based on a single signal and noise set"""
+
+    def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None, 
+                 fmax=None, f_3db=None):
+        self.avg_signal = numpy.array(avg_signal)
+        pre_avg = self.avg_signal[:n_pretrigger].mean()
+        self.peak_signal = self.avg_signal.max() - pre_avg
+        self.avg_signal = (self.avg_signal - pre_avg) / self.peak_signal
+        self.avg_signal[:n_pretrigger] = 0.0
+        
+        self.n_pretrigger = n_pretrigger
+        if noise_psd is None:
+            self.noise_psd = None
+        else:
+            self.noise_psd = numpy.array(noise_psd)
+        if noise_autocorr is None:
+            self.noise_autocorr = None
+        else:
+            self.noise_autocorr = numpy.array(noise_autocorr)
+        if noise_psd is None and noise_autocorr is None:
+            raise ValueError("Filter must have noise_psd and/or noise_autocorr arguments")
+        
+        self.compute(fmax=fmax, f_3db=f_3db)
+        
+    def compute(self, fmax=None, f_3db=None):
+        
+        if f_3db is not None:
+            raise NotImplementedError("Use of f_3db on Filters is not yet supported.")
+        
+        self.variances={}
+        
+        def normalize_filter(q): 
+            q *= self.peak_signal / numpy.dot(q, self.avg_signal) 
+        
+        # Fourier domain filters
+        if self.noise_psd is not None:
+            n = len(self.noise_psd)
+            sig_ft = numpy.fft.rfft(self.avg_signal)
+            if len(sig_ft) != n:
+                raise ValueError("signal real DFT and noise PSD are not the same length (%d and %d)"
+                                 %(len(sig_ft), n))
+            
+            sig_ft /= self.noise_psd
+            sig_ft[0] = 0
+            self.filt_fourier = numpy.fft.irfft(sig_ft)
+            normalize_filter(self.filt_fourier)
+        
+        # Time domain filters
+        if self.noise_autocorr is not None:
+            n = len(self.avg_signal)
+            assert len(self.noise_autocorr) >= n
+            R =  scipy.linalg.toeplitz(self.noise_autocorr/self.peak_signal**2)
+            Rinv_sig = numpy.linalg.solve(R, self.avg_signal)
+            Rinv_1 = numpy.linalg.solve(R, numpy.ones(n))
+            
+            self.filt_noconst = Rinv_1.sum()*Rinv_sig - Rinv_sig.sum()*Rinv_1
+            normalize_filter(self.filt_noconst)
+#            self.filt_noconst *= self.peak_signal / numpy.dot(self.filt_noconst, self.avg_signal)
+            
+            self.filt_baseline = numpy.dot(self.avg_signal, Rinv_sig)*Rinv_1 - Rinv_sig.sum()*Rinv_sig
+            self.filt_baseline *= self.peak_signal / self.filt_baseline.sum()
+            
+            Rpretrig = scipy.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
+            self.filt_baseline_pretrig = numpy.linalg.solve(Rpretrig, numpy.ones(self.n_pretrigger))
+            self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
+
+            bracketR = lambda a, R: numpy.dot(a, numpy.dot(R, a))            
+            self.variances['noconst'] = bracketR(self.filt_noconst, R) 
+            self.variances['baseline'] = bracketR(self.filt_baseline, R)
+            self.variances['baseline_pretrig'] = bracketR(self.filt_baseline_pretrig, Rpretrig)
+            if self.noise_psd is not None:
+                self.variances['fourier'] = bracketR(self.filt_fourier, R)
+            
+    def plot(self, axis=None):
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+        try:
+            axis.plot(self.filt_noconst,'r')
+            axis.plot(self.filt_baseline,color='purple')
+            axis.plot(self.filt_baseline_pretrig,'g')
+        except AttributeError: pass
+        try:
+            axis.plot(self.filt_fourier,'b')
+        except AttributeError: pass
