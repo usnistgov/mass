@@ -33,7 +33,8 @@ class NoiseRecords(object):
         """
         self.__open_file(filename)
         self.continuous = records_are_continuous
-        
+        self.spectrum = None
+        self.autocorrelation = None
         
      
     def __open_file(self, filename):
@@ -52,6 +53,17 @@ class NoiseRecords(object):
                 raise NotImplementedError("NoiseRecords objects can't (yet) handle multi-segment noise files.")
             self.data = self.datafile.data
 
+    def copy(self):
+        """Return a copy of the object.
+        
+        Handy when coding and you don't want to read the whole data set back in, but
+        you do want to update the method definitions."""
+        c = NoiseRecords(self.filename)
+        c.__dict__.update( self.__dict__ )
+        c.datafile = self.datafile.copy()
+        return c
+
+    
     def compute_power_spectrum(self, window=power_spectrum.hann, plot=True):
         spec = power_spectrum.PowerSpectrum(self.nSamples/2, dt=self.timebase)
         if window is None:
@@ -428,6 +440,7 @@ class PulseRecords(object):
         max_posttrig_deriv_cut = controls.cuts_prm['max_posttrig_deriv']
         min_pulse_average_cut = controls.cuts_prm['min_pulse_average']
         min_value_cut = controls.cuts_prm['min_value']
+        
         self.cut_parameter(self.p_pretrig_rms, pretrigger_rms_cut, self.CUT_PRETRIG_RMS)
         self.cut_parameter(self.p_pretrig_mean, pretrigger_mean_cut, self.CUT_PRETRIG_MEAN)
         self.cut_parameter(self.p_peak_time*1e3, peak_time_ms_cut, self.CUT_RISETIME)
@@ -466,6 +479,29 @@ class PulseRecords(object):
 
         self.average_pulse = (pulse_sums.T/pulse_counts).T
 
+
+    def filter_data(self, filter):
+        # These parameters fit a parabola to any 5 evenly-spaced points
+        fit_array = numpy.array((
+                (-6,24,34,24,-6),
+                (-14,-7,0,7,14),
+                (10,-5,-10,-5,10)), dtype=numpy.float)/35.0
+        
+        assert len(filter)+4 == self.nSamples
+        peak_x = numpy.zeros(self.nPulses, dtype=numpy.float)
+        peak_y = numpy.zeros(self.nPulses, dtype=numpy.float)
+        for first, end, _seg_num in self.datafile.iter_segments():
+            conv = numpy.zeros((5, end-first), dtype=numpy.float)
+            for i in range(5):
+                if i-4 == 0:
+                    conv[i,:] = (filter*self.datafile.data[:,i:]).sum(axis=1)
+                else:
+                    conv[i,:] = (filter*self.datafile.data[:,i:i-4]).sum(axis=1)
+            param = numpy.dot(fit_array, conv)
+            peak_x[first:end] = -0.5*param[1,:]/param[2,:]
+            peak_y[first:end] = param[0,:] - 0.25*param[1,:]**2 / param[2,:] 
+        return peak_x, peak_y
+        
 ##########################################################################################
 
 def estimateRiseTime(ts, dt=1.0, nPretrig=0):
@@ -631,11 +667,46 @@ class Filter(object):
     """A set of optimal filters based on a single signal and noise set"""
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None, 
-                 fmax=None, f_3db=None):
-        self.avg_signal = numpy.array(avg_signal)
-        pre_avg = self.avg_signal[:n_pretrigger].mean()
-        self.peak_signal = self.avg_signal.max() - pre_avg
-        self.avg_signal = (self.avg_signal - pre_avg) / self.peak_signal
+                 fmax=None, f_3db=None, sample_time=None, shorten=0):
+        """
+        Create a set of filters under various assumptions and for various purposes.
+        
+        <avg_signal>     The average signal shape.  Filters will be rescaled so that the output
+                         upon putting this signal into the filter equals the *peak value* of this
+                         filter (that is, peak value relative to the baseline level).
+        <n_pretrigger>   The number of leading samples in the average signal that are considered
+                         to be pre-trigger samples.  The avg_signal in this section is replaced by
+                         its constant averaged value before creating filters.  Also, one filter
+                         (filt_baseline_pretrig) is designed to infer the baseline using only
+                         <n_pretrigger> samples at the start of a record.
+        <noise_psd>      The noise power spectral density.  If None, then filt_fourier won't be
+                         computed.  If not None, then it must be of length (2N+1), where N is the
+                         length of <avg_signal>, and its values are assumed to cover the non-negative
+                         frequencies from 0, 1/Delta, 2/Delta,.... up to the Nyquist frequency.
+        <noise_autocorr> The autocorrelation function of the noise, where the lag spacing is
+                         assumed to be the same as the sample period of <avg_signal>.  If None,
+                         then several filters won't be computed.  (One of <noise_psd> or 
+                         <noise_autocorr> must be a valid array.)
+        <fmax>           The strict maximum frequency to be passed in all filters.
+                         If supplied, then it is passed on to the compute() method for the *first*
+                         filter calculation only.  (Future calls to compute() can override).
+        <f_3db>          The 3 dB point for a one-pole low-pass filter to be applied to all filters.
+                         If supplied, then it is passed on to the compute() method for the *first*
+                         filter calculation only.  (Future calls to compute() can override).
+                         Either or both of <fmax> and <f_3db> are allowed. *NEITHER ARE IMPLMENETED YET*.
+        <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
+                         This must be given if <fmax> or <f_3db> are ever to be used.
+        <shorten>        The time-domain filters should be shortened by removing this many
+                         samples from each end.  (Do this for convenience of convolution over
+                         multiple lags.)
+        """
+        self.sample_time = sample_time
+        self.shorten = shorten
+        pre_avg = avg_signal[:n_pretrigger].mean()
+        self.peak_signal = avg_signal.max() - pre_avg
+
+        # self.avg_signal is normalized to have unit peak
+        self.avg_signal = (avg_signal - pre_avg) / self.peak_signal
         self.avg_signal[:n_pretrigger] = 0.0
         
         self.n_pretrigger = n_pretrigger
@@ -651,16 +722,22 @@ class Filter(object):
             raise ValueError("Filter must have noise_psd and/or noise_autocorr arguments")
         
         self.compute(fmax=fmax, f_3db=f_3db)
+
         
     def compute(self, fmax=None, f_3db=None):
-        
+        """"""
+        if fmax is not None:
+            raise NotImplementedError("Use of fmax on Filters is not yet supported.")
         if f_3db is not None:
             raise NotImplementedError("Use of f_3db on Filters is not yet supported.")
         
         self.variances={}
         
         def normalize_filter(q): 
-            q *= self.peak_signal / numpy.dot(q, self.avg_signal) 
+            if len(q) == len(self.avg_signal):
+                q *= 1 / numpy.dot(q, self.avg_signal)
+            else:  
+                q *= 1 / numpy.dot(q, self.avg_signal[self.shorten:-self.shorten]) 
         
         # Fourier domain filters
         if self.noise_psd is not None:
@@ -677,18 +754,22 @@ class Filter(object):
         
         # Time domain filters
         if self.noise_autocorr is not None:
-            n = len(self.avg_signal)
+            n = len(self.avg_signal) - 2*self.shorten
+            if self.shorten>0:
+                avg_signal = self.avg_signal[self.shorten:-self.shorten]
+            else:
+                avg_signal = self.avg_signal
             assert len(self.noise_autocorr) >= n
-            R =  scipy.linalg.toeplitz(self.noise_autocorr/self.peak_signal**2)
-            Rinv_sig = numpy.linalg.solve(R, self.avg_signal)
+            R =  scipy.linalg.toeplitz(self.noise_autocorr[:n]/self.peak_signal**2)
+            Rinv_sig = numpy.linalg.solve(R, avg_signal)
             Rinv_1 = numpy.linalg.solve(R, numpy.ones(n))
             
             self.filt_noconst = Rinv_1.sum()*Rinv_sig - Rinv_sig.sum()*Rinv_1
             normalize_filter(self.filt_noconst)
 #            self.filt_noconst *= self.peak_signal / numpy.dot(self.filt_noconst, self.avg_signal)
             
-            self.filt_baseline = numpy.dot(self.avg_signal, Rinv_sig)*Rinv_1 - Rinv_sig.sum()*Rinv_sig
-            self.filt_baseline *= self.peak_signal / self.filt_baseline.sum()
+            self.filt_baseline = numpy.dot(avg_signal, Rinv_sig)*Rinv_1 - Rinv_sig.sum()*Rinv_sig
+            self.filt_baseline /=  self.filt_baseline.sum()
             
             Rpretrig = scipy.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
             self.filt_baseline_pretrig = numpy.linalg.solve(Rpretrig, numpy.ones(self.n_pretrigger))
@@ -699,17 +780,57 @@ class Filter(object):
             self.variances['baseline'] = bracketR(self.filt_baseline, R)
             self.variances['baseline_pretrig'] = bracketR(self.filt_baseline_pretrig, Rpretrig)
             if self.noise_psd is not None:
+                R =  scipy.linalg.toeplitz(self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2)
                 self.variances['fourier'] = bracketR(self.filt_fourier, R)
             
-    def plot(self, axis=None):
-        if axis is None:
+    def plot(self, axes=None):
+        if axes is None:
             pylab.clf()
-            axis = pylab.subplot(111)
+            axis1 = pylab.subplot(211)
+            axis2 = pylab.subplot(212)
+        else:
+            axis1,axis2 = axes
         try:
-            axis.plot(self.filt_noconst,'r')
-            axis.plot(self.filt_baseline,color='purple')
-            axis.plot(self.filt_baseline_pretrig,'g')
+            axis1.plot(self.filt_noconst,color='red')
+            axis2.plot(self.filt_baseline,color='purple')
+            axis2.plot(self.filt_baseline_pretrig,color='blue')
         except AttributeError: pass
         try:
-            axis.plot(self.filt_fourier,'b')
+            axis1.plot(self.filt_fourier,color='gold')
         except AttributeError: pass
+
+
+
+class MicrocalDataSet(object):
+    """
+    Represent a single microcalorimeter channel's data 
+    """
+    
+    def __init__(self, pulse_records, noise_records):
+        
+        assert isinstance(pulse_records, PulseRecords)
+        assert isinstance(noise_records, NoiseRecords)
+        self.pulses = pulse_records
+        self.noise = noise_records
+        self.nSamples = self.pulses.nSamples
+        self.filters = None
+        
+
+    def compute_filters(self, fmax=None, f_3db=None, shorten=2):
+        if self.noise.spectrum is None:
+            self.noise.compute_power_spectrum()
+        if self.noise.autocorrelation is None:
+            self.noise.compute_autocorrelation(n_lags=self.nSamples)
+            
+        self.filters = []
+        for i in range(self.pulses.average_pulse.shape[0]):
+            avg_pulse = self.pulses.average_pulse[i,:]
+            f = Filter(avg_pulse, self.pulses.nPresamples, noise_psd=self.noise.spectrum.spectrum(),
+                       noise_autocorr=self.noise.autocorrelation, fmax=fmax, f_3db=f_3db,
+                       sample_time=self.pulses.timebase, shorten=shorten)
+            self.filters.append(f)
+            
+    def filter_pulses(self):
+        
+        for f in self.filters:
+            pass
