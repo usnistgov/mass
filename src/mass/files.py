@@ -12,6 +12,7 @@ class MicrcalFile).
 If you find yourself wanting to read PLS or LANL (or other?) file types,
 then make a new class that inherits from MicrocalFile and calls 
 MicrocalFile.__init__ to verify that it has the required interface:
+* read_segment(segment_num)
 * iter_segments(fist, end=-1)
 * read_trace(trace_num)
 * copy()
@@ -31,14 +32,14 @@ class MicrocalFile(object):
     a microcalorimeter.  The pulses can be noise or X-rays.  This is meant 
     to be an abstract class.  Use files.LJHFile(), which is currently the only 
     derived class. In the future, other derived classes could implement 
-    iter_segments, copy, and read_trace to process other file types."""
+    read_segment, iter_segments, copy, and read_trace to process other file types."""
     
     def __init__(self):
         """"""
         # These assertions ensure that we have the proper interface, which
         # must be found in derived classes.   Roughly speaking, these make the
         # current class an abstract base class
-        required_methods=("iter_segments", "read_trace","copy")
+        required_methods=("read_segment", "iter_segments", "read_trace","copy")
         for rm in required_methods:
             try:
                 self.__getattribute__(rm)
@@ -60,12 +61,12 @@ class LJHFile(MicrocalFile):
     """Process a single LJH-format file.  All non-LJH-specific data and methods
     appear in the parent pulseRecords class"""
     
-    def __init__(self, filename, segmentsize=(2**26)):
+    def __init__(self, filename, segmentsize=(2**23)):
         """Open an LJH file for reading.  Read its header.  Set the standard segment
-        size **in bytes** so that _read_segment() will always return segments of a
+        size **in bytes** so that read_segment() will always return segments of a
         fixed size.
         <filename>   Path to the file to be read.
-        <segmentsize>  Size of each segment **in bytes** that will be returned in _read_segment()
+        <segmentsize>  Size of each segment **in bytes** that will be returned in read_segment()
                      The actual segmentsize will be rounded down to be an integer number of 
                      pulses.
         """
@@ -88,16 +89,17 @@ class LJHFile(MicrocalFile):
 
 
     def __set_segmentsize(self, segmentsize):
-        """Set the standard segmentsize used in the _read_segment() method.  This number will
+        """Set the standard segmentsize used in the read_segment() method.  This number will
         be rounded down to equal an integer number of pulses.
         
         Raises ValueError if segmentsize is smaller than a single pulse."""
-        pulse_size_bytes = 6 + 2*self.nSamples
-        maxitems = segmentsize/pulse_size_bytes
+        self.pulse_size_bytes = 6 + 2*self.nSamples
+        maxitems = segmentsize/self.pulse_size_bytes
         if maxitems < 1:
             raise ValueError("segmentsize=%d is not permitted to be smaller than the pulse record (%d bytes)"
-                             %(segmentsize, pulse_size_bytes))
-        self.segmentsize = maxitems*pulse_size_bytes
+                             %(segmentsize, self.pulse_size_bytes))
+        self.segmentsize = maxitems*self.pulse_size_bytes
+        self.pulses_per_seg = self.segmentsize / self.pulse_size_bytes
         self.n_segments = 1+(self.binary_size-1)/self.segmentsize
 
         
@@ -158,32 +160,28 @@ class LJHFile(MicrocalFile):
     def read_trace(self, trace_num):
         """Return a single data trace (number <trace_num>),
         either from cache or by reading off disk, if needed."""
-        pulse_size_bytes = 6 + 2*self.nSamples
-        pulses_per_seg = self.segmentsize / pulse_size_bytes
-        segnum = trace_num / pulses_per_seg
-        self.__read_segment(segnum)
-        return self.data[trace_num % pulses_per_seg]
+        segnum = trace_num / self.pulses_per_seg
+        self.read_segment(segnum)
+        return self.data[trace_num % self.pulses_per_seg]
         
         
     def iter_segments(self, first=0, end=-1):
         """An iterator over all segments.  Read in segments one at a time and yield triplet:
-        (first pulse number, 1+last pulse number, the segment number just read).
+        (first pulse number, 1+last pulse number, the segment number just read, the data).
         
         <first> The first segment to read.
         <end>   One past the last segment to read, or -1 to read through the last segment."""
         
         if end <= first:
             end = self.n_segments
-        pulse_size_bytes = 6 + 2*self.nSamples
-        pulses_per_seg = self.segmentsize / pulse_size_bytes
         for segnum in range(first,end):
-            self.__read_segment(segnum)
-            first_pnum = segnum * pulses_per_seg
+            data = self.read_segment(segnum)
+            first_pnum = segnum * self.pulses_per_seg
             end_pnum = self.datatimes.shape[0] + first_pnum
-            yield first_pnum, end_pnum, segnum
+            yield first_pnum, end_pnum, segnum, data
             
     
-    def __read_segment(self, segment_num=0):
+    def read_segment(self, segment_num=0):
         """Read a section of the binary data of the given number (0,1,...) and size.
         It is okay to call this out of order.  The last segment might be shorter than others.
         
@@ -194,7 +192,7 @@ class LJHFile(MicrocalFile):
         <segment_num> Number of the segment to read.
         """
         # Use cached data, if possible
-        if segment_num == self.__cached_segment: return
+        if segment_num == self.__cached_segment: return self.data
         
         if segment_num*self.segmentsize > self.binary_size:
             raise ValueError("File %s has only %d segments;\n\tcannot open segment %d"%
@@ -203,6 +201,7 @@ class LJHFile(MicrocalFile):
         self.__read_binary(self.header_size + segment_num*self.segmentsize, self.segmentsize, 
                            error_on_partial_pulse=True)
         self.__cached_segment = segment_num
+        return self.data
         
         
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):

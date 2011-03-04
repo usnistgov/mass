@@ -7,6 +7,7 @@ Created on Feb 16, 2011
 import numpy
 import scipy.linalg
 from matplotlib import pylab
+import os.path
 
 try:
     import cPickle as pickle
@@ -41,17 +42,20 @@ class NoiseRecords(object):
         """Detect the filetype and open it."""
 
         # For now, we have only one file type, so let's just assume it!
-        self.datafile = files.LJHFile(filename)
+        self.datafile = files.LJHFile(filename, segmentsize=2**25)
         self.filename = filename
 
         # Copy up some of the most important attributes
         for attr in ("nSamples","nPresamples","nPulses", "timebase"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
 
-        for first_pnum, end_pnum, seg_num in self.datafile.iter_segments():
+        for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
             if seg_num > 0 or first_pnum>0 or end_pnum != self.nPulses:
-                raise NotImplementedError("NoiseRecords objects can't (yet) handle multi-segment noise files.")
-            self.data = self.datafile.data
+                msg = "NoiseRecords objects can't (yet) handle multi-segment noise files.\n"+\
+                    "This is file %s seg_num %d with first/end pulse# %d, %d"%(
+                    self.filename,seg_num, first_pnum, end_pnum)
+                raise NotImplementedError(msg)
+            self.data = data
 
     def copy(self):
         """Return a copy of the object.
@@ -219,6 +223,10 @@ class PulseRecords(object):
     def __repr__(self):
         return "%s('%s')"%(self.__class__.__name__, self.filename)
     
+    def read_segment(self, segment_num):
+        """Read the requested segment of the raw data file and return the nPulse x nSamples array."""
+        return self.datafile.read_segment(segment_num)
+    
     def copy(self):
         """Return a copy of the object.
         
@@ -235,8 +243,7 @@ class PulseRecords(object):
         
         maxderiv_holdoff = int(100e-6/self.timebase) # don't look for retriggers before this # of samples
 
-        for first,end,segnum in self.datafile.iter_segments():
-            data = self.datafile.data
+        for first, end, segnum, data in self.datafile.iter_segments():
             print 'Read segment #%2d with %d pulses'%(segnum, self.datafile.datatimes.shape[0])
 
             self.p_timestamp[first:end] = self.datafile.datatimes
@@ -346,11 +353,12 @@ class PulseRecords(object):
                 pylab.ylim(ymin = contents.min())
 
     
-    def plot_traces(self, pulsenums, pulse_summary=True):
+    def plot_traces(self, pulsenums, pulse_summary=True, axis=None):
         """Plot some example pulses, given by sample number.
         <pulsenums>  A sequence of sample numbers, or a single one.
         
         <pulse_summary> Whether to put text about the first few pulses on the plot
+        <axis>       A pylab axis to plot on.
         """
         if isinstance(pulsenums, int):
             pulsenums = (pulsenums,)
@@ -360,16 +368,16 @@ class PulseRecords(object):
         color= 'magenta','purple','blue','green','#88cc00','gold','orange','red', 'brown','gray','#444444'
         MAX_TO_SUMMARIZE = 20
         
-        
-        pylab.clf()
-        ax = pylab.subplot(111)
-        ax.set_xlabel("Time after trigger (ms)")
-        ax.set_ylabel("Feedback (or mix) in [Volts/16384]")
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+        axis.set_xlabel("Time after trigger (ms)")
+        axis.set_ylabel("Feedback (or mix) in [Volts/16384]")
         if pulse_summary:
-            pylab.text(.975, .97, r"              -PreTrigger-   Max  Rise t Peak   Pulse", 
-                       size='medium', family='monospace', transform = ax.transAxes, ha='right')
-            pylab.text(.975, .95, r"Cut P#    Mean     rms PTDeriv  ($\mu$s) value   mean", 
-                       size='medium', family='monospace', transform = ax.transAxes, ha='right')
+            axis.text(.975, .97, r"              -PreTrigger-   Max  Rise t Peak   Pulse", 
+                       size='medium', family='monospace', transform = axis.transAxes, ha='right')
+            axis.text(.975, .95, r"Cut P#    Mean     rms PTDeriv  ($\mu$s) value   mean", 
+                       size='medium', family='monospace', transform = axis.transAxes, ha='right')
 
         cuts_good = self.cuts.good()[pulsenums]
         for i,pn in enumerate(pulsenums):
@@ -377,15 +385,15 @@ class PulseRecords(object):
             cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1
             if not cuts_good[i]:
                 cutchar,alpha,linestyle,linewidth = 'X',1.0,'--' ,1
-            pylab.plot(dt, data, color=color[i%len(color)], linestyle=linestyle, alpha=alpha,
+            axis.plot(dt, data, color=color[i%len(color)], linestyle=linestyle, alpha=alpha,
                        linewidth=linewidth)
             if pulse_summary and i<MAX_TO_SUMMARIZE:
                 summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f"%(
                             cutchar, pn, self.p_pretrig_mean[pn], self.p_pretrig_rms[pn],
                             self.p_max_posttrig_deriv[pn], self.p_rise_time[pn]*1e6,
                             self.p_peak_value[pn], self.p_pulse_average[pn])
-                pylab.text(.975, .93-.02*i, summary, color=color[i%len(color)], 
-                           family='monospace', size='medium', transform = ax.transAxes, ha='right')
+                axis.text(.975, .93-.02*i, summary, color=color[i%len(color)], 
+                           family='monospace', size='medium', transform = axis.transAxes, ha='right')
 
 
 #    def cut_pretrigger_rms(self, allowed):
@@ -465,15 +473,15 @@ class PulseRecords(object):
         pulse_counts = numpy.zeros(nbins)
         
         self.good = self.cuts.good()
-        for first, end, _seg_num in self.datafile.iter_segments():
+        for first, end, _seg_num, data in self.datafile.iter_segments():
 #            n = self.datafile.data.shape[0]
             for ibin, bin in enumerate(ph_bins):
                 bin_ctr = 0.5*(bin[0]+bin[1])
                 bin_hw = numpy.abs(bin_ctr-bin[0])
                 cuts = numpy.logical_and(
-                        numpy.abs(bin_ctr - self.datafile.data.max(axis=1)) < bin_hw,
+                        numpy.abs(bin_ctr - data.max(axis=1)) < bin_hw,
                         self.good[first:end])
-                good_pulses = self.datafile.data[cuts, :]
+                good_pulses = data[cuts, :]
                 pulse_counts[ibin] += good_pulses.shape[0]
                 pulse_sums[ibin,:] += good_pulses.sum(axis=0)
 
@@ -490,13 +498,13 @@ class PulseRecords(object):
         assert len(filter)+4 == self.nSamples
         peak_x = numpy.zeros(self.nPulses, dtype=numpy.float)
         peak_y = numpy.zeros(self.nPulses, dtype=numpy.float)
-        for first, end, _seg_num in self.datafile.iter_segments():
+        for first, end, _seg_num, data in self.datafile.iter_segments():
             conv = numpy.zeros((5, end-first), dtype=numpy.float)
             for i in range(5):
                 if i-4 == 0:
-                    conv[i,:] = (filter*self.datafile.data[:,i:]).sum(axis=1)
+                    conv[i,:] = (filter*data[:,i:]).sum(axis=1)
                 else:
-                    conv[i,:] = (filter*self.datafile.data[:,i:i-4]).sum(axis=1)
+                    conv[i,:] = (filter*data[:,i:i-4]).sum(axis=1)
             param = numpy.dot(fit_array, conv)
             peak_x[first:end] = -0.5*param[1,:]/param[2,:]
             peak_y[first:end] = param[0,:] - 0.25*param[1,:]**2 / param[2,:] 
@@ -801,13 +809,31 @@ class Filter(object):
 
 
 
-class MicrocalDataSet(object):
+class MicrocalDataSetBase(object):
+    """
+    Represent a single microcalorimeter channel's data.  This is an abstract
+    base class exposing all the methods that operate on the data a segment
+    at a time.
+    
+    The classes that inherit from this are MicrocalDataSet (for plain TDM
+    channels) and MicrocalDataSetCDM (for demodulated data streams from a
+    code-division multiplexed system). 
+    
+    The end-user will want to own these objects inside an object of type
+    mass.channel_group.TESGroup or .CDMGroup, because these will be designed
+    to offer the same interface to either kind of raw data.
+    """
+    def __init__(self):
+        pass
+        
+    
+class MicrocalDataSet(MicrocalDataSetBase):
     """
     Represent a single microcalorimeter channel's data 
     """
     
     def __init__(self, pulse_records, noise_records):
-        
+        super(self.__class__, self).__init__()
         assert isinstance(pulse_records, PulseRecords)
         assert isinstance(noise_records, NoiseRecords)
         self.pulses = pulse_records
@@ -816,6 +842,12 @@ class MicrocalDataSet(object):
         self.filters = None
         
 
+    def read_segment(self, segnum):
+        "read and return a single data segment from the underlying pulse file"
+        self.data = self.pulses.read_segment(segnum)
+        return self.data
+    
+        
     def compute_filters(self, fmax=None, f_3db=None, shorten=2):
         if self.noise.spectrum is None:
             self.noise.compute_power_spectrum()
@@ -830,7 +862,43 @@ class MicrocalDataSet(object):
                        sample_time=self.pulses.timebase, shorten=shorten)
             self.filters.append(f)
             
-    def filter_pulses(self):
+#    def filter_pulses(self):        
+#        for f in self.filters:
+#            pass
+
+
+
+class MicrocalDataSetCDM(MicrocalDataSetBase):
+    """
+    Represent a single demodulated data stream from a code-division
+    multiplexed system.
+    """
+    def __init__(self):
+        super(self.__class__, self).__init__()
         
-        for f in self.filters:
-            pass
+
+
+
+
+def create_MicrocalDataSet(fname, noisename=None, records_are_continuous=True):
+    """
+    Factory function to create a full MicrocalDataSet from a raw LJH file name.
+    
+    Return a MicrocalDataSet object.
+    
+    <fname>     The path of the raw data file containing pulse data
+    <noisename> The path of the noise data file.  If None, it will be inferred
+                by replacing the file extension in <fname> with ".noi".
+    <records_are_continuous> Whether the noise file's data are auto-triggered
+                fast enough to have no gaps in the data.
+    """
+    if noisename is None:
+        try:
+            root, _ext = os.path.splitext(fname)
+            noisename = root+".noi"
+        except:
+            raise ValueError("If noisename is not given, it must be constructable by replacing file suffix with '.noi'")
+    
+    pr = PulseRecords(fname)
+    nr = NoiseRecords(noisename, records_are_continuous)
+    return MicrocalDataSet(pr, nr)
