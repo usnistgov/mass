@@ -187,21 +187,25 @@ class LJHFile(MicrocalFile):
         
         Raises ValueError if there is no such section number.
 
+        Return (first, end, data) where first is the pulse number of the first pulse read,
+        end is 1+the number of the last one read, and data is the full array.        
+
         Params:
         -------
         <segment_num> Number of the segment to read.
         """
         # Use cached data, if possible
-        if segment_num == self.__cached_segment: return self.data
-        
-        if segment_num*self.segmentsize > self.binary_size:
-            raise ValueError("File %s has only %d segments;\n\tcannot open segment %d"%
-                             (self.filename, self.n_segments, segment_num))
-            
-        self.__read_binary(self.header_size + segment_num*self.segmentsize, self.segmentsize, 
-                           error_on_partial_pulse=True)
-        self.__cached_segment = segment_num
-        return self.data
+        if segment_num != self.__cached_segment: 
+            if segment_num*self.segmentsize > self.binary_size:
+                raise ValueError("File %s has only %d segments;\n\tcannot open segment %d"%
+                                 (self.filename, self.n_segments, segment_num))
+                
+            self.__read_binary(self.header_size + segment_num*self.segmentsize, self.segmentsize, 
+                               error_on_partial_pulse=True)
+            self.__cached_segment = segment_num
+        first = segment_num * self.pulses_per_seg
+        end = first + self.data.shape[0]
+        return first, end, self.data
         
         
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
@@ -226,11 +230,10 @@ class LJHFile(MicrocalFile):
         fp = open(self.filename,"rb")
         if skip>0: fp.seek(skip)
         
-        pulse_size_bytes = 6 + 2*self.nSamples
         if max_size >= 0:
-            maxitems = max_size/pulse_size_bytes
+            maxitems = max_size/self.pulse_size_bytes
             BYTES_PER_WORD = 2
-            wordcount = maxitems*pulse_size_bytes/BYTES_PER_WORD
+            wordcount = maxitems*self.pulse_size_bytes/BYTES_PER_WORD
             if error_on_partial_pulse and wordcount*BYTES_PER_WORD != max_size:
                 raise ValueError("__read_binary(max_size=%d) requests a non-integer number of pulses"%max_size)
         else:
@@ -239,8 +242,8 @@ class LJHFile(MicrocalFile):
         array = numpy.fromfile(fp, dtype=numpy.uint16, sep="", count=wordcount)
         fp.close()
         
-        self.segment_pulses = len(array)/(pulse_size_bytes/2)
-        self.data = array.reshape([self.segment_pulses, pulse_size_bytes/2])
+        self.segment_pulses = len(array)/(self.pulse_size_bytes/2)
+        self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes/2])
         
         # Careful: converting 2 little-endian 16-bit words to a single 32-bit word is tricky!
         self.datatimes = numpy.array(self.data[:,2], dtype=numpy.uint32) * (1<<16) 

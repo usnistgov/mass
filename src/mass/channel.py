@@ -148,14 +148,6 @@ class PulseRecords(object):
     Encapsulate a set of data containing multiple triggered pulse traces.
     The pulses should not be noise records."""
     
-    ( CUT_PRETRIG_MEAN,
-      CUT_PRETRIG_RMS,
-      CUT_RETRIGGER,
-      CUT_BIAS_PULSE,
-      CUT_RISETIME,
-      CUT_UNLOCK,
-       ) = range(6)
-    
     
     def __init__(self, filename):
         self.nSamples = 0
@@ -180,7 +172,7 @@ class PulseRecords(object):
         self.good = None
 
         self.__open_file(filename)
-        self.__setup_vectors()
+#        self.__setup_vectors()
 
     def __open_file(self, filename):
         """Detect the filetype and open it."""
@@ -190,29 +182,29 @@ class PulseRecords(object):
         self.filename = filename
 
         # Copy up some of the most important attributes
-        for attr in ("nSamples","nPresamples","nPulses", "timebase"):
+        for attr in ("nSamples","nPresamples","nPulses", "timebase", "n_segments"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
 
 
-    def __setup_vectors(self):
-        """Given the number of pulses, build arrays to hold the relevant facts 
-        about each pulse in memory."""
-        
-        assert self.nPulses > 0
-        self.p_timestamp = numpy.zeros(self.nPulses, dtype=numpy.int32)
-        self.p_peak_index = numpy.zeros(self.nPulses, dtype=numpy.uint16)
-        self.p_peak_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
-        self.p_peak_time = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_min_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
-        self.p_pretrig_mean = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_pretrig_rms = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_pulse_average = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_rise_time = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_max_posttrig_deriv = numpy.zeros(self.nPulses, dtype=numpy.float)
-        
-        self.cuts = Cuts(self.nPulses)
-        self.good = self.cuts.good()
-        self.bad = self.cuts.bad()
+#    def __setup_vectors(self):
+#        """Given the number of pulses, build arrays to hold the relevant facts 
+#        about each pulse in memory."""
+#        
+#        assert self.nPulses > 0
+#        self.p_timestamp = numpy.zeros(self.nPulses, dtype=numpy.int32)
+#        self.p_peak_index = numpy.zeros(self.nPulses, dtype=numpy.uint16)
+#        self.p_peak_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
+#        self.p_peak_time = numpy.zeros(self.nPulses, dtype=numpy.float)
+#        self.p_min_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
+#        self.p_pretrig_mean = numpy.zeros(self.nPulses, dtype=numpy.float)
+#        self.p_pretrig_rms = numpy.zeros(self.nPulses, dtype=numpy.float)
+#        self.p_pulse_average = numpy.zeros(self.nPulses, dtype=numpy.float)
+#        self.p_rise_time = numpy.zeros(self.nPulses, dtype=numpy.float)
+#        self.p_max_posttrig_deriv = numpy.zeros(self.nPulses, dtype=numpy.float)
+#        
+#        self.cuts = Cuts(self.nPulses)
+#        self.good = self.cuts.good()
+#        self.bad = self.cuts.bad()
 
 
     def __str__(self):
@@ -222,10 +214,15 @@ class PulseRecords(object):
         
     def __repr__(self):
         return "%s('%s')"%(self.__class__.__name__, self.filename)
+
     
     def read_segment(self, segment_num):
-        """Read the requested segment of the raw data file and return the nPulse x nSamples array."""
-        return self.datafile.read_segment(segment_num)
+        """Read the requested segment of the raw data file and return  (first,end,data)
+        meaning: the first record number, 1 more than the last record number,
+        and the nPulse x nSamples array."""
+        first_pnum, end_pnum, data = self.datafile.read_segment(segment_num)
+        self.data = data
+        return first_pnum, end_pnum
     
     def copy(self):
         """Return a copy of the object.
@@ -238,7 +235,14 @@ class PulseRecords(object):
         return c
         
 
-    def summarize_data(self):
+    def serialize(self, serialfile):
+        """Store object in a pickle file"""
+        fp = open(serialfile, "wb")
+        pickle.dump(self, fp, protocol=2)
+        fp.close()
+
+
+    def DEPRECATED_summarize_data(self):
         """Summarize the complete data file"""
         
         maxderiv_holdoff = int(100e-6/self.timebase) # don't look for retriggers before this # of samples
@@ -281,14 +285,7 @@ class PulseRecords(object):
 #        return numpy.arange(self.nPulses)[good]
         
 
-    def serialize(self, serialfile):
-        """Store object in a pickle file"""
-        fp = open(serialfile, "wb")
-        pickle.dump(self, fp, protocol=2)
-        fp.close()
-
-
-    def plot_summaries(self, valid='uncut', downsample=None, log=False):
+    def DEPRECATED_plot_summaries(self, valid='uncut', downsample=None, log=False):
         """Plot a summary of the data set, including time series and histograms of
         key pulse properties.
         
@@ -353,7 +350,7 @@ class PulseRecords(object):
                 pylab.ylim(ymin = contents.min())
 
     
-    def plot_traces(self, pulsenums, pulse_summary=True, axis=None):
+    def DEPRECATED_plot_traces(self, pulsenums, pulse_summary=True, axis=None):
         """Plot some example pulses, given by sample number.
         <pulsenums>  A sequence of sample numbers, or a single one.
         
@@ -396,73 +393,7 @@ class PulseRecords(object):
                            family='monospace', size='medium', transform = axis.transAxes, ha='right')
 
 
-#    def cut_pretrigger_rms(self, allowed):
-#        """Apply a cut on pretrigger RMS.  If <allowed> is a 2-element sequence (a,b),
-#        then the cut requires a < pretrigger RMS < b.  Otherwise our heuristic rule 
-#        applies.  If (a,b) is given, then a or b may be None, indicating no cut."""
-#        
-#        try:
-#            a,b = allowed
-#            if a is not None:
-#                self.cuts.cut(self.CUT_PRETRIG_RMS, self.p_pretrig_rms <= a)
-#            if b is not None:
-#                self.cuts.cut(self.CUT_PRETRIG_RMS, self.p_pretrig_rms >= b)
-#        except ValueError:
-#            pass
-    
-    def cut_parameter(self, data, allowed, cut_id):
-        """Apply a cut on some per-pulse parameter.  
-        
-        <data>    The per-pulse parameter to cut on.  It can be an attribute of self, or it
-                  can be computed from one (or more), 
-                  but it must be an array of length self.nPulses
-        <allowed> The cut to apply (see below).
-        <cut_id>  The bit number (range [0,31]) to identify this cut.  Should be one of
-                  self.CUT_* (see the set of class attributes)
-        
-        <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b. 
-        Either a or b may be None, indicating no cut."""
-        
-        if cut_id <0 or cut_id >=32:
-            raise ValueError("cut_id must be in the range [0,31]")
-        
-        try:
-            a,b = allowed
-            if a is not None:
-                self.cuts.cut(cut_id, data <= a)
-            if b is not None:
-                self.cuts.cut(cut_id, data >= b)
-        except ValueError:
-            pass
-    
-    
-    def apply_cuts(self, controls=None):
-        
-        if controls is None:
-            controls = controller.standardControl()
-    
-        pretrigger_rms_cut = controls.cuts_prm['pretrigger_rms']
-        pretrigger_mean_cut = controls.cuts_prm['pretrigger_mean']
-        peak_time_ms_cut = controls.cuts_prm['peak_time_ms']
-        rise_time_ms_cut = controls.cuts_prm['rise_time_ms']
-        max_posttrig_deriv_cut = controls.cuts_prm['max_posttrig_deriv']
-        min_pulse_average_cut = controls.cuts_prm['min_pulse_average']
-        min_value_cut = controls.cuts_prm['min_value']
-        
-        self.cut_parameter(self.p_pretrig_rms, pretrigger_rms_cut, self.CUT_PRETRIG_RMS)
-        self.cut_parameter(self.p_pretrig_mean, pretrigger_mean_cut, self.CUT_PRETRIG_MEAN)
-        self.cut_parameter(self.p_peak_time*1e3, peak_time_ms_cut, self.CUT_RISETIME)
-        self.cut_parameter(self.p_rise_time*1e3, rise_time_ms_cut, self.CUT_RISETIME)
-        self.cut_parameter(self.p_max_posttrig_deriv, max_posttrig_deriv_cut, self.CUT_RETRIGGER)
-        self.cut_parameter(self.p_pulse_average, min_pulse_average_cut, self.CUT_UNLOCK)
-        self.cut_parameter(self.p_min_value-self.p_pretrig_mean, min_value_cut, self.CUT_UNLOCK)
-    
-        
-    def clear_cuts(self):
-        self.cuts = Cuts(self.nPulses)
-
-
-    def compute_average_pulse(self, controls=None):
+    def DEPRECATED_compute_average_pulse(self, controls=None):
         
         if controls is None:
             controls = controller.standardControl()
@@ -809,82 +740,239 @@ class Filter(object):
 
 
 
-class MicrocalDataSetBase(object):
+class MicrocalDataSet(object):
     """
-    Represent a single microcalorimeter channel's data.  This is an abstract
-    base class exposing all the methods that operate on the data a segment
-    at a time.
-    
-    The classes that inherit from this are MicrocalDataSet (for plain TDM
-    channels) and MicrocalDataSetCDM (for demodulated data streams from a
-    code-division multiplexed system). 
-    
-    The end-user will want to own these objects inside an object of type
-    mass.channel_group.TESGroup or .CDMGroup, because these will be designed
-    to offer the same interface to either kind of raw data.
-    """
-    def __init__(self):
-        pass
-        
-    
-class MicrocalDataSet(MicrocalDataSetBase):
-    """
-    Represent a single microcalorimeter channel's data 
+    Represent a single microcalorimeter's PROCESSED data.
+    This channel can be directly from a TDM detector, or it
+    can be the demodulated result of a CDM modulation.
     """
     
-    def __init__(self, pulse_records, noise_records):
-        super(self.__class__, self).__init__()
-        assert isinstance(pulse_records, PulseRecords)
-        assert isinstance(noise_records, NoiseRecords)
-        self.pulses = pulse_records
-        self.noise = noise_records
-        self.nSamples = self.pulses.nSamples
+    ( CUT_PRETRIG_MEAN,
+      CUT_PRETRIG_RMS,
+      CUT_RETRIGGER,
+      CUT_BIAS_PULSE,
+      CUT_RISETIME,
+      CUT_UNLOCK,
+       ) = range(6)
+    
+    def __init__(self, pulserec_dict):
+        """
+        Pass in a dictionary (presumably that of a PulseRecords object)
+        containing the expected attributes that must be copied to this
+        MicrocalDataSet.
+        """
         self.filters = None
-        
 
-    def read_segment(self, segnum):
-        "read and return a single data segment from the underlying pulse file"
-        self.data = self.pulses.read_segment(segnum)
-        return self.data
+        expected_attributes=("nSamples","nPresamples","nPulses","timebase")
+        for a in expected_attributes:
+            self.__dict__[a] = pulserec_dict[a]
+        self.filename = pulserec_dict.get('filename','virtual data set')
+        self.__setup_vectors()
+
+
+    def __setup_vectors(self):
+        """Given the number of pulses, build arrays to hold the relevant facts 
+        about each pulse in memory."""
+        
+        assert self.nPulses > 0
+        self.p_timestamp = numpy.zeros(self.nPulses, dtype=numpy.int32)
+        self.p_peak_index = numpy.zeros(self.nPulses, dtype=numpy.uint16)
+        self.p_peak_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
+        self.p_peak_time = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_min_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
+        self.p_pretrig_mean = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_pretrig_rms = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_pulse_average = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_rise_time = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_max_posttrig_deriv = numpy.zeros(self.nPulses, dtype=numpy.float)
+        
+        self.cuts = Cuts(self.nPulses)
+        self.good = self.cuts.good()
+        self.bad = self.cuts.bad()
+
+
+    def __str__(self):
+        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
+                self.__class__.__name__, self.filename, self.nSamples, self.nPresamples, 
+                1e6*self.timebase)
+        
+    def __repr__(self):
+        return "%s('%s')"%(self.__class__.__name__, self.filename)
+    
+    def summarize_data(self, first, end):
+        """Summarize the complete data file"""
+        
+        maxderiv_holdoff = int(100e-6/self.timebase) # don't look for retriggers before this # of samples
+
+        self.p_timestamp[first:end] = self.times
+        self.p_pretrig_mean[first:end] = self.data[:,:self.nPresamples-2].mean(axis=1)
+        self.p_pretrig_rms[first:end] = self.data[:,:self.nPresamples-2].std(axis=1)
+        self.p_peak_index[first:end] = self.data.argmax(axis=1)
+        self.p_peak_value[first:end] = self.data.max(axis=1)
+        self.p_min_value[first:end] = self.data.min(axis=1)
+        self.p_pulse_average[first:end] = self.data[:,self.nPresamples:].mean(axis=1)
+        
+        # Remove the pretrigger mean from the peak value and the pulse average figures. 
+        self.p_peak_value[first:end] -= self.p_pretrig_mean[first:end]
+        self.p_pulse_average[first:end] -= self.p_pretrig_mean[first:end]
+        # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:
+        self.p_peak_time[first:end] = (numpy.asarray(self.p_peak_index[first:end], dtype=numpy.int)-self.nPresamples)*self.timebase
+
+        # Compute things that have to be computed one at a time:
+        for pulsenum,pulse in enumerate(self.data):
+            self.p_rise_time[first+pulsenum] = estimateRiseTime(pulse, 
+                                                dt=self.timebase, nPretrig = self.nPresamples)
+            self.p_max_posttrig_deriv[first+pulsenum] = \
+                compute_max_deriv(pulse[self.nPresamples + maxderiv_holdoff:])
+
+
+    def copy(self):
+        """Return a copy of the object.
+        
+        Handy when coding and you don't want to read the whole data set back in, but
+        you do want to update the method definitions."""
+        c = MicrocalDataSet(self.__dict__ )
+        c.__dict__.update( self.__dict__ )
+        return c
+
+    
+    def plot_summaries(self, valid='uncut', downsample=None, log=False):
+        """Plot a summary of the data set, including time series and histograms of
+        key pulse properties.
+        
+        <valid> An array of booleans self.nPulses long saying which pulses are to be plotted
+                *OR* 'uncut' or 'cut', meaning that only uncut or cut data are to be plotted 
+                *OR* None, meaning that all pulses should be plotted.
+                
+        <downsample> To prevent the scatter plots (left panels) from getting too crowded,
+                     plot only one out of this many samples.  If None, then plot will be
+                     downsampled to 10,000 total points.
+                     
+        <log>  Use logarithmic y-axis on the histograms (right panels).
+        """
+        
+        # Convert "uncut" or "cut" to array of all good or all bad data
+        if isinstance(valid, str):
+            if "uncut" in valid.lower():
+                valid = self.cuts.good()
+                print "Plotting only uncut data",
+            elif "cut" in valid.lower():
+                valid = self.cuts.bad()  
+                print "Plotting only cut data",
+            elif 'all' in valid.lower():
+                valid = None
+                print "Plotting all data, cut or uncut",
+            else:
+                raise ValueError("If valid is a string, it must contain 'all', 'uncut' or 'cut'.")
+                
+        if valid is not None:
+            nrecs = valid.sum()
+            if downsample is None:
+                downsample=nrecs/10000
+                if downsample < 1: downsample = 1
+            hour = self.p_timestamp[valid][::downsample]/3.6e6
+        else:
+            nrecs = self.nPulses
+            if downsample is None:
+                downsample = self.nPulses / 10000
+                if downsample < 1: downsample = 1
+            hour = self.p_timestamp[::downsample]/3.6e6
+        print " (%d records; %d in scatter plots)"%(
+            nrecs,len(hour))
+    
+        plottables = (
+            (self.p_pulse_average, 'Pulse Avg', 'purple', None),
+            (self.p_pretrig_rms, 'Pretrig RMS', 'blue', [0,4000]),
+            (self.p_pretrig_mean, 'Pretrig Mean', 'green', None),
+            (self.p_peak_value, 'Peak value', '#88cc00',None),
+            (self.p_max_posttrig_deriv, 'Max PT deriv', 'gold', [0,700]),
+            (self.p_rise_time*1e3, 'Rise time (ms)', 'orange', [0,12]),
+            (self.p_peak_time*1e3, 'Peak time (ms)', 'red', [-3,9])
+          ) 
+        print 'yikes!'
+        
+        pylab.clf()
+        for i,(vect, label, color, limits) in enumerate(plottables):
+            pylab.subplot(len(plottables),2,1+i*2)
+            pylab.ylabel(label)
+            
+            if valid is not None:
+                vect = vect[valid]
+            
+            pylab.plot(hour, vect[::downsample],',', color=color)
+            pylab.subplot(len(plottables),2,2+i*2)
+            if limits is None:
+                in_limit = numpy.ones(len(vect), dtype=numpy.bool)
+            else:
+                in_limit= numpy.logical_and(vect>limits[0], vect<limits[1])
+            contents, _bins, _patches = pylab.hist(vect[in_limit],200, log=log, 
+                           histtype='stepfilled', fc=color, alpha=0.5)
+            if log:
+                pylab.ylim(ymin = contents.min())
+
+
+    def cut_parameter(self, data, allowed, cut_id):
+        """Apply a cut on some per-pulse parameter.  
+        
+        <data>    The per-pulse parameter to cut on.  It can be an attribute of self, or it
+                  can be computed from one (or more), 
+                  but it must be an array of length self.nPulses
+        <allowed> The cut to apply (see below).
+        <cut_id>  The bit number (range [0,31]) to identify this cut.  Should be one of
+                  self.CUT_* (see the set of class attributes)
+        
+        <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b. 
+        Either a or b may be None, indicating no cut."""
+        
+        if allowed is None: # no cut here! 
+            return
+        if cut_id <0 or cut_id >=32:
+            raise ValueError("cut_id must be in the range [0,31]")
+        
+        try:
+            a,b = allowed
+            if a is not None:
+                self.cuts.cut(cut_id, data <= a)
+            if b is not None:
+                self.cuts.cut(cut_id, data >= b)
+        except ValueError:
+            pass
+    
+    
+    def apply_cuts(self, controls=None):
+        
+        if controls is None:
+            controls = controller.standardControl()
+    
+        pretrigger_rms_cut = controls.cuts_prm['pretrigger_rms']
+        pretrigger_mean_cut = controls.cuts_prm['pretrigger_mean']
+        peak_time_ms_cut = controls.cuts_prm['peak_time_ms']
+        rise_time_ms_cut = controls.cuts_prm['rise_time_ms']
+        max_posttrig_deriv_cut = controls.cuts_prm['max_posttrig_deriv']
+        pulse_average_cut = controls.cuts_prm['pulse_average']
+        min_value_cut = controls.cuts_prm['min_value']
+        
+        self.cut_parameter(self.p_pretrig_rms, pretrigger_rms_cut, self.CUT_PRETRIG_RMS)
+        self.cut_parameter(self.p_pretrig_mean, pretrigger_mean_cut, self.CUT_PRETRIG_MEAN)
+        self.cut_parameter(self.p_peak_time*1e3, peak_time_ms_cut, self.CUT_RISETIME)
+        self.cut_parameter(self.p_rise_time*1e3, rise_time_ms_cut, self.CUT_RISETIME)
+        self.cut_parameter(self.p_max_posttrig_deriv, max_posttrig_deriv_cut, self.CUT_RETRIGGER)
+        self.cut_parameter(self.p_pulse_average, pulse_average_cut, self.CUT_UNLOCK)
+        self.cut_parameter(self.p_min_value-self.p_pretrig_mean, min_value_cut, self.CUT_UNLOCK)
     
         
-    def compute_filters(self, fmax=None, f_3db=None, shorten=2):
-        if self.noise.spectrum is None:
-            self.noise.compute_power_spectrum()
-        if self.noise.autocorrelation is None:
-            self.noise.compute_autocorrelation(n_lags=self.nSamples)
-            
-        self.filters = []
-        for i in range(self.pulses.average_pulse.shape[0]):
-            avg_pulse = self.pulses.average_pulse[i,:]
-            f = Filter(avg_pulse, self.pulses.nPresamples, noise_psd=self.noise.spectrum.spectrum(),
-                       noise_autocorr=self.noise.autocorrelation, fmax=fmax, f_3db=f_3db,
-                       sample_time=self.pulses.timebase, shorten=shorten)
-            self.filters.append(f)
-            
-#    def filter_pulses(self):        
-#        for f in self.filters:
-#            pass
+    def clear_cuts(self):
+        self.cuts = Cuts(self.nPulses)
 
 
 
-class MicrocalDataSetCDM(MicrocalDataSetBase):
+
+def create_pulse_and_noise_records(fname, noisename=None, records_are_continuous=True):
     """
-    Represent a single demodulated data stream from a code-division
-    multiplexed system.
-    """
-    def __init__(self):
-        super(self.__class__, self).__init__()
-        
-
-
-
-
-def create_MicrocalDataSet(fname, noisename=None, records_are_continuous=True):
-    """
-    Factory function to create a full MicrocalDataSet from a raw LJH file name.
+    Factory function to create a PulseRecords and a NoiseRecords object
+    from a raw LJH file name, with optional LJH-style noise file name.
     
-    Return a MicrocalDataSet object.
+    Return two objects: a PulseRecords, NoiseRecords tuple.
     
     <fname>     The path of the raw data file containing pulse data
     <noisename> The path of the noise data file.  If None, it will be inferred
@@ -901,4 +989,4 @@ def create_MicrocalDataSet(fname, noisename=None, records_are_continuous=True):
     
     pr = PulseRecords(fname)
     nr = NoiseRecords(noisename, records_are_continuous)
-    return MicrocalDataSet(pr, nr)
+    return (pr, nr)

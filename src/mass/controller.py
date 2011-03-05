@@ -25,7 +25,7 @@ class AnalysisControl(PrmDictBase):
             'max_posttrig_deriv':  None,
             'pretrigger_rms':      None,
             'pretrigger_mean':     None,
-            'min_pulse_average':   None,
+            'pulse_average':   None,
             'min_value':           None,
         }
         self.analysis_prm = {
@@ -44,7 +44,7 @@ def standardControl():
             max_posttrig_deriv = (None, 46),
             pretrigger_rms     = (None, 12),
             pretrigger_mean    = (None, 1150),
-            min_pulse_average  = (0, None),
+            pulse_average  = (0, None),
             min_value          = (-50, None),
             
             pulse_averaging_ranges = numpy.array((
