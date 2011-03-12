@@ -175,9 +175,9 @@ class LJHFile(MicrocalFile):
         if end <= first:
             end = self.n_segments
         for segnum in range(first,end):
-            data = self.read_segment(segnum)
-            first_pnum = segnum * self.pulses_per_seg
-            end_pnum = self.datatimes.shape[0] + first_pnum
+            first_pnum, end_pnum, data = self.read_segment(segnum)
+#            first_pnum = segnum * self.pulses_per_seg
+#            end_pnum = self.datatimes.shape[0] + first_pnum
             yield first_pnum, end_pnum, segnum, data
             
     

@@ -18,6 +18,7 @@ except ImportError:
 import controller
 import files
 import power_spectrum
+import fluorescence_lines
 
 
 class NoiseRecords(object):
@@ -82,6 +83,8 @@ class NoiseRecords(object):
 
 
     def plot_power_spectrum(self, axis=None):
+        if self.spectrum is None:
+            self.compute_power_spectrum(plot=False)
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
@@ -91,7 +94,7 @@ class NoiseRecords(object):
         axis.grid()
         axis.set_xlim([10,3e5])
         axis.set_xlabel("Frequency (Hz)")
-        axis.set_ylabel("Power Spectral Density (Hz$^-1$")
+        axis.set_ylabel("Power Spectral Density (counts$^2$ Hz$^{-1}$)")
         axis.set_title("Noise power spectrum for %s"%self.filename)
 
         
@@ -106,8 +109,9 @@ class NoiseRecords(object):
                 n_lags = n_data
             if n_lags > n_data:
                 n_lags = n_data
+
             paddedData = numpy.zeros(n_lags+n_data, dtype=numpy.float)
-            paddedData[:n_data] = numpy.array(self.data.ravel()) - self.data.mean()
+            paddedData[:n_data] = numpy.array(self.data.ravel())[:n_data] - self.data.mean()
             paddedData[n_data:] = 0.0
             
             ft = numpy.fft.rfft(paddedData)
@@ -182,7 +186,8 @@ class PulseRecords(object):
         self.filename = filename
 
         # Copy up some of the most important attributes
-        for attr in ("nSamples","nPresamples","nPulses", "timebase", "n_segments"):
+        for attr in ("nSamples","nPresamples","nPulses", "timebase", 
+                     "n_segments", "pulses_per_seg"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
 
 
@@ -419,7 +424,7 @@ class PulseRecords(object):
         self.average_pulse = (pulse_sums.T/pulse_counts).T
 
 
-    def filter_data(self, filter):
+    def DEPRECATED_filter_data(self, filter):
         # These parameters fit a parabola to any 5 evenly-spaced points
         fit_array = numpy.array((
                 (-6,24,34,24,-6),
@@ -762,12 +767,15 @@ class MicrocalDataSet(object):
         MicrocalDataSet.
         """
         self.filters = None
+        self.noise_spectrum = None
+        self.noise_autocorr = None 
 
         expected_attributes=("nSamples","nPresamples","nPulses","timebase")
         for a in expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename','virtual data set')
         self.__setup_vectors()
+        self.gain = 1.0
 
 
     def __setup_vectors(self):
@@ -799,18 +807,36 @@ class MicrocalDataSet(object):
     def __repr__(self):
         return "%s('%s')"%(self.__class__.__name__, self.filename)
     
+    def resize(self, nPulses):
+        if self.nPulses < nPulses:
+            raise ValueError("Can only shrink using resize(), but the requested size %d is larger than current %d"%
+                             (nPulses, self.nPulses))
+        self.nPulses = nPulses
+        self.__setup_vectors()
+    
+    def copy(self):
+        """Return a copy of the object.
+        
+        Handy when coding and you don't want to read the whole data set back in, but
+        you do want to update the method definitions."""
+        c = MicrocalDataSet(self.__dict__ )
+        c.__dict__.update( self.__dict__ )
+        return c
+
+    
     def summarize_data(self, first, end):
         """Summarize the complete data file"""
         
         maxderiv_holdoff = int(100e-6/self.timebase) # don't look for retriggers before this # of samples
 
-        self.p_timestamp[first:end] = self.times
-        self.p_pretrig_mean[first:end] = self.data[:,:self.nPresamples-2].mean(axis=1)
-        self.p_pretrig_rms[first:end] = self.data[:,:self.nPresamples-2].std(axis=1)
+        seg_size = end-first
+        self.p_timestamp[first:end] = self.times[:seg_size]
+        self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-2].mean(axis=1)
+        self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-2].std(axis=1)
         self.p_peak_index[first:end] = self.data.argmax(axis=1)
         self.p_peak_value[first:end] = self.data.max(axis=1)
         self.p_min_value[first:end] = self.data.min(axis=1)
-        self.p_pulse_average[first:end] = self.data[:,self.nPresamples:].mean(axis=1)
+        self.p_pulse_average[first:end] = self.data[:seg_size,self.nPresamples:].mean(axis=1)
         
         # Remove the pretrigger mean from the peak value and the pulse average figures. 
         self.p_peak_value[first:end] -= self.p_pretrig_mean[first:end]
@@ -820,20 +846,32 @@ class MicrocalDataSet(object):
 
         # Compute things that have to be computed one at a time:
         for pulsenum,pulse in enumerate(self.data):
+            if pulsenum>=seg_size: break
             self.p_rise_time[first+pulsenum] = estimateRiseTime(pulse, 
                                                 dt=self.timebase, nPretrig = self.nPresamples)
             self.p_max_posttrig_deriv[first+pulsenum] = \
                 compute_max_deriv(pulse[self.nPresamples + maxderiv_holdoff:])
 
 
-    def copy(self):
-        """Return a copy of the object.
+    def filter_data(self, filter, first, end):
+        # These parameters fit a parabola to any 5 evenly-spaced points
+        fit_array = numpy.array((
+                ( -6,24, 34,24,-6),
+                (-14,-7,  0, 7,14),
+                ( 10,-5,-10,-5,10)), dtype=numpy.float)/35.0
         
-        Handy when coding and you don't want to read the whole data set back in, but
-        you do want to update the method definitions."""
-        c = MicrocalDataSet(self.__dict__ )
-        c.__dict__.update( self.__dict__ )
-        return c
+        assert len(filter)+4 == self.nSamples
+
+        conv = numpy.zeros((5, end-first), dtype=numpy.float)
+        for i in range(5):
+            if i-4 == 0:
+                conv[i,:] = (filter*self.data[:,i:]).sum(axis=1)
+            else:
+                conv[i,:] = (filter*self.data[:,i:i-4]).sum(axis=1)
+        param = numpy.dot(fit_array, conv)
+        peak_x = -0.5*param[1,:]/param[2,:]
+        peak_y = param[0,:] - 0.25*param[1,:]**2 / param[2,:] 
+        return peak_x, peak_y
 
     
     def plot_summaries(self, valid='uncut', downsample=None, log=False):
@@ -963,11 +1001,20 @@ class MicrocalDataSet(object):
         
     def clear_cuts(self):
         self.cuts = Cuts(self.nPulses)
+    
+    
+    def fit_mn_kalpha(self, prange, **kwargs):
+        values = self.p_filt_value[self.cuts.good()]
+        contents,bin_edges = numpy.histogram(values, 200, prange)
+        print "%d events pass cuts; %d are in histogram range"%(len(values),contents.sum())
+        bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
+        fitter = fluorescence_lines.MnKAlphaFitter()
+        fitter.fit(contents, bin_ctrs, **kwargs)
 
 
 
-
-def create_pulse_and_noise_records(fname, noisename=None, records_are_continuous=True):
+def create_pulse_and_noise_records(fname, noisename=None, records_are_continuous=True, 
+                                   noise_only=False):
     """
     Factory function to create a PulseRecords and a NoiseRecords object
     from a raw LJH file name, with optional LJH-style noise file name.
@@ -979,6 +1026,7 @@ def create_pulse_and_noise_records(fname, noisename=None, records_are_continuous
                 by replacing the file extension in <fname> with ".noi".
     <records_are_continuous> Whether the noise file's data are auto-triggered
                 fast enough to have no gaps in the data.
+    <noise_only> The <fname> are noise files, and there are no pulse files.
     """
     if noisename is None:
         try:
@@ -987,6 +1035,11 @@ def create_pulse_and_noise_records(fname, noisename=None, records_are_continuous
         except:
             raise ValueError("If noisename is not given, it must be constructable by replacing file suffix with '.noi'")
     
-    pr = PulseRecords(fname)
-    nr = NoiseRecords(noisename, records_are_continuous)
+    if noise_only:
+        pr = PulseRecords(fname)
+        nr = NoiseRecords(fname, records_are_continuous)
+    else:
+        pr = PulseRecords(fname)
+        nr = NoiseRecords(noisename, records_are_continuous)
+    
     return (pr, nr)

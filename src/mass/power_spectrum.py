@@ -99,8 +99,8 @@ class PowerSpectrum(object):
         
         # The first line adds 2x too much to the first/last bins.
         ps = numpy.abs(wksp)**2
-        ps[0] *= 0.5
-        ps[-1] *= 0.5
+#        ps[0] *= 0.5
+#        ps[-1] *= 0.5
         self.specsum += scale_factor*ps
         self.nsegments += 1
         
