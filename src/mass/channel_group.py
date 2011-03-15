@@ -42,8 +42,10 @@ class BaseChannelGroup(object):
             
         self.filenames = tuple(filenames)
         self.n_channels = len(self.filenames)
-        self.noise_filenames = tuple(filenames)
-        assert self.n_channels == len(self.noise_filenames)
+        if noise_filenames is None:
+            self.noise_filenames = None
+        else:
+            self.noise_filenames = tuple(noise_filenames)
         
         self.n_segments = None
         self._cached_segment = None
@@ -276,6 +278,17 @@ class BaseChannelGroup(object):
             self.filters.append(f)
             
     
+    def summarize_filters(self):
+        rms_fwhm = numpy.sqrt(numpy.log(2)*8)
+        for f in self.filters:
+            rms = numpy.array((f.variances['noconst'],
+                               f.variances['fourier']))**0.5
+            v_dv = (1/rms)/rms_fwhm
+            print 'V/dV for time, Fourier filters: ',v_dv , 'Predicted res: ',5898.8/v_dv
+                               
+                            
+            
+    
     def filter_data(self):
         """Filter data sets and store in datasets[*].p_filt_phase and _value.
         The filters are currently self.filter[*].filt_noconst"""
@@ -294,6 +307,24 @@ class BaseChannelGroup(object):
                 dset.p_filt_value[first:end] = peak_y
     
     
+    def plot_crosstalk(self, xlim=None, ylim=None):
+        pylab.clf()
+        dt = (numpy.arange(self.nSamples)-self.nPresamples)*1e3*self.timebase
+        for i in range(4):
+            ax=pylab.subplot(221+i)
+            self.plot_average_pulses(i, axis=ax)
+            pylab.plot(dt,self.datasets[i].average_pulses[i]/100,'k', label="Main pulse/100")
+            if xlim is None:
+                xlim=[-.2,.2]
+            if ylim is None:
+                ylim=[-200,200]
+            pylab.xlim(xlim)
+            pylab.ylim(ylim)
+            pylab.legend(loc='upper right')
+            pylab.grid()
+            pylab.title("Mean record when TES %d is hit"%i)
+    
+             
     def estimate_crosstalk(self, plot=True):
         """Work in progress..."""
 
@@ -301,14 +332,13 @@ class BaseChannelGroup(object):
             pylab.clf()
             ds0 = self.datasets[0]
             dt = (numpy.arange(ds0.nSamples)-ds0.nPresamples)*ds0.timebase*1e3
-
+            ax0 = pylab.subplot(441)
         crosstalk = []
         from numpy import dot
-        for i,(n,ds) in enumerate(zip(self.noise_channels, self.datasets)):
-            if n.autocorrelation is None:
-                print "Computing noise autocorrelation for %s"%os.path.basename(n.filename)
-                n.compute_autocorrelation(self.nSamples, plot=False)
-
+        if self.datasets[0].noise_autocorr is None:
+            self.compute_noise_spectra()
+        
+        for i,ds in enumerate( self.datasets):
             p = ds.average_pulses[i]
             d = numpy.zeros_like(p)
             d[1:] = p[1:]-p[:-1]
@@ -318,9 +348,11 @@ class BaseChannelGroup(object):
                 qd = ds.deriv_filt
             else:
                 print "Solving for TES %2d noise-inv-weighted pulse"%i
-                Rp = numpy.linalg.solve(scipy.linalg.toeplitz(n.autocorrelation[:8192]), p)
+                R = scipy.linalg.toeplitz(ds.noise_autocorr[:len(p)])
+                Rp = numpy.linalg.solve(R, p)
                 print "Solving for TES %2d noise-inv-weighted derivative"%i
-                Rd = numpy.linalg.solve(scipy.linalg.toeplitz(n.autocorrelation[:8192]), d)
+                Rd = numpy.linalg.solve(R, d)
+                del R
                 
                 qp = dot(d,Rd)*Rp - dot(d,Rp)*Rd
                 qd = dot(p,Rp)*Rd - dot(p,Rd)*Rp
@@ -337,9 +369,9 @@ class BaseChannelGroup(object):
             for j,ds1 in enumerate(self.datasets):
                 sig = ds1.average_pulses[i]
                 print "%8.4f %8.4f"%(dot(sig,qp), dot(sig,qd))
-                ct.append(dot(sig,qp))
+                ct.append(dot(sig,qp)) # row i, col j
                 if plot and (i != j):
-                    ax = pylab.subplot(4,4,1+4*j+i)
+                    ax = pylab.subplot(4,4,1+4*j+i, sharex=ax0, sharey=ax0) # row j, col i
                     sig2 = sig-dot(sig,qp)*ds.average_pulses[i]
                     sig3 = sig2-dot(sig,qd)*ds.pulse_deriv
                     pylab.plot(dt,sig,color='green')
@@ -358,16 +390,48 @@ class BaseChannelGroup(object):
         return numpy.array(crosstalk)
     
     
-    def compare_noise(self, axis=None):
-        if axis is None:
+    def drift_correct_ptmean(self, filt_ranges):
+        "A hack, but a great simple start on drift correction using the pretrigger mean."
+        
+        class LineDrawer(object):
+            def __init__(self, figure):
+                self.b, self.x, self.y = 0,0,0
+                self.fig = figure
+                self.cid = self.fig.canvas.mpl_connect('button_press_event', self)
+                print "Connected cid=%d"%self.cid
+            def __call__(self, event):
+                self.b, self.x, self.y =  event.button, event.xdata, event.ydata
+            def __del__(self):
+                self.fig.canvas.mpl_disconnect(self.cid)
+                print 'Disconnected cid=%d'%self.cid
+        
+        for _i,(rng,ds) in enumerate(zip(filt_ranges,self.datasets)):
             pylab.clf()
-            axis = pylab.subplot(111)
-            
-        axis.set_color_cycle(self.colors)
-        for noise in self.noise_channels:
-            noise.plot_power_spectrum(axis=axis)
-
-
+            fig = pylab.gcf()
+            good = ds.cuts.good()
+            pylab.plot(ds.p_pretrig_mean[good], ds.p_filt_value[good],'.')
+            pylab.ylim(rng)
+            print "Click button 1 twice to draw a line; click button 2 to quit"
+            pf = LineDrawer(fig)
+            x,y=[],[]
+            line = None
+            offset,slope = 0.0,0.0
+            while True:
+                pylab.waitforbuttonpress()
+                if pf.b > 1: break
+                x.append(pf.x)
+                y.append(pf.y)
+                if len(x)==2:
+                    if line is not None:
+                        line.remove()
+                    line, = pylab.plot(x, y, 'r')
+                    offset = x[0]
+                    slope = (y[1]-y[0])/(x[1]-x[0])
+                    ds.energy = ds.p_filt_value[good] - (ds.p_pretrig_mean[good]-offset)*slope    
+                    print offset,slope, ' corrects the energy.  Hit button 2 to move on, or try again.'
+                    x,y = [],[]
+                
+            del pf
 
 class TESGroup(BaseChannelGroup):
     """
@@ -403,6 +467,7 @@ class TESGroup(BaseChannelGroup):
         self.datasets = tuple(dset_list)
         if len(pulse_list)>0:
             self.pulses_per_seg = pulse_list[0].pulses_per_seg
+        self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
     
 
     def copy(self):
@@ -426,6 +491,16 @@ class TESGroup(BaseChannelGroup):
         self._cached_segment = segnum
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
+    
+    
+    def compare_noise(self, axis=None):
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+            
+        axis.set_color_cycle(self.colors)
+        for noise in self.noise_channels:
+            noise.plot_power_spectrum(axis=axis)
     
     
     def compute_noise_spectra(self):
@@ -497,6 +572,7 @@ class CDMGroup(BaseChannelGroup):
                 
         if len(pulse_list) > 0:
             self.pulses_per_seg = pulse_list[0].datafile.pulses_per_seg
+        self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
         
 
     def copy(self):
@@ -576,7 +652,6 @@ class CDMGroup(BaseChannelGroup):
             for j,n in enumerate(self.noise_channels):
                 nc.data += self.demodulation[i,j] * n.data[:nrec,:]
             nc.data -= nc.data.mean()
-            nc.data *= 0.5
         
         # Compute spectra    
         for nc,ds in zip(fake_noise_chan, self.datasets):
@@ -584,30 +659,19 @@ class CDMGroup(BaseChannelGroup):
             nc.compute_power_spectrum(plot=False)
             ds.noise_spectrum = nc.spectrum
             ds.noise_autocorr = nc.autocorrelation
+#            ds.noise_demodulated = nc
 
 
     def compare_noise(self):
         """Check whether noise spectra differ greatly between modulated channels
         or between demodulated channels."""
         
-        nrec = 9999999
-        for n in self.noise_channels:
-            n.compute_power_spectrum(plot=False)
-            if nrec>n.data.shape[0]:
-                nrec = n.data.shape[0]
-        
-        # Demodulate noise
-        dmn = [n.copy() for n in self.noise_channels]
-        shape = (nrec,self.noise_channels[0].data.shape[1])
-        for i,d in enumerate(dmn):
-            d.data = numpy.zeros(shape, dtype=numpy.float)
-            for j,n in enumerate(self.noise_channels):
-                d.data += self.demodulation[i,j] * n.data[:nrec,:]
-            d.data -= d.data.mean()
-            d.data *= 0.5
-        for n in dmn:
-            n.compute_power_spectrum(plot=False)
+        for ds in self.datasets:
+            if ds.noise_spectrum is None:
+                self.compute_noise_spectra(compute_raw_spectra=True)
+                break
             
+        
         pylab.clf()
         ax1=pylab.subplot(211)
         ax2=pylab.subplot(212, sharex=ax1, sharey=ax1)
@@ -617,10 +681,11 @@ class CDMGroup(BaseChannelGroup):
             a.grid()
         for n in self.noise_channels:
             n.plot_power_spectrum(axis=ax1)
-        for n in dmn:
-            n.plot_power_spectrum(axis=ax2)
+        for ds in self.datasets:
+#            ds.noise_demodulated.plot_power_spectrum(axis=ax2)
+            pylab.plot(ds.noise_spectrum.frequencies(), ds.noise_spectrum.spectrum()*0.25)
         ax1.set_title("Raw (modulated) channel noise power spectrum")
-        ax2.set_title("Demodulated TES noise power spectrum")
+        ax2.set_title("Demodulated TES noise power spectrum SCALED BY 1/4")
     
     
     def update_demodulation(self, relative_response):
