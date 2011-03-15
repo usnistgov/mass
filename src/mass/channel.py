@@ -758,7 +758,8 @@ class MicrocalDataSet(object):
       CUT_BIAS_PULSE,
       CUT_RISETIME,
       CUT_UNLOCK,
-       ) = range(6)
+      CUT_TIMESTAMP,
+       ) = range(7)
     
     def __init__(self, pulserec_dict):
         """
@@ -769,6 +770,7 @@ class MicrocalDataSet(object):
         self.filters = None
         self.noise_spectrum = None
         self.noise_autocorr = None 
+        self.noise_demodulated = None
 
         expected_attributes=("nSamples","nPresamples","nPulses","timebase")
         for a in expected_attributes:
@@ -827,7 +829,7 @@ class MicrocalDataSet(object):
     def summarize_data(self, first, end):
         """Summarize the complete data file"""
         
-        maxderiv_holdoff = int(100e-6/self.timebase) # don't look for retriggers before this # of samples
+        maxderiv_holdoff = int(220e-6/self.timebase) # don't look for retriggers before this # of samples
 
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
@@ -989,6 +991,7 @@ class MicrocalDataSet(object):
         max_posttrig_deriv_cut = controls.cuts_prm['max_posttrig_deriv']
         pulse_average_cut = controls.cuts_prm['pulse_average']
         min_value_cut = controls.cuts_prm['min_value']
+        timestamp_cut = controls.cuts_prm['timestamp_ms']
         
         self.cut_parameter(self.p_pretrig_rms, pretrigger_rms_cut, self.CUT_PRETRIG_RMS)
         self.cut_parameter(self.p_pretrig_mean, pretrigger_mean_cut, self.CUT_PRETRIG_MEAN)
@@ -997,6 +1000,7 @@ class MicrocalDataSet(object):
         self.cut_parameter(self.p_max_posttrig_deriv, max_posttrig_deriv_cut, self.CUT_RETRIGGER)
         self.cut_parameter(self.p_pulse_average, pulse_average_cut, self.CUT_UNLOCK)
         self.cut_parameter(self.p_min_value-self.p_pretrig_mean, min_value_cut, self.CUT_UNLOCK)
+        self.cut_parameter(self.p_timestamp, timestamp_cut, self.CUT_TIMESTAMP)
     
         
     def clear_cuts(self):

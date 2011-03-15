@@ -25,8 +25,9 @@ class AnalysisControl(PrmDictBase):
             'max_posttrig_deriv':  None,
             'pretrigger_rms':      None,
             'pretrigger_mean':     None,
-            'pulse_average':   None,
+            'pulse_average':       None,
             'min_value':           None,
+            'timestamp_ms':        None,
         }
         self.analysis_prm = {
             'pulse_averaging_ranges': None,
@@ -36,7 +37,8 @@ class AnalysisControl(PrmDictBase):
         self._type_check.update({})
         self.user_prm = None   # No extra user parameters
         self.set(**kwargs)
-        
+
+
 def standardControl():
     ac = AnalysisControl()
     ac.set( peak_time_ms       = (-0.5, 0.5),
