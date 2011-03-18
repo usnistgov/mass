@@ -17,6 +17,7 @@ Started March 2, 2011
 """
 
 import os.path
+import time
 import numpy
 from matplotlib import pylab
 import scipy.linalg
@@ -45,8 +46,11 @@ class BaseChannelGroup(object):
         if noise_filenames is None:
             self.noise_filenames = None
         else:
-            self.noise_filenames = tuple(noise_filenames)
+            if isinstance(noise_filenames, str):
+                noise_filenames = (noise_filenames,)
+            self.noise_filenames = noise_filenames
         
+        self.nhits = None
         self.n_segments = None
         self._cached_segment = None
         self._cached_pnum_range = None
@@ -68,6 +72,8 @@ class BaseChannelGroup(object):
         ...?
         """
 
+        print "This data set has %d records with %d samples apiece."%(self.nPulses, self.nSamples)  
+        t0 = time.time()
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
@@ -75,7 +81,11 @@ class BaseChannelGroup(object):
             for dset in self.datasets:
                 dset.nPulses = self.nPulses
                 dset.summarize_data(first, end)
-
+                
+        # How many detectors were hit in each record?
+        self.nhits = numpy.array([d.p_pulse_average>50 for d in self.datasets]).sum(axis=0)
+        print "Summarized data in %.0f seconds" %(time.time()-t0)
+        
     
     def read_trace(self, record_num, chan_num=0):
         """Read (from cache or disk) and return the pulse numbered <record_num> for channel
@@ -219,6 +229,7 @@ class BaseChannelGroup(object):
         pulse_sums = numpy.zeros((self.n_channels,nbins,self.nSamples), dtype=numpy.float)
 
         for first, end in self.iter_segments():
+            print "Records %d to %d loaded"%(first,end-1)
             for imask,mask in enumerate(masks):
                 valid = mask[first:end]
                 for ichan,chan in enumerate(self.datasets):
@@ -259,7 +270,7 @@ class BaseChannelGroup(object):
             d.gain = g
     
     
-    def compute_filters(self):
+    def compute_filters(self, fmax=None, f_3db=None):
         
         # Analyze the noise, if not already done
         for n in self.datasets:
@@ -274,17 +285,20 @@ class BaseChannelGroup(object):
             avg_signal = ds.average_pulses[i]
             f = mass.channel.Filter(avg_signal, self.nPresamples, ds.noise_spectrum.spectrum(),
                                     ds.noise_autocorr, sample_time=self.timebase,
+                                    fmax=fmax, f_3db=f_3db,
                                     shorten=2)
             self.filters.append(f)
             
     
     def summarize_filters(self):
         rms_fwhm = numpy.sqrt(numpy.log(2)*8)
+        print 'V/dV for time, Fourier filters: '
         for f in self.filters:
             rms = numpy.array((f.variances['noconst'],
-                               f.variances['fourier']))**0.5
+                               f.variances['fourier'],
+                               ))**0.5
             v_dv = (1/rms)/rms_fwhm
-            print 'V/dV for time, Fourier filters: ',v_dv , 'Predicted res: ',5898.8/v_dv
+            print "[ %6.1f  %6.1f ]"%(v_dv[0],v_dv[1]) , 'Predicted res: [ %6.3f %6.3f ] (eV)'%(5898.8/v_dv[0],5898.8/v_dv[1])
                                
                             
             
@@ -320,7 +334,7 @@ class BaseChannelGroup(object):
                 ylim=[-200,200]
             pylab.xlim(xlim)
             pylab.ylim(ylim)
-            pylab.legend(loc='upper right')
+            pylab.legend(loc='upper left')
             pylab.grid()
             pylab.title("Mean record when TES %d is hit"%i)
     
@@ -442,15 +456,20 @@ class TESGroup(BaseChannelGroup):
     (which has to be more complex under the hood).
     """
     def __init__(self, filenames, noise_filenames=None, noise_only=False):
-
         super(self.__class__, self).__init__(filenames, noise_filenames)
         self.noise_only = noise_only
         
         pulse_list = []
         noise_list = []
         dset_list = []
-        for fname in self.filenames:
-            pulse, noise = mass.channel.create_pulse_and_noise_records(fname, noise_only=noise_only)
+        for i,fname in enumerate(self.filenames):
+            if noise_filenames is None:
+                pulse, noise = mass.channel.create_pulse_and_noise_records(fname, noise_only=noise_only)
+            else:
+                nf = self.noise_filenames[i]
+                print "nf='%s'"%nf
+                pulse, noise = mass.channel.create_pulse_and_noise_records(fname, noisename=nf,
+                                                                           noise_only=noise_only)
             dset = mass.channel.MicrocalDataSet(pulse.__dict__)
             pulse_list.append(pulse)
             noise_list.append(noise)
@@ -573,6 +592,7 @@ class CDMGroup(BaseChannelGroup):
         if len(pulse_list) > 0:
             self.pulses_per_seg = pulse_list[0].datafile.pulses_per_seg
         self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
+        self.REMOVE_INFRAME_DRIFT=True
         
 
     def copy(self):
@@ -603,18 +623,17 @@ class CDMGroup(BaseChannelGroup):
             dset.times = chan.datafile.datatimes
 
         # Remove linear drift
-        REMOVE_DRIFT=True
         seg_size = min([rc.data.shape[0] for rc in self.raw_channels]) # Last seg can be of unequal size!
         mod_data = numpy.zeros([self.n_channels, seg_size, self.nSamples], dtype=numpy.int32)
         mod_data[0, :, :] = numpy.array(self.raw_channels[0].data[:seg_size, :])
         for i in range(1, self.n_channels):
-            if REMOVE_DRIFT:
+            if self.REMOVE_INFRAME_DRIFT:
                 mod_data[i, :, 1:] = i*self.raw_channels[i].data[:seg_size,1:]
                 mod_data[i, :, 1:] += (self.n_channels-i) *self.raw_channels[i].data[:seg_size,:-1]
                 mod_data[i, :, 0] = self.n_channels*self.raw_channels[i].data[:seg_size,0]
                 mod_data[i, :, :] /= self.n_channels
             else:
-                mod_data[i, :, :] = numpy.array(self.raw_channels[i].data[:,:])
+                mod_data[i, :, :] = numpy.array(self.raw_channels[i].data[:seg_size,:])
         
         # Demodulate
         for i_det,dset in enumerate(self.datasets):   
@@ -628,7 +647,8 @@ class CDMGroup(BaseChannelGroup):
 
 
     def compute_noise_spectra(self, compute_raw_spectra=False):
-        """Compute the noise power spectral density for demodulated data.
+        """
+        Compute the noise power spectral density for demodulated data.
         
         <compute_raw_spectra> If True, also compute it for the raw data
         """
@@ -637,6 +657,7 @@ class CDMGroup(BaseChannelGroup):
         nrec = 9999999
         for n in self.noise_channels:
             if compute_raw_spectra:
+                print "Computing raw power spectrum for %s"%n.filename
                 n.compute_power_spectrum(plot=False)
             if nrec>n.data.shape[0]:
                 nrec = n.data.shape[0]
@@ -646,6 +667,7 @@ class CDMGroup(BaseChannelGroup):
         shape = (nrec,self.noise_channels[0].data.shape[1])
 
         # Demodulate noise
+        print "Demodulating noise"
         for i,nc in enumerate(fake_noise_chan):
             nc.nPulses = nrec
             nc.data = numpy.zeros(shape, dtype=numpy.float)
@@ -655,6 +677,7 @@ class CDMGroup(BaseChannelGroup):
         
         # Compute spectra    
         for nc,ds in zip(fake_noise_chan, self.datasets):
+            print "Computing demodulated power spectrum for %s"%ds
             nc.compute_autocorrelation(n_lags=self.nSamples, plot=False)
             nc.compute_power_spectrum(plot=False)
             ds.noise_spectrum = nc.spectrum

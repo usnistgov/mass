@@ -43,7 +43,7 @@ class NoiseRecords(object):
         """Detect the filetype and open it."""
 
         # For now, we have only one file type, so let's just assume it!
-        self.datafile = files.LJHFile(filename, segmentsize=2**25)
+        self.datafile = files.LJHFile(filename, segmentsize=50000000)
         self.filename = filename
 
         # Copy up some of the most important attributes
@@ -103,6 +103,18 @@ class NoiseRecords(object):
         Compute the autocorrelation averaged across all "pulses" in the file.
         """
         
+        def padded_length(n):
+            """Return a sensible number in the range [n, 2n] which is not too
+            much larger than n, yet is good for FFTs.
+            That is, choose (1, 3, or 5)*(a power of two), whichever is smallest
+            """
+            pow2 = numpy.round(2**numpy.ceil(numpy.log2(n)))
+            if n==pow2: return n
+            elif n>0.75*pow2: return pow2
+            elif n>0.625*pow2: return numpy.round(0.75*pow2)
+            else: return numpy.round(0.625*pow2)
+            
+        
         if self.continuous:
             n_data = self.nSamples*self.nPulses
             if n_lags is None:
@@ -110,14 +122,15 @@ class NoiseRecords(object):
             if n_lags > n_data:
                 n_lags = n_data
 
-            paddedData = numpy.zeros(n_lags+n_data, dtype=numpy.float)
+            paddedData = numpy.zeros(padded_length(n_lags+n_data), dtype=numpy.float)
             paddedData[:n_data] = numpy.array(self.data.ravel())[:n_data] - self.data.mean()
             paddedData[n_data:] = 0.0
             
             ft = numpy.fft.rfft(paddedData)
+            del paddedData
             ft[0] = 0 # this redundantly removes the mean of the data set
-            ft2 = (ft*ft.conj()).real
-            acsum = numpy.fft.irfft(ft2)
+            ft = (ft*ft.conj()).real
+            acsum = numpy.fft.irfft(ft)
             ac = acsum[:n_lags+1] / (n_data-numpy.arange(n_lags+1.0))
          
         else:
@@ -670,10 +683,10 @@ class Filter(object):
         
     def compute(self, fmax=None, f_3db=None):
         """"""
-        if fmax is not None:
-            raise NotImplementedError("Use of fmax on Filters is not yet supported.")
-        if f_3db is not None:
-            raise NotImplementedError("Use of f_3db on Filters is not yet supported.")
+#        if fmax is not None:
+#            raise NotImplementedError("Use of fmax on Filters is not yet supported.")
+#        if f_3db is not None:
+#            raise NotImplementedError("Use of f_3db on Filters is not yet supported.")
         
         self.variances={}
         
@@ -682,7 +695,7 @@ class Filter(object):
                 q *= 1 / numpy.dot(q, self.avg_signal)
             else:  
                 q *= 1 / numpy.dot(q, self.avg_signal[self.shorten:-self.shorten]) 
-        
+                
         # Fourier domain filters
         if self.noise_psd is not None:
             n = len(self.noise_psd)
@@ -692,7 +705,18 @@ class Filter(object):
                                  %(len(sig_ft), n))
             
             sig_ft /= self.noise_psd
-            sig_ft[0] = 0
+            sig_ft[0] = 0.0
+            
+            # Band-limit
+            if fmax is not None or f_3db is not None:
+                freq = numpy.fft.fftfreq(n, d=self.sample_time) 
+                freq=freq[:n/2+1]
+                freq[-1] *= -1
+                if fmax is not None:
+                    sig_ft[freq>fmax] = 0.0
+                if f_3db is not None:
+                    sig_ft /= (1+(freq/f_3db)**2)
+
             self.filt_fourier = numpy.fft.irfft(sig_ft)
             normalize_filter(self.filt_fourier)
         
@@ -709,9 +733,21 @@ class Filter(object):
             Rinv_1 = numpy.linalg.solve(R, numpy.ones(n))
             
             self.filt_noconst = Rinv_1.sum()*Rinv_sig - Rinv_sig.sum()*Rinv_1
+
+            # Band-limit
+            if fmax is not None or f_3db is not None:
+                sig_ft = numpy.fft.rfft(self.filt_noconst)
+                freq = numpy.fft.fftfreq(n, d=self.sample_time) 
+                freq=freq[:n/2+1]
+                freq[-1] *= -1
+                if fmax is not None:
+                    sig_ft[freq>fmax] = 0.0
+                if f_3db is not None:
+                    sig_ft /= (1+(freq/f_3db)**2)
+                self.filt_noconst = numpy.fft.irfft(sig_ft)
+
             normalize_filter(self.filt_noconst)
-#            self.filt_noconst *= self.peak_signal / numpy.dot(self.filt_noconst, self.avg_signal)
-            
+
             self.filt_baseline = numpy.dot(avg_signal, Rinv_sig)*Rinv_1 - Rinv_sig.sum()*Rinv_sig
             self.filt_baseline /=  self.filt_baseline.sum()
             
@@ -929,7 +965,6 @@ class MicrocalDataSet(object):
             (self.p_rise_time*1e3, 'Rise time (ms)', 'orange', [0,12]),
             (self.p_peak_time*1e3, 'Peak time (ms)', 'red', [-3,9])
           ) 
-        print 'yikes!'
         
         pylab.clf()
         for i,(vect, label, color, limits) in enumerate(plottables):
@@ -979,13 +1014,15 @@ class MicrocalDataSet(object):
             pass
     
     
-    def apply_cuts(self, controls=None):
+    def apply_cuts(self, controls=None, clear=False):
+        if clear: self.clear_cuts()
         
         if controls is None:
             controls = controller.standardControl()
     
         pretrigger_rms_cut = controls.cuts_prm['pretrigger_rms']
         pretrigger_mean_cut = controls.cuts_prm['pretrigger_mean']
+        pretrigger_mean_dep_cut = controls.cuts_prm['pretrigger_mean_departure_from_median']
         peak_time_ms_cut = controls.cuts_prm['peak_time_ms']
         rise_time_ms_cut = controls.cuts_prm['rise_time_ms']
         max_posttrig_deriv_cut = controls.cuts_prm['max_posttrig_deriv']
@@ -1001,6 +1038,10 @@ class MicrocalDataSet(object):
         self.cut_parameter(self.p_pulse_average, pulse_average_cut, self.CUT_UNLOCK)
         self.cut_parameter(self.p_min_value-self.p_pretrig_mean, min_value_cut, self.CUT_UNLOCK)
         self.cut_parameter(self.p_timestamp, timestamp_cut, self.CUT_TIMESTAMP)
+        if pretrigger_mean_dep_cut is not None:
+            median = numpy.median(self.p_pretrig_mean[self.cuts.good()])
+            print'applying cut',pretrigger_mean_dep_cut,' around median of ',median
+            self.cut_parameter(self.p_pretrig_mean-median, pretrigger_mean_dep_cut, self.CUT_PRETRIG_MEAN)
     
         
     def clear_cuts(self):
