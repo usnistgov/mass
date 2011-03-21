@@ -238,6 +238,8 @@ class PulseRecords(object):
         """Read the requested segment of the raw data file and return  (first,end,data)
         meaning: the first record number, 1 more than the last record number,
         and the nPulse x nSamples array."""
+        if segment_num >= self.n_segments:
+            return -1,-1
         first_pnum, end_pnum, data = self.datafile.read_segment(segment_num)
         self.data = data
         return first_pnum, end_pnum
@@ -871,9 +873,9 @@ class MicrocalDataSet(object):
         self.p_timestamp[first:end] = self.times[:seg_size]
         self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-2].mean(axis=1)
         self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-2].std(axis=1)
-        self.p_peak_index[first:end] = self.data.argmax(axis=1)
-        self.p_peak_value[first:end] = self.data.max(axis=1)
-        self.p_min_value[first:end] = self.data.min(axis=1)
+        self.p_peak_index[first:end] = self.data[:seg_size,:].argmax(axis=1)
+        self.p_peak_value[first:end] = self.data[:seg_size,:].max(axis=1)
+        self.p_min_value[first:end] = self.data[:seg_size,:].min(axis=1)
         self.p_pulse_average[first:end] = self.data[:seg_size,self.nPresamples:].mean(axis=1)
         
         # Remove the pretrigger mean from the peak value and the pulse average figures. 

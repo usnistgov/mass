@@ -276,7 +276,7 @@ class BaseChannelGroup(object):
         for n in self.datasets:
             if n.noise_autocorr is None or n.noise_spectrum is None:
                 print "Computing noise autocorrelation and spectrum"
-                self.compute_noise_spectra
+                self.compute_noise_spectra()
                 break
             
         self.filters=[]
@@ -479,7 +479,12 @@ class TESGroup(BaseChannelGroup):
                 for attr in "n_segments","nPulses","nSamples","nPresamples", "timebase":
                     self.__dict__[attr] = pulse.__dict__[attr]
             else:
-                assert self.n_segments == pulse.n_segments
+                for attr in "nSamples","nPresamples", "timebase":
+                    if self.__dict__[attr] != pulse.__dict__[attr]:
+                        raise ValueError("Unequal values of %s: %f != %f"%(attr,float(self.__dict__[attr]),
+                                                                            float(pulse.__dict__[attr])))
+                self.n_segments = max(self.n_segments, pulse.n_segments)
+                self.nPulses = max(self.nPulses, pulse.nPulses)
             
         self.channels = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)
@@ -526,7 +531,7 @@ class TESGroup(BaseChannelGroup):
         for dataset,noise in zip(self.datasets,self.noise_channels):
             noise.compute_power_spectrum(plot=False)
             dataset.noise_spectrum = noise.spectrum
-#            noise.compute_autocorrelation(plot=False)
+            noise.compute_autocorrelation(n_lags=self.nSamples, plot=False)
    
 
 class CDMGroup(BaseChannelGroup):
