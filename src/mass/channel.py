@@ -6,6 +6,7 @@ Created on Feb 16, 2011
 
 import numpy
 import scipy.linalg
+import scipy.optimize
 from matplotlib import pylab
 import os.path
 
@@ -833,6 +834,10 @@ class MicrocalDataSet(object):
         self.p_pulse_average = numpy.zeros(self.nPulses, dtype=numpy.float)
         self.p_rise_time = numpy.zeros(self.nPulses, dtype=numpy.float)
         self.p_max_posttrig_deriv = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_filt_phase = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_filt_value = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_filt_value_phc = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_filt_value_dc = numpy.zeros(self.nPulses, dtype=numpy.float)
         
         self.cuts = Cuts(self.nPulses)
         self.good = self.cuts.good()
@@ -867,6 +872,8 @@ class MicrocalDataSet(object):
     def summarize_data(self, first, end):
         """Summarize the complete data file"""
         
+        if first >= self.nPulses:
+            return
         maxderiv_holdoff = int(220e-6/self.timebase) # don't look for retriggers before this # of samples
 
         seg_size = end-first
@@ -894,6 +901,9 @@ class MicrocalDataSet(object):
 
 
     def filter_data(self, filter, first, end):
+        if first >= self.nPulses:
+            return None,None
+
         # These parameters fit a parabola to any 5 evenly-spaced points
         fit_array = numpy.array((
                 ( -6,24, 34,24,-6),
@@ -902,11 +912,13 @@ class MicrocalDataSet(object):
         
         assert len(filter)+4 == self.nSamples
 
-        conv = numpy.zeros((5, end-first), dtype=numpy.float)
+        seg_size = min(end-first, self.data.shape[0])
+        conv = numpy.zeros((5, seg_size), dtype=numpy.float)
         for i in range(5):
             if i-4 == 0:
                 conv[i,:] = (filter*self.data[:,i:]).sum(axis=1)
             else:
+                print conv[i,:].shape, self.data.shape, (filter*self.data[:,i:i-4]).shape
                 conv[i,:] = (filter*self.data[:,i:i-4]).sum(axis=1)
         param = numpy.dot(fit_array, conv)
         peak_x = -0.5*param[1,:]/param[2,:]
@@ -1050,10 +1062,75 @@ class MicrocalDataSet(object):
         self.cuts = Cuts(self.nPulses)
     
     
-    def fit_mn_kalpha(self, prange, **kwargs):
-        values = self.p_filt_value[self.cuts.good()]
-        contents,bin_edges = numpy.histogram(values, 200, prange)
-        print "%d events pass cuts; %d are in histogram range"%(len(values),contents.sum())
+    def phase_correct(self, ylim=None, plot=True):
+        """Apply a correction for pulse variation with arrival phase"""
+        
+        # Choose number and size of bins
+        phase_step=.05
+        nstep = int(.5+1.0/phase_step)
+        phases = (0.5+numpy.arange(nstep))/nstep - 0.5
+        phase_step = 1.0/nstep
+        
+        # Plot the raw filtered value vs phase
+        if plot:
+            pylab.clf()
+            pylab.subplot(211)
+            pylab.plot((self.p_filt_phase+.5)%1-.5, self.p_filt_value,'.',color='orange')
+            pylab.xlim([-.55,.55])
+            if ylim is not None:
+                pylab.ylim(ylim)
+                
+        # Estimate corrections in a few different pieces
+        corrections = []
+        valid = self.cuts.good()
+        if ylim is not None:
+            valid = numpy.logical_and(valid, self.p_filt_value<ylim[1])
+            valid = numpy.logical_and(valid, self.p_filt_value>ylim[0])
+
+        for ctr_phase in phases:
+            valid_ph = numpy.logical_and(valid,
+                                         numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.05)
+            mean = self.p_filt_value[valid_ph].mean()
+            median = numpy.median(self.p_filt_value[valid_ph])
+            corrections.append(mean) # not obvious that mean vs median matters
+            if plot:
+                pylab.plot(ctr_phase, mean, 'or')
+                pylab.plot(ctr_phase, median, 'vk', ms=10)
+        corrections = numpy.array(corrections)
+        assert numpy.isfinite(corrections).all()
+        
+        def model(params, phase):
+            "Params are (phase of center, curvature, mean peak height)"
+            phase = (phase - params[0]+.5)%1 - 0.5
+            return 4*params[1]*(phase**2 - 0.125) + params[2]
+        errfunc = lambda p,x,y: y-model(p,x)
+        
+        params = (-0.25, 0, corrections.mean())
+        fitparams, _iflag = scipy.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
+        phases = numpy.arange(-0.6,0.5001,.01)
+        pylab.plot(phases, model(fitparams, phases), color='blue')
+        
+        self.phase_correction={'phase':fitparams[0],
+                            'amplitude':fitparams[1],
+                            'mean':fitparams[2]}
+        fitparams[2] = 0
+        self.p_filt_value_phc = self.p_filt_value - model(fitparams, self.p_filt_phase)
+        if plot:
+            pylab.subplot(212)
+            pylab.plot((self.p_filt_phase+.5)%1-.5, self.p_filt_value_phc,'.b')
+            pylab.xlim([-.55,.55])
+            if ylim is not None:
+                pylab.ylim(ylim)
+
+
+    def fit_mn_kalpha(self, prange, type='phc',**kwargs):
+        all_values={'filt': self.p_filt_value,
+                    'phc': self.p_filt_value_phc,
+#                    'dc': self.p_filt_value_dc,
+                    }[type]
+        good_values = all_values[self.cuts.good()]
+        contents,bin_edges = numpy.histogram(good_values, 200, prange)
+        print "%d events pass cuts; %d are in histogram range"%(len(good_values),contents.sum())
         bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
         fitter = fluorescence_lines.MnKAlphaFitter()
         fitter.fit(contents, bin_ctrs, **kwargs)

@@ -166,10 +166,14 @@ class MnKAlphaFitter(object):
 #            return d/numpy.sqrt(y+5.0)
         errfunc = lambda p, x, y: (fitfunc(p, x) - y)/numpy.sqrt(y+.5)
 
-        # Do the fit and store the parameters and the         
-        fitparams,iflag = scipy.optimize.leastsq(errfunc, params, args = (pulseheights, data) )
+        # Do the fit and store the parameters and the
+        fitparams, covariance, _infodict, _mesg, iflag = \
+           scipy.optimize.leastsq(errfunc, params, args = (pulseheights, data), full_output=True )
+        fitparams[0] = abs(fitparams[0])
+        
         self.lastFitParams = fitparams
         self.lastFitResult = fitfunc(fitparams, pulseheights)
+        
         if iflag not in (1,2,3,4): 
             print "Oh no! iflag=%d"%iflag
         elif plot:
@@ -177,11 +181,25 @@ class MnKAlphaFitter(object):
             if axis is None:
                 pylab.clf()
                 axis = pylab.subplot(111)
-            axis.plot(pulseheights, data, color=color, label="%.2f eV: %s"%(fitparams[0], label) )
+                
+            # plot in step-histogram format
+            def plot_as_stepped_hist(axis, bin_ctrs, data, **kwargs):
+                x = numpy.zeros(2+2*len(bin_ctrs), dtype=numpy.float)
+                y = numpy.zeros_like(x)
+                dx = bin_ctrs[1]-bin_ctrs[0]
+                x[0:-2:2] = bin_ctrs-dx
+                x[1:-2:2] = bin_ctrs-dx
+                x[-2:] = bin_ctrs[-1]+dx
+                y[1:-1:2] = data
+                y[2:-1:2] = data
+                axis.plot(x, y, **kwargs)
+                axis.set_xlim([x[0],x[-1]])
+            
+            de = numpy.sqrt(covariance[0,0])
+            plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.plot(pulseheights, self.lastFitResult, color=color)
             axis.legend(loc='upper left')
-        fitparams[0] = abs(fitparams[0])
-        return fitparams
+        return fitparams, covariance
 
 
 

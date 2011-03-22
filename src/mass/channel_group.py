@@ -72,14 +72,14 @@ class BaseChannelGroup(object):
         ...?
         """
 
-        print "This data set has %d records with %d samples apiece."%(self.nPulses, self.nSamples)  
+        print "This data set has (up to) %d records with %d samples apiece."%(self.nPulses, self.nSamples)  
         t0 = time.time()
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
             print "Records %d to %d loaded"%(first,end-1)
             for dset in self.datasets:
-                dset.nPulses = self.nPulses
+#                dset.nPulses = self.nPulses
                 dset.summarize_data(first, end)
                 
         # How many detectors were hit in each record?
@@ -162,8 +162,8 @@ class BaseChannelGroup(object):
             gains = numpy.ones(self.n_channels)
             
         if pulse_avg_ranges is not None:
-            if isinstance(pulse_avg_ranges[0], int) and len(pulse_avg_ranges)==2:
-                pulse_avg_ranges = tuple(pulse_avg_ranges) 
+            if isinstance(pulse_avg_ranges[0], (int,float)) and len(pulse_avg_ranges)==2:
+                pulse_avg_ranges = tuple(pulse_avg_ranges) ,
             for r in pulse_avg_ranges:
                 middle = 0.5*(r[0]+r[1])
                 abslim = 0.5*numpy.abs(r[1]-r[0])
@@ -173,7 +173,7 @@ class BaseChannelGroup(object):
                         m = numpy.logical_and(m, nhits==1)
                     masks.append(m)
         elif pulse_peak_ranges is not None:
-            if isinstance(pulse_peak_ranges[0], int) and len(pulse_peak_ranges)==2:
+            if isinstance(pulse_peak_ranges[0], (int,float)) and len(pulse_peak_ranges)==2:
                 pulse_peak_ranges = tuple(pulse_peak_ranges) 
             for r in pulse_peak_ranges:
                 middle = 0.5*(r[0]+r[1])
@@ -186,10 +186,10 @@ class BaseChannelGroup(object):
         else:
             raise ValueError("Call make_masks with only one of pulse_avg_ranges and pulse_peak_ranges specified.")
         
-        return numpy.array(masks)
-
+        return masks
         
-    def compute_average_pulse(self, masks, subtract_mean=True):
+
+    def compute_average_pulse(self, masks, use_crosstalk_masks, subtract_mean=True):
         """
         Compute several average pulses in each TES channel, one per mask given in
         <masks>.  Store the averages in self.datasets.average_pulses with shape (m,n)
@@ -201,6 +201,10 @@ class BaseChannelGroup(object):
         (m*n).  It's required that n equal self.nPulses.   In the second case,
         m must be an integer.  The elements of <masks> should be booleans or interpretable
         as booleans.
+        
+        <use_crosstalk_masks> Says whether to compute, e.g., averages for mask[1] on dataset[0].
+                              Normally you'd set this to True for CDM data and False for TDM.
+                              And the subclass methods use these settings.
         
         If <subtract_mean> is True, then each average pulse will subtract a constant
         to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
@@ -218,12 +222,10 @@ class BaseChannelGroup(object):
             nbins = masks.shape[0]
         else:
             nbins = len(masks)
+
         for i,m in enumerate(masks):
             if not isinstance(m, numpy.ndarray):
                 raise ValueError("masks[%d] is not a numpy.ndarray"%i)
-            if m.shape != (self.nPulses,):
-                raise ValueError("masks[%d] has shape %s, but it needs to be (%d,)"%
-                     (i, m.shape, self.nPulses ))
             
         pulse_counts = numpy.zeros((self.n_channels,nbins))
         pulse_sums = numpy.zeros((self.n_channels,nbins,self.nSamples), dtype=numpy.float)
@@ -233,6 +235,12 @@ class BaseChannelGroup(object):
             for imask,mask in enumerate(masks):
                 valid = mask[first:end]
                 for ichan,chan in enumerate(self.datasets):
+                    if not (use_crosstalk_masks or (imask%self.n_channels) == ichan):
+                        continue 
+                    
+                    if mask.shape != (chan.nPulses,):
+                        raise ValueError("masks[%d] has shape %s, but it needs to be (%d,)"%
+                             (imask, mask.shape, chan.nPulses ))
                     good_pulses = chan.data[valid, :]
                     pulse_counts[ichan,imask] += good_pulses.shape[0]
                     pulse_sums[ichan,imask,:] += good_pulses.sum(axis=0)
@@ -289,6 +297,28 @@ class BaseChannelGroup(object):
                                     shorten=2)
             self.filters.append(f)
             
+
+    def plot_filters(self, first=0, end=-1):
+        """Plot the filters from <first> through <end>-1.  By default, plots all filters,
+        except that the maximum number is 8.  Left panels are the Fourier and time-domain
+        X-ray energy filters.  Right panels are two different filters for estimating the 
+        baseline level.
+        """
+        pylab.clf()
+        if end<=first: end=self.n_channels
+        if first >= self.n_channels:
+            raise ValueError("First channel must be less than %d"%self.n_channels)
+        nplot = min(end-first, 8)
+        filters = self.filters[first:first+nplot]
+        for i,f in enumerate(filters):
+            ax1 = pylab.subplot(nplot,2,1+2*i)
+            ax2 = pylab.subplot(nplot,2,2+2*i)
+            ax1.set_title("TES %d signal"%(first+i))
+            ax2.set_title("TES %d baseline"%(first+i))
+            for ax in (ax1,ax2): ax.set_xlim([0,self.nSamples])
+            f.plot(axes=(ax1,ax2))
+
+        
     
     def summarize_filters(self):
         rms_fwhm = numpy.sqrt(numpy.log(2)*8)
@@ -314,6 +344,8 @@ class BaseChannelGroup(object):
             dset.p_filt_value = numpy.zeros(dset.nPulses, dtype=numpy.float)
             
         for first, end in self.iter_segments():
+            if end>self.nPulses:
+                end = self.nPulses 
             print "Records %d to %d loaded"%(first,end-1)
             for filter,dset in zip(self.filters,self.datasets):
                 peak_x, peak_y = dset.filter_data(filter.filt_noconst,first, end)
@@ -498,6 +530,7 @@ class TESGroup(BaseChannelGroup):
         g = TESGroup([])
         g.__dict__.update(self.__dict__)
         g.channels = tuple([c.copy() for c in self.channels])
+        g.datasets = tuple([d.copy() for d in self.datasets])
         return g
         
 
@@ -517,14 +550,36 @@ class TESGroup(BaseChannelGroup):
         return first_pnum, end_pnum
     
     
-    def compare_noise(self, axis=None):
+    def compute_average_pulse(self, masks, subtract_mean=True):
+        """
+        Compute several average pulses in each TES channel, one per mask given in
+        <masks>.  Store the averages in self.datasets.average_pulses with shape (m,n)
+        where m is the number of masks and n equals self.nPulses (the # of records).
+        
+        Note that this method replaces any previously computed self.datasets.average_pulses
+        
+        <masks> is either an array of shape (m,n) or an array (or other sequence) of length
+        (m*n).  It's required that n equal self.nPulses.   In the second case,
+        m must be an integer.  The elements of <masks> should be booleans or interpretable
+        as booleans.
+        
+        If <subtract_mean> is True, then each average pulse will subtract a constant
+        to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
+        """
+        BaseChannelGroup.compute_average_pulse(self, masks, use_crosstalk_masks=False, subtract_mean=subtract_mean)
+        
+        
+    def plot_noise(self, axis=None):
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
             
         axis.set_color_cycle(self.colors)
+        axis.grid(True)
         for noise in self.noise_channels:
             noise.plot_power_spectrum(axis=axis)
+        f=self.noise_channels[0].spectrum.frequencies()
+        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
     
     
     def compute_noise_spectra(self):
@@ -532,7 +587,9 @@ class TESGroup(BaseChannelGroup):
             noise.compute_power_spectrum(plot=False)
             dataset.noise_spectrum = noise.spectrum
             noise.compute_autocorrelation(n_lags=self.nSamples, plot=False)
-   
+            dataset.noise_autocorr = noise.autocorrelation
+
+
 
 class CDMGroup(BaseChannelGroup):
     """
@@ -651,6 +708,25 @@ class CDMGroup(BaseChannelGroup):
         return first, end
 
 
+    def compute_average_pulse(self, masks, subtract_mean=True):
+        """
+        Compute several average pulses in each TES channel, one per mask given in
+        <masks>.  Store the averages in self.datasets.average_pulses with shape (m,n)
+        where m is the number of masks and n equals self.nPulses (the # of records).
+        
+        Note that this method replaces any previously computed self.datasets.average_pulses
+        
+        <masks> is either an array of shape (m,n) or an array (or other sequence) of length
+        (m*n).  It's required that n equal self.nPulses.   In the second case,
+        m must be an integer.  The elements of <masks> should be booleans or interpretable
+        as booleans.
+        
+        If <subtract_mean> is True, then each average pulse will subtract a constant
+        to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
+        """
+        BaseChannelGroup.compute_average_pulse(self, masks, use_crosstalk_masks=True, subtract_mean=subtract_mean)
+        
+        
     def compute_noise_spectra(self, compute_raw_spectra=False):
         """
         Compute the noise power spectral density for demodulated data.
@@ -690,9 +766,12 @@ class CDMGroup(BaseChannelGroup):
 #            ds.noise_demodulated = nc
 
 
-    def compare_noise(self):
-        """Check whether noise spectra differ greatly between modulated channels
-        or between demodulated channels."""
+    def plot_noise(self, show_modulated=False):
+        """Compare the noise power spectra.
+        
+        <show_modulated> Whether to show the raw (modulated) noise spectra, or
+                         only the demodulated spectra. 
+        """
         
         for ds in self.datasets:
             if ds.noise_spectrum is None:
@@ -701,19 +780,27 @@ class CDMGroup(BaseChannelGroup):
             
         
         pylab.clf()
-        ax1=pylab.subplot(211)
-        ax2=pylab.subplot(212, sharex=ax1, sharey=ax1)
-        for a in ax1,ax2:
+        if show_modulated:
+            ax1=pylab.subplot(211)
+            ax1.set_title("Raw (modulated) channel noise power spectrum")
+            ax2=pylab.subplot(212, sharex=ax1, sharey=ax1)
+            axes=(ax1,ax2)
+        else:
+            ax2=pylab.subplot(111)
+            axes=(ax2,)
+            
+        ax2.set_title("Demodulated TES noise power spectrum SCALED BY 1/4")
+        for a in axes:
             a.set_color_cycle(("blue","#cccc00","green","red"))
             a.loglog()
             a.grid()
-        for n in self.noise_channels:
-            n.plot_power_spectrum(axis=ax1)
+        
+        if show_modulated:
+            for n in self.noise_channels:
+                n.plot_power_spectrum(axis=ax1)
         for ds in self.datasets:
 #            ds.noise_demodulated.plot_power_spectrum(axis=ax2)
             pylab.plot(ds.noise_spectrum.frequencies(), ds.noise_spectrum.spectrum()*0.25)
-        ax1.set_title("Raw (modulated) channel noise power spectrum")
-        ax2.set_title("Demodulated TES noise power spectrum SCALED BY 1/4")
     
     
     def update_demodulation(self, relative_response):
