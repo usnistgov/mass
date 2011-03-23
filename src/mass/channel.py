@@ -1089,7 +1089,8 @@ class MicrocalDataSet(object):
 
         for ctr_phase in phases:
             valid_ph = numpy.logical_and(valid,
-                                         numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.05)
+                                         numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
+            print valid_ph.sum(),"   ",
             mean = self.p_filt_value[valid_ph].mean()
             median = numpy.median(self.p_filt_value[valid_ph])
             corrections.append(mean) # not obvious that mean vs median matters
@@ -1126,14 +1127,15 @@ class MicrocalDataSet(object):
     def fit_mn_kalpha(self, prange, type='phc',**kwargs):
         all_values={'filt': self.p_filt_value,
                     'phc': self.p_filt_value_phc,
-#                    'dc': self.p_filt_value_dc,
+                    'dc': self.p_filt_value_dc,
                     }[type]
         good_values = all_values[self.cuts.good()]
         contents,bin_edges = numpy.histogram(good_values, 200, prange)
         print "%d events pass cuts; %d are in histogram range"%(len(good_values),contents.sum())
         bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
         fitter = fluorescence_lines.MnKAlphaFitter()
-        fitter.fit(contents, bin_ctrs, **kwargs)
+        params, covar = fitter.fit(contents, bin_ctrs, **kwargs)
+        print 'Resolution: %5.2f +- %5.2f eV'%(params[0],numpy.sqrt(covar[0,0]))
 
 
 

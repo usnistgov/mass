@@ -380,7 +380,7 @@ class BaseChannelGroup(object):
             dt = (numpy.arange(ds0.nSamples)-ds0.nPresamples)*ds0.timebase*1e3
             ax0 = pylab.subplot(441)
         crosstalk = []
-        from numpy import dot
+        dot = numpy.dot
         if self.datasets[0].noise_autocorr is None:
             self.compute_noise_spectra()
         
@@ -473,7 +473,9 @@ class BaseChannelGroup(object):
                     line, = pylab.plot(x, y, 'r')
                     offset = x[0]
                     slope = (y[1]-y[0])/(x[1]-x[0])
-                    ds.energy = ds.p_filt_value[good] - (ds.p_pretrig_mean[good]-offset)*slope    
+                    if ds.p_filt_value_phc[0]==0: ds.p_filt_value_phc=ds.p_filt_value
+                    ds.p_filt_value_dc = ds.p_filt_value_phc - (ds.p_pretrig_mean-offset)*slope
+                    ds.energy = ds.p_filt_value_dc[good]    
                     print offset,slope, ' corrects the energy.  Hit button 2 to move on, or try again.'
                     x,y = [],[]
                 
