@@ -197,7 +197,7 @@ class MnKAlphaFitter(object):
             
             de = numpy.sqrt(covariance[0,0])
             plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
-            axis.plot(pulseheights, self.lastFitResult, color=color)
+            axis.plot(pulseheights, self.lastFitResult, color='black')
             axis.legend(loc='upper left')
         return fitparams, covariance
 

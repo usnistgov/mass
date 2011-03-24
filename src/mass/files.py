@@ -150,6 +150,7 @@ class LJHFile(MicrocalFile):
         
         # I could imagine making this one non-fatal, but for now make it fatal:
         if self.nPulses * (6+2*self.nSamples) != self.binary_size:
+#            pass
             raise IOError("The binary size of the file (%d) is not an integer multiple of the pulse size %d"
                           %(self.binary_size, 6+2*self.nSamples))
 

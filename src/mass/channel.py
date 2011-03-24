@@ -5,6 +5,7 @@ Created on Feb 16, 2011
 """
 
 import numpy
+import scipy
 import scipy.linalg
 import scipy.optimize
 from matplotlib import pylab
@@ -916,10 +917,10 @@ class MicrocalDataSet(object):
         conv = numpy.zeros((5, seg_size), dtype=numpy.float)
         for i in range(5):
             if i-4 == 0:
-                conv[i,:] = (filter*self.data[:,i:]).sum(axis=1)
+                conv[i,:] = (filter*self.data[:seg_size,i:]).sum(axis=1)
             else:
-                print conv[i,:].shape, self.data.shape, (filter*self.data[:,i:i-4]).shape
-                conv[i,:] = (filter*self.data[:,i:i-4]).sum(axis=1)
+#                print conv[i,:].shape, self.data.shape, (filter*self.data[:seg_size,i:i-4]).shape
+                conv[i,:] = (filter*self.data[:seg_size,i:i-4]).sum(axis=1)
         param = numpy.dot(fit_array, conv)
         peak_x = -0.5*param[1,:]/param[2,:]
         peak_y = param[0,:] - 0.25*param[1,:]**2 / param[2,:] 
@@ -1122,6 +1123,32 @@ class MicrocalDataSet(object):
             pylab.xlim([-.55,.55])
             if ylim is not None:
                 pylab.ylim(ylim)
+
+
+    def auto_drift_correct(self, prange, plot=False):
+        if plot:
+            pylab.clf()
+        if self.p_filt_value_phc[0] ==0:
+            self.p_filt_value_phc = self.p_filt_value.copy()
+            
+        range_ctr = 0.5*(prange[0]+prange[1])
+        half_range = numpy.abs(range_ctr-prange[0])
+        valid = numpy.logical_and(self.cuts.good(), numpy.abs(self.p_filt_value_phc-range_ctr)<half_range)
+        data = self.p_filt_value_phc[valid]
+        corrector = self.p_pretrig_mean[valid]
+        mean_pretrig_mean = corrector.mean()
+        corrector -= mean_pretrig_mean
+        slopes = numpy.arange(-.5,2.4,.1)
+        rms_widths=[]
+        for sl in slopes:
+            rms = (data+corrector*sl).std()
+            rms_widths.append(rms)
+            print "%6.3f %7.2f"%(sl,rms)
+            if plot: pylab.plot(sl,rms,'bo')
+        poly_coef = scipy.polyfit(slopes, rms_widths, 2)
+        best_slope = -0.5*poly_coef[1]/poly_coef[0]
+        print "Drift correction requires slope %6.3f"%best_slope
+        self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
 
 
     def fit_mn_kalpha(self, prange, type='phc',**kwargs):

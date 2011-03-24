@@ -153,7 +153,6 @@ class BaseChannelGroup(object):
         <cut_crosstalk> ????
         """
         
-        nhits = numpy.array([d.p_pulse_average>50 for d in self.datasets]).sum(axis=0)
         masks = []
         if use_gains:
             if gains is None:
@@ -170,7 +169,7 @@ class BaseChannelGroup(object):
                 for gain,dataset in zip(gains,self.datasets):
                     m = numpy.abs(dataset.p_pulse_average/gain-middle) <= abslim
                     if cut_crosstalk:
-                        m = numpy.logical_and(m, nhits==1)
+                        m = numpy.logical_and(m, self.nhits==1)
                     masks.append(m)
         elif pulse_peak_ranges is not None:
             if isinstance(pulse_peak_ranges[0], (int,float)) and len(pulse_peak_ranges)==2:
@@ -181,7 +180,7 @@ class BaseChannelGroup(object):
                 for gain,dataset in zip(gains,self.datasets):
                     m = numpy.abs(dataset.p_peak_value/gain-middle) <= abslim
                     if cut_crosstalk:
-                        m = numpy.logical_and(m, nhits==1)
+                        m = numpy.logical_and(m, self.nhits==1)
                     masks.append(m)
         else:
             raise ValueError("Call make_masks with only one of pulse_avg_ranges and pulse_peak_ranges specified.")
@@ -267,6 +266,23 @@ class BaseChannelGroup(object):
             pylab.xlabel("Time past trigger (ms)")
 
 
+    def plot_raw_spectra(self):
+        """Plot distribution of raw pulse averages, with and without gain"""
+        ds = self.datasets[0]
+        meangain = ds.p_pulse_average[ds.cuts.good()].mean()/ds.gain
+        pylab.clf()
+        pylab.subplot(211)
+        for ds in self.datasets:
+            gain = ds.gain
+            _=pylab.hist(ds.p_pulse_average[ds.cuts.good()], 200, [meangain*.8, meangain*1.2], alpha=0.5)
+            
+        pylab.subplot(212)
+        for ds in self.datasets:
+            gain = ds.gain
+            _=pylab.hist(ds.p_pulse_average[ds.cuts.good()]/gain, 200, [meangain*.8,meangain*1.2], alpha=0.5)
+        return meangain
+        
+
     def set_gains(self, gains):
         """Set the datasets to have the given gains.  These gains will be used when
         averaging pulses in self.compute_average_pulse() and in ...***?"""
@@ -321,7 +337,7 @@ class BaseChannelGroup(object):
         
     
     def summarize_filters(self):
-        rms_fwhm = numpy.sqrt(numpy.log(2)*8)
+        rms_fwhm = numpy.sqrt(numpy.log(2)*8) # FWHM is this much times the RMS
         print 'V/dV for time, Fourier filters: '
         for f in self.filters:
             rms = numpy.array((f.variances['noconst'],
@@ -794,6 +810,7 @@ class CDMGroup(BaseChannelGroup):
         ax2.set_title("Demodulated TES noise power spectrum SCALED BY 1/4")
         for a in axes:
             a.set_color_cycle(("blue","#cccc00","green","red"))
+            a.set_xlabel("Frequency (Hz)")
             a.loglog()
             a.grid()
         
