@@ -19,6 +19,7 @@ except ImportError:
 # MASS modules
 import controller
 import files
+import utilities
 import power_spectrum
 import fluorescence_lines
 
@@ -685,8 +686,11 @@ class Filter(object):
         self.compute(fmax=fmax, f_3db=f_3db)
 
         
-    def compute(self, fmax=None, f_3db=None):
-        """"""
+    def compute(self, fmax=None, f_3db=None, use_toeplitz_solver=True):
+        """
+        Compute a set of filters.  This is called once on construction, but you can call it
+        again if you want to change the frequency cutoff or rolloff points.
+        """
 #        if fmax is not None:
 #            raise NotImplementedError("Use of fmax on Filters is not yet supported.")
 #        if f_3db is not None:
@@ -732,9 +736,16 @@ class Filter(object):
             else:
                 avg_signal = self.avg_signal
             assert len(self.noise_autocorr) >= n
+            
             R =  scipy.linalg.toeplitz(self.noise_autocorr[:n]/self.peak_signal**2)
-            Rinv_sig = numpy.linalg.solve(R, avg_signal)
-            Rinv_1 = numpy.linalg.solve(R, numpy.ones(n))
+            if use_toeplitz_solver:
+                ts = utilities.ToeplitzSolver(self.noise_autocorr[:n]/self.peak_signal**2, 
+                                              symmetric=True)
+                Rinv_sig = ts(avg_signal)
+                Rinv_1 = ts(numpy.ones(n))
+            else:
+                Rinv_sig = numpy.linalg.solve(R, avg_signal)
+                Rinv_1 = numpy.linalg.solve(R, numpy.ones(n))
             
             self.filt_noconst = Rinv_1.sum()*Rinv_sig - Rinv_sig.sum()*Rinv_1
 
@@ -909,7 +920,7 @@ class MicrocalDataSet(object):
         fit_array = numpy.array((
                 ( -6,24, 34,24,-6),
                 (-14,-7,  0, 7,14),
-                ( 10,-5,-10,-5,10)), dtype=numpy.float)/35.0
+                ( 10,-5,-10,-5,10)), dtype=numpy.float)/70.0
         
         assert len(filter)+4 == self.nSamples
 
@@ -1091,7 +1102,7 @@ class MicrocalDataSet(object):
         for ctr_phase in phases:
             valid_ph = numpy.logical_and(valid,
                                          numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
-            print valid_ph.sum(),"   ",
+#            print valid_ph.sum(),"   ",
             mean = self.p_filt_value[valid_ph].mean()
             median = numpy.median(self.p_filt_value[valid_ph])
             corrections.append(mean) # not obvious that mean vs median matters
@@ -1143,7 +1154,7 @@ class MicrocalDataSet(object):
         for sl in slopes:
             rms = (data+corrector*sl).std()
             rms_widths.append(rms)
-            print "%6.3f %7.2f"%(sl,rms)
+#            print "%6.3f %7.2f"%(sl,rms)
             if plot: pylab.plot(sl,rms,'bo')
         poly_coef = scipy.polyfit(slopes, rms_widths, 2)
         best_slope = -0.5*poly_coef[1]/poly_coef[0]
@@ -1163,6 +1174,7 @@ class MicrocalDataSet(object):
         fitter = fluorescence_lines.MnKAlphaFitter()
         params, covar = fitter.fit(contents, bin_ctrs, **kwargs)
         print 'Resolution: %5.2f +- %5.2f eV'%(params[0],numpy.sqrt(covar[0,0]))
+        return params, covar
 
 
 
