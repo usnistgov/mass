@@ -1,6 +1,9 @@
 """
 mass.utilities
 
+Several math utilities, including:
+* Toeplitz matrix solver (useful for computing time-domain optimal filters)
+
 J. Fowler, NIST
 
 March 24, 2011
@@ -16,7 +19,25 @@ class ToeplitzSolver(object):
     vector R_k  with k=-(N-1),-(N-2),...-1,0,1,2,...(N-1).
     A symmetric Toeplitz matrix has R_k = R_(-k).
 
-    Initialize the object with the R vector.
+    Initialize the object with the R vector. Careful!  Notice that R is to be specified
+    differently depending on the choice of symmetric vs asymmetric matrix.
+    
+    Typical usage for a symmetric Toeplitz matrix:
+    ac = compute_autocorrelation(...) # ac[0] is 0-lag, ac[1] is lag-1, etc..
+    rhs_vect = compute_rhs_vector(...)  # v and ac should have same length
+    ts = ToeplitzSolver(ac, symmetric=True)
+    solution_vect = ts(rhs_vect)
+    
+    The solver uses Levinson's algorithm, as explained in Numerical Recipes, 3rd
+    Edition section 2.8.2.  For my exact notation, see Joe Fowler's NIST lab book 2
+    pages 148-151 (March 30, 2011).
+    
+    Timing results from my 4-core 2010-era Mac show that the calculation (as implemented
+    on March 31, 2011; with changes, your results may vary) could solve a symmetric 
+    N=3000 system once in 0.25 seconds, N=5000 in 0.50 seconds, N=8192 in 1.0 seconds, 
+    N=10k in 1.4 seconds, and N=20k in 4.6 seconds.  Additional solutions to the same
+    matrix should take between 0.5 and 0.6 times as long, since the one-time precomputation
+    step is nearly as long as the per-solution computations.
     """
 
     def __init__(self, R, symmetric=True):
@@ -24,11 +45,11 @@ class ToeplitzSolver(object):
         The meaning of <R> depends on <symmetric>.  In both cases, it represents
         the values in an NxN Toeplitz matrix.
         
-        When <symmetric> is True, <R> is of length N and equals both the 0-row and
+        When <symmetric> is True, <R> is of length N and gives both the 0-row and
         the 0-column of the matrix.
         
-        When <symmetric> is False, <R> is of length (2N-1), matrix T_i is represented by 
-        R[i+N-1].  Thus R[N-1] is the main diagonal, R[0] is the upper right value of T,
+        When <symmetric> is False, <R> is of length (2N-1), and matrix T_ij is represented by 
+        R[i-j+N-1].  Thus R[N-1] is the main diagonal, R[0] is the upper right value of T,
         and R[2*N-2] is the lower left value of T. 
         """
         
@@ -45,6 +66,11 @@ class ToeplitzSolver(object):
         # For symmetric matrices, T_(0,0) and T_(1,0) are R[0] and R[1].
         # For non-symmetric, they are R[n-1] and R[n].
         self.R = numpy.array(R).astype(float)
+        
+        # It would be good to have a precomputation step for asymmetric matrices, too,
+        # but I don't need it now and don't want to spend the time!
+        if symmetric:
+            self.__precompute_symmetric()
 
 
     def __call__(self, y):
@@ -82,6 +108,27 @@ class ToeplitzSolver(object):
             h[:K] -= h[K]*gsave[K-1::-1]
 
 
+    def __precompute_symmetric(self):
+        """Precompute some """
+        n = self.n
+        assert self.symmetric
+
+        zeros = lambda n: numpy.zeros(n, dtype=numpy.float)
+        g = zeros(n)
+        self.xg_denom = zeros(n)
+        self.gK_leading = zeros(n)
+
+        R = self.R.copy()
+        R0 = R[0]
+        g[0] = R[1]/R0
+
+        for K in range(1, n): # K = M+1
+            self.xg_denom[K] = (R[1:K+1]*g[:K]).sum() - R0
+            if K==n-1:  return
+            g[K] = ((R[K:0:-1]*g[:K]).sum()-R[K+1])/self.xg_denom[K]
+            self.gK_leading[K] = g[K]
+            g[:K] -= g[K]*g[K-1::-1]
+            
     def solve_symmetric(self, y):
         """Return the solution x when Tx=y for a symmetric Toeplitz matrix T."""
         n = self.n
@@ -98,15 +145,11 @@ class ToeplitzSolver(object):
         g[0] = R[1]/R0
 
         for K in range(1, n): # K = M+1
-            # Steps b, c, and d (the exist test)
-            x_denom = (R[1:K+1]*g[:K]).sum() - R0
-            x[K] = ((R[K:0:-1]*x[:K]).sum()-y[K])/x_denom
+            # Steps b, c, and d (the exit test)
+            x[K] = ((R[K:0:-1]*x[:K]).sum()-y[K])/self.xg_denom[K]
             x[:K] -= x[K]*g[K-1::-1]
             if K==n-1:  return x
 
-            # Step e
-            g_denom = (R[1:K+1]*g[:K]).sum() - R0
-            g[K] = ((R[K:0:-1]*g[:K]).sum()-R[K+1])/g_denom
-
-            # Step f
+            # Steps e and f
+            g[K] = self.gK_leading[K]
             g[:K] -= g[K]*g[K-1::-1]
