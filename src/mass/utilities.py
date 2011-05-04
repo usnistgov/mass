@@ -11,6 +11,22 @@ March 24, 2011
 
 import numpy
 
+# plot in step-histogram format
+def plot_as_stepped_hist(axis, bin_ctrs, data, **kwargs):
+    "Plot onto <axis> the histogram <bin_ctrs>,<data>"
+    x = numpy.zeros(2+2*len(bin_ctrs), dtype=numpy.float)
+    y = numpy.zeros_like(x)
+    dx = bin_ctrs[1]-bin_ctrs[0]
+    x[0:-2:2] = bin_ctrs-dx*.5
+    x[1:-2:2] = bin_ctrs-dx*.5
+    x[-2:] = bin_ctrs[-1]+dx*.5
+    y[1:-1:2] = data
+    y[2:-1:2] = data
+    axis.plot(x, y, **kwargs)
+    axis.set_xlim([x[0],x[-1]])
+
+
+
 class ToeplitzSolver(object):
     """
     Solve a Toeplitz matrix for one or more vectors.
