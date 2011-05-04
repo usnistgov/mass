@@ -3,6 +3,10 @@ fluorescence_lines.py
 
 Tools for fitting and simulating X-ray fluorescence lines.
 
+Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+Phys Rev A56 (#6) pages 4554ff (1997 December).  See online at
+http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
+
 Joe Fowler, NIST
 
 March 9, 2011
@@ -12,6 +16,7 @@ November 24, 2010 : started as mn_kalpha.py
 import numpy
 from matplotlib import pylab
 import scipy.optimize, scipy.stats, scipy.interpolate
+import mass
 
 def lorentzian(x, fwhm):
     """Return the value of Lorentzian prob distribution function at <x> (may be a numpy array)
@@ -38,7 +43,7 @@ class SpectralLine(object):
     
     def pdf(self, x):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
-        x = numpy.asarray(x)
+        x = numpy.asarray(x, dtype=numpy.float)
         result = numpy.zeros_like(x)
         for e,f,a in zip(self.energies, self.fwhm, self.amplitudes):
             result += a*lorentzian(x-e, f)
@@ -46,7 +51,7 @@ class SpectralLine(object):
     
     def cdf(self, x):
         """Cumulative distribution function where <x> = set of energies."""
-        x = numpy.asarray(x)
+        x = numpy.asarray(x, dtype=numpy.float)
         result = numpy.zeros_like(x)
         for e,f,a in zip(self.energies, self.fwhm, self.amplitudes):
             result += a*lorentzian_cdf(x-e, f)
@@ -63,6 +68,7 @@ class MnKAlpha(SpectralLine):
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
+    name = 'Manganese K-alpha'    
     
     # The approximation is as a series of 8 Lorentzians (6 for KA1,2 for KA2)
     energies = 5800+numpy.array((98.853,97.867,94.829,96.532,99.417,102.712,87.743,86.495))
@@ -70,21 +76,40 @@ class MnKAlpha(SpectralLine):
     peak_heights = numpy.array((790,264,68,96,71,10,372,100),dtype=numpy.float)/1e3
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
+    kalpha1_energy = 5898.802 # eV        
+
+
+    
+class CuKAlpha(SpectralLine):
+    """Function object to approximate the copper K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December).
+    
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    name = 'Copper K-alpha'
+            
+    # The approximation is 4 of Lorentzians (2 for KA1 for KA2)
+    energies = numpy.array((8047.8372, 8045.3672, 8027.9935, 8026.5041))
+    fwhm = numpy.array((2.285, 3.358, 2.667, 3.571))
+    peak_heights = numpy.array((957,90,334,111), dtype=numpy.float)/1e3
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    kalpha1_energy = 8047.83 # eV        
 
         
     
-class MnKAlpha_distribution(scipy.stats.rv_continuous):
-    """For producing random variates of the Mn K Alpha energy distribution"""
+class MultiLorentzian_distribution(scipy.stats.rv_continuous):
+    """For producing random variates of the an energy distribution having the form
+    of several Lorentzians summed together."""
     
-    def __init__(self, *args, **kwargs):
-        scipy.stats.rv_continuous.__init__(self, *args, **kwargs)
-        self.distribution = MnKAlpha()
+    def __init__(self, epoints, *args, **kwargs):
+        """<epoints> is a vector of energy points, densely collected at places
+        where the distribution changes rapidly.
+        <args> and <kwargs> are passed on to scipy.stats.rv_continuous"""
 
-        epoints = numpy.hstack(((0,3000,5000,5500),
-                                numpy.arange(5800,5880.5),
-                                numpy.arange(5880,5920.-.025,.05),
-                                numpy.arange(5920,6001),
-                                (6100, 6300, 6600,7000,8000,12000)))*1.0
+        scipy.stats.rv_continuous.__init__(self, *args, **kwargs)
         epoints = epoints[numpy.logical_and(epoints>=self.a, epoints<=self.b)]
         epoints = numpy.hstack((self.a, epoints, self.b))
         cdf = self.distribution.cdf(epoints)
@@ -96,41 +121,40 @@ class MnKAlpha_distribution(scipy.stats.rv_continuous):
         # the prob distrib function and the cumulative distrib function
         self._ppf = scipy.interpolate.interp1d(cdf, epoints, kind='linear')
         self._pdf = self.distribution
-        self._cdf = lambda x: (self.distribution.cdf()-self.minCDF)/(self.maxCDF-self.minCDF)
+        self._cdf = lambda x: (self.distribution.cdf(x)-self.minCDF)/(self.maxCDF-self.minCDF)
         
 
 
-class MnKAlphaFitter(object):
-    "Fits a Mn K alpha spectrum for energy shift and scale, amplitude, and resolution"
+class MnKAlpha_distribution(MultiLorentzian_distribution):
+    """For producing random variates of the manganese K Alpha energy distribution"""
     
-    def __init__(self):
-        self.spect = MnKAlpha()
-        # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
+    def __init__(self, *args, **kwargs):
+        self.distribution = MnKAlpha()
+        epoints = numpy.hstack(((0,3000,5000,5500),
+                                numpy.arange(5800,5880.5),
+                                numpy.arange(5880,5920.-.025,.05),
+                                numpy.arange(5920,6001),
+                                (6100, 6300, 6600,7000,8000,12000)))*1.0
+        MultiLorentzian_distribution.__init__(self, epoints, *args, **kwargs)
         
-    def __guess_starting_params(self, data, binctrs):
-        """If the cuts are tight enough, then we can estimate the locations of the
-        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
-        
-        n = data.sum()
-        sum_d = (data*binctrs).sum()
-        sum_d2 = (data*binctrs*binctrs).sum()
-        mean_d = sum_d/n
-        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
-#        print n, sum_d, sum_d2, mean_d, rms_d
-        
-        ph_ka1 = mean_d + rms_d*.65
-        ph_ka2 = mean_d - rms_d
-        
-#        bin_ka1 = data.argmax()
-#        ph_ka1 = binctrs[bin_ka1]
-#        ph_ka2 = binctrs[data[:bin_ka1-7].argmax()]
-        dph = ph_ka1-ph_ka2
-        dE = 11.1 # eV difference between KAlpha peaks
-        ampl = data.max() *9.4
-        res = 3.4
-        baseline = 0.0
-        return [res, ph_ka1, dph/dE, ampl, baseline]
+
+
+class CuKAlpha_distribution(MultiLorentzian_distribution):
+    """For producing random variates of the copper K Alpha energy distribution"""
     
+    def __init__(self, *args, **kwargs):
+        self.distribution = CuKAlpha()
+        epoints = numpy.hstack(((0,3000,6000,7000,7500),
+                                numpy.arange(7800,8010.5),
+                                numpy.arange(8011,8060.-.025,.05),
+                                numpy.arange(8060,8201),
+                                (8300, 8500, 8800, 9300, 12000)))*1.0
+        MultiLorentzian_distribution.__init__(self, epoints, *args, **kwargs)
+        
+
+
+class SpectralLineFitter(object):
+    def __init__(self): pass
     
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label=""):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
@@ -149,12 +173,12 @@ class MnKAlphaFitter(object):
         try:
             _,_,_,_,_ = params
         except:
-            params = self.__guess_starting_params(data, pulseheights)
+            params = self.guess_starting_params(data, pulseheights)
 #            print 'Guessed parameters: ',params
 #            print 'PH range: ',pulseheights[0],pulseheights[-1]
         
         def fitfunc(params, x):
-            E_kalpha1 = 5898.802 # eV
+            E_kalpha1 = self.spect.kalpha1_energy
             
             energy = (x-params[1])/params[2] + E_kalpha1
             spectrum = self.spect(energy)
@@ -182,25 +206,74 @@ class MnKAlphaFitter(object):
                 pylab.clf()
                 axis = pylab.subplot(111)
                 
-            # plot in step-histogram format
-            def plot_as_stepped_hist(axis, bin_ctrs, data, **kwargs):
-                x = numpy.zeros(2+2*len(bin_ctrs), dtype=numpy.float)
-                y = numpy.zeros_like(x)
-                dx = bin_ctrs[1]-bin_ctrs[0]
-                x[0:-2:2] = bin_ctrs-dx
-                x[1:-2:2] = bin_ctrs-dx
-                x[-2:] = bin_ctrs[-1]+dx
-                y[1:-1:2] = data
-                y[2:-1:2] = data
-                axis.plot(x, y, **kwargs)
-                axis.set_xlim([x[0],x[-1]])
-            
             de = numpy.sqrt(covariance[0,0])
-            plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
+            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.plot(pulseheights, self.lastFitResult, color='black')
             axis.legend(loc='upper left')
         return fitparams, covariance
 
+
+
+class MnKAlphaFitter(SpectralLineFitter):
+    "Fits a Mn K alpha spectrum for energy shift and scale, amplitude, and resolution"
+    
+    def __init__(self):
+        self.spect = MnKAlpha()
+        super(self.__class__, self).__init__()
+        # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
+        
+    def guess_starting_params(self, data, binctrs):
+        """If the cuts are tight enough, then we can estimate the locations of the
+        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
+        
+        n = data.sum()
+        sum_d = (data*binctrs).sum()
+        sum_d2 = (data*binctrs*binctrs).sum()
+        mean_d = sum_d/n
+        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+#        print n, sum_d, sum_d2, mean_d, rms_d
+        
+        ph_ka1 = mean_d + rms_d*.65
+        ph_ka2 = mean_d - rms_d
+
+        dph = ph_ka1-ph_ka2
+        dE = 11.1 # eV difference between KAlpha peaks
+        ampl = data.max() *9.4
+        res = 3.4
+        baseline = 0.0
+        return [res, ph_ka1, dph/dE, ampl, baseline]
+
+
+
+class CuKAlphaFitter(SpectralLineFitter):
+    "Fits a Cu K alpha spectrum for energy shift and scale, amplitude, and resolution"
+    
+    def __init__(self):
+        self.spect = CuKAlpha()
+        super(self.__class__, self).__init__()
+        # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
+        
+    def guess_starting_params(self, data, binctrs):
+        """If the cuts are tight enough, then we can estimate the locations of the
+        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
+        
+        n = data.sum()
+        sum_d = (data*binctrs).sum()
+        sum_d2 = (data*binctrs*binctrs).sum()
+        mean_d = sum_d/n
+        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+#        print n, sum_d, sum_d2, mean_d, rms_d
+        
+        ph_ka1 = mean_d + rms_d*.65
+        ph_ka2 = mean_d - rms_d
+
+        dph = ph_ka1-ph_ka2
+        dE = 19.94 # eV difference between KAlpha peaks
+        ampl = data.max() *9.4
+        res = 3.7
+        baseline = 0.0
+        return [res, ph_ka1, dph/dE, ampl, baseline]
+    
 
 
 def smear(f, fwhm, stepsize=1.0):
@@ -268,7 +341,11 @@ def plot_spectrum(spectrumf=MnKAlpha(), resolutions=(2,3,4,5,6,7,8,10,12),
         pylab.plot(e,sp, label="%2d eV"%r, lw=2)
         
         # Find the peak, valley, peak
-        e2,ev,e1 = 5887.7,5892, 5898.801
+        if spectrumf.name == 'Manganese K-alpha':
+            e2,ev,e1 = 5887.7,5892, 5898.801
+        elif spectrumf.name == 'Copper K-alpha':
+            e2,ev,e1 = 8027.89,8036.6,8047.83
+            
         p1 = sp[numpy.abs(e-e1)<2].max()
         if r < 8.12:
             p2 = sp[numpy.abs(e-e2)<2].max()
@@ -279,6 +356,6 @@ def plot_spectrum(spectrumf=MnKAlpha(), resolutions=(2,3,4,5,6,7,8,10,12),
     pylab.ylim([0,1.13])
     pylab.legend(loc='upper left')
     
-    pylab.title("Manganese K-alpha lines at various resolutions (FWHM of Gaussian)")
+    pylab.title("%s lines at various resolutions (FWHM of Gaussian)"%spectrumf.name)
     pylab.xlabel("Energy (eV)")
     pylab.ylabel("Intensity (arb.)")
