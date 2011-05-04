@@ -5,7 +5,6 @@ Created on Feb 16, 2011
 """
 
 import numpy
-import scipy
 import scipy.linalg
 import scipy.optimize
 from matplotlib import pylab
@@ -691,8 +690,6 @@ class Filter(object):
         Compute a set of filters.  This is called once on construction, but you can call it
         again if you want to change the frequency cutoff or rolloff points.
         """
-#        if fmax is not None:
-#            raise NotImplementedError("Use of fmax on Filters is not yet supported.")
 #        if f_3db is not None:
 #            raise NotImplementedError("Use of f_3db on Filters is not yet supported.")
         
@@ -1074,8 +1071,14 @@ class MicrocalDataSet(object):
         self.cuts = Cuts(self.nPulses)
     
     
-    def phase_correct(self, ylim=None, plot=True):
-        """Apply a correction for pulse variation with arrival phase"""
+    def phase_correct(self, ylim=None, times=None, plot=True):
+        """Apply a correction for pulse variation with arrival phase.
+        
+        ylim:  use only filtered values in this range for correction 
+        times: if not None, use this range of p_timestamps instead of all data (units are millisec
+               since server started--ugly but that's what we have to work with)
+        plot:  whether to display the result
+        """
         
         # Choose number and size of bins
         phase_step=.05
@@ -1098,6 +1101,9 @@ class MicrocalDataSet(object):
         if ylim is not None:
             valid = numpy.logical_and(valid, self.p_filt_value<ylim[1])
             valid = numpy.logical_and(valid, self.p_filt_value>ylim[0])
+        if times is not None:
+            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
+            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
 
         for ctr_phase in phases:
             valid_ph = numpy.logical_and(valid,
@@ -1136,7 +1142,14 @@ class MicrocalDataSet(object):
                 pylab.ylim(ylim)
 
 
-    def auto_drift_correct(self, prange, plot=False):
+    def auto_drift_correct(self, prange, times=None, plot=False):
+        """Apply a correction for pulse variation with arrival phase.
+        
+        ylim:  use only filtered values in this range for correction 
+        times: if not None, use this range of p_timestamps instead of all data (units are millisec
+               since server started--ugly but that's what we have to work with)
+        plot:  whether to display the result
+        """
         if plot:
             pylab.clf()
         if self.p_filt_value_phc[0] ==0:
@@ -1145,6 +1158,10 @@ class MicrocalDataSet(object):
         range_ctr = 0.5*(prange[0]+prange[1])
         half_range = numpy.abs(range_ctr-prange[0])
         valid = numpy.logical_and(self.cuts.good(), numpy.abs(self.p_filt_value_phc-range_ctr)<half_range)
+        if times is not None:
+            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
+            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+
         data = self.p_filt_value_phc[valid]
         corrector = self.p_pretrig_mean[valid]
         mean_pretrig_mean = corrector.mean()
@@ -1162,12 +1179,16 @@ class MicrocalDataSet(object):
         self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
 
 
-    def fit_mn_kalpha(self, prange, type='phc',**kwargs):
+    def fit_mn_kalpha(self, prange, times=None, type='phc',**kwargs):
         all_values={'filt': self.p_filt_value,
                     'phc': self.p_filt_value_phc,
                     'dc': self.p_filt_value_dc,
                     }[type]
-        good_values = all_values[self.cuts.good()]
+        valid = self.cuts.good()
+        if times is not None:
+            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
+            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+        good_values = all_values[valid]
         contents,bin_edges = numpy.histogram(good_values, 200, prange)
         print "%d events pass cuts; %d are in histogram range"%(len(good_values),contents.sum())
         bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
