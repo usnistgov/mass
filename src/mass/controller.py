@@ -6,7 +6,7 @@ Created on Feb 16, 2011
 
 print 'Loading controller module.'
 
-import numpy
+#import numpy
 from param_dict_base import PrmDictBase 
 
 class AnalysisControl(PrmDictBase):

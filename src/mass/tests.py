@@ -148,7 +148,7 @@ class TestToeplitzSpeed(object):
         
         ac = self.autocorr[:size]
         v = numpy.random.standard_normal(size)
-        nv=-v
+#        nv=-v
 
         t0 = time.time()
         solver = utilities.ToeplitzSolver(ac, symmetric=True)

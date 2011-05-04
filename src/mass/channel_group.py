@@ -16,7 +16,6 @@ Author: Joe Fowler, NIST
 Started March 2, 2011
 """
 
-import os.path
 import time
 import numpy
 from matplotlib import pylab
@@ -453,7 +452,8 @@ class BaseChannelGroup(object):
     
     
     def drift_correct_ptmean(self, filt_ranges):
-        "A hack, but a great simple start on drift correction using the pretrigger mean."
+        """A hack, but a great simple start on drift correction using the pretrigger mean.
+        DEPRECATED: see MicrocalDataSet.auto_drift_correct instead."""
         
         class LineDrawer(object):
             def __init__(self, figure):
@@ -559,10 +559,17 @@ class TESGroup(BaseChannelGroup):
         number of the last record."""
         if segnum == self._cached_segment:
             return self._cached_pnum_range
+        
+        first_pnum,end_pnum = -1,-1
         for chan, dset in zip(self.channels, self.datasets):
-            first_pnum, end_pnum = chan.read_segment(segnum)
+            a,b = chan.read_segment(segnum)
             dset.data = chan.data
             dset.times = chan.datafile.datatimes
+
+            # Possibly some channels are shorter than others (in TDM data)
+            # Make sure to return first_pnum,end_pnum for longest VALID channel only 
+            if a>=0: first_pnum=a
+            if b>=0: end_pnum=b
         self._cached_segment = segnum
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
