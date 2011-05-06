@@ -161,7 +161,7 @@ class SpectralLineFitter(object):
         set of histogram bins <pulseheights>.
         
         params: a 5-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
-                energy scale factor (counts/eV), amplitude, background level (per bin) ]
+                energy scale factor (counts/eV), amplitude, background level (per bin) (actually +- the sqrt of it) ]
         
         If pulseheights is None, then the parameters having pulseheight units will be returned as bin numbers.
         
@@ -180,25 +180,35 @@ class SpectralLineFitter(object):
         def fitfunc(params, x):
             E_kalpha1 = self.spect.kalpha1_energy
             
-            energy = (x-params[1])/params[2] + E_kalpha1
+            energy = (x-params[1])/numpy.abs(params[2]) + E_kalpha1
             spectrum = self.spect(energy)
             smeared = smear(spectrum, params[0], stepsize = energy[1]-energy[0])
-            return smeared * params[3] + numpy.abs(params[4])
+            return smeared * params[3] + (params[4]**2)
             
-#        def errfunc(p,x,y):
-#            d = fitfunc(p,x) - y
-#            return d/numpy.sqrt(y+5.0)
-        errfunc = lambda p, x, y: (fitfunc(p, x) - y)/numpy.sqrt(y+.5)
-
-        # Do the fit and store the parameters and the
-        fitparams, covariance, _infodict, _mesg, iflag = \
-           scipy.optimize.leastsq(errfunc, params, args = (pulseheights, data), full_output=True )
-        fitparams[0] = abs(fitparams[0])
+#        errfunc = lambda p, x, y: (fitfunc(p, x) - y)/numpy.sqrt(y+.5)
+#        errfunc = lambda p, x, y: (fitfunc(p, x) - y)/numpy.sqrt(numpy.clip(y,1,1e9))
+#
+#        # Do the fit and store the parameters and the
+#        fitparams, covariance, _infodict, _mesg, iflag = \
+#           scipy.optimize.leastsq(errfunc, params, args = (pulseheights, data), full_output=True )
+#        fitparams[0] = abs(fitparams[0])
+#        
+        def like( p, x, y):
+            ff = fitfunc(p,x)
+            return (ff-y*numpy.log(ff)).sum()
         
+        results = scipy.optimize.fmin_bfgs(like, params, args=(pulseheights,data), gtol=1e-4,disp=False, full_output = True)
+        fitparams, _fmin, _gopt, covariance, _func_calls, _grad_calls, iflag = results
+
+#        results = scipy.optimize.fmin(like, params, args=(pulseheights,data), ftol=.05, disp=False, full_ouput=True)
+#        fitparams, _fmin, _gopt, covariance, _func_calls, _grad_calls, iflag = results
+
+        fitparams[0] = abs(fitparams[0])
         self.lastFitParams = fitparams
         self.lastFitResult = fitfunc(fitparams, pulseheights)
         
-        if iflag not in (1,2,3,4): 
+#        if iflag not in (1,2,3,4): 
+        if iflag not in (0,2): 
             print "Oh no! iflag=%d"%iflag
         elif plot:
             if color is None: color='blue'
@@ -239,8 +249,8 @@ class MnKAlphaFitter(SpectralLineFitter):
         dph = ph_ka1-ph_ka2
         dE = 11.1 # eV difference between KAlpha peaks
         ampl = data.max() *9.4
-        res = 3.4
-        baseline = 0.0
+        res = 4.0
+        baseline = 0.1
         return [res, ph_ka1, dph/dE, ampl, baseline]
 
 
@@ -271,7 +281,7 @@ class CuKAlphaFitter(SpectralLineFitter):
         dE = 19.94 # eV difference between KAlpha peaks
         ampl = data.max() *9.4
         res = 3.7
-        baseline = 0.0
+        baseline = 0.1
         return [res, ph_ka1, dph/dE, ampl, baseline]
     
 
@@ -296,7 +306,7 @@ def smear(f, fwhm, stepsize=1.0):
         if Ntotal <= 2**j:
             Npad = (2**j-N)/2
             break
-    
+        
     fpadded = numpy.hstack((f, numpy.zeros(2*Npad)))
     fpadded[N:N+Npad] = f[-1]
     fpadded[N+Npad:] = f[0]

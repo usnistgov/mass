@@ -691,10 +691,11 @@ class CDMGroup(BaseChannelGroup):
         return g
         
 
-    def read_segment(self, segnum):
+    def read_segment(self, segnum, use_cache=True):
         """
         Read segment number <segnum> into memory for each of the
         channels in the group.  
+        When <use_cache> is true, we use cached value when possible
         
         Perform linear drift correction and demodulation.
         
@@ -702,7 +703,7 @@ class CDMGroup(BaseChannelGroup):
         number of the first record in that segment and 1 more than the
         number of the last record."""
 
-        if segnum == self._cached_segment:
+        if segnum == self._cached_segment and use_cache:
             return self._cached_pnum_range
 
         for chan, dset in zip(self.raw_channels, self.datasets):
@@ -712,13 +713,16 @@ class CDMGroup(BaseChannelGroup):
         # Remove linear drift
         seg_size = min([rc.data.shape[0] for rc in self.raw_channels]) # Last seg can be of unequal size!
         mod_data = numpy.zeros([self.n_channels, seg_size, self.nSamples], dtype=numpy.int32)
+        wide_holder = numpy.zeros([seg_size, self.nSamples], dtype=numpy.int32)
+        
         mod_data[0, :, :] = numpy.array(self.raw_channels[0].data[:seg_size, :])
         for i in range(1, self.n_channels):
             if self.REMOVE_INFRAME_DRIFT:
-                mod_data[i, :, 1:] = i*self.raw_channels[i].data[:seg_size,1:]
-                mod_data[i, :, 1:] += (self.n_channels-i) *self.raw_channels[i].data[:seg_size,:-1]
-                mod_data[i, :, 0] = self.n_channels*self.raw_channels[i].data[:seg_size,0]
-                mod_data[i, :, :] /= self.n_channels
+                mod_data[i, :, :] =  self.raw_channels[i].data[:seg_size,:]
+                wide_holder[:, 1:] = self.raw_channels[i].data[:seg_size,:-1]  # Careful never to mult int16 by more than 4! 
+                mod_data[i, :, 1:] *= (self.n_channels-i)   # Weight to future value
+                mod_data[i, :, 1:] += i  *wide_holder[:,1:] # Weight to prev value
+                mod_data[i, :, 1:] /= self.n_channels       # Divide by total weight
             else:
                 mod_data[i, :, :] = numpy.array(self.raw_channels[i].data[:seg_size,:])
         
