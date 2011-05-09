@@ -258,7 +258,9 @@ class BaseChannelGroup(object):
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
-        axis.set_color_cycle(("blue","gold","green","red"))
+            
+        BURNTORANGE='#cc6600'
+        axis.set_color_cycle(("blue","gold","green","red",'purple','cyan',BURNTORANGE,'brown'))
         dt = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
         for i,d in enumerate(self.datasets):
             pylab.plot(dt,d.average_pulses[id], label="Demod TES %d"%i)
@@ -279,6 +281,7 @@ class BaseChannelGroup(object):
         for ds in self.datasets:
             gain = ds.gain
             _=pylab.hist(ds.p_pulse_average[ds.cuts.good()]/gain, 200, [meangain*.8,meangain*1.2], alpha=0.5)
+            print ds.p_pulse_average[ds.cuts.good()].mean()
         return meangain
         
 
@@ -304,6 +307,10 @@ class BaseChannelGroup(object):
             
         self.filters=[]
         for i,ds in enumerate(self.datasets):
+            if ds.cuts.good().sum() < 10:
+                print 'Cannot compute filter for channel %d'%i 
+                self.filters.append(None)
+                continue
             print "Computing filter %d of %d"%(i, self.n_channels)
             avg_signal = ds.average_pulses[i]
             f = mass.channel.Filter(avg_signal, self.nPresamples, ds.noise_spectrum.spectrum(),
@@ -368,20 +375,23 @@ class BaseChannelGroup(object):
                 dset.p_filt_value[first:end] = peak_y
     
     
-    def plot_crosstalk(self, xlim=None, ylim=None):
+    def plot_crosstalk(self, xlim=None, ylim=None, use_legend=True):
         pylab.clf()
         dt = (numpy.arange(self.nSamples)-self.nPresamples)*1e3*self.timebase
-        for i in range(4):
-            ax=pylab.subplot(221+i)
+        
+        ndet = self.n_channels
+        plots_nx, plots_ny = ndet/2, 2
+        for i in range(ndet):
+            ax=pylab.subplot(plots_nx, plots_ny, 1+i)
             self.plot_average_pulses(i, axis=ax)
-            pylab.plot(dt,self.datasets[i].average_pulses[i]/100,'k', label="Main pulse/100")
+            pylab.plot(dt,self.datasets[i].average_pulses[i]/100,'k--', label="Main pulse/100")
             if xlim is None:
                 xlim=[-.2,.2]
             if ylim is None:
                 ylim=[-200,200]
             pylab.xlim(xlim)
             pylab.ylim(ylim)
-            pylab.legend(loc='upper left')
+            if use_legend: pylab.legend(loc='upper left')
             pylab.grid()
             pylab.title("Mean record when TES %d is hit"%i)
     
@@ -389,11 +399,13 @@ class BaseChannelGroup(object):
     def estimate_crosstalk(self, plot=True):
         """Work in progress..."""
 
+        NMUX = self.n_channels
+
         if plot: 
             pylab.clf()
             ds0 = self.datasets[0]
             dt = (numpy.arange(ds0.nSamples)-ds0.nPresamples)*ds0.timebase*1e3
-            ax0 = pylab.subplot(441)
+            ax0 = pylab.subplot(NMUX,NMUX,1)
         crosstalk = []
         dot = numpy.dot
         if self.datasets[0].noise_autocorr is None:
@@ -432,7 +444,7 @@ class BaseChannelGroup(object):
                 print "%8.4f %8.4f"%(dot(sig,qp), dot(sig,qd))
                 ct.append(dot(sig,qp)) # row i, col j
                 if plot and (i != j):
-                    ax = pylab.subplot(4,4,1+4*j+i, sharex=ax0, sharey=ax0) # row j, col i
+                    ax = pylab.subplot(NMUX,NMUX,1+NMUX*j+i, sharex=ax0, sharey=ax0) # row j, col i
                     sig2 = sig-dot(sig,qp)*ds.average_pulses[i]
                     sig3 = sig2-dot(sig,qd)*ds.pulse_deriv
                     pylab.plot(dt,sig,color='green')
