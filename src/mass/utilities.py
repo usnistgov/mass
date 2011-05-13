@@ -219,7 +219,7 @@ class MaximumLikelihoodHistogramFitter(object):
     """
     
     DONE=4     # This many steps with negligible "chisq" change cause normal exit
-    ITMAX=200  # This many steps cause RuntimeError for excessive iterations
+    ITMAX=500  # This many steps cause RuntimeError for excessive iterations
     
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None, 
                  epsilon=1e-5, TOL=1e-3):
@@ -337,10 +337,12 @@ class MaximumLikelihoodHistogramFitter(object):
         atry = self.params.copy()
         ochisq = self.chisq
         for iter in range(self.ITMAX):
-            if done==self.DONE: alambda = 0.0 # use alambda=0 on last pass
             temp = numpy.array(self.alpha)
-            for j in range(self.mfit):
-                temp[j,j] *= 1+alambda
+            if done==self.DONE:
+                alambda = 0.0 # use alambda=0 on last pass
+            else:
+                for j in range(self.mfit):
+                    temp[j,j] *= 1.0+alambda
         
             try:
                 da = scipy.linalg.solve(temp, beta[self.ia])
@@ -354,7 +356,6 @@ class MaximumLikelihoodHistogramFitter(object):
                 self.covar[:self.mfit, :self.mfit] = temp
                 self.__cov_sort_in_place(self.covar)                
 #                self.__cov_sort_in_place(self.alpha)
-                print 'Returning after %d iterations'%iter
                 return self.params, self.covar
             
             # Did the trial succeed?
