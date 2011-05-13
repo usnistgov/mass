@@ -180,25 +180,60 @@ class SpectralLineFitter(object):
         def fitfunc(params, x):
             E_kalpha1 = self.spect.kalpha1_energy
             
-            energy = (x-params[1])/params[2] + E_kalpha1
+            energy = (x-params[1])/abs(params[2]) + E_kalpha1
             spectrum = self.spect(energy)
-            smeared = smear(spectrum, params[0], stepsize = energy[1]-energy[0])
-            return smeared * params[3] + numpy.abs(params[4])
+            smeared = smear(spectrum, abs(params[0]), stepsize = energy[1]-energy[0])
+            return smeared * abs(params[3]) + abs(params[4])
             
-#        def errfunc(p,x,y):
-#            d = fitfunc(p,x) - y
-#            return d/numpy.sqrt(y+5.0)
-        errfunc = lambda p, x, y: (fitfunc(p, x) - y)/numpy.sqrt(y+.5)
-
+#        errfunc = lambda p, x, y: (fitfunc(p, x) - y)/numpy.sqrt(y+.5)
+#        errfunc = lambda p, x, y: (fitfunc(p, x) - y)/numpy.sqrt(numpy.clip(y,1,1e9))
+#
         # Do the fit and store the parameters and the
-        fitparams, covariance, _infodict, _mesg, iflag = \
-           scipy.optimize.leastsq(errfunc, params, args = (pulseheights, data), full_output=True )
+#        fitparams, covariance, _infodict, _mesg, iflag = \
+#           scipy.optimize.leastsq(errfunc, params, args = (pulseheights, data), full_output=True )
+#        fitparams[0] = abs(fitparams[0])
+#        
+#        def like( p, x, y):
+#            ff = fitfunc(p,x)
+#            return (ff-y*numpy.log(ff)).sum()
+#        
+#        def likelihood_chi2(p, x, n, mask):
+#            ff = fitfunc(p,x)
+#            terms = n[mask]*numpy.log((n/ff)[mask])
+#            return 2*(terms).sum() + 2*(ff.sum() - n.sum())
+#        
+#        
+#        # Simplex method
+#        results = scipy.optimize.fmin(likelihood_chi2, params, args=(pulseheights,data,data>0), ftol=1e-3, full_output=True, disp=True)
+#        fitparams, _fmin, _iter, _funcalls, iflag = results
+#        print "Reached chisq=",_fmin," in %d iteration (%d calls)"%(_iter, _funcalls)
+#        covariance = numpy.eye(6)
+        
+        # fmin_bfgs
+#        results = scipy.optimize.fmin_bfgs(likelihood_chi2, params, args=(pulseheights,data,data>0), gtol=1e-4,disp=False, full_output = True)
+#        fitparams, _fmin, _gopt, covariance, _func_calls, _grad_calls, iflag = results
+
+        # Joe's new max-likelihood fitter
+        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, fitfunc, TOL=1e-4)
+        results = fitter.fit()
+        fitparams, covariance = results
+        iflag = 0
+
         fitparams[0] = abs(fitparams[0])
         
+#        print "Chi squared: %10.4f / %d DOF"%(fitter.chisq, len(data))
+#        def printparams(p, ptype="Params: "):
+#            print '%-17s  %6.4f %8.3f %6.4f %7.1f %7.3f'%(ptype,p[0], p[1], p[2], p[3], p[4])
+#        printparams(params, 'Input Param:')
+#        printparams(fitparams, 'Fit Param:')
+#        uncert = numpy.sqrt(covariance.diagonal())
+#        printparams(uncert, "Sigma:")
+
         self.lastFitParams = fitparams
         self.lastFitResult = fitfunc(fitparams, pulseheights)
         
-        if iflag not in (1,2,3,4): 
+#        if iflag not in (1,2,3,4): 
+        if iflag not in (0,2): 
             print "Oh no! iflag=%d"%iflag
         elif plot:
             if color is None: color='blue'
@@ -239,8 +274,8 @@ class MnKAlphaFitter(SpectralLineFitter):
         dph = ph_ka1-ph_ka2
         dE = 11.1 # eV difference between KAlpha peaks
         ampl = data.max() *9.4
-        res = 3.4
-        baseline = 0.0
+        res = 4.0
+        baseline = 0.1
         return [res, ph_ka1, dph/dE, ampl, baseline]
 
 
@@ -271,7 +306,7 @@ class CuKAlphaFitter(SpectralLineFitter):
         dE = 19.94 # eV difference between KAlpha peaks
         ampl = data.max() *9.4
         res = 3.7
-        baseline = 0.0
+        baseline = 0.1
         return [res, ph_ka1, dph/dE, ampl, baseline]
     
 
