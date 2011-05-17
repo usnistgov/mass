@@ -24,6 +24,7 @@ import scipy.linalg
 import mass.channel
 import mass.utilities
 import mass.energy_calibration
+import mass.power_spectrum
 #import mass.controller
 
 
@@ -917,6 +918,23 @@ class CDMGroup(BaseChannelGroup):
             pylab.plot(ds.noise_spectrum.frequencies(), ds.noise_spectrum.spectrum()*0.25,
                        label='TES %d'%i, color=self.colors[i])
         pylab.legend(loc='lower left')
+    
+    def plot_undecimated_noise(self, ndata=None):
+        """Show the noise as if """
+        np = numpy.array([nc.nPulses for nc in self.noise_channels]).min()
+        if ndata is None:
+            ndata = np*self.noise_channels[0].nSamples
+        assert ndata<=1024*1024
+        data = numpy.asarray(numpy.vstack([nc.data[:np,:].ravel()[:ndata] for nc in self.noise_channels]), dtype=numpy.int16)
+        for r in data:
+            r -= r.mean()
+        data=data.T.ravel()
+
+        segfactor=max(8, ndata/1024)
+        
+        freq, psd = mass.power_spectrum.computeSpectrum(data, segfactor=segfactor, dt=self.timebase/self.n_cdm, window=mass.power_spectrum.hamming)
+        pylab.clf()
+        pylab.plot(freq, psd)
     
     def update_demodulation(self, relative_response):
         relative_response = numpy.asmatrix(relative_response)
