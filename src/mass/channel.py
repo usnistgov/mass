@@ -156,7 +156,7 @@ class NoiseRecords(object):
                         print 'Analyzed %d samples in %.2f sec'%(data_used, dt)
                         print '....expect total time %.2f sec'%(dt*n_data/chunksize)
                 ac /= entries
-                ac / (chunksize-numpy.arange(n_lags, dtype=numpy.float))
+                ac /= (chunksize-numpy.arange(n_lags, dtype=numpy.float))
                     
             # compute the full autocorrelation                
             else:
