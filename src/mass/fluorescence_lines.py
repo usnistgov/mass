@@ -76,7 +76,27 @@ class MnKAlpha(SpectralLine):
     peak_heights = numpy.array((790,264,68,96,71,10,372,100),dtype=numpy.float)/1e3
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
-    kalpha1_energy = 5898.802 # eV        
+    peak_energy = 5898.802 # eV        
+
+
+    
+class MnKBeta(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December).
+    
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    name = 'Manganese K-beta'    
+    
+    # The approximation is as a series of 4 Lorentzians 
+    energies = 6400+numpy.array((90.89,86.31, 77.73, 90.06, 88.83))
+    fwhm = numpy.array((1.83, 9.40, 13.22, 1.81, 2.81))
+    peak_heights = numpy.array((608,109,77,397,176),dtype=numpy.float)/1e3
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    peak_energy = 6490.18 # eV        
 
 
     
@@ -96,7 +116,7 @@ class CuKAlpha(SpectralLine):
     peak_heights = numpy.array((957,90,334,111), dtype=numpy.float)/1e3
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
-    kalpha1_energy = 8047.83 # eV        
+    peak_energy = 8047.83 # eV        
 
         
     
@@ -178,57 +198,20 @@ class SpectralLineFitter(object):
 #            print 'PH range: ',pulseheights[0],pulseheights[-1]
         
         def fitfunc(params, x):
-            E_kalpha1 = self.spect.kalpha1_energy
+            E_peak = self.spect.peak_energy
             
-            energy = (x-params[1])/abs(params[2]) + E_kalpha1
+            energy = (x-params[1])/abs(params[2]) + E_peak
             spectrum = self.spect(energy)
             smeared = smear(spectrum, abs(params[0]), stepsize = energy[1]-energy[0])
             return smeared * abs(params[3]) + abs(params[4])
-            
-#        errfunc = lambda p, x, y: (fitfunc(p, x) - y)/numpy.sqrt(y+.5)
-#        errfunc = lambda p, x, y: (fitfunc(p, x) - y)/numpy.sqrt(numpy.clip(y,1,1e9))
-#
-        # Do the fit and store the parameters and the
-#        fitparams, covariance, _infodict, _mesg, iflag = \
-#           scipy.optimize.leastsq(errfunc, params, args = (pulseheights, data), full_output=True )
-#        fitparams[0] = abs(fitparams[0])
-#        
-#        def like( p, x, y):
-#            ff = fitfunc(p,x)
-#            return (ff-y*numpy.log(ff)).sum()
-#        
-#        def likelihood_chi2(p, x, n, mask):
-#            ff = fitfunc(p,x)
-#            terms = n[mask]*numpy.log((n/ff)[mask])
-#            return 2*(terms).sum() + 2*(ff.sum() - n.sum())
-#        
-#        
-#        # Simplex method
-#        results = scipy.optimize.fmin(likelihood_chi2, params, args=(pulseheights,data,data>0), ftol=1e-3, full_output=True, disp=True)
-#        fitparams, _fmin, _iter, _funcalls, iflag = results
-#        print "Reached chisq=",_fmin," in %d iteration (%d calls)"%(_iter, _funcalls)
-#        covariance = numpy.eye(6)
         
-        # fmin_bfgs
-#        results = scipy.optimize.fmin_bfgs(likelihood_chi2, params, args=(pulseheights,data,data>0), gtol=1e-4,disp=False, full_output = True)
-#        fitparams, _fmin, _gopt, covariance, _func_calls, _grad_calls, iflag = results
-
         # Joe's new max-likelihood fitter
         fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, fitfunc, TOL=1e-4)
-        results = fitter.fit()
-        fitparams, covariance = results
+        fitparams, covariance = fitter.fit()
         iflag = 0
 
         fitparams[0] = abs(fitparams[0])
         
-#        print "Chi squared: %10.4f / %d DOF"%(fitter.chisq, len(data))
-#        def printparams(p, ptype="Params: "):
-#            print '%-17s  %6.4f %8.3f %6.4f %7.1f %7.3f'%(ptype,p[0], p[1], p[2], p[3], p[4])
-#        printparams(params, 'Input Param:')
-#        printparams(fitparams, 'Fit Param:')
-#        uncert = numpy.sqrt(covariance.diagonal())
-#        printparams(uncert, "Sigma:")
-
         self.lastFitParams = fitparams
         self.lastFitResult = fitfunc(fitparams, pulseheights)
         
@@ -280,13 +263,39 @@ class MnKAlphaFitter(SpectralLineFitter):
 
 
 
+class MnKBetaFitter(SpectralLineFitter):
+    "Fits a Mn K beta spectrum for energy shift and scale, amplitude, and resolution"
+    
+    def __init__(self):
+        self.spect = MnKBeta()
+        super(self.__class__, self).__init__()
+        
+    def guess_starting_params(self, data, binctrs):
+        """If the cuts are tight enough, then we can estimate the locations of the
+        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
+        
+        n = data.sum()
+        sum_d = (data*binctrs).sum()
+#        sum_d2 = (data*binctrs*binctrs).sum()
+        mean_d = sum_d/n
+#        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+#        print n, sum_d, sum_d2, mean_d, rms_d
+        
+        ph_peak = mean_d
+
+        ampl = data.max() *9.4
+        res = 4.0
+        baseline = 0.1
+        return [res, ph_peak, 1.0, ampl, baseline]
+
+
+
 class CuKAlphaFitter(SpectralLineFitter):
     "Fits a Cu K alpha spectrum for energy shift and scale, amplitude, and resolution"
     
     def __init__(self):
         self.spect = CuKAlpha()
         super(self.__class__, self).__init__()
-        # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
         
     def guess_starting_params(self, data, binctrs):
         """If the cuts are tight enough, then we can estimate the locations of the
