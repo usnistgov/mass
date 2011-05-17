@@ -22,6 +22,8 @@ from matplotlib import pylab
 import scipy.linalg
 
 import mass.channel
+import mass.utilities
+import mass.energy_calibration
 #import mass.controller
 
 
@@ -55,7 +57,12 @@ class BaseChannelGroup(object):
         self._cached_pnum_range = None
         self.pulses_per_seg = None
         self.filters = None
-        self.colors=("blue", "#aaaa00","green","red")
+        
+        if self.n_channels <=4:
+            self.colors=("blue", "#aaaa00","green","red")
+        else:
+            BURNTORANGE='#cc6600'
+            self.colors=("blue","gold","green","red",'purple','cyan',BURNTORANGE,'brown')
         
         
     def iter_segments(self, first_seg=0, end_seg=-1):
@@ -259,8 +266,7 @@ class BaseChannelGroup(object):
             pylab.clf()
             axis = pylab.subplot(111)
             
-        BURNTORANGE='#cc6600'
-        axis.set_color_cycle(("blue","gold","green","red",'purple','cyan',BURNTORANGE,'brown'))
+        axis.set_color_cycle(self.colors)
         dt = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
         for i,d in enumerate(self.datasets):
             pylab.plot(dt,d.average_pulses[id], label="Demod TES %d"%i)
@@ -509,6 +515,60 @@ class BaseChannelGroup(object):
                 
             del pf
 
+
+    def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, xrange=None):
+        """
+        Plot histograms of each channel's "energy" spectrum, one channel at a time.
+        After recording the x-coordinate of <nclicks> mouse clicks per plot, return an
+        array of shape (N_channels, N_click) containing the "energy" of each click.
+        
+        <channame>  A string to choose the desired energy-like parameter.  Probably you want
+                    to start with p_filt_value or p_filt_value_dc and later (once an energy
+                    calibration is in place) p_energy.
+        <nclicks>   The number of x coordinates to record per detector.  If you want to get
+                    for example, a K-alpha and K-beta line in one go, then choose 2.
+        <xrange>    A 2-element sequence giving the limits to histogram.  If None, then the
+                    histogram will show all data.
+                    
+        Returns:
+        A numpy.ndarray of shape (self.n_channels, nclicks).  
+        """
+        x = []
+        for i,ds in enumerate(self.datasets):
+            pylab.clf()
+            pylab.hist(ds.__dict__[channame], 200, range=xrange)
+            pylab.xlabel(channame)
+            pylab.title("Detector %d: attribute %s"%(i, channame))
+            fig = pylab.gcf()
+            pf = mass.utilities.MouseClickReader(fig)
+            for i in range(nclicks):
+                while True:
+                    pylab.waitforbuttonpress()
+                    try:
+                        pfx = '%g'%pf.x
+                    except TypeError:
+                        continue
+                    print 'Click on line #%d at %s'%(i+1, pfx)
+                    x.append(pf.x)
+                    break
+            del pf
+        xvalues = numpy.array(x)
+        xvalues.shape=(self.n_channels, nclicks)
+        return xvalues
+
+
+    def find_named_features_with_mouse(self, name='Mn Ka1', channame='p_filt_value', xrange=None, energy=None):
+        
+        if energy is None:
+            energy = mass.energy_calibration.STANDARD_FEATURES[name]
+        
+        xvalues = self.find_features_with_mouse(channame=channame, nclicks=1, xrange=xrange).ravel()
+        for ds,xval in zip(self.datasets, xvalues):
+            calibration = ds.calibration[channame]
+            calibration.add_cal_point(xval, energy, name)
+
+
+
 class TESGroup(BaseChannelGroup):
     """
     A group of one or more *independent* microcalorimeters, in that
@@ -561,6 +621,8 @@ class TESGroup(BaseChannelGroup):
         g.__dict__.update(self.__dict__)
         g.channels = tuple([c.copy() for c in self.channels])
         g.datasets = tuple([d.copy() for d in self.datasets])
+        g.noise_channels = tuple([c.copy() for c in self.noise_channels])
+#        g.filters = tuple([f.copy() for f in self.filters])
         return g
         
 
@@ -642,15 +704,16 @@ class CDMGroup(BaseChannelGroup):
         channel i due to detector j.   
         """
         super(self.__class__, self).__init__(filenames, noise_filenames)
+        self.n_cdm = self.n_channels  # If >1 column, this won't be true anymore
 
-        if demodulation is None:
-            demodulation = numpy.array(
-                (( 1, 1, 1, 1),
-                 (-1, 1, 1,-1),
-                 (-1,-1, 1, 1),
-                 (-1, 1,-1, 1)), dtype=numpy.float)
+#        if demodulation is None:
+#            demodulation = numpy.array(
+#                (( 1, 1, 1, 1),
+#                 (-1, 1, 1,-1),
+#                 (-1,-1, 1, 1),
+#                 (-1, 1,-1, 1)), dtype=numpy.float)
         assert demodulation.shape[0] == demodulation.shape[1]
-        assert demodulation.shape[0] == self.n_channels
+        assert demodulation.shape[0] == self.n_cdm
         self.demodulation = demodulation
         self.idealized_walsh = numpy.array(demodulation.round(), dtype=numpy.int16)
         self.noise_only = noise_only
@@ -699,7 +762,9 @@ class CDMGroup(BaseChannelGroup):
                      demodulation=self.demodulation, noise_only=self.noise_only)
         g.__dict__.update(self.__dict__)
         g.raw_channels = tuple([c.copy() for c in self.raw_channels])
+        g.noise_channels = tuple([c.copy() for c in self.noise_channels])
         g.datasets = tuple([c.copy() for c in self.datasets])
+#        g.filters = tuple([f.copy() for f in self.filters])
         return g
         
 
@@ -807,13 +872,17 @@ class CDMGroup(BaseChannelGroup):
 #            ds.noise_demodulated = nc
 
 
-    def plot_noise(self, show_modulated=False):
+    def plot_noise(self, show_modulated=False, channels=None):
         """Compare the noise power spectra.
         
         <show_modulated> Whether to show the raw (modulated) noise spectra, or
-                         only the demodulated spectra. 
+                         only the demodulated spectra.
+        <channels>    Sequence of channels to display.  If None, then show all. 
         """
         
+        if channels is None:
+            channels = numpy.arange(self.n_cdm)
+            
         for ds in self.datasets:
             if ds.noise_spectrum is None:
                 self.compute_noise_spectra(compute_raw_spectra=True)
@@ -830,20 +899,24 @@ class CDMGroup(BaseChannelGroup):
             ax2=pylab.subplot(111)
             axes=(ax2,)
             
-        ax2.set_title("Demodulated TES noise power spectrum SCALED BY 1/4")
+        ax2.set_title("Demodulated TES noise power spectrum SCALED BY 1/%d"%self.n_cdm)
         for a in axes:
-            a.set_color_cycle(("blue","#cccc00","green","red"))
+            a.set_color_cycle(self.colors)
             a.set_xlabel("Frequency (Hz)")
             a.loglog()
             a.grid()
         
         if show_modulated:
-            for n in self.noise_channels:
-                n.plot_power_spectrum(axis=ax1)
-        for ds in self.datasets:
+            for i,n in enumerate(self.noise_channels):
+                n.plot_power_spectrum(axis=ax1, label='Row %d'%i)
+            pylab.legend(loc='upper right')
+            
+        for i,ds in enumerate(self.datasets):
+            if i not in channels: continue
 #            ds.noise_demodulated.plot_power_spectrum(axis=ax2)
-            pylab.plot(ds.noise_spectrum.frequencies(), ds.noise_spectrum.spectrum()*0.25)
-    
+            pylab.plot(ds.noise_spectrum.frequencies(), ds.noise_spectrum.spectrum()*0.25,
+                       label='TES %d'%i, color=self.colors[i])
+        pylab.legend(loc='lower left')
     
     def update_demodulation(self, relative_response):
         relative_response = numpy.asmatrix(relative_response)

@@ -9,6 +9,7 @@ import scipy.linalg
 import scipy.optimize
 from matplotlib import pylab
 import os.path
+import time
 
 try:
     import cPickle as pickle
@@ -21,6 +22,7 @@ import files
 import utilities
 import power_spectrum
 import fluorescence_lines
+import energy_calibration
 
 
 class NoiseRecords(object):
@@ -45,7 +47,7 @@ class NoiseRecords(object):
         """Detect the filetype and open it."""
 
         # For now, we have only one file type, so let's just assume it!
-        self.datafile = files.LJHFile(filename, segmentsize=50000000)
+        self.datafile = files.LJHFile(filename, segmentsize=60000000)
         self.filename = filename
 
         # Copy up some of the most important attributes
@@ -84,14 +86,14 @@ class NoiseRecords(object):
             self.plot_power_spectrum()
 
 
-    def plot_power_spectrum(self, axis=None):
+    def plot_power_spectrum(self, axis=None, **kwarg):
         if self.spectrum is None:
             self.compute_power_spectrum(plot=False)
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
         spec = self.spectrum
-        axis.plot(spec.frequencies()[1:], spec.spectrum()[1:])
+        axis.plot(spec.frequencies()[1:], spec.spectrum()[1:], **kwarg)
         pylab.loglog()
         axis.grid()
         axis.set_xlim([10,3e5])
@@ -100,7 +102,7 @@ class NoiseRecords(object):
         axis.set_title("Noise power spectrum for %s"%self.filename)
 
         
-    def compute_autocorrelation(self, n_lags=None, plot=True):
+    def compute_autocorrelation(self, n_lags=None, n_data=None, plot=True):
         """
         Compute the autocorrelation averaged across all "pulses" in the file.
         """
@@ -118,22 +120,59 @@ class NoiseRecords(object):
             
         
         if self.continuous:
-            n_data = self.nSamples*self.nPulses
+            if n_data is None:
+                n_data = self.nSamples*self.nPulses
             if n_lags is None:
                 n_lags = n_data
             if n_lags > n_data:
                 n_lags = n_data
-
-            paddedData = numpy.zeros(padded_length(n_lags+n_data), dtype=numpy.float)
-            paddedData[:n_data] = numpy.array(self.data.ravel())[:n_data] - self.data.mean()
-            paddedData[n_data:] = 0.0
             
-            ft = numpy.fft.rfft(paddedData)
-            del paddedData
-            ft[0] = 0 # this redundantly removes the mean of the data set
-            ft = (ft*ft.conj()).real
-            acsum = numpy.fft.irfft(ft)
-            ac = acsum[:n_lags+1] / (n_data-numpy.arange(n_lags+1.0))
+            # When there are 10 million data points and only 10,000 lags wanted,
+            # it's hugely inefficient to compute the full autocorrelation, especially
+            # in memory.  Instead, compute it on chunks 7* the length of the desired
+            # correlation, and average.
+            CHUNK_MULTIPLE=7
+            if n_data >= CHUNK_MULTIPLE*n_lags:
+                chunksize=CHUNK_MULTIPLE*n_lags
+                paddedData = numpy.zeros(padded_length(n_lags+chunksize), dtype=numpy.float)
+                ac = numpy.zeros(n_lags, dtype=numpy.float)
+                
+                data_used=0
+                entries = 0.0
+                t0=time.time()
+                while data_used+chunksize < n_data:
+                    paddedData[:chunksize] = numpy.array(self.data.ravel())[data_used:data_used+chunksize] - self.data.mean()
+                    paddedData[chunksize:] = 0.0
+                    data_used += chunksize
+                    
+                    ft = numpy.fft.rfft(paddedData)
+                    ft[0] = 0 # this redundantly removes the mean of the data set
+                    ft = (ft*ft.conj()).real
+                    acsum = numpy.fft.irfft(ft)
+                    ac += acsum[:n_lags] 
+                    entries += 1.0
+                    if data_used==chunksize:
+                        dt = time.time()-t0
+                        print 'Analyzed %d samples in %.2f sec'%(data_used, dt)
+                        print '....expect total time %.2f sec'%(dt*n_data/chunksize)
+                ac /= entries
+                ac / (chunksize-numpy.arange(n_lags, dtype=numpy.float))
+                    
+            # compute the full autocorrelation                
+            else:
+                paddedData = numpy.zeros(padded_length(n_lags+n_data), dtype=numpy.float)
+                paddedData[:n_data] = numpy.array(self.data.ravel())[:n_data] - self.data.mean()
+                paddedData[n_data:] = 0.0
+                
+                ft = numpy.fft.rfft(paddedData)
+                del paddedData
+                ft[0] = 0 # this redundantly removes the mean of the data set
+                ft *= ft.conj()
+                ft = ft.real
+                acsum = numpy.fft.irfft(ft)
+                del ft
+                ac = acsum[:n_lags+1] / (n_data-numpy.arange(n_lags+1.0))
+                del acsum
          
         else:
             ac=numpy.zeros(self.nSamples, dtype=numpy.float)
@@ -264,204 +303,6 @@ class PulseRecords(object):
         fp.close()
 
 
-    def DEPRECATED_summarize_data(self):
-        """Summarize the complete data file"""
-        
-        maxderiv_holdoff = int(100e-6/self.timebase) # don't look for retriggers before this # of samples
-
-        for first, end, segnum, data in self.datafile.iter_segments():
-            print 'Read segment #%2d with %d pulses'%(segnum, self.datafile.datatimes.shape[0])
-
-            self.p_timestamp[first:end] = self.datafile.datatimes
-            self.p_peak_index[first:end] = data.argmax(axis=1)
-            self.p_peak_value[first:end] = data.max(axis=1)
-            self.p_min_value[first:end] = data.min(axis=1)
-            self.p_pretrig_mean[first:end] = data[:,:self.nPresamples-2].mean(axis=1)
-            self.p_pretrig_rms[first:end] = data[:,:self.nPresamples-2].std(axis=1)
-            self.p_pulse_average[first:end] = data[:,self.nPresamples:].mean(axis=1)
-            self.p_pulse_average[first:end] -= self.p_pretrig_mean[first:end]
-
-            for pulsenum,pulse in enumerate(data):
-                self.p_rise_time[first+pulsenum] = estimateRiseTime(pulse, 
-                                                    dt=self.timebase, nPretrig = self.nPresamples)
-                self.p_max_posttrig_deriv[first+pulsenum] = \
-                    compute_max_deriv(pulse[self.nPresamples + maxderiv_holdoff:])
-                    
-        # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:
-        self.p_peak_time = (numpy.asarray(self.p_peak_index, dtype=numpy.int)-self.nPresamples)*self.timebase
-
-
-
-#    def find_data(self, *args):
-#        """"Return an array of pulses satisfying a certain criterion (or several).
-#        
-#        Example:  pulse_record.find_data('self.p_peak_time > .250', 'self.p_rise_time>1e-3')"""
-#        
-#        good = numpy.array(self.nPulses, dtype=numpy.bool)
-#        good = numpy.arange(self.nPulses)
-#        for test in args:
-#            test_result = eval('numpy.arange(self.nPulses)[%s]'%test, None, locals())
-#            print test_result
-#            good = numpy.logical_and(good, test_result)
-#            print good
-#        return numpy.arange(self.nPulses)[good]
-        
-
-    def DEPRECATED_plot_summaries(self, valid='uncut', downsample=None, log=False):
-        """Plot a summary of the data set, including time series and histograms of
-        key pulse properties.
-        
-        <valid> An array of booleans self.nPulses long saying which pulses are to be plotted
-                *OR* 'uncut' or 'cut', meaning that only uncut or cut data are to be plotted 
-                *OR* None, meaning that all pulses should be plotted.
-                
-        <downsample> To prevent the scatter plots (left panels) from getting too crowded,
-                     plot only one out of this many samples.  If None, then plot will be
-                     downsampled to 10,000 total points.
-                     
-        <log>  Use logarithmic y-axis on the histograms (right panels).
-        """
-        
-        # Convert "uncut" or "cut" to array of all good or all bad data
-        if isinstance(valid, str):
-            if "uncut" in valid.lower():
-                valid = self.cuts.good()
-                print "Plotting only uncut data"
-            elif "cut" in valid.lower():
-                valid = self.cuts.bad()  
-                print "Plotting only cut data"
-            else:
-                raise ValueError("If valid is a string, it must contain 'uncut' or 'cut'.")
-                
-        if valid is not None:
-            if downsample is None:
-                downsample=valid.sum()/10000
-            hour = self.p_timestamp[valid][::downsample]/3.6e6
-        else:
-            if downsample is None:
-                downsample = self.nPulses / 10000
-            hour = self.p_timestamp[::downsample]/3.6e6
-    
-        plottables = (
-            (self.p_pulse_average, 'Pulse Avg', 'purple', None),
-            (self.p_pretrig_rms, 'Pretrig RMS', 'blue', [0,4000]),
-            (self.p_pretrig_mean, 'Pretrig Mean', 'green', [0,6000]),
-            (self.p_peak_value, 'Peak value', '#88cc00',[0,10000]),
-            (self.p_max_posttrig_deriv, 'Max PT deriv', 'gold', [0,700]),
-            (self.p_rise_time*1e3, 'Rise time (ms)', 'orange', [0,12]),
-            (self.p_peak_time*1e3, 'Peak time (ms)', 'red', [-3,9])
-          ) 
-        
-        pylab.clf()
-        for i,(vect, label, color, limits) in enumerate(plottables):
-            pylab.subplot(len(plottables),2,1+i*2)
-            pylab.ylabel(label)
-            
-            if valid is not None:
-                vect = vect[valid]
-            
-            pylab.plot(hour, vect[::downsample],',', color=color)
-            pylab.subplot(len(plottables),2,2+i*2)
-            if limits is None:
-                in_limit = numpy.ones(len(vect), dtype=numpy.bool)
-            else:
-                in_limit= numpy.logical_and(vect>limits[0], vect<limits[1])
-            contents, _bins, _patches = pylab.hist(vect[in_limit],200, log=log, 
-                           histtype='stepfilled', fc=color, alpha=0.5)
-            if log:
-                pylab.ylim(ymin = contents.min())
-
-    
-    def DEPRECATED_plot_traces(self, pulsenums, pulse_summary=True, axis=None):
-        """Plot some example pulses, given by sample number.
-        <pulsenums>  A sequence of sample numbers, or a single one.
-        
-        <pulse_summary> Whether to put text about the first few pulses on the plot
-        <axis>       A pylab axis to plot on.
-        """
-        if isinstance(pulsenums, int):
-            pulsenums = (pulsenums,)
-        pulsenums = numpy.asarray(pulsenums)
-            
-        dt = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
-        color= 'magenta','purple','blue','green','#88cc00','gold','orange','red', 'brown','gray','#444444'
-        MAX_TO_SUMMARIZE = 20
-        
-        if axis is None:
-            pylab.clf()
-            axis = pylab.subplot(111)
-        axis.set_xlabel("Time after trigger (ms)")
-        axis.set_ylabel("Feedback (or mix) in [Volts/16384]")
-        if pulse_summary:
-            axis.text(.975, .97, r"              -PreTrigger-   Max  Rise t Peak   Pulse", 
-                       size='medium', family='monospace', transform = axis.transAxes, ha='right')
-            axis.text(.975, .95, r"Cut P#    Mean     rms PTDeriv  ($\mu$s) value   mean", 
-                       size='medium', family='monospace', transform = axis.transAxes, ha='right')
-
-        cuts_good = self.cuts.good()[pulsenums]
-        for i,pn in enumerate(pulsenums):
-            data = self.datafile.read_trace(pn)
-            cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1
-            if not cuts_good[i]:
-                cutchar,alpha,linestyle,linewidth = 'X',1.0,'--' ,1
-            axis.plot(dt, data, color=color[i%len(color)], linestyle=linestyle, alpha=alpha,
-                       linewidth=linewidth)
-            if pulse_summary and i<MAX_TO_SUMMARIZE:
-                summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f"%(
-                            cutchar, pn, self.p_pretrig_mean[pn], self.p_pretrig_rms[pn],
-                            self.p_max_posttrig_deriv[pn], self.p_rise_time[pn]*1e6,
-                            self.p_peak_value[pn], self.p_pulse_average[pn])
-                axis.text(.975, .93-.02*i, summary, color=color[i%len(color)], 
-                           family='monospace', size='medium', transform = axis.transAxes, ha='right')
-
-
-    def DEPRECATED_compute_average_pulse(self, controls=None):
-        
-        if controls is None:
-            controls = controller.standardControl()
-            
-        ph_bins = controls.analysis_prm['pulse_averaging_ranges']
-        nbins = ph_bins.shape[0]
-        pulse_sums = numpy.zeros((nbins,self.nSamples), dtype=numpy.float)
-        pulse_counts = numpy.zeros(nbins)
-        
-        self.good = self.cuts.good()
-        for first, end, _seg_num, data in self.datafile.iter_segments():
-#            n = self.datafile.data.shape[0]
-            for ibin, bin in enumerate(ph_bins):
-                bin_ctr = 0.5*(bin[0]+bin[1])
-                bin_hw = numpy.abs(bin_ctr-bin[0])
-                cuts = numpy.logical_and(
-                        numpy.abs(bin_ctr - data.max(axis=1)) < bin_hw,
-                        self.good[first:end])
-                good_pulses = data[cuts, :]
-                pulse_counts[ibin] += good_pulses.shape[0]
-                pulse_sums[ibin,:] += good_pulses.sum(axis=0)
-
-        self.average_pulse = (pulse_sums.T/pulse_counts).T
-
-
-    def DEPRECATED_filter_data(self, filter):
-        # These parameters fit a parabola to any 5 evenly-spaced points
-        fit_array = numpy.array((
-                (-6,24,34,24,-6),
-                (-14,-7,0,7,14),
-                (10,-5,-10,-5,10)), dtype=numpy.float)/35.0
-        
-        assert len(filter)+4 == self.nSamples
-        peak_x = numpy.zeros(self.nPulses, dtype=numpy.float)
-        peak_y = numpy.zeros(self.nPulses, dtype=numpy.float)
-        for first, end, _seg_num, data in self.datafile.iter_segments():
-            conv = numpy.zeros((5, end-first), dtype=numpy.float)
-            for i in range(5):
-                if i-4 == 0:
-                    conv[i,:] = (filter*data[:,i:]).sum(axis=1)
-                else:
-                    conv[i,:] = (filter*data[:,i:i-4]).sum(axis=1)
-            param = numpy.dot(fit_array, conv)
-            peak_x[first:end] = -0.5*param[1,:]/param[2,:]
-            peak_y[first:end] = param[0,:] - 0.25*param[1,:]**2 / param[2,:] 
-        return peak_x, peak_y
         
 ##########################################################################################
 
@@ -684,7 +525,6 @@ class Filter(object):
         
         self.compute(fmax=fmax, f_3db=f_3db)
 
-        
     def compute(self, fmax=None, f_3db=None, use_toeplitz_solver=True):
         """
         Compute a set of filters.  This is called once on construction, but you can call it
@@ -819,6 +659,7 @@ class MicrocalDataSet(object):
         self.noise_spectrum = None
         self.noise_autocorr = None 
         self.noise_demodulated = None
+        self.calibration = {'p_filt_value':energy_calibration.EnergyCalibration('p_filt_value')}
 
         expected_attributes=("nSamples","nPresamples","nPulses","timebase")
         for a in expected_attributes:
@@ -847,6 +688,7 @@ class MicrocalDataSet(object):
         self.p_filt_value = numpy.zeros(self.nPulses, dtype=numpy.float)
         self.p_filt_value_phc = numpy.zeros(self.nPulses, dtype=numpy.float)
         self.p_filt_value_dc = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_energy = numpy.zeros(self.nPulses, dtype=numpy.float)
         
         self.cuts = Cuts(self.nPulses)
         self.good = self.cuts.good()
@@ -875,6 +717,8 @@ class MicrocalDataSet(object):
         you do want to update the method definitions."""
         c = MicrocalDataSet(self.__dict__ )
         c.__dict__.update( self.__dict__ )
+        for k in self.calibration.keys():
+            c.calibration[k] = self.calibration[k].copy()
         return c
 
     
@@ -1071,10 +915,10 @@ class MicrocalDataSet(object):
         self.cuts = Cuts(self.nPulses)
     
     
-    def phase_correct(self, ylim=None, times=None, plot=True):
+    def phase_correct(self, prange=None, times=None, plot=True):
         """Apply a correction for pulse variation with arrival phase.
         
-        ylim:  use only filtered values in this range for correction 
+        prange:  use only filtered values in this range for correction 
         times: if not None, use this range of p_timestamps instead of all data (units are millisec
                since server started--ugly but that's what we have to work with)
         plot:  whether to display the result
@@ -1086,21 +930,27 @@ class MicrocalDataSet(object):
         phases = (0.5+numpy.arange(nstep))/nstep - 0.5
         phase_step = 1.0/nstep
         
+        # Default: use the calibration to pick a prange
+        if prange is None:
+            calibration = self.calibration['p_filt_value']
+            ph_estimate = calibration.name2ph('Mn Ka1')
+            prange = numpy.array((ph_estimate*.98, ph_estimate*1.02))
+
         # Plot the raw filtered value vs phase
         if plot:
             pylab.clf()
             pylab.subplot(211)
             pylab.plot((self.p_filt_phase+.5)%1-.5, self.p_filt_value,'.',color='orange')
             pylab.xlim([-.55,.55])
-            if ylim is not None:
-                pylab.ylim(ylim)
+            if prange is not None:
+                pylab.ylim(prange)
                 
         # Estimate corrections in a few different pieces
         corrections = []
         valid = self.cuts.good()
-        if ylim is not None:
-            valid = numpy.logical_and(valid, self.p_filt_value<ylim[1])
-            valid = numpy.logical_and(valid, self.p_filt_value>ylim[0])
+        if prange is not None:
+            valid = numpy.logical_and(valid, self.p_filt_value<prange[1])
+            valid = numpy.logical_and(valid, self.p_filt_value>prange[0])
         if times is not None:
             valid = numpy.logical_and(valid, self.p_timestamp<times[1])
             valid = numpy.logical_and(valid, self.p_timestamp>times[0])
@@ -1133,28 +983,38 @@ class MicrocalDataSet(object):
                             'amplitude':fitparams[1],
                             'mean':fitparams[2]}
         fitparams[2] = 0
-        self.p_filt_value_phc = self.p_filt_value - model(fitparams, self.p_filt_phase)
+        correction = model(fitparams, self.p_filt_phase)
+        self.p_filt_value_phc = self.p_filt_value - correction
+        print 'RMS phase correction is: %9.3f (%6.2f parts/thousand)'%(correction.std(), 
+                                            1e3*correction.std()/self.p_filt_value.mean())
         if plot:
             pylab.subplot(212)
             pylab.plot((self.p_filt_phase+.5)%1-.5, self.p_filt_value_phc,'.b')
             pylab.xlim([-.55,.55])
-            if ylim is not None:
-                pylab.ylim(ylim)
+            if prange is not None:
+                pylab.ylim(prange)
 
 
-    def auto_drift_correct(self, prange, times=None, plot=False):
+    def auto_drift_correct(self, prange=None, times=None, plot=False):
         """Apply a correction for pulse variation with arrival phase.
         
-        ylim:  use only filtered values in this range for correction 
+        prange:  use only filtered values in this range for correction 
         times: if not None, use this range of p_timestamps instead of all data (units are millisec
                since server started--ugly but that's what we have to work with)
         plot:  whether to display the result
         """
         if plot:
             pylab.clf()
+            pylab.subplot(211)
         if self.p_filt_value_phc[0] ==0:
             self.p_filt_value_phc = self.p_filt_value.copy()
-            
+        
+        # Default: use the calibration to pick a prange
+        if prange is None:
+            calibration = self.calibration['p_filt_value']
+            ph_estimate = calibration.name2ph('Mn Ka1')
+            prange = numpy.array((ph_estimate*.99, ph_estimate*1.01))
+        
         range_ctr = 0.5*(prange[0]+prange[1])
         half_range = numpy.abs(range_ctr-prange[0])
         valid = numpy.logical_and(self.cuts.good(), numpy.abs(self.p_filt_value_phc-range_ctr)<half_range)
@@ -1177,12 +1037,24 @@ class MicrocalDataSet(object):
         best_slope = -0.5*poly_coef[1]/poly_coef[0]
         print "Drift correction requires slope %6.3f"%best_slope
         self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
+        
+        self.calibration['p_filt_value_dc'] = energy_calibration.EnergyCalibration('p_filt_value_dc')
+        
+        if plot:
+            pylab.subplot(212)
+            pylab.plot(corrector, data, ',')
+            xlim = pylab.xlim()
+            c = numpy.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
+            pylab.plot(c, -c*best_slope + data.mean(),color='green')
+            pylab.ylim(prange)
+            
 
 
-    def fit_mn_kalpha(self, prange, times=None, type='phc',**kwargs):
+    def fit_spectral_line(self, prange, times=None, type='phc', line='MnKAlpha', **kwargs):
         all_values={'filt': self.p_filt_value,
                     'phc': self.p_filt_value_phc,
                     'dc': self.p_filt_value_dc,
+                    'energy': self.p_energy,
                     }[type]
         valid = self.cuts.good()
         if times is not None:
@@ -1192,7 +1064,8 @@ class MicrocalDataSet(object):
         contents,bin_edges = numpy.histogram(good_values, 200, prange)
         print "%d events pass cuts; %d are in histogram range"%(len(good_values),contents.sum())
         bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
-        fitter = fluorescence_lines.MnKAlphaFitter()
+        fittername = 'fluorescence_lines.%sFitter()'%line
+        fitter = eval(fittername)
         params, covar = fitter.fit(contents, bin_ctrs, **kwargs)
         print 'Resolution: %5.2f +- %5.2f eV'%(params[0],numpy.sqrt(covar[0,0]))
         return params, covar
