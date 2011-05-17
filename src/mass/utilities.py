@@ -415,4 +415,25 @@ class MaximumLikelihoodHistogramFitter(object):
                     C[m,k], C[m,j] = C[m,j], C[m,k]
                     C[k,m], C[j,m] = C[j,m], C[k,m]
                 k -= 1
+
+
+
+
+class MouseClickReader(object):
+    """Object to serve as a callback for reading mouse clicks in data coordinates
+    in pylab plots.  Will store self.b, .x, .y giving the button pressed,
+    and the x,y data coordinates of the pointer when clicked.
+    
+    Usage example (ought to be here...):
+    """
+    def __init__(self, figure):
+        self.b, self.x, self.y = 0,0,0
+        self.fig=figure
+        self.cid = self.fig.canvas.mpl_connect('button_press_event',self)
+    def __call__(self, event):
+        self.b, self.x, self.y =  event.button, event.xdata, event.ydata
+    def __del__(self):
+        self.fig.canvas.mpl_disconnect(self.cid)
+        
+
                 
