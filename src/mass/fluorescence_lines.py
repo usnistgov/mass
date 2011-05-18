@@ -176,7 +176,7 @@ class CuKAlpha_distribution(MultiLorentzian_distribution):
 class SpectralLineFitter(object):
     def __init__(self): pass
     
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label=""):
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
         set of histogram bins <pulseheights>.
         
@@ -206,7 +206,10 @@ class SpectralLineFitter(object):
             return smeared * abs(params[3]) + abs(params[4])
         
         # Joe's new max-likelihood fitter
-        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, fitfunc, TOL=1e-4)
+        epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2))
+        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, fitfunc, TOL=1e-4, epsilon=epsilon)
+        if hold is not None:
+            for h in hold: fitter.hold(h)
         fitparams, covariance = fitter.fit()
         iflag = 0
 
@@ -228,6 +231,8 @@ class SpectralLineFitter(object):
             mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.plot(pulseheights, self.lastFitResult, color='black')
             axis.legend(loc='upper left')
+            dp = pulseheights[1]-pulseheights[0]
+            axis.set_xlim([pulseheights[0]-0.5*dp, pulseheights[-1]+0.5*dp])
         return fitparams, covariance
 
 
@@ -333,6 +338,7 @@ def smear(f, fwhm, stepsize=1.0):
     if padwidth > 100.0:
         padwidth = 100.0
     Npad = int(padwidth/stepsize+0.5)
+    if Npad > N*7: Npad = N*7 
     
     # Make sure that total FFT size is a power of 2
     Ntotal = N+2*Npad
