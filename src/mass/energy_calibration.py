@@ -56,6 +56,9 @@ class EnergyCalibration(object):
     def copy(self):
         ec = EnergyCalibration(self.ph_field)
         ec.__dict__.update(self.__dict__)
+        ec._names = list(self._names)
+        ec._ph = self._ph.copy()
+        ec._energies = self._energies.copy()
         return ec
         
     def add_cal_point(self, ph, energy, name=""):
@@ -84,6 +87,8 @@ class EnergyCalibration(object):
             self._energies = self._energies[sortkeys]
             self._names = [self._names[s] for s in sortkeys]
             self.npts += 1
+            assert len(self._names)==len(self._ph)
+            assert len(self._names)==len(self._energies)
 
         self._update_converters()
         

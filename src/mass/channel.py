@@ -995,8 +995,11 @@ class MicrocalDataSet(object):
                 pylab.ylim(prange)
 
 
-    def auto_drift_correct(self, prange=None, times=None, plot=False):
-        """Apply a correction for pulse variation with arrival phase.
+    def auto_drift_correct_rms(self, prange=None, times=None, plot=False):
+        """Apply a correction for pulse variation with pretrigger mean, which we've found
+        to be a pretty good indicator of drift.  Use the rms width of the Mn Kalpha line
+        rather than actually fitting for the resolution.  (THIS IS THE OLD WAY TO DO IT.
+        SUGGEST YOU USE self.auto_drift_correct instead....)
         
         prange:  use only filtered values in this range for correction 
         times: if not None, use this range of p_timestamps instead of all data (units are millisec
@@ -1050,7 +1053,67 @@ class MicrocalDataSet(object):
             
 
 
-    def fit_spectral_line(self, prange, times=None, type='phc', line='MnKAlpha', **kwargs):
+    def auto_drift_correct(self, prange=None, times=None, plot=False):
+        """Apply a correction for pulse variation with pretrigger mean.
+        This attempts to replace the previous version by using a fit to the
+        Mn K alpha complex
+        
+        prange:  use only filtered values in this range for correction 
+        times: if not None, use this range of p_timestamps instead of all data (units are millisec
+               since server started--ugly but that's what we have to work with)
+        plot:  whether to display the result
+        """
+        if plot:
+            pylab.clf()
+            pylab.subplot(211)
+        if self.p_filt_value_phc[0] ==0:
+            self.p_filt_value_phc = self.p_filt_value.copy()
+        
+        # Default: use the calibration to pick a prange
+        if prange is None:
+            calibration = self.calibration['p_filt_value']
+            ph_estimate = calibration.name2ph('Mn Ka1')
+            prange = numpy.array((ph_estimate*.99, ph_estimate*1.01))
+        
+        range_ctr = 0.5*(prange[0]+prange[1])
+        half_range = numpy.abs(range_ctr-prange[0])
+        valid = numpy.logical_and(self.cuts.good(), numpy.abs(self.p_filt_value_phc-range_ctr)<half_range)
+        if times is not None:
+            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
+            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+
+        data = self.p_filt_value_phc[valid]
+        corrector = self.p_pretrig_mean[valid]
+        mean_pretrig_mean = corrector.mean()
+        corrector -= mean_pretrig_mean
+        slopes = numpy.arange(-.5,1.5,.1)
+        
+        fit_resolutions=[]
+        for sl in slopes:
+            self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*sl
+            params,_covar = self.fit_spectral_line(prange=prange, times=times, plot=False,
+                                                   type='dc', line='MnKAlpha', verbose=False)
+#            print "%5.1f %s"%(sl, params[:4])
+            fit_resolutions.append(params[0])
+            if plot: pylab.plot(sl,params[0],'go')
+        poly_coef = scipy.polyfit(slopes, fit_resolutions, 2)
+        best_slope = -0.5*poly_coef[1]/poly_coef[0]
+        print "Drift correction requires slope %6.3f"%best_slope
+        self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
+        
+        self.calibration['p_filt_value_dc'] = energy_calibration.EnergyCalibration('p_filt_value_dc')
+        
+        if plot:
+            pylab.subplot(212)
+            pylab.plot(corrector, data, ',')
+            xlim = pylab.xlim()
+            c = numpy.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
+            pylab.plot(c, -c*best_slope + data.mean(),color='green')
+            pylab.ylim(prange)
+            
+
+
+    def fit_spectral_line(self, prange, times=None, type='phc', line='MnKAlpha', verbose=True, plot=True, **kwargs):
         all_values={'filt': self.p_filt_value,
                     'phc': self.p_filt_value_phc,
                     'dc': self.p_filt_value_dc,
@@ -1062,12 +1125,12 @@ class MicrocalDataSet(object):
             valid = numpy.logical_and(valid, self.p_timestamp>times[0])
         good_values = all_values[valid]
         contents,bin_edges = numpy.histogram(good_values, 200, prange)
-        print "%d events pass cuts; %d are in histogram range"%(len(good_values),contents.sum())
+        if verbose: print "%d events pass cuts; %d are in histogram range"%(len(good_values),contents.sum())
         bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
         fittername = 'fluorescence_lines.%sFitter()'%line
         fitter = eval(fittername)
-        params, covar = fitter.fit(contents, bin_ctrs, **kwargs)
-        print 'Resolution: %5.2f +- %5.2f eV'%(params[0],numpy.sqrt(covar[0,0]))
+        params, covar = fitter.fit(contents, bin_ctrs, plot=plot, **kwargs)
+        if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0],numpy.sqrt(covar[0,0]))
         return params, covar
 
 
