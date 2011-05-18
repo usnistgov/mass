@@ -66,10 +66,22 @@ class EnergyCalibration(object):
         Add a single energy calibration point <ph>, <energy>, where <ph> must be in units
         of the self.ph_field and <energy> is in eV.
         
+        Also, you can call it with <energy> as a string, provided it's the name of a known
+        feature appearing in the dictionary mass.energy_calibration.STANDARD_FEATURES.  Thus
+        the following are equivalent:
+        
+        cal.add_cal_point(12345.6, 5898.801, "Mn Ka1") 
+        cal.add_cal_point(12456.6, "Mn Ka1")
+        
         Careful!  If you give a name that's already in the list, then this value replaces
         the previous one.  If you do NOT give a name, though, then this will NOT replace
         but will add to any existing points at the same energy.
         """
+        
+        # If <energy> is a string and a known spectral feature's name, use it as the name instead
+        if energy in STANDARD_FEATURES:
+            name = energy
+            energy = STANDARD_FEATURES[name]
         
         if name in self._names:  # Update an existing point
             index = self._names.index(name)
@@ -114,17 +126,19 @@ class EnergyCalibration(object):
         e = STANDARD_FEATURES[name]
         return self.energy2ph(e)
 
-    def plot(self):
-        pylab.clf()
-        pylab.plot(self._ph, self._energies,'or')
+    def plot(self, axis=None):
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+        axis.plot(self._ph, self._energies,'or')
         ph = numpy.arange(0,self._ph.max()*1.1)
-        pylab.plot(ph, self(ph),color='green')
+        axis.plot(ph, self(ph),color='green')
         for ph,name in zip(self._ph[1:], self._names[1:]):  
-            pylab.text(ph-.01*self._ph.max(), self(ph), name, ha='right')        
-        pylab.grid()
-        pylab.xlabel("Pulse height ('%s')"%self.ph_field)
-        pylab.ylabel("Energy (eV)")
-        pylab.title("Energy calibration curve")
+            axis.text(ph-.01*self._ph.max(), self(ph), name, ha='right')        
+        axis.grid(True)
+        axis.set_xlabel("Pulse height ('%s')"%self.ph_field)
+        axis.set_ylabel("Energy (eV)")
+        axis.set_title("Energy calibration curve")
         
 
 class EnergyCalibrationCrap(object):
