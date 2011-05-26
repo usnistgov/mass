@@ -525,6 +525,7 @@ class Filter(object):
         
         self.compute(fmax=fmax, f_3db=f_3db)
 
+
     def compute(self, fmax=None, f_3db=None, use_toeplitz_solver=True):
         """
         Compute a set of filters.  This is called once on construction, but you can call it
@@ -564,23 +565,26 @@ class Filter(object):
 
             self.filt_fourier = numpy.fft.irfft(sig_ft)
             normalize_filter(self.filt_fourier)
-        
+            self.variances['fourier'] = self.bracketR(self.filt_fourier, self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2)
+            print 'Fourier filter done.  Variance: ',self.variances['fourier']
+
         # Time domain filters
         if self.noise_autocorr is not None:
             n = len(self.avg_signal) - 2*self.shorten
+            assert len(self.noise_autocorr) >= n
             if self.shorten>0:
                 avg_signal = self.avg_signal[self.shorten:-self.shorten]
             else:
                 avg_signal = self.avg_signal
-            assert len(self.noise_autocorr) >= n
             
-            R =  scipy.linalg.toeplitz(self.noise_autocorr[:n]/self.peak_signal**2)
+            noise_corr = self.noise_autocorr[:n]/self.peak_signal**2
             if use_toeplitz_solver:
-                ts = utilities.ToeplitzSolver(self.noise_autocorr[:n]/self.peak_signal**2, 
-                                              symmetric=True)
+                ts = utilities.ToeplitzSolver(noise_corr, symmetric=True)
                 Rinv_sig = ts(avg_signal)
                 Rinv_1 = ts(numpy.ones(n))
             else:
+                if n>6000: raise ValueError("Not allowed to use generic solver")
+                R =  scipy.linalg.toeplitz(noise_corr)
                 Rinv_sig = numpy.linalg.solve(R, avg_signal)
                 Rinv_1 = numpy.linalg.solve(R, numpy.ones(n))
             
@@ -608,13 +612,29 @@ class Filter(object):
             self.filt_baseline_pretrig = numpy.linalg.solve(Rpretrig, numpy.ones(self.n_pretrigger))
             self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
 
-            bracketR = lambda a, R: numpy.dot(a, numpy.dot(R, a))            
-            self.variances['noconst'] = bracketR(self.filt_noconst, R) 
-            self.variances['baseline'] = bracketR(self.filt_baseline, R)
-            self.variances['baseline_pretrig'] = bracketR(self.filt_baseline_pretrig, Rpretrig)
-            if self.noise_psd is not None:
-                R =  scipy.linalg.toeplitz(self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2)
-                self.variances['fourier'] = bracketR(self.filt_fourier, R)
+            self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr) 
+            self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
+            self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0,:])
+
+                
+    def bracketR(self, q, noise):
+        """Return the dot product (q^T R q) for vector <q> and matrix R constructed from
+        the vector <noise> by R_ij = noise_|i-j|.  We don't want to construct the full matrix
+        R because for records as long as 10,000 samples, the matrix will consist of 10^8 floats
+        (800 MB of memory)."""
+        
+        if len(noise) < len(q):
+            raise ValueError("Vector q (length %d) cannot be longer than the noise (length %d)"%
+                             (len(q),len(noise)))
+        n=len(q)
+        r = numpy.zeros(2*n-1, dtype=numpy.float)
+        r[n-1:] = noise[:n]
+        r[n-1::-1] = noise[:n]
+        dot = 0.0
+        for i in range(n):
+            dot += q[i]*numpy.dot(r[n-i-1:2*n-i-1], q)
+        return dot
+    
             
     def plot(self, axes=None):
         if axes is None:
@@ -897,6 +917,8 @@ class MicrocalDataSet(object):
         self.filename = pulserec_dict.get('filename','virtual data set')
         self.__setup_vectors()
         self.gain = 1.0
+        self.pretrigger_ignore_microsec = 20 # Cut this long before trigger in computing pretrig values
+        self.peak_time_microsec = 220.0   # Look for retriggers only after this time. 
 
 
     def __setup_vectors(self):
@@ -957,12 +979,13 @@ class MicrocalDataSet(object):
         
         if first >= self.nPulses:
             return
-        maxderiv_holdoff = int(220e-6/self.timebase) # don't look for retriggers before this # of samples
+        maxderiv_holdoff = int(self.peak_time_microsec*1e-6/self.timebase) # don't look for retriggers before this # of samples
+        pretrig_ignore = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
 
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
-        self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-2].mean(axis=1)
-        self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-2].std(axis=1)
+        self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-pretrig_ignore].mean(axis=1)
+        self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-pretrig_ignore].std(axis=1)
         self.p_peak_index[first:end] = self.data[:seg_size,:].argmax(axis=1)
         self.p_peak_value[first:end] = self.data[:seg_size,:].max(axis=1)
         self.p_min_value[first:end] = self.data[:seg_size,:].min(axis=1)
@@ -1295,7 +1318,7 @@ class MicrocalDataSet(object):
         """
         if plot:
             pylab.clf()
-            pylab.subplot(211)
+            axis1=pylab.subplot(211)
         if self.p_filt_value_phc[0] ==0:
             self.p_filt_value_phc = self.p_filt_value.copy()
         
@@ -1316,7 +1339,7 @@ class MicrocalDataSet(object):
         corrector = self.p_pretrig_mean[valid]
         mean_pretrig_mean = corrector.mean()
         corrector -= mean_pretrig_mean
-        slopes = numpy.arange(-.5,1.5,.1)
+        slopes = numpy.arange(0,1.,.09)
         
         fit_resolutions=[]
         for sl in slopes:
@@ -1341,6 +1364,7 @@ class MicrocalDataSet(object):
             pylab.plot(c, -c*best_slope + data.mean(),color='green')
             pylab.ylim(prange)
             
+            axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')
 
 
     def fit_spectral_line(self, prange, times=None, type='dc', line='MnKAlpha', verbose=True, plot=True, **kwargs):
