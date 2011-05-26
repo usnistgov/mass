@@ -265,11 +265,12 @@ class BaseChannelGroup(object):
 
         # Rescale and store result to each MicrocalDataSet
         pulse_sums /= pulse_counts.reshape((self.n_channels, nbins,1))
-        for ichan,chan in enumerate(self.datasets):
-            chan.average_pulses = pulse_sums[ichan,:,:]
+        for ichan,ds in enumerate(self.datasets):
+            ds.average_pulses = pulse_sums[ichan,:,:]
             if subtract_mean:
-                for mask in range(chan.average_pulses.shape[0]):
-                    chan.average_pulses[mask,:] -= chan.average_pulses[mask,:self.nPresamples].mean()
+                pretrig_ignore = int(ds.pretrigger_ignore_microsec*1e-6/self.timebase)
+                for imask in range(ds.average_pulses.shape[0]):
+                    ds.average_pulses[imask,:] -= ds.average_pulses[imask,:self.nPresamples-pretrig_ignore].mean()
     
     
     def plot_average_pulses(self, id, axis=None):
@@ -332,7 +333,8 @@ class BaseChannelGroup(object):
                 continue
             print "Computing filter %d of %d"%(i, self.n_channels)
             avg_signal = ds.average_pulses[i]
-            f = mass.channel.Filter(avg_signal, self.nPresamples, ds.noise_spectrum.spectrum(),
+            pretrig_ignore = int(ds.pretrigger_ignore_microsec*1e-6/ds.timebase)
+            f = mass.channel.Filter(avg_signal, self.nPresamples-pretrig_ignore, ds.noise_spectrum.spectrum(),
                                     ds.noise_autocorr, sample_time=self.timebase,
                                     fmax=fmax, f_3db=f_3db, shorten=2)
             self.filters.append(f)
@@ -366,7 +368,7 @@ class BaseChannelGroup(object):
         for i,f in enumerate(self.filters):
             try:
                 rms = numpy.array((f.variances['noconst'],
-                                   f.variances['nocheby1'],
+                                   f.variances['fourier'],
                                    ))**0.5
                 v_dv = (1/rms)/rms_fwhm
                 print "[ %6.1f  %6.1f ]"%(v_dv[0],v_dv[1]) , 'Predicted res: [ %6.3f %6.3f ] (eV)'%(5898.8/v_dv[0],5898.8/v_dv[1])
