@@ -505,7 +505,13 @@ class Filter(object):
         self.sample_time = sample_time
         self.shorten = shorten
         pre_avg = avg_signal[:n_pretrigger].mean()
-        self.peak_signal = avg_signal.max() - pre_avg
+        
+        # If signal is negative-going, 
+        is_negative =  (avg_signal.min()-pre_avg)/(avg_signal.max()-pre_avg) < -1
+        if is_negative:
+            self.peak_signal = avg_signal.min() - pre_avg
+        else:
+            self.peak_signal = avg_signal.max() - pre_avg
 
         # self.avg_signal is normalized to have unit peak
         self.avg_signal = (avg_signal - pre_avg) / self.peak_signal
@@ -521,7 +527,7 @@ class Filter(object):
         else:
             self.noise_autocorr = numpy.array(noise_autocorr)
         if noise_psd is None and noise_autocorr is None:
-            raise ValueError("Filter must have noise_psd and/or noise_autocorr arguments")
+            raise ValueError("Filter must have noise_psd or noise_autocorr arguments (or both)")
         
         self.compute(fmax=fmax, f_3db=f_3db)
 
@@ -565,7 +571,13 @@ class Filter(object):
 
             self.filt_fourier = numpy.fft.irfft(sig_ft)
             normalize_filter(self.filt_fourier)
-            self.variances['fourier'] = self.bracketR(self.filt_fourier, self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2)
+            
+            # How we compute the uncertainty depends on whether there's a noise autocorrelation result
+            if True or self.noise_autocorr is None:
+                kappa = (numpy.abs(sig_ft*self.peak_signal)**2*self.noise_psd)[1:].mean()
+                self.variances['fourier'] = 1./kappa
+            else:
+                self.variances['fourier'] = self.bracketR(self.filt_fourier, self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2)
             print 'Fourier filter done.  Variance: ',self.variances['fourier']
 
         # Time domain filters
@@ -651,6 +663,34 @@ class Filter(object):
         try:
             axis1.plot(self.filt_fourier,color='gold')
         except AttributeError: pass
+
+
+    def report(self, filters=None):
+        """Report on V/dV for all filters
+        
+        <filters>   Either the name of one filter or a sequence of names.  If not given, then all filters
+                    not starting with "baseline" will be reported
+        """
+        
+        # Handle <filters> is a single string --> convert to tuple of 1 string
+        if isinstance(filters,str):
+            filters=(filters,)
+            
+        # Handle default <filters> not given.
+        if filters is None:
+            filters = list(self.variances.keys())
+            for f in self.variances:
+                if f.startswith("baseline"):
+                    filters.remove(f)
+            filters.sort()
+
+        for f in filters:
+            try:
+                var = self.variances[f]
+                v_dv = var**(-.5) / numpy.sqrt(8*numpy.log(2))
+                print "%-20s  %10.3f  %10.4e"%(f, v_dv, var)
+            except KeyError:
+                print "%-20s not known"%f
 
 
 
