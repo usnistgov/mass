@@ -7,6 +7,7 @@ Created on Feb 16, 2011
 import numpy
 import scipy.linalg
 import scipy.optimize
+import scipy.special
 from matplotlib import pylab
 import os.path
 import time
@@ -21,7 +22,7 @@ import controller
 import files
 import utilities
 import power_spectrum
-import fluorescence_lines
+#import fluorescence_lines
 import energy_calibration
 
 
@@ -74,18 +75,67 @@ class NoiseRecords(object):
 
     
     def compute_power_spectrum(self, window=power_spectrum.hann, plot=True):
-        spec = power_spectrum.PowerSpectrum(self.nSamples/2, dt=self.timebase)
-        if window is None:
-            window = numpy.ones(self.nSamples)
+        self.spectrum = self.compute_power_spectrum_reshape(window=window, nsegments=None)
+        if plot: self.plot_power_spectrum()
+
+
+    def compute_power_spectrum_reshape(self, window=power_spectrum.hann, nsegments=None):
+        """Compute the noise power spectrum with noise "records" reparsed into 
+        <nsegments> separate records.  (If None, then self.data.shape[0] which is self.data.nPulses,
+        will be used as the number of segments.)
+        
+        By making <nsegments> large, you improve the noise on the PSD estimates at the price of poor
+        frequency resolution.  By making it small, you get good frequency resolution with worse
+        uncertainty on each PSD estimate.  No free lunch, know what I mean?
+        """
+        
+        if not self.continuous and nsegments is not None:
+            raise ValueError("This NoiseRecords object does not have continuous noise records, so it can't be resegmented.")
+        
+        if self.continuous and nsegments is not None:
+            data = self.data.ravel()
+            n=len(data)
+            n = n-n%nsegments
+            data=data[:n].reshape((nsegments,n/nsegments))
         else:
-            window = window(self.nSamples)
-        for d in self.data:
-            spec.addDataSegment(d-d.mean(), window=window)
-        self.spectrum = spec
+            data=self.data
+
+        seg_length = data.shape[1]
+        if window is None:
+            window = numpy.ones(seg_length)
+        else:
+            window = window(seg_length)
+        spectrum = power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
+        for d in data:
+            spectrum.addDataSegment(d-d.mean(), window=window)
+        return spectrum
+
+
+    def compute_fancy_power_spectrum(self, window=power_spectrum.hann, plot=True, nseg_choices=None):
+        assert self.continuous
+
+        n = numpy.prod(self.data.shape)
+        if nseg_choices is None:
+            nseg_choices = [16]
+            while nseg_choices[-1]<=n/16 and nseg_choices[-1]<20000:
+                nseg_choices.append(nseg_choices[-1]*8)
+        print nseg_choices
+
+        spectra = [self.compute_power_spectrum_reshape(window=window, nsegments=ns) for ns in nseg_choices]
         if plot:
-            self.plot_power_spectrum()
-
-
+            pylab.clf()
+            lowest_freq = numpy.array([1./(sp.dt*sp.m2) for sp in spectra])
+            
+            start_freq=0.0
+            for i,sp in enumerate(spectra):
+                x,y = sp.frequencies(), sp.spectrum()
+                if i==len(spectra)-1:
+                    good = x>=start_freq
+                else:
+                    good = numpy.logical_and(x>=start_freq, x<4*lowest_freq[i+1])
+                    start_freq = 1*lowest_freq[i+1]
+                pylab.loglog(x[good],y[good],'-')
+    
     def plot_power_spectrum(self, axis=None, **kwarg):
         if self.spectrum is None:
             self.compute_power_spectrum(plot=False)
@@ -107,18 +157,6 @@ class NoiseRecords(object):
         Compute the autocorrelation averaged across all "pulses" in the file.
         """
         
-        def padded_length(n):
-            """Return a sensible number in the range [n, 2n] which is not too
-            much larger than n, yet is good for FFTs.
-            That is, choose (1, 3, or 5)*(a power of two), whichever is smallest
-            """
-            pow2 = numpy.round(2**numpy.ceil(numpy.log2(n)))
-            if n==pow2: return n
-            elif n>0.75*pow2: return pow2
-            elif n>0.625*pow2: return numpy.round(0.75*pow2)
-            else: return numpy.round(0.625*pow2)
-            
-        
         if self.continuous:
             if n_data is None:
                 n_data = self.nSamples*self.nPulses
@@ -127,45 +165,68 @@ class NoiseRecords(object):
             if n_lags > n_data:
                 n_lags = n_data
             
+            def padded_length(n):
+                """Return a sensible number in the range [n, 2n] which is not too
+                much larger than n, yet is good for FFTs.
+                That is, choose (1, 3, or 5)*(a power of two), whichever is smallest
+                """
+                pow2 = numpy.round(2**numpy.ceil(numpy.log2(n)))
+                if n==pow2: return n
+                elif n>0.75*pow2: return pow2
+                elif n>0.625*pow2: return numpy.round(0.75*pow2)
+                else: return numpy.round(0.625*pow2)
+            
+        
             # When there are 10 million data points and only 10,000 lags wanted,
             # it's hugely inefficient to compute the full autocorrelation, especially
             # in memory.  Instead, compute it on chunks 7* the length of the desired
             # correlation, and average.
-            CHUNK_MULTIPLE=7
-            if n_data >= CHUNK_MULTIPLE*n_lags:
+            CHUNK_MULTIPLE=31
+            if n_data >= (1+CHUNK_MULTIPLE)*n_lags:
+                # Be sure to pad chunksize samples by AT LEAST n_lags zeros, to prevent
+                # unwanted wraparound in the autocorrelation.
+                # padded_data is what we do DFT/InvDFT on; ac is the unnormalized output.
                 chunksize=CHUNK_MULTIPLE*n_lags
-                paddedData = numpy.zeros(padded_length(n_lags+chunksize), dtype=numpy.float)
+                padded_data = numpy.zeros(padded_length(n_lags+chunksize), dtype=numpy.float)
                 ac = numpy.zeros(n_lags, dtype=numpy.float)
                 
                 data_used=0
                 entries = 0.0
+                data_mean = self.data.mean()
+                data = self.data.ravel()-data_mean
                 t0=time.time()
-                while data_used+chunksize < n_data:
-                    paddedData[:chunksize] = numpy.array(self.data.ravel())[data_used:data_used+chunksize] - self.data.mean()
-                    paddedData[chunksize:] = 0.0
+                
+                # Notice that the following loop might ignore the last data values, up to as many
+                # as (chunksize-1) values, unless the data are an exact multiple of chunksize.
+                while data_used+chunksize <= n_data:
+                    padded_data[:chunksize] = data[data_used:data_used+chunksize]
+                    padded_data[chunksize:] = 0.0
                     data_used += chunksize
                     
-                    ft = numpy.fft.rfft(paddedData)
+                    ft = numpy.fft.rfft(padded_data)
                     ft[0] = 0 # this redundantly removes the mean of the data set
-                    ft = (ft*ft.conj()).real
-                    acsum = numpy.fft.irfft(ft)
+                    power = (ft*ft.conj()).real
+                    acsum = numpy.fft.irfft(power)
                     ac += acsum[:n_lags] 
                     entries += 1.0
+                    
+                    # A message for the first time through:
                     if data_used==chunksize:
                         dt = time.time()-t0
                         print 'Analyzed %d samples in %.2f sec'%(data_used, dt)
                         print '....expect total time %.2f sec'%(dt*n_data/chunksize)
+
                 ac /= entries
-                ac /= (chunksize-numpy.arange(n_lags, dtype=numpy.float))
+                ac /= (numpy.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=numpy.float))
                     
             # compute the full autocorrelation                
             else:
-                paddedData = numpy.zeros(padded_length(n_lags+n_data), dtype=numpy.float)
-                paddedData[:n_data] = numpy.array(self.data.ravel())[:n_data] - self.data.mean()
-                paddedData[n_data:] = 0.0
+                padded_data = numpy.zeros(padded_length(n_lags+n_data), dtype=numpy.float)
+                padded_data[:n_data] = numpy.array(self.data.ravel())[:n_data] - self.data.mean()
+                padded_data[n_data:] = 0.0
                 
-                ft = numpy.fft.rfft(paddedData)
-                del paddedData
+                ft = numpy.fft.rfft(padded_data)
+                del padded_data
                 ft[0] = 0 # this redundantly removes the mean of the data set
                 ft *= ft.conj()
                 ft = ft.real
@@ -495,7 +556,7 @@ class Filter(object):
         <f_3db>          The 3 dB point for a one-pole low-pass filter to be applied to all filters.
                          If supplied, then it is passed on to the compute() method for the *first*
                          filter calculation only.  (Future calls to compute() can override).
-                         Either or both of <fmax> and <f_3db> are allowed. *NEITHER ARE IMPLMENETED YET*.
+                         Either or both of <fmax> and <f_3db> are allowed.
         <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
                          This must be given if <fmax> or <f_3db> are ever to be used.
         <shorten>        The time-domain filters should be shortened by removing this many
@@ -535,50 +596,63 @@ class Filter(object):
     def compute(self, fmax=None, f_3db=None, use_toeplitz_solver=True):
         """
         Compute a set of filters.  This is called once on construction, but you can call it
-        again if you want to change the frequency cutoff or rolloff points.
+        again if you want to change the frequency cutoff or f_3db rolloff point.
         """
-#        if f_3db is not None:
-#            raise NotImplementedError("Use of f_3db on Filters is not yet supported.")
-        
+
         self.variances={}
         
         def normalize_filter(q): 
             if len(q) == len(self.avg_signal):
                 q *= 1 / numpy.dot(q, self.avg_signal)
             else:  
+#                print "scaling by 1/%f"%numpy.dot(q, self.avg_signal[self.shorten:-self.shorten])
+#                print self.peak_signal, q
                 q *= 1 / numpy.dot(q, self.avg_signal[self.shorten:-self.shorten]) 
                 
         # Fourier domain filters
         if self.noise_psd is not None:
             n = len(self.noise_psd)
-            sig_ft = numpy.fft.rfft(self.avg_signal)
-            if len(sig_ft) != n:
+            window = power_spectrum.hamming(2*(n-1-self.shorten))
+            window = 1.0
+            if self.shorten>0:
+                sig_ft = numpy.fft.rfft(self.avg_signal[self.shorten:-self.shorten]*window)
+            else:
+                sig_ft = numpy.fft.rfft(self.avg_signal * window)
+            if len(sig_ft) != n-self.shorten:
                 raise ValueError("signal real DFT and noise PSD are not the same length (%d and %d)"
                                  %(len(sig_ft), n))
-            
-            sig_ft /= self.noise_psd
+                
+            # Careful with PSD: "shorten" it by converting into real space, truncating the middle, and going
+            # back to Fourier space
+            if self.shorten>0:
+                noise_autocorr = numpy.fft.irfft(self.noise_psd)
+                noise_autocorr = numpy.hstack((noise_autocorr[:n-self.shorten-1], noise_autocorr[-n+self.shorten:]))
+                noise_psd = numpy.fft.rfft(noise_autocorr)
+            else:
+                noise_psd = self.noise_psd
+            sig_ft /= noise_psd
             sig_ft[0] = 0.0
             
             # Band-limit
             if fmax is not None or f_3db is not None:
-                freq = numpy.fft.fftfreq(n*2, d=self.sample_time) 
-                freq=freq[:n]
-                freq[-1] *= -1
+                freq = numpy.arange(0,n-self.shorten,dtype=numpy.float)*0.5/((n-1)*self.sample_time)
                 if fmax is not None:
                     sig_ft[freq>fmax] = 0.0
                 if f_3db is not None:
-                    sig_ft /= (1+(freq/f_3db)**2)
+                    sig_ft /= (1+(freq*1.0/f_3db)**2)
 
-            self.filt_fourier = numpy.fft.irfft(sig_ft)
+            self.filt_fourier = numpy.fft.irfft(sig_ft)/window
             normalize_filter(self.filt_fourier)
             
             # How we compute the uncertainty depends on whether there's a noise autocorrelation result
-            if True or self.noise_autocorr is None:
-                kappa = (numpy.abs(sig_ft*self.peak_signal)**2*self.noise_psd)[1:].mean()
+            if self.noise_autocorr is None:
+                noise_ft_squared = (len(self.noise_psd)-1)/self.sample_time * self.noise_psd
+                kappa = (numpy.abs(sig_ft*self.noise_psd*self.peak_signal)**2/noise_ft_squared)[:].sum()
                 self.variances['fourier'] = 1./kappa
             else:
-                self.variances['fourier'] = self.bracketR(self.filt_fourier, self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2)
-            print 'Fourier filter done.  Variance: ',self.variances['fourier']
+                ac = self.noise_autocorr[:len(self.filt_fourier)].copy()
+                self.variances['fourier'] = self.bracketR(self.filt_fourier, ac/self.peak_signal**2)
+            print 'Fourier filter done.  Variance: ',self.variances['fourier'], 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
 
         # Time domain filters
         if self.noise_autocorr is not None:
@@ -595,7 +669,7 @@ class Filter(object):
                 Rinv_sig = ts(avg_signal)
                 Rinv_1 = ts(numpy.ones(n))
             else:
-                if n>6000: raise ValueError("Not allowed to use generic solver")
+                if n>6000: raise ValueError("Not allowed to use generic solver for vectors longer than 6000.")
                 R =  scipy.linalg.toeplitz(noise_corr)
                 Rinv_sig = numpy.linalg.solve(R, avg_signal)
                 Rinv_1 = numpy.linalg.solve(R, numpy.ones(n))
@@ -605,14 +679,11 @@ class Filter(object):
             # Band-limit
             if fmax is not None or f_3db is not None:
                 sig_ft = numpy.fft.rfft(self.filt_noconst)
-                freq = numpy.fft.fftfreq(n, d=self.sample_time) 
-                freq=freq[:n/2+1]
-                freq[-1] *= -1
+                freq = numpy.arange(0,n/2+1,dtype=numpy.float)*0.5/self.sample_time/(n/2)
                 if fmax is not None:
                     sig_ft[freq>fmax] = 0.0
                 if f_3db is not None:
-                    f_3db=1.0*f_3db
-                    sig_ft /= (1.+(freq/f_3db)**2)
+                    sig_ft /= (1.+(1.0*freq/f_3db)**2)
                 self.filt_noconst = numpy.fft.irfft(sig_ft)
 
             normalize_filter(self.filt_noconst)
@@ -728,12 +799,13 @@ class ExperimentalFilter(Filter):
         <f_3db>          The 3 dB point for a one-pole low-pass filter to be applied to all filters.
                          If supplied, then it is passed on to the compute() method for the *first*
                          filter calculation only.  (Future calls to compute() can override).
-                         Either or both of <fmax> and <f_3db> are allowed. *NEITHER ARE IMPLMENETED YET*.
+                         Either or both of <fmax> and <f_3db> are allowed.
         <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
                          This must be given if <fmax> or <f_3db> are ever to be used.
         <shorten>        The time-domain filters should be shortened by removing this many
                          samples from each end.  (Do this for convenience of convolution over
                          multiple lags.)
+        <tau>            Time constant of exponential to filter out (in milliseconds)
         """
         
         self.tau = tau # in milliseconds
@@ -781,9 +853,7 @@ class ExperimentalFilter(Filter):
             
             # Band-limit
             if fmax is not None or f_3db is not None:
-                freq = numpy.fft.fftfreq(n, d=self.sample_time) 
-                freq=freq[:n/2+1]
-                freq[-1] *= -1
+                freq = numpy.arange(0,n,dtype=numpy.float)*0.5/(n*self.sample_time)
                 if fmax is not None:
                     sig_ft[freq>fmax] = 0.0
                 if f_3db is not None:
@@ -804,8 +874,8 @@ class ExperimentalFilter(Filter):
             expx = numpy.arange(n, dtype=numpy.float)*self.sample_time*1e3 # in ms
             chebyx = numpy.linspace(-1, 1, n)
             
-            R =  scipy.linalg.toeplitz(self.noise_autocorr[:n]/self.peak_signal**2)
-            ts = mass.utilities.ToeplitzSolver(R[0,:n], symmetric=True)
+            R = self.noise_autocorr[:n]/self.peak_signal**2 # A *vector*, not a matrix
+            ts = utilities.ToeplitzSolver(R, symmetric=True)
             
             # Band-limit
             if fmax is not None or f_3db is not None:
@@ -851,7 +921,8 @@ class ExperimentalFilter(Filter):
                 }
             
             pylab.clf()
-            for shortname in ('full','noconst','noexp','noexpcon','noslope','nocheb1','nocheb2','nocheb3'):
+            for shortname in ('full','noconst','noexpcon','nocheb1'):
+#            for shortname in ('full','noconst','noexp','noexpcon','noslope','nocheb1','nocheb2','nocheb3'):
 #            for shortname in ('noexp','noconst','noexpcon','nocheb1'):
                 name = 'filt_%s'%shortname
                 orthnames = orthogonalities[name]
@@ -885,26 +956,24 @@ class ExperimentalFilter(Filter):
                           scipy.special.chebyt(2)(chebyx)):
                     print '%10.5f '%numpy.dot(v,filt),
                     
-                self.variances[shortname] = numpy.dot(filt, numpy.dot(R, filt))
+                self.variances[shortname] = self.bracketR(filt, R)
                 print 'Res=%6.3f eV = %.5f'%(5898.801*numpy.sqrt(8*numpy.log(2))*self.variances[shortname]**(.5), (self.variances[shortname]/self.variances['full'])**.5)
             pylab.legend()
-#            self.filt_noconst = Rinv_unit.sum()*Rinv_sig - Rinv_sig.sum()*Rinv_unit
-
 
             self.filt_baseline = numpy.dot(avg_signal, Rinv_sig)*Rinv_unit - Rinv_sig.sum()*Rinv_sig
             self.filt_baseline /=  self.filt_baseline.sum()
+            self.variances['baseline'] = self.bracketR(self.filt_baseline, R)
             
             Rpretrig = scipy.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
             self.filt_baseline_pretrig = numpy.linalg.solve(Rpretrig, numpy.ones(self.n_pretrigger))
             self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
+            self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, R[:self.n_pretrigger])
 
-#            bracketR = lambda a, R: numpy.dot(a, numpy.dot(R, a))            
-#            self.variances['noconst'] = bracketR(self.filt_noconst, R) 
-#            self.variances['baseline'] = bracketR(self.filt_baseline, R)
-#            self.variances['baseline_pretrig'] = bracketR(self.filt_baseline_pretrig, Rpretrig)
             if self.noise_psd is not None:
-                R =  scipy.linalg.toeplitz(self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2)
-                self.variances['fourier'] = bracketR(self.filt_fourier, R)
+                r =  self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2
+                self.variances['fourier'] = self.bracketR(self.filt_fourier, r)
+
+
             
     def plot(self, axes=None):
         if axes is None:
@@ -1288,7 +1357,7 @@ class MicrocalDataSet(object):
                 pylab.ylim(prange)
 
 
-    def auto_drift_correct_rms(self, prange=None, times=None, plot=False):
+    def auto_drift_correct_rms(self, prange=None, times=None, plot=False, slopes=None):
         """Apply a correction for pulse variation with pretrigger mean, which we've found
         to be a pretty good indicator of drift.  Use the rms width of the Mn Kalpha line
         rather than actually fitting for the resolution.  (THIS IS THE OLD WAY TO DO IT.
@@ -1301,7 +1370,7 @@ class MicrocalDataSet(object):
         """
         if plot:
             pylab.clf()
-            pylab.subplot(211)
+            axis1=pylab.subplot(211)
         if self.p_filt_value_phc[0] ==0:
             self.p_filt_value_phc = self.p_filt_value.copy()
         
@@ -1322,7 +1391,7 @@ class MicrocalDataSet(object):
         corrector = self.p_pretrig_mean[valid]
         mean_pretrig_mean = corrector.mean()
         corrector -= mean_pretrig_mean
-        slopes = numpy.arange(-.5,2.4,.1)
+        if slopes is None: slopes = numpy.arange(-.2,.9,.05)
         rms_widths=[]
         for sl in slopes:
             rms = (data+corrector*sl).std()
@@ -1343,10 +1412,10 @@ class MicrocalDataSet(object):
             c = numpy.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
             pylab.plot(c, -c*best_slope + data.mean(),color='green')
             pylab.ylim(prange)
-            
+            axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')             
 
 
-    def auto_drift_correct(self, prange=None, times=None, plot=False):
+    def auto_drift_correct(self, prange=None, times=None, plot=False, slopes=None):
         """Apply a correction for pulse variation with pretrigger mean.
         This attempts to replace the previous version by using a fit to the
         Mn K alpha complex
@@ -1379,7 +1448,7 @@ class MicrocalDataSet(object):
         corrector = self.p_pretrig_mean[valid]
         mean_pretrig_mean = corrector.mean()
         corrector -= mean_pretrig_mean
-        slopes = numpy.arange(0,1.,.09)
+        if slopes is None: slopes = numpy.arange(0,1.,.09)
         
         fit_resolutions=[]
         for sl in slopes:
