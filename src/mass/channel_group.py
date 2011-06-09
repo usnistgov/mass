@@ -179,7 +179,7 @@ class BaseChannelGroup(object):
             
         if pulse_avg_ranges is not None:
             if isinstance(pulse_avg_ranges[0], (int,float)) and len(pulse_avg_ranges)==2:
-                pulse_avg_ranges = tuple(pulse_avg_ranges) ,
+                pulse_avg_ranges = tuple(pulse_avg_ranges),
             for r in pulse_avg_ranges:
                 middle = 0.5*(r[0]+r[1])
                 abslim = 0.5*numpy.abs(r[1]-r[0])
@@ -191,7 +191,7 @@ class BaseChannelGroup(object):
                     masks.append(m)
         elif pulse_peak_ranges is not None:
             if isinstance(pulse_peak_ranges[0], (int,float)) and len(pulse_peak_ranges)==2:
-                pulse_peak_ranges = tuple(pulse_peak_ranges)
+                pulse_peak_ranges = tuple(pulse_peak_ranges),
             for r in pulse_peak_ranges:
                 middle = 0.5*(r[0]+r[1])
                 abslim = 0.5*numpy.abs(r[1]-r[0])
@@ -332,8 +332,9 @@ class BaseChannelGroup(object):
                 self.filters.append(None)
                 continue
             print "Computing filter %d of %d"%(i, self.n_channels)
-            avg_signal = ds.average_pulses[i]
+            avg_signal = ds.average_pulses[i].copy()
             pretrig_ignore = int(ds.pretrigger_ignore_microsec*1e-6/ds.timebase)
+            
             f = mass.channel.Filter(avg_signal, self.nPresamples-pretrig_ignore, ds.noise_spectrum.spectrum(),
                                     ds.noise_autocorr, sample_time=self.timebase,
                                     fmax=fmax, f_3db=f_3db, shorten=2)
@@ -377,11 +378,13 @@ class BaseChannelGroup(object):
                             
             
     
-    def filter_data(self):
+    def filter_data(self, filter_name=None):
         """Filter data sets and store in datasets[*].p_filt_phase and _value.
         The filters are currently self.filter[*].filt_noconst"""
         if self.filters is None:
             self.compute_filters()
+            
+        if filter_name is None: filter_name='filt_noconst'
         
         for dset in self.datasets:
             dset.p_filt_phase = numpy.zeros(dset.nPulses, dtype=numpy.float)
@@ -392,13 +395,11 @@ class BaseChannelGroup(object):
                 end = self.nPulses 
             print "Records %d to %d loaded"%(first,end-1)
             for i,(filter,dset) in enumerate(zip(self.filters,self.datasets)):
-                try:
-                    peak_x, peak_y = dset.filter_data(filter.filt_noconst,first, end)
-                    dset.p_filt_phase[first:end] = peak_x
-                    dset.p_filt_value[first:end] = peak_y
-                except:
-                    print "Can't use filter %d"%i
-    
+                filt_vector = filter.__dict__[filter_name]
+                peak_x, peak_y = dset.filter_data(filt_vector,first, end)
+                dset.p_filt_phase[first:end] = peak_x
+                dset.p_filt_value[first:end] = peak_y
+            
     def plot_crosstalk(self, xlim=None, ylim=None, use_legend=True):
         pylab.clf()
         dt = (numpy.arange(self.nSamples)-self.nPresamples)*1e3*self.timebase
