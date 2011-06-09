@@ -14,8 +14,8 @@ November 24, 2010 : started as mn_kalpha.py
 """
 
 import numpy
-from matplotlib import pylab
-import scipy.optimize, scipy.stats, scipy.interpolate
+import pylab
+import scipy.stats, scipy.interpolate, scipy.special
 import mass
 
 def lorentzian(x, fwhm):
@@ -117,8 +117,54 @@ class CuKAlpha(SpectralLine):
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     peak_energy = 8047.83 # eV        
+    
 
-        
+
+class GaussianLine(object):
+    """An abstract base class for modeling spectral lines as a 
+    single Gaussian of known energy.
+    
+    Instantiate one of its subclasses, which will have to define
+    self.energy.
+    """
+    
+    def __init__(self):
+        self.sigma = self.fwhm/numpy.sqrt(8*numpy.log(2))
+        self.amplitude = (2*numpy.pi)**(-0.5)/self.sigma
+    
+    def __call__(self, x, fwhm=None):
+        return self.pdf(x, fwhm=fwhm)
+    
+    def pdf(self, x, fwhm=None):
+        """Spectrum (arb units) as a function of <x>, the energy in eV"""
+        x = numpy.asarray(x, dtype=numpy.float)
+        if fwhm is None:
+            sigma, ampl = self.sigma, self.amplitude
+        else:
+            sigma = fwhm/numpy.sqrt(8*numpy.log(2))
+#            ampl = (2*numpy.pi)**(-0.5)/sigma
+        result = numpy.exp(-0.5*(x-self.energy)**2/sigma**2)# * ampl
+        return result
+    
+    def cdf(self, x, fwhm=None):
+        """Cumulative distribution function where <x> = set of energies."""
+        x = numpy.asarray(x, dtype=numpy.float)
+        if fwhm is None:
+            arg = (x-self.energy)/self.sigma/numpy.sqrt(2)
+        else:
+            sigma = fwhm/numpy.sqrt(8*numpy.log(2))
+            arg = (x-self.energy)/sigma/numpy.sqrt(2)
+        return (scipy.special.erf(arg)+1)*.5
+    
+class Gd97(GaussianLine):
+    energy = 97431.0
+    fwhm = 50.0
+    
+class Gd103(GaussianLine):
+    energy = 103180.0
+    fwhm = 50.0
+
+
     
 class MultiLorentzian_distribution(scipy.stats.rv_continuous):
     """For producing random variates of the an energy distribution having the form
@@ -202,6 +248,9 @@ class SpectralLineFitter(object):
             
             energy = (x-params[1])/abs(params[2]) + E_peak
             spectrum = self.spect(energy)
+#            if numpy.isnan(energy[1]-energy[0]):
+#                print params, 'yikes!'
+#                raise ValueError("NaN energies")
             smeared = smear(spectrum, abs(params[0]), stepsize = energy[1]-energy[0])
             return smeared * abs(params[3]) + abs(params[4])
         
@@ -250,6 +299,8 @@ class MnKAlphaFitter(SpectralLineFitter):
         K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
         
         n = data.sum()
+        if n<=0:
+            raise ValueError("This histogram has no contents")
         sum_d = (data*binctrs).sum()
         sum_d2 = (data*binctrs*binctrs).sum()
         mean_d = sum_d/n
@@ -361,6 +412,81 @@ def smear(f, fwhm, stepsize=1.0):
     sigmaConjugate = 1.0/(2 * numpy.pi * sigma)
     ft *= numpy.exp(-0.5*(freq/sigmaConjugate)**2)
     return numpy.fft.irfft(ft)[0:N]
+
+
+class GaussianFitter(object):
+    def __init__(self, spect):
+        self.spect = spect
+        
+    def guess_starting_params(self, data, binctrs):
+        """doc"""
+        
+        n = data.sum()
+        sum_d = (data*binctrs).sum()
+        sum_d2 = (data*binctrs*binctrs).sum()
+        mean_d = sum_d/n
+        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+        res = rms_d * 2.3548
+        ph_peak = mean_d
+        ampl = data.max()
+        baseline = 0.1
+        return [res, ph_peak, ampl, baseline]
+    
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", hold=None):
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
+        set of histogram bins <pulseheights>.
+        
+        params: a 4-element sequence of [Resolution (fwhm), center of the peak,
+                amplitude, background level (per bin) ]
+        
+        If pulseheights is None, then the parameters having pulseheight units will be returned as bin numbers.
+        
+        If params is None or does not have 4 elements, then they will be guessed."""
+        try:
+            assert len(pulseheights) == len(data)
+        except:
+            pulseheights = numpy.arange(len(data), dtype=numpy.float)
+        try:
+            _,_,_,_ = params
+        except:
+            params = self.guess_starting_params(data, pulseheights)
+        
+        def fitfunc(params, x):
+            E_peak = self.spect.energy
+            
+            energy = (x-params[1]) + E_peak
+            spectrum = self.spect(energy, fwhm=params[0]*params[1]/E_peak)
+            return spectrum * abs(params[2]) + abs(params[3])
+        
+        # Joe's new max-likelihood fitter
+        epsilon = numpy.array((1e-3, params[1]/1e5, params[2]/1e5, params[3]/1e2))
+        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, fitfunc, TOL=1e-4, epsilon=epsilon)
+        if hold is not None:
+            for h in hold: fitter.hold(h)
+        fitparams, covariance = fitter.fit()
+        iflag = 0
+
+        fitparams[0] = abs(fitparams[0])
+        
+        self.lastFitParams = fitparams
+        self.lastFitResult = fitfunc(fitparams, pulseheights)
+        
+#        if iflag not in (1,2,3,4): 
+        if iflag not in (0,2): 
+            print "Oh no! iflag=%d"%iflag
+        elif plot:
+            if color is None: color='blue'
+            if axis is None:
+                pylab.clf()
+                axis = pylab.subplot(111)
+                
+            de = numpy.sqrt(covariance[0,0])
+            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
+            axis.plot(pulseheights, self.lastFitResult, color='black')
+            axis.legend(loc='upper left')
+            dp = pulseheights[1]-pulseheights[0]
+            axis.set_xlim([pulseheights[0]-0.5*dp, pulseheights[-1]+0.5*dp])
+        return fitparams, covariance
 
 
 
