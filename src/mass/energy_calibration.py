@@ -17,6 +17,8 @@ STANDARD_FEATURES={
    'Mn Ka2': 5887.592,
    'Mn Kb':  6490.18,
    'Mn Kbeta': 6490.18,
+   'Gd1':97431.0,
+   'Gd2':103180.0,
    'zero': 0.0,
 }
 
