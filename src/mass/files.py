@@ -26,6 +26,15 @@ Created on Feb 16, 2011
 import numpy
 import os
 
+"""
+This ROOT import should be setup so that if ROOT is not installed it does not take down the whole class
+The install on at least on the macports version does not have ROOT in the path so it must be added.
+This may be fixed by Frank in the future
+"""
+import sys  #To add path
+sys.path.append('/opt/local/lib/root/') #Folder where ROOT.py lives
+import ROOT
+
 class MicrocalFile(object):
     """
     Encapsulate a set of data containing multiple triggered traces from
@@ -251,3 +260,132 @@ class LJHFile(MicrocalFile):
         self.datatimes += (self.data[:,1])
         self.data = self.data[:,3:] # cut out the zeros and the timestamp, which are 3 uint16 words at the start of each pulse
         
+class LANLFile(MicrocalFile):
+    """Process a LANL ROOT file using pyROOT. """
+    
+    def __init__(self, filename):
+        """Open an LANL file for reading.  Read its header.  
+        <filename>   Path to the file to be read.
+        """
+        super(LANLFile, self).__init__()
+        self.filename = filename
+        #self.__cached_segment = None
+        self.root_file_object = ROOT.TFile(self.filename)
+        self.ucal_tree = self.root_file_object.Get('ucal_data') #Get the ROOT tree structure that has the data
+        
+        """The header file in the LANL format is in a separate ROOT files that is the same for all the channels.
+        It does not have the _chxxx designation. I will take the path passed to the class and use splitline
+        to strip of the _chxxx part."""
+        # Strip off the extension
+        filename_array =  filename.split('.')
+        if filename_array[1] != 'root':
+            raise IOError("File does not have .root extension")
+        filename_noextension = filename_array[0]
+        # Strip off the channel number
+        seperator = '_'
+        self.header_filename = seperator.join(filename_noextension.split(seperator)[:-1])+'.root'
+        if os.path.isfile(self.header_filename):
+            self.root_header_file_object = ROOT.TFile(self.header_filename)
+            self.__read_header()
+        else:
+            #raise IOError("The header file for this data file does not exist")
+            print "Did not read header"
+
+    def copy(self):
+        
+        pass
+
+    def __read_header(self):
+        """
+        Read the seperate ROOT file that contains the header information as branches.
+        On success, several attributes will be set: self.timebase, .nSamples,
+        and .nPresamples
+        
+        <filename>: path to the file to be opened.
+        """
+        
+        # The objects that are not used should be commented out
+        basetime_obj = self.root_header_file_object.Get("basetime")
+        record_length_obj = self.root_header_file_object.Get("record_length")
+        pretrig_length_obj = self.root_header_file_object.Get("pretrig_length")
+        sample_rate_obj = self.root_header_file_object.Get("sample_rate")
+        yscale_obj = self.root_header_file_object.Get("yscale")
+        
+        self.timebase = basetime_obj.GetVal()
+        self.nSamples = record_length_obj.GetVal()
+        self.nPresamples = pretrig_length_obj.GetVal()
+        
+        # These are not relevant for root files but mass may require there existence
+        self.header_lines= 0 #self.header_lines = lines
+        self.header_size = 0 #self.header_size = fp.tell()
+        self.binary_size = 0 #self.binary_size = fp.tell() - self.header_size
+        
+        # This information is not in the root header file but is in the channel files
+        #self.nPulses = self.binary_size / (6+2*self.nSamples)
+        self.get_nPulses() #self.nPulses now has the number of pulses
+        
+        # Check for major problems in the LJH file:
+        if self.timebase is None:
+            raise IOError("No 'Timebase' line found in header")
+        if self.nSamples is None:
+            raise IOError("No 'Total Samples' line found in header")
+        if self.nPresamples is None:
+            raise IOError("No 'Presamples' line found in header")
+        
+        # This does not make sense for a ROOT file
+        # I could imagine making this one non-fatal, but for now make it fatal:
+        #if self.nPulses * (6+2*self.nSamples) != self.binary_size:
+#            pass
+        #    raise IOError("The binary size of the file (%d) is not an integer multiple of the pulse size %d"
+        #                  %(self.binary_size, 6+2*self.nSamples))
+
+        # Record the sample times in microseconds
+        self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
+        
+    def get_nPulses(self):
+        """Get the numner of pulses in the current ROOT file."""
+        
+        self.nPulses = int(self.ucal_tree.GetEntries())
+        
+    def read_trace(self, trace_num):
+        """Return a single data trace (number <trace_num>)."""
+        
+        #Pulses are stored in vector ROOT format in the 'pulse' branch
+        pdata = ROOT.std.vector(int)()
+        channel = numpy.zeros(1,dtype=int)
+        timestamp = numpy.zeros(1,dtype=int)
+        pulse_max = numpy.zeros(1,dtype=int)
+        pulse_max_pos = numpy.zeros(1,dtype=int)
+        pulse_integral = numpy.zeros(1,dtype=int)
+        baseline = numpy.zeros(1,dtype=float)
+        baseline_rms = numpy.zeros(1,dtype=float)
+        flag_pileup = numpy.zeros(1,dtype=int)
+        # pdata is updated when the the GetEntry method to the current trace number is called
+        self.ucal_tree.SetBranchAddress('pulse',ROOT.AddressOf(pdata))
+        self.ucal_tree.SetBranchAddress("channel",channel)
+        self.ucal_tree.SetBranchAddress("timestamp",timestamp)
+        self.ucal_tree.SetBranchAddress("max",pulse_max)
+        self.ucal_tree.SetBranchAddress("max_pos",pulse_max_pos)
+        self.ucal_tree.SetBranchAddress("integral",pulse_integral)
+        self.ucal_tree.SetBranchAddress("baseline",baseline)
+        self.ucal_tree.SetBranchAddress("baseline_rms",baseline_rms)
+        self.ucal_tree.SetBranchAddress("flag_pileup",flag_pileup)
+        
+        self.ucal_tree.GetEntry(trace_num)
+        
+        pulse_size = int(pdata.size())     
+        pulse = numpy.zeros(0,dtype=int)
+        for index in range(pulse_size):
+            pulse = numpy.append(pulse,pdata[index])
+            
+        #return pulse,channel[0],timestamp[0],pulse_max[0],pulse_max_pos[0],pulse_integral[0],baseline[0],baseline_rms[0],flag_pileup[0]
+        return pulse
+    
+    def iter_segments(self, first=0, end=-1):
+        
+        pass
+    
+    def read_segment(self, segment_num=0):
+        
+        pass
+    
