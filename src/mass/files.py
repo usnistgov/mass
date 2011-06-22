@@ -26,14 +26,17 @@ Created on Feb 16, 2011
 import numpy
 import os
 
-"""
-This ROOT import should be setup so that if ROOT is not installed it does not take down the whole class
-The install on at least on the macports version does not have ROOT in the path so it must be added.
-This may be fixed by Frank in the future
-"""
-import sys  #To add path
-sys.path.append('/opt/local/lib/root/') #Folder where ROOT.py lives
-import ROOT
+# Beware that the Mac Ports install of ROOT does not add 
+## /opt/local/lib/root to the PYTHONPATH.  Still, you should do it yourself. 
+#import sys  #To add path
+#sys.path.append('/opt/local/lib/root/') #Folder where ROOT.py lives
+try:
+    import ROOT
+    print 'ROOT was successfully imported.'
+except ImportError:
+    print 'ROOT was not found.'
+
+
 
 class MicrocalFile(object):
     """
@@ -259,6 +262,8 @@ class LJHFile(MicrocalFile):
         self.datatimes = numpy.array(self.data[:,2], dtype=numpy.uint32) * (1<<16) 
         self.datatimes += (self.data[:,1])
         self.data = self.data[:,3:] # cut out the zeros and the timestamp, which are 3 uint16 words at the start of each pulse
+
+
         
 class LANLFile(MicrocalFile):
     """Process a LANL ROOT file using pyROOT. """
@@ -267,6 +272,10 @@ class LANLFile(MicrocalFile):
         """Open an LANL file for reading.  Read its header.  
         <filename>   Path to the file to be read.
         """
+        
+        if ROOT is None:
+            raise ImportError("The PyRoot library 'ROOT' could not be imported.  Check your PYTHONPATH?")
+        
         super(LANLFile, self).__init__()
         self.filename = filename
         #self.__cached_segment = None
@@ -282,8 +291,8 @@ class LANLFile(MicrocalFile):
             raise IOError("File does not have .root extension")
         filename_noextension = filename_array[0]
         # Strip off the channel number
-        seperator = '_'
-        self.header_filename = seperator.join(filename_noextension.split(seperator)[:-1])+'.root'
+        separator = '_'
+        self.header_filename = separator.join(filename_noextension.split(separator)[:-1])+'.root'
         if os.path.isfile(self.header_filename):
             self.root_header_file_object = ROOT.TFile(self.header_filename)
             self.__read_header()
@@ -292,8 +301,16 @@ class LANLFile(MicrocalFile):
             print "Did not read header"
 
     def copy(self):
+        """Return a copy of the object.
         
-        pass
+        Handy when coding and you don't want to read the whole data set back in, but
+        you do want to update the method definitions."""
+        c = LANLFile(self.filename, self.segmentsize)
+        c.__dict__.update( self.__dict__ )
+        c.__cached_segment = None
+        return c
+
+
 
     def __read_header(self):
         """
