@@ -103,16 +103,48 @@ class PowerSpectrum(object):
 #        ps[-1] *= 0.5
         self.specsum += scale_factor*ps
         self.nsegments += 1
-        
-    def spectrum(self):
-        return self.specsum / self.nsegments
+    
+    def addLongData(self, data, window=None):
+        """Process a long vector of data as non-overlapping segments of
+        length 2m."""
+        nt = len(data)
+        nk = nt/self.m2
+#        if nk>1:
+#            delta_el = (nt-self.m2)/(nk-1.0)
+#        else:
+#            delta_el = 0.0
+        for k in range(nk):
+            noff = k*self.m2
+            PowerSpectrum.addDataSegment(self,
+                                         data[noff:noff+self.m2], 
+                                         window=window)
 
+        
+    def spectrum(self, nbins=None):
+        "If <nbins> is given, the data are averaged into <nbins> bins."
+        if nbins is None:
+            return self.specsum / self.nsegments
+        if nbins > self.m: 
+            raise ValueError("Cannot rebin into more than m=%d bins"%self.m)
+    
+        newbin = numpy.asarray(0.5+numpy.arange(self.m+1, dtype=numpy.float)/(self.m+1)*nbins, dtype=numpy.int)
+        result = numpy.zeros(nbins+1, dtype=numpy.float)
+        for i in range (nbins+1):
+            result[i] = self.specsum[newbin==i].mean()
+        return result/self.nsegments
+    
     def autocorrelation(self):
         "Return the autocorrelation (the DFT of this power spectrum)"
-        
+        raise NotImplementedError ("The autocorrelation method is not yet implemented.")
 
-    def frequencies(self):
-        return numpy.arange(self.m+1, dtype=numpy.float)/(2*self.dt*self.m)
+    def frequencies(self, nbins=None):
+        "If <nbins> is given, the data are averaged into <nbins> bins."
+        if nbins is None: nbins=self.m
+        if nbins > self.m: 
+            raise ValueError("Cannot rebin into more than m=%d bins"%self.m)
+        return numpy.arange(nbins+1, dtype=numpy.float)/(2*self.dt*nbins)
+
+
 
 class PowerSpectrumOverlap(PowerSpectrum):
     """Object for power spectral estimation using overlapping
