@@ -32,7 +32,7 @@ import os
 #sys.path.append('/opt/local/lib/root/') #Folder where ROOT.py lives
 try:
     import ROOT
-    print 'ROOT was successfully imported.'
+    print 'ROOT was successfully imported into mass.'
 except ImportError:
     print 'ROOT was not found.'
 
@@ -66,7 +66,25 @@ class MicrocalFile(object):
         
     def __repr__(self):
         return "%s('%s')"%(self.__class__.__name__, self.filename)
+
+
+    def iter_segments(self, first=0, end=-1):
+        """An iterator over all segments.  Read in segments one at a time and yield triplet:
+        (first pulse number, 1+last pulse number, the segment number just read, the data).
+        
+        <first> The first segment to read.
+        <end>   One past the last segment to read, or -1 to read through the last segment."""
+        
+        if end <= first:
+            end = self.n_segments
+        for segnum in range(first,end):
+            first_pnum, end_pnum, data = self.read_segment(segnum)
+#            first_pnum = segnum * self.pulses_per_seg
+#            end_pnum = self.datatimes.shape[0] + first_pnum
+            yield first_pnum, end_pnum, segnum, data
+            
     
+
     
     
 class LJHFile(MicrocalFile):
@@ -100,21 +118,6 @@ class LJHFile(MicrocalFile):
         return c
 
 
-    def __set_segmentsize(self, segmentsize):
-        """Set the standard segmentsize used in the read_segment() method.  This number will
-        be rounded down to equal an integer number of pulses.
-        
-        Raises ValueError if segmentsize is smaller than a single pulse."""
-        self.pulse_size_bytes = 6 + 2*self.nSamples
-        maxitems = segmentsize/self.pulse_size_bytes
-        if maxitems < 1:
-            raise ValueError("segmentsize=%d is not permitted to be smaller than the pulse record (%d bytes)"
-                             %(segmentsize, self.pulse_size_bytes))
-        self.segmentsize = maxitems*self.pulse_size_bytes
-        self.pulses_per_seg = self.segmentsize / self.pulse_size_bytes
-        self.n_segments = 1+(self.binary_size-1)/self.segmentsize
-
-        
     def __read_header(self, filename):
         """
         Read in the text header of an LJH file.
@@ -170,6 +173,21 @@ class LJHFile(MicrocalFile):
         self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
     
+    def __set_segmentsize(self, segmentsize):
+        """Set the standard segmentsize used in the read_segment() method.  This number will
+        be rounded down to equal an integer number of pulses.
+        
+        Raises ValueError if segmentsize is smaller than a single pulse."""
+        self.pulse_size_bytes = 6 + 2*self.nSamples
+        maxitems = segmentsize/self.pulse_size_bytes
+        if maxitems < 1:
+            raise ValueError("segmentsize=%d is not permitted to be smaller than the pulse record (%d bytes)"
+                             %(segmentsize, self.pulse_size_bytes))
+        self.segmentsize = maxitems*self.pulse_size_bytes
+        self.pulses_per_seg = self.segmentsize / self.pulse_size_bytes
+        self.n_segments = 1+(self.binary_size-1)/self.segmentsize
+
+        
     def read_trace(self, trace_num):
         """Return a single data trace (number <trace_num>),
         either from cache or by reading off disk, if needed."""
@@ -178,22 +196,6 @@ class LJHFile(MicrocalFile):
         return self.data[trace_num % self.pulses_per_seg]
         
         
-    def iter_segments(self, first=0, end=-1):
-        """An iterator over all segments.  Read in segments one at a time and yield triplet:
-        (first pulse number, 1+last pulse number, the segment number just read, the data).
-        
-        <first> The first segment to read.
-        <end>   One past the last segment to read, or -1 to read through the last segment."""
-        
-        if end <= first:
-            end = self.n_segments
-        for segnum in range(first,end):
-            first_pnum, end_pnum, data = self.read_segment(segnum)
-#            first_pnum = segnum * self.pulses_per_seg
-#            end_pnum = self.datatimes.shape[0] + first_pnum
-            yield first_pnum, end_pnum, segnum, data
-            
-    
     def read_segment(self, segment_num=0):
         """Read a section of the binary data of the given number (0,1,...) and size.
         It is okay to call this out of order.  The last segment might be shorter than others.
@@ -268,7 +270,7 @@ class LJHFile(MicrocalFile):
 class LANLFile(MicrocalFile):
     """Process a LANL ROOT file using pyROOT. """
     
-    def __init__(self, filename):
+    def __init__(self, filename, segmentsize=(2**24)):
         """Open an LANL file for reading.  Read its header.  
         <filename>   Path to the file to be read.
         """
@@ -278,18 +280,20 @@ class LANLFile(MicrocalFile):
         
         super(LANLFile, self).__init__()
         self.filename = filename
-        #self.__cached_segment = None
+        self.__cached_segment = None
         self.root_file_object = ROOT.TFile(self.filename)
         self.ucal_tree = self.root_file_object.Get('ucal_data') #Get the ROOT tree structure that has the data
         
-        """The header file in the LANL format is in a separate ROOT files that is the same for all the channels.
-        It does not have the _chxxx designation. I will take the path passed to the class and use splitline
-        to strip of the _chxxx part."""
+#        The header file in the LANL format is in a separate ROOT files that is the same for all the channels.
+#        It does not have the _chxxx designation. I will take the path passed to the class and use splitline
+#        to strip of the _chxxx part.
+
         # Strip off the extension
         filename_array =  filename.split('.')
         if filename_array[1] != 'root':
             raise IOError("File does not have .root extension")
         filename_noextension = filename_array[0]
+
         # Strip off the channel number
         separator = '_'
         self.header_filename = separator.join(filename_noextension.split(separator)[:-1])+'.root'
@@ -299,6 +303,14 @@ class LANLFile(MicrocalFile):
         else:
             #raise IOError("The header file for this data file does not exist")
             print "Did not read header"
+            self.get_nPulses()
+            self.nPresamples = 50
+            self.nSamples = len(self.read_trace(0))
+            self.timebase = 1.0e-5
+            
+        self.__set_segmentsize(segmentsize)
+        self.raw_datatimes = numpy.zeros(self.nPulses, dtype=numpy.uint32)
+
 
     def copy(self):
         """Return a copy of the object.
@@ -311,10 +323,9 @@ class LANLFile(MicrocalFile):
         return c
 
 
-
     def __read_header(self):
         """
-        Read the seperate ROOT file that contains the header information as branches.
+        Read the separate ROOT file that contains the header information as branches.
         On success, several attributes will be set: self.timebase, .nSamples,
         and .nPresamples
         
@@ -332,16 +343,10 @@ class LANLFile(MicrocalFile):
         self.nSamples = record_length_obj.GetVal()
         self.nPresamples = pretrig_length_obj.GetVal()
         
-        # These are not relevant for root files but mass may require there existence
-        self.header_lines= 0 #self.header_lines = lines
-        self.header_size = 0 #self.header_size = fp.tell()
-        self.binary_size = 0 #self.binary_size = fp.tell() - self.header_size
-        
         # This information is not in the root header file but is in the channel files
-        #self.nPulses = self.binary_size / (6+2*self.nSamples)
         self.get_nPulses() #self.nPulses now has the number of pulses
         
-        # Check for major problems in the LJH file:
+        # Check for major problems in the header:
         if self.timebase is None:
             raise IOError("No 'Timebase' line found in header")
         if self.nSamples is None:
@@ -349,20 +354,30 @@ class LANLFile(MicrocalFile):
         if self.nPresamples is None:
             raise IOError("No 'Presamples' line found in header")
         
-        # This does not make sense for a ROOT file
-        # I could imagine making this one non-fatal, but for now make it fatal:
-        #if self.nPulses * (6+2*self.nSamples) != self.binary_size:
-#            pass
-        #    raise IOError("The binary size of the file (%d) is not an integer multiple of the pulse size %d"
-        #                  %(self.binary_size, 6+2*self.nSamples))
-
         # Record the sample times in microseconds
         self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
         
+
     def get_nPulses(self):
         """Get the numner of pulses in the current ROOT file."""
-        
         self.nPulses = int(self.ucal_tree.GetEntries())
+
+
+    def __set_segmentsize(self, segmentsize):
+        """Set the standard segmentsize used in the read_segment() method.  This number will
+        be rounded down to equal an integer number of pulses.
+        
+        Raises ValueError if segmentsize is smaller than a single pulse."""
+        self.pulse_size_bytes = 2*self.nSamples
+        maxitems = segmentsize/self.pulse_size_bytes
+        if maxitems < 1:
+            raise ValueError("segmentsize=%d is not permitted to be smaller than the pulse record (%d bytes)"
+                             %(segmentsize, self.pulse_size_bytes))
+        self.segmentsize = maxitems*self.pulse_size_bytes
+        self.pulses_per_seg = self.segmentsize / self.pulse_size_bytes
+        self.n_segments = 1+(self.nPulses-1)/maxitems
+
+        
         
     def read_trace(self, trace_num):
         """Return a single data trace (number <trace_num>)."""
@@ -389,20 +404,44 @@ class LANLFile(MicrocalFile):
         self.ucal_tree.SetBranchAddress("flag_pileup",flag_pileup)
         
         self.ucal_tree.GetEntry(trace_num)
+        pulse = numpy.asarray(pdata)
+        try:
+            self.raw_datatimes[trace_num] = timestamp[0]
+        except AttributeError: pass
         
-        pulse_size = int(pdata.size())     
-        pulse = numpy.zeros(0,dtype=int)
-        for index in range(pulse_size):
-            pulse = numpy.append(pulse,pdata[index])
-            
-        #return pulse,channel[0],timestamp[0],pulse_max[0],pulse_max_pos[0],pulse_integral[0],baseline[0],baseline_rms[0],flag_pileup[0]
+#        return pulse,channel[0],timestamp[0],pulse_max[0],pulse_max_pos[0],pulse_integral[0],baseline[0],baseline_rms[0],flag_pileup[0], pdata
         return pulse
-    
-    def iter_segments(self, first=0, end=-1):
-        
-        pass
+
     
     def read_segment(self, segment_num=0):
+        """Read a section of the binary data of the given number (0,1,...) and size.
+        It is okay to call this out of order.  The last segment might be shorter than others.
         
-        pass
+        Raises ValueError if there is no such section number.
+
+        Return (first, end, data) where first is the pulse number of the first pulse read,
+        end is 1+the number of the last one read, and data is the full array.        
+
+        Params:
+        -------
+        <segment_num> Number of the segment to read.
+        """
+        # Use cached data, if possible
+        if segment_num != self.__cached_segment: 
+            if segment_num > self.n_segments:
+                raise ValueError("File %s has only %d segments;\n\tCannot open segment %d"%
+                                 (self.filename, self.n_segments, segment_num))
+                
+            first = segment_num * self.pulses_per_seg
+            end = first + self.pulses_per_seg
+            if end > self.nPulses: end = self.nPulses
+            print "Reading pulses [%d,%d)"%(first,end)
+            self.data = numpy.array([self.read_trace(i) for i in range(first,end)])
+            self.__cached_segment = segment_num
+        self.datatimes = self.raw_datatimes[first:end]
+        return first, end, self.data
+        
+        
+    
+    
     
