@@ -268,7 +268,7 @@ class PulseRecords(object):
     The pulses should not be noise records."""
     
     
-    def __init__(self, filename):
+    def __init__(self, filename, file_format=None):
         self.nSamples = 0
         self.nPresamples = 0
         self.nPulses = 0
@@ -290,14 +290,30 @@ class PulseRecords(object):
         self.bad = None
         self.good = None
 
-        self.__open_file(filename)
+        self.__open_file(filename, file_format = file_format)
 #        self.__setup_vectors()
 
-    def __open_file(self, filename):
+    def __open_file(self, filename, file_format=None):
         """Detect the filetype and open it."""
 
-        # For now, we have only one file type, so let's just assume it!
-        self.datafile = files.LJHFile(filename)
+        ALLOWED_TYPES=("ljh","root")
+        if file_format is None:
+            if filename.endswith("root"):
+                file_format = "root"
+            elif filename.endswith("ljh"):
+                file_format = "ljh"
+            else:
+                file_format = "ljh"
+        if file_format not in ALLOWED_TYPES:
+            raise ValueError("file_format must be None or one of %s"%ALLOWED_TYPES)
+
+        if file_format == "ljh":
+            self.datafile = files.LJHFile(filename)
+        elif file_format == "root":
+            self.datafile = files.LANLFile(filename)
+        else:
+            raise RuntimeError("It is a programming error to get here")
+        
         self.filename = filename
 
         # Copy up some of the most important attributes
@@ -593,66 +609,86 @@ class Filter(object):
         self.compute(fmax=fmax, f_3db=f_3db)
 
 
+    def normalize_filter(self, q): 
+        "Rescale filter <q> so that it gives unit response to self.avg_signal"
+        if len(q) == len(self.avg_signal):
+            q *= 1 / numpy.dot(q, self.avg_signal)
+        else:  
+#                print "scaling by 1/%f"%numpy.dot(q, self.avg_signal[self.shorten:-self.shorten])
+#                print self.peak_signal, q
+            q *= 1 / numpy.dot(q, self.avg_signal[self.shorten:-self.shorten]) 
+
+
+    def _compute_fourier_filter(self, fmax=None, f_3db=None):
+        "Compute the Fourier-domain filter"
+        if self.noise_psd is None: return
+        
+        # Careful: let's be sure that the Fourier domain filter is done consistently in Filter and
+        # its child classes.
+        
+        n = len(self.noise_psd)
+#        window = power_spectrum.hamming(2*(n-1-self.shorten))
+        window = 1.0
+
+        if self.shorten>0:
+            sig_ft = numpy.fft.rfft(self.avg_signal[self.shorten:-self.shorten]*window)
+        else:
+            sig_ft = numpy.fft.rfft(self.avg_signal * window)
+
+        if len(sig_ft) != n-self.shorten:
+            raise ValueError("signal real DFT and noise PSD are not the same length (%d and %d)"
+                             %(len(sig_ft), n))
+            
+        # Careful with PSD: "shorten" it by converting into a real space autocorrelation, 
+        # truncating the middle, and going back to Fourier space
+        if self.shorten>0:
+            noise_autocorr = numpy.fft.irfft(self.noise_psd)
+            noise_autocorr = numpy.hstack((noise_autocorr[:n-self.shorten-1], noise_autocorr[-n+self.shorten:]))
+            noise_psd = numpy.fft.rfft(noise_autocorr)
+        else:
+            noise_psd = self.noise_psd
+        sig_ft_weighted = sig_ft/noise_psd
+        
+        # Band-limit
+        if fmax is not None or f_3db is not None:
+            freq = numpy.arange(0,n-self.shorten,dtype=numpy.float)*0.5/((n-1)*self.sample_time)
+            if fmax is not None:
+                sig_ft_weighted[freq>fmax] = 0.0
+            if f_3db is not None:
+                sig_ft_weighted /= (1+(freq*1.0/f_3db)**2)
+
+        # Compute both the normal (DC-free) and the full (with DC) filters.
+        self.filt_fourierfull = numpy.fft.irfft(sig_ft_weighted)/window
+        sig_ft_weighted[0] = 0.0
+        self.filt_fourier = numpy.fft.irfft(sig_ft_weighted)/window
+        self.normalize_filter(self.filt_fourierfull)
+        self.normalize_filter(self.filt_fourier)
+        
+        # How we compute the uncertainty depends on whether there's a noise autocorrelation result
+        if self.noise_autocorr is None:
+            noise_ft_squared = (len(self.noise_psd)-1)/self.sample_time * self.noise_psd
+            kappa = (numpy.abs(sig_ft*self.peak_signal)**2/noise_ft_squared)[:].sum()
+            self.variances['fourierfull'] = 1./kappa
+            
+            kappa = (numpy.abs(sig_ft*self.peak_signal)**2/noise_ft_squared)[1:].sum()
+            self.variances['fourier'] = 1./kappa
+        else:
+            ac = self.noise_autocorr[:len(self.filt_fourier)].copy()
+            self.variances['fourier'] = self.bracketR(self.filt_fourier, ac)/self.peak_signal**2
+            self.variances['fourierfull'] = self.bracketR(self.filt_fourierfull, ac)/self.peak_signal**2
+#        print 'Fourier filter done.  Variance: ',self.variances['fourier'], 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
+
+
     def compute(self, fmax=None, f_3db=None, use_toeplitz_solver=True):
         """
         Compute a set of filters.  This is called once on construction, but you can call it
         again if you want to change the frequency cutoff or f_3db rolloff point.
         """
 
+        self.fmax=fmax
+        self.f_3db=f_3db
         self.variances={}
-        
-        def normalize_filter(q): 
-            if len(q) == len(self.avg_signal):
-                q *= 1 / numpy.dot(q, self.avg_signal)
-            else:  
-#                print "scaling by 1/%f"%numpy.dot(q, self.avg_signal[self.shorten:-self.shorten])
-#                print self.peak_signal, q
-                q *= 1 / numpy.dot(q, self.avg_signal[self.shorten:-self.shorten]) 
-                
-        # Fourier domain filters
-        if self.noise_psd is not None:
-            n = len(self.noise_psd)
-            window = power_spectrum.hamming(2*(n-1-self.shorten))
-            window = 1.0
-            if self.shorten>0:
-                sig_ft = numpy.fft.rfft(self.avg_signal[self.shorten:-self.shorten]*window)
-            else:
-                sig_ft = numpy.fft.rfft(self.avg_signal * window)
-            if len(sig_ft) != n-self.shorten:
-                raise ValueError("signal real DFT and noise PSD are not the same length (%d and %d)"
-                                 %(len(sig_ft), n))
-                
-            # Careful with PSD: "shorten" it by converting into real space, truncating the middle, and going
-            # back to Fourier space
-            if self.shorten>0:
-                noise_autocorr = numpy.fft.irfft(self.noise_psd)
-                noise_autocorr = numpy.hstack((noise_autocorr[:n-self.shorten-1], noise_autocorr[-n+self.shorten:]))
-                noise_psd = numpy.fft.rfft(noise_autocorr)
-            else:
-                noise_psd = self.noise_psd
-            sig_ft /= noise_psd
-            sig_ft[0] = 0.0
-            
-            # Band-limit
-            if fmax is not None or f_3db is not None:
-                freq = numpy.arange(0,n-self.shorten,dtype=numpy.float)*0.5/((n-1)*self.sample_time)
-                if fmax is not None:
-                    sig_ft[freq>fmax] = 0.0
-                if f_3db is not None:
-                    sig_ft /= (1+(freq*1.0/f_3db)**2)
-
-            self.filt_fourier = numpy.fft.irfft(sig_ft)/window
-            normalize_filter(self.filt_fourier)
-            
-            # How we compute the uncertainty depends on whether there's a noise autocorrelation result
-            if self.noise_autocorr is None:
-                noise_ft_squared = (len(self.noise_psd)-1)/self.sample_time * self.noise_psd
-                kappa = (numpy.abs(sig_ft*self.noise_psd*self.peak_signal)**2/noise_ft_squared)[:].sum()
-                self.variances['fourier'] = 1./kappa
-            else:
-                ac = self.noise_autocorr[:len(self.filt_fourier)].copy()
-                self.variances['fourier'] = self.bracketR(self.filt_fourier, ac/self.peak_signal**2)
-            print 'Fourier filter done.  Variance: ',self.variances['fourier'], 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
+        self._compute_fourier_filter(fmax=fmax, f_3db=f_3db)
 
         # Time domain filters
         if self.noise_autocorr is not None:
@@ -669,7 +705,7 @@ class Filter(object):
                 Rinv_sig = ts(avg_signal)
                 Rinv_1 = ts(numpy.ones(n))
             else:
-                if n>6000: raise ValueError("Not allowed to use generic solver for vectors longer than 6000.")
+                if n>6000: raise ValueError("Not allowed to use generic solver for vectors longer than 6000, because it's slow-ass.")
                 R =  scipy.linalg.toeplitz(noise_corr)
                 Rinv_sig = numpy.linalg.solve(R, avg_signal)
                 Rinv_1 = numpy.linalg.solve(R, numpy.ones(n))
@@ -686,7 +722,7 @@ class Filter(object):
                     sig_ft /= (1.+(1.0*freq/f_3db)**2)
                 self.filt_noconst = numpy.fft.irfft(sig_ft)
 
-            normalize_filter(self.filt_noconst)
+            self.normalize_filter(self.filt_noconst)
 
             self.filt_baseline = numpy.dot(avg_signal, Rinv_sig)*Rinv_1 - Rinv_sig.sum()*Rinv_sig
             self.filt_baseline /=  self.filt_baseline.sum()
@@ -826,41 +862,16 @@ class ExperimentalFilter(Filter):
         filt_noexp      Alpert filter insensitive to exp(-t/tau)
         filt_noexpcon   Alpert filter insensitive to exp(-t/tau) and to constants
         filt_noslope    Alpert filter insensitive to slopes
-        filt_nocheb1    Alpert filter insensitive to Chebyshev polynomials order 0 to 1
-        filt_nocheb2    Alpert filter insensitive to Chebyshev polynomials order 0 to 2
-        filt_nocheb3    Alpert filter insensitive to Chebyshev polynomials order 0 to 3
+        filt_nopoly1    Alpert filter insensitive to Chebyshev polynomials order 0 to 1
+        filt_nopoly2    Alpert filter insensitive to Chebyshev polynomials order 0 to 2
+        filt_nopoly3    Alpert filter insensitive to Chebyshev polynomials order 0 to 3
         """
+
+        self.fmax=fmax
+        self.f_3db=f_3db
         self.variances={}
         
-        def normalize_filter(q): 
-            if len(q) == len(self.avg_signal):
-                factor = 1 / numpy.dot(q, self.avg_signal)
-            else:  
-                factor = 1 / numpy.dot(q, self.avg_signal[self.shorten:-self.shorten])
-#            print factor 
-            q *= factor
-                
-        # Fourier domain filters
-        if self.noise_psd is not None:
-            n = len(self.noise_psd)
-            sig_ft = numpy.fft.rfft(self.avg_signal)
-            if len(sig_ft) != n:
-                raise ValueError("signal real DFT and noise PSD are not the same length (%d and %d)"
-                                 %(len(sig_ft), n))
-            
-            sig_ft /= self.noise_psd
-            sig_ft[0] = 0.0
-            
-            # Band-limit
-            if fmax is not None or f_3db is not None:
-                freq = numpy.arange(0,n,dtype=numpy.float)*0.5/(n*self.sample_time)
-                if fmax is not None:
-                    sig_ft[freq>fmax] = 0.0
-                if f_3db is not None:
-                    sig_ft /= (1+(freq/f_3db)**2)
-
-            self.filt_fourier = numpy.fft.irfft(sig_ft)
-            normalize_filter(self.filt_fourier)
+        self._compute_fourier_filter(fmax=fmax, f_3db=f_3db)
         
         # Time domain filters
         if self.noise_autocorr is not None:
@@ -877,9 +888,22 @@ class ExperimentalFilter(Filter):
             R = self.noise_autocorr[:n]/self.peak_signal**2 # A *vector*, not a matrix
             ts = utilities.ToeplitzSolver(R, symmetric=True)
             
+            unit = numpy.ones(n)
+            exp  = numpy.exp(-expx/self.tau)
+            cht1 = scipy.special.chebyt(1)(chebyx)
+            cht2 = scipy.special.chebyt(2)(chebyx)
+            cht3 = scipy.special.chebyt(3)(chebyx)
+            
+            Rinv_sig  = ts(avg_signal)
+            Rinv_unit = ts(unit)
+            Rinv_exp  = ts(exp)
+            Rinv_cht1 = ts(cht1)
+            Rinv_cht2 = ts(cht2)
+            Rinv_cht3 = ts(cht3)
+            
             # Band-limit
-            if fmax is not None or f_3db is not None:
-                sig_ft = numpy.fft.rfft(avg_signal)
+            def band_limit(vector, fmax, f_3db):
+                sig_ft = numpy.fft.rfft(vector)
                 freq = numpy.fft.fftfreq(n, d=self.sample_time) 
                 freq=freq[:n/2+1]
                 freq[-1] *= -1
@@ -887,27 +911,12 @@ class ExperimentalFilter(Filter):
                     sig_ft[freq>fmax] = 0.0
                 if f_3db is not None:
                     sig_ft /= (1+(freq/f_3db)**2)
-                sig = numpy.fft.irfft(sig_ft)
-            else:
-                sig = avg_signal
+                vector[:] = numpy.fft.irfft(sig_ft)
                 
-            unit = numpy.ones(n)
-            exp  = numpy.exp(-expx/self.tau)
-            cht1 = scipy.special.chebyt(1)(chebyx)
-            cht2 = scipy.special.chebyt(2)(chebyx)
-            cht3 = scipy.special.chebyt(3)(chebyx)
-            
-            Rinv_sig  = ts(sig)
-            Rinv_unit = ts(unit)
-            Rinv_exp  = ts(exp)
-            Rinv_cht1 = ts(cht1)
-            Rinv_cht2 = ts(cht2)
-            Rinv_cht3 = ts(cht3)
-            
-#            pylab.clf()
-#            for v in Rinv_sig,Rinv_unit,Rinv_e,Rinv_cht1,Rinv_cht2,Rinv_cht3:
-#                pylab.plot(v)
-#            return
+            if fmax is not None or f_3db is not None:
+                for vector in Rinv_sig, Rinv_unit, Rinv_exp, Rinv_cht1, Rinv_cht2, Rinv_cht3:
+                    band_limit(vector, fmax, f_3db)
+
             
             orthogonalities={
                 'filt_full':(),
@@ -915,39 +924,40 @@ class ExperimentalFilter(Filter):
                 'filt_noexp'   :('exp',),
                 'filt_noexpcon':('unit', 'exp'),
                 'filt_noslope' :('cht1',),
-                'filt_nocheb1' :('unit', 'cht1'),
-                'filt_nocheb2' :('unit', 'cht1', 'cht2'),
-                'filt_nocheb3' :('unit', 'cht1', 'cht2', 'cht3'),
+                'filt_nopoly1' :('unit', 'cht1'),
+                'filt_nopoly2' :('unit', 'cht1', 'cht2'),
+                'filt_nopoly3' :('unit', 'cht1', 'cht2', 'cht3'),
                 }
             
             pylab.clf()
-            for shortname in ('full','noconst','noexpcon','nocheb1'):
-#            for shortname in ('full','noconst','noexp','noexpcon','noslope','nocheb1','nocheb2','nocheb3'):
-#            for shortname in ('noexp','noconst','noexpcon','nocheb1'):
+            pylab.plot(self.filt_fourier, color='gold',label='Fourier')
+#            for shortname in ('full','noconst','noexpcon','nopoly1'):
+            for shortname in ('full','noconst','noexp','noexpcon','noslope','nopoly1','nopoly2','nopoly3'):
+#            for shortname in ('noexp','noconst','noexpcon','nopoly1'):
                 name = 'filt_%s'%shortname
                 orthnames = orthogonalities[name]
                 filt = Rinv_sig
                 
-                North = len(orthnames)
-                if North > 0:
+                N_orth = len(orthnames) # To how many vectors are we orthgonal?
+                if N_orth > 0:
                     u = numpy.vstack((Rinv_sig, [eval('Rinv_%s'%v) for v in orthnames]))
                 else:
                     u = Rinv_sig.reshape((1,n))
-                M = numpy.zeros((1+North,1+North), dtype=numpy.float)
-                for i in range(1+North):
+                M = numpy.zeros((1+N_orth,1+N_orth), dtype=numpy.float)
+                for i in range(1+N_orth):
                     M[0,i] = numpy.dot(avg_signal, u[i,:])
-                    for j in range(1,1+North):
+                    for j in range(1,1+N_orth):
                         M[j,i] = numpy.dot(eval(orthnames[j-1]), u[i,:])
                 Minv = numpy.linalg.inv(M)
                 weights = Minv[:,0]
 
                 filt = numpy.dot(weights, u)
                 filt = u[0,:]*weights[0]
-                for i in range(1,1+North):
+                for i in range(1,1+N_orth):
                     filt += u[i,:]*weights[i]
                 
                 
-                normalize_filter(filt)
+                self.normalize_filter(filt)
                 self.__dict__[name] = filt
                 
                 print '%15s'%name,
@@ -1089,12 +1099,12 @@ class MicrocalDataSet(object):
         if first >= self.nPulses:
             return
         maxderiv_holdoff = int(self.peak_time_microsec*1e-6/self.timebase) # don't look for retriggers before this # of samples
-        pretrig_ignore = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
+        self.pretrigger_ignore_samples = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
 
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
-        self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-pretrig_ignore].mean(axis=1)
-        self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-pretrig_ignore].std(axis=1)
+        self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
+        self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
         self.p_peak_index[first:end] = self.data[:seg_size,:].argmax(axis=1)
         self.p_peak_value[first:end] = self.data[:seg_size,:].max(axis=1)
         self.p_min_value[first:end] = self.data[:seg_size,:].min(axis=1)
