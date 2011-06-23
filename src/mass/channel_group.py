@@ -110,12 +110,13 @@ class BaseChannelGroup(object):
         
         
         
-    def plot_traces(self, pulsenums, channum=0, pulse_summary=True, axis=None):
+    def plot_traces(self, pulsenums, channum=0, pulse_summary=True, axis=None, difference=False):
         """Plot some example pulses, given by sample number.
         <pulsenums>  A sequence of sample numbers, or a single one.
         
         <pulse_summary> Whether to put text about the first few pulses on the plot
         <axis>       A pylab axis to plot on.
+        <difference> Whether to show successive differences or the raw data
         """
         if isinstance(pulsenums, int):
             pulsenums = (pulsenums,)
@@ -140,6 +141,11 @@ class BaseChannelGroup(object):
         cuts_good = dataset.cuts.good()[pulsenums]
         for i,pn in enumerate(pulsenums):
             data = self.read_trace(pn, channum)
+            if difference:
+                data = data*1.0-numpy.roll(data,1)
+                data[0] = 0
+                data += numpy.roll(data,1) + numpy.roll(data,-1)
+                data[0] = 0
             cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1
             if not cuts_good[i]:
                 cutchar,alpha,linestyle,linewidth = 'X',1.0,'--' ,1
@@ -268,9 +274,8 @@ class BaseChannelGroup(object):
         for ichan,ds in enumerate(self.datasets):
             ds.average_pulses = pulse_sums[ichan,:,:]
             if subtract_mean:
-                pretrig_ignore = int(ds.pretrigger_ignore_microsec*1e-6/self.timebase)
                 for imask in range(ds.average_pulses.shape[0]):
-                    ds.average_pulses[imask,:] -= ds.average_pulses[imask,:self.nPresamples-pretrig_ignore].mean()
+                    ds.average_pulses[imask,:] -= ds.average_pulses[imask,:self.nPresamples-ds.pretrigger_ignore_samples].mean()
     
     
     def plot_average_pulses(self, id, axis=None):
@@ -333,9 +338,8 @@ class BaseChannelGroup(object):
                 continue
             print "Computing filter %d of %d"%(i, self.n_channels)
             avg_signal = ds.average_pulses[i].copy()
-            pretrig_ignore = int(ds.pretrigger_ignore_microsec*1e-6/ds.timebase)
             
-            f = mass.channel.Filter(avg_signal, self.nPresamples-pretrig_ignore, ds.noise_spectrum.spectrum(),
+            f = mass.channel.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, ds.noise_spectrum.spectrum(),
                                     ds.noise_autocorr, sample_time=self.timebase,
                                     fmax=fmax, f_3db=f_3db, shorten=2)
             self.filters.append(f)
