@@ -81,11 +81,11 @@ class BaseChannelGroup(object):
 
     def summarize_data(self):
         """
-        ...?
+        Compute summary quantities for each pulse.  Subclasses override this with methods
+        that ought to call this!
         """
 
         print "This data set has (up to) %d records with %d samples apiece."%(self.nPulses, self.nSamples)  
-        t0 = time.time()
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
@@ -93,10 +93,6 @@ class BaseChannelGroup(object):
             for dset in self.datasets:
 #                dset.nPulses = self.nPulses
                 dset.summarize_data(first, end)
-                
-        # How many detectors were hit in each record?
-        self.nhits = numpy.array([d.p_pulse_average>50 for d in self.datasets]).sum(axis=0)
-        print "Summarized data in %.0f seconds" %(time.time()-t0)
         
     
     def read_trace(self, record_num, chan_num=0):
@@ -675,6 +671,16 @@ class TESGroup(BaseChannelGroup):
         return first_pnum, end_pnum
     
     
+    def summarize_data(self):
+        """
+        Compute summary quantities for each pulse.
+        """
+
+        t0 = time.time()
+        super(self.__class__, self).summarize_data()
+        print "Summarized data in %.0f seconds" %(time.time()-t0)
+        
+
     def compute_average_pulse(self, masks, subtract_mean=True):
         """
         Compute several average pulses in each TES channel, one per mask given in
@@ -849,6 +855,19 @@ class CDMGroup(BaseChannelGroup):
         self._cached_pnum_range = first,end
         return first, end
 
+
+    def summarize_data(self):
+        """
+        Compute summary quantities for each pulse.
+        """
+
+        t0 = time.time()
+        super(self.__class__, self).summarize_data()
+
+        # How many detectors were hit in each record?
+        self.nhits = numpy.array([d.p_pulse_average>50 for d in self.datasets]).sum(axis=0)
+        print "Summarized data in %.0f seconds" %(time.time()-t0)
+        
 
     def compute_average_pulse(self, masks, subtract_mean=True):
         """
