@@ -1,15 +1,15 @@
 '''
 The mass.files module contains classes required for handling the various types
 of pulse data files.  In principle, there are several data file types:
+* LANL files
 * LJH files
 * PLS files
-* LANL files
 
-...but in practice, we are only ever using LJH files.  Therefore, this module
-contains only one concrete class, the LJHFile (along with the abstract base
-class MicrcalFile).
+...but in practice, we are not ever using PLS files.  Therefore, this module
+contains only two concrete classes, the LJHFile and the LANLFile (along with 
+the abstract base class MicrocalFile).
 
-If you find yourself wanting to read PLS or LANL (or other?) file types,
+If you find yourself wanting to read PLS (or other?) file types,
 then make a new class that inherits from MicrocalFile and calls 
 MicrocalFile.__init__ to verify that it has the required interface:
 * read_segment(segment_num)
@@ -18,18 +18,26 @@ MicrocalFile.__init__ to verify that it has the required interface:
 * copy()
 
 
+The utilities root2ljh_translator and root2ljh_translate_all are used to convert
+a ROOT file (or all such in one directory) into LJH format for more efficient
+future use within mass.
+
 Created on Feb 16, 2011
+LANLFile and translation added June 2011 by Doug Bennett and Joe Fowler 
 
 @author: fowlerj
 '''
 
 import numpy
 import os
+import time
+import glob
 
 # Beware that the Mac Ports install of ROOT does not add 
 # /opt/local/lib/root to the PYTHONPATH.  Still, you should do it yourself. 
-#To add path
-#sys.path.append('/opt/local/lib/root/') #Folder where ROOT.py lives
+# If you insist on adding to the path from within Python, you do:
+# >>> import sys
+# >>> sys.path.append('/opt/local/lib/root/') #Folder where ROOT.py lives
 
 try:
     import ROOT
@@ -292,7 +300,7 @@ class LANLFile(MicrocalFile):
 
         # Strip off the extension
         filename_array =  filename.split('.')
-        if filename_array[1] != 'root':
+        if filename_array[-1] != 'root':
             raise IOError("File does not have .root extension")
         filename_noextension = filename_array[0]
 
@@ -461,6 +469,112 @@ class LANLFile(MicrocalFile):
         return first, end, self.data
         
         
+
+def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=5000000):
+    """
+    Translate a single LANL ROOT file into a single LJH file.
     
+    The ROOT reader in PyROOT is rather slow, whereas LJH data can be read efficiently in large segments.
+    I believe this is because ROOT cannot assume that all events are homogeneous (of course, they are).
+    The point of this translator is to let us read LANL data many times without paying this
+    penalty each time.
     
+    Parameters: 
+    -------------
+    ljhfile   -- The filename of the output file.  If not given, it will be chosen by replacing
+                 a trailing ".root" with ".ljh" if possible (and will fail if not possible).
+    overwrite -- If the output file exists and overwrite is not True, then translation fails.
+    segmentsize -- The number of ROOT file bytes to read at one gulp.  Not likely that you care about this.
+    """
     
+    print "Attempting to translate '%s' "%rootfile,
+    lanl = LANLFile(filename=rootfile, segmentsize=segmentsize)
+    
+    if ljhfile is None:
+        if not rootfile.endswith(".root"):
+            raise ValueError("ljhfile argument must be supplied if rootfile name doesn't end with '.root'.")
+        ljhfile = rootfile.rstrip("root")+"ljh"
+        
+    if os.path.exists(ljhfile) and not overwrite:
+        raise IOError("The ljhfile '%s' exists and overwrite was not set to True"%ljhfile)
+    
+    lanl.asctime=time.asctime(time.gmtime())
+    ljh_header = """#LJH Memorial File Format
+Save File Format Version: 2.0.0
+Software Version: Fake LJH file converted from ROOT
+Software Driver Version: n/a
+Date: %(asctime)s GMT
+Acquisition Mode: 0
+Digitized Word Size in bytes: 2
+Location: LANL, presumably
+Cryostat: Unknown
+Thermometer: Unknown
+Temperature (mK): 100.0000
+Bridge range: 20000
+Magnetic field (mGauss): 100.0000
+Detector: 
+Sample: 
+Excitation/Source: 
+Operator: Unknown
+SYSTEM DESCRIPTION OF THIS FILE: 
+USER DESCRIPTION OF THIS FILE: 
+#End of description
+Number of Digitizers: 1
+Number of Active Channels: 1
+Timestamp offset (s): 1304449182.876200
+Digitizer: 1
+Description: CS1450-1 1M ver 1.16
+Master: Yes
+Bits: 14
+Effective Bits: 0
+Anti-alias low-pass cutoff frequency (Hz): 0.000
+Timebase: %(timebase).4e
+Number of samples per point: 1
+Presamples: %(nPresamples)d
+Total Samples: %(nSamples)d
+Trigger (V): 250.000000
+Tigger Hysteresis: 0
+Trigger Slope: +
+Trigger Coupling: DC
+Trigger Impedance: 1 MOhm
+Trigger Source: CH A
+Trigger Mode: 0 Normal
+Trigger Time out: 351321
+Use discrimination: No 
+Channel: 1.0
+Description: A (Voltage)
+Range: 0.500000
+Offset: -0.000122
+Coupling: DC
+Impedance: 1 Ohms
+Inverted: No
+Preamp gain: 1.000000
+Discrimination level (%%): 1.000000
+#End of Header
+"""%lanl.__dict__
+
+    ljh_fp = open(ljhfile, "wb")
+    ljh_fp.write(ljh_header)
+    
+    import struct
+    prefix_fmt = "<xxL"
+    BINARYFILE=""
+    for i in range(lanl.nPulses):
+        trace=lanl.read_trace(i)
+        prefix = struct.pack(prefix_fmt, int(lanl.timestamp[0]/1000))
+        ljh_fp.write(prefix)
+        trace.tofile(ljh_fp, sep=BINARYFILE)
+    
+    ljh_fp.close()
+
+
+
+def root2ljh_translate_all(directory):
+    "Use root2ljh_translator for all files in <directory>"
+    
+    for f in glob.glob("%s/*.root"%directory):
+        try:
+            root2ljh_translator(f, overwrite=False)
+        except IOError:
+            print "Could not translate '%s' .  Moving on..."%f
+            
