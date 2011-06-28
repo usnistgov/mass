@@ -27,9 +27,10 @@ import numpy
 import os
 
 # Beware that the Mac Ports install of ROOT does not add 
-## /opt/local/lib/root to the PYTHONPATH.  Still, you should do it yourself. 
-#import sys  #To add path
+# /opt/local/lib/root to the PYTHONPATH.  Still, you should do it yourself. 
+#To add path
 #sys.path.append('/opt/local/lib/root/') #Folder where ROOT.py lives
+
 try:
     import ROOT
     print 'ROOT was successfully imported into mass.'
@@ -283,6 +284,7 @@ class LANLFile(MicrocalFile):
         self.__cached_segment = None
         self.root_file_object = ROOT.TFile(self.filename)
         self.ucal_tree = self.root_file_object.Get('ucal_data') #Get the ROOT tree structure that has the data
+        self.__prepare_root_memory()
         
 #        The header file in the LANL format is in a separate ROOT files that is the same for all the channels.
 #        It does not have the _chxxx designation. I will take the path passed to the class and use splitline
@@ -304,12 +306,49 @@ class LANLFile(MicrocalFile):
             #raise IOError("The header file for this data file does not exist")
             print "Did not read header"
             self.get_nPulses()
+            # Here are some default ... well, guesses
             self.nPresamples = 50
-            self.nSamples = len(self.read_trace(0))
+            self.ucal_tree.GetEntry(0) # need this to fill self.pdata
+            self.nSamples = len(self.pdata)
             self.timebase = 1.0e-5
             
         self.__set_segmentsize(segmentsize)
         self.raw_datatimes = numpy.zeros(self.nPulses, dtype=numpy.uint32)
+
+
+    def __prepare_root_memory(self):
+        """It is silly to have to create these numpy objects and then tell ROOT to
+        store data into them over and over, so we move them from the read_trace method
+        to here, where they can be done once and forgotten"""
+        
+        #Pulses are stored in vector ROOT format in the 'pulse' branch
+        self.pdata = ROOT.std.vector(int)()
+        self.channel = numpy.zeros(1,dtype=int)
+        self.timestamp = numpy.zeros(1,dtype=int)
+        self.pulse_max = numpy.zeros(1,dtype=int)
+        self.pulse_max_pos = numpy.zeros(1,dtype=int)
+        self.pulse_integral = numpy.zeros(1,dtype=int)
+        self.baseline = numpy.zeros(1,dtype=float)
+        self.baseline_rms = numpy.zeros(1,dtype=float)
+        self.flag_pileup = numpy.zeros(1,dtype=int)
+        
+        # pdata is updated when the the GetEntry method to the current trace number is called
+        self.ucal_tree.SetBranchAddress('pulse',ROOT.AddressOf(self.pdata))
+        self.ucal_tree.SetBranchAddress("channel",self.channel)
+        self.ucal_tree.SetBranchAddress("timestamp",self.timestamp)
+        self.ucal_tree.SetBranchAddress("max",self.pulse_max)
+        self.ucal_tree.SetBranchAddress("max_pos",self.pulse_max_pos)
+        self.ucal_tree.SetBranchAddress("integral",self.pulse_integral)
+        self.ucal_tree.SetBranchAddress("baseline",self.baseline)
+        self.ucal_tree.SetBranchAddress("baseline_rms",self.baseline_rms)
+        self.ucal_tree.SetBranchAddress("flag_pileup",self.flag_pileup)
+
+        # The read caching seems to make no difference whatsoever, but here it is...
+        # See http://root.cern.ch/drupal/content/spin-little-disk-spin for more.
+        self.ucal_tree.SetCacheSize(2**23)
+        self.ucal_tree.AddBranchToCache("*")
+        self.ucal_tree.SetCacheLearnEntries(1)
+
 
 
     def copy(self):
@@ -336,8 +375,8 @@ class LANLFile(MicrocalFile):
         basetime_obj = self.root_header_file_object.Get("basetime")
         record_length_obj = self.root_header_file_object.Get("record_length")
         pretrig_length_obj = self.root_header_file_object.Get("pretrig_length")
-        sample_rate_obj = self.root_header_file_object.Get("sample_rate")
-        yscale_obj = self.root_header_file_object.Get("yscale")
+        _sample_rate_obj = self.root_header_file_object.Get("sample_rate")
+        _yscale_obj = self.root_header_file_object.Get("yscale")
         
         self.timebase = basetime_obj.GetVal()
         self.nSamples = record_length_obj.GetVal()
@@ -382,32 +421,11 @@ class LANLFile(MicrocalFile):
     def read_trace(self, trace_num):
         """Return a single data trace (number <trace_num>)."""
         
-        #Pulses are stored in vector ROOT format in the 'pulse' branch
-        pdata = ROOT.std.vector(int)()
-        channel = numpy.zeros(1,dtype=int)
-        timestamp = numpy.zeros(1,dtype=int)
-        pulse_max = numpy.zeros(1,dtype=int)
-        pulse_max_pos = numpy.zeros(1,dtype=int)
-        pulse_integral = numpy.zeros(1,dtype=int)
-        baseline = numpy.zeros(1,dtype=float)
-        baseline_rms = numpy.zeros(1,dtype=float)
-        flag_pileup = numpy.zeros(1,dtype=int)
-        # pdata is updated when the the GetEntry method to the current trace number is called
-        self.ucal_tree.SetBranchAddress('pulse',ROOT.AddressOf(pdata))
-        self.ucal_tree.SetBranchAddress("channel",channel)
-        self.ucal_tree.SetBranchAddress("timestamp",timestamp)
-        self.ucal_tree.SetBranchAddress("max",pulse_max)
-        self.ucal_tree.SetBranchAddress("max_pos",pulse_max_pos)
-        self.ucal_tree.SetBranchAddress("integral",pulse_integral)
-        self.ucal_tree.SetBranchAddress("baseline",baseline)
-        self.ucal_tree.SetBranchAddress("baseline_rms",baseline_rms)
-        self.ucal_tree.SetBranchAddress("flag_pileup",flag_pileup)
-        
         self.ucal_tree.GetEntry(trace_num)
-        pulse = numpy.asarray(pdata)
-        try:
-            self.raw_datatimes[trace_num] = timestamp[0]
-        except AttributeError: pass
+#        pulse = numpy.asarray(self.pdata)
+#        pulse = numpy.array(self.pdata)
+        pulse = numpy.fromiter(self.pdata.begin(), dtype=numpy.uint16, count=self.nSamples)
+        self.raw_datatimes[trace_num] = self.timestamp[0]
         
 #        return pulse,channel[0],timestamp[0],pulse_max[0],pulse_max_pos[0],pulse_integral[0],baseline[0],baseline_rms[0],flag_pileup[0], pdata
         return pulse
@@ -426,19 +444,20 @@ class LANLFile(MicrocalFile):
         -------
         <segment_num> Number of the segment to read.
         """
+        first = segment_num * self.pulses_per_seg
+        end = first + self.pulses_per_seg
+
         # Use cached data, if possible
         if segment_num != self.__cached_segment: 
             if segment_num > self.n_segments:
                 raise ValueError("File %s has only %d segments;\n\tCannot open segment %d"%
                                  (self.filename, self.n_segments, segment_num))
                 
-            first = segment_num * self.pulses_per_seg
-            end = first + self.pulses_per_seg
             if end > self.nPulses: end = self.nPulses
             print "Reading pulses [%d,%d)"%(first,end)
             self.data = numpy.array([self.read_trace(i) for i in range(first,end)])
+            self.datatimes = self.raw_datatimes[first:end]
             self.__cached_segment = segment_num
-        self.datatimes = self.raw_datatimes[first:end]
         return first, end, self.data
         
         

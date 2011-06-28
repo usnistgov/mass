@@ -283,6 +283,7 @@ class MaximumLikelihoodHistogramFitter(object):
         value.  Parameter is fixed until method free(i) is called.
         """
         self.ia[i] = False
+        print 'Holding param %d'%i
         if val is not None:
             self.params[i] = val
         
@@ -384,6 +385,8 @@ class MaximumLikelihoodHistogramFitter(object):
         # fit hugely.
         y_model = self.theory_function(params, self.x)
         dyda = self.theory_gradient(params, self.x)
+        if dyda[0].sum()==0:
+            print 'Problem:',self.epsilon, dyda[:,:4], params
         dyda_over_y = dyda/y_model
         nobs = self.nobs
         y_resid = nobs - y_model
