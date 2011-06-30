@@ -165,7 +165,6 @@ def workarounds_axes_hist(
 
         .. plot:: mpl_examples/pylab_examples/histogram_demo.py
         """
-        print 'Joe was here'
         if not self._hold: self.cla()
 
         # NOTE: the range keyword overwrites the built-in func range !!!
