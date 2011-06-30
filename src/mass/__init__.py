@@ -14,6 +14,7 @@ import files
 import fluorescence_lines
 import power_spectrum
 import utilities
+import workarounds
 
 msg="""Importing the Microcalorimeter Analysis Software System (MASS)"""
 
