@@ -22,8 +22,8 @@ import controller
 import files
 import utilities
 import power_spectrum
-#import fluorescence_lines
 import energy_calibration
+import fluorescence_lines
 
 
 class NoiseRecords(object):
@@ -48,7 +48,8 @@ class NoiseRecords(object):
         """Detect the filetype and open it."""
 
         # For now, we have only one file type, so let's just assume it!
-        self.datafile = files.LJHFile(filename, segmentsize=60000000)
+        MAXSEGMENTSIZE = 80000000
+        self.datafile = files.LJHFile(filename, segmentsize=MAXSEGMENTSIZE)
         self.filename = filename
 
         # Copy up some of the most important attributes
@@ -58,8 +59,8 @@ class NoiseRecords(object):
         for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
             if seg_num > 0 or first_pnum>0 or end_pnum != self.nPulses:
                 msg = "NoiseRecords objects can't (yet) handle multi-segment noise files.\n"+\
-                    "This is file %s seg_num %d with first/end pulse# %d, %d"%(
-                    self.filename,seg_num, first_pnum, end_pnum)
+                    "File size %d exceeds maximum allowed segment size of %d"%(
+                    self.filename, self.datafile.binary_size, MAXSEGMENTSIZE)
                 raise NotImplementedError(msg)
             self.data = data
 
@@ -136,14 +137,24 @@ class NoiseRecords(object):
                     start_freq = 1*lowest_freq[i+1]
                 pylab.loglog(x[good],y[good],'-')
     
-    def plot_power_spectrum(self, axis=None, **kwarg):
+    def plot_power_spectrum(self, axis=None, scale=1.0, sqrt_psd=False, **kwarg):
+        """
+        Plot the power spectrum of this noise record.
+        
+        <axis>     Which pylab.Axes object to plot on.  If none, clear the figure and plot there.
+        <scale>    Scale all raw units by this number to convert counts to physical
+        <sqrt_psd> Whether to take the sqrt(PSD) for plotting.  Default is no sqrt
+        """
         if self.spectrum is None:
             self.compute_power_spectrum(plot=False)
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
         spec = self.spectrum
-        axis.plot(spec.frequencies()[1:], spec.spectrum()[1:], **kwarg)
+        yvalue = spec.spectrum()[1:] * (scale**2)
+        if sqrt_psd: 
+            yvalue = numpy.sqrt(yvalue)
+        axis.plot(spec.frequencies()[1:], yvalue, **kwarg)
         pylab.loglog()
         axis.grid()
         axis.set_xlim([10,3e5])
@@ -1308,15 +1319,6 @@ class MicrocalDataSet(object):
             ph_estimate = calibration.name2ph('Mn Ka1')
             prange = numpy.array((ph_estimate*.98, ph_estimate*1.02))
 
-        # Plot the raw filtered value vs phase
-        if plot:
-            pylab.clf()
-            pylab.subplot(211)
-            pylab.plot((self.p_filt_phase+.5)%1-.5, self.p_filt_value,'.',color='orange')
-            pylab.xlim([-.55,.55])
-            if prange is not None:
-                pylab.ylim(prange)
-                
         # Estimate corrections in a few different pieces
         corrections = []
         valid = self.cuts.good()
@@ -1327,6 +1329,15 @@ class MicrocalDataSet(object):
             valid = numpy.logical_and(valid, self.p_timestamp<times[1])
             valid = numpy.logical_and(valid, self.p_timestamp>times[0])
 
+        # Plot the raw filtered value vs phase
+        if plot:
+            pylab.clf()
+            pylab.subplot(211)
+            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value[valid],',',color='orange')
+            pylab.xlim([-.55,.55])
+            if prange is not None:
+                pylab.ylim(prange)
+                
         for ctr_phase in phases:
             valid_ph = numpy.logical_and(valid,
                                          numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
@@ -1349,7 +1360,7 @@ class MicrocalDataSet(object):
         params = (-0.25, 0, corrections.mean())
         fitparams, _iflag = scipy.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
         phases = numpy.arange(-0.6,0.5001,.01)
-        pylab.plot(phases, model(fitparams, phases), color='blue')
+        if plot: pylab.plot(phases, model(fitparams, phases), color='blue')
         
         self.phase_correction={'phase':fitparams[0],
                             'amplitude':fitparams[1],
@@ -1361,7 +1372,7 @@ class MicrocalDataSet(object):
                                             1e3*correction.std()/self.p_filt_value.mean())
         if plot:
             pylab.subplot(212)
-            pylab.plot((self.p_filt_phase+.5)%1-.5, self.p_filt_value_phc,'.b')
+            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value_phc[valid],',b')
             pylab.xlim([-.55,.55])
             if prange is not None:
                 pylab.ylim(prange)
@@ -1500,8 +1511,15 @@ class MicrocalDataSet(object):
         contents,bin_edges = numpy.histogram(good_values, 200, prange)
         if verbose: print "%d events pass cuts; %d are in histogram range"%(len(good_values),contents.sum())
         bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
-        fittername = 'fluorescence_lines.%sFitter()'%line
+        
+        # Temporary hack for Lorentzian lines that we'll approximate as Gaussian
+        if line in ('AlKalpha', 'SiKalpha'):
+            fittername = 'fluorescence_lines.GaussianFitter(fluorescence_lines.%s())'%line
+        else:
+            fittername = 'fluorescence_lines.%sFitter()'%line
         fitter = eval(fittername)
+        print 'fittername: ',fittername
+        print fitter
         params, covar = fitter.fit(contents, bin_ctrs, plot=plot, **kwargs)
         if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0],numpy.sqrt(covar[0,0]))
         return params, covar
@@ -1523,7 +1541,7 @@ class MicrocalDataSet(object):
         params, _covar = self.fit_spectral_line(prange=mnka_range, times=times, type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
         calib.add_cal_point(params[1], 'Mn Ka1')
 
-        mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.96,1.02))
+        mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.94,1.02))
 #        params[1] = calib.name2ph('Mn Kb')
 #        params[3] *= 0.50
 #        params[4] = 0.0

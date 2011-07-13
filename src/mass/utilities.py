@@ -438,5 +438,3 @@ class MouseClickReader(object):
     def __del__(self):
         self.fig.canvas.mpl_disconnect(self.cid)
         
-
-                

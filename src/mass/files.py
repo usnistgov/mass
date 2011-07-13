@@ -318,7 +318,7 @@ class LANLFile(MicrocalFile):
             self.nPresamples = 50
             self.ucal_tree.GetEntry(0) # need this to fill self.pdata
             self.nSamples = len(self.pdata)
-            self.timebase = 1.0e-5
+            self.timebase = 1./4.8828125e+04 # from June 17 email to Joe from Doug
             
         self.__set_segmentsize(segmentsize)
         self.raw_datatimes = numpy.zeros(self.nPulses, dtype=numpy.uint32)
