@@ -13,10 +13,16 @@ import scipy.optimize
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES={
+   'Al Ka': 1487.,
+   'Al Kb': 1557.,
+   'Si Ka': 1750.,
+   'Si Kb': 1836.,
    'Mn Ka1': 5898.802,
    'Mn Ka2': 5887.592,
    'Mn Kb':  6490.18,
-   'Mn Kbeta': 6490.18,
+   'Fe Kedge': 7112.0,
+   'Cu Ka': 8047.83,
+   'Cu Kedge': 8979.0,
    'Gd1':97431.0,
    'Gd2':103180.0,
    'zero': 0.0,
@@ -62,6 +68,15 @@ class EnergyCalibration(object):
         ec._ph = self._ph.copy()
         ec._energies = self._energies.copy()
         return ec
+    
+    def remove_cal_point_name(self, name):
+        "If you don't like calibration point named <name>, this removes it"
+        idx = self._names.index(name)
+        self._names.pop(idx)
+        self._ph = numpy.hstack((self._ph[:idx], self._ph[idx+1:]))
+        self._energies = numpy.hstack((self._energies[:idx], self._energies[idx+1:]))
+        self.npts -= 1
+        self._update_converters()
         
     def add_cal_point(self, ph, energy, name=""):
         """
