@@ -62,8 +62,8 @@ class BaseChannelGroup(object):
         if self.n_channels <=4:
             self.colors=("blue", "#aaaa00","green","red")
         else:
-            BURNTORANGE='#cc6600'
-            self.colors=("blue","gold","green","red",'purple','cyan',BURNTORANGE,'brown')
+            BRIGHTORANGE='#ff7700'
+            self.colors=('purple',"blue","cyan","green","gold",BRIGHTORANGE,"red","brown")
     
     def get_channel_dataset(self, channum):
         for i,fn in enumerate(self.filenames):
@@ -154,6 +154,117 @@ class BaseChannelGroup(object):
                             dataset.p_peak_value[pn], dataset.p_pulse_average[pn])
                 axis.text(.975, .93-.02*i, summary, color=color[i%len(color)], 
                            family='monospace', size='medium', transform = axis.transAxes, ha='right')
+
+
+    def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None):
+        """Plot a summary of one quantity from the data set, including time series and histograms of
+        this quantity.  This method plots all channels in the group, but only one quantity.  If you
+        would rather see all quantities for one channel, then use the group's 
+        group.dataset[i].plot_summaries() method. 
+        
+        <quantity> A case-insensitive whitespace-ignored one of the following list, or the numbers that
+                   go with it:
+                   "Pulse Avg" (0)
+                   "Pretrig RMS" (1)
+                   "Pretrig Mean" (2)
+                   "Peak Value" (3)
+                   "Max PT Deriv" (4)
+                   "Rise Time" (5)
+                   "Peak Time" (6)
+                   
+        <valid> The words 'uncut' or 'cut', meaning that only uncut or cut data are to be plotted 
+                *OR* None, meaning that all pulses should be plotted.
+                
+        <downsample> To prevent the scatter plots (left panels) from getting too crowded,
+                     plot only one out of this many samples.  If None, then plot will be
+                     downsampled to 10,000 total points.
+                     
+        <log>  Use logarithmic y-axis on the histograms (right panels).
+        """
+        
+        plottables = (
+            ("p_pulse_average", 'Pulse Avg', 'purple', [0,5000]),
+            ("p_pretrig_rms", 'Pretrig RMS', 'blue', [0,4000]),
+            ("p_pretrig_mean", 'Pretrig Mean', 'green', None),
+            ("p_peak_value", 'Peak value', '#88cc00',None),
+            ("p_max_posttrig_deriv", 'Max PT deriv', 'gold', [0,700]),
+            ("p_rise_time*1e3", 'Rise time (ms)', 'orange', [0,12]),
+            ("p_peak_time*1e3", 'Peak time (ms)', 'red', [-3,9])
+          ) 
+        
+        quant_names = [p[1].lower().replace(" ","") for p in plottables]
+        if quantity in range(len(quant_names)):
+            plottable = plottables[quantity]
+        else:
+            i = quant_names.index(quantity.lower().replace(" ",""))
+            plottable = plottables[i]
+                
+        pylab.clf()
+        for i,ds in enumerate(self.datasets):
+            print 'TES%2d '%i,
+            
+            # Convert "uncut" or "cut" to array of all good or all bad data
+            if isinstance(valid, str):
+                if "uncut" in valid.lower():
+                    valid_mask = ds.cuts.good()
+                    print "Plotting only uncut data",
+                elif "cut" in valid.lower():
+                    valid_mask = ds.cuts.bad()  
+                    print "Plotting only cut data",
+                elif 'all' in valid.lower():
+                    valid_mask = None
+                    print "Plotting all data, cut or uncut",
+                else:
+                    raise ValueError("If valid is a string, it must contain 'all', 'uncut' or 'cut'.")
+                    
+            if valid_mask is not None:
+                nrecs = valid_mask.sum()
+                if downsample is None:
+                    downsample=nrecs/10000
+                    if downsample < 1: downsample = 1
+                hour = ds.p_timestamp[valid_mask][::downsample]/3.6e6
+            else:
+                nrecs = ds.nPulses
+                if downsample is None:
+                    downsample = ds.nPulses / 10000
+                    if downsample < 1: downsample = 1
+                hour = ds.p_timestamp[::downsample]/3.6e6
+            print " (%d records; %d in scatter plots)"%(
+                nrecs,len(hour))
+        
+            (vect, label, color, default_limits) = plottable
+            if hist_limits is None:
+                limits = default_limits
+            else:
+                limits = hist_limits
+            
+            vect=eval("ds.%s"%vect)[valid_mask]
+            
+            if i==0:
+                ax_master=pylab.subplot(self.n_channels, 2, 1+i*2)
+            else:
+                pylab.subplot(self.n_channels, 2, 1+i*2, sharex=ax_master)
+                
+            pylab.plot(hour, vect[::downsample],',', color=color)
+            if i==0: pylab.title(label)
+            pylab.ylabel("TES %d"%i)
+
+            if i==0:
+                axh_master = pylab.subplot(self.n_channels, 2, 2+i*2)
+            else:
+                if 'Pretrig Mean'==label:
+                    pylab.subplot(self.n_channels, 2, 2+i*2)
+                else:
+                    pylab.subplot(self.n_channels, 2, 2+i*2, sharex=axh_master)
+                
+            if limits is None:
+                in_limit = numpy.ones(len(vect), dtype=numpy.bool)
+            else:
+                in_limit= numpy.logical_and(vect>limits[0], vect<limits[1])
+            contents, _bins, _patches = pylab.hist(vect[in_limit],200, log=log, 
+                           histtype='stepfilled', fc=color, alpha=0.5)
+            if log:
+                pylab.ylim(ymin = contents.min())
 
 
     def make_masks(self, pulse_avg_ranges=None, pulse_peak_ranges=None, 
@@ -535,7 +646,7 @@ class BaseChannelGroup(object):
             del pf
 
 
-    def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, xrange=None):
+    def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, xrange=None, trange=None):
         """
         Plot histograms of each channel's "energy" spectrum, one channel at a time.
         After recording the x-coordinate of <nclicks> mouse clicks per plot, return an
@@ -548,6 +659,8 @@ class BaseChannelGroup(object):
                     for example, a K-alpha and K-beta line in one go, then choose 2.
         <xrange>    A 2-element sequence giving the limits to histogram.  If None, then the
                     histogram will show all data.
+        <trange>    A 2-element sequence giving the time limits to use (in ms).  If None, then the
+                    histogram will show all data.
                     
         Returns:
         A numpy.ndarray of shape (self.n_channels, nclicks).  
@@ -555,7 +668,11 @@ class BaseChannelGroup(object):
         x = []
         for i,ds in enumerate(self.datasets):
             pylab.clf()
-            pylab.hist(ds.__dict__[channame], 200, range=xrange)
+            g = ds.cuts.good()
+            if trange is not None:
+                g = numpy.logical_and(g, ds.p_timestamp>trange[0])
+                g = numpy.logical_and(g, ds.p_timestamp<trange[1])
+            pylab.hist(ds.__dict__[channame][g], 200, range=xrange)
             pylab.xlabel(channame)
             pylab.title("Detector %d: attribute %s"%(i, channame))
             fig = pylab.gcf()
@@ -576,12 +693,13 @@ class BaseChannelGroup(object):
         return xvalues
 
 
-    def find_named_features_with_mouse(self, name='Mn Ka1', channame='p_filt_value', xrange=None, energy=None):
+    def find_named_features_with_mouse(self, name='Mn Ka1', channame='p_filt_value', xrange=None, trange=None, energy=None):
         
         if energy is None:
             energy = mass.energy_calibration.STANDARD_FEATURES[name]
         
-        xvalues = self.find_features_with_mouse(channame=channame, nclicks=1, xrange=xrange).ravel()
+        print "Please click with the mouse on each channel's histogram at the %s line"%name
+        xvalues = self.find_features_with_mouse(channame=channame, nclicks=1, xrange=xrange, trange=trange).ravel()
         for ds,xval in zip(self.datasets, xvalues):
             calibration = ds.calibration[channame]
             calibration.add_cal_point(xval, energy, name)
@@ -647,7 +765,30 @@ class TESGroup(BaseChannelGroup):
 #        g.filters = tuple([f.copy() for f in self.filters])
         return g
         
-
+    
+    def join(self, *others):
+        # Ensure they are compatible
+        for g in others:
+            for attr in ('nPresamples','nSamples', 'noise_only', 'timebase'):
+                if g.__dict__[attr] != self.__dict__[attr]:
+                    raise RuntimeError("All objects must agree on group.%s"%attr)
+            
+        for g in others:
+            n_extra = self.n_channels
+            for ds in g.datasets:
+                ds.average_pulses = numpy.vstack((numpy.zeros((n_extra,self.nSamples),dtype=numpy.float),
+                                                  ds.average_pulses))
+            
+            self.channels += g.channels
+            self.datasets += g.datasets
+            self.filters += g.filters()
+            self.noise_channels += g.noise_channels
+            self.n_channels += g.n_channels
+            self.n_segments = max(self.n_segments, g.n_segments)
+        
+        self._cached_segment = None
+        
+        
     def read_segment(self, segnum):
         """Read segment number <segnum> into memory for each of the
         channels in the group.  Return (first,end) where these are the
@@ -933,12 +1074,14 @@ class CDMGroup(BaseChannelGroup):
 #            ds.noise_demodulated = nc
 
 
-    def plot_noise(self, show_modulated=False, channels=None):
+    def plot_noise(self, show_modulated=False, channels=None, scale_factor=1.0, sqrt_psd=False):
         """Compare the noise power spectra.
         
         <show_modulated> Whether to show the raw (modulated) noise spectra, or
                          only the demodulated spectra.
-        <channels>    Sequence of channels to display.  If None, then show all. 
+        <channels>    Sequence of channels to display.  If None, then show all.
+        <scale_factor> Multiply counts by this number to get physical units. 
+        <sqrt_psd>     Whether to show the sqrt(PSD) or (by default) the PSD itself.
         """
         
         if channels is None:
@@ -974,8 +1117,10 @@ class CDMGroup(BaseChannelGroup):
             
         for i,ds in enumerate(self.datasets):
             if i not in channels: continue
-#            ds.noise_demodulated.plot_power_spectrum(axis=ax2)
-            pylab.plot(ds.noise_spectrum.frequencies(), ds.noise_spectrum.spectrum()*0.25,
+            yvalue = ds.noise_spectrum.spectrum()*scale_factor**2
+            if sqrt_psd:
+                yvalue = numpy.sqrt(yvalue)
+            pylab.plot(ds.noise_spectrum.frequencies(), yvalue,
                        label='TES %d'%i, color=self.colors[i])
         pylab.legend(loc='lower left')
     
@@ -1003,3 +1148,30 @@ class CDMGroup(BaseChannelGroup):
                              (self.n_channels, self.n_channels))
             
         self.demodulation = numpy.dot( relative_response.I, self.demodulation)
+
+
+    def plot_modulated_demodulated(self, pulsenum=119148, modulated_offsets=numpy.arange(15000,-1,-5000), xlim=[-5,15.726]):
+        "Plot one record both modulated and demodulated"
+        
+        self.ms = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
+        pylab.clf()
+        
+        self.read_trace(pulsenum)
+        n = pulsenum - self._cached_pnum_range[0]
+        pylab.subplot(211)
+        if modulated_offsets is None:
+            modulated_offsets = (0,0,0,0)
+        for i,rc in enumerate(self.raw_channels):
+            pylab.plot(self.ms, rc.data[n,:]+modulated_offsets[i]-rc.data[n,:self.nPresamples].mean(), color=self.colors[i], label='SQUID sw%d'%i)
+        if xlim is not None: pylab.xlim(xlim)
+        pylab.legend(loc='upper left')
+        pylab.title("Modulated (raw) signal")
+        
+
+        pylab.subplot(212)
+        for i,ds in enumerate(self.datasets):
+            pylab.plot(self.ms, ds.data[n,:]-ds.p_pretrig_mean[pulsenum], color=self.colors[i], label='TES %d'%i)
+        if xlim is not None: pylab.xlim(xlim)
+        pylab.legend(loc='upper left')
+        pylab.title("Demodulated signal")
+        pylab.xlabel("Time since trigger (ms)")
