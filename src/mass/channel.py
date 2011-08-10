@@ -359,6 +359,7 @@ class PulseRecords(object):
         self.nPulses = 0
         self.segmentsize = 0
         self.timebase = None
+        self.timestamp_offset = None
         
         self.p_timestamp = None
         self.p_peak_index = None
@@ -403,7 +404,7 @@ class PulseRecords(object):
 
         # Copy up some of the most important attributes
         for attr in ("nSamples","nPresamples","nPulses", "timebase", 
-                     "n_segments", "pulses_per_seg"):
+                     "n_segments", "pulses_per_seg", "timestamp_offset"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
 
 

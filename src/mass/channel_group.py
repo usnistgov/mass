@@ -56,6 +56,8 @@ class BaseChannelGroup(object):
         self.n_segments = None
         self._cached_segment = None
         self._cached_pnum_range = None
+        self._allowed_pnum_ranges = None
+        self._allowed_segnums = None
         self.pulses_per_seg = None
         self.filters = None
         
@@ -64,23 +66,71 @@ class BaseChannelGroup(object):
         else:
             BRIGHTORANGE='#ff7700'
             self.colors=('purple',"blue","cyan","green","gold",BRIGHTORANGE,"red","brown")
-    
+
+
     def get_channel_dataset(self, channum):
         for i,fn in enumerate(self.filenames):
             if "chan%2d"%channum in fn: return self.datasets[i]
         print "No filename contains 'chan%2d', so dataset not found"%channum
         return None
-        
+   
 
     def clear_cache(self):
+        """Invalidate any cached raw data."""
         self._cached_segment = None
         self._cached_pnum_range = None
+ 
+
+    def sample2segnum(self, samplenum):
+        """Returns the segment number of sample number <samplenum>."""
+        return samplenum/self.pulses_per_seg
+
+
+    def segnum2sample_range(self, segnum):
+        """Return the (first,end) sample numbers of the segment numbered <segnum>.
+        Note that <end> is 1 beyond the last sample number in that segment."""
+        return (segnum*self.pulses_per_seg, segnum*(self.pulses_per_seg+1))
+
+
+    def set_data_use_ranges(self, ranges=None):
+        """Set the range of sample numbers that this object will use when iterating over
+        raw data.
         
+        <ranges> can be None (which causes all samples to be used, the default);
+                or a 2-element sequence (a,b), which causes only a through b-1 inclusive to be used;
+                or a sequence of 2-element sequences, which is like the previous but with multiple sample ranges allowed. 
+        """
+        allowed_ranges=[]
+        if ranges is None:
+            allowed_ranges=[[0, self.nPulses]]
+        elif len(ranges)==2 and numpy.isscalar(ranges[0]) and numpy.isscalar(ranges[1]):
+            allowed_ranges = [[ranges[0], ranges[1]]]
+        else:
+            allowed_ranges = [r for r in ranges]
         
+        allowed_segnums = numpy.zeros(self.n_segments, dtype=numpy.bool)
+        for first,end in allowed_ranges:
+            assert first <= end
+            for sn in range(self.sample2segnum(first), self.sample2segnum(end-1)+1):
+                allowed_segnums[sn] = True
+            
+        self._allowed_pnum_ranges = allowed_ranges
+        self._allowed_segnums = allowed_segnums
+        
+        if ranges is not None:
+            print 'Warning!  This feature is only half-complete.  Currently, the granularity is limited.'
+            print '   Only full "segments" of size %d records can be ignored.'%self.pulses_per_seg
+            print '   Will use %d segments and ignore %d.'%(self._allowed_segnums.sum(), self.n_segments-self._allowed_segnums.sum())
+
     def iter_segments(self, first_seg=0, end_seg=-1):
+        if self._allowed_segnums is None:
+            self.set_data_use_ranges(None)
+            
         if end_seg < 0: 
             end_seg = self.n_segments
         for i in range(first_seg, end_seg):
+            if not self._allowed_segnums[i]: 
+                continue
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
 
@@ -832,6 +882,13 @@ class TESGroup(BaseChannelGroup):
         if len(pulse_list)>0:
             self.pulses_per_seg = pulse_list[0].pulses_per_seg
         self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
+        
+        # Set master timestamp_offset (seconds)
+        self.timestamp_offset = self.channels[0].timestamp_offset
+        for ch in self.channels:
+            if ch.timestamp_offset != self.timestamp_offset:
+                self.timestamp_offset = None
+                break
     
 
     def copy(self):
@@ -1037,6 +1094,14 @@ class CDMGroup(BaseChannelGroup):
             self.pulses_per_seg = pulse_list[0].datafile.pulses_per_seg
         self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
         self.REMOVE_INFRAME_DRIFT=True
+        
+        # Set master timestamp_offset (seconds)
+        self.timestamp_offset = self.raw_channels[0].timestamp_offset
+        for ch in self.raw_channels:
+            if ch.timestamp_offset != self.timestamp_offset:
+                self.timestamp_offset = None
+                break
+    
         
 
     def copy(self):

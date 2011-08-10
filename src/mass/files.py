@@ -153,6 +153,9 @@ class LJHFile(MicrocalFile):
             elif line.startswith("Presamples"):
                 words = line.split()
                 self.nPresamples = int(words[-1])
+            elif line.startswith("Timestamp offset (s)"):
+                words = line.split()
+                self.timestamp_offset = float(words[-1])
             
             if len(lines) > TOO_LONG_HEADER:   
                 raise IOError("header is too long--seems not to contain '#End of Header'")
