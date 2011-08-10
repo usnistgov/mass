@@ -113,14 +113,15 @@ class LJHFile(MicrocalFile):
         self.filename = filename
         self.__cached_segment = None
         self.__read_header(filename)
-        self.__set_segmentsize(segmentsize)
+        self.set_segment_size(segmentsize)
 
 
     def copy(self):
         """Return a copy of the object.
         
         Handy when coding and you don't want to read the whole data set back in, but
-        you do want to update the method definitions."""
+        you do want to update the method definitions.
+        """
         c = LJHFile(self.filename, self.segmentsize)
         c.__dict__.update( self.__dict__ )
         c.__cached_segment = None
@@ -182,7 +183,7 @@ class LJHFile(MicrocalFile):
         self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
     
-    def __set_segmentsize(self, segmentsize):
+    def set_segment_size(self, segmentsize):
         """Set the standard segmentsize used in the read_segment() method.  This number will
         be rounded down to equal an integer number of pulses.
         
@@ -195,6 +196,7 @@ class LJHFile(MicrocalFile):
         self.segmentsize = maxitems*self.pulse_size_bytes
         self.pulses_per_seg = self.segmentsize / self.pulse_size_bytes
         self.n_segments = 1+(self.binary_size-1)/self.segmentsize
+        self.__cached_segment = None
 
         
     def read_trace(self, trace_num):
@@ -320,7 +322,7 @@ class LANLFile(MicrocalFile):
             self.nSamples = len(self.pdata)
             self.timebase = 1./4.8828125e+04 # from June 17 email to Joe from Doug
             
-        self.__set_segmentsize(segmentsize)
+        self.set_segment_size(segmentsize)
         self.raw_datatimes = numpy.zeros(self.nPulses, dtype=numpy.uint32)
 
 
@@ -410,7 +412,7 @@ class LANLFile(MicrocalFile):
         self.nPulses = int(self.ucal_tree.GetEntries())
 
 
-    def __set_segmentsize(self, segmentsize):
+    def set_segment_size(self, segmentsize):
         """Set the standard segmentsize used in the read_segment() method.  This number will
         be rounded down to equal an integer number of pulses.
         
@@ -423,7 +425,7 @@ class LANLFile(MicrocalFile):
         self.segmentsize = maxitems*self.pulse_size_bytes
         self.pulses_per_seg = self.segmentsize / self.pulse_size_bytes
         self.n_segments = 1+(self.nPulses-1)/maxitems
-
+        self.__cached_segment = None
         
         
     def read_trace(self, trace_num):
