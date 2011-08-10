@@ -110,7 +110,7 @@ class CuKAlpha(SpectralLine):
     """
     name = 'Copper K-alpha'
             
-    # The approximation is 4 of Lorentzians (2 for KA1 for KA2)
+    # The approximation is 4 of Lorentzians (2 for Ka1, 2 for Ka2)
     energies = numpy.array((8047.8372, 8045.3672, 8027.9935, 8026.5041))
     fwhm = numpy.array((2.285, 3.358, 2.667, 3.571))
     peak_heights = numpy.array((957,90,334,111), dtype=numpy.float)/1e3
@@ -139,7 +139,7 @@ class GaussianLine(object):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
         x = numpy.asarray(x, dtype=numpy.float)
         if fwhm is None:
-            sigma, ampl = self.sigma, self.amplitude
+            sigma, _ampl = self.sigma, self.amplitude
         else:
             sigma = fwhm/numpy.sqrt(8*numpy.log(2))
 #            ampl = (2*numpy.pi)**(-0.5)/sigma
@@ -164,6 +164,13 @@ class Gd103(GaussianLine):
     energy = 103180.0
     fwhm = 50.0
 
+class AlKalpha(GaussianLine):
+    energy = mass.energy_calibration.STANDARD_FEATURES['Al Ka']
+    fwhm=3.0
+
+class SiKalpha(GaussianLine):
+    energy = mass.energy_calibration.STANDARD_FEATURES['Si Ka']
+    fwhm=3.0
 
     
 class MultiLorentzian_distribution(scipy.stats.rv_continuous):
@@ -222,66 +229,87 @@ class CuKAlpha_distribution(MultiLorentzian_distribution):
 class SpectralLineFitter(object):
     def __init__(self): pass
     
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", hold=None):
+    def fitfunc(self, params, x):
+        E_peak = self.spect.peak_energy
+        
+        energy = (x-params[1])/abs(params[2]) + E_peak
+        spectrum = self.spect(energy)
+        smeared = smear(spectrum, abs(params[0]), stepsize = energy[1]-energy[0])
+        nbins = len(x)
+        return smeared * abs(params[3]) + abs(params[4]) + params[5]*numpy.arange(nbins)
+    
+
+    
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", 
+            vary_bg=True, vary_bg_slope=False, hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
         set of histogram bins <pulseheights>.
         
-        params: a 5-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
-                energy scale factor (counts/eV), amplitude, background level (per bin) ]
+        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters 
+                      normally having pulseheight units will be returned as bin numbers instead.
+
+        params: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
+                energy scale factor (counts/eV), amplitude, background level (per bin),
+                and background slope (in counts per bin per bin) ]
+                If params is None or does not have 6 elements, then they will be guessed.
         
-        If pulseheights is None, then the parameters having pulseheight units will be returned as bin numbers.
+        plot:   Whether to make a plot.  If not, then the next few args are ignored
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
+                current figure.
+        color:  Color for drawing the histogram contents behind the fit.
+        label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
         
-        If params is None or does not have 5 elements, then they will be guessed."""
+        vary_bg:       Whether to let a constant background level vary in the fit
+        vary_bg_slope: Whether to let a slope on the background level vary in the fit
+        hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  BG and BG slope will
+                       be held if 4 or 5 appears in the hold sequence OR if the relevant boolean
+                       vary_* tests False.
+        """
         try:
             assert len(pulseheights) == len(data)
         except:
             pulseheights = numpy.arange(len(data), dtype=numpy.float)
         try:
-            _,_,_,_,_ = params
+            _,_,_,_,_,_ = params
         except:
             params = self.guess_starting_params(data, pulseheights)
 #            print 'Guessed parameters: ',params
 #            print 'PH range: ',pulseheights[0],pulseheights[-1]
         
-        def fitfunc(params, x):
-            E_peak = self.spect.peak_energy
-            
-            energy = (x-params[1])/abs(params[2]) + E_peak
-            spectrum = self.spect(energy)
-#            if numpy.isnan(energy[1]-energy[0]):
-#                print params, 'yikes!'
-#                raise ValueError("NaN energies")
-            smeared = smear(spectrum, abs(params[0]), stepsize = energy[1]-energy[0])
-            return smeared * abs(params[3]) + abs(params[4])
-        
+        if plot:
+            if color is None: color='blue'
+            if axis is None:
+                pylab.clf()
+                axis = pylab.subplot(111)
+                
+            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color)
+            dp = pulseheights[1]-pulseheights[0]
+            axis.set_xlim([pulseheights[0]-0.5*dp, pulseheights[-1]+0.5*dp])
+
         # Joe's new max-likelihood fitter
-        epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2))
-        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, fitfunc, TOL=1e-4, epsilon=epsilon)
+        epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
+        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, self.fitfunc, TOL=1e-4, epsilon=epsilon)
+        
         if hold is not None:
             for h in hold: fitter.hold(h)
+        if not vary_bg: fitter.hold(4)
+        if not vary_bg_slope: fitter.hold(5)
+            
         fitparams, covariance = fitter.fit()
         iflag = 0
 
         fitparams[0] = abs(fitparams[0])
         
         self.lastFitParams = fitparams
-        self.lastFitResult = fitfunc(fitparams, pulseheights)
+        self.lastFitResult = self.fitfunc(fitparams, pulseheights)
         
 #        if iflag not in (1,2,3,4): 
         if iflag not in (0,2): 
             print "Oh no! iflag=%d"%iflag
         elif plot:
-            if color is None: color='blue'
-            if axis is None:
-                pylab.clf()
-                axis = pylab.subplot(111)
-                
             de = numpy.sqrt(covariance[0,0])
-            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
-            axis.plot(pulseheights, self.lastFitResult, color='black')
+            axis.plot(pulseheights, self.lastFitResult, color='#666666', label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.legend(loc='upper left')
-            dp = pulseheights[1]-pulseheights[0]
-            axis.set_xlim([pulseheights[0]-0.5*dp, pulseheights[-1]+0.5*dp])
         return fitparams, covariance
 
 
@@ -315,7 +343,8 @@ class MnKAlphaFitter(SpectralLineFitter):
         ampl = data.max() *9.4
         res = 4.0
         baseline = 0.1
-        return [res, ph_ka1, dph/dE, ampl, baseline]
+        baseline_slope = 0.0
+        return [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope]
 
 
 
@@ -342,7 +371,8 @@ class MnKBetaFitter(SpectralLineFitter):
         ampl = data.max() *9.4
         res = 4.0
         baseline = 0.1
-        return [res, ph_peak, 1.0, ampl, baseline]
+        baseline_slope = 0.0
+        return [res, ph_peak, 1.0, ampl, baseline, baseline_slope]
 
 
 
@@ -357,22 +387,14 @@ class CuKAlphaFitter(SpectralLineFitter):
         """If the cuts are tight enough, then we can estimate the locations of the
         K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
         
-        n = data.sum()
-        sum_d = (data*binctrs).sum()
-        sum_d2 = (data*binctrs*binctrs).sum()
-        mean_d = sum_d/n
-        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
-#        print n, sum_d, sum_d2, mean_d, rms_d
         
-        ph_ka1 = mean_d + rms_d*.65
-        ph_ka2 = mean_d - rms_d
-
-        dph = ph_ka1-ph_ka2
-        dE = 19.94 # eV difference between KAlpha peaks
-        ampl = data.max() *9.4
-        res = 3.7
-        baseline = 0.1
-        return [res, ph_ka1, dph/dE, ampl, baseline]
+        ph_ka1 = binctrs[data.argmax()]
+        
+        res = 5
+        baseline = data[0:10].mean()
+        baseline_slope = (data[-10:].mean()-baseline)/len(data)
+        ampl = data.max()-data.mean()
+        return [res, ph_ka1, 0.6, ampl, baseline, baseline_slope]
     
 
 
