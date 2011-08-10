@@ -71,6 +71,12 @@ class BaseChannelGroup(object):
         print "No filename contains 'chan%2d', so dataset not found"%channum
         return None
         
+
+    def clear_cache(self):
+        self._cached_segment = None
+        self._cached_pnum_range = None
+        
+        
     def iter_segments(self, first_seg=0, end_seg=-1):
         if end_seg < 0: 
             end_seg = self.n_segments
@@ -91,7 +97,6 @@ class BaseChannelGroup(object):
                 end = self.nPulses 
             print "Records %d to %d loaded"%(first,end-1)
             for dset in self.datasets:
-#                dset.nPulses = self.nPulses
                 dset.summarize_data(first, end)
         
     
@@ -268,14 +273,19 @@ class BaseChannelGroup(object):
 
 
     def make_masks(self, pulse_avg_ranges=None, pulse_peak_ranges=None, 
-                   use_gains=True, gains=None, cut_crosstalk=False):
+                   use_gains=True, gains=None, cut_crosstalk=False,
+                   max_ptrms=None, max_post_deriv=None):
         """Generate a sequence of masks for use in compute_average_pulses().
         
         <use_gains>   Rescale the pulses by a set of "gains", either from <gains> or from
                       the MicrocalDataSet.gain parameter if <gains> is None.
         <gains>       The set of gains to use, overriding the self.datasets[*].gain, if
                       <use_gains> is True.  (If False, this argument is ignored.)
-        <cut_crosstalk> ????
+        <cut_crosstalk>  Whether to mask out events having nhits>1.  (Makes no sense in TDM data).
+        <max_ptrms>      When <cut_crosstalk>, we can also mask out events where any other channel
+                         has p_pretrig_rms exceeding <max_ptrms>
+        <max_post_deriv> When <cut_crosstalk>, we can also mask out events where any other channel
+                         has p_max_posttrig_deriv exceeding <max_post_deriv>
         """
         
         masks = []
@@ -290,7 +300,16 @@ class BaseChannelGroup(object):
             print 'Cannot cut crosstalk because this is not CDM data'
             cut_crosstalk = False 
             
+        if not cut_crosstalk: 
+            if max_ptrms is not None:
+                print "Warning: make_masks ignores max_ptrms when not cut_crosstalk"
+            if max_post_deriv is not None:
+                print "Warning: make_masks ignores max_post_deriv when not cut_crosstalk"
+            
         if pulse_avg_ranges is not None:
+            if pulse_peak_ranges is not None:
+                print "Warning: make_masks uses only one range argument.  Ignoring pulse_peak_ranges."
+            
             if isinstance(pulse_avg_ranges[0], (int,float)) and len(pulse_avg_ranges)==2:
                 pulse_avg_ranges = tuple(pulse_avg_ranges),
             for r in pulse_avg_ranges:
@@ -298,10 +317,19 @@ class BaseChannelGroup(object):
                 abslim = 0.5*numpy.abs(r[1]-r[0])
                 for gain,dataset in zip(gains,self.datasets):
                     m = numpy.abs(dataset.p_pulse_average/gain-middle) <= abslim
-                    if cut_crosstalk:
+                    if cut_crosstalk: 
                         m = numpy.logical_and(m, self.nhits==1)
+                        if max_ptrms is not None:
+                            for ds in self.datasets:
+                                if ds==dataset: continue 
+                                m = numpy.logical_and(m, ds.p_pretrig_rms < max_ptrms)
+                        if max_post_deriv is not None:
+                            for ds in self.datasets:
+                                if ds==dataset: continue 
+                                m = numpy.logical_and(m, ds.p_max_posttrig_deriv < max_post_deriv)
                     m = numpy.logical_and(m, dataset.cuts.good())
                     masks.append(m)
+                    
         elif pulse_peak_ranges is not None:
             if isinstance(pulse_peak_ranges[0], (int,float)) and len(pulse_peak_ranges)==2:
                 pulse_peak_ranges = tuple(pulse_peak_ranges),
@@ -312,6 +340,14 @@ class BaseChannelGroup(object):
                     m = numpy.abs(dataset.p_peak_value/gain-middle) <= abslim
                     if cut_crosstalk:
                         m = numpy.logical_and(m, self.nhits==1)
+                        if max_ptrms is not None:
+                            for ds in self.datasets:
+                                if ds==dataset: continue 
+                                m = numpy.logical_and(m, ds.p_pretrig_rms < max_ptrms)
+                        if max_post_deriv is not None:
+                            for ds in self.datasets:
+                                if ds==dataset: continue 
+                                m = numpy.logical_and(m, ds.p_max_posttrig_deriv < max_post_deriv)
                     m = numpy.logical_and(m, dataset.cuts.good())
                     masks.append(m)
         else:
@@ -394,9 +430,15 @@ class BaseChannelGroup(object):
             
         axis.set_color_cycle(self.colors)
         dt = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
-        for i,d in enumerate(self.datasets):
-            pylab.plot(dt,d.average_pulses[id], label="Demod TES %d"%i)
-            pylab.xlabel("Time past trigger (ms)")
+        
+        if id in range(self.n_channels):
+            for i,d in enumerate(self.datasets):
+                pylab.plot(dt,d.average_pulses[id], label="Demod TES %d"%i)
+        else:
+            for i,d in enumerate(self.datasets):
+                pylab.plot(dt,d.average_pulses[i], label="Demod TES %d"%i)
+        pylab.xlabel("Time past trigger (ms)")
+        pylab.legend(loc='best')
 
 
     def plot_raw_spectra(self):
@@ -505,7 +547,7 @@ class BaseChannelGroup(object):
             if end>self.nPulses:
                 end = self.nPulses 
             print "Records %d to %d loaded"%(first,end-1)
-            for i,(filter,dset) in enumerate(zip(self.filters,self.datasets)):
+            for _i,(filter,dset) in enumerate(zip(self.filters,self.datasets)):
                 filt_vector = filter.__dict__[filter_name]
                 peak_x, peak_y = dset.filter_data(filt_vector,first, end)
                 dset.p_filt_phase[first:end] = peak_x
@@ -705,6 +747,42 @@ class BaseChannelGroup(object):
             calibration.add_cal_point(xval, energy, name)
 
 
+    def report(self):
+        """
+        Report on the number of data points and similar
+        """
+        for i,ds in enumerate(self.datasets):
+            ng = ds.cuts.nUncut()
+            good = ds.cuts.good()
+            dt = (ds.p_timestamp[good][-1]*1.0 - ds.p_timestamp[good][0])/1e3  # seconds
+            np = numpy.arange(len(good))[good][-1] - good.argmax() + 1
+            rate = (np-1.0)/dt
+#            grate = (ng-1.0)/dt
+            print 'TES %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good'%(i, np, rate, dt/3600., 100.0*ng/np)
+
+
+    def plot_noise_autocorrelation(self, axis=None, channels=None):
+        """Compare the noise autocorrelation functions.
+        
+        <channels>    Sequence of channels to display.  If None, then show all. 
+        """
+        
+        if channels is None:
+            channels = numpy.arange(self.n_channels)
+
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+            
+        axis.grid(True)
+        for i,noise in enumerate(self.noise_channels):
+            if i not in channels: continue
+            noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=self.colors[i%len(self.colors)])
+#        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
+        pylab.legend(loc='upper right')
+    
+    
+
 
 class TESGroup(BaseChannelGroup):
     """
@@ -786,15 +864,24 @@ class TESGroup(BaseChannelGroup):
             self.n_channels += g.n_channels
             self.n_segments = max(self.n_segments, g.n_segments)
         
-        self._cached_segment = None
+        self.clear_cache()
+        
+    
+    def set_segment_length(self, seg_length):
+        self.clear_cache()
+        raise NotImplementedError("ugh!")
+#        for chan, dset in zip(self.channels, self.datasets):
         
         
-    def read_segment(self, segnum):
+    def read_segment(self, segnum, use_cache=True):
         """Read segment number <segnum> into memory for each of the
         channels in the group.  Return (first,end) where these are the
         number of the first record in that segment and 1 more than the
-        number of the last record."""
-        if segnum == self._cached_segment:
+        number of the last record.
+        
+        When <use_cache> is true, we use cached value when possible.
+        """
+        if segnum == self._cached_segment and use_cache:
             return self._cached_pnum_range
         
         first_pnum,end_pnum = -1,-1
@@ -805,8 +892,11 @@ class TESGroup(BaseChannelGroup):
 
             # Possibly some channels are shorter than others (in TDM data)
             # Make sure to return first_pnum,end_pnum for longest VALID channel only 
-            if a>=0: first_pnum=a
-            if b>=0: end_pnum=b
+            if a>=0:
+                if first_pnum>=0:
+                    assert a==first_pnum 
+                first_pnum=a
+            if b>=end_pnum: end_pnum=b
         self._cached_segment = segnum
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
@@ -841,10 +931,12 @@ class TESGroup(BaseChannelGroup):
         BaseChannelGroup.compute_average_pulse(self, masks, use_crosstalk_masks=False, subtract_mean=subtract_mean)
         
         
-    def plot_noise(self, axis=None, channels=None):
+    def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False):
         """Compare the noise power spectra.
         
         <channels>    Sequence of channels to display.  If None, then show all. 
+        <scale_factor> Multiply counts by this number to get physical units. 
+        <sqrt_psd>     Whether to show the sqrt(PSD) or (by default) the PSD itself.
         """
         
         if channels is None:
@@ -858,17 +950,21 @@ class TESGroup(BaseChannelGroup):
         axis.grid(True)
         for i,noise in enumerate(self.noise_channels):
             if i not in channels: continue
-            noise.plot_power_spectrum(axis=axis, label='TES %d'%i)
+            yvalue = noise.spectrum.spectrum()*scale_factor**2
+            if sqrt_psd:
+                yvalue = numpy.sqrt(yvalue)
+            axis.plot(noise.spectrum.frequencies(), yvalue, label='TES %d'%i)
         f=self.noise_channels[0].spectrum.frequencies()
         axis.set_xlim([f[1]*0.9,f[-1]*1.1])
+        axis.loglog()
         pylab.legend(loc='upper right')
     
     
-    def compute_noise_spectra(self):
+    def compute_noise_spectra(self, max_excursion=9e9):
         for dataset,noise in zip(self.datasets,self.noise_channels):
-            noise.compute_power_spectrum(plot=False)
+            noise.compute_power_spectrum(plot=False, max_excursion=max_excursion)
             dataset.noise_spectrum = noise.spectrum
-            noise.compute_autocorrelation(n_lags=self.nSamples, plot=False)
+            noise.compute_autocorrelation(n_lags=self.nSamples, plot=False, max_excursion=max_excursion)
             dataset.noise_autocorr = noise.autocorrelation
 
 
@@ -887,7 +983,10 @@ class CDMGroup(BaseChannelGroup):
         channel i due to detector j.   
         """
         super(self.__class__, self).__init__(filenames, noise_filenames)
-        self.n_cdm = self.n_channels  # If >1 column, this won't be true anymore
+        if noise_only:
+            self.n_cdm = len(filenames)
+        else:
+            self.n_cdm = self.n_channels  # If >1 column, this won't be true anymore
 
 #        if demodulation is None:
 #            demodulation = numpy.array(
@@ -950,6 +1049,12 @@ class CDMGroup(BaseChannelGroup):
 #        g.filters = tuple([f.copy() for f in self.filters])
         return g
         
+
+    def set_segment_size(self, seg_length):
+        self.clear_cache()
+        for chan in self.raw_channels:
+            chan.set_segment_size(seg_length)
+        self.n_segments = self.raw_channels[0].n_segments
 
     def read_segment(self, segnum, use_cache=True):
         """
@@ -1042,32 +1147,33 @@ class CDMGroup(BaseChannelGroup):
             if compute_raw_spectra:
                 print "Computing raw power spectrum for %s"%n.filename
                 n.compute_power_spectrum(plot=False)
-            if nrec>n.data.shape[0]:
-                nrec = n.data.shape[0]
+            if nrec>n.nPulses:
+                nrec = n.nPulses
         
         # Now generate a set of fake channels, where we'll store the demodulated data
-        fake_noise_chan = [n.copy() for n in self.noise_channels]
-        shape = (nrec,self.noise_channels[0].data.shape[1])
+        self.noise_channels_demod = [n.copy() for n in self.noise_channels]
+        for nc in self.noise_channels_demod: nc.data=None
+        shape = (nrec,self.noise_channels[0].nSamples)
 
         # Demodulate noise
-        print "Demodulating noise"
-        for i,nc in enumerate(fake_noise_chan):
+        print "Demodulating noise for nrec=%d"%nrec
+        for i,nc in enumerate(self.noise_channels_demod):
+            nc.set_fake_data()
             nc.nPulses = nrec
             nc.data = numpy.zeros(shape, dtype=numpy.float)
             for j,n in enumerate(self.noise_channels):
-                nc.data += self.demodulation[i,j] * n.data[:nrec,:]
+                for first, end, _segnum, data in n.datafile.iter_segments():
+                    if end > nrec:
+                        end = nrec
+                    print i, j, first, end, data.shape, 'is here', self.demodulation[i,j]
+                    nc.data[first:end] += self.demodulation[i,j] * data[:(end-first),:]
             nc.data -= nc.data.mean()
             
-#            m=len(nc.data.ravel())
-#            data=nc.data.reshape((m/768,768))
-#            a,b,c  = data.std(axis=1).mean(), self.datasets[i].noise_autocorr[0]**.5, self.datasets[i].p_pretrig_rms.mean()
-#            print '%d:  %6.3f %6.3f %6.3f   %8.6f'%(i, a,b,c,a/b)
-#        raise ValueError("Dude")
-                
         # Compute spectra    
-        for nc,ds in zip(fake_noise_chan, self.datasets):
+        for nc,ds in zip(self.noise_channels_demod, self.datasets):
+            print "Computing demodulated noise autocorrelation for %s"%ds
+            nc.compute_autocorrelation(n_lags=self.nSamples, n_data=self.nSamples*nrec, plot=False)
             print "Computing demodulated power spectrum for %s"%ds
-            nc.compute_autocorrelation(n_lags=self.nSamples, plot=False)
             nc.compute_power_spectrum(plot=False)
             ds.noise_spectrum = nc.spectrum
             ds.noise_autocorr = nc.autocorrelation
@@ -1123,6 +1229,28 @@ class CDMGroup(BaseChannelGroup):
             pylab.plot(ds.noise_spectrum.frequencies(), yvalue,
                        label='TES %d'%i, color=self.colors[i])
         pylab.legend(loc='lower left')
+
+
+    def plot_noise_autocorrelation(self, axis=None, channels=None):
+        """Compare the noise autocorrelation functions.
+        
+        <channels>    Sequence of channels to display.  If None, then show all. 
+        """
+        
+        if channels is None:
+            channels = numpy.arange(self.n_channels)
+
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+            
+        axis.grid(True)
+        for i,noise in enumerate(self.noise_channels_demod):
+            if i not in channels: continue
+            noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=self.colors[i%len(self.colors)])
+#        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
+        pylab.legend(loc='upper right')    
+
     
     def plot_undecimated_noise(self, ndata=None):
         """Show the noise as if """
@@ -1175,3 +1303,54 @@ class CDMGroup(BaseChannelGroup):
         pylab.legend(loc='upper left')
         pylab.title("Demodulated signal")
         pylab.xlabel("Time since trigger (ms)")
+
+
+
+
+
+class CrosstalkVeto(object):
+    """
+    An object to allow vetoing of data in 1 channel when another is hit
+    """
+    
+    def __init__(self, datagroup, window_ms=(-10,3), pileup_limit=100):
+        if datagroup is None:
+            return
+        
+        window_ms = numpy.array(window_ms, dtype=numpy.int)
+        self.window_ms = window_ms
+        self.n_channels = datagroup.n_channels
+        self.n_pulses = datagroup.nPulses
+#        self.veto = numpy.zeros((self.n_channels, self.n_pulses), dtype=numpy.bool8)
+        
+        ms0 = numpy.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min() + window_ms[0]
+        ms9 = numpy.array([ds.p_timestamp.max() for ds in datagroup.datasets]).max() + window_ms[1]
+        self.nhits = numpy.zeros(ms9-ms0+1, dtype=numpy.int8)
+        self.time0 = ms0
+        
+        
+        for ds in datagroup.datasets:
+            g = numpy.ones(ds.nPulses, dtype=numpy.bool8)
+            g = ds.cuts.good()
+            vetotimes = ds.p_timestamp[g]-ms0
+            vetotimes[vetotimes<0] = 0
+            print vetotimes, len(vetotimes), 1.0e3*ds.nPulses/(ms9-ms0),
+            a,b = window_ms
+            b+=1
+            for t in vetotimes:
+                self.nhits[t+a:t+b] += 1
+                
+            pileuptimes = vetotimes[ds.p_max_posttrig_deriv[g]>pileup_limit]
+            print len(pileuptimes)
+            for t in pileuptimes:
+                self.nhits[t+b:t+b+8] += 1
+                
+    def copy(self):
+        v = CrosstalkVeto(None)
+        v.__dict__ = self.__dict__.copy()
+        return v
+    
+    
+    def veto(self, times):    
+        index = times-self.time0
+        return self.nhits[index]>1

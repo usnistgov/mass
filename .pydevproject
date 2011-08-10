@@ -7,4 +7,7 @@
 <pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
 <path>/mass/src</path>
 </pydev_pathproperty>
+<pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
+<path>/opt/local/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6/site-packages</path>
+</pydev_pathproperty>
 </pydev_project>

@@ -23,7 +23,7 @@ import files
 import utilities
 import power_spectrum
 import energy_calibration
-import fluorescence_lines
+import fluorescence_lines 
 
 
 class NoiseRecords(object):
@@ -31,38 +31,58 @@ class NoiseRecords(object):
     Encapsulate a set of noise records, which can either be
     assumed continuous or arbitrarily separated in time.
     """
+    DEFAULT_MAXSEGMENTSIZE = 32000000
     
-    def __init__(self, filename, records_are_continuous=False):
+    def __init__(self, filename, records_are_continuous=False, use_records=None, maxsegmentsize=None):
         """
-        Load a 
+        Load a noise records file.
 
         If <records_are_continuous> is True, then treat all pulses as a continuous timestream.
+        <use_records>  can be a sequence (first,end) to use only a limited section of the file.
         """
-        self.__open_file(filename)
+        if maxsegmentsize is not None:
+            self.MAXSEGMENTSIZE = maxsegmentsize
+        else:
+            self.MAXSEGMENTSIZE = self.DEFAULT_MAXSEGMENTSIZE
+            
+        self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
         self.spectrum = None
         self.autocorrelation = None
-        
      
-    def __open_file(self, filename):
+    def __open_file(self, filename, use_records=None):
         """Detect the filetype and open it."""
 
         # For now, we have only one file type, so let's just assume it!
-        MAXSEGMENTSIZE = 80000000
-        self.datafile = files.LJHFile(filename, segmentsize=MAXSEGMENTSIZE)
+        self.datafile = files.LJHFile(filename, segmentsize=self.MAXSEGMENTSIZE)
         self.filename = filename
 
         # Copy up some of the most important attributes
         for attr in ("nSamples","nPresamples","nPulses", "timebase"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
+            
+        self.records_per_segment = self.datafile.segmentsize / (6+2*self.nSamples)
 
-        for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
-            if seg_num > 0 or first_pnum>0 or end_pnum != self.nPulses:
-                msg = "NoiseRecords objects can't (yet) handle multi-segment noise files.\n"+\
-                    "File size %d exceeds maximum allowed segment size of %d"%(
-                    self.filename, self.datafile.binary_size, MAXSEGMENTSIZE)
-                raise NotImplementedError(msg)
-            self.data = data
+#        for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
+#            if seg_num > 0 or first_pnum>0 or end_pnum != self.nPulses:
+#                msg = "NoiseRecords objects can't (yet) handle multi-segment noise files.\n"+\
+#                    "File size %d exceeds maximum allowed segment size of %d"%(
+#                    self.datafile.binary_size, self.MAXSEGMENTSIZE)
+#                raise NotImplementedError(msg)
+#            self.data = data
+
+    def set_fake_data(self):
+        """Use when this does not correspond to a real datafile (e.g., CDM data)"""
+        class DummyDatafile(object):
+            def __init__(self, parent): 
+                self.parent=parent
+                self.nPulses = self.parent.nPulses
+                self.segment_pulses = self.parent.nPulses
+            def iter_segments(self, first=0, end=-1): 
+                yield 0, self.parent.nPulses, 0, self.parent.data
+                
+        self.datafile = DummyDatafile(self)
+        
 
     def copy(self):
         """Return a copy of the object.
@@ -75,12 +95,14 @@ class NoiseRecords(object):
         return c
 
     
-    def compute_power_spectrum(self, window=power_spectrum.hann, plot=True):
-        self.spectrum = self.compute_power_spectrum_reshape(window=window, nsegments=None)
+    def compute_power_spectrum(self, window=power_spectrum.hann, plot=True, max_excursion=9e9):
+        self.compute_power_spectrum_reshape(window=window, nsegments=None,
+                                            max_excursion=max_excursion)
         if plot: self.plot_power_spectrum()
 
 
-    def compute_power_spectrum_reshape(self, window=power_spectrum.hann, nsegments=None):
+    def compute_power_spectrum_reshape(self, window=power_spectrum.hann, nsegments=None, 
+                                       max_excursion=9e9):
         """Compute the noise power spectrum with noise "records" reparsed into 
         <nsegments> separate records.  (If None, then self.data.shape[0] which is self.data.nPulses,
         will be used as the number of segments.)
@@ -93,23 +115,31 @@ class NoiseRecords(object):
         if not self.continuous and nsegments is not None:
             raise ValueError("This NoiseRecords object does not have continuous noise records, so it can't be resegmented.")
         
-        if self.continuous and nsegments is not None:
-            data = self.data.ravel()
-            n=len(data)
-            n = n-n%nsegments
-            data=data[:n].reshape((nsegments,n/nsegments))
+        if nsegments is None:
+            seg_length = self.nSamples
         else:
-            data=self.data
-
-        seg_length = data.shape[1]
+            _,_,data = self.datafile.read_segment(0)
+            n = len(data.ravel())
+            n -= n%nsegments
+            seg_length = n/nsegments
+        
+        self.spectrum = power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
         if window is None:
             window = numpy.ones(seg_length)
         else:
             window = window(seg_length)
-        spectrum = power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
-        for d in data:
-            spectrum.addDataSegment(d-d.mean(), window=window)
-        return spectrum
+            
+        for _first_pnum, _end_pnum, _seg_num, data in self.datafile.iter_segments():
+            if self.continuous and nsegments is not None:
+                data = data.ravel()
+                n=len(data)
+                n = n-n%nsegments
+                data=data[:n].reshape((nsegments,n/nsegments))
+    
+            for d in data:
+                y = d-d.mean()
+                if y.max() - y.min() < max_excursion:
+                    self.spectrum.addDataSegment(y, window=window)
 
 
     def compute_fancy_power_spectrum(self, window=power_spectrum.hann, plot=True, nseg_choices=None):
@@ -163,56 +193,65 @@ class NoiseRecords(object):
         axis.set_title("Noise power spectrum for %s"%self.filename)
 
         
-    def compute_autocorrelation(self, n_lags=None, n_data=None, plot=True):
-        """
-        Compute the autocorrelation averaged across all "pulses" in the file.
-        """
-        
-        if self.continuous:
-            if n_data is None:
-                n_data = self.nSamples*self.nPulses
-            if n_lags is None:
-                n_lags = n_data
-            if n_lags > n_data:
-                n_lags = n_data
+    def _compute_continuous_autocorrelation(self, n_lags=None, n_data=None, max_excursion=9e9):
+        if n_data is None:
+            n_data = self.nSamples*self.nPulses
             
-            def padded_length(n):
-                """Return a sensible number in the range [n, 2n] which is not too
-                much larger than n, yet is good for FFTs.
-                That is, choose (1, 3, or 5)*(a power of two), whichever is smallest
-                """
-                pow2 = numpy.round(2**numpy.ceil(numpy.log2(n)))
-                if n==pow2: return n
-                elif n>0.75*pow2: return pow2
-                elif n>0.625*pow2: return numpy.round(0.75*pow2)
-                else: return numpy.round(0.625*pow2)
+        samples_per_segment = self.records_per_segment*self.nSamples
+        if n_lags is None:
+            n_lags = samples_per_segment
+        if n_lags > samples_per_segment:
+            n_lags = samples_per_segment
             
+        print 'Will compute continuous autocorrelation for %d lags on %d data'%(n_lags, n_data),
         
-            # When there are 10 million data points and only 10,000 lags wanted,
-            # it's hugely inefficient to compute the full autocorrelation, especially
-            # in memory.  Instead, compute it on chunks 7* the length of the desired
-            # correlation, and average.
-            CHUNK_MULTIPLE=31
-            if n_data >= (1+CHUNK_MULTIPLE)*n_lags:
-                # Be sure to pad chunksize samples by AT LEAST n_lags zeros, to prevent
-                # unwanted wraparound in the autocorrelation.
-                # padded_data is what we do DFT/InvDFT on; ac is the unnormalized output.
-                chunksize=CHUNK_MULTIPLE*n_lags
-                padded_data = numpy.zeros(padded_length(n_lags+chunksize), dtype=numpy.float)
-                ac = numpy.zeros(n_lags, dtype=numpy.float)
-                
+        def padded_length(n):
+            """Return a sensible number in the range [n, 2n] which is not too
+            much larger than n, yet is good for FFTs.
+            That is, choose (1, 3, or 5)*(a power of two), whichever is smallest
+            """
+            pow2 = numpy.round(2**numpy.ceil(numpy.log2(n)))
+            if n==pow2: return n
+            elif n>0.75*pow2: return pow2
+            elif n>0.625*pow2: return numpy.round(0.75*pow2)
+            else: return numpy.round(0.625*pow2)
+        
+    
+        # When there are 10 million data points and only 10,000 lags wanted,
+        # it's hugely inefficient to compute the full autocorrelation, especially
+        # in memory.  Instead, compute it on chunks several times the length of the desired
+        # correlation, and average.
+        CHUNK_MULTIPLE=31
+        if n_data >= (1+CHUNK_MULTIPLE)*n_lags:
+            # Be sure to pad chunksize samples by AT LEAST n_lags zeros, to prevent
+            # unwanted wraparound in the autocorrelation.
+            # padded_data is what we do DFT/InvDFT on; ac is the unnormalized output.
+            chunksize=CHUNK_MULTIPLE*n_lags
+            padsize = n_lags
+            padded_data = numpy.zeros(padded_length(padsize+chunksize), dtype=numpy.float)
+            print '..with chunks of size %d and padsize %d'%(chunksize,padsize)
+            
+            ac = numpy.zeros(n_lags, dtype=numpy.float)
+            
+            entries = 0.0
+            t0=time.time()
+            
+            for _first_pnum, _end_pnum, seg_num, data in self.datafile.iter_segments():
                 data_used=0
-                entries = 0.0
-                data_mean = self.data.mean()
-                data = self.data.ravel()-data_mean
-                t0=time.time()
-                
+                data = data.ravel()
+                data_mean = data.mean()
+            
                 # Notice that the following loop might ignore the last data values, up to as many
                 # as (chunksize-1) values, unless the data are an exact multiple of chunksize.
-                while data_used+chunksize <= n_data:
-                    padded_data[:chunksize] = data[data_used:data_used+chunksize]
+                samples_this_segment = len(data)
+                while data_used+chunksize <= samples_this_segment:
+                    padded_data[:chunksize] = data[data_used:data_used+chunksize] - data_mean
+#                    padded_data[:chunksize] -= padded_data[:chunksize].mean()
                     padded_data[chunksize:] = 0.0
+                    if numpy.abs(padded_data-data_mean).max() > max_excursion:
+                        continue
                     data_used += chunksize
+                    
                     
                     ft = numpy.fft.rfft(padded_data)
                     ft[0] = 0 # this redundantly removes the mean of the data set
@@ -220,45 +259,80 @@ class NoiseRecords(object):
                     acsum = numpy.fft.irfft(power)
                     ac += acsum[:n_lags] 
                     entries += 1.0
+                    if entries*chunksize > n_data:
+                        break
                     
                     # A message for the first time through:
-                    if data_used==chunksize:
+                    if data_used==chunksize and seg_num==0:
                         dt = time.time()-t0
                         print 'Analyzed %d samples in %.2f sec'%(data_used, dt)
                         print '....expect total time %.2f sec'%(dt*n_data/chunksize)
 
-                ac /= entries
-                ac /= (numpy.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=numpy.float))
-                    
-            # compute the full autocorrelation                
-            else:
-                padded_data = numpy.zeros(padded_length(n_lags+n_data), dtype=numpy.float)
-                padded_data[:n_data] = numpy.array(self.data.ravel())[:n_data] - self.data.mean()
-                padded_data[n_data:] = 0.0
+            ac /= entries
+            ac /= (numpy.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=numpy.float))
                 
-                ft = numpy.fft.rfft(padded_data)
-                del padded_data
-                ft[0] = 0 # this redundantly removes the mean of the data set
-                ft *= ft.conj()
-                ft = ft.real
-                acsum = numpy.fft.irfft(ft)
-                del ft
-                ac = acsum[:n_lags+1] / (n_data-numpy.arange(n_lags+1.0))
-                del acsum
-         
+        # compute the full autocorrelation                
         else:
-            ac=numpy.zeros(self.nSamples, dtype=numpy.float)
-            for i in range(self.nPulses):
-                data = 1.0*self.data[i,:]
-                data -= data.mean()
-                ac += numpy.correlate(data,data,'full')[self.nSamples-1:]
-            ac /= self.nPulses
-            ac /= self.nSamples - numpy.arange(self.nSamples, dtype=numpy.float)
+            raise NotImplementedError("Now that Joe has chunkified the noise, we can no longer compute full continuous autocorrelations")
+            padded_data = numpy.zeros(padded_length(n_lags+n_data), dtype=numpy.float)
+            padded_data[:n_data] = numpy.array(self.data.ravel())[:n_data] - self.data.mean()
+            padded_data[n_data:] = 0.0
+            
+            ft = numpy.fft.rfft(padded_data)
+            del padded_data
+            ft[0] = 0 # this redundantly removes the mean of the data set
+            ft *= ft.conj()
+            ft = ft.real
+            acsum = numpy.fft.irfft(ft)
+            del ft
+            ac = acsum[:n_lags+1] / (n_data-numpy.arange(n_lags+1.0))
+            del acsum
+            
         self.autocorrelation = ac
+
         
+    def compute_autocorrelation(self, n_lags=None, n_data=None, plot=True, max_excursion=9e9):
+        """
+        Compute the autocorrelation averaged across all "pulses" in the file.
+        """
+        
+        if self.continuous:
+            self._compute_continuous_autocorrelation(n_lags=n_lags, n_data=n_data, max_excursion=max_excursion)
+
+        else:
+            if n_lags is not None and n_lags > self.nSamples:
+                raise ValueError("The autocorrelation requires n_lags<=%d when data are not continuous"%self.nSamples)
+
+            class TooMuchData(StopIteration):
+                "Use to signal that the computation loop is done" 
+                pass
+            
+            records_used = samples_used = 0
+            ac=numpy.zeros(self.nSamples, dtype=numpy.float)
+            try:
+                for first_pnum, end_pnum, _seg_num, intdata in self.datafile.iter_segments():
+                    for i in range(first_pnum, end_pnum):
+                        data = 1.0*(intdata[i-first_pnum,:])
+                        if data.max() - data.min() > max_excursion: continue
+                        data -= data.mean()
+    
+                        ac += numpy.correlate(data,data,'full')[self.nSamples-1:]
+                        samples_used += self.nSamples
+                        records_used += 1
+                        if n_data is not None and samples_used >= n_data: 
+                            raise TooMuchData()
+            except TooMuchData: 
+                pass
+            
+            ac /= records_used
+            ac /= self.nSamples - numpy.arange(self.nSamples, dtype=numpy.float)
+            if n_lags is not None and n_lags < self.nSamples:
+                ac=ac[:n_lags]
+            self.autocorrelation = ac
         if plot: self.plot_autocorrelation()
         
-    def plot_autocorrelation(self, axis=None):
+
+    def plot_autocorrelation(self, axis=None, color='blue', label=None):
         if self.autocorrelation is None:
             print "Autocorrelation will be computed first"
             self.compute_autocorrelation(plot=False)
@@ -266,8 +340,8 @@ class NoiseRecords(object):
             pylab.clf()
             axis = pylab.subplot(111)
         t = self.timebase * 1e3 * numpy.arange(len(self.autocorrelation))
-        axis.plot(t,self.autocorrelation)
-        axis.plot([0],[self.autocorrelation[0]],'o')
+        axis.plot(t,self.autocorrelation, label=label, color=color)
+        axis.plot([0],[self.autocorrelation[0]],'o', color=color)
         axis.set_xlabel("Lag (ms)")
         axis.set_ylabel("Autocorrelation (counts$^2$)")
         
@@ -362,6 +436,12 @@ class PulseRecords(object):
     def __repr__(self):
         return "%s('%s')"%(self.__class__.__name__, self.filename)
 
+    
+    def set_segment_size(self, seg_size):
+        self.datafile.set_segment_size(seg_size)
+        self.n_segments = self.datafile.n_segments
+        self.pulses_per_seg = self.datafile.pulses_per_seg
+        
     
     def read_segment(self, segment_num):
         """Read the requested segment of the raw data file and return  (first,end,data)
@@ -940,11 +1020,11 @@ class ExperimentalFilter(Filter):
                 'filt_nopoly3' :('unit', 'cht1', 'cht2', 'cht3'),
                 }
             
-            pylab.clf()
-            pylab.plot(self.filt_fourier, color='gold',label='Fourier')
+#            pylab.clf()
+#            pylab.plot(self.filt_fourier, color='gold',label='Fourier')
 #            for shortname in ('full','noconst','noexpcon','nopoly1'):
-            for shortname in ('full','noconst','noexp','noexpcon','noslope','nopoly1','nopoly2','nopoly3'):
-#            for shortname in ('noexp','noconst','noexpcon','nopoly1'):
+#            for shortname in ('full','noconst','noexp','noexpcon','noslope','nopoly1','nopoly2','nopoly3'):
+            for shortname in ('full','noexp','noconst','noexpcon','nopoly1'):
                 name = 'filt_%s'%shortname
                 orthnames = orthogonalities[name]
                 filt = Rinv_sig
@@ -972,14 +1052,14 @@ class ExperimentalFilter(Filter):
                 self.__dict__[name] = filt
                 
                 print '%15s'%name,
-                pylab.plot(filt, label=name)
+#                pylab.plot(filt, label=name)
                 for v in (avg_signal,numpy.ones(n),numpy.exp(-expx/self.tau),scipy.special.chebyt(1)(chebyx),
                           scipy.special.chebyt(2)(chebyx)):
                     print '%10.5f '%numpy.dot(v,filt),
                     
                 self.variances[shortname] = self.bracketR(filt, R)
                 print 'Res=%6.3f eV = %.5f'%(5898.801*numpy.sqrt(8*numpy.log(2))*self.variances[shortname]**(.5), (self.variances[shortname]/self.variances['full'])**.5)
-            pylab.legend()
+#            pylab.legend()
 
             self.filt_baseline = numpy.dot(avg_signal, Rinv_sig)*Rinv_unit - Rinv_sig.sum()*Rinv_sig
             self.filt_baseline /=  self.filt_baseline.sum()
@@ -1109,6 +1189,8 @@ class MicrocalDataSet(object):
         
         if first >= self.nPulses:
             return
+        if end > self.nPulses:
+            end = self.nPulses
         maxderiv_holdoff = int(self.peak_time_microsec*1e-6/self.timebase) # don't look for retriggers before this # of samples
         self.pretrigger_ignore_samples = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
 
@@ -1300,6 +1382,7 @@ class MicrocalDataSet(object):
     
     def phase_correct(self, prange=None, times=None, plot=True):
         """Apply a correction for pulse variation with arrival phase.
+        Model is a parabolic correction with cups at +-180 degrees away from the "center".
         
         prange:  use only filtered values in this range for correction 
         times: if not None, use this range of p_timestamps instead of all data (units are millisec
@@ -1357,10 +1440,11 @@ class MicrocalDataSet(object):
             return 4*params[1]*(phase**2 - 0.125) + params[2]
         errfunc = lambda p,x,y: y-model(p,x)
         
-        params = (-0.25, 0, corrections.mean())
+        params = (0., 4, corrections.mean())
         fitparams, _iflag = scipy.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
         phases = numpy.arange(-0.6,0.5001,.01)
         if plot: pylab.plot(phases, model(fitparams, phases), color='blue')
+        
         
         self.phase_correction={'phase':fitparams[0],
                             'amplitude':fitparams[1],
@@ -1518,11 +1602,9 @@ class MicrocalDataSet(object):
         else:
             fittername = 'fluorescence_lines.%sFitter()'%line
         fitter = eval(fittername)
-        print 'fittername: ',fittername
-        print fitter
         params, covar = fitter.fit(contents, bin_ctrs, plot=plot, **kwargs)
         if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0],numpy.sqrt(covar[0,0]))
-        return params, covar
+        return params, covar, fitter
     
     
     def fit_MnK_lines(self, times=None, update_energy=True, verbose=False, plot=True):
@@ -1538,15 +1620,19 @@ class MicrocalDataSet(object):
         
         calib = self.calibration['p_filt_value_dc']
         mnka_range = calib.name2ph('Mn Ka1') * numpy.array((.99,1.01))
-        params, _covar = self.fit_spectral_line(prange=mnka_range, times=times, type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
+        params, _covar, _fitter = self.fit_spectral_line(prange=mnka_range, times=times, type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
         calib.add_cal_point(params[1], 'Mn Ka1')
 
-        mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.94,1.02))
+        mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.95,1.02))
 #        params[1] = calib.name2ph('Mn Kb')
 #        params[3] *= 0.50
 #        params[4] = 0.0
         try:
-            params, _covar = self.fit_spectral_line(prange=mnkb_range, times=times, type='dc', line='MnKBeta', 
+            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, times=times, type='dc', line='MnKBeta', 
+                                                    verbose=verbose, plot=False, axis=ax2)
+            calib.add_cal_point(params[1], 'Mn Kb')
+            mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.985,1.015))
+            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, times=times, type='dc', line='MnKBeta', 
                                                     verbose=verbose, plot=plot, axis=ax2)
             calib.add_cal_point(params[1], 'Mn Kb')
         except scipy.linalg.LinAlgError:
