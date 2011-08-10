@@ -23,8 +23,10 @@ STANDARD_FEATURES={
    'Fe Kedge': 7112.0,
    'Cu Ka': 8047.83,
    'Cu Kedge': 8979.0,
-   'Gd1':97431.0,
-   'Gd2':103180.0,
+   'Gd1' :  97431.0,
+   'Gd97':  97431.0,
+   'Gd2':  103180.0,
+   'Gd103':103180.0,
    'zero': 0.0,
 }
 
@@ -61,12 +63,23 @@ class EnergyCalibration(object):
         "Convert pulse height (or array of pulse heights) <ph> to energy (in eV)."
         return self.ph2energy(ph)
     
-    def copy(self):
+    def __repr__(self):
+        return "EnergyCalibration('%s')"%self.ph_field
+    
+    def __str__(self):
+        seq = ["EnergyCalibration('%s')"%self.ph_field]
+        for name, ph, energy in zip(self._names, self._ph, self._energies):
+            seq.append("  energy(ph=%7.2f) --> %9.2f eV (%s)"%(ph, energy, name))
+        return "\n".join(seq)
+    
+    def copy(self, new_ph_field=None):
         ec = EnergyCalibration(self.ph_field)
         ec.__dict__.update(self.__dict__)
         ec._names = list(self._names)
         ec._ph = self._ph.copy()
         ec._energies = self._energies.copy()
+        if new_ph_field is not None:
+            ec.ph_field = new_ph_field
         return ec
     
     def remove_cal_point_name(self, name):
@@ -78,7 +91,7 @@ class EnergyCalibration(object):
         self.npts -= 1
         self._update_converters()
         
-    def add_cal_point(self, ph, energy, name=""):
+    def add_cal_point(self, ph, energy, name="", overwrite=True):
         """
         Add a single energy calibration point <ph>, <energy>, where <ph> must be in units
         of the self.ph_field and <energy> is in eV.
@@ -92,7 +105,8 @@ class EnergyCalibration(object):
         
         Careful!  If you give a name that's already in the list, then this value replaces
         the previous one.  If you do NOT give a name, though, then this will NOT replace
-        but will add to any existing points at the same energy.
+        but will add to any existing points at the same energy.  You can prevent overwriting
+        by setting <overwrite>=False.
         """
         
         # If <energy> is a string and a known spectral feature's name, use it as the name instead
@@ -101,6 +115,8 @@ class EnergyCalibration(object):
             energy = STANDARD_FEATURES[name]
         
         if name in self._names:  # Update an existing point
+            if not overwrite:
+                raise ValueError("Calibration point '%s' is already known and overwrite is False"%name)
             index = self._names.index(name)
             self._ph[index] = ph
             self._energies[index] = energy
@@ -135,8 +151,9 @@ class EnergyCalibration(object):
             self.ph2energy = numpy.poly1d(numpy.polyfit(self._ph, self._energies,1))
         else:
             raise ValueError("Not enough good samples")
+        max_ph = 1.3*self._ph[-1]
         ph2offset_energy = lambda ph, eoffset: self.ph2energy(ph)-eoffset 
-        self.energy2ph = lambda e: scipy.optimize.brentq(ph2offset_energy, 0., 1e5, args=(e,))
+        self.energy2ph = lambda e: scipy.optimize.brentq(ph2offset_energy, 0., max_ph, args=(e,))
         
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""
