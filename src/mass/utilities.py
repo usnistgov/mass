@@ -283,7 +283,7 @@ class MaximumLikelihoodHistogramFitter(object):
         value.  Parameter is fixed until method free(i) is called.
         """
         self.ia[i] = False
-        print 'Holding param %d'%i
+#        print 'Holding param %d'%i
         if val is not None:
             self.params[i] = val
         
