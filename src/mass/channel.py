@@ -23,7 +23,7 @@ import files
 import utilities
 import power_spectrum
 import energy_calibration
-import fluorescence_lines 
+#import fluorescence_lines 
 
 
 class NoiseRecords(object):
@@ -406,27 +406,6 @@ class PulseRecords(object):
         for attr in ("nSamples","nPresamples","nPulses", "timebase", 
                      "n_segments", "pulses_per_seg", "timestamp_offset"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
-
-
-#    def __setup_vectors(self):
-#        """Given the number of pulses, build arrays to hold the relevant facts 
-#        about each pulse in memory."""
-#        
-#        assert self.nPulses > 0
-#        self.p_timestamp = numpy.zeros(self.nPulses, dtype=numpy.int32)
-#        self.p_peak_index = numpy.zeros(self.nPulses, dtype=numpy.uint16)
-#        self.p_peak_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
-#        self.p_peak_time = numpy.zeros(self.nPulses, dtype=numpy.float)
-#        self.p_min_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
-#        self.p_pretrig_mean = numpy.zeros(self.nPulses, dtype=numpy.float)
-#        self.p_pretrig_rms = numpy.zeros(self.nPulses, dtype=numpy.float)
-#        self.p_pulse_average = numpy.zeros(self.nPulses, dtype=numpy.float)
-#        self.p_rise_time = numpy.zeros(self.nPulses, dtype=numpy.float)
-#        self.p_max_posttrig_deriv = numpy.zeros(self.nPulses, dtype=numpy.float)
-#        
-#        self.cuts = Cuts(self.nPulses)
-#        self.good = self.cuts.good()
-#        self.bad = self.cuts.bad()
 
 
     def __str__(self):
@@ -1137,7 +1116,7 @@ class MicrocalDataSet(object):
         about each pulse in memory."""
         
         assert self.nPulses > 0
-        self.p_timestamp = numpy.zeros(self.nPulses, dtype=numpy.int32)
+        self.p_timestamp = numpy.zeros(self.nPulses, dtype=numpy.float)
         self.p_peak_index = numpy.zeros(self.nPulses, dtype=numpy.uint16)
         self.p_peak_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
         self.p_peak_time = numpy.zeros(self.nPulses, dtype=numpy.float)
@@ -1152,6 +1131,7 @@ class MicrocalDataSet(object):
         self.p_filt_value_phc = numpy.zeros(self.nPulses, dtype=numpy.float)
         self.p_filt_value_dc = numpy.zeros(self.nPulses, dtype=numpy.float)
         self.p_energy = numpy.zeros(self.nPulses, dtype=numpy.float)
+        self.p_first3 = numpy.zeros((self.nPulses,3), dtype=numpy.uint16)
         
         self.cuts = Cuts(self.nPulses)
         self.good = self.cuts.good()
@@ -1203,6 +1183,7 @@ class MicrocalDataSet(object):
         self.p_peak_value[first:end] = self.data[:seg_size,:].max(axis=1)
         self.p_min_value[first:end] = self.data[:seg_size,:].min(axis=1)
         self.p_pulse_average[first:end] = self.data[:seg_size,self.nPresamples:].mean(axis=1)
+        self.p_first3[first:end,:] = self.data[:seg_size,self.nPresamples+3:self.nPresamples+6]
         
         # Remove the pretrigger mean from the peak value and the pulse average figures. 
         self.p_peak_value[first:end] -= self.p_pretrig_mean[first:end]
@@ -1279,13 +1260,13 @@ class MicrocalDataSet(object):
             if downsample is None:
                 downsample=nrecs/10000
                 if downsample < 1: downsample = 1
-            hour = self.p_timestamp[valid][::downsample]/3.6e6
+            hour = self.p_timestamp[valid][::downsample]/3600.0
         else:
             nrecs = self.nPulses
             if downsample is None:
                 downsample = self.nPulses / 10000
                 if downsample < 1: downsample = 1
-            hour = self.p_timestamp[::downsample]/3.6e6
+            hour = self.p_timestamp[::downsample]/3600.0
         print " (%d records; %d in scatter plots)"%(
             nrecs,len(hour))
     
@@ -1361,7 +1342,7 @@ class MicrocalDataSet(object):
         max_posttrig_deriv_cut = controls.cuts_prm['max_posttrig_deriv']
         pulse_average_cut = controls.cuts_prm['pulse_average']
         min_value_cut = controls.cuts_prm['min_value']
-        timestamp_cut = controls.cuts_prm['timestamp_ms']
+        timestamp_cut = controls.cuts_prm['timestamp_sec']
         
         self.cut_parameter(self.p_pretrig_rms, pretrigger_rms_cut, self.CUT_PRETRIG_RMS)
         self.cut_parameter(self.p_pretrig_mean, pretrigger_mean_cut, self.CUT_PRETRIG_MEAN)
@@ -1386,7 +1367,7 @@ class MicrocalDataSet(object):
         Model is a parabolic correction with cups at +-180 degrees away from the "center".
         
         prange:  use only filtered values in this range for correction 
-        times: if not None, use this range of p_timestamps instead of all data (units are millisec
+        times: if not None, use this range of p_timestamps instead of all data (units are seconds
                since server started--ugly but that's what we have to work with)
         plot:  whether to display the result
         """
@@ -1470,7 +1451,7 @@ class MicrocalDataSet(object):
         SUGGEST YOU USE self.auto_drift_correct instead....)
         
         prange:  use only filtered values in this range for correction 
-        times: if not None, use this range of p_timestamps instead of all data (units are millisec
+        times: if not None, use this range of p_timestamps instead of all data (units are seconds
                since server started--ugly but that's what we have to work with)
         plot:  whether to display the result
         """
@@ -1527,7 +1508,7 @@ class MicrocalDataSet(object):
         Mn K alpha complex
         
         prange:  use only filtered values in this range for correction 
-        times: if not None, use this range of p_timestamps instead of all data (units are millisec
+        times: if not None, use this range of p_timestamps instead of all data (units are seconds
                since server started--ugly but that's what we have to work with)
         plot:  whether to display the result
         """
@@ -1582,12 +1563,12 @@ class MicrocalDataSet(object):
             axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')
 
 
-    def fit_spectral_line(self, prange, times=None, type='dc', line='MnKAlpha', verbose=True, plot=True, **kwargs):
+    def fit_spectral_line(self, prange, times=None, fit_type='dc', line='MnKAlpha', verbose=True, plot=True, **kwargs):
         all_values={'filt': self.p_filt_value,
                     'phc': self.p_filt_value_phc,
                     'dc': self.p_filt_value_dc,
                     'energy': self.p_energy,
-                    }[type]
+                    }[fit_type]
         valid = self.cuts.good()
         if times is not None:
             valid = numpy.logical_and(valid, self.p_timestamp<times[1])

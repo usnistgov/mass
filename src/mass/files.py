@@ -239,7 +239,7 @@ class LJHFile(MicrocalFile):
         
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
         """Read the binary section of an LJH file, interpret it, and store the results in
-        self.data and self.datatimes.  This can potentially be less than the full file
+        self.data and self.datatimes_float.  This can potentially be less than the full file
         if <max_size> is non-negative and smaller than (binary section of) the file.
 
         The binary section consists of an unspecified number of records,
@@ -274,9 +274,22 @@ class LJHFile(MicrocalFile):
         self.segment_pulses = len(array)/(self.pulse_size_bytes/2)
         self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes/2])
         
-        # Careful: converting 2 little-endian 16-bit words to a single 32-bit word is tricky!
-        self.datatimes = numpy.array(self.data[:,2], dtype=numpy.uint32) * (1<<16) 
-        self.datatimes += (self.data[:,1])
+        # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,
+        # where u is a byte giving microseconds/4, x is a reserved byte, and mmmm is a 4-byte
+        # little-ending giving milliseconds.  The uu should always be in [0,999]
+        # The uu was added on Sept 21, 2011, so it will be 0 on all earlier data files.
+ 
+        ##### The old way was to store the time as a 32-bit int.  New way: double float
+#        # Careful: converting 2 little-endian 16-bit words to a single 32-bit word is tricky!
+#        self.datatimes = numpy.array(self.data[:,2], dtype=numpy.uint32) * (1<<16) 
+#        self.datatimes += (self.data[:,1])
+
+        # Store times as seconds in floating point.  Max value is 2^32 ms = 4.3x10^6
+        SECONDS_PER_4MICROSECOND_TICK = (4.0/1e6)
+        SECONDS_PER_MILLISECOND = 1e-3
+        self.datatimes_float = numpy.array(self.data[:,0], dtype=numpy.double)*SECONDS_PER_4MICROSECOND_TICK
+        self.datatimes_float += (self.data[:,1] + 65536*self.data[:,2])*SECONDS_PER_MILLISECOND
+
         self.data = self.data[:,3:] # cut out the zeros and the timestamp, which are 3 uint16 words at the start of each pulse
 
 

@@ -28,7 +28,6 @@ import mass.power_spectrum
 #import mass.controller
 
 
-
 class BaseChannelGroup(object):
     """
     Provides the interface for a group of one or more microcalorimeters,
@@ -161,27 +160,37 @@ class BaseChannelGroup(object):
         
         
         
-    def plot_traces(self, pulsenums, channum=0, pulse_summary=True, axis=None, difference=False):
+    def plot_traces(self, pulsenums, channum=0, pulse_summary=True, axis=None, difference=False,
+                    valid_status=None):
         """Plot some example pulses, given by sample number.
         <pulsenums>  A sequence of sample numbers, or a single one.
         
         <pulse_summary> Whether to put text about the first few pulses on the plot
         <axis>       A pylab axis to plot on.
         <difference> Whether to show successive differences or the raw data
+        <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
+                     that have been cut.  If "cut", show only those that have been cut.
         """
         if isinstance(pulsenums, int):
             pulsenums = (pulsenums,)
         pulsenums = numpy.asarray(pulsenums)
         dataset = self.datasets[channum]
+        
+        if valid_status not in (None, "valid", "cut"):
+            raise ValueError("valid_status must be one of [None, 'valid', or 'cut']")
             
         dt = (numpy.arange(dataset.nSamples)-dataset.nPresamples)*dataset.timebase*1e3
-        color= 'magenta','purple','blue','green','#88cc00','gold','orange','red', 'brown','gray','#444444'
+        color= 'purple','blue','green','#88cc00','gold','orange','red', 'brown','gray','#444444','magenta'
+#        ncolors = max(len(pulsenums), 20)
+#        cmap = pylab.cm.get_cmap(name='spectral')
+#        color = cmap(numpy.arange(ncolors,dtype=numpy.float)/ncolors)
         MAX_TO_SUMMARIZE = 20
         
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
         axis.set_xlabel("Time after trigger (ms)")
+        axis.set_xlim([dt[0], dt[-1]])
         axis.set_ylabel("Feedback (or mix) in [Volts/16384]")
         if pulse_summary:
             axis.text(.975, .97, r"              -PreTrigger-   Max  Rise t Peak   Pulse", 
@@ -190,7 +199,12 @@ class BaseChannelGroup(object):
                        size='medium', family='monospace', transform = axis.transAxes, ha='right')
 
         cuts_good = dataset.cuts.good()[pulsenums]
+        pulses_plotted = -1
         for i,pn in enumerate(pulsenums):
+            if valid_status == 'cut' and cuts_good[i]: continue
+            if valid_status == 'valid' and not cuts_good[i]: continue
+            pulses_plotted += 1
+            
             data = self.read_trace(pn, channum)
             if difference:
                 data = data*1.0-numpy.roll(data,1)
@@ -198,17 +212,20 @@ class BaseChannelGroup(object):
                 data += numpy.roll(data,1) + numpy.roll(data,-1)
                 data[0] = 0
             cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1
-            if not cuts_good[i]:
+            
+            # When plotting both cut and valid, mark the cut data with x and dashed lines
+            if valid_status is None and not cuts_good[i]:
                 cutchar,alpha,linestyle,linewidth = 'X',1.0,'--' ,1
-            axis.plot(dt, data, color=color[i%len(color)], linestyle=linestyle, alpha=alpha,
+            axis.plot(dt, data, color=color[pulses_plotted%len(color)], linestyle=linestyle, alpha=alpha,
                        linewidth=linewidth)
-            if pulse_summary and i<MAX_TO_SUMMARIZE:
+            if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE:
                 summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f"%(
                             cutchar, pn, dataset.p_pretrig_mean[pn], dataset.p_pretrig_rms[pn],
                             dataset.p_max_posttrig_deriv[pn], dataset.p_rise_time[pn]*1e6,
                             dataset.p_peak_value[pn], dataset.p_pulse_average[pn])
-                axis.text(.975, .93-.02*i, summary, color=color[i%len(color)], 
+                axis.text(.975, .93-.02*pulses_plotted, summary, color=color[pulses_plotted%len(color)], 
                            family='monospace', size='medium', transform = axis.transAxes, ha='right')
+        
 
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None):
@@ -277,13 +294,13 @@ class BaseChannelGroup(object):
                 if downsample is None:
                     downsample=nrecs/10000
                     if downsample < 1: downsample = 1
-                hour = ds.p_timestamp[valid_mask][::downsample]/3.6e6
+                hour = ds.p_timestamp[valid_mask][::downsample]/3600.0
             else:
                 nrecs = ds.nPulses
                 if downsample is None:
                     downsample = ds.nPulses / 10000
                     if downsample < 1: downsample = 1
-                hour = ds.p_timestamp[::downsample]/3.6e6
+                hour = ds.p_timestamp[::downsample]/3600.0
             print " (%d records; %d in scatter plots)"%(
                 nrecs,len(hour))
         
@@ -300,7 +317,10 @@ class BaseChannelGroup(object):
             else:
                 pylab.subplot(self.n_channels, 2, 1+i*2, sharex=ax_master)
                 
-            pylab.plot(hour, vect[::downsample],',', color=color)
+            if len(vect)>0:
+                pylab.plot(hour, vect[::downsample],',', color=color)
+            else:
+                pylab.text(.5,.5,'empty', ha='center', va='center', size='large', transform=pylab.gca().transAxes)
             if i==0: pylab.title(label)
             pylab.ylabel("TES %d"%i)
 
@@ -316,8 +336,11 @@ class BaseChannelGroup(object):
                 in_limit = numpy.ones(len(vect), dtype=numpy.bool)
             else:
                 in_limit= numpy.logical_and(vect>limits[0], vect<limits[1])
-            contents, _bins, _patches = pylab.hist(vect[in_limit],200, log=log, 
-                           histtype='stepfilled', fc=color, alpha=0.5)
+            if in_limit.sum()<=0:
+                pylab.text(.5,.5,'empty', ha='center', va='center', size='large', transform=pylab.gca().transAxes)
+            else:
+                contents, _bins, _patches = pylab.hist(vect[in_limit],200, log=log, 
+                                                       histtype='stepfilled', fc=color, alpha=0.5)
             if log:
                 pylab.ylim(ymin = contents.min())
 
@@ -362,6 +385,7 @@ class BaseChannelGroup(object):
             
             if isinstance(pulse_avg_ranges[0], (int,float)) and len(pulse_avg_ranges)==2:
                 pulse_avg_ranges = tuple(pulse_avg_ranges),
+                
             for r in pulse_avg_ranges:
                 middle = 0.5*(r[0]+r[1])
                 abslim = 0.5*numpy.abs(r[1]-r[0])
@@ -471,7 +495,7 @@ class BaseChannelGroup(object):
                     ds.average_pulses[imask,:] -= ds.average_pulses[imask,:self.nPresamples-ds.pretrigger_ignore_samples].mean()
     
     
-    def plot_average_pulses(self, id, axis=None):
+    def plot_average_pulses(self, id, axis=None, use_legend=True):
         """Plot average pulse number <id> on matplotlib.Axes <axis>, or
         on a new Axes if <axis> is None."""
         if axis is None:
@@ -488,7 +512,8 @@ class BaseChannelGroup(object):
             for i,d in enumerate(self.datasets):
                 pylab.plot(dt,d.average_pulses[i], label="Demod TES %d"%i)
         pylab.xlabel("Time past trigger (ms)")
-        pylab.legend(loc='best')
+        pylab.xlim([dt[0], dt[-1]])
+        if use_legend: pylab.legend(loc='best')
 
 
     def plot_raw_spectra(self):
@@ -611,15 +636,19 @@ class BaseChannelGroup(object):
         plots_nx, plots_ny = ndet/2, 2
         for i in range(ndet):
             ax=pylab.subplot(plots_nx, plots_ny, 1+i)
-            self.plot_average_pulses(i, axis=ax)
+            self.plot_average_pulses(i, axis=ax, use_legend=use_legend)
             pylab.plot(dt,self.datasets[i].average_pulses[i]/100,'k--', label="Main pulse/100")
+            if i+plots_ny<ndet:
+                ax.set_xlabel("")
+                ax.set_xticklabels([""])
             if xlim is None:
                 xlim=[-.2,.2]
             if ylim is None:
                 ylim=[-200,200]
             pylab.xlim(xlim)
             pylab.ylim(ylim)
-            if use_legend: pylab.legend(loc='upper left')
+            if use_legend: 
+                pylab.legend(loc='upper left')
             pylab.grid()
             pylab.title("Mean record when TES %d is hit"%i)
     
@@ -751,7 +780,7 @@ class BaseChannelGroup(object):
                     for example, a K-alpha and K-beta line in one go, then choose 2.
         <xrange>    A 2-element sequence giving the limits to histogram.  If None, then the
                     histogram will show all data.
-        <trange>    A 2-element sequence giving the time limits to use (in ms).  If None, then the
+        <trange>    A 2-element sequence giving the time limits to use (in sec).  If None, then the
                     histogram will show all data.
                     
         Returns:
@@ -804,7 +833,7 @@ class BaseChannelGroup(object):
         for i,ds in enumerate(self.datasets):
             ng = ds.cuts.nUncut()
             good = ds.cuts.good()
-            dt = (ds.p_timestamp[good][-1]*1.0 - ds.p_timestamp[good][0])/1e3  # seconds
+            dt = (ds.p_timestamp[good][-1]*1.0 - ds.p_timestamp[good][0])  # seconds
             np = numpy.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (np-1.0)/dt
 #            grate = (ng-1.0)/dt
@@ -884,7 +913,7 @@ class TESGroup(BaseChannelGroup):
         self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
         
         # Set master timestamp_offset (seconds)
-        self.timestamp_offset = self.channels[0].timestamp_offset
+        if len(self.channels)>0: self.timestamp_offset = self.channels[0].timestamp_offset
         for ch in self.channels:
             if ch.timestamp_offset != self.timestamp_offset:
                 self.timestamp_offset = None
@@ -924,7 +953,7 @@ class TESGroup(BaseChannelGroup):
         self.clear_cache()
         
     
-    def set_segment_length(self, seg_length):
+    def set_segment_size(self, seg_size):
         self.clear_cache()
         raise NotImplementedError("ugh!")
 #        for chan, dset in zip(self.channels, self.datasets):
@@ -945,7 +974,10 @@ class TESGroup(BaseChannelGroup):
         for chan, dset in zip(self.channels, self.datasets):
             a,b = chan.read_segment(segnum)
             dset.data = chan.data
-            dset.times = chan.datafile.datatimes
+            try:
+                dset.times = chan.datafile.datatimes_float
+            except AttributeError:  
+                dset.times = chan.datafile.datatimes/1e3
 
             # Possibly some channels are shorter than others (in TDM data)
             # Make sure to return first_pnum,end_pnum for longest VALID channel only 
@@ -1120,6 +1152,7 @@ class CDMGroup(BaseChannelGroup):
         for chan in self.raw_channels:
             chan.set_segment_size(seg_length)
         self.n_segments = self.raw_channels[0].n_segments
+        self.pulses_per_seg = self.raw_channels[0].pulses_per_seg
 
     def read_segment(self, segnum, use_cache=True):
         """
@@ -1145,22 +1178,46 @@ class CDMGroup(BaseChannelGroup):
         mod_data = numpy.zeros([self.n_channels, seg_size, self.nSamples], dtype=numpy.int32)
         wide_holder = numpy.zeros([seg_size, self.nSamples], dtype=numpy.int32)
         
-        mod_data[0, :, :] = numpy.array(self.raw_channels[0].data[:seg_size, :])
-        for i in range(1, self.n_channels):
-            if self.REMOVE_INFRAME_DRIFT:
-                mod_data[i, :, :] =  self.raw_channels[i].data[:seg_size,:]
+#        mod_data[0, :, :] = numpy.array(self.raw_channels[0].data[:seg_size, :])
+#        for i in range(1, self.n_channels):
+#            if self.REMOVE_INFRAME_DRIFT:
+#                mod_data[i, :, :] =  self.raw_channels[i].data[:seg_size,:]
+#                wide_holder[:, 1:] = self.raw_channels[i].data[:seg_size,:-1]  # Careful never to mult int16 by more than 4! 
+#                mod_data[i, :, 1:] *= (self.n_channels-i)   # Weight to future value
+#                mod_data[i, :, 1:] += i  *wide_holder[:,1:] # Weight to prev value
+#
+#            else:
+#                mod_data[i, :, :] = numpy.array(self.raw_channels[i].data[:seg_size,:])
+    
+        for i, raw_ch in enumerate(self.raw_channels):
+            mod_data[i, :, :] = numpy.array(raw_ch.data[:seg_size, :])
+            
+        if self.REMOVE_INFRAME_DRIFT:
+            mod_data[0, :, :] *= self.n_channels
+            for i in range(1, self.n_channels):
                 wide_holder[:, 1:] = self.raw_channels[i].data[:seg_size,:-1]  # Careful never to mult int16 by more than 4! 
-                mod_data[i, :, 1:] *= (self.n_channels-i)   # Weight to future value
-                mod_data[i, :, 1:] += i  *wide_holder[:,1:] # Weight to prev value
-                mod_data[i, :, 1:] /= self.n_channels       # Divide by total weight
-            else:
-                mod_data[i, :, :] = numpy.array(self.raw_channels[i].data[:seg_size,:])
-        
-        # Demodulate
-        for i_det,dset in enumerate(self.datasets):   
-            dset.data = numpy.zeros((seg_size, self.nSamples), dtype=numpy.float)
+                wide_holder[:, 0] = wide_holder[:, 1]       # Handle boudary case of first sample, where there is no prev value to mix in 
+                mod_data[i, :, :] *= (self.n_channels-i)    # Weight to future value
+                mod_data[i, :, :] += i*wide_holder[:,:]     # Weight to prev value
+
+        # Demodulate.  
+        # If we've done INFRAME DRIFT, then mod_data is too large by a factor of n_channels.  Correct for that: 
+        demodulation = self.demodulation
+        if self.REMOVE_INFRAME_DRIFT:
+            demodulation = self.demodulation.copy()/self.n_channels
+
+        for i_det,dset in enumerate(self.datasets):
+            
+            # For efficiency, don't create a new dset.data vector is it already exists and is the right shape.   
+            try:
+                assert dset.data.shape == (seg_size, self.nSamples)
+                dset.data.flat = 0.0
+            except:
+                dset.data = numpy.zeros((seg_size, self.nSamples), dtype=numpy.float)
+            
+            # Multiply by the demodulation matrix    
             for j in range(self.n_channels):
-                dset.data += self.demodulation[i_det,j]*mod_data[j, :, :]
+                dset.data += demodulation[i_det,j]*mod_data[j, :, :]
     
         self._cached_segment = segnum
         self._cached_pnum_range = first,end
@@ -1388,8 +1445,8 @@ class CrosstalkVeto(object):
         self.n_pulses = datagroup.nPulses
 #        self.veto = numpy.zeros((self.n_channels, self.n_pulses), dtype=numpy.bool8)
         
-        ms0 = numpy.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min() + window_ms[0]
-        ms9 = numpy.array([ds.p_timestamp.max() for ds in datagroup.datasets]).max() + window_ms[1]
+        ms0 = numpy.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min()/1e3 + window_ms[0]
+        ms9 = numpy.array([ds.p_timestamp.max() for ds in datagroup.datasets]).max()/1e3 + window_ms[1]
         self.nhits = numpy.zeros(ms9-ms0+1, dtype=numpy.int8)
         self.time0 = ms0
         
@@ -1397,7 +1454,7 @@ class CrosstalkVeto(object):
         for ds in datagroup.datasets:
             g = numpy.ones(ds.nPulses, dtype=numpy.bool8)
             g = ds.cuts.good()
-            vetotimes = ds.p_timestamp[g]-ms0
+            vetotimes = ds.p_timestamp[g]/1e3-ms0
             vetotimes[vetotimes<0] = 0
             print vetotimes, len(vetotimes), 1.0e3*ds.nPulses/(ms9-ms0),
             a,b = window_ms
