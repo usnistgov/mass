@@ -12,6 +12,7 @@ import controller
 import energy_calibration
 import files
 import fluorescence_lines
+import mass_GUI
 import power_spectrum
 import utilities 
 import workarounds

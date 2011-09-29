@@ -23,7 +23,7 @@ import files
 import utilities
 import power_spectrum
 import energy_calibration
-#import fluorescence_lines 
+import fluorescence_lines # required for fitting @UnusedImport
 
 
 class NoiseRecords(object):
@@ -1602,7 +1602,7 @@ class MicrocalDataSet(object):
         
         calib = self.calibration['p_filt_value_dc']
         mnka_range = calib.name2ph('Mn Ka1') * numpy.array((.99,1.01))
-        params, _covar, _fitter = self.fit_spectral_line(prange=mnka_range, times=times, type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
+        params, _covar, _fitter = self.fit_spectral_line(prange=mnka_range, times=times, fit_type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
         calib.add_cal_point(params[1], 'Mn Ka1')
 
         mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.95,1.02))
@@ -1610,11 +1610,11 @@ class MicrocalDataSet(object):
 #        params[3] *= 0.50
 #        params[4] = 0.0
         try:
-            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, times=times, type='dc', line='MnKBeta', 
+            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, times=times, fit_type='dc', line='MnKBeta', 
                                                     verbose=verbose, plot=False, axis=ax2)
             calib.add_cal_point(params[1], 'Mn Kb')
             mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.985,1.015))
-            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, times=times, type='dc', line='MnKBeta', 
+            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, times=times, fit_type='dc', line='MnKBeta', 
                                                     verbose=verbose, plot=plot, axis=ax2)
             calib.add_cal_point(params[1], 'Mn Kb')
         except scipy.linalg.LinAlgError:
@@ -1623,7 +1623,7 @@ class MicrocalDataSet(object):
         
         if plot:
             calib.plot(axis=pylab.subplot(224))
-            self.fit_spectral_line(prange=(5850,5930), times=times, type='energy', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax3)
+            self.fit_spectral_line(prange=(5850,5930), times=times, fit_type='energy', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax3)
             ax1.set_xlabel("Filtered, drift-corr. PH")
             ax2.set_xlabel("Filtered, drift-corr. PH")
             ax3.set_xlabel("Energy (eV)")

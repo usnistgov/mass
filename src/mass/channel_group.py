@@ -1171,7 +1171,7 @@ class CDMGroup(BaseChannelGroup):
 
         for chan, dset in zip(self.raw_channels, self.datasets):
             first, end = chan.read_segment(segnum)
-            dset.times = chan.datafile.datatimes
+            dset.times = chan.datafile.datatimes_float
 
         # Remove linear drift
         seg_size = min([rc.data.shape[0] for rc in self.raw_channels]) # Last seg can be of unequal size!

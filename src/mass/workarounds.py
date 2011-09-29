@@ -209,8 +209,8 @@ def workarounds_axes_hist(
         nx = len(x) # number of datasets
 
         if color is None:
-            color = [self._get_lines.color_cycle.next()
-                                            for i in xrange(nx)]
+            cmap = matplotlib.cm.get_cmap(name='spectral')
+            color=[cmap(i) for i in np.linspace(0, 0.9, nx)]
         else:
             color = mcolors.colorConverter.to_rgba_array(color)
             if len(color) != nx:

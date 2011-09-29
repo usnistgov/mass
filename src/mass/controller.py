@@ -27,7 +27,7 @@ class AnalysisControl(PrmDictBase):
             'pretrigger_mean':     None,
             'pulse_average':       None,
             'min_value':           None,
-            'timestamp_ms':        None,
+            'timestamp_sec':       None,
             'pretrigger_mean_departure_from_median': None,
         }
         self.analysis_prm = {
