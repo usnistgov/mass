@@ -20,6 +20,7 @@ import time
 import numpy
 from matplotlib import pylab
 import scipy.linalg
+import cPickle
 
 import mass.channel
 import mass.utilities
@@ -78,6 +79,7 @@ class BaseChannelGroup(object):
         """Invalidate any cached raw data."""
         self._cached_segment = None
         self._cached_pnum_range = None
+        for ds in self.datasets: ds.data=None
  
 
     def sample2segnum(self, samplenum):
@@ -622,8 +624,8 @@ class BaseChannelGroup(object):
             if end>self.nPulses:
                 end = self.nPulses 
             print "Records %d to %d loaded"%(first,end-1)
-            for _i,(filter,dset) in enumerate(zip(self.filters,self.datasets)):
-                filt_vector = filter.__dict__[filter_name]
+            for _i,(f,dset) in enumerate(zip(self.filters,self.datasets)):
+                filt_vector = f.__dict__[filter_name]
                 peak_x, peak_y = dset.filter_data(filt_vector,first, end)
                 dset.p_filt_phase[first:end] = peak_x
                 dset.p_filt_value[first:end] = peak_y
@@ -859,7 +861,16 @@ class BaseChannelGroup(object):
             noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=self.colors[i%len(self.colors)])
 #        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         pylab.legend(loc='upper right')
-    
+        
+        
+    def pickle(self, filename=None):
+        """This does NOT WORK yet"""
+        if filename is None:
+            pass
+        self.clear_cache()
+        fp = open(filename, "wb")
+        cPickle.dump(self, fp, protocol=cPickle.HIGHEST_PROTOCOL)
+        fp.close()
     
 
 

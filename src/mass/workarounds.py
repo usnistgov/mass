@@ -24,7 +24,7 @@ is_sequence_of_strings = cbook.is_sequence_of_strings
 
 #    @docstring.dedent_interpd
 def workarounds_axes_hist(
-    self, x, bins=10, range=None, normed=False, weights=None,
+    self, x, bins=10, binrange=None, normed=False, weights=None,
     cumulative=False, bottom=None, histtype='bar', align='mid',
     orientation='vertical', rwidth=None, log=False,
     color=None, label=None,
@@ -33,7 +33,7 @@ def workarounds_axes_hist(
         Joe was here.
         call signature::
 
-          hist(x, bins=10, range=None, normed=False, cumulative=False,
+          hist(x, bins=10, binrange=None, normed=False, cumulative=False,
                bottom=None, histtype='bar', align='mid',
                orientation='vertical', rwidth=None, log=False, **kwargs)
 
@@ -59,12 +59,12 @@ def workarounds_axes_hist(
             in earlier versions.
             Unequally spaced bins are supported if *bins* is a sequence.
 
-          *range*:
+          *binrange*:
             The lower and upper range of the bins. Lower and upper outliers
-            are ignored. If not provided, *range* is (x.min(), x.max()).
+            are ignored. If not provided, *binrange* is (x.min(), x.max()).
             Range has no effect if *bins* is a sequence.
 
-            If *bins* is a sequence or *range* is specified, autoscaling
+            If *bins* is a sequence or *binrange* is specified, autoscaling
             is based on the specified bin range instead of the
             range of x.
 
@@ -252,7 +252,7 @@ def workarounds_axes_hist(
 
         # Check whether bins or range are given explicitly. In that
         # case use those values for autoscaling.
-        binsgiven = (cbook.iterable(bins) or range != None)
+        binsgiven = (cbook.iterable(bins) or binrange != None)
 
         # If bins are not specified either explicitly or via range,
         # we need to figure out the range required for all datasets,
@@ -263,12 +263,12 @@ def workarounds_axes_hist(
             for xi in x:
                 xmin = min(xmin, xi.min())
                 xmax = max(xmax, xi.max())
-            range = (xmin, xmax)
+            binrange = (xmin, xmax)
 
         #hist_kwargs = dict(range=range, normed=bool(normed))
         # We will handle the normed kwarg within mpl until we
         # get to the point of requiring numpy >= 1.5.
-        hist_kwargs = dict(range=range)
+        hist_kwargs = dict(range=binrange)
         if np.__version__ < "1.3": # version 1.1 and 1.2
             hist_kwargs['new'] = True
 

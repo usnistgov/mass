@@ -557,8 +557,8 @@ def compute_max_deriv(ts, return_index_too=False):
     # language of Numerical Recipes 3rd edition.  It amounts to least-squares fitting
     # of an M=3rd order polynomial to the five points [-1,+3] and
     # finding the slope of the polynomial at 0.
-    filter = numpy.array([ -0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905,   ])[::-1]
-    conv = numpy.convolve(ts[first:end], filter, mode='valid')
+    filter_coef = numpy.array([ -0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905,   ])[::-1]
+    conv = numpy.convolve(ts[first:end], filter_coef, mode='valid')
     
     if return_index_too:
         return first + 2 + conv.argmax() # This would be the index.
@@ -1200,7 +1200,7 @@ class MicrocalDataSet(object):
                 compute_max_deriv(pulse[self.nPresamples + maxderiv_holdoff:])
 
 
-    def filter_data(self, filter, first, end):
+    def filter_data(self, filter_values, first, end):
         if first >= self.nPulses:
             return None,None
 
@@ -1210,16 +1210,16 @@ class MicrocalDataSet(object):
                 (-14,-7,  0, 7,14),
                 ( 10,-5,-10,-5,10)), dtype=numpy.float)/70.0
         
-        assert len(filter)+4 == self.nSamples
+        assert len(filter_values)+4 == self.nSamples
 
         seg_size = min(end-first, self.data.shape[0])
         conv = numpy.zeros((5, seg_size), dtype=numpy.float)
         for i in range(5):
             if i-4 == 0:
-                conv[i,:] = (filter*self.data[:seg_size,i:]).sum(axis=1)
+                conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
             else:
-#                print conv[i,:].shape, self.data.shape, (filter*self.data[:seg_size,i:i-4]).shape
-                conv[i,:] = (filter*self.data[:seg_size,i:i-4]).sum(axis=1)
+#                print conv[i,:].shape, self.data.shape, (filter_values*self.data[:seg_size,i:i-4]).shape
+                conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
         param = numpy.dot(fit_array, conv)
         peak_x = -0.5*param[1,:]/param[2,:]
         peak_y = param[0,:] - 0.25*param[1,:]**2 / param[2,:] 
@@ -1541,7 +1541,7 @@ class MicrocalDataSet(object):
         for sl in slopes:
             self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*sl
             params,_covar = self.fit_spectral_line(prange=prange, times=times, plot=False,
-                                                   type='dc', line='MnKAlpha', verbose=False)
+                                                   fit_type='dc', line='MnKAlpha', verbose=False)
 #            print "%5.1f %s"%(sl, params[:4])
             fit_resolutions.append(params[0])
             if plot: pylab.plot(sl,params[0],'go')
