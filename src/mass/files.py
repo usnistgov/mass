@@ -297,8 +297,8 @@ class LJHFile(MicrocalFile):
 class LANLFile(MicrocalFile):
     """Process a LANL ROOT file using pyROOT. """
     
-    def __init__(self, filename, segmentsize=(2**24)):
-        """Open an LANL file for reading.  Read its header.  
+    def __init__(self, filename, segmentsize=(2**24), use_noise=False):
+        """Open a LANL file for reading.  Read its header.  
         <filename>   Path to the file to be read.
         """
         
@@ -309,8 +309,12 @@ class LANLFile(MicrocalFile):
         self.filename = filename
         self.__cached_segment = None
         self.root_file_object = ROOT.TFile(self.filename)
-        self.ucal_tree = self.root_file_object.Get('ucal_data') #Get the ROOT tree structure that has the data
-        self.__prepare_root_memory()
+        self.use_noise = use_noise
+        if self.use_noise:
+            tree_name = "ucal_noise"
+        else:
+            tree_name = 'ucal_data'
+        self.ucal_tree = self.root_file_object.Get(tree_name) #Get the ROOT tree structure that has the data
         
 #        The header file in the LANL format is in a separate ROOT files that is the same for all the channels.
 #        It does not have the _chxxx designation. I will take the path passed to the class and use splitline
@@ -325,19 +329,20 @@ class LANLFile(MicrocalFile):
         # Strip off the channel number
         separator = '_'
         self.header_filename = separator.join(filename_noextension.split(separator)[:-1])+'.root'
+        
+        # If this header files exists, assume it's of the form that the gamma group makes
         if os.path.isfile(self.header_filename):
+            self.gamma_vector_style = True
             self.root_header_file_object = ROOT.TFile(self.header_filename)
-            self.__read_header()
-        else:
-            #raise IOError("The header file for this data file does not exist")
-            print "Did not read header"
-            self.get_nPulses()
-            # Here are some default ... well, guesses
-            self.nPresamples = 50
-            self.ucal_tree.GetEntry(0) # need this to fill self.pdata
-            self.nSamples = len(self.pdata)
-            self.timebase = 1./4.8828125e+04 # from June 17 email to Joe from Doug
             
+        # If not header, assume it's the alpha group's preferred form
+        else:
+            self.gamma_vector_style = False
+            self.header_filename = self.filename
+            self.root_header_file_object = self.root_file_object
+
+        self.__prepare_root_memory()
+        self.__read_header()
         self.set_segment_size(segmentsize)
         self.raw_datatimes = numpy.zeros(self.nPulses, dtype=numpy.uint32)
 
@@ -348,26 +353,33 @@ class LANLFile(MicrocalFile):
         to here, where they can be done once and forgotten"""
         
         #Pulses are stored in vector ROOT format in the 'pulse' branch
-        self.pdata = ROOT.std.vector(int)()
+        if self.gamma_vector_style:
+            self.pdata = ROOT.std.vector(int)() # this is how gamma people do it
+        else:
+            self.pdata = ROOT.TH1I() # this is how alpha people do it
         self.channel = numpy.zeros(1,dtype=int)
+        self.baseline = numpy.zeros(1,dtype=float)
+        self.baseline_rms = numpy.zeros(1,dtype=float)
+        
         self.timestamp = numpy.zeros(1,dtype=int)
         self.pulse_max = numpy.zeros(1,dtype=int)
         self.pulse_max_pos = numpy.zeros(1,dtype=int)
         self.pulse_integral = numpy.zeros(1,dtype=int)
-        self.baseline = numpy.zeros(1,dtype=float)
-        self.baseline_rms = numpy.zeros(1,dtype=float)
         self.flag_pileup = numpy.zeros(1,dtype=int)
         
         # pdata is updated when the the GetEntry method to the current trace number is called
-        self.ucal_tree.SetBranchAddress('pulse',ROOT.AddressOf(self.pdata))
-        self.ucal_tree.SetBranchAddress("channel",self.channel)
-        self.ucal_tree.SetBranchAddress("timestamp",self.timestamp)
-        self.ucal_tree.SetBranchAddress("max",self.pulse_max)
-        self.ucal_tree.SetBranchAddress("max_pos",self.pulse_max_pos)
-        self.ucal_tree.SetBranchAddress("integral",self.pulse_integral)
         self.ucal_tree.SetBranchAddress("baseline",self.baseline)
         self.ucal_tree.SetBranchAddress("baseline_rms",self.baseline_rms)
-        self.ucal_tree.SetBranchAddress("flag_pileup",self.flag_pileup)
+        self.ucal_tree.SetBranchAddress("channel",self.channel)
+        if self.use_noise:
+            self.ucal_tree.SetBranchAddress('noise',ROOT.AddressOf(self.pdata))
+        else:
+            self.ucal_tree.SetBranchAddress('pulse',ROOT.AddressOf(self.pdata))
+            self.ucal_tree.SetBranchAddress("timestamp",self.timestamp)
+            self.ucal_tree.SetBranchAddress("max",self.pulse_max)
+            self.ucal_tree.SetBranchAddress("max_pos",self.pulse_max_pos)
+            self.ucal_tree.SetBranchAddress("integral",self.pulse_integral)
+            self.ucal_tree.SetBranchAddress("flag_pileup",self.flag_pileup)
 
         # The read caching seems to make no difference whatsoever, but here it is...
         # See http://root.cern.ch/drupal/content/spin-little-disk-spin for more.
@@ -397,16 +409,19 @@ class LANLFile(MicrocalFile):
         <filename>: path to the file to be opened.
         """
         
-        # The objects that are not used should be commented out
-        basetime_obj = self.root_header_file_object.Get("basetime")
-        record_length_obj = self.root_header_file_object.Get("record_length")
-        pretrig_length_obj = self.root_header_file_object.Get("pretrig_length")
-        _sample_rate_obj = self.root_header_file_object.Get("sample_rate")
-        _yscale_obj = self.root_header_file_object.Get("yscale")
+        # Keys include record_length, pretrig_length, basetime, dac_offset, yscale, sample_rate, clocks_per_sec, npts_to_average, start_time, end_time
+        find_root_quantity = lambda name : self.root_header_file_object.Get(name).GetVal()
         
-        self.timebase = basetime_obj.GetVal()
-        self.nSamples = record_length_obj.GetVal()
-        self.nPresamples = pretrig_length_obj.GetVal()
+        self.nSamples = find_root_quantity("record_length")
+        self.nPresamples = find_root_quantity("pretrig_length")
+        if self.gamma_vector_style:
+            self.timebase = find_root_quantity("basetime")
+            self.timestamp_msec_per_step = 1.0e-3
+        else:
+            # Use "sample_rate" (which is in MHz) and "npts_to_average", which is a decimation ratio
+            self.timebase = find_root_quantity("npts_to_average")*1e-6/find_root_quantity("sample_rate")
+            self.timestamp_msec_per_step = 1.0
+            
         
         # This information is not in the root header file but is in the channel files
         self.get_nPulses() #self.nPulses now has the number of pulses
@@ -421,7 +436,6 @@ class LANLFile(MicrocalFile):
         
         # Record the sample times in microseconds
         self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
-        
 
     def get_nPulses(self):
         """Get the numner of pulses in the current ROOT file."""
@@ -450,8 +464,12 @@ class LANLFile(MicrocalFile):
         self.ucal_tree.GetEntry(trace_num)
 #        pulse = numpy.asarray(self.pdata)
 #        pulse = numpy.array(self.pdata)
-        pulse = numpy.fromiter(self.pdata.begin(), dtype=numpy.uint16, count=self.nSamples)
-        self.raw_datatimes[trace_num] = self.timestamp[0]
+        if self.gamma_vector_style:
+            iterator = self.pdata.begin()
+        else:
+            iterator = self.pdata.GetArray()
+        pulse = numpy.fromiter(iterator, dtype=numpy.uint16, count=self.nSamples)
+        self.raw_datatimes[trace_num] = self.timestamp[0]*self.timestamp_msec_per_step
         
 #        return pulse,channel[0],timestamp[0],pulse_max[0],pulse_max_pos[0],pulse_integral[0],baseline[0],baseline_rms[0],flag_pileup[0], pdata
         return pulse
@@ -488,7 +506,8 @@ class LANLFile(MicrocalFile):
         
         
 
-def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=5000000):
+def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=5000000, 
+                        channum=None, use_noise=False, excise_endpoints=None):
     """
     Translate a single LANL ROOT file into a single LJH file.
     
@@ -503,10 +522,20 @@ def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=500
                  a trailing ".root" with ".ljh" if possible (and will fail if not possible).
     overwrite -- If the output file exists and overwrite is not True, then translation fails.
     segmentsize -- The number of ROOT file bytes to read at one gulp.  Not likely that you care about this.
+    channum     -- If not set to None, then write out only data with this channel number.
+    use_noise   -- We want the output to grab the ucal_noise rather than the ucal_data tree.
+    excise_endpoints -- Remove the first and last few samples from each trace, optionally.  If None,
+                 remove nothing.  If a single number, remove that number from each end.
+                 If a 2-element-sequence (a,b), then remove a from the start and b from the end.
     """
     
     print "Attempting to translate '%s' "%rootfile,
-    lanl = LANLFile(filename=rootfile, segmentsize=segmentsize)
+    lanl = LANLFile(filename=rootfile, segmentsize=segmentsize, use_noise = use_noise)
+    
+    if isinstance(excise_endpoints, int):
+        excise_endpoints = (excise_endpoints, excise_endpoints)
+    if excise_endpoints[1]>0: 
+        excise_endpoints = tuple((excise_endpoints[0], -excise_endpoints[1]))
     
     if ljhfile is None:
         if not rootfile.endswith(".root"):
@@ -517,6 +546,9 @@ def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=500
         raise IOError("The ljhfile '%s' exists and overwrite was not set to True"%ljhfile)
     
     lanl.asctime=time.asctime(time.gmtime())
+    header_dict = lanl.__dict__.copy()
+    header_dict['nPresamples'] -= excise_endpoints[0]
+    header_dict['nSamples'] -= excise_endpoints[0]+abs(excise_endpoints[1])
     ljh_header = """#LJH Memorial File Format
 Save File Format Version: 2.0.0
 Software Version: Fake LJH file converted from ROOT
@@ -569,7 +601,7 @@ Inverted: No
 Preamp gain: 1.000000
 Discrimination level (%%): 1.000000
 #End of Header
-"""%lanl.__dict__
+"""%header_dict
 
     ljh_fp = open(ljhfile, "wb")
     ljh_fp.write(ljh_header)
@@ -579,7 +611,10 @@ Discrimination level (%%): 1.000000
     BINARYFILE=""
     for i in range(lanl.nPulses):
         trace=lanl.read_trace(i)
-        prefix = struct.pack(prefix_fmt, int(lanl.timestamp[0]/1000))
+        if excise_endpoints is not None:
+            trace = trace[excise_endpoints[0]:excise_endpoints[1]]
+        if channum is not None and lanl.channel[0] != channum: continue
+        prefix = struct.pack(prefix_fmt, int(lanl.timestamp[0]))
         ljh_fp.write(prefix)
         trace.tofile(ljh_fp, sep=BINARYFILE)
     
