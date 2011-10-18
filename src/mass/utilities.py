@@ -337,7 +337,7 @@ class MaximumLikelihoodHistogramFitter(object):
         
         atry = self.params.copy()
         ochisq = self.chisq
-        for iter in range(self.ITMAX):
+        for iter_number in range(self.ITMAX):
             temp = numpy.array(self.alpha)
             if done==self.DONE:
                 alambda = 0.0 # use alambda=0 on last pass
@@ -349,7 +349,7 @@ class MaximumLikelihoodHistogramFitter(object):
                 da = scipy.linalg.solve(temp, beta[self.ia])
                 scipy.linalg.inv(temp, overwrite_a = True)
             except scipy.linalg.LinAlgError, e:
-                print 'temp (lambda=%f, iteration %d) is singular:'%(alambda,iter), temp, beta
+                print 'temp (lambda=%f, iteration %d) is singular:'%(alambda,iter_number), temp, beta
                 raise e
 
             if done==self.DONE:

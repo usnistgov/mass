@@ -308,7 +308,7 @@ class LANLFile(MicrocalFile):
         super(LANLFile, self).__init__()
         self.filename = filename
         self.__cached_segment = None
-        self.root_file_object = ROOT.TFile(self.filename)
+        self.root_file_object = ROOT.TFile(self.filename) #@UndefinedVariable
         self.use_noise = use_noise
         if self.use_noise:
             tree_name = "ucal_noise"
@@ -333,7 +333,7 @@ class LANLFile(MicrocalFile):
         # If this header files exists, assume it's of the form that the gamma group makes
         if os.path.isfile(self.header_filename):
             self.gamma_vector_style = True
-            self.root_header_file_object = ROOT.TFile(self.header_filename)
+            self.root_header_file_object = ROOT.TFile(self.header_filename) #@UndefinedVariable
             
         # If not header, assume it's the alpha group's preferred form
         else:
@@ -354,9 +354,9 @@ class LANLFile(MicrocalFile):
         
         #Pulses are stored in vector ROOT format in the 'pulse' branch
         if self.gamma_vector_style:
-            self.pdata = ROOT.std.vector(int)() # this is how gamma people do it
+            self.pdata = ROOT.std.vector(int)() # this is how gamma people do it #@UndefinedVariable
         else:
-            self.pdata = ROOT.TH1I() # this is how alpha people do it
+            self.pdata = ROOT.TH1I() # this is how alpha people do it #@UndefinedVariable
         self.channel = numpy.zeros(1,dtype=int)
         self.baseline = numpy.zeros(1,dtype=float)
         self.baseline_rms = numpy.zeros(1,dtype=float)
@@ -372,9 +372,9 @@ class LANLFile(MicrocalFile):
         self.ucal_tree.SetBranchAddress("baseline_rms",self.baseline_rms)
         self.ucal_tree.SetBranchAddress("channel",self.channel)
         if self.use_noise:
-            self.ucal_tree.SetBranchAddress('noise',ROOT.AddressOf(self.pdata))
+            self.ucal_tree.SetBranchAddress('noise',ROOT.AddressOf(self.pdata))  #@UndefinedVariable
         else:
-            self.ucal_tree.SetBranchAddress('pulse',ROOT.AddressOf(self.pdata))
+            self.ucal_tree.SetBranchAddress('pulse',ROOT.AddressOf(self.pdata))  #@UndefinedVariable
             self.ucal_tree.SetBranchAddress("timestamp",self.timestamp)
             self.ucal_tree.SetBranchAddress("max",self.pulse_max)
             self.ucal_tree.SetBranchAddress("max_pos",self.pulse_max_pos)

@@ -175,93 +175,93 @@ class EnergyCalibration(object):
         axis.set_title("Energy calibration curve")
         
 
-class EnergyCalibrationCrap(object):
-    """
-    Object to store all information relevant to one detector's absolute
-    energy calibration.
-    """
-
-
-    def __init__(self):
-        """
-        Constructor (duh)
-        """
-        self.features = {}
-        
-    def __str__(self):
-        channames=set()
-        featurenames=[]
-        for f in self.features.values():
-            featurenames.append(f.name)
-            for k in f.ph.keys():
-                if not k.endswith("_prev"):
-                    channames.add(k)
-            
-        s = [""]
-        featurenames = tuple(featurenames)
-        channames = tuple(channames)
-        s.append(16*' '+"".join(["%15s"%cn for cn in channames]))
-        s.append(16*' '+" ".join([15*'-' for cn in channames]))
-        for f in featurenames:
-            words=["%14s: "%f]
-            for k in channames:
-                try:
-                    words.append("%15.3f"%self.features[f].ph[k])
-                except KeyError:
-                    words.append(12*" "+"n/a")    
-            s.append("".join(words))
-        return "\n".join(s)
-        
-    def add_feature(self, feature):
-        self.features[feature.name] = feature
-        
-    def copy(self):
-        ec = EnergyCalibration()
-        ec.__dict__.update(self.__dict__)
-        ec.features = {}
-        for k,v in self.features.iteritems():
-            try:
-                ec.features[k] = v.copy()
-            except AttributeError, e:
-                print e
-        return ec
-
-
-    def fit_mn_kalpha(self, dataset, range=150, type='filt'):
-        channame={'filt':'p_filt_value',
-                  'dc': 'p_filt_value_dc'}[type]
-        range = numpy.array((-range,range)) + self.features['Mn Ka1'].ph[channame]
-        params, _covar = dataset.fit_mn_kalpha(range, type=type)
-        ph_ka1 = params[1]
-        ph_ka2 = params[1] - 11.1*params[2]
-        self.features['Mn Ka1'].set_val(channame, ph_ka1)
-        if 'Mn Ka2' not in self.features:
-            self.features['Mn Ka2'] = make_energy_feature('Mn Ka2')
-        self.features['Mn Ka2'].set_val(channame, ph_ka2)
-
-
-    def make_calibrator(self, channame='p_filt_value', smooth=1.0):
-        fs = self.features.values()
-        ep=[(0.,0.)]
-        for f in fs:
-            try:
-                ep.append( (f.energy, f.ph[channame]) )
-            except KeyError:
-                continue
-        ep.sort()
-        ph = [x[1] for x in ep]
-        energy = [x[0] for x in ep]
-        print ph
-        print energy
-        if len(ph)>3:
-            calibrator = scipy.interpolate.UnivariateSpline(ph, energy, k=3, s=smooth)
-        elif len(ph)==3:
-            calibrator = numpy.poly1d(numpy.polyfit(ph, energy, 2))
-        elif len(ph==2):
-            calibrator = numpy.poly1d(numpy.polyfit(ph,energy,1))
-        else:
-            raise ValueError("Not enough good samples")
-        return calibrator
+#class EnergyCalibrationCrap(object):
+#    """
+#    Object to store all information relevant to one detector's absolute
+#    energy calibration.
+#    """
+#
+#
+#    def __init__(self):
+#        """
+#        Constructor (duh)
+#        """
+#        self.features = {}
+#        
+#    def __str__(self):
+#        channames=set()
+#        featurenames=[]
+#        for f in self.features.values():
+#            featurenames.append(f.name)
+#            for k in f.ph.keys():
+#                if not k.endswith("_prev"):
+#                    channames.add(k)
+#            
+#        s = [""]
+#        featurenames = tuple(featurenames)
+#        channames = tuple(channames)
+#        s.append(16*' '+"".join(["%15s"%cn for cn in channames]))
+#        s.append(16*' '+" ".join([15*'-' for cn in channames]))
+#        for f in featurenames:
+#            words=["%14s: "%f]
+#            for k in channames:
+#                try:
+#                    words.append("%15.3f"%self.features[f].ph[k])
+#                except KeyError:
+#                    words.append(12*" "+"n/a")    
+#            s.append("".join(words))
+#        return "\n".join(s)
+#        
+#    def add_feature(self, feature):
+#        self.features[feature.name] = feature
+#        
+#    def copy(self):
+#        ec = EnergyCalibration()
+#        ec.__dict__.update(self.__dict__)
+#        ec.features = {}
+#        for k,v in self.features.iteritems():
+#            try:
+#                ec.features[k] = v.copy()
+#            except AttributeError, e:
+#                print e
+#        return ec
+#
+#
+#    def fit_mn_kalpha(self, dataset, range=150, type='filt'):
+#        channame={'filt':'p_filt_value',
+#                  'dc': 'p_filt_value_dc'}[type]
+#        range = numpy.array((-range,range)) + self.features['Mn Ka1'].ph[channame]
+#        params, _covar = dataset.fit_mn_kalpha(range, type=type)
+#        ph_ka1 = params[1]
+#        ph_ka2 = params[1] - 11.1*params[2]
+#        self.features['Mn Ka1'].set_val(channame, ph_ka1)
+#        if 'Mn Ka2' not in self.features:
+#            self.features['Mn Ka2'] = make_energy_feature('Mn Ka2')
+#        self.features['Mn Ka2'].set_val(channame, ph_ka2)
+#
+#
+#    def make_calibrator(self, channame='p_filt_value', smooth=1.0):
+#        fs = self.features.values()
+#        ep=[(0.,0.)]
+#        for f in fs:
+#            try:
+#                ep.append( (f.energy, f.ph[channame]) )
+#            except KeyError:
+#                continue
+#        ep.sort()
+#        ph = [x[1] for x in ep]
+#        energy = [x[0] for x in ep]
+#        print ph
+#        print energy
+#        if len(ph)>3:
+#            calibrator = scipy.interpolate.UnivariateSpline(ph, energy, k=3, s=smooth)
+#        elif len(ph)==3:
+#            calibrator = numpy.poly1d(numpy.polyfit(ph, energy, 2))
+#        elif len(ph==2):
+#            calibrator = numpy.poly1d(numpy.polyfit(ph,energy,1))
+#        else:
+#            raise ValueError("Not enough good samples")
+#        return calibrator
 
 class EnergyFeature(object):
     """
@@ -273,11 +273,11 @@ class EnergyFeature(object):
         self.ph = {}
         self.ph.update(kwargs)
 
-    def set_val(self, type, value):
+    def set_val(self, feature_name, value):
         "asdfadsf"
-        if type in self.ph:
-            self.ph['%s_prev'%type] = self.ph[type]
-        self.ph[type] = value
+        if feature_name in self.ph:
+            self.ph['%s_prev'%feature_name] = self.ph[feature_name]
+        self.ph[feature_name] = value
         
     def copy(self):
         ef = EnergyFeature(self.name, self.energy)
@@ -296,6 +296,8 @@ class EnergyFeature(object):
             s.append("%s=%f"%(k,v))
         s.append(")")
         return " ".join(s)
+
+
 
 def make_energy_feature(name):
     """

@@ -497,8 +497,8 @@ class BaseChannelGroup(object):
                     ds.average_pulses[imask,:] -= ds.average_pulses[imask,:self.nPresamples-ds.pretrigger_ignore_samples].mean()
     
     
-    def plot_average_pulses(self, id, axis=None, use_legend=True):
-        """Plot average pulse number <id> on matplotlib.Axes <axis>, or
+    def plot_average_pulses(self, pulse_id, axis=None, use_legend=True):
+        """Plot average pulse number <pulse_id> on matplotlib.Axes <axis>, or
         on a new Axes if <axis> is None."""
         if axis is None:
             pylab.clf()
@@ -507,9 +507,9 @@ class BaseChannelGroup(object):
         axis.set_color_cycle(self.colors)
         dt = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
         
-        if id in range(self.n_channels):
+        if pulse_id in range(self.n_channels):
             for i,d in enumerate(self.datasets):
-                pylab.plot(dt,d.average_pulses[id], label="Demod TES %d"%i)
+                pylab.plot(dt,d.average_pulses[pulse_id], label="Demod TES %d"%i)
         else:
             for i,d in enumerate(self.datasets):
                 pylab.plot(dt,d.average_pulses[i], label="Demod TES %d"%i)
@@ -624,8 +624,8 @@ class BaseChannelGroup(object):
             if end>self.nPulses:
                 end = self.nPulses 
             print "Records %d to %d loaded"%(first,end-1)
-            for _i,(f,dset) in enumerate(zip(self.filters,self.datasets)):
-                filt_vector = f.__dict__[filter_name]
+            for (filt_group,dset) in zip(self.filters,self.datasets):
+                filt_vector = filt_group.__dict__[filter_name]
                 peak_x, peak_y = dset.filter_data(filt_vector,first, end)
                 dset.p_filt_phase[first:end] = peak_x
                 dset.p_filt_value[first:end] = peak_y
@@ -769,7 +769,7 @@ class BaseChannelGroup(object):
             del pf
 
 
-    def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, xrange=None, trange=None):
+    def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
         """
         Plot histograms of each channel's "energy" spectrum, one channel at a time.
         After recording the x-coordinate of <nclicks> mouse clicks per plot, return an
@@ -780,7 +780,7 @@ class BaseChannelGroup(object):
                     calibration is in place) p_energy.
         <nclicks>   The number of x coordinates to record per detector.  If you want to get
                     for example, a K-alpha and K-beta line in one go, then choose 2.
-        <xrange>    A 2-element sequence giving the limits to histogram.  If None, then the
+        <prange>    A 2-element sequence giving the limits to histogram.  If None, then the
                     histogram will show all data.
         <trange>    A 2-element sequence giving the time limits to use (in sec).  If None, then the
                     histogram will show all data.
@@ -795,7 +795,7 @@ class BaseChannelGroup(object):
             if trange is not None:
                 g = numpy.logical_and(g, ds.p_timestamp>trange[0])
                 g = numpy.logical_and(g, ds.p_timestamp<trange[1])
-            pylab.hist(ds.__dict__[channame][g], 200, range=xrange)
+            pylab.hist(ds.__dict__[channame][g], 200, range=prange)
             pylab.xlabel(channame)
             pylab.title("Detector %d: attribute %s"%(i, channame))
             fig = pylab.gcf()
@@ -816,13 +816,13 @@ class BaseChannelGroup(object):
         return xvalues
 
 
-    def find_named_features_with_mouse(self, name='Mn Ka1', channame='p_filt_value', xrange=None, trange=None, energy=None):
+    def find_named_features_with_mouse(self, name='Mn Ka1', channame='p_filt_value', prange=None, trange=None, energy=None):
         
         if energy is None:
             energy = mass.energy_calibration.STANDARD_FEATURES[name]
         
         print "Please click with the mouse on each channel's histogram at the %s line"%name
-        xvalues = self.find_features_with_mouse(channame=channame, nclicks=1, xrange=xrange, trange=trange).ravel()
+        xvalues = self.find_features_with_mouse(channame=channame, nclicks=1, prange=prange, trange=trange).ravel()
         for ds,xval in zip(self.datasets, xvalues):
             calibration = ds.calibration[channame]
             calibration.add_cal_point(xval, energy, name)
