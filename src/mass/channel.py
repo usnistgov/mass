@@ -25,7 +25,6 @@ import power_spectrum
 import energy_calibration
 import fluorescence_lines # required for fitting @UnusedImport
 
-
 class NoiseRecords(object):
     """
     Encapsulate a set of noise records, which can either be
@@ -915,7 +914,8 @@ class ExperimentalFilter(Filter):
         <tau>            Time constant of exponential to filter out (in milliseconds)
         """
         
-        self.tau = tau # in milliseconds
+        if isinstance(tau, (int, float)): tau = [tau]
+        self.tau = tau # in milliseconds; can be a sequence of taus
         super(self.__class__, self).__init__(avg_signal, n_pretrigger, noise_psd,
                                              noise_autocorr, fmax, f_3db, sample_time, shorten)
 
@@ -960,14 +960,14 @@ class ExperimentalFilter(Filter):
             ts = utilities.ToeplitzSolver(R, symmetric=True)
             
             unit = numpy.ones(n)
-            exp  = numpy.exp(-expx/self.tau)
+            exps  = [numpy.exp(-expx/tau) for tau in self.tau]
             cht1 = scipy.special.chebyt(1)(chebyx)
             cht2 = scipy.special.chebyt(2)(chebyx)
             cht3 = scipy.special.chebyt(3)(chebyx)
             
             Rinv_sig  = ts(avg_signal)
             Rinv_unit = ts(unit)
-            Rinv_exp  = ts(exp)
+            Rinv_exps = [ts(e) for e in exps]
             Rinv_cht1 = ts(cht1)
             Rinv_cht2 = ts(cht2)
             Rinv_cht3 = ts(cht3)
@@ -985,15 +985,17 @@ class ExperimentalFilter(Filter):
                 vector[:] = numpy.fft.irfft(sig_ft)
                 
             if fmax is not None or f_3db is not None:
-                for vector in Rinv_sig, Rinv_unit, Rinv_exp, Rinv_cht1, Rinv_cht2, Rinv_cht3:
+                for vector in Rinv_sig, Rinv_unit, Rinv_cht1, Rinv_cht2, Rinv_cht3:
+                    band_limit(vector, fmax, f_3db)
+                for vector in Rinv_exps:
                     band_limit(vector, fmax, f_3db)
 
-            
+            exp_orthogs = ['exps[%d]'%i for i in range(len(self.tau))]
             orthogonalities={
                 'filt_full':(),
                 'filt_noconst' :('unit',),
-                'filt_noexp'   :('exp',),
-                'filt_noexpcon':('unit', 'exp'),
+                'filt_noexp'   :exp_orthogs,
+                'filt_noexpcon':['unit']+exp_orthogs,
                 'filt_noslope' :('cht1',),
                 'filt_nopoly1' :('unit', 'cht1'),
                 'filt_nopoly2' :('unit', 'cht1', 'cht2'),
@@ -1033,7 +1035,7 @@ class ExperimentalFilter(Filter):
                 
                 print '%15s'%name,
 #                pylab.plot(filt, label=name)
-                for v in (avg_signal,numpy.ones(n),numpy.exp(-expx/self.tau),scipy.special.chebyt(1)(chebyx),
+                for v in (avg_signal,numpy.ones(n),numpy.exp(-expx/self.tau[0]),scipy.special.chebyt(1)(chebyx),
                           scipy.special.chebyt(2)(chebyx)):
                     print '%10.5f '%numpy.dot(v,filt),
                     
@@ -1218,7 +1220,7 @@ class MicrocalDataSet(object):
             if i-4 == 0:
                 conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
             else:
-#                print conv[i,:].shape, self.data.shape, (filter_values*self.data[:seg_size,i:i-4]).shape
+#                print conv[i,:].shape, self.data.shape, (filter*self.data[:seg_size,i:i-4]).shape
                 conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
         param = numpy.dot(fit_array, conv)
         peak_x = -0.5*param[1,:]/param[2,:]
@@ -1444,13 +1446,14 @@ class MicrocalDataSet(object):
                 pylab.ylim(prange)
 
 
-    def auto_drift_correct_rms(self, prange=None, times=None, plot=False, slopes=None):
+    def auto_drift_correct_rms(self, prange=None, times=None, ptrange=None, plot=False, slopes=None):
         """Apply a correction for pulse variation with pretrigger mean, which we've found
         to be a pretty good indicator of drift.  Use the rms width of the Mn Kalpha line
         rather than actually fitting for the resolution.  (THIS IS THE OLD WAY TO DO IT.
         SUGGEST YOU USE self.auto_drift_correct instead....)
         
         prange:  use only filtered values in this range for correction 
+        ptrange: use only pretrigger means in this range for correction
         times: if not None, use this range of p_timestamps instead of all data (units are seconds
                since server started--ugly but that's what we have to work with)
         plot:  whether to display the result
@@ -1473,6 +1476,10 @@ class MicrocalDataSet(object):
         if times is not None:
             valid = numpy.logical_and(valid, self.p_timestamp<times[1])
             valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+            
+        if ptrange is not None:
+            valid = numpy.logical_and(valid, self.p_pretrig_mean<ptrange[1])
+            valid = numpy.logical_and(valid, self.p_pretrig_mean>ptrange[0])
 
         data = self.p_filt_value_phc[valid]
         corrector = self.p_pretrig_mean[valid]
