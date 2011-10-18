@@ -1,0 +1,98 @@
+MASS: The Microcalorimeter Analysis Software Suite
+
+Joe Fowler, NIST Boulder Labs
+
+November 2010-present
+
+
+CONTENTS
+========
+
+* How to install Mass
+* How to import Mass within Python/Ipython
+* Package dependencies
+-- Matplotlib preferences
+
+
+HOW TO INSTALL MASS
+=========================
+
+Mass is a pure-Python system for analyzing microcalorimeter data.
+(It's possible that we'll want to convert some code to C or Cython
+at some time in the near future...)
+
+The preferred approach is simply to use python setuptools to 
+copy the Mass code to the known, standard install location.  You will
+probably need sudo power to do this, but the process is otherwise
+very simple.  From the top-level Mass directory (where you find this
+file), you need only one command:
+
+$ sudo python setup.py install
+
+If you wish to test Mass without installing, or if you wish to play
+with the latest edition from subversion, then I suggest that you
+modify your PYTHONPATH shell variable.  The Mass code lives in
+./src/mass/ (were "." refers to the location of this INSTALL file).
+You just need your PYTHONPATH to point to this.  If you use bash, and
+supposing that your NIST software repository lives in ~/trunk, then
+you should add the following to your .bashrc file:
+
+$ export PYTHONPATH=${PYTHONPATH}:~/trunk/python/mass/src
+
+
+
+
+HOW TO IMPORT MASS WITHIN PYTHON/IPYTHON
+=========================================
+
+>>> import mass
+
+
+
+
+PACKAGE DEPENDENCIES
+=====================
+
+Mass has a few required packages, though I expect they are all things
+that any physicist would already have when using Python for scientific
+work:
+
+o- numpy
+o- scipy
+o- matplotlib (a.k.a. pylab)
+o- PyQt4
+o- Qt4
+
+I am sure that Mass uses certain features of each package that are
+only available starting with certain version numbers.  Unfortunately,
+I have no idea what they are.  I can say that at the time of this
+writing (October 18, 2011), my own computer uses versions: 
+
+o- numpy      1.6.1
+o- scipy      0.9.0
+o- matplotlib 1.0.1
+o- PyQt4      4.8.4
+o- Qt4        4.7.3
+
+The Qt4 is not yet a requirement.  I do have plans, though, to add
+some GUI features for annoying jobs like specifying cuts.  Such
+features will definitely require Qt4.  
+
+
+    Matplotlib preferences
+    ---------------------------
+
+The eventual Qt4 GUI features will conflict with your matplotlib GUI
+unless you are using Qt4 as your "backend" for matplotlib.  You can
+specify this by using the following line in your configuration file,
+which is generally ~/.matplotlib/matplotlibrc :
+
+backend     : Qt4Agg
+
+Here are some other things I find very useful in that file but which
+have nothing to do with Mass:
+
+interactive : True
+keymap.grid : g                     # switching on/off a grid in current axes
+keymap.yscale : l                   # toggle scaling of y-axes ('log'/'linear')
+keymap.xscale : L, k                # toggle scaling of x-axes ('log'/'linear')
