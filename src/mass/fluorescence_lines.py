@@ -39,6 +39,7 @@ class SpectralLine(object):
     """
     
     def __call__(self, x):
+        """Make the class callable, returning the same value as the self.pdf method."""
         return self.pdf(x)
     
     def pdf(self, x):
@@ -68,14 +69,22 @@ class MnKAlpha(SpectralLine):
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
+    
+    ## Spectral complex name.
     name = 'Manganese K-alpha'    
     
     # The approximation is as a series of 8 Lorentzians (6 for KA1,2 for KA2)
+    
+    ## The Lorentzian energies
     energies = 5800+numpy.array((98.853,97.867,94.829,96.532,99.417,102.712,87.743,86.495))
+    ## The Lorentzian widths
     fwhm = numpy.array((1.715,2.043,4.499,2.663,0.969,1.553,2.361,4.216))
+    ## The Lorentzian peak height
     peak_heights = numpy.array((790,264,68,96,71,10,372,100),dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
+    ## The energy at the main peak
     peak_energy = 5898.802 # eV        
 
 
@@ -88,14 +97,21 @@ class MnKBeta(SpectralLine):
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
+
+    ## Spectral complex name.
     name = 'Manganese K-beta'    
     
     # The approximation is as a series of 4 Lorentzians 
+    ## The Lorentzian energies
     energies = 6400+numpy.array((90.89,86.31, 77.73, 90.06, 88.83))
+    ## The Lorentzian widths
     fwhm = numpy.array((1.83, 9.40, 13.22, 1.81, 2.81))
+    ## The Lorentzian peak height
     peak_heights = numpy.array((608,109,77,397,176),dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
+    ## The energy at the main peak
     peak_energy = 6490.18 # eV        
 
 
@@ -108,14 +124,22 @@ class CuKAlpha(SpectralLine):
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
+
+    ## Spectral complex name.
     name = 'Copper K-alpha'
             
     # The approximation is 4 of Lorentzians (2 for Ka1, 2 for Ka2)
+
+    ## The Lorentzian energies
     energies = numpy.array((8047.8372, 8045.3672, 8027.9935, 8026.5041))
+    ## The Lorentzian widths
     fwhm = numpy.array((2.285, 3.358, 2.667, 3.571))
+    ## The Lorentzian peak height
     peak_heights = numpy.array((957,90,334,111), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
+    ## The energy at the main peak
     peak_energy = 8047.83 # eV        
     
 
@@ -129,10 +153,14 @@ class GaussianLine(object):
     """
     
     def __init__(self):
+        """"""
+        ## Gaussian parameter sigma, computed from self.fwhm
         self.sigma = self.fwhm/numpy.sqrt(8*numpy.log(2))
+        ## Gaussian amplitude, chosen to normalize the distribution.
         self.amplitude = (2*numpy.pi)**(-0.5)/self.sigma
     
     def __call__(self, x, fwhm=None):
+        """Make the class callable, returning the same value as the self.pdf method."""
         return self.pdf(x, fwhm=fwhm)
     
     def pdf(self, x, fwhm=None):
@@ -155,21 +183,37 @@ class GaussianLine(object):
             sigma = fwhm/numpy.sqrt(8*numpy.log(2))
             arg = (x-self.energy)/sigma/numpy.sqrt(2)
         return (scipy.special.erf(arg)+1)*.5
-    
+
+
+
 class Gd97(GaussianLine):
+    """The 97 keV line of 153Gd."""
+    ## Line center energy
     energy = 97431.0
+    ## Approximate line width
     fwhm = 50.0
     
 class Gd103(GaussianLine):
+    """The 103 keV line of 153Gd."""
+    ## Line center energy
     energy = 103180.0
+    ## Approximate line width
     fwhm = 50.0
 
 class AlKalpha(GaussianLine):
+    """The K-alpha fluorescence lines of aluminum.
+    WARNING: Not correct shape!"""
+    ## Line center energy
     energy = mass.energy_calibration.STANDARD_FEATURES['Al Ka']
+    ## Approximate line width
     fwhm=3.0
 
 class SiKalpha(GaussianLine):
+    """The K-alpha fluorescence lines of silicon.
+    WARNING: Not correct shape!"""
+    ## Line center energy
     energy = mass.energy_calibration.STANDARD_FEATURES['Si Ka']
+    ## Approximate line width
     fwhm=3.0
 
     
@@ -177,6 +221,11 @@ class MultiLorentzian_distribution(scipy.stats.rv_continuous):
     """For producing random variates of the an energy distribution having the form
     of several Lorentzians summed together."""
     
+    ## Approximates the random variate defined by multiple Lorentzian components.
+    #  @param epoints The points at which the Lorentzian will be sampled for linear interpolation.
+    #  (should be dense where distribution is changing rapidly)
+    #  @param args  Pass all other parameters to parent class.
+    #  @param kwargs  Pass all other parameters to parent class. 
     def __init__(self, epoints, *args, **kwargs):
         """<epoints> is a vector of energy points, densely collected at places
         where the distribution changes rapidly.
@@ -188,12 +237,17 @@ class MultiLorentzian_distribution(scipy.stats.rv_continuous):
         cdf = self.distribution.cdf(epoints)
         a,b = cdf[0], cdf[-1] # would be 0,1 if we covered all of x-axis
         cdf = (cdf-a)/(b-a) # Rescale so that it *does* run from [0,1]
+        
+        ## The minimum and maximum values that the CDF would have returned if we weren't careful!
         self.minCDF, self.maxCDF = a,b
 
         # Redefine the percentile point function (maps [0,1] to energies),
         # the prob distrib function and the cumulative distrib function
+        ## Reimplements percentile point function.
         self._ppf = scipy.interpolate.interp1d(cdf, epoints, kind='linear')
+        ## Reimplements probability distribution function.
         self._pdf = self.distribution
+        ## Reimplements cumulative distribution function.
         self._cdf = lambda x: (self.distribution.cdf(x)-self.minCDF)/(self.maxCDF-self.minCDF)
         
 
@@ -202,6 +256,8 @@ class MnKAlpha_distribution(MultiLorentzian_distribution):
     """For producing random variates of the manganese K Alpha energy distribution"""
     
     def __init__(self, *args, **kwargs):
+        """"""
+        ## The energy distribution function
         self.distribution = MnKAlpha()
         epoints = numpy.hstack(((0,3000,5000,5500),
                                 numpy.arange(5800,5880.5),
@@ -216,6 +272,8 @@ class CuKAlpha_distribution(MultiLorentzian_distribution):
     """For producing random variates of the copper K Alpha energy distribution"""
     
     def __init__(self, *args, **kwargs):
+        """"""
+        ## The energy distribution function
         self.distribution = CuKAlpha()
         epoints = numpy.hstack(((0,3000,6000,7000,7500),
                                 numpy.arange(7800,8010.5),
@@ -226,10 +284,33 @@ class CuKAlpha_distribution(MultiLorentzian_distribution):
         
 
 
-class SpectralLineFitter(object):
-    def __init__(self): pass
+class MultiLorentzianComplexFitter(object):
+    """Abstract base class for objects that can fit a spectral line complex.
     
+    Provides methods fitfunc() and fit().  The child classes must provide:
+    * a self.spect function object returning the spectrum at a given energy, and
+    * a self.guess_starting_params method to return fit parameter guesses given a histogram.
+    """
+    def __init__(self):
+        """"""
+        ## Parameters from last successful fit
+        self.lastFitParams = None
+        ## Fit function samples from last successful fit
+        self.lastFitResult = None
+        
+    
+    ## Compute the smeared line complex.
+    #
+    # @param params  The 6 parameters of the fit (see self.fit for details).
+    # @param x       An array of pulse heights (params will scale them to energy).
+    # @return:       The line complex intensity, including resolution smearing.
     def fitfunc(self, params, x):
+        """Return the smeared line complex.
+        
+        <params>  The 6 parameters of the fit (see self.fit for details).
+        <x>       An array of pulse heights (params will scale them to energy).
+        Returns:  The line complex intensity, including resolution smearing.
+        """
         E_peak = self.spect.peak_energy
         
         energy = (x-params[1])/abs(params[2]) + E_peak
@@ -314,10 +395,12 @@ class SpectralLineFitter(object):
 
 
 
-class MnKAlphaFitter(SpectralLineFitter):
-    "Fits a Mn K alpha spectrum for energy shift and scale, amplitude, and resolution"
+class MnKAlphaFitter(MultiLorentzianComplexFitter):
+    """Fits a Mn K alpha spectrum for energy shift and scale, amplitude, and resolution"""
     
     def __init__(self):
+        """"""
+        ## Spectrum function object
         self.spect = MnKAlpha()
         super(self.__class__, self).__init__()
         # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
@@ -348,10 +431,12 @@ class MnKAlphaFitter(SpectralLineFitter):
 
 
 
-class MnKBetaFitter(SpectralLineFitter):
-    "Fits a Mn K beta spectrum for energy shift and scale, amplitude, and resolution"
+class MnKBetaFitter(MultiLorentzianComplexFitter):
+    """Fits a Mn K beta spectrum for energy shift and scale, amplitude, and resolution"""
     
     def __init__(self):
+        """"""
+        ## Spectrum function object
         self.spect = MnKBeta()
         super(self.__class__, self).__init__()
         
@@ -376,10 +461,12 @@ class MnKBetaFitter(SpectralLineFitter):
 
 
 
-class CuKAlphaFitter(SpectralLineFitter):
-    "Fits a Cu K alpha spectrum for energy shift and scale, amplitude, and resolution"
+class CuKAlphaFitter(MultiLorentzianComplexFitter):
+    """Fits a Cu K alpha spectrum for energy shift and scale, amplitude, and resolution"""
     
     def __init__(self):
+        """"""
+        ## Spectrum function object
         self.spect = CuKAlpha()
         super(self.__class__, self).__init__()
         
@@ -437,11 +524,24 @@ def smear(f, fwhm, stepsize=1.0):
 
 
 class GaussianFitter(object):
+    """Abstract base class for objects that can fit a single Gaussian line.
+    
+    Provides methods fitfunc() and fit().  The child classes must provide:
+    * a self.spect function object returning the spectrum at a given energy, and
+    * a self.guess_starting_params method to return fit parameter guesses given a histogram.
+    """
+
     def __init__(self, spect):
-        self.spect = spect
+        """"""
+        ## Spectrum function object
+        self.spect = spect 
+        ## Parameters from last successful fit
+        self.lastFitParams = None
+        ## Fit function samples from last successful fit
+        self.lastFitResult = None
         
     def guess_starting_params(self, data, binctrs):
-        """doc"""
+        """Guess the best Gaussian line location/width/amplitude/background given the spectrum."""
         
         n = data.sum()
         sum_d = (data*binctrs).sum()

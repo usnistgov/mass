@@ -16,7 +16,7 @@ import time
 import unittest
 
 class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
-    "Test ToeplitzSolver on a 5x5 symmetric matrix"
+    """Test ToeplitzSolver on a 5x5 symmetric matrix"""
     def setUp(self):
         self.autocorr=numpy.array((6.,4.,2.,1.,0.))
         self.n=len(self.autocorr)
@@ -41,7 +41,7 @@ class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
             self.assertAlmostEqual(0, big_dif, 12)
 
 class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
-    "Test ToeplitzSolver on a 5x5 non-symmetric matrix"
+    """Test ToeplitzSolver on a 5x5 non-symmetric matrix"""
     def setUp(self):
         self.autocorr=numpy.array((-1,-2,0,3,6.,4.,2.,1.,0.))
         self.n=(len(self.autocorr)+1)/2
@@ -66,7 +66,7 @@ class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
             self.assertAlmostEqual(0, big_dif, 12)
 
 class TestToeplitzSolver_32(unittest.TestCase):
-    "Test ToeplitzSolver on a 32x32 symmetric matrix"
+    """Test ToeplitzSolver on a 32x32 symmetric matrix"""
     def setUp(self):
         self.n = 32
         t = numpy.arange(self.n)
@@ -88,7 +88,7 @@ class TestToeplitzSolver_32(unittest.TestCase):
             self.assertAlmostEqual(0, big_dif, 10, msg='Unit vector trial i=%2d gives x_out=%s'%(i,x_out))
 
 class TestToeplitzSolver_6144(unittest.TestCase):
-    "Test ToeplitzSolver on a 6144x6144 symmetric matrix"
+    """Test ToeplitzSolver on a 6144x6144 symmetric matrix"""
     def setUp(self):
         self.n = 6144
         t = numpy.arange(self.n)
@@ -116,6 +116,7 @@ class TestToeplitzSolver_6144(unittest.TestCase):
 
 
 class TestToeplitzSpeed(object):
+    """Test the speed of the Toeplitz solver."""
     def __init__(self, maxsize=8192):
         self.sizes=numpy.hstack((100,200,numpy.arange(500,5500,500),6144,8192,10000,15000,20000,30000,50000, 100000))
 #        self.sizes=numpy.array((4000,5000,6144,8192,10000,20000))
@@ -192,8 +193,8 @@ class TestToeplitzSpeed(object):
         pylab.plot(self.sizes, self.solve_time, label='Matrix solve')
         pylab.plot(self.sizes, self.lu_time, label='LU solve')
         pylab.legend(loc='upper left')
-        pylab.xlabel("Vector size")
-        pylab.ylabel("Time (sec)")
+        pylab.xlabel('Vector size')
+        pylab.ylabel('Time (sec)')
         pylab.grid()
         pylab.loglog()
         
