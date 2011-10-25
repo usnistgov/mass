@@ -1456,16 +1456,15 @@ class CrosstalkVeto(object):
         self.n_pulses = datagroup.nPulses
 #        self.veto = numpy.zeros((self.n_channels, self.n_pulses), dtype=numpy.bool8)
         
-        ms0 = numpy.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min()/1e3 + window_ms[0]
-        ms9 = numpy.array([ds.p_timestamp.max() for ds in datagroup.datasets]).max()/1e3 + window_ms[1]
+        ms0 = numpy.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min()*1e3 + window_ms[0]
+        ms9 = numpy.array([ds.p_timestamp.max() for ds in datagroup.datasets]).max()*1e3 + window_ms[1]
         self.nhits = numpy.zeros(ms9-ms0+1, dtype=numpy.int8)
         self.time0 = ms0
         
         
         for ds in datagroup.datasets:
-            g = numpy.ones(ds.nPulses, dtype=numpy.bool8)
             g = ds.cuts.good()
-            vetotimes = ds.p_timestamp[g]/1e3-ms0
+            vetotimes = ds.p_timestamp[g]*1e3-ms0
             vetotimes[vetotimes<0] = 0
             print vetotimes, len(vetotimes), 1.0e3*ds.nPulses/(ms9-ms0),
             a,b = window_ms
@@ -1484,6 +1483,8 @@ class CrosstalkVeto(object):
         return v
     
     
-    def veto(self, times):    
-        index = times-self.time0
+    def veto(self, times_sec):
+        """Return boolean vector for whether a given moment is vetoed.  Times are given in
+        seconds.  Resolution is 1 ms for the veto."""  
+        index = numpy.asarray(times_sec*1e3-self.time0+0.5, dtype=numpy.int)
         return self.nhits[index]>1
