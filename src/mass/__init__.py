@@ -1,15 +1,31 @@
-## @package  mass
+## \mainpage Overview of Mass
 #
-# @brief Microcalorimeter Analysis Software Suite
+# \section summary Summary
+#
+# 
+# \section install Installation
+# 
+# \section starting Getting started
+# 
+# here is how we get started.
+# 
+# \section requirements Requirements
+# 
+# 
+
+
+## \package  mass
+#
+# \brief Microcalorimeter Analysis Software Suite
 # 
 # Python tools to analyze microcalorimeter data offline.
 
 """
-mass - Microcalorimeter Analysis Software Suite
+Mass: a Microcalorimeter Analysis Software Suite
 
 Python tools to analyze microcalorimeter data offline.
 
-Joe Fowler, NIST.  November 2010--
+Joe Fowler, NIST Boulder Labs.  November 2010--
 """
 
 __all__ = ['channel_group','channel','controller','power_spectrum']

@@ -17,9 +17,6 @@ import matplotlib
 import numpy as np
 import warnings
 from matplotlib import cbook, colors as mcolors
-iterable = cbook.iterable
-is_string_like = cbook.is_string_like
-is_sequence_of_strings = cbook.is_sequence_of_strings
 
 
 #    @docstring.dedent_interpd
@@ -190,7 +187,7 @@ def workarounds_axes_hist(
 
         # Massage 'x' for processing.
         # NOTE: Be sure any changes here is also done below to 'weights'
-        if isinstance(x, np.ndarray) or not iterable(x[0]):
+        if isinstance(x, np.ndarray) or not cbook.iterable(x[0]):
             # TODO: support masked arrays;
             x = np.asarray(x)
             if x.ndim == 2:
@@ -218,7 +215,7 @@ def workarounds_axes_hist(
 
         # We need to do to 'weights' what was done to 'x'
         if weights is not None:
-            if isinstance(weights, np.ndarray) or not iterable(weights[0]) :
+            if isinstance(weights, np.ndarray) or not cbook.iterable(weights[0]) :
                 w = np.array(weights)
                 if w.ndim == 2:
                     w = w.T
@@ -408,9 +405,9 @@ def workarounds_axes_hist(
 
         if label is None:
             labels = ['_nolegend_']
-        elif is_string_like(label):
+        elif cbook.is_string_like(label):
             labels = [label]
-        elif is_sequence_of_strings(label):
+        elif cbook.is_sequence_of_strings(label):
             labels = list(label)
         else:
             raise ValueError(

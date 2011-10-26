@@ -3,18 +3,38 @@ mass.utilities
 
 Several math utilities, including:
 * Toeplitz matrix solver (useful for computing time-domain optimal filters)
+* A histogram fitter that uses a full maximum likelihood fit.
+* A mouse click capturer for mouse feedback from plots.
 
 J. Fowler, NIST
 
-March 24, 2011
+Started March 24, 2011
 """
+
+## \file utilities.py
+# \brief Several utilities used by Mass, including math, plotting, and other functions.
+#
+# Math utilities include:
+# -# ToeplitzSolver
+# -# MaximumLikelihoodHistogramFitter
+#
+# Other utilities:
+# -# plot_as_stepped_hist, to draw an already computed histogram in the same way that
+#    pylab.hist() would do it.
+# -# MouseClickReader, to capture pointer location on a plot.
+
 
 import numpy
 import scipy.linalg
 
-# plot in step-histogram format
+
 def plot_as_stepped_hist(axis, bin_ctrs, data, **kwargs):
-    "Plot onto <axis> the histogram <bin_ctrs>,<data>"
+    """Plot onto <axis> the histogram <bin_ctrs>,<data> in stepped-histogram format.
+    \param axis     The pylab Axes object to plot onto.
+    \param bin_ctrs An array of bin centers.  (Bin spacing will be inferred from the first two).
+    \param data     Bin contents.   data and bin_ctrs will only be used to the shorter of the two arrays.
+    \param kwargs   All other keyword arguments will be passed to axis.plot().
+    """
     x = numpy.zeros(2+2*len(bin_ctrs), dtype=numpy.float)
     y = numpy.zeros_like(x)
     dx = bin_ctrs[1]-bin_ctrs[0]
@@ -70,11 +90,12 @@ class ToeplitzSolver(object):
         and R[2*N-2] is the lower left value of T. 
         """
         
+        ## Whether this Toeplitz matrix is symmetric.  Governs how we compute solutions.
         self.symmetric=symmetric
 
-        if symmetric:
-            self.n = len(R)
-        else:
+        ## The dimension of the square matrix T.
+        self.n = len(R)
+        if not symmetric:
             # R needs to be of length 2n-1 for integer n
             assert len(R) %2 == 1
             self.n = (len(R)+1)/2
@@ -82,6 +103,9 @@ class ToeplitzSolver(object):
         # Be very careful with self.R, because it's stored as a copy of the input R.
         # For symmetric matrices, T_(0,0) and T_(1,0) are R[0] and R[1].
         # For non-symmetric, they are R[n-1] and R[n].
+        ## The non-redundant elements of the Toeplitz matrix.  This will be the top
+        # row if symmetric, or otherwise the first column (bottom to top) appended to the rest of
+        # the top row. 
         self.R = numpy.array(R).astype(float)
         
         # It would be good to have a precomputation step for asymmetric matrices, too,
@@ -92,7 +116,13 @@ class ToeplitzSolver(object):
 
     def __call__(self, y):
         """Return the solution x for Tx=y"""
-        if self.symmetric: return self.solve_symmetric(y)
+        if self.symmetric: 
+            return self.__solve_symmetric(y)
+        return self.__solve_asymmetric(y)
+
+
+    def __solve_asymmetric(self, y):
+        """Return the solution x when Tx=y for an asymmetric Toeplitz matrix T."""
         n = self.n
         assert len(y) == n
 
@@ -126,13 +156,16 @@ class ToeplitzSolver(object):
 
 
     def __precompute_symmetric(self):
-        """Precompute some """
+        """Precompute some data so that the solve_symmetric method can be done in
+        roughly half the time per solve."""
         n = self.n
         assert self.symmetric
 
         zeros = lambda n: numpy.zeros(n, dtype=numpy.float)
         g = zeros(n)
+        ## The constant denominator of the x_g computation
         self.xg_denom = zeros(n)
+        ## The constant leading value g[K] for each iteration K
         self.gK_leading = zeros(n)
 
         R = self.R.copy()
@@ -146,7 +179,7 @@ class ToeplitzSolver(object):
             self.gK_leading[K] = g[K]
             g[:K] -= g[K]*g[K-1::-1]
             
-    def solve_symmetric(self, y):
+    def __solve_symmetric(self, y):
         """Return the solution x when Tx=y for a symmetric Toeplitz matrix T."""
         n = self.n
         assert len(y) == n
@@ -193,6 +226,7 @@ class MaximumLikelihoodHistogramFitter(object):
     MaximumLikelihoodHistogramFitter.NOTES  
     """
     
+    ## Further algorithm notes beyond the docstring.
     NOTES="""
     The likelihood being maximized is converted to a "MLE Chi^2" by defining
     chi^2_MLE = -2 log(LR).  LR is here a likelihood RATIO, between the Poisson  
@@ -218,8 +252,11 @@ class MaximumLikelihoodHistogramFitter(object):
     -2 times the log of the likelihood ratio, rather than a true chi-squared.
     """
     
-    DONE=4     # This many steps with negligible "chisq" change cause normal exit
-    ITMAX=500  # This many steps cause RuntimeError for excessive iterations
+    ## This many steps with negligible "chisq" change cause normal exit
+    DONE=4
+    
+    ## This many steps cause RuntimeError for excessive iterations
+    ITMAX=500  
     
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None, 
                  epsilon=1e-5, TOL=1e-3):
@@ -430,11 +467,24 @@ class MouseClickReader(object):
     Usage example (ought to be here...):
     """
     def __init__(self, figure):
-        self.b, self.x, self.y = 0,0,0
+        """Connect to button press events on a pylab figure.
+        \param figure The matplotlib.figure.Figure from which to capture mouse click events."""
+        ## The button number of the last mouse click inside a plot.
+        self.b = 0
+        ## The x location of the last mouse click inside a plot.
+        self.x = 0
+        ## The y location of the last mouse click inside a plot.
+        self.y = 0
+        ## The Figure to whose events we are connected.
         self.fig=figure
+        ## The connection ID for matplotlib event handling.
         self.cid = self.fig.canvas.mpl_connect('button_press_event',self)
+        
     def __call__(self, event):
+        """When called, capture the latest button number and the x,y location in 
+        plot units.  Store in self.b, .x, and .y."""
         self.b, self.x, self.y =  event.button, event.xdata, event.ydata
     def __del__(self):
+        """Disconnect the button press event from this object."""
         self.fig.canvas.mpl_disconnect(self.cid)
         
