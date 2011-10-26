@@ -1,5 +1,13 @@
+## @package  mass
+#
+# @brief Microcalorimeter Analysis Software Suite
+# 
+# Python tools to analyze microcalorimeter data offline.
+
 """
-mass - Microcalorimeter Analysis Software System
+mass - Microcalorimeter Analysis Software Suite
+
+Python tools to analyze microcalorimeter data offline.
 
 Joe Fowler, NIST.  November 2010--
 """
@@ -21,6 +29,4 @@ from files import root2ljh_translate_all, root2ljh_translator
 from channel_group import TESGroup, CDMGroup
 
 
-msg="""The Microcalorimeter Analysis Software System (MASS) is now imported."""
-
-print msg
+print """The Microcalorimeter Analysis Software System (MASS) is now imported."""

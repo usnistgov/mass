@@ -1,3 +1,12 @@
+## @file fluorescence_lines.py
+#
+# @brief Tools for fitting and simulating X-ray fluorescence lines.
+# 
+# Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+# Phys Rev A56 (#6) pages 4554ff (1997 December).  See online at
+# http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
+
+ 
 """
 fluorescence_lines.py
 
@@ -16,7 +25,8 @@ November 24, 2010 : started as mn_kalpha.py
 import numpy
 import pylab
 import scipy.stats, scipy.interpolate, scipy.special
-import mass
+import utilities
+import energy_calibration
 
 def lorentzian(x, fwhm):
     """Return the value of Lorentzian prob distribution function at <x> (may be a numpy array)
@@ -204,7 +214,7 @@ class AlKalpha(GaussianLine):
     """The K-alpha fluorescence lines of aluminum.
     WARNING: Not correct shape!"""
     ## Line center energy
-    energy = mass.energy_calibration.STANDARD_FEATURES['Al Ka']
+    energy = energy_calibration.STANDARD_FEATURES['Al Ka']
     ## Approximate line width
     fwhm=3.0
 
@@ -212,7 +222,7 @@ class SiKalpha(GaussianLine):
     """The K-alpha fluorescence lines of silicon.
     WARNING: Not correct shape!"""
     ## Line center energy
-    energy = mass.energy_calibration.STANDARD_FEATURES['Si Ka']
+    energy = energy_calibration.STANDARD_FEATURES['Si Ka']
     ## Approximate line width
     fwhm=3.0
 
@@ -363,13 +373,13 @@ class MultiLorentzianComplexFitter(object):
                 pylab.clf()
                 axis = pylab.subplot(111)
                 
-            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color)
+            utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color)
             dp = pulseheights[1]-pulseheights[0]
             axis.set_xlim([pulseheights[0]-0.5*dp, pulseheights[-1]+0.5*dp])
 
         # Joe's new max-likelihood fitter
         epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
-        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, self.fitfunc, TOL=1e-4, epsilon=epsilon)
+        fitter = utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, self.fitfunc, TOL=1e-4, epsilon=epsilon)
         
         if hold is not None:
             for h in hold: fitter.hold(h)
@@ -582,7 +592,7 @@ class GaussianFitter(object):
         
         # Joe's new max-likelihood fitter
         epsilon = numpy.array((1e-3, params[1]/1e5, params[2]/1e5, params[3]/1e2))
-        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, fitfunc, TOL=1e-4, epsilon=epsilon)
+        fitter = utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, fitfunc, TOL=1e-4, epsilon=epsilon)
         if hold is not None:
             for h in hold: fitter.hold(h)
         fitparams, covariance = fitter.fit()
@@ -603,7 +613,7 @@ class GaussianFitter(object):
                 axis = pylab.subplot(111)
                 
             de = numpy.sqrt(covariance[0,0])
-            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
+            utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.plot(pulseheights, self.lastFitResult, color='black')
             axis.legend(loc='upper left')
             dp = pulseheights[1]-pulseheights[0]

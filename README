@@ -1,0 +1,84 @@
+-----------------------------------------------------------------------------
+          MASS: The Microcalorimeter Analysis Software Suite
+
+                    Joe Fowler, NIST Boulder Labs
+
+                        November 2010-present
+-----------------------------------------------------------------------------
+
+
+Mass is a software suite to analyze data from microcalorimeters.  It
+is meant to be exactly as general as NIST users and their
+collaborators require, without being any more general than that.  
+
+With Mass and a little bit of Python knowledge, you can:
+o- Process data from one or multiple detectors at one time.
+o- Analyze data from normal TDM systems or from flux-summed CDM.
+o- Choose data cuts.
+o- Compute and apply "optimal filters" of various types.
+o- Win friends and influence people.
+
+As of this writing (October 25, 2011), it is 6775 lines of Python.
+I sometimes consider extensions in C, C++, or Cython for performance
+reasons, but no such extensions have been written nor needed to date.
+
+Mass is being developed from a personal project to a system that can
+be shared by microcalorimeters users at NIST and elsewhere.  This step
+is new in October 2011, so please be patient!  Let the author know
+what's missing or wrong or useful.
+
+
+DOCUMENTATION
+=============
+
+        Docstrings
+        ----------
+
+The most complete documentation (though certainly not complete) can be
+found in the docstrings that accompany every (well, almost every)
+module, class, function, and method in the system.  Thus:
+
+>>> import mass
+>>> help mass.TESGroup
+>>> help data.datasets[0].obscure_method_name
+
+(Notice that help is a built-in function, and if you don't run in
+ipython, then you'll have to surround the argument with parentheses.
+Ipython, being totally sweet, will do this for you.)
+
+
+
+        Doxygen site
+        ------------
+
+If you have the subversion version of mass (trunk/python/mass), then
+the subdirectory doc contains configuration and a Makefile to generate
+a local copy of a doxygen website.  For a mac:
+
+$ cd ~/trunk/python/mass/doc
+$ make doc
+$ open -n html/index.html
+
+For linux, I think you can replace the last with "firefox
+html/index.html", but I can't say for sure.
+
+This is probably more useful to someone planning to add code to Mass
+than to the casual user.  Still, it's kind of fun to see what doxygen
+can do more or less by magic.
+
+I will try to copy the doxygen site to the group webserver someday,
+and to keep it updated.  More on that later.
+
+
+        Tutorials and demos
+        -------------------
+
+Ummm.... I'm working on this, really.
+
+
+
+
+SEE ALSO
+========
+INSTALL     For installation instructions
+AVERY       For tasty beer
