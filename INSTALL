@@ -64,6 +64,7 @@ o- scipy
 o- matplotlib (a.k.a. pylab)
 o- PyQt4
 o- Qt4
+o- gcc with gfortran
 
 I am sure that Mass uses certain features of each package that are
 only available starting with certain version numbers.  Unfortunately,
@@ -75,6 +76,7 @@ o- scipy      0.9.0
 o- matplotlib 1.0.1
 o- PyQt4      4.8.4
 o- Qt4        4.7.3
+o- gcc        4.5.3
 
 The Qt4 is not yet a requirement.  I do have plans, though, to add
 some GUI features for annoying jobs like specifying cuts.  Such
@@ -98,3 +100,11 @@ interactive : True
 keymap.grid : g                     # switching on/off a grid in current axes
 keymap.yscale : l                   # toggle scaling of y-axes ('log'/'linear')
 keymap.xscale : L, k                # toggle scaling of x-axes ('log'/'linear')
+
+
+ECLIPSE
+=======
+
+To work on the Fortran90 code in Mass, you might want to find Photran, a FORTRAN 
+back end for Eclipse.  See
+http://wiki.eclipse.org/PTP/photran/documentation/photran7installation

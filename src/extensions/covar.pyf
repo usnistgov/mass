@@ -1,0 +1,28 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module covar
+    interface
+        subroutine covprod(k,a,b,n,x,y) ! in :covar:covar.f90
+            integer optional,check(len(a)>=k),depend(a) :: k=len(a)
+            complex(kind=8) intent(in),dimension(k) :: a
+            complex(kind=8) intent(in),dimension(k),depend(k) :: b
+            integer optional,check(len(x)>=n),depend(x) :: n=len(x)
+            real(kind=8) intent(in),dimension(n) :: x
+            real(kind=8) intent(out),dimension(n),depend(n) :: y
+        end subroutine covprod
+        subroutine covchol(k,a,b,n,cholsav) ! in :covar:covar.f90
+            integer optional,check(len(a)>=k),depend(a) :: k=len(a)
+            complex(kind=8) intent(in),dimension(k) :: a
+            complex(kind=8) intent(in),dimension(k),depend(k) :: b
+            integer intent(in) :: n
+            real(kind=8) intent(out),dimension(1+(2*k+1)*(n+1)) :: cholsav
+        end subroutine covchol
+        subroutine covsolv(n,x,y,cholsav) ! in :covar:covar.f90
+            integer optional,check(len(y)>=n),depend(y) :: n=len(y)
+            real(kind=8) intent(out),dimension(n),depend(n) :: x
+            real(kind=8) intent(in),dimension(n) :: y
+            real(kind=8) intent(in),dimension(*) :: cholsav
+        end subroutine covsolv
+    end interface 
+end python module covar
