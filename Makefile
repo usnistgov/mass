@@ -2,7 +2,6 @@
 # J. Fowler, NIST
 # June 16, 2011
 
-OBJECT_DIR=mass
 EXTENSION_DIR=extensions
 
 $(OBJECT_DIR)/%.so: $(EXTENSION_DIR)/%.f90 $(EXTENSION_DIR)/%.pyf
@@ -33,6 +32,5 @@ lint-report.txt: $(OBJECT_DIR)/*.py
 TARGETDIR = /opt/local/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6/site-packages/mass
 install:
 	python setup.py install
-	cp mass/math/covar.so $(TARGETDIR)/math
 	ls -l $(TARGETDIR)  
 	ls -l $(TARGETDIR)/math

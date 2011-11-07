@@ -9,7 +9,7 @@ J. Fowler, NIST
 March 30, 2011
 """
 
-import utilities
+from mass.math.toeplitz import ToeplitzSolver
 import numpy
 import scipy.linalg
 import time
@@ -20,7 +20,7 @@ class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
     def setUp(self):
         self.autocorr=numpy.array((6.,4.,2.,1.,0.))
         self.n=len(self.autocorr)
-        self.solver = utilities.ToeplitzSolver(self.autocorr, symmetric=True)
+        self.solver = ToeplitzSolver(self.autocorr, symmetric=True)
         self.R = scipy.linalg.toeplitz(self.autocorr)
 
     def test_all_unit_vectors(self):
@@ -45,7 +45,7 @@ class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
     def setUp(self):
         self.autocorr=numpy.array((-1,-2,0,3,6.,4.,2.,1.,0.))
         self.n=(len(self.autocorr)+1)/2
-        self.solver = utilities.ToeplitzSolver(self.autocorr, symmetric=False)
+        self.solver = ToeplitzSolver(self.autocorr, symmetric=False)
         self.R = scipy.linalg.toeplitz(self.autocorr[self.n-1:], self.autocorr[self.n-1::-1])
 
     def test_all_unit_vectors(self):
@@ -70,12 +70,13 @@ class TestToeplitzSolver_32(unittest.TestCase):
     def setUp(self):
         self.n = 32
         t = numpy.arange(self.n)
+        t[0]=1
         pi = numpy.pi
         T = 1.0*self.n
         self.autocorr = numpy.sin(pi*t/T)/(pi*t/T)
         self.autocorr[0] = 1
         self.autocorr[:5]*=numpy.arange(5,.5,-1)
-        self.solver = utilities.ToeplitzSolver(self.autocorr, symmetric=True)
+        self.solver = ToeplitzSolver(self.autocorr, symmetric=True)
         self.R = scipy.linalg.toeplitz(self.autocorr)
 
     def test_all_unit_vectors(self):
@@ -94,7 +95,7 @@ class TestToeplitzSolver_6144(unittest.TestCase):
         t = numpy.arange(self.n)
         self.autocorr = 1.0+3.2*numpy.exp(-t/100.)
         self.autocorr[0] = 9
-        self.solver = utilities.ToeplitzSolver(self.autocorr, symmetric=True)
+        self.solver = ToeplitzSolver(self.autocorr, symmetric=True)
         self.R = scipy.linalg.toeplitz(self.autocorr)
 
     def test_some_unit_vectors(self):
@@ -123,7 +124,7 @@ class TestToeplitzSpeed(object):
         t = numpy.arange(100000)
         self.autocorr = 1.0+3.2*numpy.exp(-t/100.)
         self.autocorr[0] = 9
-#        self.solver = utilities.ToeplitzSolver(self.autocorr, symmetric=True)
+#        self.solver = ToeplitzSolver(self.autocorr, symmetric=True)
 
         self.ts_time=numpy.zeros(len(self.sizes), dtype=numpy.float)
         self.build_time = numpy.zeros_like(self.ts_time)
@@ -152,7 +153,7 @@ class TestToeplitzSpeed(object):
 #        nv=-v
 
         t0 = time.time()
-        solver = utilities.ToeplitzSolver(ac, symmetric=True)
+        solver = ToeplitzSolver(ac, symmetric=True)
 #        x = solver(nv)  # If you want to solve two...
         x = solver(v)
         dt = [time.time()-t0]
