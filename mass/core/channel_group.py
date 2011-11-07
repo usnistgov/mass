@@ -22,10 +22,9 @@ from matplotlib import pylab
 import scipy.linalg
 import cPickle
 
-import mass.channel
-import mass.utilities
-import mass.energy_calibration
-import mass.power_spectrum
+import mass
+import mass.math
+import mass.calibration
 #import mass.controller
 
 
@@ -799,7 +798,7 @@ class BaseChannelGroup(object):
             pylab.xlabel(channame)
             pylab.title("Detector %d: attribute %s"%(i, channame))
             fig = pylab.gcf()
-            pf = mass.utilities.MouseClickReader(fig)
+            pf = mass.math.utilities.MouseClickReader(fig)
             for i in range(nclicks):
                 while True:
                     pylab.waitforbuttonpress()
@@ -819,7 +818,7 @@ class BaseChannelGroup(object):
     def find_named_features_with_mouse(self, name='Mn Ka1', channame='p_filt_value', prange=None, trange=None, energy=None):
         
         if energy is None:
-            energy = mass.energy_calibration.STANDARD_FEATURES[name]
+            energy = mass.calibration.energy_calibration.STANDARD_FEATURES[name]
         
         print "Please click with the mouse on each channel's histogram at the %s line"%name
         xvalues = self.find_features_with_mouse(channame=channame, nclicks=1, prange=prange, trange=trange).ravel()
@@ -1398,7 +1397,7 @@ class CDMGroup(BaseChannelGroup):
 
         segfactor=max(8, ndata/1024)
         
-        freq, psd = mass.power_spectrum.computeSpectrum(data, segfactor=segfactor, dt=self.timebase/self.n_cdm, window=mass.power_spectrum.hamming)
+        freq, psd = mass.math.power_spectrum.computeSpectrum(data, segfactor=segfactor, dt=self.timebase/self.n_cdm, window=mass.math.power_spectrum.hamming)
         pylab.clf()
         pylab.plot(freq, psd)
     

@@ -209,7 +209,7 @@ class ToeplitzSolver(object):
 
 import covar as f90covar #@UnresolvedImport
 
-class CovarianceSolver(object):
+class CovarianceSolver(object): 
     """
     """
     

@@ -25,8 +25,14 @@ $(TARGET_TAR): $(PYFILES) Makefile
 	tar -zvcf $@ $(PYFILES)
  
  
- .PHONY: lint
- lint: lint-report.txt
- lint-report.txt: $(OBJECT_DIR)/*.py
+.PHONY: lint install
+lint: lint-report.txt
+lint-report.txt: $(OBJECT_DIR)/*.py
 	pylint-2.6 --ignore=deprecated.py mass > $@
- 
+
+TARGETDIR = /opt/local/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6/site-packages/mass
+install:
+	python setup.py install
+	cp mass/math/covar.so $(TARGETDIR)/math
+	ls -l $(TARGETDIR)  
+	ls -l $(TARGETDIR)/math

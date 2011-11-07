@@ -30,19 +30,15 @@ Joe Fowler, NIST Boulder Labs.  November 2010--
 
 __all__ = ['channel_group','channel','controller','power_spectrum']
 
-import channel
-import channel_group
-import controller
-import energy_calibration
-import files
-import fluorescence_lines
-import mass_GUI
-import power_spectrum
-import utilities 
-import workarounds
+import core
+from core import *
+import calibration
+from calibration import *
+import math
+import gui
 
-from files import root2ljh_translate_all, root2ljh_translator
-from channel_group import TESGroup, CDMGroup
+from core.files import root2ljh_translate_all, root2ljh_translator
+from core.channel_group import TESGroup, CDMGroup
 
 
 print """The Microcalorimeter Analysis Software System (MASS) is now imported."""

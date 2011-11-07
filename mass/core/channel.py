@@ -18,12 +18,7 @@ except ImportError:
     import pickle    
 
 # MASS modules
-import controller
-import files
-import utilities
-import power_spectrum
-import energy_calibration
-import fluorescence_lines # required for fitting @UnusedImport
+import mass
 
 class NoiseRecords(object):
     """
@@ -53,7 +48,7 @@ class NoiseRecords(object):
         """Detect the filetype and open it."""
 
         # For now, we have only one file type, so let's just assume it!
-        self.datafile = files.LJHFile(filename, segmentsize=self.MAXSEGMENTSIZE)
+        self.datafile = mass.files.LJHFile(filename, segmentsize=self.MAXSEGMENTSIZE)
         self.filename = filename
 
         # Copy up some of the most important attributes
@@ -94,13 +89,13 @@ class NoiseRecords(object):
         return c
 
     
-    def compute_power_spectrum(self, window=power_spectrum.hann, plot=True, max_excursion=9e9):
+    def compute_power_spectrum(self, window=mass.math.power_spectrum.hann, plot=True, max_excursion=9e9):
         self.compute_power_spectrum_reshape(window=window, nsegments=None,
                                             max_excursion=max_excursion)
         if plot: self.plot_power_spectrum()
 
 
-    def compute_power_spectrum_reshape(self, window=power_spectrum.hann, nsegments=None, 
+    def compute_power_spectrum_reshape(self, window=mass.math.power_spectrum.hann, nsegments=None, 
                                        max_excursion=9e9):
         """Compute the noise power spectrum with noise "records" reparsed into 
         <nsegments> separate records.  (If None, then self.data.shape[0] which is self.data.nPulses,
@@ -122,7 +117,7 @@ class NoiseRecords(object):
             n -= n%nsegments
             seg_length = n/nsegments
         
-        self.spectrum = power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
+        self.spectrum = mass.math.power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
         if window is None:
             window = numpy.ones(seg_length)
         else:
@@ -141,7 +136,7 @@ class NoiseRecords(object):
                     self.spectrum.addDataSegment(y, window=window)
 
 
-    def compute_fancy_power_spectrum(self, window=power_spectrum.hann, plot=True, nseg_choices=None):
+    def compute_fancy_power_spectrum(self, window=mass.math.power_spectrum.hann, plot=True, nseg_choices=None):
         assert self.continuous
 
         n = numpy.prod(self.data.shape)
@@ -393,9 +388,9 @@ class PulseRecords(object):
             raise ValueError("file_format must be None or one of %s"%ALLOWED_TYPES)
 
         if file_format == "ljh":
-            self.datafile = files.LJHFile(filename)
+            self.datafile = mass.files.LJHFile(filename)
         elif file_format == "root":
-            self.datafile = files.LANLFile(filename)
+            self.datafile = mass.files.LANLFile(filename)
         else:
             raise RuntimeError("It is a programming error to get here")
         
@@ -771,7 +766,7 @@ class Filter(object):
             
             noise_corr = self.noise_autocorr[:n]/self.peak_signal**2
             if use_toeplitz_solver:
-                ts = utilities.ToeplitzSolver(noise_corr, symmetric=True)
+                ts = mass.math.utilities.ToeplitzSolver(noise_corr, symmetric=True)
                 Rinv_sig = ts(avg_signal)
                 Rinv_1 = ts(numpy.ones(n))
             else:
@@ -957,7 +952,7 @@ class ExperimentalFilter(Filter):
             chebyx = numpy.linspace(-1, 1, n)
             
             R = self.noise_autocorr[:n]/self.peak_signal**2 # A *vector*, not a matrix
-            ts = utilities.ToeplitzSolver(R, symmetric=True)
+            ts = mass.math.utilities.ToeplitzSolver(R, symmetric=True)
             
             unit = numpy.ones(n)
             exps  = [numpy.exp(-expx/tau) for tau in self.tau]
@@ -1101,7 +1096,7 @@ class MicrocalDataSet(object):
         self.noise_spectrum = None
         self.noise_autocorr = None 
         self.noise_demodulated = None
-        self.calibration = {'p_filt_value':energy_calibration.EnergyCalibration('p_filt_value')}
+        self.calibration = {'p_filt_value':mass.calibration.energy_calibration.EnergyCalibration('p_filt_value')}
 
         expected_attributes=("nSamples","nPresamples","nPulses","timebase")
         for a in expected_attributes:
@@ -1334,7 +1329,7 @@ class MicrocalDataSet(object):
         if clear: self.clear_cuts()
         
         if controls is None:
-            controls = controller.standardControl()
+            controls = mass.controller.standardControl()
     
         pretrigger_rms_cut = controls.cuts_prm['pretrigger_rms']
         pretrigger_mean_cut = controls.cuts_prm['pretrigger_mean']
@@ -1497,7 +1492,7 @@ class MicrocalDataSet(object):
         print "Drift correction requires slope %6.3f"%best_slope
         self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
         
-        self.calibration['p_filt_value_dc'] = energy_calibration.EnergyCalibration('p_filt_value_dc')
+        self.calibration['p_filt_value_dc'] = mass.calibration.energy_calibration.EnergyCalibration('p_filt_value_dc')
         
         if plot:
             pylab.subplot(212)
@@ -1557,7 +1552,7 @@ class MicrocalDataSet(object):
         print "Drift correction requires slope %6.3f"%best_slope
         self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
         
-        self.calibration['p_filt_value_dc'] = energy_calibration.EnergyCalibration('p_filt_value_dc')
+        self.calibration['p_filt_value_dc'] = mass.calibration.energy_calibration.EnergyCalibration('p_filt_value_dc')
         
         if plot:
             pylab.subplot(212)
