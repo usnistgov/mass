@@ -20,7 +20,7 @@ setup(name="mass",
       author_email='joe.fowler@nist.gov',
       description='Microcalorimeter Analysis Software Suite',
       packages=['mass'],
-      package_dir={'mass':'src/mass'},
+      package_dir={'mass':'mass'},
       cmdclass = {'build_ext':build_ext},
       ext_modules = ext_modules,
       )

@@ -26,7 +26,7 @@ $(TARGET_TAR): $(PYFILES) Makefile
  
  
  .PHONY: lint
- lint: lint-report.py
- lint-report.py: $(OBJECT_DIR)/*.py
+ lint: lint-report.txt
+ lint-report.txt: $(OBJECT_DIR)/*.py
 	pylint-2.6 --ignore=deprecated.py mass > $@
  
