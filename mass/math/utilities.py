@@ -6,7 +6,7 @@ Several math utilities, including:
 * A histogram fitter that uses a full maximum likelihood fit.
 * A mouse click capturer for mouse feedback from plots.
 
-J. Fowler, NIST
+Joe Fowler, NIST
 
 Started March 24, 2011
 """

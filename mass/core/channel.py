@@ -376,9 +376,11 @@ class PulseRecords(object):
     def __open_file(self, filename, file_format=None):
         """Detect the filetype and open it."""
 
-        ALLOWED_TYPES=("ljh","root")
+        ALLOWED_TYPES=("ljh","root","virtual")
         if file_format is None:
-            if filename.endswith("root"):
+            if isinstance(filename, mass.core.files.VirtualFile):
+                file_format = 'virtual'
+            elif filename.endswith("root"):
                 file_format = "root"
             elif filename.endswith("ljh"):
                 file_format = "ljh"
@@ -391,6 +393,9 @@ class PulseRecords(object):
             self.datafile = mass.files.LJHFile(filename)
         elif file_format == "root":
             self.datafile = mass.files.LANLFile(filename)
+        elif file_format == "virtual":
+            vfile = filename # Aha!  It must not be a string
+            self.datafile = vfile
         else:
             raise RuntimeError("It is a programming error to get here")
         
@@ -1652,7 +1657,7 @@ def create_pulse_and_noise_records(fname, noisename=None, records_are_continuous
                 fast enough to have no gaps in the data.
     <noise_only> The <fname> are noise files, and there are no pulse files.
     """
-    if noisename is None:
+    if noisename is None and not pulse_only:
         try:
             root, _ext = os.path.splitext(fname)
             noisename = root+".noi"
