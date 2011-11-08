@@ -23,7 +23,6 @@ import scipy.linalg
 import cPickle
 
 import mass
-import mass.math
 import mass.calibration
 #import mass.controller
 
@@ -798,7 +797,7 @@ class BaseChannelGroup(object):
             pylab.xlabel(channame)
             pylab.title("Detector %d: attribute %s"%(i, channame))
             fig = pylab.gcf()
-            pf = mass.math.utilities.MouseClickReader(fig)
+            pf = mass.mathstat.utilities.MouseClickReader(fig)
             for i in range(nclicks):
                 while True:
                     pylab.waitforbuttonpress()
@@ -1397,7 +1396,7 @@ class CDMGroup(BaseChannelGroup):
 
         segfactor=max(8, ndata/1024)
         
-        freq, psd = mass.math.power_spectrum.computeSpectrum(data, segfactor=segfactor, dt=self.timebase/self.n_cdm, window=mass.math.power_spectrum.hamming)
+        freq, psd = mass.power_spectrum.computeSpectrum(data, segfactor=segfactor, dt=self.timebase/self.n_cdm, window=mass.power_spectrum.hamming)
         pylab.clf()
         pylab.plot(freq, psd)
     

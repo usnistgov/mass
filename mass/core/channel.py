@@ -89,13 +89,13 @@ class NoiseRecords(object):
         return c
 
     
-    def compute_power_spectrum(self, window=mass.math.power_spectrum.hann, plot=True, max_excursion=9e9):
+    def compute_power_spectrum(self, window=mass.mathstat.power_spectrum.hann, plot=True, max_excursion=9e9):
         self.compute_power_spectrum_reshape(window=window, nsegments=None,
                                             max_excursion=max_excursion)
         if plot: self.plot_power_spectrum()
 
 
-    def compute_power_spectrum_reshape(self, window=mass.math.power_spectrum.hann, nsegments=None, 
+    def compute_power_spectrum_reshape(self, window=mass.mathstat.power_spectrum.hann, nsegments=None, 
                                        max_excursion=9e9):
         """Compute the noise power spectrum with noise "records" reparsed into 
         <nsegments> separate records.  (If None, then self.data.shape[0] which is self.data.nPulses,
@@ -117,7 +117,7 @@ class NoiseRecords(object):
             n -= n%nsegments
             seg_length = n/nsegments
         
-        self.spectrum = mass.math.power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
+        self.spectrum = mass.mathstat.power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
         if window is None:
             window = numpy.ones(seg_length)
         else:
@@ -136,7 +136,7 @@ class NoiseRecords(object):
                     self.spectrum.addDataSegment(y, window=window)
 
 
-    def compute_fancy_power_spectrum(self, window=mass.math.power_spectrum.hann, plot=True, nseg_choices=None):
+    def compute_fancy_power_spectrum(self, window=mass.mathstat.power_spectrum.hann, plot=True, nseg_choices=None):
         assert self.continuous
 
         n = numpy.prod(self.data.shape)
@@ -771,7 +771,7 @@ class Filter(object):
             
             noise_corr = self.noise_autocorr[:n]/self.peak_signal**2
             if use_toeplitz_solver:
-                ts = mass.math.utilities.ToeplitzSolver(noise_corr, symmetric=True)
+                ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
                 Rinv_sig = ts(avg_signal)
                 Rinv_1 = ts(numpy.ones(n))
             else:
@@ -957,7 +957,7 @@ class ExperimentalFilter(Filter):
             chebyx = numpy.linspace(-1, 1, n)
             
             R = self.noise_autocorr[:n]/self.peak_signal**2 # A *vector*, not a matrix
-            ts = mass.math.utilities.ToeplitzSolver(R, symmetric=True)
+            ts = mass.mathstat.toeplitz.ToeplitzSolver(R, symmetric=True)
             
             unit = numpy.ones(n)
             exps  = [numpy.exp(-expx/tau) for tau in self.tau]

@@ -24,13 +24,18 @@ $(TARGET_TAR): $(PYFILES) Makefile
 	tar -zvcf $@ $(PYFILES)
  
  
-.PHONY: lint install
+.PHONY: lint install clean
 lint: lint-report.txt
 lint-report.txt: $(OBJECT_DIR)/*.py
 	pylint-2.6 --ignore=deprecated.py mass > $@
 
 TARGETDIR = /opt/local/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6/site-packages/mass
 install:
-	python setup.py install
+	python setup.py build
+	sudo python setup.py install
 	ls -l $(TARGETDIR)  
-	ls -l $(TARGETDIR)/math
+	ls -l $(TARGETDIR)/core
+	ls -l $(TARGETDIR)/mathstat
+	
+clean: 
+	rm -rf build || sudo rm -rf build

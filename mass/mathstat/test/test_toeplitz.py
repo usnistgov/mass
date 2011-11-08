@@ -9,7 +9,7 @@ J. Fowler, NIST
 March 30, 2011
 """
 
-from mass.math.toeplitz import ToeplitzSolver
+from mass.mathstat.toeplitz import ToeplitzSolver
 import numpy
 import scipy.linalg
 import time
