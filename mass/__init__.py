@@ -34,10 +34,11 @@ __all__ = []
 import core
 import calibration
 import mathstat
-from core import *
-from calibration import *
-from mathstat import *
 #import gui
+
+__all__.extend(core.__all__)
+__all__.extend(calibration.__all__)
+__all__.extend(mathstat.__all__)
 
 #from core.files import root2ljh_translate_all, root2ljh_translator
 #from core.channel_group import TESGroup, CDMGroup
