@@ -22,6 +22,9 @@ Started March 24, 2011
 #    pylab.hist() would do it.
 # -# MouseClickReader, to capture pointer location on a plot.
 
+__all__ = ['plot_as_stepped_hist', 'MaximumLikelihoodHistogramFitter',
+           'MouseClickReader']
+
 
 import numpy
 import scipy.linalg

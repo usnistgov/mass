@@ -6,6 +6,8 @@ Created on May 16, 2011
 @author: fowlerj
 """
 
+__all__ = ['EnergyCalibration']
+
 import numpy
 import scipy.interpolate
 import scipy.optimize

@@ -6,6 +6,8 @@ Created on Nov 7, 2011
 @author: fowlerj
 '''
 
+__all__ = ['ToeplitzSolver']
+
 import numpy
 
 ## \file utilities.py

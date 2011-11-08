@@ -5,11 +5,19 @@ Joe Fowler, NIST
 """
 
 
-__all__ = ['factor_covariance', 'power_spectrum', 'utilities']
+__all__ = ['factor_covariance', 'power_spectrum', 'toeplitz', 'utilities']
 
-import mass.mathstat.factor_covariance
-import mass.mathstat.power_spectrum
-import mass.mathstat.utilities
+import factor_covariance
+import power_spectrum
+import toeplitz
+import utilities
 
-from mass.mathstat.factor_covariance import *
-from mass.mathstat.power_spectrum import *
+from factor_covariance import *
+from power_spectrum import *
+from toeplitz import *
+from utilities import *
+
+__all__.extend(factor_covariance.__all__)
+__all__.extend(power_spectrum.__all__)
+__all__.extend(toeplitz.__all__)
+__all__.extend(utilities.__all__)

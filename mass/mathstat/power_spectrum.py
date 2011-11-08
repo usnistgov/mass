@@ -54,6 +54,10 @@ in the callable function itself.  It is allowed to use different windows
 on different data segments, though honestly that would be really weird.
 """
 
+__all__ = ['PowerSpectrum', 'PowerSpectrumOverlap',
+           'bartlett', 'welch', 'hann', 'hamming',
+           'computeSpectrum']
+
 import numpy
 
 

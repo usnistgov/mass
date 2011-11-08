@@ -28,11 +28,15 @@ LANLFile and translation added June 2011 by Doug Bennett and Joe Fowler
 @author: fowlerj
 '''
 
+
 ## \file files.py
 # \brief File handling classes.
 #
 # The class MicrocalFile defines the shared interface of all derived classes that are
 # specific for a single file type: LJHFile, LANLFile, ...?
+
+__all__ = ['VirtualFile', 'LJHFile', 'LANLFile',
+           'root2ljh_translator', 'root2ljh_translate_all']
 
 import numpy
 import os

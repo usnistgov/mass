@@ -10,6 +10,8 @@ November 7, 2011
 # \brief  Objects to make fake data for use, e.g., in demonstration scripts.
 # 
 
+__all__ = ['FakeDataGenerator']
+
 import numpy
 import os
 import tempfile

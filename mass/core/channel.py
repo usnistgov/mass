@@ -4,6 +4,10 @@ Created on Feb 16, 2011
 @author: fowlerj
 """
 
+__all__=['NoiseRecords', 'PulseRecords',
+         'Cuts', 'Filter', 'ExperimentalFilter',
+         'MicrocalDataSet', 'create_pulse_and_noise_records']
+
 import numpy
 import scipy.linalg
 import scipy.optimize
@@ -18,7 +22,8 @@ except ImportError:
     import pickle    
 
 # MASS modules
-import mass
+import mass.mathstat
+import mass.core
 
 class NoiseRecords(object):
     """
@@ -50,7 +55,7 @@ class NoiseRecords(object):
         """Detect the filetype and open it."""
 
         # For now, we have only one file type, so let's just assume it!
-        self.datafile = mass.files.LJHFile(filename, segmentsize=self.maxsegmentsize)
+        self.datafile = mass.LJHFile(filename, segmentsize=self.maxsegmentsize)
         self.filename = filename
 
         # Copy up some of the most important attributes

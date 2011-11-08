@@ -6,6 +6,11 @@
 # Phys Rev A56 (#6) pages 4554ff (1997 December).  See online at
 # http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
 
+__all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha',
+           'GaussianLine', 'Gd97', 'Gd103', 'AlKalpha', 'SiKalpha',
+           'MultiLorentzianDistribution', 'MnKAlphaDistribution',
+           'CuKAlphaDistribution', 'MnKAlphaFitter', 'MnKBetaFitter',
+           'CuKAlphaFitter', 'GaussianFitter', 'plot_spectrum']
  
 """
 fluorescence_lines.py
@@ -380,13 +385,13 @@ class MultiLorentzianComplexFitter(object):
                 pylab.clf()
                 axis = pylab.subplot(111)
                 
-            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color)
+            mass.plot_as_stepped_hist(axis, pulseheights, data, color=color)
             ph_binsize = pulseheights[1]-pulseheights[0]
             axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
         # Joe's new max-likelihood fitter
         epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
-        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+        fitter = mass.MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
                                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
         
         if hold is not None:
@@ -604,7 +609,7 @@ class GaussianFitter(object):
         
         # Joe's new max-likelihood fitter
         epsilon = numpy.array((1e-3, params[1]/1e5, params[2]/1e5, params[3]/1e2))
-        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+        fitter = mass.MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
                                                                  fitfunc, TOL=1e-4, epsilon=epsilon)
         if hold is not None:
             for hnum in hold: 
@@ -628,7 +633,7 @@ class GaussianFitter(object):
                 axis = pylab.subplot(111)
                 
             de = numpy.sqrt(covariance[0, 0])
-            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color, 
+            mass.plot_as_stepped_hist(axis, pulseheights, data, color=color, 
                                                 label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.plot(pulseheights, self.last_fit_result, color='black')
             axis.legend(loc='upper left')

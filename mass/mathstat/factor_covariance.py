@@ -11,6 +11,8 @@ Created on Nov 8, 2011
 @author: fowlerj
 '''
 
+__all__ = ['MultiExponentialCovarianceSolver']
+
 import numpy
 from mass.mathstat import _factor_covariance
 
@@ -57,8 +59,8 @@ class MultiExponentialCovarianceSolver(object):
         self.nsamp = nsamp
         
         # Cholesky factor the matrix and save the results in the opaque vector self.cholesky_saved
-        self.cholesky_saved = _factor_covariance.covchol(self.amplitudes, 
-                                                self.bases, self.nsamp) #@UndefinedVariable
+        self.cholesky_saved = _factor_covariance.covchol(self.amplitudes, #@UndefinedVariable
+                                                self.bases, self.nsamp) 
         
     
     def __repr__(self):
