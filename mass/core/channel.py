@@ -35,10 +35,12 @@ class NoiseRecords(object):
         <use_records>  can be a sequence (first,end) to use only a limited section of the file.
         """
         if maxsegmentsize is not None:
-            self.MAXSEGMENTSIZE = maxsegmentsize
+            self.maxsegmentsize = maxsegmentsize
         else:
-            self.MAXSEGMENTSIZE = self.DEFAULT_MAXSEGMENTSIZE
+            self.maxsegmentsize = self.DEFAULT_MAXSEGMENTSIZE
             
+        self.nSamples = self.nPresamples = self.nPulses = 0
+        self.timebase = 0.0
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
         self.spectrum = None
@@ -48,11 +50,11 @@ class NoiseRecords(object):
         """Detect the filetype and open it."""
 
         # For now, we have only one file type, so let's just assume it!
-        self.datafile = mass.files.LJHFile(filename, segmentsize=self.MAXSEGMENTSIZE)
+        self.datafile = mass.files.LJHFile(filename, segmentsize=self.maxsegmentsize)
         self.filename = filename
 
         # Copy up some of the most important attributes
-        for attr in ("nSamples","nPresamples","nPulses", "timebase"):
+        for attr in ("nSamples", "nPresamples", "nPulses", "timebase"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
             
         self.records_per_segment = self.datafile.segmentsize / (6+2*self.nSamples)
@@ -61,7 +63,7 @@ class NoiseRecords(object):
 #            if seg_num > 0 or first_pnum>0 or end_pnum != self.nPulses:
 #                msg = "NoiseRecords objects can't (yet) handle multi-segment noise files.\n"+\
 #                    "File size %d exceeds maximum allowed segment size of %d"%(
-#                    self.datafile.binary_size, self.MAXSEGMENTSIZE)
+#                    self.datafile.binary_size, self.maxsegmentsize)
 #                raise NotImplementedError(msg)
 #            self.data = data
 
@@ -72,8 +74,13 @@ class NoiseRecords(object):
                 self.parent=parent
                 self.nPulses = self.parent.nPulses
                 self.segment_pulses = self.parent.nPulses
-            def iter_segments(self, first=0, end=-1): 
-                yield 0, self.parent.nPulses, 0, self.parent.data
+            def iter_segments(self, first=0, end=-1):
+                i=first
+                while True:
+                    yield 0, self.parent.nPulses, 0, self.parent.data
+                    if i==end:
+                        break
+                    i += 1
                 
         self.datafile = DummyDatafile(self)
         

@@ -12,7 +12,7 @@ Created on Nov 8, 2011
 '''
 
 import numpy
-import _factor_covariance
+from mass.mathstat import _factor_covariance
 
 class MultiExponentialCovarianceSolver(object):
     """
@@ -42,11 +42,12 @@ class MultiExponentialCovarianceSolver(object):
         # Parameter validation
         na = len(amplitudes)
         nb = len(bases)
-        if na!=nb:
-            raise ValueError("The number of amplitudes (%d) != number of bases (%d)"%(na,nb))
-        self.rank=na
-        if nsamp<2*self.rank:
-            raise ValueError("The number of samples (%d) is not at least twice the rank (%d)"%(nsamp, self.nrank))
+        if na != nb:
+            raise ValueError("The number of amplitudes (%d) != number of bases (%d)" % (na, nb))
+        self.rank = na
+        if nsamp < 2*self.rank:
+            raise ValueError("The number of samples (%d) is not at least twice the rank (%d)"
+                             % (nsamp, self.rank))
         if numpy.abs(bases).max() > 1.0:
             raise ValueError("The bases must not have absolute values greater than 1.")
 
@@ -56,15 +57,16 @@ class MultiExponentialCovarianceSolver(object):
         self.nsamp = nsamp
         
         # Cholesky factor the matrix and save the results in the opaque vector self.cholesky_saved
-        self.cholesky_saved=_factor_covariance.covchol(self.amplitudes, self.bases, self.nsamp)
+        self.cholesky_saved = _factor_covariance.covchol(self.amplitudes, 
+                                                self.bases, self.nsamp) #@UndefinedVariable
         
     
     def __repr__(self):
-        return "%s(amplitudes=%s, bases=%s, nsamp=%d)"%(self.__class__.__name__,
+        return "%s(amplitudes=%s, bases=%s, nsamp=%d)" % (self.__class__.__name__,
                                                         self.amplitudes, self.bases, self.nsamp)
     
     def __str__(self):
-        return "%s of rank %d for vectors of length <= %d"%(self.__class__.__name__,
+        return "%s of rank %d for vectors of length <= %d" % (self.__class__.__name__,
                                                         self.rank, self.nsamp)
 
     def __call__(self, b):
@@ -76,8 +78,9 @@ class MultiExponentialCovarianceSolver(object):
         Requires that len(b) <= self.nsamp
         Return: <x>"""
         n = len(b)
-        if n>self.nsamp:
-            raise ValueError("The covariance matrix was factored for only %d samples and cannot solve size %d>%d"%(
+        if n > self.nsamp:
+            raise ValueError("The covariance matrix was factored for only "+
+                             "%d samples and cannot solve size %d>%d"%(
                                     self.nsamp, n, self.nsamp))
-        return _factor_covariance.covsolv(b, self.cholesky_saved)
+        return _factor_covariance.covsolv(b, self.cholesky_saved) #@UndefinedVariable
 

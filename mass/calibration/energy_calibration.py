@@ -6,13 +6,12 @@ Created on May 16, 2011
 @author: fowlerj
 """
 
-import pylab
 import numpy
 import scipy.interpolate
 import scipy.optimize
 
 # Some commonly-used standard energy features.
-STANDARD_FEATURES={
+STANDARD_FEATURES = {
    'Al Ka': 1487.,
    'Al Kb': 1557.,
    'Si Ka': 1750.,
@@ -55,32 +54,33 @@ class EnergyCalibration(object):
         self.energy2ph = lambda x: x
         self._ph = numpy.zeros(1, dtype=numpy.float)
         self._energies = numpy.zeros(1, dtype=numpy.float)
-        self._names=['null']
-        self.npts=1
+        self._names = ['null']
+        self.npts = 1
         self.smooth = 1.0
         
-    def __call__(self, ph):
-        "Convert pulse height (or array of pulse heights) <ph> to energy (in eV)."
-        return self.ph2energy(ph)
+    def __call__(self, pulse_ht):
+        "Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV)."
+        return self.ph2energy(pulse_ht)
     
     def __repr__(self):
-        return "EnergyCalibration('%s')"%self.ph_field
+        return "EnergyCalibration('%s')" % self.ph_field
     
     def __str__(self):
-        seq = ["EnergyCalibration('%s')"%self.ph_field]
-        for name, ph, energy in zip(self._names, self._ph, self._energies):
-            seq.append("  energy(ph=%7.2f) --> %9.2f eV (%s)"%(ph, energy, name))
+        seq = ["EnergyCalibration('%s')" % self.ph_field]
+        for name, pulse_ht, energy in zip(self._names, self._ph, self._energies):
+            seq.append("  energy(ph=%7.2f) --> %9.2f eV (%s)" % (pulse_ht, energy, name))
         return "\n".join(seq)
     
     def copy(self, new_ph_field=None):
-        ec = EnergyCalibration(self.ph_field)
-        ec.__dict__.update(self.__dict__)
-        ec._names = list(self._names)
-        ec._ph = self._ph.copy()
-        ec._energies = self._energies.copy()
+        """Return a deep copy"""
+        ecal = EnergyCalibration(self.ph_field)
+        ecal.__dict__.update(self.__dict__)
+        ecal._names = list(self._names)
+        ecal._ph = self._ph.copy()
+        ecal._energies = self._energies.copy()
         if new_ph_field is not None:
-            ec.ph_field = new_ph_field
-        return ec
+            ecal.ph_field = new_ph_field
+        return ecal
     
     def remove_cal_point_name(self, name):
         "If you don't like calibration point named <name>, this removes it"
@@ -91,9 +91,9 @@ class EnergyCalibration(object):
         self.npts -= 1
         self._update_converters()
         
-    def add_cal_point(self, ph, energy, name="", overwrite=True):
+    def add_cal_point(self, pht, energy, name="", overwrite=True):
         """
-        Add a single energy calibration point <ph>, <energy>, where <ph> must be in units
+        Add a single energy calibration point <pht>, <energy>, where <pht> must be in units
         of the self.ph_field and <energy> is in eV.
         
         Also, you can call it with <energy> as a string, provided it's the name of a known
@@ -116,14 +116,14 @@ class EnergyCalibration(object):
         
         if name in self._names:  # Update an existing point
             if not overwrite:
-                raise ValueError("Calibration point '%s' is already known and overwrite is False"%name)
+                raise ValueError("Calibration point '%s' is already known and overwrite is False" % name)
             index = self._names.index(name)
-            self._ph[index] = ph
+            self._ph[index] = pht
             self._energies[index] = energy
             
         else:   # Add a new point
-            self._ph = numpy.hstack((self._ph,ph))
-            self._energies = numpy.hstack((self._energies,energy))
+            self._ph = numpy.hstack((self._ph, pht))
+            self._energies = numpy.hstack((self._energies, energy))
             self._names.append(name)
             
             # Sort in ascending energy order
@@ -143,12 +143,12 @@ class EnergyCalibration(object):
         assert(len(self._ph)==self.npts)
         assert(self.npts>1)
         
-        if self.npts>3:
+        if self.npts > 3:
             self.ph2energy = scipy.interpolate.UnivariateSpline(self._ph, self._energies, k=3, s=self.smooth)
-        elif self.npts==3:
+        elif self.npts == 3:
             self.ph2energy = numpy.poly1d(numpy.polyfit(self._ph, self._energies, 2))
-        elif self.npts==2:
-            self.ph2energy = numpy.poly1d(numpy.polyfit(self._ph, self._energies,1))
+        elif self.npts == 2:
+            self.ph2energy = numpy.poly1d(numpy.polyfit(self._ph, self._energies, 1))
         else:
             raise ValueError("Not enough good samples")
         max_ph = 1.3*self._ph[-1]
@@ -157,143 +157,63 @@ class EnergyCalibration(object):
         
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""
-        e = STANDARD_FEATURES[name]
-        return self.energy2ph(e)
+        energy = STANDARD_FEATURES[name]
+        return self.energy2ph(energy)
 
     def plot(self, axis=None):
+        """Plot the energy calibration function using pylab.  If <axis> is None,
+        a new pylab.subplot(111) will be used.  Otherwise, axis should be a 
+        pylab.Axes object to plot onto."""
+        import pylab
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
         axis.plot(self._ph, self._energies,'or')
-        ph = numpy.arange(0,self._ph.max()*1.1)
-        axis.plot(ph, self(ph),color='green')
-        for ph,name in zip(self._ph[1:], self._names[1:]):  
-            axis.text(ph-.01*self._ph.max(), self(ph), name, ha='right')        
+        pht = numpy.arange(0, self._ph.max()*1.1)
+        axis.plot(pht, self(pht), color='green')
+        for pht, name in zip(self._ph[1:], self._names[1:]):  
+            axis.text(pht-.01*self._ph.max(), self(pht), name, ha='right')        
         axis.grid(True)
-        axis.set_xlabel("Pulse height ('%s')"%self.ph_field)
+        axis.set_xlabel("Pulse height ('%s')" % self.ph_field)
         axis.set_ylabel("Energy (eV)")
         axis.set_title("Energy calibration curve")
         
 
-#class EnergyCalibrationCrap(object):
-#    """
-#    Object to store all information relevant to one detector's absolute
-#    energy calibration.
-#    """
-#
-#
-#    def __init__(self):
-#        """
-#        Constructor (duh)
-#        """
-#        self.features = {}
-#        
-#    def __str__(self):
-#        channames=set()
-#        featurenames=[]
-#        for f in self.features.values():
-#            featurenames.append(f.name)
-#            for k in f.ph.keys():
-#                if not k.endswith("_prev"):
-#                    channames.add(k)
-#            
-#        s = [""]
-#        featurenames = tuple(featurenames)
-#        channames = tuple(channames)
-#        s.append(16*' '+"".join(["%15s"%cn for cn in channames]))
-#        s.append(16*' '+" ".join([15*'-' for cn in channames]))
-#        for f in featurenames:
-#            words=["%14s: "%f]
-#            for k in channames:
-#                try:
-#                    words.append("%15.3f"%self.features[f].ph[k])
-#                except KeyError:
-#                    words.append(12*" "+"n/a")    
-#            s.append("".join(words))
-#        return "\n".join(s)
-#        
-#    def add_feature(self, feature):
-#        self.features[feature.name] = feature
-#        
-#    def copy(self):
-#        ec = EnergyCalibration()
-#        ec.__dict__.update(self.__dict__)
-#        ec.features = {}
-#        for k,v in self.features.iteritems():
-#            try:
-#                ec.features[k] = v.copy()
-#            except AttributeError, e:
-#                print e
-#        return ec
-#
-#
-#    def fit_mn_kalpha(self, dataset, range=150, type='filt'):
-#        channame={'filt':'p_filt_value',
-#                  'dc': 'p_filt_value_dc'}[type]
-#        range = numpy.array((-range,range)) + self.features['Mn Ka1'].ph[channame]
-#        params, _covar = dataset.fit_mn_kalpha(range, type=type)
-#        ph_ka1 = params[1]
-#        ph_ka2 = params[1] - 11.1*params[2]
-#        self.features['Mn Ka1'].set_val(channame, ph_ka1)
-#        if 'Mn Ka2' not in self.features:
-#            self.features['Mn Ka2'] = make_energy_feature('Mn Ka2')
-#        self.features['Mn Ka2'].set_val(channame, ph_ka2)
-#
-#
-#    def make_calibrator(self, channame='p_filt_value', smooth=1.0):
-#        fs = self.features.values()
-#        ep=[(0.,0.)]
-#        for f in fs:
-#            try:
-#                ep.append( (f.energy, f.ph[channame]) )
-#            except KeyError:
-#                continue
-#        ep.sort()
-#        ph = [x[1] for x in ep]
-#        energy = [x[0] for x in ep]
-#        print ph
-#        print energy
-#        if len(ph)>3:
-#            calibrator = scipy.interpolate.UnivariateSpline(ph, energy, k=3, s=smooth)
-#        elif len(ph)==3:
-#            calibrator = numpy.poly1d(numpy.polyfit(ph, energy, 2))
-#        elif len(ph==2):
-#            calibrator = numpy.poly1d(numpy.polyfit(ph,energy,1))
-#        else:
-#            raise ValueError("Not enough good samples")
-#        return calibrator
-
 class EnergyFeature(object):
     """
+    Honestly, I don't know what this is or whether it's used.  It
+    appears to be unfinished, so I'll raise an error....
     """
     
     def __init__(self, name, energy, **kwargs):
         self.name = name
         self.energy = energy
-        self.ph = {}
-        self.ph.update(kwargs)
+        self.phs = {}
+        self.phs.update(kwargs)
+        raise NotImplementedError("EnergyFeature looks incomplete to me (Joe 11/8/11)")
 
     def set_val(self, feature_name, value):
-        "asdfadsf"
-        if feature_name in self.ph:
-            self.ph['%s_prev'%feature_name] = self.ph[feature_name]
-        self.ph[feature_name] = value
+        """Associate <value> with feature name <feature_name>.  ???"""
+        if feature_name in self.phs:
+            self.phs['%s_prev' % feature_name] = self.phs[feature_name]
+        self.phs[feature_name] = value
         
     def copy(self):
-        ef = EnergyFeature(self.name, self.energy)
-        ef.__dict__.update(self.__dict__)
-        return ef
+        """Return a deep copy"""
+        feature = EnergyFeature(self.name, self.energy)
+        feature.__dict__.update(self.__dict__)
+        return feature
         
     def __str__(self):
-        s=['Energy feature %s at %8.3f eV'%(self.name, self.energy)]
-        for k,v in self.ph.iteritems():
-            s.append("    '%-20s': %9.3f"%(k,v))
+        s = ['Energy feature %s at %8.3f eV' % (self.name, self.energy)]
+        for k, v in self.phs.iteritems():
+            s.append("    '%-20s': %9.3f" % (k, v))
         return "\n".join(s)
 
     def __repr__(self):
-        s=["EnergyFeature('%s',%f,"%(self.name, self.energy)]
-        for k,v in self.ph.iteritems():
-            s.append("%s=%f"%(k,v))
+        s = ["EnergyFeature('%s',%f," % (self.name, self.energy)]
+        for k, v in self.phs.iteritems():
+            s.append("%s=%f" % (k, v))
         s.append(")")
         return " ".join(s)
 
@@ -308,4 +228,4 @@ def make_energy_feature(name):
     if name in STANDARD_FEATURES:
         return EnergyFeature(name, STANDARD_FEATURES[name])
     
-    raise ValueError("Known energy features are:"%STANDARD_FEATURES.keys())
+    raise ValueError("Known energy features are:" % STANDARD_FEATURES.keys())

@@ -1,8 +1,15 @@
+"""
+mass.mathstat - Collection of tools for math and statistics
 
-__all__ = ['factor_covariance','power_spectrum','utilities']
+Joe Fowler, NIST
+"""
 
-import factor_covariance
-from factor_covariance import *
-import power_spectrum
-from power_spectrum import *
-import utilities
+
+__all__ = ['factor_covariance', 'power_spectrum', 'utilities']
+
+import mass.mathstat.factor_covariance
+import mass.mathstat.power_spectrum
+import mass.mathstat.utilities
+
+from mass.mathstat.factor_covariance import *
+from mass.mathstat.power_spectrum import *

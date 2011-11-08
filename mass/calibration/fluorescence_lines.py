@@ -26,8 +26,8 @@ import numpy
 import pylab
 import scipy.stats, scipy.interpolate, scipy.special
 
+from mass.calibration import energy_calibration
 import mass
-import energy_calibration
 
 def lorentzian(x, fwhm):
     """Return the value of Lorentzian prob distribution function at <x> (may be a numpy array)
@@ -48,6 +48,11 @@ class SpectralLine(object):
     self.energies, self.fwhm, self.amplitudes.  Each must be a sequence
     of the same length.
     """
+    def __init__(self):
+        """Dummy constructor"""
+        self.energies = None
+        self.fwhm = None
+        self.amplitudes = None
     
     def __call__(self, x):
         """Make the class callable, returning the same value as the self.pdf method."""
@@ -57,16 +62,16 @@ class SpectralLine(object):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
         x = numpy.asarray(x, dtype=numpy.float)
         result = numpy.zeros_like(x)
-        for e,f,a in zip(self.energies, self.fwhm, self.amplitudes):
-            result += a*lorentzian(x-e, f)
+        for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.amplitudes):
+            result += ampl*lorentzian(x-energy, fwhm)
         return result
     
     def cdf(self, x):
         """Cumulative distribution function where <x> = set of energies."""
         x = numpy.asarray(x, dtype=numpy.float)
         result = numpy.zeros_like(x)
-        for e,f,a in zip(self.energies, self.fwhm, self.amplitudes):
-            result += a*lorentzian_cdf(x-e, f)
+        for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.amplitudes):
+            result += ampl*lorentzian_cdf(x-energy, fwhm)
         return result
 
 
@@ -87,11 +92,12 @@ class MnKAlpha(SpectralLine):
     # The approximation is as a series of 8 Lorentzians (6 for KA1,2 for KA2)
     
     ## The Lorentzian energies
-    energies = 5800+numpy.array((98.853,97.867,94.829,96.532,99.417,102.712,87.743,86.495))
+    energies = 5800+numpy.array((98.853, 97.867, 94.829, 96.532, 
+                                 99.417, 102.712, 87.743, 86.495))
     ## The Lorentzian widths
-    fwhm = numpy.array((1.715,2.043,4.499,2.663,0.969,1.553,2.361,4.216))
+    fwhm = numpy.array((1.715, 2.043, 4.499, 2.663, 0.969, 1.553, 2.361, 4.216))
     ## The Lorentzian peak height
-    peak_heights = numpy.array((790,264,68,96,71,10,372,100),dtype=numpy.float)/1e3
+    peak_heights = numpy.array((790, 264, 68, 96, 71, 10, 372, 100), dtype=numpy.float)/1e3
     ## Amplitude of the Lorentzians
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
@@ -114,11 +120,11 @@ class MnKBeta(SpectralLine):
     
     # The approximation is as a series of 4 Lorentzians 
     ## The Lorentzian energies
-    energies = 6400+numpy.array((90.89,86.31, 77.73, 90.06, 88.83))
+    energies = 6400+numpy.array((90.89, 86.31, 77.73, 90.06, 88.83))
     ## The Lorentzian widths
     fwhm = numpy.array((1.83, 9.40, 13.22, 1.81, 2.81))
     ## The Lorentzian peak height
-    peak_heights = numpy.array((608,109,77,397,176),dtype=numpy.float)/1e3
+    peak_heights = numpy.array((608, 109, 77, 397, 176), dtype=numpy.float)/1e3
     ## Amplitude of the Lorentzians
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
@@ -146,7 +152,7 @@ class CuKAlpha(SpectralLine):
     ## The Lorentzian widths
     fwhm = numpy.array((2.285, 3.358, 2.667, 3.571))
     ## The Lorentzian peak height
-    peak_heights = numpy.array((957,90,334,111), dtype=numpy.float)/1e3
+    peak_heights = numpy.array((957, 90, 334, 111), dtype=numpy.float)/1e3
     ## Amplitude of the Lorentzians
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
@@ -163,8 +169,12 @@ class GaussianLine(object):
     self.energy.
     """
     
-    def __init__(self):
+    def __init__(self, energy=10.0, fwhm=1.0):
         """"""
+        ## Line center energy
+        self.energy = energy
+        ## Full width at half-maximum
+        self.fwhm = fwhm
         ## Gaussian parameter sigma, computed from self.fwhm
         self.sigma = self.fwhm/numpy.sqrt(8*numpy.log(2))
         ## Gaussian amplitude, chosen to normalize the distribution.
@@ -199,36 +209,32 @@ class GaussianLine(object):
 
 class Gd97(GaussianLine):
     """The 97 keV line of 153Gd."""
-    ## Line center energy
-    energy = 97431.0
-    ## Approximate line width
-    fwhm = 50.0
+    def __init__(self):
+        super(self.__class__, self).__init__(self, energy=97431.0, fwhm=50.0)
     
+
 class Gd103(GaussianLine):
     """The 103 keV line of 153Gd."""
-    ## Line center energy
-    energy = 103180.0
-    ## Approximate line width
-    fwhm = 50.0
+    def __init__(self):
+        super(self.__class__, self).__init__(self, energy=103180.0, fwhm=50.0)
+
 
 class AlKalpha(GaussianLine):
     """The K-alpha fluorescence lines of aluminum.
     WARNING: Not correct shape!"""
-    ## Line center energy
-    energy = energy_calibration.STANDARD_FEATURES['Al Ka']
-    ## Approximate line width
-    fwhm=3.0
+    def __init__(self):
+        energy = energy_calibration.STANDARD_FEATURES['Al Ka']
+        super(self.__class__, self).__init__(self, energy=energy, fwhm=3.0)
 
 class SiKalpha(GaussianLine):
     """The K-alpha fluorescence lines of silicon.
     WARNING: Not correct shape!"""
-    ## Line center energy
-    energy = energy_calibration.STANDARD_FEATURES['Si Ka']
-    ## Approximate line width
-    fwhm=3.0
+    def __init__(self):
+        energy = energy_calibration.STANDARD_FEATURES['Si Ka']
+        super(self.__class__, self).__init__(self, energy=energy, fwhm=3.0)
 
     
-class MultiLorentzian_distribution(scipy.stats.rv_continuous):
+class MultiLorentzianDistribution(scipy.stats.rv_continuous):
     """For producing random variates of the an energy distribution having the form
     of several Lorentzians summed together."""
     
@@ -237,20 +243,23 @@ class MultiLorentzian_distribution(scipy.stats.rv_continuous):
     #  (should be dense where distribution is changing rapidly)
     #  @param args  Pass all other parameters to parent class.
     #  @param kwargs  Pass all other parameters to parent class. 
-    def __init__(self, epoints, *args, **kwargs):
+    def __init__(self, epoints, distribution, *args, **kwargs):
         """<epoints> is a vector of energy points, densely collected at places
         where the distribution changes rapidly.
         <args> and <kwargs> are passed on to scipy.stats.rv_continuous"""
 
         scipy.stats.rv_continuous.__init__(self, *args, **kwargs)
+
+        ## The probability distribution function
+        self.distribution = distribution
+        
         epoints = epoints[numpy.logical_and(epoints>=self.a, epoints<=self.b)]
         epoints = numpy.hstack((self.a, epoints, self.b))
         cdf = self.distribution.cdf(epoints)
-        a,b = cdf[0], cdf[-1] # would be 0,1 if we covered all of x-axis
-        cdf = (cdf-a)/(b-a) # Rescale so that it *does* run from [0,1]
         
         ## The minimum and maximum values that the CDF would have returned if we weren't careful!
-        self.minCDF, self.maxCDF = a,b
+        self.minCDF, self.maxCDF = cdf[0], cdf[-1] # would be 0,1 if we covered all of x-axis
+        cdf = (cdf-cdf[0])/(cdf[-1]-cdf[0]) # Rescale so that it *does* run from [0,1]
 
         # Redefine the percentile point function (maps [0,1] to energies),
         # the prob distrib function and the cumulative distrib function
@@ -263,35 +272,31 @@ class MultiLorentzian_distribution(scipy.stats.rv_continuous):
         
 
 
-class MnKAlpha_distribution(MultiLorentzian_distribution):
+class MnKAlphaDistribution(MultiLorentzianDistribution):
     """For producing random variates of the manganese K Alpha energy distribution"""
     
     def __init__(self, *args, **kwargs):
         """"""
-        ## The energy distribution function
-        self.distribution = MnKAlpha()
-        epoints = numpy.hstack(((0,3000,5000,5500),
-                                numpy.arange(5800,5880.5),
-                                numpy.arange(5880,5920.-.025,.05),
-                                numpy.arange(5920,6001),
-                                (6100, 6300, 6600,7000,8000,12000)))*1.0
-        MultiLorentzian_distribution.__init__(self, epoints, *args, **kwargs)
+        epoints = numpy.hstack(((0, 3000, 5000, 5500),
+                                numpy.arange(5800, 5880.5),
+                                numpy.arange(5880, 5920.-.025, .05),
+                                numpy.arange(5920, 6001),
+                                (6100, 6300, 6600, 7000, 8000, 12000)))*1.0
+        MultiLorentzianDistribution.__init__(self, epoints, distribution = MnKAlpha(), *args, **kwargs)
         
 
 
-class CuKAlpha_distribution(MultiLorentzian_distribution):
+class CuKAlphaDistribution(MultiLorentzianDistribution):
     """For producing random variates of the copper K Alpha energy distribution"""
     
     def __init__(self, *args, **kwargs):
         """"""
-        ## The energy distribution function
-        self.distribution = CuKAlpha()
-        epoints = numpy.hstack(((0,3000,6000,7000,7500),
-                                numpy.arange(7800,8010.5),
-                                numpy.arange(8011,8060.-.025,.05),
-                                numpy.arange(8060,8201),
+        epoints = numpy.hstack(((0, 3000, 6000, 7000, 7500),
+                                numpy.arange(7800, 8010.5),
+                                numpy.arange(8011, 8060.-.025, .05),
+                                numpy.arange(8060, 8201),
                                 (8300, 8500, 8800, 9300, 12000)))*1.0
-        MultiLorentzian_distribution.__init__(self, epoints, *args, **kwargs)
+        MultiLorentzianDistribution.__init__(self, epoints, distribution = CuKAlpha(), *args, **kwargs)
         
 
 
@@ -305,9 +310,9 @@ class MultiLorentzianComplexFitter(object):
     def __init__(self):
         """"""
         ## Parameters from last successful fit
-        self.lastFitParams = None
+        self.last_fit_params = None
         ## Fit function samples from last successful fit
-        self.lastFitResult = None
+        self.last_fit_result = None
         
     
     ## Compute the smeared line complex.
@@ -362,28 +367,31 @@ class MultiLorentzianComplexFitter(object):
         except:
             pulseheights = numpy.arange(len(data), dtype=numpy.float)
         try:
-            _,_,_,_,_,_ = params
+            _, _, _, _, _, _ = params
         except:
             params = self.guess_starting_params(data, pulseheights)
 #            print 'Guessed parameters: ',params
 #            print 'PH range: ',pulseheights[0],pulseheights[-1]
         
         if plot:
-            if color is None: color='blue'
+            if color is None: 
+                color = 'blue'
             if axis is None:
                 pylab.clf()
                 axis = pylab.subplot(111)
                 
-            mass.math.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color)
-            dp = pulseheights[1]-pulseheights[0]
-            axis.set_xlim([pulseheights[0]-0.5*dp, pulseheights[-1]+0.5*dp])
+            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color)
+            ph_binsize = pulseheights[1]-pulseheights[0]
+            axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
         # Joe's new max-likelihood fitter
         epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
-        fitter = mass.math.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, self.fitfunc, TOL=1e-4, epsilon=epsilon)
+        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+                                                                 self.fitfunc, TOL=1e-4, epsilon=epsilon)
         
         if hold is not None:
-            for h in hold: fitter.hold(h)
+            for h in hold:
+                fitter.hold(h)
         if not vary_bg: fitter.hold(4)
         if not vary_bg_slope: fitter.hold(5)
             
@@ -392,15 +400,16 @@ class MultiLorentzianComplexFitter(object):
 
         fitparams[0] = abs(fitparams[0])
         
-        self.lastFitParams = fitparams
-        self.lastFitResult = self.fitfunc(fitparams, pulseheights)
+        self.last_fit_params = fitparams
+        self.last_fit_result = self.fitfunc(fitparams, pulseheights)
         
 #        if iflag not in (1,2,3,4): 
-        if iflag not in (0,2): 
+        if iflag not in (0, 2): 
             print "Oh no! iflag=%d"%iflag
         elif plot:
-            de = numpy.sqrt(covariance[0,0])
-            axis.plot(pulseheights, self.lastFitResult, color='#666666', label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
+            de = numpy.sqrt(covariance[0, 0])
+            axis.plot(pulseheights, self.last_fit_result, color='#666666', 
+                      label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.legend(loc='upper left')
         return fitparams, covariance
 
@@ -501,37 +510,37 @@ def smear(f, fwhm, stepsize=1.0):
     <fwhm>, where the samples <f> are spaced evenly by <stepsize>.
     Function is padded at each end by enough samples to cover 5 FWHMs.
     The padding equals the values of <f> at its two endpoints. """
-    N = len(f)
-    assert N%2==0
+    nsamp = len(f)
+    assert nsamp%2 == 0
     
     fwhm = numpy.abs(fwhm)
     padwidth = 5.0*fwhm
     if padwidth > 100.0:
         padwidth = 100.0
-    Npad = int(padwidth/stepsize+0.5)
-    if Npad > N*7: Npad = N*7 
+    npad = int(padwidth/stepsize+0.5)
+    if npad > nsamp*7: npad = nsamp*7 
     
     # Make sure that total FFT size is a power of 2
-    Ntotal = N+2*Npad
-    for j in range(2,25):
-        if Ntotal <= 2**j:
-            Npad = (2**j-N)/2
+    ntotal = nsamp+2*npad
+    for j in range(2, 25):
+        if ntotal <= 2**j:
+            npad = (2**j-nsamp)/2
             break
     
-    fpadded = numpy.hstack((f, numpy.zeros(2*Npad)))
-    fpadded[N:N+Npad] = f[-1]
-    fpadded[N+Npad:] = f[0]
-    Nfull = len(fpadded)
+    fpadded = numpy.hstack((f, numpy.zeros(2*npad)))
+    fpadded[nsamp:nsamp+npad] = f[-1]
+    fpadded[nsamp+npad:] = f[0]
+    nfull = len(fpadded)
     
     ft = numpy.fft.rfft(fpadded)
-    freq = numpy.fft.fftfreq(Nfull, d=stepsize)[:Nfull/2+1]
+    freq = numpy.fft.fftfreq(nfull, d=stepsize)[:nfull/2+1]
     freq[-1] = numpy.abs(freq[-1]) # convention is that the f_crit is negative.  Fix it.
     
     # Filter the function in Fourier space
     sigma = fwhm / numpy.sqrt(8*numpy.log(2))
     sigmaConjugate = 1.0/(2 * numpy.pi * sigma)
     ft *= numpy.exp(-0.5*(freq/sigmaConjugate)**2)
-    return numpy.fft.irfft(ft)[0:N]
+    return numpy.fft.irfft(ft)[0:nsamp]
 
 
 class GaussianFitter(object):
@@ -547,9 +556,9 @@ class GaussianFitter(object):
         ## Spectrum function object
         self.spect = spect 
         ## Parameters from last successful fit
-        self.lastFitParams = None
+        self.last_fit_params = None
         ## Fit function samples from last successful fit
-        self.lastFitResult = None
+        self.last_fit_result = None
         
     def guess_starting_params(self, data, binctrs):
         """Guess the best Gaussian line location/width/amplitude/background given the spectrum."""
@@ -565,7 +574,8 @@ class GaussianFitter(object):
         baseline = 0.1
         return [res, ph_peak, ampl, baseline]
     
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", hold=None):
+    def fit(self, data, pulseheights=None, params=None, plot=True, 
+            axis=None, color=None, label="", hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
         set of histogram bins <pulseheights>.
         
@@ -580,51 +590,57 @@ class GaussianFitter(object):
         except:
             pulseheights = numpy.arange(len(data), dtype=numpy.float)
         try:
-            _,_,_,_ = params
+            _, _, _, _ = params
         except:
             params = self.guess_starting_params(data, pulseheights)
         
         def fitfunc(params, x):
-            E_peak = self.spect.energy
+            """Fitting function.  <x> is pulse height (arb units).  <params> are model parameters."""
+            e_peak = self.spect.energy
             
-            energy = (x-params[1]) + E_peak
-            spectrum = self.spect(energy, fwhm=params[0]*params[1]/E_peak)
+            energy = (x-params[1]) + e_peak
+            spectrum = self.spect(energy, fwhm=params[0]*params[1]/e_peak)
             return spectrum * abs(params[2]) + abs(params[3])
         
         # Joe's new max-likelihood fitter
         epsilon = numpy.array((1e-3, params[1]/1e5, params[2]/1e5, params[3]/1e2))
-        fitter = mass.math.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, fitfunc, TOL=1e-4, epsilon=epsilon)
+        fitter = mass.utilities.MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+                                                                 fitfunc, TOL=1e-4, epsilon=epsilon)
         if hold is not None:
-            for h in hold: fitter.hold(h)
+            for hnum in hold: 
+                fitter.hold(hnum)
         fitparams, covariance = fitter.fit()
         iflag = 0
 
         fitparams[0] = abs(fitparams[0])
         
-        self.lastFitParams = fitparams
-        self.lastFitResult = fitfunc(fitparams, pulseheights)
+        self.last_fit_params = fitparams
+        self.last_fit_result = fitfunc(fitparams, pulseheights)
         
 #        if iflag not in (1,2,3,4): 
-        if iflag not in (0,2): 
-            print "Oh no! iflag=%d"%iflag
+        if iflag not in (0, 2): 
+            print "Oh no! iflag=%d" % iflag
         elif plot:
-            if color is None: color='blue'
+            if color is None: 
+                color = 'blue'
             if axis is None:
                 pylab.clf()
                 axis = pylab.subplot(111)
                 
-            de = numpy.sqrt(covariance[0,0])
-            mass.math.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color, label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
-            axis.plot(pulseheights, self.lastFitResult, color='black')
+            de = numpy.sqrt(covariance[0, 0])
+            mass.utilities.plot_as_stepped_hist(axis, pulseheights, data, color=color, 
+                                                label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
+            axis.plot(pulseheights, self.last_fit_result, color='black')
             axis.legend(loc='upper left')
-            dp = pulseheights[1]-pulseheights[0]
-            axis.set_xlim([pulseheights[0]-0.5*dp, pulseheights[-1]+0.5*dp])
+            ph_binsize = pulseheights[1]-pulseheights[0]
+            axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
         return fitparams, covariance
 
 
 
-def plot_spectrum(spectrumf=MnKAlpha(), resolutions=(2,3,4,5,6,7,8,10,12), 
-                  energy_range=(5870,5920), stepsize=0.05):
+def plot_spectrum(spectrumf=MnKAlpha(), 
+                  resolutions=(2, 3, 4, 5, 6, 7, 8, 10, 12), 
+                  energy_range=(5870, 5920), stepsize=0.05):
     """Plot a spectrum at several different resolutions.
     
     <spectrum>    A callable that accepts a vector of energies and returns
@@ -634,37 +650,39 @@ def plot_spectrum(spectrumf=MnKAlpha(), resolutions=(2,3,4,5,6,7,8,10,12),
     <stepsize>    The plotting step size in energy units.  
     """
     if resolutions is None:
-        resolutions = [2,3,4,5,6,7,8,10,12]
-    e = numpy.arange(energy_range[0]-2.5*resolutions[-1],energy_range[1]+2.5*resolutions[-1],stepsize)
+        resolutions = (2, 3, 4, 5, 6, 7, 8, 10, 12)
+    e = numpy.arange(energy_range[0]-2.5*resolutions[-1],
+                     energy_range[1]+2.5*resolutions[-1], stepsize)
     spectrum = spectrumf(e)
     spectrum /= spectrum.max()
 
     pylab.clf()
-    ax = pylab.subplot(111)
-    pylab.plot(e,spectrum, color='black',lw=2, label=' 0 eV')
-    ax.set_color_cycle(('red','orange','#bbbb00','green','cyan','blue','indigo','purple','brown'))
-    for r in resolutions:
-        sp = smear(spectrum, r, stepsize = stepsize)
-        sp /= sp.max()
-        sp *= (1+r*.01)
-        pylab.plot(e,sp, label="%2d eV"%r, lw=2)
+    axis = pylab.subplot(111)
+    pylab.plot(e, spectrum, color='black', lw=2, label=' 0 eV')
+    axis.set_color_cycle(('red', 'orange', '#bbbb00', 'green', 'cyan',
+                          'blue', 'indigo', 'purple', 'brown'))
+    for res in resolutions:
+        smeared_spectrum = smear(spectrum, res, stepsize = stepsize)
+        smeared_spectrum /= smeared_spectrum.max()
+        smeared_spectrum *= (1+res*.01)
+        pylab.plot(e, smeared_spectrum, label="%2d eV"%res, lw=2)
         
         # Find the peak, valley, peak
         if spectrumf.name == 'Manganese K-alpha':
-            e2,ev,e1 = 5887.7,5892, 5898.801
+            epk2, evalley, epk1 = 5887.70, 5892.0, 5898.801
         elif spectrumf.name == 'Copper K-alpha':
-            e2,ev,e1 = 8027.89,8036.6,8047.83
+            epk2, evalley, epk1 = 8027.89, 8036.6, 8047.83
             
-        p1 = sp[numpy.abs(e-e1)<2].max()
-        if r < 8.12:
-            p2 = sp[numpy.abs(e-e2)<2].max()
-            pv = sp[numpy.abs(e-ev)<3].min()
-            print "Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f"%(r,p2/p1,pv/p2) 
+        p1 = smeared_spectrum[numpy.abs(e-epk1)<2].max()
+        if res < 8.12:
+            pk2 = smeared_spectrum[numpy.abs(e-epk2)<2].max()
+            pval = smeared_spectrum[numpy.abs(e-evalley)<3].min()
+            print "Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2/p1, pval/pk2) 
         
     pylab.xlim(energy_range)
-    pylab.ylim([0,1.13])
+    pylab.ylim([0, 1.13])
     pylab.legend(loc='upper left')
     
-    pylab.title("%s lines at various resolutions (FWHM of Gaussian)"%spectrumf.name)
+    pylab.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrumf.name)
     pylab.xlabel("Energy (eV)")
     pylab.ylabel("Intensity (arb.)")

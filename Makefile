@@ -2,11 +2,6 @@
 # J. Fowler, NIST
 # June 16, 2011
 
-EXTENSION_DIR=extensions
-
-$(OBJECT_DIR)/%.so: $(EXTENSION_DIR)/%.f90 $(EXTENSION_DIR)/%.pyf
-	f2py -c $(EXTENSION_DIR)/$*.pyf $<
-	mv $*.so $(OBJECT_DIR)/ 
 
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
@@ -26,8 +21,8 @@ $(TARGET_TAR): $(PYFILES) Makefile
  
 .PHONY: lint install clean
 lint: lint-report.txt
-lint-report.txt: $(OBJECT_DIR)/*.py
-	pylint-2.6 --ignore=deprecated.py mass > $@
+lint-report.txt: pylintrc mass/*/*.py
+	pylint-2.6 --rcfile=$< mass > $@
 
 TARGETDIR = /opt/local/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6/site-packages/mass
 install:
