@@ -12,8 +12,7 @@ Created on Nov 8, 2011
 '''
 
 import numpy
-import _factor_covariance.covchol #@UnresolvedImport
-import _factor_covariance.covsolv #@UnresolvedImport
+import _factor_covariance
 
 class MultiExponentialCovarianceSolver(object):
     """

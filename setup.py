@@ -32,11 +32,14 @@
 #      package_data={'mass':['math/*.so']}
 #      )
 
+import os.path
 
 def configuration(parent_package='',top_path=None):
     from numpy.distutils.misc_util import Configuration
     config = Configuration('mass',parent_package,top_path)
-    config.add_extension('mathstat._factor_covariance', ['mass/mathstat/factor_covariance.f90'])
+    sourcename = os.path.join('mass','mathstat','factor_covariance') 
+    config.add_extension('mathstat._factor_covariance', 
+                         [sourcename+ext for ext in ".pyf",".f90"])
     return config
 
 if __name__ == "__main__":
