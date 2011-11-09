@@ -73,7 +73,16 @@ and to keep it updated.  More on that later.
         Tutorials and demos
         -------------------
 
-Ummm.... I'm working on this, really.
+There's a new package called mass.demo that uses the ipython ability to run
+interactive demos.  Try this:
+
+import mass.demo
+from IPython.lib.demo import Demo
+massdemo = Demo('mass/demo/demo.py')
+massdemo() # Each call to the Demo object moves forward 1 more block in the demo.
+massdemo() # This demo has between 5 and 10 blocks, s you repeat this 5-10x.
+
+I am planning to have more demos in the near future... 
 
 
 

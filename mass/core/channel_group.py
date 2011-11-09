@@ -507,9 +507,11 @@ class BaseChannelGroup(object):
         dt = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
         
         if pulse_id in range(self.n_channels):
+            axis.set_title("Average pulse for all channels when TES %d is hit"%pulse_id)
             for i,d in enumerate(self.datasets):
                 pylab.plot(dt,d.average_pulses[pulse_id], label="Demod TES %d"%i)
         else:
+            axis.set_title("Average pulse for each channel when it is hit")
             for i,d in enumerate(self.datasets):
                 pylab.plot(dt,d.average_pulses[i], label="Demod TES %d"%i)
         pylab.xlabel("Time past trigger (ms)")

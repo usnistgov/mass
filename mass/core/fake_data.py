@@ -29,7 +29,7 @@ class FakeDataGenerator(object):
         self.pretrig_level = 1000
         self.rise_speed_us = 200. # in us
         self.fall_speed_us = 1200. # in us
-        self.white_noise = 5.0
+        self.white_noise = 30.0
         
         self.sample_time_us = sample_time # in us
         self.n_samples = n_samples
@@ -73,7 +73,7 @@ class FakeDataGenerator(object):
         return vfile
     
     
-    def _generate_virtual_noise_file(self, n_pulses):
+    def _generate_virtual_noise_file(self, n_pulses, lowpass_kludge=0):
         """Return a VirtualFile object with random noise.
         
         n_pulses      number of pulses to put in the "file" 
@@ -83,7 +83,11 @@ class FakeDataGenerator(object):
         data = numpy.zeros((n_pulses, self.n_samples), dtype=numpy.uint16)
         pulse_times = numpy.arange(n_pulses, dtype=numpy.float)*self.sample_time_us/1e6
         
-        data[:,:] = 0.5+numpy.random.standard_normal((n_pulses,self.n_samples))*self.white_noise
+        raw_noise = numpy.random.standard_normal((n_pulses,self.n_samples))*self.white_noise
+        for i in range(lowpass_kludge):
+            raw_noise = 0.5*(raw_noise + numpy.roll(raw_noise, 2**i)) 
+        
+        data[:,:] = 0.5+raw_noise
         vfile = VirtualFile(data, times=pulse_times)
         vfile.timebase = self.sample_time_us/1e6
         vfile.nPresamples = self.n_presamples

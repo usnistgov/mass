@@ -613,13 +613,16 @@ def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=500
     
     if isinstance(excise_endpoints, int):
         excise_endpoints = (excise_endpoints, excise_endpoints)
-    if excise_endpoints[1] > 0: 
+    if excise_endpoints is not None and excise_endpoints[1] > 0: 
         excise_endpoints = tuple((excise_endpoints[0], -excise_endpoints[1]))
     
     if ljhfile is None:
         if not rootfile.endswith(".root"):
             raise ValueError("ljhfile argument must be supplied if rootfile name doesn't end with '.root'.")
-        ljhfile = rootfile.rstrip("root")+"ljh"
+        if use_noise:
+            ljhfile = rootfile.rstrip("root")+"noi"
+        else:
+            ljhfile = rootfile.rstrip("root")+"ljh"
         
     if os.path.exists(ljhfile) and not overwrite:
         raise IOError("The ljhfile '%s' exists and overwrite was not set to True"%ljhfile)
