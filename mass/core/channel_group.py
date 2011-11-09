@@ -469,8 +469,8 @@ class BaseChannelGroup(object):
             if not isinstance(m, numpy.ndarray):
                 raise ValueError("masks[%d] is not a numpy.ndarray"%i)
             
-        pulse_counts = numpy.zeros((self.n_channels,nbins))
-        pulse_sums = numpy.zeros((self.n_channels,nbins,self.nSamples), dtype=numpy.float)
+        pulse_counts = numpy.zeros((self.n_channels, nbins))
+        pulse_sums = numpy.zeros((self.n_channels, nbins, self.nSamples), dtype=numpy.float)
 
         for first, end in self.iter_segments():
             print "Records %d to %d loaded"%(first,end-1)

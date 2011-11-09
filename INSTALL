@@ -39,9 +39,17 @@ You just need your PYTHONPATH to point to this.  If you use bash, and
 supposing that your NIST software repository lives in ~/trunk, then
 you should add the following to your .bashrc file:
 
-$ export PYTHONPATH=${PYTHONPATH}:~/trunk/python/mass/src
+$ export PYTHONPATH=${PYTHONPATH}:~/trunk/python/mass
 
+One problem with running a test version of Mass is that the compiled
+extensions do not get built into the "live" tree.  One possible workaround:
 
+$ export PYTHONPATH=${PYTHONPATH}:~/trunk/python/mass/build/lib*/mass/mathstat/
+
+Or another is just to copy the compiled extensions into the live tree:
+$ cp build/lib*/mass/mathstat/*so mass/mathstat/ 
+
+Let me know what works for you!
 
 
 HOW TO IMPORT MASS WITHIN PYTHON/IPYTHON

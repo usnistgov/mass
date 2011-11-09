@@ -139,7 +139,7 @@ data.plot_filters()
 data.filter_data()
 # <demo> --- stop ---
 
-# Now let's re-estimate the peak value
+# Now let's re-estimate the peak value and histogram the data
 medians = numpy.array([numpy.median(ds.p_filt_value) for ds in data.datasets])
 pylab.clf()
 colors = 'purple', 'blue', 'green', 'gold', 'orange', 'red'
