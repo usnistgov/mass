@@ -1,17 +1,13 @@
 '''
-Factor an approximate covariance matrix (a sum of exponentials).
+Approximate a covariance matrix as a sum of exponentials, and factor it.
 
-Factor a time covariance matrix, assuming that the covariance function
-is a short sum of (possibly complex) exponentials.
-
-Wraps a few functions written by Brad Alpert in FORTRAN 90.
 
 Created on Nov 8, 2011
 
 @author: fowlerj
 '''
 
-__all__ = ['MultiExponentialCovarianceSolver']
+__all__ = ['MultiExponentialCovarianceSolver', 'FitExponentialSum']
 
 import numpy
 from mass.mathstat import _factor_covariance
@@ -19,6 +15,11 @@ from mass.mathstat import _factor_covariance
 class MultiExponentialCovarianceSolver(object):
     """
     Solver for a covariance matrix R composed of a short sum of exponentials.
+
+    Factor a time covariance matrix, assuming that the covariance function
+    is a short sum of (possibly complex) exponentials.
+    
+    Wraps a few functions written by Brad Alpert in FORTRAN 90.
 
     TO DO:
     1. Method prod(x): Use the function covprod to compute the product Rx=y given x.
@@ -86,3 +87,124 @@ class MultiExponentialCovarianceSolver(object):
                                     self.nsamp, n, self.nsamp))
         return _factor_covariance.covsolv(b, self.cholesky_saved) #@UndefinedVariable
 
+
+
+class FitExponentialSum(object):
+    """
+    Fit a function as a sum of (possibly complex) exponentials.
+    
+    This is a subtle problem, until and unless the exponentials are
+    known.  (Once they are known, it's a simple linear least-squares
+    problem.)
+    """
+    
+    def __init__(self, data, nsamp=None, rectangle_aspect=10, sval_thresh=None):
+        """
+        Store the data and plan the fit.
+        
+        data  - The data set to be fit.
+        nsamp - The number of data values to fit.  If None, then use the entire data.
+        rectangle_aspect - Aspect ratio of the Hankel matrix used in finding the exponentials
+        sval_thresh - The least singular value to be used in the second stage.  If None,
+                      then only the first stage will be done.
+        """
+        
+        if nsamp is None:
+            nsamp = len(data)
+        elif len(data) < nsamp:
+            raise ValueError("nsamp (%d) cannot exceed the length of data (%d)" % 
+                             (nsamp, len(data)))
+        if nsamp < 3:
+            raise ValueError("The fit must be to at least 3 samples of data.")
+        
+        self.ncol = int(0.5+nsamp/(rectangle_aspect+1.0))
+        if self.ncol<2:
+            self.ncol = 2
+        self.nrow = nsamp-1-self.ncol
+        self.nsamp = nsamp
+        self.data = numpy.asarray(data, dtype=numpy.float)[:self.nsamp].copy()
+        self.svalues = None
+        self.all_svalues = None
+        self._hankel_svd()
+
+        if sval_thresh is not None:
+            self.cut_svd(sval_thresh)
+        
+    def _hankel_svd(self):
+        """Compute the Hankel matrix used in the fit and do a singular
+        value decomposition of all but its lowest row."""
+        
+        # Build the Hankel matrix
+        A=numpy.zeros((self.nrow, self.ncol), dtype=numpy.float)
+        A[:,0] = self.data[:self.nrow]  # col 0
+        A[-1,1:] = self.data[self.nrow:self.nrow+self.ncol-1]  # bottom row
+        for col in range(1, self.ncol):
+            A[:-1,col] = A[1:,col-1]
+        
+        self.hankel2 = A[1:, :] 
+        # Note that numpy.linalg.svd returns U, Sigma, and what is usually called V_transpose 
+        self.svdu, self.all_svalues, self.svdv_t = \
+            numpy.linalg.svd(A[:-1,:], full_matrices=False, compute_uv=True)
+
+    def cut_svd(self, sval_thresh, min_values=None, max_values=None):
+        """Reduce the Hankel matrix to keep only those parts of the SVD
+        where the singular values are at least <sval_thresh> times the
+        highest singular value.
+        
+        sval_thresh - Keep singular values down to this fractional level times the highest.
+        min_values - Keep at least this many singular values.
+        max_values - Keep no more than this many singular values.
+        """
+        min_sval = sval_thresh * self.all_svalues[0]
+        ngood = (self.svalues>=min_sval).sum()
+        
+        # Some constraints on how many "good" singular values to use
+        if min_values is not None:
+            if min_values > self.nsamp/2:
+                raise ValueError("min_values cannot exceed %d." % (self.nsamp/2))
+            if ngood < min_values:
+                ngood = min_values 
+
+        if ngood > self.nsamp/2:
+            ngood = self.nsamp/2
+        elif max_values is not None:
+            if ngood > max_values:
+                ngood = max_values
+        
+        # Cut the matrices of the SVD, saving the full list of singular values.
+        self.svalues = self.all_svalues[:ngood]
+        self.svdu = self.svdu[:, :ngood]
+        self.svdv_t = self.svdv_t[:ngood, :]
+        
+        # Now estimate the "system matrix" of time translation
+        from numpy import dot
+        fplus = (self.svdu*(self.svalues**-0.5)).T
+        gplus = (self.svdv_t.T*(self.svalues**-0.5))
+        self.system = dot(dot(fplus, self.hankel2), gplus)
+        
+        eigval, _evec = numpy.linalg.eig(self.system)
+        self.bases = eigval
+        print 'Bases are: ', eigval
+        print 'Decay times (samples): ', -1./numpy.log(numpy.abs(eigval))
+        
+    def plot_singular_values(self):
+        """Plot the full set of singular values, to help user decide where to cut"""
+        import pylab
+        pylab.clf()
+        maxsval = self.all_svalues[0]
+        pylab.semilogy(self.all_svalues/maxsval, 'rx-')
+        if self.svalues is not None:
+            pylab.plot(self.svalues/maxsval, 'ob')
+        pylab.grid()
+        ymax = 1.1
+        ymin = 1e-10
+        if ymin < (self.all_svalues[-1]/maxsval)*.9:
+            ymin = (self.all_svalues[-1]/maxsval)*.9
+        pylab.ylim([ymin, ymax])
+        pylab.xlabel("Singular value number")
+        pylab.ylabel("Arb scale (highest singular value scaled to 1)")
+        pylab.title("Singular values ranked from highest to lowest")
+        pylab.xlim([-0.5, len(self.all_svalues)+0.5])
+    
+    
+    

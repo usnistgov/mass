@@ -32,7 +32,7 @@ import pylab
 import scipy.stats, scipy.interpolate, scipy.special
 
 from mass.calibration import energy_calibration
-import mass
+from mass.mathstat.utilities import MaximumLikelihoodHistogramFitter, plot_as_stepped_hist
 
 def lorentzian(x, fwhm):
     """Return the value of Lorentzian prob distribution function at <x> (may be a numpy array)
@@ -55,9 +55,7 @@ class SpectralLine(object):
     """
     def __init__(self):
         """Dummy constructor"""
-        self.energies = None
-        self.fwhm = None
-        self.amplitudes = None
+        pass
     
     def __call__(self, x):
         """Make the class callable, returning the same value as the self.pdf method."""
@@ -253,11 +251,11 @@ class MultiLorentzianDistribution(scipy.stats.rv_continuous):
         where the distribution changes rapidly.
         <args> and <kwargs> are passed on to scipy.stats.rv_continuous"""
 
-        scipy.stats.rv_continuous.__init__(self, *args, **kwargs)
-
         ## The probability distribution function
         self.distribution = distribution
         
+        scipy.stats.rv_continuous.__init__(self, *args, **kwargs)
+
         epoints = epoints[numpy.logical_and(epoints>=self.a, epoints<=self.b)]
         epoints = numpy.hstack((self.a, epoints, self.b))
         cdf = self.distribution.cdf(epoints)
@@ -385,13 +383,13 @@ class MultiLorentzianComplexFitter(object):
                 pylab.clf()
                 axis = pylab.subplot(111)
                 
-            mass.plot_as_stepped_hist(axis, pulseheights, data, color=color)
+            plot_as_stepped_hist(axis, pulseheights, data, color=color)
             ph_binsize = pulseheights[1]-pulseheights[0]
             axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
         # Joe's new max-likelihood fitter
         epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
-        fitter = mass.MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
                                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
         
         if hold is not None:
@@ -609,7 +607,7 @@ class GaussianFitter(object):
         
         # Joe's new max-likelihood fitter
         epsilon = numpy.array((1e-3, params[1]/1e5, params[2]/1e5, params[3]/1e2))
-        fitter = mass.MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
                                                                  fitfunc, TOL=1e-4, epsilon=epsilon)
         if hold is not None:
             for hnum in hold: 
@@ -633,7 +631,7 @@ class GaussianFitter(object):
                 axis = pylab.subplot(111)
                 
             de = numpy.sqrt(covariance[0, 0])
-            mass.plot_as_stepped_hist(axis, pulseheights, data, color=color, 
+            plot_as_stepped_hist(axis, pulseheights, data, color=color, 
                                                 label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.plot(pulseheights, self.last_fit_result, color='black')
             axis.legend(loc='upper left')

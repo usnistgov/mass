@@ -5,19 +5,18 @@
 
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
-PYFILES = mass/*.py
+PYFILES = mass/*.py mass/*/*.py
 
-.PHONY: archive all
+.PHONY: archive built
+
+build:
+	python setup.py build
 
 archive: $(TARGET_ZIP)
-all: $(TARGET_ZIP) $(TARGET_TAR)
 
 $(TARGET_ZIP): $(PYFILES) Makefile
-	zip -v $@ $(PYFILES)
+	python setup.py sdist --format=gztar,zip
 
-$(TARGET_TAR): $(PYFILES) Makefile
-	tar -zvcf $@ $(PYFILES)
- 
  
 .PHONY: lint install clean
 lint: lint-report.txt
@@ -25,8 +24,7 @@ lint-report.txt: pylintrc mass/*/*.py
 	pylint-2.6 --rcfile=$< mass > $@
 
 TARGETDIR = /opt/local/Library/Frameworks/Python.framework/Versions/2.6/lib/python2.6/site-packages/mass
-install:
-	python setup.py build
+install: build
 	sudo python setup.py install
 	ls -l $(TARGETDIR)  
 	ls -l $(TARGETDIR)/core

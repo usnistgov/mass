@@ -23,7 +23,8 @@ except ImportError:
 
 # MASS modules
 import mass.mathstat
-import mass.core
+import mass.mathstat.power_spectrum
+from mass.core.files import VirtualFile, LJHFile, LANLFile
 
 class NoiseRecords(object):
     """
@@ -51,11 +52,33 @@ class NoiseRecords(object):
         self.spectrum = None
         self.autocorrelation = None
      
-    def __open_file(self, filename, use_records=None):
+    def __open_file(self, filename, use_records=None, file_format=None):
         """Detect the filetype and open it."""
 
-        # For now, we have only one file type, so let's just assume it!
-        self.datafile = mass.LJHFile(filename, segmentsize=self.maxsegmentsize)
+        ALLOWED_TYPES=("ljh","root","virtual")
+        if file_format is None:
+            if isinstance(filename, VirtualFile):
+                file_format = 'virtual'
+            elif filename.endswith("root"):
+                file_format = "root"
+            elif filename.endswith("ljh"):
+                file_format = "ljh"
+            else:
+                file_format = "ljh"
+        if file_format not in ALLOWED_TYPES:
+            raise ValueError("file_format must be None or one of %s"%ALLOWED_TYPES)
+
+        if file_format == "ljh":
+            self.datafile = LJHFile(filename, segmentsize=self.maxsegmentsize)
+        elif file_format == "root":
+            self.datafile = LANLFile(filename)
+        elif file_format == "virtual":
+            vfile = filename # Aha!  It must not be a string
+            self.datafile = vfile
+            self.datafile.segmentsize = vfile.nPulses*(6+2*vfile.nSamples)
+            filename = 'Virtual file'
+        else:
+            raise RuntimeError("It is a programming error to get here")
         self.filename = filename
 
         # Copy up some of the most important attributes
@@ -390,7 +413,7 @@ class PulseRecords(object):
 
         ALLOWED_TYPES=("ljh","root","virtual")
         if file_format is None:
-            if isinstance(filename, mass.core.files.VirtualFile):
+            if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
             elif filename.endswith("root"):
                 file_format = "root"
@@ -402,9 +425,9 @@ class PulseRecords(object):
             raise ValueError("file_format must be None or one of %s"%ALLOWED_TYPES)
 
         if file_format == "ljh":
-            self.datafile = mass.files.LJHFile(filename)
+            self.datafile = LJHFile(filename)
         elif file_format == "root":
-            self.datafile = mass.files.LANLFile(filename)
+            self.datafile = LANLFile(filename)
         elif file_format == "virtual":
             vfile = filename # Aha!  It must not be a string
             self.datafile = vfile

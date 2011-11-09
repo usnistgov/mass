@@ -29,9 +29,9 @@ Python tools to analyze microcalorimeter data offline.
 Joe Fowler, NIST Boulder Labs.  November 2010--
 """
 
-import core
-import calibration
 import mathstat
+import calibration
+import core
 #import gui
 
 from core import *
@@ -45,4 +45,3 @@ __all__.extend(mathstat.__all__)
 
 
 print """The Microcalorimeter Analysis Software System (MASS) is now imported."""
-print 'All is ', __all__

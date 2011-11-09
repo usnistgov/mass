@@ -24,10 +24,9 @@ from matplotlib import pylab
 import scipy.linalg
 import cPickle
 
-import mass
 import mass.calibration
-#import mass.controller
 
+from mass.core.channel import create_pulse_and_noise_records
 
 class BaseChannelGroup(object):
     """
@@ -891,12 +890,12 @@ class TESGroup(BaseChannelGroup):
         dset_list = []
         for i,fname in enumerate(self.filenames):
             if noise_filenames is None:
-                pulse, noise = mass.channel.create_pulse_and_noise_records(fname, noise_only=noise_only,
+                pulse, noise = create_pulse_and_noise_records(fname, noise_only=noise_only,
                                                                            pulse_only=pulse_only)
             else:
                 nf = self.noise_filenames[i]
                 print "nf='%s'"%nf
-                pulse, noise = mass.channel.create_pulse_and_noise_records(fname, noisename=nf,
+                pulse, noise = create_pulse_and_noise_records(fname, noisename=nf,
                                                                            noise_only=noise_only,
                                                                            pulse_only=pulse_only)
             dset = mass.channel.MicrocalDataSet(pulse.__dict__)

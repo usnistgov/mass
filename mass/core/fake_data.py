@@ -16,7 +16,9 @@ import numpy
 import os
 import tempfile
 
-import mass
+from mass.core.files import  VirtualFile
+from mass.core.channel import create_pulse_and_noise_records
+from mass.core.channel_group import TESGroup
 
 
 class FakeDataGenerator(object):
@@ -27,7 +29,7 @@ class FakeDataGenerator(object):
         self.pretrig_level = 1000
         self.rise_speed_us = 200. # in us
         self.fall_speed_us = 1200. # in us
-        
+        self.white_noise = 5.0
         
         self.sample_time_us = sample_time # in us
         self.n_samples = n_samples
@@ -36,7 +38,8 @@ class FakeDataGenerator(object):
         else:
             self.n_presamples = n_presamples
         self.compute_model(model_peak=model_peak)
-        
+
+
     def compute_model(self, model_peak=None):
         dt_us = (numpy.arange(self.n_samples) - self.n_presamples-0.5) * self.sample_time_us
         self.model = numpy.exp(-dt_us/self.fall_speed_us) - numpy.exp(-dt_us/self.rise_speed_us)
@@ -45,26 +48,59 @@ class FakeDataGenerator(object):
             self.model = model_peak * self.model/self.model.max()
             
     
-    def _generate_virtual_file(self, n_pulses, rate=1.0):
+    def _generate_virtual_file(self, n_pulses, distribution=None, rate=1.0):
+        """Return a VirtualFile object with random pulses.
+        
+        n_pulses      number of pulses to put in the "file" 
+        distribution  random distribution of scale factors.  If none, all pulses are of unit height
+        rate          expected number of pulses per second.
+        """
+
         data = numpy.zeros((n_pulses, self.n_samples), dtype=numpy.uint16)
         pulse_times = numpy.random.exponential(1.0/rate, size=n_pulses).cumsum()
         
+        if distribution is None:
+            scale = numpy.ones(n_pulses, dtype=numpy.float)
+        else:
+            scale = distribution.rvs(size=n_pulses)
+            
         for i in range(n_pulses):
-            data[i,:] = self.model + self.pretrig_level + (0.5+numpy.random.standard_normal(self.n_samples)*5)
-        vfile = mass.files.VirtualFile(data, times=pulse_times)
+            data[i,:] = self.model*scale[i] + self.pretrig_level + \
+                        0.5+numpy.random.standard_normal(self.n_samples)*self.white_noise
+        vfile = VirtualFile(data, times=pulse_times)
         vfile.timebase = self.sample_time_us/1e6
         vfile.nPresamples = self.n_presamples
         return vfile
     
     
-    def generate_microcal_dataset(self, n_pulses):
-        vfile = self._generate_virtual_file(n_pulses)
-        return mass.core.channel.create_pulse_and_noise_records(vfile, pulse_only=True)
+    def _generate_virtual_noise_file(self, n_pulses):
+        """Return a VirtualFile object with random noise.
+        
+        n_pulses      number of pulses to put in the "file" 
+        """
+
+        print 'Making fake noise'
+        data = numpy.zeros((n_pulses, self.n_samples), dtype=numpy.uint16)
+        pulse_times = numpy.arange(n_pulses, dtype=numpy.float)*self.sample_time_us/1e6
+        
+        data[:,:] = 0.5+numpy.random.standard_normal((n_pulses,self.n_samples))*self.white_noise
+        vfile = VirtualFile(data, times=pulse_times)
+        vfile.timebase = self.sample_time_us/1e6
+        vfile.nPresamples = self.n_presamples
+        return vfile
     
     
-    def generate_TES_group(self, n_pulses, nchan=1):
-        vfiles = [self._generate_virtual_file(n_pulses) for _i in range(nchan)]
-        return mass.TESGroup(vfiles, pulse_only = True)
+    def generate_microcal_dataset(self, n_pulses, distribution=None):
+        vfile = self._generate_virtual_file(n_pulses, distribution=distribution)
+        return create_pulse_and_noise_records(vfile, pulse_only=True)
+    
+    
+    def generate_TES_group(self, n_pulses, n_noise=1024, distribution=None, nchan=1):
+        vfiles = [self._generate_virtual_file(n_pulses, distribution=distribution)
+                  for _i in range(nchan)]
+        nfiles = [self._generate_virtual_noise_file(n_noise)
+                  for _i in range(nchan)]
+        return TESGroup(vfiles, nfiles)
         
     
 
