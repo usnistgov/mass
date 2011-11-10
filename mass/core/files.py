@@ -178,8 +178,6 @@ class LJHFile(MicrocalFile):
         super(LJHFile, self).__init__()
         self.filename = filename
         self.__cached_segment = None
-        self.__read_header(filename)
-        self.set_segment_size(segmentsize)
         self.header_lines = []
         self.sample_usec = None
         self.timestmp_offset = 0.0
@@ -190,6 +188,8 @@ class LJHFile(MicrocalFile):
         self.header_size = 0
         self.pulse_size_bytes = 0
         self.data = None
+        self.__read_header(filename)
+        self.set_segment_size(segmentsize)
 
 
     def copy(self):
@@ -351,8 +351,11 @@ class LJHFile(MicrocalFile):
         fp.close()
         
         self.segment_pulses = len(array)/(self.pulse_size_bytes/2)
-        self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes/2])
-        
+        try:
+            self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes/2])
+        except ValueError, e:
+            print skip, max_size, self.segment_pulses, self.pulse_size_bytes, len(array)    
+            raise e
         # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,
         # where u is a byte giving microseconds/4, x is a reserved byte, and mmmm is a 4-byte
         # little-ending giving milliseconds.  The uu should always be in [0,999]
