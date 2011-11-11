@@ -128,3 +128,37 @@ subroutine covsolvx(n,x,y,k,b,d,dsuminv)
      ss=(ss+x(i))*b;
   end do
 end subroutine covsolvx
+
+
+! Matrix-vector product x = U' y, where the covariance matrix R=U'U and
+! R_{ij} = r(|j-i|) = \sum_{m=1}^k a(m) b(m)^|j-i| is real for i,j = 1,2,...
+! and |b(m)|<1 for m = 1,...,k.  Memory space for x,y must be disjoint.
+! CAREFUL!  Joe wrote this one, and he doesn't know F90!
+!
+subroutine cholprod(n,x,y,cholsav)
+  implicit none
+  integer :: n,k, nsav
+  real (8) :: x(n),y(n),cholsav(*)
+  k=cholsav(1)
+  nsav=cholsav(2)
+  call cholprod2(n,x,y,k,cholsav(3),cholsav(3+2*k))
+end subroutine cholprod
+
+subroutine cholprod2(n,x,y,k,b,d)
+  implicit none
+  integer :: n,k,i,j
+  real (8) :: x(n),y(n)
+  complex (8) :: b(k),d(k,n),conjb(k),ss(k), s
+  conjb=conjg(b)
+
+  ss=0
+  do i=1,n
+    s=0
+    do j=1,k
+        ss(j) = ss(j)*conjb(j)+conjg(d(j,i))*y(i)
+        s = s+ss(j)
+    end do
+    x(i) = s
+  end do
+
+ end subroutine cholprod2

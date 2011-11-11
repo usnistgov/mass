@@ -1,6 +1,10 @@
 '''
 Approximate a covariance matrix as a sum of exponentials, and factor it.
 
+Classes include:
+* FitExponentialSum - Fit a sum of exponentials to a data vector
+* MultiExponentialCovarianceSolver - Factor and solve such a covariance matrix. 
+
 
 Created on Nov 8, 2011
 
@@ -16,8 +20,12 @@ class MultiExponentialCovarianceSolver(object):
     """
     Solver for a covariance matrix R composed of a short sum of exponentials.
 
-    Factor a time covariance matrix, assuming that the covariance function
-    is a short sum of (possibly complex) exponentials.
+    Cholesky factor a time covariance matrix, assuming that the covariance function
+    is a short sum of (possibly complex) exponentials.  Use this factorization
+    LL' to solve R or to apply L to a vector.  
+    
+    The factorization step requires O(k^2 n) operations.  Once this is done,
+    the solve or Lx multiplication requires only O(kn).
     
     Wraps a few functions written by Brad Alpert in FORTRAN 90.
 
@@ -86,7 +94,45 @@ class MultiExponentialCovarianceSolver(object):
                              "%d samples and cannot solve size %d>%d"%(
                                     self.nsamp, n, self.nsamp))
         return _factor_covariance.covsolv(b, self.cholesky_saved) #@UndefinedVariable
+    
+    def cholesky_product(self, x):
+        """Return Lx where LL'=R (that is, L is the lower-triangular Cholesky
+        factor of R).  This is useful in that if x is iid Gaussian noise of unit
+        variance, then Lx has expected covariance matrix equal to R"""
+        n = len(x)
+        if n > self.nsamp:
+            raise ValueError("The covariance matrix was factored for only "+
+                             "%d samples.  Its Cholesky factor cannot multiply size %d>%d"%(
+                                    self.nsamp, n, self.nsamp))
+        return _factor_covariance.cholprod(x, self.cholesky_saved) #@UndefinedVariable
+        
+    def simulate_noise(self, n):
+        """Return a vector of length <n> containing correlated multivariate Gaussian
+        noise.  The expected covariance of this noise is R."""
+        if n > self.nsamp:
+            raise ValueError("The covariance matrix was factored for only "+
+                             "%d samples.  Its Cholesky factor cannot multiply size %d>%d"%(
+                                    self.nsamp, n, self.nsamp))
+        white = numpy.random.standard_normal(n)
+        return self.cholesky_product(white)
 
+    def plot_covariance(self, nsamp=None, axis=None, **kwargs):
+        """Plot the approximated covariance function for the first <nsamp> samples.
+        Use matplotlib.Axes <axis> or (if None) a new full-figure subplot.
+        All other keyword arguments are passed to pylab.plot"""
+        if nsamp is None:
+            nsamp = self.nsamp
+        elif nsamp > self.nsamp:
+            nsamp = self.nsamp
+        import pylab
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+            
+        i = numpy.arange(nsamp, dtype=numpy.float)
+        covar = numpy.array([a*(b**i) for a,b in zip(self.amplitudes, self.bases)]).sum(axis=0)
+        axis.plot(covar.real, **kwargs)
+        axis.set_xlabel("Samples")
 
 
 class FitExponentialSum(object):
@@ -96,6 +142,15 @@ class FitExponentialSum(object):
     This is a subtle problem, until and unless the exponentials are
     known.  (Once they are known, it's a simple linear least-squares
     problem.)
+    
+    Typical usage when you don't know in advance how many singular values
+    are important:
+    
+    fitter = FitExponentialSum(covariance_data, sval_thresh=None)
+    fitter.plot_singular_values()  
+    # You notice that almost all singular values are < 1e-3 times the highest, so...
+    fitter.cut_svd(sval_thresh=1e-3)
+    .... (INCOMPLETE DESCRIPTION)
     """
     
     def __init__(self, data, nsamp=None, rectangle_aspect=10, sval_thresh=None):

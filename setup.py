@@ -51,5 +51,6 @@ if __name__ == "__main__":
           author='Joe Fowler',
           author_email='joe.fowler@nist.gov',
           description='Microcalorimeter Analysis Software Suite',
-          packages=['mass','mass.core', 'mass.mathstat', 'mass.calibration', 'mass.gui'],
+          packages=['mass','mass.core', 'mass.mathstat', 'mass.calibration', 
+                    'mass.demo', 'mass.gui'],
           configuration=configuration)

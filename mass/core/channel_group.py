@@ -566,9 +566,9 @@ class BaseChannelGroup(object):
             print "Computing filter %d of %d"%(i, self.n_channels)
             avg_signal = ds.average_pulses[i].copy()
             
-            f = mass.channel.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, ds.noise_spectrum.spectrum(),
-                                    ds.noise_autocorr, sample_time=self.timebase,
-                                    fmax=fmax, f_3db=f_3db, shorten=2)
+            f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, ds.noise_spectrum.spectrum(),
+                                 ds.noise_autocorr, sample_time=self.timebase,
+                                 fmax=fmax, f_3db=f_3db, shorten=2)
             self.filters.append(f)
             
 
@@ -594,19 +594,18 @@ class BaseChannelGroup(object):
 
         
     
-    def summarize_filters(self):
+    def summarize_filters(self, filter_name='noconst'):
         rms_fwhm = numpy.sqrt(numpy.log(2)*8) # FWHM is this much times the RMS
         print 'V/dV for time, Fourier filters: '
         for i,f in enumerate(self.filters):
             try:
-                rms = numpy.array((f.variances['noconst'],
-                                   f.variances['fourier'],
-                                   ))**0.5
+                rms = f.variances[filter_name]**0.5
                 v_dv = (1/rms)/rms_fwhm
-                print "[ %6.1f  %6.1f ]"%(v_dv[0],v_dv[1]) , 'Predicted res: [ %6.3f %6.3f ] (eV)'%(5898.8/v_dv[0],5898.8/v_dv[1])
-            except:
+                print "Chan %2d filter %-15s Predicted V/dV %6.1f  Predicted res at 5898.8 eV: %6.1f eV" % (
+                                i, "'%s'"%filter_name, v_dv, 5898.8/v_dv)
+            except Exception, e:
                 print "Filter %d can't be used"%i
-                            
+                print e
             
     
     def filter_data(self, filter_name=None):
@@ -630,6 +629,12 @@ class BaseChannelGroup(object):
                 peak_x, peak_y = dset.filter_data(filt_vector,first, end)
                 dset.p_filt_phase[first:end] = peak_x
                 dset.p_filt_value[first:end] = peak_y
+        
+        # Reset the phase-corrected and drift-corrected values
+        for dset in self.datasets:
+            dset.p_filt_value_phc = dset.p_filt_value.copy()
+            dset.p_filt_value_dc = dset .p_filt_value.copy()
+
             
     def plot_crosstalk(self, xlim=None, ylim=None, use_legend=True):
         pylab.clf()

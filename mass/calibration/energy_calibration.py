@@ -112,9 +112,16 @@ class EnergyCalibration(object):
         """
         
         # If <energy> is a string and a known spectral feature's name, use it as the name instead
+        # Otherwise, it needs to be a numeric type convertable to float.
         if energy in STANDARD_FEATURES:
             name = energy
             energy = STANDARD_FEATURES[name]
+        else:
+            try:
+                energy = float(energy)
+            except ValueError:
+                raise ValueError("2nd argument must be an energy or a known name"+
+                                 " from mass.energy_calibration.STANDARD_FEATURES")
         
         if name in self._names:  # Update an existing point
             if not overwrite:

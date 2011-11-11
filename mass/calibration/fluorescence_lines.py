@@ -289,6 +289,20 @@ class MnKAlphaDistribution(MultiLorentzianDistribution):
         
 
 
+class MnKBetaDistribution(MultiLorentzianDistribution):
+    """For producing random variates of the manganese K Beta energy distribution"""
+    
+    def __init__(self, *args, **kwargs):
+        """"""
+        epoints = numpy.hstack(((0, 3000, 5000, 6000),
+                                numpy.arange(6300, 6439.5),
+                                numpy.arange(6440, 6510.-.025, .05),
+                                numpy.arange(6510, 6701),
+                                (6800, 7000, 7500, 8000, 12000)))*1.0
+        MultiLorentzianDistribution.__init__(self, epoints, distribution = MnKBeta(), *args, **kwargs)
+        
+
+
 class CuKAlphaDistribution(MultiLorentzianDistribution):
     """For producing random variates of the copper K Alpha energy distribution"""
     
