@@ -21,11 +21,18 @@ helptxt = """
 This package (mass.demo) consist of several demonstration scripts.
 To run one as an IPython demo, you say:
 
+# On Joe's Mac:
+
 from IPython.lib.demo import Demo
 massdemo = Demo('%s')
 massdemo()
 massdemo() # Each call to the Demo object moves forward 1 more block in the demo.
            # The basic demo.py has close to a dozen blocks to step through.
+
+# On Linux (at least on Horton 11/14/11):
+from IPython.demo import Demo
+massdemo = Demo('%s')
+massdemo()
 
 The full list of available demos is:
 %s

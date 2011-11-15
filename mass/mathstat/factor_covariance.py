@@ -14,6 +14,8 @@ Created on Nov 8, 2011
 __all__ = ['MultiExponentialCovarianceSolver', 'FitExponentialSum']
 
 import numpy
+import scipy.optimize
+
 from mass.mathstat import _factor_covariance
 
 class MultiExponentialCovarianceSolver(object):
@@ -179,7 +181,13 @@ class FitExponentialSum(object):
         self.nsamp = nsamp
         self.data = numpy.asarray(data, dtype=numpy.float)[:self.nsamp].copy()
         self.svalues = None
+        self.lowest_allowed_sval = 0.0
         self.all_svalues = None
+        self.is_cut = False
+        self.amplitudes = None
+        self.complex_bases = None
+        self.real_bases = None
+        
         self._hankel_svd()
 
         if sval_thresh is not None:
@@ -200,6 +208,7 @@ class FitExponentialSum(object):
         # Note that numpy.linalg.svd returns U, Sigma, and what is usually called V_transpose 
         self.svdu, self.all_svalues, self.svdv_t = \
             numpy.linalg.svd(A[:-1,:], full_matrices=False, compute_uv=True)
+        self.lowest_allowed_sval = 0.0
 
     def cut_svd(self, sval_thresh, min_values=None, max_values=None):
         """Reduce the Hankel matrix to keep only those parts of the SVD
@@ -209,9 +218,20 @@ class FitExponentialSum(object):
         sval_thresh - Keep singular values down to this fractional level times the highest.
         min_values - Keep at least this many singular values.
         max_values - Keep no more than this many singular values.
+        
+        If you have previously cut to a higher (more restrictive) <sval_thresh>, then
+        self._hankel_svd() will be called to repeat construction of the Hankel matrix
+        and to compute its SVD.
         """
+        
+        # If you've already cut the SVD more severely than you want to cut it now, then the
+        # SVD will need to be recomputed.
         min_sval = sval_thresh * self.all_svalues[0]
-        ngood = (self.svalues>=min_sval).sum()
+        if self.is_cut and min_sval < self.lowest_allowed_sval:
+            self._hankel_svd()
+        self.is_cut = True
+
+        ngood = (self.all_svalues>=min_sval).sum()
         
         # Some constraints on how many "good" singular values to use
         if min_values is not None:
@@ -227,9 +247,10 @@ class FitExponentialSum(object):
                 ngood = max_values
         
         # Cut the matrices of the SVD, saving the full list of singular values.
-        self.svalues = self.all_svalues[:ngood]
         self.svdu = self.svdu[:, :ngood]
+        self.svalues = self.all_svalues[:ngood]
         self.svdv_t = self.svdv_t[:ngood, :]
+        self.lowest_allowed_sval = min_sval
         
         # Now estimate the "system matrix" of time translation
         from numpy import dot
@@ -239,8 +260,8 @@ class FitExponentialSum(object):
         
         eigval, _evec = numpy.linalg.eig(self.system)
         self.bases = eigval
-        print 'Bases are: ', eigval
-        print 'Decay times (samples): ', -1./numpy.log(numpy.abs(eigval))
+#        print 'Bases are: ', eigval
+#        print 'Decay times (samples): ', -1./numpy.log(numpy.abs(eigval))
         
     def plot_singular_values(self):
         """Plot the full set of singular values, to help user decide where to cut"""
@@ -248,8 +269,10 @@ class FitExponentialSum(object):
         pylab.clf()
         maxsval = self.all_svalues[0]
         pylab.semilogy(self.all_svalues/maxsval, 'rx-')
-        if self.svalues is not None:
+        if self.is_cut:
             pylab.plot(self.svalues/maxsval, 'ob')
+            m = self.lowest_allowed_sval/maxsval
+            pylab.plot(pylab.xlim(), [m,m], color='gray')
         pylab.grid()
         ymax = 1.1
         ymin = 1e-10
@@ -261,5 +284,101 @@ class FitExponentialSum(object):
         pylab.title("Singular values ranked from highest to lowest")
         pylab.xlim([-0.5, len(self.all_svalues)+0.5])
     
+    def _model(self, weights, real_bases, complex_bases, x):
+        """Compute and return the multi-exponential model at a vector of sample numbers <x>
+        given the array of <weights>, a sequence of <real_bases> and a sequence of
+        <complex_bases>.  The number of weights should be len(real_bases) + 2*len(complex_bases)."""
+        m = numpy.array([w*(b**x) for w,b in zip(weights, real_bases)]).sum(axis=0)
+        nr = len(real_bases)
+        for i,cb in enumerate(complex_bases):
+            amplitude = weights[i*2+nr] + weights[i*2+nr+1]*1j
+            m += (amplitude*(cb**x)).real
+        return m
+ 
+    def model(self, x):
+        """Given that the model is already completely fit..."""
+        return self._model(self.amplitudes, self.real_bases, self.complex_bases, x)
+
+
+    def fit_amplitudes(self, verbose=False):
+        """Solve for the amplitudes of the exponential 'bases' found in self.cut_svd()."""
+        
+        if not self.is_cut:
+            raise ValueError("Cannot fit amplitudes until fitter.cut_svd() is called to compute and cut on singular values.")
     
+        
+        ############################
+        def residual(weights, real_bases, complex_bases, x, y):
+            """Compute and return the residual between a data vector <y> 
+            and the multi-exponential model at a vector of sample numbers <x>.
+            This requires the array of <weights>, a sequence of <real_bases> and a sequence of
+            <complex_bases>.  The number of weights should be len(real_bases) + 2*len(complex_bases)."""
+            return y-self._model(weights,real_bases,complex_bases,x)
+        
+        # Separate real bases from CC pairs.  Sort by base.imag and pair off complex ones that way
+        idx = self.bases.imag.argsort()
+        pairs = []
+        while numpy.abs(self.bases.imag[idx[0]]) > 1./self.nsamp:
+            pairs.append(idx[-1])
+            idx=idx[1:-1]
+        solos=idx
+        real_bases = self.bases[solos].real
+        complex_bases = self.bases[pairs]
+        nr = len(real_bases)
+#        print 'Real bases: ',real_bases
+#        print 'Complex bases: ',complex_bases
     
+        powers = numpy.arange(self.nsamp, dtype=numpy.float)
+        fweights = numpy.ones(len(self.bases), dtype=numpy.float)
+        fweights, _stat =  scipy.optimize.leastsq(residual, fweights, args=(real_bases, complex_bases, powers, self.data))
+        self.amplitudes = fweights
+        self.real_bases = real_bases
+        self.complex_bases = complex_bases
+        if verbose:
+            for w,b in zip(fweights, real_bases):
+                log=numpy.log(b)
+                if numpy.isnan(log):
+                    log = numpy.log(-b)+numpy.pi*1j
+                print " %10.5f*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w,b.real, b.imag, log.real, log.imag)
+            for i,cb in enumerate(complex_bases):
+                log=numpy.log(cb)
+                if numpy.isnan(log):
+                    log = numpy.log(-cb)+numpy.pi*1j
+                w=fweights[2*i+nr:2*i+nr+2]
+                print " %10.5f *[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[0],cb.real, cb.imag, log.real, log.imag)
+                print "+%10.5fj*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[1],cb.real, cb.imag, log.real, log.imag)
+    
+    def plot(self, axis=None, axis2=None):
+        import pylab
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(211)
+            axis2 = pylab.subplot(212, sharex=axis)
+
+        axis.plot(self.data, label='Data')
+        if self.amplitudes is not None:
+            x = numpy.arange(self.nsamp)
+            y = self.model(x)
+            axis.plot(x, y, label='Model')
+            
+            for i,b in enumerate(self.real_bases):
+                axis.plot(x, self._model([self.amplitudes[i]], [b], [], x), '--', label='Component %.4g' % b)
+            for i,c in enumerate(self.complex_bases):
+                j = i*2 + len(self.real_bases)
+                axis.plot(x, self._model(self.amplitudes[j:j+2], [], [c], x), '--', label='Component %.4g %.4gj' % (c.real, c.imag))
+        axis.legend()
+        
+        if axis2 is not None:
+            residual = self.data-self.model(x)
+            axis2.plot(residual)
+            axis2.text(.1, .9, 'rms deviation: %f' % residual.std(), transform=axis2.transAxes)
+    
+    def summary(self, dt=1.0):
+        s=['Summary of exponential sum fit:']
+        for i,b in enumerate(self.real_bases):
+            s.append("%11.4f exp(%10.5f t)  [x = %10.6f  tau = %10.4f]" % (self.amplitudes[i], numpy.log(b)/dt, b, -dt/numpy.log(b)))
+        for i,c in enumerate(self.complex_bases):
+            j = i*2 + len(self.real_bases)
+            s.append("%11.4f exp(%10.5f t) cos(%10.5f t) tau = %10.4f" % (self.amplitudes[j], numpy.log(c.real)/dt, c.imag/dt, -dt/numpy.log(c.real)))
+            s.append("%11.4f exp(%10.5f t) sin(%10.5f t) per = %10.4f" % (-self.amplitudes[j+1], numpy.log(c.real)/dt, c.imag/dt, 2*numpy.pi*dt/c.imag))
+        return "\n".join(s)
