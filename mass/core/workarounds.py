@@ -239,10 +239,14 @@ def workarounds_axes_hist(
         # Save autoscale state for later restoration; turn autoscaling
         # off so we can do it all a single time at the end, instead
         # of having it done by bar or fill and then having to be redone.
-        _saved_autoscalex = self.get_autoscalex_on()
-        _saved_autoscaley = self.get_autoscaley_on()
-        self.set_autoscalex_on(False)
-        self.set_autoscaley_on(False)
+        try:
+            _saved_autoscalex = self.get_autoscalex_on()
+            _saved_autoscaley = self.get_autoscaley_on()
+            self.set_autoscalex_on(False)
+            self.set_autoscaley_on(False)
+	except AttributeError:
+            _saved_autoscale = self.get_autoscale_on()
+	    self.set_autoscale_on(False)
 
         # Save the datalimits for the same reason:
         _saved_bounds = self.dataLim.bounds
@@ -426,9 +430,12 @@ def workarounds_axes_hist(
                 self.update_datalim([(bins[0],0), (bins[-1],0)], updatey=False)
             else:
                 self.update_datalim([(0,bins[0]), (0,bins[-1])], updatex=False)
-
-        self.set_autoscalex_on(_saved_autoscalex)
-        self.set_autoscaley_on(_saved_autoscaley)
+	
+	try:
+            self.set_autoscalex_on(_saved_autoscalex)
+	    self.set_autoscaley_on(_saved_autoscaley)
+	except AttributeError:
+	    self.set_autoscale_on(_saved_autoscale)
         self.autoscale_view()
 
         if nx == 1:

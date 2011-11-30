@@ -18,14 +18,16 @@ o- Choose data cuts.
 o- Compute and apply "optimal filters" of various types.
 o- Win friends and influence people.
 
-As of this writing (October 25, 2011), it is 6775 lines of Python.
-I sometimes consider extensions in C, C++, or Cython for performance
-reasons, but no such extensions have been written nor needed to date.
+As of this writing (November 11, 2011), it is 7384 lines of Python.
+It has a single extension module in FORTRAN90 due to Brad Alpert,
+which runs a compute-intensive calculation very, very fast. I expect
+more extension in  F90, C, C++, and/or Cython for performance
+reasons, but no such extensions have been written to date.
 
-Mass is being developed from a personal project to a system that can
+Mass is being shifted from a personal project to a system that can
 be shared by microcalorimeters users at NIST and elsewhere.  This step
-is new in October 2011, so please be patient!  Let the author know
-what's missing or wrong or useful.
+is new in October-November 2011, so please be patient!  Let the author 
+know what's missing or wrong or useful.
 
 
 DOCUMENTATION

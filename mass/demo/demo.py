@@ -47,6 +47,7 @@ print "generating fake data."
     
 import numpy
 import pylab
+pylab.ion()
 
 sample_time_us=5.12
 n_samples=4096        # samples in each data record
@@ -152,7 +153,6 @@ for i,(color,median,ds) in enumerate(zip(colors, medians, data.datasets)):
     pylab.hist(ds.p_filt_value[good], 200, hist_limits, 
                color=color, histtype='step', label='Channel %d'%i)
     pylab.legend(loc='best')
-    
 # <demo> --- stop ---
 
 # We've seen the histogram, and now it's time to try fitting for the
