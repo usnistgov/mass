@@ -108,6 +108,15 @@ class MultiExponentialCovarianceSolver(object):
                                     self.nsamp, n, self.nsamp))
         return _factor_covariance.cholprod(x, self.cholesky_saved) #@UndefinedVariable
         
+    def covariance_product(self, x):
+        """Return Rx."""
+        n = len(x)
+        if n > self.nsamp:
+            raise ValueError("The covariance matrix was factored for only "+
+                             "%d samples.  It cannot multiply size %d>%d"%(
+                                    self.nsamp, n, self.nsamp))
+        return _factor_covariance.covprod(self.amplitudes, self.bases, x) #@UndefinedVariable
+        
     def simulate_noise(self, n):
         """Return a vector of length <n> containing correlated multivariate Gaussian
         noise.  The expected covariance of this noise is R."""
@@ -233,6 +242,7 @@ class FitExponentialSum(object):
 
         ngood = (self.all_svalues>=min_sval).sum()
         
+        
         # Some constraints on how many "good" singular values to use
         if min_values is not None:
             if min_values > self.nsamp/2:
@@ -245,7 +255,13 @@ class FitExponentialSum(object):
         elif max_values is not None:
             if ngood > max_values:
                 ngood = max_values
-        
+        if ngood<1: 
+            ngood=1
+        print "Using %d singular values exceeding %f" % (ngood, min_sval)
+        if ngood > len(self.svalues):
+            print "Have to recompute Handle SVD"
+            self._hankel_svd()
+
         # Cut the matrices of the SVD, saving the full list of singular values.
         self.svdu = self.svdu[:, :ngood]
         self.svalues = self.all_svalues[:ngood]
@@ -258,6 +274,8 @@ class FitExponentialSum(object):
         gplus = (self.svdv_t.T*(self.svalues**-0.5))
         self.system = dot(dot(fplus, self.hankel2), gplus)
         
+        print 'Solving system of shape ', self.system.shape
+        print '  |system| = %.4g' % numpy.linalg.det(self.system)
         eigval, _evec = numpy.linalg.eig(self.system)
         self.bases = eigval
 #        print 'Bases are: ', eigval
@@ -382,3 +400,4 @@ class FitExponentialSum(object):
             s.append("%11.4f exp(%10.5f t) cos(%10.5f t) tau = %10.4f" % (self.amplitudes[j], numpy.log(c.real)/dt, c.imag/dt, -dt/numpy.log(c.real)))
             s.append("%11.4f exp(%10.5f t) sin(%10.5f t) per = %10.4f" % (-self.amplitudes[j+1], numpy.log(c.real)/dt, c.imag/dt, 2*numpy.pi*dt/c.imag))
         return "\n".join(s)
+
