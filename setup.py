@@ -46,10 +46,10 @@ def configuration(parent_package='',top_path=None):
 
 if __name__ == "__main__":
     from numpy.distutils.core import setup
-    setup(name="mass",
-          version='0.2',
+    setup(version='0.2',
           author='Joe Fowler',
           author_email='joe.fowler@nist.gov',
+          url = 'http://dummy.broken.nist.gov/',
           description='Microcalorimeter Analysis Software Suite',
           packages=['mass','mass.core', 'mass.mathstat', 'mass.calibration', 
                     'mass.demo', 'mass.gui'],
