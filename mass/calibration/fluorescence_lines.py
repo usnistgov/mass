@@ -213,13 +213,13 @@ class GaussianLine(object):
 class Gd97(GaussianLine):
     """The 97 keV line of 153Gd."""
     def __init__(self):
-        super(self.__class__, self).__init__(self, energy=97431.0, fwhm=50.0)
+        super(self.__class__, self).__init__(energy=97431.0, fwhm=50.0)
     
 
 class Gd103(GaussianLine):
     """The 103 keV line of 153Gd."""
     def __init__(self):
-        super(self.__class__, self).__init__(self, energy=103180.0, fwhm=50.0)
+        super(self.__class__, self).__init__(energy=103180.0, fwhm=50.0)
 
 
 class AlKalpha(GaussianLine):
