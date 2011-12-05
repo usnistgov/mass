@@ -47,6 +47,7 @@ print "generating fake data."
     
 import numpy
 import pylab
+wasinteractive = pylab.isinteractive() # So we can go back to initial state later
 pylab.ion()
 
 sample_time_us=5.12
@@ -190,3 +191,6 @@ for median, ds in zip(medians, data.datasets):
 # Bottom is the "real" fit in energy units.  Calibration curve also shown
 channum=0
 data.datasets[channum].fit_MnK_lines()
+
+if not wasinteractive:
+    pylab.ioff()

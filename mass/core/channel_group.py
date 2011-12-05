@@ -229,7 +229,8 @@ class BaseChannelGroup(object):
         
 
 
-    def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None):
+    def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
+                        dataset_numbers=None):
         """Plot a summary of one quantity from the data set, including time series and histograms of
         this quantity.  This method plots all channels in the group, but only one quantity.  If you
         would rather see all quantities for one channel, then use the group's 
@@ -252,7 +253,10 @@ class BaseChannelGroup(object):
                      plot only one out of this many samples.  If None, then plot will be
                      downsampled to 10,000 total points.
                      
-        <log>  Use logarithmic y-axis on the histograms (right panels).
+        <log>              Use logarithmic y-axis on the histograms (right panels).
+        <hist_limits>
+        <dataset_numbers>  A sequence of the datasets [0...n_channels-1] to plot.  If None (the default)
+                           then plot all datasets in numerical order.
         """
         
         plottables = (
@@ -272,8 +276,14 @@ class BaseChannelGroup(object):
             i = quant_names.index(quantity.lower().replace(" ",""))
             plottable = plottables[i]
                 
+        if dataset_numbers is None:
+            datasets = self.datasets
+            dataset_numbers = range(len(datasets))
+        else:
+            datasets = [self.datasets[i] for i in dataset_numbers]
+
         pylab.clf()
-        for i,ds in enumerate(self.datasets):
+        for i,ds in zip(dataset_numbers, datasets):
             print 'TES%2d '%i,
             
             # Convert "uncut" or "cut" to array of all good or all bad data

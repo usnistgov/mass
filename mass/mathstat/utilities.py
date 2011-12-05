@@ -2,7 +2,6 @@
 mass.utilities
 
 Several math utilities, including:
-* Toeplitz matrix solver (useful for computing time-domain optimal filters)
 * A histogram fitter that uses a full maximum likelihood fit.
 * A mouse click capturer for mouse feedback from plots.
 
@@ -29,6 +28,19 @@ __all__ = ['plot_as_stepped_hist', 'MaximumLikelihoodHistogramFitter',
 import numpy
 import scipy.linalg
 
+class MissingLibrary(object):
+    """Class to raise ImportError only after python tries to use the import.
+    Intended for use with shared objects built from Fortran or Cython source."""
+    def __init__(self, libname):
+        self.libname = libname
+        self.error = ImportError( """This copy of Mass could not import the compiled '%s'
+This happens when you run from a source tree, among other possibilities.  You can
+either try using an installed version or do a 'python setup.py build' and copy
+the .so file from build/lib*/mass/mathstat/ to mass/mathstat/  Note that this is 
+a delayed error.  If it is raised, then you know that you needed the library!"""%self.libname)
+    def __getattr__(self, attr):
+        raise self.error
+
 
 def plot_as_stepped_hist(axis, bin_ctrs, data, **kwargs):
     """Plot onto <axis> the histogram <bin_ctrs>,<data> in stepped-histogram format.
@@ -49,20 +61,6 @@ def plot_as_stepped_hist(axis, bin_ctrs, data, **kwargs):
     axis.set_xlim([x[0],x[-1]])
 
 
-
-class CovarianceSolver(object): 
-    """
-    """
-    
-    def __init__(self, covariance):
-        """
-        <covariance>  The noise covariance function, starting at zero lag 
-        """
-        self.covariance = numpy.asarray(covariance, dtype=numpy.float)
-        self.N = len(covariance)
-        raise NotImplementedError("Full Covariance Solver doesn't exist yet.")
-        
-        
 
 class MaximumLikelihoodHistogramFitter(object):
     """

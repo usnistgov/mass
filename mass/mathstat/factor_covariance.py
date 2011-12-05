@@ -16,7 +16,12 @@ __all__ = ['MultiExponentialCovarianceSolver', 'FitExponentialSum']
 import numpy
 import scipy.optimize
 
-from mass.mathstat import _factor_covariance
+try:
+    from mass.mathstat import _factor_covariance
+except ImportError:
+    from mass.mathstat.utilities import MissingLibrary
+    _factor_covariance = MissingLibrary("_factor_covariance.so")
+    
 
 class MultiExponentialCovarianceSolver(object):
     """
