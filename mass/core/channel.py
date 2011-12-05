@@ -437,7 +437,7 @@ class PulseRecords(object):
 
         # Copy up some of the most important attributes
         for attr in ("nSamples","nPresamples","nPulses", "timebase", 
-                     "n_segments", "pulses_per_seg", "timestamp_offset"):
+                     "n_segments", "pulses_per_seg", "segmentsize", "timestamp_offset"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
 
 
@@ -451,9 +451,11 @@ class PulseRecords(object):
 
     
     def set_segment_size(self, seg_size):
+        """Update the underlying file's segment (read chunk) size in bytes."""
         self.datafile.set_segment_size(seg_size)
         self.n_segments = self.datafile.n_segments
         self.pulses_per_seg = self.datafile.pulses_per_seg
+        self.segmentsize = self.datafile.segmentsize
         
     
     def read_segment(self, segment_num):

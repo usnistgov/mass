@@ -141,7 +141,8 @@ class BaseChannelGroup(object):
         that ought to call this!
         """
 
-        print "This data set has (up to) %d records with %d samples apiece."%(self.nPulses, self.nSamples)  
+        print "This data set has (up to) %d records with %d samples apiece."%(
+            self.nPulses, self.nSamples)  
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
@@ -915,10 +916,10 @@ class TESGroup(BaseChannelGroup):
                 pulse, noise = create_pulse_and_noise_records(fname, noisename=nf,
                                                                            noise_only=noise_only,
                                                                            pulse_only=pulse_only)
-            dset = mass.channel.MicrocalDataSet(pulse.__dict__)
             pulse_list.append(pulse)
             if noise is not None:
                 noise_list.append(noise)
+            dset = mass.channel.MicrocalDataSet(pulse.__dict__)
             dset_list.append(dset)
             
             if self.n_segments is None:
@@ -982,10 +983,13 @@ class TESGroup(BaseChannelGroup):
     
     def set_segment_size(self, seg_size):
         self.clear_cache()
-        raise NotImplementedError("ugh!")
-#        for chan, dset in zip(self.channels, self.datasets):
-        
-        
+#        raise NotImplementedError("ugh!")
+        for chan, dset in zip(self.channels, self.datasets):
+            chan.set_segment_size(seg_size)
+        self.n_segments = self.channels[0].n_segments
+        self.pulses_per_seg = self.channels[0].pulses_per_seg
+
+
     def read_segment(self, segnum, use_cache=True):
         """Read segment number <segnum> into memory for each of the
         channels in the group.  Return (first,end) where these are the
@@ -1180,6 +1184,7 @@ class CDMGroup(BaseChannelGroup):
             chan.set_segment_size(seg_length)
         self.n_segments = self.raw_channels[0].n_segments
         self.pulses_per_seg = self.raw_channels[0].pulses_per_seg
+
 
     def read_segment(self, segnum, use_cache=True):
         """

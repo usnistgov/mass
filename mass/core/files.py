@@ -439,7 +439,7 @@ class LANLFile(MicrocalFile):
         if self.gamma_vector_style:
             self.pdata = ROOT.std.vector(int)() # this is how gamma people do it #@UndefinedVariable
         else:
-            self.pdata = ROOT.TH1I() # this is how alpha people do it #@UndefinedVariable
+            self.pdata = ROOT.TH1I() # this is how alpha people do it   #@UndefinedVariable
         self.channel = numpy.zeros(1, dtype=int)
         self.baseline = numpy.zeros(1, dtype=float)
         self.baseline_rms = numpy.zeros(1, dtype=float)
