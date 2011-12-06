@@ -230,7 +230,7 @@ class NoiseRecords(object):
         if n_lags > samples_per_segment:
             n_lags = samples_per_segment
             
-        print 'Will compute continuous autocorrelation for %d lags on %d data'%(n_lags, n_data),
+        print 'Compute continuous autocorr (%d lags on %d data) '%(n_lags, n_data),
         
         def padded_length(n):
             """Return a sensible number in the range [n, 2n] which is not too
@@ -256,7 +256,7 @@ class NoiseRecords(object):
             chunksize=CHUNK_MULTIPLE*n_lags
             padsize = n_lags
             padded_data = numpy.zeros(padded_length(padsize+chunksize), dtype=numpy.float)
-            print '..with chunks of size %d and padsize %d'%(chunksize,padsize)
+            print 'with chunks of %d, padsize %d'%(chunksize,padsize)
             
             ac = numpy.zeros(n_lags, dtype=numpy.float)
             
@@ -273,11 +273,10 @@ class NoiseRecords(object):
                 samples_this_segment = len(data)
                 while data_used+chunksize <= samples_this_segment:
                     padded_data[:chunksize] = data[data_used:data_used+chunksize] - data_mean
-#                    padded_data[:chunksize] -= padded_data[:chunksize].mean()
-                    padded_data[chunksize:] = 0.0
-                    if numpy.abs(padded_data-data_mean).max() > max_excursion:
-                        continue
                     data_used += chunksize
+                    padded_data[chunksize:] = 0.0
+                    if numpy.abs(padded_data).max() > max_excursion:
+                        continue
                     
                     
                     ft = numpy.fft.rfft(padded_data)

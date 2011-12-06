@@ -284,8 +284,10 @@ class BaseChannelGroup(object):
             datasets = [self.datasets[i] for i in dataset_numbers]
 
         pylab.clf()
-        for i,ds in zip(dataset_numbers, datasets):
-            print 'TES%2d '%i,
+        ny_plots = len(datasets)
+        first_dataset = dataset_numbers[0]
+        for i,(channum,ds) in enumerate(zip(dataset_numbers, datasets)):
+            print 'TES%2d '%channum,
             
             # Convert "uncut" or "cut" to array of all good or all bad data
             if isinstance(valid, str):
@@ -325,24 +327,24 @@ class BaseChannelGroup(object):
             vect=eval("ds.%s"%vect)[valid_mask]
             
             if i==0:
-                ax_master=pylab.subplot(self.n_channels, 2, 1+i*2)
+                ax_master=pylab.subplot(ny_plots, 2, 1+i*2)
             else:
-                pylab.subplot(self.n_channels, 2, 1+i*2, sharex=ax_master)
+                pylab.subplot(ny_plots, 2, 1+i*2, sharex=ax_master)
                 
             if len(vect)>0:
                 pylab.plot(hour, vect[::downsample],',', color=color)
             else:
                 pylab.text(.5,.5,'empty', ha='center', va='center', size='large', transform=pylab.gca().transAxes)
             if i==0: pylab.title(label)
-            pylab.ylabel("TES %d"%i)
+            pylab.ylabel("TES %d"%channum)
 
             if i==0:
-                axh_master = pylab.subplot(self.n_channels, 2, 2+i*2)
+                axh_master = pylab.subplot(ny_plots, 2, 2+i*2)
             else:
                 if 'Pretrig Mean'==label:
-                    pylab.subplot(self.n_channels, 2, 2+i*2)
+                    pylab.subplot(ny_plots, 2, 2+i*2)
                 else:
-                    pylab.subplot(self.n_channels, 2, 2+i*2, sharex=axh_master)
+                    pylab.subplot(ny_plots, 2, 2+i*2, sharex=axh_master)
                 
             if limits is None:
                 in_limit = numpy.ones(len(vect), dtype=numpy.bool)
@@ -636,6 +638,8 @@ class BaseChannelGroup(object):
                 end = self.nPulses 
             print "Records %d to %d loaded"%(first,end-1)
             for (filt_group,dset) in zip(self.filters,self.datasets):
+                if filt_group is None:
+                    continue
                 filt_vector = filt_group.__dict__[filter_name]
                 peak_x, peak_y = dset.filter_data(filt_vector,first, end)
                 dset.p_filt_phase[first:end] = peak_x
@@ -899,7 +903,8 @@ class TESGroup(BaseChannelGroup):
     this object offers the same interface as the CDMGroup object
     (which has to be more complex under the hood).
     """
-    def __init__(self, filenames, noise_filenames=None, noise_only=False, pulse_only=False):
+    def __init__(self, filenames, noise_filenames=None, noise_only=False, pulse_only=False,
+                 max_cachesize=None):
         super(self.__class__, self).__init__(filenames, noise_filenames)
         self.noise_only = noise_only
         
@@ -946,6 +951,10 @@ class TESGroup(BaseChannelGroup):
             if ch.timestamp_offset != self.timestamp_offset:
                 self.timestamp_offset = None
                 break
+
+        if max_cachesize is not None:
+            if max_cachesize < self.n_channels * self.channels[0].segmentsize:
+                self.set_segment_size(max_cachesize / self.n_channels)
     
 
     def copy(self):

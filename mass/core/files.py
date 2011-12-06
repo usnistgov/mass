@@ -371,7 +371,7 @@ class LJHFile(MicrocalFile):
         SECONDS_PER_MILLISECOND = 1e-3
         self.datatimes_float = numpy.array(self.data[:, 0], dtype=numpy.double)*SECONDS_PER_4MICROSECOND_TICK
         self.datatimes_float += self.data[:, 1]*SECONDS_PER_MILLISECOND
-        self.datatimes_float += 65536*self.data[:, 2]*SECONDS_PER_MILLISECOND
+        self.datatimes_float += self.data[:, 2]*(SECONDS_PER_MILLISECOND*65536.)
 
         self.data = self.data[:, 3:] # cut out the zeros and the timestamp, which are 3 uint16 words at the start of each pulse
 
