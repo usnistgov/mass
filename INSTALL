@@ -39,7 +39,7 @@ You just need your PYTHONPATH to point to this.  If you use bash, and
 supposing that your NIST software repository lives in ~/trunk, then
 you should add the following to your .bashrc file:
 
-$ export PYTHONPATH=${PYTHONPATH}:~/trunk/python/mass
+$ -
 
 One problem with running a test version of Mass is that the compiled
 extensions do not get built into the "live" tree.  One possible workaround:
@@ -73,6 +73,10 @@ o- matplotlib (a.k.a. pylab)
 o- PyQt4
 o- Qt4
 o- gcc with gfortran
+
+Note from Rob Horansky (uninformed user) 11/18/11 With Macports try: 
+$ sudo port install gcc45
+$ sudo port select gcc mp-gcc45
 
 I am sure that Mass uses certain features of each package that are
 only available starting with certain version numbers.  Unfortunately,
