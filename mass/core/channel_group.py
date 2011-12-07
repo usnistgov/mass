@@ -83,6 +83,8 @@ class BaseChannelGroup(object):
 
     def sample2segnum(self, samplenum):
         """Returns the segment number of sample number <samplenum>."""
+        if samplenum >= self.nPulses:
+            samplenum = self.nPulses-1
         return samplenum/self.pulses_per_seg
 
 
@@ -992,12 +994,13 @@ class TESGroup(BaseChannelGroup):
     
     def set_segment_size(self, seg_size):
         self.clear_cache()
-#        raise NotImplementedError("ugh!")
-        for chan, dset in zip(self.channels, self.datasets):
+        self.n_segments = 0
+        for chan in self.channels:
             chan.set_segment_size(seg_size)
-        self.n_segments = self.channels[0].n_segments
+            self.n_segments = max(self.n_segments, chan.n_segments)
         self.pulses_per_seg = self.channels[0].pulses_per_seg
-
+        for chan in self.channels:
+            assert chan.pulses_per_seg == self.pulses_per_seg
 
     def read_segment(self, segnum, use_cache=True):
         """Read segment number <segnum> into memory for each of the
@@ -1187,12 +1190,15 @@ class CDMGroup(BaseChannelGroup):
         return g
         
 
-    def set_segment_size(self, seg_length):
+    def set_segment_size(self, seg_size):
         self.clear_cache()
+        self.n_segments = 0
         for chan in self.raw_channels:
-            chan.set_segment_size(seg_length)
-        self.n_segments = self.raw_channels[0].n_segments
+            chan.set_segment_size(seg_size)
+            self.n_segments = max(self.n_segments, chan.n_segments)
         self.pulses_per_seg = self.raw_channels[0].pulses_per_seg
+        for chan in self.raw_channels:
+            assert chan.pulses_per_seg == self.pulses_per_seg
 
 
     def read_segment(self, segnum, use_cache=True):

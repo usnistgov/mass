@@ -220,9 +220,11 @@ class NoiseRecords(object):
         axis.set_title("Noise power spectrum for %s"%self.filename)
 
         
-    def _compute_continuous_autocorrelation(self, n_lags=None, n_data=None, max_excursion=9e9):
-        if n_data is None:
-            n_data = self.nSamples*self.nPulses
+    def _compute_continuous_autocorrelation(self, n_lags=None, data_samples=None, 
+                                            max_excursion=9e9):
+        if data_samples is None:
+            data_samples = [0, self.nSamples*self.nPulses]
+        n_data = data_samples[1] - data_samples[0]
             
         samples_per_segment = self.records_per_segment*self.nSamples
         if n_lags is None:
@@ -257,27 +259,33 @@ class NoiseRecords(object):
             padsize = n_lags
             padded_data = numpy.zeros(padded_length(padsize+chunksize), dtype=numpy.float)
             print 'with chunks of %d, padsize %d'%(chunksize,padsize)
+            print data_samples
             
             ac = numpy.zeros(n_lags, dtype=numpy.float)
             
             entries = 0.0
             t0=time.time()
             
-            for _first_pnum, _end_pnum, seg_num, data in self.datafile.iter_segments():
-                data_used=0
+            for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
+                print "Using pulses %d to %d (seg=%3d)"%(first_pnum, end_pnum, seg_num)
+                data_consumed=0
                 data = data.ravel()
-                data_mean = data.mean()
-            
+                samples_this_segment = len(data)
+                if data_samples[0] > self.nSamples*first_pnum:
+                    data_consumed = data_samples[0]-self.nSamples*first_pnum
+                if data_samples[1] < self.nSamples*end_pnum:
+                    samples_this_segment = data_samples[1]-self.nSamples*first_pnum
+                print data_consumed, samples_this_segment, "used, sthisseg", data.shape
+                data_mean = data[data_consumed:samples_this_segment].mean()
+
                 # Notice that the following loop might ignore the last data values, up to as many
                 # as (chunksize-1) values, unless the data are an exact multiple of chunksize.
-                samples_this_segment = len(data)
-                while data_used+chunksize <= samples_this_segment:
-                    padded_data[:chunksize] = data[data_used:data_used+chunksize] - data_mean
-                    data_used += chunksize
+                while data_consumed+chunksize <= samples_this_segment:
+                    padded_data[:chunksize] = data[data_consumed:data_consumed+chunksize] - data_mean
+                    data_consumed += chunksize
                     padded_data[chunksize:] = 0.0
                     if numpy.abs(padded_data).max() > max_excursion:
                         continue
-                    
                     
                     ft = numpy.fft.rfft(padded_data)
                     ft[0] = 0 # this redundantly removes the mean of the data set
@@ -287,12 +295,6 @@ class NoiseRecords(object):
                     entries += 1.0
                     if entries*chunksize > n_data:
                         break
-                    
-                    # A message for the first time through:
-                    if data_used==chunksize and seg_num==0:
-                        dt = time.time()-t0
-                        print 'Analyzed %d samples in %.2f sec'%(data_used, dt)
-                        print '....expect total time %.2f sec'%(dt*n_data/chunksize)
 
             ac /= entries
             ac /= (numpy.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=numpy.float))
@@ -317,13 +319,16 @@ class NoiseRecords(object):
         self.autocorrelation = ac
 
         
-    def compute_autocorrelation(self, n_lags=None, n_data=None, plot=True, max_excursion=9e9):
+    def compute_autocorrelation(self, n_lags=None, data_samples=None, plot=True, max_excursion=9e9):
         """
         Compute the autocorrelation averaged across all "pulses" in the file.
+        <n_lags>
+        <data_samples> If not None, then a range [a,b] to use.
         """
         
         if self.continuous:
-            self._compute_continuous_autocorrelation(n_lags=n_lags, n_data=n_data, max_excursion=max_excursion)
+            self._compute_continuous_autocorrelation(n_lags=n_lags, data_samples=data_samples, 
+                                                     max_excursion=max_excursion)
 
         else:
             if n_lags is not None and n_lags > self.nSamples:
@@ -333,11 +338,20 @@ class NoiseRecords(object):
                 "Use to signal that the computation loop is done" 
                 pass
             
+            if data_samples is None:
+                data_samples = [0, self.nSamples*self.nPulses]
+            n_data = data_samples[1] - data_samples[0]
+
             records_used = samples_used = 0
             ac=numpy.zeros(self.nSamples, dtype=numpy.float)
             try:
                 for first_pnum, end_pnum, _seg_num, intdata in self.datafile.iter_segments():
+                    if end_pnum <= data_samples[0]: continue
+                    if first_pnum >= data_samples[1]: break
                     for i in range(first_pnum, end_pnum):
+                        if i < data_samples[0]: continue
+                        if i >= data_samples[1]: break
+
                         data = 1.0*(intdata[i-first_pnum,:])
                         if data.max() - data.min() > max_excursion: continue
                         data -= data.mean()
