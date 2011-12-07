@@ -439,15 +439,15 @@ class LANLFile(MicrocalFile):
         if self.gamma_vector_style:
             self.pdata = ROOT.std.vector(int)() # this is how gamma people do it #@UndefinedVariable
         else:
-            self.pdata = ROOT.TH1I() # this is how alpha people do it   #@UndefinedVariable
+            self.pdata = ROOT.TH1D() # this is how alpha people do it   #@UndefinedVariable -RDH
         self.channel = numpy.zeros(1, dtype=int)
-        self.baseline = numpy.zeros(1, dtype=float)
-        self.baseline_rms = numpy.zeros(1, dtype=float)
+        self.baseline = numpy.zeros(1, dtype=numpy.double) #RDH
+        self.baseline_rms = numpy.zeros(1, dtype=numpy.double) #RDH
         
-        self.timestamp = numpy.zeros(1, dtype=int)
-        self.pulse_max = numpy.zeros(1, dtype=int)
+        self.timestamp = numpy.zeros(1, dtype=numpy.double) #RDH
+        self.pulse_max = numpy.zeros(1, dtype=numpy.double) #RDH
         self.pulse_max_pos = numpy.zeros(1, dtype=int)
-        self.pulse_integral = numpy.zeros(1, dtype=int)
+        self.pulse_integral = numpy.zeros(1, dtype=numpy.double) #RDH
         self.flag_pileup = numpy.zeros(1, dtype=int)
         
         # pdata is updated when the the GetEntry method to the current trace number is called
@@ -502,7 +502,9 @@ class LANLFile(MicrocalFile):
             self.timestamp_msec_per_step = 1.0e-3
         else:
             # Use "sample_rate" (which is in MHz) and "npts_to_average", which is a decimation ratio
-            self.timebase = find_root_quantity("npts_to_average")*1e-6/find_root_quantity("sample_rate")
+#           self.timebase = find_root_quantity("npts_to_average")*1e-6/find_root_quantity("sample_rate")
+            #RDH - The new alpha data uses "sample_rate" in MHz
+            self.timebase = 1.0/find_root_quantity("sample_rate") #RDH
             self.timestamp_msec_per_step = 1.0
             
         
@@ -551,7 +553,11 @@ class LANLFile(MicrocalFile):
             iterator = self.pdata.begin()
         else:
             iterator = self.pdata.GetArray()
-        pulse = numpy.fromiter(iterator, dtype=numpy.uint16, count=self.nSamples)
+            
+        #convert the double from LANL into an integer for IGOR
+        pulsedouble = numpy.fromiter(iterator, dtype=numpy.double, count=self.nSamples)#RDH
+        
+        pulse = numpy.int16(numpy.round(((pulsedouble + 2.0)/4.0)*2**16)) #RDH
         self.raw_datatimes[trace_num] = self.timestamp[0]*self.timestamp_msec_per_step
         
 #        return pulse,channel[0],timestamp[0],pulse_max[0],pulse_max_pos[0],pulse_integral[0],baseline[0],baseline_rms[0],flag_pileup[0], pdata
@@ -614,11 +620,13 @@ def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=500
     
     print "Attempting to translate '%s' "%rootfile,
     lanl = LANLFile(filename=rootfile, segmentsize=segmentsize, use_noise = use_noise)
+    print "Looking at channel " +str(channum)#RDH
+
     
     if isinstance(excise_endpoints, int):
         excise_endpoints = (excise_endpoints, excise_endpoints)
     if excise_endpoints is not None and excise_endpoints[1] > 0: 
-        excise_endpoints = tuple((excise_endpoints[0], -excise_endpoints[1]))
+        excise_endpoints = tuple((excise_endpoints[0], excise_endpoints[1]))
     
     if ljhfile is None:
         if not rootfile.endswith(".root"):
@@ -661,7 +669,7 @@ Timestamp offset (s): 1304449182.876200
 Digitizer: 1
 Description: CS1450-1 1M ver 1.16
 Master: Yes
-Bits: 14
+Bits: 16
 Effective Bits: 0
 Anti-alias low-pass cutoff frequency (Hz): 0.000
 Timebase: %(timebase).4e
@@ -698,7 +706,7 @@ Discrimination level (%%): 1.000000
     for i in range(lanl.nPulses):
         trace = lanl.read_trace(i)
         if excise_endpoints is not None:
-            trace = trace[excise_endpoints[0]:excise_endpoints[1]]
+            trace = trace[excise_endpoints[0]:len(trace)-excise_endpoints[1]]#RDH accepts 0 as an argument
         if channum is not None and lanl.channel[0] != channum:
             continue
         prefix = struct.pack(prefix_fmt, int(lanl.timestamp[0]))
