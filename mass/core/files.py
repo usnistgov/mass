@@ -127,6 +127,7 @@ class VirtualFile(MicrocalFile):
         self.filename = "virtual file"
         self.n_segments = 1
         self.pulses_per_seg = self.nPulses
+        self.segmentsize = self.pulses_per_seg * self.nSamples * 2
         self.timestamp_offset = 0
         self.timebase = 0.0
         
