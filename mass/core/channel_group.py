@@ -72,8 +72,32 @@ class BaseChannelGroup(object):
             if "chan%2d"%channum in fn: return self.datasets[i]
         print "No filename contains 'chan%2d', so dataset not found"%channum
         return None
-   
+    
+    
+    def pop_dataset(self, dataset_number):
+        """Remove self.datasets[dataset_number] from the channel group.
+        Returns the offending dataset just in case you need it."""
+        if dataset_number >= self.n_channels or dataset_number<0:
+            raise ValueError("Cannnot remove dataset_number=%d, but only [0,%d]%"%
+                             (dataset_number, self.n_channels-1))
+        datasets = list(self.datasets)
+        removed = datasets.pop(dataset_number)
+        self.datasets = tuple(datasets)
+        self.n_channels -= 1
+        return removed
 
+
+    def insert_dataset(self, dataset_number, dataset):
+        """Insert <dataset> into this group of channels at position
+        <dataset_number>, which follows the semantics of list.insert()."""
+        if not isinstance(dataset, mass.core.channel.MicrocalDataSet):
+            raise ValueError("Argument dataset must be a mass.MicrocalDataSet.")
+        datasets = list(self.datasets)
+        datasets.insert(dataset_number, dataset)
+        self.datasets = tuple(datasets)
+        self.n_channels += 1
+
+        
     def clear_cache(self):
         """Invalidate any cached raw data."""
         self._cached_segment = None
