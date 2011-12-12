@@ -148,9 +148,9 @@ class EnergyCalibration(object):
         
     def _update_converters(self):
         """There is now a new data point."""
-        assert(len(self._ph)==len(self._energies))
-        assert(len(self._ph)==self.npts)
-        assert(self.npts>1)
+        assert len(self._ph)==len(self._energies)
+        assert len(self._ph)==self.npts
+        assert self.npts>1
         
         if self.npts > 3:
             self.ph2energy = scipy.interpolate.UnivariateSpline(self._ph, self._energies, k=3, s=self.smooth)
