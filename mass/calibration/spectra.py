@@ -6,10 +6,131 @@ Created on Dec 12, 2011
 @author: fowlerj
 '''
 
-import numpy
+import numpy #@UnusedImport
+import pylab
 import cPickle as pickle
 
-__all__=['SpectrumGroup']
+from mass.mathstat.utilities import plot_as_stepped_hist
+import mass.calibration
+
+__all__ = ['SpectrumGroup']
+
+class RawSpectrum(object):
+    """
+    Object to contain a single detector's voltage spectrum and its calibration
+    to energy units.
+    """
+    
+    def __init__(self, pulses):
+        """
+        <pulses> a sequence of the pulse sizes (volts or similar instrument-referenced quantity).
+                 Will be copied and stored internally as a numpy.ndarray.
+        """
+        self.pulses = numpy.array(pulses, dtype=numpy.float)
+        self.pulses.sort()  # This might not be a good idea?
+        self.energies = self.pulses.copy()
+        self.npulses = len(self.pulses)
+        self.brightest_lines = []
+        self.calibration = mass.calibration.energy_calibration.EnergyCalibration('volts')
+        self.calibration_valid = True
+    
+    
+    def copy(self):
+        rs = RawSpectrum(self.pulses)
+        rs.brightest_lines = self.brightest_lines.copy()
+        return rs
+    
+
+    def max(self): #@ReservedAssignment
+        return self.pulses.max()
+
+
+    def calibrate_brightest_lines(self, line_energies, nbins, vmax, dv_smear,
+                                  min_bin_sep=8, line_names=None):
+        """"""
+        lines = self.find_brightest_lines(nbins, vmax, dv_smear, min_bin_sep=min_bin_sep,
+                                          max_lines=len(line_energies))
+        if line_names is None:
+            line_names = ['line%d'%i for i in range(len(lines))]
+        if len(lines)==0:
+            self.calibration_valid = False
+            return
+        
+        # So far, line_energies and lines are both sorted by peak contents.
+        # But we need to match up these lines by energy order, even if contents happen to be out of order
+        volts = lines[:,1]
+        volts.sort()
+        line_energies = line_energies[:len(volts)]
+        line_energies.sort()
+        
+        for (result, energy, name) in zip(volts, line_energies, line_names):
+            self.calibration.add_cal_point(result, energy, name)
+        self.energies = self.calibration(self.pulses)
+
+        
+    def find_brightest_lines(self, nbins, vmax, dv_smear,
+                             min_bin_sep=8, max_lines=None):
+        
+        if max_lines is None:
+            max_lines = 999999999
+        
+        # Step 1: find lines by histogramming the data and smearing.
+        cont, bins = numpy.histogram(self.pulses, nbins, [0,vmax])
+        bin_ctr = 0.5*(bins[1:]+bins[:-1])
+
+        # Assume 40 counts = 1000 eV and smear by resolution (typically 60 eV FWHM, or 25 eV rms)
+        cont_smear = mass.calibration.fluorescence_lines.smear(cont, fwhm=dv_smear, stepsize=1.0)
+    
+        smallest_peak = 0.02*cont_smear.max()
+        if smallest_peak < 40:
+            smallest_peak = 40.
+    
+        # Find peaks.  First, sort all bins by their contents:
+        c_order = numpy.argsort(cont_smear)[::-1]
+        peak_bins = []
+    
+        for c in c_order:
+            if cont_smear[c] < smallest_peak:
+                break
+            nearby_peak = False
+            for peak in peak_bins:
+                if numpy.abs(c-peak) < min_bin_sep:
+                    nearby_peak = True
+                    break
+            if not nearby_peak:
+                peak_bins.append(c)
+    
+        spectral_line = mass.calibration.GaussianLine()
+        fitter = mass.calibration.GaussianFitter(spectral_line)
+    
+        lines=[]
+        for peak in peak_bins:
+            spectral_line.energy = peak
+            try:
+                result, _covar = fitter.fit(
+                    cont[peak-min_bin_sep:peak+min_bin_sep+1],
+                    bin_ctr[peak-min_bin_sep:peak+min_bin_sep+1],
+                    params=(3.0, bin_ctr[peak], cont[peak], .1),
+                    plot=False)
+                fwhm, centroid, peak, _bg = result
+                area = fwhm/2.35482*numpy.sqrt(2*numpy.pi)*peak
+    
+                lines.append((area, centroid))
+                if len(lines) >= max_lines:
+                    break
+                
+            except RuntimeError, e:
+                print e
+            except ValueError, e:
+                print e
+    
+        if len(lines)==0:
+            return []
+        lines = numpy.array(lines)
+        line_order = lines[:,0].argsort()[::-1]
+        return lines[line_order]
+    
+    
 
 class SpectrumGroup(object):
     '''
@@ -27,6 +148,7 @@ class SpectrumGroup(object):
                         them to be optimally filtered pulse heights).
         '''
         self.raw_spectra = []
+        self.plot_ordering = []
         self.nchan = 0
         self.npulses = 0
         
@@ -35,28 +157,78 @@ class SpectrumGroup(object):
                 self.add_spectrum(sp)
         
     
+    def copy(self):
+        """Return a deep copy of self (useful when code changes)"""
+        sg = SpectrumGroup(self.raw_spectra)
+        sg.plot_ordering = self.plot_ordering
+        return sg
+        
+    
     def add_spectrum(self, sp):
-        "Add <sp> to the list of spectra, where <sp> is an ndarray containing uncalibrated pulse sizes."
+        """Add <sp> to the list of spectra, where <sp> is an ndarray containing uncalibrated pulse sizes
+        or an instance of RawSpectrum."""
+        if not isinstance(sp, RawSpectrum):
+            sp = RawSpectrum(sp)
         self.raw_spectra.append(sp)
+        self.plot_ordering.append(self.nchan)
         self.nchan += 1
-        self.npulses += len(sp)
+        self.npulses += sp.npulses
     
     
     def store(self, filename):
         """Store the complete data state in file named <filename>.
         Use mass.calibration.energy_calibration.load_spectrum_group() to restore."""
-        data = dict(raw_spectra=self.raw_spectra,
-                    nchan = self.nchan,
-                    npulses = self.npulses)
         fp = open(filename, "wb")
-        pickle.dump(data, fp, protocol=2)
+        pickler = pickle.Pickler(fp, protocol=pickle.HIGHEST_PROTOCOL)
+        pickler.dump(self.nchan)
+        for sp in self.raw_spectra:
+            pickler.dump(sp)
         fp.close()
+    
+    
+    def plot_all(self, nbins=2000, binrange=None, yoffset=50, axis=None, color='black', raw=False):
+        if binrange is None:
+            m = max((rs.max() for rs in self.raw_spectra))
+            binrange = [0,m]
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+        
+        bin_centers = numpy.arange(0.5, nbins)*(binrange[1]-binrange[0])/nbins + binrange[0]
+        
+        for i,spect_number in enumerate(self.plot_ordering):
+            rs = self.raw_spectra[spect_number]
+            if raw:
+                cont, _bins = numpy.histogram(rs.pulses, nbins, binrange)
+            else:
+                cont, _bins = numpy.histogram(rs.energies, nbins, binrange)
+            plot_as_stepped_hist(axis, bin_centers, cont+i*yoffset, color=color)
+
+
+    def calibrate_brightest_lines(self, line_energies, nbins, vmax, dv_smear,
+                                  min_bin_sep=8, line_names=None):
+        for rs in self.raw_spectra:
+            rs.calibrate_brightest_lines(line_energies, nbins=nbins, vmax=vmax, dv_smear=dv_smear,
+                                         min_bin_sep = min_bin_sep, line_names=line_names)
 
 
 def load_spectrum_group(filename):
     """Return a SpectrumGroup stored with SpectrumGroup.store(filename)."""
-    group = SpectrumGroup()
     fp = open(filename, "rb")
-    group.__dict__ = pickle.load(fp)
+    up = pickle.Unpickler(fp)
+    group = SpectrumGroup()
+    nchan =  up.load()
+    print "Loading %d channels from %s"%(nchan, filename)
+    while True:
+        try:
+            group.add_spectrum(up.load())
+        except EOFError:
+            break
+    print nchan, group.nchan
     fp.close()
     return group
+
+
+#def match_two_spectra(s1, s2, initial_energies, final_energies):
+#    for i,e in enumerate(initial_energies):
+#        scales = numpy.arange(.95,1.05,.01)
