@@ -112,7 +112,7 @@ class MaximumLikelihoodHistogramFitter(object):
     DONE=4
     
     ## This many steps cause RuntimeError for excessive iterations
-    ITMAX=500  
+    ITMAX=1000  
     
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None, 
                  epsilon=1e-5, TOL=1e-3):
@@ -165,7 +165,7 @@ class MaximumLikelihoodHistogramFitter(object):
         """
         self.mfit = self.nparam = len(params)
         self.params = numpy.array(params)
-        self.ia = numpy.ones(self.nparam, dtype=numpy.bool)
+        self.param_free = numpy.ones(self.nparam, dtype=numpy.bool)
         self.alpha=numpy.zeros((self.nparam,self.nparam), dtype=numpy.float)
         self.covar=numpy.zeros((self.nparam,self.nparam), dtype=numpy.float)
 
@@ -175,7 +175,7 @@ class MaximumLikelihoodHistogramFitter(object):
         Hold parameter number <i> fixed either at value <val> or (by default) at its present 
         value.  Parameter is fixed until method free(i) is called.
         """
-        self.ia[i] = False
+        self.param_free[i] = False
 #        print 'Holding param %d'%i
         if val is not None:
             self.params[i] = val
@@ -185,7 +185,7 @@ class MaximumLikelihoodHistogramFitter(object):
         """
         Release parameter <i> to float in the next fit.  If already free, then no effect.
         """
-        self.ia[i] = True
+        self.param_free[i] = True
 
 
     def __discrete_gradient(self, p, x): 
@@ -223,49 +223,48 @@ class MaximumLikelihoodHistogramFitter(object):
         When self.ITMAX iterations are reached, this method raises a RuntimeError.  
         """
         
-        done = 0
+        no_change_ctr = 0
         alambda = 0.01
-        self.mfit = self.ia.sum()
+        self.mfit = self.param_free.sum()
         self.alpha, beta = self.__mrqcof(self.params)
         
         atry = self.params.copy()
-        ochisq = self.chisq
+        prev_chisq = self.chisq
         for iter_number in range(self.ITMAX):
             temp = numpy.array(self.alpha)
-            if done==self.DONE:
+            if no_change_ctr==self.DONE:
                 alambda = 0.0 # use alambda=0 on last pass
             else:
                 for j in range(self.mfit):
-                    temp[j,j] *= 1.0+alambda
+                    temp[j,j] += alambda*temp[j,j]
         
             try:
-                da = scipy.linalg.solve(temp, beta[self.ia])
-                scipy.linalg.inv(temp, overwrite_a = True)
+                da = scipy.linalg.solve(temp, beta[self.param_free])
             except scipy.linalg.LinAlgError, e:
                 print 'temp (lambda=%f, iteration %d) is singular:'%(alambda,iter_number), temp, beta
                 raise e
 
-            if done==self.DONE:
+            if no_change_ctr==self.DONE:
                 self.covar = numpy.zeros((self.nparam, self.nparam), dtype=numpy.float)
-                self.covar[:self.mfit, :self.mfit] = temp
-                self.__cov_sort_in_place(self.covar)                
-#                self.__cov_sort_in_place(self.alpha)
+                self.covar[:self.mfit, :self.mfit] = scipy.linalg.inv(temp)
+                self.__cov_sort_in_place(self.covar)
                 return self.params, self.covar
             
             # Did the trial succeed?
-            atry[self.ia] = self.params[self.ia] + da
+            atry[self.param_free] = self.params[self.param_free] + da
             
             self.covar, da = self.__mrqcof(atry)
-            if abs(self.chisq-ochisq) < max(self.TOL, self.TOL*self.chisq): done+=1
-            if (self.chisq < ochisq ): # success: we've improved
+            if abs(self.chisq-prev_chisq) < max(self.TOL, self.TOL*self.chisq): 
+                no_change_ctr+=1
+            if (self.chisq < prev_chisq ): # success: we've improved
                 alambda *= 0.1
-                ochisq = self.chisq
+                prev_chisq = self.chisq
                 self.alpha = self.covar.copy()
                 beta = da.copy()
                 self.params = atry.copy()
             else:   # failure.  Increase lambda and return to previous starting point.
                 alambda *= 10
-                self.chisq = ochisq
+                self.chisq = prev_chisq
         
         raise RuntimeError("lev_marq_min.fit too many iterations")
         
@@ -306,7 +305,7 @@ class MaximumLikelihoodHistogramFitter(object):
         k = self.mfit - 1
         for j in range(self.nparam-1, -1, -1):
             if j==k: break
-            if self.ia[j]:
+            if self.param_free[j]:
                 for m in range(self.nparam):
                     C[m,k], C[m,j] = C[m,j], C[m,k]
                     C[k,m], C[j,m] = C[j,m], C[k,m]
