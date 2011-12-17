@@ -311,7 +311,6 @@ class BaseChannelGroup(object):
 
         pylab.clf()
         ny_plots = len(datasets)
-        first_dataset = dataset_numbers[0]
         for i,(channum,ds) in enumerate(zip(dataset_numbers, datasets)):
             print 'TES%2d '%channum,
             

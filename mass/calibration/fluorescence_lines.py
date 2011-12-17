@@ -32,7 +32,7 @@ import pylab
 import scipy.stats, scipy.interpolate, scipy.special
 
 from mass.calibration import energy_calibration
-from mass.mathstat.utilities import MaximumLikelihoodHistogramFitter, plot_as_stepped_hist
+from mass.mathstat import MaximumLikelihoodHistogramFitter, plot_as_stepped_hist
 
 def lorentzian(x, fwhm):
     """Return the value of Lorentzian prob distribution function at <x> (may be a numpy array)
@@ -576,6 +576,8 @@ class GaussianFitter(object):
         self.last_fit_params = None
         ## Fit function samples from last successful fit
         self.last_fit_result = None
+        ## Last chi-square from last successful fit
+        self.last_chisq = None
         
     def guess_starting_params(self, data, binctrs):
         """Guess the best Gaussian line location/width/amplitude/background given the spectrum."""
@@ -633,6 +635,7 @@ class GaussianFitter(object):
         
         self.last_fit_params = fitparams
         self.last_fit_result = fitfunc(fitparams, pulseheights)
+        self.last_chisq = fitter.chisq
         
 #        if iflag not in (1,2,3,4): 
         if iflag not in (0, 2): 

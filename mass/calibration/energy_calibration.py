@@ -49,8 +49,10 @@ class EnergyCalibration(object):
     need to solve for vectors of energy->PH conversions.
     """
     
-    def __init__(self, ph_field):
-        "Create an EnergyCalibration object for pulse-height-related field named <ph_field>."
+    def __init__(self, ph_field, spline=True):
+        """Create an EnergyCalibration object for pulse-height-related field named <ph_field>.
+        <spline>=True uses quadratic for 3 points and approximating splines for 4+ points.
+        <spline>=False uses exact linear interpolation between points."""
         self.ph_field = ph_field
         self.ph2energy = lambda x: x
         self.energy2ph = lambda x: x
@@ -59,6 +61,7 @@ class EnergyCalibration(object):
         self._names = ['null']
         self.npts = 1
         self.smooth = 1.0
+        self.use_spline = spline
         
     def __call__(self, pulse_ht):
         "Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV)."
@@ -73,6 +76,10 @@ class EnergyCalibration(object):
             seq.append("  energy(ph=%7.2f) --> %9.2f eV (%s)" % (pulse_ht, energy, name))
         return "\n".join(seq)
     
+    def set_use_spline(self, spline):
+        self.use_spline = spline
+        self._update_converters()
+    
     def copy(self, new_ph_field=None):
         """Return a deep copy"""
         ecal = EnergyCalibration(self.ph_field)
@@ -80,6 +87,7 @@ class EnergyCalibration(object):
         ecal._names = list(self._names)
         ecal._ph = self._ph.copy()
         ecal._energies = self._energies.copy()
+        ecal.use_spline = self.use_spline
         if new_ph_field is not None:
             ecal.ph_field = new_ph_field
         return ecal
@@ -92,6 +100,12 @@ class EnergyCalibration(object):
         self._energies = numpy.hstack((self._energies[:idx], self._energies[idx+1:]))
         self.npts -= 1
         self._update_converters()
+        
+    def remove_cal_point_prefix(self, prefix):
+        """This removes all cal points whose name starts with <prefix>.  Return number removed."""
+        for name in tuple(self._names):
+            if name.startswith(prefix):
+                self.remove_cal_point_name(name)
         
     def add_cal_point(self, pht, energy, name="", overwrite=True):
         """
@@ -152,7 +166,12 @@ class EnergyCalibration(object):
         assert len(self._ph)==self.npts
         assert self.npts>1
         
-        if self.npts > 3:
+        if (not self.use_spline) and self.npts >= 2:
+            highest_slope = (self._energies[-1]-self._energies[-2])/(self._ph[-1]-self._ph[-2])
+            ph = numpy.hstack((self._ph, [1e6]))
+            energy = numpy.hstack((self._energies, [highest_slope*(ph[-1]-ph[-2])+self._energies[-1]]))
+            self.ph2energy = scipy.interpolate.interp1d(ph, energy, kind='linear', bounds_error = True)
+        elif self.npts > 3:
             self.ph2energy = scipy.interpolate.UnivariateSpline(self._ph, self._energies, k=3, s=self.smooth)
         elif self.npts == 3:
             self.ph2energy = numpy.poly1d(numpy.polyfit(self._ph, self._energies, 2))

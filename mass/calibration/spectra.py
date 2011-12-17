@@ -8,6 +8,7 @@ Created on Dec 12, 2011
 
 import numpy #@UnusedImport
 import pylab
+import scipy.stats, scipy.optimize
 import cPickle as pickle
 
 from mass.mathstat.utilities import plot_as_stepped_hist
@@ -65,6 +66,10 @@ class RawSpectrum(object):
         
         for (result, energy, name) in zip(volts, line_energies, line_names):
             self.calibration.add_cal_point(result, energy, name)
+        self.recompute_energies()
+        
+
+    def recompute_energies(self):
         self.energies = self.calibration(self.pulses)
 
         
@@ -229,6 +234,72 @@ def load_spectrum_group(filename):
     return group
 
 
-#def match_two_spectra(s1, s2, initial_energies, final_energies):
-#    for i,e in enumerate(initial_energies):
-#        scales = numpy.arange(.95,1.05,.01)
+def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=False):
+    """Given two RawSpectrum objects <s1> and <s2>, as well as a "calibration energy" <ex>,
+    Find the calibration voltages to energy ex such that the spectra match best from energy
+    <ex> to <ey>  (ex may be greater or less than ey).  
+    
+    Specifically, find the voltages v1 and v2 such that cal1(v1) = cal2(v2) = ex, and then find
+    the scale factor G such that setting cal1(v1*G) = cal2(v2/G) = ex gives the best improvement
+    in the matching of the spectra from energy in [ex, ey] as measured by the
+    Kolmagorov-Smirnov test for comparing two sampled distributions.  (See scipy.stats.ks_2samp).
+    
+    Returns: the best scale factor G as defined above.  If G>1, it means that spectrum s2 converts
+    a higher voltage to e than s1 does."""
+    
+    if search_range is None:    
+        search_range = [0.92, 1.08]
+    
+    def ks_statistic(scale, s1, s2, ex, ey):
+        c1 = s1.calibration
+        c2 = s2.calibration
+        v1 = c1.energy2ph(ex)
+        v2 = c2.energy2ph(ex)
+        c1.add_cal_point(v1*scale, ex, "tmp")
+        c2.add_cal_point(v2/scale, ex, "tmp")
+        e1 = c1(s1.pulses)
+        e2 = c2(s2.pulses)
+        c1.remove_cal_point_name("tmp")
+        c2.remove_cal_point_name("tmp")
+        emin = min(ex,ey)
+        emax = max(ex,ey)
+        use1 = numpy.logical_and(e1>emin, e1<emax)
+        use2 = numpy.logical_and(e2>emin, e2<emax)
+        if (use1).sum() == 0 or (use2).sum() == 0:
+            return 1.0, v1, v2
+        return scipy.stats.ks_2samp(e1[use1], e2[use2])[0]
+    
+    ex = float(ex)
+    ey = float(ey)
+#    a = ks_statistic(search_range[0], s1, s2, ex, ey)
+#    b = ks_statistic(1.0, s1, s2, ex, ey)
+#    c = ks_statistic(search_range[1], s1, s2, ex, ey)
+#    print 'a,b,c=', a, b, c
+    
+    best_scale, best_ks_stat, _iter, funcalls = \
+        scipy.optimize.brent(ks_statistic, args=(s1, s2, ex, ey), 
+                             brack=search_range, tol=tol, full_output=True)
+    if print_output:
+        print "Brent's method scale=%.6f Best KS-stat %.6f.  %d function calls."%(
+                best_scale, best_ks_stat, funcalls)
+    v1 = s1.calibration.energy2ph(ex)
+    v2 = s2.calibration.energy2ph(ex)
+    return best_scale, v1*best_scale, v2/best_scale
+
+
+def match_two_spectra(s1, s2, initial_energies, min_scale=0.9, max_scale=1.1):
+    c1 = s1.calibration
+    c2 = s2.calibration
+    for cal in (c1,c2):
+        cal.remove_cal_point_prefix("tmp")
+        cal.set_use_spline(False)
+    print c1
+    for i,erange in enumerate(initial_energies):
+        ematch, emax = erange
+        best_scale, v1, v2 = minimize_ks_prob(s1, s2, ematch, emax, tol=1e-4, search_range=[.96,1.04])
+        if best_scale > min_scale and best_scale<max_scale:
+            print "Range %f to %f has best_scale, v1, v2=%f %f %f"%(ematch, emax, best_scale, v1, v2)
+            c1.add_cal_point(v1, ematch, "tmp%d"%i)
+            c2.add_cal_point(v2, ematch, "tmp%d"%i)
+    s1.recompute_energies()
+    s2.recompute_energies()
