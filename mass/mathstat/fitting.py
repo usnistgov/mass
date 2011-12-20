@@ -306,13 +306,15 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         <x>          The histogram bin centers (used in computing model values)
         <nobs>       The histogram bin contents (must be same length as <x>)
         <params>     The theory's vector of parameter starting guesses.  They are [FWHM, centroid,
-                     peak value, (constant) background].
+                     peak value, (constant) background, background slope].  These last two are
+                     optional and will be both set to zero and fixed if not given as input.
         <TOL>       The fractional or absolute tolerance on the minimum "MLE Chi^2".
                     When self.DONE successive iterations fail to improve the MLE Chi^2 by this
                     much (aboslutely or fractionally), then fitting will return successfully.
         """
         self.x = numpy.array(x)
         self.ndat = len(x)
+        self.scaled_x = numpy.arange(self.ndat)*2.0/self.ndat - 1.0
         self.nobs = numpy.array(nobs)
         self.total_obs = self.nobs.sum()
         if len(self.nobs) != self.ndat:
@@ -320,6 +322,16 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
 
         self.mfit = self.nparam = 0
         self.set_parameters(params)
+        if self.nparam<3 or self.nparam>5:
+            raise ValueError("params requires 3 to 5 values")
+        elif self.nparam == 3:
+            self.set_parameters(numpy.hstack((params,[0,0])))
+            self.hold(3, 0.0)
+            self.hold(4, 0.0)
+        elif self.nparam == 4:
+            self.set_parameters(numpy.hstack((params,[0])))
+            self.hold(4, 0.0)
+            
         self.TOL = TOL
         self.chisq = 0.0
 
@@ -337,11 +349,17 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         
         g = (self.x - params[1])/params[0]
         h = numpy.exp(-self.FOUR_LN2*g*g)
-        params[3] = abs(params[3])
         params[2] = abs(params[2])
-        y_model = params[3] + params[2]*h
+        params[3] = abs(params[3])
+        y_model = params[2]*h
+        if params[3] > 0:
+            y_model += params[3]
+        if params[4] != 0:
+            y_model += params[4]*self.scaled_x
+        y_model[y_model<1e-10] = 1e-10
+        
         dy_dp1 = self.EIGHT_LN2 * g*h*params[2]/params[0]
-        dyda = numpy.vstack(( g*dy_dp1, dy_dp1, h, numpy.ones_like(h) ))
+        dyda = numpy.vstack(( g*dy_dp1, dy_dp1, h, numpy.ones_like(h), self.scaled_x ))
         dyda_over_y = dyda/y_model
         nobs = self.nobs
         y_resid = nobs - y_model
