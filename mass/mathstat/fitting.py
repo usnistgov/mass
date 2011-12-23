@@ -77,7 +77,7 @@ class MaximumLikelihoodHistogramFitter(object):
     ITMAX=1000  
     
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None, 
-                 epsilon=1e-5, TOL=1e-3):
+                 epsilon=1e-5, TOL=1e-5):
         """
         Initialize the fitter, making copies of the input data.
         
@@ -124,14 +124,15 @@ class MaximumLikelihoodHistogramFitter(object):
         """
         Set the initial guess at the parameters.  This call will clear
         the "hold state" of any parameters that used to be held.  This
-        call also erases the self.alpha and self.r matrices.
+        call also erases the self.covar matrix and sets the
+        current chisq.
         """
         self.mfit = self.nparam = len(params)
         self.params = numpy.array(params)
         self.param_free = numpy.ones(self.nparam, dtype=numpy.bool)
-        self.alpha=numpy.zeros((self.nparam,self.nparam), dtype=numpy.float)
         self.covar=numpy.zeros((self.nparam,self.nparam), dtype=numpy.float)
-
+        self.chisq=1e99
+        
 
     def hold(self, i, val=None):
         """
@@ -172,7 +173,7 @@ class MaximumLikelihoodHistogramFitter(object):
         return dyda
 
 
-    def fit(self):
+    def fit(self, verbose=False):
         """
         Iterate to reduce the "maximum likelihood chi-squared" of a fit between a histogram 
         of data points self.x, self.nobs and a nonlinear function that depends on the 
@@ -187,49 +188,56 @@ class MaximumLikelihoodHistogramFitter(object):
         """
         
         no_change_ctr = 0
-        alambda = 0.01
+        lambda_coef = 0.01
         self.mfit = self.param_free.sum()
-        self.alpha, beta = self._mrqcof(self.params)
+        alpha, beta = self._mrqcof(self.params)
         
         atry = self.params.copy()
         prev_chisq = self.chisq
-        for iter_number in range(self.ITMAX):
-            temp = numpy.array(self.alpha)
-            if no_change_ctr==self.DONE:
-                alambda = 0.0 # use alambda=0 on last pass
-            else:
-                for j in range(self.mfit):
-                    temp[j,j] += alambda*temp[j,j]
+        for _iter_number in range(self.ITMAX):
+
+            alpha_prime = numpy.array(alpha)
+            for j in range(self.mfit):
+                alpha_prime[j,j] += lambda_coef*alpha_prime[j,j]
         
             try:
-                da = scipy.linalg.solve(temp, beta[self.param_free])
+                da = scipy.linalg.solve(alpha_prime, beta[self.param_free], overwrite_a=True, overwrite_b=False)
             except scipy.linalg.LinAlgError, e:
-                print 'temp (lambda=%f, iteration %d) is singular:'%(alambda,iter_number), temp, beta
+                print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, _iter_number)
+                print self.params
+                print alpha_prime
+                print beta
                 raise e
 
-            if no_change_ctr==self.DONE:
-                self.covar = numpy.zeros((self.nparam, self.nparam), dtype=numpy.float)
-                self.covar[:self.mfit, :self.mfit] = scipy.linalg.inv(temp)
-                self.__cov_sort_in_place(self.covar)
-                return self.params, self.covar
-            
             # Did the trial succeed?
             atry[self.param_free] = self.params[self.param_free] + da
-            
-            self.covar, da = self._mrqcof(atry)
+            trial_alpha, trial_beta = self._mrqcof(atry)
+
             if abs(self.chisq-prev_chisq) < max(self.TOL, self.TOL*self.chisq): 
                 no_change_ctr+=1
             if (self.chisq < prev_chisq ): # success: we've improved
-                alambda *= 0.1
-                prev_chisq = self.chisq
-                self.alpha = self.covar.copy()
-                beta = da.copy()
+                lambda_coef *= 0.1
+                alpha = trial_alpha
+                beta = trial_beta
                 self.params = atry.copy()
+                if verbose:
+                    print "Improved: chisq=%9.4e->%9.4e l=%.1e params=%s..."%(self.chisq, prev_chisq, lambda_coef, self.params[:2])
+                prev_chisq = self.chisq
             else:   # failure.  Increase lambda and return to previous starting point.
-                alambda *= 10
+                lambda_coef *= 10.0
+                if verbose:
+                    print "No imprv: chisq=%9.4e <%9.4e l=%.1e params=%s..."%(self.chisq, prev_chisq, lambda_coef, self.params[:2])
                 self.chisq = prev_chisq
-        
-        raise RuntimeError("lev_marq_min.fit too many iterations")
+
+            # When the chisq hasn't changed in self.DONE iterations, we return with success.
+            # All other exits from this method are exceptions.
+            if no_change_ctr==self.DONE:
+                self.covar = numpy.zeros((self.nparam, self.nparam), dtype=numpy.float)
+                self.covar[:self.mfit, :self.mfit] = scipy.linalg.inv(alpha)
+                self.__cov_sort_in_place(self.covar)
+                return self.params, self.covar
+            
+        raise RuntimeError("MaximumLikelihoodHistogramFitter.fit() reached ITMAX=%d iterations"%self.ITMAX)
         
     
     def _mrqcof(self, params):
@@ -306,8 +314,10 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         <x>          The histogram bin centers (used in computing model values)
         <nobs>       The histogram bin contents (must be same length as <x>)
         <params>     The theory's vector of parameter starting guesses.  They are [FWHM, centroid,
-                     peak value, (constant) background, background slope].  These last two are
+                     peak value, sqrt(constant) background, background slope].  These last two are
                      optional and will be both set to zero and fixed if not given as input.
+                     Note that the constant background is taken to be params[3]**2 to ensure that
+                     it never goes negative.
         <TOL>       The fractional or absolute tolerance on the minimum "MLE Chi^2".
                     When self.DONE successive iterations fail to improve the MLE Chi^2 by this
                     much (aboslutely or fractionally), then fitting will return successfully.
@@ -350,15 +360,16 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         g = (self.x - params[1])/params[0]
         h = numpy.exp(-self.FOUR_LN2*g*g)
         params[2] = abs(params[2])
-        params[3] = abs(params[3])
-        y_model = params[2]*h
-        if params[3] > 0:
-            y_model += params[3]
+
+#        y_model = params[2]*h + params[3]**2
+        y_model = params[2]*h + params[3]
         if params[4] != 0:
             y_model += params[4]*self.scaled_x
+        # Don't let model go to zero, or chisq will diverge there.
         y_model[y_model<1e-10] = 1e-10
         
         dy_dp1 = self.EIGHT_LN2 * g*h*params[2]/params[0]
+#        dyda = numpy.vstack(( g*dy_dp1, dy_dp1, h, 2*params[3]+numpy.zeros_like(h), self.scaled_x ))
         dyda = numpy.vstack(( g*dy_dp1, dy_dp1, h, numpy.ones_like(h), self.scaled_x ))
         dyda_over_y = dyda/y_model
         nobs = self.nobs
