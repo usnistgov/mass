@@ -118,6 +118,7 @@ class MaximumLikelihoodHistogramFitter(object):
             self.theory_gradient = theory_gradient
         self.TOL = TOL
         self.chisq = 0.0
+        self.iterations = 0
 
 
     def set_parameters(self, params):
@@ -156,20 +157,22 @@ class MaximumLikelihoodHistogramFitter(object):
         """
         Estimate the gradient of our minimization function self.theory_function
         with respect to each of the parameters when we don't have an exact expression for it.
-        Use one-sided differences with steps of size self.epsilon away
+        Use 2-sided differences with steps of size self.epsilon away
         from the test point <p> at an array of points <x>.
         
         If you have a way to return the true gradient dy/dp_i | p,x, then you
-        should use that instead as function self.theory_gradient.r
+        should use that instead as function self.theory_gradient.
         """
         nx = len(x)
         np = len(p)
         dyda=numpy.zeros((np, nx), dtype=numpy.float)
-        yp = self.theory_function(p,x)
         for i,dx in enumerate(self.epsilon):
             p2 = p.copy()
             p2[i]+=dx
-            dyda[i,:] = (self.theory_function(p2,x)-yp)/dx
+            tf_plus = self.theory_function(p2,x)
+            p2[i]-=2*dx
+            tf_minus = self.theory_function(p2,x)
+            dyda[i,:] = 0.5*(tf_plus-tf_minus)/dx
         return dyda
 
 
@@ -187,23 +190,23 @@ class MaximumLikelihoodHistogramFitter(object):
         When self.ITMAX iterations are reached, this method raises a RuntimeError.  
         """
         
-        no_change_ctr = 0
+        no_change_counter = 0
         lambda_coef = 0.01
         self.mfit = self.param_free.sum()
         alpha, beta = self._mrqcof(self.params)
         
         atry = self.params.copy()
         prev_chisq = self.chisq
-        for _iter_number in range(self.ITMAX):
+        for iter_number in range(self.ITMAX):
 
             alpha_prime = numpy.array(alpha)
             for j in range(self.mfit):
                 alpha_prime[j,j] += lambda_coef*alpha_prime[j,j]
-        
+       
             try:
-                da = scipy.linalg.solve(alpha_prime, beta[self.param_free], overwrite_a=True, overwrite_b=False)
+                da = scipy.linalg.solve(alpha_prime, beta[self.param_free], overwrite_a=False, overwrite_b=False)
             except scipy.linalg.LinAlgError, e:
-                print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, _iter_number)
+                print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, iter_number)
                 print self.params
                 print alpha_prime
                 print beta
@@ -213,8 +216,21 @@ class MaximumLikelihoodHistogramFitter(object):
             atry[self.param_free] = self.params[self.param_free] + da
             trial_alpha, trial_beta = self._mrqcof(atry)
 
+
             if abs(self.chisq-prev_chisq) < max(self.TOL, self.TOL*self.chisq): 
-                no_change_ctr+=1
+                no_change_counter+=1
+
+                # When the chisq hasn't changed in self.DONE iterations, we return with success.
+                # All other exits from this method are exceptions.
+                if no_change_counter == self.DONE:
+                    self.covar = numpy.zeros((self.nparam, self.nparam), dtype=numpy.float)
+                    self.covar[:self.mfit, :self.mfit] = scipy.linalg.inv(alpha)
+                    self.__cov_sort_in_place(self.covar)
+                    self.iterations = iter_number
+                    return self.params, self.covar
+            else:
+                no_change_counter = 0
+
             if (self.chisq < prev_chisq ): # success: we've improved
                 lambda_coef *= 0.1
                 alpha = trial_alpha
@@ -229,14 +245,6 @@ class MaximumLikelihoodHistogramFitter(object):
                     print "No imprv: chisq=%9.4e <%9.4e l=%.1e params=%s..."%(self.chisq, prev_chisq, lambda_coef, self.params[:2])
                 self.chisq = prev_chisq
 
-            # When the chisq hasn't changed in self.DONE iterations, we return with success.
-            # All other exits from this method are exceptions.
-            if no_change_ctr==self.DONE:
-                self.covar = numpy.zeros((self.nparam, self.nparam), dtype=numpy.float)
-                self.covar[:self.mfit, :self.mfit] = scipy.linalg.inv(alpha)
-                self.__cov_sort_in_place(self.covar)
-                return self.params, self.covar
-            
         raise RuntimeError("MaximumLikelihoodHistogramFitter.fit() reached ITMAX=%d iterations"%self.ITMAX)
         
     
