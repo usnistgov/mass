@@ -299,7 +299,7 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
     User must supply the bin centers, bin contents, an initial guess at the 
     theory parameters.
     
-    To do: we currently include a constant background level.  There's no reason
+    To do: we currently include a constant+linear background level.  There's no reason
     this could not be an Nth order polynomial.
     
     For information on the algorithm and its implementation, see 
@@ -324,7 +324,7 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         """
         self.x = numpy.array(x)
         self.ndat = len(x)
-        self.scaled_x = numpy.arange(self.ndat)*2.0/self.ndat - 1.0
+        self.scaled_x = numpy.arange(0.5, self.ndat)*2.0/self.ndat - 1.0
         self.nobs = numpy.array(nobs)
         self.total_obs = self.nobs.sum()
         if len(self.nobs) != self.ndat:
@@ -344,6 +344,14 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
             
         self.TOL = TOL
         self.chisq = 0.0
+        
+    def theory_function(self, p, x): 
+        g = (x-p[1])/p[0]
+        tf = abs(p[2])*numpy.exp(-self.FOUR_LN2*g*g)+p[3]
+        if p[4] != 0:
+            tf += p[4]*self.scaled_x
+        tf[tf<1e-10] = 1e-10
+        return tf
 
     EIGHT_LN2 = 8*numpy.log(2)
     FOUR_LN2 = 4*numpy.log(2)
@@ -357,11 +365,11 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         # Precompute g = (x-param1)/param0
         # and h = exp(-ln2* g**2)
         
+        nobs = self.nobs
         g = (self.x - params[1])/params[0]
         h = numpy.exp(-self.FOUR_LN2*g*g)
         params[2] = abs(params[2])
 
-#        y_model = params[2]*h + params[3]**2
         y_model = params[2]*h + params[3]
         if params[4] != 0:
             y_model += params[4]*self.scaled_x
@@ -372,7 +380,6 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
 #        dyda = numpy.vstack(( g*dy_dp1, dy_dp1, h, 2*params[3]+numpy.zeros_like(h), self.scaled_x ))
         dyda = numpy.vstack(( g*dy_dp1, dy_dp1, h, numpy.ones_like(h), self.scaled_x ))
         dyda_over_y = dyda/y_model
-        nobs = self.nobs
         y_resid = nobs - y_model
         
         beta = (y_resid*dyda_over_y).sum(axis=1)
