@@ -57,7 +57,7 @@ def voigt(x, x0, hwhm, sigma):
 
     # General Voigt function
     z = (x-x0 + 1j*hwhm)/(sigma * _sqrt2)
-    w = numpy.exp(-z*z) * (1.0-scipy.special.erf(-1j*z))
+    w = scipy.special.wofz(z)
     return (w.real)/(sigma * _sqrt2pi)
 
 
