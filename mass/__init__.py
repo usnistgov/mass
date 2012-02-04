@@ -44,8 +44,6 @@ __all__.extend(calibration.__all__)
 __all__.extend(mathstat.__all__)
 
 
-print """The Microcalorimeter Analysis Software System (MASS) is now imported."""
-
 def reload_all():
     """Mass is constantly under development.  If you want to reload every module in the package
     hierarchy, then do a mass.reload().

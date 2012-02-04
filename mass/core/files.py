@@ -51,9 +51,10 @@ import glob
 
 try:
     import ROOT
-    print 'ROOT was successfully imported into mass.'
+    #print 'ROOT was successfully imported into mass.'
 except ImportError:
-    print 'ROOT was not found.'
+    #print 'ROOT was not found.'
+    pass
 
 
 
