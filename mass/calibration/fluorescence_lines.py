@@ -32,7 +32,7 @@ import pylab
 import scipy.stats, scipy.interpolate, scipy.special
 
 from mass.calibration import energy_calibration
-from mass.mathstat import MaximumLikelihoodHistogramFitter, plot_as_stepped_hist
+from mass.mathstat import MaximumLikelihoodHistogramFitter, plot_as_stepped_hist, voigt
 
 def lorentzian(x, fwhm):
     """Return the value of Lorentzian prob distribution function at <x> (may be a numpy array)
@@ -47,15 +47,19 @@ def lorentzian_cdf(x, fwhm):
 
 class SpectralLine(object):
     """An abstract base class for modeling spectral lines as a sum
-    of Lorentzians.
+    of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
     
     Instantiate one of its subclasses, which will have to define
     self.energies, self.fwhm, self.amplitudes.  Each must be a sequence
     of the same length.
     """
     def __init__(self):
-        """Dummy constructor"""
-        pass
+        """Set up a default Gaussian smearing of 0"""
+        self.gauss_sigma = 0.0
+
+    def set_gauss_fwhm(self, fwhm):
+        """Update the Gaussian smearing to have <fwhm> as the full-width at half-maximum"""
+        self.gauss_sigma = fwhm/(8*numpy.log(2))**0.5
     
     def __call__(self, x):
         """Make the class callable, returning the same value as the self.pdf method."""
@@ -66,7 +70,7 @@ class SpectralLine(object):
         x = numpy.asarray(x, dtype=numpy.float)
         result = numpy.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.amplitudes):
-            result += ampl*lorentzian(x-energy, fwhm)
+            result += ampl*voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gauss_sigma)
         return result
     
     def cdf(self, x):
@@ -75,6 +79,7 @@ class SpectralLine(object):
         result = numpy.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.amplitudes):
             result += ampl*lorentzian_cdf(x-energy, fwhm)
+        raise NotImplementedError("Lines need a Voigt CDF provision!")
         return result
 
 
@@ -173,7 +178,7 @@ class GaussianLine(object):
     """
     
     def __init__(self, energy=10.0, fwhm=1.0):
-        """"""
+        """ """
         ## Line center energy
         self.energy = energy
         ## Full width at half-maximum
@@ -236,7 +241,7 @@ class SiKalpha(GaussianLine):
         energy = energy_calibration.STANDARD_FEATURES['Si Ka']
         super(self.__class__, self).__init__(energy=energy, fwhm=3.0)
 
-    
+
 class MultiLorentzianDistribution(scipy.stats.rv_continuous):
     """For producing random variates of the an energy distribution having the form
     of several Lorentzians summed together."""
@@ -279,7 +284,7 @@ class MnKAlphaDistribution(MultiLorentzianDistribution):
     """For producing random variates of the manganese K Alpha energy distribution"""
     
     def __init__(self, *args, **kwargs):
-        """"""
+        """ """
         epoints = numpy.hstack(((0, 3000, 5000, 5500),
                                 numpy.arange(5800, 5880.5),
                                 numpy.arange(5880, 5920.-.025, .05),
@@ -293,7 +298,7 @@ class MnKBetaDistribution(MultiLorentzianDistribution):
     """For producing random variates of the manganese K Beta energy distribution"""
     
     def __init__(self, *args, **kwargs):
-        """"""
+        """ """
         epoints = numpy.hstack(((0, 3000, 5000, 6000),
                                 numpy.arange(6300, 6439.5),
                                 numpy.arange(6440, 6510.-.025, .05),
@@ -307,7 +312,7 @@ class CuKAlphaDistribution(MultiLorentzianDistribution):
     """For producing random variates of the copper K Alpha energy distribution"""
     
     def __init__(self, *args, **kwargs):
-        """"""
+        """ """
         epoints = numpy.hstack(((0, 3000, 6000, 7000, 7500),
                                 numpy.arange(7800, 8010.5),
                                 numpy.arange(8011, 8060.-.025, .05),
@@ -325,7 +330,7 @@ class MultiLorentzianComplexFitter(object):
     * a self.guess_starting_params method to return fit parameter guesses given a histogram.
     """
     def __init__(self):
-        """"""
+        """ """
         ## Parameters from last successful fit
         self.last_fit_params = None
         ## Fit function samples from last successful fit
@@ -347,10 +352,10 @@ class MultiLorentzianComplexFitter(object):
         E_peak = self.spect.peak_energy
         
         energy = (x-params[1])/abs(params[2]) + E_peak
+        self.spect.set_gauss_fwhm(abs(params[0]))
         spectrum = self.spect(energy)
-        smeared = smear(spectrum, abs(params[0]), stepsize = energy[1]-energy[0])
         nbins = len(x)
-        return smeared * abs(params[3]) + abs(params[4]) + params[5]*numpy.arange(nbins)
+        return spectrum * abs(params[3]) + abs(params[4]) + params[5]*numpy.arange(nbins)
     
 
     
@@ -436,7 +441,7 @@ class MnKAlphaFitter(MultiLorentzianComplexFitter):
     """Fits a Mn K alpha spectrum for energy shift and scale, amplitude, and resolution"""
     
     def __init__(self):
-        """"""
+        """ """
         ## Spectrum function object
         self.spect = MnKAlpha()
         super(self.__class__, self).__init__()
@@ -472,7 +477,7 @@ class MnKBetaFitter(MultiLorentzianComplexFitter):
     """Fits a Mn K beta spectrum for energy shift and scale, amplitude, and resolution"""
     
     def __init__(self):
-        """"""
+        """ """
         ## Spectrum function object
         self.spect = MnKBeta()
         super(self.__class__, self).__init__()
@@ -502,7 +507,7 @@ class CuKAlphaFitter(MultiLorentzianComplexFitter):
     """Fits a Cu K alpha spectrum for energy shift and scale, amplitude, and resolution"""
     
     def __init__(self):
-        """"""
+        """ """
         ## Spectrum function object
         self.spect = CuKAlpha()
         super(self.__class__, self).__init__()
@@ -522,43 +527,6 @@ class CuKAlphaFitter(MultiLorentzianComplexFitter):
     
 
 
-def smear(f, fwhm, stepsize=1.0):
-    """Convolve a sampled function <f> with a Gaussian of the given
-    <fwhm>, where the samples <f> are spaced evenly by <stepsize>.
-    Function is padded at each end by enough samples to cover 5 FWHMs.
-    The padding equals the values of <f> at its two endpoints. """
-    nsamp = len(f)
-    assert nsamp%2 == 0
-    
-    fwhm = numpy.abs(fwhm)
-    padwidth = 5.0*fwhm
-    if padwidth > 100.0:
-        padwidth = 100.0
-    npad = int(padwidth/stepsize+0.5)
-    if npad > nsamp*7: npad = nsamp*7 
-    
-    # Make sure that total FFT size is a power of 2
-    ntotal = nsamp+2*npad
-    for j in range(2, 25):
-        if ntotal <= 2**j:
-            npad = (2**j-nsamp)/2
-            break
-    
-    fpadded = numpy.hstack((f, numpy.zeros(2*npad)))
-    fpadded[nsamp:nsamp+npad] = f[-1]
-    fpadded[nsamp+npad:] = f[0]
-    nfull = len(fpadded)
-    
-    ft = numpy.fft.rfft(fpadded)
-    freq = numpy.fft.fftfreq(nfull, d=stepsize)[:nfull/2+1]
-    freq[-1] = numpy.abs(freq[-1]) # convention is that the f_crit is negative.  Fix it.
-    
-    # Filter the function in Fourier space
-    sigma = fwhm / numpy.sqrt(8*numpy.log(2))
-    sigmaConjugate = 1.0/(2 * numpy.pi * sigma)
-    ft *= numpy.exp(-0.5*(freq/sigmaConjugate)**2)
-    return numpy.fft.irfft(ft)[0:nsamp]
-
 
 class GaussianFitter(object):
     """Abstract base class for objects that can fit a single Gaussian line.
@@ -569,7 +537,7 @@ class GaussianFitter(object):
     """
 
     def __init__(self, spect):
-        """"""
+        """ """
         ## Spectrum function object
         self.spect = spect 
         ## Parameters from last successful fit
