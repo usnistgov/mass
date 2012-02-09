@@ -29,8 +29,8 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
                    sigma in the case of an exact Gaussian distribution.  (A small correction of order 1/N is
                    applied, too, which mostly corrects for bias at modest values of the sample size N.)
     sort_inplace - Permit this function to reorder the data set <x>.  If False (default), then x will be 
-                   copied and the copy will be sorted.  (Note that if <x> is not a numpy.ndarray, then a copy
-                   will be sorted regardless of the value of <sort_inplace>).
+                   copied and the copy will be sorted.  (Note that if <x> is not a numpy.ndarray, an error 
+                   will be raised if <sort_inplace> is True.)
     location     - Whether to return two location estimators in addition to the dispersion estimator.  Default: False.
     
     Returns:
@@ -46,8 +46,10 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     nhalves=int((n+1)/2)  # Number of minimal intervals containing at least half the data 
     nobs=1+int(n/2)       # Number of data values in each minimal interval
 
-    if not sort_inplace or not isinstance(x, numpy.ndarray):
+    if not sort_inplace:
         x = numpy.array(x)
+    elif not isinstance(x, numpy.ndarray):
+        raise ValueError("sort_inplace cannot be True unless the data set x is a numpy.ndarray.")
     x.sort()
 
     range_each_half = x[n-nhalves:n]-x[0:nhalves]

@@ -33,8 +33,6 @@ class Test_Shorth(unittest.TestCase):
         self.assertEqual(r, x[4]-x[1], msg="Did not find shortest half range in length-6 list")
         self.assertEqual(shr_mean, x[1:5].mean(), msg="Did not find shortest half mean in length-6 list")
         self.assertEqual(shr_ctr, 0.5*(x[1]+x[4]), msg="Did not find shortest half center in length-6 list")
-        
-       
 
     def testSortInplace(self):
         """Verify behavior of the sort_inplace argument"""
@@ -42,15 +40,17 @@ class Test_Shorth(unittest.TestCase):
         y = numpy.array(x)
         _ignore = shorth_range(x, sort_inplace=False) 
         _ignore = shorth_range(y, sort_inplace=False) 
-        self.assertEqual(x[0], 7, msg="shorth_range has reordered a list")
-        self.assertEqual(y[0], 7, msg="shorth_range has reordered a ndarray")
+        self.assertEqual(x[0], 7, msg="shorth_range has reordered a list when asked not to.")
+        self.assertEqual(y[0], 7, msg="shorth_range has reordered a ndarray when asked not to.")
+
+        # If sort_inplace=True on a non-array, a Value Error is supposed to be raised.
+        self.assertRaises( ValueError,  shorth_range, x, sort_inplace=True)
 
         _ignore = shorth_range(y, sort_inplace=True) 
-        self.assertEqual(y[0], 1, msg="shorth_range has not sorted a ndarray in place when requested")
-        # Skip these two tests, as interface does not promise what will happen to a non-ndarray
-        # when sort_inplace is True.
-#        _ignore = shorth_range(x, sort_inplace=True) 
-#        self.assertEqual(x[0], 7, msg="shorth_range has reordered a list")
+        self.assertEqual(y[0], 1, 
+             msg="shorth_range has not sorted a ndarray in place when requested to do so.")
+
+
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

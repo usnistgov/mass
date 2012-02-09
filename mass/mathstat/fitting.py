@@ -216,12 +216,11 @@ class MaximumLikelihoodHistogramFitter(object):
             atry[self.param_free] = self.params[self.param_free] + da
             trial_alpha, trial_beta = self._mrqcof(atry)
 
-
+            # When the chisq hasn't changed appreciably in self.DONE iterations, we return with success.
+            # All other exits from this method are exceptions.
             if abs(self.chisq-prev_chisq) < max(self.TOL, self.TOL*self.chisq): 
                 no_change_counter+=1
 
-                # When the chisq hasn't changed in self.DONE iterations, we return with success.
-                # All other exits from this method are exceptions.
                 if no_change_counter == self.DONE:
                     self.covar = numpy.zeros((self.nparam, self.nparam), dtype=numpy.float)
                     self.covar[:self.mfit, :self.mfit] = scipy.linalg.inv(alpha)

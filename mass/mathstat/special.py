@@ -15,7 +15,7 @@ February 3, 2012
 
 __all__=['voigt', 'voigt_approx_fwhm']
 
-import numpy, scipy
+import numpy, scipy.special
 
 _sqrt2 = numpy.sqrt(2.0)
 _sqrt2pi = numpy.sqrt(2.0*numpy.pi)
