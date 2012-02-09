@@ -88,10 +88,10 @@ class TestToeplitzSolver_32(unittest.TestCase):
             big_dif = numpy.abs(x_out-x_in).max()
             self.assertAlmostEqual(0, big_dif, 10, msg='Unit vector trial i=%2d gives x_out=%s'%(i,x_out))
 
-class TestToeplitzSolver_6144(unittest.TestCase):
-    """Test ToeplitzSolver on a 6144x6144 symmetric matrix"""
+class TestToeplitzSolver_3072(unittest.TestCase):
+    """Test ToeplitzSolver on a 3072x3072 symmetric matrix"""
     def setUp(self):
-        self.n = 6144
+        self.n = 3072
         t = numpy.arange(self.n)
         self.autocorr = 1.0+3.2*numpy.exp(-t/100.)
         self.autocorr[0] = 9
@@ -99,7 +99,7 @@ class TestToeplitzSolver_6144(unittest.TestCase):
         self.R = scipy.linalg.toeplitz(self.autocorr)
 
     def test_some_unit_vectors(self):
-        for i in (0,1024,2048,3210,6143):#4096,6000,8191):
+        for i in (0,1024,2048,2500,3072-1):#4096,6000,8191):
             x_in = numpy.zeros(self.n,dtype=numpy.float)
             x_in[i] = 1.0
             y = numpy.dot(self.R, x_in)
