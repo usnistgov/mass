@@ -39,6 +39,9 @@ class RawSpectrum(object):
     def copy(self):
         rs = RawSpectrum(self.pulses)
         rs.brightest_lines = self.brightest_lines.copy()
+        rs.energies = self.energies.copy()
+        rs.calibration = self.calibration.copy()
+        rs.calibration_valid = self.calibration_valid
         return rs
     
 
@@ -172,8 +175,10 @@ class SpectrumGroup(object):
     def add_spectrum(self, sp):
         """Add <sp> to the list of spectra, where <sp> is an ndarray containing uncalibrated pulse sizes
         or an instance of RawSpectrum."""
-        if not isinstance(sp, RawSpectrum):
+        try:
             sp = RawSpectrum(sp)
+        except TypeError:
+            pass
         self.raw_spectra.append(sp)
         self.plot_ordering.append(self.nchan)
         self.nchan += 1
@@ -191,13 +196,15 @@ class SpectrumGroup(object):
         fp.close()
     
     
-    def plot_all(self, nbins=2000, binrange=None, yoffset=50, axis=None, color='black', raw=False):
+    def plot_all(self, nbins=2000, binrange=None, yoffset=50, axis=None, color=None, raw=False):
         if binrange is None:
             m = max((rs.max() for rs in self.raw_spectra))
             binrange = [0,m]
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
+        if color is None:
+            color = pylab.cm.get_cmap('spectral')
         
         bin_centers = numpy.arange(0.5, nbins)*(binrange[1]-binrange[0])/nbins + binrange[0]
         
@@ -207,7 +214,7 @@ class SpectrumGroup(object):
                 cont, _bins = numpy.histogram(rs.pulses, nbins, binrange)
             else:
                 cont, _bins = numpy.histogram(rs.energies, nbins, binrange)
-            plot_as_stepped_hist(axis, bin_centers, cont+i*yoffset, color=color)
+            plot_as_stepped_hist(axis, bin_centers, cont+i*yoffset, color=color(float(i)/self.nchan))
 
 
     def calibrate_brightest_lines(self, line_energies, nbins, vmax, dv_smear,
