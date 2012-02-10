@@ -626,7 +626,7 @@ class GaussianFitter(object):
 
 
 
-def plot_spectrum(spectrumf=MnKAlpha(), 
+def plot_spectrum(spectrum=MnKAlpha(), 
                   resolutions=(2, 3, 4, 5, 6, 7, 8, 10, 12), 
                   energy_range=(5870, 5920), stepsize=0.05):
     """Plot a spectrum at several different resolutions.
@@ -641,24 +641,26 @@ def plot_spectrum(spectrumf=MnKAlpha(),
         resolutions = (2, 3, 4, 5, 6, 7, 8, 10, 12)
     e = numpy.arange(energy_range[0]-2.5*resolutions[-1],
                      energy_range[1]+2.5*resolutions[-1], stepsize)
-    spectrum = spectrumf(e)
-    spectrum /= spectrum.max()
 
     pylab.clf()
     axis = pylab.subplot(111)
-    pylab.plot(e, spectrum, color='black', lw=2, label=' 0 eV')
+    spectrum.set_gauss_fwhm(0.0)
+    yvalue = spectrum(e)
+    yvalue /= yvalue.max()
+    pylab.plot(e, yvalue, color='black', lw=2, label=' 0 eV')
     axis.set_color_cycle(('red', 'orange', '#bbbb00', 'green', 'cyan',
                           'blue', 'indigo', 'purple', 'brown'))
     for res in resolutions:
-        smeared_spectrum = smear(spectrum, res, stepsize = stepsize)
+        spectrum.set_gauss_fwhm(res)
+        smeared_spectrum = spectrum(e)
         smeared_spectrum /= smeared_spectrum.max()
         smeared_spectrum *= (1+res*.01)
         pylab.plot(e, smeared_spectrum, label="%2d eV"%res, lw=2)
         
         # Find the peak, valley, peak
-        if spectrumf.name == 'Manganese K-alpha':
+        if spectrum.name == 'Manganese K-alpha':
             epk2, evalley, epk1 = 5887.70, 5892.0, 5898.801
-        elif spectrumf.name == 'Copper K-alpha':
+        elif spectrum.name == 'Copper K-alpha':
             epk2, evalley, epk1 = 8027.89, 8036.6, 8047.83
             
         p1 = smeared_spectrum[numpy.abs(e-epk1)<2].max()
@@ -671,6 +673,6 @@ def plot_spectrum(spectrumf=MnKAlpha(),
     pylab.ylim([0, 1.13])
     pylab.legend(loc='upper left')
     
-    pylab.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrumf.name)
+    pylab.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrum.name)
     pylab.xlabel("Energy (eV)")
     pylab.ylabel("Intensity (arb.)")
