@@ -632,15 +632,15 @@ class BaseChannelGroup(object):
 
         
     
-    def summarize_filters(self, filter_name='noconst'):
+    def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
         rms_fwhm = numpy.sqrt(numpy.log(2)*8) # FWHM is this much times the RMS
         print 'V/dV for time, Fourier filters: '
         for i,f in enumerate(self.filters):
             try:
                 rms = f.variances[filter_name]**0.5
                 v_dv = (1/rms)/rms_fwhm
-                print "Chan %2d filter %-15s Predicted V/dV %6.1f  Predicted res at 5898.8 eV: %6.1f eV" % (
-                                i, "'%s'"%filter_name, v_dv, 5898.8/v_dv)
+                print "Chan %2d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" % (
+                                i, "'%s'"%filter_name, v_dv, std_energy, std_energy/v_dv)
             except Exception, e:
                 print "Filter %d can't be used"%i
                 print e
