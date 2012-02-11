@@ -188,7 +188,6 @@ def Qscale(x, sort_inplace=False):
         dist.sort()
         return dist[target_k] * prefactor
     
-    
     # Keep track of which candidates on each ROW are still in the running.
     # These limits are of length (n-1) because the lowest row has no upper-triangle elements. 
     # These mean that element A_ij = xj-xi is in the running if and only if  left(i) <= j <= right(i).
@@ -196,7 +195,7 @@ def Qscale(x, sort_inplace=False):
     right = numpy.zeros(n-1, dtype=numpy.int) + (n-1)
     row_bias = x[numpy.arange(n-1)]
     trial_column = numpy.zeros(n-1, dtype=numpy.int)
-    
+
     def choose_trial_val(left, right, x):
         """Choose a trial val as the weighted median of the medians of the remaining candidates in
         each row, where the weights are the number of candidates remaining in each row."""
@@ -230,7 +229,9 @@ def Qscale(x, sort_inplace=False):
 #    dist[dist<0] = 0
 #    print dist
 
-    for _counter in range((n*(n-1))/2):
+    _counter = 0
+    while _counter < 2*n:
+        _counter += 1
         trial_distance, trial_i, trial_j = choose_trial_val(left, right, x)
         per_row_value = trial_distance + row_bias
         
@@ -271,9 +272,10 @@ def Qscale(x, sort_inplace=False):
             trial_column[i] = ia
         candidates_below_trial_dist = trial_column.sum() - ((n-2)*(n-1))/2
         
-#        print 'Iter %3d: %2d candidates below trial distance of %f (ij=%d,%d)'%(_counter, candidates_below_trial_dist, trial_distance, trial_i, trial_j
+#        print 'Iter %3d: %2d cand < tri_dist %f (ij=%d,%d)'%(_counter, candidates_below_trial_dist, trial_distance, trial_i, trial_j
 #                                                                                ), trial_column, trial_column-numpy.arange(n-1)
         if candidates_below_trial_dist == target_k:
+            print "Returning after %d passes"%_counter
             return prefactor * trial_distance
         elif candidates_below_trial_dist > target_k:
             right = trial_column.copy()
