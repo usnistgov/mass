@@ -12,6 +12,12 @@ __all__ = ['shorth_range','high_median', 'Qscale']
 
 import numpy #, scipy.stats
 
+try:
+    from mass.mathstat import _robust
+except ImportError:
+    from mass.mathstat.utilities import MissingLibrary
+    _robust = MissingLibrary("_robust.so")
+    
 
 
 def shorth_range(x, normalize=False, sort_inplace=False, location=False):
