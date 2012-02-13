@@ -117,16 +117,16 @@ def high_median(x, weights=None, return_index=False):
             left_weight += partial_left_weight
             imin = itrial
         else: # j == itrial
+            ri = sort_idx[itrial]
             if return_index:
-                ri = sort_idx[itrial]
                 return x[ri], ri
-            return x[sort_idx[itrial]]
+            return x[ri]
         itrial = (imin+imax)/2
     
+    ri = sort_idx[itrial]
     if return_index:
-        ri = sort_idx[itrial]
         return x[ri], ri
-    return x[sort_idx[itrial]]
+    return x[ri]
 
 
 def Qscale(x, sort_inplace=False):
@@ -200,24 +200,14 @@ def Qscale(x, sort_inplace=False):
         """Choose a trial val as the weighted median of the medians of the remaining candidates in
         each row, where the weights are the number of candidates remaining in each row."""
         
-        w = []
-        rm = []
-        ci = []
 #        print left, right, 'xxxxxx'
-        for i,(l,r) in enumerate(zip(left, right)):
-            if l>r:
-                w.append(0)
-                rm.append(0) 
-                ci.append(0)
-                continue
-            w.append(r+1-l)
-            ctr_index = (l+r)/2
-            if ctr_index >= n:
-                ctr_index = n-1
-            rm.append(x[ctr_index] - x[i])
-            ci.append(ctr_index)
-        weights = numpy.array(w)
-        row_median = numpy.array(rm)
+        weights = right+1-left
+        none_valid = left>right
+        weights[none_valid] = 0
+        ci = (left+right)/2
+        ci[ci>=n] = n-1
+        row_median = x[ci]-x[:n-1]
+                
 
 #        print "Have to choose from", row_median, weights
         trial_val, chosen_row =  high_median(row_median, weights=weights, return_index=True)
@@ -229,9 +219,7 @@ def Qscale(x, sort_inplace=False):
 #    dist[dist<0] = 0
 #    print dist
 
-    _counter = 0
-    while _counter < 2*n:
-        _counter += 1
+    for _counter in xrange(n+10):
         trial_distance, trial_i, trial_j = choose_trial_val(left, right, x)
         per_row_value = trial_distance + row_bias
         
