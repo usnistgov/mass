@@ -3,12 +3,23 @@ mass.mathstat.robust
 
 Functions from the field of robust statistics.
 
+Location estimators:
+(none yet)
+
+Dispersion estimators:
+median_abs_dev - Median absolute deviation from the median.
+shorth_range   - Length of the shortest closed interval containing at least half the data.  
+Qscale         - Normalized Rousseeuw & Croux Q statistic, from the 25%ile of all 2-point distances.
+
+Utility functions:
+high_median    - Weighted median
+
 Created on Feb 9, 2012
 
 @author: fowlerj
 '''
 
-__all__ = ['shorth_range','high_median', 'Qscale']
+__all__ = ['median_abs_dev', 'shorth_range','high_median', 'Qscale']
 
 import numpy #, scipy.stats
 
@@ -17,7 +28,20 @@ try:
 except ImportError:
     from mass.mathstat.utilities import MissingLibrary
     _robust = MissingLibrary("_robust.so")
+
+
+def median_abs_dev(x, normalize=False):
+    """
+    Median absolute deviation (from the median) of data set <x>.
     
+    If normalize is True (default:False), then return MAD/0.675, which scaling makes the statistic
+    consistent with the standard deviation for an asymptotically large sample of Gaussian deviates.
+    """
+    mad = numpy.median(x-numpy.median(x))
+    if normalize:
+        return mad/0.674480  # Half of the normal distribution has abs(x-mu) < 0.674480*sigma
+    return mad
+
 
 
 def shorth_range(x, normalize=False, sort_inplace=False, location=False):
@@ -41,11 +65,14 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     
     Returns:
 
-    shorth range   if <location> evaluates to False, or otherwise the tuple (shorth range, shorth mean, shorth center).
-    In this, shorth mean is the mean of all samples in the closed range [a,b], and shorth center is (a+b)/2.
+    shorth range   if <location> evaluates to False,
+        or otherwise:
+    (shorth range, shorth mean, shorth center)
+    
+    In this, shorth mean is the mean of all samples in the closed range [a,b], and shorth center = (a+b)/2.
     Beware that both of these location estimators have the undesirable property that their asymptotic standard
     deviation improves only as N^(-1/3) rather than the more usual N^(-1/2).  So it is not a very good idea to
-    use them as location estimators.
+    use them as location estimators.  They are really only included here for testing just how useless they are.
     """
     
     n = len(x)            # Number of data values
@@ -102,37 +129,21 @@ def high_median(x, weights=None, return_index=False):
     sort_idx = x.argsort()  # now x[sort_idx] is sorted
     n = len(x)
     if weights is None:
-        weights = numpy.ones(n)
+        weights = numpy.ones(n, dtype=numpy.float)
     else:
-        weights = numpy.asarray(weights)
-    total_weight = weights.sum()
-    
-    imin, imax = 0, n  # The possible range of j will always be the half-open interval [imin,imax)
-    left_weight = right_weight = 0 # Total weight in (...,imin) and in [imax,...)
-    itrial = n/2
-    while imax-imin > 1:
-        partial_left_weight = weights[sort_idx[imin:itrial]].sum() # from [imin,itrial)
-        partial_right_weight = weights[sort_idx[itrial+1:imax]].sum()  # from (itrial,imax)
-#        trial_weight = weights[sort_idx][itrial]
-#        print "(%d, %d, %d) weights [%d, %d <%d> %d, %d]"%(imin, itrial, imax, left_weight, partial_left_weight, trial_weight, partial_right_weight, right_weight)
+        weights = numpy.asarray(weights, dtype=numpy.float)
+
+    # If possible, use the Cython version _robust._high_median, though it only speeds up
+    # by 15 to 20%.
+    try:
+        ri = _robust._high_median(sort_idx, weights, n)
+    except ImportError:
+        ri = _high_median_python_subroutine(sort_idx, weights, n)
         
-        if left_weight + partial_left_weight > 0.5*total_weight: # j < itrial
-            right_weight += partial_right_weight
-            imax = itrial
-        elif right_weight + partial_right_weight >= 0.5*total_weight: # j > itrial
-            left_weight += partial_left_weight
-            imin = itrial
-        else: # j == itrial
-            ri = sort_idx[itrial]
-            if return_index:
-                return x[ri], ri
-            return x[ri]
-        itrial = (imin+imax)/2
-    
-    ri = sort_idx[itrial]
     if return_index:
         return x[ri], ri
     return x[ri]
+
 
 
 def Qscale(x, sort_inplace=False):
@@ -194,6 +205,63 @@ def Qscale(x, sort_inplace=False):
         dist.sort()
         return dist[target_k] * prefactor
     
+    try:
+        q, npasses = _robust._Qscale_subroutine(x, n, target_k)
+    except ImportError:
+        q, npasses = _Qscale_subroutine_python(x, n, target_k)
+        
+    if npasses > n:
+        raise RuntimeError("Qscale tried %d distances, which is too many"%npasses)
+    return q * prefactor
+
+####################################################################################
+# Code below here is the Python equivalent of the much faster routines in the
+# Cython file robust.pyx, and they are used only if Cython can't be built.
+####################################################################################
+
+
+def _high_median_python_subroutine(sort_idx, weights, n):
+    """Compute the weighted high median of data set with weights <weights>.
+    Instead of sending the data set x, send the order statistics <sort_idx> over
+    the data.
+    
+    USED ONLY if Cython fails to import _robust.so
+    
+    It returns the smallest j such that the sum of all weights for data
+    with x[i] <= x[j] is strictly greater than half the total weight.
+    """
+    total_weight = weights.sum()
+    
+    imin, imax = 0, n  # The possible range of j will always be the half-open interval [imin,imax)
+    left_weight = right_weight = 0 # Total weight in (...,imin) and in [imax,...)
+    itrial = n/2
+    while imax-imin > 1:
+        partial_left_weight = weights[sort_idx[imin:itrial]].sum() # from [imin,itrial)
+        partial_right_weight = weights[sort_idx[itrial+1:imax]].sum()  # from (itrial,imax)
+        
+        if left_weight + partial_left_weight > 0.5*total_weight: # j < itrial
+            right_weight += partial_right_weight
+            imax = itrial
+        elif right_weight + partial_right_weight >= 0.5*total_weight: # j > itrial
+            left_weight += partial_left_weight
+            imin = itrial
+        else: # j == itrial
+            return sort_idx[itrial]
+        itrial = (imin+imax)/2
+    
+    return sort_idx[itrial]
+
+
+def _Qscale_subroutine_python(x, n, target_k):
+    """This subroutine does most of the computation in Qscale(), and it should not normally
+    be used.  Instead, the Cython routine _robust.Qscale_subroutine is preferred (it runs some
+    12x faster).  This is here, though, for non-Cython installations to use."""
+
+    # Now down to business finding the 25%ile of |xi - xj| for i<j (or equivalently, for i != j)
+    # Imagine the upper triangle of the matrix Aij = xj - xi (upper means j>i).
+    # If the set is sorted such that xi <= x(i+1) for any i, then the upper triangle of Aij contains
+    # exactly those distances from which we need the k=n/4 order statistic.
+    
     # Keep track of which candidates on each ROW are still in the running.
     # These limits are of length (n-1) because the lowest row has no upper-triangle elements. 
     # These mean that element A_ij = xj-xi is in the running if and only if  left(i) <= j <= right(i).
@@ -205,8 +273,6 @@ def Qscale(x, sort_inplace=False):
     def choose_trial_val(left, right, x):
         """Choose a trial val as the weighted median of the medians of the remaining candidates in
         each row, where the weights are the number of candidates remaining in each row."""
-        
-#        print left, right, 'xxxxxx'
         weights = right+1-left
         none_valid = left>right
         weights[none_valid] = 0
@@ -214,18 +280,11 @@ def Qscale(x, sort_inplace=False):
         ci[ci>=n] = n-1
         row_median = x[ci]-x[:n-1]
                 
-
-#        print "Have to choose from", row_median, weights
         trial_val, chosen_row =  high_median(row_median, weights=weights, return_index=True)
         chosen_col = ci[chosen_row]
         return trial_val, chosen_row, chosen_col
 
-#    print "Data: ", x
-#    dist = numpy.array([x-x[j] for j in range(n)])
-#    dist[dist<0] = 0
-#    print dist
-
-    for _counter in xrange(n+10):
+    for counter in xrange(n+10):
         trial_distance, trial_i, trial_j = choose_trial_val(left, right, x)
         per_row_value = trial_distance + row_bias
         
@@ -266,15 +325,15 @@ def Qscale(x, sort_inplace=False):
             trial_column[i] = ia
         candidates_below_trial_dist = trial_column.sum() - ((n-2)*(n-1))/2
         
-#        print 'Iter %3d: %2d cand < tri_dist %f (ij=%d,%d)'%(_counter, candidates_below_trial_dist, trial_distance, trial_i, trial_j
-#                                                                                ), trial_column, trial_column-numpy.arange(n-1)
         if candidates_below_trial_dist == target_k:
-            print "Returning after %d passes"%_counter
-            return prefactor * trial_distance
+            print "Returning after %d passes"%counter
+            return trial_distance, counter
         elif candidates_below_trial_dist > target_k:
             right = trial_column.copy()
             right[right>=n] = n-1
         else:
             left = trial_column+1
             left[trial_i] += 1
-    raise RuntimeError("Qscale tried %d distances, which is too many"%_counter)
+    raise RuntimeError("Qscale tried %d distances, which is too many"%counter)
+
+
