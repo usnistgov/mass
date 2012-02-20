@@ -245,11 +245,13 @@ class Filter(object):
         except AttributeError: pass
 
 
-    def report(self, filters=None):
+    def report(self, filters=None, std_energy=5898.8):
         """Report on V/dV for all filters
         
         <filters>   Either the name of one filter or a sequence of names.  If not given, then all filters
-                    not starting with "baseline" will be reported
+                    not starting with "baseline" will be reported.
+        <std_energy> Energy (in eV) of a "standard" pulse.  Resolution will be given in eV at this energy,
+                    assuming linear devices.
         """
         
         # Handle <filters> is a single string --> convert to tuple of 1 string

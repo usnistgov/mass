@@ -1364,7 +1364,7 @@ class CDMGroup(BaseChannelGroup):
         # Compute spectra    
         for nc,ds in zip(self.noise_channels_demod, self.datasets):
             print "Computing demodulated noise autocorrelation for %s"%ds
-            nc.compute_autocorrelation(n_lags=self.nSamples, n_data=self.nSamples*nrec, plot=False)
+            nc.compute_autocorrelation(n_lags=self.nSamples, plot=False)
             print "Computing demodulated power spectrum for %s"%ds
             nc.compute_power_spectrum(plot=False)
             ds.noise_spectrum = nc.spectrum

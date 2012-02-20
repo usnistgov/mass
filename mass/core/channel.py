@@ -102,6 +102,7 @@ class NoiseRecords(object):
                 self.segment_pulses = self.parent.nPulses
             def iter_segments(self, first=0, end=-1):
                 i=first
+                if end<0: end=first
                 while True:
                     yield 0, self.parent.nPulses, 0, self.parent.data
                     if i==end:
@@ -266,8 +267,8 @@ class NoiseRecords(object):
             entries = 0.0
             t0=time.time()
             
-            for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
-                print "Using pulses %d to %d (seg=%3d)"%(first_pnum, end_pnum, seg_num)
+            for first_pnum, end_pnum, _seg_num, data in self.datafile.iter_segments():
+#                print "Using pulses %d to %d (seg=%3d)"%(first_pnum, end_pnum, seg_num)
                 data_consumed=0
                 data = data.ravel()
                 samples_this_segment = len(data)
@@ -275,7 +276,7 @@ class NoiseRecords(object):
                     data_consumed = data_samples[0]-self.nSamples*first_pnum
                 if data_samples[1] < self.nSamples*end_pnum:
                     samples_this_segment = data_samples[1]-self.nSamples*first_pnum
-                print data_consumed, samples_this_segment, "used, sthisseg", data.shape
+#                print data_consumed, samples_this_segment, "used, sthisseg", data.shape
                 data_mean = data[data_consumed:samples_this_segment].mean()
 
                 # Notice that the following loop might ignore the last data values, up to as many
