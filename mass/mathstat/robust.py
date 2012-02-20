@@ -37,7 +37,7 @@ def median_abs_dev(x, normalize=False):
     If normalize is True (default:False), then return MAD/0.675, which scaling makes the statistic
     consistent with the standard deviation for an asymptotically large sample of Gaussian deviates.
     """
-    mad = numpy.median(x-numpy.median(x))
+    mad = numpy.median(numpy.abs(numpy.asarray(x)-numpy.median(x)))
     if normalize:
         return mad/0.674480  # Half of the normal distribution has abs(x-mu) < 0.674480*sigma
     return mad
