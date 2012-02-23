@@ -32,7 +32,9 @@ import pylab
 import scipy.stats, scipy.interpolate, scipy.special
 
 from mass.calibration import energy_calibration
-from mass.mathstat import MaximumLikelihoodHistogramFitter, plot_as_stepped_hist, voigt
+from mass.mathstat import MaximumLikelihoodHistogramFitter, \
+    MaximumLikelihoodGaussianFitter, plot_as_stepped_hist, voigt #@UnresolvedImport
+
 
 def lorentzian(x, fwhm):
     """Return the value of Lorentzian prob distribution function at <x> (may be a numpy array)
@@ -590,9 +592,8 @@ class GaussianFitter(object):
             return spectrum * abs(params[2]) + abs(params[3])
         
         # Joe's new max-likelihood fitter
-        epsilon = numpy.array((1e-3, params[1]/1e5, params[2]/1e5, params[3]/1e2))
-        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
-                                                                 fitfunc, TOL=1e-4, epsilon=epsilon)
+        fitter = MaximumLikelihoodGaussianFitter(pulseheights, data, params, 
+                                                 TOL=1e-4)
         if hold is not None:
             for hnum in hold: 
                 fitter.hold(hnum)

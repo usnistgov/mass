@@ -12,7 +12,7 @@ import scipy.linalg
 import scipy.optimize
 import pylab
 import os.path
-import time
+#import time
 
 try:
     import cPickle as pickle
@@ -251,7 +251,7 @@ class NoiseRecords(object):
             ac = numpy.zeros(n_lags, dtype=numpy.float)
             
             entries = 0.0
-            t0=time.time()
+#            t0=time.time()
             
             for first_pnum, end_pnum, _seg_num, data in self.datafile.iter_segments():
 #                print "Using pulses %d to %d (seg=%3d)"%(first_pnum, end_pnum, seg_num)

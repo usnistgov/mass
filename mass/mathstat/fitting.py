@@ -207,9 +207,9 @@ class MaximumLikelihoodHistogramFitter(object):
                 da = scipy.linalg.solve(alpha_prime, beta[self.param_free], overwrite_a=False, overwrite_b=False)
             except scipy.linalg.LinAlgError, e:
                 print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, iter_number)
-                print self.params
-                print alpha_prime
-                print beta
+                print 'Params: ',self.params
+                print 'Alpha-prime: ',alpha_prime
+                print 'Bete: ', beta
                 raise e
 
             # Did the trial succeed?
