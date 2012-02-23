@@ -6,7 +6,7 @@ Created on Dec 12, 2011
 @author: fowlerj
 '''
 
-import numpy #@UnusedImport
+import numpy
 import pylab
 import scipy.stats, scipy.optimize
 import cPickle as pickle

@@ -78,6 +78,16 @@ class PowerSpectrum(object):
         self.dt = dt
         if dt is None:
             self.dt = 1.0
+    
+    def copy(self):
+        """Return a copy of the object.
+        
+        Handy when coding and you don't want to recompute everything, but
+        you do want to update the method definitions."""
+        c = PowerSpectrum(self.m, dt=self.dt)
+        c.__dict__.update(self.__dict__)
+        return c
+        
 
     def addDataSegment(self, data, window=None):
         """Process a data segment of length 2m using the window function

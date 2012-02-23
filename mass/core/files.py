@@ -113,6 +113,11 @@ class MicrocalFile(object):
 #            end_pnum = self.datatimes.shape[0] + first_pnum
             yield first_pnum, end_pnum, segnum, data
 
+    def clear_cache(self):
+        self.data = None
+        self.__cached_segment = None
+
+
 
 
 class VirtualFile(MicrocalFile):
@@ -139,8 +144,6 @@ class VirtualFile(MicrocalFile):
             
         if presamples is None:
             self.nPresamples = 0
-        
-            
     
     def copy(self):
         """Return a copy of the object.  Handy for updating method definitions."""
@@ -179,7 +182,6 @@ class LJHFile(MicrocalFile):
         """
         super(LJHFile, self).__init__()
         self.filename = filename
-        self.__cached_segment = None
         self.header_lines = []
         self.sample_usec = None
         self.timestamp_offset = 0.0
@@ -190,9 +192,9 @@ class LJHFile(MicrocalFile):
         self.header_size = 0
         self.pulse_size_bytes = 0
         self.data = None
+        self.__cached_segment = None
         self.__read_header(filename)
         self.set_segment_size(segmentsize)
-
 
     def copy(self):
         """Return a copy of the object.
@@ -200,6 +202,7 @@ class LJHFile(MicrocalFile):
         Handy when coding and you don't want to read the whole data set back in, but
         you do want to update the method definitions.
         """
+        self.clear_cache()
         c = LJHFile(self.filename, self.segmentsize)
         c.__dict__.update( self.__dict__ )
         c.__cached_segment = None
@@ -479,6 +482,7 @@ class LANLFile(MicrocalFile):
         
         Handy when coding and you don't want to read the whole data set back in, but
         you do want to update the method definitions."""
+        self.clear_cache()
         c = LANLFile(self.filename, self.segmentsize)
         c.__dict__.update( self.__dict__ )
         c.__cached_segment = None

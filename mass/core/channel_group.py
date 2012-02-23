@@ -102,7 +102,9 @@ class BaseChannelGroup(object):
         """Invalidate any cached raw data."""
         self._cached_segment = None
         self._cached_pnum_range = None
+        for rc in self.raw_channels: rc.data=None
         for ds in self.datasets: ds.data=None
+        for nc in self.noise_channels: nc.datafile.clear_cache()
  
 
     def sample2segnum(self, samplenum):
@@ -909,15 +911,28 @@ class BaseChannelGroup(object):
         pylab.legend(loc='upper right')
         
         
-    def pickle(self, filename=None):
-        """This does NOT WORK yet"""
-        if filename is None:
-            pass
+    def pickle(self, filename):
+        """This might or not work yet...."""
         self.clear_cache()
         fp = open(filename, "wb")
-        cPickle.dump(self, fp, protocol=cPickle.HIGHEST_PROTOCOL)
+        try:
+            cPickle.dump(self, fp, protocol=cPickle.HIGHEST_PROTOCOL)
+        except cPickle.PicklingError:
+            fp.close()
+            fp = open(filename, "wb")
+            cPickle.dump(self.copy(), fp, protocol=cPickle.HIGHEST_PROTOCOL)
         fp.close()
-    
+
+        
+    @classmethod
+    def unpickle(cls, filename):
+        """This might or not work yet...."""
+        fp = open(filename, "rb")
+        obj = cPickle.load(fp)
+        fp.close()
+        return obj
+
+
 
 
 class TESGroup(BaseChannelGroup):
@@ -983,6 +998,7 @@ class TESGroup(BaseChannelGroup):
     
 
     def copy(self):
+        self.clear_cache()
         g = TESGroup([])
         g.__dict__.update(self.__dict__)
         g.channels = tuple([c.copy() for c in self.channels])
@@ -1203,11 +1219,13 @@ class CDMGroup(BaseChannelGroup):
         
 
     def copy(self):
+        self.clear_cache()
         g = CDMGroup(self.filenames, self.noise_filenames,
                      demodulation=self.demodulation, noise_only=self.noise_only)
         g.__dict__.update(self.__dict__)
         g.raw_channels = tuple([c.copy() for c in self.raw_channels])
         g.noise_channels = tuple([c.copy() for c in self.noise_channels])
+        g.noise_channels_demod = tuple([c.copy() for c in self.noise_channels_demod])
         g.datasets = tuple([c.copy() for c in self.datasets])
 #        g.filters = tuple([f.copy() for f in self.filters])
         return g

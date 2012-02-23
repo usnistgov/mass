@@ -95,21 +95,7 @@ class NoiseRecords(object):
 
     def set_fake_data(self):
         """Use when this does not correspond to a real datafile (e.g., CDM data)"""
-        class DummyDatafile(object):
-            def __init__(self, parent): 
-                self.parent=parent
-                self.nPulses = self.parent.nPulses
-                self.segment_pulses = self.parent.nPulses
-            def iter_segments(self, first=0, end=-1):
-                i=first
-                if end<0: end=first
-                while True:
-                    yield 0, self.parent.nPulses, 0, self.parent.data
-                    if i==end:
-                        break
-                    i += 1
-                
-        self.datafile = DummyDatafile(self)
+        self.datafile = mass.VirtualFile(numpy.zeros((0,0)))
         
 
     def copy(self):
@@ -659,6 +645,12 @@ class Cuts(object):
     
     def __str__(self):
         return ("Cuts(%d) with %d cut and %d uncut"%(len(self._mask), self.nCut(), self.nUncut()))
+    
+    def copy(self):
+        c = Cuts(len(self._mask))
+        c._mask = self._mask.copy()
+        return c
+        
 
 
 
@@ -751,6 +743,8 @@ class MicrocalDataSet(object):
         c.__dict__.update( self.__dict__ )
         for k in self.calibration.keys():
             c.calibration[k] = self.calibration[k].copy()
+        c.cuts = self.cuts.copy()
+        c.noise_spectrum = self.noise_spectrum.copy()
         return c
 
     

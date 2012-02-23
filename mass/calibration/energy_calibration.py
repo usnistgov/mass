@@ -58,9 +58,10 @@ class EnergyCalibration(object):
         self.energy2ph = lambda x: x
         self._ph = numpy.zeros(1, dtype=numpy.float)
         self._energies = numpy.zeros(1, dtype=numpy.float)
+        self._stddev = numpy.zeros(1, dtype=numpy.float)
         self._names = ['null']
         self.npts = 1
-        self.smooth = 1.0
+        self.smooth = 1.0  # This ought to make the curve stay within ~1-sigma of each point.
         self.use_spline = spline
         
     def __call__(self, pulse_ht):
@@ -76,6 +77,22 @@ class EnergyCalibration(object):
             seq.append("  energy(ph=%7.2f) --> %9.2f eV (%s)" % (pulse_ht, energy, name))
         return "\n".join(seq)
     
+    def __getstate__(self):
+        """Pickle will use the return value of this in place of self.__dict__ to pickle the
+        objects.  Since energy2ph and ph2energy are functions generated at runtime, they don't
+        pickle.  We remove them before pickling and reconstruct them on load."""
+        d = self.__dict__.copy()
+        d.pop('energy2ph', None)
+        d.pop('ph2energy', None)
+        return d
+    
+    def __setstate__(self, d):
+        """Pickle will pass d to this instead of just setting self.__dict__ to unpickle the
+        objects.  Since energy2ph and ph2energy are functions generated at runtime, they 
+        aren't pickled.  We remove them before pickling and reconstruct them on load."""
+        self.__dict__.update(d)
+        self._update_converters()
+    
     def set_use_spline(self, spline):
         self.use_spline = spline
         self._update_converters()
@@ -87,6 +104,7 @@ class EnergyCalibration(object):
         ecal._names = list(self._names)
         ecal._ph = self._ph.copy()
         ecal._energies = self._energies.copy()
+        ecal._stddev = self._stddev.copy()
         ecal.use_spline = self.use_spline
         if new_ph_field is not None:
             ecal.ph_field = new_ph_field
@@ -98,6 +116,7 @@ class EnergyCalibration(object):
         self._names.pop(idx)
         self._ph = numpy.hstack((self._ph[:idx], self._ph[idx+1:]))
         self._energies = numpy.hstack((self._energies[:idx], self._energies[idx+1:]))
+        self._stddev = numpy.hstack((self._stddev[:idx], self._stddev[idx+1:]))
         self.npts -= 1
         self._update_converters()
         
@@ -107,10 +126,11 @@ class EnergyCalibration(object):
             if name.startswith(prefix):
                 self.remove_cal_point_name(name)
         
-    def add_cal_point(self, pht, energy, name="", overwrite=True):
+    def add_cal_point(self, pht, energy, name="", pht_error=None, overwrite=True):
         """
         Add a single energy calibration point <pht>, <energy>, where <pht> must be in units
-        of the self.ph_field and <energy> is in eV.
+        of the self.ph_field and <energy> is in eV.  <pht_error> is the 1-sigma uncertainty
+        on the pulse height.  If None (the default), then assign pht_error = <pht>/1000.
         
         Also, you can call it with <energy> as a string, provided it's the name of a known
         feature appearing in the dictionary mass.energy_calibration.STANDARD_FEATURES.  Thus
@@ -137,25 +157,32 @@ class EnergyCalibration(object):
                 raise ValueError("2nd argument must be an energy or a known name"+
                                  " from mass.energy_calibration.STANDARD_FEATURES")
         
+        if pht_error is None:
+            pht_error = pht*0.001
+        
         if name in self._names:  # Update an existing point
             if not overwrite:
                 raise ValueError("Calibration point '%s' is already known and overwrite is False" % name)
             index = self._names.index(name)
             self._ph[index] = pht
             self._energies[index] = energy
+            self._stddev[index] = pht_error
             
         else:   # Add a new point
             self._ph = numpy.hstack((self._ph, pht))
             self._energies = numpy.hstack((self._energies, energy))
+            self._stddev = numpy.hstack((self._stddev, pht_error))
             self._names.append(name)
             
             # Sort in ascending energy order
             sortkeys = numpy.argsort(self._energies)
             self._ph = self._ph[sortkeys]
             self._energies = self._energies[sortkeys]
+            self._stddev = self._stddev[sortkeys]
             self._names = [self._names[s] for s in sortkeys]
             self.npts += 1
             assert len(self._names)==len(self._ph)
+            assert len(self._names)==len(self._stddev)
             assert len(self._names)==len(self._energies)
 
         self._update_converters()
@@ -172,7 +199,10 @@ class EnergyCalibration(object):
             energy = numpy.hstack((self._energies, [highest_slope*(ph[-1]-ph[-2])+self._energies[-1]]))
             self.ph2energy = scipy.interpolate.interp1d(ph, energy, kind='linear', bounds_error = True)
         elif self.npts > 3:
-            self.ph2energy = scipy.interpolate.UnivariateSpline(self._ph, self._energies, k=3, s=self.smooth)
+            weight = 1/numpy.array(self._stddev)
+            weight[self._stddev <= 0.0] = 1/self._stddev.min()
+            self.ph2energy = scipy.interpolate.UnivariateSpline(self._ph, self._energies, w=weight, k=3, 
+                                                                bbox=[0, 1.2*self._ph.max()], s=self.smooth*self.npts)
         elif self.npts == 3:
             self.ph2energy = numpy.poly1d(numpy.polyfit(self._ph, self._energies, 2))
         elif self.npts == 2:
@@ -188,23 +218,41 @@ class EnergyCalibration(object):
         energy = STANDARD_FEATURES[name]
         return self.energy2ph(energy)
 
-    def plot(self, axis=None):
+    def plot(self, axis=None, ph_rescale_power=0.0, color='green'):
         """Plot the energy calibration function using pylab.  If <axis> is None,
         a new pylab.subplot(111) will be used.  Otherwise, axis should be a 
-        pylab.Axes object to plot onto."""
+        pylab.Axes object to plot onto.
+        
+        <ph_rescale_power>   Plot E/PH**ph_rescale_power vs PH.  Default is 0, so plot E vs PH. 
+        """
         import pylab
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
-        axis.plot(self._ph, self._energies,'or')
+            axis.set_ylim([0, self._energies.max()*1.05/self._ph.max()**ph_rescale_power])
+            axis.set_xlim([0, self._ph.max()*1.1])
+
+        # Plot smooth curve
         pht = numpy.arange(0, self._ph.max()*1.1)
-        axis.plot(pht, self(pht), color='green')
+        y = self(pht) / pht**ph_rescale_power
+        axis.plot(pht, y, color=color)
+        
+        # Plot and label cal points
+        if ph_rescale_power==0.0:
+            axis.errorbar(self._ph, self._energies, yerr=self._stddev, fmt='or', capsize=0)
+        else:
+            axis.errorbar(self._ph, self._energies/(self._ph**ph_rescale_power), yerr=self._stddev/(self._ph**ph_rescale_power), fmt='or', capsize=0)
         for pht, name in zip(self._ph[1:], self._names[1:]):  
-            axis.text(pht-.01*self._ph.max(), self(pht), name, ha='right')        
+            axis.text(pht, self(pht)/pht**ph_rescale_power, name+'  ', ha='right')        
+
         axis.grid(True)
         axis.set_xlabel("Pulse height ('%s')" % self.ph_field)
-        axis.set_ylabel("Energy (eV)")
-        axis.set_title("Energy calibration curve")
+        if ph_rescale_power == 0.0:
+            axis.set_ylabel("Energy (eV)")
+            axis.set_title("Energy calibration curve")
+        else:
+            axis.set_ylabel("Energy (eV) / PH^%.4f"%ph_rescale_power)
+            axis.set_title("Energy calibration curve, scaled by %.4f power of PH"%ph_rescale_power)
         
 
 class EnergyFeature(object):
