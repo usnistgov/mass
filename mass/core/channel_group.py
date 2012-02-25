@@ -102,11 +102,12 @@ class BaseChannelGroup(object):
         """Invalidate any cached raw data."""
         self._cached_segment = None
         self._cached_pnum_range = None
-        for rc in self.raw_channels: rc.data=None
         for ds in self.datasets: ds.data=None
-        for nc in self.noise_channels: nc.datafile.clear_cache()
+        if 'raw_channels' in self.__dict__:
+            for rc in self.raw_channels: rc.data=None
+        if 'noise_channels' in self.__dict__:
+            for nc in self.noise_channels: nc.datafile.clear_cache()
  
-
     def sample2segnum(self, samplenum):
         """Returns the segment number of sample number <samplenum>."""
         if samplenum >= self.nPulses:
