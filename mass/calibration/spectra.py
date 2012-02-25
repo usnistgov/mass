@@ -214,7 +214,7 @@ class SpectrumGroup(object):
                 cont, _bins = numpy.histogram(rs.pulses, nbins, binrange)
             else:
                 cont, _bins = numpy.histogram(rs.energies, nbins, binrange)
-            plot_as_stepped_hist(axis, bin_centers, cont+i*yoffset, color=color(float(i)/self.nchan))
+            plot_as_stepped_hist(axis, cont+i*yoffset, bin_centers, color=color(float(i)/self.nchan))
 
 
     def calibrate_brightest_lines(self, line_energies, nbins, vmax, dv_smear,

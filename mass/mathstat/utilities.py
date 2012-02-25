@@ -36,19 +36,28 @@ a delayed error.  If it is raised, then you know that you needed the library!"""
         raise self.error
 
 
-def plot_as_stepped_hist(axis, bin_ctrs, data, **kwargs):
+def plot_as_stepped_hist(axis, data, bin_ctrs, **kwargs):
     """Plot onto <axis> the histogram <bin_ctrs>,<data> in stepped-histogram format.
     \param axis     The pylab Axes object to plot onto.
-    \param bin_ctrs An array of bin centers.  (Bin spacing will be inferred from the first two).
-    \param data     Bin contents.   data and bin_ctrs will only be used to the shorter of the two arrays.
+    \param data     Bin contents.
+    \param bin_ctrs An array of bin centers or of bin edges.  (Bin spacing will be 
+                    inferred from the first two elements).  If len(bin_ctrs)==len(data)+1, then
+                    bin_ctrs will be assumed to be bin edges; otherwise it will be assumed centers.
     \param kwargs   All other keyword arguments will be passed to axis.plot().
     """
-    x = numpy.zeros(2+2*len(bin_ctrs), dtype=numpy.float)
+    if len(bin_ctrs)==len(data)+1:
+        bin_edges = bin_ctrs
+        x = numpy.zeros(2*len(bin_edges), dtype=numpy.float)
+        x[0::2] = bin_edges
+        x[1::2] = bin_edges
+    else:
+        x = numpy.zeros(2+2*len(bin_ctrs), dtype=numpy.float)
+        dx = bin_ctrs[1]-bin_ctrs[0]
+        x[0:-2:2] = bin_ctrs-dx*.5
+        x[1:-2:2] = bin_ctrs-dx*.5
+        x[-2:] = bin_ctrs[-1]+dx*.5
+
     y = numpy.zeros_like(x)
-    dx = bin_ctrs[1]-bin_ctrs[0]
-    x[0:-2:2] = bin_ctrs-dx*.5
-    x[1:-2:2] = bin_ctrs-dx*.5
-    x[-2:] = bin_ctrs[-1]+dx*.5
     y[1:-1:2] = data
     y[2:-1:2] = data
     axis.plot(x, y, **kwargs)

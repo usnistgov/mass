@@ -8,7 +8,7 @@
 
 __all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha',
            'GaussianLine', 'Gd97', 'Gd103', 'AlKalpha', 'SiKalpha',
-           'MultiLorentzianDistribution', 'MnKAlphaDistribution',
+           'MultiLorentzianDistribution_gen', 'MnKAlphaDistribution',
            'CuKAlphaDistribution', 'MnKAlphaFitter', 'MnKBetaFitter',
            'CuKAlphaFitter', 'GaussianFitter', 'plot_spectrum']
  
@@ -29,22 +29,11 @@ November 24, 2010 : started as mn_kalpha.py
 
 import numpy
 import pylab
-import scipy.stats, scipy.interpolate, scipy.special
+import scipy.stats, scipy.special
 
 from mass.calibration import energy_calibration
 from mass.mathstat import MaximumLikelihoodHistogramFitter, \
     MaximumLikelihoodGaussianFitter, plot_as_stepped_hist, voigt #@UnresolvedImport
-
-
-def lorentzian(x, fwhm):
-    """Return the value of Lorentzian prob distribution function at <x> (may be a numpy array)
-    centered at x=0 with the given FWHM."""
-    return 2./(fwhm*numpy.pi)/(1.+4*(x/fwhm)**2)
-
-def lorentzian_cdf(x, fwhm):
-    """Return the value of Lorentzian cumulative distribution function at <x> (may be a numpy array)
-    centered at x=0 with the given FWHM."""
-    return 0.5 + numpy.arctan(2*x/fwhm)/numpy.pi
 
 
 class SpectralLine(object):
@@ -75,15 +64,6 @@ class SpectralLine(object):
             result += ampl*voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gauss_sigma)
         return result
     
-    def cdf(self, x):
-        """Cumulative distribution function where <x> = set of energies."""
-        x = numpy.asarray(x, dtype=numpy.float)
-        result = numpy.zeros_like(x)
-        for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.amplitudes):
-            result += ampl*lorentzian_cdf(x-energy, fwhm)
-        raise NotImplementedError("Lines need a Voigt CDF provision!")
-        return result
-
 
 
 class MnKAlpha(SpectralLine):
@@ -244,84 +224,46 @@ class SiKalpha(GaussianLine):
         super(self.__class__, self).__init__(energy=energy, fwhm=3.0)
 
 
-class MultiLorentzianDistribution(scipy.stats.rv_continuous):
+class MultiLorentzianDistribution_gen(scipy.stats.rv_continuous):
     """For producing random variates of the an energy distribution having the form
     of several Lorentzians summed together."""
     
     ## Approximates the random variate defined by multiple Lorentzian components.
-    #  @param epoints The points at which the Lorentzian will be sampled for linear interpolation.
-    #  (should be dense where distribution is changing rapidly)
     #  @param args  Pass all other parameters to parent class.
     #  @param kwargs  Pass all other parameters to parent class. 
-    def __init__(self, epoints, distribution, *args, **kwargs):
-        """<epoints> is a vector of energy points, densely collected at places
-        where the distribution changes rapidly.
-        <args> and <kwargs> are passed on to scipy.stats.rv_continuous"""
+    def __init__(self, distribution, *args, **kwargs):
+        """<args> and <kwargs> are passed on to scipy.stats.rv_continuous"""
 
-        ## The probability distribution function
-        self.distribution = distribution
-        
         scipy.stats.rv_continuous.__init__(self, *args, **kwargs)
+        self.distribution = distribution
+        self.cumulative_amplitudes = self.distribution.amplitudes.cumsum()
+        self.name = distribution.name
+        self.set_gauss_fwhm = self.distribution.set_gauss_fwhm
 
-        epoints = epoints[numpy.logical_and(epoints>=self.a, epoints<=self.b)]
-        epoints = numpy.hstack((self.a, epoints, self.b))
-        cdf = self.distribution.cdf(epoints)
-        
-        ## The minimum and maximum values that the CDF would have returned if we weren't careful!
-        self.minCDF, self.maxCDF = cdf[0], cdf[-1] # would be 0,1 if we covered all of x-axis
-        cdf = (cdf-cdf[0])/(cdf[-1]-cdf[0]) # Rescale so that it *does* run from [0,1]
-
-        # Redefine the percentile point function (maps [0,1] to energies),
-        # the prob distrib function and the cumulative distrib function
-        ## Reimplements percentile point function.
-        self._ppf = scipy.interpolate.interp1d(cdf, epoints, kind='linear')
         ## Reimplements probability distribution function.
-        self._pdf = self.distribution
-        ## Reimplements cumulative distribution function.
-        self._cdf = lambda x: (self.distribution.cdf(x)-self.minCDF)/(self.maxCDF-self.minCDF)
-        
+        self._pdf = self.distribution.pdf
+
+    def _rvs(self, *args):
+        """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
+        compute.  But it's easy enough to generate the random variates themselves, so we 
+        override that method.  Don't call this directly!  Instead call .rvs(), which wraps this."""
+        # Choose from among the N Lorentzian lines in proportion to the line amplitudes
+        iline = self.cumulative_amplitudes.searchsorted(
+                            numpy.random.uniform(0, self.cumulative_amplitudes[-1], size=self._size))
+        # Choose Lorentzian variates of the appropriate width (but centered on 0)
+        lor = numpy.random.standard_cauchy(size=self._size)*self.distribution.fwhm[iline]*0.5
+        # If necessary, add a Gaussian variate to mimic finite resolution
+        if self.distribution.gauss_sigma > 0.0:
+            lor += numpy.random.standard_normal(size=self._size)*self.distribution.gauss_sigma
+        # Finally, add the line centers.
+        return lor + self.distribution.energies[iline]
+
+# Some specific fluorescence lines
+MnKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=MnKAlpha(), name="Mn Kalpha fluorescence")
+MnKBetaDistribution  = MultiLorentzianDistribution_gen(distribution=MnKBeta(), name="Mn Kbeta fluorescence")
+CuKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=CuKAlpha(), name="Cu Kalpha fluorescence")
 
 
-class MnKAlphaDistribution(MultiLorentzianDistribution):
-    """For producing random variates of the manganese K Alpha energy distribution"""
-    
-    def __init__(self, *args, **kwargs):
-        """ """
-        epoints = numpy.hstack(((0, 3000, 5000, 5500),
-                                numpy.arange(5800, 5880.5),
-                                numpy.arange(5880, 5920.-.025, .05),
-                                numpy.arange(5920, 6001),
-                                (6100, 6300, 6600, 7000, 8000, 12000)))*1.0
-        MultiLorentzianDistribution.__init__(self, epoints, distribution = MnKAlpha(), *args, **kwargs)
-        
-
-
-class MnKBetaDistribution(MultiLorentzianDistribution):
-    """For producing random variates of the manganese K Beta energy distribution"""
-    
-    def __init__(self, *args, **kwargs):
-        """ """
-        epoints = numpy.hstack(((0, 3000, 5000, 6000),
-                                numpy.arange(6300, 6439.5),
-                                numpy.arange(6440, 6510.-.025, .05),
-                                numpy.arange(6510, 6701),
-                                (6800, 7000, 7500, 8000, 12000)))*1.0
-        MultiLorentzianDistribution.__init__(self, epoints, distribution = MnKBeta(), *args, **kwargs)
-        
-
-
-class CuKAlphaDistribution(MultiLorentzianDistribution):
-    """For producing random variates of the copper K Alpha energy distribution"""
-    
-    def __init__(self, *args, **kwargs):
-        """ """
-        epoints = numpy.hstack(((0, 3000, 6000, 7000, 7500),
-                                numpy.arange(7800, 8010.5),
-                                numpy.arange(8011, 8060.-.025, .05),
-                                numpy.arange(8060, 8201),
-                                (8300, 8500, 8800, 9300, 12000)))*1.0
-        MultiLorentzianDistribution.__init__(self, epoints, distribution = CuKAlpha(), *args, **kwargs)
-        
 
 
 class MultiLorentzianComplexFitter(object):
@@ -404,7 +346,7 @@ class MultiLorentzianComplexFitter(object):
                 pylab.clf()
                 axis = pylab.subplot(111)
                 
-            plot_as_stepped_hist(axis, pulseheights, data, color=color)
+            plot_as_stepped_hist(axis, data, pulseheights, color=color)
             ph_binsize = pulseheights[1]-pulseheights[0]
             axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
@@ -617,7 +559,7 @@ class GaussianFitter(object):
                 axis = pylab.subplot(111)
                 
             de = numpy.sqrt(covariance[0, 0])
-            plot_as_stepped_hist(axis, pulseheights, data, color=color, 
+            plot_as_stepped_hist(axis, data, pulseheights, color=color, 
                                                 label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.plot(pulseheights, self.last_fit_result, color='black')
             axis.legend(loc='upper left')
