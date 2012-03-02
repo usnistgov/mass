@@ -1128,7 +1128,7 @@ class MicrocalDataSet(object):
         fit_resolutions=[]
         for sl in slopes:
             self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*sl
-            params,_covar = self.fit_spectral_line(prange=prange, times=times, plot=False,
+            params,_covar,_fitter = self.fit_spectral_line(prange=prange, times=times, plot=False,
                                                    fit_type='dc', line='MnKAlpha', verbose=False)
 #            print "%5.1f %s"%(sl, params[:4])
             fit_resolutions.append(params[0])
