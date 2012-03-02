@@ -27,11 +27,18 @@ python module _factor_covariance ! in
             real(kind=8) intent(in),dimension(*) :: cholsav
         end subroutine covsolv
 
+        subroutine cholsolv(n,x,y,cholsav) ! in :_factor_covariance:factor_covariance.f90
+            integer optional,check(len(y)>=n),depend(y) :: n=len(y)
+            real(kind=8) intent(out),dimension(n),depend(n) :: x
+            real(kind=8) intent(in),dimension(n) :: y
+            real(kind=8) intent(in),dimension(*) :: cholsav
+        end subroutine cholsolv
+
         subroutine cholprod(n,x,y,cholsav) ! in :_factor_covariance:factor_covariance.f90
             integer optional,check(len(y)>=n),depend(y) :: n=len(y)
             real(kind=8) intent(out),dimension(n),depend(n) :: x
             real(kind=8) intent(in),dimension(n) :: y
             real(kind=8) intent(in),dimension(*) :: cholsav
-        end subroutine covsolv
+        end subroutine cholprod
     end interface 
 end python module _factor_covariance

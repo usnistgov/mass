@@ -102,14 +102,36 @@ subroutine covsolv(n,x,y,cholsav)
   real (8) :: x(n),y(n),cholsav(*)
   k=cholsav(1)
   nsav=cholsav(2)
-  call covsolvx(n,x,y,k,cholsav(3),cholsav(3+2*k),cholsav(3+2*k*(nsav+1)))
+  call covsolvx(n,x,y,k,cholsav(3),cholsav(3+2*k),cholsav(3+2*k*(nsav+1)),.true.)
 end subroutine covsolv
 
-subroutine covsolvx(n,x,y,k,b,d,dsuminv)
+! Solve linear system U x = y, where R=U*U is the covariance matrix described
+! above and cholsav was produced by covchol above.  That is, "half solve" the
+! covariance matrix.  The number of unknowns n
+! can be less than or equal to the size for which covchol was created.  The
+! solution vector x can coincide in memory with the right hand side y.
+!
+subroutine cholsolv(n,x,y,cholsav)
+  implicit none
+  integer :: n,k, nsav
+  real (8) :: x(n),y(n),cholsav(*)
+  k=cholsav(1)
+  nsav=cholsav(2)
+  call covsolvx(n,x,y,k,cholsav(3),cholsav(3+2*k),cholsav(3+2*k*(nsav+1)),.false.)
+end subroutine cholsolv
+
+
+! Covariance solve private subroutine.
+! If both is .true., then do both the outer and inner solves to get
+! x = R^-1 y.  Otherwise, do only the outer solve to get x=(U')^-1 y
+! where R=U'U is the Cholesky factorization of R.
+!
+subroutine covsolvx(n,x,y,k,b,d,dsuminv,both)
   implicit none
   integer :: n,k, i
   real (8) :: x(n),y(n),dsuminv(n)
   complex (8) :: b(k),d(k,n),conjb(k),ss(k)
+  logical :: both
   conjb=conjg(b)
   !
   ! Outer solve
@@ -122,11 +144,13 @@ subroutine covsolvx(n,x,y,k,b,d,dsuminv)
   !
   ! Inner solve
   !
-  ss=0
-  do i=n, 1, -1
-     x(i)=(x(i)-sum(ss*d(:,i)))*dsuminv(i)
-     ss=(ss+x(i))*b;
-  end do
+  if (both) then
+      ss=0
+      do i=n, 1, -1
+         x(i)=(x(i)-sum(ss*d(:,i)))*dsuminv(i)
+         ss=(ss+x(i))*b;
+      end do
+  endif
 end subroutine covsolvx
 
 

@@ -112,6 +112,19 @@ class MultiExponentialCovarianceSolver(object):
                              "%d samples.  Its Cholesky factor cannot multiply size %d>%d"%(
                                     self.nsamp, n, self.nsamp))
         return _factor_covariance.cholprod(x, self.cholesky_saved) #@UndefinedVariable
+    
+    def cholesky_solve(self, x):
+        """Return L^-1 x where LL'=R (that is, L is the lower-triangular Cholesky
+        factor of R).  This is useful if we want to compute many vector-matrix-vector
+        products of the form (a' R^-1 b).  We can instead compute A=L^-1 a and B=L^-1 b
+        and the product becomes a simple dot product (a' R^-1 b) = A'B."""
+        n = len(x)
+        if n > self.nsamp:
+            raise ValueError("The covariance matrix was factored for only "+
+                             "%d samples.  Its Cholesky factor cannot multiply size %d>%d"%(
+                                    self.nsamp, n, self.nsamp))
+        return _factor_covariance.cholsolv(x, self.cholesky_saved) #@UndefinedVariable
+
         
     def covariance_product(self, x):
         """Return Rx."""
