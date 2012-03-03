@@ -4,7 +4,9 @@ mass.mathstat.robust
 Functions from the field of robust statistics.
 
 Location estimators:
-(none yet)
+bisquare_weighted_mean - Mean with weights given by the bisquare rho function.
+trimean         - Tukey's trimean, the average of the median and the midhinge.
+shorth_range    - Primarily a dispersion estimator, but location=True gives a (poor) location.
 
 Dispersion estimators:
 median_abs_dev - Median absolute deviation from the median.
@@ -14,20 +16,73 @@ Qscale         - Normalized Rousseeuw & Croux Q statistic, from the 25%ile of al
 Utility functions:
 high_median    - Weighted median
 
+Recommendations:
+For location, suggest the bisquare_weighted_mean with k=3.9*sigma, if you can make any reasonable
+guess as to the Gaussian-like width sigma.  If not, trimean is a good second choice, though less
+efficient.
+
+For dispersion, the Qscale is very efficient for nearly Gaussian data.  The median_abs_dev is 
+the most robust though less efficient.  If Qscale doesn't work, then short_range is a good
+second choice.
+
 Created on Feb 9, 2012
 
 @author: fowlerj
 '''
 
-__all__ = ['median_abs_dev', 'shorth_range','high_median', 'Qscale']
+__all__ = ['bisquare_weighted_mean', 'trimean', 'median_abs_dev', 
+           'shorth_range','high_median', 'Qscale']
 
-import numpy #, scipy.stats
+import numpy, scipy.stats
 
 try:
     from mass.mathstat import _robust
 except ImportError:
     from mass.mathstat.utilities import MissingLibrary
     _robust = MissingLibrary("_robust.so")
+
+
+def bisquare_weighted_mean(x, k, center=None, tol=None):
+    """Return the bisquare weighted mean of the data <x> with a k-value of <k>.
+    A sensible choice of <k> is 3 to 5 times the rms width or 1.3 to 2 times the
+    full width at half max of a peak.  For strictly Gaussian data, the choices of 
+    k= 3.14, 3.88, and 4.68 times sigma will be 80%, 90%, and 95% efficient.
+
+    <center> is used as an initial guess at the weighted mean.
+    If <center> is None, then the data median will be used.
+
+    The answer is found iteratively, revised until it changes by less than <tol>.  If
+    <tol> is None (the default), then <tol> will use 1e-5 times the median absolute
+    deviation of <x> about its median.
+
+    Data values a distance of more than <k> from the weighted mean are given no
+    weight."""
+    
+    if center is None:
+        center = numpy.median(x)
+    if tol is None:
+        tol = 1e-5*median_abs_dev(x, normalize=True)
+
+    for iteration in xrange(100):
+        weights = (1-((x-center)/k)**2.0)**2.0
+        weights[numpy.abs(x-center)>k] = 0.0
+        newcenter = (weights*x).sum()/weights.sum()
+        if abs(newcenter - center)<tol:
+            return newcenter
+        center = newcenter
+    raise RuntimeError("bisquare_weighted_mean used too many iterations.\n"+
+                       "Consider using higher <tol> or better <center>, or change to trimean(x).")
+
+
+def trimean(x):
+    """Return Tukey's trimean for a data set <x>, a measure of its central tendency
+    ("location" or "center").
+
+    If (q1,q2,q3) are the quartiles (i.e., the 25%ile, median, and 75 %ile),
+    the trimean is (q1+q3)/4 + q2/2. """
+    q1,q2,q3 = [scipy.stats.scoreatpercentile(x, per) for per in (25,50,75)]
+    trimean = 0.25*(q1+q3) + 0.5*q2
+    return trimean
 
 
 def median_abs_dev(x, normalize=False):
@@ -55,24 +110,28 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     
     x            - The data set under study.  Must be a sequence of values.
     normalize    - If False (default), then return the actual range b-a.  If True, then the range will be
-                   divided by 1.xxxx, which normalizes the range to be a consistent estimator of the parameter 
-                   sigma in the case of an exact Gaussian distribution.  (A small correction of order 1/N is
-                   applied, too, which mostly corrects for bias at modest values of the sample size N.)
+                   divided by 1.xxxx, which normalizes the range to be a consistent estimator of the
+                   parameter sigma in the case of an exact Gaussian distribution.  (A small correction of 
+                   order 1/N is applied, too, which mostly corrects for bias at modest values of the sample
+                   size N.)
     sort_inplace - Permit this function to reorder the data set <x>.  If False (default), then x will be 
                    copied and the copy will be sorted.  (Note that if <x> is not a numpy.ndarray, an error 
                    will be raised if <sort_inplace> is True.)
-    location     - Whether to return two location estimators in addition to the dispersion estimator.  Default: False.
+    location     - Whether to return two location estimators in addition to the dispersion estimator.  
+                   Default: False.
     
     Returns:
+    --------
 
-    shorth range   if <location> evaluates to False,
-        or otherwise:
+    shorth range   if <location> evaluates to False; otherwise returns:
     (shorth range, shorth mean, shorth center)
     
-    In this, shorth mean is the mean of all samples in the closed range [a,b], and shorth center = (a+b)/2.
-    Beware that both of these location estimators have the undesirable property that their asymptotic standard
-    deviation improves only as N^(-1/3) rather than the more usual N^(-1/2).  So it is not a very good idea to
-    use them as location estimators.  They are really only included here for testing just how useless they are.
+    In this, shorth mean is the mean of all samples in the closed range [a,b], and
+    shorth center = (a+b)/2.  Beware that both of these location estimators have the
+    undesirable property that their asymptotic standard deviation improves only as
+    N^(-1/3) rather than the more usual N^(-1/2).  So it is not a very good idea to
+    use them as location estimators.  They are really only included here for testing
+    just how useless they are.
     """
     
     n = len(x)            # Number of data values
@@ -167,7 +226,8 @@ def Qscale(x, sort_inplace=False):
     Gaussian distribution.
     
     Technique from C. Croux & P. Rousseeuw in Comp. Stat Vol 1 (1992) ed. Dodge & Whittaker,
-    Heidelberg: Physica-Verlag pages 411-428.  Available at ftp://ftp.win.ua.ac.be/pub/preprints/92/Timeff92.pdf
+    Heidelberg: Physica-Verlag pages 411-428.  Available at 
+    ftp://ftp.win.ua.ac.be/pub/preprints/92/Timeff92.pdf
     
     The estimator is further studied in Rousseeuw & Croux, J Am. Stat. Assoc 88 (1993), pp 1273-1283.
     """
@@ -215,8 +275,10 @@ def Qscale(x, sort_inplace=False):
     return q * prefactor
 
 ####################################################################################
-# Code below here is the Python equivalent of the much faster routines in the
+# The next two subroutines are the Python equivalent of the much faster routines in the
 # Cython file robust.pyx, and they are used only if Cython can't be built.
+# _high_median_python_subroutine
+# _Qscale_subroutine_python
 ####################################################################################
 
 
@@ -326,7 +388,7 @@ def _Qscale_subroutine_python(x, n, target_k):
         candidates_below_trial_dist = trial_column.sum() - ((n-2)*(n-1))/2
         
         if candidates_below_trial_dist == target_k:
-            print "Returning after %d passes"%counter
+#            print "Returning after %d passes"%counter
             return trial_distance, counter
         elif candidates_below_trial_dist > target_k:
             right = trial_column.copy()
