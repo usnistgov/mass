@@ -14,12 +14,13 @@ import scipy.optimize
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = {
-   'Al Ka': 1487.,
+   'Al Ka': 1486.35,
    'Al Kb': 1557.,
-   'Si Ka': 1750.,
-   'Si Kb': 1836.,
+   'Si Ka': 1739.6,
+   'Si Kb': 1837.,
    'Mn Ka1': 5898.802,
    'Mn Ka2': 5887.592,
+   'Cr Kedge': 5989.0,
    'Mn Kb':  6490.18,
    'Fe Kedge': 7112.0,
    'Cu Ka': 8047.83,
@@ -192,6 +193,10 @@ class EnergyCalibration(object):
         assert len(self._ph)==len(self._energies)
         assert len(self._ph)==self.npts
         assert self.npts>1
+        
+        
+        if (self._stddev <= 0.0).any():
+            self._stddev[self._stddev<=0.0] = self._stddev[self._stddev>0].min()
         
         if (not self.use_spline) and self.npts >= 2:
             highest_slope = (self._energies[-1]-self._energies[-2])/(self._ph[-1]-self._ph[-2])

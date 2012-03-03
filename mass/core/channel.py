@@ -1149,13 +1149,16 @@ class MicrocalDataSet(object):
             axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')
 
 
-    def fit_spectral_line(self, prange, times=None, fit_type='dc', line='MnKAlpha', verbose=True, plot=True, **kwargs):
+    def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha', verbose=True, plot=True, **kwargs):
         all_values={'filt': self.p_filt_value,
                     'phc': self.p_filt_value_phc,
                     'dc': self.p_filt_value_dc,
                     'energy': self.p_energy,
                     }[fit_type]
-        valid = self.cuts.good()
+        if mask is not None:
+            valid = numpy.array(mask)
+        else:
+            valid = self.cuts.good()
         if times is not None:
             valid = numpy.logical_and(valid, self.p_timestamp<times[1])
             valid = numpy.logical_and(valid, self.p_timestamp>times[0])
@@ -1175,7 +1178,7 @@ class MicrocalDataSet(object):
         return params, covar, fitter
     
     
-    def fit_MnK_lines(self, times=None, update_energy=True, verbose=False, plot=True):
+    def fit_MnK_lines(self, mask=None, times=None, update_energy=True, verbose=False, plot=True):
         """"""
         
         if plot:
@@ -1188,7 +1191,7 @@ class MicrocalDataSet(object):
         
         calib = self.calibration['p_filt_value']
         mnka_range = calib.name2ph('Mn Ka1') * numpy.array((.99,1.01))
-        params, _covar, _fitter = self.fit_spectral_line(prange=mnka_range, times=times, fit_type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
+        params, _covar, _fitter = self.fit_spectral_line(prange=mnka_range, mask=mask, times=times, fit_type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
         calib.add_cal_point(params[1], 'Mn Ka1')
 
         mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.95,1.02))
@@ -1196,11 +1199,11 @@ class MicrocalDataSet(object):
 #        params[3] *= 0.50
 #        params[4] = 0.0
         try:
-            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, times=times, fit_type='dc', line='MnKBeta', 
+            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, mask=mask, times=times, fit_type='dc', line='MnKBeta', 
                                                     verbose=verbose, plot=False, axis=ax2)
             calib.add_cal_point(params[1], 'Mn Kb')
             mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.985,1.015))
-            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, times=times, fit_type='dc', line='MnKBeta', 
+            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, mask=mask, times=times, fit_type='dc', line='MnKBeta', 
                                                     verbose=verbose, plot=plot, axis=ax2)
             calib.add_cal_point(params[1], 'Mn Kb')
         except scipy.linalg.LinAlgError:
@@ -1209,7 +1212,7 @@ class MicrocalDataSet(object):
         
         if plot:
             calib.plot(axis=pylab.subplot(224))
-            self.fit_spectral_line(prange=(5850,5930), times=times, fit_type='energy', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax3)
+            self.fit_spectral_line(prange=(5850,5930), mask=mask, times=times, fit_type='energy', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax3)
             ax1.set_xlabel("Filtered, drift-corr. PH")
             ax2.set_xlabel("Filtered, drift-corr. PH")
             ax3.set_xlabel("Energy (eV)")
