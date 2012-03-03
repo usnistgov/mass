@@ -5,8 +5,9 @@ Functions from the field of robust statistics.
 
 Location estimators:
 bisquare_weighted_mean - Mean with weights given by the bisquare rho function.
-trimean         - Tukey's trimean, the average of the median and the midhinge.
-shorth_range    - Primarily a dispersion estimator, but location=True gives a (poor) location.
+huber_weighted_mean    - Mean with weights given by Huber's rho function.
+trimean                - Tukey's trimean, the average of the median and the midhinge.
+shorth_range           - Primarily a dispersion estimator, but location=True gives a (poor) location.
 
 Dispersion estimators:
 median_abs_dev - Median absolute deviation from the median.
@@ -30,8 +31,8 @@ Created on Feb 9, 2012
 @author: fowlerj
 '''
 
-__all__ = ['bisquare_weighted_mean', 'trimean', 'median_abs_dev', 
-           'shorth_range','high_median', 'Qscale']
+__all__ = ['bisquare_weighted_mean', 'huber_weighted_mean', 'trimean', 
+           'median_abs_dev', 'shorth_range','high_median', 'Qscale']
 
 import numpy, scipy.stats
 
@@ -71,6 +72,38 @@ def bisquare_weighted_mean(x, k, center=None, tol=None):
             return newcenter
         center = newcenter
     raise RuntimeError("bisquare_weighted_mean used too many iterations.\n"+
+                       "Consider using higher <tol> or better <center>, or change to trimean(x).")
+
+
+def huber_weighted_mean(x, k, center=None, tol=None):
+    """Return Huber's weighted mean of the data <x> with a k-value of <k>.
+    A sensible choice of <k> is 1 to 1.5 times the rms width or 0.4 to 0.6 times the
+    full width at half max of a peak.  For strictly Gaussian data, the choices of 
+    k=1.0 and 1.4 sigma give ...
+
+    <center> is used as an initial guess at the weighted mean.
+    If <center> is None, then the data median will be used.
+
+    The answer is found iteratively, revised until it changes by less than <tol>.  If
+    <tol> is None (the default), then <tol> will use 1e-5 times the median absolute
+    deviation of <x> about its median.
+
+    Data values a distance of more than <k> from the weighted mean are given no
+    weight."""
+    
+    if center is None:
+        center = numpy.median(x)
+    if tol is None:
+        tol = 1e-5*median_abs_dev(x, normalize=True)
+
+    for iteration in xrange(100):
+        weights = float(k)/numpy.abs(x-center)
+        weights[weights>1.0] = 1.0
+        newcenter = (weights*x).sum()/weights.sum()
+        if abs(newcenter - center)<tol:
+            return newcenter
+        center = newcenter
+    raise RuntimeError("huber_weighted_mean used too many iterations.\n"+
                        "Consider using higher <tol> or better <center>, or change to trimean(x).")
 
 
