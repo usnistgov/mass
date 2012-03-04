@@ -118,7 +118,7 @@ class BaseChannelGroup(object):
     def segnum2sample_range(self, segnum):
         """Return the (first,end) sample numbers of the segment numbered <segnum>.
         Note that <end> is 1 beyond the last sample number in that segment."""
-        return (segnum*self.pulses_per_seg, segnum*(self.pulses_per_seg+1))
+        return (segnum*self.pulses_per_seg, (segnum+1)*self.pulses_per_seg)
 
 
     def set_data_use_ranges(self, ranges=None):
@@ -151,7 +151,7 @@ class BaseChannelGroup(object):
             print '   Only full "segments" of size %d records can be ignored.'%self.pulses_per_seg
             print '   Will use %d segments and ignore %d.'%(self._allowed_segnums.sum(), self.n_segments-self._allowed_segnums.sum())
 
-    def iter_segments(self, first_seg=0, end_seg=-1):
+    def iter_segments(self, first_seg=0, end_seg=-1, sample_mask=None, segment_mask=None):
         if self._allowed_segnums is None:
             self.set_data_use_ranges(None)
             
@@ -160,6 +160,17 @@ class BaseChannelGroup(object):
         for i in range(first_seg, end_seg):
             if not self._allowed_segnums[i]: 
                 continue
+            a,b = self.segnum2sample_range(i)
+            if sample_mask is not None:
+                if b>len(sample_mask):
+                    b=len(sample_mask)
+                if not sample_mask[a:b].any():
+                    print 'We can skip segment %4d'%i
+                    continue # Don't need anything in this segment.  Sweet!
+            if segment_mask is not None:
+                if not segment_mask[i]:
+                    print 'We can skip segment %4d'%i
+                    continue # Don't need anything in this segment.  Sweet!
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
 
@@ -513,8 +524,24 @@ class BaseChannelGroup(object):
         pulse_counts = numpy.zeros((self.n_channels, nbins))
         pulse_sums = numpy.zeros((self.n_channels, nbins, self.nSamples), dtype=numpy.float)
 
-        for first, end in self.iter_segments():
-            print "Records %d to %d loaded"%(first,end-1)
+        # Compute a master mask to say whether ANY mask wants a pulse from each segment
+        # This can speed up work a lot when the pulses being averaged are from certain times only.
+        segment_mask = numpy.zeros(self.n_segments, dtype=numpy.bool)
+        for m in masks:
+            n = len(m)
+            nseg = n/self.pulses_per_seg
+            for i in range(nseg):
+                if segment_mask[i]:
+                    continue
+                a,b = self.segnum2sample_range(i)
+                if m[a:b].any():
+                    segment_mask[i] = True
+            a,b = self.segnum2sample_range(nseg+1)
+            if a<n and m[a:].any():
+                segment_mask[nseg+1] = True 
+
+        for first, end in self.iter_segments(segment_mask=segment_mask):
+            print "Records [%6d, %6d) loaded from disk."%(first,end)
             for imask,mask in enumerate(masks):
                 valid = mask[first:end]
                 for ichan,chan in enumerate(self.datasets):
@@ -524,7 +551,10 @@ class BaseChannelGroup(object):
                     if mask.shape != (chan.nPulses,):
                         raise ValueError("masks[%d] has shape %s, but it needs to be (%d,)"%
                              (imask, mask.shape, chan.nPulses ))
-                    good_pulses = chan.data[valid, :]
+                    if len(valid)>chan.data.shape[0]:
+                        good_pulses = chan.data[valid[:chan.data.shape[0]], :]
+                    else:
+                        good_pulses = chan.data[valid, :]
                     pulse_counts[ichan,imask] += good_pulses.shape[0]
                     pulse_sums[ichan,imask,:] += good_pulses.sum(axis=0)
 
@@ -539,7 +569,8 @@ class BaseChannelGroup(object):
     
     def plot_average_pulses(self, pulse_id, axis=None, use_legend=True):
         """Plot average pulse number <pulse_id> on matplotlib.Axes <axis>, or
-        on a new Axes if <axis> is None."""
+        on a new Axes if <axis> is None.  If <pulse_id> is not a valid channel
+        number, then plot all average pulses."""
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
