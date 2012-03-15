@@ -529,7 +529,7 @@ class BaseChannelGroup(object):
         segment_mask = numpy.zeros(self.n_segments, dtype=numpy.bool)
         for m in masks:
             n = len(m)
-            nseg = n/self.pulses_per_seg
+            nseg = 1+(n-1)/self.pulses_per_seg
             for i in range(nseg):
                 if segment_mask[i]:
                     continue
