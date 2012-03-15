@@ -64,7 +64,7 @@ def bisquare_weighted_mean(x, k, center=None, tol=None):
     if tol is None:
         tol = 1e-5*median_abs_dev(x, normalize=True)
 
-    for iteration in xrange(100):
+    for _iteration in xrange(100):
         weights = (1-((x-center)/k)**2.0)**2.0
         weights[numpy.abs(x-center)>k] = 0.0
         newcenter = (weights*x).sum()/weights.sum()
@@ -96,7 +96,7 @@ def huber_weighted_mean(x, k, center=None, tol=None):
     if tol is None:
         tol = 1e-5*median_abs_dev(x, normalize=True)
 
-    for iteration in xrange(100):
+    for _iteration in xrange(100):
         weights = float(k)/numpy.abs(x-center)
         weights[weights>1.0] = 1.0
         newcenter = (weights*x).sum()/weights.sum()
