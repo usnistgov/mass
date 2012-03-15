@@ -668,7 +668,8 @@ class MicrocalDataSet(object):
       CUT_RISETIME,
       CUT_UNLOCK,
       CUT_TIMESTAMP,
-       ) = range(7)
+      CUT_SATURATED
+       ) = range(8)
     
     def __init__(self, pulserec_dict):
         """
