@@ -196,17 +196,19 @@ class Filter(object):
                 self.filt_noconst = numpy.fft.irfft(sig_ft)
 
             self.normalize_filter(self.filt_noconst)
+            self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr) 
 
             self.filt_baseline = numpy.dot(avg_signal, Rinv_sig)*Rinv_1 - Rinv_sig.sum()*Rinv_sig
             self.filt_baseline /=  self.filt_baseline.sum()
-            
-            Rpretrig = scipy.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
-            self.filt_baseline_pretrig = numpy.linalg.solve(Rpretrig, numpy.ones(self.n_pretrigger))
-            self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
-
-            self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr) 
             self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
-            self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0,:])
+            
+            try:
+                Rpretrig = scipy.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
+                self.filt_baseline_pretrig = numpy.linalg.solve(Rpretrig, numpy.ones(self.n_pretrigger))
+                self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
+                self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0,:])
+            except scipy.linalg.LinAlgError:
+                pass
 
                 
     def bracketR(self, q, noise):
