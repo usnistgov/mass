@@ -15,6 +15,7 @@ __all__ = ['create_dataset']
 
 
 from PyQt4 import QtCore, QtGui
+from PyQt4.QtCore import pyqtSlot
 import os, re
 import glob
 
@@ -43,7 +44,7 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
     This class is meant to be used by factory function create_dataset, and not by the end
     user.  Jeez.  Why are you even reading this?
     """
-    def __init__(self, parent=None, disabled_channels=() ):
+    def __init__(self, parent=None, directory="", disabled_channels=() ):
         QtGui.QDialog.__init__(self, parent)
         self.setupUi(self)
         self.choose_pulse_file.clicked.connect(self.choose_file)
@@ -53,25 +54,37 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         self.chan_check_boxes = []        
         self.use_only_odd_channels=True
         self.disabled_channels = disabled_channels
+        self.default_directory = directory
         self.pulse_files={}
         self.noise_files={}
+        self.channel_check_status={} # Keep a record of whether channel is wanted!
 
     def choose_file(self, *args, **kwargs):
         filename = QtGui.QFileDialog.getOpenFileName(parent=self,
                            caption=QtCore.QString("pick a file"),
-                           directory="/Users/Shared/Data/NSLS_data/",  
+                           directory=self.default_directory,  
                            filter="LJH Files (*.ljh *.noi)")
         if len(str(filename))>0:
             if self.sender() == self.choose_pulse_file:
                 self.pulse_file_edit.setText(filename)
-                self.use_pulses.setChecked(True)
-                self.build_known_channels(filename, self.pulse_files)
             elif self.sender() == self.choose_noise_file:
                 self.noise_file_edit.setText(filename)
-                self.use_noise.setChecked(True)
-                self.build_known_channels(filename, self.noise_files)
+                
+    @pyqtSlot(QtCore.QString)
+    def file_template_textEdited(self, file_string):
+        filename = str(file_string)
+        print "Processing new file template: ",filename
+        if len(filename)>0 and not os.path.exists(filename):
+            return
+        
+        if self.sender() == self.pulse_file_edit:
+            self.use_pulses.setChecked(True)
+            self.update_known_channels(filename, self.pulse_files)
+        elif self.sender() == self.noise_file_edit:
+            self.use_noise.setChecked(True)
+            self.update_known_channels(filename, self.noise_files)
     
-    def build_known_channels(self, file_example, file_dict):
+    def update_known_channels(self, file_example, file_dict):
         file_example = str(file_example)
         rexp = re.compile(r'chan[0-9]+')
         file_template = "chan*".join(rexp.split(file_example))
@@ -87,23 +100,53 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
                 channels_found.append(channum)
                 file_dict[channum] = f
         
-        all_chan = set(self.channels_known)
-        all_chan.update(channels_found)
-        all_chan = list(all_chan)
-        all_chan.sort()
-        self.channels_known = all_chan
-        self.nchannels = len(all_chan)
+        if set(channels_found) != self.channels_known:
+            all_chan = set(self.pulse_files.keys())
+            all_chan.update(self.noise_files.keys())
+            all_chan = list(all_chan)
+            all_chan.sort()
+            self.channels_known = all_chan
+            self.nchannels = len(all_chan)
+            self.update_channel_chooser_boxes()
 
-        self.chan_check_boxes = []        
+    def update_channel_chooser_boxes(self):
+
+        # Remove all the chan_check_boxes, storing their check/unchecked status     
+        print "Deleting %d check boxes..."%len(self.chan_check_boxes)   
+        while len(self.chan_check_boxes)>0:
+            ccb = self.chan_check_boxes.pop()
+            ccb.hide()
+            self.channel_check_status[ccb.chan_number] = ccb.isChecked()
+            self.chan_selection_layout.removeWidget(ccb)
+            del ccb
+        
+        np, nn = len(self.pulse_files), len(self.noise_files)
+        print "Updating the channel chooser boxes with %d, %d files"%(np,nn)
+        
         ncol = 16
         while self.nchannels/ncol < 8 and ncol>8:
             ncol -=2
         for i,cnum in enumerate(self.channels_known):
             name = QtCore.QString("%3d"%cnum)
-            box =QtGui.QCheckBox(name)
+            box = QtGui.QCheckBox(name, parent=None)
             box.chan_number = cnum
-            if cnum not in self.disabled_channels:
-                box.setChecked(True)
+            
+            if cnum in self.channel_check_status:
+                box.setChecked(self.channel_check_status[cnum])
+            else:
+                if cnum in self.disabled_channels:
+                    box.setChecked(False)
+                else:
+                    box.setChecked(True)
+            
+            # For channels in one list but not the other, disable the box
+            if np>0 and nn>0:
+                if (cnum in self.noise_files and cnum not in self.pulse_files) or\
+                    (cnum not in self.noise_files and cnum  in self.pulse_files):
+                    box.setChecked(False)
+                    box.setEnabled(False)
+                    
+            
             col, row = i%ncol, i/ncol
             self.chan_selection_layout.addWidget(box, row, col)
             self.chan_check_boxes.append(box)
@@ -147,10 +190,14 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         return file_list
 
 
-def create_dataset(disabled_channels=()):
+def create_dataset(default_directory="", disabled_channels=()):
     """
     Use the _DataLoader dialog class to generate lists of pulse files, noise files, or both; to
     create a mass.TESGroup object from the lists; and (optionally) to run summarize_data on it.
+    
+    Arguments:
+    default_directory   - The directory in which to start any file opening dialog.
+    disabled_channels   - A sequence of channel numbers whose default state should be not-loaded
     
     Returns: a mass.TESGroup object, or (if user cancels or selects no files) None.
     """
