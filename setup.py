@@ -16,7 +16,7 @@ discussions:
 """
 
 
-import os.path
+import os, os.path
 
 def configuration_fortran(parent_package='',top_path=None):
     """Configure FORTRAN extensions only."""
@@ -31,17 +31,57 @@ def configuration_fortran(parent_package='',top_path=None):
     return config
 
 
+from distutils.command.build import build as basic_build
+
+class QtBuilder(basic_build):
+    """Subclass the usual distutils builder so that it can convert Qt Designer files
+    *.ui and *.rc to python files."""
+
+    def compile_ui(self, ui_file, py_file=None):
+        # Search for pyuic4 in python bin dir, then in the $Path.
+        if py_file is None:
+            py_file = os.path.splitext(ui_file)[0] + "_ui.py"
+        try:
+            from PyQt4 import uic
+            fp = open(py_file, 'w')
+            uic.compileUi(ui_file, fp, indent=4)
+            fp.close()
+            print "compiled", ui_file, "into", py_file
+        except Exception, e:
+            print 'Unable to compile user interface', e
+            return
+
+    def compile_rc(self, qrc_file, py_file=None):
+        # Search for pyuic4 in python bin dir, then in the $Path.
+        if py_file is None:
+            py_file = os.path.splitext(qrc_file)[0] + "_rc.py"
+        if os.system('pyrcc4 "%s" -o "%s"' % (qrc_file, py_file)) > 0:
+            print "Unable to generate python module for resource file", qrc_file
+        
+    def run(self):
+        # Compile the Qt files to Python files, then call the base class run() method
+        for dirpath, _, filenames in os.walk('mass'):
+            for filename in filenames:
+                if filename.endswith('.ui'):
+                    self.compile_ui(os.path.join(dirpath, filename))
+                elif filename.endswith('.qrc'):
+                    self.compile_rc(os.path.join(dirpath, filename))
+        basic_build.run(self)   
+    
+    
 
 if __name__ == "__main__":
         
     from numpy.distutils.core import setup
-    setup(version='0.2.1',
+    setup(name='mass',
+          version='0.2.3',
           author='Joe Fowler',
           author_email='joe.fowler@nist.gov',
-          url = 'http://dummy.broken.nist.gov/',
+          url = 'http://doc.bqemd.nist.gov/',
           description='Microcalorimeter Analysis Software Suite',
           packages=['mass','mass.core', 'mass.mathstat', 'mass.calibration', 
-                    'mass.demo', 'mass.gui']
+                    'mass.demo', 'mass.gui'],
+          package_data={'mass.gui': ['*.ui']}   # Copy the Qt Designer user interface files
           )
 
     setup( configuration=configuration_fortran )
@@ -52,9 +92,16 @@ if __name__ == "__main__":
     from distutils.extension import Extension
     from Cython.Distutils import build_ext
     
-    setup(
-      ext_modules = [Extension('mass.mathstat._robust', 
-                               [os.path.join('mass','mathstat','robust')+ext for ext in (".pyx",)])],
-      cmdclass = {'build_ext': build_ext},
+    setup(name='mass',
+          version='0.2.3',
+          author='Joe Fowler',
+          author_email='joe.fowler@nist.gov',
+          url = 'http://doc.bqemd.nist.gov/',
+          description='Microcalorimeter Analysis Software Suite',
+          ext_modules = [Extension('mass.mathstat._robust', 
+                                   [os.path.join('mass','mathstat','robust')+ext for ext in (".pyx",)])],
+          cmdclass = {'build_ext': build_ext,
+                      'build': QtBuilder,
+                      },
 #      script_args = ['build_ext', '--inplace'],
     )
