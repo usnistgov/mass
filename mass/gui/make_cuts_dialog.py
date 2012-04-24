@@ -1,0 +1,292 @@
+'''
+Offers the convenient GUI dialog that produces a ??? CUTS OBJECT???.
+
+Usage:
+
+cuts = mass.gui.create_cuts(mass_data_group)
+
+Created on Apr 23, 2012
+
+@author: fowlerj
+'''
+
+__all__ = ['create_cuts']
+
+
+from PyQt4 import QtGui #,QtCore
+from PyQt4.QtCore import pyqtSlot
+import os 
+import numpy
+import mass
+
+
+# Import the form created by QtDesigner.  If possible, use a *.py file created
+# with the pyuic command-line tool and import as usual....
+try:
+    from make_cuts_dialog_form_ui import Ui_Dialog
+    
+# ...though this is not always possible.  If necessary, use the PyQt4.uic package.
+# In fact, I have not figured out how to have distutils convert the *.ui to a *.py
+# file automatically, so the above will basically always fail.  Hmmm.
+
+except ImportError:
+    import PyQt4.uic
+    path,_ = os.path.split(__file__)
+    ui_filename = os.path.join(path, "make_cuts_dialog_form.ui")
+    Ui_MakeCuts, _load_data_dialog_baseclass = PyQt4.uic.loadUiType(ui_filename)
+
+
+
+def create_cuts(datagroup):
+    """
+    Use the _CutsCreator dialog class to generate lists of pulse files, noise files, or both; to
+    create a mass.TESGroup object from the lists; and (optionally) to run summarize_data on it.
+    
+    Arguments:
+    
+    Returns: a mass.TESGroup object, or (if user cancels or selects no files) None.
+    """
+    dialog = _CutsCreator(datagroup)
+    retval = dialog.exec_()
+    if retval == _CutsCreator.Rejected:
+        print "User chose not to load anything."
+        return None
+    
+    assert retval == _CutsCreator.Accepted
+    
+    print dialog.cuts
+
+    cuts_avg = dialog.cuts[0].get_cut_tuple()
+    cuts_rms = dialog.cuts[1].get_cut_tuple()
+    cuts_ptm = dialog.cuts[2].get_cut_tuple()
+    cuts_ptd = dialog.cuts[3].get_cut_tuple()
+    cuts_rtm = dialog.cuts[5].get_cut_tuple()
+    cuts_pkt = dialog.cuts[6].get_cut_tuple()
+    print cuts_avg, cuts_rms, cuts_ptm, cuts_ptd, cuts_rtm, cuts_pkt,'xxxx000'
+    cuts = mass.core.controller.AnalysisControl(
+            pulse_average=cuts_avg,
+            pretrigger_rms=cuts_rms,
+            pretrigger_mean_departure_from_median=cuts_ptm,
+            max_posttrig_deriv=cuts_ptd,
+            rise_time_ms=cuts_rtm,
+            peak_time_ms=cuts_pkt
+            )
+
+    if dialog.apply_cuts_check.isChecked():
+        for ds in datagroup.datasets:
+            ds.apply_cuts(cuts)
+    return cuts
+
+
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+class MyMplCanvas(FigureCanvas):
+    """Ultimately, this is a QWidget (as well as a FigureCanvasAgg, etc.)."""
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = self.fig.add_subplot(111)
+#        # We want the axes cleared every time plot() is called
+#        self.axes.hold(False)
+
+        self.compute_initial_figure()
+
+        #
+        FigureCanvas.__init__(self, self.fig)
+        self.setParent(parent)
+
+        FigureCanvas.setSizePolicy(self,
+                                   QtGui.QSizePolicy.Expanding,
+                                   QtGui.QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
+
+    def compute_initial_figure(self):
+        pass
+
+
+
+class CutVectorStatus(object):
+    def __init__(self, name, **kwargs):
+        self.use_min = False
+        self.use_max = False
+        self.cut_min = 0.0
+        self.cut_max = 0.0
+        self.actual_min = None
+        self.actual_max = None
+        self.__dict__.update(kwargs)
+        
+        self.use_hist_min = self.use_min
+        self.use_hist_max = self.use_max
+        self.hist_min = self.cut_min
+        self.hist_max = self.cut_max
+
+    def compute_actual_range(self, data_vectors):
+        a,b = 9e99, -9e99
+        for v in data_vectors:
+            a = min(a, v.min())
+            b = max(b, v.max())
+        self.actual_min, self.actual_max = a,b
+
+    def __repr__(self):
+        d = ",".join(["%s=%s"%(k,v) for (k,v) in self.__dict__.iteritems()])
+        return "CutVectorStatus(%s)"%d
+    
+    def get_cut_tuple(self):
+        t=[None,None]
+        if self.use_min:
+            t[0] = self.cut_min
+        if self.use_max:
+            t[1] = self.cut_max
+        return tuple(t)
+
+
+
+class _CutsCreator(QtGui.QDialog, Ui_Dialog):
+    """A Qt "QDialog" object for choosing a template filename for noise and/or pulse files,
+    to select which channels to load, and to hold the results.
+    
+    This class is meant to be used by factory function make_cuts, and not by the end
+    user.  Jeez.  Why are you even reading this?
+    """
+    def __init__(self, datagroup ):
+        QtGui.QDialog.__init__(self, parent=None)
+        self.setupUi(self)
+        frame_size = self.pylab_holder.frameSize()
+        h,w = frame_size.height(), frame_size.width()
+        dpi = 100.0
+        print h,w,dpi ,'xxxx'
+        self.canvas = MyMplCanvas(self.pylab_holder, w/dpi, h/dpi, dpi)
+
+        self.data = datagroup
+        self.n_channels = self.data.n_channels
+        
+        self.cuts = (CutVectorStatus("Pulse average"),
+                     CutVectorStatus("Pretrigger RMS", use_max=True, cut_max=10.0),
+                     CutVectorStatus("Pretrigger mean"),
+                     CutVectorStatus("Peak Value"),
+                     CutVectorStatus("Max posttrig dp/dt", use_max=True, cut_max=30.0), 
+                     CutVectorStatus("Rise time (ms)", use_max=True, cut_max=0.7), 
+                     CutVectorStatus("Peak time (ms)", use_max=True, cut_max=0.5))
+        
+        for i, vector_name in enumerate(("p_pulse_average","p_pretrig_rms","p_pretrig_mean",
+                                        "p_peak_value","p_max_posttrig_deriv",
+                                        "p_rise_time","p_peak_time")):
+            self.cuts[i].compute_actual_range((ds.__dict__[vector_name] for ds in self.data.datasets))
+            print i, self.cuts[i].actual_min, self.cuts[i].actual_max
+        
+        for button in (self.use_max_cut, self.use_min_cut,
+                       self.use_hist_max, self.use_hist_min):
+            button.clicked.connect(self.toggle_use_cut)
+        self.changed_parameter_number(0)
+
+    @pyqtSlot(float)
+    def changed_cut_parameter(self, paramval): 
+        print "New value: ",paramval
+        sender = self.sender()
+        if sender==self.cuts_min_spin:
+            self.cuts[self.current_param].cut_min = self.cuts_min_spin.value()
+        else:
+            assert sender==self.cuts_max_spin
+            self.cuts[self.current_param].cut_max = self.cuts_max_spin.value()
+#        self.update_plots()
+       
+    def toggle_use_cut(self):
+        sender = self.sender()
+        state = sender.isChecked()
+        if sender==self.use_max_cut:
+            self.cuts[self.current_param].use_max = state
+            if state:
+                self.cuts[self.current_param].cut_max = self.cuts_max_spin.value()
+        elif sender == self.use_min_cut:
+            self.cuts[self.current_param].use_min = state
+            if state:
+                self.cuts[self.current_param].cut_min = self.cuts_min_spin.value()
+        elif sender == self.use_hist_max:
+            self.cuts[self.current_param].use_hist_max = state
+            if state:
+                self.cuts[self.current_param].hist_min = self.hist_min_spin.value()
+        elif sender == self.use_hist_min:
+            self.cuts[self.current_param].use_hist_min = state
+            if state:
+                self.cuts[self.current_param].hist_max = self.hist_max_spin.value()
+        
+    @pyqtSlot(int)
+    def changed_parameter_number(self, newparam):
+        """Callback for when user chooses a new parameter to view."""
+        self.current_param = newparam
+        
+        self._update_gui_cuts_limits()
+        self.update_plots()
+        
+    def _update_gui_cuts_limits(self):
+        cut = self.cuts[self.current_param]
+        self.use_max_cut.setChecked(cut.use_max)
+        self.cuts_max_spin.setEnabled(cut.use_max)
+        self.cuts_max_spin.setValue(cut.cut_max)
+
+        self.use_min_cut.setChecked(cut.use_min)
+        self.cuts_min_spin.setEnabled(cut.use_min)
+        self.cuts_min_spin.setValue(cut.cut_min)
+        
+        self.use_hist_max.setChecked(cut.use_hist_max)
+        self.hist_max_spin.setEnabled(cut.use_hist_max)
+        self.hist_max_spin.setValue(cut.hist_max)
+        
+        self.use_hist_min.setChecked(cut.use_hist_min)
+        self.hist_min_spin.setEnabled(cut.use_hist_min)
+        self.hist_min_spin.setValue(cut.hist_min)
+        
+    @pyqtSlot()
+    def update_plots(self):
+        axis = self.canvas.axes = self.canvas.fig.add_subplot(111)
+        axis.clear()
+
+        cut = self.cuts[self.current_param]
+        limits=[0,0]
+        if self.use_hist_min.isChecked():
+            limits[0] = self.hist_min_spin.value()
+            cut.hist_min = limits[0]
+        else:
+            limits[0] = cut.actual_min 
+
+        if self.use_hist_max.isChecked():
+            limits[1] = self.hist_max_spin.value()
+            cut.hist_max = limits[1]
+        else:
+            limits[1] = cut.actual_max
+
+
+        hist_all=[]
+        hist_good=[]
+        for dsnum,ds in enumerate(self.data.datasets): 
+            raw = (ds.p_pulse_average,
+                   ds.p_pretrig_rms,
+                   ds.p_pretrig_mean,
+                   ds.p_peak_value,
+                   ds.p_max_posttrig_deriv,
+                   ds.p_rise_time,
+                   ds.p_peak_time)[self.current_param][ds.cuts.good()]
+            if self.current_param in (5,6):
+                raw = raw*1000 # Convert seconds to ms
+                
+            useable = numpy.ones(len(raw), dtype=numpy.bool)
+            if cut.use_max:
+                useable = raw<cut.cut_max
+            if cut.use_min:
+                useable = numpy.logical_and(useable, raw>cut.cut_min)
+            
+            h1, bins = numpy.histogram(raw, 150, limits)
+            h2, bins = numpy.histogram(raw[useable], 150, limits)
+            hist_all.append(h1)
+            hist_good.append(h2)
+            
+        offset = .6*numpy.max([h.max() for h in hist_all])
+        for dsnum, (h1,h2) in enumerate(zip(hist_all,hist_good)):
+            if (h1 != h2).any():
+                mass.plot_as_stepped_hist(axis, h1+dsnum*offset, bins, color='gray')
+            mass.plot_as_stepped_hist(axis, h2+dsnum*offset, bins, color='red')
+        xlabel = ("Pulse average","Pretrigger RMS","Pretrigger mean", "Peak Value",
+                  "Max posttrig dp/dt", "Rise time (ms)", "Peak time (ms)")[self.current_param]
+        axis.set_xlabel(xlabel)
+        self.canvas.draw()
+        

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mass/gui/load_data_dialog_form.ui'
 #
-# Created: Fri Apr 20 13:35:44 2012
+# Created: Tue Apr 24 13:39:55 2012
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -154,7 +154,7 @@ class Ui_CreateDataset(object):
     def retranslateUi(self, CreateDataset):
         CreateDataset.setWindowTitle(QtGui.QApplication.translate("CreateDataset", "Mass: Load Data", None, QtGui.QApplication.UnicodeUTF8))
         self.label.setToolTip(QtGui.QApplication.translate("CreateDataset", "Whether to load indicated pulse files", None, QtGui.QApplication.UnicodeUTF8))
-        self.label.setText(QtGui.QApplication.translate("CreateDataset", "Select one example file for pulse and/or noise data, okay?", None, QtGui.QApplication.UnicodeUTF8))
+        self.label.setText(QtGui.QApplication.translate("CreateDataset", "Select one example file for pulse and/or noise data:", None, QtGui.QApplication.UnicodeUTF8))
         self.use_pulses.setToolTip(QtGui.QApplication.translate("CreateDataset", "Whether to load indicated pulse files.", None, QtGui.QApplication.UnicodeUTF8))
         self.use_pulses.setText(QtGui.QApplication.translate("CreateDataset", "Pulses", None, QtGui.QApplication.UnicodeUTF8))
         self.use_noise.setToolTip(QtGui.QApplication.translate("CreateDataset", "Whether to load indicated noise files", None, QtGui.QApplication.UnicodeUTF8))
