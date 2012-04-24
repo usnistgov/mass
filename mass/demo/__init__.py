@@ -18,7 +18,7 @@ __all__ = []
 import os
 this_dir, this_file= os.path.split(__file__)
 
-demo_files=['demo.py']
+demo_files=['demo.py', 'fitting_demo.py']
 
 fullpath = lambda f: os.path.join(this_dir, f) 
 
