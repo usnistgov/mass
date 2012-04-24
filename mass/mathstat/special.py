@@ -30,10 +30,13 @@ def voigt(x, x0, hwhm, sigma):
     This is the lineshape of a Lorentzian (a.k.a. Breit-Wigner and Cauchy) distributed emission 
     line with Gaussian broadening due either to finite measurement resolution or to physical
     effects like Doppler shifts in molecules having a Maxwellian velocity distribution.
+    
+    Here are exact definitions of the Lorentzian L(x), the Gaussian G(x), and the convolution
+    that results, the Voigt V(x) in terms of the parameters (hwhm, x0, and sigma):
 
-    L(x) = (hwhm/pi) / ((x-x0)**2 + hwhm**2)
-    G(x) = 1/(sigma sqrt(2pi)) * exp(-0.5*(x/sigma)**2
-    V(x) = integral (-inf to +inf) G(x') L(x-x') dx'
+    1.   L(x) = (hwhm/pi) / ((x-x0)**2 + hwhm**2)
+    2.   G(x) = 1/(sigma sqrt(2pi)) * exp(-0.5*(x/sigma)**2
+    3.   V(x) = integral (-inf to +inf) G(x') L(x-x') dx'
 
     Scalar parameters are:
     x0      Center of Lorentzian line
@@ -48,10 +51,12 @@ def voigt(x, x0, hwhm, sigma):
 
     if not isinstance(x, numpy.ndarray):
         return voigt( numpy.array(x), x0, hwhm, sigma)
-    # Pure Gaussian limit
+
+    # Handle the pure Gaussian limit by itself
     if hwhm == 0.0:
         return numpy.exp(-0.5*((x-x0)/sigma)**2) / (sigma*_sqrt2pi)
-    # Pure Lorentzian limit
+    
+    # Handle the pure Lorentzian limit by itself
     if sigma == 0.0:
         return (hwhm/numpy.pi) / ((x-x0)**2 + hwhm**2)
 
