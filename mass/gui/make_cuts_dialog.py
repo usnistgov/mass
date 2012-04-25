@@ -13,10 +13,10 @@ Created on Apr 23, 2012
 __all__ = ['create_cuts']
 
 
-from PyQt4 import QtGui #,QtCore
+from PyQt4 import QtGui ,QtCore
 from PyQt4.QtCore import pyqtSlot
 import os 
-import numpy
+import numpy, pylab
 import mass
 
 
@@ -85,7 +85,7 @@ class MyMplCanvas(FigureCanvas):
     """Ultimately, this is a QWidget (as well as a FigureCanvasAgg, etc.)."""
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = self.fig.add_subplot(111)
+#        self.axes = self.fig.add_subplot(111)
 #        # We want the axes cleared every time plot() is called
 #        self.axes.hold(False)
 
@@ -96,8 +96,8 @@ class MyMplCanvas(FigureCanvas):
         self.setParent(parent)
 
         FigureCanvas.setSizePolicy(self,
-                                   QtGui.QSizePolicy.Expanding,
-                                   QtGui.QSizePolicy.Expanding)
+                                   QtGui.QSizePolicy.MinimumExpanding,
+                                   QtGui.QSizePolicy.MinimumExpanding)
         FigureCanvas.updateGeometry(self)
 
     def compute_initial_figure(self):
@@ -119,6 +119,7 @@ class CutVectorStatus(object):
         self.use_hist_max = self.use_max
         self.hist_min = self.cut_min
         self.hist_max = self.cut_max
+        self.__dict__.update(kwargs)
 
     def compute_actual_range(self, data_vectors):
         a,b = 9e99, -9e99
@@ -156,19 +157,28 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         dpi = 100.0
         print h,w,dpi ,'xxxx'
         self.canvas = MyMplCanvas(self.pylab_holder, w/dpi, h/dpi, dpi)
+        fig = self.canvas.figure
+        self.canvas.axes = [fig.add_subplot(3,1, 1),
+                            fig.add_subplot(3,2,3),
+                            fig.add_subplot(3,2,4),
+                            fig.add_subplot(3,2,5),
+                            fig.add_subplot(3,2,6),
+                            ]
 
         self.data = datagroup
         self.n_channels = self.data.n_channels
         
-        self.cuts = (CutVectorStatus("Pulse average"),
+        self.cuts = (CutVectorStatus("Pulse average", use_min=True, cut_min=0.0),
                      CutVectorStatus("Pretrigger RMS", use_max=True, cut_max=10.0),
-                     CutVectorStatus("Pretrigger mean"),
-                     CutVectorStatus("Peak Value"),
+                     CutVectorStatus("Pretrigger mean", use_hist_min=True, hist_min=-50,
+                                     use_hist_max=True, hist_max=50),
+                     CutVectorStatus("Peak Value", use_min=True, cut_min=0.0),
                      CutVectorStatus("Max posttrig dp/dt", use_max=True, cut_max=30.0), 
                      CutVectorStatus("Rise time (ms)", use_max=True, cut_max=0.7), 
                      CutVectorStatus("Peak time (ms)", use_max=True, cut_max=0.5))
         
-        for i, vector_name in enumerate(("p_pulse_average","p_pretrig_rms","p_pretrig_mean",
+        for i, vector_name in enumerate(("p_pulse_average","p_pretrig_rms",
+                                         "p_pretrig_mean",
                                         "p_peak_value","p_max_posttrig_deriv",
                                         "p_rise_time","p_peak_time")):
             self.cuts[i].compute_actual_range((ds.__dict__[vector_name] for ds in self.data.datasets))
@@ -178,6 +188,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                        self.use_hist_max, self.use_hist_min):
             button.clicked.connect(self.toggle_use_cut)
         self.changed_parameter_number(0)
+        self.changed_dataset_count("4")
 
     @pyqtSlot(float)
     def changed_cut_parameter(self, paramval): 
@@ -209,7 +220,23 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
             self.cuts[self.current_param].use_hist_min = state
             if state:
                 self.cuts[self.current_param].hist_max = self.hist_max_spin.value()
+    
+    @pyqtSlot(QtCore.QString)
+    def changed_dataset_count(self, newval):
+        nchan_plot = int(newval)
+        menu_choices = ["%d-%d"%(i, i+nchan_plot-1) for i in range(0,self.n_channels, nchan_plot)]
         
+        # The last choice needs to be corrected if the n_channels isn't a multiple of nchan_plot
+        if (self.n_channels%nchan_plot)==1:
+            menu_choices[-1] = "%d"%(self.n_channels-1)
+        elif (self.n_channels%nchan_plot) > 1:
+            menu_choices[-1] = "%d-%d"%(nchan_plot*(len(menu_choices)-1), self.n_channels-1)
+        
+        self.dataset_chooser.clear()
+        for i,m in enumerate(menu_choices):
+            self.dataset_chooser.addItem(QtCore.QString(m))
+        self.update_plots()
+    
     @pyqtSlot(int)
     def changed_parameter_number(self, newparam):
         """Callback for when user chooses a new parameter to view."""
@@ -236,10 +263,15 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         self.hist_min_spin.setEnabled(cut.use_hist_min)
         self.hist_min_spin.setValue(cut.hist_min)
         
+    
+    def color_of_channel(self, ichan):
+        cm = pylab.cm.spectral   #@UndefinedVariable
+        return cm(1.0*ichan/self.n_channels)
+    
     @pyqtSlot()
     def update_plots(self):
-        axis = self.canvas.axes = self.canvas.fig.add_subplot(111)
-        axis.clear()
+        for ax in self.canvas.axes: ax.clear()
+        axis = self.canvas.axes[0]
 
         cut = self.cuts[self.current_param]
         limits=[0,0]
@@ -268,6 +300,8 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                    ds.p_peak_time)[self.current_param][ds.cuts.good()]
             if self.current_param in (5,6):
                 raw = raw*1000 # Convert seconds to ms
+            if self.current_param == 2:
+                raw = raw-numpy.median(raw)
                 
             useable = numpy.ones(len(raw), dtype=numpy.bool)
             if cut.use_max:
@@ -280,13 +314,46 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
             hist_all.append(h1)
             hist_good.append(h2)
             
+        # Decide which channels go in the 4 subplots
+        subaxis_number = {}
+        n_per_sub = int(self.num_channel_chooser.currentText())/4
+        chan_range_str = str(self.dataset_chooser.currentText())
+        print "Handling ",chan_range_str
+        if len(chan_range_str)==0:
+            self.canvas.draw()
+            return
+        
+        elif "-" in chan_range_str:
+            chan_range = [int(s) for s in chan_range_str.split("-")]
+        else:
+            chan_range = int(chan_range_str), int(chan_range_str)
+        assert n_per_sub*4 >=1+chan_range[1]-chan_range[0]
+        
+        
+        for i in range(self.n_channels):
+            sn = 1+(i-chan_range[0])/n_per_sub
+            if sn>0 and sn<5:
+                subaxis_number[i] = sn 
+            
         offset = .6*numpy.max([h.max() for h in hist_all])
+        n_offsets_per_sub = [0,0,0,0,0]
+        
         for dsnum, (h1,h2) in enumerate(zip(hist_all,hist_good)):
+            color = self.color_of_channel(dsnum)
             if (h1 != h2).any():
                 mass.plot_as_stepped_hist(axis, h1+dsnum*offset, bins, color='gray')
-            mass.plot_as_stepped_hist(axis, h2+dsnum*offset, bins, color='red')
-        xlabel = ("Pulse average","Pretrigger RMS","Pretrigger mean", "Peak Value",
+            mass.plot_as_stepped_hist(axis, h2+dsnum*offset, bins, color=color)
+            if dsnum in subaxis_number:
+                subaxis = self.canvas.axes[subaxis_number[dsnum]]
+                this_offset = n_offsets_per_sub[subaxis_number[dsnum]]*offset
+                if (h1 != h2).any():
+                    mass.plot_as_stepped_hist(subaxis, h1+this_offset, bins, color='gray')
+                mass.plot_as_stepped_hist(subaxis, h2+this_offset, bins, color=color)
+                subaxis.text(bins[5], 0.2*offset+this_offset, "Channel %d"%dsnum, color=color)
+                n_offsets_per_sub[subaxis_number[dsnum]] += 1
+            
+        xlabel = ("Pulse average","Pretrigger RMS","Pretrigger mean (median subtracted)", "Peak Value",
                   "Max posttrig dp/dt", "Rise time (ms)", "Peak time (ms)")[self.current_param]
-        axis.set_xlabel(xlabel)
+        axis.set_title(xlabel)
         self.canvas.draw()
         

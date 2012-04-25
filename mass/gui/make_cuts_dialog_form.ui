@@ -6,448 +6,452 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>870</width>
-    <height>680</height>
+    <width>1253</width>
+    <height>837</height>
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
     <horstretch>1</horstretch>
     <verstretch>1</verstretch>
    </sizepolicy>
   </property>
   <property name="minimumSize">
    <size>
-    <width>600</width>
-    <height>500</height>
+    <width>1200</width>
+    <height>800</height>
    </size>
   </property>
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <widget class="QWidget" name="">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>0</y>
-     <width>851</width>
-     <height>671</height>
-    </rect>
+  <property name="sizeGripEnabled">
+   <bool>true</bool>
+  </property>
+  <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
+   <property name="margin">
+    <number>4</number>
    </property>
-   <layout class="QHBoxLayout" name="everything_horizontalLayout" stretch="1,5">
-    <property name="sizeConstraint">
-     <enum>QLayout::SetDefaultConstraint</enum>
-    </property>
-    <item>
-     <layout class="QVBoxLayout" name="control_verticalLayout" stretch="0,0,0,0,0,0,0,1,0,0,1,0,0">
-      <property name="sizeConstraint">
-       <enum>QLayout::SetMinimumSize</enum>
-      </property>
-      <item>
-       <spacer name="verticalSpacer_3">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Fixed</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>6</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="QLabel" name="label">
+   <item>
+    <layout class="QVBoxLayout" name="control_verticalLayout" stretch="0,0,0,0,0,0,0,0,0,0,1,0,0">
+     <property name="sizeConstraint">
+      <enum>QLayout::SetNoConstraint</enum>
+     </property>
+     <item>
+      <spacer name="verticalSpacer_3">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Fixed</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>6</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Parameter to view</string>
+       </property>
+       <property name="buddy">
+        <cstring>parameter_chooser</cstring>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="parameter_chooser">
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <item>
         <property name="text">
-         <string>Parameter to view</string>
+         <string>0: Pulse Avg</string>
         </property>
-        <property name="buddy">
-         <cstring>parameter_chooser</cstring>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QComboBox" name="parameter_chooser">
-        <property name="focusPolicy">
-         <enum>Qt::ClickFocus</enum>
-        </property>
-        <item>
-         <property name="text">
-          <string>0: Pulse Avg</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>1: Pretrig RMS</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>2: Pretrig Mean</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>3: Peak Value</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>4: Max Posttrig dp/dt</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>5: Rise Time (ms)</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>6: Peak Time (ms)</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="label_2">
+       </item>
+       <item>
         <property name="text">
-         <string>Channels at a time</string>
+         <string>1: Pretrig RMS</string>
         </property>
-        <property name="buddy">
-         <cstring>channel_chooser</cstring>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QComboBox" name="channel_chooser">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="focusPolicy">
-         <enum>Qt::TabFocus</enum>
-        </property>
-        <item>
-         <property name="text">
-          <string>4</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>8</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>12</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>16</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>20</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>24</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>32</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="label_3">
+       </item>
+       <item>
         <property name="text">
-         <string>Datasets</string>
+         <string>2: Pretrig Mean</string>
         </property>
-        <property name="buddy">
-         <cstring>dataset_chooser</cstring>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QComboBox" name="dataset_chooser">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="focusPolicy">
-         <enum>Qt::ClickFocus</enum>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="verticalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::MinimumExpanding</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="QPushButton" name="replot_button">
+       </item>
+       <item>
         <property name="text">
-         <string>Replot</string>
+         <string>3: Peak Value</string>
         </property>
-       </widget>
-      </item>
-      <item>
-       <layout class="QVBoxLayout" name="cuts_limits_layout">
-        <item>
-         <widget class="QLabel" name="label_4">
-          <property name="text">
-           <string>Cuts</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QGridLayout" name="cuts_gridLayout">
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_5">
-            <property name="text">
-             <string>Min</string>
-            </property>
-            <property name="buddy">
-             <cstring>cuts_min_spin</cstring>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QDoubleSpinBox" name="cuts_min_spin">
-            <property name="decimals">
-             <number>3</number>
-            </property>
-            <property name="maximum">
-             <double>999.999000000000024</double>
-            </property>
-            <property name="value">
-             <double>0.000000000000000</double>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_6">
-            <property name="text">
-             <string>Max</string>
-            </property>
-            <property name="buddy">
-             <cstring>cuts_max_spin</cstring>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QDoubleSpinBox" name="cuts_max_spin">
-            <property name="decimals">
-             <number>3</number>
-            </property>
-            <property name="maximum">
-             <double>999.999000000000024</double>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QCheckBox" name="use_min_cut">
-            <property name="text">
-             <string>Use</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QCheckBox" name="use_max_cut">
-            <property name="text">
-             <string>Use</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_9">
-          <property name="text">
-           <string>Histogram limits</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QGridLayout" name="hist_limits_gridLayout">
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_8">
-            <property name="text">
-             <string>Max</string>
-            </property>
-            <property name="buddy">
-             <cstring>hist_max_spin</cstring>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_7">
-            <property name="text">
-             <string>Min</string>
-            </property>
-            <property name="buddy">
-             <cstring>hist_min_spin</cstring>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QCheckBox" name="use_hist_min">
-            <property name="toolTip">
-             <string>Do we fix the histogram lower limit?</string>
-            </property>
-            <property name="text">
-             <string>Use</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QCheckBox" name="use_hist_max">
-            <property name="toolTip">
-             <string>Do we fix the histogram lower limit?</string>
-            </property>
-            <property name="text">
-             <string>Use</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QDoubleSpinBox" name="hist_max_spin">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Lower limit of the histogram</string>
-            </property>
-            <property name="decimals">
-             <number>3</number>
-            </property>
-            <property name="maximum">
-             <double>9999.998999999999796</double>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QDoubleSpinBox" name="hist_min_spin">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Upper limit of the histogram</string>
-            </property>
-            <property name="decimals">
-             <number>3</number>
-            </property>
-            <property name="maximum">
-             <double>999.999000000000024</double>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <spacer name="verticalSpacer">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::MinimumExpanding</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="apply_cuts_check">
-        <property name="toolTip">
-         <string>Whether to apply cuts before returning</string>
-        </property>
+       </item>
+       <item>
         <property name="text">
-         <string>Apply cuts on OK?</string>
+         <string>4: Max Posttrig dp/dt</string>
         </property>
-        <property name="checked">
-         <bool>true</bool>
+       </item>
+       <item>
+        <property name="text">
+         <string>5: Rise Time (ms)</string>
         </property>
-       </widget>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QDialogButtonBox" name="dialog_control_buttons">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="standardButtons">
-           <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <widget class="QFrame" name="pylab_holder">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-        <horstretch>1</horstretch>
-        <verstretch>1</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>540</width>
-        <height>400</height>
-       </size>
-      </property>
-      <property name="toolTip">
-       <string>Plotting window</string>
-      </property>
-      <property name="frameShape">
-       <enum>QFrame::StyledPanel</enum>
-      </property>
-      <property name="frameShadow">
-       <enum>QFrame::Raised</enum>
-      </property>
-     </widget>
-    </item>
-   </layout>
-  </widget>
+       </item>
+       <item>
+        <property name="text">
+         <string>6: Peak Time (ms)</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>Channels at a time</string>
+       </property>
+       <property name="buddy">
+        <cstring>num_channel_chooser</cstring>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="num_channel_chooser">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
+       </property>
+       <item>
+        <property name="text">
+         <string>4</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>8</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>12</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>16</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>20</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>24</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>32</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_3">
+       <property name="text">
+        <string>Datasets</string>
+       </property>
+       <property name="buddy">
+        <cstring>dataset_chooser</cstring>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="dataset_chooser">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <item>
+        <property name="text">
+         <string>0-3</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <spacer name="verticalSpacer_2">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Maximum</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="replot_button">
+       <property name="text">
+        <string>Replot</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="cuts_limits_layout">
+       <item>
+        <widget class="QLabel" name="label_4">
+         <property name="text">
+          <string>Cuts</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QGridLayout" name="cuts_gridLayout">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_5">
+           <property name="text">
+            <string>Min</string>
+           </property>
+           <property name="buddy">
+            <cstring>cuts_min_spin</cstring>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QDoubleSpinBox" name="cuts_min_spin">
+           <property name="decimals">
+            <number>3</number>
+           </property>
+           <property name="minimum">
+            <double>-99.000000000000000</double>
+           </property>
+           <property name="maximum">
+            <double>999.999000000000024</double>
+           </property>
+           <property name="value">
+            <double>0.000000000000000</double>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_6">
+           <property name="text">
+            <string>Max</string>
+           </property>
+           <property name="buddy">
+            <cstring>cuts_max_spin</cstring>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QDoubleSpinBox" name="cuts_max_spin">
+           <property name="decimals">
+            <number>3</number>
+           </property>
+           <property name="maximum">
+            <double>999.999000000000024</double>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2">
+          <widget class="QCheckBox" name="use_min_cut">
+           <property name="text">
+            <string>Use</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QCheckBox" name="use_max_cut">
+           <property name="text">
+            <string>Use</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_9">
+         <property name="text">
+          <string>Histogram limits</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QGridLayout" name="hist_limits_gridLayout">
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_8">
+           <property name="text">
+            <string>Max</string>
+           </property>
+           <property name="buddy">
+            <cstring>hist_max_spin</cstring>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>Min</string>
+           </property>
+           <property name="buddy">
+            <cstring>hist_min_spin</cstring>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2">
+          <widget class="QCheckBox" name="use_hist_min">
+           <property name="toolTip">
+            <string>Do we fix the histogram lower limit?</string>
+           </property>
+           <property name="text">
+            <string>Use</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QCheckBox" name="use_hist_max">
+           <property name="toolTip">
+            <string>Do we fix the histogram lower limit?</string>
+           </property>
+           <property name="text">
+            <string>Use</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QDoubleSpinBox" name="hist_max_spin">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="toolTip">
+            <string>Lower limit of the histogram</string>
+           </property>
+           <property name="decimals">
+            <number>3</number>
+           </property>
+           <property name="maximum">
+            <double>9999.998999999999796</double>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QDoubleSpinBox" name="hist_min_spin">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="toolTip">
+            <string>Upper limit of the histogram</string>
+           </property>
+           <property name="decimals">
+            <number>3</number>
+           </property>
+           <property name="minimum">
+            <double>-99.000000000000000</double>
+           </property>
+           <property name="maximum">
+            <double>999.999000000000024</double>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Expanding</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="apply_cuts_check">
+       <property name="toolTip">
+        <string>Whether to apply cuts before returning</string>
+       </property>
+       <property name="text">
+        <string>Apply cuts on OK?</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout">
+       <item>
+        <widget class="QDialogButtonBox" name="dialog_control_buttons">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="standardButtons">
+          <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QFrame" name="pylab_holder">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+       <horstretch>1</horstretch>
+       <verstretch>1</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>1024</width>
+       <height>800</height>
+      </size>
+     </property>
+     <property name="toolTip">
+      <string>Plotting window</string>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+    </widget>
+   </item>
+  </layout>
   <zorder>verticalLayoutWidget</zorder>
   <zorder>verticalSpacer</zorder>
   <zorder>gridLayoutWidget</zorder>
@@ -458,6 +462,22 @@
   <zorder>label_7</zorder>
   <zorder>pylab_holder</zorder>
  </widget>
+ <tabstops>
+  <tabstop>parameter_chooser</tabstop>
+  <tabstop>num_channel_chooser</tabstop>
+  <tabstop>cuts_min_spin</tabstop>
+  <tabstop>cuts_max_spin</tabstop>
+  <tabstop>use_min_cut</tabstop>
+  <tabstop>use_max_cut</tabstop>
+  <tabstop>use_hist_min</tabstop>
+  <tabstop>use_hist_max</tabstop>
+  <tabstop>hist_max_spin</tabstop>
+  <tabstop>hist_min_spin</tabstop>
+  <tabstop>dialog_control_buttons</tabstop>
+  <tabstop>dataset_chooser</tabstop>
+  <tabstop>replot_button</tabstop>
+  <tabstop>apply_cuts_check</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
@@ -467,8 +487,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>69</x>
-     <y>668</y>
+     <x>62</x>
+     <y>831</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -483,8 +503,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>80</x>
-     <y>668</y>
+     <x>73</x>
+     <y>831</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -515,8 +535,8 @@
    <slot>changed_cut_parameter(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>99</x>
-     <y>383</y>
+     <x>92</x>
+     <y>357</y>
     </hint>
     <hint type="destinationlabel">
      <x>434</x>
@@ -531,8 +551,8 @@
    <slot>changed_cut_parameter(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>99</x>
-     <y>348</y>
+     <x>92</x>
+     <y>322</y>
     </hint>
     <hint type="destinationlabel">
      <x>434</x>
@@ -547,12 +567,12 @@
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>182</x>
-     <y>348</y>
+     <x>175</x>
+     <y>310</y>
     </hint>
     <hint type="destinationlabel">
-     <x>99</x>
-     <y>348</y>
+     <x>92</x>
+     <y>322</y>
     </hint>
    </hints>
   </connection>
@@ -563,12 +583,12 @@
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>182</x>
-     <y>383</y>
+     <x>175</x>
+     <y>345</y>
     </hint>
     <hint type="destinationlabel">
-     <x>99</x>
-     <y>383</y>
+     <x>92</x>
+     <y>357</y>
     </hint>
    </hints>
   </connection>
@@ -579,12 +599,12 @@
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>177</x>
-     <y>485</y>
+     <x>170</x>
+     <y>447</y>
     </hint>
     <hint type="destinationlabel">
-     <x>86</x>
-     <y>485</y>
+     <x>79</x>
+     <y>459</y>
     </hint>
    </hints>
   </connection>
@@ -595,12 +615,12 @@
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>177</x>
-     <y>450</y>
+     <x>170</x>
+     <y>412</y>
     </hint>
     <hint type="destinationlabel">
-     <x>86</x>
-     <y>450</y>
+     <x>79</x>
+     <y>424</y>
     </hint>
    </hints>
   </connection>
@@ -611,12 +631,44 @@
    <slot>update_plots()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>124</x>
-     <y>288</y>
+     <x>117</x>
+     <y>262</y>
     </hint>
     <hint type="destinationlabel">
      <x>191</x>
      <y>582</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dataset_chooser</sender>
+   <signal>activated(QString)</signal>
+   <receiver>Dialog</receiver>
+   <slot>update_plots()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>102</x>
+     <y>163</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>626</x>
+     <y>418</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>num_channel_chooser</sender>
+   <signal>activated(QString)</signal>
+   <receiver>Dialog</receiver>
+   <slot>changed_dataset_count(QString)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>102</x>
+     <y>109</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>210</x>
+     <y>184</y>
     </hint>
    </hints>
   </connection>
@@ -625,5 +677,6 @@
   <slot>changed_cut_parameter(double)</slot>
   <slot>changed_parameter_number(int)</slot>
   <slot>update_plots()</slot>
+  <slot>changed_dataset_count(QString)</slot>
  </slots>
 </ui>
