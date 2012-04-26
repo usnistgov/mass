@@ -7,10 +7,9 @@
 # http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
 
 __all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha',
-           'GaussianLine', 'Gd97', 'Gd103', 'AlKalpha', 'SiKalpha',
            'MultiLorentzianDistribution_gen', 'MnKAlphaDistribution',
            'CuKAlphaDistribution', 'MnKAlphaFitter', 'MnKBetaFitter',
-           'CuKAlphaFitter', 'GaussianFitter', 'plot_spectrum']
+           'CuKAlphaFitter', 'plot_spectrum']
  
 """
 fluorescence_lines.py
@@ -29,11 +28,10 @@ November 24, 2010 : started as mn_kalpha.py
 
 import numpy
 import pylab
-import scipy.stats, scipy.special
+import scipy.stats
 
-from mass.calibration import energy_calibration
 from mass.mathstat import MaximumLikelihoodHistogramFitter, \
-    MaximumLikelihoodGaussianFitter, plot_as_stepped_hist, voigt #@UnresolvedImport
+    plot_as_stepped_hist, voigt #@UnresolvedImport
 
 
 class SpectralLine(object):
@@ -148,81 +146,9 @@ class CuKAlpha(SpectralLine):
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak
     peak_energy = 8047.83 # eV        
+
+
     
-
-
-class GaussianLine(object):
-    """An abstract base class for modeling spectral lines as a 
-    single Gaussian of known energy.
-    
-    Instantiate one of its subclasses, which will have to define
-    self.energy.
-    """
-    
-    def __init__(self, energy=10.0, fwhm=1.0):
-        """ """
-        ## Line center energy
-        self.energy = energy
-        ## Full width at half-maximum
-        self.fwhm = fwhm
-        ## Gaussian parameter sigma, computed from self.fwhm
-        self.sigma = self.fwhm/numpy.sqrt(8*numpy.log(2))
-        ## Gaussian amplitude, chosen to normalize the distribution.
-        self.amplitude = (2*numpy.pi)**(-0.5)/self.sigma
-    
-    def __call__(self, x, fwhm=None):
-        """Make the class callable, returning the same value as the self.pdf method."""
-        return self.pdf(x, fwhm=fwhm)
-    
-    def pdf(self, x, fwhm=None):
-        """Spectrum (arb units) as a function of <x>, the energy in eV"""
-        x = numpy.asarray(x, dtype=numpy.float)
-        if fwhm is None:
-            sigma, _ampl = self.sigma, self.amplitude
-        else:
-            sigma = fwhm/numpy.sqrt(8*numpy.log(2))
-#            ampl = (2*numpy.pi)**(-0.5)/sigma
-        result = numpy.exp(-0.5*(x-self.energy)**2/sigma**2)# * ampl
-        return result
-    
-    def cdf(self, x, fwhm=None):
-        """Cumulative distribution function where <x> = set of energies."""
-        x = numpy.asarray(x, dtype=numpy.float)
-        if fwhm is None:
-            arg = (x-self.energy)/self.sigma/numpy.sqrt(2)
-        else:
-            sigma = fwhm/numpy.sqrt(8*numpy.log(2))
-            arg = (x-self.energy)/sigma/numpy.sqrt(2)
-        return (scipy.special.erf(arg)+1)*.5
-
-
-
-class Gd97(GaussianLine):
-    """The 97 keV line of 153Gd."""
-    def __init__(self):
-        super(self.__class__, self).__init__(energy=97431.0, fwhm=50.0)
-    
-
-class Gd103(GaussianLine):
-    """The 103 keV line of 153Gd."""
-    def __init__(self):
-        super(self.__class__, self).__init__(energy=103180.0, fwhm=50.0)
-
-
-class AlKalpha(GaussianLine):
-    """The K-alpha fluorescence lines of aluminum.
-    WARNING: Not correct shape!"""
-    def __init__(self):
-        energy = energy_calibration.STANDARD_FEATURES['Al Ka']
-        super(self.__class__, self).__init__(energy=energy, fwhm=3.0)
-
-class SiKalpha(GaussianLine):
-    """The K-alpha fluorescence lines of silicon.
-    WARNING: Not correct shape!"""
-    def __init__(self):
-        energy = energy_calibration.STANDARD_FEATURES['Si Ka']
-        super(self.__class__, self).__init__(energy=energy, fwhm=3.0)
-
 
 class MultiLorentzianDistribution_gen(scipy.stats.rv_continuous):
     """For producing random variates of the an energy distribution having the form
@@ -469,103 +395,6 @@ class CuKAlphaFitter(MultiLorentzianComplexFitter):
         ampl = data.max()-data.mean()
         return [res, ph_ka1, 0.6, ampl, baseline, baseline_slope]
     
-
-
-
-class GaussianFitter(object):
-    """Abstract base class for objects that can fit a single Gaussian line.
-    
-    Provides methods fitfunc() and fit().  The child classes must provide:
-    * a self.spect function object returning the spectrum at a given energy, and
-    * a self.guess_starting_params method to return fit parameter guesses given a histogram.
-    """
-
-    def __init__(self, spect):
-        """ """
-        ## Spectrum function object
-        self.spect = spect 
-        ## Parameters from last successful fit
-        self.last_fit_params = None
-        ## Fit function samples from last successful fit
-        self.last_fit_result = None
-        ## Last chi-square from last successful fit
-        self.last_chisq = None
-        
-    def guess_starting_params(self, data, binctrs):
-        """Guess the best Gaussian line location/width/amplitude/background given the spectrum."""
-        
-        n = data.sum()
-        sum_d = (data*binctrs).sum()
-        sum_d2 = (data*binctrs*binctrs).sum()
-        mean_d = sum_d/n
-        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
-        res = rms_d * 2.3548
-        ph_peak = mean_d
-        ampl = data.max()
-        baseline = 0.1
-        return [res, ph_peak, ampl, baseline]
-    
-    def fit(self, data, pulseheights=None, params=None, plot=True, 
-            axis=None, color=None, label="", hold=None):
-        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
-        set of histogram bins <pulseheights>.
-        
-        params: a 4-element sequence of [Resolution (fwhm), center of the peak,
-                amplitude, background level (per bin) ]
-        
-        If pulseheights is None, then the parameters having pulseheight units will be returned as bin numbers.
-        
-        If params is None or does not have 4 elements, then they will be guessed."""
-        try:
-            assert len(pulseheights) == len(data)
-        except:
-            pulseheights = numpy.arange(len(data), dtype=numpy.float)
-        try:
-            _, _, _, _ = params
-        except:
-            params = self.guess_starting_params(data, pulseheights)
-        
-        def fitfunc(params, x):
-            """Fitting function.  <x> is pulse height (arb units).  <params> are model parameters."""
-            e_peak = self.spect.energy
-            
-            energy = (x-params[1]) + e_peak
-            spectrum = self.spect(energy, fwhm=params[0]*params[1]/e_peak)
-            return spectrum * abs(params[2]) + abs(params[3])
-        
-        # Joe's new max-likelihood fitter
-        fitter = MaximumLikelihoodGaussianFitter(pulseheights, data, params, 
-                                                 TOL=1e-4)
-        if hold is not None:
-            for hnum in hold: 
-                fitter.hold(hnum)
-        fitparams, covariance = fitter.fit()
-        iflag = 0
-
-        fitparams[0] = abs(fitparams[0])
-        
-        self.last_fit_params = fitparams
-        self.last_fit_result = fitfunc(fitparams, pulseheights)
-        self.last_chisq = fitter.chisq
-        
-#        if iflag not in (1,2,3,4): 
-        if iflag not in (0, 2): 
-            print "Oh no! iflag=%d" % iflag
-        elif plot:
-            if color is None: 
-                color = 'blue'
-            if axis is None:
-                pylab.clf()
-                axis = pylab.subplot(111)
-                
-            de = numpy.sqrt(covariance[0, 0])
-            plot_as_stepped_hist(axis, data, pulseheights, color=color, 
-                                                label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
-            axis.plot(pulseheights, self.last_fit_result, color='black')
-            axis.legend(loc='upper left')
-            ph_binsize = pulseheights[1]-pulseheights[0]
-            axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
-        return fitparams, covariance
 
 
 

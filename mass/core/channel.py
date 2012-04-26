@@ -784,7 +784,7 @@ class MicrocalDataSet(object):
                 compute_max_deriv(pulse[self.nPresamples + maxderiv_holdoff:])
 
 
-    def filter_data(self, filter_values, first, end):
+    def filter_data(self, filter_values, first, end, transform=None):
         if first >= self.nPulses:
             return None,None
 
@@ -798,12 +798,22 @@ class MicrocalDataSet(object):
 
         seg_size = min(end-first, self.data.shape[0])
         conv = numpy.zeros((5, seg_size), dtype=numpy.float)
-        for i in range(5):
-            if i-4 == 0:
-                conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
-            else:
-#                print conv[i,:].shape, self.data.shape, (filter*self.data[:seg_size,i:i-4]).shape
-                conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
+        if transform is None:
+            for i in range(5):
+                if i-4 == 0:
+                    conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
+                else:
+                    conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
+        else:
+            ptmean = self.p_pretrig_mean[first:end]
+            ptmean.shape = (len(ptmean),1)
+            data = transform(self.data-ptmean)
+            for i in range(5):
+                if i-4 == 0:
+                    conv[i,:] = (filter_values*data[:seg_size,i:]).sum(axis=1)
+                else:
+                    conv[i,:] = (filter_values*data[:seg_size,i:i-4]).sum(axis=1)
+
         param = numpy.dot(fit_array, conv)
         peak_x = -0.5*param[1,:]/param[2,:]
         peak_y = param[0,:] - 0.25*param[1,:]**2 / param[2,:] 
@@ -1150,7 +1160,13 @@ class MicrocalDataSet(object):
             axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')
 
 
-    def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha', verbose=True, plot=True, **kwargs):
+    def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha', 
+                          nbins=200, verbose=True, plot=True, **kwargs):
+        """
+        <line> can be one of the fitters in mass.calibration.fluorescence_lines (e.g. 'MnKAlpha', 'CuKBeta') or
+        in mass.calibration.gaussian_lines (e.g. 'Gd97'), or a number.  In this last case, it is assumed to
+        be a single Gaussian line.
+        """
         all_values={'filt': self.p_filt_value,
                     'phc': self.p_filt_value_phc,
                     'dc': self.p_filt_value_dc,
@@ -1164,18 +1180,36 @@ class MicrocalDataSet(object):
             valid = numpy.logical_and(valid, self.p_timestamp<times[1])
             valid = numpy.logical_and(valid, self.p_timestamp>times[0])
         good_values = all_values[valid]
-        contents,bin_edges = numpy.histogram(good_values, 200, prange)
+        contents,bin_edges = numpy.histogram(good_values, nbins, prange)
         if verbose: print "%d events pass cuts; %d are in histogram range"%(len(good_values),contents.sum())
         bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
         
-        # Temporary hack for Lorentzian lines that we'll approximate as Gaussian
-        if line in ('AlKalpha', 'SiKalpha'):
-            fittername = 'mass.fluorescence_lines.GaussianFitter(fluorescence_lines.%s())'%line
-        else:
-            fittername = 'mass.fluorescence_lines.%sFitter()'%line
-        fitter = eval(fittername)
+        # Try line first as a number, then as a fluorescence line, then as a Gaussian
+        try:
+            energy = float(line)
+            module = 'mass.calibration.gaussian_lines'
+            fittername = '%s.GaussianFitter(%s.GaussianLine(energy=%f))'%(module,module,energy)
+            fitter = eval(fittername)
+        except ValueError:
+            energy = None
+            try:
+                module = 'mass.calibration.fluorescence_lines'
+                fittername = '%s.%sFitter()'%(module,line)
+                fitter = eval(fittername)
+            except AttributeError:
+                try:
+                    module = 'mass.calibration.gaussian_lines'
+                    fittername = '%s.%sFitter()'%(module,line)
+                    fitter = eval(fittername)
+                except AttributeError:
+                    raise ValueError("Cannot understand line=%s as an energy or a known calibration line."%line)
+
         params, covar = fitter.fit(contents, bin_ctrs, plot=plot, **kwargs)
-        if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0],numpy.sqrt(covar[0,0]))
+        if energy is not None:
+            scale = energy/params[1]
+        else:
+            scale=1.0
+        if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0]*scale,numpy.sqrt(covar[0,0])*scale)
         return params, covar, fitter
     
     
