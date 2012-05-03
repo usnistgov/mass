@@ -80,7 +80,7 @@ def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, **kwargs
         bin_ctrs = 0.5*(bin_ctrs[1:]+bin_ctrs[:-1])
     elif len(bin_ctrs) != len(counts):
         raise ValueError("bin_ctrs must be either the same length as counts, or 1 longer.")
-    smooth_counts = savitzky_golay(counts, 7, 4)
+    smooth_counts = savitzky_golay(counts, 7, 4)*scale
     errors = numpy.sqrt(counts)*scale
     axis.fill_between(bin_ctrs, smooth_counts-errors, smooth_counts+errors, alpha=0.25, **kwargs)
     plot_as_stepped_hist(axis, counts*scale, bin_ctrs, **kwargs)
