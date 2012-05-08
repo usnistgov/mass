@@ -22,10 +22,8 @@ class GaussianFitter(object):
     * a self.guess_starting_params method to return fit parameter guesses given a histogram.
     """
 
-    def __init__(self, spect):
+    def __init__(self):
         """ """
-        ## Spectrum function object
-        self.spect = spect 
         ## Parameters from last successful fit
         self.last_fit_params = None
         ## Fit function samples from last successful fit
@@ -47,6 +45,8 @@ class GaussianFitter(object):
         baseline = 0.1
         return [res, ph_peak, ampl, baseline]
     
+    
+    
     def fit(self, data, pulseheights=None, params=None, plot=True, 
             axis=None, color=None, label="", hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
@@ -67,14 +67,6 @@ class GaussianFitter(object):
         except:
             params = self.guess_starting_params(data, pulseheights)
         
-        def fitfunc(params, x):
-            """Fitting function.  <x> is pulse height (arb units).  <params> are model parameters."""
-            e_peak = self.spect.energy
-            
-            energy = (x-params[1]) + e_peak
-            spectrum = self.spect(energy, fwhm=params[0]*params[1]/e_peak)
-            return spectrum * abs(params[2]) + abs(params[3])
-        
         # Joe's new max-likelihood fitter
         fitter = MaximumLikelihoodGaussianFitter(pulseheights, data, params, 
                                                  TOL=1e-4)
@@ -87,7 +79,7 @@ class GaussianFitter(object):
         fitparams[0] = abs(fitparams[0])
         
         self.last_fit_params = fitparams
-        self.last_fit_result = fitfunc(fitparams, pulseheights)
+        self.last_fit_result = fitter.theory_function(fitparams, pulseheights)
         self.last_chisq = fitter.chisq
         
 #        if iflag not in (1,2,3,4): 
