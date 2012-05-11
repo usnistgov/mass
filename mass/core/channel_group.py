@@ -203,13 +203,14 @@ class BaseChannelGroup(object):
         
         
     def plot_traces(self, pulsenums, channum=0, pulse_summary=True, axis=None, difference=False,
-                    valid_status=None):
+                    residual=False, valid_status=None):
         """Plot some example pulses, given by sample number.
         <pulsenums>  A sequence of sample numbers, or a single one.
         
         <pulse_summary> Whether to put text about the first few pulses on the plot
         <axis>       A pylab axis to plot on.
-        <difference> Whether to show successive differences or the raw data
+        <difference> Whether to show successive differences (that is, d(pulse)/dt) or the raw data
+        <residual>   Whether to show the residual between data and opt filtered model, or just raw data.
         <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                      that have been cut.  If "cut", show only those that have been cut.
         """
@@ -220,6 +221,8 @@ class BaseChannelGroup(object):
         
         if valid_status not in (None, "valid", "cut"):
             raise ValueError("valid_status must be one of [None, 'valid', or 'cut']")
+        if residual and difference:
+            raise ValueError("Only one of residual and difference can be True.")
             
         dt = (numpy.arange(dataset.nSamples)-dataset.nPresamples)*dataset.timebase*1e3
         color= 'purple','blue','green','#88cc00','gold','orange','red', 'brown','gray','#444444','magenta'
@@ -253,6 +256,10 @@ class BaseChannelGroup(object):
                 data[0] = 0
                 data += numpy.roll(data,1) + numpy.roll(data,-1)
                 data[0] = 0
+            elif residual:
+                model = dataset.p_filt_value[pn] * dataset.average_pulses[channum] / dataset.average_pulses[channum].max()
+                data = data-model
+                
             cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1
             
             # When plotting both cut and valid, mark the cut data with x and dashed lines
@@ -680,7 +687,7 @@ class BaseChannelGroup(object):
                 print e
             
     
-    def filter_data(self, filter_name=None):
+    def filter_data(self, filter_name=None, transform=None):
         """Filter data sets and store in datasets[*].p_filt_phase and _value.
         The filters are currently self.filter[*].filt_noconst"""
         if self.filters is None:
@@ -700,14 +707,14 @@ class BaseChannelGroup(object):
                 if filt_group is None:
                     continue
                 filt_vector = filt_group.__dict__[filter_name]
-                peak_x, peak_y = dset.filter_data(filt_vector,first, end)
+                peak_x, peak_y = dset.filter_data(filt_vector,first, end, transform=transform)
                 dset.p_filt_phase[first:end] = peak_x
                 dset.p_filt_value[first:end] = peak_y
         
         # Reset the phase-corrected and drift-corrected values
         for dset in self.datasets:
             dset.p_filt_value_phc = dset.p_filt_value.copy()
-            dset.p_filt_value_dc = dset .p_filt_value.copy()
+            dset.p_filt_value_dc  = dset.p_filt_value.copy()
 
             
     def plot_crosstalk(self, xlim=None, ylim=None, use_legend=True):

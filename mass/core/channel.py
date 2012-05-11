@@ -716,9 +716,6 @@ class MicrocalDataSet(object):
         self.p_first3 = numpy.zeros((self.nPulses,3), dtype=numpy.uint16)
         
         self.cuts = Cuts(self.nPulses)
-        self.good = self.cuts.good()
-        self.bad = self.cuts.bad()
-
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
@@ -727,6 +724,15 @@ class MicrocalDataSet(object):
         
     def __repr__(self):
         return "%s('%s')"%(self.__class__.__name__, self.filename)
+
+
+    def good(self):
+        """Return a boolean vector, one per pulse record, saying whether record is good"""
+        return self.cuts.good()
+    
+    def bad(self):
+        """Return a boolean vector, one per pulse record, saying whether record is bad"""
+        return self.cuts.bad()
     
     def resize(self, nPulses):
         if self.nPulses < nPulses:

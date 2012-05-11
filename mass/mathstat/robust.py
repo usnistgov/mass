@@ -143,7 +143,7 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     
     x            - The data set under study.  Must be a sequence of values.
     normalize    - If False (default), then return the actual range b-a.  If True, then the range will be
-                   divided by 1.xxxx, which normalizes the range to be a consistent estimator of the
+                   divided by 1.348960, which normalizes the range to be a consistent estimator of the
                    parameter sigma in the case of an exact Gaussian distribution.  (A small correction of 
                    order 1/N is applied, too, which mostly corrects for bias at modest values of the sample
                    size N.)
