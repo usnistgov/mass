@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mass/gui/make_cuts_dialog_form.ui'
 #
-# Created: Wed Apr 25 14:06:38 2012
+# Created: Wed May  9 16:16:28 2012
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -142,6 +142,15 @@ class Ui_Dialog(object):
         self.hist_limits_gridLayout.addWidget(self.hist_min_spin, 0, 1, 1, 1)
         self.cuts_limits_layout.addLayout(self.hist_limits_gridLayout)
         self.control_verticalLayout.addLayout(self.cuts_limits_layout)
+        self.horizontalLayout_3 = QtGui.QHBoxLayout()
+        self.horizontalLayout_3.setObjectName(_fromUtf8("horizontalLayout_3"))
+        self.apply_cuts = QtGui.QPushButton(Dialog)
+        self.apply_cuts.setObjectName(_fromUtf8("apply_cuts"))
+        self.horizontalLayout_3.addWidget(self.apply_cuts)
+        self.clear_cuts = QtGui.QPushButton(Dialog)
+        self.clear_cuts.setObjectName(_fromUtf8("clear_cuts"))
+        self.horizontalLayout_3.addWidget(self.clear_cuts)
+        self.control_verticalLayout.addLayout(self.horizontalLayout_3)
         spacerItem2 = QtGui.QSpacerItem(20, 20, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.control_verticalLayout.addItem(spacerItem2)
         self.apply_cuts_check = QtGui.QCheckBox(Dialog)
@@ -161,7 +170,7 @@ class Ui_Dialog(object):
         self.dialog_control_buttons.setObjectName(_fromUtf8("dialog_control_buttons"))
         self.horizontalLayout.addWidget(self.dialog_control_buttons)
         self.control_verticalLayout.addLayout(self.horizontalLayout)
-        self.control_verticalLayout.setStretch(10, 1)
+        self.control_verticalLayout.setStretch(11, 1)
         self.horizontalLayout_2.addLayout(self.control_verticalLayout)
         self.pylab_holder = QtGui.QFrame(Dialog)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.MinimumExpanding, QtGui.QSizePolicy.MinimumExpanding)
@@ -174,7 +183,6 @@ class Ui_Dialog(object):
         self.pylab_holder.setFrameShadow(QtGui.QFrame.Raised)
         self.pylab_holder.setObjectName(_fromUtf8("pylab_holder"))
         self.horizontalLayout_2.addWidget(self.pylab_holder)
-        self.horizontalLayout_2.setStretch(1, 1)
         self.label.setBuddy(self.parameter_chooser)
         self.label_2.setBuddy(self.num_channel_chooser)
         self.label_3.setBuddy(self.dataset_chooser)
@@ -198,18 +206,18 @@ class Ui_Dialog(object):
         QtCore.QObject.connect(self.num_channel_chooser, QtCore.SIGNAL(_fromUtf8("activated(QString)")), Dialog.changed_dataset_count)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
         Dialog.setTabOrder(self.parameter_chooser, self.num_channel_chooser)
-        Dialog.setTabOrder(self.num_channel_chooser, self.cuts_min_spin)
-        Dialog.setTabOrder(self.cuts_min_spin, self.cuts_max_spin)
-        Dialog.setTabOrder(self.cuts_max_spin, self.use_min_cut)
-        Dialog.setTabOrder(self.use_min_cut, self.use_max_cut)
-        Dialog.setTabOrder(self.use_max_cut, self.use_hist_min)
-        Dialog.setTabOrder(self.use_hist_min, self.use_hist_max)
-        Dialog.setTabOrder(self.use_hist_max, self.hist_max_spin)
-        Dialog.setTabOrder(self.hist_max_spin, self.hist_min_spin)
-        Dialog.setTabOrder(self.hist_min_spin, self.dialog_control_buttons)
-        Dialog.setTabOrder(self.dialog_control_buttons, self.dataset_chooser)
+        Dialog.setTabOrder(self.num_channel_chooser, self.dataset_chooser)
         Dialog.setTabOrder(self.dataset_chooser, self.replot_button)
-        Dialog.setTabOrder(self.replot_button, self.apply_cuts_check)
+        Dialog.setTabOrder(self.replot_button, self.cuts_min_spin)
+        Dialog.setTabOrder(self.cuts_min_spin, self.use_min_cut)
+        Dialog.setTabOrder(self.use_min_cut, self.cuts_max_spin)
+        Dialog.setTabOrder(self.cuts_max_spin, self.use_max_cut)
+        Dialog.setTabOrder(self.use_max_cut, self.hist_min_spin)
+        Dialog.setTabOrder(self.hist_min_spin, self.use_hist_min)
+        Dialog.setTabOrder(self.use_hist_min, self.hist_max_spin)
+        Dialog.setTabOrder(self.hist_max_spin, self.use_hist_max)
+        Dialog.setTabOrder(self.use_hist_max, self.apply_cuts_check)
+        Dialog.setTabOrder(self.apply_cuts_check, self.dialog_control_buttons)
 
     def retranslateUi(self, Dialog):
         Dialog.setWindowTitle(QtGui.QApplication.translate("Dialog", "Dialog", None, QtGui.QApplication.UnicodeUTF8))
@@ -246,6 +254,8 @@ class Ui_Dialog(object):
         self.use_hist_max.setText(QtGui.QApplication.translate("Dialog", "Use", None, QtGui.QApplication.UnicodeUTF8))
         self.hist_max_spin.setToolTip(QtGui.QApplication.translate("Dialog", "Lower limit of the histogram", None, QtGui.QApplication.UnicodeUTF8))
         self.hist_min_spin.setToolTip(QtGui.QApplication.translate("Dialog", "Upper limit of the histogram", None, QtGui.QApplication.UnicodeUTF8))
+        self.apply_cuts.setText(QtGui.QApplication.translate("Dialog", "Apply Cuts", None, QtGui.QApplication.UnicodeUTF8))
+        self.clear_cuts.setText(QtGui.QApplication.translate("Dialog", "Clear Cuts", None, QtGui.QApplication.UnicodeUTF8))
         self.apply_cuts_check.setToolTip(QtGui.QApplication.translate("Dialog", "Whether to apply cuts before returning", None, QtGui.QApplication.UnicodeUTF8))
         self.apply_cuts_check.setText(QtGui.QApplication.translate("Dialog", "Apply cuts on OK?", None, QtGui.QApplication.UnicodeUTF8))
         self.pylab_holder.setToolTip(QtGui.QApplication.translate("Dialog", "Plotting window", None, QtGui.QApplication.UnicodeUTF8))

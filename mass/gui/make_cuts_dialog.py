@@ -37,7 +37,7 @@ except ImportError:
 
 
 
-def create_cuts(datagroup):
+def create_cuts(datagroup, existing_cuts=None):
     """
     Use the _CutsCreator dialog class to generate lists of pulse files, noise files, or both; to
     create a mass.TESGroup object from the lists; and (optionally) to run summarize_data on it.
@@ -46,32 +46,15 @@ def create_cuts(datagroup):
     
     Returns: a mass.TESGroup object, or (if user cancels or selects no files) None.
     """
-    dialog = _CutsCreator(datagroup)
+    dialog = _CutsCreator(datagroup, existing_cuts=existing_cuts)
     retval = dialog.exec_()
     if retval == _CutsCreator.Rejected:
         print "User chose not to load anything."
         return None
     
     assert retval == _CutsCreator.Accepted
-    
-    print dialog.cuts
 
-    cuts_avg = dialog.cuts[0].get_cut_tuple()
-    cuts_rms = dialog.cuts[1].get_cut_tuple()
-    cuts_ptm = dialog.cuts[2].get_cut_tuple()
-    cuts_ptd = dialog.cuts[3].get_cut_tuple()
-    cuts_rtm = dialog.cuts[5].get_cut_tuple()
-    cuts_pkt = dialog.cuts[6].get_cut_tuple()
-    print cuts_avg, cuts_rms, cuts_ptm, cuts_ptd, cuts_rtm, cuts_pkt,'xxxx000'
-    cuts = mass.core.controller.AnalysisControl(
-            pulse_average=cuts_avg,
-            pretrigger_rms=cuts_rms,
-            pretrigger_mean_departure_from_median=cuts_ptm,
-            max_posttrig_deriv=cuts_ptd,
-            rise_time_ms=cuts_rtm,
-            peak_time_ms=cuts_pkt
-            )
-
+    cuts = dialog.generate_mass_cuts()
     if dialog.apply_cuts_check.isChecked():
         for ds in datagroup.datasets:
             ds.apply_cuts(cuts)
@@ -149,7 +132,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
     This class is meant to be used by factory function make_cuts, and not by the end
     user.  Jeez.  Why are you even reading this?
     """
-    def __init__(self, datagroup ):
+    def __init__(self, datagroup, existing_cuts=None ):
         QtGui.QDialog.__init__(self, parent=None)
         self.setupUi(self)
         frame_size = self.pylab_holder.frameSize()
@@ -168,6 +151,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         self.data = datagroup
         self.n_channels = self.data.n_channels
         
+        # Start with cuts at default values
         self.cuts = (CutVectorStatus("Pulse average", use_min=True, cut_min=0.0),
                      CutVectorStatus("Pretrigger RMS", use_max=True, cut_max=10.0),
                      CutVectorStatus("Pretrigger mean", use_hist_min=True, hist_min=-50,
@@ -176,6 +160,22 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                      CutVectorStatus("Max posttrig dp/dt", use_max=True, cut_max=30.0), 
                      CutVectorStatus("Rise time (ms)", use_max=True, cut_max=0.7), 
                      CutVectorStatus("Peak time (ms)", use_max=True, cut_max=0.5))
+        
+        # If user constructed this with existing cuts, then include them here.
+        if existing_cuts is not None:
+            cuts=existing_cuts.cuts_prm
+            for i,name in enumerate(("pulse_average", "pretrigger_rms",
+                                    "pretrigger_mean_departure_from_median",
+                                    "peak_value", "max_posttrig_deriv",
+                                    "rise_time_ms", "peak_time_ms")):
+                if name in cuts:
+                    a,b = cuts[name]
+                    if a is not None: 
+                        self.cuts[i].use_min = True
+                        self.cuts[i].cut_min = a
+                    if b is not None:
+                        self.cuts[i].use_max = True
+                        self.cuts[i].cut_max = b
         
         for i, vector_name in enumerate(("p_pulse_average","p_pretrig_rms",
                                          "p_pretrig_mean",
@@ -187,8 +187,28 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         for button in (self.use_max_cut, self.use_min_cut,
                        self.use_hist_max, self.use_hist_min):
             button.clicked.connect(self.toggle_use_cut)
+        self.apply_cuts.clicked.connect(self._apply_all_cuts)
+        self.clear_cuts.clicked.connect(self._clear_all_cuts)
+            
         self.changed_parameter_number(0)
         self.changed_dataset_count("4")
+
+
+    def accept(self):
+        if self.apply_cuts_check.isChecked():
+            self._apply_all_cuts()
+        QtGui.QDialog.accept(self)
+
+    @pyqtSlot()
+    def _apply_all_cuts(self):
+        cuts = self.generate_mass_cuts()
+        for ds in self.data.datasets:
+            ds.apply_cuts(cuts)
+    
+    @pyqtSlot()
+    def _clear_all_cuts(self):
+        for ds in self.data.datasets:
+            ds.clear_cuts()
 
     @pyqtSlot(float)
     def changed_cut_parameter(self, paramval): 
@@ -356,4 +376,25 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                   "Max posttrig dp/dt", "Rise time (ms)", "Peak time (ms)")[self.current_param]
         axis.set_title(xlabel)
         self.canvas.draw()
+    
+    
+    def generate_mass_cuts(self):
+        cuts_avg = self.cuts[0].get_cut_tuple()
+        cuts_rms = self.cuts[1].get_cut_tuple()
+        cuts_ptm = self.cuts[2].get_cut_tuple()
+    #    cuts_pkv = self.cuts[3].get_cut_tuple() # Ignore for now???
+        cuts_ptd = self.cuts[4].get_cut_tuple()
+        cuts_rtm = self.cuts[5].get_cut_tuple()
+        cuts_pkt = self.cuts[6].get_cut_tuple()
+        print cuts_avg, cuts_rms, cuts_ptm, cuts_ptd, cuts_rtm, cuts_pkt,'xxxx000'
+        cuts = mass.core.controller.AnalysisControl(
+                pulse_average=cuts_avg,
+                pretrigger_rms=cuts_rms,
+                pretrigger_mean_departure_from_median=cuts_ptm,
+    #            peak_value=cuts_pkv,
+                max_posttrig_deriv=cuts_ptd,
+                rise_time_ms=cuts_rtm,
+                peak_time_ms=cuts_pkt
+                )
+        return cuts
         

@@ -28,12 +28,12 @@
   <property name="sizeGripEnabled">
    <bool>true</bool>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
+  <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0">
    <property name="margin">
     <number>4</number>
    </property>
    <item>
-    <layout class="QVBoxLayout" name="control_verticalLayout" stretch="0,0,0,0,0,0,0,0,0,0,1,0,0">
+    <layout class="QVBoxLayout" name="control_verticalLayout" stretch="0,0,0,0,0,0,0,0,0,0,0,1,0,0">
      <property name="sizeConstraint">
       <enum>QLayout::SetNoConstraint</enum>
      </property>
@@ -376,6 +376,24 @@
       </layout>
      </item>
      <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <item>
+        <widget class="QPushButton" name="apply_cuts">
+         <property name="text">
+          <string>Apply Cuts</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="clear_cuts">
+         <property name="text">
+          <string>Clear Cuts</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
       <spacer name="verticalSpacer">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
@@ -465,18 +483,18 @@
  <tabstops>
   <tabstop>parameter_chooser</tabstop>
   <tabstop>num_channel_chooser</tabstop>
-  <tabstop>cuts_min_spin</tabstop>
-  <tabstop>cuts_max_spin</tabstop>
-  <tabstop>use_min_cut</tabstop>
-  <tabstop>use_max_cut</tabstop>
-  <tabstop>use_hist_min</tabstop>
-  <tabstop>use_hist_max</tabstop>
-  <tabstop>hist_max_spin</tabstop>
-  <tabstop>hist_min_spin</tabstop>
-  <tabstop>dialog_control_buttons</tabstop>
   <tabstop>dataset_chooser</tabstop>
   <tabstop>replot_button</tabstop>
+  <tabstop>cuts_min_spin</tabstop>
+  <tabstop>use_min_cut</tabstop>
+  <tabstop>cuts_max_spin</tabstop>
+  <tabstop>use_max_cut</tabstop>
+  <tabstop>hist_min_spin</tabstop>
+  <tabstop>use_hist_min</tabstop>
+  <tabstop>hist_max_spin</tabstop>
+  <tabstop>use_hist_max</tabstop>
   <tabstop>apply_cuts_check</tabstop>
+  <tabstop>dialog_control_buttons</tabstop>
  </tabstops>
  <resources/>
  <connections>
