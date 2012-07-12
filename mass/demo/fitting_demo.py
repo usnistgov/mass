@@ -16,7 +16,9 @@ wasinteractive = pylab.isinteractive() # So we can go back to initial state late
 pylab.ion()
 
 # First, let's work with a simple Gaussian fit
+FWHM_SIGMA_RATIO = (8*numpy.log(2))**0.5
 N,mu,sigma = 4000,400.0, 20.0
+fwhm = FWHM_SIGMA_RATIO*sigma
 d = numpy.random.standard_normal(size=N)*sigma + mu
 
 # We are going to fit histograms, not raw data vectors:
@@ -30,13 +32,17 @@ mass.plot_as_stepped_hist(axis, hist, bin_ctr)
 
 # <demo> stop
 
-# Now do a fit.  First you see the most generic way.  I don't particularly recommend it.  
+# Now do a fit.  First we'll do it the most generic, powerful, and annoying way.
+
+# I don't particularly recommend it, but if you require a SLOPED background,
+# it's the only way to go (for now).
+
 # It's not easy to plot the fitted model.  Also, notice that it requires you
 # to make initial guesses for the parameters.  Parameters are, in order:
 # [FWHM, Centroid, Peak Value, Const BG Level, BG slope]
 # The last is optional and can be left off
 
-guess_params = [2.35*sigma, mu, hist.max(), 0]
+guess_params = [fwhm, mu, hist.max(), 0]
 fitter = mass.fitting.MaximumLikelihoodGaussianFitter(bin_ctr, hist, guess_params)
 params, covariance = fitter.fit()
 for i in range(len(guess_params)):
@@ -47,10 +53,14 @@ model = fitter.theory_function(params, bin_ctr)
 pylab.plot(bin_ctr, model, 'r')
 
 # <demo> stop
-# Let's repeat that fit 3 ways: first with zero background, next with a constant background, 
-# and finally with a sloped linear background.
+# I said the mass.fitting.MaximumLikelihoodGaussianFitter method is annoying but
+# powerful.  Let's see the power.
+
+# We'll repeat that fit 3 ways: (1) with zero background, (2) just like before,
+# with a constant background, and finally (3) with a sloped linear background.
 # To make it interesting, let's add a Poisson background of 2 counts per bin.
-# Note that we don't get a great fit when there IS a background but we don't let it be fit for. 
+# Note that we get a poor fit when there IS a background but we don't let it be fit for,
+# as in fit (1) here. 
 
 hist += numpy.random.poisson(lam=2.0, size=len(hist))
 
@@ -58,9 +68,10 @@ pylab.clf()
 axis = pylab.subplot(111)
 mass.plot_as_stepped_hist(axis, hist, bin_ctr, color='blue')
 
-guess_params = [2.35*sigma, mu, hist.max()]
+guess_params = [fwhm, mu, hist.max()]
 color='red','gold','green'
 title='No BG','Constant BG','Sloped BG'
+print 'True parameter values: FWHM=%.4f Ctr=%.4f'%(fwhm, mu)
 for nbg in (0,1,2):
     if nbg == 1 or nbg==2:
         guess_params.append(0)
@@ -75,3 +86,23 @@ for nbg in (0,1,2):
     model = fitter.theory_function(params, bin_ctr)
     pylab.plot(bin_ctr, model, color=color[nbg], label=title[nbg])
 pylab.legend()
+
+# <demo> stop
+# Fine, that was the more powerful way, which you will probably never use.
+# (If you need to use it with the sloped background a lot, then talk to me,
+# and we will see if we can fit sloped BG into the simpler approach.)
+
+# Here's the simpler, more usual way.
+# We'll generate a new set of Gaussian random numbers, histogram them, and fit.
+
+# These three lines are a repeat of what you saw earlier in this demo.
+d = numpy.random.standard_normal(size=N)*sigma + mu
+hist, bin_edges = numpy.histogram(d, 100, [mu-4*sigma, mu+4*sigma])
+bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
+
+# Now fit the smooth way.
+fitter = mass.GaussianFitter()
+params, covar = fitter.fit(hist, bin_ctr, plot=True)
+true_params = [FWHM_SIGMA_RATIO*sigma, mu, N*(bin_edges[1]-bin_edges[0])/sigma/(2*numpy.pi)**0.5, 0]
+for i in range(len(true_params)):
+    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, true_params[i], params[i], covariance[i,i]**.5)
