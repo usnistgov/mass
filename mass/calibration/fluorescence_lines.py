@@ -6,11 +6,7 @@
 # Phys Rev A56 (#6) pages 4554ff (1997 December).  See online at
 # http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
 
-__all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha',
-           'MultiLorentzianDistribution_gen', 'MnKAlphaDistribution',
-           'CuKAlphaDistribution', 'MnKAlphaFitter', 'MnKBetaFitter',
-           'CuKAlphaFitter', 'plot_spectrum']
- 
+
 """
 fluorescence_lines.py
 
@@ -22,10 +18,17 @@ http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
 
 Joe Fowler, NIST
 
+July 12, 2012  : added fitting of Voigt and Lorentzians
 March 9, 2011
 November 24, 2010 : started as mn_kalpha.py
 """
 
+__all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha', 
+           'VoigtFitter', 'LorentzianFitter',
+           'MultiLorentzianDistribution_gen', 'MnKAlphaDistribution',
+           'CuKAlphaDistribution', 'MnKAlphaFitter', 'MnKBetaFitter',
+           'CuKAlphaFitter', 'plot_spectrum']
+ 
 import numpy
 import pylab
 import scipy.stats
@@ -190,6 +193,196 @@ MnKBetaDistribution  = MultiLorentzianDistribution_gen(distribution=MnKBeta(), n
 CuKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=CuKAlpha(), name="Cu Kalpha fluorescence")
 
 
+
+class VoigtFitter(object):
+    """Fit a single Lorentzian line, with Gaussian smearing."""
+    def __init__(self):
+        """ """
+        ## Parameters from last successful fit
+        self.last_fit_params = None
+        ## Fit function samples from last successful fit
+        self.last_fit_result = None
+    
+    
+    def guess_starting_params(self, data, binctrs):
+        order_stat = numpy.array(data.cumsum(), dtype=numpy.float)/data.sum()
+        percentiles = lambda p: binctrs[(order_stat>p).argmax()]
+        peak_loc = percentiles(0.5)
+        iqr = (percentiles(0.75)-percentiles(0.25))
+        res = iqr*0.7
+        lor_hwhm = res*0.5
+        baseline = data[0:10].mean()
+        baseline_slope = (data[-10:].mean()-baseline)/len(data)
+        ampl = (data.max()-baseline)*numpy.pi
+        return [res, peak_loc, lor_hwhm, ampl, baseline, baseline_slope]
+        
+    
+    ## Compute the smeared line value.
+    #
+    # @param params  The 6 parameters of the fit (see self.fit for details).
+    # @param x       An array of pulse heights (params will scale them to energy).
+    # @return:       The line complex intensity, including resolution smearing.
+    def fitfunc(self, params, x):
+        """Return the smeared line complex.
+        
+        <params>  The 6 parameters of the fit (see self.fit for details).
+        <x>       An array of pulse heights (params will scale them to energy).
+        Returns:  The line complex intensity, including resolution smearing.
+        """
+        sigma = params[0]/(8*numpy.log(2))**0.5
+        spectrum = voigt(x, params[1], params[2], sigma)
+        nbins = len(x)
+        return spectrum * abs(params[3]) + abs(params[4]) + params[5]*numpy.arange(nbins)
+    
+
+    
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", 
+            vary_resolution=True, vary_bg=True, vary_bg_slope=False, hold=None):
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
+        set of histogram bins <pulseheights>.
+        
+        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters 
+                      normally having pulseheight units will be returned as bin numbers instead.
+
+        params: a 6-element sequence of [Gaussian resolution (fwhm), Pulseheight of the line peak,
+                Lorenztian HALF-width at half-max, amplitude, background level (per bin),
+                and background slope (in counts per bin per bin) ]
+                If params is None or does not have 6 elements, then they will be guessed.
+        
+        plot:   Whether to make a plot.  If not, then the next few args are ignored
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
+                current figure.
+        color:  Color for drawing the histogram contents behind the fit.
+        label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
+        
+        vary_resolution Whether to let the Gaussian resolution vary in the fit
+        vary_bg:       Whether to let a constant background level vary in the fit
+        vary_bg_slope: Whether to let a slope on the background level vary in the fit
+        hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  Resolution, BG
+                       or BG slope will be held if 0, 4 or 5 appears in the hold sequence OR 
+                       if the relevant boolean vary_* tests False.
+        
+        The interaction between <hold> (or its vary_* aliases) and <params> is simple if <params> is given
+        as a 6-element sequence.  Otherwise, for i in [0,4,5], params[i] will be forced to 0 if the given
+        parameter i is in the <hold> list.  So you can fix the resolution at 0 by vary_resolution=False.
+        If you want to fix it at 2.5, then you have to give params=[2.5, u,v,w,x,y].
+        
+        """
+        try:
+            assert len(pulseheights) == len(data)
+        except:
+            pulseheights = numpy.arange(len(data), dtype=numpy.float)
+        if hold is None:
+            hold = []
+        else:
+            hold = list(hold)
+        if not vary_resolution:
+            hold.append(0)
+        if not vary_bg:
+            hold.append(4)
+        if not vary_bg_slope:
+            hold.append(5)
+        print 'Params is: ', params
+        try:
+            _, _, _, _, _, _ = params
+        except:
+            params = self.guess_starting_params(data, pulseheights)
+            if 0 in hold:
+                params[0] = 0
+                params[2] *= 1.4
+            if 4 in hold:
+                params[4] = 0
+            if 5 in hold:
+                params[5] = 0
+        
+        if plot:
+            if color is None: 
+                color = 'blue'
+            if axis is None:
+                pylab.clf()
+                axis = pylab.subplot(111)
+                
+            plot_as_stepped_hist(axis, data, pulseheights, color=color)
+            ph_binsize = pulseheights[1]-pulseheights[0]
+            axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
+
+        # Joe's new max-likelihood fitter
+        epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
+        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+                                                                 self.fitfunc, TOL=1e-4, epsilon=epsilon)
+        
+        for h in hold:
+            fitter.hold(h)
+            
+        fitparams, covariance = fitter.fit()
+        iflag = 0
+
+        fitparams[0] = abs(fitparams[0])
+        
+        self.last_fit_params = fitparams
+        self.last_fit_result = self.fitfunc(fitparams, pulseheights)
+        
+        if iflag not in (0, 2): 
+            print "Oh no! iflag=%d"%iflag
+        elif plot:
+            de = numpy.sqrt(covariance[2, 2])
+            label = "Lorentz HWHM: %.2f +- %.2f eV %s"%(fitparams[2], de, label)
+            if 0 not in hold:
+                de = numpy.sqrt(covariance[0, 0])
+                label += "\nGauss FWHM: %.2f +- %.2f eV"%(fitparams[0], de)
+            axis.plot(pulseheights, self.last_fit_result, color='#666666', 
+                      label=label)
+            axis.legend(loc='upper left')
+        return fitparams, covariance
+
+
+
+
+class LorentzianFitter(VoigtFitter):
+    """Fit a single Lorentzian line, without Gaussian smearing.
+    To allow Gaussian smearing, too, use VoigtFitter instead."""
+
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", 
+            vary_bg=True, vary_bg_slope=False, hold=None):
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
+        set of histogram bins <pulseheights>.
+        
+        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters 
+                      normally having pulseheight units will be returned as bin numbers instead.
+
+        params: a 5-element sequence of [Pulseheight of the line peak,
+                Lorenztian HALF-width at half-max, amplitude, background level (per bin),
+                and background slope (in counts per bin per bin) ]
+                If params is None or does not have 5 elements, then they will be guessed.
+        
+        plot:   Whether to make a plot.  If not, then the next few args are ignored
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
+                current figure.
+        color:  Color for drawing the histogram contents behind the fit.
+        label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
+        
+        vary_bg:       Whether to let a constant background level vary in the fit
+        vary_bg_slope: Whether to let a slope on the background level vary in the fit
+        hold:          A sequence of parameter numbers (0 to 4, inclusive) to hold.  BG
+                       or BG slope will be held if 3 or 4 appears in the hold sequence OR 
+                       if the relevant boolean vary_* tests False.
+        
+        The interaction between <hold> (or its vary_* aliases) and <params> is simple if <params> is given
+        as a 6-element sequence.  Otherwise, for i in [0,4,5], params[i] will be forced to 0 if the given
+        parameter i is in the <hold> list.  So you can fix the resolution at 0 by vary_resolution=False.
+        If you want to fix it at 2.5, then you have to give params=[2.5, u,v,w,x,y].
+        
+        """
+        if params is not None:
+            params = [0] + list(params)
+        if hold is not None:
+            hold = [1+h for h in hold]
+        p,c = VoigtFitter.fit(self, data, pulseheights=pulseheights, params=params, 
+                              plot=plot, axis=axis, color=color, label=label, 
+                              vary_bg=vary_bg, vary_bg_slope=vary_bg_slope, 
+                              hold=hold, vary_resolution=False)
+        # Remove the meaningless parameter 0 (and row/cols 0 of covariance) 
+        return p[1:], c[1:,1:]
 
 
 class MultiLorentzianComplexFitter(object):

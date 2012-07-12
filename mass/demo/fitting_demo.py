@@ -102,7 +102,49 @@ bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
 # Now fit the smooth way.
 fitter = mass.GaussianFitter()
-params, covar = fitter.fit(hist, bin_ctr, plot=True)
+params, covariance = fitter.fit(hist, bin_ctr, plot=True)
 true_params = [FWHM_SIGMA_RATIO*sigma, mu, N*(bin_edges[1]-bin_edges[0])/sigma/(2*numpy.pi)**0.5, 0]
 for i in range(len(true_params)):
-    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, true_params[i], params[i], covariance[i,i]**.5)
+    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, 
+                true_params[i], params[i], covariance[i,i]**.5)
+# <demo> stop
+
+# Now let's generate data from a Lorentzian (Cauchy) distribution
+mu,sigma = 100.0, 3.0
+dc = numpy.random.standard_cauchy(size=N)+mu
+histc, bin_edges = numpy.histogram(dc, 200, [mu-10-4*sigma, mu+10+4*sigma])
+bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
+
+# First, fit a Lorentzian to the Lorentzian data
+fitter = mass.calibration.fluorescence_lines.LorentzianFitter()
+params, covariance = fitter.fit(histc, bin_ctr, plot=True)
+true_params = [mu, 1.0, N*(bin_edges[1]-bin_edges[0])]
+for i in range(len(true_params)):
+    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, 
+                true_params[i], params[i], covariance[i,i]**.5)
+
+# Notice that we could have used the VoigtFitter, and it would probably work.
+# By choosing the Lorentzian fitter, we insist that the Gaussian smearing = 0.
+# )You could use the VoigtFitter's hold=[0] or vary_resolution=False arguments
+# to accomplish the same thing, of course.)
+# <demo> stop
+
+# Now try the general Voigt fitter, even though the Gaussian smearing is zero.
+fitter = mass.calibration.fluorescence_lines.VoigtFitter()
+params, covariance = fitter.fit(histc, bin_ctr, plot=True)
+true_params = [0, mu, 1.0, N*(bin_edges[1]-bin_edges[0])]
+for i in range(len(true_params)):
+    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, 
+                true_params[i], params[i], covariance[i,i]**.5)
+# <demo> stop
+
+# Finally, put real Gaussian smearing on the data and use the Voigt fitter again.
+dv = dc + numpy.random.standard_normal(size=N)*sigma
+histv, bin_edges = numpy.histogram(dv, 100, [mu-10-4*sigma, mu+10+4*sigma])
+bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
+
+params, covariance = fitter.fit(histv, bin_ctr, plot=True)
+true_params = [FWHM_SIGMA_RATIO*sigma, mu, 1.0, N*(bin_edges[1]-bin_edges[0])/sigma/(2*numpy.pi)**0.5]
+for i in range(len(true_params)):
+    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, 
+                true_params[i], params[i], covariance[i,i]**.5)
