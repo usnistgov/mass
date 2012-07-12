@@ -308,7 +308,7 @@ class LJHFile(MicrocalFile):
         <segment_num> Number of the segment to read.
         """
         # Use cached data, if possible
-        if segment_num != self.__cached_segment: 
+        if segment_num != self.__cached_segment or self.data is None: 
             if segment_num*self.segmentsize > self.binary_size:
                 raise ValueError("File %s has only %d segments;\n\tcannot open segment %d"%
                                  (self.filename, self.n_segments, segment_num))

@@ -95,6 +95,8 @@ class PowerSpectrum(object):
         length and returning a sequence, or a sequence."""
         if len(data) != self.m2:
             raise ValueError("wrong size data segment.  len(data)=%d but require %d"%(len(data), self.m2))
+        if numpy.isnan(data).any():
+            raise ValueError("data contains NaN")
         if window is None:
             wksp = data
             sum_window = self.m2

@@ -207,7 +207,7 @@ class EnergyCalibration(object):
             weight = 1/numpy.array(self._stddev)
             weight[self._stddev <= 0.0] = 1/self._stddev.min()
             self.ph2energy = scipy.interpolate.UnivariateSpline(self._ph, self._energies, w=weight, k=3, 
-                                                                bbox=[0, 1.2*self._ph.max()], s=self.smooth*self.npts)
+                                                                bbox=[0, 1.6*self._ph.max()], s=self.smooth*self.npts)
         elif self.npts == 3:
             self.ph2energy = numpy.poly1d(numpy.polyfit(self._ph, self._energies, 2))
         elif self.npts == 2:
@@ -223,7 +223,7 @@ class EnergyCalibration(object):
         energy = STANDARD_FEATURES[name]
         return self.energy2ph(energy)
 
-    def plot(self, axis=None, ph_rescale_power=0.0, color='green'):
+    def plot(self, axis=None, ph_rescale_power=0.0, color='blue', markercolor='red'):
         """Plot the energy calibration function using pylab.  If <axis> is None,
         a new pylab.subplot(111) will be used.  Otherwise, axis should be a 
         pylab.Axes object to plot onto.
@@ -244,7 +244,8 @@ class EnergyCalibration(object):
         
         # Plot and label cal points
         if ph_rescale_power==0.0:
-            axis.errorbar(self._ph, self._energies, yerr=self._stddev, fmt='or', capsize=0)
+            axis.errorbar(self._ph, self._energies, yerr=self._stddev, fmt='o', 
+                          mec='black', mfc=markercolor, capsize=0)
         else:
             axis.errorbar(self._ph, self._energies/(self._ph**ph_rescale_power), yerr=self._stddev/(self._ph**ph_rescale_power), fmt='or', capsize=0)
         for pht, name in zip(self._ph[1:], self._names[1:]):  
