@@ -65,7 +65,7 @@ def plot_as_stepped_hist(axis, data, bins, **kwargs):
 
 
 
-def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, **kwargs):
+def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, offset=0.0, **kwargs):
     """Use plot_as_stepped_hist to plot a histogram of <counts>*<scale>, where also
     an error band is plotted, assuming <counts> are Poisson-distributed variates.
     \param axis     The pylab Axes object to plot onto.
@@ -73,7 +73,8 @@ def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, **kwargs
     \param bin_ctrs An array of bin centers or of bin edges.  (Bin spacing will be 
                     inferred from the first two elements).  If len(bin_ctrs)==len(data)+1, then
                     bin_ctrs will be assumed to be bin edges; otherwise it will be assumed centers.
-    \param scale    Plot counts*scale if you need to convert counts to some physical units.
+    \param scale    Plot counts*scale+offset if you need to convert counts to some physical units.
+    \param offset   Plot counts*scale+offset if you need to convert counts to some physical units.
     \param kwargs   All other keyword arguments will be passed to axis.plot().
     """
     if len(bin_ctrs)==len(counts)+1:
@@ -86,8 +87,8 @@ def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, **kwargs
     fill_upper = smooth_counts+errors
     fill_lower[fill_lower<0] = 0
     fill_upper[fill_upper<0] = 0
-    axis.fill_between(bin_ctrs, fill_lower, fill_upper, alpha=0.25, **kwargs)
-    plot_as_stepped_hist(axis, counts*scale, bin_ctrs, **kwargs)
+    axis.fill_between(bin_ctrs, fill_lower+offset, fill_upper+offset, alpha=0.25, **kwargs)
+    plot_as_stepped_hist(axis, counts*scale+offset, bin_ctrs, **kwargs)
 
 
 
