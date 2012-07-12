@@ -179,6 +179,12 @@ class FitExponentialSum(object):
     fitter.plot_singular_values()  
     # You notice that almost all singular values are < 1e-3 times the highest, so...
     fitter.cut_svd(sval_thresh=1e-3)
+    fitter.fit_amplitudes()
+    fitter.plot()
+    print fitter.summary()
+    
+    If unhappy with the absolute deviation, repeat the steps starting at cut_svd and
+    use a lower sval_thresh.
     .... (INCOMPLETE DESCRIPTION)
     """
     
@@ -214,6 +220,7 @@ class FitExponentialSum(object):
         self.amplitudes = None
         self.complex_bases = None
         self.real_bases = None
+        self.negative_bases = None
         
         self._hankel_svd()
 
@@ -235,6 +242,7 @@ class FitExponentialSum(object):
         # Note that numpy.linalg.svd returns U, Sigma, and what is usually called V_transpose 
         self.svdu, self.all_svalues, self.svdv_t = \
             numpy.linalg.svd(A[:-1,:], full_matrices=False, compute_uv=True)
+        self.svalues = self.all_svalues
         self.lowest_allowed_sval = 0.0
 
     def cut_svd(self, sval_thresh, min_values=None, max_values=None):
@@ -320,12 +328,20 @@ class FitExponentialSum(object):
         pylab.title("Singular values ranked from highest to lowest")
         pylab.xlim([-0.5, len(self.all_svalues)+0.5])
     
-    def _model(self, weights, real_bases, complex_bases, x):
+    def _model(self, weights, real_bases, negative_bases, complex_bases, x):
         """Compute and return the multi-exponential model at a vector of sample numbers <x>
         given the array of <weights>, a sequence of <real_bases> and a sequence of
         <complex_bases>.  The number of weights should be len(real_bases) + 2*len(complex_bases)."""
+        
+        # Positive real bases
         m = numpy.array([w*(b**x) for w,b in zip(weights, real_bases)]).sum(axis=0)
+        
+        # Negative bases
         nr = len(real_bases)
+        m += numpy.array([w*((-b)**x)*numpy.cos(numpy.pi*x) for w,b in zip(weights[nr:], negative_bases)]).sum(axis=0)
+        
+        # Complex bases
+        nr = len(real_bases)+len(negative_bases)
         for i,cb in enumerate(complex_bases):
             amplitude = weights[i*2+nr] + weights[i*2+nr+1]*1j
             m += (amplitude*(cb**x)).real
@@ -333,7 +349,7 @@ class FitExponentialSum(object):
  
     def model(self, x):
         """Given that the model is already completely fit..."""
-        return self._model(self.amplitudes, self.real_bases, self.complex_bases, x)
+        return self._model(self.amplitudes, self.real_bases, self.negative_bases, self.complex_bases, x)
 
 
     def fit_amplitudes(self, verbose=False):
@@ -344,12 +360,13 @@ class FitExponentialSum(object):
     
         
         ############################
-        def residual(weights, real_bases, complex_bases, x, y):
+        def residual(weights, real_bases, negative_bases, complex_bases, x, y):
             """Compute and return the residual between a data vector <y> 
             and the multi-exponential model at a vector of sample numbers <x>.
             This requires the array of <weights>, a sequence of <real_bases> and a sequence of
-            <complex_bases>.  The number of weights should be len(real_bases) + 2*len(complex_bases)."""
-            return y-self._model(weights,real_bases,complex_bases,x)
+            <complex_bases>.  The number of weights should be 
+            len(real_bases) + len(negative_bases) + 2*len(complex_bases)."""
+            return y-self._model(weights, real_bases, negative_bases, complex_bases, x)
         
         # Separate real bases from CC pairs.  Sort by base.imag and pair off complex ones that way
         idx = self.bases.imag.argsort()
@@ -359,16 +376,20 @@ class FitExponentialSum(object):
             idx=idx[1:-1]
         solos=idx
         real_bases = self.bases[solos].real
+        negative_bases = real_bases[real_bases<0]
+        real_bases = real_bases[real_bases>0]
         complex_bases = self.bases[pairs]
-        nr = len(real_bases)
 #        print 'Real bases: ',real_bases
 #        print 'Complex bases: ',complex_bases
     
         powers = numpy.arange(self.nsamp, dtype=numpy.float)
         fweights = numpy.ones(len(self.bases), dtype=numpy.float)
-        fweights, _stat =  scipy.optimize.leastsq(residual, fweights, args=(real_bases, complex_bases, powers, self.data))
+        fweights, _stat =  scipy.optimize.leastsq(residual, fweights, 
+                                                  args=(real_bases, negative_bases, 
+                                                        complex_bases, powers, self.data))
         self.amplitudes = fweights
         self.real_bases = real_bases
+        self.negative_bases = negative_bases
         self.complex_bases = complex_bases
         if verbose:
             for w,b in zip(fweights, real_bases):
@@ -376,6 +397,14 @@ class FitExponentialSum(object):
                 if numpy.isnan(log):
                     log = numpy.log(-b)+numpy.pi*1j
                 print " %10.5f*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w,b.real, b.imag, log.real, log.imag)
+            
+            nr = len(real_bases)
+            for i,nb in enumerate(negative_bases):
+                w = fweights[i+nr]
+                log=numpy.log(-nb)
+                print " %10.5f*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w,nb.real, nb.imag, log.real, log.imag)
+            
+            nr = len(real_bases) + len(negative_bases)
             for i,cb in enumerate(complex_bases):
                 log=numpy.log(cb)
                 if numpy.isnan(log):
@@ -396,26 +425,35 @@ class FitExponentialSum(object):
             x = numpy.arange(self.nsamp)
             y = self.model(x)
             axis.plot(x, y, label='Model')
+            axis.set_xlabel("Sample number")
             
+            nr = len(self.real_bases)
+            nn = len(self.negative_bases)
             for i,b in enumerate(self.real_bases):
-                axis.plot(x, self._model([self.amplitudes[i]], [b], [], x), '--', label='Component %.4g' % b)
+                axis.plot(x, self._model([self.amplitudes[i]], [b], [], [], x), '--', label='Component %.4g' % b)
+            for i,b in enumerate(self.negative_bases):
+                axis.plot(x, self._model([self.amplitudes[i+nr]], [], [b], [], x), '--', label='Component %.4g' % b)
             for i,c in enumerate(self.complex_bases):
-                j = i*2 + len(self.real_bases)
-                axis.plot(x, self._model(self.amplitudes[j:j+2], [], [c], x), '--', label='Component %.4g %.4gj' % (c.real, c.imag))
+                j = i*2 + nr + nn
+                axis.plot(x, self._model(self.amplitudes[j:j+2], [], [], [c], x), '--', label='Component %.4g %.4gj' % (c.real, c.imag))
         axis.legend()
         
         if axis2 is not None:
             residual = self.data-self.model(x)
             axis2.plot(residual)
             axis2.text(.1, .9, 'rms deviation: %f' % residual.std(), transform=axis2.transAxes)
+            axis2.set_xlabel("Sample number")
     
     def summary(self, dt=1.0):
         s=['Summary of exponential sum fit:']
         for i,b in enumerate(self.real_bases):
-            s.append("%11.4f exp(%10.5f t)  [x = %10.6f  tau = %10.4f]" % (self.amplitudes[i], numpy.log(b)/dt, b, -dt/numpy.log(b)))
+            if b>0:
+                s.append("%11.4f exp(%10.5f t)  [x = %10.6f  tau  = %10.4f]" % (self.amplitudes[i], numpy.log(b)/dt, b, -dt/numpy.log(b)))
+            else:
+                s.append("%11.4f exp(%10.5f t)  [x = %10.6f  tau  = %10.4f] (-1)^k" % (self.amplitudes[i], numpy.log(-b)/dt, b, -dt/numpy.log(-b)))
         for i,c in enumerate(self.complex_bases):
             j = i*2 + len(self.real_bases)
-            s.append("%11.4f exp(%10.5f t) cos(%10.5f t) tau = %10.4f" % (self.amplitudes[j], numpy.log(c.real)/dt, c.imag/dt, -dt/numpy.log(c.real)))
-            s.append("%11.4f exp(%10.5f t) sin(%10.5f t) per = %10.4f" % (-self.amplitudes[j+1], numpy.log(c.real)/dt, c.imag/dt, 2*numpy.pi*dt/c.imag))
+            s.append("%11.4f exp(%10.5f t) cos(%10.5f t) tau  = %10.4f" % (self.amplitudes[j], numpy.log(c.real)/dt, c.imag/dt, -dt/numpy.log(c.real)))
+            s.append("%11.4f exp(%10.5f t) sin(%10.5f t) period %10.4f" % (-self.amplitudes[j+1], numpy.log(c.real)/dt, c.imag/dt, 2*numpy.pi*dt/c.imag))
         return "\n".join(s)
 
