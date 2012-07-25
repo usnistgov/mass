@@ -148,3 +148,24 @@ true_params = [FWHM_SIGMA_RATIO*sigma, mu, 1.0, N*(bin_edges[1]-bin_edges[0])/si
 for i in range(len(true_params)):
     print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, 
                 true_params[i], params[i], covariance[i,i]**.5)
+
+# <demo> stop
+
+# Now let's fit two Voigt functions.
+N1, N2, Nbg = 3000, 2000, 1000 
+mu1, mu2, sigma = 100.0, 105.0, 0.5
+dc1 = numpy.random.standard_cauchy(size=N1)+mu1
+dc2 = numpy.random.standard_cauchy(size=N2)+mu2
+dc = numpy.hstack([dc1,dc2])
+dc += numpy.random.standard_normal(size=N1+N2)*sigma
+
+histc, bin_edges = numpy.histogram(dc, 200, [mu1-10-4*sigma, mu2+10+4*sigma])
+bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
+
+fitter = mass.calibration.fluorescence_lines.TwoVoigtFitter()
+param_guess= numpy.array([sigma*2.3548, mu1, 1, N1, mu2, 1, N2, .1])
+# Those are the correct values.  Let's mess with them by 3% (more or less):
+param_guess *= 1+numpy.random.standard_normal(8)*0.03
+
+params,covar=fitter.fit(histc, bin_edges[:-1]+0.5*(bin_edges[1]-bin_edges[0]), params=param_guess)
+print params; print covar.diagonal()**0.5

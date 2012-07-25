@@ -337,6 +337,151 @@ class VoigtFitter(object):
 
 
 
+class TwoVoigtFitter(object):
+    """Fit a single Lorentzian line, with Gaussian smearing.
+    
+    So far, I don't know how to guess the starting parameters, so you have to supply all 8.
+    (See method fit() for explanation).
+    """
+    def __init__(self):
+        """ """
+        ## Parameters from last successful fit
+        self.last_fit_params = None
+        ## Fit function samples from last successful fit
+        self.last_fit_result = None
+    
+    
+    def guess_starting_params(self, data, binctrs):
+#        order_stat = numpy.array(data.cumsum(), dtype=numpy.float)/data.sum()
+#        percentiles = lambda p: binctrs[(order_stat>p).argmax()]
+#        peak_loc = percentiles(0.5)
+#        iqr = (percentiles(0.75)-percentiles(0.25))
+#        res = iqr*0.7
+#        lor_hwhm = res*0.5
+#        baseline = data[0:10].mean()
+#        baseline_slope = (data[-10:].mean()-baseline)/len(data)
+#        ampl = (data.max()-baseline)*numpy.pi
+#        return [res, peak_loc, lor_hwhm, ampl, baseline, baseline_slope]
+        raise NotImplementedError("I don't know how to guess starting parameters for a 2-peak Voigt.")
+        
+    
+    ## Compute the smeared line value.
+    #
+    # @param params  The 6 parameters of the fit (see self.fit for details).
+    # @param x       An array of pulse heights (params will scale them to energy).
+    # @return:       The line complex intensity, including resolution smearing.
+    def fitfunc(self, params, x):
+        """Return the smeared line complex.
+        
+        <params>  The 8 parameters of the fit (see self.fit for details).
+        <x>       An array of pulse heights (params will scale them to energy).
+        Returns:  The line complex intensity, including resolution smearing.
+        """
+        sigma = params[0]/(8*numpy.log(2))**0.5
+        spectrum = voigt(x, params[1], params[2], sigma) * abs(params[3]) +\
+             voigt(x, params[4], params[5], sigma) * abs(params[6])
+        return spectrum  + abs(params[7])
+    
+
+    
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", 
+            vary_resolution=True, vary_bg=True, hold=None):
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
+        set of histogram bins <pulseheights>.
+        
+        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters 
+                      normally having pulseheight units will be returned as bin numbers instead.
+
+        params: a 8-element sequence of [Gaussian resolution (fwhm), Pulseheight of the line 1 peak,
+                Lorenztian HALF-width at half-max of line 1, amplitude of line 1, PH of line 2 peak,
+                Lorentzian HALF-width at half-max of line 2, amplitude of line 2, and
+                constant background level (per bin) ]
+                If params is None or does not have 8 elements, then they will be guessed.
+        
+        plot:   Whether to make a plot.  If not, then the next few args are ignored
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
+                current figure.
+        color:  Color for drawing the histogram contents behind the fit.
+        label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
+        
+        vary_resolution Whether to let the Gaussian resolution vary in the fit
+        vary_bg:       Whether to let a constant background level vary in the fit
+        vary_bg_slope: Whether to let a slope on the background level vary in the fit
+        hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  Resolution, BG
+                       or BG slope will be held if 0, 4 or 5 appears in the hold sequence OR 
+                       if the relevant boolean vary_* tests False.
+        
+        """
+        try:
+            assert len(pulseheights) == len(data)
+        except:
+            pulseheights = numpy.arange(len(data), dtype=numpy.float)
+        if hold is None:
+            hold = []
+        else:
+            hold = list(hold)
+        if not vary_resolution:
+            hold.append(0)
+        if not vary_bg:
+            hold.append(7)
+        print 'Params is: ', params
+        try:
+            _, _, _, _, _, _, _, _ = params
+        except:
+            params = self.guess_starting_params(data, pulseheights)
+            if 0 in hold:
+                params[0] = 0
+                params[2] *= 1.4
+            if 4 in hold:
+                params[4] = 0
+            if 5 in hold:
+                params[5] = 0
+        
+        if plot:
+            if color is None: 
+                color = 'blue'
+            if axis is None:
+                pylab.clf()
+                axis = pylab.subplot(111)
+                
+            plot_as_stepped_hist(axis, data, pulseheights, color=color)
+            ph_binsize = pulseheights[1]-pulseheights[0]
+            axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
+
+        # Joe's new max-likelihood fitter
+        epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, 
+                               params[4]/1e5, 1e-3, params[6]/1e5, params[7]/1e2))
+        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+                                                                 self.fitfunc, TOL=1e-4, epsilon=epsilon)
+        
+        for h in hold:
+            fitter.hold(h)
+            
+        fitparams, covariance = fitter.fit()
+        iflag = 0
+
+        fitparams[0] = abs(fitparams[0])
+        
+        self.last_fit_params = fitparams
+        self.last_fit_result = self.fitfunc(fitparams, pulseheights)
+        
+        if iflag not in (0, 2): 
+            print "Oh no! iflag=%d"%iflag
+        elif plot:
+            de1 = numpy.sqrt(covariance[2, 2])
+            label = "Lorentz HWHM 1: %.2f +- %.2f eV %s"%(fitparams[2], de1, label)
+            de2 = numpy.sqrt(covariance[5, 5])
+            label += "\nLorentz HWHM 2: %.2f +- %.2f eV"%(fitparams[5], de2)
+            if 0 not in hold:
+                de = numpy.sqrt(covariance[0, 0])
+                label += "\nGauss FWHM: %.2f +- %.2f eV"%(fitparams[0], de)
+            axis.plot(pulseheights, self.last_fit_result, color='#666666', 
+                      label=label)
+            axis.legend(loc='upper left')
+        return fitparams, covariance
+
+
+
 
 class LorentzianFitter(VoigtFitter):
     """Fit a single Lorentzian line, without Gaussian smearing.
