@@ -371,7 +371,7 @@ class FitExponentialSum(object):
         # Separate real bases from CC pairs.  Sort by base.imag and pair off complex ones that way
         idx = self.bases.imag.argsort()
         pairs = []
-        while numpy.abs(self.bases.imag[idx[0]]) > 1./self.nsamp:
+        while len(idx)>0 and numpy.abs(self.bases.imag[idx[0]]) > 1./self.nsamp:
             pairs.append(idx[-1])
             idx=idx[1:-1]
         solos=idx
@@ -412,6 +412,27 @@ class FitExponentialSum(object):
                 w=fweights[2*i+nr:2*i+nr+2]
                 print " %10.5f *[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[0],cb.real, cb.imag, log.real, log.imag)
                 print "+%10.5fj*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[1],cb.real, cb.imag, log.real, log.imag)
+
+    
+    def results(self):
+        """This takes the "packed" results and returns them in a form suitable for use by
+        the MultiExponentialCovaranceSolver."""
+        amplitudes = []
+        bases = []
+        stored_amp = list(self.amplitudes)
+        for b in self.real_bases:
+            bases.append(b)
+            amplitudes.append(stored_amp.pop(0))
+        for b in self.negative_bases:
+            bases.append(b)
+            amplitudes.append(stored_amp.pop(0))
+        for b in self.complex_bases:
+            bases.append(b)
+            r = stored_amp.pop(0)
+            c = stored_amp.pop(0)
+            amplitudes.append(r + 1j*c)
+        return numpy.array(amplitudes), numpy.array(bases)
+ 
     
     def plot(self, axis=None, axis2=None):
         import pylab
