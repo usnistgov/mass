@@ -50,6 +50,7 @@ import glob
 # >>> sys.path.append('/opt/local/lib/root/') #Folder where ROOT.py lives
 
 try:
+    raise ImportError("Root is broken as of 9/21/12")
     import ROOT
     #print 'ROOT was successfully imported into mass.'
 except ImportError:
