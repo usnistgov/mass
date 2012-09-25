@@ -86,10 +86,17 @@ class Filter(object):
         "Rescale filter <q> so that it gives unit response to self.avg_signal"
         if len(q) == len(self.avg_signal):
             q *= 1 / numpy.dot(q, self.avg_signal)
-        else:  
-#                print "scaling by 1/%f"%numpy.dot(q, self.avg_signal[self.shorten:-self.shorten])
-#                print self.peak_signal, q
-            q *= 1 / numpy.dot(q, self.avg_signal[self.shorten:-self.shorten]) 
+        elif self.shorten >= 2:
+            conv = numpy.zeros(5, dtype=numpy.float)
+            for i in range(5):
+                conv[i] = numpy.dot(q, self.avg_signal[i:i+len(q)])
+            x = numpy.arange(-2,2.1)
+            fit = numpy.polyfit(x, conv, 2)
+            fit_ctr = -0.5*fit[1]/fit[0]
+            fit_peak = numpy.polyval(fit, fit_ctr)
+            q *= 1.0/fit_peak
+        else:
+            q *= 1.0/numpy.dot(q, self.avg_signal[self.shorten:-self.shorten])
 
 
     def _compute_fourier_filter(self, fmax=None, f_3db=None):
@@ -166,7 +173,9 @@ class Filter(object):
         # Time domain filters
         if self.noise_autocorr is not None:
             n = len(self.avg_signal) - 2*self.shorten
-            assert len(self.noise_autocorr) >= n
+            if len(self.noise_autocorr) < n:
+                raise ValueError("Noise autocorrelation is only %d samples long, but filter requires %d"%
+                                 (len(self.noise_autocorr), n))
             if self.shorten>0:
                 avg_signal = self.avg_signal[self.shorten:-self.shorten]
             else:
@@ -187,13 +196,15 @@ class Filter(object):
 
             # Band-limit
             if fmax is not None or f_3db is not None:
+                filt_length = len(self.filt_noconst)
                 sig_ft = numpy.fft.rfft(self.filt_noconst)
-                freq = numpy.arange(0,n/2+1,dtype=numpy.float)*0.5/self.sample_time/(n/2)
+                freq = numpy.fft.fftfreq(filt_length, d=self.sample_time)
+                freq = numpy.abs( freq[:len(sig_ft)] )
                 if fmax is not None:
                     sig_ft[freq>fmax] = 0.0
                 if f_3db is not None:
                     sig_ft /= (1.+(1.0*freq/f_3db)**2)
-                self.filt_noconst = numpy.fft.irfft(sig_ft)
+                self.filt_noconst = numpy.fft.irfft(sig_ft, n=filt_length) # n= is needed when filt_length is ODD
 
             self.normalize_filter(self.filt_noconst)
             self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr) 
@@ -371,6 +382,8 @@ class ExperimentalFilter(Filter):
             cht1 = scipy.special.chebyt(1)(chebyx)
             cht2 = scipy.special.chebyt(2)(chebyx)
             cht3 = scipy.special.chebyt(3)(chebyx)
+            deriv = avg_signal - numpy.roll(avg_signal,1)
+            deriv[0] = 0
             
             Rinv_sig  = ts(avg_signal)
             Rinv_unit = ts(unit)
@@ -378,21 +391,22 @@ class ExperimentalFilter(Filter):
             Rinv_cht1 = ts(cht1)
             Rinv_cht2 = ts(cht2)
             Rinv_cht3 = ts(cht3)
+            Rinv_deriv = ts(deriv)
             
             # Band-limit
             def band_limit(vector, fmax, f_3db):
+                filt_length = len(vector)
                 sig_ft = numpy.fft.rfft(vector)
-                freq = numpy.fft.fftfreq(n, d=self.sample_time) 
-                freq=freq[:n/2+1]
-                freq[-1] *= -1
+                freq = numpy.fft.fftfreq(filt_length, d=self.sample_time) 
+                freq = numpy.abs( freq[:len(sig_ft)] )
                 if fmax is not None:
                     sig_ft[freq>fmax] = 0.0
                 if f_3db is not None:
-                    sig_ft /= (1+(freq/f_3db)**2)
-                vector[:] = numpy.fft.irfft(sig_ft)
-                
+                    sig_ft /= (1.+(1.0*freq/f_3db)**2)
+                vector[:] = numpy.fft.irfft(sig_ft, n=filt_length) # n= is needed when filt_length is ODD
+                 
             if fmax is not None or f_3db is not None:
-                for vector in Rinv_sig, Rinv_unit, Rinv_cht1, Rinv_cht2, Rinv_cht3:
+                for vector in Rinv_sig, Rinv_unit, Rinv_cht1, Rinv_cht2, Rinv_cht3, Rinv_deriv:
                     band_limit(vector, fmax, f_3db)
                 for vector in Rinv_exps:
                     band_limit(vector, fmax, f_3db)
@@ -407,13 +421,14 @@ class ExperimentalFilter(Filter):
                 'filt_nopoly1' :('unit', 'cht1'),
                 'filt_nopoly2' :('unit', 'cht1', 'cht2'),
                 'filt_nopoly3' :('unit', 'cht1', 'cht2', 'cht3'),
+                'filt_noderivcon':('unit','deriv'),
                 }
             
 #            pylab.clf()
 #            pylab.plot(self.filt_fourier, color='gold',label='Fourier')
 #            for shortname in ('full','noconst','noexpcon','nopoly1'):
 #            for shortname in ('full','noconst','noexp','noexpcon','noslope','nopoly1','nopoly2','nopoly3'):
-            for shortname in ('full','noexp','noconst','noexpcon','nopoly1'):
+            for shortname in ('full','noexp','noconst','noexpcon','nopoly1','noderivcon'):
                 name = 'filt_%s'%shortname
                 orthnames = orthogonalities[name]
                 filt = Rinv_sig
