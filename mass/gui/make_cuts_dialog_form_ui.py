@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'mass/gui/make_cuts_dialog_form.ui'
 #
-# Created: Thu Jun  7 22:48:58 2012
-#      by: PyQt4 UI code generator 4.9.1
+# Created: Mon Sep 24 09:38:13 2012
+#      by: PyQt4 UI code generator 4.9.4
 #
 # WARNING! All changes made in this file will be lost!
 

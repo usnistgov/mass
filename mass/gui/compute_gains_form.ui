@@ -256,14 +256,20 @@
        </widget>
       </item>
       <item row="1" column="0">
-       <widget class="QLabel" name="MaxPulsesLabel_2">
+       <widget class="QLabel" name="FilterSamplesLabel">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
-         <string>Filter samples</string>
+         <string>Filter smp(NOT DONE)</string>
         </property>
        </widget>
       </item>
       <item row="1" column="1">
        <widget class="QSpinBox" name="FilterSamplesSpin">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="toolTip">
          <string>Sub-optimal filter uses this many samples starting at trigger</string>
         </property>
@@ -477,6 +483,5 @@
   <slot>file_template_textEdited(QString)</slot>
   <slot>output_file_textEdited()</slot>
   <slot>energy_menu_chooser(QString)</slot>
-  <slot>confirm_clobber_gain_file()</slot>
  </slots>
 </ui>

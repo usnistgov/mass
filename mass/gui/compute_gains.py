@@ -71,7 +71,6 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
                 self.OutputFile.setFocus()
                 return
 
-        self.gain_file = str(self.OutputFile.text())
         QtGui.QDialog.accept(self)
         
     
@@ -244,8 +243,9 @@ def create_dataset(default_directory="", disabled_channels=()):
     assert retval == _DataLoader.Accepted
     pulse_files = dialog.get_pulse_files()
     npulses = dialog.MaxPulsesSpin.value()
+    if npulses <=0: npulses = None
     energy = dialog.LineEnergySpin.value()
-    gain_file = dialog.gain_file
+    gain_file = dialog.OutputFile.text()
     
     np = len(pulse_files)
     if np>0:
@@ -271,30 +271,34 @@ def process_data(data, npulses=None, nsamples=None):
     end_sample = data.segnum2sample_range(end_seg-1)[1]
         
     # Compute pulse peak and filtered values    
+    for ds in data.datasets:
+        ds.p_peak_value = numpy.array(ds.p_peak_value, dtype=numpy.float)
     
     ndet = data.n_channels
     for first,end in data.iter_segments(first_seg, end_seg):
         print '...handling pulses %6d to %6d for all %d detectors'%(first, end-1, ndet)
-        for ds in data.datasets:
+        for ids,ds in enumerate(data.datasets):
             if first >= ds.nPulses:
                 continue
-            if end >= ds.nPulses:
-                end = ds.nPulses
+            this_end = end
+            if this_end >= ds.nPulses:
+                this_end = ds.nPulses
 
             np,_ns = ds.data.shape
-            if np != (end-first):
-#                print "Weird: np=%d, first,end=%d,%d"%(np,first,end)
+            if np != (this_end-first):
+                print "Weird: np=%d, first,end=%d,%d"%(np,first,this_end),
+                print " for ds[%d]"%ids
                 continue
             
             baseline = ds.data[:,:data.nPresamples-1].mean(axis=1)
             peak = ds.data.max(axis=1)-baseline
             
-            ds.p_pretrig_mean[first:end] = baseline
-            ds.p_peak_value[first:end] = peak
+            ds.p_pretrig_mean[first:this_end] = baseline
+            ds.p_peak_value[first:this_end] = peak
             
-            if end == end_sample:
-                ds.p_peak_value = ds.p_peak_value[:end]
-                ds.p_pretrig_mean = ds.p_pretrig_mean[:end]
+            if this_end == end_sample:
+                ds.p_peak_value = ds.p_peak_value[:this_end]
+                ds.p_pretrig_mean = ds.p_pretrig_mean[:this_end]
     
 
 def find_center(values, first_cut=0.01):
@@ -308,8 +312,11 @@ def find_center(values, first_cut=0.01):
     """
     ctr = numpy.median(values)
     good = numpy.abs(values/ctr-1.0)<0.01
-    sigma = mass.robust.shorth_range(values[good], normalize=True)
-    ctr = mass.robust.bisquare_weighted_mean(values[good], k=4*sigma, center=ctr)
+    try:
+        sigma = mass.robust.shorth_range(values[good], normalize=True)
+        ctr = mass.robust.bisquare_weighted_mean(values[good], k=4*sigma, center=ctr)
+    except:
+        pass
     return ctr
     
 
@@ -331,7 +338,9 @@ def find_peaks(data):
     nbins = 400
     
     for i,ds in enumerate(data.datasets):
+        print numpy.median(ds.p_pretrig_mean), numpy.median(ds.p_peak_value),
         ds.ctr_peak = find_center(ds.p_peak_value)
+        print ds.ctr_peak
 #        ds.ctr_filt = find_center(ds.p_filt_value)
 #        print ds.ctr_peak, ds.ctr_filt
 
