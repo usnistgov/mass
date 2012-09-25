@@ -267,7 +267,7 @@ class BaseChannelGroup(object):
                 cutchar,alpha,linestyle,linewidth = 'X',1.0,'--' ,1
             axis.plot(dt, data, color=color[pulses_plotted%len(color)], linestyle=linestyle, alpha=alpha,
                        linewidth=linewidth)
-            if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE:
+            if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(dataset.p_pretrig_mean)>=pn:
                 summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f"%(
                             cutchar, pn, dataset.p_pretrig_mean[pn], dataset.p_pretrig_rms[pn],
                             dataset.p_max_posttrig_deriv[pn], dataset.p_rise_time[pn]*1e6,
@@ -645,7 +645,11 @@ class BaseChannelGroup(object):
             print "Computing filter %d of %d"%(i, self.n_channels)
             avg_signal = ds.average_pulses[i].copy()
             
-            f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, ds.noise_spectrum.spectrum(),
+            try:
+                spectrum = ds.noise_spectrum.spectrum()
+            except:
+                spectrum = None
+            f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, spectrum,
                                  ds.noise_autocorr, sample_time=self.timebase,
                                  fmax=fmax, f_3db=f_3db, shorten=2)
             self.filters.append(f)
@@ -929,7 +933,7 @@ class BaseChannelGroup(object):
             print 'TES %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good'%(i, np, rate, dt/3600., 100.0*ng/np)
 
 
-    def plot_noise_autocorrelation(self, axis=None, channels=None):
+    def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
         """Compare the noise autocorrelation functions.
         
         <channels>    Sequence of channels to display.  If None, then show all. 
@@ -942,12 +946,18 @@ class BaseChannelGroup(object):
             pylab.clf()
             axis = pylab.subplot(111)
             
+        if cmap is None:
+            cmap = pylab.cm.get_cmap("spectral")
+            
         axis.grid(True)
         for i,noise in enumerate(self.noise_channels):
             if i not in channels: continue
-            noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=self.colors[i%len(self.colors)])
+            noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=cmap(float(i)/self.n_channels))
 #        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
-        pylab.legend(loc='upper right')
+        axis.set_xlabel("Time lag (ms)")
+        pylab.legend(loc='best', frameon=False)
+        ltext = axis.get_legend().get_texts()
+        pylab.setp(ltext, fontsize='small')
         
         
     def pickle(self, filename):
@@ -983,7 +993,7 @@ class TESGroup(BaseChannelGroup):
     (which has to be more complex under the hood).
     """
     def __init__(self, filenames, noise_filenames=None, noise_only=False, pulse_only=False,
-                 max_cachesize=None):
+                 noise_is_continuous=True, max_cachesize=None):
         super(self.__class__, self).__init__(filenames, noise_filenames)
         self.noise_only = noise_only
         
@@ -992,14 +1002,15 @@ class TESGroup(BaseChannelGroup):
         dset_list = []
         for i,fname in enumerate(self.filenames):
             if noise_filenames is None:
-                pulse, noise = create_pulse_and_noise_records(fname, noise_only=noise_only,
-                                                                           pulse_only=pulse_only)
+                pulse, noise = create_pulse_and_noise_records(
+                      fname, noise_only=noise_only, pulse_only=pulse_only, 
+                      records_are_continuous = noise_is_continuous)
             else:
                 nf = self.noise_filenames[i]
-                print "nf='%s'"%nf
                 pulse, noise = create_pulse_and_noise_records(fname, noisename=nf,
-                                                                           noise_only=noise_only,
-                                                                           pulse_only=pulse_only)
+                      noise_only=noise_only, pulse_only=pulse_only, 
+                      records_are_continuous = noise_is_continuous)
+                
             pulse_list.append(pulse)
             if noise is not None:
                 noise_list.append(noise)
@@ -1141,12 +1152,13 @@ class TESGroup(BaseChannelGroup):
         BaseChannelGroup.compute_average_pulse(self, masks, use_crosstalk_masks=False, subtract_mean=subtract_mean)
         
         
-    def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False):
+    def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False, cmap=None):
         """Compare the noise power spectra.
         
         <channels>    Sequence of channels to display.  If None, then show all. 
         <scale_factor> Multiply counts by this number to get physical units. 
         <sqrt_psd>     Whether to show the sqrt(PSD) or (by default) the PSD itself.
+        <cmap>         A matplotlib color map.  Defaults to something.
         """
         
         if channels is None:
@@ -1156,26 +1168,42 @@ class TESGroup(BaseChannelGroup):
             pylab.clf()
             axis = pylab.subplot(111)
             
-        axis.set_color_cycle(self.colors)
+        if scale_factor==1.0:
+            units="Counts"
+        else:
+            units = "Scaled counts"
+            
         axis.grid(True)
+        if cmap is None:
+            cmap = pylab.cm.get_cmap("spectral")
         for i,noise in enumerate(self.noise_channels):
             if i not in channels: continue
             yvalue = noise.spectrum.spectrum()*scale_factor**2
+            axis.set_ylabel("Power Spectral Density (%s^2/Hz)"%units)
             if sqrt_psd:
                 yvalue = numpy.sqrt(yvalue)
-            axis.plot(noise.spectrum.frequencies(), yvalue, label='TES %d'%i)
+                axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)"%units)
+            axis.plot(noise.spectrum.frequencies(), yvalue, label='TES %d'%i,
+                      color=cmap(float(i)/self.n_channels))
         f=self.noise_channels[0].spectrum.frequencies()
         axis.set_xlim([f[1]*0.9,f[-1]*1.1])
+        axis.set_xlabel("Frequency (Hz)")
+        
         axis.loglog()
-        pylab.legend(loc='upper right')
+        pylab.legend(loc='best', frameon=False)
+        ltext = axis.get_legend().get_texts()
+        pylab.setp(ltext, fontsize='small')
     
     
-    def compute_noise_spectra(self, max_excursion=9e9):
+    def compute_noise_spectra(self, max_excursion=9e9, n_lags=None):
+        """<n_lags>, if not None, is the number of lags in each noise spectrum and the max lag 
+        for the autocorrelation.  If None, the record length is used."""
         for dataset,noise in zip(self.datasets,self.noise_channels):
-            noise.compute_power_spectrum(plot=False, max_excursion=max_excursion)
+            noise.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
             dataset.noise_spectrum = noise.spectrum
-            noise.compute_autocorrelation(n_lags=self.nSamples, plot=False, max_excursion=max_excursion)
+            noise.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
             dataset.noise_autocorr = noise.autocorrelation
+            noise.clear_cache()
 
 
 

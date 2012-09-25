@@ -93,6 +93,9 @@ class NoiseRecords(object):
 #                raise NotImplementedError(msg)
 #            self.data = data
 
+    def clear_cache(self):
+        self.datafile.clear_cache()
+
     def set_fake_data(self):
         """Use when this does not correspond to a real datafile (e.g., CDM data)"""
         self.datafile = mass.VirtualFile(numpy.zeros((0,0)))
@@ -115,27 +118,22 @@ class NoiseRecords(object):
         if plot: self.plot_power_spectrum()
 
 
-    def compute_power_spectrum_reshape(self, window=mass.mathstat.power_spectrum.hann, nsegments=None, 
+    def compute_power_spectrum_reshape(self, window=mass.mathstat.power_spectrum.hann, seg_length=None, 
                                        max_excursion=9e9):
         """Compute the noise power spectrum with noise "records" reparsed into 
-        <nsegments> separate records.  (If None, then self.data.shape[0] which is self.data.nPulses,
-        will be used as the number of segments.)
+        separate records of <seg_length> length.  (If None, then self.data.shape[0] which is self.data.nPulses,
+        will be used as the number of segments, each having length self.data.nSamples.)
         
         By making <nsegments> large, you improve the noise on the PSD estimates at the price of poor
         frequency resolution.  By making it small, you get good frequency resolution with worse
         uncertainty on each PSD estimate.  No free lunch, know what I mean?
         """
         
-        if not self.continuous and nsegments is not None:
+        if not self.continuous and seg_length is not None:
             raise ValueError("This NoiseRecords object does not have continuous noise records, so it can't be resegmented.")
         
-        if nsegments is None:
+        if seg_length is None:
             seg_length = self.nSamples
-        else:
-            _,_,data = self.datafile.read_segment(0)
-            n = len(data.ravel())
-            n -= n%nsegments
-            seg_length = n/nsegments
         
         self.spectrum = mass.mathstat.power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
         if window is None:
@@ -144,15 +142,15 @@ class NoiseRecords(object):
             window = window(seg_length)
             
         for _first_pnum, _end_pnum, _seg_num, data in self.datafile.iter_segments():
-            if self.continuous and nsegments is not None:
+            if self.continuous and seg_length is not None:
                 data = data.ravel()
                 n=len(data)
-                n = n-n%nsegments
-                data=data[:n].reshape((nsegments,n/nsegments))
+                n = n-n%seg_length
+                data=data[:n].reshape((n/seg_length, seg_length))
     
             for d in data:
                 y = d-d.mean()
-                if y.max() - y.min() < max_excursion:
+                if y.max() - y.min() < max_excursion and len(y)==self.spectrum.m2:
                     self.spectrum.addDataSegment(y, window=window)
 
 
@@ -246,7 +244,6 @@ class NoiseRecords(object):
             padsize = n_lags
             padded_data = numpy.zeros(padded_length(padsize+chunksize), dtype=numpy.float)
             print 'with chunks of %d, padsize %d'%(chunksize,padsize)
-            print data_samples
             
             ac = numpy.zeros(n_lags, dtype=numpy.float)
             
@@ -687,33 +684,35 @@ class MicrocalDataSet(object):
         for a in expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename','virtual data set')
-        self.__setup_vectors()
+        self.__setup_vectors(npulses=0)
         self.gain = 1.0
         self.pretrigger_ignore_microsec = 20 # Cut this long before trigger in computing pretrig values
         self.peak_time_microsec = 220.0   # Look for retriggers only after this time. 
 
 
-    def __setup_vectors(self):
+    def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts 
         about each pulse in memory."""
         
-        assert self.nPulses > 0
-        self.p_timestamp = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_peak_index = numpy.zeros(self.nPulses, dtype=numpy.uint16)
-        self.p_peak_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
-        self.p_peak_time = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_min_value = numpy.zeros(self.nPulses, dtype=numpy.uint16)
-        self.p_pretrig_mean = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_pretrig_rms = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_pulse_average = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_rise_time = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_max_posttrig_deriv = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_filt_phase = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_filt_value = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_filt_value_phc = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_filt_value_dc = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_energy = numpy.zeros(self.nPulses, dtype=numpy.float)
-        self.p_first3 = numpy.zeros((self.nPulses,3), dtype=numpy.uint16)
+        if npulses is None:
+            assert self.nPulses > 0
+            npulses = self.nPulses
+        self.p_timestamp = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_peak_index = numpy.zeros(npulses, dtype=numpy.uint16)
+        self.p_peak_value = numpy.zeros(npulses, dtype=numpy.uint16)
+        self.p_peak_time = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_min_value = numpy.zeros(npulses, dtype=numpy.uint16)
+        self.p_pretrig_mean = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_pretrig_rms = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_pulse_average = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_rise_time = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_max_posttrig_deriv = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_filt_value = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_filt_value_phc = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_filt_value_dc = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_energy = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_first3 = numpy.zeros((npulses,3), dtype=numpy.uint16)
         
         self.cuts = Cuts(self.nPulses)
 
@@ -762,6 +761,9 @@ class MicrocalDataSet(object):
             return
         if end > self.nPulses:
             end = self.nPulses
+        if len(self.p_timestamp) <= 0:
+            self.__setup_vectors(npulses=self.nPulses)
+
         maxderiv_holdoff = int(self.peak_time_microsec*1e-6/self.timebase) # don't look for retriggers before this # of samples
         self.pretrigger_ignore_samples = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
 
@@ -928,7 +930,12 @@ class MicrocalDataSet(object):
             pass
     
     
-    def apply_cuts(self, controls=None, clear=False):
+    def apply_cuts(self, controls=None, clear=False, verbose=1):
+        """
+        <clear>  Whether to clear previous cuts first (by default, do not clear).
+        <verbose> How much to print to screen.  Level 1 (default) counts all pulses good/bad/total.
+                    Level 2 adds some stuff about the departure-from-median pretrigger mean cut.
+        """
         if clear: self.clear_cuts()
         
         if controls is None:
@@ -954,9 +961,12 @@ class MicrocalDataSet(object):
         self.cut_parameter(self.p_timestamp, timestamp_cut, self.CUT_TIMESTAMP)
         if pretrigger_mean_dep_cut is not None:
             median = numpy.median(self.p_pretrig_mean[self.cuts.good()])
-            print'applying cut',pretrigger_mean_dep_cut,' around median of ',median
+            if verbose>1:
+                print'applying cut',pretrigger_mean_dep_cut,' around median of ',median
             self.cut_parameter(self.p_pretrig_mean-median, pretrigger_mean_dep_cut, self.CUT_PRETRIG_MEAN)
-    
+        if verbose>0:
+            print "After cuts, %d are good, %d are bad of %d total pulses"%(self.cuts.nUncut(), 
+                                                                            self.cuts.nCut(), self.nPulses)
         
     def clear_cuts(self):
         self.cuts = Cuts(self.nPulses)
@@ -1194,7 +1204,7 @@ class MicrocalDataSet(object):
         try:
             energy = float(line)
             module = 'mass.calibration.gaussian_lines'
-            fittername = '%s.GaussianFitter(%s.GaussianLine(energy=%f))'%(module,module,energy)
+            fittername = '%s.GaussianFitter(%s.GaussianLine())'%(module,module)
             fitter = eval(fittername)
         except ValueError:
             energy = None
