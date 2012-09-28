@@ -17,16 +17,21 @@ archive: $(TARGET_ZIP)
 $(TARGET_ZIP): $(PYFILES) Makefile
 	python setup.py sdist --format=gztar,zip
 
+.PHONY: lint install clean test report_install_location
 
-.PHONY: lint install clean test
 lint: lint-report.txt
-lint-report.txt: pylintrc mass/*/*.py
+lint-report.txt: pylintrc $(PYFILES)
 	pylint-2.7 --rcfile=$< mass > $@
 
-PYVER=2.7
-TARGETDIR = /opt/local/Library/Frameworks/Python.framework/Versions/$(PYVER)/lib/python$(PYVER)/site-packages/mass
+SITE-PACKAGES := $(shell python -c "import sys; print '%s/lib/python%s/site-packages' % ( sys.prefix, sys.version[:3] )")
+TARGETDIR := $(SITE-PACKAGES)/mass
+report_install_location:
+	@echo 'Mass will be installed in:'
+	@echo '   ' $(TARGETDIR)
+
 install: build
 	sudo python setup.py install
+	sudo chmod -R a+rX $(TARGETDIR)
 	ls -l $(TARGETDIR)  
 	ls -l $(TARGETDIR)/core
 	ls -l $(TARGETDIR)/mathstat
