@@ -105,9 +105,7 @@ class MultiExponentialCovarianceSolver(object):
     Wraps a few functions written by Brad Alpert in FORTRAN 90.
 
     TO DO:
-    1. Method prod(x): Use the function covprod to compute the product Rx=y given x.
-    
-    2. It's my plan that someday we can add a method .expand(nsamp), which will
+    1. It's my plan that someday we can add a method .expand(nsamp), which will
     grow the factored matrix R and allow us to expand dynamically the maximum
     length of vector that can be solved.... if this ever proves useful.
     """
