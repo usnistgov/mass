@@ -4,6 +4,7 @@ Approximate a covariance matrix as a sum of exponentials, and factor it.
 Classes include:
 * FitExponentialSum - Fit a sum of exponentials to a data vector
 * MultiExponentialCovarianceSolver - Factor and solve such a covariance matrix. 
+* WhiteNoiseCovarianceSolver - Factor and solve the trivial covariance matrix. 
 
 
 Created on Nov 8, 2011
@@ -11,7 +12,7 @@ Created on Nov 8, 2011
 @author: fowlerj
 '''
 
-__all__ = ['MultiExponentialCovarianceSolver', 'FitExponentialSum']
+__all__ = ['WhiteNoiseCovarianceSolver', 'MultiExponentialCovarianceSolver', 'FitExponentialSum']
 
 import numpy
 import scipy.optimize
@@ -22,6 +23,73 @@ except ImportError:
     from mass.mathstat.utilities import MissingLibrary
     _factor_covariance = MissingLibrary("_factor_covariance.so")
     
+
+class WhiteNoiseCovarianceSolver(object):
+    """
+    Solver for a covariance matrix R equal to the identity matrix times a constant.
+    
+    This is meant to share the same interface as MultiExponentialCovarianceSolver,
+    but with trivial operations.  Using this object, you have a drop-in replacement
+    for the fancier (slower) solver, which simplifies tests of the question: "how
+    different would it be if we pretended the noise were white?"     
+    """
+    
+    def __init__(self, variance=1.0):
+        self.variance=variance
+
+    def __repr__(self):
+        return "%s()"%(self.__class__.__name__)
+
+    def __str__(self):
+        return "%s"%self.__class__.__name
+    
+    def __call__(self, b):
+        return self.solve(b)
+    
+    def solve(self, b):
+        """Solve the covariance matrix equation Rx=b for x.
+        Requires that len(b) <= self.nsamp
+        Return: <x>"""
+        return numpy.array(b)/self.variance
+    
+    def cholesky_product(self, x):
+        """Return Lx where LL'=R (that is, L is the lower-triangular Cholesky
+        factor of R).  This is useful in that if x is iid Gaussian noise of unit
+        variance, then Lx has expected covariance matrix equal to R"""
+        return numpy.array(x)*(self.variance**0.5)
+
+    def cholesky_solve(self, x):
+        """Return L^-1 x where LL'=R (that is, L is the lower-triangular Cholesky
+        factor of R).  This is useful if we want to compute many vector-matrix-vector
+        products of the form (a' R^-1 b).  We can instead compute A=L^-1 a and B=L^-1 b
+        and the product becomes a simple dot product (a' R^-1 b) = A'B."""
+        return numpy.array(x)/(self.variance**0.5)
+      
+    def covariance_product(self, x):
+        """Return Rx."""
+        return numpy.array(x)*self.variance
+        
+    def simulate_noise(self, n):
+        """Return a vector of length <n> containing correlated multivariate Gaussian
+        noise.  The expected covariance of this noise is R."""
+        return numpy.random.standard_normal(n)*(self.variance**0.5)
+
+    def plot_covariance(self, nsamp=100, axis=None, **kwargs):
+        """Plot the approximated covariance function for the first <nsamp> samples.
+        Use matplotlib.Axes <axis> or (if None) a new full-figure subplot.
+        All other keyword arguments are passed to pylab.plot"""
+        import pylab
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+            
+        i = numpy.arange(nsamp, dtype=numpy.float)
+        covar = numpy.zeros(i)
+        covar[0]=self.variance
+        axis.plot(covar.real, **kwargs)
+        axis.set_xlabel("Samples")
+
+
 
 class MultiExponentialCovarianceSolver(object):
     """
