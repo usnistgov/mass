@@ -60,7 +60,7 @@ def reload_all():
     import imp, os, pkgutil
 
     # Use pkgutil to walk the package tree, but then reverse order to go depth-first.  
-    modnames = [name for _importer,name,_ispkg in pkgutil.walk_packages(__path__, "mass.")]
+    modnames = [name for _importer, name, _ispkg in pkgutil.walk_packages(__path__, "mass.")]
     modnames.reverse()
     
     for modname in modnames:
@@ -70,8 +70,8 @@ def reload_all():
         module_path = "/".join(modname.split(".")[1:-1])
         module_path = os.path.join(__path__[0], module_path)
         try:
-            x,y,z = imp.find_module(modname.split(".")[-1], [module_path])
+            x, y ,z = imp.find_module(modname.split(".")[-1], [module_path])
             imp.load_module(modname, x, y, z)
-        except Exception, e:
+        except Exception, ex:
             print "Error on reloading", modname
-            print e
+            print ex

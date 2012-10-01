@@ -50,8 +50,9 @@ import glob
 # >>> sys.path.append('/opt/local/lib/root/') #Folder where ROOT.py lives
 
 try:
+    ROOT = None
     raise ImportError("Root is broken as of 9/21/12")
-    import ROOT
+    #import ROOT
     #print 'ROOT was successfully imported into mass.'
 except ImportError:
     #print 'ROOT was not found.'
@@ -63,8 +64,8 @@ class MicrocalFile(object):
     """
     Encapsulate a set of data containing multiple triggered traces from
     a microcalorimeter.  The pulses can be noise or X-rays.  This is meant 
-    to be an abstract class.  Use files.LJHFile(), which is currently the only 
-    derived class. In the future, other derived classes could implement 
+    to be an abstract class.  Use files.LJHFile(), LANLFile(), or VirtualFile(). 
+    In the future, other derived classes could implement 
     read_segment, copy, and read_trace to process other file types."""
     
     def __init__(self):
@@ -78,7 +79,8 @@ class MicrocalFile(object):
                 self.__getattribute__(req)
             except AttributeError:
                 print self.__dict__
-                raise RuntimeError("A %s.%s object requires a method %s()"%(__name__, self.__class__.__name__, req))
+                raise RuntimeError("A %s.%s object requires a method %s()"%(
+                                   __name__, self.__class__.__name__, req))
         
         ## Filename of the data file
         self.filename = None
@@ -97,6 +99,11 @@ class MicrocalFile(object):
     def __repr__(self):
         """Compact representation of how to construct from a filename."""
         return "%s('%s')"%(self.__class__.__name__, self.filename)
+
+
+    def read_segment(self, segment_num=0):
+        """Read a section of the binary data of the given number (0,1,...)."""
+        raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
 
 
     def iter_segments(self, first=0, end=-1):
@@ -220,7 +227,7 @@ class LJHFile(MicrocalFile):
         """
         TOO_LONG_HEADER = 100 # headers can't contain this many lines, or they are insane!
         fp = open(filename,"r")
-        lines=[]
+        lines = []
         while True:
             line = fp.readline()
             lines.append(line)
@@ -342,14 +349,16 @@ class LJHFile(MicrocalFile):
                                  number of pulses.
         """
         fp = open(self.filename,"rb")
-        if skip > 0: fp.seek(skip)
+        if skip > 0: 
+            fp.seek(skip)
         
         if max_size >= 0:
             maxitems = max_size/self.pulse_size_bytes
             BYTES_PER_WORD = 2
             wordcount = maxitems*self.pulse_size_bytes/BYTES_PER_WORD
             if error_on_partial_pulse and wordcount*BYTES_PER_WORD != max_size:
-                raise ValueError("__read_binary(max_size=%d) requests a non-integer number of pulses"%max_size)
+                msg = "__read_binary(max_size=%d) requests a non-integer number of pulses"%max_size
+                raise ValueError(msg)
         else:
             wordcount = -1
 
@@ -359,9 +368,9 @@ class LJHFile(MicrocalFile):
         self.segment_pulses = len(array)/(self.pulse_size_bytes/2)
         try:
             self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes/2])
-        except ValueError, e:
+        except ValueError, ex:
             print skip, max_size, self.segment_pulses, self.pulse_size_bytes, len(array)    
-            raise e
+            raise ex
         # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,
         # where u is a byte giving microseconds/4, x is a reserved byte, and mmmm is a 4-byte
         # little-ending giving milliseconds.  The uu should always be in [0,999]
@@ -379,7 +388,8 @@ class LJHFile(MicrocalFile):
         self.datatimes_float += self.data[:, 1]*SECONDS_PER_MILLISECOND
         self.datatimes_float += self.data[:, 2]*(SECONDS_PER_MILLISECOND*65536.)
 
-        self.data = self.data[:, 3:] # cut out the zeros and the timestamp, which are 3 uint16 words at the start of each pulse
+        # Cut out zeros and the timestamp, which are 3 uint16 words @ start of each pulse
+        self.data = self.data[:, 3:] 
 
 
         
@@ -457,18 +467,18 @@ class LANLFile(MicrocalFile):
         self.flag_pileup = numpy.zeros(1, dtype=int)
         
         # pdata is updated when the the GetEntry method to the current trace number is called
-        self.ucal_tree.SetBranchAddress("baseline",self.baseline)
-        self.ucal_tree.SetBranchAddress("baseline_rms",self.baseline_rms)
-        self.ucal_tree.SetBranchAddress("channel",self.channel)
+        self.ucal_tree.SetBranchAddress("baseline", self.baseline)
+        self.ucal_tree.SetBranchAddress("baseline_rms", self.baseline_rms)
+        self.ucal_tree.SetBranchAddress("channel", self.channel)
         if self.use_noise:
-            self.ucal_tree.SetBranchAddress('noise',ROOT.AddressOf(self.pdata))  #@UndefinedVariable
+            self.ucal_tree.SetBranchAddress('noise', ROOT.AddressOf(self.pdata))  #@UndefinedVariable
         else:
-            self.ucal_tree.SetBranchAddress('pulse',ROOT.AddressOf(self.pdata))  #@UndefinedVariable
-            self.ucal_tree.SetBranchAddress("timestamp",self.timestamp)
-            self.ucal_tree.SetBranchAddress("max",self.pulse_max)
-            self.ucal_tree.SetBranchAddress("max_pos",self.pulse_max_pos)
-            self.ucal_tree.SetBranchAddress("integral",self.pulse_integral)
-            self.ucal_tree.SetBranchAddress("flag_pileup",self.flag_pileup)
+            self.ucal_tree.SetBranchAddress('pulse', ROOT.AddressOf(self.pdata))  #@UndefinedVariable
+            self.ucal_tree.SetBranchAddress("timestamp", self.timestamp)
+            self.ucal_tree.SetBranchAddress("max", self.pulse_max)
+            self.ucal_tree.SetBranchAddress("max_pos", self.pulse_max_pos)
+            self.ucal_tree.SetBranchAddress("integral", self.pulse_integral)
+            self.ucal_tree.SetBranchAddress("flag_pileup", self.flag_pileup)
 
         # The read caching seems to make no difference whatsoever, but here it is...
         # See http://root.cern.ch/drupal/content/spin-little-disk-spin for more.
@@ -484,10 +494,9 @@ class LANLFile(MicrocalFile):
         Handy when coding and you don't want to read the whole data set back in, but
         you do want to update the method definitions."""
         self.clear_cache()
-        c = LANLFile(self.filename, self.segmentsize)
-        c.__dict__.update( self.__dict__ )
-        c.__cached_segment = None
-        return c
+        new_rootfile = LANLFile(self.filename, self.segmentsize)
+        new_rootfile.__dict__.update( self.__dict__ )
+        return new_rootfile
 
 
     def __read_header(self):
@@ -499,7 +508,8 @@ class LANLFile(MicrocalFile):
         <filename>: path to the file to be opened.
         """
         
-        # Keys include record_length, pretrig_length, basetime, dac_offset, yscale, sample_rate, clocks_per_sec, npts_to_average, start_time, end_time
+        # Keys include record_length, pretrig_length, basetime, dac_offset, yscale, 
+        # sample_rate, clocks_per_sec, npts_to_average, start_time, end_time
         find_root_quantity = lambda name : self.root_header_file_object.Get(name).GetVal()
         
         self.nSamples = find_root_quantity("record_length")
@@ -516,7 +526,7 @@ class LANLFile(MicrocalFile):
             
         
         # This information is not in the root header file but is in the channel files
-        self.get_nPulses() #self.nPulses now has the number of pulses
+        self.get_npulses() #self.nPulses now has the number of pulses
         
         # Check for major problems in the header:
         if self.timebase is None:
@@ -529,7 +539,7 @@ class LANLFile(MicrocalFile):
         # Record the sample times in microseconds
         self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
-    def get_nPulses(self):
+    def get_npulses(self):
         """Get the numner of pulses in the current ROOT file."""
         self.nPulses = int(self.ucal_tree.GetEntries())
 
@@ -566,8 +576,6 @@ class LANLFile(MicrocalFile):
         
         pulse = numpy.int16(numpy.round(((pulsedouble + 2.0)/4.0)*2**16)) #RDH
         self.raw_datatimes[trace_num] = self.timestamp[0]*self.timestamp_msec_per_step
-        
-#        return pulse,channel[0],timestamp[0],pulse_max[0],pulse_max_pos[0],pulse_integral[0],baseline[0],baseline_rms[0],flag_pileup[0], pdata
         return pulse
 
     
@@ -709,7 +717,7 @@ Discrimination level (%%): 1.000000
     
     import struct
     prefix_fmt = "<xxL"
-    BINARYFILE = ""
+    binary_separator = ""
     for i in range(lanl.nPulses):
         trace = lanl.read_trace(i)
         if excise_endpoints is not None:
@@ -718,7 +726,7 @@ Discrimination level (%%): 1.000000
             continue
         prefix = struct.pack(prefix_fmt, int(lanl.timestamp[0]))
         ljh_fp.write(prefix)
-        trace.tofile(ljh_fp, sep=BINARYFILE)
+        trace.tofile(ljh_fp, sep=binary_separator)
     
     ljh_fp.close()
 
