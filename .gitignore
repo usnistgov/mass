@@ -1,5 +1,6 @@
 /build
-mass/mathstat/robust.c
 .project
 .pydevproject
 lint-report.txt
+*.pyc
+mass/mathstat/robust.c
