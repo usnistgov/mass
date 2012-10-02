@@ -12,9 +12,9 @@ Created on Feb 16, 2011
 
 __all__ = ['AnalysisControl', 'standardControl']
 
-from param_dict_base import PrmDictBase 
+import param_dict_base.PrmDictBase 
 
-class AnalysisControl(PrmDictBase):
+class AnalysisControl(param_dict_base.PrmDictBase):
     """Control the behavior of an analysis operation."""
     
     def __init__(self, **kwargs):
@@ -52,7 +52,7 @@ class AnalysisControl(PrmDictBase):
         self.set(**kwargs)
 
 
-def standardControl():
+def standard_control():
     """Create a standard set of cuts.  (Not all that useful, since cuts can very so 
     hugely!)"""
     ac = AnalysisControl()

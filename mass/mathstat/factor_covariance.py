@@ -35,13 +35,13 @@ class WhiteNoiseCovarianceSolver(object):
     """
     
     def __init__(self, variance=1.0):
-        self.variance=variance
+        self.variance = variance
 
     def __repr__(self):
         return "%s()"%(self.__class__.__name__)
 
     def __str__(self):
-        return "%s"%self.__class__.__name
+        return "%s"%self.__class__.__name__
     
     def __call__(self, b):
         return self.solve(b)

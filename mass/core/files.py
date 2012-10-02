@@ -115,13 +115,16 @@ class MicrocalFile(object):
         
         if end <= first:
             end = self.n_segments
-        for segnum in range(first, end):
-            first_pnum, end_pnum, data = self.read_segment(segnum)
-#            first_pnum = segnum * self.pulses_per_seg
+        for segment_num in range(first, end):
+            first_pnum, end_pnum, data = self.read_segment(segment_num)
+#            first_pnum = segment_num * self.pulses_per_seg
 #            end_pnum = self.datatimes.shape[0] + first_pnum
-            yield first_pnum, end_pnum, segnum, data
+            yield first_pnum, end_pnum, segment_num, data
 
     def clear_cache(self):
+        """File objects can cache one "segment" of raw data.  Sometimes it's nice to delete
+        this from memory in order to free up unneeded cache, especially before copying a
+        MicrocalFile object."""
         self.data = None
         self.__cached_segment = None
 
@@ -134,6 +137,7 @@ class VirtualFile(MicrocalFile):
     held only in memory.
     """
     def __init__(self, data, times=None, presamples=None):
+        super(VirtualFile, self).__init__()
         self.data = numpy.asarray(data, dtype=numpy.int16)
         self.nSamples = data.shape[1]
         self.nPulses = data.shape[0]
@@ -159,17 +163,17 @@ class VirtualFile(MicrocalFile):
         c.__dict__.update( self.__dict__ )
         return c
     
-    def read_trace(self, pulsenum):
-        """Return the data for pulse number <pulsenum>"""
-        if pulsenum > self.nPulses:
+    def read_trace(self, trace_num):
+        """Return the data for pulse number <trace_num>"""
+        if trace_num > self.nPulses:
             raise ValueError("This VirtualFile has only %d pulses"% self.nPulses)
-        return self.data[pulsenum]
+        return self.data[trace_num]
     
-    def read_segment(self, segnum=0):
-        """Return <first>,<end>,<data> for segment number <segnum>, where
+    def read_segment(self, segment_num=0):
+        """Return <first>,<end>,<data> for segment number <segment_num>, where
         <first> is the first pulse number in that segment, <end>-1 is the last,
         and <data> is a 2-d array of shape [pulses_this_segment, self.nSamples]."""
-        if segnum>0:
+        if segment_num > 0:
             raise ValueError("VirtualFile objects have only one segment")
         return 0, self.nPulses, self.data
 
@@ -213,7 +217,6 @@ class LJHFile(MicrocalFile):
         self.clear_cache()
         c = LJHFile(self.filename, self.segmentsize)
         c.__dict__.update( self.__dict__ )
-        c.__cached_segment = None
         return c
 
 
@@ -297,8 +300,8 @@ class LJHFile(MicrocalFile):
     def read_trace(self, trace_num):
         """Return a single data trace (number <trace_num>),
         either from cache or by reading off disk, if needed."""
-        segnum = trace_num / self.pulses_per_seg
-        self.read_segment(segnum)
+        segment_num = trace_num / self.pulses_per_seg
+        self.read_segment(segment_num)
         return self.data[trace_num % self.pulses_per_seg]
         
         
@@ -318,7 +321,7 @@ class LJHFile(MicrocalFile):
         # Use cached data, if possible
         if segment_num != self.__cached_segment or self.data is None: 
             if segment_num*self.segmentsize > self.binary_size:
-                raise ValueError("File %s has only %d segments;\n\tcannot open segment %d"%
+                raise ValueError("File %s has only %d segments;\n\tcannot open segment %d" %
                                  (self.filename, self.n_segments, segment_num))
                 
             self.__read_binary(self.header_size + segment_num*self.segmentsize, self.segmentsize, 
@@ -357,7 +360,8 @@ class LJHFile(MicrocalFile):
             BYTES_PER_WORD = 2
             wordcount = maxitems*self.pulse_size_bytes/BYTES_PER_WORD
             if error_on_partial_pulse and wordcount*BYTES_PER_WORD != max_size:
-                msg = "__read_binary(max_size=%d) requests a non-integer number of pulses"%max_size
+                msg = "__read_binary(max_size=%d) requests a non-integer number of pulses"\
+                     % max_size
                 raise ValueError(msg)
         else:
             wordcount = -1
@@ -404,7 +408,7 @@ class LANLFile(MicrocalFile):
         if ROOT is None:
             raise ImportError("The PyRoot library 'ROOT' could not be imported.  Check your PYTHONPATH?")
         
-        super(LANLFile, self).__init__()
+        super(LANLFile, self).__init__(self)
         self.filename = filename
         self.__cached_segment = None
         self.root_file_object = ROOT.TFile(self.filename) #@UndefinedVariable
@@ -440,17 +444,17 @@ class LANLFile(MicrocalFile):
             self.header_filename = self.filename
             self.root_header_file_object = self.root_file_object
 
-        self.__prepare_root_memory()
+        self._setup()
         self.__read_header()
         self.set_segment_size(segmentsize)
         self.raw_datatimes = numpy.zeros(self.nPulses, dtype=numpy.uint32)
 
 
-    def __prepare_root_memory(self):
+    def _setup(self):
         """It is silly to have to create these numpy objects and then tell ROOT to
         store data into them over and over, so we move them from the read_trace method
         to here, where they can be done once and forgotten"""
-        
+
         #Pulses are stored in vector ROOT format in the 'pulse' branch
         if self.gamma_vector_style:
             self.pdata = ROOT.std.vector(int)() # this is how gamma people do it #@UndefinedVariable
@@ -633,7 +637,7 @@ def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=500
                  If a 2-element-sequence (a,b), then remove a from the start and b from the end.
     """
     
-    print "Attempting to translate '%s' "%rootfile,
+    print "Attempting to translate '%s' " % rootfile,
     lanl = LANLFile(filename=rootfile, segmentsize=segmentsize, use_noise = use_noise)
     print "Looking at channel " +str(channum)#RDH
 
@@ -735,9 +739,9 @@ Discrimination level (%%): 1.000000
 def root2ljh_translate_all(directory):
     """Use root2ljh_translator for all files in <directory>"""
     
-    for f in glob.glob("%s/*.root"%directory):
+    for fname in glob.glob("%s/*.root"%directory):
         try:
-            root2ljh_translator(f, overwrite=False)
+            root2ljh_translator(fname, overwrite=False)
         except IOError:
-            print "Could not translate '%s' .  Moving on..."% f
+            print "Could not translate '%s' .  Moving on..."% fname
             

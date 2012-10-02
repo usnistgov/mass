@@ -45,7 +45,7 @@ class MaximumLikelihoodHistogramFitter(object):
     """
     
     ## Further algorithm notes beyond the docstring.
-    NOTES="""
+    NOTES = """
     The likelihood being maximized is converted to a "MLE Chi^2" by defining
     chi^2_MLE = -2 log(LR).  LR is here a likelihood RATIO, between the Poisson  
     likelihood of the data given the theory and the likelihood given a "perfect theory"
@@ -71,10 +71,10 @@ class MaximumLikelihoodHistogramFitter(object):
     """
     
     ## This many steps with negligible "chisq" change cause normal exit
-    DONE=4
+    DONE = 4
     
     ## This many steps cause RuntimeError for excessive iterations
-    ITMAX=1000  
+    ITMAX = 1000  
     
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None, 
                  epsilon=1e-5, TOL=1e-5):
@@ -104,7 +104,9 @@ class MaximumLikelihoodHistogramFitter(object):
             raise ValueError("x and nobs must have the same length")
 
         self.mfit = self.nparam = 0
+        self.params = self.param_free = self.covar = self.chisq = None
         self.set_parameters(params)
+
         self.theory_function = theory_function
         if theory_gradient is None:
             self.theory_gradient = self.__discrete_gradient
@@ -112,7 +114,9 @@ class MaximumLikelihoodHistogramFitter(object):
                 self.epsilon = epsilon + numpy.zeros_like(params)
             else:
                 if len(epsilon) != self.nparam:
-                    raise ValueError("epsilon must be a scalar or if a vector, a vector of the same length as params")
+                    msg = "epsilon must be a scalar or if a vector, "+\
+                        "a vector of the same length as params"
+                    raise ValueError(msg)
                 self.epsilon = numpy.array(epsilon)
         else:
             self.theory_gradient = theory_gradient
@@ -131,8 +135,8 @@ class MaximumLikelihoodHistogramFitter(object):
         self.mfit = self.nparam = len(params)
         self.params = numpy.array(params)
         self.param_free = numpy.ones(self.nparam, dtype=numpy.bool)
-        self.covar=numpy.zeros((self.nparam,self.nparam), dtype=numpy.float)
-        self.chisq=1e99
+        self.covar = numpy.zeros((self.nparam, self.nparam), dtype=numpy.float)
+        self.chisq = 1e99
         
 
     def hold(self, i, val=None):
@@ -204,16 +208,17 @@ class MaximumLikelihoodHistogramFitter(object):
                 alpha_prime[j,j] += lambda_coef*alpha_prime[j,j]
        
             try:
-                da = scipy.linalg.solve(alpha_prime, beta[self.param_free], overwrite_a=False, overwrite_b=False)
-            except scipy.linalg.LinAlgError, e:
+                delta_alpha = scipy.linalg.solve(alpha_prime, beta[self.param_free],
+                                                 overwrite_a=False, overwrite_b=False)
+            except scipy.linalg.LinAlgError, ex:
                 print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, iter_number)
                 print 'Params: ',self.params
                 print 'Alpha-prime: ',alpha_prime
                 print 'Bete: ', beta
-                raise e
+                raise ex
 
             # Did the trial succeed?
-            atry[self.param_free] = self.params[self.param_free] + da
+            atry[self.param_free] = self.params[self.param_free] + delta_alpha
             trial_alpha, trial_beta = self._mrqcof(atry)
 
             # When the chisq hasn't changed appreciably in self.DONE iterations, we return with success.
@@ -222,7 +227,6 @@ class MaximumLikelihoodHistogramFitter(object):
                 no_change_counter+=1
 
                 if no_change_counter == self.DONE:
-                    self.covar = numpy.zeros((self.nparam, self.nparam), dtype=numpy.float)
                     self.covar[:self.mfit, :self.mfit] = scipy.linalg.inv(alpha)
                     self.__cov_sort_in_place(self.covar)
                     self.iterations = iter_number
@@ -236,12 +240,14 @@ class MaximumLikelihoodHistogramFitter(object):
                 beta = trial_beta
                 self.params = atry.copy()
                 if verbose:
-                    print "Improved: chisq=%9.4e->%9.4e l=%.1e params=%s..."%(self.chisq, prev_chisq, lambda_coef, self.params[:2])
+                    print "Improved: chisq=%9.4e->%9.4e l=%.1e params=%s..."%(
+                              self.chisq, prev_chisq, lambda_coef, self.params[:2])
                 prev_chisq = self.chisq
             else:   # failure.  Increase lambda and return to previous starting point.
                 lambda_coef *= 10.0
                 if verbose:
-                    print "No imprv: chisq=%9.4e <%9.4e l=%.1e params=%s..."%(self.chisq, prev_chisq, lambda_coef, self.params[:2])
+                    print "No imprv: chisq=%9.4e <%9.4e l=%.1e params=%s..."%(
+                              self.chisq, prev_chisq, lambda_coef, self.params[:2])
                 self.chisq = prev_chisq
 
         raise RuntimeError("MaximumLikelihoodHistogramFitter.fit() reached ITMAX=%d iterations"%self.ITMAX)
@@ -269,9 +275,9 @@ class MaximumLikelihoodHistogramFitter(object):
                 alpha[i,j] = (nobs*dyda_over_y[i,:]*dyda_over_y[j,:]).sum()
                 alpha[j,i] = alpha[i,j]
             
-        nzobs = nobs>0
+        nonzero_obs = nobs>0
         self.chisq = 2*(y_model.sum()-self.total_obs)  \
-                + 2*(nobs[nzobs]*numpy.log((nobs/y_model)[nzobs])).sum()
+                + 2*(nobs[nonzero_obs]*numpy.log((nobs/y_model)[nonzero_obs])).sum()
         return alpha, beta
     
     
@@ -285,8 +291,8 @@ class MaximumLikelihoodHistogramFitter(object):
             if j==k: break
             if self.param_free[j]:
                 for m in range(self.nparam):
-                    C[m,k], C[m,j] = C[m,j], C[m,k]
-                    C[k,m], C[j,m] = C[j,m], C[k,m]
+                    C[m, k], C[m, j] = C[m, j], C[m, k]
+                    C[k, m], C[j, m] = C[j, m], C[k, m]
                 k -= 1
 
 
@@ -339,25 +345,28 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
 
         self.mfit = self.nparam = 0
         self.set_parameters(params)
-        if self.nparam<3 or self.nparam>5:
+        if self.nparam < 3 or self.nparam > 5:
             raise ValueError("params requires 3 to 5 values")
         elif self.nparam == 3:
-            self.set_parameters(numpy.hstack((params,[0,0])))
+            self.set_parameters(numpy.hstack((params, [0,0])))
             self.hold(3, 0.0)
             self.hold(4, 0.0)
         elif self.nparam == 4:
-            self.set_parameters(numpy.hstack((params,[0])))
+            self.set_parameters(numpy.hstack((params, [0])))
             self.hold(4, 0.0)
             
         self.TOL = TOL
         self.chisq = 0.0
+        self.theory_function = self.gaussian_theory_function
         
-    def theory_function(self, p, x): 
+    def gaussian_theory_function(self, p, x): 
+        """Gaussian shape at location <x> given parameters <p> 
+        with p = [FWHM, center, scale, constant BG, BG slope]."""
         g = (x-p[1])/p[0]
         tf = abs(p[2])*numpy.exp(-self.FOUR_LN2*g*g)+p[3]
         if p[4] != 0:
             tf += p[4]*self.scaled_x
-        tf[tf<1e-10] = 1e-10
+        tf[tf < 1e-10] = 1e-10
         return tf
 
     EIGHT_LN2 = 8*numpy.log(2)
@@ -381,7 +390,7 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         if params[4] != 0:
             y_model += params[4]*self.scaled_x
         # Don't let model go to zero, or chisq will diverge there.
-        y_model[y_model<1e-10] = 1e-10
+        y_model[y_model < 1e-10] = 1e-10
         
         dy_dp1 = self.EIGHT_LN2 * g*h*params[2]/params[0]
 #        dyda = numpy.vstack(( g*dy_dp1, dy_dp1, h, 2*params[3]+numpy.zeros_like(h), self.scaled_x ))
@@ -394,12 +403,12 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         alpha = numpy.zeros((self.mfit,self.mfit), dtype=numpy.float)
         for i in range(self.mfit):
             for j in range(i+1):
-                alpha[i,j] = (nobs*dyda_over_y[i,:]*dyda_over_y[j,:]).sum()
-                alpha[j,i] = alpha[i,j]
+                alpha[i, j] = (nobs*dyda_over_y[i,:]*dyda_over_y[j,:]).sum()
+                alpha[j, i] = alpha[i, j]
             
-        nzobs = nobs>0
+        nonzero_obs = nobs > 0
         self.chisq = 2*(y_model.sum()-self.total_obs)  \
-                + 2*(nobs[nzobs]*numpy.log((nobs/y_model)[nzobs])).sum()
+                + 2*(nobs[nonzero_obs]*numpy.log((nobs/y_model)[nonzero_obs])).sum()
         return alpha, beta
     
     

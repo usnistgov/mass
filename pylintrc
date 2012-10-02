@@ -12,7 +12,8 @@ profile=no
 
 # Add files or directories to the blacklist. They should be base names, not
 # paths.
-ignore=.svn deprecated.py *.so
+# Include code not written by NIST: [workarounds.py, param_dict_base.py]
+ignore=.svn deprecated.py *.so .git build workarounds.py param_dict_base.py
 
 # Pickle collected data for later comparisons.
 persistent=yes
@@ -33,7 +34,24 @@ load-plugins=
 # can either give multiple identifier separated by comma (,) or put this option
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once).
-#disable=
+# The following are from Chromium's pylintrc.  For now, disable the disabling! jwf
+# C0103: Invalid name ""
+# C0111: Missing docstring
+# C0302: Too many lines in module (N)
+# R0902: Too many instance attributes (N/7)
+# R0903: Too few public methods (N/2)
+# R0911: Too many return statements (N/6)
+# R0912: Too many branches (N/12)
+# R0913: Too many arguments (N/5)
+# R0914: Too many local variables (N/15)
+# R0915: Too many statements (N/50)
+# W0122: Use of the exec statement
+# W0141: Used builtin function ''
+# W0511: Used when a warning note as FIXME or XXX is detected.
+# W0603: Using the global statement
+# W0613: Unused argument ''
+# W6501: Specify string format arguments as logging function parameters
+#disable=C0103,C0111,C0302,R0902,R0903,R0911,R0912,R0913,R0914,R0915,W0122,W0141,W0511,W0603,W0613,W6501
 
 
 [REPORTS]
@@ -89,20 +107,20 @@ function-rgx=[a-z_][a-z0-9_]{2,30}$
 method-rgx=[a-z_][a-z0-9_]{2,30}$
 
 # Regular expression which should only match correct instance attribute names
-attr-rgx=[a-z_][a-z0-9_]{2,30}$
+attr-rgx=(([a-z_][a-z0-9_]{2,30})|([A-Z_][A-Z0-9_]{2,30}))$
 
 # Regular expression which should only match correct argument names
 argument-rgx=[a-z_][a-z0-9_]{2,30}$
 
 # Regular expression which should only match correct variable names
-variable-rgx=[a-z_][a-z0-9_]{2,30}$
+variable-rgx=(([a-z_][a-z0-9_]{2,30})|([A-Z_][A-Z0-9_]{2,30}))$
 
 # Regular expression which should only match correct list comprehension /
 # generator expression variable names
 inlinevar-rgx=[A-Za-z_][A-Za-z0-9_]*$
 
 # Good variable names which should always be accepted, separated by a comma
-good-names=i,j,k,m,n,p,s,u,v,w,x,y,z,ks,ex,fp,Run,_
+good-names=c,i,j,k,m,n,p,s,u,v,w,x,y,z,ks,ex,fp,Run,_
 
 # Bad variable names which should always be refused, separated by a comma
 bad-names=foo,bar,baz,toto,tutu,tata
@@ -110,6 +128,12 @@ bad-names=foo,bar,baz,toto,tutu,tata
 # Regular expression which should only match functions or classes name which do
 # not require a docstring
 no-docstring-rgx=__.*__
+
+# jwf: From Chromium pylint, here are some example regexps if I want to use
+# such standards:
+# function-rgx=([A-Z_][a-zA-Z0-9]{2,30}|main)$
+# method-rgx=((_|test)?[A-Z][a-zA-Z0-9]{2,30}|__[a-z]+__|setUp|tearDown)$
+
 
 
 [FORMAT]
@@ -184,13 +208,13 @@ additional-builtins=
 ignore-iface-methods=isImplementedBy,deferred,extends,names,namesAndDescriptions,queryDescriptionFor,getBases,getDescriptionFor,getDoc,getName,getTaggedValue,getTaggedValueTags,isEqualOrExtendedBy,setTaggedValue,isImplementedByInstancesOf,adaptWith,is_implemented_by
 
 # List of method names used to declare (i.e. assign) instance attributes.
-defining-attr-methods=__init__,__new__,setUp
+defining-attr-methods=__init__,__new__,setUp,_setup
 
 
 [DESIGN]
 
 # Maximum number of arguments for function / method
-max-args=5
+max-args=6
 
 # Argument names that match this expression will be ignored. Default to name
 # with leading underscore

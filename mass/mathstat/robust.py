@@ -97,8 +97,8 @@ def huber_weighted_mean(x, k, center=None, tol=None):
         tol = 1e-5*median_abs_dev(x, normalize=True)
 
     for _iteration in xrange(100):
-        weights = float(k)/numpy.abs(x-center)
-        weights[weights>1.0] = 1.0
+        weights = numpy.asarray((1.0*k)/numpy.abs(x-center))
+        weights[weights > 1.0] = 1.0
         newcenter = (weights*x).sum()/weights.sum()
         if abs(newcenter - center)<tol:
             return newcenter

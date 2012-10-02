@@ -14,6 +14,7 @@ the user tries to assign.
 import re, os, sys, operator
 
 def message(m):
+    """Print a usage message but only if environment "DEBUG"==1."""
     if os.environ.get('DEBUG', '1') == '1':
         print m
     

@@ -13,7 +13,7 @@ Joe Fowler, NIST
 February 3, 2012
 """
 
-__all__=['voigt', 'voigt_approx_fwhm']
+__all__ = ['voigt', 'voigt_approx_fwhm']
 
 import numpy, scipy.special
 
@@ -21,10 +21,10 @@ _sqrt2 = numpy.sqrt(2.0)
 _sqrt2pi = numpy.sqrt(2.0*numpy.pi)
 
 
-def voigt(x, x0, hwhm, sigma):
+def voigt(x, xctr, hwhm, sigma):
     """
-    Compute and return the Voigt function V(x; x0,hwhm,sigma) for a sequence of points <x>.
-    V is the convolution of a Lorentzian centered at x0 with half-width at half-max of hwhm
+    Compute and return the Voigt function V(x; xctr,hwhm,sigma) for a sequence of points <x>.
+    V is the convolution of a Lorentzian centered at xctr with half-width at half-max of hwhm
     with a Gaussian having standard width sigma.
 
     This is the lineshape of a Lorentzian (a.k.a. Breit-Wigner and Cauchy) distributed emission 
@@ -32,14 +32,14 @@ def voigt(x, x0, hwhm, sigma):
     effects like Doppler shifts in molecules having a Maxwellian velocity distribution.
     
     Here are exact definitions of the Lorentzian L(x), the Gaussian G(x), and the convolution
-    that results, the Voigt V(x) in terms of the parameters (hwhm, x0, and sigma):
+    that results, the Voigt V(x) in terms of the parameters (hwhm, xctr, and sigma):
 
-    1.   L(x) = (hwhm/pi) / ((x-x0)**2 + hwhm**2)
+    1.   L(x) = (hwhm/pi) / ((x-xctr)**2 + hwhm**2)
     2.   G(x) = 1/(sigma sqrt(2pi)) * exp(-0.5*(x/sigma)**2
     3.   V(x) = integral (-inf to +inf) G(x') L(x-x') dx'
 
     Scalar parameters are:
-    x0      Center of Lorentzian line
+    xctr    Center of Lorentzian line
     hwhm    Half-width at half-maximum of the Lorentzian line
     sigma   Square root of the Gaussian variance
 
@@ -50,18 +50,18 @@ def voigt(x, x0, hwhm, sigma):
     """
 
     if not isinstance(x, numpy.ndarray):
-        return voigt( numpy.array(x), x0, hwhm, sigma)
+        return voigt( numpy.array(x), xctr, hwhm, sigma)
 
     # Handle the pure Gaussian limit by itself
     if hwhm == 0.0:
-        return numpy.exp(-0.5*((x-x0)/sigma)**2) / (sigma*_sqrt2pi)
+        return numpy.exp(-0.5*((x-xctr)/sigma)**2) / (sigma*_sqrt2pi)
     
     # Handle the pure Lorentzian limit by itself
     if sigma == 0.0:
-        return (hwhm/numpy.pi) / ((x-x0)**2 + hwhm**2)
+        return (hwhm/numpy.pi) / ((x-xctr)**2 + hwhm**2)
 
     # General Voigt function
-    z = (x-x0 + 1j*hwhm)/(sigma * _sqrt2)
+    z = (x-xctr + 1j*hwhm)/(sigma * _sqrt2)
     w = scipy.special.wofz(z)
     return (w.real)/(sigma * _sqrt2pi)
 
