@@ -70,17 +70,6 @@ class MicrocalFile(object):
     
     def __init__(self):
         """"""
-        # These assertions ensure that we have the proper interface, which
-        # must be found in derived classes.   Roughly speaking, these make the
-        # current class an abstract base class
-        required_methods = ("read_segment", "read_trace", "copy")
-        for req in required_methods:
-            try:
-                self.__getattribute__(req)
-            except AttributeError:
-                print self.__dict__
-                raise RuntimeError("A %s.%s object requires a method %s()"%(
-                                   __name__, self.__class__.__name__, req))
         
         ## Filename of the data file
         self.filename = None
@@ -88,21 +77,33 @@ class MicrocalFile(object):
         self.nPresamples = 0
         self.timebase = 0.0
         self.n_segments = 0
+        self.data = None
+        self.__cached_segment = None
 
 
     def __str__(self):
         """Summary for the print function"""
-        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
+        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
                 self.__class__.__name__, self.filename, self.nSamples, self.nPresamples, 
                 1e6*self.timebase)
         
     def __repr__(self):
         """Compact representation of how to construct from a filename."""
-        return "%s('%s')"%(self.__class__.__name__, self.filename)
+        return "%s('%s')" % (self.__class__.__name__, self.filename)
 
 
     def read_segment(self, segment_num=0):
-        """Read a section of the binary data of the given number (0,1,...)."""
+        """Read a segment of the binary data of the given number (0,1,...)."""
+        raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
+
+
+    def read_trace(self, trace_num=0):
+        """Read a single pulse record from the binary data."""
+        raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
+
+
+    def copy(self):
+        """Make a useable copy of self."""
         raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
 
 
