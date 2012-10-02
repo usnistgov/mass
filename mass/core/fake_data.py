@@ -129,31 +129,3 @@ class FakeDataGenerator(object):
         nfiles = [self._generate_virtual_noise_file(n_noise)
                   for _i in range(nchan)]
         return TESGroup(vfiles, nfiles)
-        
-    
-
-#class DONOTUSE_FakeDataGenerator(object):
-#    """
-#    Object to generate fake data sets
-#    """
-#    
-#    def __init__(self, ndet=1, directory=None, file_prefix=None):
-#        self.ndet = ndet
-#        if directory is None:
-#            self.directory = tempfile.mkdtemp("_fake_ljhfiles")
-#        else:
-#            if os.path.isdir(directory):
-#                self.directory = directory
-#            elif not os.path.exists(directory):
-#                os.mkdir(directory)
-#                self.directory = directory
-#            else:
-#                raise ValueError("Given directory='%s' is not an existing directory.")
-#            
-#        if file_prefix is None:
-#            self.file_prefix = "fake_data_"
-#        else:
-#            self.file_prefix = file_prefix
-#    
-#    def generate_one_dataset(self, n_pulses, n_samples, n_pretrig, resolution):
-#        pass
