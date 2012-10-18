@@ -219,6 +219,14 @@ class BaseChannelGroup(object):
         pulsenums = numpy.asarray(pulsenums)
         dataset = self.datasets[channum]
         
+        # Don't print pulse summaries if the summary data is not available
+        if pulse_summary:
+            try:
+                if len(dataset.p_pretrig_mean) == 0:
+                    pulse_summary = False
+            except AttributeError:
+                pulse_summary = False
+        
         if valid_status not in (None, "valid", "cut"):
             raise ValueError("valid_status must be one of [None, 'valid', or 'cut']")
         if residual and difference:
@@ -268,13 +276,16 @@ class BaseChannelGroup(object):
             axis.plot(dt, data, color=color[pulses_plotted%len(color)], linestyle=linestyle, alpha=alpha,
                        linewidth=linewidth)
             if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(dataset.p_pretrig_mean)>=pn:
-                summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f"%(
-                            cutchar, pn, dataset.p_pretrig_mean[pn], dataset.p_pretrig_rms[pn],
-                            dataset.p_max_posttrig_deriv[pn], dataset.p_rise_time[pn]*1e6,
-                            dataset.p_peak_value[pn], dataset.p_pulse_average[pn])
+                try:
+                    summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f"%(
+                                cutchar, pn, dataset.p_pretrig_mean[pn], dataset.p_pretrig_rms[pn],
+                                dataset.p_max_posttrig_deriv[pn], dataset.p_rise_time[pn]*1e6,
+                                dataset.p_peak_value[pn], dataset.p_pulse_average[pn])
+                except IndexError:
+                    pulse_summary = False
+                    continue
                 axis.text(.975, .93-.02*pulses_plotted, summary, color=color[pulses_plotted%len(color)], 
                            family='monospace', size='medium', transform = axis.transAxes, ha='right')
-        
 
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
