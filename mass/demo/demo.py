@@ -124,7 +124,7 @@ data.plot_average_pulses(ALL_CHANS)
 
 # Now we handle the noise.  The fake data generator made a noise "file" for each
 # channel of pure white noise.  Let's compute the power spectrum and the autocorrelation.
-data.compute_noise_spectra()
+data.compute_noise_spectra(n_lags = n_samples)
 # We'll plot them on 2 panels of the same figure
 pylab.clf()
 data.plot_noise(axis=pylab.subplot(211))
