@@ -884,18 +884,20 @@ class MicrocalDataSet(object):
         
         pylab.clf()
         for i,(vect, label, color, limits) in enumerate(plottables):
-            pylab.subplot(len(plottables),2,1+i*2)
+
+            # Time series scatter plots (left-hand panels)
+            pylab.subplot(len(plottables), 2, 1+i*2)
             pylab.ylabel(label)
-            
             if valid is not None:
                 vect = vect[valid]
-            
             pylab.plot(hour, vect[::downsample],',', color=color)
-            pylab.subplot(len(plottables),2,2+i*2)
+
+            # Histogram (right-hand panels)            
+            pylab.subplot(len(plottables), 2, 2+i*2)
             if limits is None:
                 in_limit = numpy.ones(len(vect), dtype=numpy.bool)
             else:
-                in_limit= numpy.logical_and(vect>limits[0], vect<limits[1])
+                in_limit = numpy.logical_and(vect>limits[0], vect<limits[1])
             contents, _bins, _patches = pylab.hist(vect[in_limit],200, log=log, 
                            histtype='stepfilled', fc=color, alpha=0.5)
             if log:
