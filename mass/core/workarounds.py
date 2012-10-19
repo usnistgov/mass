@@ -12,7 +12,8 @@ June 30, 2011
 # Workaround for matplotlib bug in plotting log-scale histograms.
 # I submitted this to the maintainers (see https://github.com/matplotlib/matplotlib/issues/196
 # was https://sourceforge.net/tracker/?func=detail&atid=560720&aid=3191578&group_id=80706)
-# but no progress has been made yet in 20 months!
+# In August 2012, there were 2 pull requests for fixes to this issue (#1029 and #1075), 
+# but neither had yet been accepted.
 
 import matplotlib
 import numpy as np
@@ -447,5 +448,5 @@ def workarounds_axes_hist(
 
 # We've defined a tweaked (bug-fixed) method for Axes.hist.
 # Now insert it where it needs to be:
-matplotlib.pyplot.Axes.hist = workarounds_axes_hist
+# COMMENT OUT JWF 19 Oct 2012: matplotlib.pyplot.Axes.hist = workarounds_axes_hist
 ################################################################################################
