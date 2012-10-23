@@ -125,7 +125,7 @@ for i in range(len(true_params)):
 
 # Notice that we could have used the VoigtFitter, and it would probably work.
 # By choosing the Lorentzian fitter, we insist that the Gaussian smearing = 0.
-# )You could use the VoigtFitter's hold=[0] or vary_resolution=False arguments
+# (You could use the VoigtFitter's hold=[0] or vary_resolution=False arguments
 # to accomplish the same thing, of course.)
 # <demo> stop
 
