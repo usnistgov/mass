@@ -1209,6 +1209,8 @@ class TESGroup(BaseChannelGroup):
     def compute_noise_spectra(self, max_excursion=9e9, n_lags=None):
         """<n_lags>, if not None, is the number of lags in each noise spectrum and the max lag 
         for the autocorrelation.  If None, the record length is used."""
+        if n_lags is None:
+            n_lags = self.nSamples
         for dataset,noise in zip(self.datasets,self.noise_channels):
             noise.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
             dataset.noise_spectrum = noise.spectrum
