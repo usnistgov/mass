@@ -90,7 +90,7 @@ class BaseChannelGroup(object):
     def insert_dataset(self, dataset_number, dataset):
         """Insert <dataset> into this group of channels at position
         <dataset_number>, which follows the semantics of list.insert()."""
-        if not isinstance(dataset, mass.core.channel.MicrocalDataSet):
+        if not isinstance(dataset, mass.MicrocalDataSet):
             raise ValueError("Argument dataset must be a mass.MicrocalDataSet.")
         datasets = list(self.datasets)
         datasets.insert(dataset_number, dataset)
@@ -660,7 +660,7 @@ class BaseChannelGroup(object):
                 spectrum = ds.noise_spectrum.spectrum()
             except:
                 spectrum = None
-            f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, spectrum,
+            f = mass.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, spectrum,
                                  ds.noise_autocorr, sample_time=self.timebase,
                                  fmax=fmax, f_3db=f_3db, shorten=2)
             self.filters.append(f)
