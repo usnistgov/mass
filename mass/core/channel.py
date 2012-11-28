@@ -78,12 +78,16 @@ class NoiseRecords(object):
         else:
             raise RuntimeError("It is a programming error to get here")
         self.filename = filename
+        self.records_per_segment = self.datafile.segmentsize / (6+2*self.datafile.nSamples)
+        
+        if use_records is not None:
+            if use_records < self.datafile.nPulses:
+                self.datafile.nPulses = use_records
+                self.datafile.n_segments = use_records / self.records_per_segment
 
         # Copy up some of the most important attributes
         for attr in ("nSamples", "nPresamples", "nPulses", "timebase"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
-            
-        self.records_per_segment = self.datafile.segmentsize / (6+2*self.nSamples)
 
 #        for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
 #            if seg_num > 0 or first_pnum>0 or end_pnum != self.nPulses:
