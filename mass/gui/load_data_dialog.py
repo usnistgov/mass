@@ -52,7 +52,6 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         self.nchannels=0
         self.channels_known = []
         self.chan_check_boxes = []        
-        self.use_only_odd_channels=True
         self.disabled_channels = disabled_channels
         self.default_directory = directory
         self.pulse_files={}
@@ -83,6 +82,11 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
             self.use_noise.setChecked(True)
             self.update_known_channels(filename, self.noise_files)
 
+    @pyqtSlot()
+    def update_enable_error_channels(self):
+        file_example = self.pulse_file_edit.text()
+        self.update_known_channels(file_example, self.pulse_files)
+    
     def update_known_channels(self, file_example, file_dict):
         file_example = str(file_example)
         rexp = re.compile(r'chan[0-9]+')
@@ -98,8 +102,9 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
             chanstr = m.group()
             if chanstr.startswith("chan"):
                 channum = int(chanstr[4:])
-                channels_found.append(channum)
-                file_dict[channum] = f
+                if (channum%2==1) or self.enable_error_channels.isChecked():
+                    channels_found.append(channum)
+                    file_dict[channum] = f
 
         if set(channels_found) != self.channels_known:
             all_chan = set(self.pulse_files.keys())

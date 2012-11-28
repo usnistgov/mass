@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'mass/gui/load_data_dialog_form.ui'
 #
-# Created: Tue Sep 25 16:50:32 2012
-#      by: PyQt4 UI code generator 4.9.4
+# Created: Wed Nov 28 14:20:38 2012
+#      by: PyQt4 UI code generator 4.9.5
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -18,9 +18,9 @@ class Ui_CreateDataset(object):
     def setupUi(self, CreateDataset):
         CreateDataset.setObjectName(_fromUtf8("CreateDataset"))
         CreateDataset.setWindowModality(QtCore.Qt.ApplicationModal)
-        CreateDataset.resize(668, 374)
+        CreateDataset.resize(668, 396)
         self.verticalLayoutWidget_2 = QtGui.QWidget(CreateDataset)
-        self.verticalLayoutWidget_2.setGeometry(QtCore.QRect(10, 10, 641, 351))
+        self.verticalLayoutWidget_2.setGeometry(QtCore.QRect(10, 10, 641, 381))
         self.verticalLayoutWidget_2.setObjectName(_fromUtf8("verticalLayoutWidget_2"))
         self.verticalLayout = QtGui.QVBoxLayout(self.verticalLayoutWidget_2)
         self.verticalLayout.setMargin(0)
@@ -113,6 +113,9 @@ class Ui_CreateDataset(object):
         self.chan_selection_controls.addWidget(self.check_no_chan)
         spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.chan_selection_controls.addItem(spacerItem)
+        self.enable_error_channels = QtGui.QCheckBox(self.chan_selection_frame)
+        self.enable_error_channels.setGeometry(QtCore.QRect(10, 170, 171, 20))
+        self.enable_error_channels.setObjectName(_fromUtf8("enable_error_channels"))
         self.verticalLayout.addWidget(self.chan_selection_frame)
         spacerItem1 = QtGui.QSpacerItem(20, 20, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.verticalLayout.addItem(spacerItem1)
@@ -139,6 +142,7 @@ class Ui_CreateDataset(object):
         QtCore.QObject.connect(self.ok_cancel_buttons, QtCore.SIGNAL(_fromUtf8("rejected()")), CreateDataset.reject)
         QtCore.QObject.connect(self.pulse_file_edit, QtCore.SIGNAL(_fromUtf8("textChanged(QString)")), CreateDataset.file_template_textEdited)
         QtCore.QObject.connect(self.noise_file_edit, QtCore.SIGNAL(_fromUtf8("textChanged(QString)")), CreateDataset.file_template_textEdited)
+        QtCore.QObject.connect(self.enable_error_channels, QtCore.SIGNAL(_fromUtf8("stateChanged(int)")), CreateDataset.update_enable_error_channels)
         QtCore.QMetaObject.connectSlotsByName(CreateDataset)
         CreateDataset.setTabOrder(self.use_pulses, self.pulse_file_edit)
         CreateDataset.setTabOrder(self.pulse_file_edit, self.choose_pulse_file)
@@ -170,6 +174,7 @@ class Ui_CreateDataset(object):
         self.check_default_chan.setText(QtGui.QApplication.translate("CreateDataset", "Default", None, QtGui.QApplication.UnicodeUTF8))
         self.check_no_chan.setToolTip(QtGui.QApplication.translate("CreateDataset", "Unselect all channels", None, QtGui.QApplication.UnicodeUTF8))
         self.check_no_chan.setText(QtGui.QApplication.translate("CreateDataset", "No chan", None, QtGui.QApplication.UnicodeUTF8))
+        self.enable_error_channels.setText(QtGui.QApplication.translate("CreateDataset", "Enable error channels", None, QtGui.QApplication.UnicodeUTF8))
         self.summarize_on_load.setToolTip(QtGui.QApplication.translate("CreateDataset", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
