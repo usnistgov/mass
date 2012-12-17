@@ -274,9 +274,9 @@ class LJHFile(MicrocalFile):
         
         # I could imagine making this one non-fatal, but for now make it fatal:
         if self.nPulses * (6+2*self.nSamples) != self.binary_size:
-#            pass
-            raise IOError("The binary size of the file (%d) is not an integer multiple of the pulse size %d"
-                          %(self.binary_size, 6+2*self.nSamples))
+            print "Warning: The binary size (%d) of the file '%s' "%(
+                self.binary_size, filename)
+            print "\tis not an integer multiple of the pulse size %d"%(6+2*self.nSamples))
 
         # Record the sample times in microseconds
         self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
@@ -369,8 +369,10 @@ class LJHFile(MicrocalFile):
 
         array = numpy.fromfile(fp, dtype=numpy.uint16, sep="", count=wordcount)
         fp.close()
-        
+
+        # If data has a fractional record at the end, truncate to make it go away.
         self.segment_pulses = len(array)/(self.pulse_size_bytes/2)
+        array = array[:self.segment_pulses*(self.pulse_size_bytes/2)]
         try:
             self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes/2])
         except ValueError, ex:
