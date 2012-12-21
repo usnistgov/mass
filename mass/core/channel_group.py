@@ -966,7 +966,7 @@ class BaseChannelGroup(object):
             noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=cmap(float(i)/self.n_channels))
 #        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         axis.set_xlabel("Time lag (ms)")
-        pylab.legend(loc='best', frameon=False)
+        pylab.legend(loc='best')
         ltext = axis.get_legend().get_texts()
         pylab.setp(ltext, fontsize='small')
         
@@ -1201,7 +1201,7 @@ class TESGroup(BaseChannelGroup):
         axis.set_xlabel("Frequency (Hz)")
         
         axis.loglog()
-        pylab.legend(loc='best', frameon=False)
+        pylab.legend(loc='best')
         ltext = axis.get_legend().get_texts()
         pylab.setp(ltext, fontsize='small')
     
