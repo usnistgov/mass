@@ -1005,7 +1005,7 @@ class TESGroup(BaseChannelGroup):
     """
     def __init__(self, filenames, noise_filenames=None, noise_only=False, pulse_only=False,
                  noise_is_continuous=True, max_cachesize=None):
-        super(self.__class__, self).__init__(filenames, noise_filenames)
+        BaseChannelGroup.__init__(self, filenames, noise_filenames)
         self.noise_only = noise_only
         
         pulse_list = []
@@ -1140,7 +1140,7 @@ class TESGroup(BaseChannelGroup):
         """
 
         t0 = time.time()
-        super(self.__class__, self).summarize_data()
+        BaseChannelGroup.summarize_data(self)
         print "Summarized data in %.0f seconds" %(time.time()-t0)
         
 
@@ -1233,7 +1233,7 @@ class CDMGroup(BaseChannelGroup):
         modulation[i,j] (i.e. row i, column j) means contribution to signal in
         channel i due to detector j.   
         """
-        super(self.__class__, self).__init__(filenames, noise_filenames)
+        BaseChannelGroup.__init__(self, filenames, noise_filenames)
         if noise_only:
             self.n_cdm = len(filenames)
         else:
@@ -1398,7 +1398,7 @@ class CDMGroup(BaseChannelGroup):
         """
 
         t0 = time.time()
-        super(self.__class__, self).summarize_data()
+        BaseChannelGroup.summarize_data(self)
 
         # How many detectors were hit in each record?
         self.nhits = numpy.array([d.p_pulse_average>50 for d in self.datasets]).sum(axis=0)
