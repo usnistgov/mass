@@ -1,4 +1,4 @@
-'''
+"""
 Offers the convenient GUI dialog that produces a mass.TESGroup with help from the 
 filesystem's file-finding features.
 
@@ -9,7 +9,7 @@ data = mass.gui.create_dataset(disabled_channels=(3,5))
 Created on Apr 19, 2012
 
 @author: fowlerj
-'''
+"""
 
 __all__ = ['create_dataset']
 
@@ -152,7 +152,6 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
                     box.setChecked(False)
                     box.setEnabled(False)
 
-
             col, row = i%ncol, i/ncol
             self.chan_selection_layout.addWidget(box, row, col)
             self.chan_check_boxes.append(box)
@@ -192,7 +191,10 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
                 except KeyError:
                     continue
                 if os.path.exists(filename):
-                    file_list.append(filename)
+                    if os.stat(filename).st_size > 0:
+                        file_list.append(filename)
+                    else:
+                        print "Warning: Zero-size file ignored:\n    %s"%filename
         return file_list
 
 
