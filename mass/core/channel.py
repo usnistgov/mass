@@ -1116,7 +1116,8 @@ class MicrocalDataSet(object):
             c = numpy.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
             pylab.plot(c, -c*best_slope + data.mean(),color='green')
             pylab.ylim(prange)
-            axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')             
+            axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')
+        return best_slope
 
 
     def auto_drift_correct(self, prange=None, times=None, plot=False, slopes=None):
