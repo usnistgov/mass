@@ -16,7 +16,7 @@ discussions:
 """
 
 
-import os, os.path
+import os.path
 
 def configuration_fortran(parent_package='',top_path=None):
     """Configure FORTRAN extensions only."""
@@ -72,8 +72,8 @@ class QtBuilder(basic_build):
 
 if __name__ == "__main__":
         
-    from numpy.distutils.core import setup
-    setup(name='mass',
+    from numpy.distutils.core import setup as numpy_setup
+    numpy_setup(name='mass',
           version='0.2.3',
           author='Joe Fowler',
           author_email='joe.fowler@nist.gov',
@@ -84,7 +84,7 @@ if __name__ == "__main__":
           package_data={'mass.gui': ['*.ui']}   # Copy the Qt Designer user interface files
           )
 
-    setup( configuration=configuration_fortran )
+    numpy_setup( configuration=configuration_fortran )
 
 
     # Now configure all Cython modules

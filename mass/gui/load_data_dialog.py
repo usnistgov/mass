@@ -1,4 +1,4 @@
-'''
+"""
 Offers the convenient GUI dialog that produces a mass.TESGroup with help from the 
 filesystem's file-finding features.
 
@@ -9,7 +9,7 @@ data = mass.gui.create_dataset(disabled_channels=(3,5))
 Created on Apr 19, 2012
 
 @author: fowlerj
-'''
+"""
 
 __all__ = ['create_dataset']
 
@@ -52,7 +52,6 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         self.nchannels=0
         self.channels_known = []
         self.chan_check_boxes = []        
-        self.use_only_odd_channels=True
         self.disabled_channels = disabled_channels
         self.default_directory = directory
         self.pulse_files={}
@@ -83,6 +82,11 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
             self.use_noise.setChecked(True)
             self.update_known_channels(filename, self.noise_files)
 
+    @pyqtSlot()
+    def update_enable_error_channels(self):
+        file_example = self.pulse_file_edit.text()
+        self.update_known_channels(file_example, self.pulse_files)
+    
     def update_known_channels(self, file_example, file_dict):
         file_example = str(file_example)
         rexp = re.compile(r'chan[0-9]+')
@@ -98,8 +102,9 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
             chanstr = m.group()
             if chanstr.startswith("chan"):
                 channum = int(chanstr[4:])
-                channels_found.append(channum)
-                file_dict[channum] = f
+                if (channum%2==1) or self.enable_error_channels.isChecked():
+                    channels_found.append(channum)
+                    file_dict[channum] = f
 
         if set(channels_found) != self.channels_known:
             all_chan = set(self.pulse_files.keys())
@@ -147,7 +152,6 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
                     box.setChecked(False)
                     box.setEnabled(False)
 
-
             col, row = i%ncol, i/ncol
             self.chan_selection_layout.addWidget(box, row, col)
             self.chan_check_boxes.append(box)
@@ -187,7 +191,10 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
                 except KeyError:
                     continue
                 if os.path.exists(filename):
-                    file_list.append(filename)
+                    if os.stat(filename).st_size > 0:
+                        file_list.append(filename)
+                    else:
+                        print "Warning: Zero-size file ignored:\n    %s"%filename
         return file_list
 
 

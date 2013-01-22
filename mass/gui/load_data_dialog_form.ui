@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>668</width>
-    <height>374</height>
+    <height>396</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -22,7 +22,7 @@
      <x>10</x>
      <y>10</y>
      <width>641</width>
-     <height>351</height>
+     <height>381</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,1,0,0">
@@ -259,6 +259,19 @@
         </item>
        </layout>
       </widget>
+      <widget class="QCheckBox" name="enable_error_channels">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>170</y>
+         <width>171</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Enable error channels</string>
+       </property>
+      </widget>
      </widget>
     </item>
     <item>
@@ -353,8 +366,8 @@ p, li { white-space: pre-wrap; }
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>640</x>
-     <y>342</y>
+     <x>649</x>
+     <y>389</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -370,7 +383,7 @@ p, li { white-space: pre-wrap; }
    <hints>
     <hint type="sourcelabel">
      <x>649</x>
-     <y>348</y>
+     <y>389</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -410,9 +423,26 @@ p, li { white-space: pre-wrap; }
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>enable_error_channels</sender>
+   <signal>stateChanged(int)</signal>
+   <receiver>CreateDataset</receiver>
+   <slot>update_enable_error_channels(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>61</x>
+     <y>286</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>333</x>
+     <y>197</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>choose_file()</slot>
   <slot>file_template_textEdited(QString)</slot>
+  <slot>update_enable_error_channels(int)</slot>
  </slots>
 </ui>

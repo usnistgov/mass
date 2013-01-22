@@ -90,7 +90,7 @@ class BaseChannelGroup(object):
     def insert_dataset(self, dataset_number, dataset):
         """Insert <dataset> into this group of channels at position
         <dataset_number>, which follows the semantics of list.insert()."""
-        if not isinstance(dataset, mass.core.channel.MicrocalDataSet):
+        if not isinstance(dataset, mass.MicrocalDataSet):
             raise ValueError("Argument dataset must be a mass.MicrocalDataSet.")
         datasets = list(self.datasets)
         datasets.insert(dataset_number, dataset)
@@ -660,7 +660,7 @@ class BaseChannelGroup(object):
                 spectrum = ds.noise_spectrum.spectrum()
             except:
                 spectrum = None
-            f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, spectrum,
+            f = mass.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, spectrum,
                                  ds.noise_autocorr, sample_time=self.timebase,
                                  fmax=fmax, f_3db=f_3db, shorten=2)
             self.filters.append(f)
@@ -966,7 +966,7 @@ class BaseChannelGroup(object):
             noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=cmap(float(i)/self.n_channels))
 #        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         axis.set_xlabel("Time lag (ms)")
-        pylab.legend(loc='best', frameon=False)
+        pylab.legend(loc='best')
         ltext = axis.get_legend().get_texts()
         pylab.setp(ltext, fontsize='small')
         
@@ -1005,7 +1005,7 @@ class TESGroup(BaseChannelGroup):
     """
     def __init__(self, filenames, noise_filenames=None, noise_only=False, pulse_only=False,
                  noise_is_continuous=True, max_cachesize=None):
-        super(self.__class__, self).__init__(filenames, noise_filenames)
+        BaseChannelGroup.__init__(self, filenames, noise_filenames)
         self.noise_only = noise_only
         
         pulse_list = []
@@ -1140,7 +1140,7 @@ class TESGroup(BaseChannelGroup):
         """
 
         t0 = time.time()
-        super(self.__class__, self).summarize_data()
+        BaseChannelGroup.summarize_data(self)
         print "Summarized data in %.0f seconds" %(time.time()-t0)
         
 
@@ -1201,7 +1201,7 @@ class TESGroup(BaseChannelGroup):
         axis.set_xlabel("Frequency (Hz)")
         
         axis.loglog()
-        pylab.legend(loc='best', frameon=False)
+        pylab.legend(loc='best')
         ltext = axis.get_legend().get_texts()
         pylab.setp(ltext, fontsize='small')
     
@@ -1209,6 +1209,8 @@ class TESGroup(BaseChannelGroup):
     def compute_noise_spectra(self, max_excursion=9e9, n_lags=None):
         """<n_lags>, if not None, is the number of lags in each noise spectrum and the max lag 
         for the autocorrelation.  If None, the record length is used."""
+        if n_lags is None:
+            n_lags = self.nSamples
         for dataset,noise in zip(self.datasets,self.noise_channels):
             noise.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
             dataset.noise_spectrum = noise.spectrum
@@ -1231,7 +1233,7 @@ class CDMGroup(BaseChannelGroup):
         modulation[i,j] (i.e. row i, column j) means contribution to signal in
         channel i due to detector j.   
         """
-        super(self.__class__, self).__init__(filenames, noise_filenames)
+        BaseChannelGroup.__init__(self, filenames, noise_filenames)
         if noise_only:
             self.n_cdm = len(filenames)
         else:
@@ -1396,7 +1398,7 @@ class CDMGroup(BaseChannelGroup):
         """
 
         t0 = time.time()
-        super(self.__class__, self).summarize_data()
+        BaseChannelGroup.summarize_data(self)
 
         # How many detectors were hit in each record?
         self.nhits = numpy.array([d.p_pulse_average>50 for d in self.datasets]).sum(axis=0)

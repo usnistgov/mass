@@ -234,6 +234,10 @@ class LJHFile(MicrocalFile):
         lines = []
         while True:
             line = fp.readline()
+            if line=="":
+                if len(lines)==0:
+                    raise IOError("No header found.\n   File: %s"%filename)
+                break
             lines.append(line)
             if line.startswith("#End of Header"):
                 break
@@ -254,7 +258,8 @@ class LJHFile(MicrocalFile):
                     self.timestamp_offset = 0.0
             
             if len(lines) > TOO_LONG_HEADER:   
-                raise IOError("header is too long--seems not to contain '#End of Header'")
+                raise IOError("header is too long--seems not to contain '#End of Header'\n"+
+                              "in file %s"%filename)
             
         self.header_lines = lines
         self.header_size = fp.tell()
@@ -265,18 +270,24 @@ class LJHFile(MicrocalFile):
         self.nPulses = self.binary_size / (6+2*self.nSamples)
         
         # Check for major problems in the LJH file:
+        if self.header_lines < 1:
+            raise IOError("No header found.\n   File: %s"%filename)
         if self.timebase is None:
-            raise IOError("No 'Timebase' line found in header")
+            raise IOError("No 'Timebase' line found in header.\n   File: %s"%filename)
         if self.nSamples is None:
-            raise IOError("No 'Total Samples' line found in header")
+            raise IOError("No 'Total Samples' line found in header.\n   File: %s"%filename)
         if self.nPresamples is None:
-            raise IOError("No 'Presamples' line found in header")
+            raise IOError("No 'Presamples' line found in header.\n   File: %s"%filename)
+        if self.nPulses < 1:
+            print ("Warning: no pulses found.\n   File: %s"%filename)
         
-        # I could imagine making this one non-fatal, but for now make it fatal:
+        # This used to be fatal, but it prevented opening files cut short by
+        # a crash of the DAQ software.
         if self.nPulses * (6+2*self.nSamples) != self.binary_size:
-#            pass
-            raise IOError("The binary size of the file (%d) is not an integer multiple of the pulse size %d"
-                          %(self.binary_size, 6+2*self.nSamples))
+            print "Warning: The binary size "+ \
+            "(%d) is not an integer multiple of the pulse size %d"%(
+                self.binary_size, 6+2*self.nSamples)
+            print "      %s"%filename
 
         # Record the sample times in microseconds
         self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
@@ -369,8 +380,10 @@ class LJHFile(MicrocalFile):
 
         array = numpy.fromfile(fp, dtype=numpy.uint16, sep="", count=wordcount)
         fp.close()
-        
+
+        # If data has a fractional record at the end, truncate to make it go away.
         self.segment_pulses = len(array)/(self.pulse_size_bytes/2)
+        array = array[:self.segment_pulses*(self.pulse_size_bytes/2)]
         try:
             self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes/2])
         except ValueError, ex:
