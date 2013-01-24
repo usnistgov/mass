@@ -254,7 +254,8 @@ class FitExponentialSum(object):
     .... (INCOMPLETE DESCRIPTION)
     """
     
-    def __init__(self, data, nsamp=None, rectangle_aspect=10, sval_thresh=None):
+    def __init__(self, data, nsamp=None, rectangle_aspect=10, sval_thresh=None,
+                 randomize_columns = False):
         """
         Store the data and plan the fit.
         
@@ -263,6 +264,8 @@ class FitExponentialSum(object):
         rectangle_aspect - Aspect ratio of the Hankel matrix used in finding the exponentials
         sval_thresh - The least singular value to be used in the second stage.  If None,
                       then only the first stage will be done.
+        randomize_columns - Whether to fill the second half of all columns considered with
+                    random choices.  (By default, False: use the first N columns.)
         """
         
         if nsamp is None:
@@ -273,10 +276,14 @@ class FitExponentialSum(object):
         if nsamp < 3:
             raise ValueError("The fit must be to at least 3 samples of data.")
         
-        self.ncol = int(0.5+nsamp/(rectangle_aspect+1.0))
-        if self.ncol<2:
-            self.ncol = 2
-        self.nrow = nsamp-1-self.ncol
+        if randomize_columns:
+            self.ncol = int(0.5+self.nrow/rectangle_aspect)
+            self.nrow = nsamp/2
+        else:
+            self.ncol = int(0.5+nsamp/(rectangle_aspect+1.0))
+            if self.ncol<2:
+                self.ncol = 2
+            self.nrow = nsamp-1-self.ncol
         self.nsamp = nsamp
         self.data = numpy.asarray(data, dtype=numpy.float)[:self.nsamp].copy()
         self.svalues = None
@@ -287,6 +294,7 @@ class FitExponentialSum(object):
         self.complex_bases = None
         self.real_bases = None
         self.negative_bases = None
+        self.randomize = randomize_columns
         
         self._hankel_svd()
 
@@ -297,12 +305,23 @@ class FitExponentialSum(object):
         """Compute the Hankel matrix used in the fit and do a singular
         value decomposition of all but its lowest row."""
         
-        # Build the Hankel matrix
+        # Build the matrix of data columns
         A=numpy.zeros((self.nrow, self.ncol), dtype=numpy.float)
         A[:,0] = self.data[:self.nrow]  # col 0
-        A[-1,1:] = self.data[self.nrow:self.nrow+self.ncol-1]  # bottom row
-        for col in range(1, self.ncol):
-            A[:-1,col] = A[1:,col-1]
+        if self.randomize:
+            # If random columns, then it's not a Hankel matrix.  Sorry.
+            ncol_notrandom = self.ncol/2
+            A[-1,1:ncol_notrandom] = self.data[self.nrow:self.nrow+ncol_notrandom-1]  # bottom row
+            for col in range(1, ncol_notrandom):
+                A[:-1,col] = A[1:,col-1]
+            ncol_random = self.ncol - ncol_notrandom
+            col_choices = numpy.random.permutation( numpy.arange(ncol_notrandom, self.nsamp-self.nrow))[:ncol_random]
+            for col,choice in zip(range(ncol_notrandom,self.ncol), col_choices):
+                A[:,col] = self.data[choice:choice+self.nrow]
+        else:
+            A[-1,1:] = self.data[self.nrow:self.nrow+self.ncol-1]  # bottom row
+            for col in range(1, self.ncol):
+                A[:-1,col] = A[1:,col-1]
         
         self.hankel2 = A[1:, :] 
         # Note that numpy.linalg.svd returns U, Sigma, and what is usually called V_transpose 
@@ -333,7 +352,6 @@ class FitExponentialSum(object):
         self.is_cut = True
 
         ngood = (self.all_svalues>=min_sval).sum()
-        
         
         # Some constraints on how many "good" singular values to use
         if min_values is not None:
