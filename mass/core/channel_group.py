@@ -75,8 +75,9 @@ class BaseChannelGroup(object):
 
     def _setup_channels_list(self):
         self.channel = {}
-        for ds in self.datasets:
+        for idx,ds in enumerate(self.datasets):
             try:
+                ds.index = idx
                 self.channel[ds.channum] = ds
             except AttributeError:
                 pass
@@ -92,6 +93,7 @@ class BaseChannelGroup(object):
         removed = datasets.pop(dataset_number)
         self.datasets = tuple(datasets)
         self.n_channels -= 1
+        self._setup_channels_list()
         return removed
 
 
@@ -200,21 +202,27 @@ class BaseChannelGroup(object):
                 dset.summarize_data(first, end)
         
     
-    def read_trace(self, record_num, chan_num=0):
-        """Read (from cache or disk) and return the pulse numbered <record_num> for channel
-        number <chan_num>.  If this is a CDMGroup, then the pulse is the demodulated
+    def read_trace(self, record_num, dataset_num=0, chan_num=None):
+        """Read (from cache or disk) and return the pulse numbered <record_num> for 
+        dataset number <dataset_num> or channel number <chan_num>.
+        If both are given, then <chan_num> will be used when valid.  
+        If this is a CDMGroup, then the pulse is the demodulated
         channel by that number."""
+        ds = self.channel.get(chan_num, self.datasets[dataset_num])
         seg_num = record_num / self.pulses_per_seg
         self.read_segment(seg_num)
-        return self.datasets[chan_num].data[record_num % self.pulses_per_seg]
+        return ds.data[record_num % self.pulses_per_seg]
         
         
         
         
-    def plot_traces(self, pulsenums, channum=0, pulse_summary=True, axis=None, difference=False,
+    def plot_traces(self, pulsenums, dataset_num=0, chan_num=None, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None):
         """Plot some example pulses, given by sample number.
-        <pulsenums>  A sequence of sample numbers, or a single one.
+        <pulsenums>   A sequence of sample numbers, or a single one.
+        <dataset_num> Dataset index (0 to n_dets-1, inclusive).  Will be used only if 
+                      <chan_num> is invalid.
+        <chan_num>    Dataset channel number.  If valid, it will be used instead of dataset_num.
         
         <pulse_summary> Whether to put text about the first few pulses on the plot
         <axis>       A pylab axis to plot on.
@@ -226,7 +234,14 @@ class BaseChannelGroup(object):
         if isinstance(pulsenums, int):
             pulsenums = (pulsenums,)
         pulsenums = numpy.asarray(pulsenums)
-        dataset = self.datasets[channum]
+        if chan_num in self.channel:
+            dataset = self.channel[chan_num]
+            dataset_num = dataset.index
+        else:
+            dataset = self.datasets[dataset_num]
+            if chan_num is not None:
+                print "Cannot find chan_num[%d], so using dataset #%d"%(
+                                            chan_num, dataset_num)
         
         # Don't print pulse summaries if the summary data is not available
         if pulse_summary:
@@ -267,14 +282,14 @@ class BaseChannelGroup(object):
             if valid_status == 'valid' and not cuts_good[i]: continue
             pulses_plotted += 1
             
-            data = self.read_trace(pn, channum)
+            data = self.read_trace(pn, dataset_num=dataset_num)
             if difference:
                 data = data*1.0-numpy.roll(data,1)
                 data[0] = 0
                 data += numpy.roll(data,1) + numpy.roll(data,-1)
                 data[0] = 0
             elif residual:
-                model = dataset.p_filt_value[pn] * dataset.average_pulses[channum] / dataset.average_pulses[channum].max()
+                model = dataset.p_filt_value[pn] * dataset.average_pulses[dataset_num] / dataset.average_pulses[dataset_num].max()
                 data = data-model
                 
             cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1

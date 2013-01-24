@@ -692,6 +692,7 @@ class MicrocalDataSet(object):
         self.gain = 1.0
         self.pretrigger_ignore_microsec = 20 # Cut this long before trigger in computing pretrig values
         self.peak_time_microsec = 220.0   # Look for retriggers only after this time. 
+        self.index = None   # Index in the larger TESGroup or CDMGroup object
 
 
     def __setup_vectors(self, npulses=None):
