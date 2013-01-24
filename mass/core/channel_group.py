@@ -68,10 +68,18 @@ class BaseChannelGroup(object):
 
 
     def get_channel_dataset(self, channum):
-        for i,fn in enumerate(self.filenames):
-            if "chan%2d"%channum in fn: return self.datasets[i]
-        print "No filename contains 'chan%2d', so dataset not found"%channum
-        return None
+        """Deprecated, because data.get_channel_dataset(5) is equivalent to data.channels[5].
+        But it hasn't always been so, and so this method remains."""
+        return self.channel.get(channum, None)
+
+
+    def _setup_channels_list(self):
+        self.channel = {}
+        for ds in self.datasets:
+            try:
+                self.channel[ds.channum] = ds
+            except AttributeError:
+                pass
     
     
     def pop_dataset(self, dataset_number):
@@ -96,6 +104,7 @@ class BaseChannelGroup(object):
         datasets.insert(dataset_number, dataset)
         self.datasets = tuple(datasets)
         self.n_channels += 1
+        self._setup_channels_list()
 
         
     def clear_cache(self):
@@ -1039,22 +1048,23 @@ class TESGroup(BaseChannelGroup):
                 self.n_segments = max(self.n_segments, pulse.n_segments)
                 self.nPulses = max(self.nPulses, pulse.nPulses)
             
-        self.channels = tuple(pulse_list)
+        self._pulse_records = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)
         self.datasets = tuple(dset_list)
+        self._setup_channels_list()
         if len(pulse_list)>0:
             self.pulses_per_seg = pulse_list[0].pulses_per_seg
         self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
         
         # Set master timestamp_offset (seconds)
-        if len(self.channels)>0: self.timestamp_offset = self.channels[0].timestamp_offset
-        for ch in self.channels:
+        if len(self._pulse_records)>0: self.timestamp_offset = self._pulse_records[0].timestamp_offset
+        for ch in self._pulse_records:
             if ch.timestamp_offset != self.timestamp_offset:
                 self.timestamp_offset = None
                 break
 
         if max_cachesize is not None:
-            if max_cachesize < self.n_channels * self.channels[0].segmentsize:
+            if max_cachesize < self.n_channels * self._pulse_records[0].segmentsize:
                 self.set_segment_size(max_cachesize / self.n_channels)
     
 
@@ -1062,7 +1072,7 @@ class TESGroup(BaseChannelGroup):
         self.clear_cache()
         g = TESGroup([])
         g.__dict__.update(self.__dict__)
-        g.channels = tuple([c.copy() for c in self.channels])
+        g._pulse_records = tuple([c.copy() for c in self._pulse_records])
         g.datasets = tuple([d.copy() for d in self.datasets])
         g.noise_channels = tuple([c.copy() for c in self.noise_channels])
 #        g.filters = tuple([f.copy() for f in self.filters])
@@ -1082,7 +1092,7 @@ class TESGroup(BaseChannelGroup):
                 ds.average_pulses = numpy.vstack((numpy.zeros((n_extra,self.nSamples),dtype=numpy.float),
                                                   ds.average_pulses))
             
-            self.channels += g.channels
+            self._pulse_records += g._pulse_records
             self.datasets += g.datasets
             self.filters += g.filters()
             self.noise_channels += g.noise_channels
@@ -1095,11 +1105,11 @@ class TESGroup(BaseChannelGroup):
     def set_segment_size(self, seg_size):
         self.clear_cache()
         self.n_segments = 0
-        for chan in self.channels:
+        for chan in self._pulse_records:
             chan.set_segment_size(seg_size)
             self.n_segments = max(self.n_segments, chan.n_segments)
-        self.pulses_per_seg = self.channels[0].pulses_per_seg
-        for chan in self.channels:
+        self.pulses_per_seg = self._pulse_records[0].pulses_per_seg
+        for chan in self._pulse_records:
             assert chan.pulses_per_seg == self.pulses_per_seg
 
     def read_segment(self, segnum, use_cache=True):
@@ -1114,13 +1124,13 @@ class TESGroup(BaseChannelGroup):
             return self._cached_pnum_range
         
         first_pnum,end_pnum = -1,-1
-        for chan, dset in zip(self.channels, self.datasets):
-            a,b = chan.read_segment(segnum)
-            dset.data = chan.data
+        for prec, dset in zip(self._pulse_records, self.datasets):
+            a,b = prec.read_segment(segnum)
+            dset.data = prec.data
             try:
-                dset.times = chan.datafile.datatimes_float
+                dset.times = prec.datafile.datatimes_float
             except AttributeError:  
-                dset.times = chan.datafile.datatimes/1e3
+                dset.times = prec.datafile.datatimes/1e3
 
             # Possibly some channels are shorter than others (in TDM data)
             # Make sure to return first_pnum,end_pnum for longest VALID channel only 
@@ -1280,6 +1290,7 @@ class CDMGroup(BaseChannelGroup):
         self.raw_channels = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)
         self.datasets= tuple(demod_list)
+        self._setup_channels_list()
         for ds in self.datasets:
             if ds.nPulses > self.nPulses:
                 ds.resize(self.nPulses)

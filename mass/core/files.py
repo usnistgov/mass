@@ -73,6 +73,7 @@ class MicrocalFile(object):
         
         ## Filename of the data file
         self.filename = None
+        self.channum = -1
         self.nSamples = 0
         self.nPresamples = 0
         self.timebase = 0.0
@@ -195,6 +196,7 @@ class LJHFile(MicrocalFile):
         """
         super(LJHFile, self).__init__()
         self.filename = filename
+        self.channum = int(filename.split("_chan")[1].split(".")[0])
         self.header_lines = []
         self.sample_usec = None
         self.timestamp_offset = 0.0

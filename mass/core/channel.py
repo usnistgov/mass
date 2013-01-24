@@ -86,7 +86,7 @@ class NoiseRecords(object):
                 self.datafile.n_segments = use_records / self.records_per_segment
 
         # Copy up some of the most important attributes
-        for attr in ("nSamples", "nPresamples", "nPulses", "timebase"):
+        for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
 
 #        for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
@@ -437,7 +437,7 @@ class PulseRecords(object):
         self.filename = filename
 
         # Copy up some of the most important attributes
-        for attr in ("nSamples","nPresamples","nPulses", "timebase", 
+        for attr in ("nSamples","nPresamples","nPulses", "timebase", "channum",
                      "n_segments", "pulses_per_seg", "segmentsize", "timestamp_offset"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
 
@@ -684,7 +684,7 @@ class MicrocalDataSet(object):
         self.noise_demodulated = None
         self.calibration = {'p_filt_value':mass.calibration.energy_calibration.EnergyCalibration('p_filt_value')}
 
-        expected_attributes=("nSamples","nPresamples","nPulses","timebase")
+        expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum")
         for a in expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename','virtual data set')
