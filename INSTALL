@@ -108,6 +108,16 @@ code, rebuild, and reinstall, then those changes will be invisible to any
 python session already in progress.  I'm sorry, but that's a limitation
 far above my level of expertise.
 
+With Macports 2.1.2 we have seen the following error when trying to build mass:
+mass/mathstat/robust.c:253:10: fatal error: 'numpy/arrayobject.h' file not found
+#include "numpy/arrayobject.h"
+         ^
+1 error generated.
+
+The ugly hack to fix this is to create the following symlink:
+ln -s /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/numpy/core/include/numpy/ /opt/local/Library/Frameworks/Python.framework/Versions/2.7/include/python2.7/numpy
+
+Frank believes this is a bug in the cython project. 
 
 
 HOW TO IMPORT MASS WITHIN PYTHON/IPYTHON
