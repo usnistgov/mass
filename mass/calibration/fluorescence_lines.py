@@ -79,48 +79,54 @@ class ScKAlpha(SpectralLine):
 
 
 ### Ti and V and KAlphas are commented out de
-#class TiKAlpha(SpectralLine):
-#    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
-#    url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
-#    Note that the subclass holds all the data (as class attributes), while
-#    the parent class SpectralLine holds all the code.
-#    """
-#    ## Spectral complex name.
-#    name = 'Titanium K-alpha'    
-#    # the paper has two sets of Ti data, I used the set Refit of [14] Anagnostopoulos et al 2003
-#    # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
-#    ## The Lorentzian energies (Table I C_i)
-#    energies = numpy.array((4510.937, 4509.485, 4507.854, 4513.907, 4504.908, 4502.510))
-#    ## The Lorentzian widths (Table I W_i)
-#    fwhm = numpy.array((1.39, 1.41, 2.89, 1.66, 1.81, 3.17))
-#    ## The Lorentzian peak height (Table I A_i)
-#    peak_heights = numpy.array((29173, 3399, 3904, 1598, 16534, 1130), dtype=numpy.float)
-#    ## Amplitude of the Lorentzians
-#    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
-#    amplitudes /= amplitudes.sum()
-#    ## The energy at the main peak (from table III Kalpha_1^0)
-#    peak_energy = 4510.903 # eV   
-#
-#class VKAlpha(SpectralLine):
-#    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
-#    url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
-#    Note that the subclass holds all the data (as class attributes), while
-#    the parent class SpectralLine holds all the code.
-#    """
-#    ## Spectral complex name.
-#    name = 'Vanadium K-alpha'    
-#    # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
-#    ## The Lorentzian energies (Table I C_i)
-#    energies = numpy.array((4952.237, 4950.656, 4948.266, 4955.269, 4944.672, 4943.014))
-#    ## The Lorentzian widths (Table I W_i)
-#    fwhm = numpy.array((1.45, 2.00, 1.81, 1.76, 2.94, 3.09))*2
-#    ## The Lorentzian peak height (Table I A_i)
-#    peak_heights = numpy.array((25832, 5410, 1536, 956, 12971, 603), dtype=numpy.float)
-#    ## Amplitude of the Lorentzians
-#    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
-#    amplitudes /= amplitudes.sum()
-#    ## The energy at the main peak (from table III Kalpha_1^0)
-#    peak_energy = 4952.216 # eV   
+class TiKAlpha(SpectralLine):
+    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
+    url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    Note that to reproduce the plots in the reference paper, you must include the Gaussian 
+    broadening of their instrument, which was 0.082eV FWHM
+    The underlying line profile has zero fundamental broadening.
+    """
+    ## Spectral complex name.
+    name = 'Titanium K-alpha'    
+    # the paper has two sets of Ti data, I used the set Refit of [21] Kawai et al 1994
+    # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
+    ## The Lorentzian energies (Table I C_i)
+    energies = numpy.array((4510.918, 4509.954, 4507.763, 4514.002, 4504.910, 4503.088))
+    ## The Lorentzian widths (Table I W_i)
+    fwhm = numpy.array((1.37, 2.22, 3.75, 1.70, 1.88, 4.49))
+    ## The Lorentzian peak height (Table I A_i)
+    peak_heights = numpy.array((4549, 626, 236, 143, 2034, 54), dtype=numpy.float)
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table III Kalpha_1^0)
+    peak_energy = 4510.903 # eV   
+
+class VKAlpha(SpectralLine):
+    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
+    url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    Note that to reproduce the plots in the reference paper, you must include the Gaussian 
+    broadening of their instrument, which was 1.99eV FWHM
+    The underlying line profile has zero fundamental broadening.
+    """
+    ## Spectral complex name.
+    name = 'Vanadium K-alpha'    
+    # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
+    ## The Lorentzian energies (Table I C_i)
+    energies = numpy.array((4952.237, 4950.656, 4948.266, 4955.269, 4944.672, 4943.014))
+    ## The Lorentzian widths (Table I W_i)
+    fwhm = numpy.array((1.45, 2.00, 1.81, 1.76, 2.94, 3.09))
+    ## The Lorentzian peak height (Table I A_i)
+    peak_heights = numpy.array((25832, 5410, 1536, 956, 12971, 603), dtype=numpy.float)
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table III Kalpha_1^0)
+    peak_energy = 4952.216 # eV   
     
 class CrKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -981,12 +987,12 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
 class ScKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter().__init__(ScKAlpha)
-#class TiKAlphaFitter(GenericKAlphaFitter):
-#    def __init__(self):
-#        GenericKAlphaFitter().__init__(TiKAlpha)
-#class VKAlphaFitter(GenericKAlphaFitter):
-#    def __init__(self):
-#        GenericKAlphaFitter().__init__(VKAlpha)
+class TiKAlphaFitter(GenericKAlphaFitter):
+    def __init__(self):
+        GenericKAlphaFitter().__init__(TiKAlpha)
+class VKAlphaFitter(GenericKAlphaFitter):
+    def __init__(self):
+        GenericKAlphaFitter().__init__(VKAlpha)
 class CrKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter().__init__(CrKAlpha)
@@ -1108,8 +1114,8 @@ class CuKBetaFitter(GenericKBetaFitter):
 def plot_allMultiLorentzianLineComplexs():
     """ makes a bunch of plots showing the line shape and component parts for the KAlpha and KBeta complexes defined in here"""
     plot_multiLorentzianLineComplex(ScKAlpha)
-#    plot_multiLorentzianLineComplex(TiKAlpha)
-#    plot_multiLorentzianLineComplex(VKAlpha)
+    plot_multiLorentzianLineComplex(TiKAlpha, instrumentGaussianSigma=0.68/2.354)
+    plot_multiLorentzianLineComplex(VKAlpha, instrumentGaussianSigma=1.99/2.354) # must include instrument broadening from Table 1, Source to recreate plots
     plot_multiLorentzianLineComplex(CrKAlpha)
     plot_multiLorentzianLineComplex(MnKAlpha)
     plot_multiLorentzianLineComplex(FeKAlpha)
@@ -1124,15 +1130,15 @@ def plot_allMultiLorentzianLineComplexs():
     plot_multiLorentzianLineComplex(CuKBeta)
     
 
-def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha):
+def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha, instrumentGaussianSigma = 0):
     """Makes a single plot showing the lineshape and component parts for a SpectalLine object"""
     plotEnergies = numpy.arange(numpy.round(0.995*spectrumDef.peak_energy),numpy.round(1.008*spectrumDef.peak_energy),0.25)
     
     pylab.figure()
     result = numpy.zeros_like(plotEnergies)
     for energy, fwhm, ampl in zip(spectrumDef.energies, spectrumDef.fwhm, spectrumDef.amplitudes):
-        pylab.plot(plotEnergies,ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=0), label='%.3f, %.3f, %.3f'%(energy,fwhm, ampl))
-        result += ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=0)
+        pylab.plot(plotEnergies,ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=instrumentGaussianSigma), label='%.3f, %.3f, %.3f'%(energy,fwhm, ampl))
+        result += ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=instrumentGaussianSigma)
     pylab.plot(plotEnergies, result, label='combined', linewidth=2)
     pylab.xlabel('Energy (eV)')
     pylab.ylabel('Fit Counts (arb)')
