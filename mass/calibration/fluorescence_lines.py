@@ -1,12 +1,3 @@
-## @file fluorescence_lines.py
-#
-# @brief Tools for fitting and simulating X-ray fluorescence lines.
-# 
-# Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
-# Phys Rev A56 (#6) pages 4554ff (1997 December).  See online at
-# http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
-
-
 """
 fluorescence_lines.py
 
@@ -25,7 +16,7 @@ November 24, 2010 : started as mn_kalpha.py
 
 __all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha', 
            'VoigtFitter', 'LorentzianFitter',
-           'MultiLorentzianDistribution_gen', 'MnKAlphaDistribution',
+           'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter', 'MnKAlphaDistribution',
            'CuKAlphaDistribution', 'MnKAlphaFitter', 'MnKBetaFitter',
            'CuKAlphaFitter', 'plot_spectrum']
  
@@ -64,8 +55,124 @@ class SpectralLine(object):
         for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.amplitudes):
             result += ampl*voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gauss_sigma)
         return result
-    
 
+class ScKAlpha(SpectralLine):
+    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
+    url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    ## Spectral complex name.
+    name = 'Scandium K-alpha'    
+    # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
+    ## The Lorentzian energies (Table I C_i)
+    energies = numpy.array((4090.595, 4089.308, 4087.666, 4093.428, 4085.773, 4083.697))
+    ## The Lorentzian widths (Table I W_i)
+    fwhm = numpy.array((1.13, 2.46, 1.58, 2.04, 1.94, 3.42))
+    ## The Lorentzian peak height (Table I A_i)
+    peak_heights = numpy.array((8203, 818, 257, 381, 4299, 105), dtype=numpy.float)
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table III Kalpha_1^0)
+    peak_energy = 4090.735 # eV  
+
+
+### Ti and V and KAlphas are commented out de
+#class TiKAlpha(SpectralLine):
+#    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
+#    url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
+#    Note that the subclass holds all the data (as class attributes), while
+#    the parent class SpectralLine holds all the code.
+#    """
+#    ## Spectral complex name.
+#    name = 'Titanium K-alpha'    
+#    # the paper has two sets of Ti data, I used the set Refit of [14] Anagnostopoulos et al 2003
+#    # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
+#    ## The Lorentzian energies (Table I C_i)
+#    energies = numpy.array((4510.937, 4509.485, 4507.854, 4513.907, 4504.908, 4502.510))
+#    ## The Lorentzian widths (Table I W_i)
+#    fwhm = numpy.array((1.39, 1.41, 2.89, 1.66, 1.81, 3.17))
+#    ## The Lorentzian peak height (Table I A_i)
+#    peak_heights = numpy.array((29173, 3399, 3904, 1598, 16534, 1130), dtype=numpy.float)
+#    ## Amplitude of the Lorentzians
+#    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+#    amplitudes /= amplitudes.sum()
+#    ## The energy at the main peak (from table III Kalpha_1^0)
+#    peak_energy = 4510.903 # eV   
+#
+#class VKAlpha(SpectralLine):
+#    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
+#    url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
+#    Note that the subclass holds all the data (as class attributes), while
+#    the parent class SpectralLine holds all the code.
+#    """
+#    ## Spectral complex name.
+#    name = 'Vanadium K-alpha'    
+#    # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
+#    ## The Lorentzian energies (Table I C_i)
+#    energies = numpy.array((4952.237, 4950.656, 4948.266, 4955.269, 4944.672, 4943.014))
+#    ## The Lorentzian widths (Table I W_i)
+#    fwhm = numpy.array((1.45, 2.00, 1.81, 1.76, 2.94, 3.09))*2
+#    ## The Lorentzian peak height (Table I A_i)
+#    peak_heights = numpy.array((25832, 5410, 1536, 956, 12971, 603), dtype=numpy.float)
+#    ## Amplitude of the Lorentzians
+#    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+#    amplitudes /= amplitudes.sum()
+#    ## The energy at the main peak (from table III Kalpha_1^0)
+#    peak_energy = 4952.216 # eV   
+    
+class CrKAlpha(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
+    by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code).
+    
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    
+    ## Spectral complex name.
+    name = 'Chromium K-alpha'    
+    
+    # The approximation is as a series of 7 Lorentzians (5 for KA1,2 for KA2)
+    
+    ## The Lorentzian energies (Table II E_i)
+    energies = 5400+numpy.array((14.874, 14.099, 12.745, 10.583, 18.304, 5.551, 3.986))
+    ## The Lorentzian widths (Table II W_i)
+    fwhm = numpy.array((1.457, 1.760, 3.138, 5.149, 1.988, 2.224, 4.4740))
+    ## The Lorentzian peak height (Table II I_i)
+    peak_heights = numpy.array((882, 237, 85, 45, 15, 386, 36), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV alpha_1)
+    peak_energy = 5414.81 # eV   
+    
+class CrKBeta(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December).
+    
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+
+    ## Spectral complex name.
+    name = 'Chromium K-beta'    
+    
+    # The approximation is as a series of 5 Lorentzians 
+    ## The Lorentzian energies (Table III E_i)
+    energies = 5900+numpy.array((47.00, 35.31, 46.24, 42.04, 44.93))
+    ## The Lorentzian widths (Table III W_i)
+    fwhm = numpy.array((1.70, 15.98, 1.90, 6.69, 3.37))
+    ## The Lorentzian peak height (Table III I_i)
+    peak_heights = numpy.array((670, 55, 337, 82, 151), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV beta_1,3)
+    peak_energy = 5946.82 # eV     
 
 class MnKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -83,6 +190,7 @@ class MnKAlpha(SpectralLine):
     # The approximation is as a series of 8 Lorentzians (6 for KA1,2 for KA2)
     
     ## The Lorentzian energies
+    ## the 102.712 line doesn't appear in the reference paper, apparently it was added in Scott Porter's refit of the complex, also one of the intensities went from 0.005 to 0.018
     energies = 5800+numpy.array((98.853, 97.867, 94.829, 96.532, 
                                  99.417, 102.712, 87.743, 86.495))
     ## The Lorentzian widths
@@ -120,9 +228,144 @@ class MnKBeta(SpectralLine):
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak
-    peak_energy = 6490.18 # eV        
-
-
+    peak_energy = 6490.18 # eV   
+    
+class FeKAlpha(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
+    by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code).
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    ## Spectral complex name.
+    name = 'Iron K-alpha'    
+    # The approximation is as a series of 7 Lorentzians (4 for KA1,3 for KA2)
+    ## The Lorentzian energies (Table II E_i)
+    energies = numpy.array((6404.148, 6403.295, 6400.653, 6402.077, 6391.190, 6389.106, 6390.275))
+    ## The Lorentzian widths (Table II W_i)
+    fwhm = numpy.array((1.613, 1.965, 4.833, 2.803, 2.487, 2.339, 4.433))
+    ## The Lorentzian peak height (Table II I_i)
+    peak_heights = numpy.array((697, 376, 88, 136, 339, 60, 102), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV alpha_1)
+    peak_energy = 6404.01 # eV   
+    
+class FeKBeta(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December).
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    ## Spectral complex name.
+    name = 'Iron K-beta'    
+    # The approximation is as a series of 4 Lorentzians 
+    ## The Lorentzian energies (Table III E_i)
+    energies = numpy.array((7046.90, 7057.21, 7058.36, 7054.75))
+    ## The Lorentzian widths (Table III W_i)
+    fwhm = numpy.array((14.17, 3.12, 1.97, 6.38))
+    ## The Lorentzian peak height (Table III I_i)
+    peak_heights = numpy.array((107, 448, 615, 141), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV beta_1,3)
+    peak_energy = 7058.18 # eV      
+    
+class CoKAlpha(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
+    by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code).
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    ## Spectral complex name.
+    name = 'Cobalt K-alpha'    
+    # The approximation is as a series of 7 Lorentzians (4 for KA1,3 for KA2)
+    ## The Lorentzian energies (Table II E_i)
+    energies = numpy.array((6930.425, 6929.388, 6927.676, 6930.941, 6915.713, 6914.659, 6913.078))
+    ## The Lorentzian widths (Table II W_i)
+    # the calculated amplitude for the 4th entry 0.808 differs from the paper, but the other numbers appear to
+    # be correct, so I think they may have a typo
+    fwhm = numpy.array((1.795, 2.695, 4.555, 0.808, 2.406, 2.773, 4.463))
+    ## The Lorentzian peak height (Table II I_i)
+    peak_heights = numpy.array((809, 205, 107, 41, 314, 131, 43), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV alpha_1)
+    peak_energy = 6930.38 # eV   
+    
+class CoKBeta(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December).
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    ## Spectral complex name.
+    name = 'Cobalt K-beta'    
+    # The approximation is as a series of 6 Lorentzians 
+    ## The Lorentzian energies (Table III E_i)
+    energies = numpy.array((7649.60, 7647.83, 7639.87, 7645.49, 7636.21, 7654.13))
+    ## The Lorentzian widths (Table III W_i)
+    fwhm = numpy.array((3.05, 3.58, 9.78, 4.89, 13.59, 3.79))
+    ## The Lorentzian peak height (Table III I_i)
+    peak_heights = numpy.array((798, 286, 85, 114, 33, 35), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV beta_1,3)
+    peak_energy = 7649.45 # eV  
+    
+class NiKAlpha(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
+    by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code).
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    ## Spectral complex name.
+    name = 'Nickle K-alpha'    
+    # The approximation is as a series of 5 Lorentzians (2 for KA1,3 for KA2)
+    ## The Lorentzian energies (Table II E_i)
+    energies = numpy.array((7478.281, 7476.529, 7461.131, 7459.874, 7458.029))
+    ## The Lorentzian widths (Table II W_i)
+    fwhm = numpy.array((2.013, 4.711, 2.674, 3.039, 4.476))
+    ## The Lorentzian peak height (Table II I_i)
+    peak_heights = numpy.array((909, 136, 351, 79, 24), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV alpha_1)
+    peak_energy = 7478.26 # eV   
+    
+class NiKBeta(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December).
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+    ## Spectral complex name.
+    name = 'Nickle K-beta'    
+    # The approximation is as a series of 4 Lorentzians 
+    ## The Lorentzian energies (Table III E_i)
+    energies = numpy.array((8265.01, 8263.01, 8256.67, 8268.70))
+    ## The Lorentzian widths (Table III W_i)
+    fwhm = numpy.array((3.76, 4.34, 13.70, 5.18))
+    ## The Lorentzian peak height (Table III I_i)
+    peak_heights = numpy.array((722, 358, 89, 104), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV beta_1,3)
+    peak_energy = 8264.78 # eV  
     
 class CuKAlpha(SpectralLine):
     """Function object to approximate the copper K-alpha complex
@@ -148,7 +391,32 @@ class CuKAlpha(SpectralLine):
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak
-    peak_energy = 8047.83 # eV        
+    peak_energy = 8047.83 # eV   
+    
+class CuKBeta(SpectralLine):
+    """Function object to approximate the manganese K-alpha complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December).
+    
+    Note that the subclass holds all the data (as class attributes), while
+    the parent class SpectralLine holds all the code.
+    """
+
+    ## Spectral complex name.
+    name = 'Copper K-beta'    
+    
+    # The approximation is as a series of 5 Lorentzians 
+    ## The Lorentzian energies (Table III E_i)
+    energies = numpy.array((8905.532, 8903.109, 8908.462, 8897.387, 8911.393))
+    ## The Lorentzian widths (Table III W_i)
+    fwhm = numpy.array((3.52, 3.52, 3.55, 8.08, 5.31))
+    ## The Lorentzian peak height (Table III I_i)
+    peak_heights = numpy.array((757, 388, 171, 68, 55), dtype=numpy.float)/1e3
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV beta1,3)
+    peak_energy = 8905.42 # eV      
 
 
     
@@ -591,6 +859,9 @@ class MultiLorentzianComplexFitter(object):
         hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  BG and BG slope will
                        be held if 4 or 5 appears in the hold sequence OR if the relevant boolean
                        vary_* tests False.
+        ====================================================================
+        returns fitparams, covariance
+        fitparams has same format as input variable params
         """
         try:
             assert len(pulseheights) == len(data)
@@ -644,21 +915,17 @@ class MultiLorentzianComplexFitter(object):
         return fitparams, covariance
 
 
-
-class MnKAlphaFitter(MultiLorentzianComplexFitter):
-    """Fits a Mn K alpha spectrum for energy shift and scale, amplitude, and resolution"""
-    
-    def __init__(self):
+class GenericKAlphaFitter(MultiLorentzianComplexFitter):
+    """Fits a generic K alpha spectrum for energy shift and scale, amplitude, and resolution"""
+    def __init__(self, spectrumDef = MnKAlpha):
         """ """
         ## Spectrum function object
-        self.spect = MnKAlpha()
-        super(self.__class__, self).__init__()
+        self.spect = spectrumDef
+        MultiLorentzianComplexFitter().__init__()
         # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
-        
     def guess_starting_params(self, data, binctrs):
         """If the cuts are tight enough, then we can estimate the locations of the
         K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
-        
         n = data.sum()
         if n<=0:
             raise ValueError("This histogram has no contents")
@@ -667,74 +934,213 @@ class MnKAlphaFitter(MultiLorentzianComplexFitter):
         mean_d = sum_d/n
         rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
 #        print n, sum_d, sum_d2, mean_d, rms_d
-        
         ph_ka1 = mean_d + rms_d*.65
         ph_ka2 = mean_d - rms_d
-
         dph = ph_ka1-ph_ka2
         dE = 11.1 # eV difference between KAlpha peaks
-        ampl = data.max() *9.4
+        # this should be caluclated from data in the spectrumDef, but currently
+        # the KAlpha object don't include the KAlpha2 energy.
+        ampl = data.max() *9.4 
         res = 4.0
-        baseline = 0.1
-        baseline_slope = 0.0
+        if len(data) > 20:
+            baseline = data[0:10].mean()
+            baseline_slope = (data[-10:].mean()-baseline)/len(data)
+        else:
+            baseline = 0.1
+            baseline_slope = 0.0
         return [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope]
-
-
-
-class MnKBetaFitter(MultiLorentzianComplexFitter):
-    """Fits a Mn K beta spectrum for energy shift and scale, amplitude, and resolution"""
     
-    def __init__(self):
+    
+class GenericKBetaFitter(MultiLorentzianComplexFitter):
+    def __init__(self, spectrumDef=MnKBeta):
         """ """
         ## Spectrum function object
-        self.spect = MnKBeta()
-        super(self.__class__, self).__init__()
-        
+        self.spect = spectrumDef
+        MultiLorentzianComplexFitter().__init__() 
     def guess_starting_params(self, data, binctrs):
         """If the cuts are tight enough, then we can estimate the locations of the
-        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
-        
+        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma).""" 
         n = data.sum()
         sum_d = (data*binctrs).sum()
 #        sum_d2 = (data*binctrs*binctrs).sum()
         mean_d = sum_d/n
 #        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
 #        print n, sum_d, sum_d2, mean_d, rms_d
-        
         ph_peak = mean_d
-
         ampl = data.max() *9.4
         res = 4.0
-        baseline = 0.1
-        baseline_slope = 0.0
+        if len(data) > 20:
+            baseline = data[0:10].mean()
+            baseline_slope = (data[-10:].mean()-baseline)/len(data)
+        else:
+            baseline = 0.1
+            baseline_slope = 0.0
         return [res, ph_peak, 1.0, ampl, baseline, baseline_slope]
-
-
-
-class CuKAlphaFitter(MultiLorentzianComplexFitter):
-    """Fits a Cu K alpha spectrum for energy shift and scale, amplitude, and resolution"""
     
+## create specific KAlpha Fitters
+class ScKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        """ """
-        ## Spectrum function object
-        self.spect = CuKAlpha()
-        super(self.__class__, self).__init__()
+        GenericKAlphaFitter().__init__(ScKAlpha)
+#class TiKAlphaFitter(GenericKAlphaFitter):
+#    def __init__(self):
+#        GenericKAlphaFitter().__init__(TiKAlpha)
+#class VKAlphaFitter(GenericKAlphaFitter):
+#    def __init__(self):
+#        GenericKAlphaFitter().__init__(VKAlpha)
+class CrKAlphaFitter(GenericKAlphaFitter):
+    def __init__(self):
+        GenericKAlphaFitter().__init__(CrKAlpha)
+class MnKAlphaFitter(GenericKAlphaFitter):
+    def __init__(self):
+        GenericKAlphaFitter().__init__(MnKAlpha)
+class FeKAlphaFitter(GenericKAlphaFitter):
+    def __init__(self):
+        GenericKAlphaFitter().__init__(FeKAlpha)
+class CoKAlphaFitter(GenericKAlphaFitter):
+    def __init__(self):
+        GenericKAlphaFitter().__init__(MnKAlpha)
+class NiKAlphaFitter(GenericKAlphaFitter):
+    def __init__(self):
+        GenericKAlphaFitter().__init__(NiKAlpha)
+class CuKAlphaFitter(GenericKAlphaFitter):
+    def __init__(self):
+        GenericKAlphaFitter().__init__(CuKAlpha)
         
-    def guess_starting_params(self, data, binctrs):
-        """If the cuts are tight enough, then we can estimate the locations of the
-        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
-        
-        
-        ph_ka1 = binctrs[data.argmax()]
-        
-        res = 5
-        baseline = data[0:10].mean()
-        baseline_slope = (data[-10:].mean()-baseline)/len(data)
-        ampl = data.max()-data.mean()
-        return [res, ph_ka1, 0.6, ampl, baseline, baseline_slope]
+## create specific KBeta Fitters
+class CrKBetaFitter(GenericKBetaFitter):
+    GenericKBetaFitter().__init__(CrKBeta)
+class MnKBetaFitter(GenericKBetaFitter):
+    GenericKBetaFitter().__init__(MnKBeta)
+class FeKBetaFitter(GenericKBetaFitter):
+    GenericKBetaFitter().__init__(FeKBeta)
+class CoKBetaFitter(GenericKBetaFitter):
+    GenericKBetaFitter().__init__(CoKBeta)
+class NiKBetaFitter(GenericKBetaFitter):
+    GenericKBetaFitter().__init__(NiKBeta)
+class CuKBetaFitter(GenericKBetaFitter):
+    GenericKBetaFitter().__init__(CuKBeta)
+# previous method of MnKAlphaFitter, redundant since GenericKAlphaFitter exists now
+#class MnKAlphaFitter(MultiLorentzianComplexFitter):
+#    """Fits a Mn K alpha spectrum for energy shift and scale, amplitude, and resolution"""
+#    def __init__(self):
+#        """ """
+#        ## Spectrum function object
+#        self.spect = MnKAlpha()
+#        super(self.__class__, self).__init__()
+#        # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
+#    def guess_starting_params(self, data, binctrs):
+#        """If the cuts are tight enough, then we can estimate the locations of the
+#        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
+#        n = data.sum()
+#        if n<=0:
+#            raise ValueError("This histogram has no contents")
+#        sum_d = (data*binctrs).sum()
+#        sum_d2 = (data*binctrs*binctrs).sum()
+#        mean_d = sum_d/n
+#        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+##        print n, sum_d, sum_d2, mean_d, rms_d
+#        ph_ka1 = mean_d + rms_d*.65
+#        ph_ka2 = mean_d - rms_d
+#        dph = ph_ka1-ph_ka2
+#        dE = 11.1 # eV difference between KAlpha peaks
+#        ampl = data.max() *9.4
+#        res = 4.0
+#        baseline = 0.1
+#        baseline_slope = 0.0
+#        return [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope]
+
+
+#replaced with GenericKBetaFitter
+#class MnKBetaFitter(MultiLorentzianComplexFitter):
+#    """Fits a Mn K beta spectrum for energy shift and scale, amplitude, and resolution"""
+#    
+#    def __init__(self):
+#        """ """
+#        ## Spectrum function object
+#        self.spect = MnKBeta()
+#        super(self.__class__, self).__init__()
+#        
+#    def guess_starting_params(self, data, binctrs):
+#        """If the cuts are tight enough, then we can estimate the locations of the
+#        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
+#        
+#        n = data.sum()
+#        sum_d = (data*binctrs).sum()
+##        sum_d2 = (data*binctrs*binctrs).sum()
+#        mean_d = sum_d/n
+##        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+##        print n, sum_d, sum_d2, mean_d, rms_d
+#        
+#        ph_peak = mean_d
+#
+#        ampl = data.max() *9.4
+#        res = 4.0
+#        baseline = 0.1
+#        baseline_slope = 0.0
+#        return [res, ph_peak, 1.0, ampl, baseline, baseline_slope]
+
+
+#### replaced using GenericKAlphaFitter
+#class CuKAlphaFitter(MultiLorentzianComplexFitter):
+#    """Fits a Cu K alpha spectrum for energy shift and scale, amplitude, and resolution"""
+#    
+#    def __init__(self):
+#        """ """
+#        ## Spectrum function object
+#        self.spect = CuKAlpha()
+#        super(self.__class__, self).__init__()
+#        
+#    def guess_starting_params(self, data, binctrs):
+#        """If the cuts are tight enough, then we can estimate the locations of the
+#        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
+#        
+#        
+#        ph_ka1 = binctrs[data.argmax()]
+#        
+#        res = 5
+#        baseline = data[0:10].mean()
+#        baseline_slope = (data[-10:].mean()-baseline)/len(data)
+#        ampl = data.max()-data.mean()
+#        return [res, ph_ka1, 0.6, ampl, baseline, baseline_slope]
     
 
 
+def plot_allMultiLorentzianLineComplexs():
+    """ makes a bunch of plots showing the line shape and component parts for the KAlpha and KBeta complexes defined in here"""
+    plot_multiLorentzianLineComplex(ScKAlpha)
+#    plot_multiLorentzianLineComplex(TiKAlpha)
+#    plot_multiLorentzianLineComplex(VKAlpha)
+    plot_multiLorentzianLineComplex(CrKAlpha)
+    plot_multiLorentzianLineComplex(MnKAlpha)
+    plot_multiLorentzianLineComplex(FeKAlpha)
+    plot_multiLorentzianLineComplex(CoKAlpha)
+    plot_multiLorentzianLineComplex(NiKAlpha)
+    plot_multiLorentzianLineComplex(CuKAlpha)
+    plot_multiLorentzianLineComplex(CrKBeta)
+    plot_multiLorentzianLineComplex(MnKBeta)
+    plot_multiLorentzianLineComplex(FeKBeta)
+    plot_multiLorentzianLineComplex(CoKBeta)
+    plot_multiLorentzianLineComplex(NiKBeta)
+    plot_multiLorentzianLineComplex(CuKBeta)
+    
+
+def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha):
+    """Makes a single plot showing the lineshape and component parts for a SpectalLine object"""
+    plotEnergies = numpy.arange(numpy.round(0.995*spectrumDef.peak_energy),numpy.round(1.008*spectrumDef.peak_energy),0.25)
+    
+    pylab.figure()
+    result = numpy.zeros_like(plotEnergies)
+    for energy, fwhm, ampl in zip(spectrumDef.energies, spectrumDef.fwhm, spectrumDef.amplitudes):
+        pylab.plot(plotEnergies,ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=0), label='%.3f, %.3f, %.3f'%(energy,fwhm, ampl))
+        result += ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=0)
+    pylab.plot(plotEnergies, result, label='combined', linewidth=2)
+    pylab.xlabel('Energy (eV)')
+    pylab.ylabel('Fit Counts (arb)')
+    pylab.title(spectrumDef.name)
+    pylab.legend()
+    pylab.xlim((plotEnergies[0], plotEnergies[-1]))
+    pylab.ylim((0,numpy.max(result)))
+    pylab.show()
 
 def plot_spectrum(spectrum=MnKAlpha(), 
                   resolutions=(2, 3, 4, 5, 6, 7, 8, 10, 12), 
