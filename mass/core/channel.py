@@ -1016,6 +1016,8 @@ class MicrocalDataSet(object):
             pylab.clf()
             pylab.subplot(211)
             pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value[valid],',',color='orange')
+            pylab.xlabel("Hypothetical 'center phase'")
+            pylab.ylabel("Filtered PH")
             pylab.xlim([-.55,.55])
             if prange is not None:
                 pylab.ylim(prange)
@@ -1078,6 +1080,8 @@ class MicrocalDataSet(object):
         if plot:
             pylab.clf()
             axis1=pylab.subplot(211)
+            pylab.xlabel("Drift correction slope")
+            pylab.ylabel("RMS of selected, corrected pulse heights")
         if self.p_filt_value_phc[0] ==0:
             self.p_filt_value_phc = self.p_filt_value.copy()
         
@@ -1108,7 +1112,8 @@ class MicrocalDataSet(object):
             rms = (data+corrector*sl).std()
             rms_widths.append(rms)
 #            print "%6.3f %7.2f"%(sl,rms)
-            if plot: pylab.plot(sl,rms,'bo')
+            if plot: 
+                pylab.plot(sl,rms,'bo')
         poly_coef = scipy.polyfit(slopes, rms_widths, 2)
         best_slope = -0.5*poly_coef[1]/poly_coef[0]
         print "Drift correction requires slope %6.3f"%best_slope
@@ -1122,6 +1127,8 @@ class MicrocalDataSet(object):
             pylab.plot(c, -c*best_slope + data.mean(),color='green')
             pylab.ylim(prange)
             axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')
+            pylab.xlabel("Pretrigger mean - mean(PT mean)")
+            pylab.ylabel("Selected, uncorrected pulse heights")
         return best_slope
 
 
@@ -1138,6 +1145,8 @@ class MicrocalDataSet(object):
         if plot:
             pylab.clf()
             axis1=pylab.subplot(211)
+            pylab.xlabel("Drift correction slope")
+            pylab.ylabel("Fit resolution from selected, corrected pulse heights")
         if self.p_filt_value_phc[0] ==0:
             self.p_filt_value_phc = self.p_filt_value.copy()
         
@@ -1180,6 +1189,8 @@ class MicrocalDataSet(object):
             c = numpy.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
             pylab.plot(c, -c*best_slope + data.mean(),color='green')
             pylab.ylim(prange)
+            pylab.xlabel("Pretrigger mean - mean(PT mean)")
+            pylab.ylabel("Selected, uncorrected pulse heights")
             
             axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')
 

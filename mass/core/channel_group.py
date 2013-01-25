@@ -418,6 +418,8 @@ class BaseChannelGroup(object):
                 pylab.text(.5,.5,'empty', ha='center', va='center', size='large', transform=pylab.gca().transAxes)
             if i==0: pylab.title(label)
             pylab.ylabel("TES %d"%channum)
+            if i==ny_plots-1:
+                pylab.xlabel("Time since server start (hours)")
 
             if i==0:
                 axh_master = pylab.subplot(ny_plots, 2, 2+i*2)
@@ -436,6 +438,8 @@ class BaseChannelGroup(object):
             else:
                 contents, _bins, _patches = pylab.hist(vect[in_limit],200, log=log, 
                                                        histtype='stepfilled', fc=color, alpha=0.5)
+            if i==ny_plots-1:
+                pylab.xlabel(label)
             if log:
                 pylab.ylim(ymin = contents.min())
 
@@ -629,6 +633,7 @@ class BaseChannelGroup(object):
             for i,d in enumerate(self.datasets):
                 pylab.plot(dt,d.average_pulses[i], label="Demod TES %d"%i)
         pylab.xlabel("Time past trigger (ms)")
+        pylab.ylabel("Raw counts")
         pylab.xlim([dt[0], dt[-1]])
         if use_legend: pylab.legend(loc='best')
 

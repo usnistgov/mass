@@ -73,7 +73,7 @@ class MicrocalFile(object):
         
         ## Filename of the data file
         self.filename = None
-        self.channum = -1
+        self.channum = 99999
         self.nSamples = 0
         self.nPresamples = 0
         self.timebase = 0.0
