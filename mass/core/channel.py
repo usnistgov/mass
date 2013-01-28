@@ -697,7 +697,11 @@ class MicrocalDataSet(object):
 
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts 
-        about each pulse in memory."""
+        about each pulse in memory.
+        p_filt_value = pulse height after running through filter
+        P_filt_value_phc = phase corrected
+        p_fil_value_dc = pulse height after running through filter and applying drift correction
+        p_energy = pulse energy determined from applying a calibration to one of the p_filt_value??? variables"""
         
         if npulses is None:
             assert self.nPulses > 0
@@ -1076,6 +1080,9 @@ class MicrocalDataSet(object):
         times: if not None, use this range of p_timestamps instead of all data (units are seconds
                since server started--ugly but that's what we have to work with)
         plot:  whether to display the result
+        ===============================================
+        returns best_slope 
+        units = 
         """
         if plot:
             pylab.clf()
