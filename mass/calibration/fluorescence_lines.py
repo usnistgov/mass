@@ -17,8 +17,11 @@ November 24, 2010 : started as mn_kalpha.py
 __all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha', 
            'VoigtFitter', 'LorentzianFitter',
            'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter', 'MnKAlphaDistribution',
-           'CuKAlphaDistribution', 'MnKAlphaFitter', 'MnKBetaFitter',
-           'CuKAlphaFitter', 'plot_spectrum']
+           'CuKAlphaDistribution',
+           'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter', 'CrKAlphaFitter',
+           'MnKAlphaFitter', 'FeKAlphaFitter', 'CoKAlphaFitter', 'NiKAlphaFitter', 'CuKAlphaFitter',
+           'CrKBetaFitter', 'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter', 'CuKBetaFitter',
+           'plot_spectrum']
  
 import numpy
 import pylab
