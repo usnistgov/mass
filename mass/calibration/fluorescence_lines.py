@@ -62,6 +62,7 @@ class ScKAlpha(SpectralLine):
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
+
     ## Spectral complex name.
     name = 'Scandium K-alpha'    
     # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
@@ -189,7 +190,6 @@ class MnKAlpha(SpectralLine):
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
-    
     ## Spectral complex name.
     name = 'Manganese K-alpha'    
     
@@ -927,7 +927,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         """ """
         ## Spectrum function object
         self.spect = spectrumDef
-        MultiLorentzianComplexFitter().__init__()
+        MultiLorentzianComplexFitter.__init__(self)
         # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
     def guess_starting_params(self, data, binctrs):
         """If the cuts are tight enough, then we can estimate the locations of the
@@ -962,7 +962,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         """ """
         ## Spectrum function object
         self.spect = spectrumDef
-        MultiLorentzianComplexFitter().__init__() 
+        MultiLorentzianComplexFitter.__init__(self) 
     def guess_starting_params(self, data, binctrs):
         """If the cuts are tight enough, then we can estimate the locations of the
         K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma).""" 
@@ -986,45 +986,51 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
 ## create specific KAlpha Fitters
 class ScKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter().__init__(ScKAlpha)
+        GenericKAlphaFitter.__init__(self, ScKAlpha)
 class TiKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter().__init__(TiKAlpha)
+        GenericKAlphaFitter.__init__(self, TiKAlpha)
 class VKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter().__init__(VKAlpha)
+        GenericKAlphaFitter.__init__(self, VKAlpha)
 class CrKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter().__init__(CrKAlpha)
+        GenericKAlphaFitter.__init__(self, CrKAlpha)
 class MnKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter().__init__(MnKAlpha)
+        GenericKAlphaFitter.__init__(self, MnKAlpha)
 class FeKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter().__init__(FeKAlpha)
+        GenericKAlphaFitter.__init__(self, FeKAlpha)
 class CoKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter().__init__(MnKAlpha)
+        GenericKAlphaFitter.__init__(self, MnKAlpha)
 class NiKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter().__init__(NiKAlpha)
+        GenericKAlphaFitter.__init__(self, NiKAlpha)
 class CuKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter().__init__(CuKAlpha)
+        GenericKAlphaFitter.__init__(self, CuKAlpha)
         
 ## create specific KBeta Fitters
 class CrKBetaFitter(GenericKBetaFitter):
-    GenericKBetaFitter().__init__(CrKBeta)
+    def __init__(self):
+        GenericKBetaFitter.__init__(self, CrKBeta)
 class MnKBetaFitter(GenericKBetaFitter):
-    GenericKBetaFitter().__init__(MnKBeta)
+    def __init__(self):
+        GenericKBetaFitter.__init__(self, MnKBeta)
 class FeKBetaFitter(GenericKBetaFitter):
-    GenericKBetaFitter().__init__(FeKBeta)
+    def __init__(self):
+        GenericKBetaFitter.__init__(self, FeKBeta)
 class CoKBetaFitter(GenericKBetaFitter):
-    GenericKBetaFitter().__init__(CoKBeta)
+    def __init__(self):
+        GenericKBetaFitter.__init__(self, CoKBeta)
 class NiKBetaFitter(GenericKBetaFitter):
-    GenericKBetaFitter().__init__(NiKBeta)
+    def __init__(self):
+        GenericKBetaFitter.__init__(self, NiKBeta)
 class CuKBetaFitter(GenericKBetaFitter):
-    GenericKBetaFitter().__init__(CuKBeta)
+    def __init__(self):
+        GenericKBetaFitter.__init__(self, CuKBeta)
 # previous method of MnKAlphaFitter, redundant since GenericKAlphaFitter exists now
 #class MnKAlphaFitter(MultiLorentzianComplexFitter):
 #    """Fits a Mn K alpha spectrum for energy shift and scale, amplitude, and resolution"""
