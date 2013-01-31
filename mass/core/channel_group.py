@@ -16,7 +16,7 @@ Author: Joe Fowler, NIST
 Started March 2, 2011
 """
 
-__all__=['TESGroup','CDMGroup','CrosstalkVeto']
+__all__=['TESGroup','CDMGroup','CrosstalkVeto', 'unpickle_TESGroup']
 
 import time, os
 import numpy
@@ -1289,7 +1289,10 @@ class TESGroup(BaseChannelGroup):
 def unpickle_TESGroup(filename):
     """
     Factory function to unpickle a TESGroup pickled by its .pickle() method.
-    
+    <filename>   The pickle file containing the group information.  (It's expected
+                 that the per-channel pickle files will live in the standard place.)
+                 
+    Returns a valid TESGroup object.  I hope.
     """
 
     fp = open(filename, "rb")
