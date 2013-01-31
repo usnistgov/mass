@@ -671,7 +671,12 @@ class MicrocalDataSet(object):
       CUT_TIMESTAMP,
       CUT_SATURATED
        ) = range(8)
-    
+
+    # Attributes that all such objects must have.
+    expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum")
+
+
+
     def __init__(self, pulserec_dict):
         """
         Pass in a dictionary (presumably that of a PulseRecords object)
@@ -684,8 +689,7 @@ class MicrocalDataSet(object):
         self.noise_demodulated = None
         self.calibration = {'p_filt_value':mass.calibration.energy_calibration.EnergyCalibration('p_filt_value')}
 
-        expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum")
-        for a in expected_attributes:
+        for a in self.expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename','virtual data set')
         self.__setup_vectors(npulses=0)
@@ -758,7 +762,86 @@ class MicrocalDataSet(object):
         c.noise_spectrum = self.noise_spectrum.copy()
         return c
 
+
+    def pickle(self, filename=None):
+        """Pickle the _contents_ of the MicrocalDataSet object.
+        <filename>    The output pickle name.  If not given, then it will be the data file name
+                      with the suffix replaced by '.pkl' and in a subdirectory mass under the
+                      main file's location."""
     
+        if filename is None:
+            basedir = os.path.dirname(self.filename)
+            massdir = os.path.join(basedir, "mass")
+            if not os.path.isdir(massdir):
+                os.mkdir(massdir, 0775)
+            filename = os.path.join(massdir, "%s.pkl"%os.path.basename(self.filename))
+        
+        import cPickle
+        fp = open(filename, "wb")
+        pickler = cPickle.Pickler(fp, protocol=2)
+        
+        # Pickle the self.expected_attributes
+        exp_at = {}
+        for k in self.expected_attributes:
+            exp_at[k] = self.__dict__[k]
+        pickler.dump(exp_at)
+        
+        # Pickle the cuts mask
+        pickler.dump(self.cuts._mask)
+        
+        # Pickle all attributes noise_*, p_*, peak_time_microsec, pretrigger_*, timebase, times
+        # Approach is to dump the attribute NAME then value.
+        attr_starts = ("noise_", "p_", "pretrigger_")
+        attr_names = ("peak_time_microsec", "timebase", "times")
+        for attr in self.__dict__:
+            store_this_attr = attr in attr_names
+            for ast in attr_starts:
+                if attr.startswith(ast):
+                    store_this_attr = True
+                    break
+            if store_this_attr:
+                pickler.dump(attr)
+                pickler.dump(self.__dict__[attr])
+        fp.close()
+    
+        
+    def unpickle(self, filename=None):
+        """
+        Factory function to unpickle a MicrocalDataSet pickled by its .pickle() method.
+        Note that you might be better off creating a MicrocalDataSet the usual way, then
+        loading it with its .unpickle() method.
+        
+        Data structure must be:
+        1. A dictionary with simple values, whose keys include at least all strings in
+           the tuple MicrocalDataSet.expected_attributes.
+        2. The dataset cuts._mask
+        3. Any string.  If #4 also loads, then this will be the attribute name.
+        4. Any pickleable object.  This will become an attribute value (prev item gives its name)
+        ... Repeat items (3,4) as many times as necessary to load attribute (name,value) pairs.
+        """
+        if filename is None:
+            basedir = os.path.dirname(self.filename)
+            massdir = os.path.join(basedir, "mass")
+            if not os.path.isdir(massdir):
+                os.mkdir(massdir, 0775)
+            filename = os.path.join(massdir, "%s.pkl"%os.path.basename(self.filename))
+            
+        import cPickle
+        fp = open(filename, "rb")
+        unpickler = cPickle.Unpickler(fp)
+        _expected_attr = unpickler.load()
+        # ignore the expected_attr
+        self.cuts._mask = unpickler.load()
+        try:
+            while True:
+                k = unpickler.load()
+                v = unpickler.load()
+                self.__dict__[k] = v
+        except EOFError:
+            pass
+        fp.close()
+
+
     def summarize_data(self, first, end):
         """Summarize the complete data file"""
         
@@ -1329,3 +1412,34 @@ def create_pulse_and_noise_records(fname, noisename=None, records_are_continuous
         nr = NoiseRecords(noisename, records_are_continuous)
     
     return (pr, nr)
+
+
+def unpickle_MicrocalDataSet(filename):
+    """
+    Factory function to unpickle a MicrocalDataSet pickled by its .pickle() method.
+    Note that you might be better off creating a MicrocalDataSet the usual way, then
+    loading it with its .unpickle() method.
+    
+    Data structure must be:
+    1. A dictionary with simple values, whose keys include at least all strings in
+       the tuple MicrocalDataSet.expected_attributes.
+    2. The dataset cuts._mask
+    3. Any string.  If #4 also loads, then this will be the attribute name.
+    4. Any pickleable object.  This will become an attribute value (prev item gives its name)
+    ... Repeat items (3,4) as many times as necessary to load attribute (name,value) pairs.
+    """
+    import cPickle
+    fp = open(filename, "rb")
+    unpickler = cPickle.Unpickler(fp)
+    expected_attr = unpickler.load()
+    ds = MicrocalDataSet(expected_attr)
+    ds.cuts._mask = unpickler.load()
+    try:
+        while True:
+            k = unpickler.load()
+            v = unpickler.load()
+            ds.__dict__[k] = v
+    except EOFError:
+        pass
+    fp.close()
+    return ds
