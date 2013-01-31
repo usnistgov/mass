@@ -14,12 +14,21 @@ import scipy.optimize
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = {
-   'Al Ka': 1486.35,
+   'Al Ka': 1486.35, # didn't remove this in case someone was already using it
+   'Al Ka1': 1486.35,
    'Al Kb': 1557.,
    'Si Ka': 1739.6,
    'Si Kb': 1837.,
+   'Sc Ka1':4090.735,
+   'Ti Ka1':4510.903,
+   'V Ka1':4952.216,
+   'Cr Ka1':5414.81,
    'Mn Ka1': 5898.802,
    'Mn Ka2': 5887.592,
+   'Fe Ka1': 6404.01,
+   'Co Ka1':6930.38,
+   'Ni Ka1':7478.26,
+   'Cu Ka1':8047.83,   
    'Cr Kedge': 5989.0,
    'Mn Kb':  6490.18,
    'Fe Kedge': 7112.0,

@@ -999,7 +999,18 @@ class BaseChannelGroup(object):
         ltext = axis.get_legend().get_texts()
         pylab.setp(ltext, fontsize='small')
         
-        
+
+    def save_pulse_energies_ascii(self, filename):
+        filename += '_energies.txt'
+        energy=[]
+        for ds in self.datasets:
+            energy=numpy.hstack((energy,ds.p_energy[ds.cuts.good()]))
+        numpy.savetxt(filename, energy, fmt='%.10e')
+#        f=open(filename+'.energies','w')
+#        for line in energy:
+#            f.write(line + '\n')
+#        f.close()
+    
     def _DEPRECATED_pickle(self, filename):
         """This might or not work yet...."""
         self.clear_cache()
