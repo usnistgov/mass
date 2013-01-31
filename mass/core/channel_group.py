@@ -18,7 +18,7 @@ Started March 2, 2011
 
 __all__=['TESGroup','CDMGroup','CrosstalkVeto']
 
-import time
+import time, os
 import numpy
 from matplotlib import pylab
 import scipy.linalg
@@ -1000,7 +1000,7 @@ class BaseChannelGroup(object):
         pylab.setp(ltext, fontsize='small')
         
         
-    def pickle(self, filename):
+    def _DEPRECATED_pickle(self, filename):
         """This might or not work yet...."""
         self.clear_cache()
         fp = open(filename, "wb")
@@ -1014,7 +1014,7 @@ class BaseChannelGroup(object):
 
         
     @classmethod
-    def unpickle(cls, filename):
+    def _DEPRECATED_unpickle(cls, filename):
         """This might or not work yet...."""
         fp = open(filename, "rb")
         obj = cPickle.load(fp)
@@ -1248,7 +1248,63 @@ class TESGroup(BaseChannelGroup):
             dataset.noise_autocorr = noise.autocorrelation
             noise.clear_cache()
 
+    def pickle(self, filename=None):
+        """Pickle the object by pickling its important contents
+           <filename>    The output pickle name.  If not given, then it will be the data file name
+                         with the suffix replaced by '.pkl' and in a subdirectory mass under the
+                         main file's location."""
+    
+        if filename is None:
+            ljhfilename = self.filenames[0]
+            ljhbasename = ljhfilename.split("_chan")[0]
+            basedir = os.path.dirname(ljhfilename)
+            massdir = os.path.join(basedir, "mass")
+            if not os.path.isdir(massdir):
+                os.mkdir(massdir, 0775)
+            filename = os.path.join(massdir, os.path.basename(ljhbasename+"_mass.pkl"))
+        
+        fp = open(filename, "wb")
+        pickler = cPickle.Pickler(fp, protocol=2)
+        pickler.dump(self.noise_only)
+        pickler.dump(self.filenames)
+        pickler.dump(self.noise_filenames)
+        fp.close()
+        print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
+        for ds in self.datasets:
+            ds.pickle()
+        
 
+
+def unpickle_TESGroup(filename):
+    """
+    Factory function to unpickle a TESGroup pickled by its .pickle() method.
+    
+    """
+
+    fp = open(filename, "rb")
+    unpickler = cPickle.Unpickler(fp)
+    noise_only = unpickler.load()
+    filenames = unpickler.load()
+    noise_filenames = unpickler.load()
+    pulse_only = (not noise_only and len(noise_filenames)==0)
+    data = TESGroup(filenames, noise_filenames, pulse_only=pulse_only,
+                    noise_only=noise_only)
+    for ds in data.datasets:
+        ds.unpickle()
+    
+#     expected_attr = unpickler.load()
+#     ds = MicrocalDataSet(expected_attr)
+#     ds.cuts._mask = unpickler.load()
+#     try:
+#         while True:
+#             k = unpickler.load()
+#             v = unpickler.load()
+#             ds.__dict__[k] = v
+#     except EOFError:
+#         pass
+#     fp.close()
+    return data
+        
 
 class CDMGroup(BaseChannelGroup):
     """

@@ -792,7 +792,7 @@ class MicrocalDataSet(object):
         # Pickle all attributes noise_*, p_*, peak_time_microsec, pretrigger_*, timebase, times
         # Approach is to dump the attribute NAME then value.
         attr_starts = ("noise_", "p_", "pretrigger_")
-        attr_names = ("peak_time_microsec", "timebase", "times")
+        attr_names = ("peak_time_microsec", "timebase", "times", "average_pulses")
         for attr in self.__dict__:
             store_this_attr = attr in attr_names
             for ast in attr_starts:
@@ -803,6 +803,7 @@ class MicrocalDataSet(object):
                 pickler.dump(attr)
                 pickler.dump(self.__dict__[attr])
         fp.close()
+        print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
     
         
     def unpickle(self, filename=None):
