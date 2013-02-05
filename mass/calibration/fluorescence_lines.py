@@ -853,7 +853,7 @@ class MultiLorentzianComplexFitter(object):
                       normally having pulseheight units will be returned as bin numbers instead.
 
         params: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
-                energy scale factor (counts/eV), amplitude, background level (per bin),
+                energy scale factor (pulseheight/eV), amplitude, background level (per bin),
                 and background slope (in counts per bin per bin) ]
                 If params is None or does not have 6 elements, then they will be guessed.
         
@@ -882,17 +882,8 @@ class MultiLorentzianComplexFitter(object):
             params = self.guess_starting_params(data, pulseheights)
 #            print 'Guessed parameters: ',params
 #            print 'PH range: ',pulseheights[0],pulseheights[-1]
-        
-        if plot:
-            if color is None: 
-                color = 'blue'
-            if axis is None:
-                pylab.clf()
-                axis = pylab.subplot(111)
-                
-            plot_as_stepped_hist(axis, data, pulseheights, color=color)
-            ph_binsize = pulseheights[1]-pulseheights[0]
-            axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
+        ph_binsize = pulseheights[1]-pulseheights[0]
+
 
         # Joe's new max-likelihood fitter
         epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
@@ -913,6 +904,19 @@ class MultiLorentzianComplexFitter(object):
         self.last_fit_params = fitparams
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
         
+        ## all this plot stuff should go into a seperate function then we have 
+        ## if plot: self.plotFit(self.last_fit_result, self.last_fit_params)
+        if plot:
+            if color is None: 
+                color = 'blue'
+            if axis is None:
+                pylab.clf()
+                axis = pylab.subplot(111)
+                pylab.xlabel('pulseheight (arb)')
+                pylab.ylabel('counts per %.3f unit bin'%ph_binsize)
+                pylab.title('resolution %.3f, Ka1_ph %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams))        
+                plot_as_stepped_hist(axis, data, pulseheights, color=color)
+                axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 #        if iflag not in (1,2,3,4): 
         if iflag not in (0, 2): 
             print "Oh no! iflag=%d"%iflag
