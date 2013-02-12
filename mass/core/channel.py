@@ -1152,7 +1152,7 @@ class MicrocalDataSet(object):
             if prange is not None:
                 pylab.ylim(prange)
 
-
+    # galen 20130211 - I think this can be replaced by polyfit with 1 dimension, its faster, more obvious what is going on, and in my test yielded the same answer to 3 decimal places
     def auto_drift_correct_rms(self, prange=None, times=None, ptrange=None, plot=False, slopes=None):
         """Apply a correction for pulse variation with pretrigger mean, which we've found
         to be a pretty good indicator of drift.  Use the rms width of the Mn Kalpha line
@@ -1234,11 +1234,7 @@ class MicrocalDataSet(object):
         plot:  whether to display the result
         element_name: name of the element whose Kalpha complex you want to fit for drift correction
         """
-        if plot:
-            pylab.clf()
-            axis1=pylab.subplot(211)
-            pylab.xlabel("Drift correction slope")
-            pylab.ylabel("Fit resolution from selected, corrected pulse heights")
+
         if self.p_filt_value_phc[0] ==0:
             self.p_filt_value_phc = self.p_filt_value.copy()
         
@@ -1268,14 +1264,28 @@ class MicrocalDataSet(object):
                                                    fit_type='dc', line=element_name+'KAlpha', verbose=False)
 #            print "%5.1f %s"%(sl, params[:4])
             fit_resolutions.append(params[0])
-            if plot: pylab.plot(sl,params[0],'go')
 #        print(fit_resolutions)
         poly_coef = scipy.polyfit(slopes, fit_resolutions, 2)
-        best_slope = -0.5*poly_coef[1]/poly_coef[0]
-        print "Drift correction requires slope %6.3f"%best_slope
+#        best_slope = -0.5*poly_coef[1]/poly_coef[0] # this could be better in principle, but in practice is often way worse
+        # some code to check if the best slope from the quatratic fit is reasonable, like near the minimum could
+        # be used to get the best of both worlds
+        # or start with a sweep then add a binary search at the end
+        best_slope = slopes[numpy.argmin(fit_resolutions)]
+        best_slope_resolution = numpy.interp(best_slope, slopes, fit_resolutions)
+        
+        print "Drift correction requires slope (using min not quadratic fit) %6.3f"%best_slope
         self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
         
         if plot:
+            pylab.clf()
+            pylab.subplot(211)
+            pylab.plot(slopes, fit_resolutions,'go')
+            pylab.plot(best_slope, best_slope_resolution,'bo')
+            pylab.plot(slopes, numpy.polyval(poly_coef, slopes),color='red')
+            pylab.xlabel("Drift correction slope")
+            pylab.ylabel("Fit resolution from selected, corrected pulse heights")
+            pylab.title('auto_drift_correct fitting %sKAlpha'%element_name)
+            
             pylab.subplot(212)
             pylab.plot(corrector, data, ',')
             xlim = pylab.xlim()
@@ -1284,10 +1294,8 @@ class MicrocalDataSet(object):
             pylab.ylim(prange)
             pylab.xlabel("Pretrigger mean - mean(PT mean)")
             pylab.ylabel("Selected, uncorrected pulse heights")
-            pylab.ylabel('auto_drift_correct fitting %sKAlpha'%element_name)
             
-            axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')
-        return best_slope
+        return best_slope, mean_pretrig_mean
 
 
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha', 
