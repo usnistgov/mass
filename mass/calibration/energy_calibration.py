@@ -279,10 +279,10 @@ class EnergyCalibration(object):
         
         # Plot and label cal points
         if ph_rescale_power==0.0:
-            axis.errorbar(self._ph, self._energies, yerr=self._stddev, fmt='o', 
+            axis.errorbar(self._ph, self._energies, xerr=self._stddev, fmt='o', 
                           mec='black', mfc=markercolor, capsize=0)
         else:
-            axis.errorbar(self._ph, self._energies/(self._ph**ph_rescale_power), yerr=self._stddev/(self._ph**ph_rescale_power), fmt='or', capsize=0)
+            axis.errorbar(self._ph, self._energies/(self._ph**ph_rescale_power), xerr=self._stddev, fmt='or', capsize=0)
         for pht, name in zip(self._ph[1:], self._names[1:]):  
             axis.text(pht, self(pht)/pht**ph_rescale_power, name+'  ', ha='right')        
 
