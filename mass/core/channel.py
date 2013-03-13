@@ -1223,7 +1223,7 @@ class MicrocalDataSet(object):
         return best_slope
     
            
-    def auto_drift_correct(self, prange=None, times=None, plot=False, slopes=None, element_name='Mn'):
+    def auto_drift_correct(self, prange=None, times=None, plot=False, slopes=None, line_name='MnKAlpha'):
         """Apply a correction for pulse variation with pretrigger mean.
         This attempts to replace the previous version by using a fit to the
         Mn K alpha complex
@@ -1232,7 +1232,7 @@ class MicrocalDataSet(object):
         times: if not None, use this range of p_timestamps instead of all data (units are seconds
                since server started--ugly but that's what we have to work with)
         plot:  whether to display the result
-        element_name: name of the element whose Kalpha complex you want to fit for drift correction
+        line_name: name of the element whose Kalpha complex you want to fit for drift correction
         """
 
         if self.p_filt_value_phc[0] ==0:
@@ -1241,7 +1241,7 @@ class MicrocalDataSet(object):
         # Default: use the calibration to pick a prange
         if prange is None:
             calibration = self.calibration['p_filt_value']
-            ph_estimate = calibration.name2ph('Mn Ka1')
+            ph_estimate = calibration.name2ph('MnKAlpha')
             prange = numpy.array((ph_estimate*.99, ph_estimate*1.01))
         
         range_ctr = 0.5*(prange[0]+prange[1])
@@ -1261,7 +1261,7 @@ class MicrocalDataSet(object):
         for sl in slopes:
             self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*sl
             params,_covar,_fitter = self.fit_spectral_line(prange=prange, times=times, plot=False,
-                                                   fit_type='dc', line=element_name+'KAlpha', verbose=False)
+                                                   fit_type='dc', line=line_name, verbose=False)
 #            print "%5.1f %s"%(sl, params[:4])
             fit_resolutions.append(params[0])
 #        print(fit_resolutions)
@@ -1284,7 +1284,7 @@ class MicrocalDataSet(object):
             pylab.plot(slopes, numpy.polyval(poly_coef, slopes),color='red')
             pylab.xlabel("Drift correction slope")
             pylab.ylabel("Fit resolution from selected, corrected pulse heights")
-            pylab.title('auto_drift_correct fitting %sKAlpha'%element_name)
+            pylab.title('auto_drift_correct fitting %s'%line_name)
             
             pylab.subplot(212)
             pylab.plot(corrector, data, ',')
