@@ -59,6 +59,7 @@ class BaseChannelGroup(object):
         self._allowed_segnums = None
         self.pulses_per_seg = None
         self.filters = None
+        self._bad_channums=set()
         
         if self.n_channels <=4:
             self.colors=("blue", "#aaaa00","green","red")
@@ -66,6 +67,65 @@ class BaseChannelGroup(object):
             BRIGHTORANGE='#ff7700'
             self.colors=('purple',"blue","cyan","green","gold",BRIGHTORANGE,"red","brown")
 
+
+    def __iter__(self):
+        """Iterator over the self.datasets in channel number order"""
+        for ds in self.iter_channels():
+            yield ds
+    
+    def iter_channels(self, include_badchan=False):
+        """Iterator over the self.datasets in channel number order
+        include_badchan : whether to include officially bad channels in the result."""
+        channum = self.channel.keys()
+        if not include_badchan:
+            channum = list(set(channum) - set(self._bad_channums))
+        channum.sort()
+        for c in channum:
+            yield self.channel[c]
+    
+    def iter_channel_numbers(self, include_badchan=False):
+        """Iterator over the channel numbers in numerical order
+        include_badchan : whether to include officially bad channels in the result."""
+        channum = self.channel.keys()
+        if not include_badchan:
+            channum = list(set(channum) - set(self._bad_channums))
+        channum.sort()
+        for c in channum:
+            yield c
+    
+    def set_chan_good(self, *args):
+        """Set one or more channels to be good.  (No effect for channels already listed
+        as good.)
+        *args  Arguments to this function are integers or containers of integers.  Each 
+               integer is removed from the bad-channels list."""
+        added_to_list = set()
+        for a in args:
+            try:
+                goodones = set(a)
+            except TypeError:
+                goodones = set([a])
+            self._bad_channums -= goodones
+            added_to_list.update(goodones)
+        added_to_list = list(added_to_list)
+        added_to_list.sort()
+        print "Added channels %s to bad channel list"%(added_to_list)
+    
+    def set_chan_bad(self, *args):
+        """Set one or more channels to be bad.  (No effect for channels already listed
+        as bad.)
+        *args  Arguments to this function are integers or containers of integers.  Each 
+               integer is added to the bad-channels list."""
+        added_to_list = set()
+        for a in args:
+            try:
+                badones = set(a)
+            except TypeError:
+                badones = set([a])
+            self._bad_channums.update(badones)
+            added_to_list.update(badones)
+        added_to_list = list(added_to_list)
+        added_to_list.sort()
+        print "Added channels %s to bad channel list"%(added_to_list)
 
     def get_channel_dataset(self, channum):
         """Deprecated, because data.get_channel_dataset(5) is equivalent to data.channels[5].
