@@ -763,7 +763,10 @@ class MicrocalDataSet(object):
         for k in self.calibration.keys():
             c.calibration[k] = self.calibration[k].copy()
         c.cuts = self.cuts.copy()
-        c.noise_spectrum = self.noise_spectrum.copy()
+        if self.noise_spectrum is None:
+            c.noise_spectrum = None
+        else:
+            c.noise_spectrum = self.noise_spectrum.copy()
         return c
 
 
