@@ -15,7 +15,7 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
-from mass.demo.demo import good
+#from mass.demo.demo import good
 
 __all__=['TESGroup','CDMGroup','CrosstalkVeto', 'unpickle_TESGroup']
 
@@ -132,12 +132,15 @@ class BaseChannelGroup(object):
 
 
     def update_chan_info(self):        
-        good_channums = (self.channel.keys()-set(self._bad_channums)).sort()
-        self.num_good_channels = len(good_channums)
-        if len(self.num_good_channels)>0: 
-            self.firstGoodDataset = self.channel[goodChannum[0]]
+        channum = self.channel.keys()
+        channum = list(set(channum) - set(self._bad_channums))
+        channum.sort()
+        self.num_good_channels = len(channum)
+        if self.num_good_channels>0: 
+            self.first_good_dataset = self.channel[channum[0]]
         else:
-            self.firstGoodDataset = None
+            print('WARNING all datasets flagged bad, most things wont work')
+            self.first_good_dataset = None
         
     def _setup_channels_list(self):
         self.channel = {}
@@ -717,7 +720,7 @@ class BaseChannelGroup(object):
 
     def plot_raw_spectra(self):
         """Plot distribution of raw pulse averages, with and without gain"""
-        ds = self.firstGoodDataset
+        ds = self.first_good_dataset
         meangain = ds.p_pulse_average[ds.cuts.good()].mean()/ds.gain
         pylab.clf()
         pylab.subplot(211)
@@ -812,7 +815,7 @@ class BaseChannelGroup(object):
     def filter_data(self, filter_name=None, transform=None):
         """Filter data sets and store in datasets[*].p_filt_phase and _value.
         The filters are currently self.filter[*].filt_noconst"""
-        if self.firstGoodDataset.filter is None:
+        if self.first_good_dataset.filter is None:
             self.compute_filters()
             
         if filter_name is None: filter_name='filt_noconst'
@@ -825,12 +828,11 @@ class BaseChannelGroup(object):
             if end>self.nPulses:
                 end = self.nPulses 
             print "Records %d to %d loaded for filtering with %s"%(first,end-1, filter_name)
-            for (filt_group,dset) in zip(self.filters,self.datasets):
-                pass
             for ds in self:
-                if ds.filters is None:
+                if ds.filter is None:
                     continue
-                filt_vector = ds.filters[filter_name]
+                print (ds.filter, 'ds.filter')
+                filt_vector = ds.filter.__dict__[filter_name]
                 peak_x, peak_y = ds.filter_data(filt_vector,first, end, transform=transform)
                 ds.p_filt_phase[first:end] = peak_x
                 ds.p_filt_value[first:end] = peak_y
@@ -1165,10 +1167,10 @@ class TESGroup(BaseChannelGroup):
         self.datasets = tuple(dset_list)
         self._setup_channels_list()
         if len(self.datasets)>0:
-            self.pulses_per_seg = self.firstGoodDataset.pulse_records.pulses_per_seg
+            self.pulses_per_seg = self.first_good_dataset.pulse_records.pulses_per_seg
         
         # Set master timestamp_offset (seconds)
-        if len(self.datasets)>0: self.timestamp_offset = self.firstGoodDataset.timestamp_offset
+        if len(self.datasets)>0: self.timestamp_offset = self.first_good_dataset.timestamp_offset
         for ds in self:
             if ds.timestamp_offset != self.timestamp_offset:
                 self.timestamp_offset = None
@@ -1213,7 +1215,7 @@ class TESGroup(BaseChannelGroup):
         for ds in self:
             ds.pulse_records.set_segment_size(seg_size)
             self.n_segments = max(self.n_segments, ds.pulse_records.pulses_per_seg)
-        self.pulses_per_seg = self.firstGoodDataset.pulse_records.pulses_per_seg
+        self.pulses_per_seg = self.first_good_dataset.pulse_records.pulses_per_seg
         for ds in self:
             assert ds.pulse_records.pulses_per_seg == self.pulses_per_seg
 
@@ -1310,7 +1312,7 @@ class TESGroup(BaseChannelGroup):
                 axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)"%units)
             axis.plot(ds.noise_records.spectrum.frequencies(), yvalue, label='TES chan %d'%ds.channum,
                       color=cmap(float(ds_num)/self.n_channels))
-        f=self.firstGoodDataset.noise_records.spectrum.frequencies()
+        f=self.first_good_dataset.noise_records.spectrum.frequencies()
         axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         axis.set_xlabel("Frequency (Hz)")
         
