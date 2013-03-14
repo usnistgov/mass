@@ -673,25 +673,27 @@ class MicrocalDataSet(object):
        ) = range(8)
 
     # Attributes that all such objects must have.
-    expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum")
+    expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum", "timestamp_offset")
 
 
 
-    def __init__(self, pulserec_dict):
+    def __init__(self, pulse_records, noise_records = None):
         """
         Pass in a dictionary (presumably that of a PulseRecords object)
         containing the expected attributes that must be copied to this
         MicrocalDataSet.
         """
-        self.filters = None
+        self.filter = {}
+        self.noise_records = noise_records
+        self.pulse_records = pulse_records
         self.noise_spectrum = None
         self.noise_autocorr = None 
         self.noise_demodulated = None
         self.calibration = {'p_filt_value':mass.calibration.energy_calibration.EnergyCalibration('p_filt_value')}
 
         for a in self.expected_attributes:
-            self.__dict__[a] = pulserec_dict[a]
-        self.filename = pulserec_dict.get('filename','virtual data set')
+            self.__dict__[a] = pulse_records.__dict__[a]
+        self.filename = pulse_records.__dict__.get('filename','virtual data set')
         self.__setup_vectors(npulses=0)
         self.gain = 1.0
         self.pretrigger_ignore_microsec = 20 # Cut this long before trigger in computing pretrig values
@@ -851,8 +853,7 @@ class MicrocalDataSet(object):
 
 
     def summarize_data(self, first, end):
-        """Summarize the complete data file"""
-        
+        """Summarize the complete data file""" 
         if first >= self.nPulses:
             return
         if end > self.nPulses:
