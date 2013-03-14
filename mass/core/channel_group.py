@@ -15,8 +15,6 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
-#from mass.demo.demo import good
-
 __all__=['TESGroup','CDMGroup','CrosstalkVeto', 'unpickle_TESGroup']
 
 import time, os
@@ -118,7 +116,11 @@ class BaseChannelGroup(object):
         *args  Arguments to this function are integers or containers of integers.  Each 
                integer is added to the bad-channels list."""
         added_to_list = set()
+        comment = ''
         for a in args:
+            if type(a) is type(comment):
+                comment = a
+                continue
             try:
                 badones = set(a)
             except TypeError:
@@ -127,7 +129,9 @@ class BaseChannelGroup(object):
             added_to_list.update(badones)
         added_to_list = list(added_to_list)
         added_to_list.sort()
-        print "Added channels %s to bad channel list"%(added_to_list)
+        log_string = 'chan %s flagged bad because %s'%(added_to_list, comment)
+        self.why_chan_bad.append(log_string)
+        print log_string
         self.update_chan_info()
 
 
@@ -144,6 +148,7 @@ class BaseChannelGroup(object):
         
     def _setup_channels_list(self):
         self.channel = {}
+        self.why_chan_bad = []
         for ds_num,ds in enumerate(self.datasets):
             try:
                 ds.index = ds_num
@@ -695,26 +700,22 @@ class BaseChannelGroup(object):
         """Plot average pulse number <pulse_id> on matplotlib.Axes <axis>, or
         on a new Axes if <axis> is None.  If <pulse_id> is not a valid channel
         number, then plot all average pulses."""
-        print('plot_average_pulses no longer works, Galen broken is when moving things inside datasets, ask Joe to fix it')
-#        if axis is None:
-#            pylab.clf()
-#            axis = pylab.subplot(111)
-#            
-#        axis.set_color_cycle(self.colors)
-#        dt = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
-#        
-#        if pulse_id in range(self.n_channels):
-#            axis.set_title("Average pulse for all channels when TES %d is hit"%pulse_id)
-#            for i,d in enumerate(self.datasets):
-#                pylab.plot(dt,d.average_pulses[pulse_id], label="Demod TES %d"%i)
-#        else:
-#            axis.set_title("Average pulse for each channel when it is hit")
-#            for i,d in enumerate(self.datasets):
-#                pylab.plot(dt,d.average_pulses[i], label="Demod TES %d"%i)
-#        pylab.xlabel("Time past trigger (ms)")
-#        pylab.ylabel("Raw counts")
-#        pylab.xlim([dt[0], dt[-1]])
-#        if use_legend: pylab.legend(loc='best')
+        if axis is None:
+            pylab.clf()
+            axis = pylab.subplot(111)
+            
+        axis.set_color_cycle(self.colors)
+        dt = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
+        
+        for ds in self:
+            pylab.plot(dt,ds.average_pulse, label="chan %d"%ds.channum)
+
+        axis.set_title("Average pulse for each channel when it is hit")
+
+        pylab.xlabel("Time past trigger (ms)")
+        pylab.ylabel("Raw counts")
+        pylab.xlim([dt[0], dt[-1]])
+        if use_legend: pylab.legend(loc='best')
 
 
     def plot_raw_spectra(self):
@@ -757,9 +758,8 @@ class BaseChannelGroup(object):
             
         for ds_num,ds in enumerate(self):
             if ds.cuts.good().sum() < 10:
-                print 'Cannot compute filter for channel %d, flagged as bad channel'%ds.channum 
                 ds.filter = None
-                self.set_chan_bad(ds.channum)
+                self.set_chan_bad(ds.channum, 'cannot compute filter')
                 continue
             print "Computing filter %d of %d"%(ds_num, self.n_channels)
             avg_signal = ds.average_pulse.copy()
