@@ -684,6 +684,7 @@ class MicrocalDataSet(object):
         MicrocalDataSet.
         """
         self.filter = {}
+        self.drift_correct_info = {}
         self.noise_records = noise_records
         self.pulse_records = pulse_records
         self.noise_spectrum = None

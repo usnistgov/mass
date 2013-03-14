@@ -227,8 +227,11 @@ class EnergyCalibration(object):
         """There is now a new data point."""
         assert len(self._ph)==len(self._energies)
         assert len(self._ph)==self.npts
-        assert self.npts>1
         
+        if self.npts == 1: # this was added so that we could load calibrations with only 1 pt
+            ph2offset_energy = None
+            self.energy2ph = None
+            return
         
         if (self._stddev <= 0.0).any():
             self._stddev[self._stddev<=0.0] = self._stddev[self._stddev>0].min()

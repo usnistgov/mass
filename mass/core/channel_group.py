@@ -689,7 +689,6 @@ class BaseChannelGroup(object):
             if subtract_mean:
                 for imask in range(average_pulses.shape[0]):
                     average_pulses[imask,:] -= average_pulses[imask,:self.nPresamples-ds.pretrigger_ignore_samples].mean()
-            print(average_pulses.shape)
             ds.average_pulse = average_pulses[ichan,:]
     
     def plot_average_pulses(self, pulse_id, axis=None, use_legend=True):
@@ -759,7 +758,7 @@ class BaseChannelGroup(object):
         for ds_num,ds in enumerate(self):
             if ds.cuts.good().sum() < 10:
                 print 'Cannot compute filter for channel %d, flagged as bad channel'%ds.channum 
-                self.filters[ds.channum] = None
+                ds.filter = None
                 self.set_chan_bad(ds.channum)
                 continue
             print "Computing filter %d of %d"%(ds_num, self.n_channels)
@@ -936,51 +935,51 @@ class BaseChannelGroup(object):
 #        return numpy.array(crosstalk)
     
     
-    def drift_correct_ptmean(self, filt_ranges):
-        """A hack, but a great simple start on drift correction using the pretrigger mean.
-        DEPRECATED: see MicrocalDataSet.auto_drift_correct instead."""
-        
-        class LineDrawer(object):
-            def __init__(self, figure):
-                self.b, self.x, self.y = 0,0,0
-                self.fig = figure
-                self.cid = self.fig.canvas.mpl_connect('button_press_event', self)
-                print "Connected cid=%d"%self.cid
-            def __call__(self, event):
-                self.b, self.x, self.y =  event.button, event.xdata, event.ydata
-            def __del__(self):
-                self.fig.canvas.mpl_disconnect(self.cid)
-                print 'Disconnected cid=%d'%self.cid
-        
-        for _i,(rng,ds) in enumerate(zip(filt_ranges,self.datasets)):
-            pylab.clf()
-            fig = pylab.gcf()
-            good = ds.cuts.good()
-            pylab.plot(ds.p_pretrig_mean[good], ds.p_filt_value[good],'.')
-            pylab.ylim(rng)
-            print "Click button 1 twice to draw a line; click button 2 to quit"
-            pf = LineDrawer(fig)
-            x,y=[],[]
-            line = None
-            offset,slope = 0.0,0.0
-            while True:
-                pylab.waitforbuttonpress()
-                if pf.b > 1: break
-                x.append(pf.x)
-                y.append(pf.y)
-                if len(x)==2:
-                    if line is not None:
-                        line.remove()
-                    line, = pylab.plot(x, y, 'r')
-                    offset = x[0]
-                    slope = (y[1]-y[0])/(x[1]-x[0])
-                    if ds.p_filt_value_phc[0]==0: ds.p_filt_value_phc=ds.p_filt_value
-                    ds.p_filt_value_dc = ds.p_filt_value_phc - (ds.p_pretrig_mean-offset)*slope
-                    ds.energy = ds.p_filt_value_dc[good]    
-                    print offset,slope, ' corrects the energy.  Hit button 2 to move on, or try again.'
-                    x,y = [],[]
-                
-            del pf
+#    def drift_correct_ptmean(self, filt_ranges):
+#        """A hack, but a great simple start on drift correction using the pretrigger mean.
+#        DEPRECATED: see MicrocalDataSet.auto_drift_correct instead."""
+#        
+#        class LineDrawer(object):
+#            def __init__(self, figure):
+#                self.b, self.x, self.y = 0,0,0
+#                self.fig = figure
+#                self.cid = self.fig.canvas.mpl_connect('button_press_event', self)
+#                print "Connected cid=%d"%self.cid
+#            def __call__(self, event):
+#                self.b, self.x, self.y =  event.button, event.xdata, event.ydata
+#            def __del__(self):
+#                self.fig.canvas.mpl_disconnect(self.cid)
+#                print 'Disconnected cid=%d'%self.cid
+#        
+#        for _i,(rng,ds) in enumerate(zip(filt_ranges,self.datasets)):
+#            pylab.clf()
+#            fig = pylab.gcf()
+#            good = ds.cuts.good()
+#            pylab.plot(ds.p_pretrig_mean[good], ds.p_filt_value[good],'.')
+#            pylab.ylim(rng)
+#            print "Click button 1 twice to draw a line; click button 2 to quit"
+#            pf = LineDrawer(fig)
+#            x,y=[],[]
+#            line = None
+#            offset,slope = 0.0,0.0
+#            while True:
+#                pylab.waitforbuttonpress()
+#                if pf.b > 1: break
+#                x.append(pf.x)
+#                y.append(pf.y)
+#                if len(x)==2:
+#                    if line is not None:
+#                        line.remove()
+#                    line, = pylab.plot(x, y, 'r')
+#                    offset = x[0]
+#                    slope = (y[1]-y[0])/(x[1]-x[0])
+#                    if ds.p_filt_value_phc[0]==0: ds.p_filt_value_phc=ds.p_filt_value
+#                    ds.p_filt_value_dc = ds.p_filt_value_phc - (ds.p_pretrig_mean-offset)*slope
+#                    ds.energy = ds.p_filt_value_dc[good]    
+#                    print offset,slope, ' corrects the energy.  Hit button 2 to move on, or try again.'
+#                    x,y = [],[]
+#                
+#            del pf
 
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
@@ -1046,14 +1045,14 @@ class BaseChannelGroup(object):
         """
         Report on the number of data points and similar
         """
-        for i,ds in enumerate(self.datasets):
+        for ds in self.datasets:
             ng = ds.cuts.nUncut()
             good = ds.cuts.good()
             dt = (ds.p_timestamp[good][-1]*1.0 - ds.p_timestamp[good][0])  # seconds
             np = numpy.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (np-1.0)/dt
 #            grate = (ng-1.0)/dt
-            print 'TES %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good'%(i, np, rate, dt/3600., 100.0*ng/np)
+            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good'%(ds.channum, np, rate, dt/3600., 100.0*ng/np)
 
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
@@ -1086,7 +1085,7 @@ class BaseChannelGroup(object):
     def save_pulse_energies_ascii(self, filename):
         filename += '_energies.txt'
         energy=[]
-        for ds in self.datasets:
+        for ds in self:
             energy=numpy.hstack((energy,ds.p_energy[ds.cuts.good()]))
         numpy.savetxt(filename, energy, fmt='%.10e')
 #        f=open(filename+'.energies','w')
@@ -1094,26 +1093,26 @@ class BaseChannelGroup(object):
 #            f.write(line + '\n')
 #        f.close()
     
-    def _DEPRECATED_pickle(self, filename):
-        """This might or not work yet...."""
-        self.clear_cache()
-        fp = open(filename, "wb")
-        try:
-            cPickle.dump(self, fp, protocol=cPickle.HIGHEST_PROTOCOL)
-        except cPickle.PicklingError:
-            fp.close()
-            fp = open(filename, "wb")
-            cPickle.dump(self.copy(), fp, protocol=cPickle.HIGHEST_PROTOCOL)
-        fp.close()
-
-        
-    @classmethod
-    def _DEPRECATED_unpickle(cls, filename):
-        """This might or not work yet...."""
-        fp = open(filename, "rb")
-        obj = cPickle.load(fp)
-        fp.close()
-        return obj
+#    def _DEPRECATED_pickle(self, filename):
+#        """This might or not work yet...."""
+#        self.clear_cache()
+#        fp = open(filename, "wb")
+#        try:
+#            cPickle.dump(self, fp, protocol=cPickle.HIGHEST_PROTOCOL)
+#        except cPickle.PicklingError:
+#            fp.close()
+#            fp = open(filename, "wb")
+#            cPickle.dump(self.copy(), fp, protocol=cPickle.HIGHEST_PROTOCOL)
+#        fp.close()
+#
+#        
+#    @classmethod
+#    def _DEPRECATED_unpickle(cls, filename):
+#        """This might or not work yet...."""
+#        fp = open(filename, "rb")
+#        obj = cPickle.load(fp)
+#        fp.close()
+#        return obj
 
 
 
@@ -1185,10 +1184,7 @@ class TESGroup(BaseChannelGroup):
         self.clear_cache()
         g = TESGroup([])
         g.__dict__.update(self.__dict__)
-        g._pulse_records = tuple([c.copy() for c in self._pulse_records])
         g.datasets = tuple([d.copy() for d in self.datasets])
-        g.noise_channels = tuple([c.copy() for c in self.noise_channels])
-#        g.filters = tuple([f.copy() for f in self.filters])
         return g
         
     
@@ -1255,7 +1251,6 @@ class TESGroup(BaseChannelGroup):
         """
         Compute summary quantities for each pulse.
         """
-
         t0 = time.time()
         BaseChannelGroup.summarize_data(self)
         print "Summarized data in %.0f seconds" %(time.time()-t0)
@@ -1341,7 +1336,7 @@ class TESGroup(BaseChannelGroup):
                          main file's location."""
     
         if filename is None:
-            ljhfilename = self.filenames[0]
+            ljhfilename = self.first_good_dataset
             ljhbasename = ljhfilename.split("_chan")[0]
             basedir = os.path.dirname(ljhfilename)
             massdir = os.path.join(basedir, "mass")
@@ -1352,8 +1347,11 @@ class TESGroup(BaseChannelGroup):
         fp = open(filename, "wb")
         pickler = cPickle.Pickler(fp, protocol=2)
         pickler.dump(self.noise_only)
-        pickler.dump(self.filenames)
-        pickler.dump(self.noise_filenames)
+        picklet.dump(self._bad_channums)
+        filenames = [ds.filename for ds in self.iter_channel_numbers(include_badchan=True)]
+        noise_filenames = [ds.noise_records.filename for ds in self.iter_channel_numbers(include_badchan=True)]
+        pickler.dump(filenames)
+        pickler.dump(noise_filenames)
         fp.close()
         print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
         for ds in self.datasets:
@@ -1373,11 +1371,13 @@ def unpickle_TESGroup(filename):
     fp = open(filename, "rb")
     unpickler = cPickle.Unpickler(fp)
     noise_only = unpickler.load()
+    bad_channums = unpickler.load()
     filenames = unpickler.load()
     noise_filenames = unpickler.load()
     pulse_only = (not noise_only and len(noise_filenames)==0)
     data = TESGroup(filenames, noise_filenames, pulse_only=pulse_only,
                     noise_only=noise_only)
+    data._bad_channums = bad_channums
     for ds in data.datasets:
         ds.unpickle()
     
