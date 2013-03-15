@@ -269,20 +269,22 @@ class BaseChannelGroup(object):
             yield first_rnum, end_rnum
 
 
-    def summarize_data(self):
+    def summarize_data(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False):
         """
         Compute summary quantities for each pulse.  Subclasses override this with methods
         that ought to call this!
         """
-
+        t0 = time.time()
         print "This data set has (up to) %d records with %d samples apiece."%(
             self.nPulses, self.nSamples)  
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
             print "Records %d to %d loaded"%(first,end-1)
-            for dset in self.datasets:
-                dset.summarize_data(first, end)
+            for ds in self.iter_channels(include_badchan):
+                ds.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
+        print "Summarized data in %.0f seconds" %(time.time()-t0)
+
         
     
     def read_trace(self, record_num, dataset_num=0, chan_num=None):
@@ -1245,15 +1247,6 @@ class TESGroup(BaseChannelGroup):
         self._cached_segment = segnum
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
-    
-    
-    def summarize_data(self):
-        """
-        Compute summary quantities for each pulse.
-        """
-        t0 = time.time()
-        BaseChannelGroup.summarize_data(self)
-        print "Summarized data in %.0f seconds" %(time.time()-t0)
         
 
     def compute_average_pulse(self, masks, subtract_mean=True):

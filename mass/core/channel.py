@@ -697,8 +697,8 @@ class MicrocalDataSet(object):
         self.filename = pulse_records.__dict__.get('filename','virtual data set')
         self.__setup_vectors(npulses=0)
         self.gain = 1.0
-        self.pretrigger_ignore_microsec = 20 # Cut this long before trigger in computing pretrig values
-        self.peak_time_microsec = 220.0   # Look for retriggers only after this time. 
+        self.pretrigger_ignore_microsec = None # Cut this long before trigger in computing pretrig values
+        self.peak_time_microsec = None   # Look for retriggers only after this time. 
         self.index = None   # Index in the larger TESGroup or CDMGroup object
 
 
@@ -853,8 +853,14 @@ class MicrocalDataSet(object):
         fp.close()
 
 
-    def summarize_data(self, first, end):
-        """Summarize the complete data file""" 
+    def summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
+        """Summarize the complete data file
+        summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0)
+        peak_time_microsec is used when calculating max dp/dt after trigger
+        
+        """ 
+        self.peak_time_microsec = peak_time_microsec
+        self.pretrigger_ignore_microsec = pretrigger_ignore_microsec
         if first >= self.nPulses:
             return
         if end > self.nPulses:
