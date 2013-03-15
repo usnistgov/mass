@@ -8,9 +8,11 @@ import energy_calibration
 import fluorescence_lines
 import gaussian_lines
 import spectra
+import general_calibration
 
 __all__ = ['energy_calibration', 'fluorescence_lines', 'gaussian_lines', 'spectra']
 
+from general_calibration import *
 from energy_calibration import *
 from fluorescence_lines import *
 from gaussian_lines import *
