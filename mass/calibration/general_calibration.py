@@ -180,7 +180,11 @@ class GeneralCalibration(object):
         self.dc_power = power
         for ds_num, ds in enumerate(self.data):
             for i, line_name in enumerate(line_names):
-                minE,maxE =  ds.calibration['p_filt_value'].name2ph(line_name)*numpy.array([0.9905, 1.013])
+                try:
+                    minE,maxE =  ds.calibration['p_filt_value'].name2ph(line_name)*numpy.array([0.9905, 1.013])
+                except:
+                    self.data.set_chan_bad(ds.channum, 'failed name2ph for %s in drift_correct_new'%line_name)
+                    continue
                 use = log_and(ds.cuts.good(), ds.p_filt_value>minE, ds.p_filt_value<maxE)
                 mean_pretrig_mean = numpy.mean(ds.p_pretrig_mean[use])
                 ds.p_filt_value[ds.p_filt_value<0]=0 # so the exponent doesn't throw an error
@@ -195,7 +199,11 @@ class GeneralCalibration(object):
                     corrected = ds.p_filt_value + corrector*slope
                     contents, bins = numpy.histogram(corrected[use], bins=numpy.arange(minE, maxE, 1))
                     bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
-                    param, covar = fitter.fit(contents, bin_ctrs, plot=False)
+                    try:
+                        param, covar = fitter.fit(contents, bin_ctrs, plot=False)
+                    except:
+                        self.data.set_chan_bad(ds.channum, 'failed fit for %s in drift_correct_new'%line_name)
+                        continue
                     #param: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
                     #energy scale factor (counts/eV), amplitude, background level (per bin),
                     #and background slope (in counts per bin per bin) ]
@@ -266,7 +274,7 @@ class GeneralCalibration(object):
                     cal.add_cal_point(line_location, '%s'%line_name, pht_error=2)
                     print('calibrate_approximately chan %d added %s at %.2f'%(ds.channum, line_name, line_location))
                 
-        print('after calibrating approximately %d of %d datasets survived'%(self.data.n_channels-len(self.data._bad_channums), self.data.n_channels))
+        print('after calibrating approximately %d of %d datasets survived'%(self.data.num_good_channels, self.data.n_channels))
 
         self.convert_to_energy(use_drift_correct=False)
         
@@ -333,7 +341,7 @@ class GeneralCalibration(object):
         print "Resolution is %.2f +- %.2f eV"%(res,dres)
         return param
     
-    def calibrate_carefully(self,lines_name = ['MnKAlpha', 'MnKBeta'], doPlot = False):
+    def calibrate_carefully(self,lines_name = ['MnKAlpha', 'MnKBeta'], doPlot = False, energyRangeFracs=[0.995, 1.005]):
         if type(lines_name) != type(list()): lines_name = [lines_name]
 
         for ds in self.data:
@@ -343,7 +351,7 @@ class GeneralCalibration(object):
                 cal = mass.calibration.EnergyCalibration('p_filt_value_dc')
                 ds.calibration['p_filt_value_dc'] = cal
             for i, line_name in enumerate(lines_name):
-                minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array([0.995, 1.005])
+                minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array(energyRangeFracs)
                 fitter = mass.__dict__['%sFitter'%line_name]()
                 contents, bins = numpy.histogram(ds.p_filt_value_dc[ds.cuts.good()], bins=numpy.arange(minE, maxE, 1))
                 bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])

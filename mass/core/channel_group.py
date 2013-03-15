@@ -57,7 +57,6 @@ class BaseChannelGroup(object):
         self._allowed_pnum_ranges = None
         self._allowed_segnums = None
         self.pulses_per_seg = None
-        self.filters = None
         self._bad_channums=set()
         
         if self.n_channels <=4:
@@ -832,7 +831,6 @@ class BaseChannelGroup(object):
             for ds in self:
                 if ds.filter is None:
                     continue
-                print (ds.filter, 'ds.filter')
                 filt_vector = ds.filter.__dict__[filter_name]
                 peak_x, peak_y = ds.filter_data(filt_vector,first, end, transform=transform)
                 ds.p_filt_phase[first:end] = peak_x
