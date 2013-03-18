@@ -1071,7 +1071,7 @@ class MicrocalDataSet(object):
                 print'applying cut',pretrigger_mean_dep_cut,' around median of ',median
             self.cut_parameter(self.p_pretrig_mean-median, pretrigger_mean_dep_cut, self.CUT_PRETRIG_MEAN)
         if verbose>0:
-            print "After cuts, %d are good, %d are bad of %d total pulses"%(self.cuts.nUncut(), 
+            print "Chan %d after cuts, %d are good, %d are bad of %d total pulses"%(self.channum, self.cuts.nUncut(), 
                                                                             self.cuts.nCut(), self.nPulses)
         
     def clear_cuts(self):
