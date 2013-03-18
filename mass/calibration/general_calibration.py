@@ -166,6 +166,7 @@ class GeneralCalibration(object):
         self.data.plot_average_pulses(None)
 
     def apply_filter(self):
+        print('applying filter')
         self.data.filter_data('filt_noconst')
 
 
@@ -238,7 +239,7 @@ class GeneralCalibration(object):
             print('drift_correct_new chan %d, dc slope %.3f, best resolution %.2f, power %.1f'%(ds.channum, ds.drift_correct_info['slope'], ds.drift_correct_info['best_achieved_resolution'],power))
         
     def apply_stored_drift_correct(self):
-        print('applying drift correction ')
+        print('applying stored drift correction')
         for ds_num, ds in enumerate(self.data):
             try:
                 print('chan %d, dc_meanpretrigmean %.2f, dc_slope, %.2f dc_power %.2f'%(ds.channum, ds.drift_correct_info['meanpretrigmean'], ds.drift_correct_info['slope'], ds.drift_correct_info['power']))
@@ -252,9 +253,12 @@ class GeneralCalibration(object):
         """Element names must be in order of peak height, only works with kAlphas for now"""
         minPulses = 100
         if type(line_names) != type(list()): line_names = [line_names]
-        for ds in self.data:               
-            cal = mass.calibration.EnergyCalibration('p_filt_value')
-            ds.calibration['p_filt_value'] = cal
+        for ds in self.data:
+            if ds.calibration.has_key('p_filt_value'):
+                cal = ds.calibration['p_filt_value'] # add to existing cal if it exists
+            else:
+                cal = mass.calibration.EnergyCalibration('p_filt_value')
+                ds.calibration['p_filt_value_dc'] = cal
             if ds.cuts.good().sum() > minPulses:
                 peak_location_pulseheights,peak_counts = self.channel_findpeaks(ds.channum,driftCorrected=False, doPlot=doPlot)
             else:
@@ -395,16 +399,15 @@ class GeneralCalibration(object):
         
     def calibrate_carefully_edges(self,edge_names = ['TiKEdge', 'VKEdge', 'MnKEdge', 'CrKEdge'], doPlot = False):
         if type(edge_names) != type(list()): edge_names = [edge_names]
-        returnData = numpy.zeros((len(self.data.datasets), len(edge_names)))
-        returnData2 = numpy.zeros((len(self.data.datasets), len(edge_names)))
-        for ds_num, ds in enumerate(self.data.datasets):
+        returnInfo = {}
+        print('calibrate_carefully_edges currently only returns info on edge fits and doesnt alter calibration')
+        for ds in (self.data):
             if ds.calibration.has_key('p_filt_value_dc'):
                 cal = ds.calibration['p_filt_value_dc'] # add to existing cal if it exists
             else:
-                print('currently not setup to find edges without existing calibration')
-                raise ValueError
+                self.data.set_chan_bad(ds.channum, 'calibrate_carefully_edges cant find edges without existing p_filt_value_dc calibration ')
+                continue
             for i, edge_name in enumerate(edge_names):
-                print('ds_num %d, %s'%(ds_num, edge_name))
                 edge_energy = mass.energy_calibration.STANDARD_FEATURES[edge_name]
                 minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%edge_name)*numpy.array([0.98, 1.02]) 
                 contents, bins = numpy.histogram(ds.p_filt_value_dc[ds.cuts.good()], bins=numpy.arange(minE, maxE, 3))
@@ -434,7 +437,7 @@ class GeneralCalibration(object):
 #                print(preGuess, postGuess)
 #                print('ds_num %d, %s, pre %f, post %f'%(ds_num, edge_name, preHeight, postHeight))
                 if (not numpy.isnan(dEdgeCenter)) and dEdgeCenter<=20.0 and (preHeight-postHeight>10) and (abs(edgeCenter-edgeGuess)<30): 
-                    cal.add_cal_point(edgeCenter, edge_name, pht_error=dEdgeCenter)
+#                    cal.add_cal_point(edgeCenter, edge_name, pht_error=dEdgeCenter)
                     usedStr = 'used'
 #                else:
 #                    print((not numpy.isnan(dEdgeCenter)), dEdgeCenter<=20.0, (preHeight-postHeight>10), (abs(edgeCenter-edgeGuess)<30))
@@ -451,14 +454,14 @@ class GeneralCalibration(object):
                     pylab.ylabel('counts per %4.2f unit bin'%(bin_ctrs[1]-bin_ctrs[0]))
                     pylab.xlabel('p_filt_value_dc')
                     pylab.title('%s center=%.1f, dCenter=%.3f, width=%.3f, %s'%(edge_name, edgeCenter, dEdgeCenter, width, usedStr))
-                print('cal ds_num %d, %s, edgeCenter %.2f, dEdgeCenter %.3f, edgeDropCounts %.1f, %s'%(ds_num, edge_name, edgeCenter, dEdgeCenter, preHeight-postHeight, usedStr))
-                if usedStr == 'used':
-                    returnData[ds_num, i] = edgeCenter
-                returnData2[ds_num, i] = preHeight-postHeight
+                print('cal_edge chan %d, %s, edgeCenter %.2f, dEdgeCenter %.3f, edgeDropCounts %.1f, %s'%(ds.channum, edge_name, edgeCenter, dEdgeCenter, preHeight-postHeight, usedStr))
+                
+                returnInfo[ds.channum] = {'used':usedStr, 'center':edgeCenter, 'dropCounts':preHeight-postHeight, 'uncertainty': dEdgeCenter, 'width':width, 'name': edge_name}
+
 #                except:
 #                    print('cant find %s in channel %d'%(edge_name, ds.channum))
-        self.convert_to_energy(use_drift_correct=True)
-        return returnData, returnData2
+#        self.convert_to_energy(use_drift_correct=True)
+        return returnInfo
         
     def returnCalLocations(self, cal_features):
         if type(cal_features) != type(list()): cal_features = [cal_features]
@@ -481,6 +484,7 @@ class GeneralCalibration(object):
         return countsOut
         
     def convert_to_energy(self, use_drift_correct=True):
+        print('converting to energy, use_drift_correct=%s'%use_drift_correct)
         for ds in self.data.datasets:
             try:
                 cal = ds.calibration['p_filt_value']
@@ -565,6 +569,7 @@ class GeneralCalibration(object):
         if applyLoaded:
             self.apply_filter()
             self.apply_stored_drift_correct()
+            self.convert_to_energy(use_drift_correct=True)
 
     def countRateAndCuts(self,ds_num = 0):
         ds = self.data.datasets[ds_num]
