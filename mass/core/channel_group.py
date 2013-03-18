@@ -22,6 +22,7 @@ import numpy
 from matplotlib import pylab
 import scipy.linalg
 import cPickle
+import sys
 
 import mass.calibration
 
@@ -279,10 +280,11 @@ class BaseChannelGroup(object):
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
-            print "Records %d to %d loaded"%(first,end-1)
+            sys.stdout.write("\rBaseChannelGroup.summarize_data %.2f%% done"%(100*end/(float(self.nPulses)))) # this prints repeatdly on one line
+            sys.stdout.flush()
             for ds in self.iter_channels(include_badchan):
                 ds.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
-        print "Summarized data in %.0f seconds" %(time.time()-t0)
+        print "\nSummarized data in %.0f seconds" %(time.time()-t0)
 
         
     
@@ -671,7 +673,8 @@ class BaseChannelGroup(object):
                 segment_mask[nseg+1] = True 
 
         for first, end in self.iter_segments(segment_mask=segment_mask):
-            print "Records [%6d, %6d) loaded from disk."%(first,end)
+            sys.stdout.write("\rBaseChannelGroup.compute_average_pulse records %.2f%% done"%(100*end/(float(self.nPulses)))) # this prints repeatdly on one line
+            sys.stdout.flush()
             for imask,mask in enumerate(masks):
                 valid = mask[first:end]
                 for ichan,chan in enumerate(self.datasets):
@@ -679,7 +682,7 @@ class BaseChannelGroup(object):
                         continue 
                     
                     if mask.shape != (chan.nPulses,):
-                        raise ValueError("masks[%d] has shape %s, but it needs to be (%d,)"%
+                        raise ValueError("\nmasks[%d] has shape %s, but it needs to be (%d,)"%
                              (imask, mask.shape, chan.nPulses ))
                     if len(valid)>chan.data.shape[0]:
                         good_pulses = chan.data[valid[:chan.data.shape[0]], :]
@@ -687,6 +690,7 @@ class BaseChannelGroup(object):
                         good_pulses = chan.data[valid, :]
                     pulse_counts[ichan,imask] += good_pulses.shape[0]
                     pulse_sums[ichan,imask,:] += good_pulses.sum(axis=0)
+        sys.stdout.write('\n')
 
         # Rescale and store result to each MicrocalDataSet
         pulse_sums /= pulse_counts.reshape((self.n_channels, nbins,1))
@@ -827,7 +831,8 @@ class BaseChannelGroup(object):
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
-            print "Records %d to %d loaded for filtering with %s"%(first,end-1, filter_name)
+            sys.stdout.write("\rBaseChannelGroup.filter_data %.2f%% done"%(100*end/(float(self.nPulses))))# this prints repeatdly on one line
+            sys.stdout.flush()
             for ds in self:
                 if ds.filter is None:
                     continue
@@ -835,6 +840,7 @@ class BaseChannelGroup(object):
                 peak_x, peak_y = ds.filter_data(filt_vector,first, end, transform=transform)
                 ds.p_filt_phase[first:end] = peak_x
                 ds.p_filt_value[first:end] = peak_y
+        sys.stdout.write('\n')
         
         # Reset the phase-corrected and drift-corrected values
         for ds in self.datasets:
@@ -1338,9 +1344,9 @@ class TESGroup(BaseChannelGroup):
         fp = open(filename, "wb")
         pickler = cPickle.Pickler(fp, protocol=2)
         pickler.dump(self.noise_only)
-        picklet.dump(self._bad_channums)
-        filenames = [ds.filename for ds in self.iter_channel_numbers(include_badchan=True)]
-        noise_filenames = [ds.noise_records.filename for ds in self.iter_channel_numbers(include_badchan=True)]
+        pickler.dump(self._bad_channums)
+        filenames = [ds.filename for ds in self.iter_channels(include_badchan=True)]
+        noise_filenames = [ds.noise_records.filename for ds in self.iter_channels(include_badchan=True)]
         pickler.dump(filenames)
         pickler.dump(noise_filenames)
         fp.close()
