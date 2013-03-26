@@ -32,8 +32,12 @@ class GeneralCalibration(object):
         noise_files=[noise_filename%c for c in channels]
         pulse_files=[pulse_filename%c for c in channels]
         
-        self.data = mass.TESGroup(pulse_files, noise_files)
-
+        if len(channels)>0:
+            self.data = mass.TESGroup(pulse_files, noise_files)
+        else:
+#            channel = dataset_number_subset[0]*2+1
+#            print('couldnt find '+ pulse_filename%channel + 'and/or '+ noise_filename%channel)
+            raise ValueError('WARNING no files had both noise and pulse files')
 
     def copy(self):
         """This trick is pretty useful if you are going to update the object (e.g.,
@@ -63,11 +67,11 @@ class GeneralCalibration(object):
 #        self.store_filters_and_cal()
 
         
-    def channel_histogram(self, channel=0, driftCorrected = False):
+    def channel_histogram(self, channel=1, driftCorrected = False):
         if channel in self.data.channel.keys():
             ds = self.data.channel[channel]
         else:
-            ds = self.data.fir
+            raise ValueError('channel %d doesnt exist'%channel)
         for (i, ds) in enumerate(self.data.datasets):
             if i == dataset_num:
                 if driftCorrected == False:
@@ -81,7 +85,7 @@ class GeneralCalibration(object):
                 pylab.ylabel('counts per %d unit bin'%(ph_bin_edges[1]-ph_bin_edges[0]))
                 
                 
-    def channel_findpeaks(self, channum = 0 , driftCorrected = False, doPlot=False):
+    def channel_findpeaks(self, channum = 1 , driftCorrected = False, doPlot=False):
         ds = self.data.channel[channum]
         if driftCorrected == False:
             data = ds.p_filt_value[ds.cuts.good()]
@@ -122,14 +126,17 @@ class GeneralCalibration(object):
                  'pretrigger_mean_departure_from_median': (-40, 40),
                  'pretrigger_rms': (None, 10.0),
                  'pulse_average': (5.0, None),
-                 'rise_time_ms': (None, 0.7),
-                 'peak_time_ms': (None, 0.5),
-                 'timestamp_sec': timestampCuts,})
+                 'rise_time_ms': (None, None),
+                 'peak_time_ms': (None, None),
+                 'timestamp_sec': timestampCuts,
+                 'timestamp_diff_sec': (0.0011, None), 
+                 'min_value': None,})
+
         for ds in self.data:
             ds.clear_cuts()
             ds.apply_cuts(self.cuts)
 
-    def plot_pulse_timeseries(self, channel=0, type='ph'):
+    def plot_pulse_timeseries(self, channel=1, type='ph'):
         """Look at one TES over all 3 data sets.  Plot the quantity of
         interest (see code) versus time."""
         pylab.clf()
@@ -190,8 +197,12 @@ class GeneralCalibration(object):
                 mean_pretrig_mean = numpy.mean(ds.p_pretrig_mean[use])
                 ds.p_filt_value[ds.p_filt_value<0]=0 # so the exponent doesn't throw an error
                 corrector = (ds.p_pretrig_mean-mean_pretrig_mean)*(ds.p_filt_value**power)
-
-                pfit = numpy.polyfit(corrector[use], ds.p_filt_value[use],1)
+                
+                try:
+                    pfit = numpy.polyfit(corrector[use], ds.p_filt_value[use],1)
+                except:
+                    self.data.set_chan_bad(ds.channum, 'failed drift_correct_new on pfit, use.sum()=%d'%(use.sum()))
+                    continue
                 slopes = -pfit[0]*numpy.linspace(0,2,20)
                 fitter = mass.__dict__['%sFitter'%line_name]()
                 resolution = numpy.zeros_like(slopes)
@@ -204,7 +215,7 @@ class GeneralCalibration(object):
                         param, covar = fitter.fit(contents, bin_ctrs, plot=False)
                     except:
                         self.data.set_chan_bad(ds.channum, 'failed fit for %s in drift_correct_new'%line_name)
-                        continue
+                        break
                     #param: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
                     #energy scale factor (counts/eV), amplitude, background level (per bin),
                     #and background slope (in counts per bin per bin) ]
@@ -236,7 +247,9 @@ class GeneralCalibration(object):
             ds.drift_correct_info['meanpretrigmean'] = mean_pretrig_mean
             ds.drift_correct_info['power'] = power
             ds.drift_correct_info['best_achieved_resolution'] = numpy.amin(resolution)
-            print('drift_correct_new chan %d, dc slope %.3f, best resolution %.2f, power %.1f'%(ds.channum, ds.drift_correct_info['slope'], ds.drift_correct_info['best_achieved_resolution'],power))
+            corrector = (ds.p_pretrig_mean-ds.drift_correct_info['meanpretrigmean'])*(ds.p_filt_value**ds.drift_correct_info['power'])
+            ds.p_filt_value_dc = ds.p_filt_value+corrector*ds.drift_correct_info['slope']
+            print('drift_correct_new chan %d, %s,  dc slope %.3f, best resolution %.2f, power %.1f'%(ds.channum, line_name, ds.drift_correct_info['slope'], ds.drift_correct_info['best_achieved_resolution'],power))
         
     def apply_stored_drift_correct(self):
         print('applying stored drift correction')
@@ -251,7 +264,7 @@ class GeneralCalibration(object):
         
     def calibrate_approximately(self, line_names = ['MnKAlpha', 'MnKBeta'], doPlot = False):
         """Element names must be in order of peak height, only works with kAlphas for now"""
-        minPulses = 100
+        minPulses = 80
         if type(line_names) != type(list()): line_names = [line_names]
         for ds in self.data:
             if ds.calibration.has_key('p_filt_value'):
@@ -355,7 +368,14 @@ class GeneralCalibration(object):
                 cal = mass.calibration.EnergyCalibration('p_filt_value_dc')
                 ds.calibration['p_filt_value_dc'] = cal
             for i, line_name in enumerate(lines_name):
-                minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array(energyRangeFracs)
+                try:
+                    minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array(energyRangeFracs)
+                except:
+                    self.data.set_chan_bad(ds.channum,'failed calibrate_carefully %s failed name2ph (probably brentq)'%(line_name))
+                    break
+                if maxE-minE < 5:
+                    self.data.set_chan_bad(ds.channum,'failed calibrate_carefully %s for too small energy range (maxE, minE)=(%.2f, %.2f)'%(line_name, maxE, minE))
+                    continue
                 fitter = mass.__dict__['%sFitter'%line_name]()
                 contents, bins = numpy.histogram(ds.p_filt_value_dc[ds.cuts.good()], bins=numpy.arange(minE, maxE, 1))
                 bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
@@ -400,7 +420,6 @@ class GeneralCalibration(object):
     def calibrate_carefully_edges(self,edge_names = ['TiKEdge', 'VKEdge', 'MnKEdge', 'CrKEdge'], doPlot = False):
         if type(edge_names) != type(list()): edge_names = [edge_names]
         returnInfo = {}
-        print('calibrate_carefully_edges currently only returns info on edge fits and doesnt alter calibration')
         for ds in (self.data):
             if ds.calibration.has_key('p_filt_value_dc'):
                 cal = ds.calibration['p_filt_value_dc'] # add to existing cal if it exists
@@ -437,10 +456,10 @@ class GeneralCalibration(object):
 #                print(preGuess, postGuess)
 #                print('ds_num %d, %s, pre %f, post %f'%(ds_num, edge_name, preHeight, postHeight))
                 if (not numpy.isnan(dEdgeCenter)) and dEdgeCenter<=20.0 and (preHeight-postHeight>10) and (abs(edgeCenter-edgeGuess)<30): 
-#                    cal.add_cal_point(edgeCenter, edge_name, pht_error=dEdgeCenter)
+                    cal.add_cal_point(edgeCenter, edge_name, pht_error=dEdgeCenter)
                     usedStr = 'used'
-#                else:
-#                    print((not numpy.isnan(dEdgeCenter)), dEdgeCenter<=20.0, (preHeight-postHeight>10), (abs(edgeCenter-edgeGuess)<30))
+                else:
+                    self.data.set_chan_bad(ds.channum, 'calibrate_carefully_edges rejected %s'%edge_name)
                 if doPlot == True:
 
   
@@ -460,7 +479,7 @@ class GeneralCalibration(object):
 
 #                except:
 #                    print('cant find %s in channel %d'%(edge_name, ds.channum))
-#        self.convert_to_energy(use_drift_correct=True)
+        self.convert_to_energy(use_drift_correct=True)
         return returnInfo
         
     def returnCalLocations(self, cal_features):
@@ -487,10 +506,11 @@ class GeneralCalibration(object):
         print('converting to energy, use_drift_correct=%s'%use_drift_correct)
         for ds in self.data.datasets:
             try:
-                cal = ds.calibration['p_filt_value']
                 if use_drift_correct == True:
+                    cal = ds.calibration['p_filt_value_dc']
                     ds.p_energy = cal(ds.p_filt_value_dc)
                 else:
+                    cal = ds.calibration['p_filt_value']
                     ds.p_energy = cal(ds.p_filt_value)
             except:
                 self.data.set_chan_bad(ds.channum, 'failed convert_to energy')
@@ -571,8 +591,8 @@ class GeneralCalibration(object):
             self.apply_stored_drift_correct()
             self.convert_to_energy(use_drift_correct=True)
 
-    def countRateAndCuts(self,ds_num = 0):
-        ds = self.data.datasets[ds_num]
+    def countRateAndCuts(self, channel = 1):
+        ds = self.data.channel[channel]
         totalCounts = ds.nPulses
         countsPassedCuts = ds.cuts.good().sum()
         elapsedTime = ds.p_timestamp[ds.cuts.good()][-1]-ds.p_timestamp[ds.cuts.good()][0]
@@ -587,36 +607,40 @@ class GeneralCalibration(object):
         print('%d pulses cut by CUT_TIMESTAMP'%numpy.sum(ds.cuts.isCut(ds.CUT_TIMESTAMP)))
         print('totalCounts %d, countsPassedCuts %d, elapsedTime %f'%(totalCounts, countsPassedCuts, elapsedTime))
         
-    def countRatePlot(self, usefulEnergyRange = (5300, 6000) ):
-        countsPassedCuts = numpy.zeros_like(self.data.datasets)
-        totalCounts = numpy.zeros_like(self.data.datasets)
-        elapsedTime = numpy.zeros_like(self.data.datasets)
-        usefulCounts = numpy.zeros_like(self.data.datasets)
-        for i,ds in enumerate(self.data.datasets):
+    def countRateInfo(self, usefulEnergyRange = (5300, 6000), doPlots = False ):
+        countsPassedCuts = numpy.zeros(self.data.num_good_channels)
+        totalCounts = numpy.zeros(self.data.num_good_channels)
+        elapsedTime = numpy.zeros(self.data.num_good_channels)
+        usefulCounts = numpy.zeros(self.data.num_good_channels)
+        for i,ds in enumerate(self.data):
             
             countsPassedCuts[i] = ds.cuts.good().sum()
-            totalCounts[i] = ds.nPulses-1000 # the -1000 is meant to account for the Fe55 pulses
+            totalIndex = log_and(ds.p_timestamp>ds.p_timestamp[ds.cuts.good()][0], ds.p_timestamp<ds.p_timestamp[ds.cuts.good()][-1])
+            totalCounts[i] = totalIndex.sum()
             elapsedTime[i] = ds.p_timestamp[ds.cuts.good()][-1]-ds.p_timestamp[ds.cuts.good()][0]
             usefulIndex = log_and(ds.cuts.good(), ds.p_energy>usefulEnergyRange[0], ds.p_energy<usefulEnergyRange[1])
             usefulCounts[i] = usefulIndex.sum()
             print('channel %d, trigger rate %4.2f/s, passed cuts rate %4.2f/s, useful rate %4.2f/s'%(ds.channum, 
                    totalCounts[i]/elapsedTime[i], countsPassedCuts[i]/elapsedTime[i], usefulCounts[i]/elapsedTime[i]))
-            pylab.figure()
-            bins = numpy.arange(0,16000,4)
-            pylab.hist(ds.p_energy[ds.cuts.good()],bins)
-            pylab.hist(ds.p_energy[usefulIndex], bins, color='r', edgecolor='r') # I don't understand why this doesn't work, it ignore the color, but it works from ipython
-            pylab.ylabel('Energy (eV) 2 line calibration')
-            pylab.ylabel('counts per %4.2f eV bin'%(bins[1]-bins[0]))
-            pylab.title('chan %d, trigger %4.2f s^-1, passed cuts %4.2f s^-1, useful %4.2f s^-1'%(ds.channum,
-                          totalCounts[i]/elapsedTime[i], countsPassedCuts[i]/elapsedTime[i], usefulCounts[i]/elapsedTime[i]))
+            if doPlots:
+                pylab.figure()
+                bins = numpy.arange(0,16000,4)            
+                pylab.hist(ds.p_energy[ds.cuts.good()],bins)
+                pylab.hist(ds.p_energy[usefulIndex], bins, color='r', edgecolor='r') # I don't understand why this doesn't work, it ignore the color, but it works from ipython
+                pylab.ylabel('Energy (eV) 2 line calibration')
+                pylab.ylabel('counts per %4.2f eV bin'%(bins[1]-bins[0]))
+                pylab.title('chan %d, trigger %4.2f s^-1, passed cuts %4.2f s^-1, useful %4.2f s^-1'%(ds.channum,
+                              totalCounts[i]/elapsedTime[i], countsPassedCuts[i]/elapsedTime[i], usefulCounts[i]/elapsedTime[i]))
             
-        
+        elapsedTime = numpy.median(elapsedTime) # they should all have the same elapsed time roughly.
         pylab.figure()
         pylab.plot(totalCounts/elapsedTime, 10*usefulCounts/elapsedTime,'bs',label='10x counts in range %d eV to %d eV'%usefulEnergyRange)
         pylab.plot(totalCounts/elapsedTime, countsPassedCuts/elapsedTime,'ro',label='counts passed cuts')
         pylab.xlabel('~trigger rate s^-1')
         pylab.ylabel('other count rates s^-1')
         pylab.legend()
+        
+        return totalCounts/elapsedTime, countsPassedCuts/elapsedTime, usefulCounts/elapsedTime
         
 
 
