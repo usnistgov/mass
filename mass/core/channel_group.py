@@ -25,6 +25,7 @@ import cPickle
 import sys
 
 import mass.calibration
+import mass.calibration.inlineUpdater as inlineUpdater
 
 from mass.core.channel import create_pulse_and_noise_records
 
@@ -274,17 +275,15 @@ class BaseChannelGroup(object):
         Compute summary quantities for each pulse.  Subclasses override this with methods
         that ought to call this!
         """
-        t0 = time.time()
-        print "This data set has (up to) %d records with %d samples apiece."%(
+        printUpdater = inlineUpdater.InlineUpdater('BaseChannelGroup.summarize_data')
+        print "summarize_data: This data set has (up to) %d records with %d samples apiece."%(
             self.nPulses, self.nSamples)  
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
-            sys.stdout.write("\rBaseChannelGroup.summarize_data %.2f%% done"%(100*end/(float(self.nPulses)))) # this prints repeatdly on one line
-            sys.stdout.flush()
+            printUpdater.update(end/float(self.nPulses))
             for ds in self.iter_channels(include_badchan):
                 ds.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
-        print "\nSummarized data in %.0f seconds" %(time.time()-t0)
 
         
     
@@ -671,10 +670,10 @@ class BaseChannelGroup(object):
             a,b = self.segnum2sample_range(nseg+1)
             if a<n and m[a:].any():
                 segment_mask[nseg+1] = True 
-
+                
+        printUpdater = inlineUpdater.InlineUpdater('computer_average_pulse')
         for first, end in self.iter_segments(segment_mask=segment_mask):
-            sys.stdout.write("\rBaseChannelGroup.compute_average_pulse records %.2f%% done"%(100*end/(float(self.nPulses)))) # this prints repeatdly on one line
-            sys.stdout.flush()
+            printUpdater.update(end/float(self.nPulses))
             for imask,mask in enumerate(masks):
                 valid = mask[first:end]
                 for ichan,chan in enumerate(self.datasets):
@@ -690,7 +689,7 @@ class BaseChannelGroup(object):
                         good_pulses = chan.data[valid, :]
                     pulse_counts[ichan,imask] += good_pulses.shape[0]
                     pulse_sums[ichan,imask,:] += good_pulses.sum(axis=0)
-        sys.stdout.write('\n')
+
 
         # Rescale and store result to each MicrocalDataSet
         pulse_sums /= pulse_counts.reshape((self.n_channels, nbins,1))
@@ -760,13 +759,14 @@ class BaseChannelGroup(object):
                 print "Computing noise autocorrelation and spectrum"
                 self.compute_noise_spectra()
                 break
-            
+        
+        printUpdater = inlineUpdater.InlineUpdater('compute_filters')
         for ds_num,ds in enumerate(self):
             if ds.cuts.good().sum() < 10:
                 ds.filter = None
                 self.set_chan_bad(ds.channum, 'cannot compute filter')
                 continue
-            print "Computing filter %d of %d"%(ds_num, self.n_channels)
+            printUpdater.update(ds_num/float(self.n_channels))
             avg_signal = ds.average_pulse.copy()
             
             try:
@@ -828,11 +828,11 @@ class BaseChannelGroup(object):
             ds.p_filt_phase = numpy.zeros(ds.nPulses, dtype=numpy.float)
             ds.p_filt_value = numpy.zeros(ds.nPulses, dtype=numpy.float)
             
+        printUpdater = inlineUpdater.InlineUpdater('BaseChannelGroup.filter_data')
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
-            sys.stdout.write("\rBaseChannelGroup.filter_data %.2f%% done"%(100*end/(float(self.nPulses))))# this prints repeatdly on one line
-            sys.stdout.flush()
+            printUpdater.update(end/float(self.nPulses))
             for ds in self:
                 if ds.filter is None:
                     continue
@@ -840,7 +840,6 @@ class BaseChannelGroup(object):
                 peak_x, peak_y = ds.filter_data(filt_vector,first, end, transform=transform)
                 ds.p_filt_phase[first:end] = peak_x
                 ds.p_filt_value[first:end] = peak_y
-        sys.stdout.write('\n')
         
         # Reset the phase-corrected and drift-corrected values
         for ds in self.datasets:
@@ -1088,8 +1087,8 @@ class BaseChannelGroup(object):
         pylab.setp(ltext, fontsize='small')
         
 
-    def save_pulse_energies_ascii(self, filename):
-        filename += '_energies.txt'
+    def save_pulse_energies_ascii(self, filename='all'):
+        filename += '.energies'
         energy=[]
         for ds in self:
             energy=numpy.hstack((energy,ds.p_energy[ds.cuts.good()]))
@@ -1374,8 +1373,10 @@ def unpickle_TESGroup(filename):
     pulse_only = (not noise_only and len(noise_filenames)==0)
     data = TESGroup(filenames, noise_filenames, pulse_only=pulse_only,
                     noise_only=noise_only)
-    data._bad_channums = bad_channums
+    data.set_chan_bad(bad_channums, 'was bad when saved')
+    printUpdater = inlineUpdater.InlineUpdater('unpickle_TESGroup')
     for ds in data.datasets:
+        printUpdater.update(ds.index/float(data.num_good_channels))
         ds.unpickle()
     
 #     expected_attr = unpickler.load()

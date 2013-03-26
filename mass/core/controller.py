@@ -28,8 +28,8 @@ class AnalysisControl(PrmDictBase):
         # Cuts follow certain heuristic rules by default (set to None).
         ## The cuts parameters.
         self.cuts_prm = {
-            'peak_time_ms':        (-0.5, 0.5),
-            'rise_time_ms':        (0,.5),
+            'peak_time_ms':        None,
+            'rise_time_ms':        None,
             'max_posttrig_deriv':  None,
             'pretrigger_rms':      None,
             'pretrigger_mean':     None,
@@ -37,6 +37,7 @@ class AnalysisControl(PrmDictBase):
             'min_value':           None,
             'timestamp_sec':       None,
             'pretrigger_mean_departure_from_median': None,
+            'timestamp_diff_sec': None,
         }
         
         ## The analysis parameters (not used yet).

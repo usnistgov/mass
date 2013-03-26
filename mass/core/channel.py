@@ -221,7 +221,7 @@ class NoiseRecords(object):
         if n_lags > samples_per_segment:
             n_lags = samples_per_segment
             
-        print 'Compute continuous autocorr (%d lags on %d data) '%(n_lags, n_data),
+#        print 'Compute continuous autocorr (%d lags on %d data) '%(n_lags, n_data),
         
         def padded_length(n):
             """Return a sensible number in the range [n, 2n] which is not too
@@ -247,7 +247,7 @@ class NoiseRecords(object):
             chunksize=CHUNK_MULTIPLE*n_lags
             padsize = n_lags
             padded_data = numpy.zeros(padded_length(padsize+chunksize), dtype=numpy.float)
-            print 'with chunks of %d, padsize %d'%(chunksize,padsize)
+#            print 'with chunks of %d, padsize %d'%(chunksize,padsize)
             
             ac = numpy.zeros(n_lags, dtype=numpy.float)
             
@@ -661,16 +661,27 @@ class MicrocalDataSet(object):
     This channel can be directly from a TDM detector, or it
     can be the demodulated result of a CDM modulation.
     """
-    
-    ( CUT_PRETRIG_MEAN,
-      CUT_PRETRIG_RMS,
-      CUT_RETRIGGER,
-      CUT_BIAS_PULSE,
-      CUT_RISETIME,
-      CUT_UNLOCK,
-      CUT_TIMESTAMP,
-      CUT_SATURATED
-       ) = range(8)
+    # planning to remove these, and switch to CUT_NAME which are more descriptive, and accesible
+#    ( CUT_PRETRIG_MEAN,
+#      CUT_PRETRIG_RMS,
+#      CUT_RETRIGGER,
+#      CUT_BIAS_PULSE,
+#      CUT_RISETIME,
+#      CUT_UNLOCK,
+#      CUT_TIMESTAMP,
+#      CUT_SATURATED
+#       ) = range(8)
+       
+    CUT_NAME = ['pretrigger_rms',
+                 'pretrigger_mean',
+                 'pretrigger_mean_departure_from_median',
+                 'peak_time_ms',
+                 'rise_time_ms',
+                 'max_posttrig_deriv',
+                 'pulse_average',
+                 'min_value',
+                 'timestamp_sec',
+                 'timestamp_diff_sec']
 
     # Attributes that all such objects must have.
     expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum", "timestamp_offset")
@@ -1046,33 +1057,27 @@ class MicrocalDataSet(object):
         
         if controls is None:
             controls = mass.controller.standardControl()
-    
-        pretrigger_rms_cut = controls.cuts_prm['pretrigger_rms']
-        pretrigger_mean_cut = controls.cuts_prm['pretrigger_mean']
-        pretrigger_mean_dep_cut = controls.cuts_prm['pretrigger_mean_departure_from_median']
-        peak_time_ms_cut = controls.cuts_prm['peak_time_ms']
-        rise_time_ms_cut = controls.cuts_prm['rise_time_ms']
-        max_posttrig_deriv_cut = controls.cuts_prm['max_posttrig_deriv']
-        pulse_average_cut = controls.cuts_prm['pulse_average']
-        min_value_cut = controls.cuts_prm['min_value']
-        timestamp_cut = controls.cuts_prm['timestamp_sec']
-        
-        self.cut_parameter(self.p_pretrig_rms, pretrigger_rms_cut, self.CUT_PRETRIG_RMS)
-        self.cut_parameter(self.p_pretrig_mean, pretrigger_mean_cut, self.CUT_PRETRIG_MEAN)
-        self.cut_parameter(self.p_peak_time*1e3, peak_time_ms_cut, self.CUT_RISETIME)
-        self.cut_parameter(self.p_rise_time*1e3, rise_time_ms_cut, self.CUT_RISETIME)
-        self.cut_parameter(self.p_max_posttrig_deriv, max_posttrig_deriv_cut, self.CUT_RETRIGGER)
-        self.cut_parameter(self.p_pulse_average, pulse_average_cut, self.CUT_UNLOCK)
-        self.cut_parameter(self.p_min_value-self.p_pretrig_mean, min_value_cut, self.CUT_UNLOCK)
-        self.cut_parameter(self.p_timestamp, timestamp_cut, self.CUT_TIMESTAMP)
-        if pretrigger_mean_dep_cut is not None:
+        c = controls.cuts_prm
+              
+        self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], self.CUT_NAME.index('pretrigger_rms'))
+        self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'], self.CUT_NAME.index('pretrigger_mean'))
+        self.cut_parameter(self.p_peak_time*1e3, c['peak_time_ms'], self.CUT_NAME.index('peak_time_ms'))
+        self.cut_parameter(self.p_rise_time*1e3, c['rise_time_ms'], self.CUT_NAME.index('rise_time_ms'))
+        self.cut_parameter(self.p_max_posttrig_deriv, c['max_posttrig_deriv'], self.CUT_NAME.index('max_posttrig_deriv'))
+        self.cut_parameter(self.p_pulse_average, c['pulse_average'], self.CUT_NAME.index('pulse_average'))
+        self.cut_parameter(self.p_min_value-self.p_pretrig_mean, c['min_value'], self.CUT_NAME.index('min_value'))
+        self.cut_parameter(self.p_timestamp, c['timestamp_sec'], self.CUT_NAME.index('timestamp_sec'))
+        if c['timestamp_diff_sec'] is not None:
+            self.cut_parameter(numpy.hstack((0.0, numpy.diff(self.p_timestamp))), c['timestamp_diff_sec'], self.CUT_NAME.index('timestamp_diff_sec'))        
+        if c['pretrigger_mean_departure_from_median'] is not None:
             median = numpy.median(self.p_pretrig_mean[self.cuts.good()])
             if verbose>1:
                 print'applying cut',pretrigger_mean_dep_cut,' around median of ',median
-            self.cut_parameter(self.p_pretrig_mean-median, pretrigger_mean_dep_cut, self.CUT_PRETRIG_MEAN)
+            self.cut_parameter(self.p_pretrig_mean-median, c['pretrigger_mean_departure_from_median'], self.CUT_NAME.index('pretrigger_mean_departure_from_median'))
         if verbose>0:
             print "Chan %d after cuts, %d are good, %d are bad of %d total pulses"%(self.channum, self.cuts.nUncut(), 
                                                                             self.cuts.nCut(), self.nPulses)
+
         
     def clear_cuts(self):
         self.cuts = Cuts(self.nPulses)
