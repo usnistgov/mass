@@ -66,6 +66,7 @@ class GeneralCalibration(object):
 #        self.store_calibration()
 #        self.store_filters_and_cal()
 
+
         
     def channel_histogram(self, channel=1, driftCorrected = False):
         if channel in self.data.channel.keys():
@@ -99,7 +100,11 @@ class GeneralCalibration(object):
         counts, ph_bin_edges = numpy.histogram(data, ph_bin_edges)
         ph_bin_centers = (ph_bin_edges[:-1]+ph_bin_edges[1:])/2
         peak_indexes = numpy.array(scipy.signal.find_peaks_cwt(counts, numpy.arange(1,30,3), min_snr=4))
-        sort_index = numpy.argsort(counts[peak_indexes])
+        try:
+            sort_index = numpy.argsort(counts[peak_indexes])
+        except:
+            self.data.set_chan_bad(channum, 'channel_findpeaks had error with peak_indexes = '+str(peak_indexes))
+            return [], []
         peak_indexes = peak_indexes[sort_index]
 
         if doPlot == True:
@@ -262,9 +267,8 @@ class GeneralCalibration(object):
                 self.data.set_chan_bad(ds.channum, 'failed apply_drift_correct')
                    
         
-    def calibrate_approximately(self, line_names = ['MnKAlpha', 'MnKBeta'], doPlot = False):
+    def calibrate_approximately(self, line_names = ['MnKAlpha', 'MnKBeta'], doPlot = False, minPulses = 80):
         """Element names must be in order of peak height, only works with kAlphas for now"""
-        minPulses = 80
         if type(line_names) != type(list()): line_names = [line_names]
         for ds in self.data:
             if ds.calibration.has_key('p_filt_value'):
@@ -608,9 +612,10 @@ class GeneralCalibration(object):
         print('totalCounts %d, countsPassedCuts %d, elapsedTime %f'%(totalCounts, countsPassedCuts, elapsedTime))
         
     def countRateInfo(self, usefulEnergyRange = (5300, 6000), doPlots = False ):
+        assert(usefulEnergyRange[0]<usefulEnergyRange[1])
         countsPassedCuts = numpy.zeros(self.data.num_good_channels)
         totalCounts = numpy.zeros(self.data.num_good_channels)
-        elapsedTime = numpy.zeros(self.data.num_good_channels)
+        elapsedTime = numpy.zeros(self.data.num_good_channels, dtype='float')
         usefulCounts = numpy.zeros(self.data.num_good_channels)
         for i,ds in enumerate(self.data):
             
