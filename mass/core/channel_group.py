@@ -108,7 +108,7 @@ class BaseChannelGroup(object):
             added_to_list.update(goodones)
         added_to_list = list(added_to_list)
         added_to_list.sort()
-        print "Added channels %s to bad channel list"%(added_to_list)
+        print "Removed channels %s from bad channel list"%(added_to_list)
         self.update_chan_info()
     
     def set_chan_bad(self, *args):
@@ -141,6 +141,7 @@ class BaseChannelGroup(object):
         channum = list(set(channum) - set(self._bad_channums))
         channum.sort()
         self.num_good_channels = len(channum)
+        self.good_channels = list(channum)
         if self.num_good_channels>0: 
             self.first_good_dataset = self.channel[channum[0]]
         else:
@@ -1325,7 +1326,7 @@ class TESGroup(BaseChannelGroup):
             ds.noise_autocorr = ds.noise_records.autocorrelation
             ds.noise_records.clear_cache()
 
-    def pickle(self, filename=None):
+    def pickle(self, filename=None, dirname=None):
         """Pickle the object by pickling its important contents
            <filename>    The output pickle name.  If not given, then it will be the data file name
                          with the suffix replaced by '.pkl' and in a subdirectory mass under the
@@ -1335,7 +1336,10 @@ class TESGroup(BaseChannelGroup):
             ljhfilename = self.first_good_dataset
             ljhbasename = ljhfilename.split("_chan")[0]
             basedir = os.path.dirname(ljhfilename)
-            massdir = os.path.join(basedir, "mass")
+            if dirname is None:
+                massdir = os.path.join(basedir, "mass")
+            else:
+                massdir = os.path.join(dirname,'mass')
             if not os.path.isdir(massdir):
                 os.mkdir(massdir, 0775)
             filename = os.path.join(massdir, os.path.basename(ljhbasename+"_mass.pkl"))
