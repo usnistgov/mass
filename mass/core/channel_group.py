@@ -1105,6 +1105,8 @@ class TESGroup(BaseChannelGroup):
     """
     def __init__(self, filenames, noise_filenames=None, noise_only=False, pulse_only=False,
                  noise_is_continuous=True, max_cachesize=None):
+        if noise_filenames is not None and len(noise_filenames)==0:
+            noise_filenames = None
         BaseChannelGroup.__init__(self, filenames, noise_filenames)
         self.noise_only = noise_only
         
@@ -1345,6 +1347,19 @@ class TESGroup(BaseChannelGroup):
             ds.pickle()
         
 
+def _sort_filenames_numerically(fnames):
+    """Take a sequence of filenames of the form '*_chanXXX.*'
+    and sort it according to the numerical value of channel number XXX."""
+    chan2fname={}
+    for name in fnames:
+        channum = name.split('_chan')[1].split(".")[0]
+        print channum, name
+        chan2fname[int(channum)] = name
+    sorted_chan = chan2fname.keys()
+    sorted_chan.sort()
+    sorted_fnames = [chan2fname[key] for key in sorted_chan]
+    return sorted_fnames
+
 
 def unpickle_TESGroup(filename):
     """
@@ -1358,8 +1373,8 @@ def unpickle_TESGroup(filename):
     fp = open(filename, "rb")
     unpickler = cPickle.Unpickler(fp)
     noise_only = unpickler.load()
-    filenames = unpickler.load()
-    noise_filenames = unpickler.load()
+    filenames = _sort_filenames_numerically(unpickler.load())
+    noise_filenames = _sort_filenames_numerically(unpickler.load())
     pulse_only = (not noise_only and len(noise_filenames)==0)
     data = TESGroup(filenames, noise_filenames, pulse_only=pulse_only,
                     noise_only=noise_only)
