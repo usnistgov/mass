@@ -1152,12 +1152,16 @@ class TESGroup(BaseChannelGroup):
                       records_are_continuous = noise_is_continuous)
                 
             pulse_list.append(pulse)
-            if pulse.channum == noise.channum:
-                dset = mass.channel.MicrocalDataSet(pulse_records = pulse, noise_records = noise)
+            if noise is None:
+                dset = mass.channel.MicrocalDataSet(pulse.__dict__)
+                dset_list.append(dset)
+            elif pulse.channum == noise.channum:
+                dset = mass.channel.MicrocalDataSet(pulse.__dict__)
+                dset.noise_records = noise
+                assert(dset.channum == dset.noise_records.channum)
                 dset_list.append(dset)
             else:
                 print('TESGroup did not add data because channums dont match %s, %s'%(fname, nf))
-            assert(dset.channum == dset.noise_records.channum)
             
             if self.n_segments is None:
                 for attr in "n_segments","nPulses","nSamples","nPresamples", "timebase":
@@ -1174,10 +1178,10 @@ class TESGroup(BaseChannelGroup):
         self.datasets = tuple(dset_list)
         self._setup_channels_list()
         if len(self.datasets)>0:
-            self.pulses_per_seg = self.first_good_dataset.pulse_records.pulses_per_seg
-        
-        # Set master timestamp_offset (seconds)
-        if len(self.datasets)>0: self.timestamp_offset = self.first_good_dataset.timestamp_offset
+            self.pulses_per_seg = self.first_good_dataset.pulses_per_seg
+            # Set master timestamp_offset (seconds)
+            self.timestamp_offset = self.first_good_dataset.timestamp_offset
+            
         for ds in self:
             if ds.timestamp_offset != self.timestamp_offset:
                 self.timestamp_offset = None
@@ -1335,13 +1339,12 @@ class TESGroup(BaseChannelGroup):
                          main file's location."""
     
         if filename is None:
-            ljhfilename = self.first_good_dataset
+            ljhfilename = self.first_good_dataset.filename
             ljhbasename = ljhfilename.split("_chan")[0]
             basedir = os.path.dirname(ljhfilename)
             if dirname is None:
-                massdir = os.path.join(basedir, "mass")
-            else:
-                massdir = os.path.join(dirname,'mass')
+                dirname = basedir
+            massdir = os.path.join(dirname,'mass')
             if not os.path.isdir(massdir):
                 os.mkdir(massdir, 0775)
             filename = os.path.join(massdir, os.path.basename(ljhbasename+"_mass.pkl"))
@@ -1351,8 +1354,11 @@ class TESGroup(BaseChannelGroup):
         pickler.dump(self.noise_only)
         pickler.dump(self._bad_channums)
         filenames = [ds.filename for ds in self.iter_channels(include_badchan=True)]
-        noise_filenames = [ds.noise_records.filename for ds in self.iter_channels(include_badchan=True)]
         pickler.dump(filenames)
+        if self.noise_filenames is None:
+            noise_filenames = None
+        else:
+            noise_filenames = [ds.noise_records.filename for ds in self.iter_channels(include_badchan=True)]
         pickler.dump(noise_filenames)
         fp.close()
         print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
