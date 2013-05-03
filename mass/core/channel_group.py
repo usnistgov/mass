@@ -15,7 +15,6 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
-
 __all__=['TESGroup','CDMGroup','CrosstalkVeto', 'unpickle_TESGroup']
 
 import time, os
@@ -23,8 +22,10 @@ import numpy
 from matplotlib import pylab
 import scipy.linalg
 import cPickle
+import sys
 
 import mass.calibration
+import mass.calibration.inlineUpdater as inlineUpdater
 
 from mass.core.channel import create_pulse_and_noise_records
 
@@ -58,7 +59,6 @@ class BaseChannelGroup(object):
         self._allowed_pnum_ranges = None
         self._allowed_segnums = None
         self.pulses_per_seg = None
-        self.filters = None
         self._bad_channums=set()
         
         if self.n_channels <=4:
@@ -108,7 +108,8 @@ class BaseChannelGroup(object):
             added_to_list.update(goodones)
         added_to_list = list(added_to_list)
         added_to_list.sort()
-        print "Added channels %s to bad channel list"%(added_to_list)
+        print "Removed channels %s from bad channel list"%(added_to_list)
+        self.update_chan_info()
     
     def set_chan_bad(self, *args):
         """Set one or more channels to be bad.  (No effect for channels already listed
@@ -116,7 +117,11 @@ class BaseChannelGroup(object):
         *args  Arguments to this function are integers or containers of integers.  Each 
                integer is added to the bad-channels list."""
         added_to_list = set()
+        comment = ''
         for a in args:
+            if type(a) is type(comment):
+                comment = a
+                continue
             try:
                 badones = set(a)
             except TypeError:
@@ -125,48 +130,68 @@ class BaseChannelGroup(object):
             added_to_list.update(badones)
         added_to_list = list(added_to_list)
         added_to_list.sort()
-        print "Added channels %s to bad channel list"%(added_to_list)
-
-    def get_channel_dataset(self, channum):
-        """Deprecated, because data.get_channel_dataset(5) is equivalent to data.channels[5].
-        But it hasn't always been so, and so this method remains."""
-        return self.channel.get(channum, None)
+        log_string = 'chan %s flagged bad because %s'%(added_to_list, comment)
+        self.why_chan_bad.append(log_string)
+        print log_string
+        self.update_chan_info()
 
 
+    def update_chan_info(self):        
+        channum = self.channel.keys()
+        channum = list(set(channum) - set(self._bad_channums))
+        channum.sort()
+        self.num_good_channels = len(channum)
+        self.good_channels = list(channum)
+        if self.num_good_channels>0: 
+            self.first_good_dataset = self.channel[channum[0]]
+        else:
+            print('WARNING all datasets flagged bad, most things wont work')
+            self.first_good_dataset = None
+        
     def _setup_channels_list(self):
         self.channel = {}
-        for idx,ds in enumerate(self.datasets):
+        self.why_chan_bad = []
+        for ds_num,ds in enumerate(self.datasets):
             try:
-                ds.index = idx
+                ds.index = ds_num
                 self.channel[ds.channum] = ds
             except AttributeError:
                 pass
-    
-    
-    def pop_dataset(self, dataset_number):
-        """Remove self.datasets[dataset_number] from the channel group.
-        Returns the offending dataset just in case you need it."""
-        if dataset_number >= self.n_channels or dataset_number<0:
-            raise ValueError("Cannnot remove dataset_number=%d, but only [0,%d]%"%
-                             (dataset_number, self.n_channels-1))
-        datasets = list(self.datasets)
-        removed = datasets.pop(dataset_number)
-        self.datasets = tuple(datasets)
-        self.n_channels -= 1
-        self._setup_channels_list()
-        return removed
+        self.update_chan_info()
+
+#    def get_channel_dataset(self, channum):
+#        """Deprecated, because data.get_channel_dataset(5) is equivalent to data.channels[5].
+#        But it hasn't always been so, and so this method remains."""
+#        return self.channel.get(channum, None)
 
 
-    def insert_dataset(self, dataset_number, dataset):
-        """Insert <dataset> into this group of channels at position
-        <dataset_number>, which follows the semantics of list.insert()."""
-        if not isinstance(dataset, mass.MicrocalDataSet):
-            raise ValueError("Argument dataset must be a mass.MicrocalDataSet.")
-        datasets = list(self.datasets)
-        datasets.insert(dataset_number, dataset)
-        self.datasets = tuple(datasets)
-        self.n_channels += 1
-        self._setup_channels_list()
+
+    
+    
+#    def pop_dataset(self, dataset_number):
+#        """Remove self.datasets[dataset_number] from the channel group.
+#        Returns the offending dataset just in case you need it."""
+#        if dataset_number >= self.n_channels or dataset_number<0:
+#            raise ValueError("Cannnot remove dataset_number=%d, but only [0,%d]%"%
+#                             (dataset_number, self.n_channels-1))
+#        datasets = list(self.datasets)
+#        removed = datasets.pop(dataset_number)
+#        self.datasets = tuple(datasets)
+#        self.n_channels -= 1
+#        self._setup_channels_list()
+#        return removed
+#
+#
+#    def insert_dataset(self, dataset_number, dataset):
+#        """Insert <dataset> into this group of channels at position
+#        <dataset_number>, which follows the semantics of list.insert()."""
+#        if not isinstance(dataset, mass.MicrocalDataSet):
+#            raise ValueError("Argument dataset must be a mass.MicrocalDataSet.")
+#        datasets = list(self.datasets)
+#        datasets.insert(dataset_number, dataset)
+#        self.datasets = tuple(datasets)
+#        self.n_channels += 1
+#        self._setup_channels_list()
 
         
     def clear_cache(self):
@@ -246,20 +271,21 @@ class BaseChannelGroup(object):
             yield first_rnum, end_rnum
 
 
-    def summarize_data(self):
+    def summarize_data(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False):
         """
         Compute summary quantities for each pulse.  Subclasses override this with methods
         that ought to call this!
         """
-
-        print "This data set has (up to) %d records with %d samples apiece."%(
+        printUpdater = inlineUpdater.InlineUpdater('BaseChannelGroup.summarize_data')
+        print "summarize_data: This data set has (up to) %d records with %d samples apiece."%(
             self.nPulses, self.nSamples)  
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
-            print "Records %d to %d loaded"%(first,end-1)
-            for dset in self.datasets:
-                dset.summarize_data(first, end)
+            printUpdater.update(end/float(self.nPulses))
+            for ds in self.iter_channels(include_badchan):
+                ds.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
+
         
     
     def read_trace(self, record_num, dataset_num=0, chan_num=None):
@@ -349,7 +375,7 @@ class BaseChannelGroup(object):
                 data += numpy.roll(data,1) + numpy.roll(data,-1)
                 data[0] = 0
             elif residual:
-                model = dataset.p_filt_value[pn] * dataset.average_pulses[dataset_num] / dataset.average_pulses[dataset_num].max()
+                model = dataset.p_filt_value[pn] * dataset.average_pulse / dataset.average_pulse.max()
                 data = data-model
                 
             cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1
@@ -645,9 +671,10 @@ class BaseChannelGroup(object):
             a,b = self.segnum2sample_range(nseg+1)
             if a<n and m[a:].any():
                 segment_mask[nseg+1] = True 
-
+                
+        printUpdater = inlineUpdater.InlineUpdater('computer_average_pulse')
         for first, end in self.iter_segments(segment_mask=segment_mask):
-            print "Records [%6d, %6d) loaded from disk."%(first,end)
+            printUpdater.update(end/float(self.nPulses))
             for imask,mask in enumerate(masks):
                 valid = mask[first:end]
                 for ichan,chan in enumerate(self.datasets):
@@ -655,7 +682,7 @@ class BaseChannelGroup(object):
                         continue 
                     
                     if mask.shape != (chan.nPulses,):
-                        raise ValueError("masks[%d] has shape %s, but it needs to be (%d,)"%
+                        raise ValueError("\nmasks[%d] has shape %s, but it needs to be (%d,)"%
                              (imask, mask.shape, chan.nPulses ))
                     if len(valid)>chan.data.shape[0]:
                         good_pulses = chan.data[valid[:chan.data.shape[0]], :]
@@ -664,14 +691,15 @@ class BaseChannelGroup(object):
                     pulse_counts[ichan,imask] += good_pulses.shape[0]
                     pulse_sums[ichan,imask,:] += good_pulses.sum(axis=0)
 
+
         # Rescale and store result to each MicrocalDataSet
         pulse_sums /= pulse_counts.reshape((self.n_channels, nbins,1))
         for ichan,ds in enumerate(self.datasets):
-            ds.average_pulses = pulse_sums[ichan,:,:]
+            average_pulses = pulse_sums[ichan,:,:]
             if subtract_mean:
-                for imask in range(ds.average_pulses.shape[0]):
-                    ds.average_pulses[imask,:] -= ds.average_pulses[imask,:self.nPresamples-ds.pretrigger_ignore_samples].mean()
-    
+                for imask in range(average_pulses.shape[0]):
+                    average_pulses[imask,:] -= average_pulses[imask,:self.nPresamples-ds.pretrigger_ignore_samples].mean()
+            ds.average_pulse = average_pulses[ichan,:]
     
     def plot_average_pulses(self, pulse_id, axis=None, use_legend=True):
         """Plot average pulse number <pulse_id> on matplotlib.Axes <axis>, or
@@ -684,14 +712,11 @@ class BaseChannelGroup(object):
         axis.set_color_cycle(self.colors)
         dt = (numpy.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
         
-        if pulse_id in range(self.n_channels):
-            axis.set_title("Average pulse for all channels when TES %d is hit"%pulse_id)
-            for i,d in enumerate(self.datasets):
-                pylab.plot(dt,d.average_pulses[pulse_id], label="Demod TES %d"%i)
-        else:
-            axis.set_title("Average pulse for each channel when it is hit")
-            for i,d in enumerate(self.datasets):
-                pylab.plot(dt,d.average_pulses[i], label="Demod TES %d"%i)
+        for ds in self:
+            pylab.plot(dt,ds.average_pulse, label="chan %d"%ds.channum)
+
+        axis.set_title("Average pulse for each channel when it is hit")
+
         pylab.xlabel("Time past trigger (ms)")
         pylab.ylabel("Raw counts")
         pylab.xlim([dt[0], dt[-1]])
@@ -700,7 +725,7 @@ class BaseChannelGroup(object):
 
     def plot_raw_spectra(self):
         """Plot distribution of raw pulse averages, with and without gain"""
-        ds = self.datasets[0]
+        ds = self.first_good_dataset
         meangain = ds.p_pulse_average[ds.cuts.good()].mean()/ds.gain
         pylab.clf()
         pylab.subplot(211)
@@ -730,29 +755,29 @@ class BaseChannelGroup(object):
     def compute_filters(self, fmax=None, f_3db=None):
         
         # Analyze the noise, if not already done
-        for n in self.datasets:
-            if n.noise_autocorr is None or n.noise_spectrum is None:
+        for ds in self:
+            if ds.noise_autocorr is None or ds.noise_spectrum is None:
                 print "Computing noise autocorrelation and spectrum"
                 self.compute_noise_spectra()
                 break
-            
-        self.filters=[]
-        for i,ds in enumerate(self.datasets):
+        
+        printUpdater = inlineUpdater.InlineUpdater('compute_filters')
+        for ds_num,ds in enumerate(self):
             if ds.cuts.good().sum() < 10:
-                print 'Cannot compute filter for channel %d'%i 
-                self.filters.append(None)
+                ds.filter = None
+                self.set_chan_bad(ds.channum, 'cannot compute filter')
                 continue
-            print "Computing filter %d of %d"%(i, self.n_channels)
-            avg_signal = ds.average_pulses[i].copy()
+            printUpdater.update(ds_num/float(self.n_channels))
+            avg_signal = ds.average_pulse.copy()
             
             try:
                 spectrum = ds.noise_spectrum.spectrum()
             except:
                 spectrum = None
-            f = mass.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, spectrum,
+            f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, spectrum,
                                  ds.noise_autocorr, sample_time=self.timebase,
                                  fmax=fmax, f_3db=f_3db, shorten=2)
-            self.filters.append(f)
+            ds.filter = f
             
 
     def plot_filters(self, first=0, end=-1):
@@ -767,25 +792,26 @@ class BaseChannelGroup(object):
             raise ValueError("First channel must be less than %d"%self.n_channels)
         nplot = min(end-first, 8)
         filters = self.filters[first:first+nplot]
-        for i,f in enumerate(filters):
+        for ds_num,ds in enumerate(self):
             ax1 = pylab.subplot(nplot,2,1+2*i)
             ax2 = pylab.subplot(nplot,2,2+2*i)
-            ax1.set_title("TES %d signal"%(first+i))
-            ax2.set_title("TES %d baseline"%(first+i))
+            ax1.set_title("chan %d signal"%(ds.channum))
+            ax2.set_title("chan %d baseline"%(ds.channum))
             for ax in (ax1,ax2): ax.set_xlim([0,self.nSamples])
-            f.plot(axes=(ax1,ax2))
+            ds.filter.plot(axes=(ax1,ax2))
 
         
     
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
         rms_fwhm = numpy.sqrt(numpy.log(2)*8) # FWHM is this much times the RMS
         print 'V/dV for time, Fourier filters: '
-        for i,f in enumerate(self.filters):
+        for ds in self:
+    
             try:
-                rms = f.variances[filter_name]**0.5
+                rms = ds.filter.variances[filter_name]**0.5
                 v_dv = (1/rms)/rms_fwhm
-                print "Chan %2d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" % (
-                                i, "'%s'"%filter_name, v_dv, std_energy, std_energy/v_dv)
+                print "Chan %d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" % (
+                                ds.channum, filter_name, v_dv, std_energy, std_energy/v_dv)
             except Exception, e:
                 print "Filter %d can't be used"%i
                 print e
@@ -794,170 +820,172 @@ class BaseChannelGroup(object):
     def filter_data(self, filter_name=None, transform=None):
         """Filter data sets and store in datasets[*].p_filt_phase and _value.
         The filters are currently self.filter[*].filt_noconst"""
-        if self.filters is None:
+        if self.first_good_dataset.filter is None:
             self.compute_filters()
             
         if filter_name is None: filter_name='filt_noconst'
         
-        for dset in self.datasets:
-            dset.p_filt_phase = numpy.zeros(dset.nPulses, dtype=numpy.float)
-            dset.p_filt_value = numpy.zeros(dset.nPulses, dtype=numpy.float)
+        for ds in self.datasets:
+            ds.p_filt_phase = numpy.zeros(ds.nPulses, dtype=numpy.float)
+            ds.p_filt_value = numpy.zeros(ds.nPulses, dtype=numpy.float)
             
+        printUpdater = inlineUpdater.InlineUpdater('BaseChannelGroup.filter_data')
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
-            print "Records %d to %d loaded"%(first,end-1)
-            for (filt_group,dset) in zip(self.filters,self.datasets):
-                if filt_group is None:
+            printUpdater.update(end/float(self.nPulses))
+            for ds in self:
+                if ds.filter is None:
                     continue
-                filt_vector = filt_group.__dict__[filter_name]
-                peak_x, peak_y = dset.filter_data(filt_vector,first, end, transform=transform)
-                dset.p_filt_phase[first:end] = peak_x
-                dset.p_filt_value[first:end] = peak_y
+                filt_vector = ds.filter.__dict__[filter_name]
+                peak_x, peak_y = ds.filter_data(filt_vector,first, end, transform=transform)
+                ds.p_filt_phase[first:end] = peak_x
+                ds.p_filt_value[first:end] = peak_y
         
         # Reset the phase-corrected and drift-corrected values
-        for dset in self.datasets:
-            dset.p_filt_value_phc = dset.p_filt_value.copy()
-            dset.p_filt_value_dc  = dset.p_filt_value.copy()
+        for ds in self.datasets:
+            ds.p_filt_value_phc = ds.p_filt_value.copy()
+            ds.p_filt_value_dc  = ds.p_filt_value.copy()
 
             
     def plot_crosstalk(self, xlim=None, ylim=None, use_legend=True):
-        pylab.clf()
-        dt = (numpy.arange(self.nSamples)-self.nPresamples)*1e3*self.timebase
-        
-        ndet = self.n_channels
-        plots_nx, plots_ny = ndet/2, 2
-        for i in range(ndet):
-            ax=pylab.subplot(plots_nx, plots_ny, 1+i)
-            self.plot_average_pulses(i, axis=ax, use_legend=use_legend)
-            pylab.plot(dt,self.datasets[i].average_pulses[i]/100,'k--', label="Main pulse/100")
-            if i+plots_ny<ndet:
-                ax.set_xlabel("")
-                ax.set_xticklabels([""])
-            if xlim is None:
-                xlim=[-.2,.2]
-            if ylim is None:
-                ylim=[-200,200]
-            pylab.xlim(xlim)
-            pylab.ylim(ylim)
-            if use_legend: 
-                pylab.legend(loc='upper left')
-            pylab.grid()
-            pylab.title("Mean record when TES %d is hit"%i)
+        print('plot_crosstalk no longer works, galen broke it when moving things inside datasets')
+#        pylab.clf()
+#        dt = (numpy.arange(self.nSamples)-self.nPresamples)*1e3*self.timebase
+#        
+#        ndet = self.n_channels
+#        plots_nx, plots_ny = ndet/2, 2
+#        for i in range(ndet):
+#            ax=pylab.subplot(plots_nx, plots_ny, 1+i)
+#            self.plot_average_pulses(i, axis=ax, use_legend=use_legend)
+#            pylab.plot(dt,self.datasets[i].average_pulses[i]/100,'k--', label="Main pulse/100")
+#            if i+plots_ny<ndet:
+#                ax.set_xlabel("")
+#                ax.set_xticklabels([""])
+#            if xlim is None:
+#                xlim=[-.2,.2]
+#            if ylim is None:
+#                ylim=[-200,200]
+#            pylab.xlim(xlim)
+#            pylab.ylim(ylim)
+#            if use_legend: 
+#                pylab.legend(loc='upper left')
+#            pylab.grid()
+#            pylab.title("Mean record when TES %d is hit"%i)
     
              
     def estimate_crosstalk(self, plot=True):
         """Work in progress..."""
-
-        NMUX = self.n_channels
-
-        if plot: 
-            pylab.clf()
-            ds0 = self.datasets[0]
-            dt = (numpy.arange(ds0.nSamples)-ds0.nPresamples)*ds0.timebase*1e3
-            ax0 = pylab.subplot(NMUX,NMUX,1)
-        crosstalk = []
-        dot = numpy.dot
-        if self.datasets[0].noise_autocorr is None:
-            self.compute_noise_spectra()
-        
-        for i,ds in enumerate( self.datasets):
-            p = ds.average_pulses[i]
-            d = numpy.zeros_like(p)
-            d[1:] = p[1:]-p[:-1]
-            
-            if 'pulse_filt' in ds.__dict__ and 'deriv_filt' in ds.__dict__:
-                qp = ds.pulse_filt
-                qd = ds.deriv_filt
-            else:
-                print "Solving for TES %2d noise-inv-weighted pulse"%i
-                R = scipy.linalg.toeplitz(ds.noise_autocorr[:len(p)])
-                Rp = numpy.linalg.solve(R, p)
-                print "Solving for TES %2d noise-inv-weighted derivative"%i
-                Rd = numpy.linalg.solve(R, d)
-                del R
-                
-                qp = dot(d,Rd)*Rp - dot(d,Rp)*Rd
-                qd = dot(p,Rp)*Rd - dot(p,Rd)*Rp
-                qp /= dot(p,qp)
-                qd /= dot(d,qd)
-            
-                # Save filters and the derivative
-                ds.pulse_filt = qp
-                ds.deriv_filt = qd
-                ds.pulse_deriv = d
-            
-            # Apply the filters to cross-talk and self-talk.  (!)
-            ct = []
-            for j,ds1 in enumerate(self.datasets):
-                sig = ds1.average_pulses[i]
-                print "%8.4f %8.4f"%(dot(sig,qp), dot(sig,qd))
-                ct.append(dot(sig,qp)) # row i, col j
-                if plot and (i != j):
-                    ax = pylab.subplot(NMUX,NMUX,1+NMUX*j+i, sharex=ax0, sharey=ax0) # row j, col i
-                    sig2 = sig-dot(sig,qp)*ds.average_pulses[i]
-                    sig3 = sig2-dot(sig,qd)*ds.pulse_deriv
-                    pylab.plot(dt,sig,color='green')
-                    pylab.plot(dt,sig2,color='red')
-                    pylab.plot(dt,sig3,color='blue')
-                    pylab.xlim([-.5,3])
-                    pylab.xticks((0,1,2,3))
-                    pylab.ylim([-100,100])
-                    pylab.title("TES %d when %d hit"%(j,i))
-                    rmss=["%5.2f"%(s.std()) for s  in sig,sig2,sig3]
-                    if sig[100+ds.nPresamples] < 0:
-                        pylab.text(.08,.85,",".join(rmss), transform=ax.transAxes)
-                    else:
-                        pylab.text(.08,.05,",".join(rmss), transform=ax.transAxes)
-            crosstalk.append(ct)
-        return numpy.array(crosstalk)
+        print('estimate_crosstalk definitley doesnt work even if it ever did, since galen broke it moving things inside datasets')
+#        NMUX = self.n_channels
+#
+#        if plot: 
+#            pylab.clf()
+#            ds0 = self.datasets[0]
+#            dt = (numpy.arange(ds0.nSamples)-ds0.nPresamples)*ds0.timebase*1e3
+#            ax0 = pylab.subplot(NMUX,NMUX,1)
+#        crosstalk = []
+#        dot = numpy.dot
+#        if self.datasets[0].noise_autocorr is None:
+#            self.compute_noise_spectra()
+#        
+#        for i,ds in enumerate( self.datasets):
+#            p = ds.average_pulses[i]
+#            d = numpy.zeros_like(p)
+#            d[1:] = p[1:]-p[:-1]
+#            
+#            if 'pulse_filt' in ds.__dict__ and 'deriv_filt' in ds.__dict__:
+#                qp = ds.pulse_filt
+#                qd = ds.deriv_filt
+#            else:
+#                print "Solving for TES %2d noise-inv-weighted pulse"%i
+#                R = scipy.linalg.toeplitz(ds.noise_autocorr[:len(p)])
+#                Rp = numpy.linalg.solve(R, p)
+#                print "Solving for TES %2d noise-inv-weighted derivative"%i
+#                Rd = numpy.linalg.solve(R, d)
+#                del R
+#                
+#                qp = dot(d,Rd)*Rp - dot(d,Rp)*Rd
+#                qd = dot(p,Rp)*Rd - dot(p,Rd)*Rp
+#                qp /= dot(p,qp)
+#                qd /= dot(d,qd)
+#            
+#                # Save filters and the derivative
+#                ds.pulse_filt = qp
+#                ds.deriv_filt = qd
+#                ds.pulse_deriv = d
+#            
+#            # Apply the filters to cross-talk and self-talk.  (!)
+#            ct = []
+#            for j,ds1 in enumerate(self.datasets):
+#                sig = ds1.average_pulses[i]
+#                print "%8.4f %8.4f"%(dot(sig,qp), dot(sig,qd))
+#                ct.append(dot(sig,qp)) # row i, col j
+#                if plot and (i != j):
+#                    ax = pylab.subplot(NMUX,NMUX,1+NMUX*j+i, sharex=ax0, sharey=ax0) # row j, col i
+#                    sig2 = sig-dot(sig,qp)*ds.average_pulses[i]
+#                    sig3 = sig2-dot(sig,qd)*ds.pulse_deriv
+#                    pylab.plot(dt,sig,color='green')
+#                    pylab.plot(dt,sig2,color='red')
+#                    pylab.plot(dt,sig3,color='blue')
+#                    pylab.xlim([-.5,3])
+#                    pylab.xticks((0,1,2,3))
+#                    pylab.ylim([-100,100])
+#                    pylab.title("TES %d when %d hit"%(j,i))
+#                    rmss=["%5.2f"%(s.std()) for s  in sig,sig2,sig3]
+#                    if sig[100+ds.nPresamples] < 0:
+#                        pylab.text(.08,.85,",".join(rmss), transform=ax.transAxes)
+#                    else:
+#                        pylab.text(.08,.05,",".join(rmss), transform=ax.transAxes)
+#            crosstalk.append(ct)
+#        return numpy.array(crosstalk)
     
     
-    def drift_correct_ptmean(self, filt_ranges):
-        """A hack, but a great simple start on drift correction using the pretrigger mean.
-        DEPRECATED: see MicrocalDataSet.auto_drift_correct instead."""
-        
-        class LineDrawer(object):
-            def __init__(self, figure):
-                self.b, self.x, self.y = 0,0,0
-                self.fig = figure
-                self.cid = self.fig.canvas.mpl_connect('button_press_event', self)
-                print "Connected cid=%d"%self.cid
-            def __call__(self, event):
-                self.b, self.x, self.y =  event.button, event.xdata, event.ydata
-            def __del__(self):
-                self.fig.canvas.mpl_disconnect(self.cid)
-                print 'Disconnected cid=%d'%self.cid
-        
-        for _i,(rng,ds) in enumerate(zip(filt_ranges,self.datasets)):
-            pylab.clf()
-            fig = pylab.gcf()
-            good = ds.cuts.good()
-            pylab.plot(ds.p_pretrig_mean[good], ds.p_filt_value[good],'.')
-            pylab.ylim(rng)
-            print "Click button 1 twice to draw a line; click button 2 to quit"
-            pf = LineDrawer(fig)
-            x,y=[],[]
-            line = None
-            offset,slope = 0.0,0.0
-            while True:
-                pylab.waitforbuttonpress()
-                if pf.b > 1: break
-                x.append(pf.x)
-                y.append(pf.y)
-                if len(x)==2:
-                    if line is not None:
-                        line.remove()
-                    line, = pylab.plot(x, y, 'r')
-                    offset = x[0]
-                    slope = (y[1]-y[0])/(x[1]-x[0])
-                    if ds.p_filt_value_phc[0]==0: ds.p_filt_value_phc=ds.p_filt_value
-                    ds.p_filt_value_dc = ds.p_filt_value_phc - (ds.p_pretrig_mean-offset)*slope
-                    ds.energy = ds.p_filt_value_dc[good]    
-                    print offset,slope, ' corrects the energy.  Hit button 2 to move on, or try again.'
-                    x,y = [],[]
-                
-            del pf
+#    def drift_correct_ptmean(self, filt_ranges):
+#        """A hack, but a great simple start on drift correction using the pretrigger mean.
+#        DEPRECATED: see MicrocalDataSet.auto_drift_correct instead."""
+#        
+#        class LineDrawer(object):
+#            def __init__(self, figure):
+#                self.b, self.x, self.y = 0,0,0
+#                self.fig = figure
+#                self.cid = self.fig.canvas.mpl_connect('button_press_event', self)
+#                print "Connected cid=%d"%self.cid
+#            def __call__(self, event):
+#                self.b, self.x, self.y =  event.button, event.xdata, event.ydata
+#            def __del__(self):
+#                self.fig.canvas.mpl_disconnect(self.cid)
+#                print 'Disconnected cid=%d'%self.cid
+#        
+#        for _i,(rng,ds) in enumerate(zip(filt_ranges,self.datasets)):
+#            pylab.clf()
+#            fig = pylab.gcf()
+#            good = ds.cuts.good()
+#            pylab.plot(ds.p_pretrig_mean[good], ds.p_filt_value[good],'.')
+#            pylab.ylim(rng)
+#            print "Click button 1 twice to draw a line; click button 2 to quit"
+#            pf = LineDrawer(fig)
+#            x,y=[],[]
+#            line = None
+#            offset,slope = 0.0,0.0
+#            while True:
+#                pylab.waitforbuttonpress()
+#                if pf.b > 1: break
+#                x.append(pf.x)
+#                y.append(pf.y)
+#                if len(x)==2:
+#                    if line is not None:
+#                        line.remove()
+#                    line, = pylab.plot(x, y, 'r')
+#                    offset = x[0]
+#                    slope = (y[1]-y[0])/(x[1]-x[0])
+#                    if ds.p_filt_value_phc[0]==0: ds.p_filt_value_phc=ds.p_filt_value
+#                    ds.p_filt_value_dc = ds.p_filt_value_phc - (ds.p_pretrig_mean-offset)*slope
+#                    ds.energy = ds.p_filt_value_dc[good]    
+#                    print offset,slope, ' corrects the energy.  Hit button 2 to move on, or try again.'
+#                    x,y = [],[]
+#                
+#            del pf
 
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
@@ -1023,14 +1051,14 @@ class BaseChannelGroup(object):
         """
         Report on the number of data points and similar
         """
-        for i,ds in enumerate(self.datasets):
+        for ds in self.datasets:
             ng = ds.cuts.nUncut()
             good = ds.cuts.good()
             dt = (ds.p_timestamp[good][-1]*1.0 - ds.p_timestamp[good][0])  # seconds
             np = numpy.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (np-1.0)/dt
 #            grate = (ng-1.0)/dt
-            print 'TES %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good'%(i, np, rate, dt/3600., 100.0*ng/np)
+            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good'%(ds.channum, np, rate, dt/3600., 100.0*ng/np)
 
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
@@ -1060,10 +1088,10 @@ class BaseChannelGroup(object):
         pylab.setp(ltext, fontsize='small')
         
 
-    def save_pulse_energies_ascii(self, filename):
-        filename += '_energies.txt'
+    def save_pulse_energies_ascii(self, filename='all'):
+        filename += '.energies'
         energy=[]
-        for ds in self.datasets:
+        for ds in self:
             energy=numpy.hstack((energy,ds.p_energy[ds.cuts.good()]))
         numpy.savetxt(filename, energy, fmt='%.10e')
 #        f=open(filename+'.energies','w')
@@ -1071,26 +1099,26 @@ class BaseChannelGroup(object):
 #            f.write(line + '\n')
 #        f.close()
     
-    def _DEPRECATED_pickle(self, filename):
-        """This might or not work yet...."""
-        self.clear_cache()
-        fp = open(filename, "wb")
-        try:
-            cPickle.dump(self, fp, protocol=cPickle.HIGHEST_PROTOCOL)
-        except cPickle.PicklingError:
-            fp.close()
-            fp = open(filename, "wb")
-            cPickle.dump(self.copy(), fp, protocol=cPickle.HIGHEST_PROTOCOL)
-        fp.close()
-
-        
-    @classmethod
-    def _DEPRECATED_unpickle(cls, filename):
-        """This might or not work yet...."""
-        fp = open(filename, "rb")
-        obj = cPickle.load(fp)
-        fp.close()
-        return obj
+#    def _DEPRECATED_pickle(self, filename):
+#        """This might or not work yet...."""
+#        self.clear_cache()
+#        fp = open(filename, "wb")
+#        try:
+#            cPickle.dump(self, fp, protocol=cPickle.HIGHEST_PROTOCOL)
+#        except cPickle.PicklingError:
+#            fp.close()
+#            fp = open(filename, "wb")
+#            cPickle.dump(self.copy(), fp, protocol=cPickle.HIGHEST_PROTOCOL)
+#        fp.close()
+#
+#        
+#    @classmethod
+#    def _DEPRECATED_unpickle(cls, filename):
+#        """This might or not work yet...."""
+#        fp = open(filename, "rb")
+#        obj = cPickle.load(fp)
+#        fp.close()
+#        return obj
 
 
 
@@ -1111,7 +1139,6 @@ class TESGroup(BaseChannelGroup):
         self.noise_only = noise_only
         
         pulse_list = []
-        noise_list = []
         dset_list = []
         for i,fname in enumerate(self.filenames):
             if noise_filenames is None:
@@ -1125,10 +1152,12 @@ class TESGroup(BaseChannelGroup):
                       records_are_continuous = noise_is_continuous)
                 
             pulse_list.append(pulse)
-            if noise is not None:
-                noise_list.append(noise)
-            dset = mass.channel.MicrocalDataSet(pulse.__dict__)
-            dset_list.append(dset)
+            if pulse.channum == noise.channum:
+                dset = mass.channel.MicrocalDataSet(pulse_records = pulse, noise_records = noise)
+                dset_list.append(dset)
+            else:
+                print('TESGroup did not add data because channums dont match %s, %s'%(fname, nf))
+            assert(dset.channum == dset.noise_records.channum)
             
             if self.n_segments is None:
                 for attr in "n_segments","nPulses","nSamples","nPresamples", "timebase":
@@ -1141,18 +1170,16 @@ class TESGroup(BaseChannelGroup):
                 self.n_segments = max(self.n_segments, pulse.n_segments)
                 self.nPulses = max(self.nPulses, pulse.nPulses)
             
-        self._pulse_records = tuple(pulse_list)
-        self.noise_channels = tuple(noise_list)
+
         self.datasets = tuple(dset_list)
         self._setup_channels_list()
-        if len(pulse_list)>0:
-            self.pulses_per_seg = pulse_list[0].pulses_per_seg
-        self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
+        if len(self.datasets)>0:
+            self.pulses_per_seg = self.first_good_dataset.pulse_records.pulses_per_seg
         
         # Set master timestamp_offset (seconds)
-        if len(self._pulse_records)>0: self.timestamp_offset = self._pulse_records[0].timestamp_offset
-        for ch in self._pulse_records:
-            if ch.timestamp_offset != self.timestamp_offset:
+        if len(self.datasets)>0: self.timestamp_offset = self.first_good_dataset.timestamp_offset
+        for ds in self:
+            if ds.timestamp_offset != self.timestamp_offset:
                 self.timestamp_offset = None
                 break
 
@@ -1165,30 +1192,21 @@ class TESGroup(BaseChannelGroup):
         self.clear_cache()
         g = TESGroup([])
         g.__dict__.update(self.__dict__)
-        g._pulse_records = tuple([c.copy() for c in self._pulse_records])
         g.datasets = tuple([d.copy() for d in self.datasets])
-        g.noise_channels = tuple([c.copy() for c in self.noise_channels])
-#        g.filters = tuple([f.copy() for f in self.filters])
         return g
         
     
     def join(self, *others):
         # Ensure they are compatible
+        print('join probably doesnt work since galen messed with it moving things inside datasets')
         for g in others:
             for attr in ('nPresamples','nSamples', 'noise_only', 'timebase'):
                 if g.__dict__[attr] != self.__dict__[attr]:
                     raise RuntimeError("All objects must agree on group.%s"%attr)
             
         for g in others:
-            n_extra = self.n_channels
-            for ds in g.datasets:
-                ds.average_pulses = numpy.vstack((numpy.zeros((n_extra,self.nSamples),dtype=numpy.float),
-                                                  ds.average_pulses))
-            
-            self._pulse_records += g._pulse_records
+            n_extra = self.n_channels          
             self.datasets += g.datasets
-            self.filters += g.filters()
-            self.noise_channels += g.noise_channels
             self.n_channels += g.n_channels
             self.n_segments = max(self.n_segments, g.n_segments)
         
@@ -1198,12 +1216,12 @@ class TESGroup(BaseChannelGroup):
     def set_segment_size(self, seg_size):
         self.clear_cache()
         self.n_segments = 0
-        for chan in self._pulse_records:
-            chan.set_segment_size(seg_size)
-            self.n_segments = max(self.n_segments, chan.n_segments)
-        self.pulses_per_seg = self._pulse_records[0].pulses_per_seg
-        for chan in self._pulse_records:
-            assert chan.pulses_per_seg == self.pulses_per_seg
+        for ds in self:
+            ds.pulse_records.set_segment_size(seg_size)
+            self.n_segments = max(self.n_segments, ds.pulse_records.pulses_per_seg)
+        self.pulses_per_seg = self.first_good_dataset.pulse_records.pulses_per_seg
+        for ds in self:
+            assert ds.pulse_records.pulses_per_seg == self.pulses_per_seg
 
     def read_segment(self, segnum, use_cache=True):
         """Read segment number <segnum> into memory for each of the
@@ -1217,13 +1235,13 @@ class TESGroup(BaseChannelGroup):
             return self._cached_pnum_range
         
         first_pnum,end_pnum = -1,-1
-        for prec, dset in zip(self._pulse_records, self.datasets):
-            a,b = prec.read_segment(segnum)
-            dset.data = prec.data
+        for ds in self:
+            a,b = ds.pulse_records.read_segment(segnum)
+            ds.data = ds.pulse_records.data
             try:
-                dset.times = prec.datafile.datatimes_float
+                ds.times = ds.pulse_records.datafile.datatimes_float
             except AttributeError:  
-                dset.times = prec.datafile.datatimes/1e3
+                ds.times = ds.pulse_records.datafile.datatimes/1e3
 
             # Possibly some channels are shorter than others (in TDM data)
             # Make sure to return first_pnum,end_pnum for longest VALID channel only 
@@ -1235,16 +1253,6 @@ class TESGroup(BaseChannelGroup):
         self._cached_segment = segnum
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
-    
-    
-    def summarize_data(self):
-        """
-        Compute summary quantities for each pulse.
-        """
-
-        t0 = time.time()
-        BaseChannelGroup.summarize_data(self)
-        print "Summarized data in %.0f seconds" %(time.time()-t0)
         
 
     def compute_average_pulse(self, masks, subtract_mean=True):
@@ -1290,16 +1298,15 @@ class TESGroup(BaseChannelGroup):
         axis.grid(True)
         if cmap is None:
             cmap = pylab.cm.get_cmap("spectral")
-        for i,noise in enumerate(self.noise_channels):
-            if i not in channels: continue
-            yvalue = noise.spectrum.spectrum()*scale_factor**2
+        for ds_num, ds in enumerate(self):
+            yvalue = ds.noise_records.spectrum.spectrum()*scale_factor**2
             axis.set_ylabel("Power Spectral Density (%s^2/Hz)"%units)
             if sqrt_psd:
                 yvalue = numpy.sqrt(yvalue)
                 axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)"%units)
-            axis.plot(noise.spectrum.frequencies(), yvalue, label='TES %d'%i,
-                      color=cmap(float(i)/self.n_channels))
-        f=self.noise_channels[0].spectrum.frequencies()
+            axis.plot(ds.noise_records.spectrum.frequencies(), yvalue, label='TES chan %d'%ds.channum,
+                      color=cmap(float(ds_num)/self.n_channels))
+        f=self.first_good_dataset.noise_records.spectrum.frequencies()
         axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         axis.set_xlabel("Frequency (Hz)")
         
@@ -1314,24 +1321,27 @@ class TESGroup(BaseChannelGroup):
         for the autocorrelation.  If None, the record length is used."""
         if n_lags is None:
             n_lags = self.nSamples
-        for dataset,noise in zip(self.datasets,self.noise_channels):
-            noise.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
-            dataset.noise_spectrum = noise.spectrum
-            noise.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
-            dataset.noise_autocorr = noise.autocorrelation
-            noise.clear_cache()
+        for ds in self:
+            ds.noise_records.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
+            ds.noise_spectrum = ds.noise_records
+            ds.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
+            ds.noise_autocorr = ds.noise_records.autocorrelation
+            ds.noise_records.clear_cache()
 
-    def pickle(self, filename=None):
+    def pickle(self, filename=None, dirname=None):
         """Pickle the object by pickling its important contents
            <filename>    The output pickle name.  If not given, then it will be the data file name
                          with the suffix replaced by '.pkl' and in a subdirectory mass under the
                          main file's location."""
     
         if filename is None:
-            ljhfilename = self.filenames[0]
+            ljhfilename = self.first_good_dataset
             ljhbasename = ljhfilename.split("_chan")[0]
             basedir = os.path.dirname(ljhfilename)
-            massdir = os.path.join(basedir, "mass")
+            if dirname is None:
+                massdir = os.path.join(basedir, "mass")
+            else:
+                massdir = os.path.join(dirname,'mass')
             if not os.path.isdir(massdir):
                 os.mkdir(massdir, 0775)
             filename = os.path.join(massdir, os.path.basename(ljhbasename+"_mass.pkl"))
@@ -1339,8 +1349,11 @@ class TESGroup(BaseChannelGroup):
         fp = open(filename, "wb")
         pickler = cPickle.Pickler(fp, protocol=2)
         pickler.dump(self.noise_only)
-        pickler.dump(self.filenames)
-        pickler.dump(self.noise_filenames)
+        pickler.dump(self._bad_channums)
+        filenames = [ds.filename for ds in self.iter_channels(include_badchan=True)]
+        noise_filenames = [ds.noise_records.filename for ds in self.iter_channels(include_badchan=True)]
+        pickler.dump(filenames)
+        pickler.dump(noise_filenames)
         fp.close()
         print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
         for ds in self.datasets:
@@ -1373,12 +1386,16 @@ def unpickle_TESGroup(filename):
     fp = open(filename, "rb")
     unpickler = cPickle.Unpickler(fp)
     noise_only = unpickler.load()
+    bad_channums = unpickler.load()
     filenames = _sort_filenames_numerically(unpickler.load())
     noise_filenames = _sort_filenames_numerically(unpickler.load())
     pulse_only = (not noise_only and len(noise_filenames)==0)
     data = TESGroup(filenames, noise_filenames, pulse_only=pulse_only,
                     noise_only=noise_only)
+    data.set_chan_bad(bad_channums, 'was bad when saved')
+    printUpdater = inlineUpdater.InlineUpdater('unpickle_TESGroup')
     for ds in data.datasets:
+        printUpdater.update(ds.index/float(data.num_good_channels))
         ds.unpickle()
     
 #     expected_attr = unpickler.load()
