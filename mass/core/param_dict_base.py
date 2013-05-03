@@ -66,7 +66,7 @@ class PrmDictBase(object):
                  re.search(r'^[^_].*_prm$', attr)]
         return names
                 
-    def usage_set(self):
+    def usage_set(self, verbose = 0):
         """Print the name of parameters that can be set."""
         prm_dict_names = self._prm_dict_names()
         prm_names = []
@@ -76,9 +76,10 @@ class PrmDictBase(object):
                 k = d.keys()
                 k.sort(lambda a,b: cmp(a.lower(),b.lower()))
                 prm_names += k
-        print 'registered parameters:\n'
-        for i in prm_names:
-            print i
+        if verbose >0:
+            print 'registered parameters:\n'
+            for i in prm_names:
+                print i
         # alternative:
         # names = []
         # for d in self._prm_list:
