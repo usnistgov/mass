@@ -128,11 +128,13 @@ class BaseChannelGroup(object):
                 badones = set([a])
             self._bad_channums.update(badones)
             added_to_list.update(badones)
-        added_to_list = list(added_to_list)
-        added_to_list.sort()
-        log_string = 'chan %s flagged bad because %s'%(added_to_list, comment)
-        self.why_chan_bad.append(log_string)
-        print log_string
+
+        if len(added_to_list) > 0:
+            added_to_list = list(added_to_list)
+            added_to_list.sort()
+            log_string = 'chan %s flagged bad because %s'%(added_to_list, comment)
+            self.why_chan_bad.append(log_string)
+            print log_string
         self.update_chan_info()
 
 
@@ -144,8 +146,8 @@ class BaseChannelGroup(object):
         self.good_channels = list(channum)
         if self.num_good_channels>0: 
             self.first_good_dataset = self.channel[channum[0]]
-        else:
-            print('WARNING all datasets flagged bad, most things wont work')
+        elif len(channum) > 0:
+            print("WARNING: All datasets flagged bad, most things won't work.")
             self.first_good_dataset = None
         
     def _setup_channels_list(self):
@@ -159,14 +161,6 @@ class BaseChannelGroup(object):
                 pass
         self.update_chan_info()
 
-#    def get_channel_dataset(self, channum):
-#        """Deprecated, because data.get_channel_dataset(5) is equivalent to data.channels[5].
-#        But it hasn't always been so, and so this method remains."""
-#        return self.channel.get(channum, None)
-
-
-
-    
     
 #    def pop_dataset(self, dataset_number):
 #        """Remove self.datasets[dataset_number] from the channel group.
@@ -791,8 +785,7 @@ class BaseChannelGroup(object):
         if first >= self.n_channels:
             raise ValueError("First channel must be less than %d"%self.n_channels)
         nplot = min(end-first, 8)
-        filters = self.filters[first:first+nplot]
-        for ds_num,ds in enumerate(self):
+        for i,ds in enumerate(self.datasets[first:first+nplot]):
             ax1 = pylab.subplot(nplot,2,1+2*i)
             ax2 = pylab.subplot(nplot,2,2+2*i)
             ax1.set_title("chan %d signal"%(ds.channum))
@@ -810,7 +803,7 @@ class BaseChannelGroup(object):
             try:
                 rms = ds.filter.variances[filter_name]**0.5
                 v_dv = (1/rms)/rms_fwhm
-                print "Chan %d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" % (
+                print "Chan %3d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" % (
                                 ds.channum, filter_name, v_dv, std_energy, std_energy/v_dv)
             except Exception, e:
                 print "Filter %d can't be used"%i
@@ -1078,8 +1071,9 @@ class BaseChannelGroup(object):
             cmap = pylab.cm.get_cmap("spectral")
             
         axis.grid(True)
-        for i,noise in enumerate(self.noise_channels):
+        for i,ds in enumerate(self.datasets):
             if i not in channels: continue
+            noise = ds.noise_records
             noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=cmap(float(i)/self.n_channels))
 #        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         axis.set_xlabel("Time lag (ms)")
@@ -1099,27 +1093,6 @@ class BaseChannelGroup(object):
 #            f.write(line + '\n')
 #        f.close()
     
-#    def _DEPRECATED_pickle(self, filename):
-#        """This might or not work yet...."""
-#        self.clear_cache()
-#        fp = open(filename, "wb")
-#        try:
-#            cPickle.dump(self, fp, protocol=cPickle.HIGHEST_PROTOCOL)
-#        except cPickle.PicklingError:
-#            fp.close()
-#            fp = open(filename, "wb")
-#            cPickle.dump(self.copy(), fp, protocol=cPickle.HIGHEST_PROTOCOL)
-#        fp.close()
-#
-#        
-#    @classmethod
-#    def _DEPRECATED_unpickle(cls, filename):
-#        """This might or not work yet...."""
-#        fp = open(filename, "rb")
-#        obj = cPickle.load(fp)
-#        fp.close()
-#        return obj
-
 
 
 
@@ -1139,6 +1112,7 @@ class TESGroup(BaseChannelGroup):
         self.noise_only = noise_only
         
         pulse_list = []
+        noise_list = []
         dset_list = []
         for i,fname in enumerate(self.filenames):
             if noise_filenames is None:
@@ -1160,6 +1134,7 @@ class TESGroup(BaseChannelGroup):
                 dset.noise_records = noise
                 assert(dset.channum == dset.noise_records.channum)
                 dset_list.append(dset)
+                noise_list.append(noise)
             else:
                 print('TESGroup did not add data because channums dont match %s, %s'%(fname, nf))
             
@@ -1174,11 +1149,15 @@ class TESGroup(BaseChannelGroup):
                 self.n_segments = max(self.n_segments, pulse.n_segments)
                 self.nPulses = max(self.nPulses, pulse.nPulses)
             
-
+        self.channels = tuple(pulse_list)
+        self.noise_channels = tuple(noise_list)
         self.datasets = tuple(dset_list)
+        for chan,ds in zip(self.channels, self.datasets):
+            ds.pulse_records = chan
         self._setup_channels_list()
+        if len(pulse_list)>0:
+            self.pulses_per_seg = pulse_list[0].pulses_per_seg
         if len(self.datasets)>0:
-            self.pulses_per_seg = self.first_good_dataset.pulses_per_seg
             # Set master timestamp_offset (seconds)
             self.timestamp_offset = self.first_good_dataset.timestamp_offset
             
@@ -1327,7 +1306,7 @@ class TESGroup(BaseChannelGroup):
             n_lags = self.nSamples
         for ds in self:
             ds.noise_records.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
-            ds.noise_spectrum = ds.noise_records
+            ds.noise_spectrum = ds.noise_records.spectrum
             ds.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
             ds.noise_autocorr = ds.noise_records.autocorrelation
             ds.noise_records.clear_cache()
@@ -1369,6 +1348,8 @@ class TESGroup(BaseChannelGroup):
 def _sort_filenames_numerically(fnames):
     """Take a sequence of filenames of the form '*_chanXXX.*'
     and sort it according to the numerical value of channel number XXX."""
+    if fnames is None or len(fnames)==0:
+        return None
     chan2fname={}
     for name in fnames:
         channum = name.split('_chan')[1].split(".")[0]
@@ -1395,7 +1376,7 @@ def unpickle_TESGroup(filename):
     bad_channums = unpickler.load()
     filenames = _sort_filenames_numerically(unpickler.load())
     noise_filenames = _sort_filenames_numerically(unpickler.load())
-    pulse_only = (not noise_only and len(noise_filenames)==0)
+    pulse_only = (not noise_only and (noise_filenames is None or len(noise_filenames)==0))
     data = TESGroup(filenames, noise_filenames, pulse_only=pulse_only,
                     noise_only=noise_only)
     data.set_chan_bad(bad_channums, 'was bad when saved')
