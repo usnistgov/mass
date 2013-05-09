@@ -696,6 +696,7 @@ class MicrocalDataSet(object):
         """
         self.filter = {}
         self.drift_correct_info = {}
+        self.phase_correct_info = {}
         self.noise_records = noise_records
         self.pulse_records = pulse_records
         self.noise_spectrum = None
@@ -813,7 +814,8 @@ class MicrocalDataSet(object):
         # Pickle all attributes noise_*, p_*, peak_time_microsec, pretrigger_*, timebase, times
         # Approach is to dump the attribute NAME then value.
         attr_starts = ("noise_", "p_", "pretrigger_")
-        attr_names = ("peak_time_microsec", "timebase", "times", "average_pulses")
+        attr_names = ("peak_time_microsec", "timebase", "times", "average_pulses",
+                      "calibration", "drift_correct_info", "phase_correct_info", "filter" )
         for attr in self.__dict__:
             store_this_attr = attr in attr_names
             for ast in attr_starts:
@@ -1030,21 +1032,49 @@ class MicrocalDataSet(object):
                   self.CUT_* (see the set of class attributes)
         
         <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b. 
-        Either a or b may be None, indicating no cut."""
+        Either a or b may be None, indicating no cut.
+        OR
+        <allowed> is a sequence of 2-element sequences (a,b), then the cut cuts data that does not meet a <= data <=b
+        for any of the two element sequences, if any element in allowed is ''invert'' then it swaps cut and uncut
+        """
         
         if allowed is None: # no cut here! 
             return
         if cut_id <0 or cut_id >=32:
             raise ValueError("cut_id must be in the range [0,31]")
         
-        try:
-            a,b = allowed
-            if a is not None:
-                self.cuts.cut(cut_id, data <= a)
-            if b is not None:
-                self.cuts.cut(cut_id, data >= b)
-        except ValueError:
-            pass
+        # determine if allowed is a sequence or a sequence of sequences
+        if numpy.size(allowed[0]) == 2:
+            doInvert = False
+            cut_vec = numpy.ones_like(data, dtype='bool')
+            for element in allowed:
+                if numpy.size(element) == 2:
+                    try:
+                        a,b = element
+                        if a is not None and b is not None:
+                            index = numpy.logical_and(data >= a, data <= b)
+                        elif a is not None:
+                            index = data >= a
+                        elif b is not None:
+                            index = data <= b
+                        cut_vec[index] = False
+                    except:
+                        raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid'%str(element))
+                elif element == 'invert':
+                    doInvert = True
+            if doInvert:
+                self.cuts.cut(cut_id, ~cut_vec)
+            else:
+                self.cuts.cut(cut_id, cut_vec)
+        else:
+            try:
+                a,b = allowed
+                if a is not None:
+                    self.cuts.cut(cut_id, data <= a)
+                if b is not None:
+                    self.cuts.cut(cut_id, data >= b)
+            except ValueError:
+                pass
     
     
     def apply_cuts(self, controls=None, clear=False, verbose=1):
@@ -1083,90 +1113,90 @@ class MicrocalDataSet(object):
         self.cuts = Cuts(self.nPulses)
     
     
-    def phase_correct(self, prange=None, times=None, plot=True):
-        """Apply a correction for pulse variation with arrival phase.
-        Model is a parabolic correction with cups at +-180 degrees away from the "center".
-        
-        prange:  use only filtered values in this range for correction 
-        times: if not None, use this range of p_timestamps instead of all data (units are seconds
-               since server started--ugly but that's what we have to work with)
-        plot:  whether to display the result
-        """
-        
-        # Choose number and size of bins
-        phase_step=.05
-        nstep = int(.5+1.0/phase_step)
-        phases = (0.5+numpy.arange(nstep))/nstep - 0.5
-        phase_step = 1.0/nstep
-        
-        # Default: use the calibration to pick a prange
-        if prange is None:
-            calibration = self.calibration['p_filt_value']
-            ph_estimate = calibration.name2ph('Mn Ka1')
-            prange = numpy.array((ph_estimate*.98, ph_estimate*1.02))
-
-        # Estimate corrections in a few different pieces
-        corrections = []
-        valid = self.cuts.good()
-        if prange is not None:
-            valid = numpy.logical_and(valid, self.p_filt_value<prange[1])
-            valid = numpy.logical_and(valid, self.p_filt_value>prange[0])
-        if times is not None:
-            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
-            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
-
-        # Plot the raw filtered value vs phase
-        if plot:
-            pylab.clf()
-            pylab.subplot(211)
-            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value[valid],',',color='orange')
-            pylab.xlabel("Hypothetical 'center phase'")
-            pylab.ylabel("Filtered PH")
-            pylab.xlim([-.55,.55])
-            if prange is not None:
-                pylab.ylim(prange)
-                
-        for ctr_phase in phases:
-            valid_ph = numpy.logical_and(valid,
-                                         numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
-#            print valid_ph.sum(),"   ",
-            mean = self.p_filt_value[valid_ph].mean()
-            median = numpy.median(self.p_filt_value[valid_ph])
-            corrections.append(mean) # not obvious that mean vs median matters
-            if plot:
-                pylab.plot(ctr_phase, mean, 'or')
-                pylab.plot(ctr_phase, median, 'vk', ms=10)
-        corrections = numpy.array(corrections)
-        assert numpy.isfinite(corrections).all()
-        
-        def model(params, phase):
-            "Params are (phase of center, curvature, mean peak height)"
-            phase = (phase - params[0]+.5)%1 - 0.5
-            return 4*params[1]*(phase**2 - 0.125) + params[2]
-        errfunc = lambda p,x,y: y-model(p,x)
-        
-        params = (0., 4, corrections.mean())
-        fitparams, _iflag = scipy.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
-        phases = numpy.arange(-0.6,0.5001,.01)
-        if plot: pylab.plot(phases, model(fitparams, phases), color='blue')
-        
-        
-        self.phase_correction={'phase':fitparams[0],
-                            'amplitude':fitparams[1],
-                            'mean':fitparams[2]}
-        fitparams[2] = 0
-        correction = model(fitparams, self.p_filt_phase)
-        self.p_filt_value_phc = self.p_filt_value - correction
-        self.p_filt_value_dc = self.p_filt_value_phc.copy()
-        print 'RMS phase correction is: %9.3f (%6.2f parts/thousand)'%(correction.std(), 
-                                            1e3*correction.std()/self.p_filt_value.mean())
-        
-        if plot:
-            pylab.subplot(212)
-            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value_phc[valid],',b')
-            pylab.xlim([-.55,.55])
-            if prange is not None:
-                pylab.ylim(prange)
+#    def phase_correct(self, prange=None, times=None, plot=True):
+#        """Apply a correction for pulse variation with arrival phase.
+#        Model is a parabolic correction with cups at +-180 degrees away from the "center".
+#        
+#        prange:  use only filtered values in this range for correction 
+#        times: if not None, use this range of p_timestamps instead of all data (units are seconds
+#               since server started--ugly but that's what we have to work with)
+#        plot:  whether to display the result
+#        """
+#        
+#        # Choose number and size of bins
+#        phase_step=.05
+#        nstep = int(.5+1.0/phase_step)
+#        phases = (0.5+numpy.arange(nstep))/nstep - 0.5
+#        phase_step = 1.0/nstep
+#        
+#        # Default: use the calibration to pick a prange
+#        if prange is None:
+#            calibration = self.calibration['p_filt_value']
+#            ph_estimate = calibration.name2ph('Mn Ka1')
+#            prange = numpy.array((ph_estimate*.98, ph_estimate*1.02))
+#
+#        # Estimate corrections in a few different pieces
+#        corrections = []
+#        valid = self.cuts.good()
+#        if prange is not None:
+#            valid = numpy.logical_and(valid, self.p_filt_value<prange[1])
+#            valid = numpy.logical_and(valid, self.p_filt_value>prange[0])
+#        if times is not None:
+#            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
+#            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+#
+#        # Plot the raw filtered value vs phase
+#        if plot:
+#            pylab.clf()
+#            pylab.subplot(211)
+#            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value[valid],',',color='orange')
+#            pylab.xlabel("Hypothetical 'center phase'")
+#            pylab.ylabel("Filtered PH")
+#            pylab.xlim([-.55,.55])
+#            if prange is not None:
+#                pylab.ylim(prange)
+#                
+#        for ctr_phase in phases:
+#            valid_ph = numpy.logical_and(valid,
+#                                         numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
+##            print valid_ph.sum(),"   ",
+#            mean = self.p_filt_value[valid_ph].mean()
+#            median = numpy.median(self.p_filt_value[valid_ph])
+#            corrections.append(mean) # not obvious that mean vs median matters
+#            if plot:
+#                pylab.plot(ctr_phase, mean, 'or')
+#                pylab.plot(ctr_phase, median, 'vk', ms=10)
+#        corrections = numpy.array(corrections)
+#        assert numpy.isfinite(corrections).all()
+#        
+#        def model(params, phase):
+#            "Params are (phase of center, curvature, mean peak height)"
+#            phase = (phase - params[0]+.5)%1 - 0.5
+#            return 4*params[1]*(phase**2 - 0.125) + params[2]
+#        errfunc = lambda p,x,y: y-model(p,x)
+#        
+#        params = (0., 4, corrections.mean())
+#        fitparams, _iflag = scipy.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
+#        phases = numpy.arange(-0.6,0.5001,.01)
+#        if plot: pylab.plot(phases, model(fitparams, phases), color='blue')
+#        
+#        
+#        self.phase_correction={'phase':fitparams[0],
+#                            'amplitude':fitparams[1],
+#                            'mean':fitparams[2]}
+#        fitparams[2] = 0
+#        correction = model(fitparams, self.p_filt_phase)
+#        self.p_filt_value_phc = self.p_filt_value - correction
+#        self.p_filt_value_dc = self.p_filt_value_phc.copy()
+#        print 'RMS phase correction is: %9.3f (%6.2f parts/thousand)'%(correction.std(), 
+#                                            1e3*correction.std()/self.p_filt_value.mean())
+#        
+#        if plot:
+#            pylab.subplot(212)
+#            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value_phc[valid],',b')
+#            pylab.xlim([-.55,.55])
+#            if prange is not None:
+#                pylab.ylim(prange)
 
     # galen 20130211 - I think this can be replaced by polyfit with 1 dimension, its faster, more obvious what is going on, and in my test yielded the same answer to 3 decimal places
     def auto_drift_correct_rms(self, prange=None, times=None, ptrange=None, plot=False, slopes=None):

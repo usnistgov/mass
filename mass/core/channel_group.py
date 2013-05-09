@@ -1333,7 +1333,7 @@ class TESGroup(BaseChannelGroup):
                          main file's location."""
     
         if filename is None:
-            ljhfilename = self.first_good_dataset
+            ljhfilename = self.first_good_dataset.filename
             ljhbasename = ljhfilename.split("_chan")[0]
             basedir = os.path.dirname(ljhfilename)
             if dirname is None:
@@ -1367,6 +1367,13 @@ def unpickle_TESGroup(filename):
                  
     Returns a valid TESGroup object.  I hope.
     """
+    if not filename[-8:] == 'mass.pkl':
+        baseDir , fName = os.path.split(filename)
+        massDir = os.path.join(baseDir, 'mass/')
+        massFilename = fName.replace(fName[fName.rfind('chan'):],'mass.pkl')
+        massFilename = os.path.join(massDir, massFilename)
+        print('unpickle_TESGroup given %s, found %s'%(filename, massFilename))
+        filename = massFilename
 
     fp = open(filename, "rb")
     unpickler = cPickle.Unpickler(fp)
