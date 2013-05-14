@@ -698,8 +698,6 @@ class MicrocalDataSet(object):
         self.filter = {}
         self.drift_correct_info = {}
         self.phase_correct_info = {}
-        self.noise_records = noise_records
-        self.pulse_records = pulse_records
         self.noise_spectrum = None
         self.noise_autocorr = None 
         self.noise_demodulated = None
