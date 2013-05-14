@@ -277,6 +277,9 @@ class GeneralCalibration(object):
     def calibrate_approximately(self, line_names = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value', doPlot = False, minPulses = 80, append_to_cal = True):
         """Element names must be in order of peak height, only works with kAlphas for now"""
         if type(line_names) != type(list()): line_names = [line_names]
+        line_known_energies = [mass.energy_calibration.STANDARD_FEATURES[line_name] for line_name in line_names]
+        line_names_energy_order = [line_names[line_known_energies.index(energy)] for energy in sorted(line_known_energies)]
+        print('line_names_energy_order',line_names_energy_order)
         for ds in self.data:
             if ds.calibration.has_key(whichCalibration) and append_to_cal:
                 cal = ds.calibration[whichCalibration] # add to existing cal if it exists
@@ -291,8 +294,10 @@ class GeneralCalibration(object):
             if len(peak_location_pulseheights) < len(line_names):
                 self.data.set_chan_bad(ds.channum, 'failed calibrate_approximatley with %s, num peaks %d < %d line_names'%(whichCalibration, len(peak_location_pulseheights), len(line_names)))                
                 continue
-            for i, line_name in enumerate(line_names): 
-                line_location_guess = peak_location_pulseheights[-(i+1)]
+            peak_location_pulseheights = numpy.sort(peak_location_pulseheights[-len(line_names_energy_order):])
+            print('peak_location_pulseheights', peak_location_pulseheights)
+            for i, line_name in enumerate(line_names_energy_order): 
+                line_location_guess = peak_location_pulseheights[i]
                 toCalibrate = ds.__dict__[whichCalibration]
                 use = log_and(ds.cuts.good(), numpy.abs(toCalibrate/line_location_guess-1.0)<0.012)
                 if use.sum() < minPulses:
@@ -380,7 +385,11 @@ class GeneralCalibration(object):
             else:
                 cal = mass.calibration.EnergyCalibration(whichCalibration)
                 ds.calibration[whichCalibration] = cal
-            toCalibrate = ds.__dict__[whichCalibration]
+            if '_scaled' in whichCalibration:
+                whichFiltValue = whichCalibration[:whichCalibration.find('_scaled')]
+            else:
+                whichFiltValue = whichCalibration
+            toCalibrate = ds.__dict__[whichFiltValue]
             for i, line_name in enumerate(lines_name):
 
 
@@ -582,12 +591,16 @@ class GeneralCalibration(object):
             if not whichCalibration in ds.calibration.keys():
                 self.data.set_chan_bad(ds.channum, 'failed convert_to_energy because %s not in ds.calibration.keys()'%whichCalibration)
                 continue
-            if not whichCalibration in ds.__dict__.keys():
+            if '_scaled' in whichCalibration:
+                whichFiltValue = whichCalibration[:whichCalibration.find('_scaled')]
+            else:
+                whichFiltValue = whichCalibration
+            if not whichFiltValue in ds.__dict__.keys():
                 self.data.set_chan_bad(ds.channum, 'failed convert_to_energy because %s not in ds.__dict__.keys()'%whichCalibration)
                 continue
             try:
                 cal = ds.calibration[whichCalibration]
-                ds.p_energy = cal(ds.__dict__[whichCalibration])
+                ds.p_energy = cal(ds.__dict__[whichFiltValue])
             except:
                 self.data.set_chan_bad(ds.channum, 'failed convert_to energy with %s'%whichCalibration)
             
@@ -682,9 +695,14 @@ class GeneralCalibration(object):
             else:
                 self.data.set_chan_bad(ds.channum, 'loaded file %s does not have phase_correct_info for channeles'%filename)
                 continue
-            if not ds.nSamples == filters[ds.channum].avg_signal.size:
-                self.data.set_chan_bad(ds.channum, 'loaded filter has %d samples, != datasets has %d samples'%(filters[ds.channum].avg_signal.size, ds.nSamples))
+            try:
+                if not ds.nSamples == filters[ds.channum].avg_signal.size:
+                    self.data.set_chan_bad(ds.channum, 'loaded filter has %d samples, != datasets has %d samples'%(filters[ds.channum].avg_signal.size, ds.nSamples))
+                    continue
+            except:
+                self.data.set_chan_bad(ds.channum, 'loaded filter probably doesnt have .avg_signal')
                 continue
+                
         if applyLoaded:
             self.apply_filter()
             self.apply_stored_drift_correct()
@@ -874,6 +892,7 @@ class GeneralCalibration(object):
                 self.data.set_chan_bad(ds.channum, 'phase_correct_info[''phase''] does not exist')
                 
     def pickle(self):
+        print('pickleing data')
         self.data.pickle()
     
     def unpickle(self):
