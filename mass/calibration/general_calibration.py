@@ -294,19 +294,26 @@ class GeneralCalibration(object):
             if len(peak_location_pulseheights) < len(line_names):
                 self.data.set_chan_bad(ds.channum, 'failed calibrate_approximatley with %s, num peaks %d < %d line_names'%(whichCalibration, len(peak_location_pulseheights), len(line_names)))                
                 continue
+            toCalibrate = ds.__dict__[whichCalibration]
             peak_location_pulseheights = numpy.sort(peak_location_pulseheights[-len(line_names_energy_order):])
             print('peak_location_pulseheights', peak_location_pulseheights)
             for i, line_name in enumerate(line_names_energy_order): 
                 line_location_guess = peak_location_pulseheights[i]
-                toCalibrate = ds.__dict__[whichCalibration]
                 use = log_and(ds.cuts.good(), numpy.abs(toCalibrate/line_location_guess-1.0)<0.012)
                 if use.sum() < minPulses:
                     self.data.set_chan_bad(ds.channum, 'failed calibrate_approximatley with %s %s has %d pulses < %d the minimum'%(whichCalibration, line_name, use.sum(), minPulses))
                     break
-                else:
-                    line_location = scipy.stats.scoreatpercentile(toCalibrate[use], 67.)
-                    cal.add_cal_point(line_location, '%s'%line_name, pht_error=2)
-                    print('calibrate_approximately %s chan %d added %s at %.2f'%(whichCalibration, ds.channum, line_name, line_location))
+                line_location = scipy.stats.scoreatpercentile(toCalibrate[use], 67.)
+                cal.add_cal_point(line_location, '%s'%line_name, pht_error=2)
+                print('calibrate_approximately %s chan %d added %s at %.2f'%(whichCalibration, ds.channum, line_name, line_location))
+                try:
+                    line_location_from_cal = cal.name2ph(line_name)
+                except:
+                    self.data.set_chan_bad(ds.channum, 'calibrate_approximatley with %s failed name2ph after %s (probably bad calibration point added, not neccesarily the most recent point)'%(whichCalibration, line_name))
+                    break
+                if numpy.abs(line_location/cal.name2ph(line_name)-1) > 0.01:
+                    self.data.set_chan_bad(ds.channum,'calibrate_approximatley %s numpy.abs(line_location/cal.name2ph(''%s'')-1) > 0.01'%(whichCalibration, line_name))
+                    break       
                 
         print('calibrate_approximately with %s  %d of %d datasets survived'%(whichCalibration, self.data.num_good_channels, self.data.n_channels))
 
