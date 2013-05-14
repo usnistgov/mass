@@ -1387,7 +1387,7 @@ def unpickle_TESGroup(filename):
     data.set_chan_bad(bad_channums, 'was bad when saved')
     printUpdater = inlineUpdater.InlineUpdater('unpickle_TESGroup')
     for ds in data.datasets:
-        printUpdater.update(ds.index/float(data.num_good_channels))
+        printUpdater.update((ds.index+1)/float(len(data.datasets)))
         ds.unpickle()
     
 #     expected_attr = unpickler.load()
