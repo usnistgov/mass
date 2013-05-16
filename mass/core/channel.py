@@ -733,11 +733,12 @@ class MicrocalDataSet(object):
         self.p_pulse_average = numpy.zeros(npulses, dtype=numpy.float32)
         self.p_rise_time = numpy.zeros(npulses, dtype=numpy.float32)
         self.p_max_posttrig_deriv = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_filt_value = numpy.zeros(npulses, dtype=numpy.float64) # the p_filt_value_x variables get hanges to float64 somewhere else in the code
-        self.p_filt_value_phc = numpy.zeros(npulses, dtype=numpy.float64) # I think they would be fine as float32, but it will take more than changes here only
-        self.p_filt_value_dc = numpy.zeros(npulses, dtype=numpy.float64)
-        self.p_energy = numpy.zeros(npulses, dtype=numpy.float64)
+        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float64) # float32 for p_filt_phase makes energy resoluiton worse, gco, 20130516, it should be possible to use 32 but probably requires rescaling phase
+        # maybe converting phase to int16, where 0 is 0, -max is -2, max is 2?
+        self.p_filt_value = numpy.zeros(npulses, dtype=numpy.float32) 
+        self.p_filt_value_phc = numpy.zeros(npulses, dtype=numpy.float32) 
+        self.p_filt_value_dc = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_energy = numpy.zeros(npulses, dtype=numpy.float32)
         
         self.cuts = Cuts(self.nPulses)
     
@@ -745,10 +746,6 @@ class MicrocalDataSet(object):
     def p_peak_time(self):
         # this is a property to reduce memory usage, I hope it works
         return (numpy.asarray(self.p_peak_index, dtype=numpy.int)-self.nPresamples)*self.timebase
-    
-
-    
-       
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
