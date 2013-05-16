@@ -296,7 +296,7 @@ class GeneralCalibration(object):
                 continue
             toCalibrate = ds.__dict__[whichCalibration]
             peak_location_pulseheights = numpy.sort(peak_location_pulseheights[-len(line_names_energy_order):])
-            print('peak_location_pulseheights', peak_location_pulseheights)
+#            print('peak_location_pulseheights', peak_location_pulseheights)
             for i, line_name in enumerate(line_names_energy_order): 
                 line_location_guess = peak_location_pulseheights[i]
                 use = log_and(ds.cuts.good(), numpy.abs(toCalibrate/line_location_guess-1.0)<0.012)
@@ -419,14 +419,20 @@ class GeneralCalibration(object):
                     energyScaleGuess = (cal.energy2ph(maxE)-cal.energy2ph(minE))/(maxE-minE)
                     amplitudeGuess = contents.max()/0.13
                     phGuess = bins[numpy.argmax(contents)]
+                    quarterLen = len(contents)/4
+                    if quarterLen <=3: # this probably wont work anyway since contents is so short
+                        background = 0.1
+                        background_slope = 0.0                        
+                    else:
+                        background = contents[0:quarterLen].mean()
+                        background_slope = (contents[-quarterLen:].mean()-background)/float(len(contents))
                     try:
                         if doPlot: pylab.figure()
                         hold = []
-                        paramGuess = None
                         if line_name[-4:]=='Beta':
-                            hold = [2,4,5] # simplify the fitting for kBeta by holding energh scale factor (degenerate with resolution with only 1 line), and background level and slope
-                            paramGuess = [4.0,phGuess, energyScaleGuess,amplitudeGuess, 0.0, 0.0 ]
-                        param, covar = fitter.fit(contents, bin_ctrs, plot=doPlot, hold=hold)
+                            hold = [2,4,5] # simplify the fitting for kBeta by holding energy scale factor (degenerate with resolution with only 1 line), and background level and slope
+                        paramGuess = [4.0,phGuess, energyScaleGuess,amplitudeGuess, background, background_slope ]
+                        param, covar = fitter.fit(contents, bin_ctrs, plot=doPlot, hold=hold, params=paramGuess)
                         #param: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
                         #energy scale factor (pulseheights/eV), amplitude, background level (per bin),
                         #and background slope (in counts per bin per bin) ]
@@ -442,7 +448,7 @@ class GeneralCalibration(object):
                     ph = param[1]
                     dph = covar[1,1]**0.5
                     try:
-                        cal.add_cal_point(ph, '%s'%line_name, pht_error=dph)
+                        cal.add_cal_point(ph, '%s'%line_name, pht_error=dph, info = {'resolution':res, 'dres':dres, 'fitparams':param})
                         print('%s chan %d, %s, ph %.1f, dph %.3f, resolution %.2f +- %.2f eV'%(whichCalibration, ds.channum, line_name, ph, dph, res, dres))
                     except:
                         self.data.set_chan_bad(ds.channum, 'failed add_cal_point %s ph=%s line_name=%s pht_error=%s'%(whichCalibration, str(ph), line_name, str(dph) ))
@@ -494,8 +500,6 @@ class GeneralCalibration(object):
                         pylab.title('%s center=%.1f, dCenter=%.3f, width=%.3f, %s'%(line_name, edgeCenter, dEdgeCenter, width, usedStr))
                     print('cal_edge %s chan %d, %s, edgeCenter %.2f, dEdgeCenter %.3f, edgeDropCounts %.1f, %s'%(whichCalibration, ds.channum, line_name, edgeCenter, dEdgeCenter, preHeight-postHeight, usedStr))
                     
-                    edgeInfo = {'used':usedStr, 'center':edgeCenter, 'averageCounts':(preHeight+postHeight)/2,'dropCounts':preHeight-postHeight, 'uncertainty': dEdgeCenter, 'width':width, 'name': line_name}
-
                 else:
                     print('%s not recognized as a KAlpha, KBeta or Edge'%line_name)
 
