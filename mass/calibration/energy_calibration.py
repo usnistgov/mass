@@ -93,7 +93,7 @@ class EnergyCalibration(object):
         self.ph_field = ph_field
         self.ph2energy = lambda x: x
         self.energy2ph = lambda x: x
-        self.calInfo = [{}]
+        self.info = [{}]
         self._ph = numpy.zeros(1, dtype=numpy.float)
         self._energies = numpy.zeros(1, dtype=numpy.float)
         self._stddev = numpy.zeros(1, dtype=numpy.float)
@@ -194,7 +194,7 @@ class EnergyCalibration(object):
             except ValueError:
                 raise ValueError("2nd argument must be an energy or a known name"+
                                  " from mass.energy_calibration.STANDARD_FEATURES")
-        
+        info['name']=name
         if pht_error is None:
             pht_error = pht*0.001
         
@@ -205,14 +205,14 @@ class EnergyCalibration(object):
             self._ph[index] = pht
             self._energies[index] = energy
             self._stddev[index] = pht_error
-            self.calInfo[index] = info
+            self.info[index] = info
             
         else:   # Add a new point
             self._ph = numpy.hstack((self._ph, pht))
             self._energies = numpy.hstack((self._energies, energy))
             self._stddev = numpy.hstack((self._stddev, pht_error))
             self._names.append(name)
-            self.calInfo.append(info)
+            self.info.append(info)
             
             # Sort in ascending energy order
             sortkeys = numpy.argsort(self._energies)
@@ -220,12 +220,12 @@ class EnergyCalibration(object):
             self._energies = self._energies[sortkeys]
             self._stddev = self._stddev[sortkeys]
             self._names = [self._names[s] for s in sortkeys]
-            self.calInfo = [self.calInfo[s] for s in sortkeys]
+            self.info = [self.info[s] for s in sortkeys]
             self.npts += 1
             assert len(self._names)==len(self._ph)
             assert len(self._names)==len(self._stddev)
             assert len(self._names)==len(self._energies)
-            assert len(self._names)==len(self.calInfo)
+            assert len(self._names)==len(self.info)
 
         self._update_converters()
         
