@@ -819,8 +819,8 @@ class BaseChannelGroup(object):
         if filter_name is None: filter_name='filt_noconst'
         
         for ds in self.datasets:
-            ds.p_filt_phase = numpy.zeros(ds.nPulses, dtype=numpy.float)
-            ds.p_filt_value = numpy.zeros(ds.nPulses, dtype=numpy.float)
+            ds.p_filt_phase = numpy.zeros_like(ds.p_filt_phase) # be sure not to change the data type of these arrays, they should follow the type from channel._setup_vectors
+            ds.p_filt_value = numpy.zeros_like(ds.p_filt_value)
             
         printUpdater = inlineUpdater.InlineUpdater('BaseChannelGroup.filter_data')
         for first, end in self.iter_segments():
