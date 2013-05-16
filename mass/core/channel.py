@@ -724,24 +724,31 @@ class MicrocalDataSet(object):
         if npulses is None:
             assert self.nPulses > 0
             npulses = self.nPulses
-        self.p_timestamp = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_timestamp = numpy.zeros(npulses, dtype=numpy.float64)
         self.p_peak_index = numpy.zeros(npulses, dtype=numpy.uint16)
         self.p_peak_value = numpy.zeros(npulses, dtype=numpy.uint16)
-        self.p_peak_time = numpy.zeros(npulses, dtype=numpy.float)
         self.p_min_value = numpy.zeros(npulses, dtype=numpy.uint16)
-        self.p_pretrig_mean = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_pretrig_rms = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_pulse_average = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_rise_time = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_max_posttrig_deriv = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_filt_value = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_filt_value_phc = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_filt_value_dc = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_energy = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_first3 = numpy.zeros((npulses,3), dtype=numpy.uint16)
+        self.p_pretrig_mean = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_pretrig_rms = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_pulse_average = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_rise_time = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_max_posttrig_deriv = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_filt_value = numpy.zeros(npulses, dtype=numpy.float64) # the p_filt_value_x variables get hanges to float64 somewhere else in the code
+        self.p_filt_value_phc = numpy.zeros(npulses, dtype=numpy.float64) # I think they would be fine as float32, but it will take more than changes here only
+        self.p_filt_value_dc = numpy.zeros(npulses, dtype=numpy.float64)
+        self.p_energy = numpy.zeros(npulses, dtype=numpy.float64)
         
         self.cuts = Cuts(self.nPulses)
+    
+    @property
+    def p_peak_time(self):
+        # this is a property to reduce memory usage, I hope it works
+        return (numpy.asarray(self.p_peak_index, dtype=numpy.int)-self.nPresamples)*self.timebase
+    
+
+    
+       
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
@@ -891,13 +898,10 @@ class MicrocalDataSet(object):
         self.p_peak_value[first:end] = self.data[:seg_size,:].max(axis=1)
         self.p_min_value[first:end] = self.data[:seg_size,:].min(axis=1)
         self.p_pulse_average[first:end] = self.data[:seg_size,self.nPresamples:].mean(axis=1)
-        self.p_first3[first:end,:] = self.data[:seg_size,self.nPresamples+3:self.nPresamples+6]
         
         # Remove the pretrigger mean from the peak value and the pulse average figures. 
         self.p_peak_value[first:end] -= self.p_pretrig_mean[first:end]
         self.p_pulse_average[first:end] -= self.p_pretrig_mean[first:end]
-        # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:
-        self.p_peak_time[first:end] = (numpy.asarray(self.p_peak_index[first:end], dtype=numpy.int)-self.nPresamples)*self.timebase
 
         # Compute things that have to be computed one at a time:
         for pulsenum,pulse in enumerate(self.data):
@@ -1090,7 +1094,8 @@ class MicrocalDataSet(object):
               
         self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], self.CUT_NAME.index('pretrigger_rms'))
         self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'], self.CUT_NAME.index('pretrigger_mean'))
-        self.cut_parameter(self.p_peak_time*1e3, c['peak_time_ms'], self.CUT_NAME.index('peak_time_ms'))
+        # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:
+        self.cut_parameter(1e3*self.p_peak_time, c['peak_time_ms'], self.CUT_NAME.index('peak_time_ms'))
         self.cut_parameter(self.p_rise_time*1e3, c['rise_time_ms'], self.CUT_NAME.index('rise_time_ms'))
         self.cut_parameter(self.p_max_posttrig_deriv, c['max_posttrig_deriv'], self.CUT_NAME.index('max_posttrig_deriv'))
         self.cut_parameter(self.p_pulse_average, c['pulse_average'], self.CUT_NAME.index('pulse_average'))
