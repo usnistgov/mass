@@ -923,21 +923,19 @@ class MicrocalDataSet(object):
 
         seg_size = min(end-first, self.data.shape[0])
         conv = numpy.zeros((5, seg_size), dtype=numpy.float)
-        if transform is None:
-            for i in range(5):
-                if i-4 == 0:
-                    conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
-                else:
-                    conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
-        else:
+        if transform is not None:
             ptmean = self.p_pretrig_mean[first:end]
             ptmean.shape = (len(ptmean),1)
             data = transform(self.data-ptmean)
-            for i in range(5):
-                if i-4 == 0:
-                    conv[i,:] = (filter_values*data[:seg_size,i:]).sum(axis=1)
-                else:
-                    conv[i,:] = (filter_values*data[:seg_size,i:i-4]).sum(axis=1)
+        for i in range(5):
+            if i-4 == 0:
+                # previous method in comments, converted to dot product based on ~30% speed boost in tests
+#                    conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
+                conv[i,:] = numpy.dot(self.data[:,i:], filter_values)
+            else:
+#                    conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
+                conv[i,:] = numpy.dot(self.data[:seg_size,i:i-4], filter_values)
+
 
         param = numpy.dot(fit_array, conv)
         peak_x = -0.5*param[1,:]/param[2,:]
