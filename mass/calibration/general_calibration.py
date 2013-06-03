@@ -279,7 +279,6 @@ class GeneralCalibration(object):
         if type(line_names) != type(list()): line_names = [line_names]
         line_known_energies = [mass.energy_calibration.STANDARD_FEATURES[line_name] for line_name in line_names]
         line_names_energy_order = [line_names[line_known_energies.index(energy)] for energy in sorted(line_known_energies)]
-        print('line_names_energy_order',line_names_energy_order)
         for ds in self.data:
             if ds.calibration.has_key(whichCalibration) and append_to_cal:
                 cal = ds.calibration[whichCalibration] # add to existing cal if it exists
@@ -296,7 +295,6 @@ class GeneralCalibration(object):
                 continue
             toCalibrate = ds.__dict__[whichCalibration]
             peak_location_pulseheights = numpy.sort(peak_location_pulseheights[-len(line_names_energy_order):])
-#            print('peak_location_pulseheights', peak_location_pulseheights)
             for i, line_name in enumerate(line_names_energy_order): 
                 line_location_guess = peak_location_pulseheights[i]
                 use = log_and(ds.cuts.good(), numpy.abs(toCalibrate/line_location_guess-1.0)<0.012)
@@ -448,7 +446,7 @@ class GeneralCalibration(object):
                     ph = param[1]
                     dph = covar[1,1]**0.5
                     try:
-                        cal.add_cal_point(ph, '%s'%line_name, pht_error=dph, info = {'resolution':res, 'dres':dres, 'fitparams':param})
+                        cal.add_cal_point(ph, line_name, pht_error=dph, info = {'resolution':res, 'dres':dres, 'fitparams':param})
                         print('%s chan %d, %s, ph %.1f, dph %.3f, resolution %.2f +- %.2f eV'%(whichCalibration, ds.channum, line_name, ph, dph, res, dres))
                     except:
                         self.data.set_chan_bad(ds.channum, 'failed add_cal_point %s ph=%s line_name=%s pht_error=%s'%(whichCalibration, str(ph), line_name, str(dph) ))
@@ -741,7 +739,7 @@ class GeneralCalibration(object):
         print('%d pulses cut by CUT_TIMESTAMP'%numpy.sum(ds.cuts.isCut(ds.CUT_TIMESTAMP)))
         print('totalCounts %d, countsPassedCuts %d, elapsedTime %f'%(totalCounts, countsPassedCuts, elapsedTime))
         
-    def countRateInfo(self, usefulEnergyRange = (5300, 6000), doPlots = False ):
+    def countRateInfo(self, usefulEnergyRange = (5300, 6000), doPlots = False, verbose = False ):
         assert(usefulEnergyRange[0]<usefulEnergyRange[1])
         countsPassedCuts = numpy.zeros(self.data.num_good_channels)
         totalCounts = numpy.zeros(self.data.num_good_channels)
@@ -755,7 +753,8 @@ class GeneralCalibration(object):
             elapsedTime[i] = ds.p_timestamp[ds.cuts.good()][-1]-ds.p_timestamp[ds.cuts.good()][0]
             usefulIndex = log_and(ds.cuts.good(), ds.p_energy>usefulEnergyRange[0], ds.p_energy<usefulEnergyRange[1])
             usefulCounts[i] = usefulIndex.sum()
-            print('channel %d, trigger rate %4.2f/s, passed cuts rate %4.2f/s, useful rate %4.2f/s'%(ds.channum, 
+            if verbose:
+                print('channel %d, trigger rate %4.2f/s, passed cuts rate %4.2f/s, useful rate %4.2f/s'%(ds.channum, 
                    totalCounts[i]/elapsedTime[i], countsPassedCuts[i]/elapsedTime[i], usefulCounts[i]/elapsedTime[i]))
             if doPlots:
                 pylab.figure()
@@ -768,12 +767,13 @@ class GeneralCalibration(object):
                               totalCounts[i]/elapsedTime[i], countsPassedCuts[i]/elapsedTime[i], usefulCounts[i]/elapsedTime[i]))
             
         elapsedTime = numpy.median(elapsedTime) # they should all have the same elapsed time roughly.
-        pylab.figure()
-        pylab.plot(totalCounts/elapsedTime, 10*usefulCounts/elapsedTime,'bs',label='10x counts in range %d eV to %d eV'%usefulEnergyRange)
-        pylab.plot(totalCounts/elapsedTime, countsPassedCuts/elapsedTime,'ro',label='counts passed cuts')
-        pylab.xlabel('~trigger rate s^-1')
-        pylab.ylabel('other count rates s^-1')
-        pylab.legend()
+        if doPlots:
+            pylab.figure()
+            pylab.plot(totalCounts/elapsedTime, 10*usefulCounts/elapsedTime,'bs',label='10x counts in range %d eV to %d eV'%usefulEnergyRange)
+            pylab.plot(totalCounts/elapsedTime, countsPassedCuts/elapsedTime,'ro',label='counts passed cuts')
+            pylab.xlabel('~trigger rate s^-1')
+            pylab.ylabel('other count rates s^-1')
+            pylab.legend()
         
         return totalCounts/elapsedTime, countsPassedCuts/elapsedTime, usefulCounts/elapsedTime
         

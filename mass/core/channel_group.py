@@ -280,7 +280,9 @@ class BaseChannelGroup(object):
             for ds in self.iter_channels(include_badchan):
                 ds.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
 
-        
+    def summarize_data_tdm(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False, forceNew=False):
+        for chan in self.iter_channel_numbers(include_badchan):
+            self.channel[chan].summarize_data_tdm(peak_time_microsec, pretrigger_ignore_microsec, forceNew)
     
     def read_trace(self, record_num, dataset_num=0, chan_num=None):
         """Read (from cache or disk) and return the pulse numbered <record_num> for 

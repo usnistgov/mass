@@ -460,7 +460,7 @@ class PulseRecords(object):
         
     
     def read_segment(self, segment_num):
-        """Read the requested segment of the raw data file and return  (first,end,data)
+        """Read the requested segment of the raw data file and return  (first,end)
         meaning: the first record number, 1 more than the last record number,
         and the nPulse x nSamples array."""
         if segment_num >= self.n_segments:
@@ -706,7 +706,7 @@ class MicrocalDataSet(object):
         for a in self.expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename','virtual data set')
-        self.__setup_vectors(npulses=0)
+        self.__setup_vectors(npulses=self.nPulses)
         self.gain = 1.0
         self.pretrigger_ignore_microsec = None # Cut this long before trigger in computing pretrig values
         self.peak_time_microsec = None   # Look for retriggers only after this time. 
@@ -787,6 +787,25 @@ class MicrocalDataSet(object):
             c.noise_spectrum = self.noise_spectrum.copy()
         return c
 
+    def save_mass_data(self, dataname, *args, **kwargs):
+        basedir, basename = os.path.split(self.filename)
+        basename, baseext = os.path.splitext(basename)
+        massdir = os.path.join(basedir, "mass")
+        if not os.path.isdir(massdir):
+            os.mkdir(massdir, 0775)
+        filename = os.path.join(massdir, '%s_%s'%(basename, dataname))
+        numpy.savez(filename, *args, **kwargs)
+        
+    def load_mass_data(self, dataname):
+        basedir, basename = os.path.split(self.filename)
+        basename, baseext = os.path.splitext(basename)
+        massdir = os.path.join(basedir, 'mass')
+        filename = os.path.join(massdir, '%s_%s.%s'%(basename, dataname,'npz'))
+        try:
+            data_out = numpy.load(filename)
+        except IOError:
+            data_out = None
+        return data_out
 
     def pickle(self, filename=None):
         """Pickle the _contents_ of the MicrocalDataSet object.
@@ -868,6 +887,54 @@ class MicrocalDataSet(object):
             pass
         fp.close()
 
+    def summarize_data_tdm(self, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0, forceNew = False):
+        """summarized the complete data file one chunk at a time
+        this version does the whole dataset at once (instead of previous segment at a time for all datasets)
+        """
+        if not forceNew:  
+            data = self.load_mass_data('summarize%f_%f'%(peak_time_microsec, pretrigger_ignore_microsec))
+            if data is not None:
+    #            print('chan %d trying to load saved summarize data'%self.channum)
+                summarize_values = ['p_timestamp', 'p_pretrig_mean', 'p_pretrig_rms', 'p_peak_index', 'p_peak_value', 'p_min_value',
+                                    'p_pulse_average', 'p_rise_time', 'p_max_posttrig_deriv']
+                try:
+                    if len(data.keys()) == len(summarize_values):
+                        for key in data.keys():
+                            if key in summarize_values:
+                                self.__dict__[key] == data[key]
+                            else: 
+                                print('chan %d missing key %s'%(self.channum, key))
+                        return      
+                    else:
+                        print('chan %d failed summzarize because  len(data) %d != len(summarize_values) %d'%(self.channum, len(data.keys()), len(summarize_values)))
+                except:
+                    print('chan %d failed load data, summarizing anew'%self.channum)
+                    raise
+        
+#        print('chan %d summarizing data with %d pulses, %d segments'%(self.channum, self.nPulses, self.pulse_records.n_segments))
+        if len(self.p_timestamp) < self.pulse_records.nPulses:
+            self.__setup_vectors(nPulses=self.pulse_records.nPulses)
+        
+        pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)   
+        # consider setting segment size first
+        printUpdater = mass.calibration.inlineUpdater.InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
+        
+
+        for s in range(self.pulse_records.n_segments):
+            first, last = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
+            (self.p_pretrig_mean[first:last], self.p_pretrig_rms[first:last],
+            self.p_peak_index[first:last], self.p_peak_value[first:last], self.p_min_value[first:last],
+            self.p_pulse_average[first:last], self.p_rise_time[first:last], 
+            self.p_max_posttrig_deriv[first:last]) = mass.mathstat.summarize_and_filter.summarize_old(self.pulse_records.data, 
+                self.nPresamples, pretrigger_ignore_samples, self.timebase, peak_time_microsec)
+            printUpdater.update((s+1)/float(self.pulse_records.n_segments))
+            
+        self.save_mass_data('summarize%f_%f'%(peak_time_microsec, pretrigger_ignore_microsec), 
+                            p_timestamp=self.p_timestamp, p_pretrig_mean=self.p_pretrig_mean, p_pretrig_rms=self.p_pretrig_rms,
+                            p_peak_index=self.p_peak_index, p_peak_value=self.p_peak_value, p_min_value=self.p_min_value,
+                            p_pulse_average=self.p_pulse_average, p_rise_time=self.p_rise_time, p_max_posttrig_deriv=self.p_max_posttrig_deriv)            
+        del(self.pulse_records.data) # reduce memory usage      
+        del(self.pulse_records.datafile.datatimes_float)          
 
     def summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
         """Summarize the complete data file
@@ -885,12 +952,12 @@ class MicrocalDataSet(object):
             self.__setup_vectors(npulses=self.nPulses)
 
         maxderiv_holdoff = int(self.peak_time_microsec*1e-6/self.timebase) # don't look for retriggers before this # of samples
-        self.pretrigger_ignore_samples = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
+        pretrigger_ignore_samples = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
 
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
-        self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
-        self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
+        self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-pretrigger_ignore_samples].mean(axis=1)
+        self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-pretrigger_ignore_samples].std(axis=1)
         self.p_peak_index[first:end] = self.data[:seg_size,:].argmax(axis=1)
         self.p_peak_value[first:end] = self.data[:seg_size,:].max(axis=1)
         self.p_min_value[first:end] = self.data[:seg_size,:].min(axis=1)

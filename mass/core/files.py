@@ -380,9 +380,18 @@ class LJHFile(MicrocalFile):
         else:
             wordcount = -1
 
+#        array = numpy.core.records.fromfile(self.filename, dtype=numpy.uint16, offset=skip, shape=wordcount)
         array = numpy.fromfile(fp, dtype=numpy.uint16, sep="", count=wordcount)
-        fp.close()
 
+        try:
+            fp.close()
+        except:
+            print fp
+            print ('array[-4:]', array[-4:])
+            print ('wordcount', wordcount,'skip',skip)
+            print('arrays.size', array.size, 'array.dtype', array.dtype)
+            raise
+            
         # If data has a fractional record at the end, truncate to make it go away.
         self.segment_pulses = len(array)/(self.pulse_size_bytes/2)
         array = array[:self.segment_pulses*(self.pulse_size_bytes/2)]

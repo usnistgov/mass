@@ -205,14 +205,14 @@ class EnergyCalibration(object):
             self._ph[index] = pht
             self._energies[index] = energy
             self._stddev[index] = pht_error
-            self.info[index] = info
+            self.info[index] = info.copy()
             
         else:   # Add a new point
             self._ph = numpy.hstack((self._ph, pht))
             self._energies = numpy.hstack((self._energies, energy))
             self._stddev = numpy.hstack((self._stddev, pht_error))
             self._names.append(name)
-            self.info.append(info)
+            self.info.append(info.copy())
             
             # Sort in ascending energy order
             sortkeys = numpy.argsort(self._energies)
