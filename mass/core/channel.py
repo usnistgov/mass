@@ -891,29 +891,32 @@ class MicrocalDataSet(object):
         """summarized the complete data file one chunk at a time
         this version does the whole dataset at once (instead of previous segment at a time for all datasets)
         """
-        if not forceNew:  
-            data = self.load_mass_data('summarize%f_%f'%(peak_time_microsec, pretrigger_ignore_microsec))
-            if data is not None:
-    #            print('chan %d trying to load saved summarize data'%self.channum)
-                summarize_values = ['p_timestamp', 'p_pretrig_mean', 'p_pretrig_rms', 'p_peak_index', 'p_peak_value', 'p_min_value',
-                                    'p_pulse_average', 'p_rise_time', 'p_max_posttrig_deriv']
-                try:
-                    if len(data.keys()) == len(summarize_values):
-                        for key in data.keys():
-                            if key in summarize_values:
-                                self.__dict__[key] == data[key]
-                            else: 
-                                print('chan %d missing key %s'%(self.channum, key))
-                        return      
-                    else:
-                        print('chan %d failed summzarize because  len(data) %d != len(summarize_values) %d'%(self.channum, len(data.keys()), len(summarize_values)))
-                except:
-                    print('chan %d failed load data, summarizing anew'%self.channum)
-                    raise
+#        fileinfostr = 'summarize%f_%f'%(peak_time_microsec, pretrigger_ignore_microsec)
+#        if not forceNew:  
+#            data = self.load_mass_data(fileinfostr)
+#            if data is not None:
+#    #            print('chan %d trying to load saved summarize data'%self.channum)
+#                summarize_values = ['p_timestamp', 'p_pretrig_mean', 'p_pretrig_rms', 'p_peak_index', 'p_peak_value', 'p_min_value',
+#                                    'p_pulse_average', 'p_rise_time', 'p_max_posttrig_deriv']
+#                try:
+#                    if len(data.keys()) == len(summarize_values):
+#                        for key in data.keys():
+#                            if key in summarize_values:
+#                                self.__dict__[key] == data[key]
+#                            else: 
+#                                print('chan %d missing key %s'%(self.channum, key))
+#                        return      
+#                    else:
+#                        print('chan %d failed summzarize because  len(data) %d != len(summarize_values) %d'%(self.channum, len(data.keys()), len(summarize_values)))
+#                except:
+#                    print('chan %d failed load data, summarizing anew'%self.channum)
+#                    raise
         
 #        print('chan %d summarizing data with %d pulses, %d segments'%(self.channum, self.nPulses, self.pulse_records.n_segments))
         if len(self.p_timestamp) < self.pulse_records.nPulses:
             self.__setup_vectors(nPulses=self.pulse_records.nPulses)
+        elif any(self.p_timestamp!=0) and not forceNew:
+            return # 
         
         pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)   
         # consider setting segment size first
@@ -929,10 +932,10 @@ class MicrocalDataSet(object):
                 self.nPresamples, pretrigger_ignore_samples, self.timebase, peak_time_microsec)
             printUpdater.update((s+1)/float(self.pulse_records.n_segments))
             
-        self.save_mass_data('summarize%f_%f'%(peak_time_microsec, pretrigger_ignore_microsec), 
-                            p_timestamp=self.p_timestamp, p_pretrig_mean=self.p_pretrig_mean, p_pretrig_rms=self.p_pretrig_rms,
-                            p_peak_index=self.p_peak_index, p_peak_value=self.p_peak_value, p_min_value=self.p_min_value,
-                            p_pulse_average=self.p_pulse_average, p_rise_time=self.p_rise_time, p_max_posttrig_deriv=self.p_max_posttrig_deriv)            
+#        self.save_mass_data(fileinfostr, 
+#                            p_timestamp=self.p_timestamp, p_pretrig_mean=self.p_pretrig_mean, p_pretrig_rms=self.p_pretrig_rms,
+#                            p_peak_index=self.p_peak_index, p_peak_value=self.p_peak_value, p_min_value=self.p_min_value,
+#                            p_pulse_average=self.p_pulse_average, p_rise_time=self.p_rise_time, p_max_posttrig_deriv=self.p_max_posttrig_deriv)            
         del(self.pulse_records.data) # reduce memory usage      
         del(self.pulse_records.datafile.datatimes_float)          
 
@@ -975,6 +978,49 @@ class MicrocalDataSet(object):
             self.p_max_posttrig_deriv[first+pulsenum] = \
                 compute_max_deriv(pulse[self.nPresamples + maxderiv_holdoff:])
 
+    
+    def filter_data_tdm(self, filter_name='filt_noconst', transform=None, forceNew=False):
+        """filter the complete data file one chunk at a time
+        this version does the whole dataset at once (instead of previous segment at a time for all datasets)
+        """
+        filter_values = self.filter[filter_name]
+        filter_values.data.flags.writeable = False
+        filter_hash = hash(filter_values.data)
+        filter_values.data.flags.writeable = True
+        fileinfostr = 'filter%d'%(filter_hash)
+        if not forceNew:  
+            # make filter hash
+            data = self.load_mass_data(fileinfostr)
+            if data is not None:
+    #            print('chan %d trying to load saved summarize data'%self.channum)
+                summarize_values = ['p_filt_value']
+                try:
+                    if len(data.keys()) == len(summarize_values):
+                        for key in data.keys():
+                            if key in summarize_values:
+                                self.__dict__[key] == data[key]
+                            else: 
+                                print('chan %d missing key %s'%(self.channum, key))
+                        return      
+                    else:
+                        print('chan %d failed summzarize because  len(data) %d != len(summarize_values) %d'%(self.channum, len(data.keys()), len(summarize_values)))
+                except:
+                    print('chan %d failed load data, summarizing anew'%self.channum)
+                    raise
+        
+        printUpdater = mass.calibration.inlineUpdater.InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
+        
+
+        for s in range(self.pulse_records.n_segments):
+            first, last = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
+            (self.p_filt_phase[first:last], self.p_filt_value[first:last]) = mass.mathstat.summarize_and_filter.filter_data_old(
+            filter_values, self.pulse_records.data, transform, self.p_pretrig_mean[first,last])
+            printUpdater.update((s+1)/float(self.pulse_records.n_segments))
+            
+        self.save_mass_data(fileinfostr, p_filt_value=self.p_filt_value, p_filt_phase=self.p_filt_phase, )            
+        del(self.pulse_records.data) # reduce memory usage      
+        del(self.pulse_records.datafile.datatimes_float)
+        
 
     def filter_data(self, filter_values, first, end, transform=None):
         if first >= self.nPulses:

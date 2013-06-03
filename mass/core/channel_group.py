@@ -811,7 +811,10 @@ class BaseChannelGroup(object):
                 print "Filter %d can't be used"%i
                 print e
             
-    
+    def filter_data_tdm(self, filter_name='filt_noconst', transform=None, forceNew=False):
+        for chan in self.iter_channel_numbers(include_badchan):
+            self.channel[chan].filter_data_tdm(filter_name, transform, forceNew)
+
     def filter_data(self, filter_name=None, transform=None):
         """Filter data sets and store in datasets[*].p_filt_phase and _value.
         The filters are currently self.filter[*].filt_noconst"""
