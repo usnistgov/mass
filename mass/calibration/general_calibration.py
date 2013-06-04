@@ -56,18 +56,27 @@ class GeneralCalibration(object):
         c.__dict__.update(self.__dict__)
         return c
 
-    def do_basic_computation(self, doFilter = True, **kwargs):
+    def do_basic_computation(self, doFilter = True, forceNew=False, **kwargs):
         """This covers all the operations required to analyze and store the data
         from the December 18, 2012 XSI calibrations."""
-        self.data.summarize_data(peak_time_microsec=420.0)
+        self.data.summarize_data_tdm(peak_time_microsec=420.0, forceNew=forceNew)
         self.apply_cuts(**kwargs)
-        if doFilter:
+        # check to see if filtered data was loaded, this logic really should be in the various functions like compute_noise_spectra
+        # but its a lot of work to put it in there
+        numfilters = 0
+        for ds in self.data:
+            if ds.filter != {}:
+                numfilters+=1
+        if (not numfilters == self.data.num_good_channels) or forceNew:
             self.data.compute_noise_spectra()
             self.data.plot_noise()
             self.compute_model_pulse()
             self.data.compute_filters(f_3db=6000.)
             self.data.summarize_filters()
-            self.apply_filter()
+        else:
+            print('not calculating filters because they are already loaded')
+        if doFilter:
+            self.data.filter_data_tdm(forceNew=forceNew)
         
     def channel_histogram(self, channel=1, driftCorrected = False):
         if channel in self.data.channel.keys():

@@ -223,6 +223,7 @@ class LJHFile(MicrocalFile):
         return c
 
 
+
     def __read_header(self, filename):
         """
         Read in the text header of an LJH file.
@@ -345,6 +346,10 @@ class LJHFile(MicrocalFile):
         end = first + self.data.shape[0]
         return first, end, self.data
         
+    def clear_cached_segment(self):
+        del(self.data)
+        del(self.datatimes_float)
+        self.__cached_segment = None
         
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
         """Read the binary section of an LJH file, interpret it, and store the results in
