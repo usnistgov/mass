@@ -72,7 +72,7 @@ data = generate_mnkalphabeta_data(sample_time_us=sample_time_us,
 
 # Now plot some traces (first 15 traces from channel 0)
 pylab.figure(9, figsize=(12,8))  # resize this window if you need to
-data.plot_traces(numpy.arange(15), channum=0)
+data.plot_traces(numpy.arange(15), dataset_num=0)
 
 # <demo> --- stop ---
 
@@ -80,7 +80,7 @@ data.plot_traces(numpy.arange(15), channum=0)
 # In real data, this will be one of only 3 passes through every byte of data,
 # which is normally stored on disk and loaded only one chunk at time.
 data.summarize_data()            # In real data, this requires a pass through every byte of data.
-ds0 = data.datasets[0]            # We'll consider only chan 0
+ds0 = data.datasets[0]            # We'll consider only dataset 0
 ds0.plot_summaries()
 
 # This command plots a timeseries and a histogram for each of 7 per-pulse summary
@@ -179,12 +179,12 @@ for median, ds in zip(medians, data.datasets):
     param, covar, fitter = ds.fit_spectral_line(prange=hist_limits, line='MnKAlpha', 
                                                 plot=False)
     cal = ds.calibration['p_filt_value']
-    cal.add_cal_point(param[1], 'Mn Ka1')
+    cal.add_cal_point(param[1], 'MnKAlpha')
 #    guess Mn KBeta location
-    use = ds.p_filt_value_dc > (cal.name2ph('Mn Kb')+cal.name2ph('Mn Ka1'))*.5
+    use = ds.p_filt_value_dc > (cal.name2ph('MnKBeta')+cal.name2ph('MnKAlpha'))*.5
     use = numpy.logical_and(ds.cuts.good(), use)
     mean_kbeta = ds.p_filt_value_dc[use].mean()
-    cal.add_cal_point(mean_kbeta, 'Mn Kb')
+    cal.add_cal_point(mean_kbeta, 'MnKBeta')
 
 # Now fit Mn Kalpha and Kbeta on channel of your choice
 # Top 2 panels are the 2 lines fit in PULSE HEIGHT units.

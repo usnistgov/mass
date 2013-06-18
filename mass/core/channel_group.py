@@ -1218,7 +1218,7 @@ class TESGroup(BaseChannelGroup):
             return self._cached_pnum_range
         
         first_pnum,end_pnum = -1,-1
-        for ds in self:
+        for ds in self.datasets:
             a,b = ds.pulse_records.read_segment(segnum)
             ds.data = ds.pulse_records.data
             try:

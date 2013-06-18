@@ -1101,7 +1101,7 @@ class MicrocalDataSet(object):
         # Default: use the calibration to pick a prange
         if prange is None:
             calibration = self.calibration['p_filt_value']
-            ph_estimate = calibration.name2ph('Mn Ka1')
+            ph_estimate = calibration.name2ph('MnKAlpha')
             prange = numpy.array((ph_estimate*.98, ph_estimate*1.02))
 
         # Estimate corrections in a few different pieces
@@ -1358,6 +1358,8 @@ class MicrocalDataSet(object):
                     raise ValueError("Cannot understand line=%s as an energy or a known calibration line."%line)
 
         params, covar = fitter.fit(contents, bin_ctrs, plot=plot, **kwargs)
+        if plot:
+            mass.plot_as_stepped_hist(pylab.gca(), contents, bin_ctrs)
         if energy is not None:
             scale = energy/params[1]
         else:
@@ -1378,22 +1380,19 @@ class MicrocalDataSet(object):
             ax1 = ax2 = ax3 = None
         
         calib = self.calibration['p_filt_value']
-        mnka_range = calib.name2ph('Mn Ka1') * numpy.array((.99,1.01))
+        mnka_range = calib.name2ph('MnKAlpha') * numpy.array((.99,1.01))
         params, _covar, _fitter = self.fit_spectral_line(prange=mnka_range, mask=mask, times=times, fit_type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
-        calib.add_cal_point(params[1], 'Mn Ka1')
+        calib.add_cal_point(params[1], 'MnKAlpha')
 
-        mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.95,1.02))
+        mnkb_range = calib.name2ph('MnKBeta') * numpy.array((.95,1.02))
 #        params[1] = calib.name2ph('Mn Kb')
 #        params[3] *= 0.50
 #        params[4] = 0.0
         try:
-            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, mask=mask, times=times, fit_type='dc', line='MnKBeta', 
-                                                    verbose=verbose, plot=False, axis=ax2)
-            calib.add_cal_point(params[1], 'Mn Kb')
-            mnkb_range = calib.name2ph('Mn Kb') * numpy.array((.985,1.015))
+            mnkb_range = calib.name2ph('MnKBeta') * numpy.array((.985,1.015))
             params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, mask=mask, times=times, fit_type='dc', line='MnKBeta', 
                                                     verbose=verbose, plot=plot, axis=ax2)
-            calib.add_cal_point(params[1], 'Mn Kb')
+            calib.add_cal_point(params[1], 'MnKBeta')
         except scipy.linalg.LinAlgError:
             print "Failed to fit Mn K-beta!"
         if update_energy: self.p_energy = calib(self.p_filt_value_dc)

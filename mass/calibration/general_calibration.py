@@ -44,7 +44,7 @@ class GeneralCalibration(object):
         by adding new methods, or fixing bugs in existing methods), but you don't
         want to lose all the computations you already did.  In some objects, this
         has to handle deep copying, or other subtleties that I forget."""
-        c = generalCalibration()
+        c = GeneralCalibration()
         c.__dict__.update(self.__dict__)
         return c
 
