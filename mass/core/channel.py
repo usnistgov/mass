@@ -712,11 +712,10 @@ class MicrocalDataSet(object):
         self.pretrigger_ignore_microsec = None # Cut this long before trigger in computing pretrig values
         self.peak_time_microsec = None   # Look for retriggers only after this time. 
         self.index = None   # Index in the larger TESGroup or CDMGroup object
-        self.clear_cuts()
+        self.__setup_vectors(npulses=self.nPulses)
         if self.autoPickle:
             self.unpickle()
-        else:
-            self.__setup_vectors(npulses=self.nPulses)
+            
 
 
 
