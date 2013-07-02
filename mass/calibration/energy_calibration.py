@@ -50,13 +50,18 @@ STANDARD_FEATURES = {
    'TiKAlpha': 4510.903,
    'TiKBeta': 4931.81, #http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
    'VKAlpha': 4952.216,
+   'VKBeta': 5427.29,
    'CrKAlpha':5414.81,
+   'CrKBeta': 5946.71,
    'MnKAlpha': 5898.802,
    'MnKBeta': 6489.9,
    'FeKAlpha': 6404.01,
+   'FeKBeta': 7057.98,
    'CoKAlpha': 6930.38,
+   'CoKBeta': 7649.43,
    'NiKAlpha': 7478.26,
    'CuKAlpha': 8047.83,
+   'CuKBeta': 8905.29,
    'TiKEdge': 4966.0,
    'VKEdge': 5465.0, # defined as peak of derivative from exafs materials.com   
    'CrKEdge': 5989.0,
