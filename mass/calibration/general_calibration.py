@@ -45,6 +45,8 @@ class GeneralCalibration(object):
         else:
 #            channel = dataset_number_subset[0]*2+1
 #            print('couldnt find '+ pulse_filename%channel + 'and/or '+ noise_filename%channel)
+            print pulse_filename%(dataset_number_subset[0]*2+1)
+            print noise_filename%(dataset_number_subset[0]*2+1)
             raise ValueError('WARNING no files had both noise and pulse files')
 
     def copy(self):
@@ -63,19 +65,19 @@ class GeneralCalibration(object):
         self.apply_cuts(**kwargs)
         # check to see if filtered data was loaded, this logic really should be in the various functions like compute_noise_spectra
         # but its a lot of work to put it in there
-        numfilters = 0
-        for ds in self.data:
-            if ds.filter != {}:
-                numfilters+=1
-        if (not numfilters == self.data.num_good_channels) or forceNew:
-            self.data.compute_noise_spectra()
-            self.data.plot_noise()
-            self.compute_model_pulse()
-            self.data.compute_filters(f_3db=6000.)
-            self.data.summarize_filters()
-        else:
-            print('not calculating filters because they are already loaded')
         if doFilter:
+            numfilters = 0
+            for ds in self.data:
+                if ds.filter != {}:
+                    numfilters+=1
+            if (not numfilters == self.data.num_good_channels) or forceNew:
+                self.data.compute_noise_spectra()
+                self.data.plot_noise()
+                self.compute_model_pulse()
+                self.data.compute_filters(f_3db=6000.)
+                self.data.summarize_filters()
+            else:
+                print('not calculating filters because they are already loaded')
             self.data.filter_data_tdm(forceNew=forceNew)
         
     def channel_histogram(self, channel=1, driftCorrected = False):
@@ -132,7 +134,8 @@ class GeneralCalibration(object):
                 print "%6d  "%ds.nPulses,
             print
     
-    def apply_cuts(self, timestampCuts = (None, None), pretrigger_departure_cuts = (-40,40), pulse_average_cuts = (5.0, None)):
+    def apply_cuts(self, timestampCuts = (None, None), pretrigger_departure_cuts = (-40,40), pulse_average_cuts = (5.0, None),
+                   timestamp_diff_sec_cuts = (0.007, None)):
         self.cuts = mass.AnalysisControl()
         self.cuts.cuts_prm.update({
                  'max_posttrig_deriv': (None, 60.0),
@@ -142,7 +145,7 @@ class GeneralCalibration(object):
                  'rise_time_ms': (None, None),
                  'peak_time_ms': (None, None),
                  'timestamp_sec': timestampCuts,
-                 'timestamp_diff_sec': (0.0011, None), 
+                 'timestamp_diff_sec': timestamp_diff_sec_cuts, 
                  'min_value': None,})
 
         for ds in self.data:
@@ -267,7 +270,7 @@ class GeneralCalibration(object):
                 ds.drift_correct_info['best_achieved_resolution'] = numpy.amin(resolution)
                 corrector = (ds.p_pretrig_mean-ds.drift_correct_info['meanpretrigmean'])*(ds.p_filt_value**ds.drift_correct_info['power'])
                 ds.p_filt_value_dc = ds.p_filt_value+corrector*ds.drift_correct_info['slope']
-                print('drift_correct_new chan %d, %s,  dc slope %.3f, best resolution %.2f, power %.1f'%(ds.channum, line_name, ds.drift_correct_info['slope'], ds.drift_correct_info['best_achieved_resolution'],power))
+                print('drift_correct_new chan %d, %s, dc slope %.3f, best res %.2f, power %.1f'%(ds.channum, line_name, ds.drift_correct_info['slope'], ds.drift_correct_info['best_achieved_resolution'],power))
         
     def apply_stored_drift_correct(self, max_shift_mean_pretrig_mean = 100):
         print('apply_stored_drift_correct')
@@ -423,7 +426,10 @@ class GeneralCalibration(object):
                     contents, bins = numpy.histogram(toCalibrate[ds.cuts.good()], bins=numpy.arange(minE, maxE, 1))
                     bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
                     fitter = mass.__dict__['%sFitter'%line_name]()
-                    energyScaleGuess = (cal.energy2ph(maxE)-cal.energy2ph(minE))/(maxE-minE)
+                    try:
+                        energyScaleGuess = (cal.energy2ph(maxE)-cal.energy2ph(minE))/(maxE-minE)
+                    except:
+                        self.data.set_chan_bad(ds.channum,'calibrate_carefuly energyScaleGuess minE=%f, maxE=%f'%(minE, maxE))
                     amplitudeGuess = contents.max()/0.13
                     phGuess = bins[numpy.argmax(contents)]
                     quarterLen = len(contents)/4
@@ -862,8 +868,8 @@ class GeneralCalibration(object):
                     corrections.append(mean) # not obvious that mean vs median matters
                     if doPlot:
                         pylab.plot(ctr_phase, mean, 'or')
-                        pylab.plot(ctr_phase, median, 'vk', ms=10)
-                        pylab.plot(ctr_phase, robust_mean, 'gd')
+#                        pylab.plot(ctr_phase, median, 'vk', ms=10)
+#                        pylab.plot(ctr_phase, robust_mean, 'gd')
                 corrections = numpy.array(corrections)
                 assert numpy.isfinite(corrections).all()
             
@@ -885,7 +891,8 @@ class GeneralCalibration(object):
                                                     1e3*correction.std()/toCorrect.mean())
             
                 if doPlot:
-                    pylab.plot(plot_phases, model(fitparams, plot_phases), color='red')
+                    print self.phaseCorrectionModel(fitparams, plot_phases)
+                    pylab.plot(plot_phases, self.phaseCorrectionModel(fitparams, plot_phases)+corrections.mean(), color='red')
 
                     pylab.subplot(212)
                     pylab.plot((ds.p_filt_phase[valid]+phaseMax)%phaseSpan-phaseMax, ds.p_filt_value_phc[valid],'.')
