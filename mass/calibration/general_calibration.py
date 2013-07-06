@@ -194,7 +194,7 @@ class GeneralCalibration(object):
 
     def apply_filter(self):
         print('applying filter')
-        self.data.filter_data('filt_noconst')
+        self.data.filter_data_tdm('filt_noconst')
 
 
     
@@ -392,7 +392,7 @@ class GeneralCalibration(object):
         print "Resolution is %.2f +- %.2f eV"%(res,dres)
         return param
     
-    def calibrate_carefully(self,lines_name = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value_dc', doPlot = False, energyRangeFracs=[0.995, 1.005], append_to_cal=True):
+    def calibrate_carefully(self,lines_name = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value_dc', doPlot = False, energyRangeFracs=[0.995, 1.005], append_to_cal=True, whichFiltValue = None):
         if type(lines_name) != type(list()): lines_name = [lines_name]
 
         print('calibrate_carefully %s'%whichCalibration)
@@ -402,10 +402,11 @@ class GeneralCalibration(object):
             else:
                 cal = mass.calibration.EnergyCalibration(whichCalibration)
                 ds.calibration[whichCalibration] = cal
-            if '_scaled' in whichCalibration:
-                whichFiltValue = whichCalibration[:whichCalibration.find('_scaled')]
-            else:
-                whichFiltValue = whichCalibration
+            if whichFiltValue is None:
+                if '_scaled' in whichCalibration:
+                    whichFiltValue = whichCalibration[:whichCalibration.find('_scaled')]
+                else:
+                    whichFiltValue = whichCalibration
             toCalibrate = ds.__dict__[whichFiltValue]
             for i, line_name in enumerate(lines_name):
 
@@ -413,7 +414,10 @@ class GeneralCalibration(object):
                 if line_name[-5:]=='Alpha' or line_name[-4:]=='Beta': # its a KBeta or KAlpha
                     if mass.energy_calibration.STANDARD_FEATURES.has_key(line_name):
                         try:
-                            minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array(energyRangeFracs)
+                            if whichCalibration == 'p_energy':
+                                minE, maxE = mass.energy_calibration.STANDARD_FEATURES[line_name]*numpy.array(energyRangeFracs)
+                            else:
+                                minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array(energyRangeFracs)
                         except:
                             self.data.set_chan_bad(ds.channum,'failed calibrate_carefully %s %s failed name2ph (probably brentq)'%(whichCalibration, line_name))
                             break
@@ -466,18 +470,24 @@ class GeneralCalibration(object):
                     except:
                         self.data.set_chan_bad(ds.channum, 'failed add_cal_point %s ph=%s line_name=%s pht_error=%s'%(whichCalibration, str(ph), line_name, str(dph) ))
                 elif line_name[-4:]=='Edge':
+                    if whichCalibration == 'p_energy':
+                        minE, maxE = mass.energy_calibration.STANDARD_FEATURES[line_name]*numpy.array(energyRangeFracs)
+                    else:
+                        try:
+                            minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array(energyRangeFracs)
+                        except:
+                            self.data.set_chan_bad(ds.channum,'failed calibrate_carefully %s %s failed name2ph (probably brentq)'%(whichCalibration, line_name))
+                            break
                     edge_energy = mass.energy_calibration.STANDARD_FEATURES[line_name]
-                    minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array([0.98, 1.02]) 
                     contents, bins = numpy.histogram(toCalibrate[ds.cuts.good()], bins=numpy.arange(minE, maxE, 3))
                     bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
     #                try:
                     pfit = numpy.polyfit(bin_ctrs, contents, 3)
                     edgeGuess = numpy.roots(numpy.polyder(pfit,2))
-                    if edgeGuess == numpy.abs(edgeGuess):
-                        edgeGuess = numpy.abs(edgeGuess)
                     preGuess, postGuess = numpy.sort(numpy.roots(numpy.polyder(pfit,1)))
-                    if not (bin_ctrs[0]<edgeGuess<bin_ctrs[-1] and numpy.polyval(numpy.polyder(pfit,1),edgeGuess)<0 and bin_ctrs[0]<preGuess<bin_ctrs[-1] and bin_ctrs[0]<postGuess<bin_ctrs[-1]):
-                        continue
+#                    if not (bin_ctrs[0]<edgeGuess<bin_ctrs[-1] and numpy.polyval(numpy.polyder(pfit,1),edgeGuess)<0 and bin_ctrs[0]<preGuess<bin_ctrs[-1] and bin_ctrs[0]<postGuess<bin_ctrs[-1]):
+#                        self.data.set_chan_bad(ds.channum, 'failed edge calibration rough guess')
+#                        continue
     
                     pGuess = numpy.array([edgeGuess, numpy.polyval(pfit,preGuess), numpy.polyval(pfit,postGuess),10.0],dtype='float64')
                     pOut = scipy.optimize.curve_fit(self.edgeModel, bin_ctrs, contents, 
@@ -518,7 +528,7 @@ class GeneralCalibration(object):
 
 
 
-        self.convert_to_energy(whichCalibration=whichCalibration)
+        self.convert_to_energy(whichCalibration=whichCalibration, whichFiltValue=whichFiltValue)
         
         
 #    def calibrate_carefully_edges(self,edge_names = ['TiKEdge', 'VKEdge', 'MnKEdge', 'CrKEdge'], doPlot = False, append_to_cal=True):
@@ -606,7 +616,7 @@ class GeneralCalibration(object):
         countsOut = preHeight - (numpy.tanh((x-edgeCenter)/width)/2.0+0.5)*(preHeight-postHeight)
         return countsOut
         
-    def convert_to_energy(self, whichCalibration = 'p_filt_value'):
+    def convert_to_energy(self, whichCalibration = 'p_filt_value', whichFiltValue = None):
         print('converting to energy with %s'%whichCalibration)
         commonCalibrations = ['p_pulse_average', 'p_filt_value', 'p_filt_value_dc', 'p_filt_value_phc']
         if whichCalibration not in commonCalibrations:
@@ -615,16 +625,18 @@ class GeneralCalibration(object):
             if not whichCalibration in ds.calibration.keys():
                 self.data.set_chan_bad(ds.channum, 'failed convert_to_energy because %s not in ds.calibration.keys()'%whichCalibration)
                 continue
-            if '_scaled' in whichCalibration:
-                whichFiltValue = whichCalibration[:whichCalibration.find('_scaled')]
-            else:
-                whichFiltValue = whichCalibration
-            if not whichFiltValue in ds.__dict__.keys():
-                self.data.set_chan_bad(ds.channum, 'failed convert_to_energy because %s not in ds.__dict__.keys()'%whichCalibration)
-                continue
+            if whichFiltValue is None:
+                if '_scaled' in whichCalibration:
+                    whichFiltValue = whichCalibration[:whichCalibration.find('_scaled')]
+                else:
+                    whichFiltValue = whichCalibration
+                if not whichFiltValue in ds.__dict__.keys():
+                    self.data.set_chan_bad(ds.channum, 'failed convert_to_energy because %s not in ds.__dict__.keys()'%whichCalibration)
+                    continue
             try:
                 cal = ds.calibration[whichCalibration]
                 ds.p_energy = cal(ds.__dict__[whichFiltValue])
+                ds.p_energy[numpy.isnan(ds.p_energy)] = 0
             except:
                 self.data.set_chan_bad(ds.channum, 'failed convert_to energy with %s'%whichCalibration)
             
@@ -792,16 +804,19 @@ class GeneralCalibration(object):
         
         return totalCounts/elapsedTime, countsPassedCuts/elapsedTime, usefulCounts/elapsedTime
         
-    def scaleCalibration(self, referenceGenCal, whichCalibration='p_filt_value_dc', referenceFeature='MnKAlpha'):
+    def scaleCalibration(self, referenceGenCal, whichCalibrationSelf='p_filt_value_dc', whichCalibrationReference=None, referenceFeature='MnKAlpha'):
         print('scaleCalibration currently doesnt propogate error properly, pht_error in new calibration isnt right')
+        if whichCalibrationReference is None: 
+            whichCalibrationReference = whichCalibrationSelf
+            print('scaleCalibration: whichCalibrationReference = whichCalibrationSelf since whichCalibrationReference was None')
         scalingDict = {}
         for ds in self.data:
             try:
-                origCal = ds.calibration[whichCalibration]
-                newCal = mass.energy_calibration.EnergyCalibration('%s_scaled_at_%s'%(whichCalibration, referenceFeature))
+                origCal = ds.calibration[whichCalibrationSelf]
+                newCal = mass.energy_calibration.EnergyCalibration('%s_scaled_at_%s'%(whichCalibrationSelf, referenceFeature))
                 ds.calibration[newCal.ph_field] = newCal
                 referenceUnscaledPulseHeight = origCal.name2ph(referenceFeature)
-                referenceScaledPulseHeight = referenceGenCal.data.channel[ds.channum].calibration[whichCalibration].name2ph(referenceFeature)
+                referenceScaledPulseHeight = referenceGenCal.data.channel[ds.channum].calibration[whichCalibrationReference].name2ph(referenceFeature)
                 for i, unscaledPulseHeight in enumerate(origCal._ph):
                     if unscaledPulseHeight > 0:
                         scaledPulseHeight = unscaledPulseHeight*referenceScaledPulseHeight/referenceUnscaledPulseHeight
@@ -871,7 +886,9 @@ class GeneralCalibration(object):
 #                        pylab.plot(ctr_phase, median, 'vk', ms=10)
 #                        pylab.plot(ctr_phase, robust_mean, 'gd')
                 corrections = numpy.array(corrections)
-                assert numpy.isfinite(corrections).all()
+                if not numpy.isfinite(corrections).all():
+                    self.data.set_chan_bad(ds.channum, 'phase_corrections not all finite')
+                    break
             
 
                 errfunc = lambda p,x,y: y-self.phaseCorrectionModel(p,x)
