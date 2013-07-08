@@ -490,8 +490,11 @@ class GeneralCalibration(object):
 #                        continue
     
                     pGuess = numpy.array([edgeGuess, numpy.polyval(pfit,preGuess), numpy.polyval(pfit,postGuess),10.0],dtype='float64')
-                    pOut = scipy.optimize.curve_fit(self.edgeModel, bin_ctrs, contents, 
-                                                    pGuess)
+                    try:
+                        pOut = scipy.optimize.curve_fit(self.edgeModel, bin_ctrs, contents, pGuess)
+                    except:
+                        self.data.set_chan_bad(ds.channum, 'failed fit for edgeModel')
+                        break
                     (edgeCenter, preHeight, postHeight, width) = pOut[0]
     #                refitEdgeModel = lambda x,edgeCenterL: self.edgeModel(x,edgeCenterL, preHeight, postHeight, width)
     #                pOut2 = scipy.optimize.curve_fit(refitEdgeModel, bin_ctrs, contents, 
