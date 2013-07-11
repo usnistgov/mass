@@ -458,14 +458,15 @@ class GeneralCalibration(object):
 #                        self.data.set_chan_bad(ds.channum, 'failed edge calibration rough guess')
 #                        continue
     
-                    pGuess = numpy.array([edgeGuess, numpy.polyval(pfit,preGuess), numpy.polyval(pfit,postGuess),10.0],dtype='float64')
+                    pGuess = numpy.array([edgeGuess, numpy.polyval(pfit,preGuess), numpy.polyval(pfit,postGuess),10.0,1.0],dtype='float64')
+
                     try:
                         pOut = scipy.optimize.curve_fit(self.edgeModel, bin_ctrs, contents, pGuess)
                     except:
                         self.data.set_chan_bad(ds.channum, 'failed fit for edgeModel')
                         break
-                    (edgeCenter, preHeight, postHeight, width) = pOut[0]
-    #                refitEdgeModel = lambda x,edgeCenterL: self.edgeModel(x,edgeCenterL, preHeight, postHeight, width)
+                    (edgeCenter, preHeight, postHeight, fwhm, bgSlope) = pOut[0]
+    #                refitEdgeModel = lambda x,edgeCenterL: self.edgeModel(x,edgeCenterL, preHeight, postHeight, fwhm)
     #                pOut2 = scipy.optimize.curve_fit(refitEdgeModel, bin_ctrs, contents, 
     #                                [edgeCenter]) # fit again only varying the edge center
     #                edgeCenter = pOut2[0][0]
@@ -476,7 +477,7 @@ class GeneralCalibration(object):
                     usedStr = 'not used'
     #                print(preGuess, postGuess)
     #                print('ds_num %d, %s, pre %f, post %f'%(ds_num, line_name, preHeight, postHeight))
-                    edgeInfo = {'center':edgeCenter, 'averageCounts':(preHeight+postHeight)/2,'dropCounts':preHeight-postHeight, 'uncertainty': dEdgeCenter, 'width':width, 'name': line_name}
+                    edgeInfo = {'center':edgeCenter, 'averageCounts':(preHeight+postHeight)/2,'dropCounts':preHeight-postHeight, 'uncertainty': dEdgeCenter, 'fwhm':fwhm, 'name': line_name}
                     if (preHeight-postHeight>minEdgeDropCounts) and (abs(edgeCenter-edgeGuess)<40): 
                         try:
                             cal.add_cal_point(edgeCenter, line_name, pht_error=3.0, info=edgeInfo)
@@ -492,10 +493,10 @@ class GeneralCalibration(object):
                         pylab.plot(edgeGuess, numpy.polyval(pfit, edgeGuess),'.')
                         pylab.plot([preGuess, postGuess], numpy.polyval(pfit,[preGuess, postGuess]),'.')       
                         pylab.plot(bin_ctrs, self.edgeModel(bin_ctrs, edgeCenter, 
-                                    preHeight, postHeight, width))             
+                                    preHeight, postHeight, fwhm, bgSlope))             
                         pylab.ylabel('counts per %4.2f unit bin'%(bin_ctrs[1]-bin_ctrs[0]))
                         pylab.xlabel(whichCalibration)
-                        pylab.title('chan %d, %s center=%.1f, dCenter=%.3f, \nwidth=%.3f, %s'%(ds.channum,line_name, edgeCenter, dEdgeCenter, width, usedStr))
+                        pylab.title('chan %d, %s center=%.1f, dCenter=%.3f, \nwidth=%.3f, %s'%(ds.channum,line_name, edgeCenter, dEdgeCenter, fwhm, usedStr))
                     print('cal_edge %s chan %d, %s, edgeCenter %.2f, dEdgeCenter %.3f, edgeDropCounts %.1f, %s'%(whichCalibration, ds.channum, line_name, edgeCenter, dEdgeCenter, preHeight-postHeight, usedStr))
                     
                 else:
@@ -521,7 +522,7 @@ class GeneralCalibration(object):
 
     
     
-    def edgeModel(x, edgeCenter, preHeight, postHeight, fwhm=7.0, bgSlope=0):
+    def edgeModel(self, x, edgeCenter, preHeight, postHeight, fwhm=7.0, bgSlope=0):
         # this model is a gaussian smoothed step edge according to wikipedia
         return 0.5*(postHeight-preHeight)*scipy.special.erf(0.707106781186*(x-edgeCenter)/float(1e-20+fwhm/2.3548201)) + 0.5*(preHeight+postHeight) + (x-edgeCenter)*bgSlope
 
