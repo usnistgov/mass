@@ -1297,7 +1297,7 @@ class MicrocalDataSet(object):
         # Default: use the calibration to pick a prange
         if prange is None:
             calibration = self.calibration['p_filt_value']
-            ph_estimate = calibration.name2ph(element_name+' Ka1')
+            ph_estimate = calibration.name2ph(element_name+'KAlpha')
             prange = numpy.array((ph_estimate*.99, ph_estimate*1.01))
         
         range_ctr = 0.5*(prange[0]+prange[1])

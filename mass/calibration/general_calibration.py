@@ -328,53 +328,14 @@ class GeneralCalibration(object):
         print('calibrate_approximately with %s  %d of %d datasets survived'%(whichCalibration, self.data.num_good_channels, self.data.n_channels))
 
         self.convert_to_energy(whichCalibration)
-        
-        
-    def check_interpolated_energy_cal(self, element_name = 'V', doPlot = True):
-        self.all_energies = numpy.array([])
-        fitter = mass.__dict__['%sKAlphaFitter'%element_name]()
-        self.fitKa1EnergyError = numpy.array([])
-        self.fitResolution = numpy.array([])
-        numDetectorsUsed = 0
-        for (ds_num,ds) in enumerate(self.data.datasets):
-            numDetectorsUsed+=1
-            self.all_energies = numpy.hstack((self.all_energies, ds.p_energy[ds.cuts.good()]))
-            use = log_and(ds.cuts.good(), 
-                  numpy.abs(ds.p_energy/mass.calibration.energy_calibration.STANDARD_FEATURES['%s Ka1'%element_name]-1)<0.003)
-            contents, bins = numpy.histogram(ds.p_energy[use], 150)
-            bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
-            try:
-                param, covar = fitter.fit(contents, bin_ctrs, plot=True)
-                #param: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
-                #energy scale factor (counts/eV), amplitude, background level (per bin),
-                #and background slope (in counts per bin per bin) ]
-            except RuntimeError:
-                print 'Cannot fit'
-            self.fitResolution = numpy.hstack((self.fitResolution, param[0]))
-            self.fitKa1EnergyError = numpy.hstack((self.fitKa1EnergyError, 
-              param[1]-mass.calibration.energy_calibration.STANDARD_FEATURES['%s Ka1'%element_name]))
-            
-        use = numpy.abs(self.all_energies/mass.calibration.energy_calibration.STANDARD_FEATURES['%s Ka1'%element_name]-1)<0.003
-        contents, bins = numpy.histogram(self.all_energies[use], 150)
-        bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])      
-        try:
-            pylab.figure()
-            param, covar = fitter.fit(contents, bin_ctrs, plot=True)
-            pylab.title('combine %s fit, %d detectors'%(element_name,numDetectorsUsed))
-            #param: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
-            #energy scale factor (counts/eV), amplitude, background level (per bin),
-            #and background slope (in counts per bin per bin) ]
-        except RuntimeError:
-            print 'Cannot fit'
 
-        
             
     
     def fit_one_ka_line(self, ds_num=0, elementName = 'Ti'):
         ds = self.data.datasets[ds_num]
         fitter = mass.__dict__[elementName+'KAlphaFitter']()
         use = log_and(ds.cuts.good(),
-                  numpy.abs(ds.p_filt_value/ds.calibration['p_filt_value'].name2ph(elementName+' Ka1')-1.0)<0.002)
+                  numpy.abs(ds.p_filt_value/ds.calibration['p_filt_value'].name2ph(elementName+'KAlpha')-1.0)<0.002)
         contents, bins = numpy.histogram(ds.p_filt_value_dc[use], 200)
         bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
         try:
@@ -557,11 +518,13 @@ class GeneralCalibration(object):
                 calLocations[ds.channum][i] = cal.name2ph(cal_feature)
         return calLocations
     
-    def edgeModel(self, x, edgeCenter, preHeight, postHeight, width=1.0, bgSlope=0):
-        countsOut = numpy.zeros_like(x)
-        width = float(width)
-        countsOut = preHeight - (numpy.tanh((x-edgeCenter)/width)/2.0+0.5)*(preHeight-postHeight) + (x-edgeCenter)*bgSlope
-        return countsOut
+
+    
+    
+    def edgeModel(x, edgeCenter, preHeight, postHeight, fwhm=7.0, bgSlope=0):
+        # this model is a gaussian smoothed step edge according to wikipedia
+        return 0.5*(postHeight-preHeight)*scipy.special.erf(0.707106781186*(x-edgeCenter)/float(1e-20+fwhm/2.3548201)) + 0.5*(preHeight+postHeight) + (x-edgeCenter)*bgSlope
+
         
     def convert_to_energy(self, whichCalibration = 'p_filt_value', whichFiltValue = None):
         print('converting to energy with %s'%whichCalibration)
