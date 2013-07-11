@@ -392,9 +392,11 @@ class GeneralCalibration(object):
         print "Resolution is %.2f +- %.2f eV"%(res,dres)
         return param
     
-    def calibrate_carefully(self,lines_name = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value_dc', doPlot = False, energyRangeFracs=[0.995, 1.005], append_to_cal=True, whichFiltValue = None):
-        if type(lines_name) != type(list()): lines_name = [lines_name]
-
+    def calibrate_carefully(self,line_names = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value_dc', doPlot = False, energyRangeFracs=[0.995, 1.005], append_to_cal=True, whichFiltValue = None, minEdgeDropCounts = 30):
+        if type(line_names) != type(list()): line_names = [line_names]
+        line_known_energies = [mass.energy_calibration.STANDARD_FEATURES[line_name] for line_name in line_names]
+        line_names_reverse_energy_order = [line_names[line_known_energies.index(energy)] for energy in sorted(line_known_energies)][::-1]
+        
         print('calibrate_carefully %s'%whichCalibration)
         for ds in self.data:
             if ds.calibration.has_key(whichCalibration) and append_to_cal:
@@ -408,7 +410,7 @@ class GeneralCalibration(object):
                 else:
                     whichFiltValue = whichCalibration
             toCalibrate = ds.__dict__[whichFiltValue]
-            for i, line_name in enumerate(lines_name):
+            for i, line_name in enumerate(line_names_reverse_energy_order): # doing calibration in reverse energy order prevents problem with extrapolating far beyond calibrated point for energyScaleGuess
 
 
                 if line_name[-5:]=='Alpha' or line_name[-4:]=='Beta': # its a KBeta or KAlpha
@@ -430,10 +432,12 @@ class GeneralCalibration(object):
                     contents, bins = numpy.histogram(toCalibrate[ds.cuts.good()], bins=numpy.arange(minE, maxE, 1))
                     bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
                     fitter = mass.__dict__['%sFitter'%line_name]()
+
                     try:
-                        energyScaleGuess = (cal.energy2ph(maxE)-cal.energy2ph(minE))/(maxE-minE)
+                        energyScaleGuess = (cal.energy2ph(maxE)-cal.energy2ph(minE))/(maxE-minE) # evaluates to 1 when npts = 1
                     except:
                         self.data.set_chan_bad(ds.channum,'calibrate_carefuly energyScaleGuess minE=%f, maxE=%f'%(minE, maxE))
+                        break
                     amplitudeGuess = contents.max()/0.13
                     phGuess = bins[numpy.argmax(contents)]
                     quarterLen = len(contents)/4
@@ -484,7 +488,11 @@ class GeneralCalibration(object):
     #                try:
                     pfit = numpy.polyfit(bin_ctrs, contents, 3)
                     edgeGuess = numpy.roots(numpy.polyder(pfit,2))
-                    preGuess, postGuess = numpy.sort(numpy.roots(numpy.polyder(pfit,1)))
+                    try:
+                        preGuess, postGuess = numpy.sort(numpy.roots(numpy.polyder(pfit,1)))
+                    except:
+                        self.data.set_chan_bad(ds.channum, 'failed preGuess,postGuess for edgeModel')
+                        break                        
 #                    if not (bin_ctrs[0]<edgeGuess<bin_ctrs[-1] and numpy.polyval(numpy.polyder(pfit,1),edgeGuess)<0 and bin_ctrs[0]<preGuess<bin_ctrs[-1] and bin_ctrs[0]<postGuess<bin_ctrs[-1]):
 #                        self.data.set_chan_bad(ds.channum, 'failed edge calibration rough guess')
 #                        continue
@@ -501,18 +509,21 @@ class GeneralCalibration(object):
     #                                [edgeCenter]) # fit again only varying the edge center
     #                edgeCenter = pOut2[0][0]
                     try:
-                        dEdgeCenter = pOut[1][0,0]**0.5 
+                        dEdgeCenter = pOut[1][0,0]**0.5 # this often come out at like 200000 or NaN, which doesn't make much sense and can break things if you try to use dEdgeCenter for any decisions
                     except:
-                        print pOut, type(pOut)
+                        dEdgeCenter = -1
                     usedStr = 'not used'
     #                print(preGuess, postGuess)
     #                print('ds_num %d, %s, pre %f, post %f'%(ds_num, line_name, preHeight, postHeight))
                     edgeInfo = {'center':edgeCenter, 'averageCounts':(preHeight+postHeight)/2,'dropCounts':preHeight-postHeight, 'uncertainty': dEdgeCenter, 'width':width, 'name': line_name}
-                    if (not numpy.isnan(dEdgeCenter)) and dEdgeCenter<=20.0 and (preHeight-postHeight>10) and (abs(edgeCenter-edgeGuess)<30): 
-                        cal.add_cal_point(edgeCenter, line_name, pht_error=dEdgeCenter, info=edgeInfo)
+                    if (preHeight-postHeight>minEdgeDropCounts) and (abs(edgeCenter-edgeGuess)<40): 
+                        try:
+                            cal.add_cal_point(edgeCenter, line_name, pht_error=3.0, info=edgeInfo)
+                        except:
+                            self.data.set_chan_bad(ds.channum, 'failed cal.add_cal_point for edge dropCounts %02.f'%(dropCounts))
                         usedStr = 'used'
                     else:
-                        self.data.set_chan_bad(ds.channum, 'calibrate_carefully_edges rejected %s'%line_name)
+                        self.data.set_chan_bad(ds.channum, 'calibrate_carefully_edges rejected %s, edge_drop = %0.2f, minEdgeDrop %0.2f, edgeCenter-edgeGuess %0.2f'%(line_name, preHeight-postHeight, minEdgeDropCounts, edgeCenter-edgeGuess))
                     if doPlot == True:
                         pylab.figure()
                         pylab.plot(bin_ctrs, contents)
@@ -523,81 +534,14 @@ class GeneralCalibration(object):
                                     preHeight, postHeight, width))             
                         pylab.ylabel('counts per %4.2f unit bin'%(bin_ctrs[1]-bin_ctrs[0]))
                         pylab.xlabel(whichCalibration)
-                        pylab.title('%s center=%.1f, dCenter=%.3f, width=%.3f, %s'%(line_name, edgeCenter, dEdgeCenter, width, usedStr))
+                        pylab.title('chan %d, %s center=%.1f, dCenter=%.3f, \nwidth=%.3f, %s'%(ds.channum,line_name, edgeCenter, dEdgeCenter, width, usedStr))
                     print('cal_edge %s chan %d, %s, edgeCenter %.2f, dEdgeCenter %.3f, edgeDropCounts %.1f, %s'%(whichCalibration, ds.channum, line_name, edgeCenter, dEdgeCenter, preHeight-postHeight, usedStr))
                     
                 else:
                     print('%s not recognized as a KAlpha, KBeta or Edge'%line_name)
 
-
-
         self.convert_to_energy(whichCalibration=whichCalibration, whichFiltValue=whichFiltValue)
-        
-        
-#    def calibrate_carefully_edges(self,edge_names = ['TiKEdge', 'VKEdge', 'MnKEdge', 'CrKEdge'], doPlot = False, append_to_cal=True):
-#        if type(edge_names) != type(list()): edge_names = [edge_names]
-#        returnInfo = {}
-#        for ds in (self.data):
-#            if ds.calibration.has_key('p_filt_value_dc') and append_to_cal:
-#                cal = ds.calibration['p_filt_value_dc'] # add to existing cal if it exists
-#            else:
-#                self.data.set_chan_bad(ds.channum, 'calibrate_carefully_edges cant find edges without existing p_filt_value_dc calibration ')
-#                continue
-#            for i, edge_name in enumerate(edge_names):
-#                edge_energy = mass.energy_calibration.STANDARD_FEATURES[edge_name]
-#                minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%edge_name)*numpy.array([0.98, 1.02]) 
-#                contents, bins = numpy.histogram(ds.p_filt_value_dc[ds.cuts.good()], bins=numpy.arange(minE, maxE, 3))
-#                bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
-##                try:
-#                pfit = numpy.polyfit(bin_ctrs, contents, 3)
-#                edgeGuess = numpy.roots(numpy.polyder(pfit,2))
-#                if edgeGuess == numpy.abs(edgeGuess):
-#                    edgeGuess = numpy.abs(edgeGuess)
-#                preGuess, postGuess = numpy.sort(numpy.roots(numpy.polyder(pfit,1)))
-#                if not (bin_ctrs[0]<edgeGuess<bin_ctrs[-1] and numpy.polyval(numpy.polyder(pfit,1),edgeGuess)<0 and bin_ctrs[0]<preGuess<bin_ctrs[-1] and bin_ctrs[0]<postGuess<bin_ctrs[-1]):
-#                    continue
-#
-#                pGuess = numpy.array([edgeGuess, numpy.polyval(pfit,preGuess), numpy.polyval(pfit,postGuess),10.0],dtype='float64')
-#                pOut = scipy.optimize.curve_fit(self.edgeModel, bin_ctrs, contents, 
-#                                                pGuess)
-#                (edgeCenter, preHeight, postHeight, width) = pOut[0]
-##                refitEdgeModel = lambda x,edgeCenterL: self.edgeModel(x,edgeCenterL, preHeight, postHeight, width)
-##                pOut2 = scipy.optimize.curve_fit(refitEdgeModel, bin_ctrs, contents, 
-##                                [edgeCenter]) # fit again only varying the edge center
-##                edgeCenter = pOut2[0][0]
-#                try:
-#                    dEdgeCenter = pOut[1][0,0]**0.5 
-#                except:
-#                    print pOut, type(pOut)
-#                usedStr = 'not used'
-##                print(preGuess, postGuess)
-##                print('ds_num %d, %s, pre %f, post %f'%(ds_num, edge_name, preHeight, postHeight))
-#                if (not numpy.isnan(dEdgeCenter)) and dEdgeCenter<=20.0 and (preHeight-postHeight>10) and (abs(edgeCenter-edgeGuess)<30): 
-#                    cal.add_cal_point(edgeCenter, edge_name, pht_error=dEdgeCenter)
-#                    usedStr = 'used'
-#                else:
-#                    self.data.set_chan_bad(ds.channum, 'calibrate_carefully_edges rejected %s'%edge_name)
-#                if doPlot == True:
-#
-#  
-#                    pylab.figure()
-#                    pylab.plot(bin_ctrs, contents)
-#                    pylab.plot(bin_ctrs, numpy.polyval(pfit, bin_ctrs))
-#                    pylab.plot(edgeGuess, numpy.polyval(pfit, edgeGuess),'.')
-#                    pylab.plot([preGuess, postGuess], numpy.polyval(pfit,[preGuess, postGuess]),'.')       
-#                    pylab.plot(bin_ctrs, self.edgeModel(bin_ctrs, edgeCenter, 
-#                                preHeight, postHeight, width))             
-#                    pylab.ylabel('counts per %4.2f unit bin'%(bin_ctrs[1]-bin_ctrs[0]))
-#                    pylab.xlabel('p_filt_value_dc')
-#                    pylab.title('%s center=%.1f, dCenter=%.3f, width=%.3f, %s'%(edge_name, edgeCenter, dEdgeCenter, width, usedStr))
-#                print('cal_edge chan %d, %s, edgeCenter %.2f, dEdgeCenter %.3f, edgeDropCounts %.1f, %s'%(ds.channum, edge_name, edgeCenter, dEdgeCenter, preHeight-postHeight, usedStr))
-#                
-#                returnInfo[ds.channum] = {'used':usedStr, 'center':edgeCenter, 'averageCounts':(preHeight+postHeight)/2,'dropCounts':preHeight-postHeight, 'uncertainty': dEdgeCenter, 'width':width, 'name': edge_name}
-#
-##                except:
-##                    print('cant find %s in channel %d'%(edge_name, ds.channum))
-#        self.convert_to_energy('p_filt_value_dc')
-#        return returnInfo
+
         
     def returnCalLocations(self, cal_features):
         if type(cal_features) != type(list()): cal_features = [cal_features]
@@ -613,10 +557,10 @@ class GeneralCalibration(object):
                 calLocations[ds.channum][i] = cal.name2ph(cal_feature)
         return calLocations
     
-    def edgeModel(self, x, edgeCenter, preHeight, postHeight, width=1.0):
+    def edgeModel(self, x, edgeCenter, preHeight, postHeight, width=1.0, bgSlope=0):
         countsOut = numpy.zeros_like(x)
         width = float(width)
-        countsOut = preHeight - (numpy.tanh((x-edgeCenter)/width)/2.0+0.5)*(preHeight-postHeight)
+        countsOut = preHeight - (numpy.tanh((x-edgeCenter)/width)/2.0+0.5)*(preHeight-postHeight) + (x-edgeCenter)*bgSlope
         return countsOut
         
     def convert_to_energy(self, whichCalibration = 'p_filt_value', whichFiltValue = None):
