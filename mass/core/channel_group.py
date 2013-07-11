@@ -280,7 +280,14 @@ class BaseChannelGroup(object):
             for ds in self.iter_channels(include_badchan):
                 ds.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
 
-        
+    def summarize_data_tdm(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False, forceNew=False):
+        printUpdater = inlineUpdater.InlineUpdater('summarize_data_tdm')
+        for chan in self.iter_channel_numbers(include_badchan):
+            self.channel[chan].summarize_data_tdm(peak_time_microsec, pretrigger_ignore_microsec, forceNew)    
+            if include_badchan:
+                printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
+            else:
+                printUpdater.update((chan/2+1)/float(self.num_good_channels))
     
     def read_trace(self, record_num, dataset_num=0, chan_num=None):
         """Read (from cache or disk) and return the pulse numbered <record_num> for 
@@ -607,8 +614,7 @@ class BaseChannelGroup(object):
             raise ValueError("Call make_masks with only one of pulse_avg_ranges and pulse_peak_ranges specified.")
         
         return masks
-        
-
+    
     def compute_average_pulse(self, masks, use_crosstalk_masks, subtract_mean=True):
         """
         Compute several average pulses in each TES channel, one per mask given in
@@ -761,7 +767,7 @@ class BaseChannelGroup(object):
                 ds.filter = None
                 self.set_chan_bad(ds.channum, 'cannot compute filter')
                 continue
-            printUpdater.update(ds_num/float(self.n_channels))
+            printUpdater.update((ds_num+1)/float(self.n_channels))
             avg_signal = ds.average_pulse.copy()
             
             try:
@@ -809,7 +815,15 @@ class BaseChannelGroup(object):
                 print "Filter %d can't be used"%i
                 print e
             
-    
+    def filter_data_tdm(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False):
+        printUpdater = inlineUpdater.InlineUpdater('filter_data_tdm')
+        for chan in self.iter_channel_numbers(include_badchan):
+            self.channel[chan].filter_data_tdm(filter_name, transform, forceNew)
+            if include_badchan:
+                printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
+            else:
+                printUpdater.update((chan/2+1)/float(self.num_good_channels))
+
     def filter_data(self, filter_name=None, transform=None):
         """Filter data sets and store in datasets[*].p_filt_phase and _value.
         The filters are currently self.filter[*].filt_noconst"""
@@ -819,8 +833,8 @@ class BaseChannelGroup(object):
         if filter_name is None: filter_name='filt_noconst'
         
         for ds in self.datasets:
-            ds.p_filt_phase = numpy.zeros(ds.nPulses, dtype=numpy.float)
-            ds.p_filt_value = numpy.zeros(ds.nPulses, dtype=numpy.float)
+            ds.p_filt_phase = numpy.zeros_like(ds.p_filt_phase) # be sure not to change the data type of these arrays, they should follow the type from channel._setup_vectors
+            ds.p_filt_value = numpy.zeros_like(ds.p_filt_value)
             
         printUpdater = inlineUpdater.InlineUpdater('BaseChannelGroup.filter_data')
         for first, end in self.iter_segments():
@@ -1310,7 +1324,11 @@ class TESGroup(BaseChannelGroup):
             ds.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
             ds.noise_autocorr = ds.noise_records.autocorrelation
             ds.noise_records.clear_cache()
-
+        
+    def pickle_datasets(self):
+        for ds in self:
+            ds.pickle()
+            
     def pickle(self, filename=None, dirname=None):
         """Pickle the object by pickling its important contents
            <filename>    The output pickle name.  If not given, then it will be the data file name
@@ -1369,6 +1387,13 @@ def unpickle_TESGroup(filename):
                  
     Returns a valid TESGroup object.  I hope.
     """
+    if not filename[-8:] == 'mass.pkl':
+        baseDir , fName = os.path.split(filename)
+        massDir = os.path.join(baseDir, 'mass/')
+        massFilename = fName.replace(fName[fName.rfind('chan'):],'mass.pkl')
+        massFilename = os.path.join(massDir, massFilename)
+        print('unpickle_TESGroup given %s, found %s'%(filename, massFilename))
+        filename = massFilename
 
     fp = open(filename, "rb")
     unpickler = cPickle.Unpickler(fp)
@@ -1382,7 +1407,7 @@ def unpickle_TESGroup(filename):
     data.set_chan_bad(bad_channums, 'was bad when saved')
     printUpdater = inlineUpdater.InlineUpdater('unpickle_TESGroup')
     for ds in data.datasets:
-        printUpdater.update(ds.index/float(data.num_good_channels))
+        printUpdater.update((ds.index+1)/float(len(data.datasets)))
         ds.unpickle()
     
 #     expected_attr = unpickler.load()

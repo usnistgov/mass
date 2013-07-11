@@ -190,4 +190,5 @@ class MouseClickReader(object):
     def __del__(self):
         """Disconnect the button press event from this object."""
         self.fig.canvas.mpl_disconnect(self.cid)
+
         

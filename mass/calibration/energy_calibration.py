@@ -48,14 +48,20 @@ STANDARD_FEATURES = {
    'SiKBeta': 1837.,
    'ScKAlpha': 4090.735,
    'TiKAlpha': 4510.903,
+   'TiKBeta': 4931.81, #http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
    'VKAlpha': 4952.216,
+   'VKBeta': 5427.29,
    'CrKAlpha':5414.81,
+   'CrKBeta': 5946.71,
    'MnKAlpha': 5898.802,
    'MnKBeta': 6489.9,
    'FeKAlpha': 6404.01,
+   'FeKBeta': 7057.98,
    'CoKAlpha': 6930.38,
+   'CoKBeta': 7649.43,
    'NiKAlpha': 7478.26,
    'CuKAlpha': 8047.83,
+   'CuKBeta': 8905.29,
    'TiKEdge': 4966.0,
    'VKEdge': 5465.0, # defined as peak of derivative from exafs materials.com   
    'CrKEdge': 5989.0,
@@ -92,6 +98,7 @@ class EnergyCalibration(object):
         self.ph_field = ph_field
         self.ph2energy = lambda x: x
         self.energy2ph = lambda x: x
+        self.info = [{}]
         self._ph = numpy.zeros(1, dtype=numpy.float)
         self._energies = numpy.zeros(1, dtype=numpy.float)
         self._stddev = numpy.zeros(1, dtype=numpy.float)
@@ -162,7 +169,7 @@ class EnergyCalibration(object):
             if name.startswith(prefix):
                 self.remove_cal_point_name(name)
         
-    def add_cal_point(self, pht, energy, name="", pht_error=None, overwrite=True):
+    def add_cal_point(self, pht, energy, name="", info={}, pht_error=None, overwrite=True):
         """
         Add a single energy calibration point <pht>, <energy>, where <pht> must be in units
         of the self.ph_field and <energy> is in eV.  <pht_error> is the 1-sigma uncertainty
@@ -192,7 +199,7 @@ class EnergyCalibration(object):
             except ValueError:
                 raise ValueError("2nd argument must be an energy or a known name"+
                                  " from mass.energy_calibration.STANDARD_FEATURES")
-        
+        info['name']=name
         if pht_error is None:
             pht_error = pht*0.001
         
@@ -203,12 +210,14 @@ class EnergyCalibration(object):
             self._ph[index] = pht
             self._energies[index] = energy
             self._stddev[index] = pht_error
+            self.info[index] = info.copy()
             
         else:   # Add a new point
             self._ph = numpy.hstack((self._ph, pht))
             self._energies = numpy.hstack((self._energies, energy))
             self._stddev = numpy.hstack((self._stddev, pht_error))
             self._names.append(name)
+            self.info.append(info.copy())
             
             # Sort in ascending energy order
             sortkeys = numpy.argsort(self._energies)
@@ -216,10 +225,12 @@ class EnergyCalibration(object):
             self._energies = self._energies[sortkeys]
             self._stddev = self._stddev[sortkeys]
             self._names = [self._names[s] for s in sortkeys]
+            self.info = [self.info[s] for s in sortkeys]
             self.npts += 1
             assert len(self._names)==len(self._ph)
             assert len(self._names)==len(self._stddev)
             assert len(self._names)==len(self._energies)
+            assert len(self._names)==len(self.info)
 
         self._update_converters()
         

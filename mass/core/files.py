@@ -223,6 +223,7 @@ class LJHFile(MicrocalFile):
         return c
 
 
+
     def __read_header(self, filename):
         """
         Read in the text header of an LJH file.
@@ -345,6 +346,10 @@ class LJHFile(MicrocalFile):
         end = first + self.data.shape[0]
         return first, end, self.data
         
+    def clear_cached_segment(self):
+        del(self.data)
+        del(self.datatimes_float)
+        self.__cached_segment = None
         
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
         """Read the binary section of an LJH file, interpret it, and store the results in
@@ -380,9 +385,18 @@ class LJHFile(MicrocalFile):
         else:
             wordcount = -1
 
+#        array = numpy.core.records.fromfile(self.filename, dtype=numpy.uint16, offset=skip, shape=wordcount)
         array = numpy.fromfile(fp, dtype=numpy.uint16, sep="", count=wordcount)
-        fp.close()
 
+        try:
+            fp.close()
+        except:
+            print fp
+            print ('array[-4:]', array[-4:])
+            print ('wordcount', wordcount,'skip',skip)
+            print('arrays.size', array.size, 'array.dtype', array.dtype)
+            raise
+            
         # If data has a fractional record at the end, truncate to make it go away.
         self.segment_pulses = len(array)/(self.pulse_size_bytes/2)
         array = array[:self.segment_pulses*(self.pulse_size_bytes/2)]

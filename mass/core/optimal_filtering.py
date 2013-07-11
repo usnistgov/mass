@@ -168,6 +168,7 @@ class Filter(object):
         self.fmax=fmax
         self.f_3db=f_3db
         self.variances={}
+        self.predicted_v_over_dv = {}
         self._compute_fourier_filter(fmax=fmax, f_3db=f_3db)
 
         # Time domain filters
@@ -221,6 +222,8 @@ class Filter(object):
             except scipy.linalg.LinAlgError:
                 pass
 
+            for key in self.variances.keys():
+                self.predicted_v_over_dv[key] = 1/(numpy.sqrt(numpy.log(2)*8)*self.variances[key]**0.5)
                 
     def bracketR(self, q, noise):
         """Return the dot product (q^T R q) for vector <q> and matrix R constructed from
