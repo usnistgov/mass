@@ -1,10 +1,10 @@
 import numpy
 
-__all__ = ['summarize_numba', 'summarize_old']
+__all__ = ['summarize_old']
 
 try:
     from numba import autojit
-    
+    __all__.append('summarize_numba')
     @autojit
     def summarize_numba(data, nPresamples, pretrigger_ignore_samples):
         # this is faster mainly because it only loops through each pulse once, instead of six times with the 6 seperate numpy functions
