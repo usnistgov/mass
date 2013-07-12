@@ -1,64 +1,67 @@
 import numpy
-from numba import autojit
 
 __all__ = ['summarize_numba', 'summarize_old']
 
-
-@autojit
-def summarize_numba(data, nPresamples, pretrigger_ignore_samples):
-    # this is faster mainly because it only loops through each pulse once, instead of six times with the 6 seperate numpy functions
-    # numba recompiles it in c or something so its not running slow pythong loops, but is still single threaded
-    numPulses = data.shape[0]
-    pulseLength = data.shape[1]
-    pretrig_end_average_index = nPresamples-pretrigger_ignore_samples
+try:
+    from numba import autojit
     
-    max = numpy.empty(numPulses, dtype=data.dtype)
-    max[:] = data[:,0]
+    @autojit
+    def summarize_numba(data, nPresamples, pretrigger_ignore_samples):
+        # this is faster mainly because it only loops through each pulse once, instead of six times with the 6 seperate numpy functions
+        # numba recompiles it in c or something so its not running slow pythong loops, but is still single threaded
+        numPulses = data.shape[0]
+        pulseLength = data.shape[1]
+        pretrig_end_average_index = nPresamples-pretrigger_ignore_samples
+        
+        max = numpy.empty(numPulses, dtype=data.dtype)
+        max[:] = data[:,0]
+        
+        min = numpy.empty(numPulses, dtype=data.dtype)
+        min[:] = data[:,0]
+        
+        posttrig_sum = numpy.zeros(numPulses)
+        pretrig_sum = numpy.zeros(numPulses)
+        pretrig_sumsq = numpy.zeros(numPulses)
     
-    min = numpy.empty(numPulses, dtype=data.dtype)
-    min[:] = data[:,0]
+        argmax = numpy.zeros(numPulses)
+        argmin = numpy.zeros(numPulses)
+        
+        for p in xrange(numPulses):
+            for j in xrange(pretrig_end_average_index):
+                d = data[p, j]
+                pretrig_sum[p] += d
+                pretrig_sumsq[p] += d*d
+                if d > max[p]: 
+                    max[p] = d
+                    argmax[p] = j
+                elif d < min[p]: 
+                    min[p] = d
+                    argmin[p] = j
+            for j in xrange(pretrig_end_average_index, nPresamples):
+                d = data[p, j]
+                if d > max[p]: 
+                    max[p] = d
+                    argmax[p] = j
+                elif d < min[p]: 
+                    min[p] = d
+            for j in xrange(nPresamples, pulseLength):
+                d = data[p, j]
+                posttrig_sum[p] +=d
+                if d > max[p]: 
+                    max[p] = d
+                    argmax[p] = j
+                elif d < min[p]: 
+                    min[p] = d
     
-    posttrig_sum = numpy.zeros(numPulses)
-    pretrig_sum = numpy.zeros(numPulses)
-    pretrig_sumsq = numpy.zeros(numPulses)
-
-    argmax = numpy.zeros(numPulses)
-    argmin = numpy.zeros(numPulses)
-    
-    for p in xrange(numPulses):
-        for j in xrange(pretrig_end_average_index):
-            d = data[p, j]
-            pretrig_sum[p] += d
-            pretrig_sumsq[p] += d*d
-            if d > max[p]: 
-                max[p] = d
-                argmax[p] = j
-            elif d < min[p]: 
-                min[p] = d
-                argmin[p] = j
-        for j in xrange(pretrig_end_average_index, nPresamples):
-            d = data[p, j]
-            if d > max[p]: 
-                max[p] = d
-                argmax[p] = j
-            elif d < min[p]: 
-                min[p] = d
-        for j in xrange(nPresamples, pulseLength):
-            d = data[p, j]
-            posttrig_sum[p] +=d
-            if d > max[p]: 
-                max[p] = d
-                argmax[p] = j
-            elif d < min[p]: 
-                min[p] = d
-
-                
-    p_pretrig_mean = pretrig_sum/pretrig_end_average_index
-    p_pretrig_rms = numpy.sqrt((pretrig_sumsq/pretrig_end_average_index) - (p_pretrig_mean*p_pretrig_mean))
-    p_pulse_average = posttrig_sum/(pulseLength-nPresamples) - p_pretrig_mean
-    p_peak_value = max - p_pretrig_mean
-    
-    return p_pretrig_mean, p_pretrig_rms, argmax, p_peak_value, min, p_pulse_average
+                    
+        p_pretrig_mean = pretrig_sum/pretrig_end_average_index
+        p_pretrig_rms = numpy.sqrt((pretrig_sumsq/pretrig_end_average_index) - (p_pretrig_mean*p_pretrig_mean))
+        p_pulse_average = posttrig_sum/(pulseLength-nPresamples) - p_pretrig_mean
+        p_peak_value = max - p_pretrig_mean
+        
+        return p_pretrig_mean, p_pretrig_rms, argmax, p_peak_value, min, p_pulse_average
+except:
+    print('numba not installed, disabled summarize_numba')
 
 def summarize_old(data, nPresamples, pretrigger_ignore_samples, timebase, peak_time_microsec):
     p_pretrig_mean = data[:,:nPresamples-pretrigger_ignore_samples].mean(axis=1, dtype=numpy.float32)
