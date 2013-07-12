@@ -157,7 +157,7 @@ writing (September 28, 2012), my own computer uses versions:
 o- python     2. 7.3
 o- ipython    0.13.1
 o- numpy      1. 6.2
-o- scipy      0.10.1
+o- scipy      0.11.0 (as of July 12 2013.  This available in Ubuntu starting with 13.  Otherwise try anaconda) 
 o- matplotlib 1. 1.1
 o- cython	  0.17.0
 o- PyQt4      4. 9.4
