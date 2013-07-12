@@ -64,6 +64,7 @@ file), you need only two commands:
 
 $ python setup.py build
 $ sudo python setup.py install
+NOTE FOR ANACONDA USERS, DO NOT USE SUDO.  INSTEAD: $ python setup.py install
 
 (You could omit the build step, but in that event, it will be done
 implicitly while you are sudoing.  The result is that your build
