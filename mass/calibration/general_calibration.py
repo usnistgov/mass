@@ -322,8 +322,8 @@ class GeneralCalibration(object):
                 except:
                     self.data.set_chan_bad(ds.channum, 'calibrate_approximatley with %s failed name2ph after %s (probably bad calibration point added, not neccesarily the most recent point)'%(whichCalibration, line_name))
                     break
-                if numpy.abs(line_location/cal.name2ph(line_name)-1) > 0.01:
-                    self.data.set_chan_bad(ds.channum,'calibrate_approximatley %s numpy.abs(line_location/cal.name2ph(''%s'')-1) > 0.01'%(whichCalibration, line_name))
+                if numpy.abs(line_location/cal.name2ph(line_name)-1) > 0.03:
+                    self.data.set_chan_bad(ds.channum,'calibrate_approximatley %s numpy.abs(line_location/cal.name2ph(''%s'')-1) > 0.03'%(whichCalibration, line_name))
                     break       
                 
         print('calibrate_approximately with %s  %d of %d datasets survived'%(whichCalibration, self.data.num_good_channels, self.data.n_channels))
@@ -738,7 +738,7 @@ class GeneralCalibration(object):
                 self.data.set_chan_bad(ds.channum, 'failed scaleCalibration, probably brentq')
         return scalingDict
     
-    def phase_correct(self, line_names = ['MnKAlpha'], whichCalibration = 'p_filt_value_dc', energyRangeFracs=[0.995, 1.005], times=None, doPlot=True):
+    def phase_correct(self, line_names = ['MnKAlpha'], whichCalibration = 'p_filt_value_dc', energyRangeFracs=[0.995, 1.005], times=None, doPlot=False):
         """Apply a correction for pulse variation with arrival phase.
         Model is a parabolic correction with cups at +-180 degrees away from the "center".
         

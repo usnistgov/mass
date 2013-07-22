@@ -1183,7 +1183,7 @@ class FeKAlphaFitter(GenericKAlphaFitter):
         GenericKAlphaFitter.__init__(self, FeKAlpha())
 class CoKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, MnKAlpha())
+        GenericKAlphaFitter.__init__(self, CoKAlpha())
 class NiKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, NiKAlpha())
