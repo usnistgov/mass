@@ -1115,7 +1115,7 @@ class MicrocalDataSet(object):
             raise ValueError("cut_id must be in the range [0,31]")
         
         # determine if allowed is a sequence or a sequence of sequences
-        if numpy.size(allowed[0]) == 2:
+        if numpy.size(allowed[0]) == 2 or allowed[0] == 'invert':
             doInvert = False
             cut_vec = numpy.ones_like(data, dtype='bool')
             for element in allowed:
@@ -1145,7 +1145,8 @@ class MicrocalDataSet(object):
                 if b is not None:
                     self.cuts.cut(cut_id, data >= b)
             except ValueError:
-                pass
+                raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid'%str(allowed))
+
     
     
     def apply_cuts(self, controls=None, clear=False, verbose=1):
