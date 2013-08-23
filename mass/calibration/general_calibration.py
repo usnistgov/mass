@@ -354,7 +354,7 @@ class GeneralCalibration(object):
         print "Resolution is %.2f +- %.2f eV"%(res,dres)
         return param
     
-    def calibrate_carefully(self,line_names = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value_dc', doPlot = False, energyRangeFracs=[0.995, 1.005], append_to_cal=True, whichFiltValue = None, minEdgeDropCounts = 30):
+    def calibrate_carefully(self,line_names = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value_dc', doPlot = False, energyRangeFracs=[0.98, 1.02], append_to_cal=True, whichFiltValue = None, minEdgeDropCounts = 30):
         if type(line_names) != type(list()): line_names = [line_names]
         line_known_energies = [mass.energy_calibration.STANDARD_FEATURES[line_name] for line_name in line_names]
         line_names_reverse_energy_order = [line_names[line_known_energies.index(energy)] for energy in sorted(line_known_energies)][::-1]
