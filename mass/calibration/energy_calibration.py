@@ -20,7 +20,7 @@ STANDARD_FEATURES = {
    'Gd103':103180.0,
    'zero': 0.0,
    # named to agree with the namein fluorescence_lines
-   'AlKalpha': 1486.35, # __KAlpha refers to K Alpha 1
+   'AlKAlpha': 1486.35, # __KAlpha refers to K Alpha 1
    'AlKBeta': 1557.,
    'SiKAlpha': 1739.6,
    'SiKBeta': 1837.,
@@ -48,7 +48,29 @@ STANDARD_FEATURES = {
    'CoKEdge': 7709.0,
    'NiKEdge': 8333.0,
    'CuKEdge': 8979.0,
-   'ZnKEdge': 9659.0
+   'ZnKEdge': 9659.0, 
+   # Randy's rare earth metals to nearest eV from x-ray data booklet
+   'HoLAlpha1':6719.675,
+   'HoLAlpha2':6678.484,
+   'HoLBeta1':7525.0,
+   'HoLBeta2':7911.0,
+   'HoLGamma1':8747.0,
+   'TbLAlpha1':6272.82,
+   'TbLAlpha2':6238.10,
+   'TbLBeta1':6978.0,
+   'TbLBeta2':7367.0,
+   'TbLGamma1':8102.0,
+   'SmLAlpha1':5636.0,
+   'SmLAlpha2':5609.0,
+   'SmLBeta1':6204.073,
+   'SmLBeta2':6586.0,
+   'SmLGamma1':7178.0,
+   'NdLAlpha1':5230.0,
+   'NdLAlpha2':5207.0,
+   'NdLBeta1':5721.0,
+   'NdLBeta2':6089.0,
+   'NdLGamma1':6602.0,
+    
 }
 
 class EnergyCalibration(object):
