@@ -276,9 +276,13 @@ class FitExponentialSum(object):
         if nsamp < 3:
             raise ValueError("The fit must be to at least 3 samples of data.")
         
+        if nsamp*(nsamp/rectangle_aspect) > 100000000:
+            nmax = 100000000/(nsamp**2)
+            raise ValueError("The rectangle_aspect must be at least %d for samples of length %d"%(nmax, nsamp))
+        
         if randomize_columns:
-            self.ncol = int(0.5+self.nrow/rectangle_aspect)
             self.nrow = nsamp/2
+            self.ncol = int(0.5+self.nrow/rectangle_aspect)
         else:
             self.ncol = int(0.5+nsamp/(rectangle_aspect+1.0))
             if self.ncol<2:
