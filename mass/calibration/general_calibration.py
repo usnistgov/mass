@@ -26,9 +26,17 @@ class GeneralCalibration(object):
     
     def __init__(self, noise_filename, pulse_filename, dataset_number_subset = [0,1]):
         channels = []
+        # make sure file names have %d in place of a specific channel number
+        pulse_filename=pulse_filename.replace(pulse_filename[pulse_filename.rfind('chan'):pulse_filename.rfind('.')],'chan%d')
+        noise_filename=noise_filename.replace(noise_filename[noise_filename.rfind('chan'):noise_filename.rfind('.')],'chan%d')
+        
+        minSize = 2127
         for channel in numpy.array(dataset_number_subset)*2+1:
             if os.path.isfile(pulse_filename%channel) and os.path.isfile(noise_filename%channel):
-                channels.append(channel)
+                if os.path.getsize(pulse_filename%channel) >= minSize and os.path.getsize(noise_filename%channel) >= minSize:
+                    channels.append(channel)
+                else:
+                    print('excluded channel %d because %s is size %d and %s is size %d, minSize is %d'%(channel, pulse_filename%channel,os.path.getsize(pulse_filename%channel), noise_filename%channel, os.path.getsize(noise_filename%channel), minSize ))
         noise_files=[noise_filename%c for c in channels]
         pulse_files=[pulse_filename%c for c in channels]
         
@@ -37,6 +45,8 @@ class GeneralCalibration(object):
         else:
 #            channel = dataset_number_subset[0]*2+1
 #            print('couldnt find '+ pulse_filename%channel + 'and/or '+ noise_filename%channel)
+            print pulse_filename%(dataset_number_subset[0]*2+1)
+            print noise_filename%(dataset_number_subset[0]*2+1)
             raise ValueError('WARNING no files had both noise and pulse files')
 
     def copy(self):
@@ -48,25 +58,27 @@ class GeneralCalibration(object):
         c.__dict__.update(self.__dict__)
         return c
 
-    def do_basic_computation(self, doFilter = True):
+    def do_basic_computation(self, doFilter = True, forceNew=False, **kwargs):
         """This covers all the operations required to analyze and store the data
         from the December 18, 2012 XSI calibrations."""
-        self.data.summarize_data(peak_time_microsec=420.0)
-        self.apply_cuts()
+        self.data.summarize_data_tdm(peak_time_microsec=420.0, forceNew=forceNew)
+        self.apply_cuts(**kwargs)
+        # check to see if filtered data was loaded, this logic really should be in the various functions like compute_noise_spectra
+        # but its a lot of work to put it in there
         if doFilter:
-            self.data.compute_noise_spectra()
-            self.data.plot_noise()
-            self.compute_model_pulse()
-            self.data.compute_filters(f_3db=6000.)
-            self.data.summarize_filters()
-            self.apply_filter()
-#        self.calibrate_approximately()
-#        self.dc_slope = self.drift_correct_multiline('Ti')
-#        self.calibrate_carefully(element_names=['Ti','Cr','Mn'],doPlot = False)
-#        self.store_calibration()
-#        self.store_filters_and_cal()
-
-
+            numfilters = 0
+            for ds in self.data:
+                if ds.filter != {}:
+                    numfilters+=1
+            if (not numfilters == self.data.num_good_channels) or forceNew:
+                self.data.compute_noise_spectra()
+                self.data.plot_noise()
+                self.compute_model_pulse()
+                self.data.compute_filters(f_3db=6000.)
+                self.data.summarize_filters()
+            else:
+                print('not calculating filters because they are already loaded')
+            self.data.filter_data_tdm(forceNew=forceNew)
         
     def channel_histogram(self, channel=1, driftCorrected = False):
         if channel in self.data.channel.keys():
@@ -86,28 +98,22 @@ class GeneralCalibration(object):
                 pylab.ylabel('counts per %d unit bin'%(ph_bin_edges[1]-ph_bin_edges[0]))
                 
                 
-    def channel_findpeaks(self, channum = 1 , driftCorrected = False, doPlot=False, pulseAverage=False):
+    def channel_findpeaks(self, channum = 1 , whichCalibration = 'p_filt_value', doPlot=False):
         ds = self.data.channel[channum]
-        if driftCorrected == False:
-            data = ds.p_filt_value[ds.cuts.good()]
-        elif driftCorrected == True:
-            data = ds.p_filt_value_dc[ds.cuts.good()]
-        if pulseAverage == True:
-            if driftCorrected == True:
-                raise ValueError('pulseAverage and driftCorrected cant be true at same time')
-            data = ds.p_pulse_average[ds.cuts.good()]    
-        histogramMax = numpy.min((2**14,numpy.max(data)))
-        if histogramMax <= 0:
+        data = ds.__dict__[whichCalibration][ds.cuts.good()]
+        histogramMax = numpy.nanmin((2**14,numpy.max(data)*1.1))
+        if histogramMax <= 0 or numpy.isnan(histogramMax):
+            self.data.set_chan_bad(channum, 'in channel_findpeaks with %s histogramMax = %s'%(whichCalibration, str(histogramMax)))
             return [],[]
-        ph_bin_edges = numpy.arange(0,histogramMax,3)
-#        print 'ph_bin_edge.shape, histogramMax %f'%histogramMax, ph_bin_edges.shape
+
+        ph_bin_edges = numpy.arange(0,histogramMax,2)
         counts, ph_bin_edges = numpy.histogram(data, ph_bin_edges)
         ph_bin_centers = (ph_bin_edges[:-1]+ph_bin_edges[1:])/2
-        peak_indexes = numpy.array(scipy.signal.find_peaks_cwt(counts, numpy.arange(1,30,3), min_snr=4))
+        peak_indexes = numpy.array(scipy.signal.find_peaks_cwt(counts, numpy.arange(1,20,1), min_snr=4))
         try:
             sort_index = numpy.argsort(counts[peak_indexes])
         except:
-            self.data.set_chan_bad(channum, 'channel_findpeaks had error with peak_indexes = '+str(peak_indexes))
+            self.data.set_chan_bad(channum, 'channel_findpeaks with %s had error with peak_indexes = '%whichCalibration+str(peak_indexes))
             return [], []
         peak_indexes = peak_indexes[sort_index]
 
@@ -128,22 +134,28 @@ class GeneralCalibration(object):
                 print "%6d  "%ds.nPulses,
             print
     
-    def apply_cuts(self, timestampCuts = (None, None), pretrigger_departure_cuts = (-40,40), pulse_average_cuts = (5.0, None)):
+    def apply_cuts(self, timestampCuts = (None, None), pretrigger_departure_cuts = (-40,40), pulse_average_cuts = (5.0, None),
+                   timestamp_diff_sec_cuts = (0.007, None), max_postrig_deriv_cuts = (None, 60.0), pretrigger_rms_cuts = (None, 10.0), 
+                   rise_time_ms_cuts = (None, None), peak_time_ms_cuts = (None, None), min_value_cuts = (None, None)):
         self.cuts = mass.AnalysisControl()
         self.cuts.cuts_prm.update({
-                 'max_posttrig_deriv': (None, 60.0),
+                 'max_posttrig_deriv': max_postrig_deriv_cuts,
                  'pretrigger_mean_departure_from_median': pretrigger_departure_cuts,
-                 'pretrigger_rms': (None, 10.0),
+                 'pretrigger_rms': pretrigger_rms_cuts,
                  'pulse_average': pulse_average_cuts,
-                 'rise_time_ms': (None, None),
-                 'peak_time_ms': (None, None),
+                 'rise_time_ms': rise_time_ms_cuts,
+                 'peak_time_ms': peak_time_ms_cuts,
                  'timestamp_sec': timestampCuts,
-                 'timestamp_diff_sec': (0.0011, None), 
-                 'min_value': None,})
+                 'timestamp_diff_sec': timestamp_diff_sec_cuts, 
+                 'min_value': min_value_cuts,})
 
         for ds in self.data:
-            ds.clear_cuts()
-            ds.apply_cuts(self.cuts)
+            try:
+                ds.clear_cuts()
+                ds.apply_cuts(self.cuts)
+            except:
+                self.data.set_chan_bad(ds.channum, 'fails apply cuts, probably havent summarized data yet')
+    
 
     def plot_pulse_timeseries(self, channel=1, type='ph'):
         """Look at one TES over all 3 data sets.  Plot the quantity of
@@ -183,7 +195,7 @@ class GeneralCalibration(object):
 
     def apply_filter(self):
         print('applying filter')
-        self.data.filter_data('filt_noconst')
+        self.data.filter_data_tdm('filt_noconst')
 
 
     
@@ -259,10 +271,10 @@ class GeneralCalibration(object):
                 ds.drift_correct_info['best_achieved_resolution'] = numpy.amin(resolution)
                 corrector = (ds.p_pretrig_mean-ds.drift_correct_info['meanpretrigmean'])*(ds.p_filt_value**ds.drift_correct_info['power'])
                 ds.p_filt_value_dc = ds.p_filt_value+corrector*ds.drift_correct_info['slope']
-                print('drift_correct_new chan %d, %s,  dc slope %.3f, best resolution %.2f, power %.1f'%(ds.channum, line_name, ds.drift_correct_info['slope'], ds.drift_correct_info['best_achieved_resolution'],power))
+                print('drift_correct_new chan %d, %s, dc slope %.3f, best res %.2f, power %.1f'%(ds.channum, line_name, ds.drift_correct_info['slope'], ds.drift_correct_info['best_achieved_resolution'],power))
         
     def apply_stored_drift_correct(self, max_shift_mean_pretrig_mean = 100):
-        print('applying stored drift correction')
+        print('apply_stored_drift_correct')
         for ds_num, ds in enumerate(self.data):
             try:
                 print('chan %d, dc_meanpretrigmean %.2f, dc_slope, %.2f dc_power %.2f'%(ds.channum, ds.drift_correct_info['meanpretrigmean'], ds.drift_correct_info['slope'], ds.drift_correct_info['power']))
@@ -271,121 +283,60 @@ class GeneralCalibration(object):
                     self.data.set_chan_bad(ds.channum, 'stored drift correct had meanpretrigmean %d, dataset has %d'%(ds.drift_correct_info['meanpretrigmean'], current_mean_pretrig_mean))
                     continue
                 corrector = (ds.p_pretrig_mean-ds.drift_correct_info['meanpretrigmean'])*(ds.p_filt_value**ds.drift_correct_info['power'])
-                ds.p_filt_value_dc = ds.p_filt_value+corrector*ds.drift_correct_info['slope']
+                ds.p_filt_value_dc = ds.p_filt_value+corrector*ds.drift_correct_info['slope']              
             except:
                 self.data.set_chan_bad(ds.channum, 'failed apply_drift_correct')
-                   
- 
-    def calibrate_approximately_pulse_average(self, line_names = ['MnKAlpha', 'MnKBeta'], doPlot = False, minPulses = 80, append_to_cal=True):
+        
+    def calibrate_approximately(self, line_names = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value', doPlot = False, minPulses = 80, append_to_cal = True):
         """Element names must be in order of peak height, only works with kAlphas for now"""
         if type(line_names) != type(list()): line_names = [line_names]
+        line_known_energies = [mass.energy_calibration.STANDARD_FEATURES[line_name] for line_name in line_names]
+        line_names_energy_order = [line_names[line_known_energies.index(energy)] for energy in sorted(line_known_energies)]
         for ds in self.data:
-            if ds.calibration.has_key('p_pulse_average') and append_to_cal:
-                cal = ds.calibration['p_pulse_average'] # add to existing cal if it exists
+            if ds.calibration.has_key(whichCalibration) and append_to_cal:
+                cal = ds.calibration[whichCalibration] # add to existing cal if it exists
             else:
-                cal = mass.calibration.EnergyCalibration('p_pulse_average')
-                ds.calibration['p_pulse_average'] = cal
+                cal = mass.calibration.EnergyCalibration(whichCalibration)
+                ds.calibration[whichCalibration] = cal
             if ds.cuts.good().sum() > minPulses:
-                peak_location_pulseheights,peak_counts = self.channel_findpeaks(ds.channum,pulseAverage=True,driftCorrected=False, doPlot=doPlot)
+                peak_location_pulseheights,peak_counts = self.channel_findpeaks(ds.channum,whichCalibration=whichCalibration, doPlot=doPlot)
             else:
-                self.data.set_chan_bad(ds.channum, 'failed calibrate_approximately_pulse_average has %d pulses total < %d the minimum'%(ds.cuts.good().sum(), minPulses))
+                self.data.set_chan_bad(ds.channum, 'failed calibrate_approximatley with %s has %d pulses total < %d the minimum'%(whichCalibration, ds.cuts.good().sum(), minPulses))
                 continue
             if len(peak_location_pulseheights) < len(line_names):
-                self.data.set_chan_bad(ds.channum, 'failed calibrate_approximately_pulse_average %d peak < %d line_names'%(len(peak_location_pulseheights), len(line_names)))                
+                self.data.set_chan_bad(ds.channum, 'failed calibrate_approximatley with %s, num peaks %d < %d line_names'%(whichCalibration, len(peak_location_pulseheights), len(line_names)))                
                 continue
-            for i, line_name in enumerate(line_names): 
-                line_location_guess = peak_location_pulseheights[-(i+1)]
-                use = log_and(ds.cuts.good(), numpy.abs(ds.p_pulse_average/line_location_guess-1.0)<0.012)
+            toCalibrate = ds.__dict__[whichCalibration]
+            peak_location_pulseheights = numpy.sort(peak_location_pulseheights[-len(line_names_energy_order):])
+            for i, line_name in enumerate(line_names_energy_order): 
+                line_location_guess = peak_location_pulseheights[i]
+                use = log_and(ds.cuts.good(), numpy.abs(toCalibrate/line_location_guess-1.0)<0.012)
                 if use.sum() < minPulses:
-                    self.data.set_chan_bad(ds.channum, 'failed calibrate_approximately_pulse_average %s has %d pulses < %d the minimum'%(line_name, use.sum(), minPulses))
+                    self.data.set_chan_bad(ds.channum, 'failed calibrate_approximatley with %s %s has %d pulses < %d the minimum'%(whichCalibration, line_name, use.sum(), minPulses))
                     break
-                else:
-                    line_location = scipy.stats.scoreatpercentile(ds.p_pulse_average[use], 67.)
-                    cal.add_cal_point(line_location, '%s'%line_name, pht_error=2)
-                    print('calibrate_approximately_pulse_average chan %d added %s at %.2f'%(ds.channum, line_name, line_location))
-                
-        print('calibrate_approximately_pulse_average %d of %d datasets survived'%(self.data.num_good_channels, self.data.n_channels))
-
-        self.convert_to_energy(use_drift_correct=False,use_pulse_average = True)
-        
-    def calibrate_approximately(self, line_names = ['MnKAlpha', 'MnKBeta'], doPlot = False, minPulses = 80, append_to_cal = True):
-        """Element names must be in order of peak height, only works with kAlphas for now"""
-        if type(line_names) != type(list()): line_names = [line_names]
-        for ds in self.data:
-            if ds.calibration.has_key('p_filt_value') and append_to_cal:
-                cal = ds.calibration['p_filt_value'] # add to existing cal if it exists
-            else:
-                cal = mass.calibration.EnergyCalibration('p_filt_value')
-                ds.calibration['p_filt_value'] = cal
-            if ds.cuts.good().sum() > minPulses:
-                peak_location_pulseheights,peak_counts = self.channel_findpeaks(ds.channum,driftCorrected=False, doPlot=doPlot)
-            else:
-                self.data.set_chan_bad(ds.channum, 'failed calibrate_approximatley has %d pulses total < %d the minimum'%(ds.cuts.good().sum(), minPulses))
-                continue
-            if len(peak_location_pulseheights) < len(line_names):
-                self.data.set_chan_bad(ds.channum, 'failed calibrate_approximatley %d peak < %d line_names'%(len(peak_location_pulseheights), len(line_names)))                
-                continue
-            for i, line_name in enumerate(line_names): 
-                line_location_guess = peak_location_pulseheights[-(i+1)]
-                use = log_and(ds.cuts.good(), numpy.abs(ds.p_filt_value/line_location_guess-1.0)<0.012)
-                if use.sum() < minPulses:
-                    self.data.set_chan_bad(ds.channum, 'failed calibrate_approximatley %s has %d pulses < %d the minimum'%(line_name, use.sum(), minPulses))
+                line_location = scipy.stats.scoreatpercentile(toCalibrate[use], 67.)
+                cal.add_cal_point(line_location, '%s'%line_name, pht_error=2)
+                print('calibrate_approximately %s chan %d added %s at %.2f'%(whichCalibration, ds.channum, line_name, line_location))
+                try:
+                    line_location_from_cal = cal.name2ph(line_name)
+                except:
+                    self.data.set_chan_bad(ds.channum, 'calibrate_approximatley with %s failed name2ph after %s (probably bad calibration point added, not neccesarily the most recent point)'%(whichCalibration, line_name))
                     break
-                else:
-                    line_location = scipy.stats.scoreatpercentile(ds.p_filt_value[use], 67.)
-                    cal.add_cal_point(line_location, '%s'%line_name, pht_error=2)
-                    print('calibrate_approximately chan %d added %s at %.2f'%(ds.channum, line_name, line_location))
+                if numpy.abs(line_location/cal.name2ph(line_name)-1) > 0.03:
+                    self.data.set_chan_bad(ds.channum,'calibrate_approximatley %s numpy.abs(line_location/cal.name2ph(''%s'')-1) > 0.03'%(whichCalibration, line_name))
+                    break       
                 
-        print('calibrate_approximately %d of %d datasets survived'%(self.data.num_good_channels, self.data.n_channels))
+        print('calibrate_approximately with %s  %d of %d datasets survived'%(whichCalibration, self.data.num_good_channels, self.data.n_channels))
 
-        self.convert_to_energy(use_drift_correct=False)
-        
-        
-    def check_interpolated_energy_cal(self, element_name = 'V', doPlot = True):
-        self.all_energies = numpy.array([])
-        fitter = mass.__dict__['%sKAlphaFitter'%element_name]()
-        self.fitKa1EnergyError = numpy.array([])
-        self.fitResolution = numpy.array([])
-        numDetectorsUsed = 0
-        for (ds_num,ds) in enumerate(self.data.datasets):
-            numDetectorsUsed+=1
-            self.all_energies = numpy.hstack((self.all_energies, ds.p_energy[ds.cuts.good()]))
-            use = log_and(ds.cuts.good(), 
-                  numpy.abs(ds.p_energy/mass.calibration.energy_calibration.STANDARD_FEATURES['%s Ka1'%element_name]-1)<0.003)
-            contents, bins = numpy.histogram(ds.p_energy[use], 150)
-            bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
-            try:
-                param, covar = fitter.fit(contents, bin_ctrs, plot=True)
-                #param: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
-                #energy scale factor (counts/eV), amplitude, background level (per bin),
-                #and background slope (in counts per bin per bin) ]
-            except RuntimeError:
-                print 'Cannot fit'
-            self.fitResolution = numpy.hstack((self.fitResolution, param[0]))
-            self.fitKa1EnergyError = numpy.hstack((self.fitKa1EnergyError, 
-              param[1]-mass.calibration.energy_calibration.STANDARD_FEATURES['%s Ka1'%element_name]))
-            
-        use = numpy.abs(self.all_energies/mass.calibration.energy_calibration.STANDARD_FEATURES['%s Ka1'%element_name]-1)<0.003
-        contents, bins = numpy.histogram(self.all_energies[use], 150)
-        bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])      
-        try:
-            pylab.figure()
-            param, covar = fitter.fit(contents, bin_ctrs, plot=True)
-            pylab.title('combine %s fit, %d detectors'%(element_name,numDetectorsUsed))
-            #param: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
-            #energy scale factor (counts/eV), amplitude, background level (per bin),
-            #and background slope (in counts per bin per bin) ]
-        except RuntimeError:
-            print 'Cannot fit'
+        self.convert_to_energy(whichCalibration)
 
-        
             
     
     def fit_one_ka_line(self, ds_num=0, elementName = 'Ti'):
         ds = self.data.datasets[ds_num]
         fitter = mass.__dict__[elementName+'KAlphaFitter']()
         use = log_and(ds.cuts.good(),
-                  numpy.abs(ds.p_filt_value/ds.calibration['p_filt_value'].name2ph(elementName+' Ka1')-1.0)<0.002)
+                  numpy.abs(ds.p_filt_value/ds.calibration['p_filt_value'].name2ph(elementName+'KAlpha')-1.0)<0.002)
         contents, bins = numpy.histogram(ds.p_filt_value_dc[use], 200)
         bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
         try:
@@ -403,129 +354,157 @@ class GeneralCalibration(object):
         print "Resolution is %.2f +- %.2f eV"%(res,dres)
         return param
     
-    def calibrate_carefully(self,lines_name = ['MnKAlpha', 'MnKBeta'], doPlot = False, energyRangeFracs=[0.995, 1.005], append_to_cal=True):
-        if type(lines_name) != type(list()): lines_name = [lines_name]
-
+    def calibrate_carefully(self,line_names = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value_dc', doPlot = False, energyRangeFracs=[0.98, 1.02], append_to_cal=True, whichFiltValue = None, minEdgeDropCounts = 30):
+        if type(line_names) != type(list()): line_names = [line_names]
+        line_known_energies = [mass.energy_calibration.STANDARD_FEATURES[line_name] for line_name in line_names]
+        line_names_reverse_energy_order = [line_names[line_known_energies.index(energy)] for energy in sorted(line_known_energies)][::-1]
+        
+        print('calibrate_carefully %s'%whichCalibration)
         for ds in self.data:
-            if ds.calibration.has_key('p_filt_value_dc') and append_to_cal:
-                cal = ds.calibration['p_filt_value_dc'] # add to existing cal if it exists
+            if ds.calibration.has_key(whichCalibration) and append_to_cal:
+                cal = ds.calibration[whichCalibration] # add to existing cal if it exists
             else:
-                cal = mass.calibration.EnergyCalibration('p_filt_value_dc')
-                ds.calibration['p_filt_value_dc'] = cal
-            for i, line_name in enumerate(lines_name):
-                try:
-                    minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array(energyRangeFracs)
-                except:
-                    self.data.set_chan_bad(ds.channum,'failed calibrate_carefully %s failed name2ph (probably brentq)'%(line_name))
-                    break
-                if maxE-minE < 5:
-                    self.data.set_chan_bad(ds.channum,'failed calibrate_carefully %s for too small energy range (maxE, minE)=(%.2f, %.2f)'%(line_name, maxE, minE))
-                    break
-                fitter = mass.__dict__['%sFitter'%line_name]()
-                contents, bins = numpy.histogram(ds.p_filt_value_dc[ds.cuts.good()], bins=numpy.arange(minE, maxE, 1))
-                bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
-                try:
-                    if doPlot: pylab.figure()
-                    hold = []
-                    paramGuess = None
-                    if line_name[-4:]=='Beta':
-                        hold = [2,4,5] # simplify the fitting for kBeta by holding energh scale factor (degenerate with resolution with only 1 line), and background level and slope
-                        paramGuess = [4.0,ds.calibration['p_filt_value'].name2ph('%s'%line_name), 1.0,contents.max()/0.13, 0.0, 0.0 ]
-                    param, covar = fitter.fit(contents, bin_ctrs, plot=doPlot, hold=hold)
-                    #param: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
-                    #energy scale factor (counts/eV), amplitude, background level (per bin),
-                    #and background slope (in counts per bin per bin) ]
-                except RuntimeError:
-                    self.data.set_chan_bad(ds.channum, 'failed calibrate_carefully %s with RuntimeError'%line_name)
-                    break
-                except:
-                    self.data.set_chan_bad(ds.channum, 'failed calibrate_carefully %s'%line_name)
-                    break
-                    
-                res = param[0]
-                dres = covar[0,0]**0.5
-                ph = param[1]
-                dph = covar[1,1]**0.5
-                cal.add_cal_point(ph, '%s'%line_name, pht_error=dph)
-#                if line_name[-5:]=='Alpha':
-#                    # add an extra calibration point based on the slope
-#                    offsetEnergy = 10 #eV
-#                    extrapolated_ph = ph-offsetEnergy*param[2]
-#                    # calculate the uncertainty in the extrapolated pulse height based on an 
-#                    # equation from wikipedia
-#                    d_extrapolated_ph = dph+offsetEnergy*covar[2,2]**0.5+abs(2*offsetEnergy*covar[2,1])
-#                    extrapolated_energy = mass.energy_calibration.STANDARD_FEATURES[line_name]-offsetEnergy
-#                    cal.add_cal_point(extrapolated_ph, extrapolated_energy,name='%s_ex'%line_name, pht_error=d_extrapolated_ph )
-#                    print('ds_num %d, %s, dph %f, resolution %.2f +- %.2f eV, d_extrapolated_ph %.2f'%(ds_num, line_name, dph, res, dres, d_extrapolated_ph))
-                print('cal chan %d, %s, ph %.1f, dph %.3f, resolution %.2f +- %.2f eV'%(ds.channum, line_name, ph, dph, res, dres))
-
-        self.convert_to_energy(use_drift_correct=True)
-        
-        
-    def calibrate_carefully_edges(self,edge_names = ['TiKEdge', 'VKEdge', 'MnKEdge', 'CrKEdge'], doPlot = False, append_to_cal=True):
-        if type(edge_names) != type(list()): edge_names = [edge_names]
-        returnInfo = {}
-        for ds in (self.data):
-            if ds.calibration.has_key('p_filt_value_dc') and append_to_cal:
-                cal = ds.calibration['p_filt_value_dc'] # add to existing cal if it exists
-            else:
-                self.data.set_chan_bad(ds.channum, 'calibrate_carefully_edges cant find edges without existing p_filt_value_dc calibration ')
-                continue
-            for i, edge_name in enumerate(edge_names):
-                edge_energy = mass.energy_calibration.STANDARD_FEATURES[edge_name]
-                minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%edge_name)*numpy.array([0.98, 1.02]) 
-                contents, bins = numpy.histogram(ds.p_filt_value_dc[ds.cuts.good()], bins=numpy.arange(minE, maxE, 3))
-                bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
-#                try:
-                pfit = numpy.polyfit(bin_ctrs, contents, 3)
-                edgeGuess = numpy.roots(numpy.polyder(pfit,2))
-                if edgeGuess == numpy.abs(edgeGuess):
-                    edgeGuess = numpy.abs(edgeGuess)
-                preGuess, postGuess = numpy.sort(numpy.roots(numpy.polyder(pfit,1)))
-                if not (bin_ctrs[0]<edgeGuess<bin_ctrs[-1] and numpy.polyval(numpy.polyder(pfit,1),edgeGuess)<0 and bin_ctrs[0]<preGuess<bin_ctrs[-1] and bin_ctrs[0]<postGuess<bin_ctrs[-1]):
-                    continue
-
-                pGuess = numpy.array([edgeGuess, numpy.polyval(pfit,preGuess), numpy.polyval(pfit,postGuess),10.0],dtype='float64')
-                pOut = scipy.optimize.curve_fit(self.edgeModel, bin_ctrs, contents, 
-                                                pGuess)
-                (edgeCenter, preHeight, postHeight, width) = pOut[0]
-#                refitEdgeModel = lambda x,edgeCenterL: self.edgeModel(x,edgeCenterL, preHeight, postHeight, width)
-#                pOut2 = scipy.optimize.curve_fit(refitEdgeModel, bin_ctrs, contents, 
-#                                [edgeCenter]) # fit again only varying the edge center
-#                edgeCenter = pOut2[0][0]
-                try:
-                    dEdgeCenter = pOut[1][0,0]**0.5 
-                except:
-                    print pOut, type(pOut)
-                usedStr = 'not used'
-#                print(preGuess, postGuess)
-#                print('ds_num %d, %s, pre %f, post %f'%(ds_num, edge_name, preHeight, postHeight))
-                if (not numpy.isnan(dEdgeCenter)) and dEdgeCenter<=20.0 and (preHeight-postHeight>10) and (abs(edgeCenter-edgeGuess)<30): 
-                    cal.add_cal_point(edgeCenter, edge_name, pht_error=dEdgeCenter)
-                    usedStr = 'used'
+                cal = mass.calibration.EnergyCalibration(whichCalibration)
+                ds.calibration[whichCalibration] = cal
+            if whichFiltValue is None:
+                if '_scaled' in whichCalibration:
+                    whichFiltValue = whichCalibration[:whichCalibration.find('_scaled')]
                 else:
-                    self.data.set_chan_bad(ds.channum, 'calibrate_carefully_edges rejected %s'%edge_name)
-                if doPlot == True:
+                    whichFiltValue = whichCalibration
+            toCalibrate = ds.__dict__[whichFiltValue]
+            for i, line_name in enumerate(line_names_reverse_energy_order): # doing calibration in reverse energy order prevents problem with extrapolating far beyond calibrated point for energyScaleGuess
 
-  
-                    pylab.figure()
-                    pylab.plot(bin_ctrs, contents)
-                    pylab.plot(bin_ctrs, numpy.polyval(pfit, bin_ctrs))
-                    pylab.plot(edgeGuess, numpy.polyval(pfit, edgeGuess),'.')
-                    pylab.plot([preGuess, postGuess], numpy.polyval(pfit,[preGuess, postGuess]),'.')       
-                    pylab.plot(bin_ctrs, self.edgeModel(bin_ctrs, edgeCenter, 
-                                preHeight, postHeight, width))             
-                    pylab.ylabel('counts per %4.2f unit bin'%(bin_ctrs[1]-bin_ctrs[0]))
-                    pylab.xlabel('p_filt_value_dc')
-                    pylab.title('%s center=%.1f, dCenter=%.3f, width=%.3f, %s'%(edge_name, edgeCenter, dEdgeCenter, width, usedStr))
-                print('cal_edge chan %d, %s, edgeCenter %.2f, dEdgeCenter %.3f, edgeDropCounts %.1f, %s'%(ds.channum, edge_name, edgeCenter, dEdgeCenter, preHeight-postHeight, usedStr))
-                
-                returnInfo[ds.channum] = {'used':usedStr, 'center':edgeCenter, 'averageCounts':(preHeight+postHeight)/2,'dropCounts':preHeight-postHeight, 'uncertainty': dEdgeCenter, 'width':width, 'name': edge_name}
 
-#                except:
-#                    print('cant find %s in channel %d'%(edge_name, ds.channum))
-        self.convert_to_energy(use_drift_correct=True)
-        return returnInfo
+                if line_name[-5:]=='Alpha' or line_name[-4:]=='Beta': # its a KBeta or KAlpha
+                    if mass.energy_calibration.STANDARD_FEATURES.has_key(line_name):
+                        try:
+                            if whichCalibration == 'p_energy':
+                                minE, maxE = mass.energy_calibration.STANDARD_FEATURES[line_name]*numpy.array(energyRangeFracs)
+                            else:
+                                minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array(energyRangeFracs)
+                        except:
+                            self.data.set_chan_bad(ds.channum,'failed calibrate_carefully %s %s failed name2ph (probably brentq)'%(whichCalibration, line_name))
+                            break
+                    else:
+                        print('%s does not exist in mass.energy_calibration.STANDARD_FEATURES'%line_name)
+                        break
+                    if maxE-minE < 5:
+                        self.data.set_chan_bad(ds.channum,'failed calibrate_carefully %s %s for too small energy range (maxE, minE)=(%.2f, %.2f)'%(whichCalibration, line_name, maxE, minE))
+                        break
+                    contents, bins = numpy.histogram(toCalibrate[ds.cuts.good()], bins=numpy.arange(minE, maxE, 1))
+                    bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
+                    fitter = mass.__dict__['%sFitter'%line_name]()
+
+                    try:
+                        energyScaleGuess = (cal.energy2ph(maxE)-cal.energy2ph(minE))/(maxE-minE) # evaluates to 1 when npts = 1
+                    except:
+                        self.data.set_chan_bad(ds.channum,'calibrate_carefuly energyScaleGuess minE=%f, maxE=%f'%(minE, maxE))
+                        break
+                    amplitudeGuess = contents.max()/0.13
+                    phGuess = bins[numpy.argmax(contents)]
+                    quarterLen = len(contents)/4
+                    if quarterLen <=3: # this probably wont work anyway since contents is so short
+                        background = 0.1
+                        background_slope = 0.0                        
+                    else:
+                        background = contents[0:quarterLen].mean()
+                        background_slope = (contents[-quarterLen:].mean()-background)/float(len(contents))
+                    try:
+                        if doPlot: pylab.figure()
+                        hold = []
+                        if line_name[-4:]=='Beta':
+                            hold = [2,4,5] # simplify the fitting for kBeta by holding energy scale factor (degenerate with resolution with only 1 line), and background level and slope
+                        paramGuess = [4.0,phGuess, energyScaleGuess,amplitudeGuess, background, background_slope ]
+                        param, covar = fitter.fit(contents, bin_ctrs, plot=doPlot, hold=hold, params=paramGuess)
+                        #param: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
+                        #energy scale factor (pulseheights/eV), amplitude, background level (per bin),
+                        #and background slope (in counts per bin per bin) ]
+                    except RuntimeError:
+                        self.data.set_chan_bad(ds.channum, 'failed calibrate_carefully %s %s with RuntimeError'%(whichCalibration, line_name))
+                        break
+                    except:
+                        self.data.set_chan_bad(ds.channum, 'failed calibrate_carefully %s %s'%(whichCalibration, line_name))
+                        break
+                        
+                    res = param[0]
+                    dres = covar[0,0]**0.5
+                    ph = param[1]
+                    dph = covar[1,1]**0.5
+                    try:
+                        cal.add_cal_point(ph, line_name, pht_error=dph, info = {'resolution':res, 'dres':dres, 'fitparams':param})
+                        print('%s chan %d, %s, ph %.1f, dph %.3f, resolution %.2f +- %.2f eV'%(whichCalibration, ds.channum, line_name, ph, dph, res, dres))
+                    except:
+                        self.data.set_chan_bad(ds.channum, 'failed add_cal_point %s ph=%s line_name=%s pht_error=%s'%(whichCalibration, str(ph), line_name, str(dph) ))
+                elif line_name[-4:]=='Edge':
+                    if whichCalibration == 'p_energy':
+                        minE, maxE = mass.energy_calibration.STANDARD_FEATURES[line_name]*numpy.array(energyRangeFracs)
+                    else:
+                        try:
+                            minE, maxE = ds.calibration['p_filt_value'].name2ph('%s'%line_name)*numpy.array(energyRangeFracs)
+                        except:
+                            self.data.set_chan_bad(ds.channum,'failed calibrate_carefully %s %s failed name2ph (probably brentq)'%(whichCalibration, line_name))
+                            break
+                    edge_energy = mass.energy_calibration.STANDARD_FEATURES[line_name]
+                    contents, bins = numpy.histogram(toCalibrate[ds.cuts.good()], bins=numpy.arange(minE, maxE, 3))
+                    bin_ctrs = bins[:-1] + 0.5*(bins[1]-bins[0])
+    #                try:
+                    pfit = numpy.polyfit(bin_ctrs, contents, 3)
+                    edgeGuess = numpy.roots(numpy.polyder(pfit,2))
+                    try:
+                        preGuess, postGuess = numpy.sort(numpy.roots(numpy.polyder(pfit,1)))
+                    except:
+                        self.data.set_chan_bad(ds.channum, 'failed preGuess,postGuess for edgeModel')
+                        break                        
+#                    if not (bin_ctrs[0]<edgeGuess<bin_ctrs[-1] and numpy.polyval(numpy.polyder(pfit,1),edgeGuess)<0 and bin_ctrs[0]<preGuess<bin_ctrs[-1] and bin_ctrs[0]<postGuess<bin_ctrs[-1]):
+#                        self.data.set_chan_bad(ds.channum, 'failed edge calibration rough guess')
+#                        continue
+    
+                    pGuess = numpy.array([edgeGuess, numpy.polyval(pfit,preGuess), numpy.polyval(pfit,postGuess),10.0,1.0],dtype='float64')
+
+                    try:
+                        pOut = scipy.optimize.curve_fit(self.edgeModel, bin_ctrs, contents, pGuess)
+                    except:
+                        self.data.set_chan_bad(ds.channum, 'failed fit for edgeModel')
+                        break
+                    (edgeCenter, preHeight, postHeight, fwhm, bgSlope) = pOut[0]
+    #                refitEdgeModel = lambda x,edgeCenterL: self.edgeModel(x,edgeCenterL, preHeight, postHeight, fwhm)
+    #                pOut2 = scipy.optimize.curve_fit(refitEdgeModel, bin_ctrs, contents, 
+    #                                [edgeCenter]) # fit again only varying the edge center
+    #                edgeCenter = pOut2[0][0]
+                    try:
+                        dEdgeCenter = pOut[1][0,0]**0.5 # this often come out at like 200000 or NaN, which doesn't make much sense and can break things if you try to use dEdgeCenter for any decisions
+                    except:
+                        dEdgeCenter = -1
+                    usedStr = 'not used'
+    #                print(preGuess, postGuess)
+    #                print('ds_num %d, %s, pre %f, post %f'%(ds_num, line_name, preHeight, postHeight))
+                    edgeInfo = {'center':edgeCenter, 'averageCounts':(preHeight+postHeight)/2,'dropCounts':preHeight-postHeight, 'uncertainty': dEdgeCenter, 'fwhm':fwhm, 'name': line_name}
+                    if (preHeight-postHeight>minEdgeDropCounts) and (abs(edgeCenter-edgeGuess)<40): 
+                        try:
+                            cal.add_cal_point(edgeCenter, line_name, pht_error=3.0, info=edgeInfo)
+                        except:
+                            self.data.set_chan_bad(ds.channum, 'failed cal.add_cal_point for edge dropCounts %02.f'%(dropCounts))
+                        usedStr = 'used'
+                    else:
+                        self.data.set_chan_bad(ds.channum, 'calibrate_carefully_edges rejected %s, edge_drop = %0.2f, minEdgeDrop %0.2f, edgeCenter-edgeGuess %0.2f'%(line_name, preHeight-postHeight, minEdgeDropCounts, edgeCenter-edgeGuess))
+                    if doPlot == True:
+                        pylab.figure()
+                        pylab.plot(bin_ctrs, contents)
+                        pylab.plot(bin_ctrs, numpy.polyval(pfit, bin_ctrs))
+                        pylab.plot(edgeGuess, numpy.polyval(pfit, edgeGuess),'.')
+                        pylab.plot([preGuess, postGuess], numpy.polyval(pfit,[preGuess, postGuess]),'.')       
+                        pylab.plot(bin_ctrs, self.edgeModel(bin_ctrs, edgeCenter, 
+                                    preHeight, postHeight, fwhm, bgSlope))             
+                        pylab.ylabel('counts per %4.2f unit bin'%(bin_ctrs[1]-bin_ctrs[0]))
+                        pylab.xlabel(whichCalibration)
+                        pylab.title('chan %d, %s center=%.1f, dCenter=%.3f, \nwidth=%.3f, %s'%(ds.channum,line_name, edgeCenter, dEdgeCenter, fwhm, usedStr))
+                    print('cal_edge %s chan %d, %s, edgeCenter %.2f, dEdgeCenter %.3f, edgeDropCounts %.1f, %s'%(whichCalibration, ds.channum, line_name, edgeCenter, dEdgeCenter, preHeight-postHeight, usedStr))
+                    
+                else:
+                    print('%s not recognized as a KAlpha, KBeta or Edge'%line_name)
+
+        self.convert_to_energy(whichCalibration=whichCalibration, whichFiltValue=whichFiltValue)
+
         
     def returnCalLocations(self, cal_features):
         if type(cal_features) != type(list()): cal_features = [cal_features]
@@ -541,29 +520,37 @@ class GeneralCalibration(object):
                 calLocations[ds.channum][i] = cal.name2ph(cal_feature)
         return calLocations
     
-    def edgeModel(self, x, edgeCenter, preHeight, postHeight, width=1.0):
-        countsOut = numpy.zeros_like(x)
-        width = float(width)
-        countsOut = preHeight - (numpy.tanh((x-edgeCenter)/width)/2.0+0.5)*(preHeight-postHeight)
-        return countsOut
+
+    
+    
+    def edgeModel(self, x, edgeCenter, preHeight, postHeight, fwhm=7.0, bgSlope=0):
+        # this model is a gaussian smoothed step edge according to wikipedia
+        return 0.5*(postHeight-preHeight)*scipy.special.erf(0.707106781186*(x-edgeCenter)/float(1e-20+fwhm/2.3548201)) + 0.5*(preHeight+postHeight) + (x-edgeCenter)*bgSlope
+
         
-    def convert_to_energy(self, use_drift_correct=True, use_pulse_average = False):
-        print('converting to energy, use_drift_correct=%s, use_pulse_average=%s'%(use_drift_correct, use_pulse_average))
-        if use_drift_correct == use_pulse_average and use_drift_correct == True:
-            raise ValueError('use_drift_correct and use_pulse_average cant be true at same time')
+    def convert_to_energy(self, whichCalibration = 'p_filt_value', whichFiltValue = None):
+        print('converting to energy with %s'%whichCalibration)
+        commonCalibrations = ['p_pulse_average', 'p_filt_value', 'p_filt_value_dc', 'p_filt_value_phc']
+        if whichCalibration not in commonCalibrations:
+            print('calibration %s not a common choice, will probably break things, try one of '%whichCalibration, commonCalibrations)
         for ds in self.data:
-            try:
-                if use_drift_correct == True:
-                    cal = ds.calibration['p_filt_value_dc']
-                    ds.p_energy = cal(ds.p_filt_value_dc)
-                elif use_pulse_average == True:
-                    cal = ds.calibration['p_pulse_average']
-                    ds.p_energy = cal(ds.p_pulse_average)
+            if not whichCalibration in ds.calibration.keys():
+                self.data.set_chan_bad(ds.channum, 'failed convert_to_energy because %s not in ds.calibration.keys()'%whichCalibration)
+                continue
+            if whichFiltValue is None:
+                if '_scaled' in whichCalibration:
+                    whichFiltValue = whichCalibration[:whichCalibration.find('_scaled')]
                 else:
-                    cal = ds.calibration['p_filt_value']
-                    ds.p_energy = cal(ds.p_filt_value)
+                    whichFiltValue = whichCalibration
+                if not whichFiltValue in ds.__dict__.keys():
+                    self.data.set_chan_bad(ds.channum, 'failed convert_to_energy because %s not in ds.__dict__.keys()'%whichCalibration)
+                    continue
+            try:
+                cal = ds.calibration[whichCalibration]
+                ds.p_energy = cal(ds.__dict__[whichFiltValue])
+                ds.p_energy[numpy.isnan(ds.p_energy)] = 0
             except:
-                self.data.set_chan_bad(ds.channum, 'failed convert_to energy')
+                self.data.set_chan_bad(ds.channum, 'failed convert_to energy with %s'%whichCalibration)
             
     def plot_energy_spectra(self, erange=[5850,5950]):
         pylab.clf()
@@ -593,7 +580,7 @@ class GeneralCalibration(object):
         param, covar = fitter.fit(contents, bin_ctrs, plot=True, color=color)
 
         
-    def plot_calibration(self, power=0.0, whichCalibration = 'p_filt_value'):
+    def plot_calibration(self, whichCalibration = 'p_filt_value',power=0.0):
         pylab.clf()
         ax = pylab.subplot(111)
 
@@ -603,12 +590,14 @@ class GeneralCalibration(object):
 
         
     def store_filters_and_cal(self, filename='calibration.pkl'):
+        print('store_filters_and_cal -> %s'%filename)
         try:
             cals,filters, dc_slope, dc_meanpretrigmean, dc_power = load_filters_and_cal(filename)
         except:
             cals = {}
             filters = {}
             drift_correct_info = {}
+            phase_correct_info = {}
         fp = open(filename, 'wb')
         pickler = cPickle.Pickler(fp, protocol=cPickle.HIGHEST_PROTOCOL)
 
@@ -616,30 +605,62 @@ class GeneralCalibration(object):
             cals[ds.channum] = ds.calibration
             filters[ds.channum]=ds.filter
             drift_correct_info[ds.channum] = ds.drift_correct_info
+            phase_correct_info[ds.channum] = ds.phase_correct_info
 
         pickler.dump(cals)
         pickler.dump(filters)
         pickler.dump(drift_correct_info)
+        pickler.dump(phase_correct_info)
         fp.close()
         
     def load_filters_and_cal(self, filename="calibration.pkl", applyLoaded=True):
+        print('load_filter_and_cal from %s'%filename)
         fp = open(filename, 'rb')
-        up = cPickle.Unpickler(fp)
-        cals = up.load()
-        filters = up.load()
-        drift_correct_info = up.load()
+        unpickler = cPickle.Unpickler(fp)
+        cals = unpickler.load()
+        filters = unpickler.load()
+        drift_correct_info = unpickler.load()
+        phase_correct_info = unpickler.load()
         fp.close()
         for ds in self.data:
-            try:
+            if cals.has_key(ds.channum):
                 ds.calibration = cals[ds.channum]
+            else:
+                self.data.set_chan_bad(ds.channum, 'loaded file %s does not have cal for channels'%filename)
+                continue
+            if filters.has_key(ds.channum):
                 ds.filter = filters[ds.channum]
+            else:
+                self.data.set_chan_bad(ds.channum, 'loaded file %s does not have filter for channels'%filename)
+                continue
+            if drift_correct_info.has_key(ds.channum):
                 ds.drift_correct_info = drift_correct_info[ds.channum]
+            else:
+                self.data.set_chan_bad(ds.channum, 'loaded file %s does not have drift_correct_info for channels'%filename)
+                continue
+            if phase_correct_info.has_key(ds.channum):
+                ds.phase_correct_info = phase_correct_info[ds.channum]
+            else:
+                self.data.set_chan_bad(ds.channum, 'loaded file %s does not have phase_correct_info for channeles'%filename)
+                continue
+            try:
+                if not ds.nSamples == filters[ds.channum].avg_signal.size:
+                    self.data.set_chan_bad(ds.channum, 'loaded filter has %d samples, != datasets has %d samples'%(filters[ds.channum].avg_signal.size, ds.nSamples))
+                    continue
             except:
-                self.data.set_chan_bad(ds.channum, 'failed load_filters_and_cal')
+                self.data.set_chan_bad(ds.channum, 'loaded filter probably doesnt have .avg_signal')
+                continue
+                
         if applyLoaded:
             self.apply_filter()
             self.apply_stored_drift_correct()
-            self.convert_to_energy(use_drift_correct=True)
+            if self.data.first_good_dataset.phase_correct_info.has_key('phase'):
+                self.apply_stored_phase_correct()
+                self.convert_to_energy('p_filt_value_phc')
+            else:
+                print('not applying phase correct, because it doesnt look like one got loaded')
+                self.convert_to_energy('p_filt_value_dc')
+
 
     def countRateAndCuts(self, channel = 1):
         ds = self.data.channel[channel]
@@ -657,7 +678,7 @@ class GeneralCalibration(object):
         print('%d pulses cut by CUT_TIMESTAMP'%numpy.sum(ds.cuts.isCut(ds.CUT_TIMESTAMP)))
         print('totalCounts %d, countsPassedCuts %d, elapsedTime %f'%(totalCounts, countsPassedCuts, elapsedTime))
         
-    def countRateInfo(self, usefulEnergyRange = (5300, 6000), doPlots = False ):
+    def countRateInfo(self, usefulEnergyRange = (5300, 6000), doPlots = False, verbose = False ):
         assert(usefulEnergyRange[0]<usefulEnergyRange[1])
         countsPassedCuts = numpy.zeros(self.data.num_good_channels)
         totalCounts = numpy.zeros(self.data.num_good_channels)
@@ -671,7 +692,8 @@ class GeneralCalibration(object):
             elapsedTime[i] = ds.p_timestamp[ds.cuts.good()][-1]-ds.p_timestamp[ds.cuts.good()][0]
             usefulIndex = log_and(ds.cuts.good(), ds.p_energy>usefulEnergyRange[0], ds.p_energy<usefulEnergyRange[1])
             usefulCounts[i] = usefulIndex.sum()
-            print('channel %d, trigger rate %4.2f/s, passed cuts rate %4.2f/s, useful rate %4.2f/s'%(ds.channum, 
+            if verbose:
+                print('channel %d, trigger rate %4.2f/s, passed cuts rate %4.2f/s, useful rate %4.2f/s'%(ds.channum, 
                    totalCounts[i]/elapsedTime[i], countsPassedCuts[i]/elapsedTime[i], usefulCounts[i]/elapsedTime[i]))
             if doPlots:
                 pylab.figure()
@@ -684,27 +706,155 @@ class GeneralCalibration(object):
                               totalCounts[i]/elapsedTime[i], countsPassedCuts[i]/elapsedTime[i], usefulCounts[i]/elapsedTime[i]))
             
         elapsedTime = numpy.median(elapsedTime) # they should all have the same elapsed time roughly.
-        pylab.figure()
-        pylab.plot(totalCounts/elapsedTime, 10*usefulCounts/elapsedTime,'bs',label='10x counts in range %d eV to %d eV'%usefulEnergyRange)
-        pylab.plot(totalCounts/elapsedTime, countsPassedCuts/elapsedTime,'ro',label='counts passed cuts')
-        pylab.xlabel('~trigger rate s^-1')
-        pylab.ylabel('other count rates s^-1')
-        pylab.legend()
+        if doPlots:
+            pylab.figure()
+            pylab.plot(totalCounts/elapsedTime, 10*usefulCounts/elapsedTime,'bs',label='10x counts in range %d eV to %d eV'%usefulEnergyRange)
+            pylab.plot(totalCounts/elapsedTime, countsPassedCuts/elapsedTime,'ro',label='counts passed cuts')
+            pylab.xlabel('~trigger rate s^-1')
+            pylab.ylabel('other count rates s^-1')
+            pylab.legend()
         
         return totalCounts/elapsedTime, countsPassedCuts/elapsedTime, usefulCounts/elapsedTime
         
-    def scaleCalibration(self, referenceGenCal, whichCalibration='p_filt_value_dc', referenceFeature='MnKAlpha'):
+    def scaleCalibration(self, referenceGenCal, whichCalibrationSelf='p_filt_value_dc', whichCalibrationReference=None, referenceFeature='MnKAlpha'):
         print('scaleCalibration currently doesnt propogate error properly, pht_error in new calibration isnt right')
+        if whichCalibrationReference is None: 
+            whichCalibrationReference = whichCalibrationSelf
+            print('scaleCalibration: whichCalibrationReference = whichCalibrationSelf since whichCalibrationReference was None')
+        scalingDict = {}
         for ds in self.data:
-            origCal = ds.calibration[whichCalibration]
-            newCal = mass.energy_calibration.EnergyCalibration('%s_scaled_at_%s'%(whichCalibration, referenceFeature))
-            ds.calibration[newCal.ph_field] = newCal
-            referenceUnscaledPulseHeight = origCal.name2ph(referenceFeature)
-            referenceScaledPulseHeight = referenceGenCal.data.channel[ds.channum].calibration[whichCalibration].name2ph(referenceFeature)
-            for i, unscaledPulseHeight in enumerate(origCal._ph):
-                if unscaledPulseHeight > 0:
-                    scaledPulseHeight = unscaledPulseHeight*referenceScaledPulseHeight/referenceUnscaledPulseHeight
-                    newCal.add_cal_point(scaledPulseHeight, origCal._names[i],pht_error=origCal._stddev[i])
+            try:
+                origCal = ds.calibration[whichCalibrationSelf]
+                newCal = mass.energy_calibration.EnergyCalibration('%s_scaled_at_%s'%(whichCalibrationSelf, referenceFeature))
+                ds.calibration[newCal.ph_field] = newCal
+                referenceUnscaledPulseHeight = origCal.name2ph(referenceFeature)
+                referenceScaledPulseHeight = referenceGenCal.data.channel[ds.channum].calibration[whichCalibrationReference].name2ph(referenceFeature)
+                for i, unscaledPulseHeight in enumerate(origCal._ph):
+                    if unscaledPulseHeight > 0:
+                        scaledPulseHeight = unscaledPulseHeight*referenceScaledPulseHeight/referenceUnscaledPulseHeight
+                        newCal.add_cal_point(scaledPulseHeight, origCal._names[i],pht_error=origCal._stddev[i])
+                scalingDict[ds.channum] = referenceScaledPulseHeight/referenceUnscaledPulseHeight
+            except:
+                self.data.set_chan_bad(ds.channum, 'failed scaleCalibration, probably brentq')
+        return scalingDict
+    
+    def phase_correct(self, line_names = ['MnKAlpha'], whichCalibration = 'p_filt_value_dc', energyRangeFracs=[0.995, 1.005], times=None, doPlot=False):
+        """Apply a correction for pulse variation with arrival phase.
+        Model is a parabolic correction with cups at +-180 degrees away from the "center".
+        
+        prange:  use only filtered values in this range for correction 
+        times: if not None, use this range of p_timestamps instead of all data (units are seconds
+               since server started--ugly but that's what we have to work with)
+        doPlot:  whether to display the result
+        """
+        if type(line_names) != type(list()): line_names = [line_names]
+        # Choose number and size of bins
+        
+        phaseSpan = 1.0
+        phaseMax = phaseSpan/2.0
+        phases = numpy.linspace(-phaseMax,phaseMax,20)
+        phase_step = phases[1]-phases[0]
+        
+        for ds in self.data:
+            for line_name in line_names:
+                calibration = ds.calibration[whichCalibration]
+                ph_estimate = calibration.name2ph(line_name)
+                ph_range = numpy.array(energyRangeFracs)*ph_estimate
+            
+
+                # Estimate corrections in a few different pieces
+                toCorrect = ds.__dict__[whichCalibration]
+                corrections = []
+                valid = ds.cuts.good()
+                if ph_range is not None:
+                    valid = numpy.logical_and(valid, toCorrect<ph_range[1])
+                    valid = numpy.logical_and(valid, toCorrect>ph_range[0])
+                if times is not None:
+                    valid = numpy.logical_and(valid, ds.p_timestamp<times[1])
+                    valid = numpy.logical_and(valid, ds.p_timestamp>times[0])
+    
+                # Plot the raw filtered value vs phase
+                if doPlot:
+                    pylab.figure()
+                    pylab.subplot(211)
+                    pylab.plot((ds.p_filt_phase[valid]+phaseMax)%phaseSpan-phaseMax, toCorrect[valid],'.')
+                    pylab.xlabel("Hypothetical 'center phase'")
+                    pylab.ylabel(whichCalibration)
+                    pylab.title('channel %d'%ds.channum)
+                    pylab.xlim([-1.1*phaseMax,1.1*phaseMax])
+                    if ph_range is not None:
+                        pylab.ylim(ph_range)
+                    
+                for ctr_phase in phases:
+                    valid_ph = numpy.logical_and(valid,
+                                                 numpy.abs((ds.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
+        #            print valid_ph.sum(),"   ",
+                    mean = toCorrect[valid_ph].mean()
+                    median = numpy.median(toCorrect[valid_ph])
+#                    robust_mean = mass.robust.bisquare_weighted_mean(toCorrect[valid_ph], 3.88)
+                    corrections.append(mean) # not obvious that mean vs median matters
+                    if doPlot:
+                        pylab.plot(ctr_phase, mean, 'or')
+#                        pylab.plot(ctr_phase, median, 'vk', ms=10)
+#                        pylab.plot(ctr_phase, robust_mean, 'gd')
+                corrections = numpy.array(corrections)
+                if not numpy.isfinite(corrections).all():
+                    self.data.set_chan_bad(ds.channum, 'phase_corrections not all finite')
+                    break
+            
+
+                errfunc = lambda p,x,y: y-self.phaseCorrectionModel(p,x)
+                params = (0., 4, corrections.mean())
+                fitparams, _iflag = scipy.optimize.leastsq(errfunc, params, args=(ds.p_filt_phase[valid], toCorrect[valid]))
+                plot_phases = numpy.linspace(-phaseMax,phaseMax,100)
+            
+                fitparams[2] = 0
+                ds.phase_correct_info={'phase':fitparams[0],
+                                    'amplitude':fitparams[1],
+                                    'mean':fitparams[2],
+                                    'calibration_to_correct':whichCalibration}
+                correction = self.phaseCorrectionModel(fitparams, ds.p_filt_phase)
+                ds.p_filt_value_phc = toCorrect - correction
+    #        self.p_filt_value_dc = self.p_filt_value_phc.copy()
+                print 'RMS phase correction chan %d %s is: %9.3f (%6.2f parts/thousand)'%(ds.channum, line_name, correction.std(), 
+                                                    1e3*correction.std()/toCorrect.mean())
+            
+                if doPlot:
+                    print self.phaseCorrectionModel(fitparams, plot_phases)
+                    pylab.plot(plot_phases, self.phaseCorrectionModel(fitparams, plot_phases)+corrections.mean(), color='red')
+
+                    pylab.subplot(212)
+                    pylab.plot((ds.p_filt_phase[valid]+phaseMax)%phaseSpan-phaseMax, ds.p_filt_value_phc[valid],'.')
+                    pylab.xlabel('p_filt_phase')
+                    pylab.ylabel('p_filt_value_phc')
+                    pylab.xlim([-1.1*phaseMax,1.1*phaseMax])
+                    if ph_range is not None:
+                        pylab.ylim(ph_range)
+                        
+    def phaseCorrectionModel(self, params, phase):
+        "Params are (phase of center, curvature, mean peak height)"
+        phase = (phase - params[0]+.5)%1 - 0.5
+        return 4*params[1]*(phase**2 - 0.125) + params[2]
+    
+    def apply_stored_phase_correct(self):
+        print('apply_stored_phase_correct')
+        for ds in self.data:
+            if ds.phase_correct_info.has_key('phase'):
+                toCorrect = ds.__dict__[ds.phase_correct_info['calibration_to_correct']]
+                fitparams = [ds.phase_correct_info['phase'], ds.phase_correct_info['amplitude'], ds.phase_correct_info['mean']]
+                correction = self.phaseCorrectionModel(fitparams, ds.p_filt_phase)
+                ds.p_filt_value_phc = toCorrect - correction
+            else:
+                self.data.set_chan_bad(ds.channum, 'phase_correct_info[''phase''] does not exist')
+                
+    def pickle(self):
+        print('pickleing data')
+        self.data.pickle()
+    
+    def unpickle(self):
+        self.data = mass.core.channel_group.unpickle_TESGroup(self.data.first_good_dataset.filename)
+
+        
                 
 
 

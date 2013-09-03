@@ -20,7 +20,7 @@ __all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha',
            'CuKAlphaDistribution',
            'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter', 'CrKAlphaFitter',
            'MnKAlphaFitter', 'FeKAlphaFitter', 'CoKAlphaFitter', 'NiKAlphaFitter', 'CuKAlphaFitter',
-           'CrKBetaFitter', 'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter', 'CuKBetaFitter',
+           'TiKBetaFitter', 'CrKBetaFitter', 'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter', 'CuKBetaFitter',
            'plot_spectrum']
  
 import numpy
@@ -106,7 +106,23 @@ class TiKAlpha(SpectralLine):
     amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
-    peak_energy = 4510.903 # eV   
+    peak_energy = 4510.903 # eV 
+    
+class TiKBeta(SpectralLine):
+    """the data in this are made up based on the CrKBeta line and the tabulated TiKBeta1 energy 
+    I just scaled the energies from Cr by the ratio of the peak energies
+    """
+    name = 'Titanium K-beta'    
+    
+
+    energies = numpy.array([ 4931.9592774 ,  4922.26453989,  4931.32899506,  4927.84585584,
+        4930.24258735])
+    fwhm = numpy.array((1.70, 15.98, 1.90, 6.69, 3.37))
+    peak_heights = numpy.array((670, 55, 337, 82, 151), dtype=numpy.float)/1e3
+    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak (from table IV beta_1,3)
+    peak_energy = 4931.81 # eV     
 
 class VKAlpha(SpectralLine):
     """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
@@ -1068,7 +1084,7 @@ class MultiLorentzianComplexFitter(object):
             if axis is None:
                 pylab.clf()
                 axis = pylab.subplot(111)
-                pylab.xlabel('pulseheight (arb)')
+                pylab.xlabel('pulseheight (arb) - %s'%self.spect.name)
                 pylab.ylabel('counts per %.3f unit bin'%ph_binsize)
                 pylab.title('resolution %.3f, amplitude %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams))        
                 plot_as_stepped_hist(axis, data, pulseheights, color=color)
@@ -1167,7 +1183,7 @@ class FeKAlphaFitter(GenericKAlphaFitter):
         GenericKAlphaFitter.__init__(self, FeKAlpha())
 class CoKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, MnKAlpha())
+        GenericKAlphaFitter.__init__(self, CoKAlpha())
 class NiKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, NiKAlpha())
@@ -1176,6 +1192,10 @@ class CuKAlphaFitter(GenericKAlphaFitter):
         GenericKAlphaFitter.__init__(self, CuKAlpha())
         
 ## create specific KBeta Fitters
+class TiKBetaFitter(GenericKBetaFitter):
+    def __init__(self):
+        print('warning using simple guess at TiKBeta lineshape, havent found good fit data')
+        GenericKBetaFitter.__init__(self, TiKBeta())
 class CrKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, CrKBeta())

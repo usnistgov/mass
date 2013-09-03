@@ -4,3 +4,9 @@
 lint-report.txt
 *.pyc
 mass/mathstat/robust.c
+
+*.orig
+
+.settings/org.eclipse.core.resources.prefs
+
+testfile

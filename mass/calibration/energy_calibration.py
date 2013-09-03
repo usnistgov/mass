@@ -14,48 +14,32 @@ import scipy.optimize
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = {
-                     # old names, commented out, should be deleted if nobody has complained by June 2013
-#   'Al Ka': 1486.35, # didn't remove this in case someone was already using it
-#   'Al Ka1': 1486.35,
-#   'Al Kb': 1557.,
-#   'Si Ka': 1739.6,
-#   'Si Kb': 1837.,
-#   'Sc Ka1':4090.735,
-#   'Ti Ka1':4510.903,
-#   'V Ka1':4952.216,
-#   'Cr Ka1':5414.81,
-#   'Mn Ka1': 5898.802,
-#   'Mn Ka2': 5887.592,
-#   'Mn Kb': 6489.9,
-#   'Fe Ka1': 6404.01,
-#   'Co Ka1':6930.38,
-#   'Ni Ka1':7478.26,
-#   'Cu Ka1':8047.83,   
-#   'Cr Kedge': 5989.0,
-#   'Mn Kb':  6490.18,
-#   'Fe Kedge': 7112.0,
-#   'Cu Ka': 8047.83,
-#   'Cu Kedge': 8979.0,
    'Gd1' :  97431.0,
    'Gd97':  97431.0,
    'Gd2':  103180.0,
    'Gd103':103180.0,
    'zero': 0.0,
    # named to agree with the namein fluorescence_lines
-   'AlKalpha': 1486.35, # __KAlpha refers to K Alpha 1
+   'AlKAlpha': 1486.35, # __KAlpha refers to K Alpha 1
    'AlKBeta': 1557.,
    'SiKAlpha': 1739.6,
    'SiKBeta': 1837.,
    'ScKAlpha': 4090.735,
    'TiKAlpha': 4510.903,
+   'TiKBeta': 4931.81, #http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
    'VKAlpha': 4952.216,
+   'VKBeta': 5427.29,
    'CrKAlpha':5414.81,
+   'CrKBeta': 5946.71,
    'MnKAlpha': 5898.802,
    'MnKBeta': 6489.9,
    'FeKAlpha': 6404.01,
+   'FeKBeta': 7057.98,
    'CoKAlpha': 6930.38,
+   'CoKBeta': 7649.43,
    'NiKAlpha': 7478.26,
    'CuKAlpha': 8047.83,
+   'CuKBeta': 8905.29,
    'TiKEdge': 4966.0,
    'VKEdge': 5465.0, # defined as peak of derivative from exafs materials.com   
    'CrKEdge': 5989.0,
@@ -64,7 +48,29 @@ STANDARD_FEATURES = {
    'CoKEdge': 7709.0,
    'NiKEdge': 8333.0,
    'CuKEdge': 8979.0,
-   'ZnKEdge': 9659.0
+   'ZnKEdge': 9659.0, 
+   # Randy's rare earth metals to nearest eV from x-ray data booklet
+   'HoLAlpha1':6719.675,
+   'HoLAlpha2':6678.484,
+   'HoLBeta1':7525.0,
+   'HoLBeta2':7911.0,
+   'HoLGamma1':8747.0,
+   'TbLAlpha1':6272.82,
+   'TbLAlpha2':6238.10,
+   'TbLBeta1':6978.0,
+   'TbLBeta2':7367.0,
+   'TbLGamma1':8102.0,
+   'SmLAlpha1':5636.0,
+   'SmLAlpha2':5609.0,
+   'SmLBeta1':6204.073,
+   'SmLBeta2':6586.0,
+   'SmLGamma1':7178.0,
+   'NdLAlpha1':5230.0,
+   'NdLAlpha2':5207.0,
+   'NdLBeta1':5721.0,
+   'NdLBeta2':6089.0,
+   'NdLGamma1':6602.0,
+    
 }
 
 class EnergyCalibration(object):
@@ -92,6 +98,7 @@ class EnergyCalibration(object):
         self.ph_field = ph_field
         self.ph2energy = lambda x: x
         self.energy2ph = lambda x: x
+        self.info = [{}]
         self._ph = numpy.zeros(1, dtype=numpy.float)
         self._energies = numpy.zeros(1, dtype=numpy.float)
         self._stddev = numpy.zeros(1, dtype=numpy.float)
@@ -162,7 +169,7 @@ class EnergyCalibration(object):
             if name.startswith(prefix):
                 self.remove_cal_point_name(name)
         
-    def add_cal_point(self, pht, energy, name="", pht_error=None, overwrite=True):
+    def add_cal_point(self, pht, energy, name="", info={}, pht_error=None, overwrite=True):
         """
         Add a single energy calibration point <pht>, <energy>, where <pht> must be in units
         of the self.ph_field and <energy> is in eV.  <pht_error> is the 1-sigma uncertainty
@@ -192,7 +199,7 @@ class EnergyCalibration(object):
             except ValueError:
                 raise ValueError("2nd argument must be an energy or a known name"+
                                  " from mass.energy_calibration.STANDARD_FEATURES")
-        
+        info['name']=name
         if pht_error is None:
             pht_error = pht*0.001
         
@@ -203,12 +210,14 @@ class EnergyCalibration(object):
             self._ph[index] = pht
             self._energies[index] = energy
             self._stddev[index] = pht_error
+            self.info[index] = info.copy()
             
         else:   # Add a new point
             self._ph = numpy.hstack((self._ph, pht))
             self._energies = numpy.hstack((self._energies, energy))
             self._stddev = numpy.hstack((self._stddev, pht_error))
             self._names.append(name)
+            self.info.append(info.copy())
             
             # Sort in ascending energy order
             sortkeys = numpy.argsort(self._energies)
@@ -216,10 +225,12 @@ class EnergyCalibration(object):
             self._energies = self._energies[sortkeys]
             self._stddev = self._stddev[sortkeys]
             self._names = [self._names[s] for s in sortkeys]
+            self.info = [self.info[s] for s in sortkeys]
             self.npts += 1
             assert len(self._names)==len(self._ph)
             assert len(self._names)==len(self._stddev)
             assert len(self._names)==len(self._energies)
+            assert len(self._names)==len(self.info)
 
         self._update_converters()
         

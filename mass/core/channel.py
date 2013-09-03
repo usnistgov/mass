@@ -460,7 +460,7 @@ class PulseRecords(object):
         
     
     def read_segment(self, segment_num):
-        """Read the requested segment of the raw data file and return  (first,end,data)
+        """Read the requested segment of the raw data file and return  (first,end)
         meaning: the first record number, 1 more than the last record number,
         and the nPulse x nSamples array."""
         if segment_num >= self.n_segments:
@@ -689,14 +689,17 @@ class MicrocalDataSet(object):
 
 
 
-    def __init__(self, pulserec_dict):
+    def __init__(self, pulserec_dict, autoPickle = True):
         """
         Pass in a dictionary (presumably that of a PulseRecords object)
         containing the expected attributes that must be copied to this
         MicrocalDataSet.
         """
+        self.autoPickle = autoPickle
         self.filter = {}
+        self.lastUsedFilterHash = -1
         self.drift_correct_info = {}
+        self.phase_correct_info = {}
         self.noise_spectrum = None
         self.noise_autocorr = None 
         self.noise_demodulated = None
@@ -705,11 +708,15 @@ class MicrocalDataSet(object):
         for a in self.expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename','virtual data set')
-        self.__setup_vectors(npulses=0)
         self.gain = 1.0
         self.pretrigger_ignore_microsec = None # Cut this long before trigger in computing pretrig values
         self.peak_time_microsec = None   # Look for retriggers only after this time. 
         self.index = None   # Index in the larger TESGroup or CDMGroup object
+        self.__setup_vectors(npulses=self.nPulses)
+        if self.autoPickle:
+            self.unpickle()
+            
+
 
 
     def __setup_vectors(self, npulses=None):
@@ -723,24 +730,28 @@ class MicrocalDataSet(object):
         if npulses is None:
             assert self.nPulses > 0
             npulses = self.nPulses
-        self.p_timestamp = numpy.zeros(npulses, dtype=numpy.float)
+        self.p_timestamp = numpy.zeros(npulses, dtype=numpy.float64)
         self.p_peak_index = numpy.zeros(npulses, dtype=numpy.uint16)
         self.p_peak_value = numpy.zeros(npulses, dtype=numpy.uint16)
-        self.p_peak_time = numpy.zeros(npulses, dtype=numpy.float)
         self.p_min_value = numpy.zeros(npulses, dtype=numpy.uint16)
-        self.p_pretrig_mean = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_pretrig_rms = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_pulse_average = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_rise_time = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_max_posttrig_deriv = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_filt_value = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_filt_value_phc = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_filt_value_dc = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_energy = numpy.zeros(npulses, dtype=numpy.float)
-        self.p_first3 = numpy.zeros((npulses,3), dtype=numpy.uint16)
+        self.p_pretrig_mean = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_pretrig_rms = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_pulse_average = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_rise_time = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_max_posttrig_deriv = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float64) # float32 for p_filt_phase makes energy resoluiton worse, gco, 20130516, it should be possible to use 32 but probably requires rescaling phase
+        # maybe converting phase to int16, where 0 is 0, -max is -2, max is 2?
+        self.p_filt_value = numpy.zeros(npulses, dtype=numpy.float32) 
+        self.p_filt_value_phc = numpy.zeros(npulses, dtype=numpy.float32) 
+        self.p_filt_value_dc = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_energy = numpy.zeros(npulses, dtype=numpy.float32)
         
         self.cuts = Cuts(self.nPulses)
+    
+    @property
+    def p_peak_time(self):
+        # this is a property to reduce memory usage, I hope it works
+        return (numpy.asarray(self.p_peak_index, dtype=numpy.int)-self.nPresamples)*self.timebase
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
@@ -782,8 +793,27 @@ class MicrocalDataSet(object):
             c.noise_spectrum = self.noise_spectrum.copy()
         return c
 
+#    def save_mass_data(self, dataname, *args, **kwargs):
+#        basedir, basename = os.path.split(self.filename)
+#        basename, baseext = os.path.splitext(basename)
+#        massdir = os.path.join(basedir, "mass")
+#        if not os.path.isdir(massdir):
+#            os.mkdir(massdir, 0775)
+#        filename = os.path.join(massdir, '%s_%s'%(basename, dataname))
+#        numpy.savez(filename, *args, **kwargs)
+#        
+#    def load_mass_data(self, dataname):
+#        basedir, basename = os.path.split(self.filename)
+#        basename, baseext = os.path.splitext(basename)
+#        massdir = os.path.join(basedir, 'mass')
+#        filename = os.path.join(massdir, '%s_%s.%s'%(basename, dataname,'npz'))
+#        try:
+#            data_out = numpy.load(filename)
+#        except IOError:
+#            data_out = None
+#        return data_out
 
-    def pickle(self, filename=None):
+    def pickle(self, filename=None, verbose=True):
         """Pickle the _contents_ of the MicrocalDataSet object.
         <filename>    The output pickle name.  If not given, then it will be the data file name
                       with the suffix replaced by '.pkl' and in a subdirectory mass under the
@@ -812,7 +842,8 @@ class MicrocalDataSet(object):
         # Pickle all attributes noise_*, p_*, peak_time_microsec, pretrigger_*, timebase, times
         # Approach is to dump the attribute NAME then value.
         attr_starts = ("noise_", "p_", "pretrigger_")
-        attr_names = ("peak_time_microsec", "timebase", "times", "average_pulses")
+        attr_names = ("peak_time_microsec", "timebase", "times", "average_pulses",
+                      "calibration", "drift_correct_info", "phase_correct_info", "filter" )
         for attr in self.__dict__:
             store_this_attr = attr in attr_names
             for ast in attr_starts:
@@ -823,7 +854,8 @@ class MicrocalDataSet(object):
                 pickler.dump(attr)
                 pickler.dump(self.__dict__[attr])
         fp.close()
-        print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
+        if verbose:
+            print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
     
         
     def unpickle(self, filename=None):
@@ -846,7 +878,9 @@ class MicrocalDataSet(object):
             if not os.path.isdir(massdir):
                 os.mkdir(massdir, 0775)
             filename = os.path.join(massdir, "%s.pkl"%os.path.basename(self.filename))
-            
+        if not os.path.isfile(filename):
+            return
+        
         import cPickle
         fp = open(filename, "rb")
         unpickler = cPickle.Unpickler(fp)
@@ -862,6 +896,31 @@ class MicrocalDataSet(object):
             pass
         fp.close()
 
+    def summarize_data_tdm(self, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0, forceNew = False):
+        """summarized the complete data file one chunk at a time
+        this version does the whole dataset at once (instead of previous segment at a time for all datasets)
+        """
+        if len(self.p_timestamp) < self.pulse_records.nPulses:
+            self.__setup_vectors(nPulses=self.pulse_records.nPulses)
+        elif forceNew or all(self.p_timestamp==0):
+            self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)   
+            # consider setting segment size first
+            printUpdater = mass.calibration.inlineUpdater.InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
+
+            for s in range(self.pulse_records.n_segments):
+                first, last = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
+                self.p_timestamp[first:last] = self.pulse_records.datafile.datatimes_float
+                (self.p_pretrig_mean[first:last], self.p_pretrig_rms[first:last],
+                self.p_peak_index[first:last], self.p_peak_value[first:last], self.p_min_value[first:last],
+                self.p_pulse_average[first:last], self.p_rise_time[first:last], 
+                self.p_max_posttrig_deriv[first:last]) = mass.mathstat.summarize_and_filter.summarize_old(self.pulse_records.data, 
+                    self.nPresamples, self.pretrigger_ignore_samples, self.timebase, peak_time_microsec)
+                printUpdater.update((s+1)/float(self.pulse_records.n_segments))
+            self.pulse_records.datafile.clear_cached_segment()      
+            if self.autoPickle:
+                self.pickle(verbose=False)
+        else:
+            print('\nchan %d did not summarie becase results were already preloaded'%self.channum)
 
     def summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
         """Summarize the complete data file
@@ -889,13 +948,10 @@ class MicrocalDataSet(object):
         self.p_peak_value[first:end] = self.data[:seg_size,:].max(axis=1)
         self.p_min_value[first:end] = self.data[:seg_size,:].min(axis=1)
         self.p_pulse_average[first:end] = self.data[:seg_size,self.nPresamples:].mean(axis=1)
-        self.p_first3[first:end,:] = self.data[:seg_size,self.nPresamples+3:self.nPresamples+6]
         
         # Remove the pretrigger mean from the peak value and the pulse average figures. 
         self.p_peak_value[first:end] -= self.p_pretrig_mean[first:end]
         self.p_pulse_average[first:end] -= self.p_pretrig_mean[first:end]
-        # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:
-        self.p_peak_time[first:end] = (numpy.asarray(self.p_peak_index[first:end], dtype=numpy.int)-self.nPresamples)*self.timebase
 
         # Compute things that have to be computed one at a time:
         for pulsenum,pulse in enumerate(self.data):
@@ -905,6 +961,26 @@ class MicrocalDataSet(object):
             self.p_max_posttrig_deriv[first+pulsenum] = \
                 compute_max_deriv(pulse[self.nPresamples + maxderiv_holdoff:])
 
+    
+    def filter_data_tdm(self, filter_name='filt_noconst', transform=None, forceNew=False):
+        """filter the complete data file one chunk at a time
+        this version does the whole dataset at once (instead of previous segment at a time for all datasets)
+        """
+        filter_values = self.filter.__dict__[filter_name]
+        if forceNew or all(self.p_filt_value == 0): # determine if we need to do anything
+            printUpdater = mass.calibration.inlineUpdater.InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
+            for s in range(self.pulse_records.n_segments):
+                first, last = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
+                (self.p_filt_phase[first:last], self.p_filt_value[first:last]) = mass.mathstat.summarize_and_filter.filter_data_old(
+                filter_values, self.pulse_records.data, transform, self.p_pretrig_mean[first:last])
+                printUpdater.update((s+1)/float(self.pulse_records.n_segments))
+                
+            self.pulse_records.datafile.clear_cached_segment()    
+            if self.autoPickle:
+                self.pickle(verbose=False)  
+        else:
+            print('\nchan %d did not filter because results were already loaded'%self.channum)
+        
 
     def filter_data(self, filter_values, first, end, transform=None):
         if first >= self.nPulses:
@@ -920,21 +996,19 @@ class MicrocalDataSet(object):
 
         seg_size = min(end-first, self.data.shape[0])
         conv = numpy.zeros((5, seg_size), dtype=numpy.float)
-        if transform is None:
-            for i in range(5):
-                if i-4 == 0:
-                    conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
-                else:
-                    conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
-        else:
+        if transform is not None:
             ptmean = self.p_pretrig_mean[first:end]
             ptmean.shape = (len(ptmean),1)
             data = transform(self.data-ptmean)
-            for i in range(5):
-                if i-4 == 0:
-                    conv[i,:] = (filter_values*data[:seg_size,i:]).sum(axis=1)
-                else:
-                    conv[i,:] = (filter_values*data[:seg_size,i:i-4]).sum(axis=1)
+        for i in range(5):
+            if i-4 == 0:
+                # previous method in comments, converted to dot product based on ~30% speed boost in tests
+#                    conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
+                conv[i,:] = numpy.dot(self.data[:,i:], filter_values)
+            else:
+#                    conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
+                conv[i,:] = numpy.dot(self.data[:seg_size,i:i-4], filter_values)
+
 
         param = numpy.dot(fit_array, conv)
         peak_x = -0.5*param[1,:]/param[2,:]
@@ -1029,21 +1103,50 @@ class MicrocalDataSet(object):
                   self.CUT_* (see the set of class attributes)
         
         <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b. 
-        Either a or b may be None, indicating no cut."""
+        Either a or b may be None, indicating no cut.
+        OR
+        <allowed> is a sequence of 2-element sequences (a,b), then the cut cuts data that does not meet a <= data <=b
+        for any of the two element sequences, if any element in allowed is ''invert'' then it swaps cut and uncut
+        """
         
         if allowed is None: # no cut here! 
             return
         if cut_id <0 or cut_id >=32:
             raise ValueError("cut_id must be in the range [0,31]")
         
-        try:
-            a,b = allowed
-            if a is not None:
-                self.cuts.cut(cut_id, data <= a)
-            if b is not None:
-                self.cuts.cut(cut_id, data >= b)
-        except ValueError:
-            pass
+        # determine if allowed is a sequence or a sequence of sequences
+        if numpy.size(allowed[0]) == 2 or allowed[0] == 'invert':
+            doInvert = False
+            cut_vec = numpy.ones_like(data, dtype='bool')
+            for element in allowed:
+                if numpy.size(element) == 2:
+                    try:
+                        a,b = element
+                        if a is not None and b is not None:
+                            index = numpy.logical_and(data >= a, data <= b)
+                        elif a is not None:
+                            index = data >= a
+                        elif b is not None:
+                            index = data <= b
+                        cut_vec[index] = False
+                    except:
+                        raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid'%str(element))
+                elif element == 'invert':
+                    doInvert = True
+            if doInvert:
+                self.cuts.cut(cut_id, ~cut_vec)
+            else:
+                self.cuts.cut(cut_id, cut_vec)
+        else:
+            try:
+                a,b = allowed
+                if a is not None:
+                    self.cuts.cut(cut_id, data <= a)
+                if b is not None:
+                    self.cuts.cut(cut_id, data >= b)
+            except ValueError:
+                raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid'%str(allowed))
+
     
     
     def apply_cuts(self, controls=None, clear=False, verbose=1):
@@ -1060,7 +1163,8 @@ class MicrocalDataSet(object):
               
         self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], self.CUT_NAME.index('pretrigger_rms'))
         self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'], self.CUT_NAME.index('pretrigger_mean'))
-        self.cut_parameter(self.p_peak_time*1e3, c['peak_time_ms'], self.CUT_NAME.index('peak_time_ms'))
+        # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:
+        self.cut_parameter(1e3*self.p_peak_time, c['peak_time_ms'], self.CUT_NAME.index('peak_time_ms'))
         self.cut_parameter(self.p_rise_time*1e3, c['rise_time_ms'], self.CUT_NAME.index('rise_time_ms'))
         self.cut_parameter(self.p_max_posttrig_deriv, c['max_posttrig_deriv'], self.CUT_NAME.index('max_posttrig_deriv'))
         self.cut_parameter(self.p_pulse_average, c['pulse_average'], self.CUT_NAME.index('pulse_average'))
@@ -1082,90 +1186,90 @@ class MicrocalDataSet(object):
         self.cuts = Cuts(self.nPulses)
     
     
-    def phase_correct(self, prange=None, times=None, plot=True):
-        """Apply a correction for pulse variation with arrival phase.
-        Model is a parabolic correction with cups at +-180 degrees away from the "center".
-        
-        prange:  use only filtered values in this range for correction 
-        times: if not None, use this range of p_timestamps instead of all data (units are seconds
-               since server started--ugly but that's what we have to work with)
-        plot:  whether to display the result
-        """
-        
-        # Choose number and size of bins
-        phase_step=.05
-        nstep = int(.5+1.0/phase_step)
-        phases = (0.5+numpy.arange(nstep))/nstep - 0.5
-        phase_step = 1.0/nstep
-        
-        # Default: use the calibration to pick a prange
-        if prange is None:
-            calibration = self.calibration['p_filt_value']
-            ph_estimate = calibration.name2ph('MnKAlpha')
-            prange = numpy.array((ph_estimate*.98, ph_estimate*1.02))
-
-        # Estimate corrections in a few different pieces
-        corrections = []
-        valid = self.cuts.good()
-        if prange is not None:
-            valid = numpy.logical_and(valid, self.p_filt_value<prange[1])
-            valid = numpy.logical_and(valid, self.p_filt_value>prange[0])
-        if times is not None:
-            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
-            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
-
-        # Plot the raw filtered value vs phase
-        if plot:
-            pylab.clf()
-            pylab.subplot(211)
-            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value[valid],',',color='orange')
-            pylab.xlabel("Hypothetical 'center phase'")
-            pylab.ylabel("Filtered PH")
-            pylab.xlim([-.55,.55])
-            if prange is not None:
-                pylab.ylim(prange)
-                
-        for ctr_phase in phases:
-            valid_ph = numpy.logical_and(valid,
-                                         numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
-#            print valid_ph.sum(),"   ",
-            mean = self.p_filt_value[valid_ph].mean()
-            median = numpy.median(self.p_filt_value[valid_ph])
-            corrections.append(mean) # not obvious that mean vs median matters
-            if plot:
-                pylab.plot(ctr_phase, mean, 'or')
-                pylab.plot(ctr_phase, median, 'vk', ms=10)
-        corrections = numpy.array(corrections)
-        assert numpy.isfinite(corrections).all()
-        
-        def model(params, phase):
-            "Params are (phase of center, curvature, mean peak height)"
-            phase = (phase - params[0]+.5)%1 - 0.5
-            return 4*params[1]*(phase**2 - 0.125) + params[2]
-        errfunc = lambda p,x,y: y-model(p,x)
-        
-        params = (0., 4, corrections.mean())
-        fitparams, _iflag = scipy.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
-        phases = numpy.arange(-0.6,0.5001,.01)
-        if plot: pylab.plot(phases, model(fitparams, phases), color='blue')
-        
-        
-        self.phase_correction={'phase':fitparams[0],
-                            'amplitude':fitparams[1],
-                            'mean':fitparams[2]}
-        fitparams[2] = 0
-        correction = model(fitparams, self.p_filt_phase)
-        self.p_filt_value_phc = self.p_filt_value - correction
-        self.p_filt_value_dc = self.p_filt_value_phc.copy()
-        print 'RMS phase correction is: %9.3f (%6.2f parts/thousand)'%(correction.std(), 
-                                            1e3*correction.std()/self.p_filt_value.mean())
-        
-        if plot:
-            pylab.subplot(212)
-            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value_phc[valid],',b')
-            pylab.xlim([-.55,.55])
-            if prange is not None:
-                pylab.ylim(prange)
+#    def phase_correct(self, prange=None, times=None, plot=True):
+#        """Apply a correction for pulse variation with arrival phase.
+#        Model is a parabolic correction with cups at +-180 degrees away from the "center".
+#        
+#        prange:  use only filtered values in this range for correction 
+#        times: if not None, use this range of p_timestamps instead of all data (units are seconds
+#               since server started--ugly but that's what we have to work with)
+#        plot:  whether to display the result
+#        """
+#        
+#        # Choose number and size of bins
+#        phase_step=.05
+#        nstep = int(.5+1.0/phase_step)
+#        phases = (0.5+numpy.arange(nstep))/nstep - 0.5
+#        phase_step = 1.0/nstep
+#        
+#        # Default: use the calibration to pick a prange
+#        if prange is None:
+#            calibration = self.calibration['p_filt_value']
+#            ph_estimate = calibration.name2ph('Mn Ka1')
+#            prange = numpy.array((ph_estimate*.98, ph_estimate*1.02))
+#
+#        # Estimate corrections in a few different pieces
+#        corrections = []
+#        valid = self.cuts.good()
+#        if prange is not None:
+#            valid = numpy.logical_and(valid, self.p_filt_value<prange[1])
+#            valid = numpy.logical_and(valid, self.p_filt_value>prange[0])
+#        if times is not None:
+#            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
+#            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+#
+#        # Plot the raw filtered value vs phase
+#        if plot:
+#            pylab.clf()
+#            pylab.subplot(211)
+#            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value[valid],',',color='orange')
+#            pylab.xlabel("Hypothetical 'center phase'")
+#            pylab.ylabel("Filtered PH")
+#            pylab.xlim([-.55,.55])
+#            if prange is not None:
+#                pylab.ylim(prange)
+#                
+#        for ctr_phase in phases:
+#            valid_ph = numpy.logical_and(valid,
+#                                         numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
+##            print valid_ph.sum(),"   ",
+#            mean = self.p_filt_value[valid_ph].mean()
+#            median = numpy.median(self.p_filt_value[valid_ph])
+#            corrections.append(mean) # not obvious that mean vs median matters
+#            if plot:
+#                pylab.plot(ctr_phase, mean, 'or')
+#                pylab.plot(ctr_phase, median, 'vk', ms=10)
+#        corrections = numpy.array(corrections)
+#        assert numpy.isfinite(corrections).all()
+#        
+#        def model(params, phase):
+#            "Params are (phase of center, curvature, mean peak height)"
+#            phase = (phase - params[0]+.5)%1 - 0.5
+#            return 4*params[1]*(phase**2 - 0.125) + params[2]
+#        errfunc = lambda p,x,y: y-model(p,x)
+#        
+#        params = (0., 4, corrections.mean())
+#        fitparams, _iflag = scipy.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
+#        phases = numpy.arange(-0.6,0.5001,.01)
+#        if plot: pylab.plot(phases, model(fitparams, phases), color='blue')
+#        
+#        
+#        self.phase_correction={'phase':fitparams[0],
+#                            'amplitude':fitparams[1],
+#                            'mean':fitparams[2]}
+#        fitparams[2] = 0
+#        correction = model(fitparams, self.p_filt_phase)
+#        self.p_filt_value_phc = self.p_filt_value - correction
+#        self.p_filt_value_dc = self.p_filt_value_phc.copy()
+#        print 'RMS phase correction is: %9.3f (%6.2f parts/thousand)'%(correction.std(), 
+#                                            1e3*correction.std()/self.p_filt_value.mean())
+#        
+#        if plot:
+#            pylab.subplot(212)
+#            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value_phc[valid],',b')
+#            pylab.xlim([-.55,.55])
+#            if prange is not None:
+#                pylab.ylim(prange)
 
     # galen 20130211 - I think this can be replaced by polyfit with 1 dimension, its faster, more obvious what is going on, and in my test yielded the same answer to 3 decimal places
     def auto_drift_correct_rms(self, prange=None, times=None, ptrange=None, plot=False, slopes=None):
@@ -1194,7 +1298,7 @@ class MicrocalDataSet(object):
         # Default: use the calibration to pick a prange
         if prange is None:
             calibration = self.calibration['p_filt_value']
-            ph_estimate = calibration.name2ph(element_name+' Ka1')
+            ph_estimate = calibration.name2ph(element_name+'KAlpha')
             prange = numpy.array((ph_estimate*.99, ph_estimate*1.01))
         
         range_ctr = 0.5*(prange[0]+prange[1])
