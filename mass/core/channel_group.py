@@ -798,7 +798,7 @@ class BaseChannelGroup(object):
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
         rms_fwhm = numpy.sqrt(numpy.log(2)*8) # FWHM is this much times the RMS
         print 'V/dV for time, Fourier filters: '
-        for ds in self:
+        for i,ds in enumerate(self):
     
             try:
                 rms = ds.filter.variances[filter_name]**0.5
