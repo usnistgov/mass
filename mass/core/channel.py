@@ -689,13 +689,13 @@ class MicrocalDataSet(object):
 
 
 
-    def __init__(self, pulserec_dict, autoPickle = True):
+    def __init__(self, pulserec_dict, auto_pickle = True):
         """
         Pass in a dictionary (presumably that of a PulseRecords object)
         containing the expected attributes that must be copied to this
         MicrocalDataSet.
         """
-        self.autoPickle = autoPickle
+        self.auto_pickle = auto_pickle
         self.filter = {}
         self.lastUsedFilterHash = -1
         self.drift_correct_info = {}
@@ -713,7 +713,7 @@ class MicrocalDataSet(object):
         self.peak_time_microsec = None   # Look for retriggers only after this time. 
         self.index = None   # Index in the larger TESGroup or CDMGroup object
         self.__setup_vectors(npulses=self.nPulses)
-        if self.autoPickle:
+        if self.auto_pickle:
             self.unpickle()
             
 
@@ -860,17 +860,16 @@ class MicrocalDataSet(object):
         
     def unpickle(self, filename=None):
         """
-        Factory function to unpickle a MicrocalDataSet pickled by its .pickle() method.
-        Note that you might be better off creating a MicrocalDataSet the usual way, then
-        loading it with its .unpickle() method.
+        Unpickle a MicrocalDataSet pickled by its .pickle() method.
         
         Data structure must be:
         1. A dictionary with simple values, whose keys include at least all strings in
            the tuple MicrocalDataSet.expected_attributes.
         2. The dataset cuts._mask
         3. Any string.  If #4 also loads, then this will be the attribute name.
-        4. Any pickleable object.  This will become an attribute value (prev item gives its name)
-        ... Repeat items (3,4) as many times as necessary to load attribute (name,value) pairs.
+        4. Any pickleable object.  This will become an attribute value
+           (prev item gives its name)
+        ... Repeat items (3,4) as needed to load all attribute (name,value) pairs.
         """
         if filename is None:
             basedir = os.path.dirname(self.filename)
@@ -917,7 +916,7 @@ class MicrocalDataSet(object):
                     self.nPresamples, self.pretrigger_ignore_samples, self.timebase, peak_time_microsec)
                 printUpdater.update((s+1)/float(self.pulse_records.n_segments))
             self.pulse_records.datafile.clear_cached_segment()      
-            if self.autoPickle:
+            if self.auto_pickle:
                 self.pickle(verbose=False)
         else:
             print('\nchan %d did not summarie becase results were already preloaded'%self.channum)
@@ -976,7 +975,7 @@ class MicrocalDataSet(object):
                 printUpdater.update((s+1)/float(self.pulse_records.n_segments))
                 
             self.pulse_records.datafile.clear_cached_segment()    
-            if self.autoPickle:
+            if self.auto_pickle:
                 self.pickle(verbose=False)  
         else:
             print('\nchan %d did not filter because results were already loaded'%self.channum)

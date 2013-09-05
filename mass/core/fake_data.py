@@ -128,7 +128,7 @@ class FakeDataGenerator(object):
                   for _i in range(nchan)]
         nfiles = [self._generate_virtual_noise_file(n_noise)
                   for _i in range(nchan)]
-        data = TESGroup(vfiles, nfiles)
+        data = TESGroup(vfiles, nfiles, auto_pickle=False)
         
         # Have to fake the channel numbers, b/c they aren't encoded in filename
         for i,ds in enumerate(data.datasets):

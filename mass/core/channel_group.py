@@ -1119,7 +1119,8 @@ class TESGroup(BaseChannelGroup):
     (which has to be more complex under the hood).
     """
     def __init__(self, filenames, noise_filenames=None, noise_only=False, pulse_only=False,
-                 noise_is_continuous=True, max_cachesize=None):
+                 noise_is_continuous=True, max_cachesize=None,
+                 auto_pickle=True):
         if noise_filenames is not None and len(noise_filenames)==0:
             noise_filenames = None
         BaseChannelGroup.__init__(self, filenames, noise_filenames)
@@ -1141,10 +1142,10 @@ class TESGroup(BaseChannelGroup):
                 
             pulse_list.append(pulse)
             if noise is None:
-                dset = mass.channel.MicrocalDataSet(pulse.__dict__)
+                dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle)
                 dset_list.append(dset)
             elif pulse.channum == noise.channum:
-                dset = mass.channel.MicrocalDataSet(pulse.__dict__)
+                dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle)
                 dset.noise_records = noise
                 assert(dset.channum == dset.noise_records.channum)
                 dset_list.append(dset)
