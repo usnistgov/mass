@@ -15,9 +15,9 @@ November 9, 2011
 import mass
 
 def generate_mnkalphabeta_data(
-          sample_time_us=5.12,
-          n_samples=4096,
-          n_presamples=1024,
+          sample_time_us=10.24,
+          n_samples=2048,
+          n_presamples=512,
           n_pulses=5000,
           n_noise=1024,
           n_chan=2,
@@ -50,9 +50,9 @@ import pylab
 wasinteractive = pylab.isinteractive() # So we can go back to initial state later
 pylab.ion()
 
-sample_time_us=5.12
-n_samples=4096        # samples in each data record
-n_presamples=1024
+sample_time_us=10.24
+n_samples=2048        # samples in each data record
+n_presamples=512
 n_pulses=5000         # data records per channel
 n_noise=1024
 n_chan=2              # number of data channels (detectors)
@@ -91,12 +91,12 @@ ds0.plot_summaries()
 # all channels for a given quantity (which you normally would do in a situation
 # with more than 1 or 2 channels), you can do this:
 
-data.plot_summaries(quantity=1, log=True)
+data.plot_summaries(quantity=1, log=False)
 # <demo> --- stop ---
 # That was a quantity selected by number (0-6).  You can also select by name.
 # For the name-number correspondence, do
 print data.plot_summaries.__doc__
-data.plot_summaries('Pulse Avg', log=True)
+data.plot_summaries('Pulse Avg', log=False)
 # <demo> --- stop ---
 
 # Now you would normally apply some cuts.  I AM GOING TO SKIP DEMO OF CUTS FOR NOW.
