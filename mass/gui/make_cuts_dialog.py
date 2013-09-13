@@ -305,8 +305,8 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         
     
     def color_of_channel(self, ichan):
-        cm = pylab.cm.spectral   #@UndefinedVariable
-        return cm(float(ichan)/(self.n_channels-1.0))
+        cm = pylab.cm.jet   #@UndefinedVariable
+        return cm((0.5+float(ichan))/self.n_channels)
     
     @pyqtSlot()
     def update_plots(self):
@@ -396,6 +396,13 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         xlabel = ("Pulse average","Pretrigger RMS","Pretrigger mean (median subtracted)", "Peak Value",
                   "Max posttrig dp/dt", "Rise time (ms)", "Peak time (ms)")[self.current_param]
         axis.set_title(xlabel)
+        x0,x1 = axis.get_xlim()
+        if cut.use_min and cut.cut_min > x0:
+            x0 = cut.cut_min
+            axis.plot([x0,x0],axis.get_ylim(), color='gray')
+        if cut.use_max and cut.cut_max < x1:
+            x1 = cut.cut_max
+            axis.plot([x1,x1],axis.get_ylim(), color='gray')
         self.canvas.draw()
     
     
