@@ -107,11 +107,13 @@ class CutVectorStatus(object):
         self.hist_limits = [self.min_allowed, self.max_allowed]
         self.__dict__.update(kwargs)
 
-    def compute_actual_range(self, data_vectors):
+    def save_actual_range(self, minmax):
+        """Given a sequence of (minval, maxval) tuples (presumably one tuple per
+        channel), compute and store the overall array-wide min and max."""
         a,b = 9e99, -9e99
-        for v in data_vectors:
-            a = min(a, v.min())
-            b = max(b, v.max())
+        for x,y in minmax:
+            a = min(a, x)
+            b = max(b, y)
         self.actual_min, self.actual_max = a,b
 
     def __repr__(self):
@@ -154,7 +156,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         self.n_channels = self.data.n_channels
         
         # Start with cuts at default values
-        self.cuts = (CutVectorStatus("Pulse average", use_min=True, cut_min=0.0, min_allowed=0., max_allowed=9999.),
+        self.cuts = (CutVectorStatus("Pulse average", use_min=True, cut_min=0.0, min_allowed=0., max_allowed=99999.),
                      CutVectorStatus("Pretrigger RMS", use_max=True, cut_max=10.0, min_allowed=0., max_allowed=999.),
                      CutVectorStatus("Pretrigger mean", use_hist_min=True, hist_min=-50,
                                      use_hist_max=True, hist_max=50, min_allowed=-9999., max_allowed=9999.),
@@ -183,7 +185,14 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                                          "p_pretrig_mean",
                                         "p_peak_value","p_max_posttrig_deriv",
                                         "p_rise_time","p_peak_time")):
-            self.cuts[i].compute_actual_range((ds.__dict__[vector_name] for ds in self.data.datasets))
+            
+            # The following 3-line construction is smart enough to work with ds.vector_name
+            # whether it's a true attribute or a @property.  Properties, it turns out,
+            # do not appear in ds.__dict__.keys(), which was a problem, the old way. JWF
+            minmax = []  # To avert Eclipse warnings
+            exec('minmax = [(ds.%s.min(),ds.%s.max()) for ds in self.data]'
+                 %(vector_name,vector_name))
+            self.cuts[i].save_actual_range(minmax)
             print i, self.cuts[i].actual_min, self.cuts[i].actual_max
         
         for button in (self.use_max_cut, self.use_min_cut,
@@ -297,7 +306,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
     
     def color_of_channel(self, ichan):
         cm = pylab.cm.spectral   #@UndefinedVariable
-        return cm(1.0*ichan/self.n_channels)
+        return cm(float(ichan)/(self.n_channels-1.0))
     
     @pyqtSlot()
     def update_plots(self):
@@ -341,8 +350,9 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
             if cut.use_min:
                 useable = numpy.logical_and(useable, raw>cut.cut_min)
             
-            h1, bins = numpy.histogram(raw, 150, limits)
-            h2, bins = numpy.histogram(raw[useable], 150, limits)
+            NBINS = 150 #@todo: Need to make this settable from GUI
+            h1, bins = numpy.histogram(raw, NBINS, limits)
+            h2, bins = numpy.histogram(raw[useable], NBINS, limits)
             hist_all.append(h1)
             hist_good.append(h2)
             
@@ -397,7 +407,6 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         cuts_ptd = self.cuts[4].get_cut_tuple()
         cuts_rtm = self.cuts[5].get_cut_tuple()
         cuts_pkt = self.cuts[6].get_cut_tuple()
-        print cuts_avg, cuts_rms, cuts_ptm, cuts_ptd, cuts_rtm, cuts_pkt,'xxxx000'
         cuts = mass.core.controller.AnalysisControl(
                 pulse_average=cuts_avg,
                 pretrigger_rms=cuts_rms,
