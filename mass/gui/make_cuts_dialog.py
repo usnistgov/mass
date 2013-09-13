@@ -141,7 +141,6 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         frame_size = self.pylab_holder.frameSize()
         h,w = frame_size.height(), frame_size.width()
         dpi = 100.0
-        print h,w,dpi ,'xxxx'
         self.canvas = MyMplCanvas(self.pylab_holder, w/dpi, h/dpi, dpi)
         fig = self.canvas.figure
         self.canvas.axes = [fig.add_subplot(3,1,1),

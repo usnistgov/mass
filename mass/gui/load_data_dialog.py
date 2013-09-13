@@ -118,7 +118,6 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
     def update_channel_chooser_boxes(self):
 
         # Remove all the chan_check_boxes, storing their check/unchecked status     
-        print "Deleting %d check boxes..."%len(self.chan_check_boxes)   
         while len(self.chan_check_boxes)>0:
             ccb = self.chan_check_boxes.pop()
             ccb.hide()
@@ -127,7 +126,6 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
             del ccb
 
         np, nn = len(self.pulse_files), len(self.noise_files)
-        print "Updating the channel chooser boxes with %d, %d files"%(np,nn)
 
         ncol = 16
         while self.nchannels/ncol < 8 and ncol>8:
