@@ -410,7 +410,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         cuts_avg = self.cuts[0].get_cut_tuple()
         cuts_rms = self.cuts[1].get_cut_tuple()
         cuts_ptm = self.cuts[2].get_cut_tuple()
-    #    cuts_pkv = self.cuts[3].get_cut_tuple() # Ignore for now???
+        cuts_pkv = self.cuts[3].get_cut_tuple()
         cuts_ptd = self.cuts[4].get_cut_tuple()
         cuts_rtm = self.cuts[5].get_cut_tuple()
         cuts_pkt = self.cuts[6].get_cut_tuple()
@@ -418,10 +418,9 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                 pulse_average=cuts_avg,
                 pretrigger_rms=cuts_rms,
                 pretrigger_mean_departure_from_median=cuts_ptm,
-    #            peak_value=cuts_pkv,
+                peak_value=cuts_pkv,
                 max_posttrig_deriv=cuts_ptd,
                 rise_time_ms=cuts_rtm,
                 peak_time_ms=cuts_pkt
                 )
         return cuts
-        

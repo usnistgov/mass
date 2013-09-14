@@ -661,27 +661,18 @@ class MicrocalDataSet(object):
     This channel can be directly from a TDM detector, or it
     can be the demodulated result of a CDM modulation.
     """
-    # planning to remove these, and switch to CUT_NAME which are more descriptive, and accesible
-#    ( CUT_PRETRIG_MEAN,
-#      CUT_PRETRIG_RMS,
-#      CUT_RETRIGGER,
-#      CUT_BIAS_PULSE,
-#      CUT_RISETIME,
-#      CUT_UNLOCK,
-#      CUT_TIMESTAMP,
-#      CUT_SATURATED
-#       ) = range(8)
-       
     CUT_NAME = ['pretrigger_rms',
-                 'pretrigger_mean',
-                 'pretrigger_mean_departure_from_median',
-                 'peak_time_ms',
-                 'rise_time_ms',
-                 'max_posttrig_deriv',
-                 'pulse_average',
-                 'min_value',
-                 'timestamp_sec',
-                 'timestamp_diff_sec']
+                'pretrigger_mean',
+                'pretrigger_mean_departure_from_median',
+                'peak_time_ms',
+                'rise_time_ms',
+                'max_posttrig_deriv',
+                'pulse_average',
+                'min_value',
+                'timestamp_sec',
+                'timestamp_diff_sec',
+                'peak_value'
+                ]
 
     # Attributes that all such objects must have.
     expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum", 
@@ -1099,7 +1090,7 @@ class MicrocalDataSet(object):
                   but it must be an array of length self.nPulses
         <allowed> The cut to apply (see below).
         <cut_id>  The bit number (range [0,31]) to identify this cut.  Should be one of
-                  self.CUT_* (see the set of class attributes)
+                  self.CUT_NAME
         
         <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b. 
         Either a or b may be None, indicating no cut.
@@ -1144,7 +1135,7 @@ class MicrocalDataSet(object):
                 if b is not None:
                     self.cuts.cut(cut_id, data >= b)
             except ValueError:
-                raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid'%str(allowed))
+                raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'%str(allowed))
 
     
     
@@ -1160,25 +1151,40 @@ class MicrocalDataSet(object):
             controls = mass.controller.standardControl()
         c = controls.cuts_prm
               
-        self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], self.CUT_NAME.index('pretrigger_rms'))
-        self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'], self.CUT_NAME.index('pretrigger_mean'))
+        self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], 
+                           self.CUT_NAME.index('pretrigger_rms'))
+        self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'],
+                           self.CUT_NAME.index('pretrigger_mean'))
         # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:
-        self.cut_parameter(1e3*self.p_peak_time, c['peak_time_ms'], self.CUT_NAME.index('peak_time_ms'))
-        self.cut_parameter(self.p_rise_time*1e3, c['rise_time_ms'], self.CUT_NAME.index('rise_time_ms'))
-        self.cut_parameter(self.p_max_posttrig_deriv, c['max_posttrig_deriv'], self.CUT_NAME.index('max_posttrig_deriv'))
-        self.cut_parameter(self.p_pulse_average, c['pulse_average'], self.CUT_NAME.index('pulse_average'))
-        self.cut_parameter(self.p_min_value-self.p_pretrig_mean, c['min_value'], self.CUT_NAME.index('min_value'))
-        self.cut_parameter(self.p_timestamp, c['timestamp_sec'], self.CUT_NAME.index('timestamp_sec'))
+        self.cut_parameter(1e3*self.p_peak_time, c['peak_time_ms'],
+                           self.CUT_NAME.index('peak_time_ms'))
+        self.cut_parameter(self.p_rise_time*1e3, c['rise_time_ms'],
+                           self.CUT_NAME.index('rise_time_ms'))
+        self.cut_parameter(self.p_max_posttrig_deriv, c['max_posttrig_deriv'],
+                           self.CUT_NAME.index('max_posttrig_deriv'))
+        self.cut_parameter(self.p_pulse_average, c['pulse_average'],
+                           self.CUT_NAME.index('pulse_average'))
+        self.cut_parameter(self.p_peak_value, c['peak_value'],
+                           self.CUT_NAME.index('peak_value'))
+        self.cut_parameter(self.p_min_value-self.p_pretrig_mean, c['min_value'],
+                           self.CUT_NAME.index('min_value'))
+        self.cut_parameter(self.p_timestamp, c['timestamp_sec'],
+                           self.CUT_NAME.index('timestamp_sec'))
         if c['timestamp_diff_sec'] is not None:
-            self.cut_parameter(numpy.hstack((0.0, numpy.diff(self.p_timestamp))), c['timestamp_diff_sec'], self.CUT_NAME.index('timestamp_diff_sec'))        
+            self.cut_parameter(numpy.hstack((0.0, numpy.diff(self.p_timestamp))),
+                               c['timestamp_diff_sec'],
+                               self.CUT_NAME.index('timestamp_diff_sec'))        
         if c['pretrigger_mean_departure_from_median'] is not None:
             median = numpy.median(self.p_pretrig_mean[self.cuts.good()])
             if verbose>1:
                 print'applying cut',pretrigger_mean_dep_cut,' around median of ',median
-            self.cut_parameter(self.p_pretrig_mean-median, c['pretrigger_mean_departure_from_median'], self.CUT_NAME.index('pretrigger_mean_departure_from_median'))
+            self.cut_parameter(self.p_pretrig_mean-median,
+                               c['pretrigger_mean_departure_from_median'],
+                               self.CUT_NAME.index('pretrigger_mean_departure_from_median'))
         if verbose>0:
-            print "Chan %d after cuts, %d are good, %d are bad of %d total pulses"%(self.channum, self.cuts.nUncut(), 
-                                                                            self.cuts.nCut(), self.nPulses)
+            print "Chan %d after cuts, %d are good, %d are bad of %d total pulses"%(
+                self.channum, self.cuts.nUncut(), 
+                self.cuts.nCut(), self.nPulses)
 
         
     def clear_cuts(self):
