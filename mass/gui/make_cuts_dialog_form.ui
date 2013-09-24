@@ -238,10 +238,10 @@
             <number>3</number>
            </property>
            <property name="minimum">
-            <double>-99.000000000000000</double>
+            <double>-1000000.000000000000000</double>
            </property>
            <property name="maximum">
-            <double>999.999000000000024</double>
+            <double>1000000.000000000000000</double>
            </property>
            <property name="value">
             <double>0.000000000000000</double>
@@ -263,8 +263,11 @@
            <property name="decimals">
             <number>3</number>
            </property>
+           <property name="minimum">
+            <double>-1000000.000000000000000</double>
+           </property>
            <property name="maximum">
-            <double>999.999000000000024</double>
+            <double>1000000.000000000000000</double>
            </property>
           </widget>
          </item>
@@ -347,8 +350,11 @@
            <property name="decimals">
             <number>3</number>
            </property>
+           <property name="minimum">
+            <double>-1000000.000000000000000</double>
+           </property>
            <property name="maximum">
-            <double>9999.998999999999796</double>
+            <double>1000000.000000000000000</double>
            </property>
           </widget>
          </item>
@@ -364,10 +370,10 @@
             <number>3</number>
            </property>
            <property name="minimum">
-            <double>-99.000000000000000</double>
+            <double>-10000000.000000000000000</double>
            </property>
            <property name="maximum">
-            <double>999.999000000000024</double>
+            <double>1000000.000000000000000</double>
            </property>
           </widget>
          </item>
@@ -470,15 +476,6 @@
     </widget>
    </item>
   </layout>
-  <zorder>verticalLayoutWidget</zorder>
-  <zorder>verticalSpacer</zorder>
-  <zorder>gridLayoutWidget</zorder>
-  <zorder>formLayoutWidget</zorder>
-  <zorder>layoutWidget</zorder>
-  <zorder>label_4</zorder>
-  <zorder>label_9</zorder>
-  <zorder>label_7</zorder>
-  <zorder>pylab_holder</zorder>
  </widget>
  <tabstops>
   <tabstop>parameter_chooser</tabstop>
