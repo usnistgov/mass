@@ -44,7 +44,7 @@ immutable LJHFile
         tot = hd.nsamples
         datalen = stat(name).size - hd.headerSize
         reclen = LJH_RECORD_HDR_SIZE+LJH_DATA_SIZE*tot
-        assert((datalen%reclen)==0) # Might not be a good idea?  jwf
+        #assert((datalen%reclen)==0) # Might not be a good idea?  jwf
         nrec = div(datalen,reclen)
 
         str = open(name)

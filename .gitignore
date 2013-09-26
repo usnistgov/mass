@@ -3,6 +3,7 @@
 .pydevproject
 lint-report.txt
 *.pyc
+*~
 mass/mathstat/robust.c
 
 *.orig
@@ -10,3 +11,5 @@ mass/mathstat/robust.c
 .settings/org.eclipse.core.resources.prefs
 
 testfile
+
+TAGS
