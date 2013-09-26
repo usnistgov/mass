@@ -1380,16 +1380,29 @@ def _sort_filenames_numerically(fnames):
     return sorted_fnames
 
 
-def unpickle_TESGroup(filename):
+def _replace_path(fnames, newpath):
+    """Take a sequence of filenames <fnames> and replace the directories leading to each
+    with <newpath>"""
+    if fnames is None or len(fnames)==0:
+        return None
+    result=[]
+    for f in fnames:
+        _,name = os.path.split(f)
+        result.append(os.path.join(newpath,name))
+    return result
+
+
+def unpickle_TESGroup(filename, rawpath=None):
     """
     Factory function to unpickle a TESGroup pickled by its .pickle() method.
     <filename>   The pickle file containing the group information.  (It's expected
                  that the per-channel pickle files will live in the standard place.)
-                 
+    <rawpath>    If None, then assume the raw files live at the path indicated in the
+                 pickle file.  Otherwise, they live in <rawpath>
     Returns a valid TESGroup object.  I hope.
     """
     if not filename[-8:] == 'mass.pkl':
-        baseDir , fName = os.path.split(filename)
+        baseDir, fName = os.path.split(filename)
         massDir = os.path.join(baseDir, 'mass/')
         massFilename = fName.replace(fName[fName.rfind('chan'):],'mass.pkl')
         massFilename = os.path.join(massDir, massFilename)
@@ -1403,6 +1416,10 @@ def unpickle_TESGroup(filename):
     filenames = _sort_filenames_numerically(unpickler.load())
     noise_filenames = _sort_filenames_numerically(unpickler.load())
     pulse_only = (not noise_only and (noise_filenames is None or len(noise_filenames)==0))
+    if rawpath is not None:
+        filenames = _replace_path(filenames, rawpath)
+        noise_filenames = _replace_path(noise_filenames, rawpath)
+        
     data = TESGroup(filenames, noise_filenames, pulse_only=pulse_only,
                     noise_only=noise_only)
     data.set_chan_bad(bad_channums, 'was bad when saved')
