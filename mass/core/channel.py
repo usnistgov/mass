@@ -681,7 +681,8 @@ class MicrocalDataSet(object):
                  'pulse_average',
                  'min_value',
                  'timestamp_sec',
-                 'timestamp_diff_sec']
+                 'timestamp_diff_sec', 
+                 'energy']
 
     # Attributes that all such objects must have.
     expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum", 
@@ -1161,6 +1162,7 @@ class MicrocalDataSet(object):
             controls = mass.controller.standardControl()
         c = controls.cuts_prm
               
+        self.cut_parameter(self.p_energy, c['energy'], self.CUT_NAME.index('energy'))
         self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], self.CUT_NAME.index('pretrigger_rms'))
         self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'], self.CUT_NAME.index('pretrigger_mean'))
         # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:

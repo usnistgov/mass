@@ -136,7 +136,9 @@ class GeneralCalibration(object):
     
     def apply_cuts(self, timestampCuts = (None, None), pretrigger_departure_cuts = (-40,40), pulse_average_cuts = (5.0, None),
                    timestamp_diff_sec_cuts = (0.007, None), max_postrig_deriv_cuts = (None, 60.0), pretrigger_rms_cuts = (None, 10.0), 
-                   rise_time_ms_cuts = (None, None), peak_time_ms_cuts = (None, None), min_value_cuts = (None, None)):
+                   rise_time_ms_cuts = (None, None), peak_time_ms_cuts = (None, None), min_value_cuts = (None, None),
+                   energy_cuts = (None, None)):
+        
         self.cuts = mass.AnalysisControl()
         self.cuts.cuts_prm.update({
                  'max_posttrig_deriv': max_postrig_deriv_cuts,
@@ -147,7 +149,8 @@ class GeneralCalibration(object):
                  'peak_time_ms': peak_time_ms_cuts,
                  'timestamp_sec': timestampCuts,
                  'timestamp_diff_sec': timestamp_diff_sec_cuts, 
-                 'min_value': min_value_cuts,})
+                 'min_value': min_value_cuts,
+                 'energy':energy_cuts,})
 
         for ds in self.data:
             try:
