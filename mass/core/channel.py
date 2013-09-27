@@ -612,6 +612,7 @@ class Cuts(object):
     def cut(self, cutnum, mask):
         if cutnum < 0 or cutnum >= 32:
             raise ValueError("cutnum must be in the range [0,31] inclusive")
+        assert(mask.size == self._mask.size)
         bitval = 1<<cutnum
         self._mask[mask] |= bitval
 
