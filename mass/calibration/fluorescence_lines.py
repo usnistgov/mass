@@ -1087,8 +1087,9 @@ class MultiLorentzianComplexFitter(object):
                 pylab.xlabel('pulseheight (arb) - %s'%self.spect.name)
                 pylab.ylabel('counts per %.3f unit bin'%ph_binsize)
                 pylab.title('resolution %.3f, amplitude %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams))        
-                plot_as_stepped_hist(axis, data, pulseheights, color=color)
-                axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
+            plot_as_stepped_hist(axis, data, pulseheights, color=color)
+            axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
+
 #        if iflag not in (1,2,3,4): 
         if iflag not in (0, 2): 
             print "Oh no! iflag=%d"%iflag

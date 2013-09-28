@@ -9,7 +9,7 @@ __all__=['NoiseRecords', 'PulseRecords', 'Cuts',
 
 import numpy
 import scipy.linalg
-import scipy.optimize
+import scipy.optimize #@UnusedImport
 import pylab
 import os.path
 #import time

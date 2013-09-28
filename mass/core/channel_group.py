@@ -672,7 +672,7 @@ class BaseChannelGroup(object):
             if a<n and m[a:].any():
                 segment_mask[nseg+1] = True 
                 
-        printUpdater = inlineUpdater.InlineUpdater('computer_average_pulse')
+        printUpdater = inlineUpdater.InlineUpdater('compute_average_pulse')
         for first, end in self.iter_segments(segment_mask=segment_mask):
             printUpdater.update(end/float(self.nPulses))
             for imask,mask in enumerate(masks):
