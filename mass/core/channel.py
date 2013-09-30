@@ -612,6 +612,7 @@ class Cuts(object):
     def cut(self, cutnum, mask):
         if cutnum < 0 or cutnum >= 32:
             raise ValueError("cutnum must be in the range [0,31] inclusive")
+        assert(mask.size == self._mask.size)
         bitval = 1<<cutnum
         self._mask[mask] |= bitval
 
@@ -671,8 +672,8 @@ class MicrocalDataSet(object):
                 'min_value',
                 'timestamp_sec',
                 'timestamp_diff_sec',
-                'peak_value'
-                ]
+                'peak_value',
+                'energy'] 
 
     # Attributes that all such objects must have.
     expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum", 
@@ -1151,10 +1152,12 @@ class MicrocalDataSet(object):
             controls = mass.controller.standardControl()
         c = controls.cuts_prm
               
+        self.cut_parameter(self.p_energy, c['energy'], self.CUT_NAME.index('energy'))
         self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], 
                            self.CUT_NAME.index('pretrigger_rms'))
         self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'],
                            self.CUT_NAME.index('pretrigger_mean'))
+
         # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:
         self.cut_parameter(1e3*self.p_peak_time, c['peak_time_ms'],
                            self.CUT_NAME.index('peak_time_ms'))
