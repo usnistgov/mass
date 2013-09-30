@@ -1177,7 +1177,7 @@ class MicrocalDataSet(object):
         if c['pretrigger_mean_departure_from_median'] is not None:
             median = numpy.median(self.p_pretrig_mean[self.cuts.good()])
             if verbose>1:
-                print'applying cut',pretrigger_mean_dep_cut,' around median of ',median
+                print'applying cut on pretrigger mean around its median value of ',median
             self.cut_parameter(self.p_pretrig_mean-median,
                                c['pretrigger_mean_departure_from_median'],
                                self.CUT_NAME.index('pretrigger_mean_departure_from_median'))
@@ -1277,7 +1277,8 @@ class MicrocalDataSet(object):
 #                pylab.ylim(prange)
 
     # galen 20130211 - I think this can be replaced by polyfit with 1 dimension, its faster, more obvious what is going on, and in my test yielded the same answer to 3 decimal places
-    def auto_drift_correct_rms(self, prange=None, times=None, ptrange=None, plot=False, slopes=None):
+    def auto_drift_correct_rms(self, prange=None, times=None, ptrange=None, plot=False, 
+                               slopes=None, line_name="MnKAlpha"):
         """Apply a correction for pulse variation with pretrigger mean, which we've found
         to be a pretty good indicator of drift.  Use the rms width of the Mn Kalpha line
         rather than actually fitting for the resolution.  (THIS IS THE OLD WAY TO DO IT.
@@ -1288,6 +1289,7 @@ class MicrocalDataSet(object):
         times: if not None, use this range of p_timestamps instead of all data (units are seconds
                since server started--ugly but that's what we have to work with)
         plot:  whether to display the result
+        line_name: Line to calibrate on, if prange is None 
         ===============================================
         returns best_slope 
         units = 
@@ -1303,7 +1305,7 @@ class MicrocalDataSet(object):
         # Default: use the calibration to pick a prange
         if prange is None:
             calibration = self.calibration['p_filt_value']
-            ph_estimate = calibration.name2ph(element_name+'KAlpha')
+            ph_estimate = calibration.name2ph(line_name)
             prange = numpy.array((ph_estimate*.99, ph_estimate*1.01))
         
         range_ctr = 0.5*(prange[0]+prange[1])
