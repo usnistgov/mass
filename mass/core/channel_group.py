@@ -1364,16 +1364,21 @@ class TESGroup(BaseChannelGroup):
             ds.pickle()
         
 
-def _sort_filenames_numerically(fnames):
+def _sort_filenames_numerically(fnames, inclusion_list=None):
     """Take a sequence of filenames of the form '*_chanXXX.*'
-    and sort it according to the numerical value of channel number XXX."""
+    and sort it according to the numerical value of channel number XXX.
+    If inclusion_list is not None, then it must be a container with the
+    channel numbers to be included in the output.
+    """
     if fnames is None or len(fnames)==0:
         return None
     chan2fname={}
     for name in fnames:
-        channum = name.split('_chan')[1].split(".")[0]
+        channum = int(name.split('_chan')[1].split(".")[0])
+        if inclusion_list is not None and channum not in inclusion_list:
+            continue
         print channum, name
-        chan2fname[int(channum)] = name
+        chan2fname[channum] = name
     sorted_chan = chan2fname.keys()
     sorted_chan.sort()
     sorted_fnames = [chan2fname[key] for key in sorted_chan]
@@ -1392,13 +1397,16 @@ def _replace_path(fnames, newpath):
     return result
 
 
-def unpickle_TESGroup(filename, rawpath=None):
+def unpickle_TESGroup(filename, rawpath=None, inclusion_list=None):
     """
     Factory function to unpickle a TESGroup pickled by its .pickle() method.
     <filename>   The pickle file containing the group information.  (It's expected
                  that the per-channel pickle files will live in the standard place.)
     <rawpath>    If None, then assume the raw files live at the path indicated in the
-                 pickle file.  Otherwise, they live in <rawpath>
+                 pickle file.  Otherwise, they live in <rawpath>.
+    <inclusion_list> A list of channel numbers to include in the result.  If None,
+                 then all channels are included.
+                 
     Returns a valid TESGroup object.  I hope.
     """
     if not filename[-8:] == 'mass.pkl':
@@ -1413,8 +1421,8 @@ def unpickle_TESGroup(filename, rawpath=None):
     unpickler = cPickle.Unpickler(fp)
     noise_only = unpickler.load()
     bad_channums = unpickler.load()
-    filenames = _sort_filenames_numerically(unpickler.load())
-    noise_filenames = _sort_filenames_numerically(unpickler.load())
+    filenames = _sort_filenames_numerically(unpickler.load(), inclusion_list)
+    noise_filenames = _sort_filenames_numerically(unpickler.load(), inclusion_list)
     pulse_only = (not noise_only and (noise_filenames is None or len(noise_filenames)==0))
     if rawpath is not None:
         filenames = _replace_path(filenames, rawpath)
