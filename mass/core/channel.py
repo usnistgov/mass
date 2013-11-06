@@ -729,9 +729,11 @@ class MicrocalDataSet(object):
         self.p_pretrig_mean = numpy.zeros(npulses, dtype=numpy.float32)
         self.p_pretrig_rms = numpy.zeros(npulses, dtype=numpy.float32)
         self.p_pulse_average = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_pulse_rms = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_promptness = numpy.zeros(npulses, dtype=numpy.float32)
         self.p_rise_time = numpy.zeros(npulses, dtype=numpy.float32)
         self.p_max_posttrig_deriv = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float64) # float32 for p_filt_phase makes energy resoluiton worse, gco, 20130516, it should be possible to use 32 but probably requires rescaling phase
+        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float64) # float32 for p_filt_phase makes energy resolution worse, gco, 20130516, it should be possible to use 32 but probably requires rescaling phase
         # maybe converting phase to int16, where 0 is 0, -max is -2, max is 2?
         self.p_filt_value = numpy.zeros(npulses, dtype=numpy.float32) 
         self.p_filt_value_phc = numpy.zeros(npulses, dtype=numpy.float32) 
@@ -911,7 +913,7 @@ class MicrocalDataSet(object):
             if self.auto_pickle:
                 self.pickle(verbose=False)
         else:
-            print('\nchan %d did not summarie becase results were already preloaded'%self.channum)
+            print('\nchan %d did not summarize because results were already preloaded'%self.channum)
 
     def summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
         """Summarize the complete data file
@@ -940,9 +942,15 @@ class MicrocalDataSet(object):
         self.p_min_value[first:end] = self.data[:seg_size,:].min(axis=1)
         self.p_pulse_average[first:end] = self.data[:seg_size,self.nPresamples:].mean(axis=1)
         
-        # Remove the pretrigger mean from the peak value and the pulse average figures. 
-        self.p_peak_value[first:end] -= self.p_pretrig_mean[first:end]
-        self.p_pulse_average[first:end] -= self.p_pretrig_mean[first:end]
+        # Remove the pretrigger mean from the peak value and the pulse average figures.
+        PTM = self.p_pretrig_mean[first:end]
+        self.p_peak_value[first:end] -= PTM   # subtract float from int, remains an int
+        self.p_pulse_average[first:end] -= PTM
+        self.p_pulse_rms[first:end] = numpy.sqrt(
+                (self.data[:seg_size,self.nPresamples:]**2.0).mean(axis=1) -
+                PTM*(PTM + 2*self.p_pulse_average[first:end]))
+        self.p_promptness[first:end] = (
+                self.data[:seg_size,self.nPresamples+3:self.nPresamples+7].mean(axis=1)-PTM)/self.p_peak_value[first:end]
 
         # Compute things that have to be computed one at a time:
         for pulsenum,pulse in enumerate(self.data):
