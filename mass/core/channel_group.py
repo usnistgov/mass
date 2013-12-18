@@ -618,10 +618,10 @@ class BaseChannelGroup(object):
     def compute_average_pulse(self, masks, use_crosstalk_masks, subtract_mean=True):
         """
         Compute several average pulses in each TES channel, one per mask given in
-        <masks>.  Store the averages in self.datasets.average_pulses with shape (m,n)
+        <masks>.  Store the averages in self.datasets.average_pulse with shape (m,n)
         where m is the number of masks and n equals self.nPulses (the # of records).
         
-        Note that this method replaces any previously computed self.datasets.average_pulses
+        Note that this method replaces any previously computed self.datasets.average_pulse
         
         <masks> is either an array of shape (m,n) or an array (or other sequence) of length
         (m*n).  It's required that n equal self.nPulses.   In the second case,

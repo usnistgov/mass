@@ -836,7 +836,7 @@ class MicrocalDataSet(object):
         # Pickle all attributes noise_*, p_*, peak_time_microsec, pretrigger_*, timebase, times
         # Approach is to dump the attribute NAME then value.
         attr_starts = ("noise_", "p_", "pretrigger_")
-        attr_names = ("peak_time_microsec", "timebase", "times", "average_pulses",
+        attr_names = ("peak_time_microsec", "timebase", "times", "average_pulse",
                       "calibration", "drift_correct_info", "phase_correct_info", "filter" )
         for attr in self.__dict__:
             store_this_attr = attr in attr_names
