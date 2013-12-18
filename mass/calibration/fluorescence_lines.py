@@ -1371,11 +1371,21 @@ def plot_spectrum(spectrum=MnKAlpha(),
         pylab.plot(e, smeared_spectrum, label="%2d eV"%res, lw=2)
         
         # Find the peak, valley, peak
-        if spectrum.name == 'Manganese K-alpha':
+        if spectrum.name == 'Titanium K-alpha':
+            epk2, evalley, epk1 = 4504.91, 4507.32, 4510.90
+        elif spectrum.name == 'Chromium K-alpha':
+            epk2, evalley, epk1 = 5405.55, 5408.87, 5414.81 
+        elif spectrum.name == 'Manganese K-alpha':
             epk2, evalley, epk1 = 5887.70, 5892.0, 5898.801
+        elif spectrum.name == 'Iron K-alpha':
+            epk2, evalley, epk1 = 6391.06, 6396.13, 6404.01
+        elif spectrum.name == 'Cobalt K-alpha':
+            epk2, evalley, epk1 = 6915.55, 6921.40, 6930.39
         elif spectrum.name == 'Copper K-alpha':
             epk2, evalley, epk1 = 8027.89, 8036.6, 8047.83
-            
+        else:
+            continue
+        
         p1 = smeared_spectrum[numpy.abs(e-epk1)<2].max()
         if res < 8.12:
             pk2 = smeared_spectrum[numpy.abs(e-epk2)<2].max()
