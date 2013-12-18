@@ -91,15 +91,25 @@ if __name__ == "__main__":
     from distutils.core import setup
     from distutils.extension import Extension
     from Cython.Distutils import build_ext
+
+    # Find the numpy install location.
+    # Why this should be needed is a mystery to me, but the Cython (*.pyx) files won't
+    # build if we don't explicitly name the numpy include directory.
+    from numpy import __file__ as numpy_file
+    import os
+    numpy_path = os.path.split(numpy_file)[0]
+    numpy_include_path = os.path.join(numpy_path, "core", "include")
     
     setup(name='mass',
           version='0.2.3',
           author='Joe Fowler',
           author_email='joe.fowler@nist.gov',
-          url = 'http://doc.bqemd.nist.gov/',
+          url = 'https://bitbucket.org/joe_fowler/mass',
           description='Microcalorimeter Analysis Software Suite',
           ext_modules = [Extension('mass.mathstat._robust', 
-                                   [os.path.join('mass','mathstat','robust')+ext for ext in (".pyx",)])],
+                                   [os.path.join('mass','mathstat','robust')+ext for ext in (".pyx",)],
+                                   include_dirs=[numpy_include_path])],
+
           cmdclass = {'build_ext': build_ext,
                       'build': QtBuilder,
                       },
