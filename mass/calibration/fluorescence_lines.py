@@ -23,9 +23,9 @@ __all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha',
            'TiKBetaFitter', 'CrKBetaFitter', 'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter', 'CuKBetaFitter',
            'plot_spectrum']
  
-import numpy
+import numpy as np
 import pylab
-import scipy.stats
+import scipy.stats, scipy.optimize
 
 from mass.mathstat import MaximumLikelihoodHistogramFitter, \
     plot_as_stepped_hist, voigt #@UnresolvedImport
@@ -42,10 +42,12 @@ class SpectralLine(object):
     def __init__(self):
         """Set up a default Gaussian smearing of 0"""
         self.gauss_sigma = 0.0
+        neg_pdf = lambda x: -self.pdf(x)
+        self.peak_energy = scipy.optimize.brent(neg_pdf, brack=np.array((0.5,1,1.5))*self.nominal_peak_energy)
 
     def set_gauss_fwhm(self, fwhm):
         """Update the Gaussian smearing to have <fwhm> as the full-width at half-maximum"""
-        self.gauss_sigma = fwhm/(8*numpy.log(2))**0.5
+        self.gauss_sigma = fwhm/(8*np.log(2))**0.5
     
     def __call__(self, x):
         """Make the class callable, returning the same value as the self.pdf method."""
@@ -53,14 +55,17 @@ class SpectralLine(object):
     
     def pdf(self, x):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
-        x = numpy.asarray(x, dtype=numpy.float)
-        result = numpy.zeros_like(x)
+        x = np.asarray(x, dtype=np.float)
+        result = np.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.amplitudes):
             result += ampl*voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gauss_sigma)
         return result
 
 class ScKAlpha(SpectralLine):
-    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
+    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). 
+    "Characterization of K spectral profiles for vanadium, component redetermination for 
+    scandium, titanium, chromium, and manganese, and development of satellite structure 
+    for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
     url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
@@ -70,21 +75,23 @@ class ScKAlpha(SpectralLine):
     name = 'Scandium K-alpha'    
     # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
     ## The Lorentzian energies (Table I C_i)
-    energies = numpy.array((4090.595, 4089.308, 4087.666, 4093.428, 4085.773, 4083.697))
+    energies = np.array((4090.595, 4089.308, 4087.666, 4093.428, 4085.773, 4083.697))
     ## The Lorentzian widths (Table I W_i)
-    fwhm = numpy.array((1.13, 2.46, 1.58, 2.04, 1.94, 3.42))
+    fwhm = np.array((1.13, 2.46, 1.58, 2.04, 1.94, 3.42))
     ## The Lorentzian peak height (Table I A_i)
-    peak_heights = numpy.array((8203, 818, 257, 381, 4299, 105), dtype=numpy.float)
+    peak_heights = np.array((8203, 818, 257, 381, 4299, 105), dtype=np.float)
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
-    peak_energy = 4090.735 # eV  
+    nominal_peak_energy = 4090.735 # eV
 
 
-### Ti and V and KAlphas are commented out de
 class TiKAlpha(SpectralLine):
-    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
+    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). 
+    "Characterization of K spectral profiles for vanadium, component redetermination for 
+    scandium, titanium, chromium, and manganese, and development of satellite structure 
+    for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
     url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
@@ -97,16 +104,16 @@ class TiKAlpha(SpectralLine):
     # the paper has two sets of Ti data, I used the set Refit of [21] Kawai et al 1994
     # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
     ## The Lorentzian energies (Table I C_i)
-    energies = numpy.array((4510.918, 4509.954, 4507.763, 4514.002, 4504.910, 4503.088))
+    energies = np.array((4510.918, 4509.954, 4507.763, 4514.002, 4504.910, 4503.088))
     ## The Lorentzian widths (Table I W_i)
-    fwhm = numpy.array((1.37, 2.22, 3.75, 1.70, 1.88, 4.49))
+    fwhm = np.array((1.37, 2.22, 3.75, 1.70, 1.88, 4.49))
     ## The Lorentzian peak height (Table I A_i)
-    peak_heights = numpy.array((4549, 626, 236, 143, 2034, 54), dtype=numpy.float)
+    peak_heights = np.array((4549, 626, 236, 143, 2034, 54), dtype=np.float)
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
-    peak_energy = 4510.903 # eV 
+    nominal_peak_energy = 4510.903 # eV 
     
 class TiKBeta(SpectralLine):
     """the data in this are made up based on the CrKBeta line and the tabulated TiKBeta1 energy 
@@ -114,18 +121,20 @@ class TiKBeta(SpectralLine):
     """
     name = 'Titanium K-beta'    
     
-
-    energies = numpy.array([ 4931.9592774 ,  4922.26453989,  4931.32899506,  4927.84585584,
+    energies = np.array([ 4931.9592774 ,  4922.26453989,  4931.32899506,  4927.84585584,
         4930.24258735])
-    fwhm = numpy.array((1.70, 15.98, 1.90, 6.69, 3.37))
-    peak_heights = numpy.array((670, 55, 337, 82, 151), dtype=numpy.float)/1e3
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    fwhm = np.array((1.70, 15.98, 1.90, 6.69, 3.37))
+    peak_heights = np.array((670, 55, 337, 82, 151), dtype=np.float)/1e3
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV beta_1,3)
-    peak_energy = 4931.81 # eV     
+    nominal_peak_energy = 4931.81 # eV     
 
 class VKAlpha(SpectralLine):
-    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). Characterization of K spectral profiles for vanadium, component redetermination for scandium, titanium, chromium, and manganese, and development of satellite structure for Z=21 to Z=25. Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
+    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). 
+    "Characterization of K spectral profiles for vanadium, component redetermination for 
+    scandium, titanium, chromium, and manganese, and development of satellite structure 
+    for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
     url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
@@ -137,16 +146,16 @@ class VKAlpha(SpectralLine):
     name = 'Vanadium K-alpha'    
     # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
     ## The Lorentzian energies (Table I C_i)
-    energies = numpy.array((4952.237, 4950.656, 4948.266, 4955.269, 4944.672, 4943.014))
+    energies = np.array((4952.237, 4950.656, 4948.266, 4955.269, 4944.672, 4943.014))
     ## The Lorentzian widths (Table I W_i)
-    fwhm = numpy.array((1.45, 2.00, 1.81, 1.76, 2.94, 3.09))
+    fwhm = np.array((1.45, 2.00, 1.81, 1.76, 2.94, 3.09))
     ## The Lorentzian peak height (Table I A_i)
-    peak_heights = numpy.array((25832, 5410, 1536, 956, 12971, 603), dtype=numpy.float)
+    peak_heights = np.array((25832, 5410, 1536, 956, 12971, 603), dtype=np.float)
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
-    peak_energy = 4952.216 # eV   
+    nominal_peak_energy = 4952.216 # eV   
     
 class CrKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -164,16 +173,16 @@ class CrKAlpha(SpectralLine):
     # The approximation is as a series of 7 Lorentzians (5 for KA1,2 for KA2)
     
     ## The Lorentzian energies (Table II E_i)
-    energies = 5400+numpy.array((14.874, 14.099, 12.745, 10.583, 18.304, 5.551, 3.986))
+    energies = 5400+np.array((14.874, 14.099, 12.745, 10.583, 18.304, 5.551, 3.986))
     ## The Lorentzian widths (Table II W_i)
-    fwhm = numpy.array((1.457, 1.760, 3.138, 5.149, 1.988, 2.224, 4.4740))
+    fwhm = np.array((1.457, 1.760, 3.138, 5.149, 1.988, 2.224, 4.4740))
     ## The Lorentzian peak height (Table II I_i)
-    peak_heights = numpy.array((882, 237, 85, 45, 15, 386, 36), dtype=numpy.float)/1e3
+    peak_heights = np.array((882, 237, 85, 45, 15, 386, 36), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV alpha_1)
-    peak_energy = 5414.81 # eV   
+    nominal_peak_energy = 5414.81 # eV   
     
 class CrKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -189,16 +198,16 @@ class CrKBeta(SpectralLine):
     
     # The approximation is as a series of 5 Lorentzians 
     ## The Lorentzian energies (Table III E_i)
-    energies = 5900+numpy.array((47.00, 35.31, 46.24, 42.04, 44.93))
+    energies = 5900+np.array((47.00, 35.31, 46.24, 42.04, 44.93))
     ## The Lorentzian widths (Table III W_i)
-    fwhm = numpy.array((1.70, 15.98, 1.90, 6.69, 3.37))
+    fwhm = np.array((1.70, 15.98, 1.90, 6.69, 3.37))
     ## The Lorentzian peak height (Table III I_i)
-    peak_heights = numpy.array((670, 55, 337, 82, 151), dtype=numpy.float)/1e3
+    peak_heights = np.array((670, 55, 337, 82, 151), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV beta_1,3)
-    peak_energy = 5946.82 # eV     
+    nominal_peak_energy = 5946.82 # eV     
 
 class MnKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -215,18 +224,19 @@ class MnKAlpha(SpectralLine):
     # The approximation is as a series of 8 Lorentzians (6 for KA1,2 for KA2)
     
     ## The Lorentzian energies
-    ## the 102.712 line doesn't appear in the reference paper, apparently it was added in Scott Porter's refit of the complex, also one of the intensities went from 0.005 to 0.018
-    energies = 5800+numpy.array((98.853, 97.867, 94.829, 96.532, 
-                                 99.417, 102.712, 87.743, 86.495))
+    ## the 102.712 line doesn't appear in the reference paper, apparently it was added in Scott 
+    # Porter's refit of the complex. Also, one of the intensities went from 0.005 to 0.018
+    energies = 5800+np.array((98.853, 97.867, 94.829, 96.532, 
+                              99.417, 102.712, 87.743, 86.495))
     ## The Lorentzian widths
-    fwhm = numpy.array((1.715, 2.043, 4.499, 2.663, 0.969, 1.553, 2.361, 4.216))
+    fwhm = np.array((1.715, 2.043, 4.499, 2.663, 0.969, 1.553, 2.361, 4.216))
     ## The Lorentzian peak height
-    peak_heights = numpy.array((790, 264, 68, 96, 71, 10, 372, 100), dtype=numpy.float)/1e3
+    peak_heights = np.array((790, 264, 68, 96, 71, 10, 372, 100), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak
-    peak_energy = 5898.802 # eV        
+    nominal_peak_energy = 5898.802 # eV        
 
 
     
@@ -244,16 +254,16 @@ class MnKBeta(SpectralLine):
     
     # The approximation is as a series of 4 Lorentzians 
     ## The Lorentzian energies
-    energies = 6400+numpy.array((90.89, 86.31, 77.73, 90.06, 88.83))
+    energies = 6400+np.array((90.89, 86.31, 77.73, 90.06, 88.83))
     ## The Lorentzian widths
-    fwhm = numpy.array((1.83, 9.40, 13.22, 1.81, 2.81))
+    fwhm = np.array((1.83, 9.40, 13.22, 1.81, 2.81))
     ## The Lorentzian peak height
-    peak_heights = numpy.array((608, 109, 77, 397, 176), dtype=numpy.float)/1e3
+    peak_heights = np.array((608, 109, 77, 397, 176), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak
-    peak_energy = 6490.18 # eV   
+    nominal_peak_energy = 6490.18 # eV   
     
 class FeKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -267,16 +277,16 @@ class FeKAlpha(SpectralLine):
     name = 'Iron K-alpha'    
     # The approximation is as a series of 7 Lorentzians (4 for KA1,3 for KA2)
     ## The Lorentzian energies (Table II E_i)
-    energies = numpy.array((6404.148, 6403.295, 6400.653, 6402.077, 6391.190, 6389.106, 6390.275))
+    energies = np.array((6404.148, 6403.295, 6400.653, 6402.077, 6391.190, 6389.106, 6390.275))
     ## The Lorentzian widths (Table II W_i)
-    fwhm = numpy.array((1.613, 1.965, 4.833, 2.803, 2.487, 2.339, 4.433))
+    fwhm = np.array((1.613, 1.965, 4.833, 2.803, 2.487, 2.339, 4.433))
     ## The Lorentzian peak height (Table II I_i)
-    peak_heights = numpy.array((697, 376, 88, 136, 339, 60, 102), dtype=numpy.float)/1e3
+    peak_heights = np.array((697, 376, 88, 136, 339, 60, 102), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV alpha_1)
-    peak_energy = 6404.01 # eV   
+    nominal_peak_energy = 6404.01 # eV   
     
 class FeKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -289,16 +299,16 @@ class FeKBeta(SpectralLine):
     name = 'Iron K-beta'    
     # The approximation is as a series of 4 Lorentzians 
     ## The Lorentzian energies (Table III E_i)
-    energies = numpy.array((7046.90, 7057.21, 7058.36, 7054.75))
+    energies = np.array((7046.90, 7057.21, 7058.36, 7054.75))
     ## The Lorentzian widths (Table III W_i)
-    fwhm = numpy.array((14.17, 3.12, 1.97, 6.38))
+    fwhm = np.array((14.17, 3.12, 1.97, 6.38))
     ## The Lorentzian peak height (Table III I_i)
-    peak_heights = numpy.array((107, 448, 615, 141), dtype=numpy.float)/1e3
+    peak_heights = np.array((107, 448, 615, 141), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV beta_1,3)
-    peak_energy = 7058.18 # eV      
+    nominal_peak_energy = 7058.18 # eV      
     
 class CoKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -312,18 +322,18 @@ class CoKAlpha(SpectralLine):
     name = 'Cobalt K-alpha'    
     # The approximation is as a series of 7 Lorentzians (4 for KA1,3 for KA2)
     ## The Lorentzian energies (Table II E_i)
-    energies = numpy.array((6930.425, 6929.388, 6927.676, 6930.941, 6915.713, 6914.659, 6913.078))
+    energies = np.array((6930.425, 6929.388, 6927.676, 6930.941, 6915.713, 6914.659, 6913.078))
     ## The Lorentzian widths (Table II W_i)
     # the calculated amplitude for the 4th entry 0.808 differs from the paper, but the other numbers appear to
     # be correct, so I think they may have a typo
-    fwhm = numpy.array((1.795, 2.695, 4.555, 0.808, 2.406, 2.773, 4.463))
+    fwhm = np.array((1.795, 2.695, 4.555, 0.808, 2.406, 2.773, 4.463))
     ## The Lorentzian peak height (Table II I_i)
-    peak_heights = numpy.array((809, 205, 107, 41, 314, 131, 43), dtype=numpy.float)/1e3
+    peak_heights = np.array((809, 205, 107, 41, 314, 131, 43), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV alpha_1)
-    peak_energy = 6930.38 # eV   
+    nominal_peak_energy = 6930.38 # eV   
     
 class CoKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -336,16 +346,16 @@ class CoKBeta(SpectralLine):
     name = 'Cobalt K-beta'    
     # The approximation is as a series of 6 Lorentzians 
     ## The Lorentzian energies (Table III E_i)
-    energies = numpy.array((7649.60, 7647.83, 7639.87, 7645.49, 7636.21, 7654.13))
+    energies = np.array((7649.60, 7647.83, 7639.87, 7645.49, 7636.21, 7654.13))
     ## The Lorentzian widths (Table III W_i)
-    fwhm = numpy.array((3.05, 3.58, 9.78, 4.89, 13.59, 3.79))
+    fwhm = np.array((3.05, 3.58, 9.78, 4.89, 13.59, 3.79))
     ## The Lorentzian peak height (Table III I_i)
-    peak_heights = numpy.array((798, 286, 85, 114, 33, 35), dtype=numpy.float)/1e3
+    peak_heights = np.array((798, 286, 85, 114, 33, 35), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV beta_1,3)
-    peak_energy = 7649.45 # eV  
+    nominal_peak_energy = 7649.45 # eV  
     
 class NiKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -359,16 +369,16 @@ class NiKAlpha(SpectralLine):
     name = 'Nickle K-alpha'    
     # The approximation is as a series of 5 Lorentzians (2 for KA1,3 for KA2)
     ## The Lorentzian energies (Table II E_i)
-    energies = numpy.array((7478.281, 7476.529, 7461.131, 7459.874, 7458.029))
+    energies = np.array((7478.281, 7476.529, 7461.131, 7459.874, 7458.029))
     ## The Lorentzian widths (Table II W_i)
-    fwhm = numpy.array((2.013, 4.711, 2.674, 3.039, 4.476))
+    fwhm = np.array((2.013, 4.711, 2.674, 3.039, 4.476))
     ## The Lorentzian peak height (Table II I_i)
-    peak_heights = numpy.array((909, 136, 351, 79, 24), dtype=numpy.float)/1e3
+    peak_heights = np.array((909, 136, 351, 79, 24), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV alpha_1)
-    peak_energy = 7478.26 # eV   
+    nominal_peak_energy = 7478.26 # eV   
     
 class NiKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -381,16 +391,16 @@ class NiKBeta(SpectralLine):
     name = 'Nickle K-beta'    
     # The approximation is as a series of 4 Lorentzians 
     ## The Lorentzian energies (Table III E_i)
-    energies = numpy.array((8265.01, 8263.01, 8256.67, 8268.70))
+    energies = np.array((8265.01, 8263.01, 8256.67, 8268.70))
     ## The Lorentzian widths (Table III W_i)
-    fwhm = numpy.array((3.76, 4.34, 13.70, 5.18))
+    fwhm = np.array((3.76, 4.34, 13.70, 5.18))
     ## The Lorentzian peak height (Table III I_i)
-    peak_heights = numpy.array((722, 358, 89, 104), dtype=numpy.float)/1e3
+    peak_heights = np.array((722, 358, 89, 104), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV beta_1,3)
-    peak_energy = 8264.78 # eV  
+    nominal_peak_energy = 8264.78 # eV  
     
 class CuKAlpha(SpectralLine):
     """Function object to approximate the copper K-alpha complex
@@ -407,16 +417,16 @@ class CuKAlpha(SpectralLine):
     # The approximation is 4 of Lorentzians (2 for Ka1, 2 for Ka2)
 
     ## The Lorentzian energies
-    energies = numpy.array((8047.8372, 8045.3672, 8027.9935, 8026.5041))
+    energies = np.array((8047.8372, 8045.3672, 8027.9935, 8026.5041))
     ## The Lorentzian widths
-    fwhm = numpy.array((2.285, 3.358, 2.667, 3.571))
+    fwhm = np.array((2.285, 3.358, 2.667, 3.571))
     ## The Lorentzian peak height
-    peak_heights = numpy.array((957, 90, 334, 111), dtype=numpy.float)/1e3
+    peak_heights = np.array((957, 90, 334, 111), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak
-    peak_energy = 8047.83 # eV   
+    nominal_peak_energy = 8047.83 # eV   
     
 class CuKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -432,16 +442,16 @@ class CuKBeta(SpectralLine):
     
     # The approximation is as a series of 5 Lorentzians 
     ## The Lorentzian energies (Table III E_i)
-    energies = numpy.array((8905.532, 8903.109, 8908.462, 8897.387, 8911.393))
+    energies = np.array((8905.532, 8903.109, 8908.462, 8897.387, 8911.393))
     ## The Lorentzian widths (Table III W_i)
-    fwhm = numpy.array((3.52, 3.52, 3.55, 8.08, 5.31))
+    fwhm = np.array((3.52, 3.52, 3.55, 8.08, 5.31))
     ## The Lorentzian peak height (Table III I_i)
-    peak_heights = numpy.array((757, 388, 171, 68, 55), dtype=numpy.float)/1e3
+    peak_heights = np.array((757, 388, 171, 68, 55), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*numpy.pi*fwhm) * peak_heights
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
     amplitudes /= amplitudes.sum()
     ## The energy at the main peak (from table IV beta1,3)
-    peak_energy = 8905.42 # eV      
+    nominal_peak_energy = 8905.42 # eV      
 
 
     
@@ -471,12 +481,12 @@ class MultiLorentzianDistribution_gen(scipy.stats.rv_continuous):
         override that method.  Don't call this directly!  Instead call .rvs(), which wraps this."""
         # Choose from among the N Lorentzian lines in proportion to the line amplitudes
         iline = self.cumulative_amplitudes.searchsorted(
-                            numpy.random.uniform(0, self.cumulative_amplitudes[-1], size=self._size))
+                            np.random.uniform(0, self.cumulative_amplitudes[-1], size=self._size))
         # Choose Lorentzian variates of the appropriate width (but centered on 0)
-        lor = numpy.random.standard_cauchy(size=self._size)*self.distribution.fwhm[iline]*0.5
+        lor = np.random.standard_cauchy(size=self._size)*self.distribution.fwhm[iline]*0.5
         # If necessary, add a Gaussian variate to mimic finite resolution
         if self.distribution.gauss_sigma > 0.0:
-            lor += numpy.random.standard_normal(size=self._size)*self.distribution.gauss_sigma
+            lor += np.random.standard_normal(size=self._size)*self.distribution.gauss_sigma
         # Finally, add the line centers.
         return lor + self.distribution.energies[iline]
 
@@ -498,7 +508,7 @@ class VoigtFitter(object):
     
     
     def guess_starting_params(self, data, binctrs):
-        order_stat = numpy.array(data.cumsum(), dtype=numpy.float)/data.sum()
+        order_stat = np.array(data.cumsum(), dtype=np.float)/data.sum()
         percentiles = lambda p: binctrs[(order_stat>p).argmax()]
         peak_loc = percentiles(0.5)
         iqr = (percentiles(0.75)-percentiles(0.25))
@@ -506,7 +516,7 @@ class VoigtFitter(object):
         lor_hwhm = res*0.5
         baseline = data[0:10].mean()
         baseline_slope = (data[-10:].mean()-baseline)/len(data)
-        ampl = (data.max()-baseline)*numpy.pi
+        ampl = (data.max()-baseline)*np.pi
         return [res, peak_loc, lor_hwhm, ampl, baseline, baseline_slope]
         
     
@@ -522,10 +532,10 @@ class VoigtFitter(object):
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
         """
-        sigma = params[0]/(8*numpy.log(2))**0.5
+        sigma = params[0]/(8*np.log(2))**0.5
         spectrum = voigt(x, params[1], params[2], sigma)
         nbins = len(x)
-        return spectrum * abs(params[3]) + abs(params[4]) + params[5]*numpy.arange(nbins)
+        return spectrum * abs(params[3]) + abs(params[4]) + params[5]*np.arange(nbins)
     
 
     
@@ -564,7 +574,7 @@ class VoigtFitter(object):
         try:
             assert len(pulseheights) == len(data)
         except:
-            pulseheights = numpy.arange(len(data), dtype=numpy.float)
+            pulseheights = np.arange(len(data), dtype=np.float)
         if hold is None:
             hold = []
         else:
@@ -600,7 +610,7 @@ class VoigtFitter(object):
             axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
         # Joe's new max-likelihood fitter
-        epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
+        epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
         fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
                                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
         
@@ -618,10 +628,10 @@ class VoigtFitter(object):
         if iflag not in (0, 2): 
             print "Oh no! iflag=%d"%iflag
         elif plot:
-            de = numpy.sqrt(covariance[2, 2])
+            de = np.sqrt(covariance[2, 2])
             label = "Lorentz HWHM: %.2f +- %.2f eV %s"%(fitparams[2], de, label)
             if 0 not in hold:
-                de = numpy.sqrt(covariance[0, 0])
+                de = np.sqrt(covariance[0, 0])
                 label += "\nGauss FWHM: %.2f +- %.2f eV"%(fitparams[0], de)
             axis.plot(pulseheights, self.last_fit_result, color='#666666', 
                       label=label)
@@ -645,7 +655,7 @@ class TwoVoigtFitter(object):
     
     
     def guess_starting_params(self, data, binctrs):
-#        order_stat = numpy.array(data.cumsum(), dtype=numpy.float)/data.sum()
+#        order_stat = np.array(data.cumsum(), dtype=np.float)/data.sum()
 #        percentiles = lambda p: binctrs[(order_stat>p).argmax()]
 #        peak_loc = percentiles(0.5)
 #        iqr = (percentiles(0.75)-percentiles(0.25))
@@ -653,7 +663,7 @@ class TwoVoigtFitter(object):
 #        lor_hwhm = res*0.5
 #        baseline = data[0:10].mean()
 #        baseline_slope = (data[-10:].mean()-baseline)/len(data)
-#        ampl = (data.max()-baseline)*numpy.pi
+#        ampl = (data.max()-baseline)*np.pi
 #        return [res, peak_loc, lor_hwhm, ampl, baseline, baseline_slope]
         raise NotImplementedError("I don't know how to guess starting parameters for a 2-peak Voigt.")
         
@@ -670,7 +680,7 @@ class TwoVoigtFitter(object):
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
         """
-        sigma = params[0]/(8*numpy.log(2))**0.5
+        sigma = params[0]/(8*np.log(2))**0.5
         spectrum = voigt(x, params[1], params[2], sigma) * abs(params[3]) +\
              voigt(x, params[4], params[5], sigma) * abs(params[6])
         return spectrum  + abs(params[7])
@@ -708,7 +718,7 @@ class TwoVoigtFitter(object):
         try:
             assert len(pulseheights) == len(data)
         except:
-            pulseheights = numpy.arange(len(data), dtype=numpy.float)
+            pulseheights = np.arange(len(data), dtype=np.float)
         if hold is None:
             hold = []
         else:
@@ -742,7 +752,7 @@ class TwoVoigtFitter(object):
             axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
         # Joe's new max-likelihood fitter
-        epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, 
+        epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, 
                                params[4]/1e5, 1e-3, params[6]/1e5, params[7]/1e2))
         fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
                                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
@@ -761,12 +771,12 @@ class TwoVoigtFitter(object):
         if iflag not in (0, 2): 
             print "Oh no! iflag=%d"%iflag
         elif plot:
-            de1 = numpy.sqrt(covariance[2, 2])
+            de1 = np.sqrt(covariance[2, 2])
             label = "Lorentz HWHM 1: %.2f +- %.2f eV %s"%(fitparams[2], de1, label)
-            de2 = numpy.sqrt(covariance[5, 5])
+            de2 = np.sqrt(covariance[5, 5])
             label += "\nLorentz HWHM 2: %.2f +- %.2f eV"%(fitparams[5], de2)
             if 0 not in hold:
-                de = numpy.sqrt(covariance[0, 0])
+                de = np.sqrt(covariance[0, 0])
                 label += "\nGauss FWHM: %.2f +- %.2f eV"%(fitparams[0], de)
             axis.plot(pulseheights, self.last_fit_result, color='#666666', 
                       label=label)
@@ -839,7 +849,7 @@ class SimultaneousMultiLorentzianComplexFitter(object):
 
         E_peak = self.spectraDefs[0].peak_energy
         energy = (ph-params[1])/abs(params[2]) + E_peak
-        outSpectrum = numpy.zeros_like(energy)
+        outSpectrum = np.zeros_like(energy)
         for i,spectrum  in enumerate(self.spectraDefs):
             # if it crashes here you probably didnt instantiate your spectra defs... ie use MnKAlpha() not MnKAlpha
             spectrum.set_gauss_fwhm(params[0])
@@ -848,7 +858,7 @@ class SimultaneousMultiLorentzianComplexFitter(object):
             else:
                 ampIndex = 5+i
             outSpectrum += params[ampIndex]*spectrum.pdf(energy) # probability density function
-        background = abs(params[4])+params[5]*numpy.arange(len(energy))
+        background = abs(params[4])+params[5]*np.arange(len(energy))
         return outSpectrum + background     
     
     def guess_starting_params(self, data, binctrs):
@@ -860,19 +870,19 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         sum_d = (data*binctrs).sum()
         sum_d2 = (data*binctrs*binctrs).sum()
         mean_d = sum_d/n
-        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+        rms_d = np.sqrt(sum_d2/n - mean_d**2)
 #        print n, sum_d, sum_d2, mean_d, rms_d
 
-        ph_ka1 = binctrs[numpy.argmax(data)]
+        ph_ka1 = binctrs[np.argmax(data)]
         dph = 2*rms_d
 
         if len(self.spectraDefs) >= 2:
             linecenters = []
             for spectrum in self.spectraDefs:
                 linecenters.append(spectrum.peak_energy)
-            dE = numpy.max(linecenters)-numpy.min(linecenters)
+            dE = np.max(linecenters)-np.min(linecenters)
         else:
-            dE = numpy.max(self.spectraDefs[0].energies)-numpy.min(self.spectraDefs[0].energies) # eV difference between KAlpha peaks
+            dE = np.max(self.spectraDefs[0].energies)-np.min(self.spectraDefs[0].energies) # eV difference between KAlpha peaks
         # this should be caluclated from data in the spectrumDef, but currently
         # the KAlpha object don't include the KAlpha2 energy.
         ampl = data.max()*9.4 
@@ -922,7 +932,7 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         try:
             assert len(pulseheights) == len(data)
         except:
-            pulseheights = numpy.arange(len(data), dtype=numpy.float)
+            pulseheights = np.arange(len(data), dtype=np.float)
         if params == None:
             params = self.guess_starting_params(data, pulseheights)
         if params[4]==0: params[4]=1e-7 # the fitter crashes if params[4] bg_level is zero
@@ -936,8 +946,8 @@ class SimultaneousMultiLorentzianComplexFitter(object):
 
 
         # Joe's new max-likelihood fitter
-        epsilon = numpy.ones_like(params)*params[1]/1e4
-        epsilon[:6] = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
+        epsilon = np.ones_like(params)*params[1]/1e4
+        epsilon[:6] = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
 #        print 'epsilon', epsilon
         fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
                                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
@@ -971,7 +981,7 @@ class SimultaneousMultiLorentzianComplexFitter(object):
                 plot_as_stepped_hist(axis, data, pulseheights, color=color)
                 axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
-            de = numpy.sqrt(covariance[0, 0])
+            de = np.sqrt(covariance[0, 0])
             axis.plot(pulseheights, self.last_fit_result, color='#666666', 
                       label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.legend(loc='upper left')
@@ -1012,7 +1022,7 @@ class MultiLorentzianComplexFitter(object):
         self.spect.set_gauss_fwhm(abs(params[0]))
         spectrum = self.spect(energy) # this is the same as self.spec.pdf(), and I found it very confusing
         nbins = len(x)
-        return spectrum * abs(params[3]) + abs(params[4]) + params[5]*numpy.arange(nbins)
+        return spectrum * abs(params[3]) + abs(params[4]) + params[5]*np.arange(nbins)
     
 
     
@@ -1047,7 +1057,7 @@ class MultiLorentzianComplexFitter(object):
         try:
             assert len(pulseheights) == len(data)
         except:
-            pulseheights = numpy.arange(len(data), dtype=numpy.float)
+            pulseheights = np.arange(len(data), dtype=np.float)
         try:
             _, _, _, _, _, _ = params
         except:
@@ -1058,7 +1068,7 @@ class MultiLorentzianComplexFitter(object):
 
 
         # Joe's new max-likelihood fitter
-        epsilon = numpy.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
+        epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
         fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
                                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
         
@@ -1094,7 +1104,7 @@ class MultiLorentzianComplexFitter(object):
         if iflag not in (0, 2): 
             print "Oh no! iflag=%d"%iflag
         elif plot:
-            de = numpy.sqrt(covariance[0, 0])
+            de = np.sqrt(covariance[0, 0])
             axis.plot(pulseheights, self.last_fit_result, color='#666666', 
                       label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.legend(loc='upper left')
@@ -1118,7 +1128,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         sum_d = (data*binctrs).sum()
         sum_d2 = (data*binctrs*binctrs).sum()
         mean_d = sum_d/n
-        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+        rms_d = np.sqrt(sum_d2/n - mean_d**2)
 #        print n, sum_d, sum_d2, mean_d, rms_d
         ph_ka1 = mean_d + rms_d*.65
         ph_ka2 = mean_d - rms_d
@@ -1150,7 +1160,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         sum_d = (data*binctrs).sum()
 #        sum_d2 = (data*binctrs*binctrs).sum()
         mean_d = sum_d/n
-#        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+#        rms_d = np.sqrt(sum_d2/n - mean_d**2)
 #        print n, sum_d, sum_d2, mean_d, rms_d
         ph_peak = mean_d
         ampl = data.max() *9.4
@@ -1233,7 +1243,7 @@ class CuKBetaFitter(GenericKBetaFitter):
 #        sum_d = (data*binctrs).sum()
 #        sum_d2 = (data*binctrs*binctrs).sum()
 #        mean_d = sum_d/n
-#        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+#        rms_d = np.sqrt(sum_d2/n - mean_d**2)
 ##        print n, sum_d, sum_d2, mean_d, rms_d
 #        ph_ka1 = mean_d + rms_d*.65
 #        ph_ka2 = mean_d - rms_d
@@ -1264,7 +1274,7 @@ class CuKBetaFitter(GenericKBetaFitter):
 #        sum_d = (data*binctrs).sum()
 ##        sum_d2 = (data*binctrs*binctrs).sum()
 #        mean_d = sum_d/n
-##        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+##        rms_d = np.sqrt(sum_d2/n - mean_d**2)
 ##        print n, sum_d, sum_d2, mean_d, rms_d
 #        
 #        ph_peak = mean_d
@@ -1323,10 +1333,10 @@ def plot_allMultiLorentzianLineComplexs():
 
 def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha, instrumentGaussianSigma = 0):
     """Makes a single plot showing the lineshape and component parts for a SpectalLine object"""
-    plotEnergies = numpy.arange(numpy.round(0.995*spectrumDef.peak_energy),numpy.round(1.008*spectrumDef.peak_energy),0.25)
+    plotEnergies = np.arange(np.round(0.995*spectrumDef.peak_energy),np.round(1.008*spectrumDef.peak_energy),0.25)
     
     pylab.figure()
-    result = numpy.zeros_like(plotEnergies)
+    result = np.zeros_like(plotEnergies)
     for energy, fwhm, ampl in zip(spectrumDef.energies, spectrumDef.fwhm, spectrumDef.amplitudes):
         pylab.plot(plotEnergies,ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=instrumentGaussianSigma), label='%.3f, %.3f, %.3f'%(energy,fwhm, ampl))
         result += ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=instrumentGaussianSigma)
@@ -1336,7 +1346,7 @@ def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha, instrumentGaussianSi
     pylab.title(spectrumDef.name)
     pylab.legend()
     pylab.xlim((plotEnergies[0], plotEnergies[-1]))
-    pylab.ylim((0,numpy.max(result)))
+    pylab.ylim((0,np.max(result)))
     pylab.show()
 
 def plot_spectrum(spectrum=MnKAlpha(), 
@@ -1352,7 +1362,7 @@ def plot_spectrum(spectrum=MnKAlpha(),
     """
     if resolutions is None:
         resolutions = (2, 3, 4, 5, 6, 7, 8, 10, 12)
-    e = numpy.arange(energy_range[0]-2.5*resolutions[-1],
+    e = np.arange(energy_range[0]-2.5*resolutions[-1],
                      energy_range[1]+2.5*resolutions[-1], stepsize)
 
     pylab.clf()
@@ -1386,10 +1396,10 @@ def plot_spectrum(spectrum=MnKAlpha(),
         else:
             continue
         
-        p1 = smeared_spectrum[numpy.abs(e-epk1)<2].max()
+        p1 = smeared_spectrum[np.abs(e-epk1)<2].max()
         if res < 8.12:
-            pk2 = smeared_spectrum[numpy.abs(e-epk2)<2].max()
-            pval = smeared_spectrum[numpy.abs(e-evalley)<3].min()
+            pk2 = smeared_spectrum[np.abs(e-epk2)<2].max()
+            pval = smeared_spectrum[np.abs(e-evalley)<3].min()
             print "Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2/p1, pval/pk2) 
         
     pylab.xlim(energy_range)
