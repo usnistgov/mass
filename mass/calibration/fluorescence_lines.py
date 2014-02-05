@@ -61,6 +61,8 @@ class SpectralLine(object):
             result += ampl*voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gauss_sigma)
         return result
 
+
+
 class ScKAlpha(SpectralLine):
     """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). 
     "Characterization of K spectral profiles for vanadium, component redetermination for 
@@ -998,9 +1000,8 @@ class MultiLorentzianComplexFitter(object):
     """
     def __init__(self):
         """ """
-        ## Parameters from last successful fit
+        ## Parameters and fit function from last successful fit
         self.last_fit_params = None
-        ## Fit function samples from last successful fit
         self.last_fit_result = None
         
     
@@ -1020,7 +1021,7 @@ class MultiLorentzianComplexFitter(object):
         
         energy = (x-params[1])/abs(params[2]) + E_peak
         self.spect.set_gauss_fwhm(abs(params[0]))
-        spectrum = self.spect(energy) # this is the same as self.spec.pdf(), and I found it very confusing
+        spectrum = self.spect.pdf(energy)
         nbins = len(x)
         return spectrum * abs(params[3]) + abs(params[4]) + params[5]*np.arange(nbins)
     
@@ -1031,7 +1032,9 @@ class MultiLorentzianComplexFitter(object):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
         set of histogram bins <pulseheights>.
         
-        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters 
+        pulseheights: the histogram bin centers or edges.  This will be inferred by whether
+                      its length is equal to or one more than the length of data.
+                      If pulseheights is None, then the parameters 
                       normally having pulseheight units will be returned as bin numbers instead.
 
         params: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
@@ -1054,31 +1057,34 @@ class MultiLorentzianComplexFitter(object):
         returns fitparams, covariance
         fitparams has same format as input variable params
         """
+        
         try:
-            assert len(pulseheights) == len(data)
+            if len(pulseheights) == len(data) + 1:
+                dp = pulseheights[1]-pulseheights[0]
+                pulseheights = 0.5*dp + pulseheights[:-1]
+            else:
+                assert len(pulseheights) == len(data)
         except:
             pulseheights = np.arange(len(data), dtype=np.float)
         try:
             _, _, _, _, _, _ = params
         except:
             params = self.guess_starting_params(data, pulseheights)
-#            print 'Guessed parameters: ',params
-#            print 'PH range: ',pulseheights[0],pulseheights[-1]
         ph_binsize = pulseheights[1]-pulseheights[0]
 
-
-        # Joe's new max-likelihood fitter
+        # Joe's max-likelihood MLfitter
         epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
-        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
-                                                                 self.fitfunc, TOL=1e-4, epsilon=epsilon)
+        MLfitter = MaximumLikelihoodHistogramFitter(
+                    pulseheights, data, params, 
+                    self.fitfunc, TOL=1e-4, epsilon=epsilon)
         
         if hold is not None:
             for h in hold:
-                fitter.hold(h)
-        if not vary_bg: fitter.hold(4)
-        if not vary_bg_slope: fitter.hold(5)
+                MLfitter.hold(h)
+        if not vary_bg: MLfitter.hold(4)
+        if not vary_bg_slope: MLfitter.hold(5)
             
-        fitparams, covariance = fitter.fit()
+        fitparams, covariance = MLfitter.fit()
         iflag = 0
 
         fitparams[0] = abs(fitparams[0])
@@ -1108,6 +1114,17 @@ class MultiLorentzianComplexFitter(object):
             axis.plot(pulseheights, self.last_fit_result, color='#666666', 
                       label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.legend(loc='upper left')
+        
+        # Fix negative amplitudes and/or background 
+        if fitparams[3] < 0:
+            fitparams[3] = -fitparams[3]
+            covariance[3,:] *= -1
+            covariance[:,3] *= -1
+        if fitparams[4] < 0:
+            fitparams[4] = -fitparams[4]
+            covariance[4,:] *= -1
+            covariance[:,4] *= -1
+            
         return fitparams, covariance
 
 
