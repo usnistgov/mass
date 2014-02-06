@@ -118,19 +118,15 @@ class TiKAlpha(SpectralLine):
     nominal_peak_energy = 4510.903 # eV 
     
 class TiKBeta(SpectralLine):
-    """the data in this are made up based on the CrKBeta line and the tabulated TiKBeta1 energy 
-    I just scaled the energies from Cr by the ratio of the peak energies
+    """From C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
+    http://iopscience.iop.org/0953-4075/46/14/145601
     """
     name = 'Titanium K-beta'    
-    
-    energies = np.array([ 4931.9592774 ,  4922.26453989,  4931.32899506,  4927.84585584,
-        4930.24258735])
-    fwhm = np.array((1.70, 15.98, 1.90, 6.69, 3.37))
-    peak_heights = np.array((670, 55, 337, 82, 151), dtype=np.float)/1e3
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    energies = np.array((25.37, 30.096, 31.967, 35.59))+4900
+    fwhm = np.array((16.3, 4.25, 0.42, 0.47))
+    amplitudes = np.array((199, 455, 326, 19.2), dtype=np.float)/1e3
     ## The energy at the main peak (from table IV beta_1,3)
-    nominal_peak_energy = 4931.81 # eV     
+    nominal_peak_energy = 4931.966 # eV     
 
 class VKAlpha(SpectralLine):
     """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). 
@@ -159,6 +155,17 @@ class VKAlpha(SpectralLine):
     ## The energy at the main peak (from table III Kalpha_1^0)
     nominal_peak_energy = 4952.216 # eV   
     
+class VKBeta(SpectralLine):
+    """From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013).
+    http://pra.aps.org/abstract/PRA/v87/i2/e022512
+    """
+    name = 'Vanadium K-beta' 
+    energies = np.array((18.20, 24.50, 26.998))+5400
+    fwhm = np.array((18.86, 5.48, 2.498))
+    amplitudes = np.array((258, 236, 507), dtype=np.float)/1e3
+    ## The energy at the main peak (from table IV beta_1,3)
+    nominal_peak_energy = 5427.32 # eV     
+
 class CrKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -1222,8 +1229,10 @@ class CuKAlphaFitter(GenericKAlphaFitter):
 ## create specific KBeta Fitters
 class TiKBetaFitter(GenericKBetaFitter):
     def __init__(self):
-        print('warning using simple guess at TiKBeta lineshape, havent found good fit data')
         GenericKBetaFitter.__init__(self, TiKBeta())
+class VKBetaFitter(GenericKBetaFitter):
+    def __init__(self):
+        GenericKBetaFitter.__init__(self, VKBeta())
 class CrKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, CrKBeta())
@@ -1242,90 +1251,6 @@ class NiKBetaFitter(GenericKBetaFitter):
 class CuKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, CuKBeta())
-# previous method of MnKAlphaFitter, redundant since GenericKAlphaFitter exists now
-#class MnKAlphaFitter(MultiLorentzianComplexFitter):
-#    """Fits a Mn K alpha spectrum for energy shift and scale, amplitude, and resolution"""
-#    def __init__(self):
-#        """ """
-#        ## Spectrum function object
-#        self.spect = MnKAlpha()
-#        super(self.__class__, self).__init__()
-#        # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
-#    def guess_starting_params(self, data, binctrs):
-#        """If the cuts are tight enough, then we can estimate the locations of the
-#        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
-#        n = data.sum()
-#        if n<=0:
-#            raise ValueError("This histogram has no contents")
-#        sum_d = (data*binctrs).sum()
-#        sum_d2 = (data*binctrs*binctrs).sum()
-#        mean_d = sum_d/n
-#        rms_d = np.sqrt(sum_d2/n - mean_d**2)
-##        print n, sum_d, sum_d2, mean_d, rms_d
-#        ph_ka1 = mean_d + rms_d*.65
-#        ph_ka2 = mean_d - rms_d
-#        dph = ph_ka1-ph_ka2
-#        dE = 11.1 # eV difference between KAlpha peaks
-#        ampl = data.max() *9.4
-#        res = 4.0
-#        baseline = 0.1
-#        baseline_slope = 0.0
-#        return [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope]
-
-
-#replaced with GenericKBetaFitter
-#class MnKBetaFitter(MultiLorentzianComplexFitter):
-#    """Fits a Mn K beta spectrum for energy shift and scale, amplitude, and resolution"""
-#    
-#    def __init__(self):
-#        """ """
-#        ## Spectrum function object
-#        self.spect = MnKBeta()
-#        super(self.__class__, self).__init__()
-#        
-#    def guess_starting_params(self, data, binctrs):
-#        """If the cuts are tight enough, then we can estimate the locations of the
-#        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
-#        
-#        n = data.sum()
-#        sum_d = (data*binctrs).sum()
-##        sum_d2 = (data*binctrs*binctrs).sum()
-#        mean_d = sum_d/n
-##        rms_d = np.sqrt(sum_d2/n - mean_d**2)
-##        print n, sum_d, sum_d2, mean_d, rms_d
-#        
-#        ph_peak = mean_d
-#
-#        ampl = data.max() *9.4
-#        res = 4.0
-#        baseline = 0.1
-#        baseline_slope = 0.0
-#        return [res, ph_peak, 1.0, ampl, baseline, baseline_slope]
-
-
-#### replaced using GenericKAlphaFitter
-#class CuKAlphaFitter(MultiLorentzianComplexFitter):
-#    """Fits a Cu K alpha spectrum for energy shift and scale, amplitude, and resolution"""
-#    
-#    def __init__(self):
-#        """ """
-#        ## Spectrum function object
-#        self.spect = CuKAlpha()
-#        super(self.__class__, self).__init__()
-#        
-#    def guess_starting_params(self, data, binctrs):
-#        """If the cuts are tight enough, then we can estimate the locations of the
-#        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
-#        
-#        
-#        ph_ka1 = binctrs[data.argmax()]
-#        
-#        res = 5
-#        baseline = data[0:10].mean()
-#        baseline_slope = (data[-10:].mean()-baseline)/len(data)
-#        ampl = data.max()-data.mean()
-#        return [res, ph_ka1, 0.6, ampl, baseline, baseline_slope]
-    
 
 
 def plot_allMultiLorentzianLineComplexs():
@@ -1340,6 +1265,9 @@ def plot_allMultiLorentzianLineComplexs():
     plot_multiLorentzianLineComplex(CoKAlpha)
     plot_multiLorentzianLineComplex(NiKAlpha)
     plot_multiLorentzianLineComplex(CuKAlpha)
+    
+    plot_multiLorentzianLineComplex(TiKBeta)
+    plot_multiLorentzianLineComplex(VKBeta)
     plot_multiLorentzianLineComplex(CrKBeta)
     plot_multiLorentzianLineComplex(MnKBeta)
     plot_multiLorentzianLineComplex(FeKBeta)
@@ -1350,7 +1278,8 @@ def plot_allMultiLorentzianLineComplexs():
 
 def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha, instrumentGaussianSigma = 0):
     """Makes a single plot showing the lineshape and component parts for a SpectalLine object"""
-    plotEnergies = np.arange(np.round(0.995*spectrumDef.peak_energy),np.round(1.008*spectrumDef.peak_energy),0.25)
+    peak = spectrumDef().peak_energy
+    plotEnergies = np.arange(np.round(0.995*peak),np.round(1.008*peak),0.25)
     
     pylab.figure()
     result = np.zeros_like(plotEnergies)
