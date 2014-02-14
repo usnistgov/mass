@@ -4,11 +4,12 @@ __all__ = ['summarize_old']
 
 try:
     from numba import autojit
-    __all__.append('summarize_numba')
     @autojit
     def summarize_numba(data, nPresamples, pretrigger_ignore_samples):
-        # this is faster mainly because it only loops through each pulse once, instead of six times with the 6 seperate numpy functions
-        # numba recompiles it in c or something so its not running slow pythong loops, but is still single threaded
+        # this is faster mainly because it only loops through each pulse once, 
+        # instead of six times with the 6 separate numpy functions
+        # numba recompiles it in c or something so its not running slow 
+        # python loops, but is still single threaded
         numPulses = data.shape[0]
         pulseLength = data.shape[1]
         pretrig_end_average_index = nPresamples-pretrigger_ignore_samples
@@ -60,8 +61,16 @@ try:
         p_peak_value = max - p_pretrig_mean
         
         return p_pretrig_mean, p_pretrig_rms, argmax, p_peak_value, min, p_pulse_average
-except:
+
+    __all__.append('summarize_numba')
+    
+except ImportError:
     print('numba not installed, disabled summarize_numba')
+    
+except Exception, e:
+    print("Galen's summarize_numba did not compile, even though numba is installed.")
+    print("Please suggest to Galen that he not commit code without testing it.")
+
 
 def summarize_old(data, nPresamples, pretrigger_ignore_samples, timebase, peak_time_microsec):
     p_pretrig_mean = data[:,:nPresamples-pretrigger_ignore_samples].mean(axis=1, dtype=numpy.float32)
