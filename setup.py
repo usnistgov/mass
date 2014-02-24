@@ -81,7 +81,9 @@ if __name__ == "__main__":
           description='Microcalorimeter Analysis Software Suite',
           packages=['mass','mass.core', 'mass.mathstat', 'mass.calibration', 
                     'mass.demo', 'mass.gui'],
-          package_data={'mass.gui': ['*.ui']}   # Copy the Qt Designer user interface files
+          package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
+                        'mass.calibration': ['nist_xray_data.dat']
+                        }
           )
 
     numpy_setup( configuration=configuration_fortran )
@@ -96,7 +98,6 @@ if __name__ == "__main__":
     # Why this should be needed is a mystery to me, but the Cython (*.pyx) files won't
     # build if we don't explicitly name the numpy include directory.
     from numpy import __file__ as numpy_file
-    import os
     numpy_path = os.path.split(numpy_file)[0]
     numpy_include_path = os.path.join(numpy_path, "core", "include")
     

@@ -1,0 +1,171 @@
+'''
+nist_xray_database
+
+Download the NIST x-ray line database from the website, and parse the
+downloaded data into useable form.
+
+For loading a file (locally, from disk) and plotting some information:
+* NISTXrayDBFile
+* plot_line_uncertainties
+
+For updating the data files:
+* NISTXrayDBRetrieve
+* GetAllLines
+
+Basic usage (assuming you put the x-ray files in 
+${MASS_HOME}/mass/calibration/nist_xray_data.dat):
+
+
+J. Fowler, NIST
+February 2014
+'''
+
+import urllib
+import pylab as plt
+
+def NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
+    form = "http://physics.nist.gov/cgi-bin/XrayTrans/search.pl?"
+    args = {'download':'column',
+            'element':'All',
+            'units':'eV',
+            'lower':str(min_E),
+            'upper':str(max_E)}
+    joined_args = '&'.join(['%s=%s'%(k,v) for (k,v) in args.iteritems()])
+    joined_lines = '&'.join(['trans=%s'%name for name in line_names])
+    get = '%s%s&%s'%(form, joined_args, joined_lines)
+    print 'Grabbing %s'%get
+    
+    page = urllib.urlopen(get)
+    fp = open(savefile, "w")
+    fp.writelines(page)
+    fp.close()
+
+
+def GetAllLines(savefile, max_E=30000):
+    lines = ('KL2','KL3','KM5','KM3','KM2','L3M5','L3M4','L3M1','L2M4','L2N4','L3N5','L1M3')
+    NISTXrayDBRetrieve(lines, savefile, max_E=max_E)
+
+
+ELEMENTS=('','H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar',
+          'K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb',
+          'Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe',
+          'Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re',  
+          'Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn',
+          'Fr','Ra','Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr')
+ATOMIC_NUMBERS = {ELEMENTS[i]:i for i in range(len(ELEMENTS))}
+
+
+    
+class NISTXrayDBFile(object):
+    def __init__(self, *filenames):
+        self.lines={}
+        self.alllines = set()
+        for filename in filenames:
+            try:
+                fp = open(filename, "r")
+            except IOError:
+                print "'%s' is not a readable file with X-ray database info! Continuing..."%filename
+                continue
+            
+            while True:
+                line = fp.readline()
+                if "Theory" in line and "Blend" in line and "Ref." in line:
+                    break
+            
+            for textline in fp.readlines():
+                try:
+                    xrayline = NISTXrayLine(textline)
+                    self.lines[xrayline.name] = xrayline
+                    self.alllines.add(xrayline)
+                except:
+                    continue
+            fp.close()
+
+    LINE_NICKNAMES={
+        'KA1' : 'KL3',
+        'KA2' : 'KL2',
+        'KB1' : 'KM3',
+        'KB3' : 'KM2',
+        'KB5' : 'KM5',
+        }
+    
+    def __getitem__(self, key):
+        element,line = key.split()[:2]
+        element = element.capitalize()
+        line = line.upper()
+        key = '%s %s'%(element, line)
+        if key in self.lines:
+            return self.lines[key]
+        lcline = line.lower()
+        lcline = line.replace('alpha','a')
+        lcline = line.replace('beta','b')
+        lcline = line.replace('gamma','g')
+        if lcline in self.LINE_NICKNAMES:
+            key = "%s %s"%(element, self.LINE_NICKNAMES[lcline])
+            return self.lines[key]
+        raise KeyError("%s is not a known line or line nickname"%key)
+    
+
+class NISTXrayLine(object):
+    DEFAULT_COLUMN_DEFS = {'element':(1,4),
+                           'transition':(10,16),
+                          'peak':(45,59),
+                          'peak_unc':(61,72),
+                          'blend':(74,79),
+                          'ref':(81,91)}
+    
+    def __init__(self, textline, column_defs=None):
+        if column_defs is None:
+            column_defs = self.DEFAULT_COLUMN_DEFS
+        for name,colrange in column_defs.iteritems():
+            a = colrange[0]-1
+            b = colrange[1]
+            self.__dict__[name] = textline[a:b].rstrip()
+        self.peak = float(self.peak)
+        self.peak_unc = float(self.peak_unc)
+        self.name = '%s %s'%(self.element, self.transition)
+        self.raw = textline.rstrip()
+
+    def __str__(self):
+        return '%s %s line: %.3f +- %.3f eV'%(self.element,
+                self.transition, self.peak, self.peak_unc)
+
+    def __repr__(self):
+        return self.raw
+
+
+def plot_line_uncertainties():
+    db = NISTXrayDBFile("/tmp/l3.txt","/tmp/kbeta.txt", "/tmp/kalpha.txt","/tmp/l2.txt","/tmp/l1.txt")
+    transitions = ('KL3','KL2','KM3','KM5','L3M5','L3M4', 'L2M4', 'L3N5')
+    titles={
+        'KL3':'K$\\alpha_1$: Intense', 
+        'KL2':'K$\\alpha_2$: Intense, but not easily resolved', 
+        'KM3':'K$\\beta_1$: Intense', 
+        'KM2':'K$\\beta_3$: Intense, usually unresolvable', 
+        'KM5':'K$\\beta_5$: Weak line on high-E tail of K$\\beta_1$',
+        'L3M5':'L$\\alpha_1$',
+        'L3M4':'L$\\alpha_2$', 
+        'L2M4':'L$\\beta_1$',
+        'L3N5':'L$\\beta_2$',
+    }
+    
+    axes = {}
+    NX, NY = 2,4
+    for i,tr in enumerate(transitions):
+        axes[i] = plt.subplot(NY, NX,i+1)
+        plt.loglog()
+        plt.grid(True)
+        plt.title(titles[tr])
+        if i >= NX*(NY-1):
+            plt.xlabel ("Line energy (eV)")
+        if i%NX==0:
+            plt.ylabel("Line uncertainty (eV)")
+        plt.ylim([1e-3,10])
+        plt.xlim([100,3e4])
+    
+    for line in db.lines.values():
+        if line.transition not in transitions: continue
+        i = transitions.index(line.transition)
+        plt.sca(axes[i])
+        plt.plot(line.peak, line.peak_unc, 'or')
+        plt.text(line.peak, line.peak_unc, line.name)

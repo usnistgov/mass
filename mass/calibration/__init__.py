@@ -10,6 +10,7 @@ import gaussian_lines
 import spectra
 import general_calibration
 import inlineUpdater
+import nist_xray_database
 
 __all__ = ['energy_calibration', 'fluorescence_lines', 'gaussian_lines', 'spectra', 'inlineUpdater']
 
@@ -17,6 +18,7 @@ from general_calibration import *
 from energy_calibration import *
 from fluorescence_lines import *
 from gaussian_lines import *
+from nist_xray_database import *
 from spectra import *
 
 __all__.extend(energy_calibration.__all__)
