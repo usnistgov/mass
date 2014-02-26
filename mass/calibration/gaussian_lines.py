@@ -160,19 +160,3 @@ class Gd103(GaussianLine):
     def __init__(self):
         super(self.__class__, self).__init__(energy=103180.0, fwhm=50.0)
 
-
-class AlKalpha(GaussianLine):
-    """The K-alpha fluorescence lines of aluminum.
-    WARNING: Not correct shape!"""
-    def __init__(self):
-        energy = energy_calibration.STANDARD_FEATURES['Al Ka']
-        super(self.__class__, self).__init__(energy=energy, fwhm=3.0)
-
-class SiKalpha(GaussianLine):
-    """The K-alpha fluorescence lines of silicon.
-    WARNING: Not correct shape!"""
-    def __init__(self):
-        energy = energy_calibration.STANDARD_FEATURES['Si Ka']
-        super(self.__class__, self).__init__(energy=energy, fwhm=3.0)
-
-

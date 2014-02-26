@@ -14,11 +14,10 @@ March 9, 2011
 November 24, 2010 : started as mn_kalpha.py
 """
 
-__all__ = ['MnKAlpha', 'MnKBeta', 'CuKAlpha', 
-           'VoigtFitter', 'LorentzianFitter',
+__all__ = ['VoigtFitter', 'LorentzianFitter',
            'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter', 'MnKAlphaDistribution',
            'CuKAlphaDistribution',
-           'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter', 'CrKAlphaFitter',
+           'AlKAlphaFitter', 'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter', 'CrKAlphaFitter',
            'MnKAlphaFitter', 'FeKAlphaFitter', 'CoKAlphaFitter', 'NiKAlphaFitter', 'CuKAlphaFitter',
            'TiKBetaFitter', 'CrKBetaFitter', 'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter', 'CuKBetaFitter',
            'plot_spectrum']
@@ -61,6 +60,27 @@ class SpectralLine(object):
             result += ampl*voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gauss_sigma)
         return result
 
+
+
+class AlKAlpha(SpectralLine):
+    """Data are from Wollman, Nam, Newbury, Hilton, Irwin, Berfren, Deiker, Rudman,
+    and Martinis, NIM A 444 (2000) page 145. They come from combining 8 earlier
+    references dated 1965 - 1993.
+    """
+
+    ## Spectral complex name.
+    name = 'Aluminum K-alpha'
+    # The approximation is as a series of 7 Lorentzians
+    energies = np.array((1486.94, 1486.52, 1492.94, 1496.85, 1498.70, 1507.4, 1510.9))
+    ## The Lorentzian widths (FWHM)
+    fwhm = np.array((0.43, 0.43, 1.34, 0.96, 1.25, 1.5, 0.9))
+    ## The Lorentzian peak height, in relative intensity
+    peak_heights = np.array((1.0, 0.5, 0.033, 0.12, 0.11, 0.07, 0.05), dtype=np.float)
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak
+    nominal_peak_energy = 1486.930456 # eV
 
 
 class ScKAlpha(SpectralLine):
@@ -1198,6 +1218,21 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         return [res, ph_peak, 1.0, ampl, baseline, baseline_slope]
     
 ## create specific KAlpha Fitters
+class AlKAlphaFitter(GenericKAlphaFitter):
+    def __init__(self):
+        GenericKAlphaFitter.__init__(self, AlKAlpha())
+    def guess_starting_params(self, data, binctrs):
+        n = data.sum()
+        if n<=0:
+            raise ValueError("This histogram has no contents")
+        cumdata = np.cumsum(data)
+        ph_ka1 = binctrs[(cumdata*2>n).argmax()]
+        res = 2.0
+        dph_de = 1.0
+        baseline, baseline_slope = 1.0, 0.0
+        ampl = 4*np.max(data)
+        return [res, ph_ka1, dph_de, ampl, baseline, baseline_slope]
+
 class ScKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, ScKAlpha())
