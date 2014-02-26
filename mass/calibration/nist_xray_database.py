@@ -20,8 +20,7 @@ J. Fowler, NIST
 February 2014
 '''
 
-import urllib
-import pylab as plt
+import urllib, os
 
 def NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
     form = "http://physics.nist.gov/cgi-bin/XrayTrans/search.pl?"
@@ -42,7 +41,8 @@ def NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
 
 
 def GetAllLines(savefile, max_E=30000):
-    lines = ('KL2','KL3','KM5','KM3','KM2','L3M5','L3M4','L3M1','L2M4','L2N4','L3N5','L1M3')
+    lines = ('KL2','KL3','KM5','KM3','KM2','L3M5','L3M4','L3M1','L2M4','L2N4','L3N5',
+             'L1M3','L3N7')
     NISTXrayDBRetrieve(lines, savefile, max_E=max_E)
 
 
@@ -57,9 +57,21 @@ ATOMIC_NUMBERS = {ELEMENTS[i]:i for i in range(len(ELEMENTS))}
 
     
 class NISTXrayDBFile(object):
+    DEFAULT_FILENAME = "nist_xray_data.dat"
+    
     def __init__(self, *filenames):
+        """Initialize the database from 1 or more <filenames>, which point to
+        files downloaded using NISTXrayDBRetrieve. If the list is empty (the
+        default), then the file named by self.DEFAULT_FILENAME will be used."""
+        
         self.lines={}
         self.alllines = set()
+        
+        if len(filenames) == 0:
+            path = os.path.split(__file__)[0]
+            default_file = os.path.join(path, self.DEFAULT_FILENAME)
+            filenames = (default_file, )
+            
         for filename in filenames:
             try:
                 fp = open(filename, "r")
@@ -80,6 +92,7 @@ class NISTXrayDBFile(object):
                 except:
                     continue
             fp.close()
+    
 
     LINE_NICKNAMES={
         'KA1' : 'KL3',
@@ -89,6 +102,24 @@ class NISTXrayDBFile(object):
         'KB5' : 'KM5',
         }
     
+    def get_lines_by_type(self, linetype):
+        """Return a tuple containing all lines of a certain type, e.g., "KL3".
+        See self.LINE_NICKNAMES for some known line "nicknames"."""
+        linetype = linetype.upper()
+        if "ALPHA" in linetype:
+            linetype = linetype.replace("ALPHA","A")
+        elif "BETA" in linetype:
+            linetype = linetype.replace("BETA","B")
+        elif "GAMMA" in linetype:
+            linetype = linetype.replace("GAMMA", "G")
+        linetype = self.LINE_NICKNAMES.get(linetype, linetype)
+        lines = []
+        for element in ELEMENTS:
+            linename = '%s %s'%(element, linetype)
+            if linename in self.lines:
+                lines.append(self.lines[linename])
+        return tuple(lines)
+    
     def __getitem__(self, key):
         element,line = key.split()[:2]
         element = element.capitalize()
@@ -97,9 +128,9 @@ class NISTXrayDBFile(object):
         if key in self.lines:
             return self.lines[key]
         lcline = line.lower()
-        lcline = line.replace('alpha','a')
-        lcline = line.replace('beta','b')
-        lcline = line.replace('gamma','g')
+        lcline = lcline.replace('alpha','a')
+        lcline = lcline.replace('beta','b')
+        lcline = lcline.replace('gamma','g')
         if lcline in self.LINE_NICKNAMES:
             key = "%s %s"%(element, self.LINE_NICKNAMES[lcline])
             return self.lines[key]
@@ -135,22 +166,28 @@ class NISTXrayLine(object):
 
 
 def plot_line_uncertainties():
-    db = NISTXrayDBFile("/tmp/l3.txt","/tmp/kbeta.txt", "/tmp/kalpha.txt","/tmp/l2.txt","/tmp/l1.txt")
-    transitions = ('KL3','KL2','KM3','KM5','L3M5','L3M4', 'L2M4', 'L3N5')
+    import pylab as plt
+    db = NISTXrayDBFile()
+    transitions = ('KL3','KL2','KM3','KM5','L3M5','L3M4', 'L2M4', 'L3N5','L2N4','L1M3','L3N7','L3M1')
     titles={
         'KL3':'K$\\alpha_1$: Intense', 
         'KL2':'K$\\alpha_2$: Intense, but not easily resolved', 
         'KM3':'K$\\beta_1$: Intense', 
         'KM2':'K$\\beta_3$: Intense, usually unresolvable', 
         'KM5':'K$\\beta_5$: Weak line on high-E tail of K$\\beta_1$',
-        'L3M5':'L$\\alpha_1$',
-        'L3M4':'L$\\alpha_2$', 
-        'L2M4':'L$\\beta_1$',
-        'L3N5':'L$\\beta_2$',
+        'L3M5':'L$\\alpha_1$: Prominent',
+        'L3M4':'L$\\alpha_2$: Small satellite', 
+        'L2M4':'L$\\beta_1$: Prominent',
+        'L3N5':'L$\\beta_2$: Prominent',
+        'L2N4': 'K$\\gamma_1$: Weaker',
+        'L1M3': 'L$\\beta_3$: Weaker',
+        'L3N7': 'Lu: barely visible',
+        'L3M1': 'L$\ell$: very weak',
     }
     
     axes = {}
-    NX, NY = 2,4
+    NX, NY = 3,4
+    plt.clf()
     for i,tr in enumerate(transitions):
         axes[i] = plt.subplot(NY, NX,i+1)
         plt.loglog()
@@ -169,3 +206,22 @@ def plot_line_uncertainties():
         plt.sca(axes[i])
         plt.plot(line.peak, line.peak_unc, 'or')
         plt.text(line.peak, line.peak_unc, line.name)
+
+def plot_line_energies():
+    db = NISTXrayDBFile()
+    import pylab as plt
+    plt.clf()
+    cm = plt.cm.spectral #@UndefinedVariable
+    transitions = ('KL2','KL3','KM5','KM3','KM2','L3M5','L3M4','L3M1','L2M4','L2N4','L3N5',
+                   'L1M3','L3N7', 'M5N7','M5N6','M4N6','M3N5','M3N4')
+    for i,linetype in enumerate(transitions):
+        lines = db.get_lines_by_type(linetype)
+        z = [ATOMIC_NUMBERS[line.element] for line in lines]
+        e = [line.peak for line in lines]
+        plt.loglog(z,e,'o-', color=cm(float(i)/len(transitions)), label=linetype)
+    plt.legend(loc='upper left')
+#     plt.xlabel("Atomic number Z")
+    plt.ylabel("Energy (eV)")
+    plt.grid()
+    r = range(10,30)+range(30,50,2)+range(50,80,3)+range(80,100,4)
+    plt.xticks(r, ['\n'.join([ELEMENTS[i],str(i)]) for i in r])
