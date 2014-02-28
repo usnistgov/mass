@@ -12,7 +12,7 @@ from mass.calibration import energy_calibration
 from mass.mathstat.fitting import MaximumLikelihoodGaussianFitter
 from mass.mathstat.utilities import plot_as_stepped_hist
 
-__all__=['GaussianFitter','GaussianLine','Gd97','Gd103','AlKalpha','SiKalpha']
+__all__=['GaussianFitter','GaussianLine','Gd97','Gd103']
 
 class GaussianFitter(object):
     """Abstract base class for objects that can fit a single Gaussian line.
