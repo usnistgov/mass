@@ -82,7 +82,7 @@ if __name__ == "__main__":
           packages=['mass','mass.core', 'mass.mathstat', 'mass.calibration', 
                     'mass.demo', 'mass.gui'],
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
-                        'mass.calibration': ['nist_xray_data.dat']
+                        'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
                         }
           )
 

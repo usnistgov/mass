@@ -20,32 +20,6 @@ J. Fowler, NIST
 February 2014
 '''
 
-import urllib, os
-
-def NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
-    form = "http://physics.nist.gov/cgi-bin/XrayTrans/search.pl?"
-    args = {'download':'column',
-            'element':'All',
-            'units':'eV',
-            'lower':str(min_E),
-            'upper':str(max_E)}
-    joined_args = '&'.join(['%s=%s'%(k,v) for (k,v) in args.iteritems()])
-    joined_lines = '&'.join(['trans=%s'%name for name in line_names])
-    get = '%s%s&%s'%(form, joined_args, joined_lines)
-    print 'Grabbing %s'%get
-    
-    page = urllib.urlopen(get)
-    fp = open(savefile, "w")
-    fp.writelines(page)
-    fp.close()
-
-
-def GetAllLines(savefile, max_E=30000):
-    lines = ('KL2','KL3','KM5','KM3','KM2','L3M5','L3M4','L3M1','L2M4','L2N4','L3N5',
-             'L1M3','L3N7')
-    NISTXrayDBRetrieve(lines, savefile, max_E=max_E)
-
-
 ELEMENTS=('','H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar',
           'K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb',
           'Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe',
@@ -57,7 +31,7 @@ ATOMIC_NUMBERS = {ELEMENTS[i]:i for i in range(len(ELEMENTS))}
 
     
 class NISTXrayDBFile(object):
-    DEFAULT_FILENAME = "nist_xray_data.dat"
+    DEFAULT_FILENAMES = "nist_xray_data.dat", "low_z_xray_data.dat"
     
     def __init__(self, *filenames):
         """Initialize the database from 1 or more <filenames>, which point to
@@ -67,11 +41,12 @@ class NISTXrayDBFile(object):
         self.lines={}
         self.alllines = set()
         
+        import os
         if len(filenames) == 0:
             path = os.path.split(__file__)[0]
-            default_file = os.path.join(path, self.DEFAULT_FILENAME)
-            filenames = (default_file, )
-            
+            filenames = [os.path.join(path, df) for df in self.DEFAULT_FILENAMES]
+        
+        self.loaded_filenames = []
         for filename in filenames:
             try:
                 fp = open(filename, "r")
@@ -91,6 +66,8 @@ class NISTXrayDBFile(object):
                     self.alllines.add(xrayline)
                 except:
                     continue
+                
+            self.loaded_filenames.append(filename)
             fp.close()
     
 
@@ -220,8 +197,45 @@ def plot_line_energies():
         e = [line.peak for line in lines]
         plt.loglog(z,e,'o-', color=cm(float(i)/len(transitions)), label=linetype)
     plt.legend(loc='upper left')
-#     plt.xlabel("Atomic number Z")
-    plt.ylabel("Energy (eV)")
+    plt.xlim([6,100])
     plt.grid()
-    r = range(10,30)+range(30,50,2)+range(50,80,3)+range(80,100,4)
+    r = range(6,22)+range(22,43,2)+range(45,75,3)+range(75,100,5)
     plt.xticks(r, ['\n'.join([ELEMENTS[i],str(i)]) for i in r])
+
+
+
+###############################################################
+# Below here are functions to recreate the nist_xray_data.dat 
+# file, which I don't think anyone will ever need again.
+# J Fowler, Feb 28, 2014.
+###############################################################
+
+def _NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
+    """Use this for updating the database file. You should not
+    ever (?) need to do this, but who knows?"""
+    form = "http://physics.nist.gov/cgi-bin/XrayTrans/search.pl?"
+    args = {'download':'column',
+            'element':'All',
+            'units':'eV',
+            'lower':str(min_E),
+            'upper':str(max_E)}
+    joined_args = '&'.join(['%s=%s'%(k,v) for (k,v) in args.iteritems()])
+    joined_lines = '&'.join(['trans=%s'%name for name in line_names])
+    get = '%s%s&%s'%(form, joined_args, joined_lines)
+    print 'Grabbing %s'%get
+    
+    import urllib
+    page = urllib.urlopen(get)
+    fp = open(savefile, "w")
+    fp.writelines(page)
+    fp.close()
+
+
+def _RetrieveAllLines(savefile, max_E=30000):
+    """Use this for updating the database file. You should not
+    ever (?) need to do this, but who knows?"""
+    lines = ('KL2','KL3','KM5','KM3','KM2','L3M5','L3M4','L3M1','L2M4','L2N4','L3N5',
+             'L1M3','L3N7')
+    _NISTXrayDBRetrieve(lines, savefile, max_E=max_E)
+
+
