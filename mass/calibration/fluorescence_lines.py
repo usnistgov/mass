@@ -3,24 +3,25 @@ fluorescence_lines.py
 
 Tools for fitting and simulating X-ray fluorescence lines.
 
-Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+Many data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
 Phys Rev A56 (#6) pages 4554ff (1997 December).  See online at
 http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
 
 Joe Fowler, NIST
 
+Feb 2014       : added aluminum in metal and oxide form
 July 12, 2012  : added fitting of Voigt and Lorentzians
-March 9, 2011
 November 24, 2010 : started as mn_kalpha.py
 """
 
 __all__ = ['VoigtFitter', 'LorentzianFitter',
-           'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter', 'MnKAlphaDistribution',
-           'CuKAlphaDistribution',
-           'AlKAlphaFitter', 'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter', 'CrKAlphaFitter',
-           'MnKAlphaFitter', 'FeKAlphaFitter', 'CoKAlphaFitter', 'NiKAlphaFitter', 'CuKAlphaFitter',
-           'TiKBetaFitter', 'CrKBetaFitter', 'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter', 'CuKBetaFitter',
-           'plot_spectrum']
+           'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter', 
+           'MnKAlphaDistribution', 'CuKAlphaDistribution',
+           'AlKAlphaFitter', 'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter', 
+           'CrKAlphaFitter', 'MnKAlphaFitter', 'FeKAlphaFitter', 'CoKAlphaFitter',
+           'NiKAlphaFitter', 'CuKAlphaFitter','TiKBetaFitter', 'CrKBetaFitter',
+           'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter',
+           'CuKBetaFitter', 'plot_spectrum']
  
 import numpy as np
 import pylab
@@ -63,13 +64,36 @@ class SpectralLine(object):
 
 
 class AlKAlpha(SpectralLine):
-    """Data are from Wollman, Nam, Newbury, Hilton, Irwin, Berfren, Deiker, Rudman,
+    """This is the fluorescence line complex of **metallic** aluminum.
+    Data are from Joel Ullom, based on email to him from Caroline Kilbourne (NASA
+    GSFC) dated 28 Sept 2010.
+    """
+
+    ## Spectral complex name.
+    name = 'Aluminum K-alpha'
+    # The approximation is as a series of 5 Lorentzians
+    energies = np.array((1486.9, 1486.5, 1492.3, 1496.4, 1498.4))
+    ## The Lorentzian widths (FWHM)
+    fwhm = np.array((0.43, 0.43, 1.34, 0.96, 1.255))
+    ## The Lorentzian peak height, in relative intensity
+    # The numbers from Caroline were (1, .5, .02, .12, .06)
+    peak_heights = np.array((1.0, 0.5, 0.02, 0.05, 0.03), dtype=np.float)
+    ## Amplitude of the Lorentzians
+    amplitudes = (0.5*np.pi*fwhm) * peak_heights
+    amplitudes /= amplitudes.sum()
+    ## The energy at the main peak
+    nominal_peak_energy = 1486.930456 # eV
+
+
+class AlOxKAlpha(SpectralLine):
+    """The K-alpha complex of aluminum **when in oxide form**.
+    Data are from Wollman, Nam, Newbury, Hilton, Irwin, Berfren, Deiker, Rudman,
     and Martinis, NIM A 444 (2000) page 145. They come from combining 8 earlier
     references dated 1965 - 1993.
     """
 
     ## Spectral complex name.
-    name = 'Aluminum K-alpha'
+    name = 'Aluminum (oxide) K-alpha'
     # The approximation is as a series of 7 Lorentzians
     energies = np.array((1486.94, 1486.52, 1492.94, 1496.85, 1498.70, 1507.4, 1510.9))
     ## The Lorentzian widths (FWHM)
@@ -395,7 +419,7 @@ class NiKAlpha(SpectralLine):
     the parent class SpectralLine holds all the code.
     """
     ## Spectral complex name.
-    name = 'Nickle K-alpha'    
+    name = 'Nickel K-alpha'    
     # The approximation is as a series of 5 Lorentzians (2 for KA1,3 for KA2)
     ## The Lorentzian energies (Table II E_i)
     energies = np.array((7478.281, 7476.529, 7461.131, 7459.874, 7458.029))
@@ -413,11 +437,9 @@ class NiKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
-    Note that the subclass holds all the data (as class attributes), while
-    the parent class SpectralLine holds all the code.
     """
     ## Spectral complex name.
-    name = 'Nickle K-beta'    
+    name = 'Nickel K-beta'    
     # The approximation is as a series of 4 Lorentzians 
     ## The Lorentzian energies (Table III E_i)
     energies = np.array((8265.01, 8263.01, 8256.67, 8268.70))
@@ -435,9 +457,6 @@ class CuKAlpha(SpectralLine):
     """Function object to approximate the copper K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
-    
-    Note that the subclass holds all the data (as class attributes), while
-    the parent class SpectralLine holds all the code.
     """
 
     ## Spectral complex name.
@@ -461,9 +480,6 @@ class CuKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
-    
-    Note that the subclass holds all the data (as class attributes), while
-    the parent class SpectralLine holds all the code.
     """
 
     ## Spectral complex name.
@@ -519,10 +535,16 @@ class MultiLorentzianDistribution_gen(scipy.stats.rv_continuous):
         # Finally, add the line centers.
         return lor + self.distribution.energies[iline]
 
+
+
 # Some specific fluorescence lines
-MnKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=MnKAlpha(), name="Mn Kalpha fluorescence")
-MnKBetaDistribution  = MultiLorentzianDistribution_gen(distribution=MnKBeta(), name="Mn Kbeta fluorescence")
-CuKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=CuKAlpha(), name="Cu Kalpha fluorescence")
+# You can see how to make more if you like.
+MnKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=MnKAlpha(), 
+                                                       name="Mn Kalpha fluorescence")
+MnKBetaDistribution  = MultiLorentzianDistribution_gen(distribution=MnKBeta(), 
+                                                       name="Mn Kbeta fluorescence")
+CuKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=CuKAlpha(), 
+                                                       name="Cu Kalpha fluorescence")
 
 
 
