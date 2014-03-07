@@ -17,7 +17,8 @@ November 24, 2010 : started as mn_kalpha.py
 __all__ = ['VoigtFitter', 'LorentzianFitter',
            'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter', 
            'MnKAlphaDistribution', 'CuKAlphaDistribution',
-           'AlKAlphaFitter', 'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter', 
+           'MgKAlphaFitter', 'AlKAlphaFitter', 
+           'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter', 
            'CrKAlphaFitter', 'MnKAlphaFitter', 'FeKAlphaFitter', 'CoKAlphaFitter',
            'NiKAlphaFitter', 'CuKAlphaFitter','TiKBetaFitter', 'CrKBetaFitter',
            'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter',
@@ -36,7 +37,7 @@ class SpectralLine(object):
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
     
     Instantiate one of its subclasses, which will have to define
-    self.energies, self.fwhm, self.amplitudes.  Each must be a sequence
+    self.energies, self.fwhm, self.integral_intensity.  Each must be a sequence
     of the same length.
     """
     def __init__(self):
@@ -57,10 +58,31 @@ class SpectralLine(object):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
         x = np.asarray(x, dtype=np.float)
         result = np.zeros_like(x)
-        for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.amplitudes):
+        for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.integral_intensity):
             result += ampl*voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gauss_sigma)
+            # Note that voigt is normalized to have unit integrated intensity
         return result
 
+
+
+class MgKAlpha(SpectralLine):
+    """This is the fluorescence line complex of **metallic** magnesium.
+    Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.
+    "Magnesium Kalpha X-ray line structure revisited".  Also discussed in more
+    detail in C. Klauber, Surface & Interface Analysis 20 (1993), 703-715.
+    """
+
+    ## Spectral complex name.
+    name = 'Magnesium K-alpha'
+    # The approximation is as a series of 7 Lorentzians
+    energies = np.array((-.265, 0, 4.740, 8.210, 8.487, 10.095, 17.404, 20.430)) + 1253.60
+    ## The Lorentzian widths (FWHM)
+    fwhm = np.array((.541, .541, 1.1056, .6264, .7349, 1.0007, 1.4311, .8656))
+    ## The Lorentzian amplitude, in relative integrated intensity
+    integral_intensity = np.array((0.5, 1, .02099, .07868, .04712, .09071, .01129, .00538))
+    integral_intensity /= integral_intensity.sum()
+    ## The energy at the main peak
+    nominal_peak_energy = 1253.5587
 
 
 class AlKAlpha(SpectralLine):
@@ -76,13 +98,13 @@ class AlKAlpha(SpectralLine):
     ## The Lorentzian widths (FWHM)
     fwhm = np.array((0.43, 0.43, 1.34, 0.96, 1.255))
     ## The Lorentzian peak height, in relative intensity
-    # The numbers from Caroline were (1, .5, .02, .12, .06)
-    peak_heights = np.array((1.0, 0.5, 0.02, 0.05, 0.03), dtype=np.float)
-    ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    # The numbers from Caroline are (1, .5, .02, .12, .06)
+    # Steve Smith email to Joe/Joel on 6 March 2014 verifies that these
+    # are relative *integral intensities*, not peak heights
+    integral_intensity = np.array((1, .5, .02, .12, .06))
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
-    nominal_peak_energy = 1486.930456 # eV
+    nominal_peak_energy = 1486.88931733
 
 
 class AlOxKAlpha(SpectralLine):
@@ -101,8 +123,8 @@ class AlOxKAlpha(SpectralLine):
     ## The Lorentzian peak height, in relative intensity
     peak_heights = np.array((1.0, 0.5, 0.033, 0.12, 0.11, 0.07, 0.05), dtype=np.float)
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
     nominal_peak_energy = 1486.930456 # eV
 
@@ -127,8 +149,8 @@ class ScKAlpha(SpectralLine):
     ## The Lorentzian peak height (Table I A_i)
     peak_heights = np.array((8203, 818, 257, 381, 4299, 105), dtype=np.float)
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
     nominal_peak_energy = 4090.735 # eV
 
@@ -156,8 +178,8 @@ class TiKAlpha(SpectralLine):
     ## The Lorentzian peak height (Table I A_i)
     peak_heights = np.array((4549, 626, 236, 143, 2034, 54), dtype=np.float)
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
     nominal_peak_energy = 4510.903 # eV 
     
@@ -168,7 +190,7 @@ class TiKBeta(SpectralLine):
     name = 'Titanium K-beta'    
     energies = np.array((25.37, 30.096, 31.967, 35.59))+4900
     fwhm = np.array((16.3, 4.25, 0.42, 0.47))
-    amplitudes = np.array((199, 455, 326, 19.2), dtype=np.float)/1e3
+    integral_intensity = np.array((199, 455, 326, 19.2), dtype=np.float)/1e3
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 4931.966 # eV     
 
@@ -194,8 +216,8 @@ class VKAlpha(SpectralLine):
     ## The Lorentzian peak height (Table I A_i)
     peak_heights = np.array((25832, 5410, 1536, 956, 12971, 603), dtype=np.float)
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
     nominal_peak_energy = 4952.216 # eV   
     
@@ -206,7 +228,7 @@ class VKBeta(SpectralLine):
     name = 'Vanadium K-beta' 
     energies = np.array((18.20, 24.50, 26.998))+5400
     fwhm = np.array((18.86, 5.48, 2.498))
-    amplitudes = np.array((258, 236, 507), dtype=np.float)/1e3
+    integral_intensity = np.array((258, 236, 507), dtype=np.float)/1e3
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 5427.32 # eV     
 
@@ -232,8 +254,8 @@ class CrKAlpha(SpectralLine):
     ## The Lorentzian peak height (Table II I_i)
     peak_heights = np.array((882, 237, 85, 45, 15, 386, 36), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
     nominal_peak_energy = 5414.81 # eV   
     
@@ -257,8 +279,8 @@ class CrKBeta(SpectralLine):
     ## The Lorentzian peak height (Table III I_i)
     peak_heights = np.array((670, 55, 337, 82, 151), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 5946.82 # eV     
 
@@ -286,8 +308,8 @@ class MnKAlpha(SpectralLine):
     ## The Lorentzian peak height
     peak_heights = np.array((790, 264, 68, 96, 71, 10, 372, 100), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
     nominal_peak_energy = 5898.802 # eV        
 
@@ -313,8 +335,8 @@ class MnKBeta(SpectralLine):
     ## The Lorentzian peak height
     peak_heights = np.array((608, 109, 77, 397, 176), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
     nominal_peak_energy = 6490.18 # eV   
     
@@ -336,8 +358,8 @@ class FeKAlpha(SpectralLine):
     ## The Lorentzian peak height (Table II I_i)
     peak_heights = np.array((697, 376, 88, 136, 339, 60, 102), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
     nominal_peak_energy = 6404.01 # eV   
     
@@ -358,8 +380,8 @@ class FeKBeta(SpectralLine):
     ## The Lorentzian peak height (Table III I_i)
     peak_heights = np.array((107, 448, 615, 141), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 7058.18 # eV      
     
@@ -383,8 +405,8 @@ class CoKAlpha(SpectralLine):
     ## The Lorentzian peak height (Table II I_i)
     peak_heights = np.array((809, 205, 107, 41, 314, 131, 43), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
     nominal_peak_energy = 6930.38 # eV   
     
@@ -405,8 +427,8 @@ class CoKBeta(SpectralLine):
     ## The Lorentzian peak height (Table III I_i)
     peak_heights = np.array((798, 286, 85, 114, 33, 35), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 7649.45 # eV  
     
@@ -428,8 +450,8 @@ class NiKAlpha(SpectralLine):
     ## The Lorentzian peak height (Table II I_i)
     peak_heights = np.array((909, 136, 351, 79, 24), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
     nominal_peak_energy = 7478.26 # eV   
     
@@ -448,8 +470,8 @@ class NiKBeta(SpectralLine):
     ## The Lorentzian peak height (Table III I_i)
     peak_heights = np.array((722, 358, 89, 104), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 8264.78 # eV  
     
@@ -471,8 +493,8 @@ class CuKAlpha(SpectralLine):
     ## The Lorentzian peak height
     peak_heights = np.array((957, 90, 334, 111), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
     nominal_peak_energy = 8047.83 # eV   
     
@@ -493,8 +515,8 @@ class CuKBeta(SpectralLine):
     ## The Lorentzian peak height (Table III I_i)
     peak_heights = np.array((757, 388, 171, 68, 55), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
-    amplitudes = (0.5*np.pi*fwhm) * peak_heights
-    amplitudes /= amplitudes.sum()
+    integral_intensity = (0.5*np.pi*fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta1,3)
     nominal_peak_energy = 8905.42 # eV      
 
@@ -513,7 +535,7 @@ class MultiLorentzianDistribution_gen(scipy.stats.rv_continuous):
 
         scipy.stats.rv_continuous.__init__(self, *args, **kwargs)
         self.distribution = distribution
-        self.cumulative_amplitudes = self.distribution.amplitudes.cumsum()
+        self.cumulative_amplitudes = self.distribution.integral_intensity.cumsum()
         self.name = distribution.name
         self.set_gauss_fwhm = self.distribution.set_gauss_fwhm
 
@@ -1240,9 +1262,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         return [res, ph_peak, 1.0, ampl, baseline, baseline_slope]
     
 ## create specific KAlpha Fitters
-class AlKAlphaFitter(GenericKAlphaFitter):
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, AlKAlpha())
+class _lowZ_KAlphaFitter(GenericKAlphaFitter):
     def guess_starting_params(self, data, binctrs):
         n = data.sum()
         if n<=0:
@@ -1254,6 +1274,13 @@ class AlKAlphaFitter(GenericKAlphaFitter):
         baseline, baseline_slope = 1.0, 0.0
         ampl = 4*np.max(data)
         return [res, ph_ka1, dph_de, ampl, baseline, baseline_slope]
+    
+class AlKAlphaFitter(_lowZ_KAlphaFitter):
+    def __init__(self):
+        _lowZ_KAlphaFitter.__init__(self, AlKAlpha())
+class MgKAlphaFitter(_lowZ_KAlphaFitter):
+    def __init__(self):
+        _lowZ_KAlphaFitter.__init__(self, MgKAlpha())
 
 class ScKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
@@ -1340,7 +1367,7 @@ def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha, instrumentGaussianSi
     
     pylab.figure()
     result = np.zeros_like(plotEnergies)
-    for energy, fwhm, ampl in zip(spectrumDef.energies, spectrumDef.fwhm, spectrumDef.amplitudes):
+    for energy, fwhm, ampl in zip(spectrumDef.energies, spectrumDef.fwhm, spectrumDef.integral_intensity):
         pylab.plot(plotEnergies,ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=instrumentGaussianSigma), label='%.3f, %.3f, %.3f'%(energy,fwhm, ampl))
         result += ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=instrumentGaussianSigma)
     pylab.plot(plotEnergies, result, label='combined', linewidth=2)
