@@ -39,8 +39,8 @@ for i in (2,4,8,1):
 
 Window choices are:
 bartlett - Triangle shape
-hamm     - Sine-squared
-hanning  - 0.08 + 0.92*(sine-squared)
+hann     - Sine-squared
+hamming  - 0.08 + 0.92*(sine-squared)
 welch    - Parabolic
 None     - Square (no windowing)
 ***      - Any other vector of length 2m OR any callable accepting
