@@ -4,9 +4,9 @@ Created on Apr 26, 2012
 @author: fowlerj
 '''
 
-import numpy
-import pylab
-import scipy.special
+import numpy as np
+import scipy as sp
+import pylab as plt
 
 from mass.calibration import energy_calibration
 from mass.mathstat.fitting import MaximumLikelihoodGaussianFitter
@@ -38,7 +38,7 @@ class GaussianFitter(object):
         sum_d = (data*binctrs).sum()
         sum_d2 = (data*binctrs*binctrs).sum()
         mean_d = sum_d/n
-        rms_d = numpy.sqrt(sum_d2/n - mean_d**2)
+        rms_d = np.sqrt(sum_d2/n - mean_d**2)
         res = rms_d * 2.3548
         ph_peak = mean_d
         ampl = data.max()
@@ -61,7 +61,7 @@ class GaussianFitter(object):
         try:
             assert len(pulseheights) == len(data)
         except:
-            pulseheights = numpy.arange(len(data), dtype=numpy.float)
+            pulseheights = np.arange(len(data), dtype=np.float)
         try:
             _, _, _, _ = params
         except:
@@ -89,10 +89,10 @@ class GaussianFitter(object):
             if color is None: 
                 color = 'blue'
             if axis is None:
-                pylab.clf()
-                axis = pylab.subplot(111)
+                plt.clf()
+                axis = plt.subplot(111)
                 
-            de = numpy.sqrt(covariance[0, 0])
+            de = np.sqrt(covariance[0, 0])
             plot_as_stepped_hist(axis, data, pulseheights, color=color, 
                                                 label="FWHM: %.2f +- %.2f %s"%(fitparams[0], de, label))
             axis.plot(pulseheights, self.last_fit_result, color='black')
@@ -118,9 +118,9 @@ class GaussianLine(object):
         ## Full width at half-maximum
         self.fwhm = fwhm
         ## Gaussian parameter sigma, computed from self.fwhm
-        self.sigma = self.fwhm/numpy.sqrt(8*numpy.log(2))
+        self.sigma = self.fwhm/np.sqrt(8*np.log(2))
         ## Gaussian amplitude, chosen to normalize the distribution.
-        self.amplitude = (2*numpy.pi)**(-0.5)/self.sigma
+        self.amplitude = (2*np.pi)**(-0.5)/self.sigma
     
     def __call__(self, x, fwhm=None):
         """Make the class callable, returning the same value as the self.pdf method."""
@@ -128,24 +128,24 @@ class GaussianLine(object):
     
     def pdf(self, x, fwhm=None):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
-        x = numpy.asarray(x, dtype=numpy.float)
+        x = np.asarray(x, dtype=np.float)
         if fwhm is None:
             sigma, _ampl = self.sigma, self.amplitude
         else:
-            sigma = fwhm/numpy.sqrt(8*numpy.log(2))
-#            ampl = (2*numpy.pi)**(-0.5)/sigma
-        result = numpy.exp(-0.5*(x-self.energy)**2/sigma**2)# * ampl
+            sigma = fwhm/np.sqrt(8*np.log(2))
+#            ampl = (2*np.pi)**(-0.5)/sigma
+        result = np.exp(-0.5*(x-self.energy)**2/sigma**2)# * ampl
         return result
     
     def cdf(self, x, fwhm=None):
         """Cumulative distribution function where <x> = set of energies."""
-        x = numpy.asarray(x, dtype=numpy.float)
+        x = np.asarray(x, dtype=np.float)
         if fwhm is None:
-            arg = (x-self.energy)/self.sigma/numpy.sqrt(2)
+            arg = (x-self.energy)/self.sigma/np.sqrt(2)
         else:
-            sigma = fwhm/numpy.sqrt(8*numpy.log(2))
-            arg = (x-self.energy)/sigma/numpy.sqrt(2)
-        return (scipy.special.erf(arg)+1)*.5
+            sigma = fwhm/np.sqrt(8*np.log(2))
+            arg = (x-self.energy)/sigma/np.sqrt(2)
+        return (sp.special.erf(arg)+1)*.5
 
 
 

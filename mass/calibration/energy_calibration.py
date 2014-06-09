@@ -8,7 +8,7 @@ Created on May 16, 2011
 
 __all__ = ['EnergyCalibration']
 
-import numpy
+import numpy as np
 import scipy.interpolate
 import scipy.optimize
 
@@ -120,9 +120,9 @@ class EnergyCalibration(object):
         self.ph2energy = lambda x: x
         self.energy2ph = lambda x: x
         self.info = [{}]
-        self._ph = numpy.zeros(1, dtype=numpy.float)
-        self._energies = numpy.zeros(1, dtype=numpy.float)
-        self._stddev = numpy.zeros(1, dtype=numpy.float)
+        self._ph = np.zeros(1, dtype=np.float)
+        self._energies = np.zeros(1, dtype=np.float)
+        self._stddev = np.zeros(1, dtype=np.float)
         self._names = ['null']
         self.npts = 1
         self.smooth = 1.0  # This ought to make the curve stay within ~1-sigma of each point.
@@ -178,9 +178,9 @@ class EnergyCalibration(object):
         "If you don't like calibration point named <name>, this removes it"
         idx = self._names.index(name)
         self._names.pop(idx)
-        self._ph = numpy.hstack((self._ph[:idx], self._ph[idx+1:]))
-        self._energies = numpy.hstack((self._energies[:idx], self._energies[idx+1:]))
-        self._stddev = numpy.hstack((self._stddev[:idx], self._stddev[idx+1:]))
+        self._ph = np.hstack((self._ph[:idx], self._ph[idx+1:]))
+        self._energies = np.hstack((self._energies[:idx], self._energies[idx+1:]))
+        self._stddev = np.hstack((self._stddev[:idx], self._stddev[idx+1:]))
         self.npts -= 1
         self._update_converters()
         
@@ -234,14 +234,14 @@ class EnergyCalibration(object):
             self.info[index] = info.copy()
             
         else:   # Add a new point
-            self._ph = numpy.hstack((self._ph, pht))
-            self._energies = numpy.hstack((self._energies, energy))
-            self._stddev = numpy.hstack((self._stddev, pht_error))
+            self._ph = np.hstack((self._ph, pht))
+            self._energies = np.hstack((self._energies, energy))
+            self._stddev = np.hstack((self._stddev, pht_error))
             self._names.append(name)
             self.info.append(info.copy())
             
             # Sort in ascending energy order
-            sortkeys = numpy.argsort(self._energies)
+            sortkeys = np.argsort(self._energies)
             self._ph = self._ph[sortkeys]
             self._energies = self._energies[sortkeys]
             self._stddev = self._stddev[sortkeys]
@@ -269,21 +269,21 @@ class EnergyCalibration(object):
         
         if (not self.use_spline) and self.npts >= 2:
             highest_slope = (self._energies[-1]-self._energies[-2])/(self._ph[-1]-self._ph[-2])
-            ph = numpy.hstack((self._ph, [1e6]))
-            energy = numpy.hstack((self._energies, [highest_slope*(ph[-1]-ph[-2])+self._energies[-1]]))
+            ph = np.hstack((self._ph, [1e6]))
+            energy = np.hstack((self._energies, [highest_slope*(ph[-1]-ph[-2])+self._energies[-1]]))
             self.ph2energy = scipy.interpolate.interp1d(ph, energy, kind='linear', bounds_error = True)
         elif self.npts > 3:
-            weight = 1/numpy.array(self._stddev)
+            weight = 1/np.array(self._stddev)
             weight[self._stddev <= 0.0] = 1/self._stddev.min()
             self.ph2energy = scipy.interpolate.UnivariateSpline(self._ph, self._energies, w=weight, k=3, 
-                                                                bbox=[0, 1.6*self._ph.max()], s=self.smooth*self.npts)
+                                                                bbox=[0, 1.0*self._ph.max()], s=self.smooth*self.npts)
         elif self.npts == 3:
-            self.ph2energy = numpy.poly1d(numpy.polyfit(self._ph, self._energies, 2))
+            self.ph2energy = np.poly1d(np.polyfit(self._ph, self._energies, 2))
         elif self.npts == 2:
-            self.ph2energy = numpy.poly1d(numpy.polyfit(self._ph, self._energies, 1))
+            self.ph2energy = np.poly1d(np.polyfit(self._ph, self._energies, 1))
         else:
             raise ValueError("Not enough good samples")
-        max_ph = 1.3*self._ph[-1]
+        max_ph = 1.0*self._ph.max()
         ph2offset_energy = lambda ph, eoffset: self.ph2energy(ph)-eoffset 
         self.energy2ph = lambda e: scipy.optimize.brentq(ph2offset_energy, 0., max_ph, args=(e,))
         
@@ -307,7 +307,7 @@ class EnergyCalibration(object):
             axis.set_xlim([0, self._ph.max()*1.1])
 
         # Plot smooth curve
-        pht = numpy.arange(0, self._ph.max()*1.1)
+        pht = np.arange(0, self._ph.max()*1.1)
         y = self(pht) / pht**ph_rescale_power
         axis.plot(pht, y, color=color)
         

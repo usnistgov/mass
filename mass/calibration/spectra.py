@@ -6,9 +6,9 @@ Created on Dec 12, 2011
 @author: fowlerj
 '''
 
-import numpy
-import pylab
-import scipy.stats, scipy.optimize
+import numpy as np
+import scipy as sp
+import pylab as plt
 import cPickle as pickle
 
 from mass.mathstat.utilities import plot_as_stepped_hist
@@ -25,9 +25,9 @@ class RawSpectrum(object):
     def __init__(self, pulses):
         """
         <pulses> a sequence of the pulse sizes (volts or similar instrument-referenced quantity).
-                 Will be copied and stored internally as a numpy.ndarray.
+                 Will be copied and stored internally as a np.ndarray.
         """
-        self.pulses = numpy.array(pulses, dtype=numpy.float)
+        self.pulses = np.array(pulses, dtype=np.float)
         self.pulses.sort()  # This might not be a good idea?
         self.energies = self.pulses.copy()
         self.npulses = len(self.pulses)
@@ -83,7 +83,7 @@ class RawSpectrum(object):
             max_lines = 999999999
         
         # Step 1: find lines by histogramming the data and smearing.
-        cont, bins = numpy.histogram(self.pulses, nbins, [0,vmax])
+        cont, bins = np.histogram(self.pulses, nbins, [0,vmax])
         bin_ctr = 0.5*(bins[1:]+bins[:-1])
 
         # Assume 40 counts = 1000 eV and smear by resolution (typically 60 eV FWHM, or 25 eV rms)
@@ -94,7 +94,7 @@ class RawSpectrum(object):
             smallest_peak = 40.
     
         # Find peaks.  First, sort all bins by their contents:
-        c_order = numpy.argsort(cont_smear)[::-1]
+        c_order = np.argsort(cont_smear)[::-1]
         peak_bins = []
     
         for c in c_order:
@@ -102,7 +102,7 @@ class RawSpectrum(object):
                 break
             nearby_peak = False
             for peak in peak_bins:
-                if numpy.abs(c-peak) < min_bin_sep:
+                if np.abs(c-peak) < min_bin_sep:
                     nearby_peak = True
                     break
             if not nearby_peak:
@@ -121,7 +121,7 @@ class RawSpectrum(object):
                     params=(3.0, bin_ctr[peak], cont[peak], .1),
                     plot=False)
                 fwhm, centroid, peak, _bg = result
-                area = fwhm/2.35482*numpy.sqrt(2*numpy.pi)*peak
+                area = fwhm/2.35482*np.sqrt(2*np.pi)*peak
     
                 lines.append((area, centroid))
                 if len(lines) >= max_lines:
@@ -134,7 +134,7 @@ class RawSpectrum(object):
     
         if len(lines)==0:
             return []
-        lines = numpy.array(lines)
+        lines = np.array(lines)
         line_order = lines[:,0].argsort()[::-1]
         return lines[line_order]
     
@@ -151,7 +151,7 @@ class SpectrumGroup(object):
         '''
         Construct a SpectrumGroup, optionally with initial voltage (uncalibrated) spectra.
         
-        <spectrum_iter> is an iterator that yields one or more numpy.ndarray objects.  Each
+        <spectrum_iter> is an iterator that yields one or more np.ndarray objects.  Each
                         is assumed to be an unsorted array of pulse sizes (presumably you want
                         them to be optimally filtered pulse heights).
         '''
@@ -201,19 +201,19 @@ class SpectrumGroup(object):
             m = max((rs.max() for rs in self.raw_spectra))
             binrange = [0,m]
         if axis is None:
-            pylab.clf()
-            axis = pylab.subplot(111)
+            plt.clf()
+            axis = plt.subplot(111)
         if color is None:
-            color = pylab.cm.get_cmap('spectral')
+            color = plt.cm.get_cmap('spectral')
         
-        bin_centers = numpy.arange(0.5, nbins)*(binrange[1]-binrange[0])/nbins + binrange[0]
+        bin_centers = np.arange(0.5, nbins)*(binrange[1]-binrange[0])/nbins + binrange[0]
         
         for i,spect_number in enumerate(self.plot_ordering):
             rs = self.raw_spectra[spect_number]
             if raw:
-                cont, _bins = numpy.histogram(rs.pulses, nbins, binrange)
+                cont, _bins = np.histogram(rs.pulses, nbins, binrange)
             else:
-                cont, _bins = numpy.histogram(rs.energies, nbins, binrange)
+                cont, _bins = np.histogram(rs.energies, nbins, binrange)
             plot_as_stepped_hist(axis, cont+i*yoffset, bin_centers, color=color(float(i)/self.nchan))
 
 
@@ -249,7 +249,7 @@ def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=F
     Specifically, find the voltages v1 and v2 such that cal1(v1) = cal2(v2) = ex, and then find
     the scale factor G such that setting cal1(v1*G) = cal2(v2/G) = ex gives the best improvement
     in the matching of the spectra from energy in [ex, ey] as measured by the
-    Kolmagorov-Smirnov test for comparing two sampled distributions.  (See scipy.stats.ks_2samp).
+    Kolmagorov-Smirnov test for comparing two sampled distributions.  (See sp.stats.ks_2samp).
     
     Returns: the best scale factor G as defined above.  If G>1, it means that spectrum s2 converts
     a higher voltage to e than s1 does."""
@@ -270,11 +270,11 @@ def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=F
         c2.remove_cal_point_name("tmp")
         emin = min(ex,ey)
         emax = max(ex,ey)
-        use1 = numpy.logical_and(e1>emin, e1<emax)
-        use2 = numpy.logical_and(e2>emin, e2<emax)
+        use1 = np.logical_and(e1>emin, e1<emax)
+        use2 = np.logical_and(e2>emin, e2<emax)
         if (use1).sum() == 0 or (use2).sum() == 0:
             return 1.0, v1, v2
-        return scipy.stats.ks_2samp(e1[use1], e2[use2])[0]
+        return sp.stats.ks_2samp(e1[use1], e2[use2])[0]
     
     ex = float(ex)
     ey = float(ey)
@@ -284,7 +284,7 @@ def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=F
 #    print 'a,b,c=', a, b, c
     
     best_scale, best_ks_stat, _iter, funcalls = \
-        scipy.optimize.brent(ks_statistic, args=(s1, s2, ex, ey), 
+        sp.optimize.brent(ks_statistic, args=(s1, s2, ex, ey), 
                              brack=search_range, tol=tol, full_output=True)
     if print_output:
         print "Brent's method scale=%.6f Best KS-stat %.6f.  %d function calls."%(

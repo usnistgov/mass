@@ -25,11 +25,11 @@ __all__ = ['VoigtFitter', 'LorentzianFitter',
            'CuKBetaFitter', 'plot_spectrum']
  
 import numpy as np
-import pylab
-import scipy.stats, scipy.optimize
+import scipy as sp
+import pylab as plt
 
 from mass.mathstat import MaximumLikelihoodHistogramFitter, \
-    plot_as_stepped_hist, voigt #@UnresolvedImport
+    plot_as_stepped_hist, voigt
 
 
 class SpectralLine(object):
@@ -44,7 +44,7 @@ class SpectralLine(object):
         """Set up a default Gaussian smearing of 0"""
         self.gauss_sigma = 0.0
         neg_pdf = lambda x: -self.pdf(x)
-        self.peak_energy = scipy.optimize.brent(neg_pdf, brack=np.array((0.5,1,1.5))*self.nominal_peak_energy)
+        self.peak_energy = sp.optimize.brent(neg_pdf, brack=np.array((0.5,1,1.5))*self.nominal_peak_energy)
 
     def set_gauss_fwhm(self, fwhm):
         """Update the Gaussian smearing to have <fwhm> as the full-width at half-maximum"""
@@ -523,7 +523,7 @@ class CuKBeta(SpectralLine):
 
     
 
-class MultiLorentzianDistribution_gen(scipy.stats.rv_continuous):
+class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
     """For producing random variates of the an energy distribution having the form
     of several Lorentzians summed together."""
     
@@ -531,9 +531,9 @@ class MultiLorentzianDistribution_gen(scipy.stats.rv_continuous):
     #  @param args  Pass all other parameters to parent class.
     #  @param kwargs  Pass all other parameters to parent class. 
     def __init__(self, distribution, *args, **kwargs):
-        """<args> and <kwargs> are passed on to scipy.stats.rv_continuous"""
+        """<args> and <kwargs> are passed on to sp.stats.rv_continuous"""
 
-        scipy.stats.rv_continuous.__init__(self, *args, **kwargs)
+        sp.stats.rv_continuous.__init__(self, *args, **kwargs)
         self.distribution = distribution
         self.cumulative_amplitudes = self.distribution.integral_intensity.cumsum()
         self.name = distribution.name
@@ -675,8 +675,8 @@ class VoigtFitter(object):
             if color is None: 
                 color = 'blue'
             if axis is None:
-                pylab.clf()
-                axis = pylab.subplot(111)
+                plt.clf()
+                axis = plt.subplot(111)
                 
             plot_as_stepped_hist(axis, data, pulseheights, color=color)
             ph_binsize = pulseheights[1]-pulseheights[0]
@@ -817,8 +817,8 @@ class TwoVoigtFitter(object):
             if color is None: 
                 color = 'blue'
             if axis is None:
-                pylab.clf()
-                axis = pylab.subplot(111)
+                plt.clf()
+                axis = plt.subplot(111)
                 
             plot_as_stepped_hist(axis, data, pulseheights, color=color)
             ph_binsize = pulseheights[1]-pulseheights[0]
@@ -1046,11 +1046,11 @@ class SimultaneousMultiLorentzianComplexFitter(object):
             if color is None: 
                 color = 'blue'
             if axis is None:
-                pylab.clf()
-                axis = pylab.subplot(111)
-                pylab.xlabel('pulseheight (arb)')
-                pylab.ylabel('counts per %.3f unit bin'%ph_binsize)
-                pylab.title('resolution %.3f, Ka1_ph %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams[:6]))        
+                plt.clf()
+                axis = plt.subplot(111)
+                plt.xlabel('pulseheight (arb)')
+                plt.ylabel('counts per %.3f unit bin'%ph_binsize)
+                plt.title('resolution %.3f, Ka1_ph %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams[:6]))        
                 plot_as_stepped_hist(axis, data, pulseheights, color=color)
                 axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
@@ -1169,11 +1169,11 @@ class MultiLorentzianComplexFitter(object):
             if color is None: 
                 color = 'blue'
             if axis is None:
-                pylab.clf()
-                axis = pylab.subplot(111)
-                pylab.xlabel('pulseheight (arb) - %s'%self.spect.name)
-                pylab.ylabel('counts per %.3f unit bin'%ph_binsize)
-                pylab.title('resolution %.3f, amplitude %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams))        
+                plt.clf()
+                axis = plt.subplot(111)
+                plt.xlabel('pulseheight (arb) - %s'%self.spect.name)
+                plt.ylabel('counts per %.3f unit bin'%ph_binsize)
+                plt.title('resolution %.3f, amplitude %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams))        
             plot_as_stepped_hist(axis, data, pulseheights, color=color)
             axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
@@ -1365,19 +1365,19 @@ def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha, instrumentGaussianSi
     peak = spectrumDef().peak_energy
     plotEnergies = np.arange(np.round(0.995*peak),np.round(1.008*peak),0.25)
     
-    pylab.figure()
+    plt.figure()
     result = np.zeros_like(plotEnergies)
     for energy, fwhm, ampl in zip(spectrumDef.energies, spectrumDef.fwhm, spectrumDef.integral_intensity):
-        pylab.plot(plotEnergies,ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=instrumentGaussianSigma), label='%.3f, %.3f, %.3f'%(energy,fwhm, ampl))
+        plt.plot(plotEnergies,ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=instrumentGaussianSigma), label='%.3f, %.3f, %.3f'%(energy,fwhm, ampl))
         result += ampl*voigt(plotEnergies, energy, hwhm=fwhm*0.5, sigma=instrumentGaussianSigma)
-    pylab.plot(plotEnergies, result, label='combined', linewidth=2)
-    pylab.xlabel('Energy (eV)')
-    pylab.ylabel('Fit Counts (arb)')
-    pylab.title(spectrumDef.name)
-    pylab.legend()
-    pylab.xlim((plotEnergies[0], plotEnergies[-1]))
-    pylab.ylim((0,np.max(result)))
-    pylab.show()
+    plt.plot(plotEnergies, result, label='combined', linewidth=2)
+    plt.xlabel('Energy (eV)')
+    plt.ylabel('Fit Counts (arb)')
+    plt.title(spectrumDef.name)
+    plt.legend()
+    plt.xlim((plotEnergies[0], plotEnergies[-1]))
+    plt.ylim((0,np.max(result)))
+    plt.show()
 
 def plot_spectrum(spectrum=MnKAlpha(), 
                   resolutions=(2, 3, 4, 5, 6, 7, 8, 10, 12), 
@@ -1395,12 +1395,12 @@ def plot_spectrum(spectrum=MnKAlpha(),
     e = np.arange(energy_range[0]-2.5*resolutions[-1],
                      energy_range[1]+2.5*resolutions[-1], stepsize)
 
-    pylab.clf()
-    axis = pylab.subplot(111)
+    plt.clf()
+    axis = plt.subplot(111)
     spectrum.set_gauss_fwhm(0.0)
     yvalue = spectrum(e)
     yvalue /= yvalue.max()
-    pylab.plot(e, yvalue, color='black', lw=2, label=' 0 eV')
+    plt.plot(e, yvalue, color='black', lw=2, label=' 0 eV')
     axis.set_color_cycle(('red', 'orange', '#bbbb00', 'green', 'cyan',
                           'blue', 'indigo', 'purple', 'brown'))
     for res in resolutions:
@@ -1408,7 +1408,7 @@ def plot_spectrum(spectrum=MnKAlpha(),
         smeared_spectrum = spectrum(e)
         smeared_spectrum /= smeared_spectrum.max()
         smeared_spectrum *= (1+res*.01)
-        pylab.plot(e, smeared_spectrum, label="%2d eV"%res, lw=2)
+        plt.plot(e, smeared_spectrum, label="%2d eV"%res, lw=2)
         
         # Find the peak, valley, peak
         if spectrum.name == 'Titanium K-alpha':
@@ -1432,10 +1432,10 @@ def plot_spectrum(spectrum=MnKAlpha(),
             pval = smeared_spectrum[np.abs(e-evalley)<3].min()
             print "Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2/p1, pval/pk2) 
         
-    pylab.xlim(energy_range)
-    pylab.ylim([0, 1.13])
-    pylab.legend(loc='upper left')
+    plt.xlim(energy_range)
+    plt.ylim([0, 1.13])
+    plt.legend(loc='upper left')
     
-    pylab.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrum.name)
-    pylab.xlabel("Energy (eV)")
-    pylab.ylabel("Intensity (arb.)")
+    plt.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrum.name)
+    plt.xlabel("Energy (eV)")
+    plt.ylabel("Intensity (arb.)")
