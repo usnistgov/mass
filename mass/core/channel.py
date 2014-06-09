@@ -228,10 +228,10 @@ class NoiseRecords(object):
             That is, choose (1, 3, or 5)*(a power of two), whichever is smallest
             """
             pow2 = np.round(2**np.ceil(np.log2(n)))
-            if n==pow2: return n
-            elif n>0.75*pow2: return pow2
-            elif n>0.625*pow2: return np.round(0.75*pow2)
-            else: return np.round(0.625*pow2)
+            if n==pow2: return int(n)
+            elif n>0.75*pow2: return int(pow2)
+            elif n>0.625*pow2: return int(np.round(0.75*pow2))
+            else: return int(np.round(0.625*pow2))
         
     
         # When there are 10 million data points and only 10,000 lags wanted,
@@ -943,8 +943,8 @@ class MicrocalDataSet(object):
         
         # Remove the pretrigger mean from the peak value and the pulse average figures.
         PTM = self.p_pretrig_mean[first:end]
-        self.p_peak_value[first:end] -= PTM   # subtract float from int, remains an int
         self.p_pulse_average[first:end] -= PTM
+        self.p_peak_value[first:end] -= np.asarray(PTM, dtype=int)
         self.p_pulse_rms[first:end] = np.sqrt(
                 (self.data[:seg_size,self.nPresamples:]**2.0).mean(axis=1) -
                 PTM*(PTM + 2*self.p_pulse_average[first:end]))

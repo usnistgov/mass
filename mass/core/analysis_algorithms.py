@@ -93,7 +93,7 @@ def drift_correct(dataset):
         return -(np.log(hsmooth[w])*hsmooth[w]).sum()
     
     param = sp.optimize.brent(entropy, (ptm, vec, smoother), brack=[0, .001])
-    print param
+    print 'Best drift correction parameter: %.6f'%param
     
     # Apply correction and remember what it was
     dataset.p_filt_value_dc = dataset.p_filt_value* \
