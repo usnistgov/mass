@@ -8,7 +8,6 @@ import numpy as np
 import scipy as sp
 import pylab as plt
 
-from mass.calibration import energy_calibration
 from mass.mathstat.fitting import MaximumLikelihoodGaussianFitter
 from mass.mathstat.utilities import plot_as_stepped_hist
 

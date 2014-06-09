@@ -967,7 +967,7 @@ class SimultaneousMultiLorentzianComplexFitter(object):
             baseline = 0.1
             baseline_slope = 0.0
         param = [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope]  
-        for i in range(len(self.spectraDefs)-1): # add elements if neccesary for relative amplitudes of each spectrumDef
+        for _ in range(len(self.spectraDefs)-1): # add elements if neccesary for relative amplitudes of each spectrumDef
             param.append(data.max())
         return param
             

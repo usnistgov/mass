@@ -998,14 +998,11 @@ class MicrocalDataSet(object):
             ptmean = self.p_pretrig_mean[first:end]
             ptmean.shape = (len(ptmean),1)
             data = transform(self.data-ptmean)
-        for i in range(5):
-            if i-4 == 0:
-                # previous method in comments, converted to dot product based on ~30% speed boost in tests
-#                    conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
-                conv[i,:] = np.dot(self.data[:,i:], filter_values)
-            else:
-#                    conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
-                conv[i,:] = np.dot(self.data[:seg_size,i:i-4], filter_values)
+        else:
+            data = self.data
+        for i in range(4):
+            conv[i,:] = np.dot(data[:seg_size,i:i-4], filter_values)
+        conv[4,:] = np.dot(data[:,4:], filter_values)
 
 
         param = np.dot(fit_array, conv)

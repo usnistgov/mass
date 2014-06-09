@@ -1202,7 +1202,7 @@ class TESGroup(BaseChannelGroup):
                     raise RuntimeError("All objects must agree on group.%s"%attr)
             
         for g in others:
-            n_extra = self.n_channels          
+#             n_extra = self.n_channels          
             self.datasets += g.datasets
             self.n_channels += g.n_channels
             self.n_segments = max(self.n_segments, g.n_segments)
