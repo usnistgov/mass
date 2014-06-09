@@ -261,7 +261,6 @@ class EnergyCalibration(object):
         assert len(self._ph)==self.npts
         
         if self.npts == 1: # this was added so that we could load calibrations with only 1 pt
-            ph2offset_energy = None
             self.energy2ph = None
             return
         

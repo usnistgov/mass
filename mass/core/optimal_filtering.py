@@ -8,9 +8,9 @@ Created on Nov 11, 2011 from code that was in channel.py
 
 __all__ = ['Filter', 'ExperimentalFilter']
 
-import numpy
-import pylab
-import scipy.linalg, scipy.special
+import numpy as np
+import scipy as sp
+import pylab as plt
 
 import mass
 
@@ -71,11 +71,11 @@ class Filter(object):
         if noise_psd is None:
             self.noise_psd = None
         else:
-            self.noise_psd = numpy.array(noise_psd)
+            self.noise_psd = np.array(noise_psd)
         if noise_autocorr is None:
             self.noise_autocorr = None
         else:
-            self.noise_autocorr = numpy.array(noise_autocorr)
+            self.noise_autocorr = np.array(noise_autocorr)
         if noise_psd is None and noise_autocorr is None:
             raise ValueError("Filter must have noise_psd or noise_autocorr arguments (or both)")
         
@@ -85,18 +85,18 @@ class Filter(object):
     def normalize_filter(self, q): 
         "Rescale filter <q> so that it gives unit response to self.avg_signal"
         if len(q) == len(self.avg_signal):
-            q *= 1 / numpy.dot(q, self.avg_signal)
+            q *= 1 / np.dot(q, self.avg_signal)
         elif self.shorten >= 2:
-            conv = numpy.zeros(5, dtype=numpy.float)
+            conv = np.zeros(5, dtype=np.float)
             for i in range(5):
-                conv[i] = numpy.dot(q, self.avg_signal[i:i+len(q)])
-            x = numpy.arange(-2,2.1)
-            fit = numpy.polyfit(x, conv, 2)
+                conv[i] = np.dot(q, self.avg_signal[i:i+len(q)])
+            x = np.arange(-2,2.1)
+            fit = np.polyfit(x, conv, 2)
             fit_ctr = -0.5*fit[1]/fit[0]
-            fit_peak = numpy.polyval(fit, fit_ctr)
+            fit_peak = np.polyval(fit, fit_ctr)
             q *= 1.0/fit_peak
         else:
-            q *= 1.0/numpy.dot(q, self.avg_signal[self.shorten:-self.shorten])
+            q *= 1.0/np.dot(q, self.avg_signal[self.shorten:-self.shorten])
 
 
     def _compute_fourier_filter(self, fmax=None, f_3db=None):
@@ -111,9 +111,9 @@ class Filter(object):
         window = 1.0
 
         if self.shorten>0:
-            sig_ft = numpy.fft.rfft(self.avg_signal[self.shorten:-self.shorten]*window)
+            sig_ft = np.fft.rfft(self.avg_signal[self.shorten:-self.shorten]*window)
         else:
-            sig_ft = numpy.fft.rfft(self.avg_signal * window)
+            sig_ft = np.fft.rfft(self.avg_signal * window)
 
         if len(sig_ft) != n-self.shorten:
             raise ValueError("signal real DFT and noise PSD are not the same length (%d and %d)"
@@ -122,35 +122,35 @@ class Filter(object):
         # Careful with PSD: "shorten" it by converting into a real space autocorrelation, 
         # truncating the middle, and going back to Fourier space
         if self.shorten>0:
-            noise_autocorr = numpy.fft.irfft(self.noise_psd)
-            noise_autocorr = numpy.hstack((noise_autocorr[:n-self.shorten-1], noise_autocorr[-n+self.shorten:]))
-            noise_psd = numpy.fft.rfft(noise_autocorr)
+            noise_autocorr = np.fft.irfft(self.noise_psd)
+            noise_autocorr = np.hstack((noise_autocorr[:n-self.shorten-1], noise_autocorr[-n+self.shorten:]))
+            noise_psd = np.fft.rfft(noise_autocorr)
         else:
             noise_psd = self.noise_psd
         sig_ft_weighted = sig_ft/noise_psd
         
         # Band-limit
         if fmax is not None or f_3db is not None:
-            freq = numpy.arange(0,n-self.shorten,dtype=numpy.float)*0.5/((n-1)*self.sample_time)
+            freq = np.arange(0,n-self.shorten,dtype=np.float)*0.5/((n-1)*self.sample_time)
             if fmax is not None:
                 sig_ft_weighted[freq>fmax] = 0.0
             if f_3db is not None:
                 sig_ft_weighted /= (1+(freq*1.0/f_3db)**2)
 
         # Compute both the normal (DC-free) and the full (with DC) filters.
-        self.filt_fourierfull = numpy.fft.irfft(sig_ft_weighted)/window
+        self.filt_fourierfull = np.fft.irfft(sig_ft_weighted)/window
         sig_ft_weighted[0] = 0.0
-        self.filt_fourier = numpy.fft.irfft(sig_ft_weighted)/window
+        self.filt_fourier = np.fft.irfft(sig_ft_weighted)/window
         self.normalize_filter(self.filt_fourierfull)
         self.normalize_filter(self.filt_fourier)
         
         # How we compute the uncertainty depends on whether there's a noise autocorrelation result
         if self.noise_autocorr is None:
             noise_ft_squared = (len(self.noise_psd)-1)/self.sample_time * self.noise_psd
-            kappa = (numpy.abs(sig_ft*self.peak_signal)**2/noise_ft_squared)[:].sum()
+            kappa = (np.abs(sig_ft*self.peak_signal)**2/noise_ft_squared)[:].sum()
             self.variances['fourierfull'] = 1./kappa
             
-            kappa = (numpy.abs(sig_ft*self.peak_signal)**2/noise_ft_squared)[1:].sum()
+            kappa = (np.abs(sig_ft*self.peak_signal)**2/noise_ft_squared)[1:].sum()
             self.variances['fourier'] = 1./kappa
         else:
             ac = self.noise_autocorr[:len(self.filt_fourier)].copy()
@@ -186,44 +186,44 @@ class Filter(object):
             if use_toeplitz_solver:
                 ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
                 Rinv_sig = ts(avg_signal)
-                Rinv_1 = ts(numpy.ones(n))
+                Rinv_1 = ts(np.ones(n))
             else:
                 if n>6000: raise ValueError("Not allowed to use generic solver for vectors longer than 6000, because it's slow-ass.")
-                R =  scipy.linalg.toeplitz(noise_corr)
-                Rinv_sig = numpy.linalg.solve(R, avg_signal)
-                Rinv_1 = numpy.linalg.solve(R, numpy.ones(n))
+                R =  sp.linalg.toeplitz(noise_corr)
+                Rinv_sig = np.linalg.solve(R, avg_signal)
+                Rinv_1 = np.linalg.solve(R, np.ones(n))
             
             self.filt_noconst = Rinv_1.sum()*Rinv_sig - Rinv_sig.sum()*Rinv_1
 
             # Band-limit
             if fmax is not None or f_3db is not None:
                 filt_length = len(self.filt_noconst)
-                sig_ft = numpy.fft.rfft(self.filt_noconst)
-                freq = numpy.fft.fftfreq(filt_length, d=self.sample_time)
-                freq = numpy.abs( freq[:len(sig_ft)] )
+                sig_ft = np.fft.rfft(self.filt_noconst)
+                freq = np.fft.fftfreq(filt_length, d=self.sample_time)
+                freq = np.abs( freq[:len(sig_ft)] )
                 if fmax is not None:
                     sig_ft[freq>fmax] = 0.0
                 if f_3db is not None:
                     sig_ft /= (1.+(1.0*freq/f_3db)**2)
-                self.filt_noconst = numpy.fft.irfft(sig_ft, n=filt_length) # n= is needed when filt_length is ODD
+                self.filt_noconst = np.fft.irfft(sig_ft, n=filt_length) # n= is needed when filt_length is ODD
 
             self.normalize_filter(self.filt_noconst)
             self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr) 
 
-            self.filt_baseline = numpy.dot(avg_signal, Rinv_sig)*Rinv_1 - Rinv_sig.sum()*Rinv_sig
+            self.filt_baseline = np.dot(avg_signal, Rinv_sig)*Rinv_1 - Rinv_sig.sum()*Rinv_sig
             self.filt_baseline /=  self.filt_baseline.sum()
             self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
             
             try:
-                Rpretrig = scipy.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
-                self.filt_baseline_pretrig = numpy.linalg.solve(Rpretrig, numpy.ones(self.n_pretrigger))
+                Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
+                self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
                 self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
                 self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0,:])
-            except scipy.linalg.LinAlgError:
+            except sp.linalg.LinAlgError:
                 pass
 
             for key in self.variances.keys():
-                self.predicted_v_over_dv[key] = 1/(numpy.sqrt(numpy.log(2)*8)*self.variances[key]**0.5)
+                self.predicted_v_over_dv[key] = 1/(np.sqrt(np.log(2)*8)*self.variances[key]**0.5)
                 
     def bracketR(self, q, noise):
         """Return the dot product (q^T R q) for vector <q> and matrix R constructed from
@@ -235,20 +235,20 @@ class Filter(object):
             raise ValueError("Vector q (length %d) cannot be longer than the noise (length %d)"%
                              (len(q),len(noise)))
         n=len(q)
-        r = numpy.zeros(2*n-1, dtype=numpy.float)
+        r = np.zeros(2*n-1, dtype=np.float)
         r[n-1:] = noise[:n]
         r[n-1::-1] = noise[:n]
         dot = 0.0
         for i in range(n):
-            dot += q[i]*numpy.dot(r[n-i-1:2*n-i-1], q)
+            dot += q[i]*np.dot(r[n-i-1:2*n-i-1], q)
         return dot
     
             
     def plot(self, axes=None):
         if axes is None:
-            pylab.clf()
-            axis1 = pylab.subplot(211)
-            axis2 = pylab.subplot(212)
+            plt.clf()
+            axis1 = plt.subplot(211)
+            axis2 = plt.subplot(212)
         else:
             axis1,axis2 = axes
         try:
@@ -285,7 +285,7 @@ class Filter(object):
         for f in filters:
             try:
                 var = self.variances[f]
-                v_dv = var**(-.5) / numpy.sqrt(8*numpy.log(2))
+                v_dv = var**(-.5) / np.sqrt(8*np.log(2))
                 print "%-20s  %10.3f  %10.4e"%(f, v_dv, var)
             except KeyError:
                 print "%-20s not known"%f
@@ -374,18 +374,18 @@ class ExperimentalFilter(Filter):
                 avg_signal = self.avg_signal
             assert len(self.noise_autocorr) >= n
             
-            expx = numpy.arange(n, dtype=numpy.float)*self.sample_time*1e3 # in ms
-            chebyx = numpy.linspace(-1, 1, n)
+            expx = np.arange(n, dtype=np.float)*self.sample_time*1e3 # in ms
+            chebyx = np.linspace(-1, 1, n)
             
             R = self.noise_autocorr[:n]/self.peak_signal**2 # A *vector*, not a matrix
             ts = mass.mathstat.toeplitz.ToeplitzSolver(R, symmetric=True)
             
-            unit = numpy.ones(n)
-            exps  = [numpy.exp(-expx/tau) for tau in self.tau]
-            cht1 = scipy.special.chebyt(1)(chebyx)
-            cht2 = scipy.special.chebyt(2)(chebyx)
-            cht3 = scipy.special.chebyt(3)(chebyx)
-            deriv = avg_signal - numpy.roll(avg_signal,1)
+            unit = np.ones(n)
+            exps  = [np.exp(-expx/tau) for tau in self.tau]
+            cht1 = sp.special.chebyt(1)(chebyx)
+            cht2 = sp.special.chebyt(2)(chebyx)
+            cht3 = sp.special.chebyt(3)(chebyx)
+            deriv = avg_signal - np.roll(avg_signal,1)
             deriv[0] = 0
             
             Rinv_sig  = ts(avg_signal)
@@ -399,14 +399,14 @@ class ExperimentalFilter(Filter):
             # Band-limit
             def band_limit(vector, fmax, f_3db):
                 filt_length = len(vector)
-                sig_ft = numpy.fft.rfft(vector)
-                freq = numpy.fft.fftfreq(filt_length, d=self.sample_time) 
-                freq = numpy.abs( freq[:len(sig_ft)] )
+                sig_ft = np.fft.rfft(vector)
+                freq = np.fft.fftfreq(filt_length, d=self.sample_time) 
+                freq = np.abs( freq[:len(sig_ft)] )
                 if fmax is not None:
                     sig_ft[freq>fmax] = 0.0
                 if f_3db is not None:
                     sig_ft /= (1.+(1.0*freq/f_3db)**2)
-                vector[:] = numpy.fft.irfft(sig_ft, n=filt_length) # n= is needed when filt_length is ODD
+                vector[:] = np.fft.irfft(sig_ft, n=filt_length) # n= is needed when filt_length is ODD
                  
             if fmax is not None or f_3db is not None:
                 for vector in Rinv_sig, Rinv_unit, Rinv_cht1, Rinv_cht2, Rinv_cht3, Rinv_deriv:
@@ -427,8 +427,8 @@ class ExperimentalFilter(Filter):
                 'filt_noderivcon':('unit','deriv'),
                 }
             
-#            pylab.clf()
-#            pylab.plot(self.filt_fourier, color='gold',label='Fourier')
+#            plt.clf()
+#            plt.plot(self.filt_fourier, color='gold',label='Fourier')
 #            for shortname in ('full','noconst','noexpcon','nopoly1'):
 #            for shortname in ('full','noconst','noexp','noexpcon','noslope','nopoly1','nopoly2','nopoly3'):
             for shortname in ('full','noexp','noconst','noexpcon','nopoly1','noderivcon'):
@@ -438,18 +438,18 @@ class ExperimentalFilter(Filter):
                 
                 N_orth = len(orthnames) # To how many vectors are we orthgonal?
                 if N_orth > 0:
-                    u = numpy.vstack((Rinv_sig, [eval('Rinv_%s'%v) for v in orthnames]))
+                    u = np.vstack((Rinv_sig, [eval('Rinv_%s'%v) for v in orthnames]))
                 else:
                     u = Rinv_sig.reshape((1,n))
-                M = numpy.zeros((1+N_orth,1+N_orth), dtype=numpy.float)
+                M = np.zeros((1+N_orth,1+N_orth), dtype=np.float)
                 for i in range(1+N_orth):
-                    M[0,i] = numpy.dot(avg_signal, u[i,:])
+                    M[0,i] = np.dot(avg_signal, u[i,:])
                     for j in range(1,1+N_orth):
-                        M[j,i] = numpy.dot(eval(orthnames[j-1]), u[i,:])
-                Minv = numpy.linalg.inv(M)
+                        M[j,i] = np.dot(eval(orthnames[j-1]), u[i,:])
+                Minv = np.linalg.inv(M)
                 weights = Minv[:,0]
 
-                filt = numpy.dot(weights, u)
+                filt = np.dot(weights, u)
                 filt = u[0,:]*weights[0]
                 for i in range(1,1+N_orth):
                     filt += u[i,:]*weights[i]
@@ -459,21 +459,21 @@ class ExperimentalFilter(Filter):
                 self.__dict__[name] = filt
                 
                 print '%15s'%name,
-#                pylab.plot(filt, label=name)
-                for v in (avg_signal,numpy.ones(n),numpy.exp(-expx/self.tau[0]),scipy.special.chebyt(1)(chebyx),
-                          scipy.special.chebyt(2)(chebyx)):
-                    print '%10.5f '%numpy.dot(v,filt),
+#                plt.plot(filt, label=name)
+                for v in (avg_signal,np.ones(n),np.exp(-expx/self.tau[0]),sp.special.chebyt(1)(chebyx),
+                          sp.special.chebyt(2)(chebyx)):
+                    print '%10.5f '%np.dot(v,filt),
                     
                 self.variances[shortname] = self.bracketR(filt, R)
-                print 'Res=%6.3f eV = %.5f'%(5898.801*numpy.sqrt(8*numpy.log(2))*self.variances[shortname]**(.5), (self.variances[shortname]/self.variances['full'])**.5)
-#            pylab.legend()
+                print 'Res=%6.3f eV = %.5f'%(5898.801*np.sqrt(8*np.log(2))*self.variances[shortname]**(.5), (self.variances[shortname]/self.variances['full'])**.5)
+#            plt.legend()
 
-            self.filt_baseline = numpy.dot(avg_signal, Rinv_sig)*Rinv_unit - Rinv_sig.sum()*Rinv_sig
+            self.filt_baseline = np.dot(avg_signal, Rinv_sig)*Rinv_unit - Rinv_sig.sum()*Rinv_sig
             self.filt_baseline /=  self.filt_baseline.sum()
             self.variances['baseline'] = self.bracketR(self.filt_baseline, R)
             
-            Rpretrig = scipy.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
-            self.filt_baseline_pretrig = numpy.linalg.solve(Rpretrig, numpy.ones(self.n_pretrigger))
+            Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
+            self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
             self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
             self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, R[:self.n_pretrigger])
 
@@ -485,9 +485,9 @@ class ExperimentalFilter(Filter):
             
     def plot(self, axes=None):
         if axes is None:
-            pylab.clf()
-            axis1 = pylab.subplot(211)
-            axis2 = pylab.subplot(212)
+            plt.clf()
+            axis1 = plt.subplot(211)
+            axis2 = plt.subplot(212)
         else:
             axis1,axis2 = axes
         try:

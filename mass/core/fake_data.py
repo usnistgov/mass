@@ -12,7 +12,7 @@ November 7, 2011
 
 __all__ = ['FakeDataGenerator']
 
-import numpy
+import numpy as np
 
 from mass.core.files import  VirtualFile
 from mass.core.channel import create_pulse_and_noise_records
@@ -48,8 +48,8 @@ class FakeDataGenerator(object):
 
     def compute_model(self, model_peak=None):
         """Compute the noise-free model pulse shape, given the 2 time constants."""
-        dt_us = (numpy.arange(self.n_samples) - self.n_presamples-0.5) * self.sample_time_us
-        self.model = numpy.exp(-dt_us/self.fall_speed_us) - numpy.exp(-dt_us/self.rise_speed_us)
+        dt_us = (np.arange(self.n_samples) - self.n_presamples-0.5) * self.sample_time_us
+        self.model = np.exp(-dt_us/self.fall_speed_us) - np.exp(-dt_us/self.rise_speed_us)
         self.model[dt_us <= 0] = 0
         if model_peak is not None:
             self.model = model_peak * self.model/self.model.max()
@@ -66,27 +66,27 @@ class FakeDataGenerator(object):
         rate          expected number of pulses per second.
         """
 
-        data = numpy.zeros((n_pulses, self.n_samples), dtype=numpy.uint16)
-        pulse_times = numpy.random.exponential(1.0/rate, size=n_pulses).cumsum()
+        data = np.zeros((n_pulses, self.n_samples), dtype=np.uint16)
+        pulse_times = np.random.exponential(1.0/rate, size=n_pulses).cumsum()
         
         if distributions is None:
-            scale = numpy.ones(n_pulses, dtype=numpy.float)
+            scale = np.ones(n_pulses, dtype=np.float)
         else:
-            weights = numpy.asarray(distribution_weights, dtype=numpy.float)
+            weights = np.asarray(distribution_weights, dtype=np.float)
             weights = n_pulses * weights/weights.sum()
-            weights = numpy.asarray(weights, dtype=numpy.int)
+            weights = np.asarray(weights, dtype=np.int)
             weights[weights.argmax()] += n_pulses - weights.sum()
 #            print weights, weights.sum()
             scale = []
             for  n, distrib in zip(weights, distributions):
 #                print n, distrib.rvs(size=4)
                 scale.append(distrib.rvs(size=n))
-            scale = numpy.hstack(scale)
-            numpy.random.shuffle(scale)
+            scale = np.hstack(scale)
+            np.random.shuffle(scale)
             
         for i in range(n_pulses):
             data[i, :] = self.model*scale[i] + self.pretrig_level + \
-                        0.5+numpy.random.standard_normal(self.n_samples)*self.white_noise
+                        0.5+np.random.standard_normal(self.n_samples)*self.white_noise
         vfile = VirtualFile(data, times=pulse_times)
         vfile.timebase = self.sample_time_us/1e6
         vfile.nPresamples = self.n_presamples
@@ -100,12 +100,12 @@ class FakeDataGenerator(object):
         """
 
         print 'Making fake noise'
-        data = numpy.zeros((n_pulses, self.n_samples), dtype=numpy.uint16)
-        pulse_times = numpy.arange(n_pulses, dtype=numpy.float)*self.sample_time_us/1e6
+        data = np.zeros((n_pulses, self.n_samples), dtype=np.uint16)
+        pulse_times = np.arange(n_pulses, dtype=np.float)*self.sample_time_us/1e6
         
-        raw_noise = numpy.random.standard_normal((n_pulses, self.n_samples))*self.white_noise
+        raw_noise = np.random.standard_normal((n_pulses, self.n_samples))*self.white_noise
         for i in range(lowpass_kludge):
-            raw_noise = 0.5*(raw_noise + numpy.roll(raw_noise, 2**i)) 
+            raw_noise = 0.5*(raw_noise + np.roll(raw_noise, 2**i)) 
         
         data[:, :] = 0.5+raw_noise
         vfile = VirtualFile(data, times=pulse_times)

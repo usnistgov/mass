@@ -38,10 +38,9 @@ LANLFile and translation added June 2011 by Doug Bennett and Joe Fowler
 __all__ = ['VirtualFile', 'LJHFile', 'LANLFile',
            'root2ljh_translator', 'root2ljh_translate_all']
 
-import numpy
-import os
-import time
-import glob
+import numpy as np
+import os, time, glob
+
 
 # Beware that the Mac Ports install of ROOT does not add 
 # /opt/local/lib/root to the PYTHONPATH.  Still, you should do it yourself. 
@@ -104,7 +103,7 @@ class MicrocalFile(object):
 
 
     def copy(self):
-        """Make a useable copy of self."""
+        """Make a usable copy of self."""
         raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
 
 
@@ -119,8 +118,6 @@ class MicrocalFile(object):
             end = self.n_segments
         for segment_num in range(first, end):
             first_pnum, end_pnum, data = self.read_segment(segment_num)
-#            first_pnum = segment_num * self.pulses_per_seg
-#            end_pnum = self.datatimes.shape[0] + first_pnum
             yield first_pnum, end_pnum, segment_num, data
 
     def clear_cache(self):
@@ -140,7 +137,7 @@ class VirtualFile(MicrocalFile):
     """
     def __init__(self, data, times=None, presamples=None):
         super(VirtualFile, self).__init__()
-        self.data = numpy.asarray(data, dtype=numpy.int16)
+        self.data = np.asarray(data, dtype=np.int16)
         self.nSamples = data.shape[1]
         self.nPulses = data.shape[0]
         self.nPresamples = presamples
@@ -152,9 +149,9 @@ class VirtualFile(MicrocalFile):
         self.timebase = 0.0
         
         if times is None:
-            self.datatimes_float = numpy.zeros(self.nPulses, dtype=numpy.float)
+            self.datatimes_float = np.zeros(self.nPulses, dtype=np.float)
         else:
-            self.datatimes_float = numpy.asarray(times, dtype=numpy.float)
+            self.datatimes_float = np.asarray(times, dtype=np.float)
             
         if presamples is None:
             self.nPresamples = 0
@@ -293,7 +290,7 @@ class LJHFile(MicrocalFile):
             print "      %s"%filename
 
         # Record the sample times in microseconds
-        self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
+        self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
     
     def set_segment_size(self, segmentsize):
@@ -385,8 +382,8 @@ class LJHFile(MicrocalFile):
         else:
             wordcount = -1
 
-#        array = numpy.core.records.fromfile(self.filename, dtype=numpy.uint16, offset=skip, shape=wordcount)
-        array = numpy.fromfile(fp, dtype=numpy.uint16, sep="", count=wordcount)
+#        array = np.core.records.fromfile(self.filename, dtype=np.uint16, offset=skip, shape=wordcount)
+        array = np.fromfile(fp, dtype=np.uint16, sep="", count=wordcount)
 
         try:
             fp.close()
@@ -412,13 +409,13 @@ class LJHFile(MicrocalFile):
  
         ##### The old way was to store the time as a 32-bit int.  New way: double float
 #        # Careful: converting 2 little-endian 16-bit words to a single 32-bit word is tricky!
-#        self.datatimes = numpy.array(self.data[:,2], dtype=numpy.uint32) * (1<<16) 
+#        self.datatimes = np.array(self.data[:,2], dtype=np.uint32) * (1<<16) 
 #        self.datatimes += (self.data[:,1])
 
         # Store times as seconds in floating point.  Max value is 2^32 ms = 4.3x10^6
         SECONDS_PER_4MICROSECOND_TICK = (4.0/1e6)
         SECONDS_PER_MILLISECOND = 1e-3
-        self.datatimes_float = numpy.array(self.data[:, 0], dtype=numpy.double)*SECONDS_PER_4MICROSECOND_TICK
+        self.datatimes_float = np.array(self.data[:, 0], dtype=np.double)*SECONDS_PER_4MICROSECOND_TICK
         self.datatimes_float += self.data[:, 1]*SECONDS_PER_MILLISECOND
         self.datatimes_float += self.data[:, 2]*(SECONDS_PER_MILLISECOND*65536.)
 
@@ -477,11 +474,11 @@ class LANLFile(MicrocalFile):
         self._setup()
         self.__read_header()
         self.set_segment_size(segmentsize)
-        self.raw_datatimes = numpy.zeros(self.nPulses, dtype=numpy.uint32)
+        self.raw_datatimes = np.zeros(self.nPulses, dtype=np.uint32)
 
 
     def _setup(self):
-        """It is silly to have to create these numpy objects and then tell ROOT to
+        """It is silly to have to create these np objects and then tell ROOT to
         store data into them over and over, so we move them from the read_trace method
         to here, where they can be done once and forgotten"""
 
@@ -490,15 +487,15 @@ class LANLFile(MicrocalFile):
             self.pdata = ROOT.std.vector(int)() # this is how gamma people do it #@UndefinedVariable
         else:
             self.pdata = ROOT.TH1D() # this is how alpha people do it   #@UndefinedVariable -RDH
-        self.channel = numpy.zeros(1, dtype=int)
-        self.baseline = numpy.zeros(1, dtype=numpy.double) #RDH
-        self.baseline_rms = numpy.zeros(1, dtype=numpy.double) #RDH
+        self.channel = np.zeros(1, dtype=int)
+        self.baseline = np.zeros(1, dtype=np.double) #RDH
+        self.baseline_rms = np.zeros(1, dtype=np.double) #RDH
         
-        self.timestamp = numpy.zeros(1, dtype=numpy.double) #RDH
-        self.pulse_max = numpy.zeros(1, dtype=numpy.double) #RDH
-        self.pulse_max_pos = numpy.zeros(1, dtype=int)
-        self.pulse_integral = numpy.zeros(1, dtype=numpy.double) #RDH
-        self.flag_pileup = numpy.zeros(1, dtype=int)
+        self.timestamp = np.zeros(1, dtype=np.double) #RDH
+        self.pulse_max = np.zeros(1, dtype=np.double) #RDH
+        self.pulse_max_pos = np.zeros(1, dtype=int)
+        self.pulse_integral = np.zeros(1, dtype=np.double) #RDH
+        self.flag_pileup = np.zeros(1, dtype=int)
         
         # pdata is updated when the the GetEntry method to the current trace number is called
         self.ucal_tree.SetBranchAddress("baseline", self.baseline)
@@ -571,7 +568,7 @@ class LANLFile(MicrocalFile):
             raise IOError("No 'Presamples' line found in header")
         
         # Record the sample times in microseconds
-        self.sample_usec = (numpy.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
+        self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
     def get_npulses(self):
         """Get the numner of pulses in the current ROOT file."""
@@ -598,17 +595,17 @@ class LANLFile(MicrocalFile):
         """Return a single data trace (number <trace_num>)."""
         
         self.ucal_tree.GetEntry(trace_num)
-#        pulse = numpy.asarray(self.pdata)
-#        pulse = numpy.array(self.pdata)
+#        pulse = np.asarray(self.pdata)
+#        pulse = np.array(self.pdata)
         if self.gamma_vector_style:
             iterator = self.pdata.begin()
         else:
             iterator = self.pdata.GetArray()
             
         #convert the double from LANL into an integer for IGOR
-        pulsedouble = numpy.fromiter(iterator, dtype=numpy.double, count=self.nSamples)#RDH
+        pulsedouble = np.fromiter(iterator, dtype=np.double, count=self.nSamples)#RDH
         
-        pulse = numpy.int16(numpy.round(((pulsedouble + 2.0)/4.0)*2**16)) #RDH
+        pulse = np.int16(np.round(((pulsedouble + 2.0)/4.0)*2**16)) #RDH
         self.raw_datatimes[trace_num] = self.timestamp[0]*self.timestamp_msec_per_step
         return pulse
 
@@ -637,7 +634,7 @@ class LANLFile(MicrocalFile):
                 
             if end > self.nPulses: end = self.nPulses
             print "Reading pulses [%d,%d)"%(first,end)
-            self.data = numpy.array([self.read_trace(i) for i in range(first,end)])
+            self.data = np.array([self.read_trace(i) for i in range(first,end)])
             self.datatimes = self.raw_datatimes[first:end]
             self.__cached_segment = segment_num
         return first, end, self.data

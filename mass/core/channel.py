@@ -7,12 +7,10 @@ Created on Feb 16, 2011
 __all__=['NoiseRecords', 'PulseRecords', 'Cuts',
          'MicrocalDataSet', 'create_pulse_and_noise_records']
 
-import numpy
-import scipy.linalg
-import scipy.optimize #@UnusedImport
-import pylab
+import numpy as np
+import scipy as sp
+import pylab as plt
 import os.path
-#import time
 
 try:
     import cPickle as pickle
@@ -102,7 +100,7 @@ class NoiseRecords(object):
 
     def set_fake_data(self):
         """Use when this does not correspond to a real datafile (e.g., CDM data)"""
-        self.datafile = mass.VirtualFile(numpy.zeros((0,0)))
+        self.datafile = mass.VirtualFile(np.zeros((0,0)))
         
 
     def copy(self):
@@ -141,7 +139,7 @@ class NoiseRecords(object):
         
         self.spectrum = mass.mathstat.power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
         if window is None:
-            window = numpy.ones(seg_length)
+            window = np.ones(seg_length)
         else:
             window = window(seg_length)
             
@@ -161,7 +159,7 @@ class NoiseRecords(object):
     def compute_fancy_power_spectrum(self, window=mass.mathstat.power_spectrum.hann, plot=True, nseg_choices=None):
         assert self.continuous
 
-        n = numpy.prod(self.data.shape)
+        n = np.prod(self.data.shape)
         if nseg_choices is None:
             nseg_choices = [16]
             while nseg_choices[-1]<=n/16 and nseg_choices[-1]<20000:
@@ -170,8 +168,8 @@ class NoiseRecords(object):
 
         spectra = [self.compute_power_spectrum_reshape(window=window, nsegments=ns) for ns in nseg_choices]
         if plot:
-            pylab.clf()
-            lowest_freq = numpy.array([1./(sp.dt*sp.m2) for sp in spectra])
+            plt.clf()
+            lowest_freq = np.array([1./(sp.dt*sp.m2) for sp in spectra])
             
             start_freq=0.0
             for i,sp in enumerate(spectra):
@@ -179,29 +177,29 @@ class NoiseRecords(object):
                 if i==len(spectra)-1:
                     good = x>=start_freq
                 else:
-                    good = numpy.logical_and(x>=start_freq, x<4*lowest_freq[i+1])
+                    good = np.logical_and(x>=start_freq, x<4*lowest_freq[i+1])
                     start_freq = 1*lowest_freq[i+1]
-                pylab.loglog(x[good],y[good],'-')
+                plt.loglog(x[good],y[good],'-')
     
     def plot_power_spectrum(self, axis=None, scale=1.0, sqrt_psd=False, **kwarg):
         """
         Plot the power spectrum of this noise record.
         
-        <axis>     Which pylab.Axes object to plot on.  If none, clear the figure and plot there.
+        <axis>     Which plt.Axes object to plot on.  If none, clear the figure and plot there.
         <scale>    Scale all raw units by this number to convert counts to physical
         <sqrt_psd> Whether to take the sqrt(PSD) for plotting.  Default is no sqrt
         """
         if self.spectrum is None:
             self.compute_power_spectrum(plot=False)
         if axis is None:
-            pylab.clf()
-            axis = pylab.subplot(111)
+            plt.clf()
+            axis = plt.subplot(111)
         spec = self.spectrum
         yvalue = spec.spectrum()[1:] * (scale**2)
         if sqrt_psd: 
-            yvalue = numpy.sqrt(yvalue)
+            yvalue = np.sqrt(yvalue)
         axis.plot(spec.frequencies()[1:], yvalue, **kwarg)
-        pylab.loglog()
+        plt.loglog()
         axis.grid()
         axis.set_xlim([10,3e5])
         axis.set_xlabel("Frequency (Hz)")
@@ -228,11 +226,11 @@ class NoiseRecords(object):
             much larger than n, yet is good for FFTs.
             That is, choose (1, 3, or 5)*(a power of two), whichever is smallest
             """
-            pow2 = numpy.round(2**numpy.ceil(numpy.log2(n)))
+            pow2 = np.round(2**np.ceil(np.log2(n)))
             if n==pow2: return n
             elif n>0.75*pow2: return pow2
-            elif n>0.625*pow2: return numpy.round(0.75*pow2)
-            else: return numpy.round(0.625*pow2)
+            elif n>0.625*pow2: return np.round(0.75*pow2)
+            else: return np.round(0.625*pow2)
         
     
         # When there are 10 million data points and only 10,000 lags wanted,
@@ -246,10 +244,10 @@ class NoiseRecords(object):
             # padded_data is what we do DFT/InvDFT on; ac is the unnormalized output.
             chunksize=CHUNK_MULTIPLE*n_lags
             padsize = n_lags
-            padded_data = numpy.zeros(padded_length(padsize+chunksize), dtype=numpy.float)
+            padded_data = np.zeros(padded_length(padsize+chunksize), dtype=np.float)
 #            print 'with chunks of %d, padsize %d'%(chunksize,padsize)
             
-            ac = numpy.zeros(n_lags, dtype=numpy.float)
+            ac = np.zeros(n_lags, dtype=np.float)
             
             entries = 0.0
 #            t0=time.time()
@@ -272,36 +270,36 @@ class NoiseRecords(object):
                     padded_data[:chunksize] = data[data_consumed:data_consumed+chunksize] - data_mean
                     data_consumed += chunksize
                     padded_data[chunksize:] = 0.0
-                    if numpy.abs(padded_data).max() > max_excursion:
+                    if np.abs(padded_data).max() > max_excursion:
                         continue
                     
-                    ft = numpy.fft.rfft(padded_data)
+                    ft = np.fft.rfft(padded_data)
                     ft[0] = 0 # this redundantly removes the mean of the data set
                     power = (ft*ft.conj()).real
-                    acsum = numpy.fft.irfft(power)
+                    acsum = np.fft.irfft(power)
                     ac += acsum[:n_lags] 
                     entries += 1.0
                     if entries*chunksize > n_data:
                         break
 
             ac /= entries
-            ac /= (numpy.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=numpy.float))
+            ac /= (np.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=np.float))
                 
         # compute the full autocorrelation                
         else:
             raise NotImplementedError("Now that Joe has chunkified the noise, we can no longer compute full continuous autocorrelations")
-            padded_data = numpy.zeros(padded_length(n_lags+n_data), dtype=numpy.float)
-            padded_data[:n_data] = numpy.array(self.data.ravel())[:n_data] - self.data.mean()
+            padded_data = np.zeros(padded_length(n_lags+n_data), dtype=np.float)
+            padded_data[:n_data] = np.array(self.data.ravel())[:n_data] - self.data.mean()
             padded_data[n_data:] = 0.0
             
-            ft = numpy.fft.rfft(padded_data)
+            ft = np.fft.rfft(padded_data)
             del padded_data
             ft[0] = 0 # this redundantly removes the mean of the data set
             ft *= ft.conj()
             ft = ft.real
-            acsum = numpy.fft.irfft(ft)
+            acsum = np.fft.irfft(ft)
             del ft
-            ac = acsum[:n_lags+1] / (n_data-numpy.arange(n_lags+1.0))
+            ac = acsum[:n_lags+1] / (n_data-np.arange(n_lags+1.0))
             del acsum
             
         self.autocorrelation = ac
@@ -331,7 +329,7 @@ class NoiseRecords(object):
             n_data = data_samples[1] - data_samples[0]
 
             records_used = samples_used = 0
-            ac=numpy.zeros(self.nSamples, dtype=numpy.float)
+            ac=np.zeros(self.nSamples, dtype=np.float)
             try:
                 for first_pnum, end_pnum, _seg_num, intdata in self.datafile.iter_segments():
                     if end_pnum <= data_samples[0]: continue
@@ -344,7 +342,7 @@ class NoiseRecords(object):
                         if data.max() - data.min() > max_excursion: continue
                         data -= data.mean()
     
-                        ac += numpy.correlate(data,data,'full')[self.nSamples-1:]
+                        ac += np.correlate(data,data,'full')[self.nSamples-1:]
                         samples_used += self.nSamples
                         records_used += 1
                         if n_data is not None and samples_used >= n_data: 
@@ -353,7 +351,7 @@ class NoiseRecords(object):
                 pass
             
             ac /= records_used
-            ac /= self.nSamples - numpy.arange(self.nSamples, dtype=numpy.float)
+            ac /= self.nSamples - np.arange(self.nSamples, dtype=np.float)
             if n_lags is not None and n_lags < self.nSamples:
                 ac=ac[:n_lags]
             self.autocorrelation = ac
@@ -365,9 +363,9 @@ class NoiseRecords(object):
             print "Autocorrelation will be computed first"
             self.compute_autocorrelation(plot=False)
         if axis is None:
-            pylab.clf()
-            axis = pylab.subplot(111)
-        t = self.timebase * 1e3 * numpy.arange(len(self.autocorrelation))
+            plt.clf()
+            axis = plt.subplot(111)
+        t = self.timebase * 1e3 * np.arange(len(self.autocorrelation))
         axis.plot(t,self.autocorrelation, label=label, color=color)
         axis.plot([0],[self.autocorrelation[0]],'o', color=color)
         axis.set_xlabel("Lag (ms)")
@@ -515,7 +513,7 @@ def estimateRiseTime(ts, dt=1.0, nPretrig=0):
 
     try:
         rising_data = (ts[nPretrig:idxpk+1] - baseline_value) / value_at_peak
-        idx = numpy.arange(len(rising_data), dtype=numpy.int)
+        idx = np.arange(len(rising_data), dtype=np.int)
         last_idx = idx[rising_data<MAXTHRESH].max()
         first_idx = idx[rising_data>MINTHRESH].min()
         y_diff = rising_data[last_idx]-rising_data[first_idx]
@@ -548,7 +546,7 @@ def estimateRiseTime(ts, dt=1.0, nPretrig=0):
 #    valpk = ts.max() - baseline_value
 #    idxpk = ts.argmax()
 #    useable = ts[nPretrig:idxpk] - baseline_value
-#    idx = numpy.arange(len(useable))
+#    idx = np.arange(len(useable))
 #    last_idx = idx[useable<MAXTHRESH*valpk].max()
 #    first_idx = idx[useable>MINTHRESH*valpk].min()
 #    if (last_idx-first_idx) < 4:
@@ -557,11 +555,11 @@ def estimateRiseTime(ts, dt=1.0, nPretrig=0):
 #    
 #    x, y = idx[first_idx:last_idx+1], useable[first_idx:last_idx+1]
 #    
-#    fitfunc = lambda p, x: p[0]*numpy.exp(-x/p[1])+p[2]
+#    fitfunc = lambda p, x: p[0]*np.exp(-x/p[1])+p[2]
 #    errfunc = lambda p, x, y: fitfunc(p, x) - y
 #    
 #    p0 = -useable.max(), 0.6*(x[-1]-x[0]), useable.max()  
-#    p, _stat = scipy.optimize.leastsq(errfunc, p0, args=(x,y))
+#    p, _stat = sp.optimize.leastsq(errfunc, p0, args=(x,y))
 #    return dt * p[1]
 
 
@@ -593,8 +591,8 @@ def compute_max_deriv(ts, return_index_too=False):
     # language of Numerical Recipes 3rd edition.  It amounts to least-squares fitting
     # of an M=3rd order polynomial to the five points [-1,+3] and
     # finding the slope of the polynomial at 0.
-    filter_coef = numpy.array([ -0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905,   ])[::-1]
-    conv = numpy.convolve(ts[first:end], filter_coef, mode='valid')
+    filter_coef = np.array([ -0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905,   ])[::-1]
+    conv = np.convolve(ts[first:end], filter_coef, mode='valid')
     
     if return_index_too:
         return first + 2 + conv.argmax() # This would be the index.
@@ -607,7 +605,7 @@ class Cuts(object):
     
     def __init__(self, n):
         "Create an object to hold n masks of 32 bits each"
-        self._mask = numpy.zeros( n, dtype=numpy.int32 )
+        self._mask = np.zeros( n, dtype=np.int32 )
         
     def cut(self, cutnum, mask):
         if cutnum < 0 or cutnum >= 32:
@@ -623,7 +621,7 @@ class Cuts(object):
         self._mask &= bitmask
         
     def good(self):
-        return numpy.logical_not(self._mask)
+        return np.logical_not(self._mask)
     
     def bad(self):
         return self._mask != 0
@@ -722,30 +720,30 @@ class MicrocalDataSet(object):
         if npulses is None:
             assert self.nPulses > 0
             npulses = self.nPulses
-        self.p_timestamp = numpy.zeros(npulses, dtype=numpy.float64)
-        self.p_peak_index = numpy.zeros(npulses, dtype=numpy.uint16)
-        self.p_peak_value = numpy.zeros(npulses, dtype=numpy.uint16)
-        self.p_min_value = numpy.zeros(npulses, dtype=numpy.uint16)
-        self.p_pretrig_mean = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_pretrig_rms = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_pulse_average = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_pulse_rms = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_promptness = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_rise_time = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_max_posttrig_deriv = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_filt_phase = numpy.zeros(npulses, dtype=numpy.float64) # float32 for p_filt_phase makes energy resolution worse, gco, 20130516, it should be possible to use 32 but probably requires rescaling phase
+        self.p_timestamp = np.zeros(npulses, dtype=np.float64)
+        self.p_peak_index = np.zeros(npulses, dtype=np.uint16)
+        self.p_peak_value = np.zeros(npulses, dtype=np.uint16)
+        self.p_min_value = np.zeros(npulses, dtype=np.uint16)
+        self.p_pretrig_mean = np.zeros(npulses, dtype=np.float32)
+        self.p_pretrig_rms = np.zeros(npulses, dtype=np.float32)
+        self.p_pulse_average = np.zeros(npulses, dtype=np.float32)
+        self.p_pulse_rms = np.zeros(npulses, dtype=np.float32)
+        self.p_promptness = np.zeros(npulses, dtype=np.float32)
+        self.p_rise_time = np.zeros(npulses, dtype=np.float32)
+        self.p_max_posttrig_deriv = np.zeros(npulses, dtype=np.float32)
+        self.p_filt_phase = np.zeros(npulses, dtype=np.float64) # float32 for p_filt_phase makes energy resolution worse, gco, 20130516, it should be possible to use 32 but probably requires rescaling phase
         # maybe converting phase to int16, where 0 is 0, -max is -2, max is 2?
-        self.p_filt_value = numpy.zeros(npulses, dtype=numpy.float32) 
-        self.p_filt_value_phc = numpy.zeros(npulses, dtype=numpy.float32) 
-        self.p_filt_value_dc = numpy.zeros(npulses, dtype=numpy.float32)
-        self.p_energy = numpy.zeros(npulses, dtype=numpy.float32)
+        self.p_filt_value = np.zeros(npulses, dtype=np.float32) 
+        self.p_filt_value_phc = np.zeros(npulses, dtype=np.float32) 
+        self.p_filt_value_dc = np.zeros(npulses, dtype=np.float32)
+        self.p_energy = np.zeros(npulses, dtype=np.float32)
         
         self.cuts = Cuts(self.nPulses)
     
     @property
     def p_peak_time(self):
         # this is a property to reduce memory usage, I hope it works
-        return (numpy.asarray(self.p_peak_index, dtype=numpy.int)-self.nPresamples)*self.timebase
+        return (np.asarray(self.p_peak_index, dtype=np.int)-self.nPresamples)*self.timebase
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
@@ -794,7 +792,7 @@ class MicrocalDataSet(object):
 #        if not os.path.isdir(massdir):
 #            os.mkdir(massdir, 0775)
 #        filename = os.path.join(massdir, '%s_%s'%(basename, dataname))
-#        numpy.savez(filename, *args, **kwargs)
+#        np.savez(filename, *args, **kwargs)
 #        
 #    def load_mass_data(self, dataname):
 #        basedir, basename = os.path.split(self.filename)
@@ -802,7 +800,7 @@ class MicrocalDataSet(object):
 #        massdir = os.path.join(basedir, 'mass')
 #        filename = os.path.join(massdir, '%s_%s.%s'%(basename, dataname,'npz'))
 #        try:
-#            data_out = numpy.load(filename)
+#            data_out = np.load(filename)
 #        except IOError:
 #            data_out = None
 #        return data_out
@@ -946,7 +944,7 @@ class MicrocalDataSet(object):
         PTM = self.p_pretrig_mean[first:end]
         self.p_peak_value[first:end] -= PTM   # subtract float from int, remains an int
         self.p_pulse_average[first:end] -= PTM
-        self.p_pulse_rms[first:end] = numpy.sqrt(
+        self.p_pulse_rms[first:end] = np.sqrt(
                 (self.data[:seg_size,self.nPresamples:]**2.0).mean(axis=1) -
                 PTM*(PTM + 2*self.p_pulse_average[first:end]))
         self.p_promptness[first:end] = (
@@ -986,15 +984,15 @@ class MicrocalDataSet(object):
             return None,None
 
         # These parameters fit a parabola to any 5 evenly-spaced points
-        fit_array = numpy.array((
+        fit_array = np.array((
                 ( -6,24, 34,24,-6),
                 (-14,-7,  0, 7,14),
-                ( 10,-5,-10,-5,10)), dtype=numpy.float)/70.0
+                ( 10,-5,-10,-5,10)), dtype=np.float)/70.0
         
         assert len(filter_values)+4 == self.nSamples
 
         seg_size = min(end-first, self.data.shape[0])
-        conv = numpy.zeros((5, seg_size), dtype=numpy.float)
+        conv = np.zeros((5, seg_size), dtype=np.float)
         if transform is not None:
             ptmean = self.p_pretrig_mean[first:end]
             ptmean.shape = (len(ptmean),1)
@@ -1003,13 +1001,13 @@ class MicrocalDataSet(object):
             if i-4 == 0:
                 # previous method in comments, converted to dot product based on ~30% speed boost in tests
 #                    conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
-                conv[i,:] = numpy.dot(self.data[:,i:], filter_values)
+                conv[i,:] = np.dot(self.data[:,i:], filter_values)
             else:
 #                    conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
-                conv[i,:] = numpy.dot(self.data[:seg_size,i:i-4], filter_values)
+                conv[i,:] = np.dot(self.data[:seg_size,i:i-4], filter_values)
 
 
-        param = numpy.dot(fit_array, conv)
+        param = np.dot(fit_array, conv)
         peak_x = -0.5*param[1,:]/param[2,:]
         peak_y = param[0,:] - 0.25*param[1,:]**2 / param[2,:] 
         return peak_x, peak_y
@@ -1069,26 +1067,26 @@ class MicrocalDataSet(object):
             (self.p_peak_time*1e3, 'Peak time (ms)', 'red', [-3,9])
           ) 
         
-        pylab.clf()
+        plt.clf()
         for i,(vect, label, color, limits) in enumerate(plottables):
 
             # Time series scatter plots (left-hand panels)
-            pylab.subplot(len(plottables), 2, 1+i*2)
-            pylab.ylabel(label)
+            plt.subplot(len(plottables), 2, 1+i*2)
+            plt.ylabel(label)
             if valid is not None:
                 vect = vect[valid]
-            pylab.plot(hour, vect[::downsample],',', color=color)
+            plt.plot(hour, vect[::downsample],',', color=color)
 
             # Histogram (right-hand panels)            
-            pylab.subplot(len(plottables), 2, 2+i*2)
+            plt.subplot(len(plottables), 2, 2+i*2)
             if limits is None:
-                in_limit = numpy.ones(len(vect), dtype=numpy.bool)
+                in_limit = np.ones(len(vect), dtype=np.bool)
             else:
-                in_limit = numpy.logical_and(vect>limits[0], vect<limits[1])
-            contents, _bins, _patches = pylab.hist(vect[in_limit],200, log=log, 
+                in_limit = np.logical_and(vect>limits[0], vect<limits[1])
+            contents, _bins, _patches = plt.hist(vect[in_limit],200, log=log, 
                            histtype='stepfilled', fc=color, alpha=0.5)
             if log:
-                pylab.ylim(ymin = contents.min())
+                plt.ylim(ymin = contents.min())
 
 
     def cut_parameter(self, data, allowed, cut_id):
@@ -1114,15 +1112,15 @@ class MicrocalDataSet(object):
             raise ValueError("cut_id must be in the range [0,31]")
         
         # determine if allowed is a sequence or a sequence of sequences
-        if numpy.size(allowed[0]) == 2 or allowed[0] == 'invert':
+        if np.size(allowed[0]) == 2 or allowed[0] == 'invert':
             doInvert = False
-            cut_vec = numpy.ones_like(data, dtype='bool')
+            cut_vec = np.ones_like(data, dtype='bool')
             for element in allowed:
-                if numpy.size(element) == 2:
+                if np.size(element) == 2:
                     try:
                         a,b = element
                         if a is not None and b is not None:
-                            index = numpy.logical_and(data >= a, data <= b)
+                            index = np.logical_and(data >= a, data <= b)
                         elif a is not None:
                             index = data >= a
                         elif b is not None:
@@ -1182,11 +1180,11 @@ class MicrocalDataSet(object):
         self.cut_parameter(self.p_timestamp, c['timestamp_sec'],
                            self.CUT_NAME.index('timestamp_sec'))
         if c['timestamp_diff_sec'] is not None:
-            self.cut_parameter(numpy.hstack((0.0, numpy.diff(self.p_timestamp))),
+            self.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
                                c['timestamp_diff_sec'],
                                self.CUT_NAME.index('timestamp_diff_sec'))        
         if c['pretrigger_mean_departure_from_median'] is not None:
-            median = numpy.median(self.p_pretrig_mean[self.cuts.good()])
+            median = np.median(self.p_pretrig_mean[self.cuts.good()])
             if verbose>1:
                 print'applying cut on pretrigger mean around its median value of ',median
             self.cut_parameter(self.p_pretrig_mean-median,
@@ -1215,48 +1213,48 @@ class MicrocalDataSet(object):
 #        # Choose number and size of bins
 #        phase_step=.05
 #        nstep = int(.5+1.0/phase_step)
-#        phases = (0.5+numpy.arange(nstep))/nstep - 0.5
+#        phases = (0.5+np.arange(nstep))/nstep - 0.5
 #        phase_step = 1.0/nstep
 #        
 #        # Default: use the calibration to pick a prange
 #        if prange is None:
 #            calibration = self.calibration['p_filt_value']
 #            ph_estimate = calibration.name2ph('Mn Ka1')
-#            prange = numpy.array((ph_estimate*.98, ph_estimate*1.02))
+#            prange = np.array((ph_estimate*.98, ph_estimate*1.02))
 #
 #        # Estimate corrections in a few different pieces
 #        corrections = []
 #        valid = self.cuts.good()
 #        if prange is not None:
-#            valid = numpy.logical_and(valid, self.p_filt_value<prange[1])
-#            valid = numpy.logical_and(valid, self.p_filt_value>prange[0])
+#            valid = np.logical_and(valid, self.p_filt_value<prange[1])
+#            valid = np.logical_and(valid, self.p_filt_value>prange[0])
 #        if times is not None:
-#            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
-#            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+#            valid = np.logical_and(valid, self.p_timestamp<times[1])
+#            valid = np.logical_and(valid, self.p_timestamp>times[0])
 #
 #        # Plot the raw filtered value vs phase
 #        if plot:
-#            pylab.clf()
-#            pylab.subplot(211)
-#            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value[valid],',',color='orange')
-#            pylab.xlabel("Hypothetical 'center phase'")
-#            pylab.ylabel("Filtered PH")
-#            pylab.xlim([-.55,.55])
+#            plt.clf()
+#            plt.subplot(211)
+#            plt.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value[valid],',',color='orange')
+#            plt.xlabel("Hypothetical 'center phase'")
+#            plt.ylabel("Filtered PH")
+#            plt.xlim([-.55,.55])
 #            if prange is not None:
-#                pylab.ylim(prange)
+#                plt.ylim(prange)
 #                
 #        for ctr_phase in phases:
-#            valid_ph = numpy.logical_and(valid,
-#                                         numpy.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
+#            valid_ph = np.logical_and(valid,
+#                                         np.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
 ##            print valid_ph.sum(),"   ",
 #            mean = self.p_filt_value[valid_ph].mean()
-#            median = numpy.median(self.p_filt_value[valid_ph])
+#            median = np.median(self.p_filt_value[valid_ph])
 #            corrections.append(mean) # not obvious that mean vs median matters
 #            if plot:
-#                pylab.plot(ctr_phase, mean, 'or')
-#                pylab.plot(ctr_phase, median, 'vk', ms=10)
-#        corrections = numpy.array(corrections)
-#        assert numpy.isfinite(corrections).all()
+#                plt.plot(ctr_phase, mean, 'or')
+#                plt.plot(ctr_phase, median, 'vk', ms=10)
+#        corrections = np.array(corrections)
+#        assert np.isfinite(corrections).all()
 #        
 #        def model(params, phase):
 #            "Params are (phase of center, curvature, mean peak height)"
@@ -1265,9 +1263,9 @@ class MicrocalDataSet(object):
 #        errfunc = lambda p,x,y: y-model(p,x)
 #        
 #        params = (0., 4, corrections.mean())
-#        fitparams, _iflag = scipy.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
-#        phases = numpy.arange(-0.6,0.5001,.01)
-#        if plot: pylab.plot(phases, model(fitparams, phases), color='blue')
+#        fitparams, _iflag = sp.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
+#        phases = np.arange(-0.6,0.5001,.01)
+#        if plot: plt.plot(phases, model(fitparams, phases), color='blue')
 #        
 #        
 #        self.phase_correction={'phase':fitparams[0],
@@ -1281,11 +1279,11 @@ class MicrocalDataSet(object):
 #                                            1e3*correction.std()/self.p_filt_value.mean())
 #        
 #        if plot:
-#            pylab.subplot(212)
-#            pylab.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value_phc[valid],',b')
-#            pylab.xlim([-.55,.55])
+#            plt.subplot(212)
+#            plt.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value_phc[valid],',b')
+#            plt.xlim([-.55,.55])
 #            if prange is not None:
-#                pylab.ylim(prange)
+#                plt.ylim(prange)
 
     # galen 20130211 - I think this can be replaced by polyfit with 1 dimension, its faster, more obvious what is going on, and in my test yielded the same answer to 3 decimal places
     def auto_drift_correct_rms(self, prange=None, times=None, ptrange=None, plot=False, 
@@ -1306,10 +1304,10 @@ class MicrocalDataSet(object):
         units = 
         """
         if plot:
-            pylab.clf()
-            axis1=pylab.subplot(211)
-            pylab.xlabel("Drift correction slope")
-            pylab.ylabel("RMS of selected, corrected pulse heights")
+            plt.clf()
+            axis1=plt.subplot(211)
+            plt.xlabel("Drift correction slope")
+            plt.ylabel("RMS of selected, corrected pulse heights")
         if self.p_filt_value_phc[0] ==0:
             self.p_filt_value_phc = self.p_filt_value.copy()
         
@@ -1317,46 +1315,46 @@ class MicrocalDataSet(object):
         if prange is None:
             calibration = self.calibration['p_filt_value']
             ph_estimate = calibration.name2ph(line_name)
-            prange = numpy.array((ph_estimate*.99, ph_estimate*1.01))
+            prange = np.array((ph_estimate*.99, ph_estimate*1.01))
         
         range_ctr = 0.5*(prange[0]+prange[1])
-        half_range = numpy.abs(range_ctr-prange[0])
-        valid = numpy.logical_and(self.cuts.good(), numpy.abs(self.p_filt_value_phc-range_ctr)<half_range)
+        half_range = np.abs(range_ctr-prange[0])
+        valid = np.logical_and(self.cuts.good(), np.abs(self.p_filt_value_phc-range_ctr)<half_range)
         if times is not None:
-            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
-            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+            valid = np.logical_and(valid, self.p_timestamp<times[1])
+            valid = np.logical_and(valid, self.p_timestamp>times[0])
             
         if ptrange is not None:
-            valid = numpy.logical_and(valid, self.p_pretrig_mean<ptrange[1])
-            valid = numpy.logical_and(valid, self.p_pretrig_mean>ptrange[0])
+            valid = np.logical_and(valid, self.p_pretrig_mean<ptrange[1])
+            valid = np.logical_and(valid, self.p_pretrig_mean>ptrange[0])
 
         data = self.p_filt_value_phc[valid]
         corrector = self.p_pretrig_mean[valid]
         mean_pretrig_mean = corrector.mean()
         corrector -= mean_pretrig_mean
-        if slopes is None: slopes = numpy.arange(-.2,.9,.05)
+        if slopes is None: slopes = np.arange(-.2,.9,.05)
         rms_widths=[]
         for sl in slopes:
             rms = (data+corrector*sl).std()
             rms_widths.append(rms)
 #            print "%6.3f %7.2f"%(sl,rms)
             if plot: 
-                pylab.plot(sl,rms,'bo')
-        poly_coef = scipy.polyfit(slopes, rms_widths, 2)
+                plt.plot(sl,rms,'bo')
+        poly_coef = sp.polyfit(slopes, rms_widths, 2)
         best_slope = -0.5*poly_coef[1]/poly_coef[0]
         print "Drift correction requires slope %6.3f"%best_slope
         self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
         
         if plot:
-            pylab.subplot(212)
-            pylab.plot(corrector, data, ',')
-            xlim = pylab.xlim()
-            c = numpy.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
-            pylab.plot(c, -c*best_slope + data.mean(),color='green')
-            pylab.ylim(prange)
-            axis1.plot(slopes, numpy.poly1d(poly_coef)(slopes),color='red')
-            pylab.xlabel("Pretrigger mean - mean(PT mean)")
-            pylab.ylabel("Selected, uncorrected pulse heights")
+            plt.subplot(212)
+            plt.plot(corrector, data, ',')
+            xlim = plt.xlim()
+            c = np.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
+            plt.plot(c, -c*best_slope + data.mean(),color='green')
+            plt.ylim(prange)
+            axis1.plot(slopes, np.poly1d(poly_coef)(slopes),color='red')
+            plt.xlabel("Pretrigger mean - mean(PT mean)")
+            plt.ylabel("Selected, uncorrected pulse heights")
         return best_slope
     
            
@@ -1379,20 +1377,20 @@ class MicrocalDataSet(object):
         if prange is None:
             calibration = self.calibration['p_filt_value']
             ph_estimate = calibration.name2ph('MnKAlpha')
-            prange = numpy.array((ph_estimate*.99, ph_estimate*1.01))
+            prange = np.array((ph_estimate*.99, ph_estimate*1.01))
         
         range_ctr = 0.5*(prange[0]+prange[1])
-        half_range = numpy.abs(range_ctr-prange[0])
-        valid = numpy.logical_and(self.cuts.good(), numpy.abs(self.p_filt_value_phc-range_ctr)<half_range)
+        half_range = np.abs(range_ctr-prange[0])
+        valid = np.logical_and(self.cuts.good(), np.abs(self.p_filt_value_phc-range_ctr)<half_range)
         if times is not None:
-            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
-            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+            valid = np.logical_and(valid, self.p_timestamp<times[1])
+            valid = np.logical_and(valid, self.p_timestamp>times[0])
 
         data = self.p_filt_value_phc[valid]
         corrector = self.p_pretrig_mean[valid]
         mean_pretrig_mean = corrector.mean()
         corrector -= mean_pretrig_mean
-        if slopes is None: slopes = numpy.arange(0,1.,.09)
+        if slopes is None: slopes = np.arange(0,1.,.09)
         
         fit_resolutions=[]
         for sl in slopes:
@@ -1402,35 +1400,35 @@ class MicrocalDataSet(object):
 #            print "%5.1f %s"%(sl, params[:4])
             fit_resolutions.append(params[0])
 #        print(fit_resolutions)
-        poly_coef = scipy.polyfit(slopes, fit_resolutions, 2)
+        poly_coef = sp.polyfit(slopes, fit_resolutions, 2)
 #        best_slope = -0.5*poly_coef[1]/poly_coef[0] # this could be better in principle, but in practice is often way worse
         # some code to check if the best slope from the quatratic fit is reasonable, like near the minimum could
         # be used to get the best of both worlds
         # or start with a sweep then add a binary search at the end
-        best_slope = slopes[numpy.argmin(fit_resolutions)]
-        best_slope_resolution = numpy.interp(best_slope, slopes, fit_resolutions)
+        best_slope = slopes[np.argmin(fit_resolutions)]
+        best_slope_resolution = np.interp(best_slope, slopes, fit_resolutions)
         
         print "Drift correction requires slope (using min not quadratic fit) %6.3f"%best_slope
         self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
         
         if plot:
-            pylab.clf()
-            pylab.subplot(211)
-            pylab.plot(slopes, fit_resolutions,'go')
-            pylab.plot(best_slope, best_slope_resolution,'bo')
-            pylab.plot(slopes, numpy.polyval(poly_coef, slopes),color='red')
-            pylab.xlabel("Drift correction slope")
-            pylab.ylabel("Fit resolution from selected, corrected pulse heights")
-            pylab.title('auto_drift_correct fitting %s'%line_name)
+            plt.clf()
+            plt.subplot(211)
+            plt.plot(slopes, fit_resolutions,'go')
+            plt.plot(best_slope, best_slope_resolution,'bo')
+            plt.plot(slopes, np.polyval(poly_coef, slopes),color='red')
+            plt.xlabel("Drift correction slope")
+            plt.ylabel("Fit resolution from selected, corrected pulse heights")
+            plt.title('auto_drift_correct fitting %s'%line_name)
             
-            pylab.subplot(212)
-            pylab.plot(corrector, data, ',')
-            xlim = pylab.xlim()
-            c = numpy.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
-            pylab.plot(c, -c*best_slope + data.mean(),color='green')
-            pylab.ylim(prange)
-            pylab.xlabel("Pretrigger mean - mean(PT mean)")
-            pylab.ylabel("Selected, uncorrected pulse heights")
+            plt.subplot(212)
+            plt.plot(corrector, data, ',')
+            xlim = plt.xlim()
+            c = np.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
+            plt.plot(c, -c*best_slope + data.mean(),color='green')
+            plt.ylim(prange)
+            plt.xlabel("Pretrigger mean - mean(PT mean)")
+            plt.ylabel("Selected, uncorrected pulse heights")
             
         return best_slope, mean_pretrig_mean
 
@@ -1448,14 +1446,14 @@ class MicrocalDataSet(object):
                     'energy': self.p_energy,
                     }[fit_type]
         if mask is not None:
-            valid = numpy.array(mask)
+            valid = np.array(mask)
         else:
             valid = self.cuts.good()
         if times is not None:
-            valid = numpy.logical_and(valid, self.p_timestamp<times[1])
-            valid = numpy.logical_and(valid, self.p_timestamp>times[0])
+            valid = np.logical_and(valid, self.p_timestamp<times[1])
+            valid = np.logical_and(valid, self.p_timestamp>times[0])
         good_values = all_values[valid]
-        contents,bin_edges = numpy.histogram(good_values, nbins, prange)
+        contents,bin_edges = np.histogram(good_values, nbins, prange)
         if verbose: print "%d events pass cuts; %d are in histogram range"%(len(good_values),contents.sum())
         bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
         
@@ -1481,12 +1479,12 @@ class MicrocalDataSet(object):
 
         params, covar = fitter.fit(contents, bin_ctrs, plot=plot, **kwargs)
         if plot:
-            mass.plot_as_stepped_hist(pylab.gca(), contents, bin_ctrs)
+            mass.plot_as_stepped_hist(plt.gca(), contents, bin_ctrs)
         if energy is not None:
             scale = energy/params[1]
         else:
             scale=1.0
-        if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0]*scale,numpy.sqrt(covar[0,0])*scale)
+        if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0]*scale,np.sqrt(covar[0,0])*scale)
         return params, covar, fitter
     
     
@@ -1494,33 +1492,33 @@ class MicrocalDataSet(object):
         """"""
         
         if plot:
-            pylab.clf()
-            ax1 = pylab.subplot(221)
-            ax2 = pylab.subplot(222)
-            ax3 = pylab.subplot(223)
+            plt.clf()
+            ax1 = plt.subplot(221)
+            ax2 = plt.subplot(222)
+            ax3 = plt.subplot(223)
         else:
             ax1 = ax2 = ax3 = None
         
         calib = self.calibration['p_filt_value']
-        mnka_range = calib.name2ph('MnKAlpha') * numpy.array((.99,1.01))
+        mnka_range = calib.name2ph('MnKAlpha') * np.array((.99,1.01))
         params, _covar, _fitter = self.fit_spectral_line(prange=mnka_range, mask=mask, times=times, fit_type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
         calib.add_cal_point(params[1], 'MnKAlpha')
 
-        mnkb_range = calib.name2ph('MnKBeta') * numpy.array((.95,1.02))
+        mnkb_range = calib.name2ph('MnKBeta') * np.array((.95,1.02))
 #        params[1] = calib.name2ph('Mn Kb')
 #        params[3] *= 0.50
 #        params[4] = 0.0
         try:
-            mnkb_range = calib.name2ph('MnKBeta') * numpy.array((.985,1.015))
+            mnkb_range = calib.name2ph('MnKBeta') * np.array((.985,1.015))
             params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, mask=mask, times=times, fit_type='dc', line='MnKBeta', 
                                                     verbose=verbose, plot=plot, axis=ax2)
             calib.add_cal_point(params[1], 'MnKBeta')
-        except scipy.linalg.LinAlgError:
+        except sp.linalg.LinAlgError:
             print "Failed to fit Mn K-beta!"
         if update_energy: self.p_energy = calib(self.p_filt_value_dc)
         
         if plot:
-            calib.plot(axis=pylab.subplot(224))
+            calib.plot(axis=plt.subplot(224))
             self.fit_spectral_line(prange=(5850,5930), mask=mask, times=times, fit_type='energy', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax3)
             ax1.set_xlabel("Filtered, drift-corr. PH")
             ax2.set_xlabel("Filtered, drift-corr. PH")
