@@ -21,6 +21,7 @@ except ImportError:
 #import mass.mathstat
 import mass.mathstat.power_spectrum
 from mass.core.files import VirtualFile, LJHFile, LANLFile
+from mass.core.utilities import InlineUpdater
 
 class NoiseRecords(object):
     """
@@ -896,7 +897,7 @@ class MicrocalDataSet(object):
         elif forceNew or all(self.p_timestamp==0):
             self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)   
             # consider setting segment size first
-            printUpdater = mass.calibration.inlineUpdater.InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
+            printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
 
             for s in range(self.pulse_records.n_segments):
                 first, last = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
@@ -965,7 +966,7 @@ class MicrocalDataSet(object):
         """
         filter_values = self.filter.__dict__[filter_name]
         if forceNew or all(self.p_filt_value == 0): # determine if we need to do anything
-            printUpdater = mass.calibration.inlineUpdater.InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
+            printUpdater = InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
             for s in range(self.pulse_records.n_segments):
                 first, last = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
                 (self.p_filt_phase[first:last], self.p_filt_value[first:last]) = mass.mathstat.summarize_and_filter.filter_data_old(

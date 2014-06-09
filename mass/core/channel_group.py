@@ -24,7 +24,7 @@ import time, os
 import cPickle
 
 import mass.calibration
-import mass.calibration.inlineUpdater as inlineUpdater
+from mass.core.utilities import InlineUpdater
 
 from mass.core.channel import create_pulse_and_noise_records
 
@@ -269,7 +269,7 @@ class BaseChannelGroup(object):
         Compute summary quantities for each pulse.  Subclasses override this with methods
         that ought to call this!
         """
-        printUpdater = inlineUpdater.InlineUpdater('BaseChannelGroup.summarize_data')
+        printUpdater = InlineUpdater('BaseChannelGroup.summarize_data')
         print "summarize_data: This data set has (up to) %d records with %d samples apiece."%(
             self.nPulses, self.nSamples)  
         for first, end in self.iter_segments():
@@ -280,7 +280,7 @@ class BaseChannelGroup(object):
                 ds.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
 
     def summarize_data_tdm(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False, forceNew=False):
-        printUpdater = inlineUpdater.InlineUpdater('summarize_data_tdm')
+        printUpdater = InlineUpdater('summarize_data_tdm')
         for chan in self.iter_channel_numbers(include_badchan):
             self.channel[chan].summarize_data_tdm(peak_time_microsec, pretrigger_ignore_microsec, forceNew)    
             if include_badchan:
@@ -671,7 +671,7 @@ class BaseChannelGroup(object):
             if a<n and m[a:].any():
                 segment_mask[nseg+1] = True 
                 
-        printUpdater = inlineUpdater.InlineUpdater('compute_average_pulse')
+        printUpdater = InlineUpdater('compute_average_pulse')
         for first, end in self.iter_segments(segment_mask=segment_mask):
             printUpdater.update(end/float(self.nPulses))
             for imask,mask in enumerate(masks):
@@ -760,7 +760,7 @@ class BaseChannelGroup(object):
                 self.compute_noise_spectra()
                 break
         
-        printUpdater = inlineUpdater.InlineUpdater('compute_filters')
+        printUpdater = InlineUpdater('compute_filters')
         for ds_num,ds in enumerate(self):
             if ds.cuts.good().sum() < 10:
                 ds.filter = None
@@ -815,7 +815,7 @@ class BaseChannelGroup(object):
                 print e
             
     def filter_data_tdm(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False):
-        printUpdater = inlineUpdater.InlineUpdater('filter_data_tdm')
+        printUpdater = InlineUpdater('filter_data_tdm')
         for chan in self.iter_channel_numbers(include_badchan):
             self.channel[chan].filter_data_tdm(filter_name, transform, forceNew)
             if include_badchan:
@@ -835,7 +835,7 @@ class BaseChannelGroup(object):
             ds.p_filt_phase = np.zeros_like(ds.p_filt_phase) # be sure not to change the data type of these arrays, they should follow the type from channel._setup_vectors
             ds.p_filt_value = np.zeros_like(ds.p_filt_value)
             
-        printUpdater = inlineUpdater.InlineUpdater('BaseChannelGroup.filter_data')
+        printUpdater = InlineUpdater('BaseChannelGroup.filter_data')
         for first, end in self.iter_segments():
             if end>self.nPulses:
                 end = self.nPulses 
@@ -1430,7 +1430,7 @@ def unpickle_TESGroup(filename, rawpath=None, inclusion_list=None):
     data = TESGroup(filenames, noise_filenames, pulse_only=pulse_only,
                     noise_only=noise_only)
     data.set_chan_bad(bad_channums, 'was bad when saved')
-    printUpdater = inlineUpdater.InlineUpdater('unpickle_TESGroup')
+    printUpdater = InlineUpdater('unpickle_TESGroup')
     for ds in data.datasets:
         printUpdater.update((ds.index+1)/float(len(data.datasets)))
         ds.unpickle()
