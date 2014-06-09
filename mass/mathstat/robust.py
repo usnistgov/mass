@@ -34,13 +34,14 @@ Created on Feb 9, 2012
 __all__ = ['bisquare_weighted_mean', 'huber_weighted_mean', 'trimean', 
            'median_abs_dev', 'shorth_range','high_median', 'Qscale']
 
-import numpy, scipy.stats
+import numpy as np
+import scipy.stats
 
 try:
     from mass.mathstat import _robust
 except ImportError:
-    from mass.mathstat.utilities import MissingLibrary
-    _robust = MissingLibrary("_robust.so")
+    from mass.mathstat.utilities import CheckForMissingLibrary
+    _robust = CheckForMissingLibrary("_robust.so")
 
 
 def bisquare_weighted_mean(x, k, center=None, tol=None):
@@ -60,13 +61,13 @@ def bisquare_weighted_mean(x, k, center=None, tol=None):
     weight."""
     
     if center is None:
-        center = numpy.median(x)
+        center = np.median(x)
     if tol is None:
         tol = 1e-5*median_abs_dev(x, normalize=True)
 
     for _iteration in xrange(100):
         weights = (1-((x-center)/k)**2.0)**2.0
-        weights[numpy.abs(x-center)>k] = 0.0
+        weights[np.abs(x-center)>k] = 0.0
         newcenter = (weights*x).sum()/weights.sum()
         if abs(newcenter - center)<tol:
             return newcenter
@@ -92,12 +93,12 @@ def huber_weighted_mean(x, k, center=None, tol=None):
     weight."""
     
     if center is None:
-        center = numpy.median(x)
+        center = np.median(x)
     if tol is None:
         tol = 1e-5*median_abs_dev(x, normalize=True)
 
     for _iteration in xrange(100):
-        weights = numpy.asarray((1.0*k)/numpy.abs(x-center))
+        weights = np.asarray((1.0*k)/np.abs(x-center))
         weights[weights > 1.0] = 1.0
         newcenter = (weights*x).sum()/weights.sum()
         if abs(newcenter - center)<tol:
@@ -125,7 +126,7 @@ def median_abs_dev(x, normalize=False):
     If normalize is True (default:False), then return MAD/0.675, which scaling makes the statistic
     consistent with the standard deviation for an asymptotically large sample of Gaussian deviates.
     """
-    mad = numpy.median(numpy.abs(numpy.asarray(x)-numpy.median(x)))
+    mad = np.median(np.abs(np.asarray(x)-np.median(x)))
     if normalize:
         return mad/0.674480  # Half of the normal distribution has abs(x-mu) < 0.674480*sigma
     return mad
@@ -148,7 +149,7 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
                    order 1/N is applied, too, which mostly corrects for bias at modest values of the sample
                    size N.)
     sort_inplace - Permit this function to reorder the data set <x>.  If False (default), then x will be 
-                   copied and the copy will be sorted.  (Note that if <x> is not a numpy.ndarray, an error 
+                   copied and the copy will be sorted.  (Note that if <x> is not a np.ndarray, an error 
                    will be raised if <sort_inplace> is True.)
     location     - Whether to return two location estimators in addition to the dispersion estimator.  
                    Default: False.
@@ -172,9 +173,9 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     nobs=1+int(n/2)       # Number of data values in each minimal interval
 
     if not sort_inplace:
-        x = numpy.array(x)
-    elif not isinstance(x, numpy.ndarray):
-        raise ValueError("sort_inplace cannot be True unless the data set x is a numpy.ndarray.")
+        x = np.array(x)
+    elif not isinstance(x, np.ndarray):
+        raise ValueError("sort_inplace cannot be True unless the data set x is a np.ndarray.")
     x.sort()
 
     range_each_half = x[n-nhalves:n]-x[0:nhalves]
@@ -217,13 +218,13 @@ def high_median(x, weights=None, return_index=False):
     
     If return_index is True, then the chosen index is returned also as (highmed, index).
     """
-    x = numpy.asarray(x)
+    x = np.asarray(x)
     sort_idx = x.argsort()  # now x[sort_idx] is sorted
     n = len(x)
     if weights is None:
-        weights = numpy.ones(n, dtype=numpy.float)
+        weights = np.ones(n, dtype=np.float)
     else:
-        weights = numpy.asarray(weights, dtype=numpy.float)
+        weights = np.asarray(weights, dtype=np.float)
 
     # If possible, use the Cython version _robust._high_median, though it only speeds up
     # by 15 to 20%.
@@ -244,7 +245,7 @@ def Qscale(x, sort_inplace=False):
     
     <x>   The data set, an unsorted sequence of values.
     <sort_inplace> Whether it is okay for the function to reorder the set <x>.
-                   If True, <x> must be a numpy.ndarray (or ValueError is raised).
+                   If True, <x> must be a np.ndarray (or ValueError is raised).
     
     Q is defined as d_n * 2.2219 * {|xi-xj|; i<j}_k, where 
     
@@ -266,9 +267,9 @@ def Qscale(x, sort_inplace=False):
     """
     
     if not sort_inplace:
-        x = numpy.array(x)
-    elif not isinstance(x, numpy.ndarray):
-        raise ValueError("sort_inplace cannot be True unless the data set x is a numpy.ndarray.")
+        x = np.array(x)
+    elif not isinstance(x, np.ndarray):
+        raise ValueError("sort_inplace cannot be True unless the data set x is a np.ndarray.")
     x.sort()
     n = len(x)
     if n<2:
@@ -293,7 +294,7 @@ def Qscale(x, sort_inplace=False):
     
     # For small lists, too many boundary problems arise.  Just do it the slow way:
     if n<=5:
-        dist = numpy.hstack([x[j]-x[:j] for j in range(1,n)])
+        dist = np.hstack([x[j]-x[:j] for j in range(1,n)])
         assert len(dist) == (n*(n-1))/2
         dist.sort()
         return dist[target_k] * prefactor
@@ -360,10 +361,10 @@ def _Qscale_subroutine_python(x, n, target_k):
     # Keep track of which candidates on each ROW are still in the running.
     # These limits are of length (n-1) because the lowest row has no upper-triangle elements. 
     # These mean that element A_ij = xj-xi is in the running if and only if  left(i) <= j <= right(i).
-    left = numpy.arange(1, n, dtype=numpy.int)
-    right = numpy.zeros(n-1, dtype=numpy.int) + (n-1)
-    row_bias = x[numpy.arange(n-1)]
-    trial_column = numpy.zeros(n-1, dtype=numpy.int)
+    left = np.arange(1, n, dtype=np.int)
+    right = np.zeros(n-1, dtype=np.int) + (n-1)
+    row_bias = x[np.arange(n-1)]
+    trial_column = np.zeros(n-1, dtype=np.int)
 
     def choose_trial_val(left, right, x):
         """Choose a trial val as the weighted median of the medians of the remaining candidates in

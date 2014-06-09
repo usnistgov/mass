@@ -20,9 +20,9 @@ Started March 24, 2011
 __all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky_golay', 'MouseClickReader']
 
 
-import numpy
+import numpy as np
 
-class MissingLibrary(object):
+class CheckForMissingLibrary(object):
     """Class to raise ImportError only after python tries to use the import.
     Intended for use with shared objects built from Fortran or Cython source."""
     def __init__(self, libname):
@@ -47,17 +47,17 @@ def plot_as_stepped_hist(axis, data, bins, **kwargs):
     """
     if len(bins)==len(data)+1:
         bin_edges = bins
-        x = numpy.zeros(2*len(bin_edges), dtype=numpy.float)
+        x = np.zeros(2*len(bin_edges), dtype=np.float)
         x[0::2] = bin_edges
         x[1::2] = bin_edges
     else:
-        x = numpy.zeros(2+2*len(bins), dtype=numpy.float)
+        x = np.zeros(2+2*len(bins), dtype=np.float)
         dx = bins[1]-bins[0]
         x[0:-2:2] = bins-dx*.5
         x[1:-2:2] = bins-dx*.5
         x[-2:] = bins[-1]+dx*.5
 
-    y = numpy.zeros_like(x)
+    y = np.zeros_like(x)
     y[1:-1:2] = data
     y[2:-1:2] = data
     axis.plot(x, y, **kwargs)
@@ -82,7 +82,7 @@ def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, offset=0
     elif len(bin_ctrs) != len(counts):
         raise ValueError("bin_ctrs must be either the same length as counts, or 1 longer.")
     smooth_counts = savitzky_golay(counts*scale, 7, 4)
-    errors = numpy.sqrt(counts)*scale
+    errors = np.sqrt(counts)*scale
     fill_lower = smooth_counts-errors
     fill_upper = smooth_counts+errors
     fill_lower[fill_lower<0] = 0
@@ -141,8 +141,8 @@ def savitzky_golay(y, window_size, order, deriv=0):
        Cambridge University Press ISBN-13: 9780521880688
     """
     try:
-        window_size = numpy.abs(numpy.int(window_size))
-        order = numpy.abs(numpy.int(order))
+        window_size = np.abs(np.int(window_size))
+        order = np.abs(np.int(order))
     except ValueError, _msg:
         raise ValueError("window_size and order have to be of type int")
     if window_size % 2 != 1 or window_size < 1:
@@ -152,43 +152,13 @@ def savitzky_golay(y, window_size, order, deriv=0):
     order_range = range(order+1)
     half_window = (window_size -1) // 2
     # precompute coefficients
-    b = numpy.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
-    m = numpy.linalg.pinv(b).A[deriv]
+    b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
+    m = np.linalg.pinv(b).A[deriv]
     # pad the signal at the extremes with
     # values taken from the signal itself
-    firstvals = y[0] - numpy.abs( y[1:half_window+1][::-1] - y[0] )
-    lastvals = y[-1] + numpy.abs(y[-half_window-1:-1][::-1] - y[-1])
-    y = numpy.concatenate((firstvals, y, lastvals))
-    return numpy.convolve( m, y, mode='valid')
-
-
-class MouseClickReader(object):
-    """Object to serve as a callback for reading mouse clicks in data coordinates
-    in pylab plots.  Will store self.b, .x, .y giving the button pressed,
-    and the x,y data coordinates of the pointer when clicked.
-    
-    Usage example (ought to be here...):
-    """
-    def __init__(self, figure):
-        """Connect to button press events on a pylab figure.
-        \param figure The matplotlib.figure.Figure from which to capture mouse click events."""
-        ## The button number of the last mouse click inside a plot.
-        self.b = 0
-        ## The x location of the last mouse click inside a plot.
-        self.x = 0
-        ## The y location of the last mouse click inside a plot.
-        self.y = 0
-        ## The Figure to whose events we are connected.
-        self.fig=figure
-        ## The connection ID for matplotlib event handling.
-        self.cid = self.fig.canvas.mpl_connect('button_press_event',self)
-        
-    def __call__(self, event):
-        """When called, capture the latest button number and the x,y location in 
-        plot units.  Store in self.b, .x, and .y."""
-        self.b, self.x, self.y =  event.button, event.xdata, event.ydata
-    def __del__(self):
-        """Disconnect the button press event from this object."""
-        self.fig.canvas.mpl_disconnect(self.cid)
+    firstvals = y[0] - np.abs( y[1:half_window+1][::-1] - y[0] )
+    lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
+    y = np.concatenate((firstvals, y, lastvals))
+    return np.convolve( m, y, mode='valid')
 
         

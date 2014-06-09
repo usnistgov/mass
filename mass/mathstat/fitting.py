@@ -21,8 +21,8 @@ __all__ = ['MaximumLikelihoodHistogramFitter',
            'MaximumLikelihoodGaussianFitter',]
 
 
-import numpy
-import scipy.linalg
+import numpy as np
+import scipy as sp
 
 class MaximumLikelihoodHistogramFitter(object):
     """
@@ -31,7 +31,7 @@ class MaximumLikelihoodHistogramFitter(object):
     and are Poisson-distributed with an expectation equal to the theory.
     
     This implementation is fast (only requires 2x as long as the chisquared
-    minimizer scipy.optimize.leastsq, which assumes Gaussian-distributed data),
+    minimizer sp.optimize.leastsq, which assumes Gaussian-distributed data),
     and it removes the biases that arise from fitting parameters by minimizing
     chi-squared, as if the data were Gaussian.
     
@@ -65,7 +65,7 @@ class MaximumLikelihoodHistogramFitter(object):
     The algorithm for rapidly minimizing this chi-squared is a slight variation
     on the usual Levenberg-Marquardt method for minimizing a sum of true squares,
     as described in Laurence & Chromy.  The implementation is a translation to 
-    Python+numpy of the Levenberg-Marquardt solver class Fitmrq appearing in C++ in
+    Python+np of the Levenberg-Marquardt solver class Fitmrq appearing in C++ in
     Numerical Recipes, 3rd Edition, with appropriate changes so as to minimize
     -2 times the log of the likelihood ratio, rather than a true chi-squared.
     """
@@ -96,9 +96,9 @@ class MaximumLikelihoodHistogramFitter(object):
                     When self.DONE successive iterations fail to improve the MLE Chi^2 by this
                     much (aboslutely or fractionally), then fitting will return successfully.
         """
-        self.x = numpy.array(x)
+        self.x = np.array(x)
         self.ndat = len(x)
-        self.nobs = numpy.array(nobs)
+        self.nobs = np.array(nobs)
         self.total_obs = self.nobs.sum()
         if len(self.nobs) != self.ndat:
             raise ValueError("x and nobs must have the same length")
@@ -110,14 +110,14 @@ class MaximumLikelihoodHistogramFitter(object):
         self.theory_function = theory_function
         if theory_gradient is None:
             self.theory_gradient = self.__discrete_gradient
-            if numpy.isscalar(epsilon):
-                self.epsilon = epsilon + numpy.zeros_like(params)
+            if np.isscalar(epsilon):
+                self.epsilon = epsilon + np.zeros_like(params)
             else:
                 if len(epsilon) != self.nparam:
                     msg = "epsilon must be a scalar or if a vector, "+\
                         "a vector of the same length as params"
                     raise ValueError(msg)
-                self.epsilon = numpy.array(epsilon)
+                self.epsilon = np.array(epsilon)
         else:
             self.theory_gradient = theory_gradient
         self.TOL = TOL
@@ -133,9 +133,9 @@ class MaximumLikelihoodHistogramFitter(object):
         current chisq.
         """
         self.mfit = self.nparam = len(params)
-        self.params = numpy.array(params)
-        self.param_free = numpy.ones(self.nparam, dtype=numpy.bool)
-        self.covar = numpy.zeros((self.nparam, self.nparam), dtype=numpy.float)
+        self.params = np.array(params)
+        self.param_free = np.ones(self.nparam, dtype=np.bool)
+        self.covar = np.zeros((self.nparam, self.nparam), dtype=np.float)
         self.chisq = 1e99
         
 
@@ -169,7 +169,7 @@ class MaximumLikelihoodHistogramFitter(object):
         """
         nx = len(x)
         np = len(p)
-        dyda=numpy.zeros((np, nx), dtype=numpy.float)
+        dyda=np.zeros((np, nx), dtype=np.float)
         for i,dx in enumerate(self.epsilon):
             p2 = p.copy()
             p2[i]+=dx
@@ -203,14 +203,14 @@ class MaximumLikelihoodHistogramFitter(object):
         prev_chisq = self.chisq
         for iter_number in range(self.ITMAX):
 
-            alpha_prime = numpy.array(alpha)
+            alpha_prime = np.array(alpha)
             for j in range(self.mfit):
                 alpha_prime[j,j] += lambda_coef*alpha_prime[j,j]
        
             try:
-                delta_alpha = scipy.linalg.solve(alpha_prime, beta[self.param_free],
+                delta_alpha = sp.linalg.solve(alpha_prime, beta[self.param_free],
                                                  overwrite_a=False, overwrite_b=False)
-            except scipy.linalg.LinAlgError, ex:
+            except sp.linalg.LinAlgError, ex:
                 print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, iter_number)
                 print 'Params: ',self.params
                 print 'Alpha-prime: ',alpha_prime
@@ -227,7 +227,7 @@ class MaximumLikelihoodHistogramFitter(object):
                 no_change_counter+=1
 
                 if no_change_counter == self.DONE:
-                    self.covar[:self.mfit, :self.mfit] = scipy.linalg.inv(alpha)
+                    self.covar[:self.mfit, :self.mfit] = sp.linalg.inv(alpha)
                     self.__cov_sort_in_place(self.covar)
                     self.iterations = iter_number
                     return self.params, self.covar
@@ -269,7 +269,7 @@ class MaximumLikelihoodHistogramFitter(object):
         
         beta = (y_resid*dyda_over_y).sum(axis=1)
         
-        alpha = numpy.zeros((self.mfit,self.mfit), dtype=numpy.float)
+        alpha = np.zeros((self.mfit,self.mfit), dtype=np.float)
         for i in range(self.mfit):
             for j in range(i+1):
                 alpha[i,j] = (nobs*dyda_over_y[i,:]*dyda_over_y[j,:]).sum()
@@ -277,7 +277,7 @@ class MaximumLikelihoodHistogramFitter(object):
             
         nonzero_obs = nobs>0
         self.chisq = 2*(y_model.sum()-self.total_obs)  \
-                + 2*(nobs[nonzero_obs]*numpy.log((nobs/y_model)[nonzero_obs])).sum()
+                + 2*(nobs[nonzero_obs]*np.log((nobs/y_model)[nonzero_obs])).sum()
         return alpha, beta
     
     
@@ -335,10 +335,10 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
                     When self.DONE successive iterations fail to improve the MLE Chi^2 by this
                     much (aboslutely or fractionally), then fitting will return successfully.
         """
-        self.x = numpy.array(x)
+        self.x = np.array(x)
         self.ndat = len(x)
-        self.scaled_x = numpy.arange(0.5, self.ndat)*2.0/self.ndat - 1.0
-        self.nobs = numpy.array(nobs)
+        self.scaled_x = np.arange(0.5, self.ndat)*2.0/self.ndat - 1.0
+        self.nobs = np.array(nobs)
         self.total_obs = self.nobs.sum()
         if len(self.nobs) != self.ndat:
             raise ValueError("x and nobs must have the same length")
@@ -348,11 +348,11 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         if self.nparam < 3 or self.nparam > 5:
             raise ValueError("params requires 3 to 5 values")
         elif self.nparam == 3:
-            self.set_parameters(numpy.hstack((params, [0,0])))
+            self.set_parameters(np.hstack((params, [0,0])))
             self.hold(3, 0.0)
             self.hold(4, 0.0)
         elif self.nparam == 4:
-            self.set_parameters(numpy.hstack((params, [0])))
+            self.set_parameters(np.hstack((params, [0])))
             self.hold(4, 0.0)
             
         self.TOL = TOL
@@ -363,14 +363,14 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         """Gaussian shape at location <x> given parameters <p> 
         with p = [FWHM, center, scale, constant BG, BG slope]."""
         g = (x-p[1])/p[0]
-        tf = abs(p[2])*numpy.exp(-self.FOUR_LN2*g*g)+p[3]
+        tf = abs(p[2])*np.exp(-self.FOUR_LN2*g*g)+p[3]
         if p[4] != 0:
             tf += p[4]*self.scaled_x
         tf[tf < 1e-10] = 1e-10
         return tf
 
-    EIGHT_LN2 = 8*numpy.log(2)
-    FOUR_LN2 = 4*numpy.log(2)
+    EIGHT_LN2 = 8*np.log(2)
+    FOUR_LN2 = 4*np.log(2)
     
     def _mrqcof(self, params):
         """Used by fit to evaluate the linearized fitting matrix alpha and vector beta,
@@ -383,7 +383,7 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         
         nobs = self.nobs
         g = (self.x - params[1])/params[0]
-        h = numpy.exp(-self.FOUR_LN2*g*g)
+        h = np.exp(-self.FOUR_LN2*g*g)
         params[2] = abs(params[2])
 
         y_model = params[2]*h + params[3]
@@ -393,14 +393,14 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         y_model[y_model < 1e-10] = 1e-10
         
         dy_dp1 = self.EIGHT_LN2 * g*h*params[2]/params[0]
-#        dyda = numpy.vstack(( g*dy_dp1, dy_dp1, h, 2*params[3]+numpy.zeros_like(h), self.scaled_x ))
-        dyda = numpy.vstack(( g*dy_dp1, dy_dp1, h, numpy.ones_like(h), self.scaled_x ))
+#        dyda = np.vstack(( g*dy_dp1, dy_dp1, h, 2*params[3]+np.zeros_like(h), self.scaled_x ))
+        dyda = np.vstack(( g*dy_dp1, dy_dp1, h, np.ones_like(h), self.scaled_x ))
         dyda_over_y = dyda/y_model
         y_resid = nobs - y_model
         
         beta = (y_resid*dyda_over_y).sum(axis=1)
         
-        alpha = numpy.zeros((self.mfit,self.mfit), dtype=numpy.float)
+        alpha = np.zeros((self.mfit,self.mfit), dtype=np.float)
         for i in range(self.mfit):
             for j in range(i+1):
                 alpha[i, j] = (nobs*dyda_over_y[i,:]*dyda_over_y[j,:]).sum()
@@ -408,7 +408,7 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
             
         nonzero_obs = nobs > 0
         self.chisq = 2*(y_model.sum()-self.total_obs)  \
-                + 2*(nobs[nonzero_obs]*numpy.log((nobs/y_model)[nonzero_obs])).sum()
+                + 2*(nobs[nonzero_obs]*np.log((nobs/y_model)[nonzero_obs])).sum()
         return alpha, beta
     
     

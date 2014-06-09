@@ -14,14 +14,14 @@ Created on Nov 8, 2011
 
 __all__ = ['WhiteNoiseCovarianceSolver', 'MultiExponentialCovarianceSolver', 'FitExponentialSum']
 
-import numpy
-import scipy.optimize
+import numpy as np
+import scipy as sp
 
 try:
     from mass.mathstat import _factor_covariance
 except ImportError:
-    from mass.mathstat.utilities import MissingLibrary
-    _factor_covariance = MissingLibrary("_factor_covariance.so")
+    from mass.mathstat.utilities import CheckForMissingLibrary
+    _factor_covariance = CheckForMissingLibrary("_factor_covariance.so")
     
 
 class WhiteNoiseCovarianceSolver(object):
@@ -50,29 +50,29 @@ class WhiteNoiseCovarianceSolver(object):
         """Solve the covariance matrix equation Rx=b for x.
         Requires that len(b) <= self.nsamp
         Return: <x>"""
-        return numpy.array(b)/self.variance
+        return np.array(b)/self.variance
     
     def cholesky_product(self, x):
         """Return Lx where LL'=R (that is, L is the lower-triangular Cholesky
         factor of R).  This is useful in that if x is iid Gaussian noise of unit
         variance, then Lx has expected covariance matrix equal to R"""
-        return numpy.array(x)*(self.variance**0.5)
+        return np.array(x)*(self.variance**0.5)
 
     def cholesky_solve(self, x):
         """Return L^-1 x where LL'=R (that is, L is the lower-triangular Cholesky
         factor of R).  This is useful if we want to compute many vector-matrix-vector
         products of the form (a' R^-1 b).  We can instead compute A=L^-1 a and B=L^-1 b
         and the product becomes a simple dot product (a' R^-1 b) = A'B."""
-        return numpy.array(x)/(self.variance**0.5)
+        return np.array(x)/(self.variance**0.5)
       
     def covariance_product(self, x):
         """Return Rx."""
-        return numpy.array(x)*self.variance
+        return np.array(x)*self.variance
         
     def simulate_noise(self, n):
         """Return a vector of length <n> containing correlated multivariate Gaussian
         noise.  The expected covariance of this noise is R."""
-        return numpy.random.standard_normal(n)*(self.variance**0.5)
+        return np.random.standard_normal(n)*(self.variance**0.5)
 
     def plot_covariance(self, nsamp=100, axis=None, **kwargs):
         """Plot the approximated covariance function for the first <nsamp> samples.
@@ -83,8 +83,8 @@ class WhiteNoiseCovarianceSolver(object):
             pylab.clf()
             axis = pylab.subplot(111)
             
-        i = numpy.arange(nsamp, dtype=numpy.float)
-        covar = numpy.zeros(i)
+        i = np.arange(nsamp, dtype=np.float)
+        covar = np.zeros(i)
         covar[0]=self.variance
         axis.plot(covar.real, **kwargs)
         axis.set_xlabel("Samples")
@@ -132,12 +132,12 @@ class MultiExponentialCovarianceSolver(object):
         if nsamp < 2*self.rank:
             raise ValueError("The number of samples (%d) is not at least twice the rank (%d)"
                              % (nsamp, self.rank))
-        if numpy.abs(bases).max() > 1.0:
+        if np.abs(bases).max() > 1.0:
             raise ValueError("The bases must not have absolute values greater than 1.")
 
         # Save the input parameters
-        self.amplitudes = numpy.asarray(amplitudes, dtype=numpy.complex)
-        self.bases = numpy.asarray(bases, dtype=numpy.complex)
+        self.amplitudes = np.asarray(amplitudes, dtype=np.complex)
+        self.bases = np.asarray(bases, dtype=np.complex)
         self.nsamp = nsamp
         
         # Cholesky factor the matrix and save the results in the opaque vector self.cholesky_saved
@@ -208,7 +208,7 @@ class MultiExponentialCovarianceSolver(object):
             raise ValueError("The covariance matrix was factored for only "+
                              "%d samples.  Its Cholesky factor cannot multiply size %d>%d"%(
                                     self.nsamp, n, self.nsamp))
-        white = numpy.random.standard_normal(n)
+        white = np.random.standard_normal(n)
         return self.cholesky_product(white)
 
     def plot_covariance(self, nsamp=None, axis=None, **kwargs):
@@ -224,8 +224,8 @@ class MultiExponentialCovarianceSolver(object):
             pylab.clf()
             axis = pylab.subplot(111)
             
-        i = numpy.arange(nsamp, dtype=numpy.float)
-        covar = numpy.array([a*(b**i) for a,b in zip(self.amplitudes, self.bases)]).sum(axis=0)
+        i = np.arange(nsamp, dtype=np.float)
+        covar = np.array([a*(b**i) for a,b in zip(self.amplitudes, self.bases)]).sum(axis=0)
         axis.plot(covar.real, **kwargs)
         axis.set_xlabel("Samples")
 
@@ -289,7 +289,7 @@ class FitExponentialSum(object):
                 self.ncol = 2
             self.nrow = nsamp-1-self.ncol
         self.nsamp = nsamp
-        self.data = numpy.asarray(data, dtype=numpy.float)[:self.nsamp].copy()
+        self.data = np.asarray(data, dtype=np.float)[:self.nsamp].copy()
         self.svalues = None
         self.lowest_allowed_sval = 0.0
         self.all_svalues = None
@@ -310,7 +310,7 @@ class FitExponentialSum(object):
         value decomposition of all but its lowest row."""
         
         # Build the matrix of data columns
-        A=numpy.zeros((self.nrow, self.ncol), dtype=numpy.float)
+        A=np.zeros((self.nrow, self.ncol), dtype=np.float)
         A[:,0] = self.data[:self.nrow]  # col 0
         if self.randomize:
             # If random columns, then it's not a Hankel matrix.  Sorry.
@@ -319,7 +319,7 @@ class FitExponentialSum(object):
             for col in range(1, ncol_notrandom):
                 A[:-1,col] = A[1:,col-1]
             ncol_random = self.ncol - ncol_notrandom
-            col_choices = numpy.random.permutation( numpy.arange(ncol_notrandom, self.nsamp-self.nrow))[:ncol_random]
+            col_choices = np.random.permutation( np.arange(ncol_notrandom, self.nsamp-self.nrow))[:ncol_random]
             for col,choice in zip(range(ncol_notrandom,self.ncol), col_choices):
                 A[:,col] = self.data[choice:choice+self.nrow]
         else:
@@ -328,9 +328,9 @@ class FitExponentialSum(object):
                 A[:-1,col] = A[1:,col-1]
         
         self.hankel2 = A[1:, :] 
-        # Note that numpy.linalg.svd returns U, Sigma, and what is usually called V_transpose 
+        # Note that np.linalg.svd returns U, Sigma, and what is usually called V_transpose 
         self.svdu, self.all_svalues, self.svdv_t = \
-            numpy.linalg.svd(A[:-1,:], full_matrices=False, compute_uv=True)
+            np.linalg.svd(A[:-1,:], full_matrices=False, compute_uv=True)
         self.svalues = self.all_svalues
         self.lowest_allowed_sval = 0.0
 
@@ -389,11 +389,11 @@ class FitExponentialSum(object):
         self.system = dot(dot(fplus, self.hankel2), gplus)
         
         print 'Solving system of shape ', self.system.shape
-        print '  |system| = %.4g' % numpy.linalg.det(self.system)
-        eigval, _evec = numpy.linalg.eig(self.system)
+        print '  |system| = %.4g' % np.linalg.det(self.system)
+        eigval, _evec = np.linalg.eig(self.system)
         self.bases = eigval
 #        print 'Bases are: ', eigval
-#        print 'Decay times (samples): ', -1./numpy.log(numpy.abs(eigval))
+#        print 'Decay times (samples): ', -1./np.log(np.abs(eigval))
         
     def plot_singular_values(self):
         """Plot the full set of singular values, to help user decide where to cut"""
@@ -422,11 +422,11 @@ class FitExponentialSum(object):
         <complex_bases>.  The number of weights should be len(real_bases) + 2*len(complex_bases)."""
         
         # Positive real bases
-        m = numpy.array([w*(b**x) for w,b in zip(weights, real_bases)]).sum(axis=0)
+        m = np.array([w*(b**x) for w,b in zip(weights, real_bases)]).sum(axis=0)
         
         # Negative bases
         nr = len(real_bases)
-        m += numpy.array([w*((-b)**x)*numpy.cos(numpy.pi*x) for w,b in zip(weights[nr:], negative_bases)]).sum(axis=0)
+        m += np.array([w*((-b)**x)*np.cos(np.pi*x) for w,b in zip(weights[nr:], negative_bases)]).sum(axis=0)
         
         # Complex bases
         nr = len(real_bases)+len(negative_bases)
@@ -459,7 +459,7 @@ class FitExponentialSum(object):
         # Separate real bases from CC pairs.  Sort by base.imag and pair off complex ones that way
         idx = self.bases.imag.argsort()
         pairs = []
-        while len(idx)>0 and numpy.abs(self.bases.imag[idx[0]]) > 1./self.nsamp:
+        while len(idx)>0 and np.abs(self.bases.imag[idx[0]]) > 1./self.nsamp:
             pairs.append(idx[-1])
             idx=idx[1:-1]
         solos=idx
@@ -470,9 +470,9 @@ class FitExponentialSum(object):
 #        print 'Real bases: ',real_bases
 #        print 'Complex bases: ',complex_bases
     
-        powers = numpy.arange(self.nsamp, dtype=numpy.float)
-        fweights = numpy.ones(len(self.bases), dtype=numpy.float)
-        fweights, _stat =  scipy.optimize.leastsq(residual, fweights, 
+        powers = np.arange(self.nsamp, dtype=np.float)
+        fweights = np.ones(len(self.bases), dtype=np.float)
+        fweights, _stat =  sp.optimize.leastsq(residual, fweights, 
                                                   args=(real_bases, negative_bases, 
                                                         complex_bases, powers, self.data))
         self.amplitudes = fweights
@@ -481,22 +481,22 @@ class FitExponentialSum(object):
         self.complex_bases = complex_bases
         if verbose:
             for w,b in zip(fweights, real_bases):
-                log=numpy.log(b)
-                if numpy.isnan(log):
-                    log = numpy.log(-b)+numpy.pi*1j
+                log=np.log(b)
+                if np.isnan(log):
+                    log = np.log(-b)+np.pi*1j
                 print " %10.5f*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w,b.real, b.imag, log.real, log.imag)
             
             nr = len(real_bases)
             for i,nb in enumerate(negative_bases):
                 w = fweights[i+nr]
-                log=numpy.log(-nb)
+                log=np.log(-nb)
                 print " %10.5f*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w,nb.real, nb.imag, log.real, log.imag)
             
             nr = len(real_bases) + len(negative_bases)
             for i,cb in enumerate(complex_bases):
-                log=numpy.log(cb)
-                if numpy.isnan(log):
-                    log = numpy.log(-cb)+numpy.pi*1j
+                log=np.log(cb)
+                if np.isnan(log):
+                    log = np.log(-cb)+np.pi*1j
                 w=fweights[2*i+nr:2*i+nr+2]
                 print " %10.5f *[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[0],cb.real, cb.imag, log.real, log.imag)
                 print "+%10.5fj*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[1],cb.real, cb.imag, log.real, log.imag)
@@ -519,7 +519,7 @@ class FitExponentialSum(object):
             r = stored_amp.pop(0)
             c = stored_amp.pop(0)
             amplitudes.append(r + 1j*c)
-        return numpy.array(amplitudes), numpy.array(bases)
+        return np.array(amplitudes), np.array(bases)
  
     
     def plot(self, axis=None, axis2=None):
@@ -531,7 +531,7 @@ class FitExponentialSum(object):
 
         axis.plot(self.data, label='Data')
         if self.amplitudes is not None:
-            x = numpy.arange(self.nsamp)
+            x = np.arange(self.nsamp)
             y = self.model(x)
             axis.plot(x, y, label='Model')
             axis.set_xlabel("Sample number")
@@ -557,12 +557,12 @@ class FitExponentialSum(object):
         s=['Summary of exponential sum fit:']
         for i,b in enumerate(self.real_bases):
             if b>0:
-                s.append("%11.4f exp(%10.5f t)  [x = %10.6f  tau  = %10.4f]" % (self.amplitudes[i], numpy.log(b)/dt, b, -dt/numpy.log(b)))
+                s.append("%11.4f exp(%10.5f t)  [x = %10.6f  tau  = %10.4f]" % (self.amplitudes[i], np.log(b)/dt, b, -dt/np.log(b)))
             else:
-                s.append("%11.4f exp(%10.5f t)  [x = %10.6f  tau  = %10.4f] (-1)^k" % (self.amplitudes[i], numpy.log(-b)/dt, b, -dt/numpy.log(-b)))
+                s.append("%11.4f exp(%10.5f t)  [x = %10.6f  tau  = %10.4f] (-1)^k" % (self.amplitudes[i], np.log(-b)/dt, b, -dt/np.log(-b)))
         for i,c in enumerate(self.complex_bases):
             j = i*2 + len(self.real_bases)
-            s.append("%11.4f exp(%10.5f t) cos(%10.5f t) tau  = %10.4f" % (self.amplitudes[j], numpy.log(c.real)/dt, c.imag/dt, -dt/numpy.log(c.real)))
-            s.append("%11.4f exp(%10.5f t) sin(%10.5f t) period %10.4f" % (-self.amplitudes[j+1], numpy.log(c.real)/dt, c.imag/dt, 2*numpy.pi*dt/c.imag))
+            s.append("%11.4f exp(%10.5f t) cos(%10.5f t) tau  = %10.4f" % (self.amplitudes[j], np.log(c.real)/dt, c.imag/dt, -dt/np.log(c.real)))
+            s.append("%11.4f exp(%10.5f t) sin(%10.5f t) period %10.4f" % (-self.amplitudes[j+1], np.log(c.real)/dt, c.imag/dt, 2*np.pi*dt/c.imag))
         return "\n".join(s)
 

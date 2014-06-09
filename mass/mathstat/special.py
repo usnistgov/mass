@@ -15,10 +15,11 @@ February 3, 2012
 
 __all__ = ['voigt', 'voigt_approx_fwhm']
 
-import numpy, scipy.special
+import numpy as np
+import scipy.special
 
-_sqrt2 = numpy.sqrt(2.0)
-_sqrt2pi = numpy.sqrt(2.0*numpy.pi)
+_sqrt2 = np.sqrt(2.0)
+_sqrt2pi = np.sqrt(2.0*np.pi)
 
 
 def voigt(x, xctr, hwhm, sigma):
@@ -49,16 +50,16 @@ def voigt(x, xctr, hwhm, sigma):
     z = (x+i*fwhm)/(sigma sqrt(2))
     """
 
-    if not isinstance(x, numpy.ndarray):
-        return voigt( numpy.array(x), xctr, hwhm, sigma)
+    if not isinstance(x, np.ndarray):
+        return voigt( np.array(x), xctr, hwhm, sigma)
 
     # Handle the pure Gaussian limit by itself
     if hwhm == 0.0:
-        return numpy.exp(-0.5*((x-xctr)/sigma)**2) / (sigma*_sqrt2pi)
+        return np.exp(-0.5*((x-xctr)/sigma)**2) / (sigma*_sqrt2pi)
     
     # Handle the pure Lorentzian limit by itself
     if sigma == 0.0:
-        return (hwhm/numpy.pi) / ((x-xctr)**2 + hwhm**2)
+        return (hwhm/np.pi) / ((x-xctr)**2 + hwhm**2)
 
     # General Voigt function
     z = (x-xctr + 1j*hwhm)/(sigma * _sqrt2)
@@ -77,4 +78,4 @@ def voigt_approx_fwhm(fwhm_lorentzian, fwhm_gaussian):
         return fwhm_gaussian
     if fwhm_gaussian == 0.0:
         return fwhm_lorentzian
-    return 0.5346*fwhm_lorentzian + numpy.sqrt(0.2166*(fwhm_lorentzian**2) + fwhm_gaussian**2)
+    return 0.5346*fwhm_lorentzian + np.sqrt(0.2166*(fwhm_lorentzian**2) + fwhm_gaussian**2)

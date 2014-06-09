@@ -8,7 +8,7 @@ Created on Nov 7, 2011
 
 __all__ = ['ToeplitzSolver']
 
-import numpy
+import numpy as np
 
 ## \file utilities.py
 # \brief Several utilities used by Mass, including math, plotting, and other functions.
@@ -71,7 +71,7 @@ class ToeplitzSolver(object):
         ## The non-redundant elements of the Toeplitz matrix.  This will be the top
         # row if symmetric, or otherwise the first column (bottom to top) appended to the rest of
         # the top row. 
-        self.R = numpy.array(R).astype(float)
+        self.R = np.array(R).astype(float)
         
         # It would be good to have a precomputation step for asymmetric matrices, too,
         # but I don't need it now and don't want to spend the time!
@@ -91,7 +91,7 @@ class ToeplitzSolver(object):
         n = self.n
         assert len(y) == n
 
-        zeros = lambda n: numpy.zeros(n, dtype=numpy.float)
+        zeros = lambda n: np.zeros(n, dtype=np.float)
         x = zeros(n)
         g = zeros(n)
         h = zeros(n)
@@ -126,7 +126,7 @@ class ToeplitzSolver(object):
         n = self.n
         assert self.symmetric
 
-        zeros = lambda n: numpy.zeros(n, dtype=numpy.float)
+        zeros = lambda n: np.zeros(n, dtype=np.float)
         g = zeros(n)
         ## The constant denominator of the x_g computation
         self.xg_denom = zeros(n)
@@ -150,7 +150,7 @@ class ToeplitzSolver(object):
         assert len(y) == n
         assert self.symmetric
 
-        zeros = lambda n: numpy.zeros(n, dtype=numpy.float)
+        zeros = lambda n: np.zeros(n, dtype=np.float)
         x = zeros(n)
         g = zeros(n)
 

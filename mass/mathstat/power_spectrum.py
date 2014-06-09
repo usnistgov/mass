@@ -20,7 +20,7 @@ import power_spectrum as ps
 import pylab
 N=1024
 M=N/4
-data=numpy.random.standard_normal(N)
+data=np.random.standard_normal(N)
 spec = ps.PowerSpectrum(M, dt=1e-6)
 window = ps.hann(2*M)
 for i in range(3):
@@ -31,10 +31,10 @@ Or you can use the convenience function that hides the class objects
 from you and simply returns a (frequency,spectrum) pair of arrays:
 
 N=1024
-data=numpy.random.standard_normal(N)
+data=np.random.standard_normal(N)
 pylab.clf()
 for i in (2,4,8,1):
-    f,s = ps.computeSpectrum(data, segfactor=i, dt=1e-6, window=numpy.hanning)
+    f,s = ps.computeSpectrum(data, segfactor=i, dt=1e-6, window=np.hanning)
     pylab.plot(f, s)
 
 Window choices are:
@@ -58,7 +58,7 @@ __all__ = ['PowerSpectrum', 'PowerSpectrumOverlap',
            'bartlett', 'welch', 'hann', 'hamming',
            'computeSpectrum']
 
-import numpy
+import numpy as np
 
 
 class PowerSpectrum(object):
@@ -74,7 +74,7 @@ class PowerSpectrum(object):
         self.m = m
         self.m2 = 2*m
         self.nsegments = 0
-        self.specsum = numpy.zeros(m+1, dtype=numpy.float)
+        self.specsum = np.zeros(m+1, dtype=np.float)
         self.dt = dt
         if dt is None:
             self.dt = 1.0
@@ -95,7 +95,7 @@ class PowerSpectrum(object):
         length and returning a sequence, or a sequence."""
         if len(data) != self.m2:
             raise ValueError("wrong size data segment.  len(data)=%d but require %d"%(len(data), self.m2))
-        if numpy.isnan(data).any():
+        if np.isnan(data).any():
             raise ValueError("data contains NaN")
         if window is None:
             wksp = data
@@ -104,17 +104,17 @@ class PowerSpectrum(object):
             try:
                 w = window(self.m2)
             except TypeError:
-                w = numpy.array(window)
+                w = np.array(window)
             wksp = w*data
             sum_window = (w**2).sum()
 
         scale_factor = 2./(sum_window*self.m2)
         if True: # we want real units
             scale_factor *=  self.dt*self.m2
-        wksp = numpy.fft.rfft(wksp)
+        wksp = np.fft.rfft(wksp)
         
         # The first line adds 2x too much to the first/last bins.
-        ps = numpy.abs(wksp)**2
+        ps = np.abs(wksp)**2
 #        ps[0] *= 0.5
 #        ps[-1] *= 0.5
         self.specsum += scale_factor*ps
@@ -143,8 +143,8 @@ class PowerSpectrum(object):
         if nbins > self.m: 
             raise ValueError("Cannot rebin into more than m=%d bins"%self.m)
     
-        newbin = numpy.asarray(0.5+numpy.arange(self.m+1, dtype=numpy.float)/(self.m+1)*nbins, dtype=numpy.int)
-        result = numpy.zeros(nbins+1, dtype=numpy.float)
+        newbin = np.asarray(0.5+np.arange(self.m+1, dtype=np.float)/(self.m+1)*nbins, dtype=np.int)
+        result = np.zeros(nbins+1, dtype=np.float)
         for i in range (nbins+1):
             result[i] = self.specsum[newbin==i].mean()
         return result/self.nsegments
@@ -158,7 +158,7 @@ class PowerSpectrum(object):
         if nbins is None: nbins=self.m
         if nbins > self.m: 
             raise ValueError("Cannot rebin into more than m=%d bins"%self.m)
-        return numpy.arange(nbins+1, dtype=numpy.float)/(2*self.dt*nbins)
+        return np.arange(nbins+1, dtype=np.float)/(2*self.dt*nbins)
 
 
 
@@ -176,9 +176,9 @@ class PowerSpectrumOverlap(PowerSpectrum):
         "Process a data segment of length m using window."
         if self.first:
             self.first = False
-            self.fullseg = numpy.concatenate((
-                numpy.zeros_like(data),
-                numpy.array(data)))
+            self.fullseg = np.concatenate((
+                np.zeros_like(data),
+                np.array(data)))
         else:
             self.fullseg[0:self.m] = self.fullseg[self.m:]
             self.fullseg[self.m:] = data
@@ -203,22 +203,22 @@ class PowerSpectrumOverlap(PowerSpectrum):
 
 def bartlett(n):
     "A Bartlett window (triangle shape) of length n"
-    return numpy.bartlett(n)
+    return np.bartlett(n)
 
 def welch(n):
     "A Welch window (parabolic) of length n"
-    return 1-(2*numpy.arange(n, dtype=numpy.float)/(n-1.)-1)**2
+    return 1-(2*np.arange(n, dtype=np.float)/(n-1.)-1)**2
 
 def hann(n):
     "A Hann window (sine-squared) of length n"
-    # twopi = numpy.pi*2
-    # i = numpy.arange(n, dtype=numpy.float)
-    # return  0.5*(1.0-numpy.cos(i*twopi/(n-1)))
-    return numpy.hanning(n)
+    # twopi = np.pi*2
+    # i = np.arange(n, dtype=np.float)
+    # return  0.5*(1.0-np.cos(i*twopi/(n-1)))
+    return np.hanning(n)
 
 def hamming(n):
     "A Hamming window (0.08 + 0.92*sine-squared) of length n"
-    return numpy.hamming(n)
+    return np.hamming(n)
 
 # Convenience functions
 
@@ -261,8 +261,8 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
 
 
 import matplotlib.pylab as pylab
-def demo(N=1024, window=numpy.hanning):
-    data=numpy.random.standard_normal(N)
+def demo(N=1024, window=np.hanning):
+    data=np.random.standard_normal(N)
     pylab.clf()
     for i in (2,4,8,1):
         f,s = computeSpectrum(data, segfactor=i, dt=1e0, 
