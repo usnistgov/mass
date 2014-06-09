@@ -15,6 +15,20 @@ discussions:
 2. http://answerpot.com/showthread.php?601643-cython%20and%20f2py
 """
 
+def parse_version_number(VERSIONFILE="mass/_version.py"):
+    # Parse the version number out of the _version.py file without importing it
+    import re
+    
+    verstrline = open(VERSIONFILE, "rt").read()
+    VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
+    mo = re.search(VSRE, verstrline, re.M)
+    if mo:
+        return mo.group(1)
+    else:
+        raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
+
+MASS_VERSION = parse_version_number()
+
 
 import os.path
 
@@ -74,10 +88,10 @@ if __name__ == "__main__":
         
     from numpy.distutils.core import setup as numpy_setup
     numpy_setup(name='mass',
-          version='0.2.3',
+          version=MASS_VERSION,
           author='Joe Fowler',
           author_email='joe.fowler@nist.gov',
-          url = 'http://doc.bqemd.nist.gov/',
+          url = 'https://bitbucket.org/joe_fowler/mass',
           description='Microcalorimeter Analysis Software Suite',
           packages=['mass','mass.core', 'mass.mathstat', 'mass.calibration', 
                     'mass.demo', 'mass.gui'],
@@ -102,7 +116,7 @@ if __name__ == "__main__":
     numpy_include_path = os.path.join(numpy_path, "core", "include")
     
     setup(name='mass',
-          version='0.2.3',
+          version=MASS_VERSION,
           author='Joe Fowler',
           author_email='joe.fowler@nist.gov',
           url = 'https://bitbucket.org/joe_fowler/mass',

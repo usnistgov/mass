@@ -34,10 +34,13 @@ For a demonstration of some capabilities:
 Joe Fowler, NIST Boulder Labs.  November 2010--
 """
 
+from _version import __version__, __version_info__
+
 import mathstat
 import calibration
 import core
-#import gui
+# Do not import gui, as that can be problematic when people don't have 
+# Qt configured as the matplotlib backend.
 
 from core import *
 from calibration import *
