@@ -1024,7 +1024,7 @@ class BaseChannelGroup(object):
             plt.xlabel(channame)
             plt.title("Detector %d: attribute %s"%(i, channame))
             fig = plt.gcf()
-            pf = mass.mathstat.utilities.MouseClickReader(fig)
+            pf = mass.core.utilities.MouseClickReader(fig)
             for i in range(nclicks):
                 while True:
                     plt.waitforbuttonpress()

@@ -1,8 +1,7 @@
 """
-mass.utilities
+mass.mathstat.utilities
 
-Several math utilities, including:
-* A mouse click capturer for mouse feedback from plots.
+Several math utilities.
 
 Joe Fowler, NIST
 
@@ -15,9 +14,8 @@ Started March 24, 2011
 # Other utilities:
 # -# plot_as_stepped_hist, to draw an already computed histogram in the same way that
 #    pylab.hist() would do it.
-# -# MouseClickReader, to capture pointer location on a plot.
 
-__all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky_golay', 'MouseClickReader']
+__all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky_golay']
 
 
 import numpy as np

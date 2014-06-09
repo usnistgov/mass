@@ -7,7 +7,6 @@ import controller
 import fake_data
 import files
 import optimal_filtering
-import workarounds
 
 from channel_group import *
 from channel import *
@@ -25,4 +24,8 @@ __all__.extend(controller.__all__)
 __all__.extend(fake_data.__all__)
 __all__.extend(files.__all__)
 __all__.extend(optimal_filtering.__all__)
+
+# Don't import the contents of these at the top level
+import utilities
+import workarounds
 

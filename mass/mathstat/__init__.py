@@ -6,7 +6,7 @@ Joe Fowler, NIST
 
 
 __all__ = ['factor_covariance', 'fitting', 'interpolate', 'power_spectrum',
-           'robust', 'special', 'toeplitz', 'utilities', 'summarize_and_filter']
+           'robust', 'special', 'toeplitz', 'summarize_and_filter']
 
 
 import factor_covariance
@@ -16,7 +16,6 @@ import power_spectrum
 import robust
 import special
 import toeplitz
-import utilities
 import summarize_and_filter
 
 from factor_covariance import *
@@ -36,6 +35,8 @@ __all__.extend(power_spectrum.__all__)
 __all__.extend(robust.__all__)
 __all__.extend(special.__all__)
 __all__.extend(toeplitz.__all__)
-__all__.extend(utilities.__all__)
 __all__.extend(summarize_and_filter.__all__)
+
+# Don't import the contents of these at the top level
+import utilities
 
