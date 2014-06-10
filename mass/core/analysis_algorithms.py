@@ -69,36 +69,42 @@ def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
 
 
 
-def drift_correct(dataset):
-    """Apply a drift correction to the data in <dataset>, which should be
-    a mass.MicrocalDataset object.
+def drift_correct(indicator, uncorrected, limit=None):
+    """Compute a drift correction that minimizes the spectral entropy of
+    <uncorrected> (a filtered pulse height vector) after correction.
+    The <indicator> vector should be of equal length and should have some 
+    linear correlation with the pulse gain. Generally it will be the
+    pretrigger mean of the pulses, but you can experiment with other choices.
+    
+    The entropy will be computed on corrected values only in the range
+    [0, <limit>], so <limit> should be set to a characteristic large
+    value of <uncorrected>. If <limit> is None (the default), then
+    in will be compute as 25% larger than the 99%ile point of
+    <uncorrected>
     
     The model is that the filtered pulse height PH should be scaled by
     (1 + a*PTM) where a is an arbitrary parameter computed here, and 
     PTM is the difference between each record's pretrigger mean and the
-    median value of all pretrigger means.
+    median value of all pretrigger means. (Or replace "pretrigger mean"
+    with whatever quantity you passed in as <indicator>.)
     """
-    g = dataset.cuts.good()
-    vec = dataset.p_filt_value[g]
-    ptm = dataset.p_pretrig_mean[g]
-    ptm_offset = np.median(ptm)
-    ptm -= ptm_offset
-    limit = 7000
+    ptm_offset = np.median(indicator)
+    indicator = np.array(indicator) - ptm_offset
+    
+    if limit is None:
+        pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
+        limit = 1.25 * pct99
     
     smoother = HistogramSmoother(0.5, [0,limit])
-    def entropy(param, ptm, vec, smoother):
-        vec_dc = vec * (1+ptm*param)
-        hsmooth = smoother(vec_dc)
+    def entropy(param, indicator, uncorrected, smoother):
+        corrected = uncorrected * (1+indicator*param)
+        hsmooth = smoother(corrected)
         w = hsmooth>0
         return -(np.log(hsmooth[w])*hsmooth[w]).sum()
     
-    param = sp.optimize.brent(entropy, (ptm, vec, smoother), brack=[0, .001])
-    print 'Best drift correction parameter: %.6f'%param
+    drift_corr_param = sp.optimize.brent(entropy, (indicator, uncorrected, smoother), brack=[0, .001])
     
-    # Apply correction and remember what it was
-    dataset.p_filt_value_dc = dataset.p_filt_value* \
-        (1+(dataset.p_pretrig_mean-ptm_offset)*param)
-    
-    dataset.drift_correct_info = {'type':'ptmean_gain',
-                                  'slope': param,
+    drift_correct_info = {'type':'ptmean_gain',
+                                  'slope': drift_corr_param,
                                   'median_pretrig_mean': ptm_offset}
+    return drift_corr_param, drift_correct_info

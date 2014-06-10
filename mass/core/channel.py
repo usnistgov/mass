@@ -1200,8 +1200,19 @@ class MicrocalDataSet(object):
     
     def drift_correct(self):
         """Drift correct using the standard entropy-minimizing algorithm"""
-        mass.core.analysis_algorithms.drift_correct(self)
+        g = self.cuts.good()
+        uncorrected = self.p_filt_value[g]
+        indicator = self.p_pretrig_mean[g]
+        drift_corr_param, self.drift_correct_info = \
+            mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
+        print 'Best drift correction parameter: %.6f'%drift_corr_param
         
+        # Apply correction
+        ptm_offset = self.drift_correct_info['median_pretrig_mean']
+        gain = 1+(self.p_pretrig_mean-ptm_offset)*drift_corr_param
+        self.p_filt_value_dc = self.p_filt_value*gain
+         
+            
         
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha', 
                           nbins=200, verbose=True, plot=True, **kwargs):
