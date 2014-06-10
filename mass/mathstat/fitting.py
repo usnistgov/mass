@@ -168,8 +168,8 @@ class MaximumLikelihoodHistogramFitter(object):
         should use that instead as function self.theory_gradient.
         """
         nx = len(x)
-        np = len(p)
-        dyda=np.zeros((np, nx), dtype=np.float)
+        npar = len(p)
+        dyda=np.zeros((npar, nx), dtype=np.float)
         for i,dx in enumerate(self.epsilon):
             p2 = p.copy()
             p2[i]+=dx
