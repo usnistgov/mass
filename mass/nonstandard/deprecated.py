@@ -278,3 +278,50 @@ def fitExponentialRiseTime(ts, dt=1.0, nPretrig=0):
     p0 = -useable.max(), 0.6*(x[-1]-x[0]), useable.max()  
     p, _stat = sp.optimize.leastsq(errfunc, p0, args=(x,y))
     return dt * p[1]
+
+
+def MicrocalDataSet_fit_MnK_lines(self, mask=None, times=None, update_energy=True, verbose=False, plot=True):
+    """Was a method of MicrocalDataSet, but it was badly out of date. Removed
+    June 11, 2014"""
+    
+    if plot:
+        plt.clf()
+        ax1 = plt.subplot(221)
+        ax2 = plt.subplot(222)
+        ax3 = plt.subplot(223)
+    else:
+        ax1 = ax2 = ax3 = None
+    
+    calib = self.calibration['p_filt_value']
+    mnka_range = calib.name2ph('MnKAlpha') * np.array((.99,1.01))
+    params, _covar, _fitter = self.fit_spectral_line(prange=mnka_range, mask=mask, times=times, 
+                                                     fit_type='dc', line='MnKAlpha', verbose=verbose, 
+                                                     plot=plot, axis=ax1)
+    calib.add_cal_point(params[1], 'MnKAlpha')
+
+    mnkb_range = calib.name2ph('MnKBeta') * np.array((.95,1.02))
+#        params[1] = calib.name2ph('Mn Kb')
+#        params[3] *= 0.50
+#        params[4] = 0.0
+    try:
+        mnkb_range = calib.name2ph('MnKBeta') * np.array((.985,1.015))
+        params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, mask=mask, times=times, 
+                                                         fit_type='dc', line='MnKBeta', 
+                                                         verbose=verbose, plot=plot, axis=ax2)
+        calib.add_cal_point(params[1], 'MnKBeta')
+    except sp.linalg.LinAlgError:
+        print "Failed to fit Mn K-beta!"
+    if update_energy: self.p_energy = calib(self.p_filt_value_dc)
+    
+    if plot:
+        calib.plot(axis=plt.subplot(224))
+        self.fit_spectral_line(prange=(5850,5930), mask=mask, times=times, fit_type='energy', line='MnKAlpha', 
+                               verbose=verbose, plot=plot, axis=ax3)
+        ax1.set_xlabel("Filtered, drift-corr. PH")
+        ax2.set_xlabel("Filtered, drift-corr. PH")
+        ax3.set_xlabel("Energy (eV)")
+        ax1.text(.06,.8,'Mn K$\\alpha$', transform=ax1.transAxes)
+        ax2.text(.06,.8,'Mn K$\\beta$', transform=ax2.transAxes)
+        ax3.text(.06,.8,'Mn K$\\alpha$', transform=ax3.transAxes)
+
+

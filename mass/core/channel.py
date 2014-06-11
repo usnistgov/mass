@@ -757,32 +757,6 @@ class MicrocalDataSet(object):
             pass
         fp.close()
 
-    def summarize_data_tdm(self, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0, forceNew = False):
-        """summarized the complete data file one chunk at a time
-        this version does the whole dataset at once (instead of previous segment at a time for all datasets)
-        """
-        if len(self.p_timestamp) < self.pulse_records.nPulses:
-            self.__setup_vectors(nPulses=self.pulse_records.nPulses)
-        elif forceNew or all(self.p_timestamp==0):
-            self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)   
-            # consider setting segment size first
-            printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
-
-            for s in range(self.pulse_records.n_segments):
-                first, last = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
-                self.p_timestamp[first:last] = self.pulse_records.datafile.datatimes_float
-                (self.p_pretrig_mean[first:last], self.p_pretrig_rms[first:last],
-                self.p_peak_index[first:last], self.p_peak_value[first:last], self.p_min_value[first:last],
-                self.p_pulse_average[first:last], self.p_rise_time[first:last], 
-                self.p_max_posttrig_deriv[first:last]) = mass.nonstandard.summarize_and_filter.summarize_old(self.pulse_records.data, 
-                    self.nPresamples, self.pretrigger_ignore_samples, self.timebase, peak_time_microsec)
-                printUpdater.update((s+1)/float(self.pulse_records.n_segments))
-            self.pulse_records.datafile.clear_cached_segment()      
-            if self.auto_pickle:
-                self.pickle(verbose=False)
-        else:
-            print('\nchan %d did not summarize because results were already preloaded'%self.channum)
-
     def summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
         """Summarize the complete data file
         summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0)
@@ -829,26 +803,6 @@ class MicrocalDataSet(object):
                                                             self.nPresamples+maxderiv_holdoff)
 
     
-    def filter_data_tdm(self, filter_name='filt_noconst', transform=None, forceNew=False):
-        """filter the complete data file one chunk at a time
-        this version does the whole dataset at once (instead of previous segment at a time for all datasets)
-        """
-        filter_values = self.filter.__dict__[filter_name]
-        if forceNew or all(self.p_filt_value == 0): # determine if we need to do anything
-            printUpdater = InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
-            for s in range(self.pulse_records.n_segments):
-                first, last = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
-                (self.p_filt_phase[first:last], self.p_filt_value[first:last]) = mass.nonstandard.summarize_and_filter.filter_data_old(
-                filter_values, self.pulse_records.data, transform, self.p_pretrig_mean[first:last])
-                printUpdater.update((s+1)/float(self.pulse_records.n_segments))
-                
-            self.pulse_records.datafile.clear_cached_segment()    
-            if self.auto_pickle:
-                self.pickle(verbose=False)  
-        else:
-            print('\nchan %d did not filter because results were already loaded'%self.channum)
-        
-
     def filter_data(self, filter_values, first, end, transform=None):
         if first >= self.nPulses:
             return None,None
@@ -1138,46 +1092,6 @@ class MicrocalDataSet(object):
         return params, covar, fitter
     
     
-    def fit_MnK_lines(self, mask=None, times=None, update_energy=True, verbose=False, plot=True):
-        """"""
-        
-        if plot:
-            plt.clf()
-            ax1 = plt.subplot(221)
-            ax2 = plt.subplot(222)
-            ax3 = plt.subplot(223)
-        else:
-            ax1 = ax2 = ax3 = None
-        
-        calib = self.calibration['p_filt_value']
-        mnka_range = calib.name2ph('MnKAlpha') * np.array((.99,1.01))
-        params, _covar, _fitter = self.fit_spectral_line(prange=mnka_range, mask=mask, times=times, fit_type='dc', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax1)
-        calib.add_cal_point(params[1], 'MnKAlpha')
-
-        mnkb_range = calib.name2ph('MnKBeta') * np.array((.95,1.02))
-#        params[1] = calib.name2ph('Mn Kb')
-#        params[3] *= 0.50
-#        params[4] = 0.0
-        try:
-            mnkb_range = calib.name2ph('MnKBeta') * np.array((.985,1.015))
-            params, _covar, _fitter = self.fit_spectral_line(prange=mnkb_range, mask=mask, times=times, fit_type='dc', line='MnKBeta', 
-                                                    verbose=verbose, plot=plot, axis=ax2)
-            calib.add_cal_point(params[1], 'MnKBeta')
-        except sp.linalg.LinAlgError:
-            print "Failed to fit Mn K-beta!"
-        if update_energy: self.p_energy = calib(self.p_filt_value_dc)
-        
-        if plot:
-            calib.plot(axis=plt.subplot(224))
-            self.fit_spectral_line(prange=(5850,5930), mask=mask, times=times, fit_type='energy', line='MnKAlpha', verbose=verbose, plot=plot, axis=ax3)
-            ax1.set_xlabel("Filtered, drift-corr. PH")
-            ax2.set_xlabel("Filtered, drift-corr. PH")
-            ax3.set_xlabel("Energy (eV)")
-            ax1.text(.06,.8,'Mn K$\\alpha$', transform=ax1.transAxes)
-            ax2.text(.06,.8,'Mn K$\\beta$', transform=ax2.transAxes)
-            ax3.text(.06,.8,'Mn K$\\alpha$', transform=ax3.transAxes)
-
-
 
 ################################################################################################
 
