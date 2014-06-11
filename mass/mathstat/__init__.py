@@ -16,6 +16,7 @@ import power_spectrum
 import robust
 import special
 import toeplitz
+import utilities
 
 from factor_covariance import *
 from fitting import *
@@ -33,7 +34,7 @@ __all__.extend(power_spectrum.__all__)
 __all__.extend(robust.__all__)
 __all__.extend(special.__all__)
 __all__.extend(toeplitz.__all__)
+__all__.extend(utilities.__all__)
 
 # Don't import the contents of these at the top level
-import utilities
 

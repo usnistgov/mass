@@ -54,10 +54,16 @@ def create_cuts(datagroup, existing_cuts=None):
     
     assert retval == _CutsCreator.Accepted
 
-    cuts = dialog.generate_mass_cuts()
+    cuts, code_text = dialog.generate_mass_cuts()
     if dialog.apply_cuts_check.isChecked():
         for ds in datagroup.datasets:
             ds.apply_cuts(cuts)
+    
+    print 75*'#'
+    print '#   You can copy/paste the following text into a script to re-use these cuts:'
+    print 75*'#'
+    print code_text
+    
     return cuts
 
 
@@ -162,8 +168,10 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                                      use_hist_max=True, hist_max=50, min_allowed=-9999., max_allowed=9999.),
                      CutVectorStatus("Peak Value", use_min=True, cut_min=0.0, min_allowed=0., max_allowed=99999.),
                      CutVectorStatus("Max posttrig dp/dt", use_max=True, cut_max=30.0, min_allowed=0., max_allowed=999.), 
-                     CutVectorStatus("Rise time (ms)", use_max=True, cut_max=0.7, min_allowed=0., max_allowed=25.),
-                     CutVectorStatus("Peak time (ms)", use_max=True, cut_max=0.5, min_allowed=0., max_allowed=25.))
+                     CutVectorStatus("Rise time (ms)", use_max=True, cut_max=0.7, min_allowed=0., max_allowed=25.,
+                                     hist_max=1.0, use_hist_max=True),
+                     CutVectorStatus("Peak time (ms)", use_max=True, cut_max=0.8, min_allowed=0., max_allowed=25.,
+                                     hist_max=1.0, use_hist_max=True))
         
         # If user constructed this with existing cuts, then include them here.
         if existing_cuts is not None:
@@ -193,7 +201,6 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
             exec('minmax = [(ds.%s.min(),ds.%s.max()) for ds in self.data]'
                  %(vector_name,vector_name))
             self.cuts[i].save_actual_range(minmax)
-            print i, self.cuts[i].actual_min, self.cuts[i].actual_max
         
         for button in (self.use_max_cut, self.use_min_cut,
                        self.use_hist_max, self.use_hist_min):
@@ -212,7 +219,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
 
     @pyqtSlot()
     def _apply_all_cuts(self):
-        cuts = self.generate_mass_cuts()
+        cuts, _ignored_text = self.generate_mass_cuts()
         for ds in self.data.datasets:
             ds.apply_cuts(cuts)
     
@@ -423,4 +430,15 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                 rise_time_ms=cuts_rtm,
                 peak_time_ms=cuts_pkt
                 )
-        return cuts
+        code_text = """
+cuts = mass.core.controller.AnalysisControl(
+        pulse_average=%s,
+        pretrigger_rms=%s,
+        pretrigger_mean_departure_from_median=%s,
+        peak_value=%s,
+        max_posttrig_deriv=%s,
+        rise_time_ms=%s,
+        peak_time_ms=%s
+        )"""%(cuts_avg, cuts_rms, cuts_ptm, cuts_pkv,
+             cuts_ptd, cuts_rtm, cuts_pkt)
+        return cuts, code_text
