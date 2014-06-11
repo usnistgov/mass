@@ -15,6 +15,69 @@ import scipy as sp
 # import pylab as plt
 
 
+########################################################################################
+# Pulse summary quantities
+
+def estimateRiseTime(pulse_data, timebase, nPretrig):
+    """Compute the rise time of timeseries <pulse_data>, where the time steps are <timebase>.
+    <pulse_data> can be a 2D array where each row is a different pulse record, in which case
+    the return value will be an array last long as the number of rows in <pulse_data>.
+    
+    If <nPretrig> >= 4, then the samples pulse_data[:nPretrig] are averaged to estimate
+    the baseline.  Otherwise, the minimum of pulse_data is assumed to be the baseline.
+    
+    Specifically, take the first and last of the rising points in the range of 
+    10% to 90% of the peak value, interpolate a line between the two, and use its
+    slope to find the time to rise from 0 to the peak.
+    
+    See also mass.nonstandard.deprecated.fitExponentialRiseTime for a more traditional
+    (and computationally expensive) definition.
+    """
+    MINTHRESH, MAXTHRESH = 0.1, 0.9
+    
+    # If pulse_data is a 1D array, turn it into 2
+    pulse_data = np.asarray(pulse_data)
+    nd = len(pulse_data.shape)
+    if nd>2 or nd<1:
+        raise ValueError("input pulse_data should be a 1d or 2d array.")
+    if nd==1:
+        pulse_data.shape (1, pulse_data.shape[0])
+
+    # The following requires a lot of numpy foo to read. Sorry!
+    if nPretrig >= 4:
+        baseline_value = pulse_data[:, 0:nPretrig].mean(axis=1)
+    else:
+        baseline_value = pulse_data.min(axis=1)
+        nPretrig = 0
+    value_at_peak = pulse_data.max(axis=1) - baseline_value
+    idx_last_pk = pulse_data.argmax(axis=1).max()
+    
+    npulses = pulse_data.shape[0]
+    try:
+        rising_data = ((pulse_data[:,nPretrig:idx_last_pk+1].T - baseline_value) / value_at_peak).T
+        # Find the last and first indices at which the data are in (0.1, 0.9] times the
+        # peak value. Then make sure last is at least 1 past first.
+        last_idx = (rising_data>MAXTHRESH).argmax(axis=1)-1
+        first_idx = (rising_data>MINTHRESH).argmax(axis=1)
+        last_idx[last_idx<first_idx] = first_idx[last_idx<first_idx]+1
+        
+        pulsenum = np.arange(npulses)
+        y_diff = np.asarray(rising_data[pulsenum,last_idx]-rising_data[pulsenum,first_idx],
+                            dtype=float)
+        y_diff[y_diff<timebase] = timebase
+        time_diff = timebase*(last_idx-first_idx)
+        rise_time = time_diff / y_diff
+        rise_time[y_diff <= 0] = -9.9e-6
+        return rise_time
+    
+    except ValueError:
+        return -9.9e-6+np.zeros(npulses, dtype=float)
+
+
+
+########################################################################################
+# Drift correction
+
 class HistogramSmoother(object):
     """Object that can repeatedly smooth histograms with the same bin
     count and width to the same Gaussian width.  By pre-computing the

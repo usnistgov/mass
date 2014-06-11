@@ -526,7 +526,7 @@ def compute_max_deriv(ts, return_index_too=False):
 
 
 class Cuts(object):
-    "Object to hold a mask for each trigger."
+    "Object to hold a 32-bit cut mask for each triggered record."
     
     def __init__(self, n):
         "Create an object to hold n masks of 32 bits each"
@@ -829,7 +829,7 @@ class MicrocalDataSet(object):
                 (self.p_pretrig_mean[first:last], self.p_pretrig_rms[first:last],
                 self.p_peak_index[first:last], self.p_peak_value[first:last], self.p_min_value[first:last],
                 self.p_pulse_average[first:last], self.p_rise_time[first:last], 
-                self.p_max_posttrig_deriv[first:last]) = mass.mathstat.summarize_and_filter.summarize_old(self.pulse_records.data, 
+                self.p_max_posttrig_deriv[first:last]) = mass.nonstandard.summarize_and_filter.summarize_old(self.pulse_records.data, 
                     self.nPresamples, self.pretrigger_ignore_samples, self.timebase, peak_time_microsec)
                 printUpdater.update((s+1)/float(self.pulse_records.n_segments))
             self.pulse_records.datafile.clear_cached_segment()      
@@ -868,18 +868,20 @@ class MicrocalDataSet(object):
         # Remove the pretrigger mean from the peak value and the pulse average figures.
         PTM = self.p_pretrig_mean[first:end]
         self.p_pulse_average[first:end] -= PTM
-        self.p_peak_value[first:end] -= np.asarray(PTM, dtype=int)
+        self.p_peak_value[first:end] -= np.asarray(PTM, dtype=self.p_peak_value.dtype)
         self.p_pulse_rms[first:end] = np.sqrt(
                 (self.data[:seg_size,self.nPresamples:]**2.0).mean(axis=1) -
                 PTM*(PTM + 2*self.p_pulse_average[first:end]))
         self.p_promptness[first:end] = (
                 self.data[:seg_size,self.nPresamples+3:self.nPresamples+7].mean(axis=1)-PTM)/self.p_peak_value[first:end]
 
+        self.p_rise_time[first:end] = \
+            mass.core.analysis_algorithms.estimateRiseTime(self.data, timebase=self.timebase,  
+                                                           nPretrig = self.nPresamples)
+            
         # Compute things that have to be computed one at a time:
         for pulsenum,pulse in enumerate(self.data):
             if pulsenum>=seg_size: break
-            self.p_rise_time[first+pulsenum] = estimateRiseTime(pulse, 
-                                                dt=self.timebase, nPretrig = self.nPresamples)
             self.p_max_posttrig_deriv[first+pulsenum] = \
                 compute_max_deriv(pulse[self.nPresamples + maxderiv_holdoff:])
 
@@ -893,7 +895,7 @@ class MicrocalDataSet(object):
             printUpdater = InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
             for s in range(self.pulse_records.n_segments):
                 first, last = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
-                (self.p_filt_phase[first:last], self.p_filt_value[first:last]) = mass.mathstat.summarize_and_filter.filter_data_old(
+                (self.p_filt_phase[first:last], self.p_filt_value[first:last]) = mass.nonstandard.summarize_and_filter.filter_data_old(
                 filter_values, self.pulse_records.data, transform, self.p_pretrig_mean[first:last])
                 printUpdater.update((s+1)/float(self.pulse_records.n_segments))
                 

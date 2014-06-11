@@ -115,10 +115,10 @@ def compare_summarize(data, nPresamples, pretrigger_ignore_samples):
         print(i, all(out_numba[i]==out_old[i]), numpy.max(out_numba[i]-out_old[i]))
     print('numba took %f ms, old took %f ms, data.dtype=%s'%(1e3*t_numba, 1e3*t_old, data.dtype))
     
-def estimateRiseTime(ts, dt=1.0, nPretrig=0):
-    """Compute the rise time of timeseries <ts>, where the time steps are <dt>.
-    If <nPretrig> >= 4, then the samples ts[:nPretrig] are averaged to estimate
-    the baseline.  Otherwise, the minimum of ts is assumed to be the baseline.
+def estimateRiseTime(pulse_data, dt=1.0, nPretrig=0):
+    """Compute the rise time of timeseries <pulse_data>, where the time steps are <dt>.
+    If <nPretrig> >= 4, then the samples pulse_data[:nPretrig] are averaged to estimate
+    the baseline.  Otherwise, the minimum of pulse_data is assumed to be the baseline.
     
     Specifically, take the first and last of the rising points in the range of 
     10% to 90% of the peak value, interpolate a line between the two, and use its
@@ -131,15 +131,15 @@ def estimateRiseTime(ts, dt=1.0, nPretrig=0):
     
     
     if nPretrig >= 4:
-        baseline_value = ts[0:nPretrig-5].mean()
+        baseline_value = pulse_data[0:nPretrig-5].mean()
     else:
-        baseline_value = ts.min()
+        baseline_value = pulse_data.min()
         nPretrig = 0
-    value_at_peak = ts.max() - baseline_value
-    idxpk = ts.argmax()
+    value_at_peak = pulse_data.max() - baseline_value
+    idxpk = pulse_data.argmax()
 
     try:
-        rising_data = (ts[nPretrig:idxpk+1] - baseline_value) / value_at_peak
+        rising_data = (pulse_data[nPretrig:idxpk+1] - baseline_value) / value_at_peak
         idx = numpy.arange(len(rising_data), dtype=numpy.int)
         last_idx = idx[rising_data<MAXTHRESH].max()
         first_idx = idx[rising_data>MINTHRESH].min()
