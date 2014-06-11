@@ -51,6 +51,25 @@ def MicrocalDataSet_filter_data_tdm(self, filter_name='filt_noconst', transform=
     else:
         print('\nchan %d did not filter because results were already loaded'%self.channum)
         
+        
+def BaseChannelGroup_summarize_data_tdm(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False, forceNew=False):
+    printUpdater = InlineUpdater('summarize_data_tdm')
+    for chan in self.iter_channel_numbers(include_badchan):
+        self.channel[chan].summarize_data_tdm(peak_time_microsec, pretrigger_ignore_microsec, forceNew)    
+        if include_badchan:
+            printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
+        else:
+            printUpdater.update((chan/2+1)/float(self.num_good_channels))
+    
+def BaseChannelGroup_filter_data_tdm(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False):
+    printUpdater = InlineUpdater('filter_data_tdm')
+    for chan in self.iter_channel_numbers(include_badchan):
+        self.channel[chan].filter_data_tdm(filter_name, transform, forceNew)
+        if include_badchan:
+            printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
+        else:
+            printUpdater.update((chan/2+1)/float(self.num_good_channels))
+
 
 
 try:

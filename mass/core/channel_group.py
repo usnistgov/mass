@@ -11,6 +11,11 @@ the same interface to handle both types of data.
 
 That's the goal, at least.
 
+Notice that no one has used CDM data from 2012 to present (June 2014),
+so I moved the CDMGroup class to mass.nonstandard.CDM module. Still, I
+am preserving the separation of BaseChannelGroup (methods common to TDM
+or CDM data) and TESGroup (for TDM data only).
+
 Author: Joe Fowler, NIST
 
 Started March 2, 2011
@@ -19,14 +24,13 @@ __all__=['TESGroup','CDMGroup','CrosstalkVeto', 'unpickle_TESGroup']
 
 import numpy as np
 import pylab as plt
-
-import time, os
-import cPickle
+import os, cPickle
 
 import mass.calibration
 from mass.core.utilities import InlineUpdater
-
 from mass.core.channel import create_pulse_and_noise_records
+
+
 
 class BaseChannelGroup(object):
     """
@@ -161,32 +165,6 @@ class BaseChannelGroup(object):
         self.update_chan_info()
 
     
-#    def pop_dataset(self, dataset_number):
-#        """Remove self.datasets[dataset_number] from the channel group.
-#        Returns the offending dataset just in case you need it."""
-#        if dataset_number >= self.n_channels or dataset_number<0:
-#            raise ValueError("Cannnot remove dataset_number=%d, but only [0,%d]%"%
-#                             (dataset_number, self.n_channels-1))
-#        datasets = list(self.datasets)
-#        removed = datasets.pop(dataset_number)
-#        self.datasets = tuple(datasets)
-#        self.n_channels -= 1
-#        self._setup_channels_list()
-#        return removed
-#
-#
-#    def insert_dataset(self, dataset_number, dataset):
-#        """Insert <dataset> into this group of channels at position
-#        <dataset_number>, which follows the semantics of list.insert()."""
-#        if not isinstance(dataset, mass.MicrocalDataSet):
-#            raise ValueError("Argument dataset must be a mass.MicrocalDataSet.")
-#        datasets = list(self.datasets)
-#        datasets.insert(dataset_number, dataset)
-#        self.datasets = tuple(datasets)
-#        self.n_channels += 1
-#        self._setup_channels_list()
-
-        
     def clear_cache(self):
         """Invalidate any cached raw data."""
         self._cached_segment = None
@@ -240,6 +218,7 @@ class BaseChannelGroup(object):
             print '   Only full "segments" of size %d records can be ignored.'%self.pulses_per_seg
             print '   Will use %d segments and ignore %d.'%(self._allowed_segnums.sum(), self.n_segments-self._allowed_segnums.sum())
 
+
     def iter_segments(self, first_seg=0, end_seg=-1, sample_mask=None, segment_mask=None):
         if self._allowed_segnums is None:
             self.set_data_use_ranges(None)
@@ -279,15 +258,7 @@ class BaseChannelGroup(object):
             for ds in self.iter_channels(include_badchan):
                 ds.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
 
-    def summarize_data_tdm(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False, forceNew=False):
-        printUpdater = InlineUpdater('summarize_data_tdm')
-        for chan in self.iter_channel_numbers(include_badchan):
-            self.channel[chan].summarize_data_tdm(peak_time_microsec, pretrigger_ignore_microsec, forceNew)    
-            if include_badchan:
-                printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
-            else:
-                printUpdater.update((chan/2+1)/float(self.num_good_channels))
-    
+
     def read_trace(self, record_num, dataset_num=0, chan_num=None):
         """Read (from cache or disk) and return the pulse numbered <record_num> for 
         dataset number <dataset_num> or channel number <chan_num>.
@@ -298,10 +269,8 @@ class BaseChannelGroup(object):
         seg_num = record_num / self.pulses_per_seg
         self.read_segment(seg_num)
         return ds.data[record_num % self.pulses_per_seg]
-        
-        
-        
-        
+
+
     def plot_traces(self, pulsenums, dataset_num=0, chan_num=None, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None):
         """Plot some example pulses, given by sample number.
@@ -344,9 +313,6 @@ class BaseChannelGroup(object):
             
         dt = (np.arange(dataset.nSamples)-dataset.nPresamples)*dataset.timebase*1e3
         color= 'purple','blue','green','#88cc00','gold','orange','red', 'brown','gray','#444444','magenta'
-#        ncolors = max(len(pulsenums), 20)
-#        cmap = plt.cm.get_cmap(name='spectral')
-#        color = cmap(np.arange(ncolors,dtype=np.float)/ncolors)
         MAX_TO_SUMMARIZE = 20
         
         if axis is None:
@@ -554,7 +520,7 @@ class BaseChannelGroup(object):
             gains = np.ones(self.n_channels)
             
         # Cut crosstalk only makes sense in CDM data
-        if cut_crosstalk and not isinstance(self, CDMGroup):
+        if cut_crosstalk and not isinstance(self, mass.nonstandard.CDM.CDMGroup):
             print 'Cannot cut crosstalk because this is not CDM data'
             cut_crosstalk = False 
             
@@ -700,6 +666,7 @@ class BaseChannelGroup(object):
                     average_pulses[imask,:] -= average_pulses[imask,:self.nPresamples-ds.pretrigger_ignore_samples].mean()
             ds.average_pulse = average_pulses[ichan,:]
     
+ 
     def plot_average_pulses(self, pulse_id, axis=None, use_legend=True):
         """Plot average pulse number <pulse_id> on matplotlib.Axes <axis>, or
         on a new Axes if <axis> is None.  If <pulse_id> is not a valid channel
@@ -797,7 +764,6 @@ class BaseChannelGroup(object):
             ax2.set_title("chan %d baseline"%(ds.channum))
             for ax in (ax1,ax2): ax.set_xlim([0,self.nSamples])
             ds.filter.plot(axes=(ax1,ax2))
-
         
     
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
@@ -814,14 +780,6 @@ class BaseChannelGroup(object):
                 print "Filter %d can't be used"%i
                 print e
             
-    def filter_data_tdm(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False):
-        printUpdater = InlineUpdater('filter_data_tdm')
-        for chan in self.iter_channel_numbers(include_badchan):
-            self.channel[chan].filter_data_tdm(filter_name, transform, forceNew)
-            if include_badchan:
-                printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
-            else:
-                printUpdater.update((chan/2+1)/float(self.num_good_channels))
 
     def filter_data(self, filter_name=None, transform=None):
         """Filter data sets and store in datasets[*].p_filt_phase and _value.
@@ -854,146 +812,6 @@ class BaseChannelGroup(object):
             ds.p_filt_value_dc  = ds.p_filt_value.copy()
 
             
-    def plot_crosstalk(self, xlim=None, ylim=None, use_legend=True):
-        print('plot_crosstalk no longer works, galen broke it when moving things inside datasets')
-#        plt.clf()
-#        dt = (np.arange(self.nSamples)-self.nPresamples)*1e3*self.timebase
-#        
-#        ndet = self.n_channels
-#        plots_nx, plots_ny = ndet/2, 2
-#        for i in range(ndet):
-#            ax=plt.subplot(plots_nx, plots_ny, 1+i)
-#            self.plot_average_pulses(i, axis=ax, use_legend=use_legend)
-#            plt.plot(dt,self.datasets[i].average_pulses[i]/100,'k--', label="Main pulse/100")
-#            if i+plots_ny<ndet:
-#                ax.set_xlabel("")
-#                ax.set_xticklabels([""])
-#            if xlim is None:
-#                xlim=[-.2,.2]
-#            if ylim is None:
-#                ylim=[-200,200]
-#            plt.xlim(xlim)
-#            plt.ylim(ylim)
-#            if use_legend: 
-#                plt.legend(loc='upper left')
-#            plt.grid()
-#            plt.title("Mean record when TES %d is hit"%i)
-    
-             
-    def estimate_crosstalk(self, plot=True):
-        """Work in progress..."""
-        print('estimate_crosstalk definitley doesnt work even if it ever did, since galen broke it moving things inside datasets')
-#        NMUX = self.n_channels
-#
-#        if plot: 
-#            plt.clf()
-#            ds0 = self.datasets[0]
-#            dt = (np.arange(ds0.nSamples)-ds0.nPresamples)*ds0.timebase*1e3
-#            ax0 = plt.subplot(NMUX,NMUX,1)
-#        crosstalk = []
-#        dot = np.dot
-#        if self.datasets[0].noise_autocorr is None:
-#            self.compute_noise_spectra()
-#        
-#        for i,ds in enumerate( self.datasets):
-#            p = ds.average_pulses[i]
-#            d = np.zeros_like(p)
-#            d[1:] = p[1:]-p[:-1]
-#            
-#            if 'pulse_filt' in ds.__dict__ and 'deriv_filt' in ds.__dict__:
-#                qp = ds.pulse_filt
-#                qd = ds.deriv_filt
-#            else:
-#                print "Solving for TES %2d noise-inv-weighted pulse"%i
-#                R = sp.linalg.toeplitz(ds.noise_autocorr[:len(p)])
-#                Rp = np.linalg.solve(R, p)
-#                print "Solving for TES %2d noise-inv-weighted derivative"%i
-#                Rd = np.linalg.solve(R, d)
-#                del R
-#                
-#                qp = dot(d,Rd)*Rp - dot(d,Rp)*Rd
-#                qd = dot(p,Rp)*Rd - dot(p,Rd)*Rp
-#                qp /= dot(p,qp)
-#                qd /= dot(d,qd)
-#            
-#                # Save filters and the derivative
-#                ds.pulse_filt = qp
-#                ds.deriv_filt = qd
-#                ds.pulse_deriv = d
-#            
-#            # Apply the filters to cross-talk and self-talk.  (!)
-#            ct = []
-#            for j,ds1 in enumerate(self.datasets):
-#                sig = ds1.average_pulses[i]
-#                print "%8.4f %8.4f"%(dot(sig,qp), dot(sig,qd))
-#                ct.append(dot(sig,qp)) # row i, col j
-#                if plot and (i != j):
-#                    ax = plt.subplot(NMUX,NMUX,1+NMUX*j+i, sharex=ax0, sharey=ax0) # row j, col i
-#                    sig2 = sig-dot(sig,qp)*ds.average_pulses[i]
-#                    sig3 = sig2-dot(sig,qd)*ds.pulse_deriv
-#                    plt.plot(dt,sig,color='green')
-#                    plt.plot(dt,sig2,color='red')
-#                    plt.plot(dt,sig3,color='blue')
-#                    plt.xlim([-.5,3])
-#                    plt.xticks((0,1,2,3))
-#                    plt.ylim([-100,100])
-#                    plt.title("TES %d when %d hit"%(j,i))
-#                    rmss=["%5.2f"%(s.std()) for s  in sig,sig2,sig3]
-#                    if sig[100+ds.nPresamples] < 0:
-#                        plt.text(.08,.85,",".join(rmss), transform=ax.transAxes)
-#                    else:
-#                        plt.text(.08,.05,",".join(rmss), transform=ax.transAxes)
-#            crosstalk.append(ct)
-#        return np.array(crosstalk)
-    
-    
-#    def drift_correct_ptmean(self, filt_ranges):
-#        """A hack, but a great simple start on drift correction using the pretrigger mean.
-#        DEPRECATED: see MicrocalDataSet.auto_drift_correct instead."""
-#        
-#        class LineDrawer(object):
-#            def __init__(self, figure):
-#                self.b, self.x, self.y = 0,0,0
-#                self.fig = figure
-#                self.cid = self.fig.canvas.mpl_connect('button_press_event', self)
-#                print "Connected cid=%d"%self.cid
-#            def __call__(self, event):
-#                self.b, self.x, self.y =  event.button, event.xdata, event.ydata
-#            def __del__(self):
-#                self.fig.canvas.mpl_disconnect(self.cid)
-#                print 'Disconnected cid=%d'%self.cid
-#        
-#        for _i,(rng,ds) in enumerate(zip(filt_ranges,self.datasets)):
-#            plt.clf()
-#            fig = plt.gcf()
-#            good = ds.cuts.good()
-#            plt.plot(ds.p_pretrig_mean[good], ds.p_filt_value[good],'.')
-#            plt.ylim(rng)
-#            print "Click button 1 twice to draw a line; click button 2 to quit"
-#            pf = LineDrawer(fig)
-#            x,y=[],[]
-#            line = None
-#            offset,slope = 0.0,0.0
-#            while True:
-#                plt.waitforbuttonpress()
-#                if pf.b > 1: break
-#                x.append(pf.x)
-#                y.append(pf.y)
-#                if len(x)==2:
-#                    if line is not None:
-#                        line.remove()
-#                    line, = plt.plot(x, y, 'r')
-#                    offset = x[0]
-#                    slope = (y[1]-y[0])/(x[1]-x[0])
-#                    if ds.p_filt_value_phc[0]==0: ds.p_filt_value_phc=ds.p_filt_value
-#                    ds.p_filt_value_dc = ds.p_filt_value_phc - (ds.p_pretrig_mean-offset)*slope
-#                    ds.energy = ds.p_filt_value_dc[good]    
-#                    print offset,slope, ' corrects the energy.  Hit button 2 to move on, or try again.'
-#                    x,y = [],[]
-#                
-#            del pf
-
-
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
         """
         Plot histograms of each channel's "energy" spectrum, one channel at a time.
@@ -1101,11 +919,7 @@ class BaseChannelGroup(object):
         for ds in self:
             energy=np.hstack((energy,ds.p_energy[ds.cuts.good()]))
         np.savetxt(filename, energy, fmt='%.10e')
-#        f=open(filename+'.energies','w')
-#        for line in energy:
-#            f.write(line + '\n')
-#        f.close()
-    
+
 
 
 
@@ -1122,7 +936,6 @@ class TESGroup(BaseChannelGroup):
                  auto_pickle=True):
         if noise_filenames is not None and len(noise_filenames)==0:
             noise_filenames = None
-#         BaseChannelGroup.__init__(self, filenames, noise_filenames)
         super(TESGroup, self).__init__(filenames, noise_filenames)
         self.noise_only = noise_only
         
@@ -1436,395 +1249,8 @@ def unpickle_TESGroup(filename, rawpath=None, inclusion_list=None):
         printUpdater.update((ds.index+1)/float(len(data.datasets)))
         ds.unpickle()
     
-#     expected_attr = unpickler.load()
-#     ds = MicrocalDataSet(expected_attr)
-#     ds.cuts._mask = unpickler.load()
-#     try:
-#         while True:
-#             k = unpickler.load()
-#             v = unpickler.load()
-#             ds.__dict__[k] = v
-#     except EOFError:
-#         pass
-#     fp.close()
     return data
         
-
-class CDMGroup(BaseChannelGroup):
-    """
-    A group of *CDM-coupled* microcalorimeters, in that they are code-division
-    multiplexing a set of calorimeters into a set of output data streams.The key
-    is that this object offers the same interface as the TESGroup object (which
-    is rather less complex under the hood than this object).
-    """
-    
-    def __init__(self, filenames, noise_filenames=None, demodulation=None, noise_only=False):
-        """
-        modulation[i,j] (i.e. row i, column j) means contribution to signal in
-        channel i due to detector j.   
-        """
-        BaseChannelGroup.__init__(self, filenames, noise_filenames)
-        if noise_only:
-            self.n_cdm = len(filenames)
-        else:
-            self.n_cdm = self.n_channels  # If >1 column, this won't be true anymore
-
-#        if demodulation is None:
-#            demodulation = np.array(
-#                (( 1, 1, 1, 1),
-#                 (-1, 1, 1,-1),
-#                 (-1,-1, 1, 1),
-#                 (-1, 1,-1, 1)), dtype=np.float)
-        assert demodulation.shape[0] == demodulation.shape[1]
-        assert demodulation.shape[0] == self.n_cdm
-        self.demodulation = demodulation
-        self.idealized_walsh = np.array(demodulation.round(), dtype=np.int16)
-        self.noise_only = noise_only
-
-        pulse_list = []
-        noise_list = [] 
-        demod_list = []
-        for i,fname in enumerate(self.filenames):
-            if noise_filenames is None:
-                pulse, noise = mass.channel.create_pulse_and_noise_records(fname, noise_only=noise_only)
-            else:
-                nf = noise_filenames[i]
-                pulse, noise = mass.channel.create_pulse_and_noise_records(fname, noisename=nf,
-                                                                           noise_only=noise_only)
-            demod = mass.channel.MicrocalDataSet(pulse.__dict__)
-            
-            pulse_list.append(pulse)
-            noise_list.append(noise)
-            demod_list.append(demod)
-
-            if self.n_segments is None:
-                for attr in "n_segments","nPulses","nSamples","nPresamples","timebase":
-                    self.__dict__[attr] = pulse.__dict__[attr]
-            else:
-                assert self.n_segments == pulse.n_segments
-                assert self.nSamples == pulse.nSamples
-                assert self.nPresamples == pulse.nPresamples
-                if self.nPulses > pulse.nPulses:
-                    self.nPulses = pulse.nPulses
-            
-        self.raw_channels = tuple(pulse_list)
-        self.noise_channels = tuple(noise_list)
-        self.datasets= tuple(demod_list)
-        self._setup_channels_list()
-        for ds in self.datasets:
-            if ds.nPulses > self.nPulses:
-                ds.resize(self.nPulses)
-                
-        if len(pulse_list) > 0:
-            self.pulses_per_seg = pulse_list[0].datafile.pulses_per_seg
-        self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
-        self.REMOVE_INFRAME_DRIFT=True
-        
-        # Set master timestamp_offset (seconds)
-        self.timestamp_offset = self.raw_channels[0].timestamp_offset
-        for ch in self.raw_channels:
-            if ch.timestamp_offset != self.timestamp_offset:
-                self.timestamp_offset = None
-                break
-    
-        
-
-    def copy(self):
-        self.clear_cache()
-        g = CDMGroup(self.filenames, self.noise_filenames,
-                     demodulation=self.demodulation, noise_only=self.noise_only)
-        g.__dict__.update(self.__dict__)
-        g.raw_channels = tuple([c.copy() for c in self.raw_channels])
-        g.noise_channels = tuple([c.copy() for c in self.noise_channels])
-        g.noise_channels_demod = tuple([c.copy() for c in self.noise_channels_demod])
-        g.datasets = tuple([c.copy() for c in self.datasets])
-#        g.filters = tuple([f.copy() for f in self.filters])
-        return g
-        
-
-    def set_segment_size(self, seg_size):
-        self.clear_cache()
-        self.n_segments = 0
-        for chan in self.raw_channels:
-            chan.set_segment_size(seg_size)
-            self.n_segments = max(self.n_segments, chan.n_segments)
-        self.pulses_per_seg = self.raw_channels[0].pulses_per_seg
-        for chan in self.raw_channels:
-            assert chan.pulses_per_seg == self.pulses_per_seg
-
-
-    def read_segment(self, segnum, use_cache=True):
-        """
-        Read segment number <segnum> into memory for each of the
-        channels in the group.  
-        When <use_cache> is true, we use cached value when possible
-        
-        Perform linear drift correction and demodulation.
-        
-        Return (first,end) where these are the
-        number of the first record in that segment and 1 more than the
-        number of the last record."""
-
-        if segnum == self._cached_segment and use_cache:
-            return self._cached_pnum_range
-
-        for chan, dset in zip(self.raw_channels, self.datasets):
-            first, end = chan.read_segment(segnum)
-            dset.times = chan.datafile.datatimes_float
-
-        # Remove linear drift
-        seg_size = min([rc.data.shape[0] for rc in self.raw_channels]) # Last seg can be of unequal size!
-        mod_data = np.zeros([self.n_channels, seg_size, self.nSamples], dtype=np.int32)
-        wide_holder = np.zeros([seg_size, self.nSamples], dtype=np.int32)
-        
-#        mod_data[0, :, :] = np.array(self.raw_channels[0].data[:seg_size, :])
-#        for i in range(1, self.n_channels):
-#            if self.REMOVE_INFRAME_DRIFT:
-#                mod_data[i, :, :] =  self.raw_channels[i].data[:seg_size,:]
-#                wide_holder[:, 1:] = self.raw_channels[i].data[:seg_size,:-1]  # Careful never to mult int16 by more than 4! 
-#                mod_data[i, :, 1:] *= (self.n_channels-i)   # Weight to future value
-#                mod_data[i, :, 1:] += i  *wide_holder[:,1:] # Weight to prev value
-#
-#            else:
-#                mod_data[i, :, :] = np.array(self.raw_channels[i].data[:seg_size,:])
-    
-        for i, raw_ch in enumerate(self.raw_channels):
-            mod_data[i, :, :] = np.array(raw_ch.data[:seg_size, :])
-            
-        if self.REMOVE_INFRAME_DRIFT:
-            mod_data[0, :, :] *= self.n_channels
-            for i in range(1, self.n_channels):
-                wide_holder[:, 1:] = self.raw_channels[i].data[:seg_size,:-1]  # Careful never to mult int16 by more than 4! 
-                wide_holder[:, 0] = wide_holder[:, 1]       # Handle boudary case of first sample, where there is no prev value to mix in 
-                mod_data[i, :, :] *= (self.n_channels-i)    # Weight to future value
-                mod_data[i, :, :] += i*wide_holder[:,:]     # Weight to prev value
-
-        # Demodulate.  
-        # If we've done INFRAME DRIFT, then mod_data is too large by a factor of n_channels.  Correct for that: 
-        demodulation = self.demodulation
-        if self.REMOVE_INFRAME_DRIFT:
-            demodulation = self.demodulation.copy()/self.n_channels
-
-        for i_det,dset in enumerate(self.datasets):
-            
-            # For efficiency, don't create a new dset.data vector is it already exists and is the right shape.   
-            try:
-                assert dset.data.shape == (seg_size, self.nSamples)
-                dset.data.flat = 0.0
-            except:
-                dset.data = np.zeros((seg_size, self.nSamples), dtype=np.float)
-            
-            # Multiply by the demodulation matrix    
-            for j in range(self.n_channels):
-                dset.data += demodulation[i_det,j]*mod_data[j, :, :]
-    
-        self._cached_segment = segnum
-        self._cached_pnum_range = first,end
-        return first, end
-
-
-    def summarize_data(self):
-        """
-        Compute summary quantities for each pulse.
-        """
-
-        t0 = time.time()
-        BaseChannelGroup.summarize_data(self)
-
-        # How many detectors were hit in each record?
-        self.nhits = np.array([d.p_pulse_average>50 for d in self.datasets]).sum(axis=0)
-        print "Summarized data in %.0f seconds" %(time.time()-t0)
-        
-
-    def compute_average_pulse(self, masks, subtract_mean=True):
-        """
-        Compute several average pulses in each TES channel, one per mask given in
-        <masks>.  Store the averages in self.datasets.average_pulses with shape (m,n)
-        where m is the number of masks and n equals self.nPulses (the # of records).
-        
-        Note that this method replaces any previously computed self.datasets.average_pulses
-        
-        <masks> is either an array of shape (m,n) or an array (or other sequence) of length
-        (m*n).  It's required that n equal self.nPulses.   In the second case,
-        m must be an integer.  The elements of <masks> should be booleans or interpretable
-        as booleans.
-        
-        If <subtract_mean> is True, then each average pulse will subtract a constant
-        to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
-        """
-        BaseChannelGroup.compute_average_pulse(self, masks, use_crosstalk_masks=True, subtract_mean=subtract_mean)
-        
-        
-    def compute_noise_spectra(self, compute_raw_spectra=False):
-        """
-        Compute the noise power spectral density for demodulated data.
-        
-        <compute_raw_spectra> If True, also compute it for the raw data
-        """
-
-        # First, find out the length of the shortest noise set
-        nrec = 9999999
-        for n in self.noise_channels:
-            if compute_raw_spectra:
-                print "Computing raw power spectrum for %s"%n.filename
-                n.compute_power_spectrum(plot=False)
-            if nrec>n.nPulses:
-                nrec = n.nPulses
-        
-        # Now generate a set of fake channels, where we'll store the demodulated data
-        self.noise_channels_demod = [n.copy() for n in self.noise_channels]
-        for nc in self.noise_channels_demod: nc.data=None
-        shape = (nrec,self.noise_channels[0].nSamples)
-
-        # Demodulate noise
-        print "Demodulating noise for nrec=%d"%nrec
-        for i,nc in enumerate(self.noise_channels_demod):
-            nc.set_fake_data()
-            nc.nPulses = nrec
-            nc.data = np.zeros(shape, dtype=np.float)
-            for j,n in enumerate(self.noise_channels):
-                for first, end, _segnum, data in n.datafile.iter_segments():
-                    if end > nrec:
-                        end = nrec
-                    print i, j, first, end, data.shape, 'is here', self.demodulation[i,j]
-                    nc.data[first:end] += self.demodulation[i,j] * data[:(end-first),:]
-            nc.data -= nc.data.mean()
-            
-        # Compute spectra    
-        for nc,ds in zip(self.noise_channels_demod, self.datasets):
-            print "Computing demodulated noise autocorrelation for %s"%ds
-            nc.compute_autocorrelation(n_lags=self.nSamples, plot=False)
-            print "Computing demodulated power spectrum for %s"%ds
-            nc.compute_power_spectrum(plot=False)
-            ds.noise_spectrum = nc.spectrum
-            ds.noise_autocorr = nc.autocorrelation
-#            ds.noise_demodulated = nc
-
-
-    def plot_noise(self, show_modulated=False, channels=None, scale_factor=1.0, sqrt_psd=False):
-        """Compare the noise power spectra.
-        
-        <show_modulated> Whether to show the raw (modulated) noise spectra, or
-                         only the demodulated spectra.
-        <channels>    Sequence of channels to display.  If None, then show all.
-        <scale_factor> Multiply counts by this number to get physical units. 
-        <sqrt_psd>     Whether to show the sqrt(PSD) or (by default) the PSD itself.
-        """
-        
-        if channels is None:
-            channels = np.arange(self.n_cdm)
-            
-        for ds in self.datasets:
-            if ds.noise_spectrum is None:
-                self.compute_noise_spectra(compute_raw_spectra=True)
-                break
-            
-        
-        plt.clf()
-        if show_modulated:
-            ax1=plt.subplot(211)
-            ax1.set_title("Raw (modulated) channel noise power spectrum")
-            ax2=plt.subplot(212, sharex=ax1, sharey=ax1)
-            axes=(ax1,ax2)
-        else:
-            ax2=plt.subplot(111)
-            axes=(ax2,)
-            
-        ax2.set_title("Demodulated TES noise power spectrum SCALED BY 1/%d"%self.n_cdm)
-        for a in axes:
-            a.set_color_cycle(self.colors)
-            a.set_xlabel("Frequency (Hz)")
-            a.loglog()
-            a.grid()
-        
-        if show_modulated:
-            for i,n in enumerate(self.noise_channels):
-                n.plot_power_spectrum(axis=ax1, label='Row %d'%i)
-            plt.legend(loc='upper right')
-            
-        for i,ds in enumerate(self.datasets):
-            if i not in channels: continue
-            yvalue = ds.noise_spectrum.spectrum()*scale_factor**2
-            if sqrt_psd:
-                yvalue = np.sqrt(yvalue)
-            plt.plot(ds.noise_spectrum.frequencies(), yvalue,
-                       label='TES %d'%i, color=self.colors[i])
-        plt.legend(loc='lower left')
-
-
-    def plot_noise_autocorrelation(self, axis=None, channels=None):
-        """Compare the noise autocorrelation functions.
-        
-        <channels>    Sequence of channels to display.  If None, then show all. 
-        """
-        
-        if channels is None:
-            channels = np.arange(self.n_channels)
-
-        if axis is None:
-            plt.clf()
-            axis = plt.subplot(111)
-            
-        axis.grid(True)
-        for i,noise in enumerate(self.noise_channels_demod):
-            if i not in channels: continue
-            noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=self.colors[i%len(self.colors)])
-#        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
-        plt.legend(loc='upper right')    
-
-    
-    def plot_undecimated_noise(self, ndata=None):
-        """Show the noise as if """
-        np = np.array([nc.nPulses for nc in self.noise_channels]).min()
-        if ndata is None:
-            ndata = np*self.noise_channels[0].nSamples
-        assert ndata<=1024*1024
-        data = np.asarray(np.vstack([nc.data[:np,:].ravel()[:ndata] for nc in self.noise_channels]), dtype=np.int16)
-        for r in data:
-            r -= r.mean()
-        data=data.T.ravel()
-
-        segfactor=max(8, ndata/1024)
-        
-        freq, psd = mass.power_spectrum.computeSpectrum(data, segfactor=segfactor, dt=self.timebase/self.n_cdm, window=mass.power_spectrum.hamming)
-        plt.clf()
-        plt.plot(freq, psd)
-    
-    def update_demodulation(self, relative_response):
-        relative_response = np.asmatrix(relative_response)
-        if relative_response.shape != (self.n_channels,self.n_channels):
-            raise ValueError("The relative_response matrix needs to be of shape (%d,%d)"%
-                             (self.n_channels, self.n_channels))
-            
-        self.demodulation = np.dot( relative_response.I, self.demodulation)
-
-
-    def plot_modulated_demodulated(self, pulsenum=119148, modulated_offsets=np.arange(15000,-1,-5000), xlim=[-5,15.726]):
-        "Plot one record both modulated and demodulated"
-        
-        self.ms = (np.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
-        plt.clf()
-        
-        self.read_trace(pulsenum)
-        n = pulsenum - self._cached_pnum_range[0]
-        plt.subplot(211)
-        if modulated_offsets is None:
-            modulated_offsets = (0,0,0,0)
-        for i,rc in enumerate(self.raw_channels):
-            plt.plot(self.ms, rc.data[n,:]+modulated_offsets[i]-rc.data[n,:self.nPresamples].mean(), color=self.colors[i], label='SQUID sw%d'%i)
-        if xlim is not None: plt.xlim(xlim)
-        plt.legend(loc='upper left')
-        plt.title("Modulated (raw) signal")
-        
-
-        plt.subplot(212)
-        for i,ds in enumerate(self.datasets):
-            plt.plot(self.ms, ds.data[n,:]-ds.p_pretrig_mean[pulsenum], color=self.colors[i], label='TES %d'%i)
-        if xlim is not None: plt.xlim(xlim)
-        plt.legend(loc='upper left')
-        plt.title("Demodulated signal")
-        plt.xlabel("Time since trigger (ms)")
-
 
 
 
