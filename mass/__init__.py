@@ -39,6 +39,7 @@ from _version import __version__, __version_info__
 import mathstat
 import calibration
 import core
+import nonstandard
 # Do not import gui, as that can be problematic when people don't have 
 # Qt configured as the matplotlib backend.
 

@@ -240,3 +240,41 @@ def MicrocalDataSet_auto_drift_correct(self, prange=None, times=None, plot=False
     return best_slope, mean_pretrig_mean
 
 
+
+def fitExponentialRiseTime(ts, dt=1.0, nPretrig=0):
+    """Compute the rise time of timeseries <ts>, where the time steps are <dt>.
+    If <nPretrig> >0, then the samples ts[:nPretrig] are averaged to estimate
+    the baseline.  Otherwise, the minimum of ts is assumed to be the baseline.
+    
+    Specifically, fit an exponential to the rising points in the range of 10% to 90% of the peak
+    value and use its slope to compute the time to rise from 0 to the peak.
+    
+    See also estimateRiseTime
+    
+    Problem with this was it was way too slow to use in real life!
+    """
+    MINTHRESH, MAXTHRESH = 0.1, 0.9
+    
+    if nPretrig > 0:
+        baseline_value = ts[0:nPretrig].mean()
+    else:
+        baseline_value = ts.min()
+        nPretrig = 0
+    valpk = ts.max() - baseline_value
+    idxpk = ts.argmax()
+    useable = ts[nPretrig:idxpk] - baseline_value
+    idx = np.arange(len(useable))
+    last_idx = idx[useable<MAXTHRESH*valpk].max()
+    first_idx = idx[useable>MINTHRESH*valpk].min()
+    if (last_idx-first_idx) < 4:
+        raise ValueError("Cannot make an exponential fit to only %d points!"%
+                         (last_idx-first_idx+1))
+    
+    x, y = idx[first_idx:last_idx+1], useable[first_idx:last_idx+1]
+    
+    fitfunc = lambda p, x: p[0]*np.exp(-x/p[1])+p[2]
+    errfunc = lambda p, x, y: fitfunc(p, x) - y
+    
+    p0 = -useable.max(), 0.6*(x[-1]-x[0]), useable.max()  
+    p, _stat = sp.optimize.leastsq(errfunc, p0, args=(x,y))
+    return dt * p[1]

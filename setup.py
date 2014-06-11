@@ -94,7 +94,7 @@ if __name__ == "__main__":
           url = 'https://bitbucket.org/joe_fowler/mass',
           description='Microcalorimeter Analysis Software Suite',
           packages=['mass','mass.core', 'mass.mathstat', 'mass.calibration', 
-                    'mass.demo', 'mass.gui'],
+                    'mass.demo', 'mass.gui', 'mass.nonstandard'],
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
                         }
