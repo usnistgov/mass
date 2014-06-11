@@ -202,6 +202,10 @@ def _dataset_command(pulse_files, noise_files):
     to re-generate this dataset in the future."""
     
     np, nn = len(pulse_files), len(noise_files)
+    pulse_only = (nn==0)
+    noise_only = (np==0)
+    if pulse_only and noise_only:
+        return ""
     dir_p = dir_n = None
     lines=[]
     channels=[]
@@ -216,18 +220,15 @@ def _dataset_command(pulse_files, noise_files):
 
     if nn>0:
         dir_n, name = os.path.split(noise_files[0])
-        lines.append('dir_n = "%s"'%dir_p)
+        lines.append('dir_n = "%s"'%dir_n)
         prefix,after = name.split('_chan')
         suffix = after.split(".")[1]
         lines.append('prefix_n, suffix_n = "%s","%s"'%(prefix, suffix))
     
     # Use the pulse or noise file list to find channel numbers
-    if np>0:
-        file_list = pulse_files
-    elif nn>0:
+    file_list = pulse_files
+    if noise_only:
         file_list = noise_files
-    else:
-        return ""
         
     for pf in file_list:
         name=os.path.split(pf)[1]
@@ -238,19 +239,19 @@ def _dataset_command(pulse_files, noise_files):
     # Now construct the pulse_files and noise_files lists and generate the command
     args = []
     extra = []
-    if np>0:
+    if noise_only:
+        extra.append("noise_only=True")
+    else:
         lines.append(
             'pulse_files=["%s/%s_chan%d.%s"%(dir_p, prefix_p, c, suffix_p) for c in channels]')
         args.append('pulse_files')
-    else:
-        extra.append("noise_only=True")
 
-    if nn>0:
+    if pulse_only:
+        extra.append("pulse_only=True")
+    else:
         lines.append(
             'noise_files=["%s/%s_chan%d.%s"%(dir_n, prefix_n, c, suffix_n) for c in channels]')
         args.append('noise_files')
-    else:
-        extra.append("pulse_only=True")
     args.extend(extra)
     command = 'data = mass.TESGroup(%s)'%(', '.join(args))
     lines.append(command)
