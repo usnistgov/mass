@@ -196,6 +196,69 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         return file_list
 
 
+
+def _dataset_command(pulse_files, noise_files):
+    """Returns a string containing executable python code that user can save
+    to re-generate this dataset in the future."""
+    
+    np, nn = len(pulse_files), len(noise_files)
+    dir_p = dir_n = None
+    lines=[]
+    channels=[]
+    
+    # Find file conventions for the pulse and the noise files
+    if np>0:
+        dir_p, name = os.path.split(pulse_files[0])
+        lines.append('dir_p = "%s"'%dir_p)
+        prefix,after = name.split('_chan')
+        suffix = after.split(".")[1]
+        lines.append('prefix_p, suffix_p = "%s","%s"'%(prefix, suffix))
+
+    if nn>0:
+        dir_n, name = os.path.split(noise_files[0])
+        lines.append('dir_n = "%s"'%dir_p)
+        prefix,after = name.split('_chan')
+        suffix = after.split(".")[1]
+        lines.append('prefix_n, suffix_n = "%s","%s"'%(prefix, suffix))
+    
+    # Use the pulse or noise file list to find channel numbers
+    if np>0:
+        file_list = pulse_files
+    elif nn>0:
+        file_list = noise_files
+    else:
+        return ""
+        
+    for pf in file_list:
+        name=os.path.split(pf)[1]
+        cnum = name.split('_chan')[1].split(".")[0]
+        channels.append(cnum)
+    lines.append('channels=(%s)'%(','.join(channels)))
+
+    # Now construct the pulse_files and noise_files lists and generate the command
+    args = []
+    extra = []
+    if np>0:
+        lines.append(
+            'pulse_files=["%s/%s_chan%d.%s"%(dir_p, prefix_p, c, suffix_p) for c in channels]')
+        args.append('pulse_files')
+    else:
+        extra.append("noise_only=True")
+
+    if nn>0:
+        lines.append(
+            'noise_files=["%s/%s_chan%d.%s"%(dir_n, prefix_n, c, suffix_n) for c in channels]')
+        args.append('noise_files')
+    else:
+        extra.append("pulse_only=True")
+    args.extend(extra)
+    command = 'data = mass.TESGroup(%s)'%(', '.join(args))
+    lines.append(command)
+    lines.append('\n')
+    return "\n".join(lines)
+
+
+
 def create_dataset(default_directory="", disabled_channels=()):
     """
     Use the _DataLoader dialog class to generate lists of pulse files, noise files, or both; to
@@ -228,6 +291,15 @@ def create_dataset(default_directory="", disabled_channels=()):
             data = mass.TESGroup(noise_files, noise_only=True)
         else:
             return None
+
+    print 75*'#'
+    print '#   Use the following Python code in your script to generate this data set in the future'
+    print 75*'#'
+    print _dataset_command(pulse_files, noise_files)
+    print 75*'#'
+    print '# End of code'
+    print 75*'#'
+    
     if dialog.summarize_on_load.isChecked():
         data.summarize_data()
     return data

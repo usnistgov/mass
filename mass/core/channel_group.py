@@ -1122,7 +1122,8 @@ class TESGroup(BaseChannelGroup):
                  auto_pickle=True):
         if noise_filenames is not None and len(noise_filenames)==0:
             noise_filenames = None
-        BaseChannelGroup.__init__(self, filenames, noise_filenames)
+#         BaseChannelGroup.__init__(self, filenames, noise_filenames)
+        super(TESGroup, self).__init__(filenames, noise_filenames)
         self.noise_only = noise_only
         
         pulse_list = []
