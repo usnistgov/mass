@@ -489,42 +489,6 @@ class PulseRecords(object):
         
 ##########################################################################################
 
-def compute_max_deriv(ts, return_index_too=False):
-    """Compute the maximum derivative in timeseries <ts>.
-    
-    Return the value of the maximum derivative (units of <ts units> per sample).
-    
-    If <return_index_too> then return a tuple with the derivative AND the index from
-    <ts> where the derivative is highest.
-    
-    We estimate it by Savitzky-Golay filtering (with 1 point before/3 points after
-    the point in question and fitting polynomial of order 3).  Find the right general
-    area by first doing a simple difference."""
-    
-    ts = 1.0*ts # so that there are no unsigned ints!
-    rough_imax = 1 + (ts[2:]-ts[:-2]).argmax()
-    
-    first,end = rough_imax-12, rough_imax+12
-    if first<0: first=0
-    if end>len(ts): end=len(ts)
-    
-    # Can't even do convolution if there aren't enough data.
-    if end-first < 9: 
-        return 0.5*(ts[rough_imax+1]-ts[rough_imax-1])
-    
-    # This filter is the Savitzky-Golay filter of n_L=1, n_R=3 and M=3, to use the
-    # language of Numerical Recipes 3rd edition.  It amounts to least-squares fitting
-    # of an M=3rd order polynomial to the five points [-1,+3] and
-    # finding the slope of the polynomial at 0.
-    filter_coef = np.array([ -0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905,   ])[::-1]
-    conv = np.convolve(ts[first:end], filter_coef, mode='valid')
-    
-    if return_index_too:
-        return first + 2 + conv.argmax() # This would be the index.
-    return conv.max()
-
-
-
 class Cuts(object):
     "Object to hold a 32-bit cut mask for each triggered record."
     
@@ -710,25 +674,6 @@ class MicrocalDataSet(object):
             c.noise_spectrum = self.noise_spectrum.copy()
         return c
 
-#    def save_mass_data(self, dataname, *args, **kwargs):
-#        basedir, basename = os.path.split(self.filename)
-#        basename, baseext = os.path.splitext(basename)
-#        massdir = os.path.join(basedir, "mass")
-#        if not os.path.isdir(massdir):
-#            os.mkdir(massdir, 0775)
-#        filename = os.path.join(massdir, '%s_%s'%(basename, dataname))
-#        np.savez(filename, *args, **kwargs)
-#        
-#    def load_mass_data(self, dataname):
-#        basedir, basename = os.path.split(self.filename)
-#        basename, baseext = os.path.splitext(basename)
-#        massdir = os.path.join(basedir, 'mass')
-#        filename = os.path.join(massdir, '%s_%s.%s'%(basename, dataname,'npz'))
-#        try:
-#            data_out = np.load(filename)
-#        except IOError:
-#            data_out = None
-#        return data_out
 
     def pickle(self, filename=None, verbose=True):
         """Pickle the _contents_ of the MicrocalDataSet object.
@@ -878,12 +823,10 @@ class MicrocalDataSet(object):
         self.p_rise_time[first:end] = \
             mass.core.analysis_algorithms.estimateRiseTime(self.data, timebase=self.timebase,  
                                                            nPretrig = self.nPresamples)
-            
-        # Compute things that have to be computed one at a time:
-        for pulsenum,pulse in enumerate(self.data):
-            if pulsenum>=seg_size: break
-            self.p_max_posttrig_deriv[first+pulsenum] = \
-                compute_max_deriv(pulse[self.nPresamples + maxderiv_holdoff:])
+        
+        self.p_max_posttrig_deriv[first:end] = \
+            mass.core.analysis_algorithms.compute_max_deriv(self.data, ignore_leading =
+                                                            self.nPresamples+maxderiv_holdoff)
 
     
     def filter_data_tdm(self, filter_name='filt_noconst', transform=None, forceNew=False):
