@@ -338,7 +338,9 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
 
         hist_all=[]
         hist_good=[]
+        dsnum2channum=numpy.zeros(self.data.n_channels, dtype=int)
         for dsnum,ds in enumerate(self.data.datasets): 
+            dsnum2channum[dsnum] = ds.channum
             raw = (ds.p_pulse_average,
                    ds.p_pretrig_rms,
                    ds.p_pretrig_mean,
@@ -397,7 +399,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                 if (h1 != h2).any():
                     mass.plot_as_stepped_hist(subaxis, h1+this_offset, bins, color='gray')
                 mass.plot_as_stepped_hist(subaxis, h2+this_offset, bins, color=color)
-                subaxis.text(bins[5], 0.2*offset+this_offset, "Channel %d"%dsnum, color=color)
+                subaxis.text(bins[5], 0.2*offset+this_offset, "Channel %d"%dsnum2channum[dsnum], color=color)
                 n_offsets_per_sub[subaxis_number[dsnum]] += 1
             
         xlabel = ("Pulse average","Pretrigger RMS","Pretrigger mean (median subtracted)", "Peak Value",
