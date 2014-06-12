@@ -667,9 +667,9 @@ class BaseChannelGroup(object):
             ds.average_pulse = average_pulses[ichan,:]
     
  
-    def plot_average_pulses(self, pulse_id, axis=None, use_legend=True):
-        """Plot average pulse number <pulse_id> on matplotlib.Axes <axis>, or
-        on a new Axes if <axis> is None.  If <pulse_id> is not a valid channel
+    def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
+        """Plot average pulse for cahannel number <channum> on matplotlib.Axes <axis>, or
+        on a new Axes if <axis> is None.  If <channum> is not a valid channel
         number, then plot all average pulses."""
         if axis is None:
             plt.clf()
@@ -678,8 +678,11 @@ class BaseChannelGroup(object):
         axis.set_color_cycle(self.colors)
         dt = (np.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
         
-        for ds in self:
-            plt.plot(dt,ds.average_pulse, label="chan %d"%ds.channum)
+        if channum in self.channel:
+            plt.plot(dt, self.channel[channum].average_pulse, label='Chan %d'%channum)
+        else:
+            for ds in self:
+                plt.plot(dt,ds.average_pulse, label="Chan %d"%ds.channum)
 
         axis.set_title("Average pulse for each channel when it is hit")
 
