@@ -12,7 +12,6 @@ __all__ = ['make_smooth_histogram', 'HistogramSmoother']
 
 import numpy as np
 import scipy as sp
-import scipy.signal
 # import pylab as plt
 
 
@@ -76,19 +75,25 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
 
 
 
-def compute_max_deriv(pulse_data, ignore_leading, return_index_too=False):
+def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
     """Compute the maximum derivative in timeseries <pulse_data>.
     <pulse_data> can be a 2D array where each row is a different pulse record, in which case
     the return value will be an array last long as the number of rows in <pulse_data>.
     
     Return the value of the maximum derivative (units of <pulse_data units> per sample).
     
-    If <return_index_too> then return a tuple with the derivative AND the index from
-    <pulse_data> where the derivative is highest.
+    If <spike_reject>, then 
     
-    We estimate it by Savitzky-Golay filtering (with 1 point before/3 points after
-    the point in question and fitting polynomial of order 3).  Find the right general
-    area by first doing a simple difference."""
+    <kernel> is the linear filter against which the signals will be convolved
+    (CONVOLED, no correlated, so reverse the filter as needed). If None, then the
+    default kernel of [+.2 +.1 0 -.1 -.2] will be used. If "SG", then the cubic 5-point
+    Savitzky-Golay filter will be used (see below). Otherwise, <kernel> needs to be a
+    (short) array which will be converted to a 1xN 2-dimensional np.ndarray.
+    
+    When kernel=="SG", then we estimate the derivative by Savitzky-Golay filtering 
+    (with 1 point before/3 points after the point in question and fitting polynomial 
+    of order 3).  Find the right general area by first doing a simple difference.
+    """
     
     # If pulse_data is a 1D array, turn it into 2
     pulse_data = np.asarray(pulse_data)
@@ -100,43 +105,53 @@ def compute_max_deriv(pulse_data, ignore_leading, return_index_too=False):
     pulse_data = np.array(pulse_data[:,ignore_leading:], dtype=float)
     NPulse, NSamp = pulse_data.shape
 
-    # Get a rough estimate of the place where pulse derivative is largest
-    # by taking difference between samples i+1 and i-1.
-    rough_imax = 1 + (pulse_data[:,2:]-pulse_data[:,:-2]).argmax(axis=1)
-    HALFRANGE=12
-    
-    # If samples are too few, then rough is all we get.
-    if NSamp < 2*HALFRANGE:
-        approx_deriv = (pulse_data[:,2:]-pulse_data[:,:-2]).max(axis=1)
-        if return_index_too:
-            return approx_deriv, rough_imax
-        return approx_deriv
+#     # Get a rough estimate of the place where pulse derivative is largest
+#     # by taking difference between samples i+1 and i-1.
+#     rough_imax = 1 + (pulse_data[:,2:]-pulse_data[:,:-2]).argmax(axis=1)
+#     HALFRANGE=12
+#     
+#     # If samples are too few, then rough is all we get.
+#     if NSamp < 2*HALFRANGE:
+#         approx_deriv = (pulse_data[:,2:]-pulse_data[:,:-2]).max(axis=1)
+#         if return_index_too:
+#             return approx_deriv, rough_imax
+#         return approx_deriv
+#         
+#     # Go +- 12 around that rough estimate, but bring into allowed
+#     # range [0,NSamp)
+#     first,end = rough_imax-HALFRANGE, rough_imax+HALFRANGE
+#     end[first<0] = 2*HALFRANGE
+#     first[first<0] = 0
+#     first[end>=NSamp] = NSamp-2*HALFRANGE
+#     end[end>=NSamp] = NSamp
+#     
+#     # Now trim the pulse_data, allowing us to filter only 
+#     trimmed_data = np.zeros((NPulse, 2*HALFRANGE),dtype=float)
+#     for r,data in enumerate(pulse_data):
+#         trimmed_data[r,:] = data[first[r]:end[r]]
+
+    # The default filter:    
+    filter_coef = np.array([+.2, +.1, 0, -.1, -.2])
+    if kernel == "SG":
+        # This filter is the Savitzky-Golay filter of n_L=1, n_R=3 and M=3, to use the
+        # language of Numerical Recipes 3rd edition.  It amounts to least-squares fitting
+        # of an M=3rd order polynomial to the five points [-1,+3] and
+        # finding the slope of the polynomial at 0.
+        # Note that we reverse the order of coefficients because convolution will re-reverse
+        filter_coef = np.array([ -0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905,   ])[::-1]
         
-    # Go +- 12 around that rough estimate, but bring into allowed
-    # range [0,NSamp)
-    first,end = rough_imax-HALFRANGE, rough_imax+HALFRANGE
-    end[first<0] = 2*HALFRANGE
-    first[first<0] = 0
-    first[end>=NSamp] = NSamp-2*HALFRANGE
-    end[end>=NSamp] = NSamp
+    elif kernel is not None:
+        filter_coef = np.array(kernel).ravel()
     
-    # Now trim the pulse_data
-    trimmed_data = np.zeros((NPulse, 2*HALFRANGE),dtype=float)
-    for r,data in enumerate(pulse_data):
-        trimmed_data[r,:] = data[first[r]:end[r]]
-    
-    # This filter is the Savitzky-Golay filter of n_L=1, n_R=3 and M=3, to use the
-    # language of Numerical Recipes 3rd edition.  It amounts to least-squares fitting
-    # of an M=3rd order polynomial to the five points [-1,+3] and
-    # finding the slope of the polynomial at 0.
-    # Note that we reverse the order of coefficients because convolution will re-reverse
-    filter_coef = np.array([ -0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905,   ])[::-1]
-    filter_coef.shape = (1,5)
-    conv = scipy.signal.fftconvolve(trimmed_data, filter_coef, mode='valid')
-    
-    max_deriv = conv.max(axis=1)
-    if return_index_too:
-        return max_deriv, first + 2 + conv.argmax(axis=1) # This would be the index.
+    # Use np.convolve, not scipy.signal.fftconvolve for small kernels.  A test showed that
+    # np.convolve was 10x faster in typical use.
+    max_deriv = np.zeros(NPulse, dtype=float)
+    for i, data in enumerate(pulse_data):
+        conv = np.convolve(data, filter_coef, mode='valid')
+        if spike_reject:
+            conv = np.fmin(conv[2:], conv[:-2])
+        max_deriv[i] = np.max(conv)
+        
     return max_deriv
 
 
