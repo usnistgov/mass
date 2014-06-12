@@ -20,7 +20,7 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
-__all__=['TESGroup','CDMGroup','CrosstalkVeto', 'unpickle_TESGroup']
+__all__=['TESGroup','CrosstalkVeto', 'unpickle_TESGroup']
 
 import numpy as np
 import pylab as plt
@@ -882,10 +882,10 @@ class BaseChannelGroup(object):
             ng = ds.cuts.nUncut()
             good = ds.cuts.good()
             dt = (ds.p_timestamp[good][-1]*1.0 - ds.p_timestamp[good][0])  # seconds
-            np = np.arange(len(good))[good][-1] - good.argmax() + 1
-            rate = (np-1.0)/dt
+            npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
+            rate = (npulse-1.0)/dt
 #            grate = (ng-1.0)/dt
-            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good'%(ds.channum, np, rate, dt/3600., 100.0*ng/np)
+            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good'%(ds.channum, npulse, rate, dt/3600., 100.0*ng/npulse)
 
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
