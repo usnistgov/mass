@@ -792,7 +792,7 @@ class MicrocalDataSet(object):
                 (self.data[:seg_size,self.nPresamples:]**2.0).mean(axis=1) -
                 PTM*(PTM + 2*self.p_pulse_average[first:end]))
         self.p_promptness[first:end] = (
-                self.data[:seg_size,self.nPresamples+3:self.nPresamples+7].mean(axis=1)-PTM)/self.p_peak_value[first:end]
+                self.data[:seg_size,self.nPresamples+6:self.nPresamples+12].mean(axis=1)-PTM)/self.p_peak_value[first:end]
 
         self.p_rise_time[first:end] = \
             mass.core.analysis_algorithms.estimateRiseTime(self.data, timebase=self.timebase,  
@@ -1034,9 +1034,38 @@ class MicrocalDataSet(object):
         ptm_offset = self.drift_correct_info['median_pretrig_mean']
         gain = 1+(self.p_pretrig_mean-ptm_offset)*drift_corr_param
         self.p_filt_value_dc = self.p_filt_value*gain
-         
-            
+
+
+    def phase_correct2014(self, typical_resolution, plot=False):
+        """Apply the phase correction that seems good for calibronium-like
+        data as of June 2014. For more notes, do 
+        help(mass.core.analysis_algorithms.FilterTimeCorrection)
+
+        <typical_resolution> should be an estimated energy resolution in UNITS OF
+        self.p_pulse_rms. This helps the peak-finding (clustering) algorithm decide
+        which pulses go together into a single peak.  Be careful to use a semi-reasonable
+        quantity here.
+
+        Note that we always train only on data file's segment 0.
+        """
+        _,N = self.pulse_records.read_segment(0)
+        g = self.cuts.good()[:N]
+        prompt = self.p_promptness
         
+        dataFilter = self.filter.filt_noconst
+        tc = mass.core.analysis_algorithms.FilterTimeCorrection(
+                self.data[g], prompt[g], self.p_pulse_rms[g], dataFilter,
+                self.nPresamples, typicalResolution=typical_resolution)
+        
+        self.p_filt_value_phc = self.p_filt_value_dc - tc(prompt, self.p_pulse_rms)
+        
+        if plot:
+            plt.clf()
+            g = self.cuts.good()
+            plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
+            plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
+
+
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha', 
                           nbins=200, verbose=True, plot=True, **kwargs):
         """
