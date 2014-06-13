@@ -1281,7 +1281,7 @@ class CrosstalkVeto(object):
         
         for ds in datagroup.datasets:
             g = ds.cuts.good()
-            vetotimes = ds.p_timestamp[g]*1e3-ms0
+            vetotimes = np.asarray(ds.p_timestamp[g]*1e3-ms0, dtype=np.int64)
             vetotimes[vetotimes<0] = 0
             print vetotimes, len(vetotimes), 1.0e3*ds.nPulses/(ms9-ms0),
             a,b = window_ms

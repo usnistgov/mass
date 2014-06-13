@@ -24,6 +24,8 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
     phases = (0.5+np.arange(nstep))/nstep - 0.5
     phase_step = 1.0/nstep
     
+    ph_vector = self.p_filt_value_dc
+    
     # Default: use the calibration to pick a prange
     if prange is None:
         calibration = self.calibration['p_filt_value']
@@ -34,8 +36,8 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
     corrections = []
     valid = self.cuts.good()
     if prange is not None:
-        valid = np.logical_and(valid, self.p_filt_value<prange[1])
-        valid = np.logical_and(valid, self.p_filt_value>prange[0])
+        valid = np.logical_and(valid, ph_vector<prange[1])
+        valid = np.logical_and(valid, ph_vector>prange[0])
     if times is not None:
         valid = np.logical_and(valid, self.p_timestamp<times[1])
         valid = np.logical_and(valid, self.p_timestamp>times[0])
@@ -44,7 +46,7 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
     if plot:
         plt.clf()
         plt.subplot(211)
-        plt.plot((self.p_filt_phase[valid]+.5)%1-.5, self.p_filt_value[valid],',',color='orange')
+        plt.plot((self.p_filt_phase[valid]+.5)%1-.5, ph_vector[valid],',',color='orange')
         plt.xlabel("Hypothetical 'center phase'")
         plt.ylabel("Filtered PH")
         plt.xlim([-.55,.55])
@@ -55,8 +57,8 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
         valid_ph = np.logical_and(valid,
                                      np.abs((self.p_filt_phase - ctr_phase)%1) < phase_step*0.5)
 #            print valid_ph.sum(),"   ",
-        mean = self.p_filt_value[valid_ph].mean()
-        median = np.median(self.p_filt_value[valid_ph])
+        mean = ph_vector[valid_ph].mean()
+        median = np.median(ph_vector[valid_ph])
         corrections.append(mean) # not obvious that mean vs median matters
         if plot:
             plt.plot(ctr_phase, mean, 'or')
@@ -71,7 +73,7 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
     errfunc = lambda p,x,y: y-model(p,x)
     
     params = (0., 4, corrections.mean())
-    fitparams, _iflag = sp.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], self.p_filt_value[valid]))
+    fitparams, _iflag = sp.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], ph_vector[valid]))
     phases = np.arange(-0.6,0.5001,.01)
     if plot: plt.plot(phases, model(fitparams, phases), color='blue')
     
@@ -81,10 +83,9 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
                         'mean':fitparams[2]}
     fitparams[2] = 0
     correction = model(fitparams, self.p_filt_phase)
-    self.p_filt_value_phc = self.p_filt_value - correction
-    self.p_filt_value_dc = self.p_filt_value_phc.copy()
+    self.p_filt_value_phc = ph_vector - correction
     print 'RMS phase correction is: %9.3f (%6.2f parts/thousand)'%(correction.std(), 
-                                        1e3*correction.std()/self.p_filt_value.mean())
+                                        1e3*correction.std()/ph_vector.mean())
     
     if plot:
         plt.subplot(212)
@@ -92,6 +93,8 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
         plt.xlim([-.55,.55])
         if prange is not None:
             plt.ylim(prange)
+
+
 
 def MicrocalDataSet_auto_drift_correct_rms(self, prange=None, times=None, ptrange=None, plot=False, 
                            slopes=None, line_name="MnKAlpha"):
