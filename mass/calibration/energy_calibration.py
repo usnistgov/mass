@@ -11,6 +11,7 @@ __all__ = ['EnergyCalibration']
 import numpy as np
 import scipy.interpolate
 import scipy.optimize
+import mass.mathstat.interpolate
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = {
@@ -112,10 +113,22 @@ class EnergyCalibration(object):
     need to solve for vectors of energy->PH conversions.
     """
     
-    def __init__(self, ph_field, spline=True):
+    def __init__(self, ph_field, spline=True, natural_BC=True):
         """Create an EnergyCalibration object for pulse-height-related field named <ph_field>.
         <spline>=True uses quadratic for 3 points and approximating splines for 4+ points.
-        <spline>=False uses exact linear interpolation between points."""
+        <spline>=False uses exact linear interpolation between points.
+        
+        <natural_BC> determines whether to use natural boundary conditions (see
+        help(mass.mathstat.interpolate.CubicSpline) for more), in which the spline
+        is constrained to have zero curvature at the two ends of the interval. If
+        False, then the alternative is to use scipy.interpolate.UnivariateSpline.
+        The latter has the nice property that it can be made to _approximate_ the
+        data, but it has the terrible property that it's poorly controlled and does not
+        actually behave sensibly at the ends of the data interval. My (Joe's)
+        advice is to always use <natural_BC>=True, unless you are experimenting
+        on purpose, and when there are many poorly constrained points in the 
+        calibration. 
+        """
         self.ph_field = ph_field
         self.ph2energy = lambda x: x
         self.energy2ph = lambda x: x
@@ -127,6 +140,7 @@ class EnergyCalibration(object):
         self.npts = 1
         self.smooth = 1.0  # This ought to make the curve stay within ~1-sigma of each point.
         self.use_spline = spline
+        self.use_natural_BC = natural_BC
         
     def __call__(self, pulse_ht):
         "Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV)."
@@ -256,7 +270,7 @@ class EnergyCalibration(object):
         self._update_converters()
         
     def _update_converters(self):
-        """There is now a new data point."""
+        """There is now a new data point. All the math goes on in this method."""
         assert len(self._ph)==len(self._energies)
         assert len(self._ph)==self.npts
         
@@ -265,18 +279,28 @@ class EnergyCalibration(object):
             return
         
         if (self._stddev <= 0.0).any():
-            self._stddev[self._stddev<=0.0] = self._stddev[self._stddev>0].min()
+            if (self._stddev > 0).any():
+                self._stddev[self._stddev<=0.0] = self._stddev[self._stddev>0].min()
+            else:
+                self._stddev = np.zeros_like(self._stddev)
         
+        # Choose proper curve/interpolating function object
         if (not self.use_spline) and self.npts >= 2:
             highest_slope = (self._energies[-1]-self._energies[-2])/(self._ph[-1]-self._ph[-2])
             ph = np.hstack((self._ph, [1e6]))
             energy = np.hstack((self._energies, [highest_slope*(ph[-1]-ph[-2])+self._energies[-1]]))
             self.ph2energy = scipy.interpolate.interp1d(ph, energy, kind='linear', bounds_error = True)
+            
         elif self.npts > 3:
-            weight = 1/np.array(self._stddev)
-            weight[self._stddev <= 0.0] = 1/self._stddev.min()
-            self.ph2energy = scipy.interpolate.UnivariateSpline(self._ph, self._energies, w=weight, k=3, 
-                                                                bbox=[0, 1.0*self._ph.max()], s=self.smooth*self.npts)
+            if self.use_natural_BC:
+                self.ph2energy = mass.mathstat.interpolate.CubicSpline(self._ph, self._energies)
+            else: # Use the scipy approximating spline
+                weight = 1/np.array(self._stddev)
+                weight[self._stddev <= 0.0] = 1/self._stddev.min()                
+                self.ph2energy = scipy.interpolate.UnivariateSpline(
+                    self._ph, self._energies, w=weight, k=3, 
+                    bbox=[0, 1.0*self._ph.max()], s=self.smooth*self.npts)
+                
         elif self.npts == 3:
             self.ph2energy = np.poly1d(np.polyfit(self._ph, self._energies, 2))
         elif self.npts == 2:
