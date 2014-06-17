@@ -26,7 +26,7 @@ ELEMENTS=('','H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P'
           'Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re',  
           'Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn',
           'Fr','Ra','Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr')
-ATOMIC_NUMBERS = {ELEMENTS[i]:i for i in range(len(ELEMENTS))}
+ATOMIC_NUMBERS = dict((ELEMENTS[i],i) for i in range(len(ELEMENTS)))
 
 
     
