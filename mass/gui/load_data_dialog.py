@@ -59,10 +59,10 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         self.channel_check_status={} # Keep a record of whether channel is wanted!
 
     def choose_file(self, *args, **kwargs):
-        filename = QtGui.QFileDialog.getOpenFileName(parent=self,
-                          caption=QtCore.QString("pick a file"),
-                          directory=self.default_directory,
-                          filter="LJH Files (*.ljh *.noi)")
+        filename = QtGui.QFileDialog.getOpenFileName(self,
+                          QtCore.QString("pick a file"),
+                          self.default_directory,
+                          "LJH Files (*.ljh *.noi)")
         if len(str(filename))>0:
             if self.sender() == self.choose_pulse_file:
                 self.pulse_file_edit.setText(filename)
@@ -132,7 +132,7 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
             ncol -=2
         for i,cnum in enumerate(self.channels_known):
             name = QtCore.QString("%3d"%cnum)
-            box = QtGui.QCheckBox(name, parent=None)
+            box = QtGui.QCheckBox(name, None)
             box.chan_number = cnum
 
             if cnum in self.channel_check_status:

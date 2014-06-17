@@ -144,7 +144,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
     user.  Jeez.  Why are you even reading this?
     """
     def __init__(self, datagroup, existing_cuts=None ):
-        QtGui.QDialog.__init__(self, parent=None)
+        QtGui.QDialog.__init__(self, None)
         self.setupUi(self)
         frame_size = self.pylab_holder.frameSize()
         h,w = frame_size.height(), frame_size.width()
