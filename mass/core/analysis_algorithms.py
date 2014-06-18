@@ -498,7 +498,13 @@ class FilterTimeCorrection(object):
         #@todo: handle case where one prompt or one pulse_rms is given, by broadcasting
         result = np.zeros_like(prompt)
  
+        # If there are multiple pulse_rms each with their own curves in self.splines,
+        # then we want to interpolate (linearly) between the nearest 2 results.
+        # But first, handle the case of only one cluster=one interval.
         n_intervals = len(self.interval_boundaries)-1
+        if n_intervals == 1:
+            return self.splines[0](prompt)
+        
         pulse_interval = np.zeros(len(pulse_rms))
         for ib in range(1,n_intervals):
             pulse_interval[pulse_rms > self.interval_boundaries[ib]] = ib
