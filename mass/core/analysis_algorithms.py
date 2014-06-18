@@ -502,7 +502,7 @@ class FilterTimeCorrection(object):
         # then we want to interpolate (linearly) between the nearest 2 results.
         # But first, handle the case of only one cluster=one interval.
         n_intervals = len(self.interval_boundaries)-1
-        if n_intervals == 1:
+        if n_intervals == 0:
             return self.splines[0](prompt)
         
         pulse_interval = np.zeros(len(pulse_rms))
