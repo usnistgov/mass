@@ -13,3 +13,5 @@ mass/mathstat/robust.c
 testfile
 
 TAGS
+
+.idea/*
