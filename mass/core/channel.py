@@ -828,13 +828,17 @@ class MicrocalDataSet(object):
                                                             self.nPresamples+maxderiv_holdoff)
 
     def filter_data_tdm(self, filter_name='filt_noconst', transform=None, forceNew=False):
-        """ filter the complete dataset one chunk at a time """
-        filter_values = self.filter.__dict___[filter_name]
+        """filter the complete data file one chunk at a time
+        this version does the whole dataset at once (instead of previous segment at a time for all datasets)
+        """
+        filter_values = self.filter.__dict__[filter_name]
         if forceNew or all(self.p_filt_value == 0): # determine if we need to do anything
             printUpdater = InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
             for s in range(self.pulse_records.n_segments):
                 first, end = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
-                self.filter_data(filter_values, first, end, transform)
+                self.data = self.pulse_records.data
+                (self.p_filt_phase[first:end], self.p_filt_value[first:end]) = self.filter_data(filter_values,
+                                                                                                  first, end, transform)
                 printUpdater.update((s+1)/float(self.pulse_records.n_segments))
 
             self.pulse_records.datafile.clear_cached_segment()

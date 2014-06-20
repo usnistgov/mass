@@ -743,7 +743,7 @@ class BaseChannelGroup(object):
         for ds_num,ds in enumerate(self):
             if ds.cuts.good().sum() < 10:
                 ds.filter = None
-                self.set_chan_bad(ds.channum, 'cannot compute filter')
+                self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                 continue
             printUpdater.update((ds_num+1)/float(self.n_channels))
             avg_signal = ds.average_pulse.copy()
@@ -1162,6 +1162,7 @@ class TESGroup(BaseChannelGroup):
     def pickle_datasets(self):
         for ds in self:
             ds.pickle()
+
             
     def pickle(self, filename=None, dirname=None):
         """Pickle the object by pickling its important contents
