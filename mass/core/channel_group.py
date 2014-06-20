@@ -242,6 +242,15 @@ class BaseChannelGroup(object):
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
 
+    def summarize_data_tdm(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False, forceNew=False):
+        printUpdater = InlineUpdater('summarize_data_tdm')
+        for chan in self.iter_channel_numbers(include_badchan):
+            self.channel[chan].summarize_data_tdm(peak_time_microsec, pretrigger_ignore_microsec, forceNew)
+            if include_badchan:
+                printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
+            else:
+                printUpdater.update((chan/2+1)/float(self.num_good_channels))
+
 
     def summarize_data(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False):
         """
@@ -782,7 +791,15 @@ class BaseChannelGroup(object):
             except Exception, e:
                 print "Filter %d can't be used"%i
                 print e
-            
+
+    def filter_data_tdm(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False):
+        printUpdater = InlineUpdater('filter_data_tdm')
+        for chan in self.iter_channel_numbers(include_badchan):
+            self.channel[chan].filter_data_tdm(filter_name, transform, forceNew)
+            if include_badchan:
+                printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
+            else:
+                printUpdater.update((chan/2+1)/float(self.num_good_channels))
 
     def filter_data(self, filter_name=None, transform=None):
         """Filter data sets and store in datasets[*].p_filt_phase and _value.
