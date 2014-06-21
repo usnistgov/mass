@@ -178,14 +178,15 @@ def diagnose_calibration(cal):
 
     return fig
 
+
 def test_young(ch):
-    data = np.loadtxt('C:/Users/ynj5/Google Drive/projects/CALIBRONIUM_ANALYSIS/chan{0}_calibronium'.format(ch))
+    data = np.loadtxt('C:/Users/YoungIl/Google Drive/projects/CALIBRONIUM_ANALYSIS/chan{0}_calibronium'.format(ch))
     names = ['VKAlpha', 'MnKAlpha', 'MnKBeta', 'FeKAlpha', 'CoKAlpha', 'CoKBeta', 'CuKAlpha']
 
     cal = EnergyCalibration()
     cal.fit(data, names)
 
-    fig = plt.figure(figsize=(16, 9))
+    fig = plt.figure(figsize=(12, 9))
     ax = fig.add_subplot(121)
     ax2 = fig.add_subplot(122)
 
@@ -193,10 +194,10 @@ def test_young(ch):
 
     ax.hist(data, bins=1001)
 
-    print cal.peak_positions
-    ax2.plot(cal.peak_positions, te, 'o', markersize=7, mfc=(0.8, 0.2, 0.2), mew=2)
+    peak_positions = [fitter.last_fit_params[1] for fitter in cal.complex_fitters]
+    ax2.plot(peak_positions, te, 'o', markersize=7, mfc=(0.8, 0.2, 0.2), mew=2)
 
-    x = np.linspace(np.min(cal.peak_positions), np.max(cal.peak_positions), 1001)
+    x = np.linspace(np.min(peak_positions), np.max(peak_positions), 1001)
     ax2.plot(x, cal(x), '--', color='orange', lw=4, zorder=-2)
 
     plt.show()
