@@ -3,11 +3,23 @@ import itertools
 import operator
 import inspect
 import numpy as np
+from scipy.linalg import LinAlgError
 from scipy.interpolate import interp1d, splrep, splev
 from sklearn.cluster import DBSCAN
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration.fluorescence_lines
 import mass.mathstat.interpolate
+
+
+class FailedFitter(object):
+    def __init__(self, counts, bins):
+        self.counts = counts
+        self.bins = bins
+
+        self.last_fit_params = [-1, np.sum(counts * bins[:-1]) / np.sum(counts)]
+
+    def fitfunc(self, param, x):
+        return np.zeros_like(x)
 
 
 class EnergyCalibration(object):
@@ -62,6 +74,10 @@ class EnergyCalibration(object):
             lh_results.append([assign, acc_est])
 
         lh_results = sorted(lh_results, key=operator.itemgetter(1))
+
+        if lh_results[0][-1] > 0.001:
+            raise ValueError('Could not match a pattern')
+        
         opt_assignment = lh_results[0][0]
 
         # In order to estimate a slope of the DE/DV curve, b-spline is used.
@@ -86,14 +102,14 @@ class EnergyCalibration(object):
                 rnp = np.inf
 
             width = self.hw / splev(pp, ve_spl, der=1)
-            histograms.append(np.histogram(data, bins=np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
-                                                                  np.min([pp + width / 2, (pp + rnp)/2]), 101)))
+            bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
+                               np.min([pp + width / 2, (pp + rnp)/2]), 101)
+            histograms.append(np.histogram(data, bins=bins))
 
         #return {el: [hist, slope] for el, hist, slope in zip(name_e, histograms, app_slope)}
         self.histograms = histograms
 
         complex_fitters = []
-        refined_peak_positions = []
 
         for el, hist, slope in zip(name_e, histograms, app_slope):
             flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
@@ -103,12 +119,21 @@ class EnergyCalibration(object):
             except KeyError:
                 raise KeyError("Corresponding fitter is not found.")
 
-            params, _ = fitter.fit(hist[0], hist[1], plot=False)
+            try:
+                fitter.fit(hist[0], hist[1], plot=False)
+            except:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+
+                ax.step(hist[1][:-1], hist[0])
+                plt.show()
+                fitter = FailedFitter(hist[0], hist[1])
+
             complex_fitters.append(fitter)
-            refined_peak_positions.append(params[1])
             #energy_resolutions.append(params[0])
 
         self.complex_fitters = complex_fitters
+        refined_peak_positions = [fitter.last_fit_params[1] for fitter in complex_fitters]
 
         if len(refined_peak_positions) > 3:
             self.ph2energy = mass.mathstat.interpolate.CubicSpline(refined_peak_positions, e_e)
@@ -160,7 +185,7 @@ def diagnose_calibration(cal):
                 transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
 
     ax.scatter([fitter.last_fit_params[1] for fitter in cal.complex_fitters],
-            [STANDARD_FEATURES[el] for el in cal.elements], s=36, c=(0.2, 0.2, 0.8))
+               [STANDARD_FEATURES[el] for el in cal.elements], s=36, c=(0.2, 0.2, 0.8))
 
     lb, ub = cal.complex_fitters[0].last_fit_params[1], cal.complex_fitters[-1].last_fit_params[1]
     width = ub - lb
@@ -176,12 +201,14 @@ def diagnose_calibration(cal):
 
     ax.set_xlim(lb - width / 10, ub + width / 10)
 
+    fig.show()
+
     return fig
 
 
 def test_young(ch):
     data = np.loadtxt('C:/Users/YoungIl/Google Drive/projects/CALIBRONIUM_ANALYSIS/chan{0}_calibronium'.format(ch))
-    names = ['VKAlpha', 'MnKAlpha', 'MnKBeta', 'FeKAlpha', 'CoKAlpha', 'CoKBeta', 'CuKAlpha']
+    names = ['VKAlpha', 'MnKAlpha', 'FeKAlpha', 'CoKAlpha', 'CoKBeta', 'CuKAlpha', 'CuKBeta']
 
     cal = EnergyCalibration()
     cal.fit(data, names)
