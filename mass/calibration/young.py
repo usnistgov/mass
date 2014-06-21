@@ -77,7 +77,7 @@ class EnergyCalibration(object):
 
         if lh_results[0][-1] > 0.001:
             raise ValueError('Could not match a pattern')
-        
+
         opt_assignment = lh_results[0][0]
 
         # In order to estimate a slope of the DE/DV curve, b-spline is used.
@@ -91,7 +91,28 @@ class EnergyCalibration(object):
 
         # Calculate a histograms for each element.
         histograms = []
-        for pp in opt_assignment:
+        complex_fitters = []
+
+        #for pp in opt_assignment:
+        #    try:
+        #        lnp = np.max(peak_positions[peak_positions < pp])
+        #    except ValueError:
+        #        lnp = -np.inf
+        #    try:
+        #        rnp = np.min(peak_positions[peak_positions > pp])
+        #    except ValueError:
+        #        rnp = np.inf
+
+        #    width = self.hw / splev(pp, ve_spl, der=1)
+        #    bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
+        #                       np.min([pp + width / 2, (pp + rnp)/2]), 51)
+        #    histograms.append(np.histogram(data, bins=bins))
+
+        #return {el: [hist, slope] for el, hist, slope in zip(name_e, histograms, app_slope)}
+
+        for pp, el, slope in zip(opt_assignment, name_e, app_slope):
+            flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
+
             try:
                 lnp = np.max(peak_positions[peak_positions < pp])
             except ValueError:
@@ -102,36 +123,49 @@ class EnergyCalibration(object):
                 rnp = np.inf
 
             width = self.hw / splev(pp, ve_spl, der=1)
+            nbins = 256
+
+            #try:
+            #    fitter = flu_members[el + 'Fitter']()
+            #except KeyError:
+            #    raise KeyError("Corresponding fitter is not found.")
             bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
-                               np.min([pp + width / 2, (pp + rnp)/2]), 101)
-            histograms.append(np.histogram(data, bins=bins))
+                               np.min([pp + width / 2, (pp + rnp)/2]), nbins + 1)
+            hist = np.histogram(data, bins)
 
-        #return {el: [hist, slope] for el, hist, slope in zip(name_e, histograms, app_slope)}
-        self.histograms = histograms
-
-        complex_fitters = []
-
-        for el, hist, slope in zip(name_e, histograms, app_slope):
-            flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
-
+            # If a corresponding fitter could not be found then create a FailedFitter object.
             try:
                 fitter = flu_members[el + 'Fitter']()
             except KeyError:
-                raise KeyError("Corresponding fitter is not found.")
+                fitter = FailedFitter(hist)
+                histograms.append(hist)
+                complex_fitters.append(fitter)
+                continue
 
-            try:
-                fitter.fit(hist[0], hist[1], plot=False)
-            except:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
+            while nbins > 32:
+                try:
+                    fitter.fit(hist[0], hist[1], plot=False)
+                    break
+                except:
+                    fig = plt.figure()
+                    ax = fig.add_subplot(111)
 
-                ax.step(hist[1][:-1], hist[0])
-                plt.show()
+                    ax.step(hist[1][:-1], hist[0])
+                    plt.show()
+                    nbins /= 2
+                    bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
+                                       np.min([pp + width / 2, (pp + rnp)/2]),
+                                       nbins + 1)
+                    hist = np.histogram(data, bins)
+                    continue
+            else:
                 fitter = FailedFitter(hist[0], hist[1])
 
+            histograms.append(hist)
             complex_fitters.append(fitter)
             #energy_resolutions.append(params[0])
 
+        self.histograms = histograms
         self.complex_fitters = complex_fitters
         refined_peak_positions = [fitter.last_fit_params[1] for fitter in complex_fitters]
 
