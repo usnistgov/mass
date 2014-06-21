@@ -18,8 +18,8 @@ class EnergyCalibration(object):
         self.hw = hw
         self.excl = excl
         self.elements = None
-        self.energy_resolutions = None
-        self.peak_positions = None
+        self.histograms = None
+        self.complex_fitters = None
         self.ph2energy = None
 
     def fit(self, data, elements):
@@ -87,27 +87,28 @@ class EnergyCalibration(object):
 
             width = self.hw / splev(pp, ve_spl, der=1)
             histograms.append(np.histogram(data, bins=np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
-                                                                  np.min([pp + width / 2, (pp + rnp)/2]), 201)))
+                                                                  np.min([pp + width / 2, (pp + rnp)/2]), 101)))
 
         #return {el: [hist, slope] for el, hist, slope in zip(name_e, histograms, app_slope)}
+        self.histograms = histograms
 
+        complex_fitters = []
         refined_peak_positions = []
-        energy_resolutions = []
 
         for el, hist, slope in zip(name_e, histograms, app_slope):
             flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
 
             try:
                 fitter = flu_members[el + 'Fitter']()
-            except KeyError as e:
+            except KeyError:
                 raise KeyError("Corresponding fitter is not found.")
 
-            params, cov = fitter.fit(hist[0], hist[1], plot=False)
+            params, _ = fitter.fit(hist[0], hist[1], plot=False)
+            complex_fitters.append(fitter)
             refined_peak_positions.append(params[1])
-            energy_resolutions.append(params[0])
+            #energy_resolutions.append(params[0])
 
-        self.energy_resolutions = np.array(energy_resolutions)
-        self.peak_positions = np.array(refined_peak_positions)
+        self.complex_fitters = complex_fitters
 
         if len(refined_peak_positions) > 3:
             self.ph2energy = mass.mathstat.interpolate.CubicSpline(refined_peak_positions, e_e)
@@ -123,8 +124,59 @@ class EnergyCalibration(object):
         return self.ph2energy(ph)
 
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.transforms as mtrans
+from matplotlib.ticker import MaxNLocator
+mpl.rcParams['font.sans-serif'] = 'Arial'
 
+
+def diagnose_calibration(cal):
+    fig = plt.figure(figsize=(16, 9))
+
+    n = int(np.ceil(np.sqrt(len(cal.elements))))
+
+    w, h, lm, bm, hs, vs = 0.6, 0.9, 0.05, 0.08, 0.1, 0.1
+    for i, (el, hist, fitter) in enumerate(zip(cal.elements, cal.histograms, cal.complex_fitters)):
+        ax = fig.add_axes([w * (i % n) / n + lm,
+                           h * (i / n) / n + bm,
+                           (w - hs) / n,
+                           (h - vs) / n])
+        ax.xaxis.set_major_locator(MaxNLocator(4, integer=True))
+
+        ax.step(hist[1][:-1], hist[0], where='mid', color='grey', lw=1)
+        ax.text(0.05, 0.95, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
+                transform=ax.transAxes, ha='left', va='top')
+        x = np.linspace(hist[1][0], hist[1][-1], 201)
+        y = fitter.fitfunc(fitter.last_fit_params, x)
+        ax.plot(x, y, color='k', lw=1)
+        ax.set_xlim(np.min(x), np.max(x))
+        ax.set_ylim(0, np.max(hist[0]) * 1.1)
+
+    ax = fig.add_axes([lm + w, bm, (1.0 - lm - w) - 0.06, h - 0.05])
+    for el, fitter in zip(cal.elements, cal.complex_fitters):
+        ax.text(fitter.last_fit_params[1], STANDARD_FEATURES[el],
+                el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'), ha='left', va='top',
+                transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
+
+    ax.scatter([fitter.last_fit_params[1] for fitter in cal.complex_fitters],
+            [STANDARD_FEATURES[el] for el in cal.elements], s=36, c=(0.2, 0.2, 0.8))
+
+    lb, ub = cal.complex_fitters[0].last_fit_params[1], cal.complex_fitters[-1].last_fit_params[1]
+    width = ub - lb
+    x = np.linspace(lb - width / 10, ub + width / 10, 101)
+    y = cal(x)
+    ax.plot(x, y, '--', color='orange', lw=2, zorder=-2)
+
+    ax.yaxis.set_tick_params(labelleft=False, labelright=True)
+    ax.yaxis.set_label_position('right')
+
+    ax.set_xlabel('Pulse height')
+    ax.set_ylabel('Energy (eV)')
+
+    ax.set_xlim(lb - width / 10, ub + width / 10)
+
+    return fig
 
 def test_young(ch):
     data = np.loadtxt('C:/Users/ynj5/Google Drive/projects/CALIBRONIUM_ANALYSIS/chan{0}_calibronium'.format(ch))
@@ -133,7 +185,7 @@ def test_young(ch):
     cal = EnergyCalibration()
     cal.fit(data, names)
 
-    fig = plt.figure(figsize=(16,9))
+    fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(121)
     ax2 = fig.add_subplot(122)
 
