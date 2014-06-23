@@ -564,7 +564,8 @@ class MicrocalDataSet(object):
                 'timestamp_sec',
                 'timestamp_diff_sec',
                 'peak_value',
-                'energy'] 
+                'energy',
+                'timing']
 
     # Attributes that all such objects must have.
     expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum", 
