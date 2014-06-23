@@ -83,8 +83,8 @@ class EnergyCalibration(object):
         opt_assignment = lh_results[0][0]
 
         # In order to estimate a slope of the DE/DV curve, b-spline is used.
-        # Do I need approximate DE/DVs for complex fittings?
-        ve_spl = splrep(opt_assignment, e_e)
+        # Do I need approximate DV/DEs for complex fittings?
+        ve_spl = splrep(e_e, opt_assignment)
         app_slope = splev(opt_assignment, ve_spl, der=1)
 
         if len(self.excl) > 0:
@@ -107,7 +107,7 @@ class EnergyCalibration(object):
             except ValueError:
                 rnp = np.inf
 
-            width = self.hw / splev(pp, ve_spl, der=1)
+            width = self.hw * splev(pp, ve_spl, der=1)
             nbins = 256
 
             bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
