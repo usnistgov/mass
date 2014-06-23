@@ -10,7 +10,6 @@ from sklearn.cluster import DBSCAN
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration.fluorescence_lines
 import mass.mathstat.interpolate
-import brewer2mpl
 
 
 class FailedFitter(object):
@@ -180,7 +179,7 @@ def diagnose_calibration(cal):
     if cal.complex_fitters is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        bmap = brewer2mpl.get_map('Spectral', 'Diverging', 11)
+        bmap = plt.get_cmap("spectral",11)
 
         kde = gaussian_kde(cal.data, bw_method=0.002)
         counter = Counter(cal.dbs.labels_)
