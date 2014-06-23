@@ -5,10 +5,12 @@ import inspect
 import numpy as np
 from scipy.linalg import LinAlgError
 from scipy.interpolate import interp1d, splrep, splev
+from scipy.stats import gaussian_kde
 from sklearn.cluster import DBSCAN
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration.fluorescence_lines
 import mass.mathstat.interpolate
+import brewer2mpl
 
 
 class FailedFitter(object):
@@ -23,9 +25,9 @@ class FailedFitter(object):
 
 
 class EnergyCalibration(object):
-
     def __init__(self, eps=5, mcs=100, hw=200, excl=()):
-        self.eps = eps
+        self.dbs = DBSCAN(eps=eps)
+        self.data = np.zeros(0)
         self.mcs = mcs
         self.hw = hw
         self.excl = excl
@@ -35,10 +37,10 @@ class EnergyCalibration(object):
         self.ph2energy = None
 
     def fit(self, data, elements):
-        dbs = DBSCAN(eps=self.eps)
-        dbs.fit(data[:, np.newaxis])
+        self.data = np.hstack([self.data, data])
+        self.dbs.fit(self.data[:, np.newaxis])
 
-        count = Counter(dbs.labels_)
+        count = Counter(self.dbs.labels_)
         peak_positions = []
 
         for l, c in count.most_common():
@@ -49,7 +51,7 @@ class EnergyCalibration(object):
             if c < self.mcs:
                 break
 
-            peak_positions.append(np.average(data[dbs.labels_ == l]))
+            peak_positions.append(np.average(self.data[self.dbs.labels_ == l]))
 
         if len(peak_positions) < len(elements):
             raise ValueError('Not enough clusters are identified in data.')
@@ -81,6 +83,7 @@ class EnergyCalibration(object):
         opt_assignment = lh_results[0][0]
 
         # In order to estimate a slope of the DE/DV curve, b-spline is used.
+        # Do I need approximate DE/DVs for complex fittings?
         ve_spl = splrep(opt_assignment, e_e)
         app_slope = splev(opt_assignment, ve_spl, der=1)
 
@@ -89,26 +92,8 @@ class EnergyCalibration(object):
             excl_positions = [splev(STANDARD_FEATURES[element], ev_spl) for element in self.excl]
             peak_positions = np.hstack([peak_positions, excl_positions])
 
-        # Calculate a histograms for each element.
         histograms = []
         complex_fitters = []
-
-        #for pp in opt_assignment:
-        #    try:
-        #        lnp = np.max(peak_positions[peak_positions < pp])
-        #    except ValueError:
-        #        lnp = -np.inf
-        #    try:
-        #        rnp = np.min(peak_positions[peak_positions > pp])
-        #    except ValueError:
-        #        rnp = np.inf
-
-        #    width = self.hw / splev(pp, ve_spl, der=1)
-        #    bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
-        #                       np.min([pp + width / 2, (pp + rnp)/2]), 51)
-        #    histograms.append(np.histogram(data, bins=bins))
-
-        #return {el: [hist, slope] for el, hist, slope in zip(name_e, histograms, app_slope)}
 
         for pp, el, slope in zip(opt_assignment, name_e, app_slope):
             flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
@@ -123,34 +108,35 @@ class EnergyCalibration(object):
                 rnp = np.inf
 
             width = self.hw / splev(pp, ve_spl, der=1)
-            nbins = 256
+            nbins = 64
 
-            #try:
-            #    fitter = flu_members[el + 'Fitter']()
-            #except KeyError:
-            #    raise KeyError("Corresponding fitter is not found.")
             bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
                                np.min([pp + width / 2, (pp + rnp)/2]), nbins + 1)
             hist = np.histogram(data, bins)
 
             # If a corresponding fitter could not be found then create a FailedFitter object.
             try:
-                fitter = flu_members[el + 'Fitter']()
+                fitter_cls = flu_members[el + 'Fitter']
+                fitter = fitter_cls()
             except KeyError:
                 fitter = FailedFitter(hist)
                 histograms.append(hist)
                 complex_fitters.append(fitter)
                 continue
 
+            # Trying to fit histograms with different number of bins
+            # with a corresponding complex fitter.
             while nbins > 32:
                 try:
                     fitter.fit(hist[0], hist[1], plot=False)
                     break
-                except:
+                except (ValueError, LinAlgError):
                     fig = plt.figure()
                     ax = fig.add_subplot(111)
 
-                    ax.step(hist[1][:-1], hist[0])
+                    #ax.step(hist[1][:-1], hist[0])
+                    ax.fill(np.repeat(hist[1], 2), np.hstack([[0], np.repeat(hist[0], 2), [0]]),
+                            fc=(0.1, 0.1, 1.0), ec='b')
                     plt.show()
                     nbins /= 2
                     bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
@@ -159,11 +145,11 @@ class EnergyCalibration(object):
                     hist = np.histogram(data, bins)
                     continue
             else:
+                # If every attempt fails, a FailedFitter object is created.
                 fitter = FailedFitter(hist[0], hist[1])
 
             histograms.append(hist)
             complex_fitters.append(fitter)
-            #energy_resolutions.append(params[0])
 
         self.histograms = histograms
         self.complex_fitters = complex_fitters
@@ -191,6 +177,32 @@ mpl.rcParams['font.sans-serif'] = 'Arial'
 
 
 def diagnose_calibration(cal):
+    if cal.complex_fitters is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        bmap = brewer2mpl.get_map('Spectral', 'Diverging', 11)
+
+        kde = gaussian_kde(cal.data, bw_method=0.002)
+        counter = Counter(cal.dbs.labels_)
+        peaks = list([[np.min(cal.data[cal.dbs.labels_ == x[0]]),
+                      np.max(cal.data[cal.dbs.labels_ == x[0]])]
+                     for x in counter.most_common() if (x[1] > cal.mcs) and (x[0] > -0.5)])
+        peaks = sorted(peaks, key=operator.itemgetter(0))
+
+        colors = bmap.mpl_colormap(np.linspace(0, 1, len(peaks)))
+
+        x = np.linspace(np.min(cal.data), np.max(cal.data), 2001)
+        y = kde(x)
+
+        ax.fill_between(x, y, facecolor='k')
+
+        for i, (lb, ub) in enumerate(peaks):
+            ax.fill_between(x[(x > lb) & (x < ub)],
+                            y[(x > lb) & (x < ub)], facecolor=colors[i])
+        fig.show()
+
+        return fig
+
     fig = plt.figure(figsize=(16, 9))
 
     n = int(np.ceil(np.sqrt(len(cal.elements))))
@@ -203,19 +215,23 @@ def diagnose_calibration(cal):
                            (h - vs) / n])
         ax.xaxis.set_major_locator(MaxNLocator(4, integer=True))
 
-        ax.step(hist[1][:-1], hist[0], where='mid', color='grey', lw=1)
-        ax.text(0.05, 0.95, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
+        #ax.step(hist[1][:-1], hist[0], where='mid', color='grey', lw=1)
+        ax.fill(np.repeat(hist[1], 2), np.hstack([[0], np.repeat(hist[0], 2), [0]]),
+                lw=1, fc=(0.3, 0.3, 0.9), ec=(0.1, 0.1, 1.0), alpha=0.8)
+        ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
+                '\n' + "Resolution: {0:.1f} eV".format(fitter.last_fit_params[0]),
                 transform=ax.transAxes, ha='left', va='top')
         x = np.linspace(hist[1][0], hist[1][-1], 201)
         y = fitter.fitfunc(fitter.last_fit_params, x)
-        ax.plot(x, y, color='k', lw=1)
+        ax.plot(x, y, color=(0.9, 0.1, 0.1), lw=2)
         ax.set_xlim(np.min(x), np.max(x))
-        ax.set_ylim(0, np.max(hist[0]) * 1.1)
+        ax.set_ylim(0, np.max(hist[0]) * 1.3)
 
     ax = fig.add_axes([lm + w, bm, (1.0 - lm - w) - 0.06, h - 0.05])
     for el, fitter in zip(cal.elements, cal.complex_fitters):
         ax.text(fitter.last_fit_params[1], STANDARD_FEATURES[el],
-                el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'), ha='left', va='top',
+                el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
+                ha='left', va='top',
                 transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
 
     ax.scatter([fitter.last_fit_params[1] for fitter in cal.complex_fitters],
