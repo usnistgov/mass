@@ -152,12 +152,12 @@ class EnergyCalibration(object):
 
         self.histograms = histograms
         self.complex_fitters = complex_fitters
-        refined_peak_positions = [fitter.last_fit_params[1] for fitter in complex_fitters]
+        self.refined_peak_positions = [fitter.last_fit_params[1] for fitter in complex_fitters]
 
-        if len(refined_peak_positions) > 3:
-            self.ph2energy = mass.mathstat.interpolate.CubicSpline(refined_peak_positions, e_e)
+        if len(self.refined_peak_positions) > 3:
+            self.ph2energy = mass.mathstat.interpolate.CubicSpline(self.refined_peak_positions, e_e)
         else:
-            self.ph2energy = interp1d(refined_peak_positions, e_e, kind='linear', bounds_error=True)
+            self.ph2energy = interp1d(self.refined_peak_positions, e_e, kind='linear', bounds_error=True)
 
         return self
 
