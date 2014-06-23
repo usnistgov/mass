@@ -36,8 +36,8 @@ class EnergyCalibration(object):
         self.complex_fitters = None
         self.ph2energy = None
 
-    def fit(self, data, elements):
-        self.data = np.hstack([self.data, data])
+    def fit(self, pulse_heights, line_names):
+        self.data = np.hstack([self.data, pulse_heights])
         self.dbs.fit(self.data[:, np.newaxis])
 
         count = Counter(self.dbs.labels_)
@@ -53,19 +53,19 @@ class EnergyCalibration(object):
 
             peak_positions.append(np.average(self.data[self.dbs.labels_ == l]))
 
-        if len(peak_positions) < len(elements):
+        if len(peak_positions) < len(line_names):
             raise ValueError('Not enough clusters are identified in data.')
 
         peak_positions = np.array(peak_positions)
 
-        name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES[element]] for element in elements],
+        name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES[element]] for element in line_names],
                                   key=operator.itemgetter(1)))
         self.elements = name_e
 
         # Exhaustive search for the best assignment.
         lh_results = []
 
-        for assign in itertools.combinations(peak_positions, len(elements)):
+        for assign in itertools.combinations(peak_positions, len(line_names)):
             assign = sorted(assign)
 
             acc_est = 0.0
@@ -108,11 +108,11 @@ class EnergyCalibration(object):
                 rnp = np.inf
 
             width = self.hw / splev(pp, ve_spl, der=1)
-            nbins = 64
+            nbins = 256
 
             bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
                                np.min([pp + width / 2, (pp + rnp)/2]), nbins + 1)
-            hist = np.histogram(data, bins)
+            hist = np.histogram(pulse_heights, bins)
 
             # If a corresponding fitter could not be found then create a FailedFitter object.
             try:
@@ -142,7 +142,7 @@ class EnergyCalibration(object):
                     bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
                                        np.min([pp + width / 2, (pp + rnp)/2]),
                                        nbins + 1)
-                    hist = np.histogram(data, bins)
+                    hist = np.histogram(pulse_heights, bins)
                     continue
             else:
                 # If every attempt fails, a FailedFitter object is created.
