@@ -139,14 +139,14 @@ class EnergyCalibration(object):
                     fitter.fit(hist, bins, plot=False)
                     break
                 except (ValueError, LinAlgError):
-                    fig = plt.figure()
-                    assert isinstance(fig, mpl.figure.Figure)
-                    ax = fig.add_subplot(111)
+                    #fig = plt.figure()
+                    #assert isinstance(fig, mpl.figure.Figure)
+                    #ax = fig.add_subplot(111)
 
                     #ax.step(hist[1][:-1], hist[0])
-                    ax.fill(np.repeat(bins, 2), np.hstack([[0], np.repeat(hist, 2), [0]]),
-                            fc=(0.1, 0.1, 1.0), ec='b')
-                    plt.show()
+                    #ax.fill(np.repeat(bins, 2), np.hstack([[0], np.repeat(hist, 2), [0]]),
+                    #        fc=(0.1, 0.1, 1.0), ec='b')
+                    #plt.show()
                     nbins /= 2
                     bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
                                        np.min([pp + width / 2, (pp + rnp)/2]),
@@ -179,7 +179,7 @@ class EnergyCalibration(object):
 
     @property
     def refined_peak_positions(self):
-        return [fitter.last_fit_params[1] for fitter in self.complex_fitters]
+        return (fitter.last_fit_params[1] for fitter in self.complex_fitters)
 
 
 def diagnose_calibration(cal):
