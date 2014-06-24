@@ -2,10 +2,18 @@ from collections import Counter
 import itertools
 import operator
 import inspect
+
 import numpy as np
 from scipy.linalg import LinAlgError
 from scipy.interpolate import interp1d, splrep, splev
 from scipy.stats import gaussian_kde
+import matplotlib as mpl
+import matplotlib.figure
+import matplotlib.pyplot as plt
+import matplotlib.transforms as mtrans
+from matplotlib.ticker import MaxNLocator
+
+mpl.rcParams['font.sans-serif'] = 'Arial'
 from sklearn.cluster import DBSCAN
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration.fluorescence_lines
@@ -14,11 +22,11 @@ import brewer2mpl
 
 
 class FailedFitter(object):
-    def __init__(self, counts, bins):
-        self.counts = counts
+    def __init__(self, hist, bins):
+        self.hists = bins
         self.bins = bins
 
-        self.last_fit_params = [-1, np.sum(counts * bins[:-1]) / np.sum(counts)]
+        self.last_fit_params = [-1, np.sum(self.hists * bins[:-1]) / np.sum(self.hists)]
 
     def fitfunc(self, param, x):
         return np.zeros_like(x)
@@ -112,15 +120,15 @@ class EnergyCalibration(object):
 
             bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
                                np.min([pp + width / 2, (pp + rnp)/2]), nbins + 1)
-            hist = np.histogram(pulse_heights, bins)
+            hist, bins = np.histogram(pulse_heights, bins)
 
             # If a corresponding fitter could not be found then create a FailedFitter object.
             try:
                 fitter_cls = flu_members[el + 'Fitter']
                 fitter = fitter_cls()
             except KeyError:
-                fitter = FailedFitter(hist)
-                histograms.append(hist)
+                fitter = FailedFitter(hist, bins)
+                histograms.append((hist, bins))
                 complex_fitters.append(fitter)
                 continue
 
@@ -128,27 +136,28 @@ class EnergyCalibration(object):
             # with a corresponding complex fitter.
             while nbins > 32:
                 try:
-                    fitter.fit(hist[0], hist[1], plot=False)
+                    fitter.fit(hist, bins, plot=False)
                     break
                 except (ValueError, LinAlgError):
                     fig = plt.figure()
+                    assert isinstance(fig, mpl.figure.Figure)
                     ax = fig.add_subplot(111)
 
                     #ax.step(hist[1][:-1], hist[0])
-                    ax.fill(np.repeat(hist[1], 2), np.hstack([[0], np.repeat(hist[0], 2), [0]]),
+                    ax.fill(np.repeat(bins, 2), np.hstack([[0], np.repeat(hist, 2), [0]]),
                             fc=(0.1, 0.1, 1.0), ec='b')
                     plt.show()
                     nbins /= 2
                     bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
                                        np.min([pp + width / 2, (pp + rnp)/2]),
                                        nbins + 1)
-                    hist = np.histogram(pulse_heights, bins)
+                    hist, bins = np.histogram(pulse_heights, bins)
                     continue
             else:
                 # If every attempt fails, a FailedFitter object is created.
-                fitter = FailedFitter(hist[0], hist[1])
+                fitter = FailedFitter(hist, bins)
 
-            histograms.append(hist)
+            histograms.append((hist, bins))
             complex_fitters.append(fitter)
 
         self.histograms = histograms
@@ -168,12 +177,9 @@ class EnergyCalibration(object):
 
         return self.ph2energy(ph)
 
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.transforms as mtrans
-from matplotlib.ticker import MaxNLocator
-mpl.rcParams['font.sans-serif'] = 'Arial'
+    @property
+    def refined_peak_positions(self):
+        return [fitter.last_fit_params[1] for fitter in self.complex_fitters]
 
 
 def diagnose_calibration(cal):
