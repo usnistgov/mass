@@ -24,7 +24,7 @@ class FailedFitter(object):
 
 
 class EnergyCalibration(object):
-    def __init__(self, eps=5, mcs=100, hw=200, excl=()):
+    def __init__(self, eps=5, mcs=100, hw=200, excl=(), plot_on_fail=False):
         self.dbs = DBSCAN(eps=eps)
         self.data = np.zeros(0)
         self.mcs = mcs
@@ -34,6 +34,7 @@ class EnergyCalibration(object):
         self.histograms = None
         self.complex_fitters = None
         self.ph2energy = None
+        self.plot_on_fail = plot_on_fail
 
     def fit(self, pulse_heights, line_names):
         self.data = np.hstack([self.data, pulse_heights])
@@ -106,11 +107,17 @@ class EnergyCalibration(object):
             except ValueError:
                 rnp = np.inf
 
-            width = self.hw * splev(pp, ve_spl, der=1)
-            nbins = 256
+            # width is the histrogram width in pulseheight units, calculate from self.hw which is in eV and
+            # an evaluation of the spline which gives the derivative
+            slope_dpulseheight_denergy = splev(STANDARD_FEATURES[el], ve_spl, der=1)
+            width = self.hw * slope_dpulseheight_denergy
+            if width <=0:
+                print("width below zero")
+            binmin, binmax = np.max([pp - width / 2, (pp + lnp)/2]), np.min([pp + width / 2, (pp + rnp)/2])
+            bin_size_ev = 2
+            nbins = int(np.ceil((binmax-binmin)/(slope_dpulseheight_denergy*bin_size_ev)))
 
-            bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
-                               np.min([pp + width / 2, (pp + rnp)/2]), nbins + 1)
+            bins = np.linspace(binmin,binmax, nbins + 1)
             hist = np.histogram(pulse_heights, bins)
 
             # If a corresponding fitter could not be found then create a FailedFitter object.
@@ -127,20 +134,27 @@ class EnergyCalibration(object):
             # with a corresponding complex fitter.
             while nbins > 32:
                 try:
-                    fitter.fit(hist[0], hist[1], plot=False)
+                    params_guess = [None]*6
+                    # resolution guess parameter should be something you can pass
+                    params_guess[0] = 10*slope_dpulseheight_denergy # resolution in pulse height units
+                    params_guess[2] = slope_dpulseheight_denergy # energy scale factor (pulseheight/eV)
+                    hold = [2] #hold the slope_dpulseheight_denergy constant while fitting
+                    fitter.fit(hist[0], hist[1],params_guess, plot=False)
                     break
-                except (ValueError, LinAlgError):
-                    fig = plt.figure()
-                    ax = fig.add_subplot(111)
+                except (ValueError, LinAlgError, RuntimeError):
+                    if self.plot_on_fail:
+                        fig = plt.figure()
+                        ax = fig.add_subplot(111)
+                        ax.set_xlabel("pulse height (arbs)")
+                        ax.set_ylabel("counts per %0.2f arb bin"%(hist[1][1]-hist[1][0]))
+                        ax.set_title("%s, %s"%(el, str(params_guess)))
 
-                    #ax.step(hist[1][:-1], hist[0])
-                    ax.fill(np.repeat(hist[1], 2), np.hstack([[0], np.repeat(hist[0], 2), [0]]),
-                            fc=(0.1, 0.1, 1.0), ec='b')
-                    plt.show()
+                        #ax.step(hist[1][:-1], hist[0])
+                        ax.fill(np.repeat(hist[1], 2), np.hstack([[0], np.repeat(hist[0], 2), [0]]),
+                                fc=(0.1, 0.1, 1.0), ec='b')
+                        plt.show()
                     nbins /= 2
-                    bins = np.linspace(np.max([pp - width / 2, (pp + lnp)/2]),
-                                       np.min([pp + width / 2, (pp + rnp)/2]),
-                                       nbins + 1)
+                    bins = np.linspace(binmin,binmax, nbins + 1)
                     hist = np.histogram(pulse_heights, bins)
                     continue
             else:
@@ -175,8 +189,9 @@ from matplotlib.ticker import MaxNLocator
 mpl.rcParams['font.sans-serif'] = 'Arial'
 
 
-def diagnose_calibration(cal):
-    if cal.complex_fitters is None:
+def diagnose_calibration(cal, hist_plot=False):
+    #if cal.complex_fitters is None:
+    if hist_plot:
         fig = plt.figure()
         ax = fig.add_subplot(111)
         bmap = plt.get_cmap("spectral",11)
@@ -188,7 +203,7 @@ def diagnose_calibration(cal):
                      for x in counter.most_common() if (x[1] > cal.mcs) and (x[0] > -0.5)])
         peaks = sorted(peaks, key=operator.itemgetter(0))
 
-        colors = bmap.mpl_colormap(np.linspace(0, 1, len(peaks)))
+        colors = bmap(np.linspace(0, 1, len(peaks)))
 
         x = np.linspace(np.min(cal.data), np.max(cal.data), 2001)
         y = kde(x)
@@ -200,7 +215,7 @@ def diagnose_calibration(cal):
                             y[(x > lb) & (x < ub)], facecolor=colors[i])
         fig.show()
 
-        return fig
+        #return fig
 
     fig = plt.figure(figsize=(16, 9))
 
