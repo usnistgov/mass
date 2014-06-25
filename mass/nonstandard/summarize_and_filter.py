@@ -12,7 +12,7 @@ def MicrocalDataSet_summarize_data_tdm(self, peak_time_microsec=220.0, pretrigge
     if len(self.p_timestamp) < self.pulse_records.nPulses:
         self.__setup_vectors(nPulses=self.pulse_records.nPulses)
     elif forceNew or all(self.p_timestamp==0):
-        self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)   
+        self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
         # consider setting segment size first
         printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
 
@@ -21,11 +21,11 @@ def MicrocalDataSet_summarize_data_tdm(self, peak_time_microsec=220.0, pretrigge
             self.p_timestamp[first:last] = self.pulse_records.datafile.datatimes_float
             (self.p_pretrig_mean[first:last], self.p_pretrig_rms[first:last],
             self.p_peak_index[first:last], self.p_peak_value[first:last], self.p_min_value[first:last],
-            self.p_pulse_average[first:last], self.p_rise_time[first:last], 
-            self.p_max_posttrig_deriv[first:last]) = mass.nonstandard.summarize_and_filter.summarize_old(self.pulse_records.data, 
+            self.p_pulse_average[first:last], self.p_rise_time[first:last],
+            self.p_max_posttrig_deriv[first:last]) = mass.nonstandard.summarize_and_filter.summarize_old(self.pulse_records.data,
                 self.nPresamples, self.pretrigger_ignore_samples, self.timebase, peak_time_microsec)
             printUpdater.update((s+1)/float(self.pulse_records.n_segments))
-        self.pulse_records.datafile.clear_cached_segment()      
+        self.pulse_records.datafile.clear_cached_segment()
         if self.auto_pickle:
             self.pickle(verbose=False)
     else:
@@ -44,23 +44,23 @@ def MicrocalDataSet_filter_data_tdm(self, filter_name='filt_noconst', transform=
             (self.p_filt_phase[first:last], self.p_filt_value[first:last]) = mass.nonstandard.summarize_and_filter.filter_data_old(
             filter_values, self.pulse_records.data, transform, self.p_pretrig_mean[first:last])
             printUpdater.update((s+1)/float(self.pulse_records.n_segments))
-            
-        self.pulse_records.datafile.clear_cached_segment()    
+
+        self.pulse_records.datafile.clear_cached_segment()
         if self.auto_pickle:
-            self.pickle(verbose=False)  
+            self.pickle(verbose=False)
     else:
         print('\nchan %d did not filter because results were already loaded'%self.channum)
-        
-        
+
+
 def BaseChannelGroup_summarize_data_tdm(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0, include_badchan = False, forceNew=False):
     printUpdater = InlineUpdater('summarize_data_tdm')
     for chan in self.iter_channel_numbers(include_badchan):
-        self.channel[chan].summarize_data_tdm(peak_time_microsec, pretrigger_ignore_microsec, forceNew)    
+        self.channel[chan].summarize_data_tdm(peak_time_microsec, pretrigger_ignore_microsec, forceNew)
         if include_badchan:
             printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
         else:
             printUpdater.update((chan/2+1)/float(self.num_good_channels))
-    
+
 def BaseChannelGroup_filter_data_tdm(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False):
     printUpdater = InlineUpdater('filter_data_tdm')
     for chan in self.iter_channel_numbers(include_badchan):

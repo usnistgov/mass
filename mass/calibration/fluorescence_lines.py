@@ -1098,7 +1098,7 @@ class MultiLorentzianComplexFitter(object):
     
 
     
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", 
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
             vary_bg=True, vary_bg_slope=False, hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
         set of histogram bins <pulseheights>.
@@ -1111,8 +1111,9 @@ class MultiLorentzianComplexFitter(object):
         params: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
                 energy scale factor (pulseheight/eV), amplitude, background level (per bin),
                 and background slope (in counts per bin per bin) ]
-                If params is None or does not have 6 elements, then they will be guessed.
-        
+                If params is None, all params will be guessed.
+                If params is a 6 element list, all elements with value None will be guessed.
+
         plot:   Whether to make a plot.  If not, then the next few args are ignored
         axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
                 current figure.
@@ -1137,10 +1138,13 @@ class MultiLorentzianComplexFitter(object):
                 assert len(pulseheights) == len(data)
         except:
             pulseheights = np.arange(len(data), dtype=np.float)
-        try:
-            _, _, _, _, _, _ = params
-        except:
-            params = self.guess_starting_params(data, pulseheights)
+
+        guess_params = self.guess_starting_params(data, pulseheights)
+
+        if params is None:
+            params = guess_params
+        for j in xrange(len(params)):
+            if params[j] is None: params[j] = guess_params[j]
         ph_binsize = pulseheights[1]-pulseheights[0]
 
         # Joe's max-likelihood MLfitter
