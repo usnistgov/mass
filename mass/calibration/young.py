@@ -6,6 +6,14 @@ import numpy as np
 from scipy.linalg import LinAlgError
 from scipy.interpolate import interp1d, splrep, splev
 from scipy.stats import gaussian_kde
+
+import matplotlib as mpl
+import matplotlib.figure
+import matplotlib.pyplot as plt
+import matplotlib.transforms as mtrans
+from matplotlib.ticker import MaxNLocator
+
+mpl.rcParams['font.sans-serif'] = 'Arial'
 from sklearn.cluster import DBSCAN
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration.fluorescence_lines
@@ -13,11 +21,11 @@ import mass.mathstat.interpolate
 
 
 class FailedFitter(object):
-    def __init__(self, counts, bins):
-        self.counts = counts
+    def __init__(self, hist, bins):
+        self.hists = bins
         self.bins = bins
 
-        self.last_fit_params = [-1, np.sum(counts * bins[:-1]) / np.sum(counts)]
+        self.last_fit_params = [-1, np.sum(self.hists * bins[:-1]) / np.sum(self.hists)]
 
     def fitfunc(self, param, x):
         return np.zeros_like(x)
@@ -118,15 +126,15 @@ class EnergyCalibration(object):
             nbins = int(np.ceil((binmax-binmin)/(slope_dpulseheight_denergy*bin_size_ev)))
 
             bins = np.linspace(binmin,binmax, nbins + 1)
-            hist = np.histogram(pulse_heights, bins)
+            hist, bins = np.histogram(pulse_heights, bins)
 
             # If a corresponding fitter could not be found then create a FailedFitter object.
             try:
                 fitter_cls = flu_members[el + 'Fitter']
                 fitter = fitter_cls()
             except KeyError:
-                fitter = FailedFitter(hist)
-                histograms.append(hist)
+                fitter = FailedFitter(hist, bins)
+                histograms.append((hist, bins))
                 complex_fitters.append(fitter)
                 continue
 
@@ -139,7 +147,7 @@ class EnergyCalibration(object):
                     params_guess[0] = 10*slope_dpulseheight_denergy # resolution in pulse height units
                     params_guess[2] = slope_dpulseheight_denergy # energy scale factor (pulseheight/eV)
                     hold = [2] #hold the slope_dpulseheight_denergy constant while fitting
-                    fitter.fit(hist[0], hist[1],params_guess, plot=False)
+                    fitter.fit(hist, bins,params_guess, plot=False)
                     break
                 except (ValueError, LinAlgError, RuntimeError):
                     if self.plot_on_fail:
@@ -155,18 +163,16 @@ class EnergyCalibration(object):
                         plt.show()
                     nbins /= 2
                     bins = np.linspace(binmin,binmax, nbins + 1)
-                    hist = np.histogram(pulse_heights, bins)
+                    hist,bins = np.histogram(pulse_heights, bins)
                     continue
             else:
                 # If every attempt fails, a FailedFitter object is created.
-                fitter = FailedFitter(hist[0], hist[1])
-
-            histograms.append(hist)
+                fitter = FailedFitter(hist, bins)
+            histograms.append((hist, bins))
             complex_fitters.append(fitter)
 
         self.histograms = histograms
         self.complex_fitters = complex_fitters
-        self.refined_peak_positions = [fitter.last_fit_params[1] for fitter in complex_fitters]
 
         if len(self.refined_peak_positions) > 3:
             self.ph2energy = mass.mathstat.interpolate.CubicSpline(self.refined_peak_positions, e_e)
@@ -181,13 +187,9 @@ class EnergyCalibration(object):
 
         return self.ph2energy(ph)
 
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.transforms as mtrans
-from matplotlib.ticker import MaxNLocator
-mpl.rcParams['font.sans-serif'] = 'Arial'
-
+    @property
+    def refined_peak_positions(self):
+        return [fitter.last_fit_params[1] for fitter in self.complex_fitters]
 
 def diagnose_calibration(cal, hist_plot=False):
     #if cal.complex_fitters is None:
@@ -205,6 +207,7 @@ def diagnose_calibration(cal, hist_plot=False):
 
         colors = bmap(np.linspace(0, 1, len(peaks)))
 
+
         x = np.linspace(np.min(cal.data), np.max(cal.data), 2001)
         y = kde(x)
 
@@ -216,6 +219,7 @@ def diagnose_calibration(cal, hist_plot=False):
         fig.show()
 
         #return fig
+
 
     fig = plt.figure(figsize=(16, 9))
 
