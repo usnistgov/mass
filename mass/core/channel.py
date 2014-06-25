@@ -710,7 +710,8 @@ class MicrocalDataSet(object):
         # Approach is to dump the attribute NAME then value.
         attr_starts = ("noise_", "p_", "pretrigger_")
         attr_names = ("peak_time_microsec", "timebase", "times", "average_pulse",
-                      "calibration", "drift_correct_info", "phase_correct_info", "filter" )
+                      "calibration", "drift_correct_info", "phase_correct_info", "filter",
+                      "pumped_band_knowledge")
         for attr in self.__dict__:
             store_this_attr = attr in attr_names
             for ast in attr_starts:

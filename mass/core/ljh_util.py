@@ -1,9 +1,11 @@
 from os import path
+import os
 import re
 import numpy as np
 
 
-__all__ = ['ljh_basename', 'ljh_chan_names', 'ljh_get_aux_fname', 'ljh_get_mic_fname', 'load_aux_file', 'load_mic_file' ]
+__all__ = ['ljh_basename', 'ljh_chan_names', 'ljh_get_aux_fname', 'ljh_get_mic_fname', 'load_aux_file', 'load_mic_file','ljh_get_channels',
+           "ljh_get_channels_both"]
 
 def ljh_basename(fname):
     if path.isdir(fname):
@@ -11,7 +13,6 @@ def ljh_basename(fname):
         while fname[-1]=='/': fname = fname[:-1]
         base_dir, ljh_dir = path.split(fname)
         fname = path.join(base_dir, ljh_dir, ljh_dir)
-    base, ext = path.splitext(fname)
     chanmatches = re.finditer("_chan\d+",fname)
     last_chan_match = None
     for last_chan_match in chanmatches:
@@ -33,7 +34,6 @@ def ljh_get_aux_fname(fname):
     return basename+".timing_aux"
 
 def ljh_get_mic_fname(fname):
-    basename, chan = ljh_basename(fname)
     return path.join(path.dirname(fname), "microphone_timestamps")
 
 def load_aux_file(fname):
@@ -47,3 +47,15 @@ def load_aux_file(fname):
 def load_mic_file(fname):
     fname = ljh_get_mic_fname(fname)
     return np.array(np.loadtxt(fname)*1e6, dtype=np.int64)
+
+def ljh_get_channels(fname):
+    basename, chan = ljh_basename(fname)
+    dir, ljhname = path.split(basename)
+    chans=[]
+    for f in os.listdir(dir):
+        bname, chan = ljh_basename(f)
+        if bname==ljhname and isinstance(chan,int): chans.append(chan)
+    return sorted(chans)
+
+def ljh_get_channels_both(fname, nfname):
+    return sorted(set(ljh_get_channels(fname)).intersection(ljh_get_channels(nfname)))
