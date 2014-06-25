@@ -296,3 +296,12 @@ def test_young(ch):
     ax2.plot(x, cal(x), '--', color='orange', lw=4, zorder=-2)
 
     plt.show()
+
+
+
+def is_calibrated(cal):
+    if hasattr(cal,"npts"): # checks for Joe style calibration
+        return False
+    if cal.elements is None: # then checks for now many elements are fitted for
+        return False
+    return True

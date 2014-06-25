@@ -22,6 +22,7 @@ except ImportError:
 import mass.mathstat.power_spectrum
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
+from mass.calibration import young
 
 class NoiseRecords(object):
     """
@@ -1165,8 +1166,33 @@ class MicrocalDataSet(object):
             scale=1.0
         if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0]*scale,np.sqrt(covar[0,0])*scale)
         return params, covar, fitter
-    
-    
+
+    def calibrate(self, attr, line_names,name_ext="",eps=10, mcs=20, hw=200, excl=(), plot_on_fail=False, forceNew=False):
+        calname = attr+name_ext
+        if self.calibration.has_key(calname):
+            cal = self.calibration[calname]
+            if young.is_calibrated(cal) and not forceNew:
+                print("Not calibrating chan %d %s because it already exists"%(self.channum, calname))
+                return None
+            # first does this already exist? if the calibration already exists and has more than 1 pt,
+            # we probably dont need to redo it
+        cal = young.EnergyCalibration(eps, mcs, hw, excl, plot_on_fail)
+        cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
+        self.calibration[calname]=cal
+        return cal
+
+    def convert_to_energy(self, attr, calname=None):
+        if calname is None: calname = attr
+        if not self.calibration.has_key(calname):
+            raise ValueError("For chan %d calibration %s does not exist"(self.channum, calname))
+        cal = self.calibration[calname]
+        self.p_energy = cal.ph2energy(getattr(self, attr))
+
+    def phase_correct(self,typical_resolution):
+        # note that typical resolution must be in units of p_pulse_rms
+        for ds in self:
+            ds.phase_correct2014(typical_resolution, plot=True)
+
 
 ################################################################################################
 
