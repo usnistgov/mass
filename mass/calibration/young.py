@@ -44,7 +44,7 @@ class EnergyCalibration(object):
         self.ph2energy = None
         self.plot_on_fail = plot_on_fail
 
-    def fit(self, pulse_heights, line_names):
+    def __identify_clusters(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
         self.dbs.fit(self.data[:, np.newaxis])
 
@@ -61,16 +61,13 @@ class EnergyCalibration(object):
 
             peak_positions.append(np.average(self.data[self.dbs.labels_ == l]))
 
-        if len(peak_positions) < len(line_names):
-            raise ValueError('Not enough clusters are identified in data.')
+        return np.array(peak_positions)
 
-        peak_positions = np.array(peak_positions)
-
+    def __find_opt_assignment(self, peak_positions, line_names):
         name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES[element]] for element in line_names],
-                                  key=operator.itemgetter(1)))
+                          key=operator.itemgetter(1)))
         self.elements = name_e
 
-        # Exhaustive search for the best assignment.
         lh_results = []
 
         for assign in itertools.combinations(peak_positions, len(line_names)):
@@ -88,22 +85,32 @@ class EnergyCalibration(object):
         if lh_results[0][-1] > 0.001:
             raise ValueError('Could not match a pattern')
 
-        opt_assignment = lh_results[0][0]
+        return lh_results[0][0]
+
+    def fit(self, pulse_heights, line_names):
+        # Identify unlabeled clusters in a given spectrum
+        peak_positions = self.__identify_clusters(pulse_heights)
+
+        if len(peak_positions) < len(line_names):
+            raise ValueError('Not enough clusters are identified in data.')
+
+        # Exhaustive search for the best assignment.
+        opt_assignment = self.__find_opt_assignment(peak_positions, line_names)
+        e_e = [STANDARD_FEATURES[element] for element in self.elements]
 
         # In order to estimate a slope of the DE/DV curve, b-spline is used.
         # Do I need approximate DV/DEs for complex fittings?
-        ve_spl = splrep(e_e, opt_assignment)
-        app_slope = splev(opt_assignment, ve_spl, der=1)
+        ev_spl = splrep(e_e, opt_assignment)
+        app_slope = splev(e_e, ev_spl, der=1)
 
         if len(self.excl) > 0:
-            ev_spl = splrep(e_e, opt_assignment)
             excl_positions = [splev(STANDARD_FEATURES[element], ev_spl) for element in self.excl]
             peak_positions = np.hstack([peak_positions, excl_positions])
 
         histograms = []
         complex_fitters = []
 
-        for pp, el, slope in zip(opt_assignment, name_e, app_slope):
+        for pp, el, slope in zip(opt_assignment, self.elements, app_slope):
             flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
 
             try:
@@ -117,7 +124,7 @@ class EnergyCalibration(object):
 
             # width is the histrogram width in pulseheight units, calculate from self.hw which is in eV and
             # an evaluation of the spline which gives the derivative
-            slope_dpulseheight_denergy = splev(STANDARD_FEATURES[el], ve_spl, der=1)
+            slope_dpulseheight_denergy = splev(STANDARD_FEATURES[el], ev_spl, der=1)
             width = self.hw * slope_dpulseheight_denergy
             if width <= 0:
                 print("width below zero")
@@ -141,12 +148,13 @@ class EnergyCalibration(object):
             # Trying to fit histograms with different number of bins
             # with a corresponding complex fitter.
             while nbins > 32:
+                params_guess = [None] * 6
+                # resolution guess parameter should be something you can pass
+                params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
+                params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
+                #hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
+
                 try:
-                    params_guess = [None] * 6
-                    # resolution guess parameter should be something you can pass
-                    params_guess[0] = 10*slope_dpulseheight_denergy  # resolution in pulse height units
-                    params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
-                    hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
                     fitter.fit(hist, bins, params_guess, plot=False)
                     break
                 except (ValueError, LinAlgError, RuntimeError):
@@ -154,8 +162,8 @@ class EnergyCalibration(object):
                         fig = plt.figure()
                         ax = fig.add_subplot(111)
                         ax.set_xlabel("pulse height (arbs)")
-                        ax.set_ylabel("counts per %0.2f arb bin"%(hist[1][1]-hist[1][0]))
-                        ax.set_title("%s, %s"%(el, str(params_guess)))
+                        ax.set_ylabel("counts per %0.2f arb bin" % (bins[1]-bins[0]))
+                        ax.set_title("%s, %s" % (el, str(params_guess)))
 
                         #ax.step(hist[1][:-1], hist[0])
                         ax.fill(np.repeat(bins, 2), np.hstack([[0], np.repeat(hist, 2), [0]]),
@@ -196,7 +204,7 @@ class EnergyCalibration(object):
 
     @property
     def energy_resolutions(self):
-        if self.complex_fitter is not None:
+        if self.complex_fitters is not None:
             return [fitter.last_fit_params[0] for fitter in self.complex_fitters]
 
         return None
