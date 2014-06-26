@@ -61,6 +61,7 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
         last_idx = (rising_data>MAXTHRESH).argmax(axis=1)-1
         first_idx = (rising_data>MINTHRESH).argmax(axis=1)
         last_idx[last_idx<first_idx] = first_idx[last_idx<first_idx]+1
+        last_idx[last_idx==rising_data.shape[1]]=rising_data.shape[1]-1
         
         pulsenum = np.arange(npulses)
         y_diff = np.asarray(rising_data[pulsenum,last_idx]-rising_data[pulsenum,first_idx],
