@@ -1073,7 +1073,7 @@ class MicrocalDataSet(object):
         already_exists = not all(self.p_filt_value_dc==0)
         if already_exists and not forceNew:
             print("chan %d not drift correction, p_filt_value_dc already populated"%self.channum)
-            return 
+            return
         g = self.cuts.good()
         uncorrected = self.p_filt_value[g]
         indicator = self.p_pretrig_mean[g]

@@ -22,7 +22,7 @@ import mass.mathstat.interpolate
 
 class FailedFitter(object):
     def __init__(self, hist, bins):
-        self.hists = bins
+        self.hists = hist
         self.bins = bins
 
         self.last_fit_params = [-1, np.sum(self.hists * bins[:-1]) / np.sum(self.hists)]
