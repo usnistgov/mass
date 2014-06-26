@@ -33,7 +33,7 @@ class FailedFitter(object):
 
 
 class EnergyCalibration(object):
-    def __init__(self, eps=5, mcs=100, hw=200, excl=(), plot_on_fail=False):
+    def __init__(self, eps=5, mcs=100, hw=200, excl=(), plot_on_fail=False, use_00=True):
         self.dbs = DBSCAN(eps=eps)
         self.data = np.zeros(0)
         self.mcs = mcs
@@ -44,6 +44,7 @@ class EnergyCalibration(object):
         self.complex_fitters = None
         self.ph2energy = None
         self.plot_on_fail = plot_on_fail
+        self.use_00 = use_00
 
     def __identify_clusters(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
@@ -183,10 +184,14 @@ class EnergyCalibration(object):
         self.histograms = histograms
         self.complex_fitters = complex_fitters
 
+        interp_peak_positions = self.refined_peak_positions
+        if self.use_00:
+            interp_peak_positions = [0] + self.refined_peak_positions
+            e_e = [0]+e_e
         if len(e_e) > 3:
-            self.ph2energy = mass.mathstat.interpolate.CubicSpline(self.refined_peak_positions, e_e)
+            self.ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, e_e)
         else:
-            self.ph2energy = interp1d(self.refined_peak_positions, e_e, kind='linear', bounds_error=True)
+            self.ph2energy = interp1d(interp_peak_positions, e_e, kind='linear', bounds_error=True)
 
         return self
 
@@ -202,7 +207,7 @@ class EnergyCalibration(object):
         return brentq(lambda ph: self.ph2energy(ph)-energy, 0., max_ph) # brentq is finds zeros
 
     def name2ph(self, feature_name):
-        return self.energy2ph(mass.calibration.STANDARD_FEATURES[feature_name])
+        return self.energy2ph(mass.calibration.energy_calibration.STANDARD_FEATURES[feature_name])
 
     @property
     def refined_peak_positions(self):

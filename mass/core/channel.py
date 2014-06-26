@@ -597,6 +597,7 @@ class MicrocalDataSet(object):
         self.pretrigger_ignore_microsec = None # Cut this long before trigger in computing pretrig values
         self.peak_time_microsec = None   # Look for retriggers only after this time. 
         self.index = None   # Index in the larger TESGroup or CDMGroup object
+        self.last_used_calibration = None
         self.__setup_vectors(npulses=self.nPulses)
         if self.auto_pickle:
             self.unpickle()
@@ -1195,6 +1196,7 @@ class MicrocalDataSet(object):
             raise ValueError("For chan %d calibration %s does not exist"(self.channum, calname))
         cal = self.calibration[calname]
         self.p_energy = cal.ph2energy(getattr(self, attr))
+        self.last_used_calibration = cal
 
     def phase_correct(self,typical_resolution):
         # note that typical resolution must be in units of p_pulse_rms
