@@ -8,7 +8,6 @@ from scipy.interpolate import interp1d, splrep, splev
 from scipy.stats import gaussian_kde
 
 import matplotlib as mpl
-import matplotlib.figure
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 from matplotlib.ticker import MaxNLocator
@@ -28,6 +27,7 @@ class FailedFitter(object):
         self.last_fit_params = [None, np.sum(self.hist * bins[:-1]) / np.sum(self.hist)] + [None] * 4
 
     def fitfunc(self, param, x):
+        self.last_fit_params = param
         return np.zeros_like(x)
 
 
