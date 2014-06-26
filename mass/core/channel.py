@@ -1068,19 +1068,25 @@ class MicrocalDataSet(object):
         self.cuts = Cuts(self.nPulses)
     
     
-    def drift_correct(self):
+    def drift_correct(self, forceNew=False):
         """Drift correct using the standard entropy-minimizing algorithm"""
+        already_exists = not all(self.p_filt_value_dc==0)
+        if already_exists and not forceNew:
+            print("chan %d not drift correction, p_filt_value_dc already populated"%self.channum)
+            return 
         g = self.cuts.good()
         uncorrected = self.p_filt_value[g]
         indicator = self.p_pretrig_mean[g]
         drift_corr_param, self.drift_correct_info = \
             mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
-        print 'Best drift correction parameter: %.6f'%drift_corr_param
+        print 'chan %d best drift correction parameter: %.6f'%(self.channum, drift_corr_param)
         
         # Apply correction
         ptm_offset = self.drift_correct_info['median_pretrig_mean']
         gain = 1+(self.p_pretrig_mean-ptm_offset)*drift_corr_param
         self.p_filt_value_dc = self.p_filt_value*gain
+        if self.auto_pickle:
+            self.pickle(verbose=False)
 
 
     def phase_correct2014(self, typical_resolution, plot=False):
@@ -1176,10 +1182,12 @@ class MicrocalDataSet(object):
                 return None
             # first does this already exist? if the calibration already exists and has more than 1 pt,
             # we probably dont need to redo it
+        print("Calibrating chan %d to create %s"%(self.channum, calname))
         cal = young.EnergyCalibration(eps, mcs, hw, excl, plot_on_fail)
         cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
         self.calibration[calname]=cal
-        return cal
+        if self.auto_pickle:
+            self.pickle(verbose=False)
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None: calname = attr

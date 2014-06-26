@@ -1211,10 +1211,8 @@ class TESGroup(BaseChannelGroup):
 
     def drift_correct(self, forceNew=False):
         for ds in self:
-            if all(ds.p_filt_value_dc == 0) or forceNew: # check to see if dataset is already drift corrected
-                ds.drift_correct()
-            else:
-                print("Chan %d already drift corrected, not repeating."%ds.channum)
+                ds.drift_correct(forceNew)
+
 
     def calibrate(self, attr, line_names,name_ext="",eps=10, mcs=20, hw=200, excl=(), plot_on_fail=False, forceNew=False):
         for ds in self:
