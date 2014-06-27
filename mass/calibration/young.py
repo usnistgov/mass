@@ -218,6 +218,11 @@ class EnergyCalibration(object):
         return None
 
     @property
+    def peak_position_err(self):
+        if self.complex_fitters is not None:
+            return [np.sqrt(fitter.last_fit_cov[1, 1]) for fitter in self.complex_fitters]
+
+    @property
     def energy_resolutions(self):
         if self.complex_fitters is not None:
             return [fitter.last_fit_params[0] for fitter in self.complex_fitters]
@@ -233,6 +238,53 @@ class EnergyCalibration(object):
 
     def __repr__(self):
         return "EnergyCalibration with %d features" % (0 if self.complex_fitters is None else len(self.complex_fitters))
+
+    def plot(self, axis=None, ph_rescale_power=0.0, color='blue', markercolor='red'):
+        """Plot the energy calibration function.  If <axis> is None,
+        a new axes will be used.  Otherwise, axes should be a
+        matplotlib.axes.Axes object to plot onto.
+
+        <ph_rescale_power>   Plot E/PH**ph_rescale_power vs PH.  Default is 0, so plot E vs PH.
+        """
+
+        cp_energies = np.array([STANDARD_FEATURES[el] for el in self.elements])
+        cp_pht = np.array(self.refined_peak_positions)
+        cp_std = np.array(self.peak_position_err)
+
+        if axis is None:
+            fig = plt.figure()
+            axis = fig.add_subplot(111)
+            axis.set_ylim([0, cp_energies.max() * 1.05 / cp_pht.max() ** ph_rescale_power])
+            axis.set_xlim([0, cp_pht.max() * 1.1])
+
+        # Plot smooth curve
+        x_pht = np.linspace(0, np.max(cp_pht) * 1.1, 200)
+        y = self(x_pht) / (x_pht ** ph_rescale_power)
+        axis.plot(x_pht, y, color=color)
+
+        # Plot and label cal points
+        if ph_rescale_power == 0.0:
+            axis.errorbar(cp_pht, cp_energies, xerr=cp_std, fmt='o',
+                          mec='black', mfc=markercolor, capsize=0)
+        else:
+            axis.errorbar(cp_pht, cp_energies/(cp_pht ** ph_rescale_power), xerr=cp_std, fmt='or', capsize=0)
+        for p, el in zip(cp_pht, self.elements):
+            axis.text(p, self(p) / p ** ph_rescale_power,
+                      el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'), ha='left', va='top',
+                      transform=mtrans.ScaledTranslation(20.0 / 72, -60.0 / 72, axis.figure.dpi_scale_trans) +
+                                axis.transData)
+
+        axis.grid(True)
+        axis.set_xlabel("Pulse height ('%s')" % "self.ph_field")
+
+        if ph_rescale_power == 0.0:
+            axis.set_ylabel("Energy (eV)")
+            axis.set_title("Energy calibration curve")
+        else:
+            axis.set_ylabel(r"Energy (eV) / PH$^{0:.4f}$".format(ph_rescale_power))
+            axis.set_title("Energy calibration curve, scaled by {0:.4f} power of PH".format(ph_rescale_power))
+
+        return axis
 
 
 def diagnose_calibration(cal, hist_plot=False):
