@@ -1196,7 +1196,35 @@ class TESGroup(BaseChannelGroup):
         print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
         for ds in self.datasets:
             ds.pickle()
-        
+
+    def apply_cuts(self, cuts):
+        for ds in self:
+            ds.apply_cuts(cuts)
+
+    def avg_pulses_auto_masks(self, max_pulses_to_use=7000):
+        median_pulse_avg = np.array([np.median(ds.p_pulse_average[ds.good()]) for ds in self])
+        masks = self.make_masks([.95, 1.05], use_gains=True, gains=median_pulse_avg)
+        for m in masks:
+            if len(m) > max_pulses_to_use:
+                m[max_pulses_to_use:] = False
+        self.compute_average_pulse(masks)
+
+    def drift_correct(self, forceNew=False):
+        for ds in self:
+                ds.drift_correct(forceNew)
+
+
+    def calibrate(self, attr, line_names,name_ext="",eps=10, mcs=20, hw=200, excl=(), plot_on_fail=False, forceNew=False):
+        for ds in self:
+            ds.calibrate(attr, line_names,name_ext,eps, mcs, hw, excl, plot_on_fail, forceNew)
+        self.convert_to_energy(attr, attr+name_ext)
+
+    def convert_to_energy(data, attr, calname=None):
+        if calname is None: calname = attr
+        print("for all channels converting %s to energy with calibration %s"%(attr, calname))
+        for ds in data:
+            ds.convert_to_energy(attr, calname)
+
 
 def _sort_filenames_numerically(fnames, inclusion_list=None):
     """Take a sequence of filenames of the form '*_chanXXX.*'
