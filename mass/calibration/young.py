@@ -126,7 +126,7 @@ class EnergyCalibration(object):
 
             # width is the histrogram width in pulseheight units, calculate from self.hw which is in eV and
             # an evaluation of the spline which gives the derivative
-            slope_dpulseheight_denergy = splev(STANDARD_FEATURES[el], ev_spl, der=1)
+            slope_dpulseheight_denergy = slope  # splev(STANDARD_FEATURES[el], ev_spl, der=1)
             width = self.hw * slope_dpulseheight_denergy
             if width <= 0:
                 print("width below zero")
@@ -153,6 +153,7 @@ class EnergyCalibration(object):
                 params_guess = [None] * 6
                 # resolution guess parameter should be something you can pass
                 params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
+                params_guess[1] = pp  # Approximate peak position
                 params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
                 #hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
 
@@ -202,9 +203,9 @@ class EnergyCalibration(object):
         return self.ph2energy(ph)
 
     def energy2ph(self, energy):
-        max_ph=self.complex_fitters[-1].last_fit_params[1]*2 # twice the pulseheight of the largest pulseheight in the
+        max_ph=self.complex_fitters[-1].last_fit_params[1]*2  # twice the pulseheight of the largest pulseheight in the
         # calibration
-        return brentq(lambda ph: self.ph2energy(ph)-energy, 0., max_ph) # brentq is finds zeros
+        return brentq(lambda ph: self.ph2energy(ph)-energy, 0., max_ph)  # brentq is finds zeros
 
     def name2ph(self, feature_name):
         return self.energy2ph(mass.calibration.energy_calibration.STANDARD_FEATURES[feature_name])
