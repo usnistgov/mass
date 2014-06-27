@@ -67,7 +67,7 @@ class EnergyCalibration(object):
 
     def __find_opt_assignment(self, peak_positions, line_names):
         name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES[element]] for element in line_names],
-                          key=operator.itemgetter(1)))
+                                  key=operator.itemgetter(1)))
         self.elements = name_e
 
         lh_results = []
@@ -77,8 +77,8 @@ class EnergyCalibration(object):
 
             acc_est = 0.0
             for i in xrange(len(assign) - 2):
-                est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i+2] - e_e[i])
-                acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i]))**2
+                est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i + 2] - e_e[i])
+                acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i])) ** 2
 
             lh_results.append([assign, acc_est])
 
@@ -130,9 +130,9 @@ class EnergyCalibration(object):
             width = self.hw * slope_dpulseheight_denergy
             if width <= 0:
                 print("width below zero")
-            binmin, binmax = np.max([pp - width / 2, (pp + lnp)/2]), np.min([pp + width / 2, (pp + rnp)/2])
+            binmin, binmax = np.max([pp - width / 2, (pp + lnp) / 2]), np.min([pp + width / 2, (pp + rnp) / 2])
             bin_size_ev = 2
-            nbins = int(np.ceil((binmax-binmin)/(slope_dpulseheight_denergy*bin_size_ev)))
+            nbins = int(np.ceil((binmax - binmin) / (slope_dpulseheight_denergy * bin_size_ev)))
 
             bins = np.linspace(binmin, binmax, nbins + 1)
             hist, bins = np.histogram(pulse_heights, bins)
@@ -155,7 +155,7 @@ class EnergyCalibration(object):
                 params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
                 params_guess[1] = pp  # Approximate peak position
                 params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
-                #hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
+                # hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
 
                 try:
                     fitter.fit(hist, bins, params_guess, plot=False)
@@ -165,7 +165,7 @@ class EnergyCalibration(object):
                         fig = plt.figure()
                         ax = fig.add_subplot(111)
                         ax.set_xlabel("pulse height (arbs)")
-                        ax.set_ylabel("counts per %0.2f arb bin" % (bins[1]-bins[0]))
+                        ax.set_ylabel("counts per %0.2f arb bin" % (bins[1] - bins[0]))
                         ax.set_title("%s, %s" % (el, str(params_guess)))
 
                         #ax.step(hist[1][:-1], hist[0])
@@ -188,7 +188,7 @@ class EnergyCalibration(object):
         interp_peak_positions = self.refined_peak_positions
         if self.use_00:
             interp_peak_positions = [0] + self.refined_peak_positions
-            e_e = [0]+e_e
+            e_e = [0] + e_e
         if len(e_e) > 3:
             self.ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, e_e)
         else:
@@ -205,7 +205,7 @@ class EnergyCalibration(object):
     def energy2ph(self, energy):
         max_ph = self.complex_fitters[-1].last_fit_params[1] * 2  # twice the pulseheight of the largest pulseheight
         # in the calibration
-        return brentq(lambda ph: self.ph2energy(ph)-energy, 0., max_ph)  # brentq is finds zeros
+        return brentq(lambda ph: self.ph2energy(ph) - energy, 0., max_ph)  # brentq is finds zeros
 
     def name2ph(self, feature_name):
         return self.energy2ph(mass.calibration.energy_calibration.STANDARD_FEATURES[feature_name])
@@ -267,12 +267,14 @@ class EnergyCalibration(object):
             axis.errorbar(cp_pht, cp_energies, xerr=cp_std, fmt='o',
                           mec='black', mfc=markercolor, capsize=0)
         else:
-            axis.errorbar(cp_pht, cp_energies/(cp_pht ** ph_rescale_power), xerr=cp_std, fmt='or', capsize=0)
+            axis.errorbar(cp_pht, cp_energies / (cp_pht ** ph_rescale_power), xerr=cp_std, fmt='or', capsize=0)
+
+        label_transform = mtrans.ScaledTranslation(20.0 / 72, -60.0 / 72, axis.figure.dpi_scale_trans) + \
+            axis.transData
         for p, el in zip(cp_pht, self.elements):
             axis.text(p, self(p) / p ** ph_rescale_power,
                       el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'), ha='left', va='top',
-                      transform=mtrans.ScaledTranslation(20.0 / 72, -60.0 / 72, axis.figure.dpi_scale_trans) +
-                                axis.transData)
+                      transform=label_transform)
 
         axis.grid(True)
         axis.set_xlabel("Pulse height ('%s')" % "self.ph_field")
@@ -288,7 +290,7 @@ class EnergyCalibration(object):
 
 
 def diagnose_calibration(cal, hist_plot=False):
-    #if cal.complex_fitters is None:
+    # if cal.complex_fitters is None:
     if hist_plot:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -297,8 +299,8 @@ def diagnose_calibration(cal, hist_plot=False):
         kde = gaussian_kde(cal.data, bw_method=0.002)
         counter = Counter(cal.dbs.labels_)
         peaks = list([[np.min(cal.data[cal.dbs.labels_ == x[0]]),
-                      np.max(cal.data[cal.dbs.labels_ == x[0]])]
-                     for x in counter.most_common() if (x[1] > cal.mcs) and (x[0] > -0.5)])
+                       np.max(cal.data[cal.dbs.labels_ == x[0]])]
+                      for x in counter.most_common() if (x[1] > cal.mcs) and (x[0] > -0.5)])
         peaks = sorted(peaks, key=operator.itemgetter(0))
 
         colors = bmap(np.linspace(0, 1, len(peaks)))
