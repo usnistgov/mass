@@ -589,7 +589,7 @@ class BaseChannelGroup(object):
         
         return masks
     
-    def compute_average_pulse(self, masks, use_crosstalk_masks, subtract_mean=True):
+    def compute_average_pulse(self, masks, use_crosstalk_masks, subtract_mean=True, forceNew=False):
         """
         Compute several average pulses in each TES channel, one per mask given in
         <masks>.  Store the averages in self.datasets.average_pulse with shape (m,n)
@@ -612,6 +612,11 @@ class BaseChannelGroup(object):
 
         # Make sure that masks is either a 2D or 1D array of the right shape,
         # or a sequence of 1D arrays of the right shape
+        already_done = all([hasattr(ds, "average_pulse") for ds in self])
+
+        if already_done and not forceNew:
+            print("skipping compute average pulse")
+            return
         if isinstance(masks, np.ndarray):
             nd = len(masks.shape)
             if nd==1:
@@ -730,33 +735,37 @@ class BaseChannelGroup(object):
             d.gain = g
     
     
-    def compute_filters(self, fmax=None, f_3db=None):
+    def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
         
         # Analyze the noise, if not already done
-        for ds in self:
-            if ds.noise_autocorr is None or ds.noise_spectrum is None:
-                print "Computing noise autocorrelation and spectrum"
-                self.compute_noise_spectra()
-                break
-        
+        already_done = any([ds.noise_autocorr is None or ds.noise_spectrum is None for ds in self])
+        if forceNew or not already_done:
+            print "Computing noise autocorrelation and spectrum"
+            self.compute_noise_spectra()
+        else:
+            print("Skipping computing noise autocorrelation and spectrum because already done")
+
         printUpdater = InlineUpdater('compute_filters')
         for ds_num,ds in enumerate(self):
-            if ds.cuts.good().sum() < 10:
-                ds.filter = None
-                self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
-                continue
-            printUpdater.update((ds_num+1)/float(self.n_channels))
-            avg_signal = ds.average_pulse.copy()
-            
-            try:
-                spectrum = ds.noise_spectrum.spectrum()
-            except:
-                spectrum = None
-            f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, spectrum,
-                                 ds.noise_autocorr, sample_time=self.timebase,
-                                 fmax=fmax, f_3db=f_3db, shorten=2)
-            ds.filter = f
-            
+            if ds.filter == {} or forceNew:
+                if ds.cuts.good().sum() < 10:
+                    ds.filter = None
+                    self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
+                    continue
+                printUpdater.update((ds_num+1)/float(self.n_channels))
+                avg_signal = ds.average_pulse.copy()
+
+                try:
+                    spectrum = ds.noise_spectrum.spectrum()
+                except:
+                    spectrum = None
+                f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples, spectrum,
+                                     ds.noise_autocorr, sample_time=self.timebase,
+                                     fmax=fmax, f_3db=f_3db, shorten=2)
+                ds.filter = f
+            else:
+                print("chan %d skipping compute_filter because already done"%ds.channum)
+
 
     def plot_filters(self, first=0, end=-1):
         """Plot the filters from <first> through <end>-1.  By default, plots all filters,
@@ -1147,17 +1156,10 @@ class TESGroup(BaseChannelGroup):
         plt.setp(ltext, fontsize='small')
     
     
-    def compute_noise_spectra(self, max_excursion=9e9, n_lags=None):
-        """<n_lags>, if not None, is the number of lags in each noise spectrum and the max lag 
-        for the autocorrelation.  If None, the record length is used."""
-        if n_lags is None:
-            n_lags = self.nSamples
+    def compute_noise_spectra(self, max_excursion=9e9, n_lags=None, forceNew=False):
         for ds in self:
-            ds.noise_records.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
-            ds.noise_spectrum = ds.noise_records.spectrum
-            ds.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
-            ds.noise_autocorr = ds.noise_records.autocorrelation
-            ds.noise_records.clear_cache()
+            ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
+
         
     def pickle_datasets(self):
         for ds in self:
@@ -1197,9 +1199,9 @@ class TESGroup(BaseChannelGroup):
         for ds in self.datasets:
             ds.pickle()
 
-    def apply_cuts(self, cuts):
+    def apply_cuts(self, cuts, forceNew=True):
         for ds in self:
-            ds.apply_cuts(cuts)
+            ds.apply_cuts(cuts, forceNew)
 
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000):
         median_pulse_avg = np.array([np.median(ds.p_pulse_average[ds.good()]) for ds in self])

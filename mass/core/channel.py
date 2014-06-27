@@ -1013,14 +1013,31 @@ class MicrocalDataSet(object):
             except ValueError:
                 raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'%str(allowed))
 
+    def compute_noise_spectra(self, max_excursion=9e9, n_lags=None, forceNew=False):
+        """<n_lags>, if not None, is the number of lags in each noise spectrum and the max lag
+        for the autocorrelation.  If None, the record length is used."""
+        if n_lags is None:
+            n_lags = self.nSamples
+        if forceNew or self.noise_spectrum is None or self.noise_autocorr is None:
+            self.noise_records.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
+            self.noise_spectrum = self.noise_records.spectrum
+            self.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
+            self.noise_autocorr = self.noise_records.autocorrelation
+            self.noise_records.clear_cache()
+        else:
+            print("chan %d skipping compute_noise_spectra because already done"%self.channum)
     
-    
-    def apply_cuts(self, controls=None, clear=False, verbose=1):
+    def apply_cuts(self, controls=None, clear=False, verbose=1, forceNew=True):
         """
         <clear>  Whether to clear previous cuts first (by default, do not clear).
         <verbose> How much to print to screen.  Level 1 (default) counts all pulses good/bad/total.
                     Level 2 adds some stuff about the departure-from-median pretrigger mean cut.
         """
+        if forceNew == False:
+            if self.cuts.good().sum() != self.nPulses:
+                print("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses"%
+                      (self.channum, self.cuts.nUncut(),self.cuts.nCut(), self.nPulses))
+
         if clear: self.clear_cuts()
         
         if controls is None:
