@@ -9,7 +9,6 @@ from scipy.stats import gaussian_kde
 from scipy.optimize import brentq
 
 import matplotlib as mpl
-import matplotlib.figure
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 from matplotlib.ticker import MaxNLocator
@@ -29,6 +28,7 @@ class FailedFitter(object):
         self.last_fit_params = [None, np.sum(self.hist * bins[:-1]) / np.sum(self.hist)] + [None] * 4
 
     def fitfunc(self, param, x):
+        self.last_fit_params = param
         return np.zeros_like(x)
 
 
@@ -126,7 +126,7 @@ class EnergyCalibration(object):
 
             # width is the histrogram width in pulseheight units, calculate from self.hw which is in eV and
             # an evaluation of the spline which gives the derivative
-            slope_dpulseheight_denergy = splev(STANDARD_FEATURES[el], ev_spl, der=1)
+            slope_dpulseheight_denergy = slope  # splev(STANDARD_FEATURES[el], ev_spl, der=1)
             width = self.hw * slope_dpulseheight_denergy
             if width <= 0:
                 print("width below zero")
@@ -153,6 +153,7 @@ class EnergyCalibration(object):
                 params_guess = [None] * 6
                 # resolution guess parameter should be something you can pass
                 params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
+                params_guess[1] = pp  # Approximate peak position
                 params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
                 #hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
 
@@ -202,9 +203,9 @@ class EnergyCalibration(object):
         return self.ph2energy(ph)
 
     def energy2ph(self, energy):
-        max_ph=self.complex_fitters[-1].last_fit_params[1]*2 # twice the pulseheight of the largest pulseheight in the
-        # calibration
-        return brentq(lambda ph: self.ph2energy(ph)-energy, 0., max_ph) # brentq is finds zeros
+        max_ph = self.complex_fitters[-1].last_fit_params[1] * 2  # twice the pulseheight of the largest pulseheight
+        # in the calibration
+        return brentq(lambda ph: self.ph2energy(ph)-energy, 0., max_ph)  # brentq is finds zeros
 
     def name2ph(self, feature_name):
         return self.energy2ph(mass.calibration.energy_calibration.STANDARD_FEATURES[feature_name])
@@ -213,12 +214,14 @@ class EnergyCalibration(object):
     def refined_peak_positions(self):
         if self.complex_fitters is not None:
             return [fitter.last_fit_params[1] for fitter in self.complex_fitters]
+
         return None
 
     @property
     def energy_resolutions(self):
         if self.complex_fitters is not None:
             return [fitter.last_fit_params[0] for fitter in self.complex_fitters]
+
         return None
 
     def __repr__(self):
@@ -230,7 +233,7 @@ def diagnose_calibration(cal, hist_plot=False):
     if hist_plot:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        bmap = plt.get_cmap("spectral",11)
+        bmap = plt.get_cmap("spectral", 11)
 
         kde = gaussian_kde(cal.data, bw_method=0.002)
         counter = Counter(cal.dbs.labels_)
@@ -240,7 +243,6 @@ def diagnose_calibration(cal, hist_plot=False):
         peaks = sorted(peaks, key=operator.itemgetter(0))
 
         colors = bmap(np.linspace(0, 1, len(peaks)))
-
 
         x = np.linspace(np.min(cal.data), np.max(cal.data), 2001)
         y = kde(x)
@@ -253,7 +255,6 @@ def diagnose_calibration(cal, hist_plot=False):
         fig.show()
 
         #return fig
-
 
     fig = plt.figure(figsize=(16, 9))
 
@@ -332,10 +333,9 @@ def test_young(ch):
     plt.show()
 
 
-
 def is_calibrated(cal):
-    if hasattr(cal,"npts"): # checks for Joe style calibration
+    if hasattr(cal, "npts"):  # checks for Joe style calibration
         return False
-    if cal.elements is None: # then checks for now many elements are fitted for
+    if cal.elements is None:  # then checks for now many elements are fitted for
         return False
     return True
