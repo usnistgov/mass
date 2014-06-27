@@ -5,7 +5,7 @@ import numpy as np
 
 
 __all__ = ['ljh_basename', 'ljh_chan_names', 'ljh_get_aux_fname', 'ljh_get_mic_fname', 'load_aux_file', 'load_mic_file','ljh_get_channels',
-           "ljh_get_channels_both"]
+           "ljh_get_channels_both","output_basename_from_ljh_fname"]
 
 def ljh_basename(fname):
     if path.isdir(fname):
@@ -59,3 +59,13 @@ def ljh_get_channels(fname):
 
 def ljh_get_channels_both(fname, nfname):
     return sorted(set(ljh_get_channels(fname)).intersection(ljh_get_channels(nfname)))
+
+def output_basename_from_ljh_fname(ljh):
+    basename, chan = ljh_basename(ljh)
+    dir, fname = path.split(basename)
+    if not path.isdir(dir):
+        raise("ValueError %s is not valid directory"%dir)
+    outputdir = path.join(dir, "mass_output")
+    if not path.isdir(outputdir): os.mkdir(outputdir)
+    output_basefname = path.join(outputdir, fname)
+    return output_basefname
