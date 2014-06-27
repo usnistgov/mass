@@ -203,8 +203,8 @@ class EnergyCalibration(object):
         return self.ph2energy(ph)
 
     def energy2ph(self, energy):
-        max_ph=self.complex_fitters[-1].last_fit_params[1]*2  # twice the pulseheight of the largest pulseheight in the
-        # calibration
+        max_ph = self.complex_fitters[-1].last_fit_params[1] * 2  # twice the pulseheight of the largest pulseheight
+        # in the calibration
         return brentq(lambda ph: self.ph2energy(ph)-energy, 0., max_ph)  # brentq is finds zeros
 
     def name2ph(self, feature_name):
@@ -334,8 +334,8 @@ def test_young(ch):
 
 
 def is_calibrated(cal):
-    if hasattr(cal, "npts"): # checks for Joe style calibration
+    if hasattr(cal, "npts"):  # checks for Joe style calibration
         return False
-    if cal.elements is None: # then checks for now many elements are fitted for
+    if cal.elements is None:  # then checks for now many elements are fitted for
         return False
     return True
