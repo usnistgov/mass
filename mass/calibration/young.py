@@ -224,6 +224,13 @@ class EnergyCalibration(object):
 
         return None
 
+    @property
+    def npts(self):
+        if self.complex_fitters is not None:
+            return len(self.complex_fitters)
+
+        return 0
+
     def __repr__(self):
         return "EnergyCalibration with %d features" % (0 if self.complex_fitters is None else len(self.complex_fitters))
 
