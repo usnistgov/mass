@@ -4,7 +4,7 @@ import operator
 import inspect
 import numpy as np
 from scipy.linalg import LinAlgError
-from scipy.interpolate import interp1d, splrep, splev
+from scipy.interpolate import UnivariateSpline
 from scipy.stats import gaussian_kde
 from scipy.optimize import brentq
 
@@ -89,6 +89,18 @@ class EnergyCalibration(object):
 
         return lh_results[0][0]
 
+    def __build_calibration_spline(self, pht, energy):
+        interp_peak_positions = pht
+        if self.use_00:
+            interp_peak_positions = [0] + interp_peak_positions
+            energy = [0] + energy
+        if len(energy) > 3:
+            ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, energy)
+        else:
+            ph2energy = UnivariateSpline(interp_peak_positions, energy, k=1)
+
+        return ph2energy
+
     def fit(self, pulse_heights, line_names):
         # Identify unlabeled clusters in a given spectrum
         peak_positions = self.__identify_clusters(pulse_heights)
@@ -100,13 +112,12 @@ class EnergyCalibration(object):
         opt_assignment = self.__find_opt_assignment(peak_positions, line_names)
         e_e = [STANDARD_FEATURES[element] for element in self.elements]
 
-        # In order to estimate a slope of the DE/DV curve, b-spline is used.
-        # Do I need approximate DV/DEs for complex fittings?
-        ev_spl = splrep(e_e, opt_assignment)
-        app_slope = splev(e_e, ev_spl, der=1)
+        # Estimate a slope of the DV/DE curve for ComplexFitters
+        ev_spl = self.__build_calibration_spline(e_e, opt_assignment)
+        app_slope = ev_spl(e_e, 1)
 
         if len(self.excl) > 0:
-            excl_positions = [splev(STANDARD_FEATURES[element], ev_spl) for element in self.excl]
+            excl_positions = [ev_spl(STANDARD_FEATURES[element]) for element in self.excl]
             peak_positions = np.hstack([peak_positions, excl_positions])
 
         histograms = []
@@ -185,14 +196,7 @@ class EnergyCalibration(object):
         self.histograms = histograms
         self.complex_fitters = complex_fitters
 
-        interp_peak_positions = self.refined_peak_positions
-        if self.use_00:
-            interp_peak_positions = [0] + self.refined_peak_positions
-            e_e = [0] + e_e
-        if len(e_e) > 3:
-            self.ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, e_e)
-        else:
-            self.ph2energy = interp1d(interp_peak_positions, e_e, kind='linear', bounds_error=True)
+        self.ph2energy = self.__build_calibration_spline(self.refined_peak_positions, e_e)
 
         return self
 
