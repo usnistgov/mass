@@ -196,6 +196,11 @@ class EnergyCalibration(object):
 
         return self
 
+    def add_cal_point(self, pht, energy, name="", info=None, pht_error=0, overwrite=True):
+        if info is None:
+            info = {}
+        pass
+
     def __call__(self, ph):
         if self.ph2energy is None:
             raise ValueError('Has not been calibrated yet.')
@@ -221,6 +226,8 @@ class EnergyCalibration(object):
     def peak_position_err(self):
         if self.complex_fitters is not None:
             return [np.sqrt(fitter.last_fit_cov[1, 1]) for fitter in self.complex_fitters]
+
+        return None
 
     @property
     def energy_resolutions(self):
@@ -277,7 +284,7 @@ class EnergyCalibration(object):
                       transform=label_transform)
 
         axis.grid(True)
-        axis.set_xlabel("Pulse height ('%s')" % "self.ph_field")
+        axis.set_xlabel("Pulse height")
 
         if ph_rescale_power == 0.0:
             axis.set_ylabel("Energy (eV)")
