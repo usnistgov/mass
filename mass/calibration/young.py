@@ -4,7 +4,7 @@ import operator
 import inspect
 import numpy as np
 from scipy.linalg import LinAlgError
-from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.stats import gaussian_kde
 from scipy.optimize import brentq
 
@@ -97,7 +97,7 @@ class EnergyCalibration(object):
         if len(energy) > 3:
             ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, energy)
         else:
-            ph2energy = UnivariateSpline(interp_peak_positions, energy, k=1)
+            ph2energy = InterpolatedUnivariateSpline(interp_peak_positions, energy, k=1)
 
         return ph2energy
 
