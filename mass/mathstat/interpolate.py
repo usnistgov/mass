@@ -1,4 +1,4 @@
-'''
+"""
 Created on Feb 20, 2014
 
 @author: fowlerj
@@ -13,7 +13,7 @@ CubicSpline   - Perform an exact cubic spline through the data, with
                 'natural boundary conditions' (y''=0 at ends). 
 
 Joe Fowler, NIST
-'''
+"""
 
 __all__ = ['CubicSpline']
 
@@ -62,7 +62,6 @@ class CubicSpline(object):
         self.yprimeN = yprimeN
         self._compute_y2()
 
-
     def _compute_y2(self):
         self.dy = self._y[1:]-self._y[:-1]
         self.dx = self._x[1:] - self._x[:-1]
@@ -78,7 +77,7 @@ class CubicSpline(object):
             u[0] = (3.0/self.dx[0])*(self.dy[0]/self.dx[0]-self.yprime1) 
             self._y2[0] = -0.5
 
-        for i in range(1,self._n-1):
+        for i in range(1, self._n-1):
             sig = self.dx[i-1]/(self._x[i+1]-self._x[i-1])
             p = sig*self._y2[i-1]+2.0
             self._y2[i] = (sig-1.0)/p
@@ -101,40 +100,58 @@ class CubicSpline(object):
         if self.yprimeN is None:
             self.yprimeN = self.dy[-1]/self.dx[-1] + self.dx[-1]*(self._y2[-2]/6.+self._y2[-1]/3.)
 
-
-    def __call__(self, x):
+    def __call__(self, x, der=0):
         x = np.asarray(x)
         if x.size == 0:
             return np.array([])
         elif x.size == 1:
-            x.shape=(1,)
+            x.shape = (1,)
         result = np.zeros_like(x, dtype=np.float)
 
         # Find which interval 0,...self._n-2 contains the points (or extrapolates to the points)
         position = np.searchsorted(self._x, x)-1
 
         # Here, position == -1 means extrapolate below the first interval.
-        extrap_low = position<0
+        extrap_low = position < 0
         if extrap_low.any():
-            h = x[extrap_low]-self._x[0] # will be negative
-            result[extrap_low] = self._y[0] + h*self.yprime1
+            if der == 0:
+                h = x[extrap_low]-self._x[0]  # will be negative
+                result[extrap_low] = self._y[0] + h*self.yprime1
+            elif der == 1:
+                result[extrap_low] = self.yprime1
+            elif der > 1:
+                result[extrap_low] = .0
 
         # position = self._n-1 means extrapolate above the last interval.
         extrap_hi = position >= self._n-1
         if extrap_hi.any():
-            h = x[extrap_hi] - self._x[-1] # will be positive
-            result[extrap_hi] = self._y[-1] + h*self.yprimeN
+            if der == 0:
+                h = x[extrap_hi] - self._x[-1]  # will be positive
+                result[extrap_hi] = self._y[-1] + h*self.yprimeN
+            elif der == 1:
+                result[extrap_hi] = self.yprimeN
+            elif der > 1:
+                result[extrap_hi] = .0
 
-        interp = np.logical_and(position>=0, position < self._n-1)
+        interp = np.logical_and(position >= 0, position < self._n-1)
         if interp.any():
             klo = position[interp]
             khi = klo+1
             dx = self.dx[klo]
-            a = (self._x[khi]- x[interp])/dx
-            b = (x[interp]-self._x[klo])/dx
-            result[interp] = a*self._y[klo] + b*self._y[khi] + ((a*a*a-a)*self._y2[klo] \
-                    + (b*b*b-b)*self._y2[khi])*dx*dx/6.0;
+            a = (self._x[khi] - x[interp]) / dx
+            b = (x[interp] - self._x[klo]) / dx
+
+            if der == 0:
+                result[interp] = a * self._y[klo] + b * self._y[khi] \
+                                                  + ((a**3 - a) * self._y2[klo] +
+                                                     (b**3 - b)*self._y2[khi]) * dx * dx / 6.0
+            elif der == 1:
+                result[interp] = -self._y[klo] / dx + self._y[khi] / dx \
+                                                    + ((-a**2 + 1.0 / 3) * self._y2[klo] +
+                                                      (b**2 - 1.0 / 3) * self._y2[khi]) * dx / 2.0
+            elif der == 2:
+                result[interp] = a * self._y2[klo] + b * self._y2[khi]
+            elif der > 2:
+                result[interp] = .0
 
         return result
-
-
