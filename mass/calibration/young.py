@@ -220,11 +220,11 @@ class EnergyCalibration(object):
             info = {}
         pass
 
-    def __call__(self, ph):
+    def __call__(self, ph, der=0):
         if self.ph2energy is None:
             raise ValueError('Has not been calibrated yet.')
 
-        return self.ph2energy(ph)
+        return self.ph2energy(ph, der)
 
     def energy2ph(self, energy):
         max_ph = self.complex_fitters[-1].last_fit_params[1] * 2  # twice the pulseheight of the largest pulseheight
@@ -258,7 +258,14 @@ class EnergyCalibration(object):
     @property
     def energy_resolutions(self):
         if self.complex_fitters is not None:
-            return [fitter.last_fit_params[0] for fitter in self.complex_fitters]
+            params = []
+            for fitter in self.complex_fitters:
+                if isinstance(fitter, MaximumLikelihoodGaussianFitter):
+                    params.append(self.ph2energy(fitter.params[1], 1) * fitter.params[0])
+                else:
+                    params.append(fitter.last_fit_params[0])
+
+            return params
 
         return None
 
@@ -370,15 +377,15 @@ def diagnose_calibration(cal, hist_plot=False):
         x = np.linspace(hist[1][0], hist[1][-1], 201)
         if isinstance(el, int) or isinstance(el, float):
             ax.text(0.05, 0.97, str(el) +
-                    '\n' + "Resolution: {0:.1f} eV".format(fitter.params[0]),
+                    ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(cal(fitter.params[1], 1)[0] * fitter.params[0]),
                     transform=ax.transAxes, ha='left', va='top')
-            y = [fitter.gaussian_theory_function(fitter.params, a) for a in x]
+            y = [np.median(fitter.gaussian_theory_function(fitter.params, a)) for a in x]
         else:
             ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
-                    '\n' + "Resolution: {0:.1f} eV".format(fitter.last_fit_params[0]),
+                    '\n' + "Resolution: {0:.1f} (eV)".format(fitter.last_fit_params[0]),
                     transform=ax.transAxes, ha='left', va='top')
             y = fitter.fitfunc(fitter.last_fit_params, x)
-        ax.plot(x, y, color=(0.9, 0.1, 0.1), lw=2)
+        ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
         ax.set_xlim(np.min(x), np.max(x))
         ax.set_ylim(0, np.max(hist[0]) * 1.3)
 
