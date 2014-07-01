@@ -151,7 +151,9 @@ class CubicSpline(object):
                                                       (b**2 - 1.0 / 3) * self._y2[khi]) * dx / 2.0
             elif der == 2:
                 result[interp] = a * self._y2[klo] + b * self._y2[khi]
-            elif der > 2:
+            elif der == 3:
+                result[interp] = (-self._y2[klo] + self._y2[khi]) * dx
+            elif der > 3:
                 result[interp] = .0
 
         return result
