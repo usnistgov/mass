@@ -4,7 +4,7 @@ import operator
 import inspect
 import numpy as np
 from scipy.linalg import LinAlgError
-from scipy.interpolate import interp1d, splrep, splev
+from scipy.interpolate import UnivariateSpline
 from scipy.stats import gaussian_kde
 from scipy.optimize import brentq
 
@@ -67,7 +67,7 @@ class EnergyCalibration(object):
 
     def __find_opt_assignment(self, peak_positions, line_names):
         name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES[element]] for element in line_names],
-                          key=operator.itemgetter(1)))
+                                  key=operator.itemgetter(1)))
         self.elements = name_e
 
         lh_results = []
@@ -77,8 +77,8 @@ class EnergyCalibration(object):
 
             acc_est = 0.0
             for i in xrange(len(assign) - 2):
-                est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i+2] - e_e[i])
-                acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i]))**2
+                est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i + 2] - e_e[i])
+                acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i])) ** 2
 
             lh_results.append([assign, acc_est])
 
@@ -88,6 +88,18 @@ class EnergyCalibration(object):
             raise ValueError('Could not match a pattern')
 
         return lh_results[0][0]
+
+    def __build_calibration_spline(self, pht, energy):
+        interp_peak_positions = pht
+        if self.use_00:
+            interp_peak_positions = [0] + interp_peak_positions
+            energy = [0] + energy
+        if len(energy) > 3:
+            ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, energy)
+        else:
+            ph2energy = UnivariateSpline(interp_peak_positions, energy, k=1)
+
+        return ph2energy
 
     def fit(self, pulse_heights, line_names):
         # Identify unlabeled clusters in a given spectrum
@@ -100,13 +112,12 @@ class EnergyCalibration(object):
         opt_assignment = self.__find_opt_assignment(peak_positions, line_names)
         e_e = [STANDARD_FEATURES[element] for element in self.elements]
 
-        # In order to estimate a slope of the DE/DV curve, b-spline is used.
-        # Do I need approximate DV/DEs for complex fittings?
-        ev_spl = splrep(e_e, opt_assignment)
-        app_slope = splev(e_e, ev_spl, der=1)
+        # Estimate a slope of the DV/DE curve for ComplexFitters
+        ev_spl = self.__build_calibration_spline(e_e, opt_assignment)
+        app_slope = ev_spl(e_e, 1)
 
         if len(self.excl) > 0:
-            excl_positions = [splev(STANDARD_FEATURES[element], ev_spl) for element in self.excl]
+            excl_positions = [ev_spl(STANDARD_FEATURES[element]) for element in self.excl]
             peak_positions = np.hstack([peak_positions, excl_positions])
 
         histograms = []
@@ -130,9 +141,9 @@ class EnergyCalibration(object):
             width = self.hw * slope_dpulseheight_denergy
             if width <= 0:
                 print("width below zero")
-            binmin, binmax = np.max([pp - width / 2, (pp + lnp)/2]), np.min([pp + width / 2, (pp + rnp)/2])
+            binmin, binmax = np.max([pp - width / 2, (pp + lnp) / 2]), np.min([pp + width / 2, (pp + rnp) / 2])
             bin_size_ev = 2
-            nbins = int(np.ceil((binmax-binmin)/(slope_dpulseheight_denergy*bin_size_ev)))
+            nbins = int(np.ceil((binmax - binmin) / (slope_dpulseheight_denergy * bin_size_ev)))
 
             bins = np.linspace(binmin, binmax, nbins + 1)
             hist, bins = np.histogram(pulse_heights, bins)
@@ -155,7 +166,7 @@ class EnergyCalibration(object):
                 params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
                 params_guess[1] = pp  # Approximate peak position
                 params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
-                #hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
+                # hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
 
                 try:
                     fitter.fit(hist, bins, params_guess, plot=False)
@@ -165,7 +176,7 @@ class EnergyCalibration(object):
                         fig = plt.figure()
                         ax = fig.add_subplot(111)
                         ax.set_xlabel("pulse height (arbs)")
-                        ax.set_ylabel("counts per %0.2f arb bin" % (bins[1]-bins[0]))
+                        ax.set_ylabel("counts per %0.2f arb bin" % (bins[1] - bins[0]))
                         ax.set_title("%s, %s" % (el, str(params_guess)))
 
                         #ax.step(hist[1][:-1], hist[0])
@@ -185,16 +196,14 @@ class EnergyCalibration(object):
         self.histograms = histograms
         self.complex_fitters = complex_fitters
 
-        interp_peak_positions = self.refined_peak_positions
-        if self.use_00:
-            interp_peak_positions = [0] + self.refined_peak_positions
-            e_e = [0]+e_e
-        if len(e_e) > 3:
-            self.ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, e_e)
-        else:
-            self.ph2energy = interp1d(interp_peak_positions, e_e, kind='linear', bounds_error=True)
+        self.ph2energy = self.__build_calibration_spline(self.refined_peak_positions, e_e)
 
         return self
+
+    def add_cal_point(self, pht, energy, name="", info=None, pht_error=0, overwrite=True):
+        if info is None:
+            info = {}
+        pass
 
     def __call__(self, ph):
         if self.ph2energy is None:
@@ -205,7 +214,7 @@ class EnergyCalibration(object):
     def energy2ph(self, energy):
         max_ph = self.complex_fitters[-1].last_fit_params[1] * 2  # twice the pulseheight of the largest pulseheight
         # in the calibration
-        return brentq(lambda ph: self.ph2energy(ph)-energy, 0., max_ph)  # brentq is finds zeros
+        return brentq(lambda ph: self.ph2energy(ph) - energy, 0., max_ph)  # brentq is finds zeros
 
     def name2ph(self, feature_name):
         return self.energy2ph(mass.calibration.energy_calibration.STANDARD_FEATURES[feature_name])
@@ -218,18 +227,81 @@ class EnergyCalibration(object):
         return None
 
     @property
+    def peak_position_err(self):
+        if self.complex_fitters is not None:
+            return [np.sqrt(fitter.last_fit_cov[1, 1]) for fitter in self.complex_fitters]
+
+        return None
+
+    @property
     def energy_resolutions(self):
         if self.complex_fitters is not None:
             return [fitter.last_fit_params[0] for fitter in self.complex_fitters]
 
         return None
 
+    @property
+    def npts(self):
+        if self.complex_fitters is not None:
+            return len(self.complex_fitters)
+
+        return 0
+
     def __repr__(self):
         return "EnergyCalibration with %d features" % (0 if self.complex_fitters is None else len(self.complex_fitters))
 
+    def plot(self, axis=None, ph_rescale_power=0.0, color='blue', markercolor='red'):
+        """Plot the energy calibration function.  If <axis> is None,
+        a new axes will be used.  Otherwise, axes should be a
+        matplotlib.axes.Axes object to plot onto.
+
+        <ph_rescale_power>   Plot E/PH**ph_rescale_power vs PH.  Default is 0, so plot E vs PH.
+        """
+
+        cp_energies = np.array([STANDARD_FEATURES[el] for el in self.elements])
+        cp_pht = np.array(self.refined_peak_positions)
+        cp_std = np.array(self.peak_position_err)
+
+        if axis is None:
+            fig = plt.figure()
+            axis = fig.add_subplot(111)
+            axis.set_ylim([0, cp_energies.max() * 1.05 / cp_pht.max() ** ph_rescale_power])
+            axis.set_xlim([0, cp_pht.max() * 1.1])
+
+        # Plot smooth curve
+        x_pht = np.linspace(0, np.max(cp_pht) * 1.1, 200)
+        y = self(x_pht) / (x_pht ** ph_rescale_power)
+        axis.plot(x_pht, y, color=color)
+
+        # Plot and label cal points
+        if ph_rescale_power == 0.0:
+            axis.errorbar(cp_pht, cp_energies, xerr=cp_std, fmt='o',
+                          mec='black', mfc=markercolor, capsize=0)
+        else:
+            axis.errorbar(cp_pht, cp_energies / (cp_pht ** ph_rescale_power), xerr=cp_std, fmt='or', capsize=0)
+
+        label_transform = mtrans.ScaledTranslation(20.0 / 72, -60.0 / 72, axis.figure.dpi_scale_trans) + \
+            axis.transData
+        for p, el in zip(cp_pht, self.elements):
+            axis.text(p, self(p) / p ** ph_rescale_power,
+                      el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'), ha='left', va='top',
+                      transform=label_transform)
+
+        axis.grid(True)
+        axis.set_xlabel("Pulse height")
+
+        if ph_rescale_power == 0.0:
+            axis.set_ylabel("Energy (eV)")
+            axis.set_title("Energy calibration curve")
+        else:
+            axis.set_ylabel(r"Energy (eV) / PH$^{0:.4f}$".format(ph_rescale_power))
+            axis.set_title("Energy calibration curve, scaled by {0:.4f} power of PH".format(ph_rescale_power))
+
+        return axis
+
 
 def diagnose_calibration(cal, hist_plot=False):
-    #if cal.complex_fitters is None:
+    # if cal.complex_fitters is None:
     if hist_plot:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -238,8 +310,8 @@ def diagnose_calibration(cal, hist_plot=False):
         kde = gaussian_kde(cal.data, bw_method=0.002)
         counter = Counter(cal.dbs.labels_)
         peaks = list([[np.min(cal.data[cal.dbs.labels_ == x[0]]),
-                      np.max(cal.data[cal.dbs.labels_ == x[0]])]
-                     for x in counter.most_common() if (x[1] > cal.mcs) and (x[0] > -0.5)])
+                       np.max(cal.data[cal.dbs.labels_ == x[0]])]
+                      for x in counter.most_common() if (x[1] > cal.mcs) and (x[0] > -0.5)])
         peaks = sorted(peaks, key=operator.itemgetter(0))
 
         colors = bmap(np.linspace(0, 1, len(peaks)))

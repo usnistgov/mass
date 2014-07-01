@@ -1073,6 +1073,7 @@ class MultiLorentzianComplexFitter(object):
         """ """
         ## Parameters and fit function from last successful fit
         self.last_fit_params = None
+        self.last_fit_cov = None
         self.last_fit_result = None
         
     
@@ -1165,6 +1166,7 @@ class MultiLorentzianComplexFitter(object):
         fitparams[0] = abs(fitparams[0])
         
         self.last_fit_params = fitparams
+        self.last_fit_cov = covariance
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
         
         ## all this plot stuff should go into a seperate function then we have 
