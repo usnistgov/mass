@@ -25,7 +25,7 @@ class FailedFitter(object):
         self.hist = hist
         self.bins = bins
 
-        self.last_fit_params = [None, np.sum(self.hist * bins[:-1]) / np.sum(self.hist)] + [None] * 4
+        self.last_fit_params = [-1, np.sum(self.hist * bins[:-1]) / np.sum(self.hist)] + [None] * 4
 
     def fitfunc(self, param, x):
         self.last_fit_params = param
@@ -91,9 +91,9 @@ class EnergyCalibration(object):
 
     def __build_calibration_spline(self, pht, energy):
         interp_peak_positions = pht
-        if self.use_00:
+        if self.use_00 and (0 not in interp_peak_positions):
             interp_peak_positions = [0] + interp_peak_positions
-            energy = [0] + energy
+            energy = [.0] + energy
         if len(energy) > 3:
             ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, energy)
         else:
@@ -324,6 +324,7 @@ def diagnose_calibration(cal, hist_plot=False):
         for i, (lb, ub) in enumerate(peaks):
             ax.fill_between(x[(x > lb) & (x < ub)],
                             y[(x > lb) & (x < ub)], facecolor=colors[i])
+            ax.text((lb + ub)/2, np.max(y))
         fig.show()
 
         #return fig
