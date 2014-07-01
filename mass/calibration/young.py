@@ -18,6 +18,7 @@ from sklearn.cluster import DBSCAN
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration.fluorescence_lines
 import mass.mathstat.interpolate
+from mass.mathstat.fitting import MaximumLikelihoodGaussianFitter
 
 
 class FailedFitter(object):
@@ -66,7 +67,7 @@ class EnergyCalibration(object):
         return np.array(peak_positions)
 
     def __find_opt_assignment(self, peak_positions, line_names):
-        name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES[element]] for element in line_names],
+        name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES.get(element, element)] for element in line_names],
                                   key=operator.itemgetter(1)))
         self.elements = name_e
 
@@ -110,14 +111,14 @@ class EnergyCalibration(object):
 
         # Exhaustive search for the best assignment.
         opt_assignment = self.__find_opt_assignment(peak_positions, line_names)
-        e_e = [STANDARD_FEATURES[element] for element in self.elements]
+        e_e = [STANDARD_FEATURES.get(element, element) for element in self.elements]
 
         # Estimate a slope of the DV/DE curve for ComplexFitters
         ev_spl = self.__build_calibration_spline(e_e, opt_assignment)
         app_slope = ev_spl(e_e, 1)
 
         if len(self.excl) > 0:
-            excl_positions = [ev_spl(STANDARD_FEATURES[element]) for element in self.excl]
+            excl_positions = [ev_spl(STANDARD_FEATURES.get(element, element)) for element in self.excl]
             peak_positions = np.hstack([peak_positions, excl_positions])
 
         histograms = []
@@ -150,10 +151,24 @@ class EnergyCalibration(object):
 
             # If a corresponding fitter could not be found then create a FailedFitter object.
             try:
-                fitter_cls = flu_members[el + 'Fitter']
-                fitter = fitter_cls()
+                if isinstance(el, int) or isinstance(el, float):
+                    bins_pht = pulse_heights[(pulse_heights > binmin) & (pulse_heights < binmax)]
+                    fitter = MaximumLikelihoodGaussianFitter((bins[1:] + bins[:-1]) / 2,
+                                                             hist,
+                                                             params=(np.std(bins_pht),
+                                                                     np.mean(bins_pht),
+                                                                     np.max(hist), 0, 0))
+                else:
+                    fitter_cls = flu_members[el + 'Fitter']
+                    fitter = fitter_cls()
             except KeyError:
                 fitter = FailedFitter(hist, bins)
+                histograms.append((hist, bins))
+                complex_fitters.append(fitter)
+                continue
+
+            if isinstance(fitter, MaximumLikelihoodGaussianFitter):
+                params, cov = fitter.fit()
                 histograms.append((hist, bins))
                 complex_fitters.append(fitter)
                 continue
@@ -222,7 +237,14 @@ class EnergyCalibration(object):
     @property
     def refined_peak_positions(self):
         if self.complex_fitters is not None:
-            return [fitter.last_fit_params[1] for fitter in self.complex_fitters]
+            params = []
+            for fitter in self.complex_fitters:
+                if isinstance(fitter, MaximumLikelihoodGaussianFitter):
+                    params.append(fitter.params[1])
+                else:
+                    params.append(fitter.last_fit_params[1])
+
+            return params
 
         return None
 
@@ -258,7 +280,7 @@ class EnergyCalibration(object):
         <ph_rescale_power>   Plot E/PH**ph_rescale_power vs PH.  Default is 0, so plot E vs PH.
         """
 
-        cp_energies = np.array([STANDARD_FEATURES[el] for el in self.elements])
+        cp_energies = np.array([STANDARD_FEATURES.get(el, el) for el in self.elements])
         cp_pht = np.array(self.refined_peak_positions)
         cp_std = np.array(self.peak_position_err)
 
@@ -344,24 +366,32 @@ def diagnose_calibration(cal, hist_plot=False):
         #ax.step(hist[1][:-1], hist[0], where='mid', color='grey', lw=1)
         ax.fill(np.repeat(hist[1], 2), np.hstack([[0], np.repeat(hist[0], 2), [0]]),
                 lw=1, fc=(0.3, 0.3, 0.9), ec=(0.1, 0.1, 1.0), alpha=0.8)
-        ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
-                '\n' + "Resolution: {0:.1f} eV".format(fitter.last_fit_params[0]),
-                transform=ax.transAxes, ha='left', va='top')
+
         x = np.linspace(hist[1][0], hist[1][-1], 201)
-        y = fitter.fitfunc(fitter.last_fit_params, x)
+        if isinstance(el, int) or isinstance(el, float):
+            ax.text(0.05, 0.97, str(el) +
+                    '\n' + "Resolution: {0:.1f} eV".format(fitter.params[0]),
+                    transform=ax.transAxes, ha='left', va='top')
+            y = [fitter.gaussian_theory_function(fitter.params, a) for a in x]
+        else:
+            ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
+                    '\n' + "Resolution: {0:.1f} eV".format(fitter.last_fit_params[0]),
+                    transform=ax.transAxes, ha='left', va='top')
+            y = fitter.fitfunc(fitter.last_fit_params, x)
         ax.plot(x, y, color=(0.9, 0.1, 0.1), lw=2)
         ax.set_xlim(np.min(x), np.max(x))
         ax.set_ylim(0, np.max(hist[0]) * 1.3)
 
     ax = fig.add_axes([lm + w, bm, (1.0 - lm - w) - 0.06, h - 0.05])
     for el, fitter in zip(cal.elements, cal.complex_fitters):
-        ax.text(fitter.last_fit_params[1], STANDARD_FEATURES[el],
-                el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
-                ha='left', va='top',
-                transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
+        if isinstance(el, str):
+            ax.text(fitter.last_fit_params[1], STANDARD_FEATURES.get(el, el),
+                    el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
+                    ha='left', va='top',
+                    transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
 
-    ax.scatter([fitter.last_fit_params[1] for fitter in cal.complex_fitters],
-               [STANDARD_FEATURES[el] for el in cal.elements], s=36, c=(0.2, 0.2, 0.8))
+    ax.scatter(cal.refined_peak_positions,
+               [STANDARD_FEATURES.get(el, el) for el in cal.elements], s=36, c=(0.2, 0.2, 0.8))
 
     lb, ub = cal.complex_fitters[0].last_fit_params[1], cal.complex_fitters[-1].last_fit_params[1]
     width = ub - lb
