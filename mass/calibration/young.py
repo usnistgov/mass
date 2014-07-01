@@ -324,7 +324,10 @@ def diagnose_calibration(cal, hist_plot=False):
         for i, (lb, ub) in enumerate(peaks):
             ax.fill_between(x[(x > lb) & (x < ub)],
                             y[(x > lb) & (x < ub)], facecolor=colors[i])
-            ax.text((lb + ub)/2, np.max(y))
+
+        for i, el in enumerate(cal.elements):
+            ax.text(cal.refined_peak_positions[i], np.interp(cal.refined_peak_positions[i],x,y),el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'))
+
         fig.show()
 
         #return fig
