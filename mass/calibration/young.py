@@ -393,7 +393,7 @@ def diagnose_calibration(cal, hist_plot=False):
         peaks = sorted(peaks, key=operator.itemgetter(0))
         refined_peak_positions = cal.refined_peak_positions
 
-        colors = bmap(np.linspace(0, 1, len(peaks)))
+        colors = bmap(np.linspace(0.1, 1, len(peaks)))
 
         x = np.linspace(np.min(cal.data), np.max(cal.data), 2001)
         y = kde(x)
