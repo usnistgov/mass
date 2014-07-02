@@ -12,6 +12,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 from matplotlib.ticker import MaxNLocator
+from matplotlib import patheffects
 
 mpl.rcParams['font.sans-serif'] = 'Arial'
 from sklearn.cluster import DBSCAN
@@ -319,8 +320,8 @@ class EnergyCalibration(object):
         else:
             axis.errorbar(cp_pht, cp_energies / (cp_pht ** ph_rescale_power), xerr=cp_std, fmt='or', capsize=0)
 
-        label_transform = mtrans.ScaledTranslation(20.0 / 72, -60.0 / 72, axis.figure.dpi_scale_trans) + \
-            axis.transData
+        label_transform = axis.transData + \
+            mtrans.ScaledTranslation(20.0 / 72, -60.0 / 72, axis.figure.dpi_scale_trans)
         for p, el in zip(cp_pht, self.elements):
             axis.text(p, self(p) / p ** ph_rescale_power,
                       el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'), ha='left', va='top',
@@ -352,6 +353,7 @@ def diagnose_calibration(cal, hist_plot=False):
                        np.max(cal.data[cal.dbs.labels_ == x[0]])]
                       for x in counter.most_common() if (x[1] > cal.mcs) and (x[0] > -0.5)])
         peaks = sorted(peaks, key=operator.itemgetter(0))
+        refined_peak_positions = cal.refined_peak_positions
 
         colors = bmap(np.linspace(0, 1, len(peaks)))
 
@@ -363,7 +365,13 @@ def diagnose_calibration(cal, hist_plot=False):
         for i, (lb, ub) in enumerate(peaks):
             ax.fill_between(x[(x > lb) & (x < ub)],
                             y[(x > lb) & (x < ub)], facecolor=colors[i])
-            ax.text((lb + ub)/2, np.max(y))
+            rpp_flag = ((refined_peak_positions > lb) & (refined_peak_positions < ub))
+            if rpp_flag.any():
+                text = ax.text((lb + ub)/2, np.max(y[(x > lb) & (x < ub)]),
+                               cal.elements[np.arange(len(rpp_flag))[rpp_flag][0]],
+                               color='w', ha='center', va='bottom',
+                               transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
+                text.set_path_effects([patheffects.withStroke(linewidth=1.5, foreground=colors[i]), ])
         fig.show()
 
         #return fig
@@ -411,7 +419,7 @@ def diagnose_calibration(cal, hist_plot=False):
         ax.text(pht, energy,
                 peak_name,
                 ha='left', va='top',
-                transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
+                transform=ax.transData + mtrans.ScaledTranslation(5.0 / 72, -12.0 / 72, fig.dpi_scale_trans))
 
     ax.scatter(cal.refined_peak_positions,
                cal.peak_energies, s=36, c=(0.2, 0.2, 0.8))
