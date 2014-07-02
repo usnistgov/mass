@@ -111,7 +111,7 @@ class EnergyCalibration(object):
 
         # Exhaustive search for the best assignment.
         opt_assignment = self.__find_opt_assignment(peak_positions, line_names)
-        e_e = [STANDARD_FEATURES.get(element, element) for element in self.elements]
+        e_e = self.peak_energies
 
         # Estimate a slope of the DV/DE curve for ComplexFitters
         ev_spl = self.__build_calibration_spline(e_e, opt_assignment)
@@ -276,6 +276,10 @@ class EnergyCalibration(object):
         return None
 
     @property
+    def peak_energies(self):
+        return [STANDARD_FEATURES.get(el, el) for el in self.elements]
+
+    @property
     def npts(self):
         if self.complex_fitters is not None:
             return len(self.complex_fitters)
@@ -396,30 +400,31 @@ def diagnose_calibration(cal, hist_plot=False):
         ax.set_ylim(0, np.max(hist[0]) * 1.3)
 
     ax = fig.add_axes([lm + w, bm, (1.0 - lm - w) - 0.06, h - 0.05])
-    for el, fitter in zip(cal.elements, cal.complex_fitters):
+
+    for el, pht, fitter, energy in zip(cal.elements, cal.refined_peak_positions,
+                                       cal.complex_fitters, cal.peak_energies):
+        peak_name = 'Unknown'
         if isinstance(el, str):
-            ax.text(fitter.last_fit_params[1], STANDARD_FEATURES.get(el, el),
-                    el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
-                    ha='left', va='top',
-                    transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
+            peak_name = el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
         elif isinstance(el, int) or isinstance(el, float):
-            ax.text(fitter.params[1], el,
-                    "{0:.1f} (eV)".format(el),
-                    ha='left', va='top',
-                    transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
+            peak_name = "{0:.1f} (eV)".format(energy)
+        ax.text(pht, energy,
+                peak_name,
+                ha='left', va='top',
+                transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
 
     ax.scatter(cal.refined_peak_positions,
-               [STANDARD_FEATURES.get(el, el) for el in cal.elements], s=36, c=(0.2, 0.2, 0.8))
+               cal.peak_energies, s=36, c=(0.2, 0.2, 0.8))
 
     lb, ub = -np.inf, np.inf
-    if isinstance(cal.complex_fitters[0], MaximumLikelihoodGaussianFitter):
+    try:
         lb = cal.complex_fitters[0].params[1]
-    else:
+    except AttributeError:
         lb = cal.complex_fitters[0].last_fit_params[1]
 
-    if isinstance(cal.complex_fitters[-1], MaximumLikelihoodGaussianFitter):
+    try:
         ub = cal.complex_fitters[-1].params[1]
-    else:
+    except AttributeError:
         ub = cal.complex_fitters[-1].last_fit_params[1]
 
     width = ub - lb
