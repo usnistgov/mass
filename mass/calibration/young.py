@@ -251,8 +251,14 @@ class EnergyCalibration(object):
     @property
     def peak_position_err(self):
         if self.complex_fitters is not None:
-            return [np.sqrt(fitter.last_fit_cov[1, 1]) for fitter in self.complex_fitters]
+            errs = []
+            for fitter in self.complex_fitters:
+                if isinstance(fitter, MaximumLikelihoodGaussianFitter):
+                    errs.append(np.sqrt(fitter.covar[1, 1]))
+                else:
+                    errs.append(np.sqrt(fitter.last_fit_cov[1, 1]))
 
+            return errs
         return None
 
     @property
@@ -396,11 +402,26 @@ def diagnose_calibration(cal, hist_plot=False):
                     el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
                     ha='left', va='top',
                     transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
+        elif isinstance(el, int) or isinstance(el, float):
+            ax.text(fitter.params[1], el,
+                    "{0:.1f} (eV)".format(el),
+                    ha='left', va='top',
+                    transform=mtrans.ScaledTranslation(5.0 / 72, -64.0 / 72, fig.dpi_scale_trans) + ax.transData)
 
     ax.scatter(cal.refined_peak_positions,
                [STANDARD_FEATURES.get(el, el) for el in cal.elements], s=36, c=(0.2, 0.2, 0.8))
 
-    lb, ub = cal.complex_fitters[0].last_fit_params[1], cal.complex_fitters[-1].last_fit_params[1]
+    lb, ub = -np.inf, np.inf
+    if isinstance(cal.complex_fitters[0], MaximumLikelihoodGaussianFitter):
+        lb = cal.complex_fitters[0].params[1]
+    else:
+        lb = cal.complex_fitters[0].last_fit_params[1]
+
+    if isinstance(cal.complex_fitters[-1], MaximumLikelihoodGaussianFitter):
+        ub = cal.complex_fitters[-1].params[1]
+    else:
+        ub = cal.complex_fitters[-1].last_fit_params[1]
+
     width = ub - lb
     x = np.linspace(lb - width / 10, ub + width / 10, 101)
     y = cal(x)
