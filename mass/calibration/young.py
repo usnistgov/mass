@@ -97,11 +97,12 @@ class EnergyCalibration(object):
                 est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i + 2] - e_e[i])
                 acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i])) ** 2
 
-            lh_results.append([assign, acc_est])
+
+            lh_results.append([assign, acc_est/float(len(assign)-2)])
 
         lh_results = sorted(lh_results, key=operator.itemgetter(1))
 
-        if lh_results[0][-1] > 0.001:
+        if lh_results[0][1] > 0.0002:
             if self.plot_on_fail:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
