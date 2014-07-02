@@ -1215,11 +1215,13 @@ class TESGroup(BaseChannelGroup):
         for ds in self:
                 ds.drift_correct(forceNew)
 
-
-    def calibrate(self, attr, line_names,name_ext="",eps=10, mcs=20, hw=200, excl=(), plot_on_fail=False, forceNew=False):
+    def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10, min_counts_per_cluster=20,
+                  fit_range_ev=200, excl=(), plot_on_fail=False,max_num_clusters=np.inf,max_pulses_for_dbscan=1e5, forceNew=False):
         for ds in self:
-            ds.calibrate(attr, line_names,name_ext,eps, mcs, hw, excl, plot_on_fail, forceNew)
+            ds.calibrate(attr, line_names,name_ext,size_related_to_energy_resolution, min_counts_per_cluster,
+                  fit_range_ev, excl, plot_on_fail,max_num_clusters,max_pulses_for_dbscan, forceNew)
         self.convert_to_energy(attr, attr+name_ext)
+
 
     def convert_to_energy(data, attr, calname=None):
         if calname is None: calname = attr

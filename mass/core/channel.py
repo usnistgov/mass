@@ -598,6 +598,7 @@ class MicrocalDataSet(object):
         self.peak_time_microsec = None   # Look for retriggers only after this time. 
         self.index = None   # Index in the larger TESGroup or CDMGroup object
         self.last_used_calibration = None
+        self.pumped_band_knowledge = None
         self.__setup_vectors(npulses=self.nPulses)
         if self.auto_pickle:
             self.unpickle()
@@ -1191,7 +1192,8 @@ class MicrocalDataSet(object):
         if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0]*scale,np.sqrt(covar[0,0])*scale)
         return params, covar, fitter
 
-    def calibrate(self, attr, line_names,name_ext="",eps=10, mcs=20, hw=200, excl=(), plot_on_fail=False, forceNew=False):
+    def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10, min_counts_per_cluster=20,
+                  fit_range_ev=200, excl=(), plot_on_fail=False,max_num_clusters=np.inf,max_pulses_for_dbscan=1e5, forceNew=False):
         calname = attr+name_ext
         if self.calibration.has_key(calname):
             cal = self.calibration[calname]
@@ -1201,7 +1203,8 @@ class MicrocalDataSet(object):
             # first does this already exist? if the calibration already exists and has more than 1 pt,
             # we probably dont need to redo it
         print("Calibrating chan %d to create %s"%(self.channum, calname))
-        cal = young.EnergyCalibration(eps, mcs, hw, excl, plot_on_fail)
+        cal = young.EnergyCalibration(size_related_to_energy_resolution, min_counts_per_cluster, fit_range_ev, excl,
+                 plot_on_fail,max_num_clusters, max_pulses_for_dbscan)
         cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
         self.calibration[calname]=cal
         if self.auto_pickle:

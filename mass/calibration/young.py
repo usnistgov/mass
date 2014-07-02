@@ -7,6 +7,7 @@ from scipy.linalg import LinAlgError
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.stats import gaussian_kde
 from scipy.optimize import brentq
+from scipy.misc import comb
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -33,11 +34,12 @@ class FailedFitter(object):
 
 
 class EnergyCalibration(object):
-    def __init__(self, eps=5, mcs=100, hw=200, excl=(), plot_on_fail=False, use_00=True):
-        self.dbs = DBSCAN(eps=eps)
+    def __init__(self, size_related_to_energy_resolution=5, min_counts_per_cluster=100, fit_range_ev=200, excl=(),
+                 plot_on_fail=False,max_num_clusters=np.inf, max_pulses_for_dbscan=1e5, use_00=True):
+        self.dbs = DBSCAN(eps=size_related_to_energy_resolution)
         self.data = np.zeros(0)
-        self.mcs = mcs
-        self.hw = hw
+        self.mcs = min_counts_per_cluster
+        self.hw = fit_range_ev
         self.excl = excl
         self.elements = None
         self.histograms = None
@@ -45,20 +47,29 @@ class EnergyCalibration(object):
         self.ph2energy = None
         self.plot_on_fail = plot_on_fail
         self.use_00 = use_00
+        self.max_num_clusters = max_num_clusters
+        self.max_pulses_for_dbscan = max_pulses_for_dbscan
 
     def __identify_clusters(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
-        self.dbs.fit(self.data[:, np.newaxis])
+
+        if len(self.data)>self.max_pulses_for_dbscan:
+            self.dbs.fit(self.data[:self.max_pulses_for_dbscan-1, np.newaxis])
+        else:
+            self.dbs.fit(self.data[:, np.newaxis])
 
         count = Counter(self.dbs.labels_)
         peak_positions = []
 
-        for l, c in count.most_common():
+        for (i,(l, c)) in enumerate(count.most_common()):
             # Outlier cluster won't count.
             if l < -0.5:
                 continue
             # Not bright enough cluster won't count either.
             if c < self.mcs:
+                break
+            # or stop counting when you exceed the number of expected lines
+            if i >= self.max_num_clusters:
                 break
 
             peak_positions.append(np.average(self.data[self.dbs.labels_ == l]))
@@ -72,6 +83,10 @@ class EnergyCalibration(object):
 
         lh_results = []
 
+        num_combos = comb(len(peak_positions), len(line_names))
+        if num_combos > 1e7:
+            raise ValueError("%d peak positions and %d line_names give %d possible combinations, too many to search"%(len(peak_positions),
+            len(line_names), num_combos))
         for assign in itertools.combinations(peak_positions, len(line_names)):
             assign = sorted(assign)
 
@@ -85,8 +100,30 @@ class EnergyCalibration(object):
         lh_results = sorted(lh_results, key=operator.itemgetter(1))
 
         if lh_results[0][-1] > 0.001:
-            raise ValueError('Could not match a pattern')
+            if self.plot_on_fail:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                bmap = plt.get_cmap("spectral", 11)
 
+                kde = gaussian_kde(self.data, bw_method=0.002)
+                counter = Counter(self.dbs.labels_)
+                peaks = list([[np.min(self.data[self.dbs.labels_ == x[0]]),
+                               np.max(self.data[self.dbs.labels_ == x[0]])]
+                              for x in counter.most_common() if (x[1] > self.mcs) and (x[0] > -0.5)])
+                peaks = sorted(peaks, key=operator.itemgetter(0))
+
+                colors = bmap(np.linspace(0, 1, len(peaks)))
+
+                x = np.linspace(np.min(self.data), np.max(self.data), 2001)
+                y = kde(x)
+
+                ax.fill_between(x, y, facecolor='k')
+
+                for i, (lb, ub) in enumerate(peaks):
+                    ax.fill_between(x[(x > lb) & (x < ub)],
+                                    y[(x > lb) & (x < ub)], facecolor=['r','g'][i%2])
+
+            raise ValueError('Could not match a pattern')
         return lh_results[0][0]
 
     def __build_calibration_spline(self, pht, energy):
@@ -182,6 +219,7 @@ class EnergyCalibration(object):
                         #ax.step(hist[1][:-1], hist[0])
                         ax.fill(np.repeat(bins, 2), np.hstack([[0], np.repeat(hist, 2), [0]]),
                                 fc=(0.1, 0.1, 1.0), ec='b')
+
                         plt.show()
                     nbins /= 2
                     bins = np.linspace(binmin, binmax, nbins + 1)
@@ -323,7 +361,7 @@ def diagnose_calibration(cal, hist_plot=False):
 
         for i, (lb, ub) in enumerate(peaks):
             ax.fill_between(x[(x > lb) & (x < ub)],
-                            y[(x > lb) & (x < ub)], facecolor=colors[i])
+                            y[(x > lb) & (x < ub)], facecolor=['r','g'][i%2])
 
         for i, el in enumerate(cal.elements):
             ax.text(cal.refined_peak_positions[i], np.interp(cal.refined_peak_positions[i],x,y),el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'))
@@ -410,7 +448,7 @@ def test_young(ch):
 
 
 def is_calibrated(cal):
-    if hasattr(cal, "npts"):  # checks for Joe style calibration
+    if hasattr(cal,"_names"):  # checks for Joe style calibration
         return False
     if cal.elements is None:  # then checks for now many elements are fitted for
         return False

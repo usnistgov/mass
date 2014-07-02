@@ -145,9 +145,7 @@ class EnergyCalibration(object):
     def __call__(self, pulse_ht):
         "Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV)."
         return self.ph2energy(pulse_ht)
-    
-    def __repr__(self):
-        return "EnergyCalibration('%s')" % self.ph_field
+
     
     def __str__(self):
         seq = ["EnergyCalibration('%s')" % self.ph_field]
