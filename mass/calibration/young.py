@@ -97,12 +97,17 @@ class EnergyCalibration(object):
                 est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i + 2] - e_e[i])
                 acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i])) ** 2
 
+            # calculating a different metric of goodness, not actually used at the moment,
+            # doesn't seem to work much better
+            pfit = np.polyfit([0]+list(assign), [0]+list(e_e),2)
+            residual = np.polyval(pfit,[0]+list(assign))- np.array([0]+list(e_e))
+            chi = np.sqrt(np.mean(residual**2))
 
-            lh_results.append([assign, acc_est/float(len(assign)-2)])
+            lh_results.append([assign, acc_est/float(len(assign)-2), chi])
 
         lh_results = sorted(lh_results, key=operator.itemgetter(1))
 
-        if lh_results[0][1] > 0.0002:
+        if lh_results[0][1] > 0.0004:
             if self.plot_on_fail:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
@@ -115,7 +120,7 @@ class EnergyCalibration(object):
                               for x in counter.most_common() if (x[1] > self.mcs) and (x[0] > -0.5)])
                 peaks = sorted(peaks, key=operator.itemgetter(0))
 
-                colors = bmap(np.linspace(0, 1, len(peaks)))
+                colors = bmap(np.linspace(0.1, 1, len(peaks)))
 
                 x = np.linspace(np.min(self.data), np.max(self.data), 2001)
                 y = kde(x)
@@ -124,7 +129,11 @@ class EnergyCalibration(object):
 
                 for i, (lb, ub) in enumerate(peaks):
                     ax.fill_between(x[(x > lb) & (x < ub)],
-                                    y[(x > lb) & (x < ub)], facecolor=['r','g'][i%2])
+                                    y[(x > lb) & (x < ub)], facecolor=colors[i])
+
+                for peak_position, name in zip(lh_results[0][0], name_e):
+                    ax.text(peak_position, np.interp(peak_position,x,y), str(name))
+                ax.set_title("pattern match fail, showing best acc_est = %f"%lh_results[0][1])
 
             raise ValueError('Could not match a pattern')
         return lh_results[0][0]
