@@ -35,11 +35,12 @@ class FailedFitter(object):
 
 
 class EnergyCalibration(object):
-    def __init__(self, eps=5, mcs=100, hw=200, excl=(), plot_on_fail=False, use_00=True):
+    def __init__(self, eps=5, mcs=100, hw=200, bs=2, excl=(), plot_on_fail=False, use_00=True):
         self.dbs = DBSCAN(eps=eps)
         self.data = np.zeros(0)
         self.mcs = mcs
         self.hw = hw
+        self.bs = bs
         self.excl = excl
         self.elements = None
         self.histograms = None
@@ -137,39 +138,40 @@ class EnergyCalibration(object):
             except ValueError:
                 rnp = np.inf
 
-            # width is the histrogram width in pulseheight units, calculate from self.hw which is in eV and
-            # an evaluation of the spline which gives the derivative
-            slope_dpulseheight_denergy = slope  # splev(STANDARD_FEATURES[el], ev_spl, der=1)
+            # hw is the histogram width in eV. It needs to be converted into the pulse height unit.
+            slope_dpulseheight_denergy = slope
             width = self.hw * slope_dpulseheight_denergy
+
             if width <= 0:
-                print("width below zero")
+                raise ValueError('Couldn\'t get a good peak assignment.')
+
             binmin, binmax = np.max([pp - width / 2, (pp + lnp) / 2]), np.min([pp + width / 2, (pp + rnp) / 2])
-            bin_size_ev = 2
+            bin_size_ev = self.bs
             nbins = int(np.ceil((binmax - binmin) / (slope_dpulseheight_denergy * bin_size_ev)))
 
             bins = np.linspace(binmin, binmax, nbins + 1)
             hist, bins = np.histogram(pulse_heights, bins)
 
-            # If a corresponding fitter could not be found then create a FailedFitter object.
-            try:
-                if isinstance(el, int) or isinstance(el, float):
-                    bins_pht = pulse_heights[(pulse_heights > binmin) & (pulse_heights < binmax)]
-                    fitter = MaximumLikelihoodGaussianFitter((bins[1:] + bins[:-1]) / 2,
-                                                             hist,
-                                                             params=(np.std(bins_pht),
-                                                                     np.mean(bins_pht),
-                                                                     np.max(hist), 0, 0))
-                else:
-                    fitter_cls = flu_members[el + 'Fitter']
-                    fitter = fitter_cls()
-            except KeyError:
-                fitter = FailedFitter(hist, bins)
+            # If a peak is specified by it energy, the MaximumLikelihoodGaussianFitter is used.
+            if isinstance(el, int) or isinstance(el, float):
+                bins_pht = pulse_heights[(pulse_heights > binmin) & (pulse_heights < binmax)]
+                fitter = MaximumLikelihoodGaussianFitter((bins[1:] + bins[:-1]) / 2,
+                                                         hist,
+                                                         params=(np.std(bins_pht),
+                                                                 np.mean(bins_pht),
+                                                                 np.max(hist), 0, 0))
+                fitter.fit()
                 histograms.append((hist, bins))
                 complex_fitters.append(fitter)
                 continue
 
-            if isinstance(fitter, MaximumLikelihoodGaussianFitter):
-                params, cov = fitter.fit()
+            # If a corresponding fitter could not be found in the fluorescence_lines module,
+            # A FailedFitter object is created.
+            try:
+                fitter_cls = flu_members[el + 'Fitter']
+                fitter = fitter_cls()
+            except KeyError:
+                fitter = FailedFitter(hist, bins)
                 histograms.append((hist, bins))
                 complex_fitters.append(fitter)
                 continue
