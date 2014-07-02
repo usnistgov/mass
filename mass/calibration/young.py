@@ -395,12 +395,12 @@ def diagnose_calibration(cal, hist_plot=False):
         x = np.linspace(hist[1][0], hist[1][-1], 201)
         if isinstance(el, int) or isinstance(el, float):
             ax.text(0.05, 0.97, str(el) +
-                    ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(cal([fitter.params[1], 1])[0] * fitter.params[0]),
+                    ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(cal([fitter.params[1]], 1)[0] * fitter.params[0]),
                     transform=ax.transAxes, ha='left', va='top')
             y = [np.median(fitter.gaussian_theory_function(fitter.params, a)) for a in x]
         else:
             ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
-                    '\n' + "Resolution: {0:.1f} (eV)".format(fitter.last_fit_params[1]),
+                    '\n' + "Resolution: {0:.1f} (eV)".format(fitter.last_fit_params[0]),
                     transform=ax.transAxes, ha='left', va='top')
             y = fitter.fitfunc(fitter.last_fit_params, x)
         ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
