@@ -83,11 +83,11 @@ class EnergyCalibration(object):
                 est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i + 2] - e_e[i])
                 acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i])) ** 2
 
-            lh_results.append([assign, acc_est])
+            lh_results.append([assign, acc_est / (len(assign) - 2)])
 
         lh_results = sorted(lh_results, key=operator.itemgetter(1))
 
-        if lh_results[0][-1] > 0.001:
+        if lh_results[0][-1] > 0.0002:
             raise ValueError('Could not match a pattern')
 
         return lh_results[0][0]
@@ -120,7 +120,7 @@ class EnergyCalibration(object):
         app_slope = ev_spl(e_e, 1)
 
         if len(self.excl) > 0:
-            excl_positions = [ev_spl(STANDARD_FEATURES.get(element, element)) for element in self.excl]
+            excl_positions = [ev_spl([STANDARD_FEATURES.get(element, element)])[0] for element in self.excl]
             peak_positions = np.hstack([peak_positions, excl_positions])
 
         histograms = []
@@ -345,7 +345,7 @@ class EnergyCalibration(object):
 def diagnose_calibration(cal, hist_plot=False):
     # if cal.complex_fitters is None:
     if hist_plot:
-        fig = plt.figure()
+        fig = plt.figure(figsize=(12, 9))
         ax = fig.add_subplot(111)
         bmap = plt.get_cmap("spectral", 11)
 
@@ -357,7 +357,7 @@ def diagnose_calibration(cal, hist_plot=False):
         peaks = sorted(peaks, key=operator.itemgetter(0))
         refined_peak_positions = cal.refined_peak_positions
 
-        colors = bmap(np.linspace(0, 1, len(peaks)))
+        colors = bmap(np.linspace(0, 1, len(peaks) + 4)[2:-2])
 
         x = np.linspace(np.min(cal.data), np.max(cal.data), 2001)
         y = kde(x)
@@ -369,11 +369,14 @@ def diagnose_calibration(cal, hist_plot=False):
                             y[(x > lb) & (x < ub)], facecolor=colors[i])
             rpp_flag = ((refined_peak_positions > lb) & (refined_peak_positions < ub))
             if rpp_flag.any():
+                el_label = cal.elements[np.arange(len(rpp_flag))[rpp_flag][0]]
                 text = ax.text((lb + ub)/2, np.max(y[(x > lb) & (x < ub)]),
-                               cal.elements[np.arange(len(rpp_flag))[rpp_flag][0]],
-                               color='w', ha='center', va='bottom',
+                               el_label.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
+                               size=24, color='w', ha='center', va='bottom',
                                transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
-                text.set_path_effects([patheffects.withStroke(linewidth=1.5, foreground=colors[i]), ])
+                text.set_path_effects([patheffects.withStroke(linewidth=2, foreground=colors[i]), ])
+
+        ax.set_xlabel('Pulse height', size=16)
         fig.show()
 
         #return fig
