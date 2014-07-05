@@ -68,6 +68,32 @@ class EnergyCalibration(object):
 
         return np.array(peak_positions)
 
+    def __find_local_maxima(self, pulse_heights):
+        self.data = np.hstack([self.data, pulse_heights])
+
+        g_len = 2000
+
+        kde = gaussian_kde(pulse_heights, bw_method=0.005)
+        x = np.linspace(np.min(pulse_heights), np.max(pulse_heights), g_len)
+        y = kde(x)
+
+        flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
+        lm = np.arange(1, g_len-1)[flag]
+
+        lm = lm[np.argsort(-y[lm])][:20]
+        lm.sort()
+
+        app_peak_positions = x[lm]
+        fine_peak_positions = []
+
+        lb, ub = 0.998, 1.002
+        for p in app_peak_positions:
+            x = np.linspace(p * lb, p * ub, 100)
+            y = kde(x)
+            fine_peak_positions.append(x[np.argmax(y)])
+
+        return np.array(fine_peak_positions)
+
     def __find_opt_assignment(self, peak_positions, line_names):
         name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES.get(element, element)] for element in line_names],
                                   key=operator.itemgetter(1)))
@@ -87,8 +113,8 @@ class EnergyCalibration(object):
 
         lh_results = sorted(lh_results, key=operator.itemgetter(1))
 
-        if lh_results[0][-1] > 0.0002:
-            raise ValueError('Could not match a pattern')
+        if lh_results[0][-1] > 0.0003:
+            raise ValueError('Could not match a pattern (acc: {0})'.format(lh_results[0][-1]))
 
         return lh_results[0][0]
 
@@ -106,7 +132,8 @@ class EnergyCalibration(object):
 
     def fit(self, pulse_heights, line_names):
         # Identify unlabeled clusters in a given spectrum
-        peak_positions = self.__identify_clusters(pulse_heights)
+        #peak_positions = self.__identify_clusters(pulse_heights)
+        peak_positions = self.__find_local_maxima(pulse_heights)
 
         if len(peak_positions) < len(line_names):
             raise ValueError('Not enough clusters are identified in data.')
@@ -129,18 +156,19 @@ class EnergyCalibration(object):
         for pp, el, slope in zip(opt_assignment, self.elements, app_slope):
             flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
 
-            try:
-                lnp = np.max(peak_positions[peak_positions < pp])
-            except ValueError:
-                lnp = -np.inf
-            try:
-                rnp = np.min(peak_positions[peak_positions > pp])
-            except ValueError:
-                rnp = np.inf
 
             # hw is the histogram width in eV. It needs to be converted into the pulse height unit.
             slope_dpulseheight_denergy = slope
             width = self.hw * slope_dpulseheight_denergy
+
+            try:
+                lnp = np.max(peak_positions[peak_positions < pp - (slope_dpulseheight_denergy * 50)])
+            except ValueError:
+                lnp = -np.inf
+            try:
+                rnp = np.min(peak_positions[peak_positions > pp + (slope_dpulseheight_denergy * 50)])
+            except ValueError:
+                rnp = np.inf
 
             if width <= 0:
                 raise ValueError('Couldn\'t get a good peak assignment.')
@@ -151,6 +179,7 @@ class EnergyCalibration(object):
 
             bins = np.linspace(binmin, binmax, nbins + 1)
             hist, bins = np.histogram(pulse_heights, bins)
+
 
             # If a peak is specified by it energy, the MaximumLikelihoodGaussianFitter is used.
             if isinstance(el, int) or isinstance(el, float):
