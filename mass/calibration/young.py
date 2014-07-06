@@ -8,6 +8,8 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.stats import gaussian_kde
 from scipy.optimize import brentq
 
+import statsmodels.api as sm
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
@@ -69,31 +71,37 @@ class EnergyCalibration(object):
 
         return np.array(peak_positions)
 
-    def find_local_maxima(self, pulse_heights):
+    def __find_local_maxima(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
 
-        g_len = 1000
-
-        kde = gaussian_kde(pulse_heights, bw_method=0.005)
-        x = np.linspace(np.min(pulse_heights), np.max(pulse_heights), g_len)
-        y = kde(x)
+        #g_len = 1000
+        #
+        #kde = gaussian_kde(pulse_heights, bw_method=0.005)
+        #x = np.linspace(np.min(pulse_heights), np.max(pulse_heights), g_len)
+        #y = kde(x)
+        kde = sm.nonparametric.KDEUnivariate(self.data)
+        kde.fit(bw=10.0)
+        x = kde.support
+        y = kde.density
 
         flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
-        lm = np.arange(1, g_len-1)[flag]
+        lm = np.arange(1, len(x)-1)[flag]
 
         lm = lm[np.argsort(-y[lm])][:30]
 
-        app_peak_positions = x[lm]
-        fine_peak_positions = []
+        #app_peak_positions = x[lm]
+        #fine_peak_positions = []
 
-        lb, ub = 0.998, 1.002
-        for p in app_peak_positions:
-            x = np.linspace(p * lb, p * ub, 40)
-            y = kde(x)
-            fine_peak_positions.append(x[np.argmax(y)])
+        #lb, ub = 0.998, 1.002
+        #for p in app_peak_positions:
+        #    x = np.linspace(p * lb, p * ub, 40)
+        #    y = kde(x)
+        #    fine_peak_positions.append(x[np.argmax(y)])
 
-        lm.sort()
-        return np.array(fine_peak_positions)
+        #lm.sort()
+        
+        #return np.array(fine_peak_positions)
+        return np.array(x[lm])
 
     def __find_opt_assignment(self, peak_positions, line_names):
         name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES.get(element, element)] for element in line_names],
@@ -105,12 +113,14 @@ class EnergyCalibration(object):
         while n_sel_pp < (len(line_names) + 15):
             sel_positions = peak_positions[:n_sel_pp]
 
-            lh_results = []
+            #lh_results = []
+            opt_assign = None
+            self.__acc = np.inf
 
             for assign in itertools.combinations(sel_positions, len(line_names)):
                 assign = sorted(assign)
-
                 acc_est = 0.0
+
                 for i in xrange(len(assign) - 2):
                     est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i + 2] - e_e[i])
                     acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i])) ** 2
@@ -118,23 +128,25 @@ class EnergyCalibration(object):
                         continue
 
                 if acc_est < self.__acc:
-                    self.__acc = acc_est
+                    opt_assign = list(assign)
+                    self.__acc = acc_est / (len(assign) - 2)
 
-                lh_results.append([assign, acc_est / (len(assign) - 2)])
+                #lh_results.append([assign, acc_est / (len(assign) - 2)])
 
-            lh_results = sorted(lh_results, key=operator.itemgetter(1))
+            #lh_results = sorted(lh_results, key=operator.itemgetter(1))
             #self.__acc = lh_results[0][-1]
-            if lh_results[0][-1] > 0.0002:
+            #if lh_results[0][-1] > 0.0002:
+            if self.__acc > 0.0002:
                 #raise ValueError('Could not match a pattern (acc: {0})'.format(lh_results[0][-1]))
                 n_sel_pp += 3
                 continue
             else:
-                self.__acc = lh_results[0][-1]
+                #self.__acc = lh_results[0][-1]
                 break
         else:
-            raise ValueError('Could not match a pattern (acc: {0})'.format(lh_results[0][-1]))
+            raise ValueError('Could not match a pattern (acc: {0})'.format(self.__acc))
 
-        return lh_results[0][0]
+        return opt_assign
 
     def __build_calibration_spline(self, pht, energy):
         interp_peak_positions = pht
@@ -151,7 +163,7 @@ class EnergyCalibration(object):
     def fit(self, pulse_heights, line_names):
         # Identify unlabeled clusters in a given spectrum
         #peak_positions = self.__identify_clusters(pulse_heights)
-        peak_positions = self.find_local_maxima(pulse_heights)
+        peak_positions = self.__find_local_maxima(pulse_heights)
 
         if len(peak_positions) < len(line_names):
             raise ValueError('Not enough clusters are identified in data.')
@@ -173,7 +185,6 @@ class EnergyCalibration(object):
 
         for pp, el, slope in zip(opt_assignment, self.elements, app_slope):
             flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
-
 
             # hw is the histogram width in eV. It needs to be converted into the pulse height unit.
             slope_dpulseheight_denergy = slope
