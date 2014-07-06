@@ -80,7 +80,7 @@ class EnergyCalibration(object):
         #x = np.linspace(np.min(pulse_heights), np.max(pulse_heights), g_len)
         #y = kde(x)
         kde = sm.nonparametric.KDEUnivariate(self.data)
-        kde.fit(bw=10.0)
+        kde.fit(bw=20.0)
         x = kde.support
         y = kde.density
 
@@ -157,7 +157,7 @@ class EnergyCalibration(object):
             self.__acc = acc_est[opt_assign_i]
             opt_assign = assign[opt_assign_i]
 
-            if self.__acc > 0.01 * np.sqrt(len(energies)):
+            if self.__acc > 0.015 * np.sqrt(len(energies)):
                 #raise ValueError('Could not match a pattern (acc: {0})'.format(lh_results[0][-1]))
                 n_sel_pp += 3
                 continue
@@ -197,6 +197,7 @@ class EnergyCalibration(object):
         ev_spl = self.__build_calibration_spline(e_e, opt_assignment)
         app_slope = ev_spl(e_e, 1)
 
+        peak_positions = peak_positions[:len(e_e) + 3]
         if len(self.excl) > 0:
             excl_positions = [ev_spl([STANDARD_FEATURES.get(element, element)])[0] for element in self.excl]
             peak_positions = np.hstack([peak_positions, excl_positions])
@@ -223,13 +224,12 @@ class EnergyCalibration(object):
             if width <= 0:
                 raise ValueError('Couldn\'t get a good peak assignment.')
 
-            binmin, binmax = np.max([pp - width / 2, (pp + lnp) / 2]), np.min([pp + width / 2, (pp + rnp) / 2])
+            binmin, binmax = np.max([pp - width/2, (pp + lnp)/2]), np.min([pp + width/2, (pp + rnp)/2])
             bin_size_ev = self.bs
             nbins = int(np.ceil((binmax - binmin) / (slope_dpulseheight_denergy * bin_size_ev)))
 
             bins = np.linspace(binmin, binmax, nbins + 1)
             hist, bins = np.histogram(pulse_heights, bins)
-
 
             # If a peak is specified by it energy, the MaximumLikelihoodGaussianFitter is used.
             if isinstance(el, int) or isinstance(el, float):
@@ -428,7 +428,10 @@ def diagnose_calibration(cal, hist_plot=False):
         ax = fig.add_subplot(111)
         bmap = plt.get_cmap("spectral", 11)
 
-        kde = gaussian_kde(cal.data, bw_method=0.005)
+        #kde = gaussian_kde(cal.data, bw_method=0.005)
+        kde = sm.nonparametric.KDEUnivariate(cal.data)
+        kde.fit(bw=20.0)
+
         '''
         counter = Counter(cal.dbs.labels_)
         peaks = list([[np.min(cal.data[cal.dbs.labels_ == x[0]]),
@@ -456,15 +459,13 @@ def diagnose_calibration(cal, hist_plot=False):
                                transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
                 text.set_path_effects([patheffects.withStroke(linewidth=2, foreground=colors[i]), ])
         '''
-        x = np.linspace(np.min(cal.data), np.max(cal.data), 2001)
-        y = kde(x)
 
         colors = bmap(np.linspace(0, 1, len(cal.elements) + 4)[2:-2])
 
-        ax.plot(x, y, 'k-')
+        ax.plot(kde.support, kde.density, 'k-')
 
         for i, (p, el) in enumerate(zip(cal.refined_peak_positions, cal.elements)):
-            text = ax.text(p, kde(p),
+            text = ax.text(p, kde.evaluate(p),
                            el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
                            size=24, color='w', ha='center', va='bottom',
                            transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
@@ -475,6 +476,7 @@ def diagnose_calibration(cal, hist_plot=False):
         lmp, rmp = np.min(cal.refined_peak_positions), np.max(cal.refined_peak_positions)
         margin = 0.03
         ax.set_xlim(lmp*(1 - margin) - rmp*margin, rmp*(1.0 + margin) + lmp*margin)
+        ax.set_ylim(0, np.max(kde.density)*1.15)
         fig.show()
 
         #return fig
