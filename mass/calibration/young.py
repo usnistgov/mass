@@ -99,7 +99,7 @@ class EnergyCalibration(object):
         #    fine_peak_positions.append(x[np.argmax(y)])
 
         #lm.sort()
-        
+
         #return np.array(fine_peak_positions)
         return np.array(x[lm])
 
@@ -108,12 +108,13 @@ class EnergyCalibration(object):
                                   key=operator.itemgetter(1)))
         self.elements = name_e
 
-        n_sel_pp = len(line_names)
+        n_sel_pp = len(line_names) + 3
 
         while n_sel_pp < (len(line_names) + 15):
             sel_positions = peak_positions[:n_sel_pp]
 
             #lh_results = []
+            """
             opt_assign = None
             self.__acc = np.inf
 
@@ -143,10 +144,30 @@ class EnergyCalibration(object):
             else:
                 #self.__acc = lh_results[0][-1]
                 break
+            """
+            energies = np.array(e_e)
+            assign = np.array(list(itertools.combinations(sel_positions, len(line_names))))
+            assign.sort(axis=1)
+            fracs = (energies[1:-1] - energies[:-2])/(energies[2:] - energies[:-2])
+            est_pos = assign[:, :-2]*(1 - fracs) + assign[:, 2:]*fracs
+            acc_est = np.linalg.norm((est_pos - assign[:, 1:-1]) /
+                                     (assign[:, 2:] - assign[:, :-2]), axis=1)
+
+            opt_assign_i = np.argmin(acc_est)
+            self.__acc = acc_est[opt_assign_i]
+            opt_assign = assign[opt_assign_i]
+
+            if self.__acc > 0.01 * np.sqrt(len(energies)):
+                #raise ValueError('Could not match a pattern (acc: {0})'.format(lh_results[0][-1]))
+                n_sel_pp += 3
+                continue
+            else:
+                #self.__acc = lh_results[0][-1]
+                break
         else:
             raise ValueError('Could not match a pattern (acc: {0})'.format(self.__acc))
 
-        return opt_assign
+        return list(opt_assign)
 
     def __build_calibration_spline(self, pht, energy):
         interp_peak_positions = pht
