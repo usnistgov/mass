@@ -48,6 +48,7 @@ class EnergyCalibration(object):
         self.ph2energy = None
         self.plot_on_fail = plot_on_fail
         self.use_00 = use_00
+        self.__acc = np.inf
 
     def __identify_clusters(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
@@ -68,10 +69,10 @@ class EnergyCalibration(object):
 
         return np.array(peak_positions)
 
-    def __find_local_maxima(self, pulse_heights):
+    def find_local_maxima(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
 
-        g_len = 2000
+        g_len = 1000
 
         kde = gaussian_kde(pulse_heights, bw_method=0.005)
         x = np.linspace(np.min(pulse_heights), np.max(pulse_heights), g_len)
@@ -80,18 +81,18 @@ class EnergyCalibration(object):
         flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
         lm = np.arange(1, g_len-1)[flag]
 
-        lm = lm[np.argsort(-y[lm])][:20]
-        lm.sort()
+        lm = lm[np.argsort(-y[lm])][:30]
 
         app_peak_positions = x[lm]
         fine_peak_positions = []
 
         lb, ub = 0.998, 1.002
         for p in app_peak_positions:
-            x = np.linspace(p * lb, p * ub, 100)
+            x = np.linspace(p * lb, p * ub, 40)
             y = kde(x)
             fine_peak_positions.append(x[np.argmax(y)])
 
+        lm.sort()
         return np.array(fine_peak_positions)
 
     def __find_opt_assignment(self, peak_positions, line_names):
@@ -99,21 +100,38 @@ class EnergyCalibration(object):
                                   key=operator.itemgetter(1)))
         self.elements = name_e
 
-        lh_results = []
+        n_sel_pp = len(line_names)
 
-        for assign in itertools.combinations(peak_positions, len(line_names)):
-            assign = sorted(assign)
+        while n_sel_pp < (len(line_names) + 15):
+            sel_positions = peak_positions[:n_sel_pp]
 
-            acc_est = 0.0
-            for i in xrange(len(assign) - 2):
-                est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i + 2] - e_e[i])
-                acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i])) ** 2
+            lh_results = []
 
-            lh_results.append([assign, acc_est / (len(assign) - 2)])
+            for assign in itertools.combinations(sel_positions, len(line_names)):
+                assign = sorted(assign)
 
-        lh_results = sorted(lh_results, key=operator.itemgetter(1))
+                acc_est = 0.0
+                for i in xrange(len(assign) - 2):
+                    est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i + 2] - e_e[i])
+                    acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i])) ** 2
+                    if acc_est > self.__acc:
+                        continue
 
-        if lh_results[0][-1] > 0.0003:
+                if acc_est < self.__acc:
+                    self.__acc = acc_est
+
+                lh_results.append([assign, acc_est / (len(assign) - 2)])
+
+            lh_results = sorted(lh_results, key=operator.itemgetter(1))
+            #self.__acc = lh_results[0][-1]
+            if lh_results[0][-1] > 0.0002:
+                #raise ValueError('Could not match a pattern (acc: {0})'.format(lh_results[0][-1]))
+                n_sel_pp += 3
+                continue
+            else:
+                self.__acc = lh_results[0][-1]
+                break
+        else:
             raise ValueError('Could not match a pattern (acc: {0})'.format(lh_results[0][-1]))
 
         return lh_results[0][0]
@@ -133,7 +151,7 @@ class EnergyCalibration(object):
     def fit(self, pulse_heights, line_names):
         # Identify unlabeled clusters in a given spectrum
         #peak_positions = self.__identify_clusters(pulse_heights)
-        peak_positions = self.__find_local_maxima(pulse_heights)
+        peak_positions = self.find_local_maxima(pulse_heights)
 
         if len(peak_positions) < len(line_names):
             raise ValueError('Not enough clusters are identified in data.')
@@ -378,7 +396,8 @@ def diagnose_calibration(cal, hist_plot=False):
         ax = fig.add_subplot(111)
         bmap = plt.get_cmap("spectral", 11)
 
-        kde = gaussian_kde(cal.data, bw_method=0.002)
+        kde = gaussian_kde(cal.data, bw_method=0.005)
+        '''
         counter = Counter(cal.dbs.labels_)
         peaks = list([[np.min(cal.data[cal.dbs.labels_ == x[0]]),
                        np.max(cal.data[cal.dbs.labels_ == x[0]])]
@@ -404,8 +423,26 @@ def diagnose_calibration(cal, hist_plot=False):
                                size=24, color='w', ha='center', va='bottom',
                                transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
                 text.set_path_effects([patheffects.withStroke(linewidth=2, foreground=colors[i]), ])
+        '''
+        x = np.linspace(np.min(cal.data), np.max(cal.data), 2001)
+        y = kde(x)
+
+        colors = bmap(np.linspace(0, 1, len(cal.elements) + 4)[2:-2])
+
+        ax.plot(x, y, 'k-')
+
+        for i, (p, el) in enumerate(zip(cal.refined_peak_positions, cal.elements)):
+            text = ax.text(p, kde(p),
+                           el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
+                           size=24, color='w', ha='center', va='bottom',
+                           transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
+            text.set_path_effects([patheffects.withStroke(linewidth=2, foreground=colors[i]), ])
 
         ax.set_xlabel('Pulse height', size=16)
+
+        lmp, rmp = np.min(cal.refined_peak_positions), np.max(cal.refined_peak_positions)
+        margin = 0.03
+        ax.set_xlim(lmp*(1 - margin) - rmp*margin, rmp*(1.0 + margin) + lmp*margin)
         fig.show()
 
         #return fig
