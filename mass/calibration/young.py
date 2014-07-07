@@ -9,6 +9,8 @@ from scipy.stats import gaussian_kde
 from scipy.optimize import brentq
 from scipy.misc import comb
 
+import statsmodels.api as sm
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
@@ -37,11 +39,12 @@ class FailedFitter(object):
 
 class EnergyCalibration(object):
     def __init__(self, size_related_to_energy_resolution=5, min_counts_per_cluster=100, fit_range_ev=200, excl=(),
-                 plot_on_fail=False,max_num_clusters=np.inf, max_pulses_for_dbscan=1e5, use_00=True):
+                 plot_on_fail=False,max_num_clusters=np.inf, max_pulses_for_dbscan=1e5, use_00=True, bin_size_ev=2):
         self.dbs = DBSCAN(eps=size_related_to_energy_resolution)
         self.data = np.zeros(0)
         self.mcs = min_counts_per_cluster
         self.hw = fit_range_ev
+        self.bs = bin_size_ev
         self.excl = excl
         self.elements = None
         self.histograms = None
@@ -51,6 +54,7 @@ class EnergyCalibration(object):
         self.use_00 = use_00
         self.max_num_clusters = max_num_clusters
         self.max_pulses_for_dbscan = max_pulses_for_dbscan
+        self.__acc = np.inf
 
     def __identify_clusters(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
@@ -78,68 +82,74 @@ class EnergyCalibration(object):
 
         return np.array(peak_positions)
 
+    def __find_local_maxima(self, pulse_heights):
+        self.data = np.hstack([self.data, pulse_heights])
+
+        #g_len = 1000
+        #
+        #kde = gaussian_kde(pulse_heights, bw_method=0.005)
+        #x = np.linspace(np.min(pulse_heights), np.max(pulse_heights), g_len)
+        #y = kde(x)
+        kde = sm.nonparametric.KDEUnivariate(self.data)
+        kde.fit(bw=20.0)
+        x = kde.support
+        y = kde.density
+
+        flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
+        lm = np.arange(1, len(x)-1)[flag]
+
+        lm = lm[np.argsort(-y[lm])][:30]
+
+        #app_peak_positions = x[lm]
+        #fine_peak_positions = []
+
+        #lb, ub = 0.998, 1.002
+        #for p in app_peak_positions:
+        #    x = np.linspace(p * lb, p * ub, 40)
+        #    y = kde(x)
+        #    fine_peak_positions.append(x[np.argmax(y)])
+
+        #lm.sort()
+
+        #return np.array(fine_peak_positions)
+        return np.array(x[lm])
+
     def __find_opt_assignment(self, peak_positions, line_names):
         name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES.get(element, element)] for element in line_names],
                                   key=operator.itemgetter(1)))
         self.elements = name_e
 
-        lh_results = []
+        n_sel_pp = len(line_names) + 3
 
-        num_combos = comb(len(peak_positions), len(line_names))
-        if num_combos > 1e7:
-            raise ValueError("%d peak positions and %d line_names give %d possible combinations, too many to search"%(len(peak_positions),
-            len(line_names), num_combos))
-        for assign in itertools.combinations(peak_positions, len(line_names)):
-            assign = sorted(assign)
+        while n_sel_pp < (len(line_names) + 15):
+            sel_positions = peak_positions[:n_sel_pp]
+            energies = np.array(e_e)
+            assign = np.array(list(itertools.combinations(sel_positions, len(line_names))))
+            assign.sort(axis=1)
+            fracs = (energies[1:-1] - energies[:-2])/(energies[2:] - energies[:-2])
+            est_pos = assign[:, :-2]*(1 - fracs) + assign[:, 2:]*fracs
+            acc_est = np.linalg.norm((est_pos - assign[:, 1:-1]) /
+                                     (assign[:, 2:] - assign[:, :-2]), axis=1)
 
-            acc_est = 0.0
-            for i in xrange(len(assign) - 2):
-                est = assign[i] + (assign[i + 2] - assign[i]) * (e_e[i + 1] - e_e[i]) / (e_e[i + 2] - e_e[i])
-                acc_est += ((est - assign[i + 1]) / (assign[i + 2] - assign[i])) ** 2
+            opt_assign_i = np.argmin(acc_est)
+            self.__acc = acc_est[opt_assign_i]
+            opt_assign = assign[opt_assign_i]
 
-            # calculating a different metric of goodness, not actually used at the moment,
-            # doesn't seem to work much better
-            pfit = np.polyfit([0]+list(assign), [0]+list(e_e),2)
-            residual = np.polyval(pfit,[0]+list(assign))- np.array([0]+list(e_e))
-            chi = np.sqrt(np.mean(residual**2))
-
-            lh_results.append([assign, acc_est/float(len(assign)-2), chi])
-
-        lh_results = sorted(lh_results, key=operator.itemgetter(1))
-
-        if lh_results[0][1] > 0.0004:
+            if self.__acc > 0.015 * np.sqrt(len(energies)):
+                n_sel_pp += 3
+                continue
+            else:
+                break
+        else:
             if self.plot_on_fail:
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                bmap = plt.get_cmap("spectral", 11)
+                print("plot_on_fail not implemented for find_opt_assignments yet")
 
-                kde = gaussian_kde(self.data, bw_method=0.002)
-                counter = Counter(self.dbs.labels_)
-                peaks = list([[np.min(self.data[self.dbs.labels_ == x[0]]),
-                               np.max(self.data[self.dbs.labels_ == x[0]])]
-                              for x in counter.most_common() if (x[1] > self.mcs) and (x[0] > -0.5)])
-                peaks = sorted(peaks, key=operator.itemgetter(0))
+            raise ValueError('Could not match a pattern (acc: {0})'.format(self.__acc))
 
-                colors = bmap(np.linspace(0.1, 1, len(peaks)))
+        return list(opt_assign)
 
-                x = np.linspace(np.min(self.data), np.max(self.data), 2001)
-                y = kde(x)
+        # if lh_results[0][1] > 0.0004:
 
-                ax.fill_between(x, y, facecolor='k')
-
-                for i, (lb, ub) in enumerate(peaks):
-                    if ub-lb<10:
-                        ub+=5.
-                        lb-=5.
-                    ax.fill_between(x[(x > lb) & (x < ub)],
-                                    y[(x > lb) & (x < ub)], facecolor=colors[i])
-
-                for peak_position, name in zip(lh_results[0][0], name_e):
-                    ax.text(peak_position, np.interp(peak_position,x,y), str(name))
-                ax.set_title("pattern match fail, showing best acc_est = %f"%lh_results[0][1])
-
-            raise ValueError('Could not match a pattern')
-        return lh_results[0][0]
 
     def __build_calibration_spline(self, pht, energy):
         interp_peak_positions = pht
@@ -155,7 +165,8 @@ class EnergyCalibration(object):
 
     def fit(self, pulse_heights, line_names):
         # Identify unlabeled clusters in a given spectrum
-        peak_positions = self.__identify_clusters(pulse_heights)
+        #peak_positions = self.__identify_clusters(pulse_heights)
+        peak_positions = self.__find_local_maxima(pulse_heights)
 
         if len(peak_positions) < len(line_names):
             raise ValueError('Not enough clusters are identified in data.')
@@ -168,8 +179,9 @@ class EnergyCalibration(object):
         ev_spl = self.__build_calibration_spline(e_e, opt_assignment)
         app_slope = ev_spl(e_e, 1)
 
+        peak_positions = peak_positions[:len(e_e) + 3]
         if len(self.excl) > 0:
-            excl_positions = [ev_spl(STANDARD_FEATURES.get(element, element)) for element in self.excl]
+            excl_positions = [ev_spl([STANDARD_FEATURES.get(element, element)])[0] for element in self.excl]
             peak_positions = np.hstack([peak_positions, excl_positions])
 
         histograms = []
@@ -178,48 +190,49 @@ class EnergyCalibration(object):
         for pp, el, slope in zip(opt_assignment, self.elements, app_slope):
             flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
 
+            # hw is the histogram width in eV. It needs to be converted into the pulse height unit.
+            slope_dpulseheight_denergy = slope
+            width = self.hw * slope_dpulseheight_denergy
+
             try:
-                lnp = np.max(peak_positions[peak_positions < pp])
+                lnp = np.max(peak_positions[peak_positions < pp - (slope_dpulseheight_denergy * 50)])
             except ValueError:
                 lnp = -np.inf
             try:
-                rnp = np.min(peak_positions[peak_positions > pp])
+                rnp = np.min(peak_positions[peak_positions > pp + (slope_dpulseheight_denergy * 50)])
             except ValueError:
                 rnp = np.inf
 
-            # width is the histrogram width in pulseheight units, calculate from self.hw which is in eV and
-            # an evaluation of the spline which gives the derivative
-            slope_dpulseheight_denergy = slope  # splev(STANDARD_FEATURES[el], ev_spl, der=1)
-            width = self.hw * slope_dpulseheight_denergy
             if width <= 0:
-                print("width below zero")
-            binmin, binmax = np.max([pp - width / 2, (pp + lnp) / 2]), np.min([pp + width / 2, (pp + rnp) / 2])
-            bin_size_ev = 2
+                raise ValueError('Couldn\'t get a good peak assignment.')
+
+            binmin, binmax = np.max([pp - width/2, (pp + lnp)/2]), np.min([pp + width/2, (pp + rnp)/2])
+            bin_size_ev = self.bs
             nbins = int(np.ceil((binmax - binmin) / (slope_dpulseheight_denergy * bin_size_ev)))
 
             bins = np.linspace(binmin, binmax, nbins + 1)
             hist, bins = np.histogram(pulse_heights, bins)
 
-            # If a corresponding fitter could not be found then create a FailedFitter object.
-            try:
-                if isinstance(el, int) or isinstance(el, float):
-                    bins_pht = pulse_heights[(pulse_heights > binmin) & (pulse_heights < binmax)]
-                    fitter = MaximumLikelihoodGaussianFitter((bins[1:] + bins[:-1]) / 2,
-                                                             hist,
-                                                             params=(np.std(bins_pht),
-                                                                     np.mean(bins_pht),
-                                                                     np.max(hist), 0, 0))
-                else:
-                    fitter_cls = flu_members[el + 'Fitter']
-                    fitter = fitter_cls()
-            except KeyError:
-                fitter = FailedFitter(hist, bins)
+            # If a peak is specified by it energy, the MaximumLikelihoodGaussianFitter is used.
+            if isinstance(el, int) or isinstance(el, float):
+                bins_pht = pulse_heights[(pulse_heights > binmin) & (pulse_heights < binmax)]
+                fitter = MaximumLikelihoodGaussianFitter((bins[1:] + bins[:-1]) / 2,
+                                                         hist,
+                                                         params=(np.std(bins_pht),
+                                                                 np.mean(bins_pht),
+                                                                 np.max(hist), 0, 0))
+                fitter.fit()
                 histograms.append((hist, bins))
                 complex_fitters.append(fitter)
                 continue
 
-            if isinstance(fitter, MaximumLikelihoodGaussianFitter):
-                params, cov = fitter.fit()
+            # If a corresponding fitter could not be found in the fluorescence_lines module,
+            # A FailedFitter object is created.
+            try:
+                fitter_cls = flu_members[el + 'Fitter']
+                fitter = fitter_cls()
+            except KeyError:
+                fitter = FailedFitter(hist, bins)
                 histograms.append((hist, bins))
                 complex_fitters.append(fitter)
                 continue
@@ -394,35 +407,31 @@ class EnergyCalibration(object):
 def diagnose_calibration(cal, hist_plot=False):
     # if cal.complex_fitters is None:
     if hist_plot:
-        fig = plt.figure()
+        fig = plt.figure(figsize=(12, 9))
         ax = fig.add_subplot(111)
         bmap = plt.get_cmap("spectral", 11)
 
-        kde = gaussian_kde(cal.data, bw_method=0.002)
-        counter = Counter(cal.dbs.labels_)
-        peaks = list([[np.min(cal.data[cal.dbs.labels_ == x[0]]),
-                       np.max(cal.data[cal.dbs.labels_ == x[0]])]
-                      for x in counter.most_common() if (x[1] > cal.mcs) and (x[0] > -0.5)])
-        peaks = sorted(peaks, key=operator.itemgetter(0))
-        refined_peak_positions = cal.refined_peak_positions
+        #kde = gaussian_kde(cal.data, bw_method=0.005)
+        kde = sm.nonparametric.KDEUnivariate(cal.data)
+        kde.fit(bw=20.0)
 
-        colors = bmap(np.linspace(0.1, 1, len(peaks)))
+        colors = bmap(np.linspace(0, 1, len(cal.elements) + 4)[2:-2])
 
-        x = np.linspace(np.min(cal.data), np.max(cal.data), 2001)
-        y = kde(x)
+        ax.plot(kde.support, kde.density, 'k-')
 
-        ax.fill_between(x, y, facecolor='k')
+        for i, (p, el) in enumerate(zip(cal.refined_peak_positions, cal.elements)):
+            text = ax.text(p, kde.evaluate(p),
+                           el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
+                           size=24, color='w', ha='center', va='bottom',
+                           transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
+            text.set_path_effects([patheffects.withStroke(linewidth=2, foreground=colors[i]), ])
 
-        for i, (lb, ub) in enumerate(peaks):
-            ax.fill_between(x[(x > lb) & (x < ub)],
-                            y[(x > lb) & (x < ub)], facecolor=colors[i])
-            rpp_flag = ((refined_peak_positions > lb) & (refined_peak_positions < ub))
-            if rpp_flag.any():
-                text = ax.text((lb + ub)/2, np.max(y[(x > lb) & (x < ub)]),
-                               cal.elements[np.arange(len(rpp_flag))[rpp_flag][0]],
-                               color='w', ha='center', va='bottom',
-                               transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
-                text.set_path_effects([patheffects.withStroke(linewidth=1.5, foreground=colors[i]), ])
+        ax.set_xlabel('Pulse height', size=16)
+
+        lmp, rmp = np.min(cal.refined_peak_positions), np.max(cal.refined_peak_positions)
+        margin = 0.03
+        ax.set_xlim(lmp*(1 - margin) - rmp*margin, rmp*(1.0 + margin) + lmp*margin)
+        ax.set_ylim(0, np.max(kde.density)*1.15)
         fig.show()
 
         #return fig
@@ -446,12 +455,12 @@ def diagnose_calibration(cal, hist_plot=False):
         x = np.linspace(hist[1][0], hist[1][-1], 201)
         if isinstance(el, int) or isinstance(el, float):
             ax.text(0.05, 0.97, str(el) +
-                    ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(cal([fitter.params[1], 1])[0] * fitter.params[0]),
+                    ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(cal([fitter.params[1]], 1)[0] * fitter.params[0]),
                     transform=ax.transAxes, ha='left', va='top')
             y = [np.median(fitter.gaussian_theory_function(fitter.params, a)) for a in x]
         else:
             ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
-                    '\n' + "Resolution: {0:.1f} (eV)".format(fitter.last_fit_params[1]),
+                    '\n' + "Resolution: {0:.1f} (eV)".format(fitter.last_fit_params[0]),
                     transform=ax.transAxes, ha='left', va='top')
             y = fitter.fitfunc(fitter.last_fit_params, x)
         ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
