@@ -94,7 +94,7 @@ class MaximumLikelihoodHistogramFitter(object):
                     use this value for the step size. 
         <TOL>       The fractional or absolute tolerance on the minimum "MLE Chi^2".
                     When self.DONE successive iterations fail to improve the MLE Chi^2 by this
-                    much (aboslutely or fractionally), then fitting will return successfully.
+                    much (absolutely or fractionally), then fitting will return successfully.
         """
         self.x = np.array(x)
         self.ndat = len(x)
@@ -145,7 +145,6 @@ class MaximumLikelihoodHistogramFitter(object):
         value.  Parameter is fixed until method free(i) is called.
         """
         self.param_free[i] = False
-#        print 'Holding param %d'%i
         if val is not None:
             self.params[i] = val
         
@@ -208,17 +207,17 @@ class MaximumLikelihoodHistogramFitter(object):
                 alpha_prime[j,j] += lambda_coef*alpha_prime[j,j]
        
             try:
-                delta_alpha = sp.linalg.solve(alpha_prime, beta[self.param_free],
+                delta_params = sp.linalg.solve(alpha_prime, beta[self.param_free],
                                                  overwrite_a=False, overwrite_b=False)
             except sp.linalg.LinAlgError, ex:
                 print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, iter_number)
                 print 'Params: ',self.params
                 print 'Alpha-prime: ',alpha_prime
-                print 'Bete: ', beta
+                print 'Beta: ', beta
                 raise ex
 
             # Did the trial succeed?
-            atry[self.param_free] = self.params[self.param_free] + delta_alpha
+            atry[self.param_free] = self.params[self.param_free] + delta_params
             trial_alpha, trial_beta = self._mrqcof(atry)
 
             # When the chisq hasn't changed appreciably in self.DONE iterations, we return with success.
@@ -226,7 +225,7 @@ class MaximumLikelihoodHistogramFitter(object):
             if abs(self.chisq-prev_chisq) < max(self.TOL, self.TOL*self.chisq): 
                 no_change_counter+=1
 
-                if no_change_counter == self.DONE:
+                if no_change_counter >= self.DONE:
                     self.covar[:self.mfit, :self.mfit] = sp.linalg.inv(alpha)
                     self.__cov_sort_in_place(self.covar)
                     self.iterations = iter_number
@@ -255,7 +254,12 @@ class MaximumLikelihoodHistogramFitter(object):
     
     def _mrqcof(self, params):
         """Used by fit to evaluate the linearized fitting matrix alpha and vector beta,
-        and to calculate chisq.  Returns (alpha,beta) and stores chisq in self.chisq"""
+        and to calculate chisq.  Returns (alpha,beta) and stores chisq in self.chisq
+
+        Careful! When any number of parameters are 'held', then the returned Hessian
+        alpha has size NxN, while the gradient beta is of size M>=N.  (That is, there are M total
+        parameters and only N of them are variable parameters.)
+        """
         
         # Careful!  Do this smart, or this routine will bog down the entire
         # fit hugely.
@@ -270,9 +274,13 @@ class MaximumLikelihoodHistogramFitter(object):
         beta = (y_resid*dyda_over_y).sum(axis=1)
         
         alpha = np.zeros((self.mfit,self.mfit), dtype=np.float)
+        pfnz = self.param_free.nonzero()[0]
         for i in range(self.mfit):
-            for j in range(i+1):
-                alpha[i,j] = (nobs*dyda_over_y[i,:]*dyda_over_y[j,:]).sum()
+            overallrow = pfnz[i]  # convert from the ith free row to the overall row #
+            alpha[i,i] = (nobs*(dyda_over_y[overallrow,:]**2)).sum()
+            for j in range(i):
+                overallcol = pfnz[j]  # convert from the jth free col to the overall col #
+                alpha[i,j] = (nobs*dyda_over_y[overallrow,:]*dyda_over_y[overallcol,:]).sum()
                 alpha[j,i] = alpha[i,j]
             
         nonzero_obs = nobs>0
