@@ -38,9 +38,10 @@ class FailedFitter(object):
 
 
 class EnergyCalibration(object):
-    def __init__(self, size_related_to_energy_resolution=5, min_counts_per_cluster=100, fit_range_ev=200, excl=(),
+    def __init__(self, size_related_to_energy_resolution=20.0, min_counts_per_cluster=100, fit_range_ev=200, excl=(),
                  plot_on_fail=False,max_num_clusters=np.inf, max_pulses_for_dbscan=1e5, use_00=True, bin_size_ev=2):
-        self.dbs = DBSCAN(eps=size_related_to_energy_resolution)
+        self.size_related_to_energy_resolution=size_related_to_energy_resolution
+        self.dbs = DBSCAN(eps=self.size_related_to_energy_resolution)
         self.data = np.zeros(0)
         self.mcs = min_counts_per_cluster
         self.hw = fit_range_ev
@@ -84,14 +85,8 @@ class EnergyCalibration(object):
 
     def __find_local_maxima(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
-
-        #g_len = 1000
-        #
-        #kde = gaussian_kde(pulse_heights, bw_method=0.005)
-        #x = np.linspace(np.min(pulse_heights), np.max(pulse_heights), g_len)
-        #y = kde(x)
         kde = sm.nonparametric.KDEUnivariate(self.data)
-        kde.fit(bw=20.0)
+        kde.fit(bw=self.size_related_to_energy_resolution)
         x = kde.support
         y = kde.density
 
@@ -100,19 +95,8 @@ class EnergyCalibration(object):
 
         lm = lm[np.argsort(-y[lm])][:30]
 
-        #app_peak_positions = x[lm]
-        #fine_peak_positions = []
-
-        #lb, ub = 0.998, 1.002
-        #for p in app_peak_positions:
-        #    x = np.linspace(p * lb, p * ub, 40)
-        #    y = kde(x)
-        #    fine_peak_positions.append(x[np.argmax(y)])
-
-        #lm.sort()
-
-        #return np.array(fine_peak_positions)
         return np.array(x[lm])
+
 
     def __find_opt_assignment(self, peak_positions, line_names):
         name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES.get(element, element)] for element in line_names],
@@ -142,7 +126,36 @@ class EnergyCalibration(object):
                 break
         else:
             if self.plot_on_fail:
-                print("plot_on_fail not implemented for find_opt_assignments yet")
+                fig = plt.figure(figsize=(12, 9))
+                ax = fig.add_subplot(111)
+                bmap = plt.get_cmap("spectral", 11)
+
+                #kde = gaussian_kde(cal.data, bw_method=0.005)
+                kde = sm.nonparametric.KDEUnivariate(self.data)
+                kde.fit(bw=self.size_related_to_energy_resolution)
+
+                colors = bmap(np.linspace(0, 1, len(self.elements) + 4)[2:-2])
+
+                ax.plot(kde.support, kde.density, 'k-')
+
+                for i,p in enumerate(peak_positions):
+                    plt.plot([p,p],[0, np.interp(p, kde.support, kde.density)],'k')
+
+                for i, (p, el) in enumerate(zip(opt_assign, self.elements)):
+                    text = ax.text(p, kde.evaluate(p),
+                                   el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
+                                   size=24, color='w', ha='center', va='bottom',
+                                   transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
+                    text.set_path_effects([patheffects.withStroke(linewidth=2, foreground=colors[i]), ])
+
+                ax.set_xlabel('Pulse height', size=16)
+                plt.title("failed calibration acc=%0.5f"%self.__acc)
+
+                lmp, rmp = np.min(peak_positions), np.max(peak_positions)
+                margin = 0.03
+                ax.set_xlim(lmp*(1 - margin) - rmp*margin, rmp*(1.0 + margin) + lmp*margin)
+                ax.set_ylim(0, np.max(kde.density)*1.15)
+                fig.show()
 
             raise ValueError('Could not match a pattern (acc: {0})'.format(self.__acc))
 
@@ -413,7 +426,7 @@ def diagnose_calibration(cal, hist_plot=False):
 
         #kde = gaussian_kde(cal.data, bw_method=0.005)
         kde = sm.nonparametric.KDEUnivariate(cal.data)
-        kde.fit(bw=20.0)
+        kde.fit(bw=cal.size_related_to_energy_resolution)
 
         colors = bmap(np.linspace(0, 1, len(cal.elements) + 4)[2:-2])
 
