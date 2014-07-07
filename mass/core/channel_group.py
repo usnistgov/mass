@@ -1215,7 +1215,7 @@ class TESGroup(BaseChannelGroup):
         for ds in self:
             try:
                 ds.drift_correct(forceNew)
-            except:
+            except ValueError:
                 self.set_chan_bad(ds.channum, "failed drift correct")
 
     def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10, min_counts_per_cluster=20,
@@ -1224,7 +1224,7 @@ class TESGroup(BaseChannelGroup):
             try:
                 ds.calibrate(attr, line_names,name_ext,size_related_to_energy_resolution, min_counts_per_cluster,
                   fit_range_ev, excl, plot_on_fail,max_num_clusters,max_pulses_for_dbscan, forceNew)
-            except:
+            except ValueError:
                 self.set_chan_bad(ds.channum, "failed calibration")
         self.convert_to_energy(attr, attr+name_ext)
 

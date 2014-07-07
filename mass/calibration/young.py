@@ -128,6 +128,9 @@ class EnergyCalibration(object):
                 ax.fill_between(x, y, facecolor='k')
 
                 for i, (lb, ub) in enumerate(peaks):
+                    if ub-lb<10:
+                        ub+=5.
+                        lb-=5.
                     ax.fill_between(x[(x > lb) & (x < ub)],
                                     y[(x > lb) & (x < ub)], facecolor=colors[i])
 
