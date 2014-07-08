@@ -1121,6 +1121,7 @@ class MicrocalDataSet(object):
         Note that we always train only on data file's segment 0.
         """
         _,N = self.pulse_records.read_segment(0)
+        self.data = self.pulse_records.data
         g = self.cuts.good()[:N]
         prompt = self.p_promptness
         
