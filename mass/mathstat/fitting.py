@@ -365,9 +365,8 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
             
         self.TOL = TOL
         self.chisq = 0.0
-        self.theory_function = self.gaussian_theory_function
-        
-    def gaussian_theory_function(self, p, x): 
+
+    def theory_function(self, p, x): #hardcode the theory function
         """Gaussian shape at location <x> given parameters <p> 
         with p = [FWHM, center, scale, constant BG, BG slope]."""
         g = (x-p[1])/p[0]
