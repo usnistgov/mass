@@ -258,10 +258,10 @@ class EnergyCalibration(object):
                 params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
                 params_guess[1] = pp  # Approximate peak position
                 params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
-                # hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
+                hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
 
                 try:
-                    fitter.fit(hist, bins, params_guess, plot=False)
+                    fitter.fit(hist, bins, params_guess, hold=hold,plot=False)
                     break
                 except (ValueError, LinAlgError, RuntimeError):
                     if self.plot_on_fail:
@@ -293,10 +293,6 @@ class EnergyCalibration(object):
 
         return self
 
-    def add_cal_point(self, pht, energy, name="", info=None, pht_error=0, overwrite=True):
-        if info is None:
-            info = {}
-        pass
 
     def __call__(self, ph, der=0):
         if self.ph2energy is None:
@@ -349,7 +345,7 @@ class EnergyCalibration(object):
                 else:
                     params.append(fitter.last_fit_params[0])
 
-            return params
+            return np.array(params)
 
         return None
 
@@ -434,7 +430,7 @@ def diagnose_calibration(cal, hist_plot=False):
 
         for i, (p, el) in enumerate(zip(cal.refined_peak_positions, cal.elements)):
             text = ax.text(p, kde.evaluate(p),
-                           el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
+                           str(el).replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
                            size=24, color='w', ha='center', va='bottom',
                            transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
             text.set_path_effects([patheffects.withStroke(linewidth=2, foreground=colors[i]), ])
@@ -470,7 +466,7 @@ def diagnose_calibration(cal, hist_plot=False):
             ax.text(0.05, 0.97, str(el) +
                     ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(cal([fitter.params[1]], 1)[0] * fitter.params[0]),
                     transform=ax.transAxes, ha='left', va='top')
-            y = [np.median(fitter.gaussian_theory_function(fitter.params, a)) for a in x]
+            y = [np.median(fitter.theory_function(fitter.params, a)) for a in x]
         else:
             ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
                     '\n' + "Resolution: {0:.1f} (eV)".format(fitter.last_fit_params[0]),
