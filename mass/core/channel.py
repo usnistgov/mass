@@ -775,9 +775,7 @@ class MicrocalDataSet(object):
             self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
             printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
             for s in range(self.pulse_records.n_segments):
-                first, end = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
-                self.times = self.pulse_records.times
-                self.data = self.pulse_records.data
+                first, end = self.read_segment(s) # this reloads self.data to contain new pulses
                 self.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
                 printUpdater.update((s+1)/float(self.pulse_records.n_segments))
             self.pulse_records.datafile.clear_cached_segment()
@@ -840,8 +838,7 @@ class MicrocalDataSet(object):
         if forceNew or all(self.p_filt_value == 0): # determine if we need to do anything
             printUpdater = InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
             for s in range(self.pulse_records.n_segments):
-                first, end = self.pulse_records.read_segment(s) # this reloads self.data to contain new pulses
-                self.data = self.pulse_records.data
+                first, end = self.read_segment(s) # this reloads self.data to contain new pulses
                 (self.p_filt_phase[first:end], self.p_filt_value[first:end]) = self.filter_data(filter_values,
                                                                                                   first, end, transform)
                 printUpdater.update((s+1)/float(self.pulse_records.n_segments))
@@ -1120,8 +1117,7 @@ class MicrocalDataSet(object):
 
         Note that we always train only on data file's segment 0.
         """
-        _,N = self.pulse_records.read_segment(0)
-        self.data = self.pulse_records.data
+        _,N = self.read_segment(0)
         g = self.cuts.good()[:N]
         prompt = self.p_promptness
         
@@ -1219,10 +1215,12 @@ class MicrocalDataSet(object):
         self.p_energy = cal.ph2energy(getattr(self, attr))
         self.last_used_calibration = cal
 
-    def phase_correct(self,typical_resolution):
-        # note that typical resolution must be in units of p_pulse_rms
-        for ds in self:
-            ds.phase_correct2014(typical_resolution, plot=True)
+    def read_segment(self, n):
+        first, end = self.pulse_records.read_segment(n)
+        self.data = self.pulse_records.data
+        self.times = self.pulse_records.times
+        return first, end
+
 
 
 ################################################################################################
