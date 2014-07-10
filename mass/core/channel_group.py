@@ -275,9 +275,7 @@ class BaseChannelGroup(object):
         If this is a CDMGroup, then the pulse is the demodulated
         channel by that number."""
         ds = self.channel.get(chan_num, self.datasets[dataset_num])
-        seg_num = record_num / self.pulses_per_seg
-        self.read_segment(seg_num)
-        return ds.data[record_num % self.pulses_per_seg]
+        return ds.read_trace(record_num)
 
 
     def plot_traces(self, pulsenums, dataset_num=0, chan_num=None, pulse_summary=True, axis=None, difference=False,
@@ -295,9 +293,7 @@ class BaseChannelGroup(object):
         <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                      that have been cut.  If "cut", show only those that have been cut.
         """
-        if isinstance(pulsenums, int):
-            pulsenums = (pulsenums,)
-        pulsenums = np.asarray(pulsenums)
+
         if chan_num in self.channel:
             dataset = self.channel[chan_num]
             dataset_num = dataset.index
@@ -306,71 +302,7 @@ class BaseChannelGroup(object):
             if chan_num is not None:
                 print "Cannot find chan_num[%d], so using dataset #%d"%(
                                             chan_num, dataset_num)
-        
-        # Don't print pulse summaries if the summary data is not available
-        if pulse_summary:
-            try:
-                if len(dataset.p_pretrig_mean) == 0:
-                    pulse_summary = False
-            except AttributeError:
-                pulse_summary = False
-        
-        if valid_status not in (None, "valid", "cut"):
-            raise ValueError("valid_status must be one of [None, 'valid', or 'cut']")
-        if residual and difference:
-            raise ValueError("Only one of residual and difference can be True.")
-            
-        dt = (np.arange(dataset.nSamples)-dataset.nPresamples)*dataset.timebase*1e3
-        color= 'purple','blue','green','#88cc00','gold','orange','red', 'brown','gray','#444444','magenta'
-        MAX_TO_SUMMARIZE = 20
-        
-        if axis is None:
-            plt.clf()
-            axis = plt.subplot(111)
-        axis.set_xlabel("Time after trigger (ms)")
-        axis.set_xlim([dt[0], dt[-1]])
-        axis.set_ylabel("Feedback (or mix) in [Volts/16384]")
-        if pulse_summary:
-            axis.text(.975, .97, r"              -PreTrigger-   Max  Rise t Peak   Pulse", 
-                       size='medium', family='monospace', transform = axis.transAxes, ha='right')
-            axis.text(.975, .95, r"Cut P#    Mean     rms PTDeriv  ($\mu$s) value   mean", 
-                       size='medium', family='monospace', transform = axis.transAxes, ha='right')
-
-        cuts_good = dataset.cuts.good()[pulsenums]
-        pulses_plotted = -1
-        for i,pn in enumerate(pulsenums):
-            if valid_status == 'cut' and cuts_good[i]: continue
-            if valid_status == 'valid' and not cuts_good[i]: continue
-            pulses_plotted += 1
-            
-            data = self.read_trace(pn, dataset_num=dataset_num)
-            if difference:
-                data = data*1.0-np.roll(data,1)
-                data[0] = 0
-                data += np.roll(data,1) + np.roll(data,-1)
-                data[0] = 0
-            elif residual:
-                model = dataset.p_filt_value[pn] * dataset.average_pulse / dataset.average_pulse.max()
-                data = data-model
-                
-            cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1
-            
-            # When plotting both cut and valid, mark the cut data with x and dashed lines
-            if valid_status is None and not cuts_good[i]:
-                cutchar,alpha,linestyle,linewidth = 'X',1.0,'--' ,1
-            axis.plot(dt, data, color=color[pulses_plotted%len(color)], linestyle=linestyle, alpha=alpha,
-                       linewidth=linewidth)
-            if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(dataset.p_pretrig_mean)>=pn:
-                try:
-                    summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f"%(
-                                cutchar, pn, dataset.p_pretrig_mean[pn], dataset.p_pretrig_rms[pn],
-                                dataset.p_max_posttrig_deriv[pn], dataset.p_rise_time[pn]*1e6,
-                                dataset.p_peak_value[pn], dataset.p_pulse_average[pn])
-                except IndexError:
-                    pulse_summary = False
-                    continue
-                axis.text(.975, .93-.02*pulses_plotted, summary, color=color[pulses_plotted%len(color)], 
-                           family='monospace', size='medium', transform = axis.transAxes, ha='right')
+        return dataset.plot_traces(pulsenums, pulse_summary, axis, difference, residual, valid_status)
 
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,

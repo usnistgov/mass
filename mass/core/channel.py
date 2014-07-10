@@ -1221,6 +1221,96 @@ class MicrocalDataSet(object):
         self.times = self.pulse_records.times
         return first, end
 
+    def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
+                    residual=False, valid_status=None):
+        """Plot some example pulses, given by sample number.
+        <pulsenums>   A sequence of sample numbers, or a single one.
+        <pulse_summary> Whether to put text about the first few pulses on the plot
+        <axis>       A plt axis to plot on.
+        <difference> Whether to show successive differences (that is, d(pulse)/dt) or the raw data
+        <residual>   Whether to show the residual between data and opt filtered model, or just raw data.
+        <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
+                     that have been cut.  If "cut", show only those that have been cut.
+        """
+        # Don't print pulse summaries if the summary data is not available
+
+        if isinstance(pulsenums, int):
+            pulsenums = (pulsenums,)
+        pulsenums = np.asarray(pulsenums)
+        if pulse_summary:
+            try:
+                if len(self.p_pretrig_mean) == 0:
+                    pulse_summary = False
+            except AttributeError:
+                pulse_summary = False
+
+        if valid_status not in (None, "valid", "cut"):
+            raise ValueError("valid_status must be one of [None, 'valid', or 'cut']")
+        if residual and difference:
+            raise ValueError("Only one of residual and difference can be True.")
+
+        dt = (np.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
+        color= 'purple','blue','green','#88cc00','gold','orange','red', 'brown','gray','#444444','magenta'
+        MAX_TO_SUMMARIZE = 20
+
+        if axis is None:
+            plt.clf()
+            axis = plt.subplot(111)
+        axis.set_xlabel("Time after trigger (ms)")
+        axis.set_xlim([dt[0], dt[-1]])
+        axis.set_ylabel("Feedback (or mix) in [Volts/16384]")
+        if pulse_summary:
+            axis.text(.975, .97, r"              -PreTrigger-   Max  Rise t Peak   Pulse",
+                       size='medium', family='monospace', transform = axis.transAxes, ha='right')
+            axis.text(.975, .95, r"Cut P#    Mean     rms PTDeriv  ($\mu$s) value   mean",
+                       size='medium', family='monospace', transform = axis.transAxes, ha='right')
+
+        cuts_good = self.cuts.good()[pulsenums]
+        pulses_plotted = -1
+        for i,pn in enumerate(pulsenums):
+            if valid_status == 'cut' and cuts_good[i]: continue
+            if valid_status == 'valid' and not cuts_good[i]: continue
+            pulses_plotted += 1
+
+            data = self.read_trace(pn)
+            if difference:
+                data = data*1.0-np.roll(data,1)
+                data[0] = 0
+                data += np.roll(data,1) + np.roll(data,-1)
+                data[0] = 0
+            elif residual:
+                model = self.p_filt_value[pn] * self.average_pulse / self.average_pulse.max()
+                data = data-model
+
+            cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1
+
+            # When plotting both cut and valid, mark the cut data with x and dashed lines
+            if valid_status is None and not cuts_good[i]:
+                cutchar,alpha,linestyle,linewidth = 'X',1.0,'--' ,1
+            axis.plot(dt, data, color=color[pulses_plotted%len(color)], linestyle=linestyle, alpha=alpha,
+                       linewidth=linewidth)
+            if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(self.p_pretrig_mean)>=pn:
+                try:
+                    summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f"%(
+                                cutchar, pn, self.p_pretrig_mean[pn], self.p_pretrig_rms[pn],
+                                self.p_max_posttrig_deriv[pn], self.p_rise_time[pn]*1e6,
+                                self.p_peak_value[pn], self.p_pulse_average[pn])
+                except IndexError:
+                    pulse_summary = False
+                    continue
+                axis.text(.975, .93-.02*pulses_plotted, summary, color=color[pulses_plotted%len(color)],
+                           family='monospace', size='medium', transform = axis.transAxes, ha='right')
+
+    def read_trace(self, record_num):
+        """Read (from cache or disk) and return the pulse numbered <record_num> for
+        dataset number <dataset_num> or channel number <chan_num>.
+        If both are given, then <chan_num> will be used when valid.
+        If this is a CDMGroup, then the pulse is the demodulated
+        channel by that number."""
+        seg_num = record_num / self.pulse_records.pulses_per_seg
+        self.read_segment(seg_num)
+        return self.data[record_num % self.pulse_records.pulses_per_seg,:]
+
 
 
 ################################################################################################
