@@ -1105,7 +1105,7 @@ class MicrocalDataSet(object):
             self.pickle(verbose=False)
 
 
-    def phase_correct2014(self, typical_resolution, plot=False):
+    def phase_correct2014(self, typical_resolution, maximum_num_records = 50000, plot=False):
         """Apply the phase correction that seems good for calibronium-like
         data as of June 2014. For more notes, do 
         help(mass.core.analysis_algorithms.FilterTimeCorrection)
@@ -1114,16 +1114,13 @@ class MicrocalDataSet(object):
         self.p_pulse_rms. This helps the peak-finding (clustering) algorithm decide
         which pulses go together into a single peak.  Be careful to use a semi-reasonable
         quantity here.
-
-        Note that we always train only on data file's segment 0.
         """
-        _,N = self.read_segment(0)
-        g = self.cuts.good()[:N]
+        data,g = self.first_n_good_pulses(maximum_num_records)
         prompt = self.p_promptness
         
         dataFilter = self.filter.filt_noconst
         tc = mass.core.analysis_algorithms.FilterTimeCorrection(
-                self.data[g], prompt[g], self.p_pulse_rms[g], dataFilter,
+                data, self.p_promptness[g], self.p_pulse_rms[g], dataFilter,
                 self.nPresamples, typicalResolution=typical_resolution)
         
         self.p_filt_value_phc = self.p_filt_value_dc - tc(prompt, self.p_pulse_rms)
@@ -1133,6 +1130,26 @@ class MicrocalDataSet(object):
             g = self.cuts.good()
             plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
             plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
+
+    def first_n_good_pulses(self, n=50000):
+        """
+        :param n: maximum number of good pulses to include
+        :return: data, g
+        data is a (X,Y) array where X is number of records, and Y is number of samples per record
+        g is a 1d array of of pulse record numbers of the pulses in data
+        if we  did load all of ds.data at once, this would be roughly equivalent to
+        return ds.data[ds.cuts.good()][:n], np.nonzero(ds.cuts.good())[0][:n]
+        """
+        first, end = self.read_segment(0)
+        g = self.cuts.good()
+        data = self.data[g[first:end]]
+        for j in xrange(1,self.pulse_records.n_segments):
+            first, end = self.read_segment(j)
+            data = np.vstack((data, self.data[g[first:end],:]))
+            if data.shape[0]>n:
+                break
+        nrecords = np.amin([n, data.shape[0]])
+        return data[:nrecords], np.nonzero(g)[0][:nrecords]
 
 
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha', 
