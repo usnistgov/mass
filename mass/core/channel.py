@@ -1105,7 +1105,7 @@ class MicrocalDataSet(object):
             self.pickle(verbose=False)
 
 
-    def phase_correct2014(self, typical_resolution, maximum_num_records = 50000, plot=False):
+    def phase_correct2014(self, typical_resolution, maximum_num_records = 50000, plot=False, forceNew=False):
         """Apply the phase correction that seems good for calibronium-like
         data as of June 2014. For more notes, do 
         help(mass.core.analysis_algorithms.FilterTimeCorrection)
@@ -1115,15 +1115,19 @@ class MicrocalDataSet(object):
         which pulses go together into a single peak.  Be careful to use a semi-reasonable
         quantity here.
         """
-        data,g = self.first_n_good_pulses(maximum_num_records)
-        prompt = self.p_promptness
-        
-        dataFilter = self.filter.filt_noconst
-        tc = mass.core.analysis_algorithms.FilterTimeCorrection(
-                data, self.p_promptness[g], self.p_pulse_rms[g], dataFilter,
-                self.nPresamples, typicalResolution=typical_resolution)
-        
-        self.p_filt_value_phc = self.p_filt_value_dc - tc(prompt, self.p_pulse_rms)
+        if not hasattr(self, "p_filt_value_phc") or forceNew:
+            data,g = self.first_n_good_pulses(maximum_num_records)
+            print("channel %d doing phase_correct2014 with %d good pulses"%(self.channum, data.shape[0]))
+            prompt = self.p_promptness
+
+            dataFilter = self.filter.filt_noconst
+            tc = mass.core.analysis_algorithms.FilterTimeCorrection(
+                    data, prompt[g], self.p_pulse_rms[g], dataFilter,
+                    self.nPresamples, typicalResolution=typical_resolution)
+
+            self.p_filt_value_phc = self.p_filt_value_dc - tc(prompt, self.p_pulse_rms)
+        else:
+            print("channel %d skipping phase_correct2014"%self.channum)
         
         if plot:
             plt.clf()
@@ -1327,6 +1331,79 @@ class MicrocalDataSet(object):
         seg_num = record_num / self.pulse_records.pulses_per_seg
         self.read_segment(seg_num)
         return self.data[record_num % self.pulse_records.pulses_per_seg,:]
+
+    def time_drift_correct(self, attr="p_filt_value_phc", forceNew=False):
+        if not hasattr(self, 'p_filt_value_tdc') or forceNew:
+            print("chan %d doing time_drift_correct"%self.channum)
+            attr = getattr(self, attr)
+            _, info = mass.analysis_algorithms.drift_correct(self.p_timestamp[self.cuts.good()],attr[self.cuts.good()])
+            median_timestamp = info['median_pretrig_mean']
+            slope = info['slope']
+
+            new_info = {}
+            new_info['type']='time_gain'
+            new_info['slope']=slope
+            new_info['median_timestamp']=median_timestamp
+
+            corrected = attr*(1+slope*(self.p_timestamp-median_timestamp))
+            self.p_filt_value_tdc = corrected
+        else:
+            print("chan %d skipping time_drift_correct"%self.channum)
+            corrected, new_info = self.p_filt_value_tdc, {}
+        return corrected, new_info
+
+    def time_drift_correct_polynomial(self, poly_order=2,attr='p_filt_value_phc', num_lines = None, forceNew=False):
+        """assumes the gain is a polynomial in time
+        estimates that polynomial by fitting a polynomial to each line in the calibration with the same name as the attribute
+         and taking an appropriate average of the polyonomials from each line weighted by the counts in each line
+        """
+        if not hasattr(self, 'p_filt_value_tdc') or forceNew:
+            print("chan %d doing time_drift_correct_polynomail with order %d"%(self.channum, poly_order))
+            cal = self.calibration[attr]
+            attr = getattr(self, attr)
+            attr_good = attr[self.cuts.good()]
+
+            if num_lines is None: num_lines = len(cal.elements)
+
+            t0 = np.median(self.p_timestamp)
+            counts = [h[0].sum() for h in cal.histograms]
+            pfits = []
+            counts = [h[0].sum() for h in cal.histograms]
+            for i in np.argsort(counts)[-1:-num_lines-1:-1]:
+                line_name = cal.elements[i]
+                low,high =cal.histograms[i][1][[0,-1]]
+                use = np.logical_and(attr_good>low, attr_good<high)
+                use_time = self.p_timestamp[self.cuts.good()][use]-t0
+                pfit = np.polyfit(use_time, attr_good[use],poly_order)
+                pfits.append(pfit)
+            pfits = np.array(pfits)
+
+            pfits_slope = np.average(pfits/np.repeat(np.array(pfits[:,-1],ndmin=2).T,pfits.shape[-1],1),axis=0, weights=np.array(sorted(counts))[-1:-num_lines-1:-1])
+
+            p_corrector = pfits_slope.copy()
+            p_corrector[:-1] *=-1
+            corrected = attr*np.polyval(p_corrector, self.p_timestamp-t0)
+            self.p_filt_value_tdc = corrected
+
+            new_info = {'poly_gain':p_corrector, 't0':t0, 'type':'time_gain_polynomial'}
+        else:
+            print("chan %d skipping time_drift_correct_polynomial_dataset"%self.channum)
+            corrected, new_info = self.p_filt_value_tdc, {}
+        return corrected, new_info
+
+    def compare_calibrations(self):
+        plt.figure()
+        for key in self.calibration:
+            cal = self.calibration[key]
+            try:
+                plt.plot(cal.peak_energies, cal.energy_resolutions,'o', label=key)
+            except:
+                pass
+        plt.legend()
+        plt.xlabel("energy (eV)")
+        plt.ylabel("energy resolution fwhm (eV)")
+        plt.grid("on")
+        plt.title("chan %d cal comparison"%self.channum)
 
 
 

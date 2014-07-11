@@ -1150,9 +1150,9 @@ class TESGroup(BaseChannelGroup):
             except ValueError:
                 self.set_chan_bad(ds.channum, "failed drift correct")
 
-    def phase_correct2014(self, typical_resolution, maximum_num_records = 50000, plot=False):
+    def phase_correct2014(self, typical_resolution, maximum_num_records = 50000, plot=False, forceNew=False):
         for ds in self:
-            ds.phase_correct2014(typical_resolution, maximum_num_records, plot)
+            ds.phase_correct2014(typical_resolution, maximum_num_records, plot, forceNew)
 
     def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10, min_counts_per_cluster=20,
                   fit_range_ev=200, excl=(), plot_on_fail=False,max_num_clusters=np.inf,max_pulses_for_dbscan=1e5, forceNew=False):
@@ -1165,11 +1165,20 @@ class TESGroup(BaseChannelGroup):
         self.convert_to_energy(attr, attr+name_ext)
 
 
-    def convert_to_energy(data, attr, calname=None):
+    def convert_to_energy(self, attr, calname=None):
         if calname is None: calname = attr
         print("for all channels converting %s to energy with calibration %s"%(attr, calname))
-        for ds in data:
+        for ds in self:
             ds.convert_to_energy(attr, calname)
+
+    def time_drift_correct(self, poly_order=1,attr='p_filt_value_phc', num_lines = None, forceNew=False):
+        for ds in self:
+            if poly_order == 1:
+                ds.time_drift_correct(attr, forceNew)
+            elif poly_order > 1:
+                ds.time_drift_correct_polynomial(poly_order,attr, num_lines, forceNew)
+            else:
+                raise ValueError('%g is invalid value of poly_order'%poly_order)
 
 
 def _sort_filenames_numerically(fnames, inclusion_list=None):
