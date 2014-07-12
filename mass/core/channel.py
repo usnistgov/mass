@@ -1405,6 +1405,18 @@ class MicrocalDataSet(object):
         plt.grid("on")
         plt.title("chan %d cal comparison"%self.channum)
 
+    def count_rate(self, goodonly=False,bin_s=60):
+        g = self.cuts.good()
+        if not goodonly: g[:]=True
+        if isinstance(bin_s,float) or isinstance(bin_s, int):
+            bin_edge = np.arange(self.p_timestamp[g][0], self.p_timestamp[g][-1], bin_s)
+        else:
+            bin_edge = bin_s
+        counts, bin_edge = np.histogram(self.p_timestamp[g], bin_edge)
+        bin_centers = bin_edge[:-1]+0.5*(bin_edge[1]-bin_edge[0])
+        rate = counts/float(bin_edge[1]-bin_edge[0])
+
+        return bin_centers, rate
 
 
 ################################################################################################

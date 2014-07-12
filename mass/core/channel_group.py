@@ -1180,6 +1180,33 @@ class TESGroup(BaseChannelGroup):
             else:
                 raise ValueError('%g is invalid value of poly_order'%poly_order)
 
+    def plot_count_rate(self, bin_s=60, title=""):
+        bin_edge = np.arange(self.first_good_dataset.p_timestamp[0], self.first_good_dataset.p_timestamp[-1], bin_s)
+        bin_centers = bin_edge[:-1]+0.5*(bin_edge[1]-bin_edge[0])
+        rates_all = np.array([ds.count_rate(False, bin_edge)[1] for ds in self])
+        rates_good = np.array([ds.count_rate(True, bin_edge)[1] for ds in self])
+        plt.figure()
+        plt.subplot(311)
+        plt.plot(bin_centers, rates_all.T)
+        plt.ylabel("all by chan")
+        plt.subplot(312)
+        plt.plot(bin_centers, rates_good.T)
+        plt.ylabel("good by chan")
+        plt.subplot(313)
+        print rates_all.sum(axis=-1).shape
+        plt.plot(bin_centers, rates_all.sum(axis=0))
+        plt.ylabel("all array")
+        plt.grid("on")
+
+        plt.figure()
+        plt.plot([ds.channum for ds in self], rates_all.mean(axis=1),'o', label="all")
+        plt.plot([ds.channum for ds in self], rates_good.mean(axis=1),'o', label="good")
+        plt.xlabel("channel number")
+        plt.ylabel("average trigger/s")
+        plt.grid("on")
+        plt.legend()
+
+
 
 def _sort_filenames_numerically(fnames, inclusion_list=None):
     """Take a sequence of filenames of the form '*_chanXXX.*'
