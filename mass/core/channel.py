@@ -1115,7 +1115,7 @@ class MicrocalDataSet(object):
         which pulses go together into a single peak.  Be careful to use a semi-reasonable
         quantity here.
         """
-        if not hasattr(self, "p_filt_value_phc") or forceNew:
+        if forceNew or all(self.p_filt_value_phc==0.0):
             data,g = self.first_n_good_pulses(maximum_num_records)
             print("channel %d doing phase_correct2014 with %d good pulses"%(self.channum, data.shape[0]))
             prompt = self.p_promptness

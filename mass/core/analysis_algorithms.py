@@ -275,7 +275,7 @@ class FilterTimeCorrection(object):
     """
     
     def __init__(self, trainingPulses, promptness, energy,
-                 linearFilter, nPresamples, typicalResolution=None, labels=None, maxorder=6):
+                 linearFilter, nPresamples, typicalResolution=None, labels=None, maxorder=6, verbose=0):
         """
         Create a filtered pulse height time correction from various ingredients:
         trainingPulses  An NxM array of N pulse records with M samples each
@@ -308,6 +308,7 @@ class FilterTimeCorrection(object):
         self.max_poly_order = maxorder
         self.filter = np.array(linearFilter)
         self.nPresamples = nPresamples
+        self.verbose = verbose
         if trainingPulses is  None: return  # used in self.copy() only
         
         _,M = trainingPulses.shape
@@ -355,7 +356,7 @@ class FilterTimeCorrection(object):
                                                        min_samples=min_samples)
         labels = np.asarray(labels, dtype=int)
         labelCounts,_ = np.histogram(labels, 1+labels.max(), [-.5, .5+labels.max()])
-        print 'Label counts: ', labelCounts
+        if self.verbose >0: print 'Label counts: ', labelCounts
         return labels
     
 
@@ -388,7 +389,7 @@ class FilterTimeCorrection(object):
                                          self.max_poly_order+1), dtype=np.float)
             
             use = (labels==i)
-            print 'Using %4d pulses for cluster %d'%(use.sum(), i)
+            if self.verbose>0: print 'Using %4d pulses for cluster %d'%(use.sum(), i)
             
             prompt = promptness[use]
 #             pulse_rms = energy[use]
@@ -462,7 +463,7 @@ class FilterTimeCorrection(object):
   
             self.lag0_results[i] = (pvalues, np.array(output_lag0))
             self.parab_results[i] = (pvalues, np.array(output_fit))
-            print "Cluster %2d: FWHM lag 0: %.3f  5-lag fit: %.3f"%(i, 2.3548*np.std(output_lag0), 2.3548*np.std(output_fit))
+            if self.verbose>0: print "Cluster %2d: FWHM lag 0: %.3f  5-lag fit: %.3f"%(i, 2.3548*np.std(output_lag0), 2.3548*np.std(output_fit))
               
             if plot:
                 ax = axes[(Nlabels-1-i)*2]
