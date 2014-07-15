@@ -109,8 +109,11 @@ class BaseChannelGroup(object):
                 goodones = set([a])
             added_to_list.update(goodones)
         for k in added_to_list:
-            comment = self._bad_channums.pop(k)
-            print("chan %d set good, had previously been set bad for %s"%(k, str(comment)))
+            if k in self._bad_channums:
+                comment = self._bad_channums.pop(k)
+                print("chan %d set good, had previously been set bad for %s"%(k, str(comment)))
+            else:
+                print("chan %d not set good because it was not set bad"%k)
         self.update_chan_info()
 
     def set_chan_bad(self, *args):
