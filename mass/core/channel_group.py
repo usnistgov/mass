@@ -62,7 +62,7 @@ class BaseChannelGroup(object):
         self._allowed_pnum_ranges = None
         self._allowed_segnums = None
         self.pulses_per_seg = None
-        self._bad_channums=set()
+        self._bad_channums=dict()
         
         if self.n_channels <=4:
             self.colors=("blue", "#aaaa00","green","red")
@@ -81,7 +81,7 @@ class BaseChannelGroup(object):
         include_badchan : whether to include officially bad channels in the result."""
         channum = self.channel.keys()
         if not include_badchan:
-            channum = list(set(channum) - set(self._bad_channums))
+            channum = list(set(channum) - set(self._bad_channums.keys()))
         channum.sort()
         for c in channum:
             yield self.channel[c]
@@ -99,7 +99,7 @@ class BaseChannelGroup(object):
     def set_chan_good(self, *args):
         """Set one or more channels to be good.  (No effect for channels already listed
         as good.)
-        *args  Arguments to this function are integers or containers of integers.  Each 
+        *args  Arguments to this function are integers or containers of integers.  Each
                integer is removed from the bad-channels list."""
         added_to_list = set()
         for a in args:
@@ -107,17 +107,16 @@ class BaseChannelGroup(object):
                 goodones = set(a)
             except TypeError:
                 goodones = set([a])
-            self._bad_channums -= goodones
             added_to_list.update(goodones)
-        added_to_list = list(added_to_list)
-        added_to_list.sort()
-        print "Removed channels %s from bad channel list"%(added_to_list)
+        for k in added_to_list:
+            comment = self._bad_channums.pop(k)
+            print("chan %d set good, had previously been set bad for %s"%(k, str(comment)))
         self.update_chan_info()
-    
+
     def set_chan_bad(self, *args):
         """Set one or more channels to be bad.  (No effect for channels already listed
         as bad.)
-        *args  Arguments to this function are integers or containers of integers.  Each 
+        *args  Arguments to this function are integers or containers of integers.  Each
                integer is added to the bad-channels list."""
         added_to_list = set()
         comment = ''
@@ -129,33 +128,28 @@ class BaseChannelGroup(object):
                 badones = set(a)
             except TypeError:
                 badones = set([a])
-            self._bad_channums.update(badones)
             added_to_list.update(badones)
 
-        if len(added_to_list) > 0:
-            added_to_list = list(added_to_list)
-            added_to_list.sort()
-            log_string = 'chan %s flagged bad because %s'%(added_to_list, comment)
-            self.why_chan_bad.append(log_string)
-            print log_string
+        for k in added_to_list:
+            self._bad_channums[k] = self._bad_channums.get(k, [])+[comment]
+            print('chan %s flagged bad because %s'%(k, comment))
+
         self.update_chan_info()
 
-
-    def update_chan_info(self):        
+    def update_chan_info(self):
         channum = self.channel.keys()
-        channum = list(set(channum) - set(self._bad_channums))
+        channum = list(set(channum) - set(self._bad_channums.keys()))
         channum.sort()
         self.num_good_channels = len(channum)
         self.good_channels = list(channum)
-        if self.num_good_channels>0: 
+        if self.num_good_channels>0:
             self.first_good_dataset = self.channel[channum[0]]
         elif len(channum) > 0:
             print("WARNING: All datasets flagged bad, most things won't work.")
             self.first_good_dataset = None
-        
+
     def _setup_channels_list(self):
         self.channel = {}
-        self.why_chan_bad = []
         for ds_num,ds in enumerate(self.datasets):
             try:
                 ds.index = ds_num
@@ -163,6 +157,9 @@ class BaseChannelGroup(object):
             except AttributeError:
                 pass
         self.update_chan_info()
+    @property
+    def why_chan_bad(self):
+        return self._bad_channums.copy()
 
     
     def clear_cache(self):
@@ -1161,7 +1158,7 @@ class TESGroup(BaseChannelGroup):
                 ds.calibrate(attr, line_names,name_ext,size_related_to_energy_resolution, min_counts_per_cluster,
                   fit_range_ev, excl, plot_on_fail,max_num_clusters,max_pulses_for_dbscan, forceNew)
             except ValueError:
-                self.set_chan_bad(ds.channum, "failed calibration")
+                self.set_chan_bad(ds.channum, "failed calibration %s"%attr+name_ext)
         self.convert_to_energy(attr, attr+name_ext)
 
 
