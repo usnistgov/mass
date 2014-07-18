@@ -24,7 +24,9 @@ __all__=['TESGroup','CrosstalkVeto', 'unpickle_TESGroup']
 
 import numpy as np
 import pylab as plt
-import os, cPickle
+import os
+import cPickle
+import h5py
 
 import mass.calibration
 from mass.core.utilities import InlineUpdater
@@ -70,6 +72,7 @@ class BaseChannelGroup(object):
             BRIGHTORANGE='#ff7700'
             self.colors=('purple',"blue","cyan","green","gold",BRIGHTORANGE,"red","brown")
 
+        self.hdf5_file = h5py.File("tes_group.hdf5", 'a')
 
     def __iter__(self):
         """Iterator over the self.datasets in channel number order"""
@@ -882,8 +885,6 @@ class BaseChannelGroup(object):
         np.savetxt(filename, energy, fmt='%.10e')
 
 
-
-
 class TESGroup(BaseChannelGroup):
     """
     A group of one or more *independent* microcalorimeters, in that
@@ -904,22 +905,25 @@ class TESGroup(BaseChannelGroup):
         noise_list = []
         dset_list = []
         for i,fname in enumerate(self.filenames):
+            nf = self.noise_filenames[i]
+
             if noise_filenames is None:
-                pulse, noise = create_pulse_and_noise_records(
-                      fname, noise_only=noise_only, pulse_only=pulse_only, 
-                      records_are_continuous = noise_is_continuous)
+                pulse, noise = create_pulse_and_noise_records(fname,
+                                                              noise_only=noise_only, pulse_only=pulse_only,
+                                                              records_are_continuous=noise_is_continuous,
+                                                              hdf5_group=self.hdf5_file)
             else:
-                nf = self.noise_filenames[i]
                 pulse, noise = create_pulse_and_noise_records(fname, noisename=nf,
-                      noise_only=noise_only, pulse_only=pulse_only, 
-                      records_are_continuous = noise_is_continuous)
+                                                              noise_only=noise_only, pulse_only=pulse_only,
+                                                              records_are_continuous=noise_is_continuous,
+                                                              hdf5_group=self.hdf5_file)
                 
             pulse_list.append(pulse)
             if noise is None:
-                dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle)
+                dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle, hdf5_group=self.hdf5_file)
                 dset_list.append(dset)
             elif pulse.channum == noise.channum:
-                dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle)
+                dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle, hdf5_group=self.hdf5_file)
                 dset.noise_records = noise
                 assert(dset.channum == dset.noise_records.channum)
                 dset_list.append(dset)
@@ -929,14 +933,18 @@ class TESGroup(BaseChannelGroup):
             
             if self.n_segments is None:
                 for attr in "n_segments","nPulses","nSamples","nPresamples", "timebase":
-                    self.__dict__[attr] = pulse.__dict__[attr]
+                    if attr in ("n_segments", "nPulses"):
+                        self.__dict__[attr] = max(self.__dict__.get(attr, 0), pulse.__dict__[attr])
+                    else:
+                        self.__dict__[attr] = pulse.__dict__[attr]
+                    self.hdf5_file.attrs[attr] = self.__dict__[attr]
             else:
-                for attr in "nSamples","nPresamples", "timebase":
+                for attr in "nSamples", "nPresamples", "timebase":
                     if self.__dict__[attr] != pulse.__dict__[attr]:
                         raise ValueError("Unequal values of %s: %f != %f"%(attr,float(self.__dict__[attr]),
                                                                             float(pulse.__dict__[attr])))
-                self.n_segments = max(self.n_segments, pulse.n_segments)
-                self.nPulses = max(self.nPulses, pulse.nPulses)
+                #self.n_segments = max(self.n_segments, pulse.n_segments)
+                #self.nPulses = max(self.nPulses, pulse.nPulses)
             
         self.channels = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)

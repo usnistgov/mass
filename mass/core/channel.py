@@ -31,13 +31,16 @@ class NoiseRecords(object):
     """
     DEFAULT_MAXSEGMENTSIZE = 32000000
     
-    def __init__(self, filename, records_are_continuous=False, use_records=None, maxsegmentsize=None):
+    def __init__(self, filename, records_are_continuous=False, use_records=None, maxsegmentsize=None, hdf5_group=None):
         """
         Load a noise records file.
 
         If <records_are_continuous> is True, then treat all pulses as a continuous timestream.
         <use_records>  can be a sequence (first,end) to use only a limited section of the file.
         """
+        self.hdf5_group = hdf5_group.require_group('noise_records')
+        self.hdf5_group.attrs['filename'] = filename
+
         if maxsegmentsize is not None:
             self.maxsegmentsize = maxsegmentsize
         else:
@@ -48,7 +51,9 @@ class NoiseRecords(object):
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
         self.spectrum = None
-        self.autocorrelation = None
+        #self.autocorrelation = None
+        self.autocorrelation = self.hdf5_group.require_dataset("autocorrelation", shape=(self.nSamples,),
+                                                               maxshape=(None,), dtype=np.float64)
      
     def __open_file(self, filename, use_records=None, file_format=None):
         """Detect the filetype and open it."""
@@ -88,6 +93,7 @@ class NoiseRecords(object):
         # Copy up some of the most important attributes
         for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
+            self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
 
 #        for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
 #            if seg_num > 0 or first_pnum>0 or end_pnum != self.nPulses:
@@ -372,40 +378,66 @@ class NoiseRecords(object):
         axis.plot([0],[self.autocorrelation[0]],'o', color=color)
         axis.set_xlabel("Lag (ms)")
         axis.set_ylabel("Autocorrelation (counts$^2$)")
-        
 
-    
+
 class PulseRecords(object):
     """
     Encapsulate a set of data containing multiple triggered pulse traces.
     The pulses should not be noise records."""
+
+    HDF5_CHUNK_SIZE = 256
     
-    
-    def __init__(self, filename, file_format=None):
+    def __init__(self, filename, file_format=None, hdf5_group=None):
+        try:
+            self.hdf5_group = hdf5_group['pulse_records']
+        except KeyError:
+            self.hdf5_group = hdf5_group.create_group('pulse_records')
+        self.hdf5_group.attrs['filename'] = filename
+
         self.nSamples = 0
         self.nPresamples = 0
         self.nPulses = 0
+        self.channum = 0
+        self.n_segments = 0
         self.segmentsize = 0
         self.pulses_per_seg = 0
         self.timebase = None
         self.timestamp_offset = None
-        
-        self.p_timestamp = None
-        self.p_peak_index = None
-        self.p_peak_value = None
-        self.p_peak_time = None
-        self.p_min_value = None
-        self.p_pretrig_mean = None
-        self.p_pretrig_rms = None
-        self.p_pulse_average = None
-        self.p_rise_time = None
-        self.p_max_posttrig_deriv = None
+
+        self.__open_file(filename, file_format=file_format)
+
+        #self.p_timestamp = None
+        #self.p_peak_index = None
+        #self.p_peak_value = None
+        #self.p_peak_time = None
+        #self.p_min_value = None
+        hdfg = self.hdf5_group
+        self.p_timestamp = hdfg.require_dataset('p_timestamp', shape=(self.nPulses, ), maxshape=(None, ),
+                                                chunks=(self.HDF5_CHUNK_SIZE, ), dtype=np.float64)
+        self.p_peak_index = hdfg.require_dataset('p_peak_index', shape=(self.nPulses, ), maxshape=(None, ),
+                                                 chunks=(self.HDF5_CHUNK_SIZE, ), dtype=np.uint16)
+        self.p_peak_value = hdfg.require_dataset('p_peak_value', shape=(self.nPulses, ), maxshape=(None,),
+                                                 chunks=(self.HDF5_CHUNK_SIZE, ), dtype=np.uint16)
+        self.p_min_value = hdfg.require_dataset('p_min_value', shape=(self.nPulses, ), maxshape=(None, ),
+                                                chunks=(self.HDF5_CHUNK_SIZE, ), dtype=np.uint16)
+
+        self.p_pretrig_mean = hdfg.require_dataset('p_pretrig_mean', shape=(self.nPulses, ), maxshape=(None, ),
+                                                   chunks=(self.HDF5_CHUNK_SIZE, ), dtype=np.float32)
+        self.p_pretrig_rms = hdfg.require_dataset('p_pretrig_rms', shape=(self.nPulses, ), maxshape=(None, ),
+                                                  chunks=(self.HDF5_CHUNK_SIZE, ), dtype=np.float32)
+        self.p_pulse_average = hdfg.require_dataset('p_pulse_average', shape=(self.nPulses, ), maxshape=(None, ),
+                                                    chunks=(self.HDF5_CHUNK_SIZE, ), dtype=np.float32)
+        self.p_rise_time = hdfg.require_dataset('p_rise_time', shape=(self.nPulses, ), maxshape=(None, ),
+                                                chunks=(self.HDF5_CHUNK_SIZE, ), dtype=np.float32)
+        self.p_max_posttrig_deriv = hdfg.require_dataset('p_max_posttrig_deriv', shape=(self.nPulses, ), maxshape=(None, ),
+                                                         chunks=(self.HDF5_CHUNK_SIZE, ), dtype=np.float32)
         
         self.cuts = None
         self.bad = None
         self.good = None
 
-        self.__open_file(filename, file_format = file_format)
+        self.average_pulse = self.hdf5_group.require_dataset('average_pulse', shape=(self.nSamples, ),
+                                                             chunks=(1024, ), dtype=np.float32)
 #        self.__setup_vectors()
 
     def __open_file(self, filename, file_format=None):
@@ -491,9 +523,6 @@ class PulseRecords(object):
         fp.close()
 
 
-        
-##########################################################################################
-
 class Cuts(object):
     "Object to hold a 32-bit cut mask for each triggered record."
     
@@ -546,8 +575,6 @@ class Cuts(object):
         return c
         
 
-
-
 class MicrocalDataSet(object):
     """
     Represent a single microcalorimeter's PROCESSED data.
@@ -574,12 +601,17 @@ class MicrocalDataSet(object):
 
 
 
-    def __init__(self, pulserec_dict, auto_pickle = True):
+    def __init__(self, pulserec_dict, auto_pickle = True, hdf5_group=None):
         """
         Pass in a dictionary (presumably that of a PulseRecords object)
         containing the expected attributes that must be copied to this
         MicrocalDataSet.
         """
+        try:
+            self.hdf5_group = hdf5_group[str(pulserec_dict['channum'])]
+        except KeyError:
+            self.hdf5_group = hdf5_group.create_group(str(pulserec_dict['channum']))
+
         self.auto_pickle = auto_pickle
         self.filter = {}
         self.lastUsedFilterHash = -1
@@ -602,9 +634,6 @@ class MicrocalDataSet(object):
         self.__setup_vectors(npulses=self.nPulses)
         if self.auto_pickle:
             self.unpickle()
-            
-
-
 
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts 
@@ -617,24 +646,55 @@ class MicrocalDataSet(object):
         if npulses is None:
             assert self.nPulses > 0
             npulses = self.nPulses
-        self.p_timestamp = np.zeros(npulses, dtype=np.float64)
-        self.p_peak_index = np.zeros(npulses, dtype=np.uint16)
-        self.p_peak_value = np.zeros(npulses, dtype=np.uint16)
-        self.p_min_value = np.zeros(npulses, dtype=np.uint16)
-        self.p_pretrig_mean = np.zeros(npulses, dtype=np.float32)
-        self.p_pretrig_rms = np.zeros(npulses, dtype=np.float32)
-        self.p_pulse_average = np.zeros(npulses, dtype=np.float32)
-        self.p_pulse_rms = np.zeros(npulses, dtype=np.float32)
-        self.p_promptness = np.zeros(npulses, dtype=np.float32)
-        self.p_rise_time = np.zeros(npulses, dtype=np.float32)
-        self.p_max_posttrig_deriv = np.zeros(npulses, dtype=np.float32)
-        self.p_filt_phase = np.zeros(npulses, dtype=np.float64) # float32 for p_filt_phase makes energy resolution worse, gco, 20130516, it should be possible to use 32 but probably requires rescaling phase
+        #self.p_timestamp = np.zeros(npulses, dtype=np.float64)
+        #self.p_peak_index = np.zeros(npulses, dtype=np.uint16)
+        #self.p_peak_value = np.zeros(npulses, dtype=np.uint16)
+        #self.p_min_value = np.zeros(npulses, dtype=np.uint16)
+        #self.p_pretrig_mean = np.zeros(npulses, dtype=np.float32)
+        #self.p_pretrig_rms = np.zeros(npulses, dtype=np.float32)
+        #self.p_pulse_average = np.zeros(npulses, dtype=np.float32)
+        #self.p_pulse_rms = np.zeros(npulses, dtype=np.float32)
+        #self.p_promptness = np.zeros(npulses, dtype=np.float32)
+        #self.p_rise_time = np.zeros(npulses, dtype=np.float32)
+        #self.p_max_posttrig_deriv = np.zeros(npulses, dtype=np.float32)
+        #self.p_filt_phase = np.zeros(npulses, dtype=np.float64) # float32 for p_filt_phase makes energy resolution worse, gco, 20130516, it should be possible to use 32 but probably requires rescaling phase
         # maybe converting phase to int16, where 0 is 0, -max is -2, max is 2?
-        self.p_filt_value = np.zeros(npulses, dtype=np.float32) 
-        self.p_filt_value_phc = np.zeros(npulses, dtype=np.float32) 
-        self.p_filt_value_dc = np.zeros(npulses, dtype=np.float32)
-        self.p_energy = np.zeros(npulses, dtype=np.float32)
-        
+        #self.p_filt_value = np.zeros(npulses, dtype=np.float32)
+        #self.p_filt_value_phc = np.zeros(npulses, dtype=np.float32)
+        #self.p_filt_value_dc = np.zeros(npulses, dtype=np.float32)
+        #self.p_energy = np.zeros(npulses, dtype=np.float32)
+
+        hdfg = self.hdf5_group
+        self.p_timestamp = hdfg.require_dataset('pulse_records/p_timestamp',
+                                                           shape=(npulses,), dtype=np.float64)
+        self.p_peak_index = hdfg.require_dataset('pulse_records/p_peak_index', shape=(npulses,),
+                                                            dtype=np.uint16)
+        self.p_peak_value = hdfg.require_dataset('pulse_records/p_peak_value', shape=(npulses,),
+                                                            dtype=np.uint16)
+        self.p_min_value = hdfg.require_dataset('pulse_records/p_min_value', shape=(npulses,),
+                                                           dtype=np.uint16)
+        self.p_pretrig_mean = hdfg.require_dataset('pulse_records/p_pretrig_mean', shape=(npulses,),
+                                                              dtype=np.float32)
+        self.p_pretrig_rms = hdfg.require_dataset('pulse_records/p_pretrig_rms', shape=(npulses,),
+                                                             dtype=np.float32)
+        self.p_pulse_average = hdfg.require_dataset('pulse_records/p_pulse_average', shape=(npulses,),
+                                                               dtype=np.float32)
+        self.p_pulse_rms = hdfg.require_dataset('pulse_records/p_pulse_rms', shape=(npulses,),
+                                                           dtype=np.float32)
+        self.p_promptness = hdfg.require_dataset('pulse_records/p_promptness', shape=(npulses,),
+                                                            dtype=np.float32)
+        self.p_rise_time = hdfg.require_dataset('pulse_records/p_rise_time', shape=(npulses,),
+                                                           dtype=np.float32)
+        self.p_max_posttrig_deriv = hdfg.require_dataset('pulse_records/p_max_posttrig_deriv',
+                                                                    shape=(npulses,), dtype=np.float32)
+        self.average_pulse = hdfg.require_dataset('pulse_records/average_pulse',
+                                                  shape=(self.nSamples, ), dtype=np.float32)
+        self.p_filt_phase = hdfg.require_dataset('p_filt_phase', shape=(npulses, ), dtype=np.float64)
+        self.p_filt_value = hdfg.require_dataset('p_filt_value', shape=(npulses, ), dtype=np.float32)
+        self.p_filt_value_phc = hdfg.require_dataset('p_filt_value_phc', shape=(npulses,), dtype=np.float32)
+        self.p_filt_value_dc = hdfg.require_dataset('p_filt_value_dc', shape=(npulses,), dtype=np.float32)
+        self.p_energy = hdfg.require_dataset('p_energy', shape=(npulses,), dtype=np.float32)
+
         self.cuts = Cuts(self.nPulses)
     
     @property
@@ -823,11 +883,11 @@ class MicrocalDataSet(object):
                 self.data[:seg_size,self.nPresamples+6:self.nPresamples+12].mean(axis=1)-PTM)/self.p_peak_value[first:end]
 
         self.p_rise_time[first:end] = \
-            mass.core.analysis_algorithms.estimateRiseTime(self.data, timebase=self.timebase,  
-                                                           nPretrig = self.nPresamples)
+            mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size], timebase=self.timebase,
+                                                           nPretrig=self.nPresamples)
         
         self.p_max_posttrig_deriv[first:end] = \
-            mass.core.analysis_algorithms.compute_max_deriv(self.data, ignore_leading =
+            mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size], ignore_leading =
                                                             self.nPresamples+maxderiv_holdoff)
 
     def filter_data_tdm(self, filter_name='filt_noconst', transform=None, forceNew=False):
@@ -1422,7 +1482,7 @@ class MicrocalDataSet(object):
 ################################################################################################
 
 def create_pulse_and_noise_records(fname, noisename=None, records_are_continuous=True, 
-                                   noise_only=False, pulse_only=False):
+                                   noise_only=False, pulse_only=False, hdf5_group=None):
     """
     Factory function to create a PulseRecords and a NoiseRecords object
     from a raw LJH file name, with optional LJH-style noise file name.
@@ -1444,16 +1504,22 @@ def create_pulse_and_noise_records(fname, noisename=None, records_are_continuous
             raise ValueError("If noisename is not given, it must be constructable by replacing file suffix with '.noi'")
     
     assert not (noise_only and pulse_only)
-    
+
+    channum = int(fname.split("_chan")[1].split(".")[0])
+    try:
+        hdf5_ch_grp = hdf5_group[str(channum)]
+    except KeyError:
+        hdf5_ch_grp = hdf5_group.create_group(str(channum))
+
     if pulse_only:
-        pr = PulseRecords(fname)
+        pr = PulseRecords(fname, hdf5_group=hdf5_ch_grp)
         nr = None
     elif noise_only:
-        pr = PulseRecords(fname)
-        nr = NoiseRecords(fname, records_are_continuous)
+        pr = PulseRecords(fname, hdf5_group=hdf5_ch_grp)
+        nr = NoiseRecords(fname, records_are_continuous, hdf5_group=hdf5_ch_grp)
     else:
-        pr = PulseRecords(fname)
-        nr = NoiseRecords(noisename, records_are_continuous)
+        pr = PulseRecords(fname, hdf5_group=hdf5_ch_grp)
+        nr = NoiseRecords(noisename, records_are_continuous, hdf5_group=hdf5_ch_grp)
     
     return (pr, nr)
 
