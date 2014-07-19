@@ -3,6 +3,7 @@ module MicrocalFiles
 export
 LJHHeader,
 LJHFile,
+LJHRewind,
 fileRecords,
 fileData
 
