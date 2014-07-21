@@ -3,7 +3,10 @@
 # July 18, 2014
 
 
-export summarize, PulseSummaries
+export
+summarize,
+PulseSummaries,
+estimate_rise_time!
 
 require("MicrocalFiles")
 using HDF5
@@ -121,6 +124,12 @@ function compute_summary(file::MicrocalFiles.LJHFile)
     MicrocalFiles.LJHRewind(file)
     summary = PulseSummaries(file.nrec)
     segnum = 0
+
+    # Use the fact that the Matter / xcaldaq_client trigger is such that
+    # there are actually at least (Npre+2) samples before the signal begins.
+    Npre, Npost = file.npre+2, file.nsamp-(file.npre+2)
+    post_peak_deriv_vect = zeros(Float64, Npost)
+
     while segnum*pulses_per_seg < file.nrec
         first = segnum*pulses_per_seg+1
         last = first + pulses_per_seg-1
@@ -131,10 +140,6 @@ function compute_summary(file::MicrocalFiles.LJHFile)
         MicrocalFiles.fileRecords(file, last+1-first, times, data)
         pulperseg = last-first+1
         summary.timestamp[first:last] = times[1:pulperseg]
-
-        # Use the fact that the Matter / xcaldaq_client trigger is such that
-        # there are actually at least (Npre+2) samples before the signal begins.
-        Npre, Npost = file.npre+2, file.nsamp-(file.npre+2)
 
         # p is overall record #; i is record number within this segment
         for p = first:last
@@ -171,8 +176,9 @@ function compute_summary(file::MicrocalFiles.LJHFile)
                                            peak_val, ptm, file.dt)
 
             postpeak_data = data[peak_idx+1:end, i]
-            const reject_spikes=false
-            postpeak_deriv = estimate_postpeak_deriv(postpeak_data, reject_spikes)
+            const reject_spikes=true
+            postpeak_deriv = max_timeseries_deriv!(
+                post_peak_deriv_vect, postpeak_data, reject_spikes)
 
             # Copy results into the PulseSummaries object
             summary.pulse_average[p] = avg
@@ -228,58 +234,69 @@ end
 
 
 
-# Post-peak derivative
-estimate_postpeak_deriv(pulserecord::Array, reject_spikes::Bool) =
-    estimate_postpeak_deriv(pulserecord, [.2 : -.1 : -.2], reject_spikes)
+# Estimate the derivative (units of arbs / sample) for a pulse record or other timeseries.
+# This version uses the default kernel of [-2,-1,0,1,2]/10.0
+#
+max_timeseries_deriv!{T}(deriv::Vector{T}, pulserecord::Array, reject_spikes::Bool) =
+    max_timeseries_deriv!(deriv, pulserecord, convert(Vector{T},[.2 : -.1 : -.2]), reject_spikes)
 
 
-function estimate_postpeak_deriv(
-        pulserecord::Vector,
-        kernel::Vector,
-        reject_spikes::Bool
+# Post-peak derivative computed using Savitzky-Golay filter of order 3
+# and fitting 1 point before...3 points after.
+#
+max_timeseries_deriv_SG!(deriv::Vector, pulserecord::Vector, reject_spikes::Bool) =
+    max_timeseries_deriv!(deriv, pulserecord, [-0.11905, .30952, .28572, -.02381, -.45238],
+                            reject_spikes)
+
+# Estimate the derivative (units of arbs / sample) for a pulse record or other timeseries.
+# Caller pre-allocates the full derivative array, which is available as deriv.
+# Returns the maximum value of the derivative.
+# The kernel should be a short *convolution* (not correlation) kernel to be convolved
+# against the input pulserecord.
+# If reject_spikes is true, then the max value at sample i is changed to equal the minimum
+# of the values at (i-2, i, i+2). Note that this test only makes sense for kernels of length
+# 5 (or less), because only there can it be guaranteed insensitive to unit-length spikes of
+# arbitrary amplitude.
+#
+function max_timeseries_deriv!{T}(
+        deriv::Vector{T},       # Modified! Pre-allocate an array of sufficient length
+        pulserecord::Vector, # The pulse record (presumably starting at the pulse peak)
+        kernel::Vector{T},      # The convolution kernel that estimates derivatives
+        reject_spikes::Bool  # Whether to employ the spike-rejection test
         )
-    max_deriv = 0.0
     N = length(pulserecord)
     Nk = length(kernel)
+    @assert length(deriv) >= N+1-Nk
     if Nk > N
         return 0.0
     end
-    if Nk-4 > N
+    if Nk+4 > N
         reject_spikes = false
     end
 
-    if reject_spikes
-        conv = zeros(Float64, N+1-Nk)
-
-        for i=1:N-Nk+1
-            for j=1:Nk
-                conv[i] += pulserecord[i+Nk-j]*kernel[j]
-            end
-        end
-        for i=3:N-Nk-2
-            conv[i] = minimum([conv[i], conv[i+2]])
-            conv[i] = minimum([conv[i], conv[i-2]])
-        end
-        maxconv = maximum(conv)
-    else
-        maxconv = -inf(0.)
-        for i=Nk:N
-            conv = 0.0
-            for j=1:Nk
-                conv += pulserecord[i+1-j]*kernel[j]
-            end
-            maxconv = maximum([conv, maxconv])
+    for i=1:N-Nk+1
+        deriv[i] = 0
+        for j=1:Nk
+            deriv[i] += pulserecord[i+Nk-j]*kernel[j]
         end
     end
-    maxconv
+    for i=N-Nk+2:length(deriv)
+        deriv[i]=deriv[N-Nk+1]
+    end
+    if reject_spikes
+        for i=3:N-Nk-2
+            if deriv[i] > deriv[i+2]
+                deriv[i] = deriv[i+2]
+            end
+            if deriv[i] > deriv[i-2]
+                deriv[i] = deriv[i-2]
+            end
+        end
+    end
+    maximum(deriv)
 end
 
-# estimate_postpeak_deriv(pulserecord::Vector, reject_spikes::Bool) =
-#     estimate_postpeak_deriv(pulserecord, [.2 : -.1 : -.2], reject_spikes)
 
- estimate_postpeak_deriv_SG(pulserecord::Vector, reject_spikes::Bool) =
-     estimate_postpeak_deriv(pulserecord, [-0.11905, .30952, .28572, -.02381, -.45238],
-                             reject_spikes)
 
 # Given an LJH file name, return the HDF5 name
 # Generally, /x/y/z/data_taken_chan1.ljh becomes /x/y/z/data_taken_mass.hdf5
