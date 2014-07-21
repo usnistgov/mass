@@ -169,10 +169,16 @@ function compute_summary(file::MicrocalFiles.LJHFile)
             posttrig_data = data[Npre+2:end, i] # Could use sub?
             rise_time = estimate_rise_time(posttrig_data, peak_idx-Npre-2,
                                            peak_val, ptm, file.dt)
+
+            postpeak_data = data[peak_idx+1:end, i]
+            const reject_spikes=false
+            postpeak_deriv = estimate_postpeak_deriv(postpeak_data, reject_spikes)
+
             # Copy results into the PulseSummaries object
             summary.pulse_average[p] = avg
             summary.pulse_rms[p] = sqrt(s2/Npost - avg*avg)
             summary.rise_time[p] = rise_time
+            summary.postpeak_deriv[p] = postpeak_deriv
             summary.peak_index[p] = peak_idx
             if peak_val > ptm
                 summary.peak_value[p] = peak_val - uint16(ptm)
@@ -219,6 +225,61 @@ function estimate_rise_time(
     dt = (idx90-idx10)*frametime
     dt * (peakval-ptm) / (pulserecord[idx90]-pulserecord[idx10])
 end
+
+
+
+# Post-peak derivative
+estimate_postpeak_deriv(pulserecord::Array, reject_spikes::Bool) =
+    estimate_postpeak_deriv(pulserecord, [.2 : -.1 : -.2], reject_spikes)
+
+
+function estimate_postpeak_deriv(
+        pulserecord::Vector,
+        kernel::Vector,
+        reject_spikes::Bool
+        )
+    max_deriv = 0.0
+    N = length(pulserecord)
+    Nk = length(kernel)
+    if Nk > N
+        return 0.0
+    end
+    if Nk-4 > N
+        reject_spikes = false
+    end
+
+    if reject_spikes
+        conv = zeros(Float64, N+1-Nk)
+
+        for i=1:N-Nk+1
+            for j=1:Nk
+                conv[i] += pulserecord[i+Nk-j]*kernel[j]
+            end
+        end
+        for i=3:N-Nk-2
+            conv[i] = minimum([conv[i], conv[i+2]])
+            conv[i] = minimum([conv[i], conv[i-2]])
+        end
+        maxconv = maximum(conv)
+    else
+        maxconv = -inf(0.)
+        for i=Nk:N
+            conv = 0.0
+            for j=1:Nk
+                conv += pulserecord[i+1-j]*kernel[j]
+            end
+            maxconv = maximum([conv, maxconv])
+        end
+    end
+    maxconv
+end
+
+# estimate_postpeak_deriv(pulserecord::Vector, reject_spikes::Bool) =
+#     estimate_postpeak_deriv(pulserecord, [.2 : -.1 : -.2], reject_spikes)
+
+ estimate_postpeak_deriv_SG(pulserecord::Vector, reject_spikes::Bool) =
+     estimate_postpeak_deriv(pulserecord, [-0.11905, .30952, .28572, -.02381, -.45238],
+                             reject_spikes)
 
 # Given an LJH file name, return the HDF5 name
 # Generally, /x/y/z/data_taken_chan1.ljh becomes /x/y/z/data_taken_mass.hdf5
