@@ -20,6 +20,7 @@ type PulseSummaries
     pretrig_rms       ::Vector{Float64}
     pulse_average     ::Vector{Float64}
     pulse_rms         ::Vector{Float64}
+    rise_time         ::Vector{Float64}
     postpeak_deriv    ::Vector{Float64}#todo
     timestamp         ::Vector{Float64}
     peak_index        ::Vector{Uint16}
@@ -32,13 +33,14 @@ type PulseSummaries
         pretrig_rms = Array(Float64, n)
         pulse_average = Array(Float64, n)
         pulse_rms = Array(Float64, n)
+        rise_time = Array(Float64, n)
         postpeak_deriv = Array(Float64, n)
         timestamp = Array(Float64, n)
         peak_index = Array(Uint16, n)
         peak_value = Array(Uint16, n)
         min_value = Array(Uint16, n)
 
-        new(pretrig_mean, pretrig_rms, pulse_average, pulse_rms,
+        new(pretrig_mean, pretrig_rms, pulse_average, pulse_rms, rise_time,
             postpeak_deriv, timestamp, peak_index, peak_value, min_value)
     end
 end
@@ -100,6 +102,7 @@ function summarize(file::MicrocalFiles.LJHFile)
     summgrp = g_create_or_open(h5grp,"summary")
     for field in names(summary)
         ds_update(summgrp, string(field), getfield(summary, field))
+        println(string("Updating HDF5 with $grpname/summary/", field))
     end
     close(h5file)
 end
@@ -129,9 +132,13 @@ function compute_summary(file::MicrocalFiles.LJHFile)
         pulperseg = last-first+1
         summary.timestamp[first:last] = times[1:pulperseg]
 
-        Npre, Npost = file.npre, file.nsamp-file.npre
-        for i = 1:(last+1-first)
-            p = i+first-1
+        # Use the fact that the Matter / xcaldaq_client trigger is such that
+        # there are actually at least (Npre+2) samples before the signal begins.
+        Npre, Npost = file.npre+2, file.nsamp-(file.npre+2)
+
+        # p is overall record #; i is record number within this segment
+        for p = first:last
+            i = p+1-first
 
             # Pretrigger computation first
             s = s2 = 0.0
@@ -158,11 +165,20 @@ function compute_summary(file::MicrocalFiles.LJHFile)
                 s2 += d^2
             end
             avg = s/Npost
-            p < 12 && println("Pulse $(p-1) with PTM: $(ptm) pulse avg: $(avg)")
+
+            posttrig_data = data[Npre+2:end, i] # Could use sub?
+            rise_time = estimate_rise_time(posttrig_data, peak_idx-Npre-2,
+                                           peak_val, ptm, file.dt)
+            # Copy results into the PulseSummaries object
             summary.pulse_average[p] = avg
             summary.pulse_rms[p] = sqrt(s2/Npost - avg*avg)
+            summary.rise_time[p] = rise_time
             summary.peak_index[p] = peak_idx
-            summary.peak_value[p] = peak_val - uint16(ptm)
+            if peak_val > ptm
+                summary.peak_value[p] = peak_val - uint16(ptm)
+            else
+                summary.peak_value[p] = uint16(0)
+            end
         end
         segnum += 1
     end
@@ -170,6 +186,39 @@ function compute_summary(file::MicrocalFiles.LJHFile)
 end
 
 
+
+# Rise time computation
+# We define rise time based on rescaling the pulse so that pretrigger mean = 0
+# and peak value = 100%. Then use the linear interpolation between the first
+# point exceeding 10% and the last point not exceeding 90%. The time it takes that
+# interpolation to rise from 0 to 100% is the rise time.
+#
+function estimate_rise_time(
+        pulserecord::Vector,
+        peakindex::Integer,
+        peakval::Number,
+        ptm::Number, # Pretrigger mean,
+        frametime::Number
+        )
+    idx10 = 1
+    if peakindex > length(pulserecord)
+        peakindex = length(pulserecord)
+    end
+    idx90 = peakindex
+    thresh10 = 0.1*(peakval-ptm)+ptm
+    thresh90 = 0.9*(peakval-ptm)+ptm
+    for j = 2:peakindex
+        if pulserecord[j] < thresh10
+            idx10 = j
+        end
+        if pulserecord[j] > thresh90
+            idx90 = j-1
+            break
+        end
+    end
+    dt = (idx90-idx10)*frametime
+    dt * (peakval-ptm) / (pulserecord[idx90]-pulserecord[idx10])
+end
 
 # Given an LJH file name, return the HDF5 name
 # Generally, /x/y/z/data_taken_chan1.ljh becomes /x/y/z/data_taken_mass.hdf5
