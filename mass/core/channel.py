@@ -543,6 +543,7 @@ class Cuts(object):
         return c
 
 
+
 class MicrocalDataSet(object):
     """
     Represent a single microcalorimeter's PROCESSED data.
@@ -1423,6 +1424,16 @@ class MicrocalDataSet(object):
         rate = counts/float(bin_edge[1]-bin_edge[0])
 
         return bin_centers, rate
+
+    def cut_summary(self):
+        for i,c1 in enumerate(self.CUT_NAME):
+            for j,c2 in enumerate(self.CUT_NAME):
+                print("%d pulses cut by both %s and %s"%(
+                np.sum( np.logical_and(self.cuts.isCut(i), self.cuts.isCut(j))),c1.upper(), c2.upper()))
+        for j,cutname in enumerate(self.CUT_NAME):
+            print("%d pulses cut by %s"%(np.sum(self.cuts.isCut(j)), cutname.upper()))
+        print("%d pulses total"%self.nPulses)
+
 
 
 ################################################################################################
