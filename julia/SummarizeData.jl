@@ -70,14 +70,29 @@ function ds_update(parent::Union(HDF5File,HDF5Group),
                    name::Union(UTF8String,ASCIIString),
                    value::Any)
     if exists(parent, name)
-        o_delete(parent, name)
+        parent[name][:] = value
+    else
+        parent[name] = value
     end
-    parent[name] = value
+end
+
+# Create a new or update an existing dataset within an HDF5 object
+# If you can figure out a native syntax that handles both cases,
+# then we'd prefer to use it.
+function attr_update(parent::Union(HDF5File,HDF5Group),
+                   name::Union(UTF8String,ASCIIString),
+                   value::Any)
+    if exists(attrs(parent), name)
+        # Don't do anything if the existing attribute is already correct
+        a_read(parent, name) == value && return value
+        a_delete(parent, name)
+    end
+    attrs(parent)[name] = value
 end
 
 
 # Generate the HDF5 summary for an LJH file by filename
-summarize(file::String) = summarize(MicrocalFiles.LJHFile(file))
+summarize(filename::String) = summarize(MicrocalFiles.LJHFile(filename))
 
 
 
@@ -94,23 +109,26 @@ function summarize(file::MicrocalFiles.LJHFile)
     h5grp = g_create_or_open(h5file, grpname)
 
     # Store basic information
-    ds_update(h5grp, "rawname", file.name)
-    ds_update(h5grp, "npulses", file.nrec)
-    ds_update(h5grp, "nsamples", file.nsamp)
-    ds_update(h5grp, "npresamples", file.npre)
-    ds_update(h5grp, "frametime", file.dt)
+    attr_update(h5grp, "npulses", file.nrec)
+    attr_update(h5grp, "nsamples", file.nsamp)
+    attr_update(h5grp, "npresamples", file.npre)
+    attr_update(h5grp, "frametime", file.dt)
+    attr_update(h5grp, "rawname", file.name)
 
     summary = compute_summary(file)
 
     summgrp = g_create_or_open(h5grp,"summary")
     for field in names(summary)
         ds_update(summgrp, string(field), getfield(summary, field))
+#         summgrp[string(field)] = getfield(summary, field)
         println(string("Updating HDF5 with $grpname/summary/", field))
     end
     close(h5file)
 end
 
 
+
+compute_summary(filename::String) = compute_summary(MicrocalFiles.LJHFile(filename))
 
 # Compute the per-pulse data summary. This function returns a PulseSummaries
 # object given an open LJHFile object. It does not know anything about HDF5
