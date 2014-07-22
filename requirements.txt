@@ -1,4 +1,6 @@
 numpy
 scipy
 matplotlib
+Cython
 scikit-learn
+h5py
