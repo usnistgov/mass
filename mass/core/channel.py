@@ -1126,14 +1126,15 @@ class MicrocalDataSet(object):
                     self.nPresamples, typicalResolution=typical_resolution)
 
             self.p_filt_value_phc = self.p_filt_value_dc - tc(prompt, self.p_pulse_rms)
+            if plot:
+                plt.clf()
+                g = self.cuts.good()
+                plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
+                plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
         else:
             print("channel %d skipping phase_correct2014"%self.channum)
         
-        if plot:
-            plt.clf()
-            g = self.cuts.good()
-            plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
-            plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
+
 
     def first_n_good_pulses(self, n=50000):
         """
