@@ -388,7 +388,12 @@ class NoiseRecords(object):
 class PulseRecords(object):
     """
     Encapsulate a set of data containing multiple triggered pulse traces.
-    The pulses should not be noise records."""
+    The pulses should not be noise records.
+
+    This object will not contain derived facts such as pulse summaries, filtered values,
+    and so forth. It is meant to be only a file interface (though until July 2014, this
+    was not exactly the case).
+    """
 
     def __init__(self, filename, file_format=None):
         self.nSamples = 0
@@ -763,26 +768,28 @@ class MicrocalDataSet(object):
             pass
         fp.close()
 
-    def summarize_data_tdm(self, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0, forceNew=False):
-        """summarize the complete data set on chunk at a time
-        this version does the whole dataset at once (instead of previous segment at a time for all datasets)"""
+    def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0, forceNew=False):
+        """Summarize the complete data set one chunk at a time.
+        """
+        if not(forceNew or all(self.p_timestamp[:]==0)):
+            print('\nchan %d did not summarize because results were already preloaded'%self.channum)
+            return
+
         if len(self.p_timestamp) < self.pulse_records.nPulses:
             self.__setup_vectors(npulses=self.pulse_records.nPulses) # make sure vectors are setup correctly
-        if forceNew or all(self.p_timestamp==0):
-            self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
-            printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
-            for s in range(self.pulse_records.n_segments):
-                first, end = self.read_segment(s) # this reloads self.data to contain new pulses
-                self.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
-                printUpdater.update((s+1)/float(self.pulse_records.n_segments))
-            self.pulse_records.datafile.clear_cached_segment()
-            if self.auto_pickle:
-                self.pickle(verbose=False)
-        else:
-            print('\nchan %d did not summarize because results were already preloaded'%self.channum)
+        self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
+
+        printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
+        for s in range(self.pulse_records.n_segments):
+            first, end = self.read_segment(s) # this reloads self.data to contain new pulses
+            self._summarize_data_segment(first, end, peak_time_microsec, pretrigger_ignore_microsec)
+            printUpdater.update((s+1)/float(self.pulse_records.n_segments))
+        self.pulse_records.datafile.clear_cached_segment()
+        if self.auto_pickle:
+            self.pickle(verbose=False)
 
 
-    def summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
+    def _summarize_data_segment(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
         """Summarize the complete data file
         summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0)
         peak_time_microsec is used when calculating max dp/dt after trigger
@@ -817,36 +824,40 @@ class MicrocalDataSet(object):
                 (self.data[:seg_size,self.nPresamples:]**2.0).mean(axis=1) -
                 PTM*(PTM + 2*self.p_pulse_average[first:end]))
         self.p_promptness[first:end] = (
-                self.data[:seg_size,self.nPresamples+6:self.nPresamples+12].mean(axis=1)-PTM)/self.p_peak_value[first:end]
+                self.data[:seg_size,self.nPresamples+6:self.nPresamples+12].mean(axis=1)-PTM)/ \
+                self.p_peak_value[first:end]
 
         self.p_rise_time[first:end] = \
-            mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size], timebase=self.timebase,
+            mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size],
+                                                           timebase=self.timebase,
                                                            nPretrig=self.nPresamples)
 
         self.p_postpeak_deriv[first:end] = \
             mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size], ignore_leading =
                                                             self.nPresamples+maxderiv_holdoff)
 
-    def filter_data_tdm(self, filter_name='filt_noconst', transform=None, forceNew=False):
-        """filter the complete data file one chunk at a time
-        this version does the whole dataset at once (instead of previous segment at a time for all datasets)
+    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
+        """Filter the complete data file one chunk at a time.
         """
-        filter_values = self.filter.__dict__[filter_name]
-        if forceNew or all(self.p_filt_value == 0): # determine if we need to do anything
-            printUpdater = InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
-            for s in range(self.pulse_records.n_segments):
-                first, end = self.read_segment(s) # this reloads self.data to contain new pulses
-                (self.p_filt_phase[first:end], self.p_filt_value[first:end]) = self.filter_data(filter_values,
-                                                                                                  first, end, transform)
-                printUpdater.update((s+1)/float(self.pulse_records.n_segments))
-
-            self.pulse_records.datafile.clear_cached_segment()
-            if self.auto_pickle:
-                self.pickle(verbose=False)
-        else:
+        if not(forceNew or all(self.p_filt_value[:]==0)):
             print('\nchan %d did not filter because results were already loaded'%self.channum)
+            return
 
-    def filter_data(self, filter_values, first, end, transform=None):
+        filter_values = self.filter.__dict__[filter_name]
+        printUpdater = InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
+        for s in range(self.pulse_records.n_segments):
+            first, end = self.read_segment(s) # this reloads self.data to contain new pulses
+            (self.p_filt_phase[first:end],
+             self.p_filt_value[first:end]) = \
+                self._filter_data_segment(filter_values, first, end, transform)
+            printUpdater.update((end+1)/float(self.nRecords))
+
+        self.pulse_records.datafile.clear_cached_segment()
+        if self.auto_pickle:
+            self.pickle(verbose=False)
+
+
+    def _filter_data_segment(self, filter_values, first, end, transform=None):
         if first >= self.nPulses:
             return None,None
 

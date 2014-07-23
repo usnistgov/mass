@@ -82,8 +82,6 @@ class BaseChannelGroup(object):
         import re
         fparts = re.split("_chan\d+", rawname)
         prefix_path = fparts[0]
-        print "Converting %s to"%rawname
-        print prefix_path+"_mass.hdf5"
         return prefix_path+"_mass.hdf5"
 
 
@@ -260,35 +258,25 @@ class BaseChannelGroup(object):
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
 
-    def summarize_data_tdm(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0,
-                           include_badchan = False, forceNew=False):
-        printUpdater = InlineUpdater('summarize_data_tdm')
-        for chan in self.iter_channel_numbers(include_badchan):
-            self.channel[chan].summarize_data_tdm(peak_time_microsec,
-                                                  pretrigger_ignore_microsec, forceNew)
-            if include_badchan:
-                printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
-            else:
-                printUpdater.update((chan/2+1)/float(self.num_good_channels))
-            self.hdf5_file.flush()
-
 
     def summarize_data(self, peak_time_microsec = 220.0, pretrigger_ignore_microsec = 20.0,
-                       include_badchan = False):
+                           include_badchan = False, forceNew=False):
         """
-        Compute summary quantities for each pulse.  Subclasses override this with methods
-        that ought to call this!
+        Compute summary quantities for each pulse.
+        We are (July 2014) developing a Julia replacement for this, but you can use Python
+        if you wish.
         """
-        printUpdater = InlineUpdater('BaseChannelGroup.summarize_data')
-        print "summarize_data: This data set has (up to) %d records with %d samples apiece."%(
-            self.nPulses, self.nSamples)
-        for first, end in self.iter_segments():
-            if end>self.nPulses:
-                end = self.nPulses
-            printUpdater.update(end/float(self.nPulses))
-            for ds in self.iter_channels(include_badchan):
-                ds.summarize_data(first, end, peak_time_microsec, pretrigger_ignore_microsec)
-        self.hdf5_file.flush()
+        printUpdater = InlineUpdater('summarize_data')
+        if include_badchan:
+            nchan = float(len(self.channel.keys()))
+        else:
+            nchan = float(self.num_good_channels)
+
+        for chan in self.iter_channel_numbers(include_badchan):
+            self.channel[chan].summarize_data(peak_time_microsec,
+                                              pretrigger_ignore_microsec, forceNew)
+            printUpdater.update((chan/2+1)/nchan)
+            self.hdf5_file.flush()
 
 
     def read_trace(self, record_num, dataset_num=0, chan_num=None):
@@ -765,47 +753,17 @@ class BaseChannelGroup(object):
                 print "Filter %d can't be used"%i
                 print e
 
-    def filter_data_tdm(self, filter_name='filt_noconst', transform=None,
+    def filter_data(self, filter_name='filt_noconst', transform=None,
                         include_badchan=False, forceNew=False):
-        printUpdater = InlineUpdater('filter_data_tdm')
+        printUpdater = InlineUpdater('filter_data')
+        if include_badchan:
+            nchan = float(len(self.channel.keys()))
+        else:
+            nchan = float(self.num_good_channels)
+
         for chan in self.iter_channel_numbers(include_badchan):
-            self.channel[chan].filter_data_tdm(filter_name, transform, forceNew)
-            if include_badchan:
-                printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
-            else:
-                printUpdater.update((chan/2+1)/float(self.num_good_channels))
-
-    def filter_data(self, filter_name=None, transform=None):
-        """Filter data sets and store in datasets[*].p_filt_phase and _value.
-        The filters are currently self.filter[*].filt_noconst"""
-        if self.first_good_dataset.filter is None:
-            self.compute_filters()
-
-        if filter_name is None: filter_name='filt_noconst'
-
-        for ds in self.datasets:
-            # be sure not to change the data type of these arrays;
-            # they should follow the type from channel._setup_vectors
-            ds.p_filt_phase = np.zeros_like(ds.p_filt_phase)
-            ds.p_filt_value = np.zeros_like(ds.p_filt_value)
-
-        printUpdater = InlineUpdater('BaseChannelGroup.filter_data')
-        for first, end in self.iter_segments():
-            if end>self.nPulses:
-                end = self.nPulses
-            printUpdater.update(end/float(self.nPulses))
-            for ds in self:
-                if ds.filter is None:
-                    continue
-                filt_vector = ds.filter.__dict__[filter_name]
-                peak_x, peak_y = ds.filter_data(filt_vector,first, end, transform=transform)
-                ds.p_filt_phase[first:end] = peak_x
-                ds.p_filt_value[first:end] = peak_y
-
-        # Reset the phase-corrected and drift-corrected values
-        for ds in self.datasets:
-            ds.p_filt_value_phc = ds.p_filt_value.copy()
-            ds.p_filt_value_dc  = ds.p_filt_value.copy()
+            self.channel[chan].filter_data(filter_name, transform, forceNew)
+            printUpdater.update((chan/2+1)/nchan)
 
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
@@ -949,6 +907,8 @@ class TESGroup(BaseChannelGroup):
                 hdf5_group = None
             dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle,
                                                 hdf5_group=hdf5_group)
+
+
             if noise_filenames is not None:
                 nf = self.noise_filenames[i]
                 try:
