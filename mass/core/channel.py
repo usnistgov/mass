@@ -597,6 +597,7 @@ class MicrocalDataSet(object):
         self.filename = pulserec_dict.get('filename','virtual data set')
         self.gain = 1.0
         self.pretrigger_ignore_microsec = None # Cut this long before trigger in computing pretrig values
+        self.pretrigger_ignore_samples = 0
         self.peak_time_microsec = None   # Look for retriggers only after this time.
         self.index = None   # Index in the larger TESGroup or CDMGroup object
         self.last_used_calibration = None
@@ -714,7 +715,7 @@ class MicrocalDataSet(object):
 
         # Pickle all attributes noise_*, p_*, peak_time_microsec, pretrigger_*, timebase, times
         # Approach is to dump the attribute NAME then value.
-        attr_starts = ("noise_", "p_", "pretrigger_")
+        attr_starts = ("noise_", "pretrigger_")
         attr_names = ("peak_time_microsec", "timebase", "times", "average_pulse",
                       "calibration", "drift_correct_info", "phase_correct_info", "filter",
                       "pumped_band_knowledge")
@@ -1013,9 +1014,9 @@ class MicrocalDataSet(object):
             try:
                 a,b = allowed
                 if a is not None:
-                    self.cuts.cut(cut_id, data <= a)
+                    self.cuts.cut(cut_id, data[:] <= a)
                 if b is not None:
-                    self.cuts.cut(cut_id, data >= b)
+                    self.cuts.cut(cut_id, data[:] >= b)
             except ValueError:
                 raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'%str(allowed))
 
@@ -1056,10 +1057,9 @@ class MicrocalDataSet(object):
         self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'],
                            self.CUT_NAME.index('pretrigger_mean'))
 
-        # Careful: p_peak_index is unsigned, so make it signed before subtracting nPresamples:
-        self.cut_parameter(1e3*self.p_peak_time, c['peak_time_ms'],
+        self.cut_parameter(self.p_peak_time[:]*1e3, c['peak_time_ms'],
                            self.CUT_NAME.index('peak_time_ms'))
-        self.cut_parameter(self.p_rise_time*1e3, c['rise_time_ms'],
+        self.cut_parameter(self.p_rise_time[:]*1e3, c['rise_time_ms'],
                            self.CUT_NAME.index('rise_time_ms'))
         self.cut_parameter(self.p_postpeak_deriv, c['postpeak_deriv'],
                            self.CUT_NAME.index('postpeak_deriv'))
@@ -1067,7 +1067,7 @@ class MicrocalDataSet(object):
                            self.CUT_NAME.index('pulse_average'))
         self.cut_parameter(self.p_peak_value, c['peak_value'],
                            self.CUT_NAME.index('peak_value'))
-        self.cut_parameter(self.p_min_value-self.p_pretrig_mean, c['min_value'],
+        self.cut_parameter(self.p_min_value[:]-self.p_pretrig_mean[:], c['min_value'],
                            self.CUT_NAME.index('min_value'))
         self.cut_parameter(self.p_timestamp, c['timestamp_sec'],
                            self.CUT_NAME.index('timestamp_sec'))
@@ -1094,7 +1094,7 @@ class MicrocalDataSet(object):
 
     def drift_correct(self, forceNew=False):
         """Drift correct using the standard entropy-minimizing algorithm"""
-        already_exists = not all(self.p_filt_value_dc==0)
+        already_exists = not all(self.p_filt_value_dc[:]==0)
         if already_exists and not forceNew:
             print("chan %d not drift correction, p_filt_value_dc already populated"%self.channum)
             return
@@ -1123,14 +1123,14 @@ class MicrocalDataSet(object):
         which pulses go together into a single peak.  Be careful to use a semi-reasonable
         quantity here.
         """
-        if forceNew or all(self.p_filt_value_phc==0.0):
+        if forceNew or all(self.p_filt_value_phc[:]==0.0):
             data,g = self.first_n_good_pulses(maximum_num_records)
             print("channel %d doing phase_correct2014 with %d good pulses"%(self.channum, data.shape[0]))
             prompt = self.p_promptness
 
             dataFilter = self.filter.filt_noconst
             tc = mass.core.analysis_algorithms.FilterTimeCorrection(
-                    data, prompt[g], self.p_pulse_rms[g], dataFilter,
+                    data, prompt[:][g], self.p_pulse_rms[:][g], dataFilter,
                     self.nPresamples, typicalResolution=typical_resolution)
 
             self.p_filt_value_phc = self.p_filt_value_dc - tc(prompt, self.p_pulse_rms)
@@ -1140,8 +1140,8 @@ class MicrocalDataSet(object):
         if plot:
             plt.clf()
             g = self.cuts.good()
-            plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
-            plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
+            plt.plot(prompt[:][g], self.p_filt_value_dc[:][g], 'g.')
+            plt.plot(prompt[:][g], self.p_filt_value_phc[:][g], 'b.')
 
 
     def first_n_good_pulses(self, n=50000):

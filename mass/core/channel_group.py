@@ -61,7 +61,8 @@ class BaseChannelGroup(object):
             self.hdf5_noisefile = h5py.File(self._generate_hdf5_filename(noise_filenames[0]), 'a')
 
         self.nhits = None
-        self.n_segments = None
+        self.n_segments = 0
+        self.nPulses = 0
         self._cached_segment = None
         self._cached_pnum_range = None
         self._allowed_pnum_ranges = None
@@ -928,23 +929,23 @@ class TESGroup(BaseChannelGroup):
             pulse_list.append(pulse)
             dset_list.append(dset)
 
-            if self.n_segments is None:
-                for attr in ("n_segments","nPulses"):
-                    self.__dict__[attr] = max(self.__dict__.get(attr, 0), pulse.__dict__[attr])
+            if self.n_segments == 0:
                 for attr in ("nSamples","nPresamples", "timebase"):
                     self.__dict__[attr] = pulse.__dict__[attr]
-
-                # Store relevant facts as attributes to the HDF5 file
-                self.hdf5_file.attrs['npulses'] = self.nPulses
-                self.hdf5_file.attrs['nsamples'] = self.nSamples
-                self.hdf5_file.attrs['npresamples'] = self.nPresamples
-                self.hdf5_file.attrs['frametime'] = self.timebase
             else:
-                for attr in "nSamples", "nPresamples", "timebase":
+                for attr in ("nSamples", "nPresamples", "timebase"):
                     if self.__dict__[attr] != pulse.__dict__[attr]:
                         raise ValueError(
                              "Unequal values of %s: %f != %f"%(attr,float(self.__dict__[attr]),
                                                                float(pulse.__dict__[attr])))
+            self.n_segments = max(self.n_segments, pulse.n_segments)
+            self.nPulses = max(self.nPulses, pulse.nPulses)
+
+        # Store relevant facts as attributes to the HDF5 file
+        self.hdf5_file.attrs['npulses'] = self.nPulses
+        self.hdf5_file.attrs['nsamples'] = self.nSamples
+        self.hdf5_file.attrs['npresamples'] = self.nPresamples
+        self.hdf5_file.attrs['frametime'] = self.timebase
 
         self.channels = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)
@@ -970,7 +971,7 @@ class TESGroup(BaseChannelGroup):
 
     def copy(self):
         self.clear_cache()
-        g = TESGroup([])
+        g = TESGroup(self.filenames, self.noise_filenames)
         g.__dict__.update(self.__dict__)
         g.datasets = tuple([d.copy() for d in self.datasets])
         return g
