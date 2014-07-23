@@ -46,11 +46,16 @@ class NoiseRecords(object):
         self.timebase = 0.0
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
-        self.spectrum = None
+        self.noise_psd = None
         if self.hdf5_group is not None:
             self.autocorrelation = self.hdf5_group.require_dataset(
-                                           "autocorrelation", shape=(self.nSamples,),
-                                           maxshape=(None,), dtype=np.float64)
+                                            "autocorrelation", shape=(self.nSamples,),
+                                            dtype=np.float64)
+            nfreq = 1+self.nSamples/2
+            self.noise_psd = self.hdf5_group.require_dataset(
+                                            'noise_psd', shape=(nfreq,),
+                                            dtype=np.float64)
+
 
     def __open_file(self, filename, use_records=None, file_format=None):
         """Detect the filetype and open it."""
@@ -144,7 +149,7 @@ class NoiseRecords(object):
         if seg_length is None:
             seg_length = self.nSamples
 
-        self.spectrum = mass.mathstat.power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
+        spectrum = mass.mathstat.power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
         if window is None:
             window = np.ones(seg_length)
         else:
@@ -159,8 +164,13 @@ class NoiseRecords(object):
 
             for d in data:
                 y = d-d.mean()
-                if y.max() - y.min() < max_excursion and len(y)==self.spectrum.m2:
-                    self.spectrum.addDataSegment(y, window=window)
+                if y.max() - y.min() < max_excursion and len(y)==spectrum.m2:
+                    spectrum.addDataSegment(y, window=window)
+
+        freq = spectrum.frequencies()
+        self.noise_psd.attrs['delta_f'] = freq[1]-freq[0]
+        self.noise_psd[:] = spectrum.spectrum()
+
 
 
     def compute_fancy_power_spectrum(self, window=mass.mathstat.power_spectrum.hann,
@@ -198,16 +208,16 @@ class NoiseRecords(object):
         <scale>    Scale all raw units by this number to convert counts to physical
         <sqrt_psd> Whether to take the sqrt(PSD) for plotting.  Default is no sqrt
         """
-        if self.spectrum is None:
+        if all(self.noise_psd[:] == 0):
             self.compute_power_spectrum(plot=False)
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
-        spec = self.spectrum
-        yvalue = spec.spectrum()[1:] * (scale**2)
+        yvalue = self.noise_psd[1:] * (scale**2)
         if sqrt_psd:
             yvalue = np.sqrt(yvalue)
-        axis.plot(spec.frequencies()[1:], yvalue, **kwarg)
+        freq = np.arange(1, 1+len(yvalue))*self.noise_psd.attrs['delta_f']
+        axis.plot(freq, yvalue, **kwarg)
         plt.loglog()
         axis.grid()
         axis.set_xlim([10,3e5])
@@ -588,7 +598,6 @@ class MicrocalDataSet(object):
         self.lastUsedFilterHash = -1
         self.drift_correct_info = {}
         self.phase_correct_info = {}
-        self.noise_spectrum = None
         self.noise_autocorr = None
         self.noise_demodulated = None
         self.calibration = {'p_filt_value':mass.calibration.energy_calibration.EnergyCalibration('p_filt_value')}
@@ -643,8 +652,9 @@ class MicrocalDataSet(object):
         self.noise_autocorr = h5grp.require_dataset('noise_autocorr', shape=(self.nSamples,),
                                                     dtype=np.float64)
         # Not sure yet how to handle noise spectrum
-#         self.noise_sp = h5grp.require_dataset('noise_autocorr', shape=(npulses,),
-#                                                     dtype=np.float64)
+        nfreq = 1+self.nSamples/2
+        self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
+                                                    dtype=np.float64)
         self.cuts = Cuts(self.nPulses)
 
     @property
@@ -686,10 +696,6 @@ class MicrocalDataSet(object):
         for k in self.calibration.keys():
             c.calibration[k] = self.calibration[k].copy()
         c.cuts = self.cuts.copy()
-        if self.noise_spectrum is None:
-            c.noise_spectrum = None
-        else:
-            c.noise_spectrum = self.noise_spectrum.copy()
         return c
 
 
@@ -720,7 +726,7 @@ class MicrocalDataSet(object):
 
         # Pickle all attributes noise_*, p_*, peak_time_microsec, pretrigger_*, timebase, times
         # Approach is to dump the attribute NAME then value.
-        attr_starts = ("noise_", "pretrigger_")
+        attr_starts = ("pretrigger_",)
         attr_names = ("peak_time_microsec", "timebase", "times", "average_pulse",
                       "calibration", "drift_correct_info", "phase_correct_info", "filter",
                       "pumped_band_knowledge")
@@ -1033,12 +1039,14 @@ class MicrocalDataSet(object):
         for the autocorrelation.  If None, the record length is used."""
         if n_lags is None:
             n_lags = self.nSamples
-        if forceNew or self.noise_spectrum is None or self.noise_autocorr is None:
+        if forceNew or all(self.noise_autocorr[:]==0):
             self.noise_records.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
             self.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
             self.noise_records.clear_cache()
-            self.noise_spectrum = self.noise_records.spectrum
+
             self.noise_autocorr[:] = self.noise_records.autocorrelation[:]
+            self.noise_psd[:] = self.noise_records.noise_psd[:]
+            self.noise_psd.attrs['delta_f'] = self.noise_records.noise_psd.attrs['delta_f']
         else:
             print("chan %d skipping compute_noise_spectra because already done"%self.channum)
 

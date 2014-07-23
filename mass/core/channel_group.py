@@ -1120,16 +1120,16 @@ class TESGroup(object):
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
         for ds_num, ds in enumerate(self):
-            yvalue = ds.noise_records.spectrum.spectrum()*scale_factor**2
-            axis.set_ylabel("Power Spectral Density (%s^2/Hz)"%units)
+            yvalue = ds.noise_records.noise_psd[:]*scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
                 axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)"%units)
-            axis.plot(ds.noise_records.spectrum.frequencies(), yvalue,
-                      label='TES chan %d'%ds.channum,
+            df = ds.noise_records.noise_psd.attrs['delta_f']
+            freq = np.arange(1, 1+len(yvalue))*df
+            axis.plot(freq, yvalue, label='TES chan %d'%ds.channum,
                       color=cmap(float(ds_num)/self.n_channels))
-        f=self.first_good_dataset.noise_records.spectrum.frequencies()
-        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
+        axis.set_xlim([freq[1]*0.9, freq[-1]*1.1])
+        axis.set_ylabel("Power Spectral Density (%s^2/Hz)"%units)
         axis.set_xlabel("Frequency (Hz)")
 
         axis.loglog()
