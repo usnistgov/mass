@@ -20,7 +20,7 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
-__all__=['TESGroup','CrosstalkVeto', 'unpickle_TESGroup']
+__all__=['TESGroup','RestoreTESGroup','CrosstalkVeto', 'unpickle_TESGroup']
 
 import numpy as np
 import pylab as plt
@@ -34,6 +34,60 @@ from mass.core.channel import PulseRecords, NoiseRecords
 
 
 
+def _generate_hdf5_filename(rawname):
+    """Generate the appropriate HDF5 filename based on a file's LJH name.
+    Takes /path/to/data_chan33.ljh --> /path/to/data_mass.hdf5"""
+    import re
+    fparts = re.split("_chan\d+", rawname)
+    prefix_path = fparts[0]
+    return prefix_path+"_mass.hdf5"
+
+
+def RestoreTESGroup(hdf5filename, hdf5noisename=None):
+    """Generate a TESGroup object from a data summary HDF5 filename 'hdf5filename'
+    and optionally an 'hdf5noisename', though the latter can often be inferred from
+    the noise raw filenames, which are stored in the pulse HDF5 file (assuming you
+    aren't doing something weird).
+
+    TODO: make this function accept a sequence of channel numbers and load only those
+    channels into the TESGroup.
+    """
+    pulsefiles = []
+    channum = []
+    noisefiles = []
+    h5file = h5py.File(hdf5filename,"r")
+    for name,group in h5file.iteritems():
+        if not name.startswith("chan"): continue
+        pulsefiles.append(group.attrs['filename'])
+        channum.append(group.attrs['channum'])
+
+        if hdf5noisename is None:
+            fname = group.attrs['noise_filename']
+            if len(noisefiles) == 0:
+                generated_noise_hdf5_name = _generate_hdf5_filename(fname)
+            elif generated_noise_hdf5_name != _generate_hdf5_filename(fname):
+                raise RuntimeError("""The implied HDF5 noise files names are not the same for all channels.
+                The first channel implies '%s'
+                and another implies '%s'.
+                Instead, you should run RestoreTESGroup with an explicit hdf5noisename argument."""%
+                generated_noise_hdf5_name, _generate_hdf5_filename(fname))
+            noisefiles.append(fname)
+    h5file.close()
+
+    if hdf5noisename is not None:
+        h5file = h5py.File(hdf5noisename,"r")
+        for ch in channum:
+            group = h5file['chan%d'%ch]
+            noisefiles.append(group.attrs['filename'])
+        h5file.close()
+    else:
+        hdf5noisename = generated_noise_hdf5_name
+
+    return TESGroup(pulsefiles, noisefiles, hdf5_filename=hdf5filename,
+                    hdf5_noisefilename = hdf5noisename)
+
+
+
 class TESGroup(object):
     """
     Provides the interface for a group of one or more microcalorimeters,
@@ -41,7 +95,8 @@ class TESGroup(object):
     """
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
-                 auto_pickle=True):
+                 auto_pickle=True,
+                 hdf5_filename=None, hdf5_noisefilename=None):
 
         if noise_filenames is not None and len(noise_filenames)==0:
             noise_filenames = None
@@ -51,6 +106,13 @@ class TESGroup(object):
         self.noise_only = noise_only
         if noise_only and noise_filenames is None:
             filenames, noise_filenames = (), filenames
+
+        # Figure out where the 2 HDF5 files are to live, if the default argument
+        # was given for their paths.
+        if hdf5_filename is None and not noise_only:
+            hdf5_filename = _generate_hdf5_filename(self.filenames[0])
+        if hdf5_noisefilename is None and noise_filenames is not None:
+            hdf5_noisefilename = _generate_hdf5_filename(noise_filenames[0])
 
         # Handle the pulse files.
         if noise_only:
@@ -62,7 +124,7 @@ class TESGroup(object):
                 filenames = (filenames,)
             self.filenames = tuple(filenames)
             self.n_channels = len(self.filenames)
-            self.hdf5_file = h5py.File(self._generate_hdf5_filename(self.filenames[0]), 'a')
+            self.hdf5_file = h5py.File(hdf5_filename, 'a')
 
         # Same for noise filenames
         self.noise_filenames = None
@@ -71,7 +133,7 @@ class TESGroup(object):
             if isinstance(noise_filenames, str):
                 noise_filenames = (noise_filenames,)
             self.noise_filenames = noise_filenames
-            self.hdf5_noisefile = h5py.File(self._generate_hdf5_filename(noise_filenames[0]), 'a')
+            self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'a')
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
 
@@ -121,13 +183,14 @@ class TESGroup(object):
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
                 nf = self.noise_filenames[i]
+                hdf5_group.attrs['noise_filename'] = nf
                 try:
-                    hdf5_group = self.hdf5_noisefile.require_group("chan%d"%pulse.channum)
-                    hdf5_group.attrs['filename'] = nf
+                    hdf5_noisegroup = self.hdf5_noisefile.require_group("chan%d"%pulse.channum)
+                    hdf5_noisegroup.attrs['filename'] = nf
                 except:
-                    hdf5_group = None
+                    hdf5_noisegroup = None
                 noise = NoiseRecords(nf, records_are_continuous=noise_is_continuous,
-                                     hdf5_group=hdf5_group)
+                                     hdf5_group=hdf5_noisegroup)
 
                 if pulse.channum != noise.channum:
                     print("TESGroup did not add data: channums don't match %s, %s"%(fname, nf))
@@ -226,15 +289,6 @@ class TESGroup(object):
             if ds.timestamp_offset != self.timestamp_offset:
                 self.timestamp_offset = None
                 break
-
-
-    def _generate_hdf5_filename(self, rawname):
-        """Generate the appropriate HDF5 filename based on the first channel's LJH name.
-        Takes /path/to/data_chan33.ljh --> /path/to/data_mass.hdf5"""
-        import re
-        fparts = re.split("_chan\d+", rawname)
-        prefix_path = fparts[0]
-        return prefix_path+"_mass.hdf5"
 
 
     def __iter__(self):

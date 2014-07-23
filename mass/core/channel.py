@@ -616,6 +616,7 @@ class MicrocalDataSet(object):
         try:
             self.hdf5_group = hdf5_group
             self.hdf5_group.attrs['npulses'] = self.nPulses
+            self.hdf5_group.attrs['channum'] = self.channum
         except KeyError:
             self.hdf5_group = None
         self.__setup_vectors(npulses=self.nPulses)
