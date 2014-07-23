@@ -39,7 +39,10 @@ __all__ = ['VirtualFile', 'LJHFile', 'LANLFile',
            'root2ljh_translator', 'root2ljh_translate_all']
 
 import numpy as np
-import os, time, glob
+import os
+import sys
+import time
+import glob
 
 
 # Beware that the Mac Ports install of ROOT does not add 
@@ -230,7 +233,12 @@ class LJHFile(MicrocalFile):
         <filename>: path to the file to be opened.
         """
         TOO_LONG_HEADER = 100 # headers can't contain this many lines, or they are insane!
-        fp = open(filename,"r")
+
+        if sys.platform == "win32":
+            fp = open(filename, "rb")
+        else:
+            fp = open(filename, "r")
+
         lines = []
         while True:
             line = fp.readline()
