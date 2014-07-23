@@ -1138,7 +1138,7 @@ class TESGroup(object):
         plt.setp(ltext, fontsize='small')
 
 
-    def compute_noise_spectra(self, max_excursion=9e9, n_lags=None, forceNew=False):
+    def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         for ds in self:
             ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
 

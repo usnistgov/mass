@@ -47,12 +47,10 @@ class NoiseRecords(object):
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
         self.spectrum = None
-        try:
+        if self.hdf5_group is not None:
             self.autocorrelation = self.hdf5_group.require_dataset(
                                            "autocorrelation", shape=(self.nSamples,),
                                            maxshape=(None,), dtype=np.float64)
-        except:
-            self.autocorrelation = None
 
     def __open_file(self, filename, use_records=None, file_format=None):
         """Detect the filetype and open it."""
@@ -122,14 +120,14 @@ class NoiseRecords(object):
 
 
     def compute_power_spectrum(self, window=mass.mathstat.power_spectrum.hann, plot=True,
-                               max_excursion=9e9):
+                               max_excursion=1000):
         self.compute_power_spectrum_reshape(window=window, nsegments=None,
                                             max_excursion=max_excursion)
         if plot: self.plot_power_spectrum()
 
 
     def compute_power_spectrum_reshape(self, window=mass.mathstat.power_spectrum.hann,
-                                       seg_length=None, max_excursion=9e9):
+                                       seg_length=None, max_excursion=1000):
         """Compute the noise power spectrum with noise "records" reparsed into
         separate records of <seg_length> length.  (If None, then self.data.shape[0] which is
         self.data.nPulses, will be used as the number of segments, each having length
@@ -219,7 +217,7 @@ class NoiseRecords(object):
 
 
     def _compute_continuous_autocorrelation(self, n_lags=None, data_samples=None,
-                                            max_excursion=9e9):
+                                            max_excursion=1000):
         if data_samples is None:
             data_samples = [0, self.nSamples*self.nPulses]
         n_data = data_samples[1] - data_samples[0]
@@ -248,7 +246,7 @@ class NoiseRecords(object):
         # it's hugely inefficient to compute the full autocorrelation, especially
         # in memory.  Instead, compute it on chunks several times the length of the desired
         # correlation, and average.
-        CHUNK_MULTIPLE=31
+        CHUNK_MULTIPLE=15
         if n_data >= (1+CHUNK_MULTIPLE)*n_lags:
             # Be sure to pad chunksize samples by AT LEAST n_lags zeros, to prevent
             # unwanted wraparound in the autocorrelation.
@@ -256,12 +254,10 @@ class NoiseRecords(object):
             chunksize=CHUNK_MULTIPLE*n_lags
             padsize = n_lags
             padded_data = np.zeros(padded_length(padsize+chunksize), dtype=np.float)
-#            print 'with chunks of %d, padsize %d'%(chunksize,padsize)
 
             ac = np.zeros(n_lags, dtype=np.float)
 
             entries = 0.0
-#            t0=time.time()
 
             for first_pnum, end_pnum, _seg_num, data in self.datafile.iter_segments():
 #                print "Using pulses %d to %d (seg=%3d)"%(first_pnum, end_pnum, seg_num)
@@ -272,7 +268,6 @@ class NoiseRecords(object):
                     data_consumed = data_samples[0]-self.nSamples*first_pnum
                 if data_samples[1] < self.nSamples*end_pnum:
                     samples_this_segment = data_samples[1]-self.nSamples*first_pnum
-#                print data_consumed, samples_this_segment, "used, sthisseg", data.shape
                 data_mean = data[data_consumed:samples_this_segment].mean()
 
                 # Notice that the following loop might ignore the last data values, up to as many
@@ -314,10 +309,10 @@ class NoiseRecords(object):
             ac = acsum[:n_lags+1] / (n_data-np.arange(n_lags+1.0))
             del acsum
 
-        self.autocorrelation = ac
+        self.autocorrelation[:] = ac
 
 
-    def compute_autocorrelation(self, n_lags=None, data_samples=None, plot=True, max_excursion=9e9):
+    def compute_autocorrelation(self, n_lags=None, data_samples=None, plot=True, max_excursion=1000):
         """
         Compute the autocorrelation averaged across all "pulses" in the file.
         <n_lags>
@@ -367,19 +362,25 @@ class NoiseRecords(object):
             ac /= self.nSamples - np.arange(self.nSamples, dtype=np.float)
             if n_lags is not None and n_lags < self.nSamples:
                 ac=ac[:n_lags]
-            self.autocorrelation = ac
+            self.autocorrelation[:] = ac
+
+        if self.hdf5_group is not None:
+            grp = self.hdf5_group.require_group("reclen%d"%n_lags)
+            ds = grp.require_dataset("autocorrelation", shape=(n_lags,), dtype=np.float64)
+            ds[:] = self.autocorrelation[:]
+
         if plot: self.plot_autocorrelation()
 
 
     def plot_autocorrelation(self, axis=None, color='blue', label=None):
-        if self.autocorrelation is None:
+        if all(self.autocorrelation[:]==0):
             print "Autocorrelation will be computed first"
             self.compute_autocorrelation(plot=False)
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
         t = self.timebase * 1e3 * np.arange(len(self.autocorrelation))
-        axis.plot(t,self.autocorrelation, label=label, color=color)
+        axis.plot(t, self.autocorrelation, label=label, color=color)
         axis.plot([0],[self.autocorrelation[0]],'o', color=color)
         axis.set_xlabel("Lag (ms)")
         axis.set_ylabel("Autocorrelation (counts$^2$)")
@@ -639,7 +640,11 @@ class MicrocalDataSet(object):
             for field in fieldnames:
                 self.__dict__['p_%s'%field] = h5grp.require_dataset(field, shape=(npulses,),
                                                                     dtype=dtype)
-
+        self.noise_autocorr = h5grp.require_dataset('noise_autocorr', shape=(self.nSamples,),
+                                                    dtype=np.float64)
+        # Not sure yet how to handle noise spectrum
+#         self.noise_sp = h5grp.require_dataset('noise_autocorr', shape=(npulses,),
+#                                                     dtype=np.float64)
         self.cuts = Cuts(self.nPulses)
 
     @property
@@ -1023,17 +1028,17 @@ class MicrocalDataSet(object):
             except ValueError:
                 raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'%str(allowed))
 
-    def compute_noise_spectra(self, max_excursion=9e9, n_lags=None, forceNew=False):
+    def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """<n_lags>, if not None, is the number of lags in each noise spectrum and the max lag
         for the autocorrelation.  If None, the record length is used."""
         if n_lags is None:
             n_lags = self.nSamples
         if forceNew or self.noise_spectrum is None or self.noise_autocorr is None:
             self.noise_records.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
-            self.noise_spectrum = self.noise_records.spectrum
             self.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
-            self.noise_autocorr = self.noise_records.autocorrelation
             self.noise_records.clear_cache()
+            self.noise_spectrum = self.noise_records.spectrum
+            self.noise_autocorr[:] = self.noise_records.autocorrelation[:]
         else:
             print("chan %d skipping compute_noise_spectra because already done"%self.channum)
 
