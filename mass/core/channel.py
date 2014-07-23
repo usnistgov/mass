@@ -762,10 +762,13 @@ class MicrocalDataSet(object):
         self.cuts._mask = unpickler.load()
         try:
             while True:
-                k = unpickler.load()
-                v = unpickler.load()
+                try:
+                    k = unpickler.load()
+                    v = unpickler.load()
+                except TypeError:
+                    continue
                 self.__dict__[k] = v
-        except EOFError:
+        except (EOFError, cPickle.UnpicklingError):
             pass
         fp.close()
 

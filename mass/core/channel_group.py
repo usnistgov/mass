@@ -34,22 +34,35 @@ from mass.core.channel import PulseRecords, NoiseRecords
 
 
 
-class BaseChannelGroup(object):
+class TESGroup(object):
     """
     Provides the interface for a group of one or more microcalorimeters,
-    whether the detectors are multiplexed with time division or code
-    division.
-
-    This is an abstract base class, and the appropriate concrete class
-    is the TESGroup or the CDMGroup, depending on the multiplexing scheme.
+    multiplexed by TDM.
     """
-    def __init__(self, filenames, noise_filenames):
-        # Convert a single filename to a tuple of size one
-        if isinstance(filenames, str):
-            filenames = (filenames,)
-        self.filenames = tuple(filenames)
-        self.n_channels = len(self.filenames)
-        self.hdf5_file = h5py.File(self._generate_hdf5_filename(self.filenames[0]), 'a')
+    def __init__(self, filenames, noise_filenames=None, noise_only=False,
+                 noise_is_continuous=True, max_cachesize=None,
+                 auto_pickle=True):
+
+        if noise_filenames is not None and len(noise_filenames)==0:
+            noise_filenames = None
+
+        # In the noise_only case, you can put the noise file names either in the
+        # usual (pulse) filenames argument or in the noise_filenames argument.
+        self.noise_only = noise_only
+        if noise_only and noise_filenames is None:
+            filenames, noise_filenames = (), filenames
+
+        # Handle the pulse files.
+        if noise_only:
+            self.filenames = ()
+            self.hdf5_file = None
+        else:
+            # Convert a single filename to a tuple of size one
+            if isinstance(filenames, str):
+                filenames = (filenames,)
+            self.filenames = tuple(filenames)
+            self.n_channels = len(self.filenames)
+            self.hdf5_file = h5py.File(self._generate_hdf5_filename(self.filenames[0]), 'a')
 
         # Same for noise filenames
         self.noise_filenames = None
@@ -59,7 +72,10 @@ class BaseChannelGroup(object):
                 noise_filenames = (noise_filenames,)
             self.noise_filenames = noise_filenames
             self.hdf5_noisefile = h5py.File(self._generate_hdf5_filename(noise_filenames[0]), 'a')
+            if noise_only:
+                self.n_channels = len(self.noise_filenames)
 
+        # Set up other aspects of the object
         self.nhits = None
         self.n_segments = 0
         self.nPulses = 0
@@ -75,6 +91,141 @@ class BaseChannelGroup(object):
         else:
             BRIGHTORANGE='#ff7700'
             self.colors=('purple',"blue","cyan","green","gold",BRIGHTORANGE,"red","brown")
+
+        if self.noise_only:
+            self._setup_per_channel_objects_noiseonly(noise_is_continuous, auto_pickle)
+        else:
+            self._setup_per_channel_objects(noise_is_continuous, auto_pickle)
+
+        if max_cachesize is not None:
+            if max_cachesize < self.n_channels * self.channels[0].segmentsize:
+                self.set_segment_size(max_cachesize / self.n_channels)
+
+
+    def _setup_per_channel_objects(self, noise_is_continuous=True, auto_pickle=True):
+        pulse_list = []
+        noise_list = []
+        dset_list = []
+        for i,fname in enumerate(self.filenames):
+
+            # Create the pulse records file interface and the overall MicrocalDataSet
+            pulse = PulseRecords(fname)
+            try:
+                hdf5_group = self.hdf5_file.require_group("chan%d"%pulse.channum)
+                hdf5_group.attrs['filename'] = fname
+            except:
+                hdf5_group = None
+            dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle,
+                                                hdf5_group=hdf5_group)
+
+            # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
+            if self.noise_filenames is not None:
+                nf = self.noise_filenames[i]
+                try:
+                    hdf5_group = self.hdf5_noisefile.require_group("chan%d"%pulse.channum)
+                    hdf5_group.attrs['filename'] = nf
+                except:
+                    hdf5_group = None
+                noise = NoiseRecords(nf, records_are_continuous=noise_is_continuous,
+                                     hdf5_group=hdf5_group)
+
+                if pulse.channum != noise.channum:
+                    print("TESGroup did not add data: channums don't match %s, %s"%(fname, nf))
+                    continue
+                dset.noise_records = noise
+                assert(dset.channum == dset.noise_records.channum)
+                noise_list.append(noise)
+            pulse_list.append(pulse)
+            dset_list.append(dset)
+
+            if self.n_segments == 0:
+                for attr in ("nSamples","nPresamples", "timebase"):
+                    self.__dict__[attr] = pulse.__dict__[attr]
+            else:
+                for attr in ("nSamples", "nPresamples", "timebase"):
+                    if self.__dict__[attr] != pulse.__dict__[attr]:
+                        raise ValueError(
+                             "Unequal values of %s: %f != %f"%(attr,float(self.__dict__[attr]),
+                                                               float(pulse.__dict__[attr])))
+            self.n_segments = max(self.n_segments, pulse.n_segments)
+            self.nPulses = max(self.nPulses, pulse.nPulses)
+
+        # Store relevant facts as attributes to the HDF5 file
+        if self.hdf5_file is not None:
+            self.hdf5_file.attrs['npulses'] = self.nPulses
+            self.hdf5_file.attrs['nsamples'] = self.nSamples
+            self.hdf5_file.attrs['npresamples'] = self.nPresamples
+            self.hdf5_file.attrs['frametime'] = self.timebase
+
+        self.channels = tuple(pulse_list)
+        self.noise_channels = tuple(noise_list)
+        self.datasets = tuple(dset_list)
+        for chan,ds in zip(self.channels, self.datasets):
+            ds.pulse_records = chan
+        self._setup_channels_list()
+        if len(pulse_list)>0:
+            self.pulses_per_seg = pulse_list[0].pulses_per_seg
+        if len(self.datasets)>0:
+            # Set master timestamp_offset (seconds)
+            self.timestamp_offset = self.first_good_dataset.timestamp_offset
+
+        for ds in self:
+            if ds.timestamp_offset != self.timestamp_offset:
+                self.timestamp_offset = None
+                break
+
+
+    def _setup_per_channel_objects_noiseonly(self, noise_is_continuous=True, auto_pickle=True):
+        noise_list = []
+        dset_list = []
+        for fname in self.noise_filenames:
+
+            noise = NoiseRecords(fname, records_are_continuous=noise_is_continuous)
+            try:
+                hdf5_group = self.hdf5_noisefile.require_group("chan%d"%noise.channum)
+                hdf5_group.attrs['filename'] = fname
+                noise.hdf5_group = hdf5_group
+            except:
+                hdf5_group = None
+
+            dset = mass.channel.MicrocalDataSet(noise.__dict__, auto_pickle=auto_pickle,
+                                                hdf5_group=hdf5_group)
+            dset.noise_records = noise
+            noise_list.append(noise)
+            dset_list.append(dset)
+
+            if self.n_segments == 0:
+                for attr in ("nSamples","nPresamples", "timebase"):
+                    self.__dict__[attr] = noise.__dict__[attr]
+            else:
+                for attr in ("nSamples", "nPresamples", "timebase"):
+                    if self.__dict__[attr] != noise.__dict__[attr]:
+                        raise ValueError(
+                             "Unequal values of %s: %f != %f"%(attr,float(self.__dict__[attr]),
+                                                               float(noise.__dict__[attr])))
+            self.n_segments = max(self.n_segments, noise.n_segments)
+            self.nPulses = max(self.nPulses, noise.nPulses)
+
+        # Store relevant facts as attributes to the HDF5 file
+        if self.hdf5_file is not None:
+            self.hdf5_file.attrs['npulses'] = self.nPulses
+            self.hdf5_file.attrs['nsamples'] = self.nSamples
+            self.hdf5_file.attrs['npresamples'] = self.nPresamples
+            self.hdf5_file.attrs['frametime'] = self.timebase
+
+        self.channels = ()
+        self.noise_channels = tuple(noise_list)
+        self.datasets = tuple(dset_list)
+        for chan,ds in zip(self.channels, self.datasets):
+            ds.pulse_records = chan
+        self._setup_channels_list()
+        if len(self.datasets)>0:
+            self.timestamp_offset = self.first_good_dataset.timestamp_offset
+
+        for ds in self:
+            if ds.timestamp_offset != self.timestamp_offset:
+                self.timestamp_offset = None
+                break
 
 
     def _generate_hdf5_filename(self, rawname):
@@ -273,10 +424,10 @@ class BaseChannelGroup(object):
         else:
             nchan = float(self.num_good_channels)
 
-        for chan in self.iter_channel_numbers(include_badchan):
+        for i,chan in enumerate(self.iter_channel_numbers(include_badchan)):
             self.channel[chan].summarize_data(peak_time_microsec,
                                               pretrigger_ignore_microsec, forceNew)
-            printUpdater.update((chan/2+1)/nchan)
+            printUpdater.update((i+1)/nchan)
             self.hdf5_file.flush()
 
 
@@ -538,7 +689,7 @@ class BaseChannelGroup(object):
 
         return masks
 
-    def compute_average_pulse(self, masks, use_crosstalk_masks, subtract_mean=True, forceNew=False):
+    def compute_average_pulse(self, masks, subtract_mean=True, forceNew=False):
         """
         Compute several average pulses in each TES channel, one per mask given in
         <masks>.  Store the averages in self.datasets.average_pulse with shape (m,n)
@@ -550,10 +701,6 @@ class BaseChannelGroup(object):
         (m*n).  It's required that n equal self.nPulses.   In the second case,
         m must be an integer.  The elements of <masks> should be booleans or interpretable
         as booleans.
-
-        <use_crosstalk_masks> Says whether to compute, e.g., averages for mask[1] on dataset[0].
-                              Normally you'd set this to True for CDM data and False for TDM.
-                              And the subclass methods use these settings.
 
         If <subtract_mean> is True, then each average pulse will subtract a constant
         to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
@@ -606,7 +753,7 @@ class BaseChannelGroup(object):
             for imask,mask in enumerate(masks):
                 valid = mask[first:end]
                 for ichan,chan in enumerate(self.datasets):
-                    if not (use_crosstalk_masks or (imask%self.n_channels) == ichan):
+                    if (imask%self.n_channels) != ichan:
                         continue
 
                     if mask.shape != (chan.nPulses,):
@@ -762,9 +909,9 @@ class BaseChannelGroup(object):
         else:
             nchan = float(self.num_good_channels)
 
-        for chan in self.iter_channel_numbers(include_badchan):
+        for i,chan in enumerate(self.iter_channel_numbers(include_badchan)):
             self.channel[chan].filter_data(filter_name, transform, forceNew)
-            printUpdater.update((chan/2+1)/nchan)
+            printUpdater.update((i+1)/nchan)
 
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
@@ -880,95 +1027,6 @@ class BaseChannelGroup(object):
         np.savetxt(filename, energy, fmt='%.10e')
 
 
-class TESGroup(BaseChannelGroup):
-    """
-    A group of one or more *independent* microcalorimeters, in that
-    they are time-division multiplexed.  It might be convenient to use
-    this for multiple TDM channels, or for singles.  The key is that
-    this object offers the same interface as the CDMGroup object
-    (which has to be more complex under the hood).
-    """
-    def __init__(self, filenames, noise_filenames=None, noise_only=False, pulse_only=False,
-                 noise_is_continuous=True, max_cachesize=None,
-                 auto_pickle=True):
-        if noise_filenames is not None and len(noise_filenames)==0:
-            noise_filenames = None
-        super(TESGroup, self).__init__(filenames, noise_filenames)
-        self.noise_only = noise_only
-
-        pulse_list = []
-        noise_list = []
-        dset_list = []
-        for i,fname in enumerate(self.filenames):
-            pulse = PulseRecords(fname)
-            try:
-                hdf5_group = self.hdf5_file.require_group("chan%d"%pulse.channum)
-                hdf5_group.attrs['filename'] = fname
-            except:
-                hdf5_group = None
-            dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle,
-                                                hdf5_group=hdf5_group)
-
-
-            if noise_filenames is not None:
-                nf = self.noise_filenames[i]
-                try:
-                    hdf5_group = self.hdf5_noisefile.require_group("chan%d"%pulse.channum)
-                    hdf5_group.attrs['filename'] = nf
-                except:
-                    hdf5_group = None
-                noise = NoiseRecords(nf, records_are_continuous=noise_is_continuous,
-                                     hdf5_group=hdf5_group)
-
-                if pulse.channum != noise.channum:
-                    print("TESGroup did not add data: channums don't match %s, %s"%(fname, nf))
-                    continue
-                dset.noise_records = noise
-                assert(dset.channum == dset.noise_records.channum)
-                noise_list.append(noise)
-            pulse_list.append(pulse)
-            dset_list.append(dset)
-
-            if self.n_segments == 0:
-                for attr in ("nSamples","nPresamples", "timebase"):
-                    self.__dict__[attr] = pulse.__dict__[attr]
-            else:
-                for attr in ("nSamples", "nPresamples", "timebase"):
-                    if self.__dict__[attr] != pulse.__dict__[attr]:
-                        raise ValueError(
-                             "Unequal values of %s: %f != %f"%(attr,float(self.__dict__[attr]),
-                                                               float(pulse.__dict__[attr])))
-            self.n_segments = max(self.n_segments, pulse.n_segments)
-            self.nPulses = max(self.nPulses, pulse.nPulses)
-
-        # Store relevant facts as attributes to the HDF5 file
-        self.hdf5_file.attrs['npulses'] = self.nPulses
-        self.hdf5_file.attrs['nsamples'] = self.nSamples
-        self.hdf5_file.attrs['npresamples'] = self.nPresamples
-        self.hdf5_file.attrs['frametime'] = self.timebase
-
-        self.channels = tuple(pulse_list)
-        self.noise_channels = tuple(noise_list)
-        self.datasets = tuple(dset_list)
-        for chan,ds in zip(self.channels, self.datasets):
-            ds.pulse_records = chan
-        self._setup_channels_list()
-        if len(pulse_list)>0:
-            self.pulses_per_seg = pulse_list[0].pulses_per_seg
-        if len(self.datasets)>0:
-            # Set master timestamp_offset (seconds)
-            self.timestamp_offset = self.first_good_dataset.timestamp_offset
-
-        for ds in self:
-            if ds.timestamp_offset != self.timestamp_offset:
-                self.timestamp_offset = None
-                break
-
-        if max_cachesize is not None:
-            if max_cachesize < self.n_channels * self._pulse_records[0].segmentsize:
-                self.set_segment_size(max_cachesize / self.n_channels)
-
-
     def copy(self):
         self.clear_cache()
         g = TESGroup(self.filenames, self.noise_filenames)
@@ -1035,26 +1093,6 @@ class TESGroup(BaseChannelGroup):
         self._cached_segment = segnum
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
-
-
-    def compute_average_pulse(self, masks, subtract_mean=True):
-        """
-        Compute several average pulses in each TES channel, one per mask given in
-        <masks>.  Store the averages in self.datasets.average_pulses with shape (m,n)
-        where m is the number of masks and n equals self.nPulses (the # of records).
-
-        Note that this method replaces any previously computed self.datasets.average_pulses
-
-        <masks> is either an array of shape (m,n) or an array (or other sequence) of length
-        (m*n).  It's required that n equal self.nPulses.   In the second case,
-        m must be an integer.  The elements of <masks> should be booleans or interpretable
-        as booleans.
-
-        If <subtract_mean> is True, then each average pulse will subtract a constant
-        to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
-        """
-        BaseChannelGroup.compute_average_pulse(self, masks, use_crosstalk_masks=False,
-                                               subtract_mean=subtract_mean)
 
 
     def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False, cmap=None):
@@ -1293,13 +1331,11 @@ def unpickle_TESGroup(filename, rawpath=None, inclusion_list=None):
     bad_channums = unpickler.load()
     filenames = _sort_filenames_numerically(unpickler.load(), inclusion_list)
     noise_filenames = _sort_filenames_numerically(unpickler.load(), inclusion_list)
-    pulse_only = (not noise_only and (noise_filenames is None or len(noise_filenames)==0))
     if rawpath is not None:
         filenames = _replace_path(filenames, rawpath)
         noise_filenames = _replace_path(noise_filenames, rawpath)
 
-    data = TESGroup(filenames, noise_filenames, pulse_only=pulse_only,
-                    noise_only=noise_only)
+    data = TESGroup(filenames, noise_filenames, noise_only=noise_only)
     data.set_chan_bad(bad_channums, 'was bad when saved')
     printUpdater = InlineUpdater('unpickle_TESGroup')
     for ds in data.datasets:
