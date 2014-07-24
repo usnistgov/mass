@@ -523,7 +523,7 @@ class Cuts(object):
             raise ValueError("cutnum must be in the range [0,31] inclusive")
         assert(mask.size == self._mask.size)
         bitval = 1<<cutnum
-        self._mask[:][mask] |= bitval
+        self._mask[mask] |= bitval
 
     def clearCut(self, cutnum):
         if cutnum < 0 or cutnum >= 32:
@@ -799,8 +799,8 @@ class MicrocalDataSet(object):
         """Summarize the complete data set one chunk at a time.
         """
         # Don't proceed if not necessary and not forced
-        already_done =  all(self.p_pretrig_mean[:]==0)
-        if already_done and not forceNew:
+        not_done =  all(self.p_pretrig_mean[:]==0)
+        if not (not_done or forceNew):
             print('\nchan %d did not summarize because results were already preloaded'%self.channum)
             return
 
@@ -1027,11 +1027,11 @@ class MicrocalDataSet(object):
                     try:
                         a,b = element
                         if a is not None and b is not None:
-                            index = np.logical_and(data >= a, data <= b)
+                            index = np.logical_and(data[:] >= a, data[:] <= b)
                         elif a is not None:
-                            index = data >= a
+                            index = data[:] >= a
                         elif b is not None:
-                            index = data <= b
+                            index = data[:] <= b
                         cut_vec[index] = False
                     except:
                         raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid'%str(element))
