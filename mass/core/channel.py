@@ -510,42 +510,46 @@ class PulseRecords(object):
 class Cuts(object):
     "Object to hold a 32-bit cut mask for each triggered record."
 
-    def __init__(self, n):
+    def __init__(self, n, hdf5_group=None):
         "Create an object to hold n masks of 32 bits each"
-        self._mask = np.zeros( n, dtype=np.int32 )
+        self.hdf5_group = hdf5_group
+        if hdf5_group is None:
+            self._mask = np.zeros( n, dtype=np.int32 )
+        else:
+            self._mask = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.int32)
 
     def cut(self, cutnum, mask):
         if cutnum < 0 or cutnum >= 32:
             raise ValueError("cutnum must be in the range [0,31] inclusive")
         assert(mask.size == self._mask.size)
         bitval = 1<<cutnum
-        self._mask[mask] |= bitval
+        self._mask[:][mask] |= bitval
 
     def clearCut(self, cutnum):
         if cutnum < 0 or cutnum >= 32:
             raise ValueError("cutnum must be in the range [0,31] inclusive")
         bitmask = ~(1<<cutnum)
-        self._mask &= bitmask
+        self._mask[:] &= bitmask
 
     def good(self):
         return np.logical_not(self._mask)
 
     def bad(self):
-        return self._mask != 0
+        return self._mask[:] != 0
 
     def isCut(self, cutnum=None):
         if cutnum is None: return self.bad()
-        return (self._mask & (1<<cutnum)) != 0
+        return (self._mask[:] & (1<<cutnum)) != 0
 
     def isUncut(self, cutnum=None):
         if cutnum is None: return self.good()
-        return (self._mask & (1<<cutnum)) == 0
+        return (self._mask[:] & (1<<cutnum)) == 0
 
     def nCut(self):
-        return (self._mask != 0).sum()
+        return (self._mask[:] != 0).sum()
 
     def nUncut(self):
-        return (self._mask == 0).sum()
+        return (self._mask[:] == 0).sum()
 
     def __repr__(self):
         return "Cuts(%d)"%len(self._mask)
@@ -554,7 +558,7 @@ class Cuts(object):
         return ("Cuts(%d) with %d cut and %d uncut"%(len(self._mask), self.nCut(), self.nUncut()))
 
     def copy(self):
-        c = Cuts(len(self._mask))
+        c = Cuts(len(self._mask), hdf5_group=self.hdf5_group)
         c._mask = self._mask.copy()
         return c
 
@@ -661,7 +665,8 @@ class MicrocalDataSet(object):
         nfreq = 1+self.nSamples/2
         self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
                                                     dtype=np.float64)
-        self.cuts = Cuts(self.nPulses)
+        grp = self.hdf5_group.require_group('cuts')
+        self.cuts = Cuts(self.nPulses, hdf5_group=grp)
 
     @property
     def p_peak_time(self):
@@ -774,9 +779,10 @@ class MicrocalDataSet(object):
 
         fp = open(filename, "rb")
         unpickler = cPickle.Unpickler(fp)
+        # ignore the expected_attr and the cuts mask
         _expected_attr = unpickler.load()
-        # ignore the expected_attr
-        self.cuts._mask = unpickler.load()
+        _ = unpickler.load()
+        #self.cuts._mask = unpickler.load()
         try:
             while True:
                 try:
