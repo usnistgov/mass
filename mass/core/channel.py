@@ -594,7 +594,7 @@ class MicrocalDataSet(object):
         MicrocalDataSet.
         """
         self.auto_pickle = auto_pickle
-        self.filter = {}
+        self.filter = None
         self.lastUsedFilterHash = -1
         self.drift_correct_info = {}
         self.phase_correct_info = {}
@@ -866,14 +866,17 @@ class MicrocalDataSet(object):
             print('\nchan %d did not filter because results were already loaded'%self.channum)
             return
 
-        filter_values = self.filter.__dict__[filter_name]
+        if self.filter is not None:
+            filter_values = self.filter.__dict__[filter_name]
+        else:
+            filter_values = self.hdf5_group['filters/%s'%filter_name].value
         printUpdater = InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
         for s in range(self.pulse_records.n_segments):
             first, end = self.read_segment(s) # this reloads self.data to contain new pulses
             (self.p_filt_phase[first:end],
              self.p_filt_value[first:end]) = \
                 self._filter_data_segment(filter_values, first, end, transform)
-            printUpdater.update((end+1)/float(self.nRecords))
+            printUpdater.update((end+1)/float(self.nPulses))
 
         self.pulse_records.datafile.clear_cached_segment()
         if self.auto_pickle:

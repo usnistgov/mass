@@ -17,7 +17,6 @@ import h5py, sys
 def printHDF5(node, depth = 0, maxchan=1):
     if node is None or len(node) == 0:
         print "\t" * depth, "-"
-        raise ValueError(0)
         return
 
     # Print the object
@@ -25,9 +24,9 @@ def printHDF5(node, depth = 0, maxchan=1):
     prefix = prefix_attr = ''
     if depth>0:
         prefix_attr = '|\t'*(depth)
-        prefix = '|\t'*(depth-1)+ '+ - - - -'
+        prefix = '|\t'*(depth-1)+ '+ - - -'
     if isinstance(node, h5py.Dataset):
-        print '%s%s (shape=%s dtype=%s)'%(prefix, name, node.shape, node.dtype)
+        print '%s %s (shape=%s dtype=%s)'%(prefix, name, node.shape, node.dtype)
     elif isinstance(node, h5py.File):
         print('HDF5 file "%s"'%node.filename)
     else:
@@ -41,7 +40,7 @@ def printHDF5(node, depth = 0, maxchan=1):
     seenchan=0
     if isinstance(node, h5py.Group):
         for key,val in node.items():
-            if key.startswith('chan'): 
+            if key.startswith('chan'):
                 seenchan+=1
                 if seenchan > maxchan:
                     #print '\t'*(1+depth)+'Skipping %s'%key
@@ -55,4 +54,4 @@ if __name__=='__main__':
         f = h5py.File(n, "r")
         printHDF5(f)
         f.close()
-        
+

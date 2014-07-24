@@ -892,12 +892,11 @@ class TESGroup(object):
     def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
 
         # Analyze the noise, if not already done
-        already_done = any([ds.noise_autocorr is None or ds.noise_spectrum is None for ds in self])
-        if forceNew or not already_done:
+        needs_noise = any([ds.noise_autocorr[0]==0.0 or
+                           ds.noise_psd[1]==0 for ds in self])
+        if needs_noise:
             print "Computing noise autocorrelation and spectrum"
             self.compute_noise_spectra()
-        else:
-            print("Skipping computing noise autocorrelation and spectrum because already done")
 
         printUpdater = InlineUpdater('compute_filters')
         for ds_num,ds in enumerate(self):
@@ -912,11 +911,23 @@ class TESGroup(object):
                 try:
                     spectrum = ds.noise_spectrum.spectrum()
                 except:
-                    spectrum = None
+                    spectrum = ds.noise_psd[:]
                 f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
                                      spectrum, ds.noise_autocorr, sample_time=self.timebase,
                                      fmax=fmax, f_3db=f_3db, shorten=2)
                 ds.filter = f
+                # Store all filters created to a new HDF5 group
+                h5grp = ds.hdf5_group.require_group('filters')
+                if f.f_3db is not None: h5grp.attrs['f_3db']=f.f_3db
+                if f.fmax is not None: h5grp.attrs['fmax']=f.fmax
+                h5grp.attrs['peak']=f.peak_signal
+                h5grp.attrs['shorten']=f.shorten
+                for k,v in ds.filter.__dict__.iteritems():
+                    if not k.startswith("filt_"): continue
+                    if k in h5grp:
+                        del h5grp[k]
+                    vec = h5grp.create_dataset(k, data=v)
+                    vec.attrs['variance'] = f.variances.get(k[5:], 0)
             else:
                 print("chan %d skipping compute_filter because already done"%ds.channum)
 
@@ -938,7 +949,10 @@ class TESGroup(object):
             ax1.set_title("chan %d signal"%(ds.channum))
             ax2.set_title("chan %d baseline"%(ds.channum))
             for ax in (ax1,ax2): ax.set_xlim([0,self.nSamples])
-            ds.filter.plot(axes=(ax1,ax2))
+#             if 'filter' in ds.__dict__:
+#                 ds.filter.plot(axes=(ax1,ax2))
+#             else:
+#                 pass ???
 
 
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
@@ -947,7 +961,10 @@ class TESGroup(object):
         for i,ds in enumerate(self):
 
             try:
-                rms = ds.filter.variances[filter_name]**0.5
+                if ds.filter is not None:
+                    rms = ds.filter.variances[filter_name]**0.5
+                else:
+                    rms = ds.hdf5_group['filters/filt_%s'%filter_name].attrs['variance']**0.5
                 v_dv = (1/rms)/rms_fwhm
                 print ("Chan %3d filter %-15s Predicted V/dV %6.1f  "
                        "Predicted res at %.1f eV: %6.1f eV") % (
