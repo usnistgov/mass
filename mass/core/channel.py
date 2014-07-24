@@ -638,9 +638,11 @@ class MicrocalDataSet(object):
             npulses = self.nPulses
 
         h5grp = self.hdf5_group
+
+        # Set up the per-pulse vectors
         float64_fields = ('timestamp',)
         float32_fields = ('pretrig_mean','pretrig_rms', 'pulse_average', 'pulse_rms',
-                          'promptness', 'rise_time','postpeak_deriv', 'average_pulse',
+                          'promptness', 'rise_time','postpeak_deriv',
                           'filt_phase','filt_value','filt_value_dc','filt_value_phc',
                           'energy')
         uint16_fields = ('peak_index', 'peak_value', 'min_value')
@@ -650,9 +652,12 @@ class MicrocalDataSet(object):
             for field in fieldnames:
                 self.__dict__['p_%s'%field] = h5grp.require_dataset(field, shape=(npulses,),
                                                                     dtype=dtype)
+
+        # Other vectors needed per-channel
+        self.average_pulse= h5grp.require_dataset('average_pulse', shape=(self.nSamples,),
+                                                    dtype=np.float32)
         self.noise_autocorr = h5grp.require_dataset('noise_autocorr', shape=(self.nSamples,),
                                                     dtype=np.float64)
-        # Not sure yet how to handle noise spectrum
         nfreq = 1+self.nSamples/2
         self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
                                                     dtype=np.float64)
@@ -787,7 +792,9 @@ class MicrocalDataSet(object):
     def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
         """
-        if not(forceNew or all(self.p_timestamp[:]==0)):
+        # Don't proceed if not necessary and not forced
+        already_done =  all(self.p_pretrig_mean[:]==0)
+        if already_done and not forceNew:
             print('\nchan %d did not summarize because results were already preloaded'%self.channum)
             return
 
@@ -1111,8 +1118,9 @@ class MicrocalDataSet(object):
 
     def drift_correct(self, forceNew=False):
         """Drift correct using the standard entropy-minimizing algorithm"""
-        already_exists = not all(self.p_filt_value_dc[:]==0)
-        if already_exists and not forceNew:
+        doesnt_exist = all(self.p_filt_value_dc[:]==0) or  \
+                    all(self.p_filt_value_dc[:]==self.p_filt_value[:])
+        if not (forceNew or doesnt_exist):
             print("chan %d not drift correction, p_filt_value_dc already populated"%self.channum)
             return
         g = self.cuts.good()
@@ -1140,7 +1148,9 @@ class MicrocalDataSet(object):
         which pulses go together into a single peak.  Be careful to use a semi-reasonable
         quantity here.
         """
-        if forceNew or all(self.p_filt_value_phc[:]==0.0):
+        doesnt_exist = all(self.p_filt_value_phc[:]==0) or  \
+                    all(self.p_filt_value_phc[:]==self.p_filt_value_dc[:])
+        if forceNew or doesnt_exist:
             data,g = self.first_n_good_pulses(maximum_num_records)
             print("channel %d doing phase_correct2014 with %d good pulses"%(self.channum, data.shape[0]))
             prompt = self.p_promptness
@@ -1330,7 +1340,7 @@ class MicrocalDataSet(object):
                 data += np.roll(data,1) + np.roll(data,-1)
                 data[0] = 0
             elif residual:
-                model = self.p_filt_value[pn] * self.average_pulse / self.average_pulse.max()
+                model = self.p_filt_value[pn] * self.average_pulse[:] / np.max(self.average_pulse)
                 data = data-model
 
             cutchar,alpha,linestyle,linewidth = ' ',1.0,'-',1

@@ -760,13 +760,14 @@ class TESGroup(object):
         to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
         """
 
-        # Make sure that masks is either a 2D or 1D array of the right shape,
-        # or a sequence of 1D arrays of the right shape
-        already_done = all([hasattr(ds, "average_pulse") for ds in self])
-
+        # Don't proceed if not necessary and not forced
+        already_done = all([ds.average_pulse[-1] != 0 for ds in self])
         if already_done and not forceNew:
             print("skipping compute average pulse")
             return
+
+        # Make sure that masks is either a 2D or 1D array of the right shape,
+        # or a sequence of 1D arrays of the right shape
         if isinstance(masks, np.ndarray):
             nd = len(masks.shape)
             if nd==1:
@@ -829,7 +830,7 @@ class TESGroup(object):
                 for imask in range(average_pulses.shape[0]):
                     average_pulses[imask,:] -= np.mean(average_pulses[imask,
                                                 :self.nPresamples-ds.pretrigger_ignore_samples])
-            ds.average_pulse = average_pulses[ichan,:]
+            ds.average_pulse[:] = average_pulses[ichan,:]
 
 
     def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
@@ -906,7 +907,7 @@ class TESGroup(object):
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
                 printUpdater.update((ds_num+1)/float(self.n_channels))
-                avg_signal = ds.average_pulse.copy()
+                avg_signal = np.array(ds.average_pulse)
 
                 try:
                     spectrum = ds.noise_spectrum.spectrum()
