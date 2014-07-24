@@ -246,9 +246,7 @@ def _dataset_command(pulse_files, noise_files):
             'pulse_files=["%s/%s_chan%d.%s"%(dir_p, prefix_p, c, suffix_p) for c in channels]')
         args.append('pulse_files')
 
-    if pulse_only:
-        extra.append("pulse_only=True")
-    else:
+    if not pulse_only:
         lines.append(
             'noise_files=["%s/%s_chan%d.%s"%(dir_n, prefix_n, c, suffix_n) for c in channels]')
         args.append('noise_files')
@@ -284,9 +282,9 @@ def create_dataset(default_directory="", disabled_channels=()):
     np, nn = len(pulse_files), len(noise_files)
     if np>0:
         if nn>0:
-            data = mass.TESGroup(pulse_files, noise_files, pulse_only=False)
+            data = mass.TESGroup(pulse_files, noise_files)
         else:
-            data =  mass.TESGroup(pulse_files, pulse_only=True)
+            data =  mass.TESGroup(pulse_files)
     else:
         if nn>0:
             data = mass.TESGroup(noise_files, noise_only=True)

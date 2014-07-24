@@ -110,7 +110,7 @@ class TESGroup(object):
         # Figure out where the 2 HDF5 files are to live, if the default argument
         # was given for their paths.
         if hdf5_filename is None and not noise_only:
-            hdf5_filename = _generate_hdf5_filename(self.filenames[0])
+            hdf5_filename = _generate_hdf5_filename(filenames[0])
         if hdf5_noisefilename is None and noise_filenames is not None:
             hdf5_noisefilename = _generate_hdf5_filename(noise_filenames[0])
 
