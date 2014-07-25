@@ -1290,7 +1290,7 @@ class MicrocalDataSet(object):
 
 
     def time_drift_correct(self, attr="p_filt_value_phc", forceNew=False):
-        if not "filt_value_tdc" in self.hdf5_group or forceNew:
+        if all(self.p_filt_value_tdc[:]==0.0) or forceNew:
             print("chan %d doing time_drift_correct"%self.channum)
             attr = getattr(self, attr)
             _, info = mass.analysis_algorithms.drift_correct(self.p_timestamp[self.cuts.good()],attr[self.cuts.good()])
