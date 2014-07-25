@@ -896,7 +896,7 @@ class TESGroup(object):
 
         printUpdater = InlineUpdater('compute_filters')
         for ds_num,ds in enumerate(self):
-            if ds.filter == {} or forceNew:
+            if "filters" in ds.hdf5_group or forceNew:
                 if ds.cuts.good().sum() < 10:
                     ds.filter = None
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')

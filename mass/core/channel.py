@@ -635,7 +635,7 @@ class MicrocalDataSet(object):
         float64_fields = ('timestamp',)
         float32_fields = ('pretrig_mean','pretrig_rms', 'pulse_average', 'pulse_rms',
                           'promptness', 'rise_time','postpeak_deriv',
-                          'filt_phase','filt_value','filt_value_dc','filt_value_phc',
+                          'filt_phase','filt_value','filt_value_dc','filt_value_phc','filt_value_tdc',
                           'energy')
         uint16_fields = ('peak_index', 'peak_value', 'min_value')
         for dtype,fieldnames in ((np.float64, float64_fields),
@@ -1070,7 +1070,7 @@ class MicrocalDataSet(object):
                     data, prompt[g], self.p_pulse_rms[:][g], dataFilter,
                     self.nPresamples, typicalResolution=typical_resolution)
 
-            self.p_filt_value_phc = self.p_filt_value_dc - tc(prompt, self.p_pulse_rms)
+            self.p_filt_value_phc[:] = self.p_filt_value_dc[:] - tc(prompt, self.p_pulse_rms)
             if plot:
                 plt.clf()
                 g = self.cuts.good()
@@ -1283,7 +1283,7 @@ class MicrocalDataSet(object):
 
 
     def time_drift_correct(self, attr="p_filt_value_phc", forceNew=False):
-        if not hasattr(self, 'p_filt_value_tdc') or forceNew:
+        if not "filt_value_tdc" in self.hdf5_group or forceNew:
             print("chan %d doing time_drift_correct"%self.channum)
             attr = getattr(self, attr)
             _, info = mass.analysis_algorithms.drift_correct(self.p_timestamp[self.cuts.good()],attr[self.cuts.good()])
@@ -1295,11 +1295,11 @@ class MicrocalDataSet(object):
             new_info['slope']=slope
             new_info['median_timestamp']=median_timestamp
 
-            corrected = attr*(1+slope*(self.p_timestamp-median_timestamp))
-            self.p_filt_value_tdc = corrected
+            corrected = attr*(1+slope*(self.p_timestamp[:]-median_timestamp))
+            self.p_filt_value_tdc[:] = corrected
         else:
             print("chan %d skipping time_drift_correct"%self.channum)
-            corrected, new_info = self.p_filt_value_tdc, {}
+            corrected, new_info = self.p_filt_value_tdc[:], {}
         return corrected, new_info
 
 
