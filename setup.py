@@ -83,7 +83,6 @@ class QtBuilder(basic_build):
         basic_build.run(self)   
     
     
-
 if __name__ == "__main__":
         
     from numpy.distutils.core import setup as numpy_setup
@@ -100,7 +99,9 @@ if __name__ == "__main__":
                         }
           )
 
-    numpy_setup( configuration=configuration_fortran )
+    import sys
+    if sys.platform != 'win32':
+        numpy_setup( configuration=configuration_fortran )
 
 
     # Now configure all Cython modules

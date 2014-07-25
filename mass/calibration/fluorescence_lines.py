@@ -15,15 +15,15 @@ November 24, 2010 : started as mn_kalpha.py
 """
 
 __all__ = ['VoigtFitter', 'LorentzianFitter',
-           'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter', 
+           'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter',
            'MnKAlphaDistribution', 'CuKAlphaDistribution',
-           'MgKAlphaFitter', 'AlKAlphaFitter', 
-           'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter', 
+           'MgKAlphaFitter', 'AlKAlphaFitter',
+           'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter',
            'CrKAlphaFitter', 'MnKAlphaFitter', 'FeKAlphaFitter', 'CoKAlphaFitter',
            'NiKAlphaFitter', 'CuKAlphaFitter','TiKBetaFitter', 'CrKBetaFitter',
            'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter',
            'CuKBetaFitter', 'plot_spectrum']
- 
+
 import numpy as np
 import scipy as sp
 import pylab as plt
@@ -35,7 +35,7 @@ from mass.mathstat import MaximumLikelihoodHistogramFitter, \
 class SpectralLine(object):
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
-    
+
     Instantiate one of its subclasses, which will have to define
     self.energies, self.fwhm, self.integral_intensity.  Each must be a sequence
     of the same length.
@@ -49,11 +49,11 @@ class SpectralLine(object):
     def set_gauss_fwhm(self, fwhm):
         """Update the Gaussian smearing to have <fwhm> as the full-width at half-maximum"""
         self.gauss_sigma = fwhm/(8*np.log(2))**0.5
-    
+
     def __call__(self, x):
         """Make the class callable, returning the same value as the self.pdf method."""
         return self.pdf(x)
-    
+
     def pdf(self, x):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
         x = np.asarray(x, dtype=np.float)
@@ -130,9 +130,9 @@ class AlOxKAlpha(SpectralLine):
 
 
 class ScKAlpha(SpectralLine):
-    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). 
-    "Characterization of K spectral profiles for vanadium, component redetermination for 
-    scandium, titanium, chromium, and manganese, and development of satellite structure 
+    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
+    "Characterization of K spectral profiles for vanadium, component redetermination for
+    scandium, titanium, chromium, and manganese, and development of satellite structure
     for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
     url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
     Note that the subclass holds all the data (as class attributes), while
@@ -140,7 +140,7 @@ class ScKAlpha(SpectralLine):
     """
 
     ## Spectral complex name.
-    name = 'Scandium K-alpha'    
+    name = 'Scandium K-alpha'
     # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
     ## The Lorentzian energies (Table I C_i)
     energies = np.array((4090.595, 4089.308, 4087.666, 4093.428, 4085.773, 4083.697))
@@ -156,19 +156,19 @@ class ScKAlpha(SpectralLine):
 
 
 class TiKAlpha(SpectralLine):
-    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). 
-    "Characterization of K spectral profiles for vanadium, component redetermination for 
-    scandium, titanium, chromium, and manganese, and development of satellite structure 
+    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
+    "Characterization of K spectral profiles for vanadium, component redetermination for
+    scandium, titanium, chromium, and manganese, and development of satellite structure
     for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
     url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
-    Note that to reproduce the plots in the reference paper, you must include the Gaussian 
+    Note that to reproduce the plots in the reference paper, you must include the Gaussian
     broadening of their instrument, which was 0.082eV FWHM
     The underlying line profile has zero fundamental broadening.
     """
     ## Spectral complex name.
-    name = 'Titanium K-alpha'    
+    name = 'Titanium K-alpha'
     # the paper has two sets of Ti data, I used the set Refit of [21] Kawai et al 1994
     # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
     ## The Lorentzian energies (Table I C_i)
@@ -181,33 +181,33 @@ class TiKAlpha(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
-    nominal_peak_energy = 4510.903 # eV 
-    
+    nominal_peak_energy = 4510.903 # eV
+
 class TiKBeta(SpectralLine):
     """From C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
     http://iopscience.iop.org/0953-4075/46/14/145601
     """
-    name = 'Titanium K-beta'    
+    name = 'Titanium K-beta'
     energies = np.array((25.37, 30.096, 31.967, 35.59))+4900
     fwhm = np.array((16.3, 4.25, 0.42, 0.47))
     integral_intensity = np.array((199, 455, 326, 19.2), dtype=np.float)/1e3
     ## The energy at the main peak (from table IV beta_1,3)
-    nominal_peak_energy = 4931.966 # eV     
+    nominal_peak_energy = 4931.966 # eV
 
 class VKAlpha(SpectralLine):
-    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006). 
-    "Characterization of K spectral profiles for vanadium, component redetermination for 
-    scandium, titanium, chromium, and manganese, and development of satellite structure 
+    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
+    "Characterization of K spectral profiles for vanadium, component redetermination for
+    scandium, titanium, chromium, and manganese, and development of satellite structure
     for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
     url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
-    Note that to reproduce the plots in the reference paper, you must include the Gaussian 
+    Note that to reproduce the plots in the reference paper, you must include the Gaussian
     broadening of their instrument, which was 1.99eV FWHM
     The underlying line profile has zero fundamental broadening.
     """
     ## Spectral complex name.
-    name = 'Vanadium K-alpha'    
+    name = 'Vanadium K-alpha'
     # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
     ## The Lorentzian energies (Table I C_i)
     energies = np.array((4952.237, 4950.656, 4948.266, 4955.269, 4944.672, 4943.014))
@@ -219,34 +219,34 @@ class VKAlpha(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
-    nominal_peak_energy = 4952.216 # eV   
-    
+    nominal_peak_energy = 4952.216 # eV
+
 class VKBeta(SpectralLine):
     """From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013).
     http://pra.aps.org/abstract/PRA/v87/i2/e022512
     """
-    name = 'Vanadium K-beta' 
+    name = 'Vanadium K-beta'
     energies = np.array((18.20, 24.50, 26.998))+5400
     fwhm = np.array((18.86, 5.48, 2.498))
     integral_intensity = np.array((258, 236, 507), dtype=np.float)/1e3
     ## The energy at the main peak (from table IV beta_1,3)
-    nominal_peak_energy = 5427.32 # eV     
+    nominal_peak_energy = 5427.32 # eV
 
 class CrKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
     by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code).
-    
+
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
-    
+
     ## Spectral complex name.
-    name = 'Chromium K-alpha'    
-    
+    name = 'Chromium K-alpha'
+
     # The approximation is as a series of 7 Lorentzians (5 for KA1,2 for KA2)
-    
+
     ## The Lorentzian energies (Table II E_i)
     energies = 5400+np.array((14.874, 14.099, 12.745, 10.583, 18.304, 5.551, 3.986))
     ## The Lorentzian widths (Table II W_i)
@@ -257,21 +257,21 @@ class CrKAlpha(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
-    nominal_peak_energy = 5414.81 # eV   
-    
+    nominal_peak_energy = 5414.81 # eV
+
 class CrKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
-    
+
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
 
     ## Spectral complex name.
-    name = 'Chromium K-beta'    
-    
-    # The approximation is as a series of 5 Lorentzians 
+    name = 'Chromium K-beta'
+
+    # The approximation is as a series of 5 Lorentzians
     ## The Lorentzian energies (Table III E_i)
     energies = 5900+np.array((47.00, 35.31, 46.24, 42.04, 44.93))
     ## The Lorentzian widths (Table III W_i)
@@ -282,26 +282,26 @@ class CrKBeta(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
-    nominal_peak_energy = 5946.82 # eV     
+    nominal_peak_energy = 5946.82 # eV
 
 class MnKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
     by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code).
-    
+
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
     ## Spectral complex name.
-    name = 'Manganese K-alpha'    
-    
+    name = 'Manganese K-alpha'
+
     # The approximation is as a series of 8 Lorentzians (6 for KA1,2 for KA2)
-    
+
     ## The Lorentzian energies
-    ## the 102.712 line doesn't appear in the reference paper, apparently it was added in Scott 
+    ## the 102.712 line doesn't appear in the reference paper, apparently it was added in Scott
     # Porter's refit of the complex. Also, one of the intensities went from 0.005 to 0.018
-    energies = 5800+np.array((98.853, 97.867, 94.829, 96.532, 
+    energies = 5800+np.array((98.853, 97.867, 94.829, 96.532,
                               99.417, 102.712, 87.743, 86.495))
     ## The Lorentzian widths
     fwhm = np.array((1.715, 2.043, 4.499, 2.663, 0.969, 1.553, 2.361, 4.216))
@@ -311,23 +311,23 @@ class MnKAlpha(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
-    nominal_peak_energy = 5898.802 # eV        
+    nominal_peak_energy = 5898.802 # eV
 
 
-    
+
 class MnKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
-    
+
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
 
     ## Spectral complex name.
-    name = 'Manganese K-beta'    
-    
-    # The approximation is as a series of 4 Lorentzians 
+    name = 'Manganese K-beta'
+
+    # The approximation is as a series of 4 Lorentzians
     ## The Lorentzian energies
     energies = 6400+np.array((90.89, 86.31, 77.73, 90.06, 88.83))
     ## The Lorentzian widths
@@ -338,8 +338,8 @@ class MnKBeta(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
-    nominal_peak_energy = 6490.18 # eV   
-    
+    nominal_peak_energy = 6490.18 # eV
+
 class FeKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -349,7 +349,7 @@ class FeKAlpha(SpectralLine):
     the parent class SpectralLine holds all the code.
     """
     ## Spectral complex name.
-    name = 'Iron K-alpha'    
+    name = 'Iron K-alpha'
     # The approximation is as a series of 7 Lorentzians (4 for KA1,3 for KA2)
     ## The Lorentzian energies (Table II E_i)
     energies = np.array((6404.148, 6403.295, 6400.653, 6402.077, 6391.190, 6389.106, 6390.275))
@@ -361,8 +361,8 @@ class FeKAlpha(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
-    nominal_peak_energy = 6404.01 # eV   
-    
+    nominal_peak_energy = 6404.01 # eV
+
 class FeKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -371,8 +371,8 @@ class FeKBeta(SpectralLine):
     the parent class SpectralLine holds all the code.
     """
     ## Spectral complex name.
-    name = 'Iron K-beta'    
-    # The approximation is as a series of 4 Lorentzians 
+    name = 'Iron K-beta'
+    # The approximation is as a series of 4 Lorentzians
     ## The Lorentzian energies (Table III E_i)
     energies = np.array((7046.90, 7057.21, 7058.36, 7054.75))
     ## The Lorentzian widths (Table III W_i)
@@ -383,8 +383,8 @@ class FeKBeta(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
-    nominal_peak_energy = 7058.18 # eV      
-    
+    nominal_peak_energy = 7058.18 # eV
+
 class CoKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -394,7 +394,7 @@ class CoKAlpha(SpectralLine):
     the parent class SpectralLine holds all the code.
     """
     ## Spectral complex name.
-    name = 'Cobalt K-alpha'    
+    name = 'Cobalt K-alpha'
     # The approximation is as a series of 7 Lorentzians (4 for KA1,3 for KA2)
     ## The Lorentzian energies (Table II E_i)
     energies = np.array((6930.425, 6929.388, 6927.676, 6930.941, 6915.713, 6914.659, 6913.078))
@@ -408,8 +408,8 @@ class CoKAlpha(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
-    nominal_peak_energy = 6930.38 # eV   
-    
+    nominal_peak_energy = 6930.38 # eV
+
 class CoKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -418,8 +418,8 @@ class CoKBeta(SpectralLine):
     the parent class SpectralLine holds all the code.
     """
     ## Spectral complex name.
-    name = 'Cobalt K-beta'    
-    # The approximation is as a series of 6 Lorentzians 
+    name = 'Cobalt K-beta'
+    # The approximation is as a series of 6 Lorentzians
     ## The Lorentzian energies (Table III E_i)
     energies = np.array((7649.60, 7647.83, 7639.87, 7645.49, 7636.21, 7654.13))
     ## The Lorentzian widths (Table III W_i)
@@ -430,8 +430,8 @@ class CoKBeta(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
-    nominal_peak_energy = 7649.45 # eV  
-    
+    nominal_peak_energy = 7649.45 # eV
+
 class NiKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -441,7 +441,7 @@ class NiKAlpha(SpectralLine):
     the parent class SpectralLine holds all the code.
     """
     ## Spectral complex name.
-    name = 'Nickel K-alpha'    
+    name = 'Nickel K-alpha'
     # The approximation is as a series of 5 Lorentzians (2 for KA1,3 for KA2)
     ## The Lorentzian energies (Table II E_i)
     energies = np.array((7478.281, 7476.529, 7461.131, 7459.874, 7458.029))
@@ -453,16 +453,16 @@ class NiKAlpha(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
-    nominal_peak_energy = 7478.26 # eV   
-    
+    nominal_peak_energy = 7478.26 # eV
+
 class NiKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
     """
     ## Spectral complex name.
-    name = 'Nickel K-beta'    
-    # The approximation is as a series of 4 Lorentzians 
+    name = 'Nickel K-beta'
+    # The approximation is as a series of 4 Lorentzians
     ## The Lorentzian energies (Table III E_i)
     energies = np.array((8265.01, 8263.01, 8256.67, 8268.70))
     ## The Lorentzian widths (Table III W_i)
@@ -473,8 +473,8 @@ class NiKBeta(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
-    nominal_peak_energy = 8264.78 # eV  
-    
+    nominal_peak_energy = 8264.78 # eV
+
 class CuKAlpha(SpectralLine):
     """Function object to approximate the copper K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -483,7 +483,7 @@ class CuKAlpha(SpectralLine):
 
     ## Spectral complex name.
     name = 'Copper K-alpha'
-            
+
     # The approximation is 4 of Lorentzians (2 for Ka1, 2 for Ka2)
 
     ## The Lorentzian energies
@@ -496,8 +496,8 @@ class CuKAlpha(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
-    nominal_peak_energy = 8047.83 # eV   
-    
+    nominal_peak_energy = 8047.83 # eV
+
 class CuKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -505,9 +505,9 @@ class CuKBeta(SpectralLine):
     """
 
     ## Spectral complex name.
-    name = 'Copper K-beta'    
-    
-    # The approximation is as a series of 5 Lorentzians 
+    name = 'Copper K-beta'
+
+    # The approximation is as a series of 5 Lorentzians
     ## The Lorentzian energies (Table III E_i)
     energies = np.array((8905.532, 8903.109, 8908.462, 8897.387, 8911.393))
     ## The Lorentzian widths (Table III W_i)
@@ -518,18 +518,18 @@ class CuKBeta(SpectralLine):
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta1,3)
-    nominal_peak_energy = 8905.42 # eV      
+    nominal_peak_energy = 8905.42 # eV
 
 
-    
+
 
 class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
     """For producing random variates of the an energy distribution having the form
     of several Lorentzians summed together."""
-    
+
     ## Approximates the random variate defined by multiple Lorentzian components.
     #  @param args  Pass all other parameters to parent class.
-    #  @param kwargs  Pass all other parameters to parent class. 
+    #  @param kwargs  Pass all other parameters to parent class.
     def __init__(self, distribution, *args, **kwargs):
         """<args> and <kwargs> are passed on to sp.stats.rv_continuous"""
 
@@ -544,7 +544,7 @@ class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
 
     def _rvs(self, *args):
         """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
-        compute.  But it's easy enough to generate the random variates themselves, so we 
+        compute.  But it's easy enough to generate the random variates themselves, so we
         override that method.  Don't call this directly!  Instead call .rvs(), which wraps this."""
         # Choose from among the N Lorentzian lines in proportion to the line amplitudes
         iline = self.cumulative_amplitudes.searchsorted(
@@ -561,11 +561,11 @@ class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
 
 # Some specific fluorescence lines
 # You can see how to make more if you like.
-MnKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=MnKAlpha(), 
+MnKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=MnKAlpha(),
                                                        name="Mn Kalpha fluorescence")
-MnKBetaDistribution  = MultiLorentzianDistribution_gen(distribution=MnKBeta(), 
+MnKBetaDistribution  = MultiLorentzianDistribution_gen(distribution=MnKBeta(),
                                                        name="Mn Kbeta fluorescence")
-CuKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=CuKAlpha(), 
+CuKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=CuKAlpha(),
                                                        name="Cu Kalpha fluorescence")
 
 
@@ -578,8 +578,8 @@ class VoigtFitter(object):
         self.last_fit_params = None
         ## Fit function samples from last successful fit
         self.last_fit_result = None
-    
-    
+
+
     def guess_starting_params(self, data, binctrs):
         order_stat = np.array(data.cumsum(), dtype=np.float)/data.sum()
         percentiles = lambda p: binctrs[(order_stat>p).argmax()]
@@ -591,8 +591,8 @@ class VoigtFitter(object):
         baseline_slope = (data[-10:].mean()-baseline)/len(data)
         ampl = (data.max()-baseline)*np.pi
         return [res, peak_loc, lor_hwhm, ampl, baseline, baseline_slope]
-        
-    
+
+
     ## Compute the smeared line value.
     #
     # @param params  The 6 parameters of the fit (see self.fit for details).
@@ -600,7 +600,7 @@ class VoigtFitter(object):
     # @return:       The line complex intensity, including resolution smearing.
     def fitfunc(self, params, x):
         """Return the smeared line complex.
-        
+
         <params>  The 6 parameters of the fit (see self.fit for details).
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
@@ -609,45 +609,51 @@ class VoigtFitter(object):
         spectrum = voigt(x, params[1], params[2], sigma)
         nbins = len(x)
         return spectrum * abs(params[3]) + abs(params[4]) + params[5]*np.arange(nbins)
-    
 
-    
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", 
+
+
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
             vary_resolution=True, vary_bg=True, vary_bg_slope=False, hold=None):
-        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
-        
-        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters 
+
+        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters
                       normally having pulseheight units will be returned as bin numbers instead.
 
         params: a 6-element sequence of [Gaussian resolution (fwhm), Pulseheight of the line peak,
                 Lorenztian HALF-width at half-max, amplitude, background level (per bin),
                 and background slope (in counts per bin per bin) ]
                 If params is None or does not have 6 elements, then they will be guessed.
-        
+
         plot:   Whether to make a plot.  If not, then the next few args are ignored
-        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
                 current figure.
         color:  Color for drawing the histogram contents behind the fit.
         label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
-        
+
         vary_resolution Whether to let the Gaussian resolution vary in the fit
         vary_bg:       Whether to let a constant background level vary in the fit
         vary_bg_slope: Whether to let a slope on the background level vary in the fit
         hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  Resolution, BG
-                       or BG slope will be held if 0, 4 or 5 appears in the hold sequence OR 
+                       or BG slope will be held if 0, 4 or 5 appears in the hold sequence OR
                        if the relevant boolean vary_* tests False.
-        
+
         The interaction between <hold> (or its vary_* aliases) and <params> is simple if <params> is given
         as a 6-element sequence.  Otherwise, for i in [0,4,5], params[i] will be forced to 0 if the given
         parameter i is in the <hold> list.  So you can fix the resolution at 0 by vary_resolution=False.
         If you want to fix it at 2.5, then you have to give params=[2.5, u,v,w,x,y].
-        
+
         """
-        try:
-            assert len(pulseheights) == len(data)
-        except:
+        # Work with bin edges
+        if len(pulseheights) == len(data) + 1:
+            dp = pulseheights[1]-pulseheights[0]
+            pulseheights = 0.5*dp + pulseheights[:-1]
+
+        # Pulseheights doesn't make sense as bin centers, either.
+        # So just use the integers starting at zero.
+        elif len(pulseheights) != len(data):
             pulseheights = np.arange(len(data), dtype=np.float)
+
         if hold is None:
             hold = []
         else:
@@ -670,35 +676,35 @@ class VoigtFitter(object):
                 params[4] = 0
             if 5 in hold:
                 params[5] = 0
-        
+
         if plot:
-            if color is None: 
+            if color is None:
                 color = 'blue'
             if axis is None:
                 plt.clf()
                 axis = plt.subplot(111)
-                
+
             plot_as_stepped_hist(axis, data, pulseheights, color=color)
             ph_binsize = pulseheights[1]-pulseheights[0]
             axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
         # Joe's new max-likelihood fitter
         epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
-        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
                                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
-        
+
         for h in hold:
             fitter.hold(h)
-            
+
         fitparams, covariance = fitter.fit()
         iflag = 0
 
         fitparams[0] = abs(fitparams[0])
-        
+
         self.last_fit_params = fitparams
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
-        
-        if iflag not in (0, 2): 
+
+        if iflag not in (0, 2):
             print "Oh no! iflag=%d"%iflag
         elif plot:
             de = np.sqrt(covariance[2, 2])
@@ -706,7 +712,7 @@ class VoigtFitter(object):
             if 0 not in hold:
                 de = np.sqrt(covariance[0, 0])
                 label += "\nGauss FWHM: %.2f +- %.2f eV"%(fitparams[0], de)
-            axis.plot(pulseheights, self.last_fit_result, color='#666666', 
+            axis.plot(pulseheights, self.last_fit_result, color='#666666',
                       label=label)
             axis.legend(loc='upper left')
         return fitparams, covariance
@@ -715,7 +721,7 @@ class VoigtFitter(object):
 
 class TwoVoigtFitter(object):
     """Fit a single Lorentzian line, with Gaussian smearing.
-    
+
     So far, I don't know how to guess the starting parameters, so you have to supply all 8.
     (See method fit() for explanation).
     """
@@ -725,8 +731,8 @@ class TwoVoigtFitter(object):
         self.last_fit_params = None
         ## Fit function samples from last successful fit
         self.last_fit_result = None
-    
-    
+
+
     def guess_starting_params(self, data, binctrs):
 #        order_stat = np.array(data.cumsum(), dtype=np.float)/data.sum()
 #        percentiles = lambda p: binctrs[(order_stat>p).argmax()]
@@ -739,8 +745,8 @@ class TwoVoigtFitter(object):
 #        ampl = (data.max()-baseline)*np.pi
 #        return [res, peak_loc, lor_hwhm, ampl, baseline, baseline_slope]
         raise NotImplementedError("I don't know how to guess starting parameters for a 2-peak Voigt.")
-        
-    
+
+
     ## Compute the smeared line value.
     #
     # @param params  The 6 parameters of the fit (see self.fit for details).
@@ -748,7 +754,7 @@ class TwoVoigtFitter(object):
     # @return:       The line complex intensity, including resolution smearing.
     def fitfunc(self, params, x):
         """Return the smeared line complex.
-        
+
         <params>  The 8 parameters of the fit (see self.fit for details).
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
@@ -757,15 +763,15 @@ class TwoVoigtFitter(object):
         spectrum = voigt(x, params[1], params[2], sigma) * abs(params[3]) +\
              voigt(x, params[4], params[5], sigma) * abs(params[6])
         return spectrum  + abs(params[7])
-    
 
-    
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", 
+
+
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
             vary_resolution=True, vary_bg=True, hold=None):
-        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
-        
-        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters 
+
+        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters
                       normally having pulseheight units will be returned as bin numbers instead.
 
         params: a 8-element sequence of [Gaussian resolution (fwhm), Pulseheight of the line 1 peak,
@@ -773,25 +779,31 @@ class TwoVoigtFitter(object):
                 Lorentzian HALF-width at half-max of line 2, amplitude of line 2, and
                 constant background level (per bin) ]
                 If params is None or does not have 8 elements, then they will be guessed.
-        
+
         plot:   Whether to make a plot.  If not, then the next few args are ignored
-        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
                 current figure.
         color:  Color for drawing the histogram contents behind the fit.
         label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
-        
+
         vary_resolution Whether to let the Gaussian resolution vary in the fit
         vary_bg:       Whether to let a constant background level vary in the fit
         vary_bg_slope: Whether to let a slope on the background level vary in the fit
         hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  Resolution, BG
-                       or BG slope will be held if 0, 4 or 5 appears in the hold sequence OR 
+                       or BG slope will be held if 0, 4 or 5 appears in the hold sequence OR
                        if the relevant boolean vary_* tests False.
-        
+
         """
-        try:
-            assert len(pulseheights) == len(data)
-        except:
+        # Work with bin edges
+        if len(pulseheights) == len(data) + 1:
+            dp = pulseheights[1]-pulseheights[0]
+            pulseheights = 0.5*dp + pulseheights[:-1]
+
+        # Pulseheights doesn't make sense as bin centers, either.
+        # So just use the integers starting at zero.
+        elif len(pulseheights) != len(data):
             pulseheights = np.arange(len(data), dtype=np.float)
+
         if hold is None:
             hold = []
         else:
@@ -812,36 +824,36 @@ class TwoVoigtFitter(object):
                 params[4] = 0
             if 5 in hold:
                 params[5] = 0
-        
+
         if plot:
-            if color is None: 
+            if color is None:
                 color = 'blue'
             if axis is None:
                 plt.clf()
                 axis = plt.subplot(111)
-                
+
             plot_as_stepped_hist(axis, data, pulseheights, color=color)
             ph_binsize = pulseheights[1]-pulseheights[0]
             axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
         # Joe's new max-likelihood fitter
-        epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, 
+        epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5,
                                params[4]/1e5, 1e-3, params[6]/1e5, params[7]/1e2))
-        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
                                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
-        
+
         for h in hold:
             fitter.hold(h)
-            
+
         fitparams, covariance = fitter.fit()
         iflag = 0
 
         fitparams[0] = abs(fitparams[0])
-        
+
         self.last_fit_params = fitparams
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
-        
-        if iflag not in (0, 2): 
+
+        if iflag not in (0, 2):
             print "Oh no! iflag=%d"%iflag
         elif plot:
             de1 = np.sqrt(covariance[2, 2])
@@ -851,7 +863,7 @@ class TwoVoigtFitter(object):
             if 0 not in hold:
                 de = np.sqrt(covariance[0, 0])
                 label += "\nGauss FWHM: %.2f +- %.2f eV"%(fitparams[0], de)
-            axis.plot(pulseheights, self.last_fit_result, color='#666666', 
+            axis.plot(pulseheights, self.last_fit_result, color='#666666',
                       label=label)
             axis.legend(loc='upper left')
         return fitparams, covariance
@@ -863,46 +875,46 @@ class LorentzianFitter(VoigtFitter):
     """Fit a single Lorentzian line, without Gaussian smearing.
     To allow Gaussian smearing, too, use VoigtFitter instead."""
 
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", 
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
             vary_bg=True, vary_bg_slope=False, hold=None):
-        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
-        
-        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters 
+
+        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters
                       normally having pulseheight units will be returned as bin numbers instead.
 
         params: a 5-element sequence of [Pulseheight of the line peak,
                 Lorenztian HALF-width at half-max, amplitude, background level (per bin),
                 and background slope (in counts per bin per bin) ]
                 If params is None or does not have 5 elements, then they will be guessed.
-        
+
         plot:   Whether to make a plot.  If not, then the next few args are ignored
-        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
                 current figure.
         color:  Color for drawing the histogram contents behind the fit.
         label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
-        
+
         vary_bg:       Whether to let a constant background level vary in the fit
         vary_bg_slope: Whether to let a slope on the background level vary in the fit
         hold:          A sequence of parameter numbers (0 to 4, inclusive) to hold.  BG
-                       or BG slope will be held if 3 or 4 appears in the hold sequence OR 
+                       or BG slope will be held if 3 or 4 appears in the hold sequence OR
                        if the relevant boolean vary_* tests False.
-        
+
         The interaction between <hold> (or its vary_* aliases) and <params> is simple if <params> is given
         as a 6-element sequence.  Otherwise, for i in [0,4,5], params[i] will be forced to 0 if the given
         parameter i is in the <hold> list.  So you can fix the resolution at 0 by vary_resolution=False.
         If you want to fix it at 2.5, then you have to give params=[2.5, u,v,w,x,y].
-        
+
         """
         if params is not None:
             params = [0] + list(params)
         if hold is not None:
             hold = [1+h for h in hold]
-        p,c = VoigtFitter.fit(self, data, pulseheights=pulseheights, params=params, 
-                              plot=plot, axis=axis, color=color, label=label, 
-                              vary_bg=vary_bg, vary_bg_slope=vary_bg_slope, 
+        p,c = VoigtFitter.fit(self, data, pulseheights=pulseheights, params=params,
+                              plot=plot, axis=axis, color=color, label=label,
+                              vary_bg=vary_bg, vary_bg_slope=vary_bg_slope,
                               hold=hold, vary_resolution=False)
-        # Remove the meaningless parameter 0 (and row/cols 0 of covariance) 
+        # Remove the meaningless parameter 0 (and row/cols 0 of covariance)
         return p[1:], c[1:,1:]
 
 
@@ -912,7 +924,7 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         self.spectraDefs = spectraDefs
         self.last_fit_params = None
         self.last_fit_result = None
-        
+
     def fitfunc(self, params, ph):
         """Return the smeared line complex.
         <params>  The 6+ parameters of the fit (see self.fit for details).
@@ -926,14 +938,14 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         for i,spectrum  in enumerate(self.spectraDefs):
             # if it crashes here you probably didnt instantiate your spectra defs... ie use MnKAlpha() not MnKAlpha
             spectrum.set_gauss_fwhm(params[0])
-            if i == 0: 
+            if i == 0:
                 ampIndex = 3
             else:
                 ampIndex = 5+i
             outSpectrum += params[ampIndex]*spectrum.pdf(energy) # probability density function
         background = abs(params[4])+params[5]*np.arange(len(energy))
-        return outSpectrum + background     
-    
+        return outSpectrum + background
+
     def guess_starting_params(self, data, binctrs):
         """We're going to hope that the difference between the two farther features is roughly 2 standard deviations
         of pulse energies"""
@@ -958,7 +970,7 @@ class SimultaneousMultiLorentzianComplexFitter(object):
             dE = np.max(self.spectraDefs[0].energies)-np.min(self.spectraDefs[0].energies) # eV difference between KAlpha peaks
         # this should be caluclated from data in the spectrumDef, but currently
         # the KAlpha object don't include the KAlpha2 energy.
-        ampl = data.max()*9.4 
+        ampl = data.max()*9.4
         res = 4.0
         if len(data) > 40:
             baseline = data[0:10].mean()
@@ -966,33 +978,33 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         else:
             baseline = 0.1
             baseline_slope = 0.0
-        param = [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope]  
+        param = [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope]
         for _ in range(len(self.spectraDefs)-1): # add elements if neccesary for relative amplitudes of each spectrumDef
             param.append(data.max())
         return param
-            
-        
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="", 
+
+
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
             vary_bg=True, vary_bg_slope=False, hold=None):
-        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
-        
-        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters 
+
+        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters
                       normally having pulseheight units will be returned as bin numbers instead.
 
         params: a 6+ element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
                 energy scale factor (pulseheight/eV), amplitude spectra 0, background level (per bin at left edge),
-                and background slope (in counts per bin per bin), amplitude spectra 1 (if it exists), 
+                and background slope (in counts per bin per bin), amplitude spectra 1 (if it exists),
                 amplitude spectra 2 (if it exists), amplitude spectra 3... ]
-                params = [res, ph_ka1_spec0, dph, amp0, bg_level, bg_slope, amp1, amp2,...] 
+                params = [res, ph_ka1_spec0, dph, amp0, bg_level, bg_slope, amp1, amp2,...]
                 If params is None or does not have 6 elements, then they will be guessed.
-        
+
         plot:   Whether to make a plot.  If not, then the next few args are ignored
-        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
                 current figure.
         color:  Color for drawing the histogram contents behind the fit.
         label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
-        
+
         vary_bg:       Whether to let a constant background level vary in the fit
         vary_bg_slope: Whether to let a slope on the background level vary in the fit
         hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  BG and BG slope will
@@ -1002,17 +1014,23 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         returns fitparams, covariance
         fitparams has same format as input variable params
         """
-        try:
-            assert len(pulseheights) == len(data)
-        except:
+        # Work with bin edges
+        if len(pulseheights) == len(data) + 1:
+            dp = pulseheights[1]-pulseheights[0]
+            pulseheights = 0.5*dp + pulseheights[:-1]
+
+        # Pulseheights doesn't make sense as bin centers, either.
+        # So just use the integers starting at zero.
+        elif len(pulseheights) != len(data):
             pulseheights = np.arange(len(data), dtype=np.float)
+
         if params == None:
             params = self.guess_starting_params(data, pulseheights)
         if params[4]==0: params[4]=1e-7 # the fitter crashes if params[4] bg_level is zero
         print 'start params'
         print params
         assert len(params) == 5+len(self.spectraDefs)
-            
+
 #            print 'Guessed parameters: ',params
 #            print 'PH range: ',pulseheights[0],pulseheights[-1]
         ph_binsize = pulseheights[1]-pulseheights[0]
@@ -1022,9 +1040,9 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         epsilon = np.ones_like(params)*params[1]/1e4
         epsilon[:6] = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
 #        print 'epsilon', epsilon
-        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params, 
+        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
                                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
-        
+
         if hold is not None:
             for h in hold:
                 fitter.hold(h)
@@ -1032,39 +1050,39 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         if not vary_bg_slope: fitter.hold(5)
 #        print 'held'
 #        print fitter.param_free
-            
+
         fitparams, covariance = fitter.fit(verbose=False)
 
         fitparams[0] = abs(fitparams[0])
-        
+
         self.last_fit_params = fitparams
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
-        
-        ## all this plot stuff should go into a seperate function then we have 
+
+        ## all this plot stuff should go into a seperate function then we have
         ## if plot: self.plotFit(self.last_fit_result, self.last_fit_params)
         if plot:
-            if color is None: 
+            if color is None:
                 color = 'blue'
             if axis is None:
                 plt.clf()
                 axis = plt.subplot(111)
                 plt.xlabel('pulseheight (arb)')
                 plt.ylabel('counts per %.3f unit bin'%ph_binsize)
-                plt.title('resolution %.3f, Ka1_ph %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams[:6]))        
+                plt.title('resolution %.3f, Ka1_ph %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams[:6]))
                 plot_as_stepped_hist(axis, data, pulseheights, color=color)
                 axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
             de = np.sqrt(covariance[0, 0])
-            axis.plot(pulseheights, self.last_fit_result, color='#666666', 
+            axis.plot(pulseheights, self.last_fit_result, color='#666666',
                       label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.legend(loc='upper left')
         return fitparams, covariance
 
-        
+
 # Galen 20130208: I think this could be completly replaced by SimultaneousMultiLorentzianCompleFitter
 class MultiLorentzianComplexFitter(object):
     """Abstract base class for objects that can fit a spectral line complex.
-    
+
     Provides methods fitfunc() and fit().  The child classes must provide:
     * a self.spect function object returning the spectrum at a given energy, and
     * a self.guess_starting_params method to return fit parameter guesses given a histogram.
@@ -1075,8 +1093,8 @@ class MultiLorentzianComplexFitter(object):
         self.last_fit_params = None
         self.last_fit_cov = None
         self.last_fit_result = None
-        
-    
+
+
     ## Compute the smeared line complex.
     #
     # @param params  The 6 parameters of the fit (see self.fit for details).
@@ -1084,29 +1102,29 @@ class MultiLorentzianComplexFitter(object):
     # @return:       The line complex intensity, including resolution smearing.
     def fitfunc(self, params, x):
         """Return the smeared line complex.
-        
+
         <params>  The 6 parameters of the fit (see self.fit for details).
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
         """
         E_peak = self.spect.peak_energy
-        
+
         energy = (x-params[1])/abs(params[2]) + E_peak
         self.spect.set_gauss_fwhm(abs(params[0]))
         spectrum = self.spect.pdf(energy)
         nbins = len(x)
         return spectrum * abs(params[3]) + abs(params[4]) + params[5]*np.arange(nbins)
-    
 
-    
+
+
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
             vary_bg=True, vary_bg_slope=False, hold=None):
-        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the 
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
-        
+
         pulseheights: the histogram bin centers or edges.  This will be inferred by whether
                       its length is equal to or one more than the length of data.
-                      If pulseheights is None, then the parameters 
+                      If pulseheights is None, then the parameters
                       normally having pulseheight units will be returned as bin numbers instead.
 
         params: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
@@ -1116,11 +1134,11 @@ class MultiLorentzianComplexFitter(object):
                 If params is a 6 element list, all elements with value None will be guessed.
 
         plot:   Whether to make a plot.  If not, then the next few args are ignored
-        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the 
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
                 current figure.
         color:  Color for drawing the histogram contents behind the fit.
         label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
-        
+
         vary_bg:       Whether to let a constant background level vary in the fit
         vary_bg_slope: Whether to let a slope on the background level vary in the fit
         hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  BG and BG slope will
@@ -1130,14 +1148,15 @@ class MultiLorentzianComplexFitter(object):
         returns fitparams, covariance
         fitparams has same format as input variable params
         """
-        
-        try:
-            if len(pulseheights) == len(data) + 1:
-                dp = pulseheights[1]-pulseheights[0]
-                pulseheights = 0.5*dp + pulseheights[:-1]
-            else:
-                assert len(pulseheights) == len(data)
-        except:
+
+        # Work with bin edges
+        if len(pulseheights) == len(data) + 1:
+            dp = pulseheights[1]-pulseheights[0]
+            pulseheights = 0.5*dp + pulseheights[:-1]
+
+        # Pulseheights doesn't make sense as bin centers, either.
+        # So just use the integers starting at zero.
+        elif len(pulseheights) != len(data):
             pulseheights = np.arange(len(data), dtype=np.float)
 
         guess_params = self.guess_starting_params(data, pulseheights)
@@ -1151,48 +1170,48 @@ class MultiLorentzianComplexFitter(object):
         # Joe's max-likelihood MLfitter
         epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
         MLfitter = MaximumLikelihoodHistogramFitter(
-                    pulseheights, data, params, 
+                    pulseheights, data, params,
                     self.fitfunc, TOL=1e-4, epsilon=epsilon)
-        
+
         if hold is not None:
             for h in hold:
                 MLfitter.hold(h)
         if not vary_bg: MLfitter.hold(4)
         if not vary_bg_slope: MLfitter.hold(5)
-            
+
         fitparams, covariance = MLfitter.fit()
         iflag = 0
 
         fitparams[0] = abs(fitparams[0])
-        
+
         self.last_fit_params = fitparams
         self.last_fit_cov = covariance
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
-        
-        ## all this plot stuff should go into a seperate function then we have 
+
+        ## all this plot stuff should go into a seperate function then we have
         ## if plot: self.plotFit(self.last_fit_result, self.last_fit_params)
         if plot:
-            if color is None: 
+            if color is None:
                 color = 'blue'
             if axis is None:
                 plt.clf()
                 axis = plt.subplot(111)
                 plt.xlabel('pulseheight (arb) - %s'%self.spect.name)
                 plt.ylabel('counts per %.3f unit bin'%ph_binsize)
-                plt.title('resolution %.3f, amplitude %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams))        
+                plt.title('resolution %.3f, amplitude %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams))
             plot_as_stepped_hist(axis, data, pulseheights, color=color)
             axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
 
-#        if iflag not in (1,2,3,4): 
-        if iflag not in (0, 2): 
+#        if iflag not in (1,2,3,4):
+        if iflag not in (0, 2):
             print "Oh no! iflag=%d"%iflag
         elif plot:
             de = np.sqrt(covariance[0, 0])
-            axis.plot(pulseheights, self.last_fit_result, color='#666666', 
+            axis.plot(pulseheights, self.last_fit_result, color='#666666',
                       label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
             axis.legend(loc='upper left')
-        
-        # Fix negative amplitudes and/or background 
+
+        # Fix negative amplitudes and/or background
         if fitparams[3] < 0:
             fitparams[3] = -fitparams[3]
             covariance[3,:] *= -1
@@ -1201,7 +1220,7 @@ class MultiLorentzianComplexFitter(object):
             fitparams[4] = -fitparams[4]
             covariance[4,:] *= -1
             covariance[:,4] *= -1
-            
+
         return fitparams, covariance
 
 
@@ -1230,7 +1249,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         dE = 11.1 # eV difference between KAlpha peaks
         # this should be caluclated from data in the spectrumDef, but currently
         # the KAlpha object don't include the KAlpha2 energy.
-        ampl = data.max() *9.4 
+        ampl = data.max() *9.4
         res = 4.0
         if len(data) > 20:
             baseline = data[0:10].mean()
@@ -1239,17 +1258,17 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
             baseline = 0.1
             baseline_slope = 0.0
         return [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope]
-    
-    
+
+
 class GenericKBetaFitter(MultiLorentzianComplexFitter):
     def __init__(self, spectrumDef=MnKBeta):
         """ """
         ## Spectrum function object
         self.spect = spectrumDef
-        MultiLorentzianComplexFitter.__init__(self) 
+        MultiLorentzianComplexFitter.__init__(self)
     def guess_starting_params(self, data, binctrs):
         """If the cuts are tight enough, then we can estimate the locations of the
-        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma).""" 
+        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
         n = data.sum()
         sum_d = (data*binctrs).sum()
 #        sum_d2 = (data*binctrs*binctrs).sum()
@@ -1266,7 +1285,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
             baseline = 0.1
             baseline_slope = 0.0
         return [res, ph_peak, 1.0, ampl, baseline, baseline_slope]
-    
+
 ## create specific KAlpha Fitters
 class _lowZ_KAlphaFitter(GenericKAlphaFitter):
     def guess_starting_params(self, data, binctrs):
@@ -1280,7 +1299,7 @@ class _lowZ_KAlphaFitter(GenericKAlphaFitter):
         baseline, baseline_slope = 1.0, 0.0
         ampl = 4*np.max(data)
         return [res, ph_ka1, dph_de, ampl, baseline, baseline_slope]
-    
+
 class AlKAlphaFitter(_lowZ_KAlphaFitter):
     def __init__(self):
         _lowZ_KAlphaFitter.__init__(self, AlKAlpha())
@@ -1315,7 +1334,7 @@ class NiKAlphaFitter(GenericKAlphaFitter):
 class CuKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, CuKAlpha())
-        
+
 ## create specific KBeta Fitters
 class TiKBetaFitter(GenericKBetaFitter):
     def __init__(self):
@@ -1355,7 +1374,7 @@ def plot_allMultiLorentzianLineComplexs():
     plot_multiLorentzianLineComplex(CoKAlpha)
     plot_multiLorentzianLineComplex(NiKAlpha)
     plot_multiLorentzianLineComplex(CuKAlpha)
-    
+
     plot_multiLorentzianLineComplex(TiKBeta)
     plot_multiLorentzianLineComplex(VKBeta)
     plot_multiLorentzianLineComplex(CrKBeta)
@@ -1364,13 +1383,13 @@ def plot_allMultiLorentzianLineComplexs():
     plot_multiLorentzianLineComplex(CoKBeta)
     plot_multiLorentzianLineComplex(NiKBeta)
     plot_multiLorentzianLineComplex(CuKBeta)
-    
+
 
 def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha, instrumentGaussianSigma = 0):
     """Makes a single plot showing the lineshape and component parts for a SpectalLine object"""
     peak = spectrumDef().peak_energy
     plotEnergies = np.arange(np.round(0.995*peak),np.round(1.008*peak),0.25)
-    
+
     plt.figure()
     result = np.zeros_like(plotEnergies)
     for energy, fwhm, ampl in zip(spectrumDef.energies, spectrumDef.fwhm, spectrumDef.integral_intensity):
@@ -1385,16 +1404,16 @@ def plot_multiLorentzianLineComplex(spectrumDef = CrKAlpha, instrumentGaussianSi
     plt.ylim((0,np.max(result)))
     plt.show()
 
-def plot_spectrum(spectrum=MnKAlpha(), 
-                  resolutions=(2, 3, 4, 5, 6, 7, 8, 10, 12), 
+def plot_spectrum(spectrum=MnKAlpha(),
+                  resolutions=(2, 3, 4, 5, 6, 7, 8, 10, 12),
                   energy_range=(5870, 5920), stepsize=0.05):
     """Plot a spectrum at several different resolutions.
-    
+
     <spectrum>    A callable that accepts a vector of energies and returns
                   the matching probability distribution function.
     <resolutions> A sequence of energy resolution (FWHM) to be stepped through.
     <energy_range> The (min,max) energy to be plotted.
-    <stepsize>    The plotting step size in energy units.  
+    <stepsize>    The plotting step size in energy units.
     """
     if resolutions is None:
         resolutions = (2, 3, 4, 5, 6, 7, 8, 10, 12)
@@ -1415,12 +1434,12 @@ def plot_spectrum(spectrum=MnKAlpha(),
         smeared_spectrum /= smeared_spectrum.max()
         smeared_spectrum *= (1+res*.01)
         plt.plot(e, smeared_spectrum, label="%2d eV"%res, lw=2)
-        
+
         # Find the peak, valley, peak
         if spectrum.name == 'Titanium K-alpha':
             epk2, evalley, epk1 = 4504.91, 4507.32, 4510.90
         elif spectrum.name == 'Chromium K-alpha':
-            epk2, evalley, epk1 = 5405.55, 5408.87, 5414.81 
+            epk2, evalley, epk1 = 5405.55, 5408.87, 5414.81
         elif spectrum.name == 'Manganese K-alpha':
             epk2, evalley, epk1 = 5887.70, 5892.0, 5898.801
         elif spectrum.name == 'Iron K-alpha':
@@ -1431,17 +1450,17 @@ def plot_spectrum(spectrum=MnKAlpha(),
             epk2, evalley, epk1 = 8027.89, 8036.6, 8047.83
         else:
             continue
-        
+
         p1 = smeared_spectrum[np.abs(e-epk1)<2].max()
         if res < 8.12:
             pk2 = smeared_spectrum[np.abs(e-epk2)<2].max()
             pval = smeared_spectrum[np.abs(e-evalley)<3].min()
-            print "Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2/p1, pval/pk2) 
-        
+            print "Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2/p1, pval/pk2)
+
     plt.xlim(energy_range)
     plt.ylim([0, 1.13])
     plt.legend(loc='upper left')
-    
+
     plt.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrum.name)
     plt.xlabel("Energy (eV)")
     plt.ylabel("Intensity (arb.)")

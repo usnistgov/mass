@@ -1,13 +1,14 @@
-export 
+export
 LJHHeader,
 LJHFile,
+LJHRewind,
 fileRecords,
 fileData
 
 ###############################################################################
 # DATA STRUCTURES
 ###############################################################################
- 
+
 # LJH file header information (keeping only the necessary elements)
 immutable LJHHeader
     filename         ::String
@@ -17,6 +18,7 @@ immutable LJHHeader
     timestampOffset  ::Float64
     date             ::String
     headerSize       ::Int64
+    channum          ::Uint16
 end
 
 
@@ -36,20 +38,21 @@ immutable LJHFile
     npre             ::Int64         # npresamples
     nsamp            ::Int64         # nsamples per record
     reclength        ::Int64         # record length (bytes)
+    channum          ::Uint16        # channel number
 
     function LJHFile(name::ASCIIString)
         hd = readLJHHeader(name)
         dt = hd.timebase
         pre = hd.npresamples
         tot = hd.nsamples
+        channum = hd.channum
         datalen = stat(name).size - hd.headerSize
         reclen = LJH_RECORD_HDR_SIZE+LJH_DATA_SIZE*tot
-        #assert((datalen%reclen)==0) # Might not be a good idea?  jwf
         nrec = div(datalen,reclen)
 
         str = open(name)
         seek(str,hd.headerSize)
-        new(name, str, hd, nrec, dt, pre, tot, reclen)
+        new(name, str, hd, nrec, dt, pre, tot, reclen, channum)
     end
 end
 
@@ -57,7 +60,7 @@ end
 ###############################################################################
 # FILE-READING FUNCTIONS
 ###############################################################################
- 
+
 # Get pertinent information from LJH file header and return it as LJHHeader
 # filename = path to the LJH file
 # Returns: new LJHHeader object.
@@ -65,12 +68,21 @@ function readLJHHeader(filename::String)
     str=open(filename)
     labels={"base"   =>"Timebase:",
             "date"   =>"Date:",
+            "date1"  =>"File First Record Time:",
             "end"    =>"#End of Header",
             "offset" =>"Timestamp offset (s):",
             "pre"    =>"Presamples: ",
-            "tot"    =>"Total Samples: "}
+            "tot"    =>"Total Samples: ",
+            "channum"=>"Channel: "}
     nlines=0
     maxnlines=100
+    date = "unknown" # If header standard for date labels changes, we don't want a hard error
+
+    # Read channel # from the file name, then update that result from the header, if it exists.
+    channum = uint16(-1)
+    m = match(r"_chan\d+", filename)
+    channum = uint16(m.match[6:end])
+
     while nlines<maxnlines
         line=readline(str)
         nlines+=1
@@ -78,17 +90,21 @@ function readLJHHeader(filename::String)
             headerSize = position(str)
             close(str)
             return(LJHHeader(filename,npresamples,nsamples,
-                             timebase,timestampOffset,date,headerSize))
+                             timebase,timestampOffset,date,headerSize,channum))
         elseif beginswith(line,labels["base"])
-            timebase = float64(line[1+length(labels["base"]):])
-        elseif beginswith(line,labels["date"])
+            timebase = float64(line[1+length(labels["base"]):end])
+        elseif beginswith(line,labels["date"]) # Old LJH files
             date = line[7:end-2]
+        elseif beginswith(line,labels["date1"])# Newer LJH files
+            date = line[25:end-2]
+        elseif beginswith(line,labels["channum"])# Newer LJH files
+            channum = uint16(line[10:end])
         elseif beginswith(line,labels["offset"])
-            timestampOffset = float64(line[1+length(labels["offset"]):])
+            timestampOffset = float64(line[1+length(labels["offset"]):end])
         elseif beginswith(line,labels["pre"])
-            npresamples = int64(line[1+length(labels["pre"]):])
+            npresamples = int64(line[1+length(labels["pre"]):end])
         elseif beginswith(line,labels["tot"])
-            nsamples = int64(line[1+length(labels["tot"]):])
+            nsamples = int64(line[1+length(labels["tot"]):end])
         end
     end
     error("read_LJH_header: where's '$(labels["end"])' ?")
@@ -96,7 +112,7 @@ end
 
 
 
-# Read the next nrec records and for each return time and samples 
+# Read the next nrec records and for each return time and samples
 # (error if eof occurs or insufficient space in times or data)
 function fileRecords(f::LJHFile, nrec::Integer,
                      times::Vector{Uint64}, data::Matrix{Uint16})
@@ -107,6 +123,10 @@ function fileRecords(f::LJHFile, nrec::Integer,
     end
 end
 
+
+function LJHRewind(f::LJHFile)
+    seek(f.str, f.header.headerSize)
+end
 
 
 # Read specific record numbers and for each return time and samples;
@@ -166,7 +186,7 @@ function recordHeader(t::Uint64, header::Vector{Uint8})
 end
 
 
-    
+
 # Given a time, return a valid 6-byte LJH record header (LJH version 2.1.)
 # Note that record headers have only 4 us least-bit resolution.
 # t = record start time in microseconds since the file's header.timestampOffset
