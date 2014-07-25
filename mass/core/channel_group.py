@@ -20,12 +20,11 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
-__all__=['TESGroup','RestoreTESGroup','CrosstalkVeto', 'unpickle_TESGroup']
+__all__=['TESGroup','RestoreTESGroup','CrosstalkVeto']
 
 import numpy as np
 import pylab as plt
 import os
-import cPickle
 import h5py
 
 import mass.calibration
@@ -95,7 +94,6 @@ class TESGroup(object):
     """
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
-                 auto_pickle=True,
                  hdf5_filename=None, hdf5_noisefilename=None):
 
         if noise_filenames is not None and len(noise_filenames)==0:
@@ -155,16 +153,16 @@ class TESGroup(object):
             self.colors=('purple',"blue","cyan","green","gold",BRIGHTORANGE,"red","brown")
 
         if self.noise_only:
-            self._setup_per_channel_objects_noiseonly(noise_is_continuous, auto_pickle)
+            self._setup_per_channel_objects_noiseonly(noise_is_continuous)
         else:
-            self._setup_per_channel_objects(noise_is_continuous, auto_pickle)
+            self._setup_per_channel_objects(noise_is_continuous)
 
         if max_cachesize is not None:
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
                 self.set_segment_size(max_cachesize / self.n_channels)
 
 
-    def _setup_per_channel_objects(self, noise_is_continuous=True, auto_pickle=True):
+    def _setup_per_channel_objects(self, noise_is_continuous=True):
         pulse_list = []
         noise_list = []
         dset_list = []
@@ -177,8 +175,7 @@ class TESGroup(object):
                 hdf5_group.attrs['filename'] = fname
             except:
                 hdf5_group = None
-            dset = mass.channel.MicrocalDataSet(pulse.__dict__, auto_pickle=auto_pickle,
-                                                hdf5_group=hdf5_group)
+            dset = mass.channel.MicrocalDataSet(pulse.__dict__, hdf5_group=hdf5_group)
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
@@ -238,7 +235,7 @@ class TESGroup(object):
                 break
 
 
-    def _setup_per_channel_objects_noiseonly(self, noise_is_continuous=True, auto_pickle=True):
+    def _setup_per_channel_objects_noiseonly(self, noise_is_continuous=True):
         noise_list = []
         dset_list = []
         for fname in self.noise_filenames:
@@ -251,8 +248,7 @@ class TESGroup(object):
             except:
                 hdf5_group = None
 
-            dset = mass.channel.MicrocalDataSet(noise.__dict__, auto_pickle=auto_pickle,
-                                                hdf5_group=hdf5_group)
+            dset = mass.channel.MicrocalDataSet(noise.__dict__, hdf5_group=hdf5_group)
             dset.noise_records = noise
             noise_list.append(noise)
             dset_list.append(dset)
@@ -1215,46 +1211,6 @@ class TESGroup(object):
             ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
 
 
-    def pickle_datasets(self):
-        for ds in self:
-            ds.pickle()
-
-
-    def pickle(self, filename=None, dirname=None):
-        """Pickle the object by pickling its important contents
-           <filename>    The output pickle name.  If not given, then it will be the data file name
-                         with the suffix replaced by '.pkl' and in a subdirectory mass under the
-                         main file's location."""
-
-        if filename is None:
-            ljhfilename = self.first_good_dataset.filename
-            ljhbasename = ljhfilename.split("_chan")[0]
-            basedir = os.path.dirname(ljhfilename)
-            if dirname is None:
-                dirname = basedir
-            massdir = os.path.join(dirname,'mass')
-            if not os.path.isdir(massdir):
-                os.mkdir(massdir, 0775)
-            filename = os.path.join(massdir, os.path.basename(ljhbasename+"_mass.pkl"))
-
-        fp = open(filename, "wb")
-        pickler = cPickle.Pickler(fp, protocol=2)
-        pickler.dump(self.noise_only)
-        pickler.dump(self._bad_channums)
-        filenames = [ds.filename for ds in self.iter_channels(include_badchan=True)]
-        pickler.dump(filenames)
-        if self.noise_filenames is None:
-            noise_filenames = None
-        else:
-            noise_filenames = [ds.noise_records.filename for ds in
-                               self.iter_channels(include_badchan=True)]
-        pickler.dump(noise_filenames)
-        fp.close()
-        print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
-        for ds in self.datasets:
-            ds.pickle()
-
-
     def apply_cuts(self, cuts, forceNew=True):
         for ds in self:
             ds.apply_cuts(cuts, forceNew)
@@ -1375,48 +1331,6 @@ def _replace_path(fnames, newpath):
         _,name = os.path.split(f)
         result.append(os.path.join(newpath,name))
     return result
-
-
-def unpickle_TESGroup(filename, rawpath=None, inclusion_list=None):
-    """
-    Factory function to unpickle a TESGroup pickled by its .pickle() method.
-    <filename>   The pickle file containing the group information.  (It's expected
-                 that the per-channel pickle files will live in the standard place.)
-    <rawpath>    If None, then assume the raw files live at the path indicated in the
-                 pickle file.  Otherwise, they live in <rawpath>.
-    <inclusion_list> A list of channel numbers to include in the result.  If None,
-                 then all channels are included.
-
-    Returns a valid TESGroup object.  I hope.
-    """
-    if not filename[-8:] == 'mass.pkl':
-        baseDir, fName = os.path.split(filename)
-        massDir = os.path.join(baseDir, 'mass/')
-        massFilename = fName.replace(fName[fName.rfind('chan'):],'mass.pkl')
-        massFilename = os.path.join(massDir, massFilename)
-        print('unpickle_TESGroup given %s, found %s'%(filename, massFilename))
-        filename = massFilename
-
-    fp = open(filename, "rb")
-    unpickler = cPickle.Unpickler(fp)
-    noise_only = unpickler.load()
-    bad_channums = unpickler.load()
-    filenames = _sort_filenames_numerically(unpickler.load(), inclusion_list)
-    noise_filenames = _sort_filenames_numerically(unpickler.load(), inclusion_list)
-    if rawpath is not None:
-        filenames = _replace_path(filenames, rawpath)
-        noise_filenames = _replace_path(noise_filenames, rawpath)
-
-    data = TESGroup(filenames, noise_filenames, noise_only=noise_only)
-    data.set_chan_bad(bad_channums, 'was bad when saved')
-    printUpdater = InlineUpdater('unpickle_TESGroup')
-    for ds in data.datasets:
-        printUpdater.update((ds.index+1)/float(len(data.datasets)))
-        ds.unpickle()
-
-    return data
-
-
 
 
 

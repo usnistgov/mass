@@ -9,9 +9,6 @@ __all__=['NoiseRecords', 'PulseRecords', 'Cuts', 'MicrocalDataSet']
 import numpy as np
 import scipy as sp
 import pylab as plt
-import os.path
-
-import cPickle
 
 # MASS modules
 #import mass.mathstat
@@ -500,12 +497,6 @@ class PulseRecords(object):
         return c
 
 
-    def serialize(self, serialfile):
-        """Store object in a pickle file"""
-        fp = open(serialfile, "wb")
-        cPickle.dump(self, fp, protocol=2)
-        fp.close()
-
 
 class Cuts(object):
     "Object to hold a 32-bit cut mask for each triggered record."
@@ -591,13 +582,12 @@ class MicrocalDataSet(object):
     HDF5_CHUNK_SIZE = 256
 
 
-    def __init__(self, pulserec_dict, auto_pickle = True, hdf5_group=None):
+    def __init__(self, pulserec_dict, hdf5_group=None):
         """
         Pass in a dictionary (presumably that of a PulseRecords object)
         containing the expected attributes that must be copied to this
         MicrocalDataSet.
         """
-        self.auto_pickle = auto_pickle
         self.filter = None
         self.lastUsedFilterHash = -1
         self.drift_correct_info = {}
@@ -624,8 +614,6 @@ class MicrocalDataSet(object):
         except KeyError:
             self.hdf5_group = None
         self.__setup_vectors(npulses=self.nPulses)
-        if self.auto_pickle:
-            self.unpickle()
 
 
 
@@ -710,90 +698,6 @@ class MicrocalDataSet(object):
         return c
 
 
-    def pickle(self, filename=None, verbose=True):
-        """Pickle the _contents_ of the MicrocalDataSet object.
-        <filename>    The output pickle name.  If not given, then it will be the data file name
-                      with the suffix replaced by '.pkl' and in a subdirectory mass under the
-                      main file's location."""
-
-        if filename is None:
-            basedir = os.path.dirname(self.filename)
-            massdir = os.path.join(basedir, "mass")
-            if not os.path.isdir(massdir):
-                os.mkdir(massdir, 0775)
-            filename = os.path.join(massdir, "%s.pkl"%os.path.basename(self.filename))
-
-        fp = open(filename, "wb")
-        pickler = cPickle.Pickler(fp, protocol=2)
-
-        # Pickle the self.expected_attributes
-        exp_at = {}
-        for k in self.expected_attributes:
-            exp_at[k] = self.__dict__[k]
-        pickler.dump(exp_at)
-
-        # Pickle the cuts mask
-        pickler.dump(self.cuts._mask)
-
-        # Pickle all attributes noise_*, p_*, peak_time_microsec, pretrigger_*, timebase, times
-        # Approach is to dump the attribute NAME then value.
-        attr_starts = ("pretrigger_",)
-        attr_names = ("peak_time_microsec", "timebase", "times", "average_pulse",
-                      "calibration", "drift_correct_info", "phase_correct_info", "filter",
-                      "pumped_band_knowledge")
-        for attr in self.__dict__:
-            store_this_attr = attr in attr_names
-            for ast in attr_starts:
-                if attr.startswith(ast):
-                    store_this_attr = True
-                    break
-            if store_this_attr:
-                pickler.dump(attr)
-                pickler.dump(self.__dict__[attr])
-        fp.close()
-        if verbose:
-            print "Stored %9d bytes %s"%(os.stat(filename).st_size, filename)
-
-
-    def unpickle(self, filename=None):
-        """
-        Unpickle a MicrocalDataSet pickled by its .pickle() method.
-
-        Data structure must be:
-        1. A dictionary with simple values, whose keys include at least all strings in
-           the tuple MicrocalDataSet.expected_attributes.
-        2. The dataset cuts._mask
-        3. Any string.  If #4 also loads, then this will be the attribute name.
-        4. Any pickleable object.  This will become an attribute value
-           (prev item gives its name)
-        ... Repeat items (3,4) as needed to load all attribute (name,value) pairs.
-        """
-        if filename is None:
-            basedir = os.path.dirname(self.filename)
-            massdir = os.path.join(basedir, "mass")
-            if not os.path.isdir(massdir):
-                os.mkdir(massdir, 0775)
-            filename = os.path.join(massdir, "%s.pkl"%os.path.basename(self.filename))
-        if not os.path.isfile(filename):
-            return
-
-        fp = open(filename, "rb")
-        unpickler = cPickle.Unpickler(fp)
-        # ignore the expected_attr and the cuts mask
-        _expected_attr = unpickler.load()
-        _ = unpickler.load()
-        #self.cuts._mask = unpickler.load()
-        try:
-            while True:
-                try:
-                    k = unpickler.load()
-                    v = unpickler.load()
-                except TypeError:
-                    continue
-                self.__dict__[k] = v
-        except (EOFError, cPickle.UnpicklingError):
-            pass
-        fp.close()
 
     def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
@@ -814,8 +718,7 @@ class MicrocalDataSet(object):
             self._summarize_data_segment(first, end, peak_time_microsec, pretrigger_ignore_microsec)
             printUpdater.update((s+1)/float(self.pulse_records.n_segments))
         self.pulse_records.datafile.clear_cached_segment()
-        if self.auto_pickle:
-            self.pickle(verbose=False)
+        self.hdf5_group.file.flush()
 
 
     def _summarize_data_segment(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
@@ -885,8 +788,7 @@ class MicrocalDataSet(object):
             printUpdater.update((end+1)/float(self.nPulses))
 
         self.pulse_records.datafile.clear_cached_segment()
-        if self.auto_pickle:
-            self.pickle(verbose=False)
+        self.hdf5_group.file.flush()
 
 
     def _filter_data_segment(self, filter_values, first, end, transform=None):
@@ -1141,10 +1043,9 @@ class MicrocalDataSet(object):
 
         # Apply correction
         ptm_offset = self.drift_correct_info['median_pretrig_mean']
-        gain = 1+(self.p_pretrig_mean-ptm_offset)*drift_corr_param
-        self.p_filt_value_dc = self.p_filt_value*gain
-        if self.auto_pickle:
-            self.pickle(verbose=False)
+        gain = 1+(self.p_pretrig_mean[:]-ptm_offset)*drift_corr_param
+        self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
+        self.hdf5_group.file.flush()
 
 
     def phase_correct2014(self, typical_resolution, maximum_num_records = 50000, plot=False, forceNew=False):
@@ -1271,8 +1172,7 @@ class MicrocalDataSet(object):
                  plot_on_fail,max_num_clusters, max_pulses_for_dbscan)
         cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
         self.calibration[calname]=cal
-        if self.auto_pickle:
-            self.pickle(verbose=False)
+        self.hdf5_group.file.flush()
 
 
     def convert_to_energy(self, attr, calname=None):
@@ -1482,35 +1382,3 @@ class MicrocalDataSet(object):
         print("%d pulses total"%self.nPulses)
 
 
-
-################################################################################################
-
-
-def unpickle_MicrocalDataSet(filename):
-    """
-    Factory function to unpickle a MicrocalDataSet pickled by its .pickle() method.
-    Note that you might be better off creating a MicrocalDataSet the usual way, then
-    loading it with its .unpickle() method.
-
-    Data structure must be:
-    1. A dictionary with simple values, whose keys include at least all strings in
-       the tuple MicrocalDataSet.expected_attributes.
-    2. The dataset cuts._mask
-    3. Any string.  If #4 also loads, then this will be the attribute name.
-    4. Any pickleable object.  This will become an attribute value (prev item gives its name)
-    ... Repeat items (3,4) as many times as necessary to load attribute (name,value) pairs.
-    """
-    fp = open(filename, "rb")
-    unpickler = cPickle.Unpickler(fp)
-    expected_attr = unpickler.load()
-    ds = MicrocalDataSet(expected_attr)
-    ds.cuts._mask = unpickler.load()
-    try:
-        while True:
-            k = unpickler.load()
-            v = unpickler.load()
-            ds.__dict__[k] = v
-    except EOFError:
-        pass
-    fp.close()
-    return ds
