@@ -1236,7 +1236,10 @@ class TESGroup(object):
     def phase_correct2014(self, typical_resolution, maximum_num_records = 50000,
                           plot=False, forceNew=False):
         for ds in self:
-            ds.phase_correct2014(typical_resolution, maximum_num_records, plot, forceNew)
+            try:
+                ds.phase_correct2014(typical_resolution, maximum_num_records, plot, forceNew)
+            except:
+                self.set_chan_bad(ds.channum, "failed phase_correct2014")
 
 
     def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10,

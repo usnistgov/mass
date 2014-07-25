@@ -1063,22 +1063,21 @@ class MicrocalDataSet(object):
         if forceNew or doesnt_exist:
             data,g = self.first_n_good_pulses(maximum_num_records)
             print("channel %d doing phase_correct2014 with %d good pulses"%(self.channum, data.shape[0]))
-            prompt = self.p_promptness
+            prompt = self.p_promptness[:]
 
             dataFilter = self.filter.filt_noconst
             tc = mass.core.analysis_algorithms.FilterTimeCorrection(
-                    data, prompt[:][g], self.p_pulse_rms[:][g], dataFilter,
+                    data, prompt[g], self.p_pulse_rms[:][g], dataFilter,
                     self.nPresamples, typicalResolution=typical_resolution)
 
             self.p_filt_value_phc = self.p_filt_value_dc - tc(prompt, self.p_pulse_rms)
+            if plot:
+                plt.clf()
+                g = self.cuts.good()
+                plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
+                plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
         else:
             print("channel %d skipping phase_correct2014"%self.channum)
-
-        if plot:
-            plt.clf()
-            g = self.cuts.good()
-            plt.plot(prompt[:][g], self.p_filt_value_dc[:][g], 'g.')
-            plt.plot(prompt[:][g], self.p_filt_value_phc[:][g], 'b.')
 
 
     def first_n_good_pulses(self, n=50000):
