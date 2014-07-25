@@ -16,6 +16,9 @@ import mass.mathstat.power_spectrum
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
 from mass.calibration import young
+import ljh_util
+import cPickle
+from os import path
 
 class NoiseRecords(object):
     """
@@ -1158,6 +1161,10 @@ class MicrocalDataSet(object):
 
     def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10, min_counts_per_cluster=20,
                   fit_range_ev=200, excl=(), plot_on_fail=False,max_num_clusters=np.inf,max_pulses_for_dbscan=1e5, forceNew=False):
+        pkl_fname = ljh_util.mass_folder_from_ljh_fname(self.filename,filename="ch%d_calibration.pkl"%self.channum)
+        if path.isfile(pkl_fname):
+            with open(pkl_fname,"r") as file:
+                self.calibration = cPickle.load(file)
         calname = attr+name_ext
         if self.calibration.has_key(calname):
             cal = self.calibration[calname]
@@ -1171,8 +1178,8 @@ class MicrocalDataSet(object):
                  plot_on_fail,max_num_clusters, max_pulses_for_dbscan)
         cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
         self.calibration[calname]=cal
-        self.hdf5_group.file.flush()
-
+        with open(pkl_fname, "w") as file:
+            cPickle.dump(self.calibration, file)
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None: calname = attr
