@@ -555,7 +555,7 @@ class TESGroup(object):
             ("p_pretrig_rms", 'Pretrig RMS', 'blue', [0,4000]),
             ("p_pretrig_mean", 'Pretrig Mean', 'green', None),
             ("p_peak_value", 'Peak value', '#88cc00',None),
-            ("p_max_posttrig_deriv", 'Max PT deriv', 'gold', [0,700]),
+            ("p_postpeak_deriv", 'Max PT deriv', 'gold', [0,700]),
             ("p_rise_time*1e3", 'Rise time (ms)', 'orange', [0,12]),
             ("p_peak_time*1e3", 'Peak time (ms)', 'red', [-3,9])
           )
@@ -667,7 +667,7 @@ class TESGroup(object):
         <max_ptrms>      When <cut_crosstalk>, we can also mask out events where any other channel
                          has p_pretrig_rms exceeding <max_ptrms>
         <max_post_deriv> When <cut_crosstalk>, we can also mask out events where any other channel
-                         has p_max_posttrig_deriv exceeding <max_post_deriv>
+                         has p_postpeak_deriv exceeding <max_post_deriv>
         """
 
         masks = []
@@ -709,7 +709,7 @@ class TESGroup(object):
                         if max_post_deriv is not None:
                             for ds in self.datasets:
                                 if ds==dataset: continue
-                                m = np.logical_and(m, ds.p_max_posttrig_deriv < max_post_deriv)
+                                m = np.logical_and(m, ds.p_postpeak_deriv < max_post_deriv)
                     m = np.logical_and(m, dataset.cuts.good())
                     masks.append(m)
 
@@ -730,7 +730,7 @@ class TESGroup(object):
                         if max_post_deriv is not None:
                             for ds in self.datasets:
                                 if ds==dataset: continue
-                                m = np.logical_and(m, ds.p_max_posttrig_deriv < max_post_deriv)
+                                m = np.logical_and(m, ds.p_postpeak_deriv < max_post_deriv)
                     m = np.logical_and(m, dataset.cuts.good())
                     masks.append(m)
         else:
@@ -1368,7 +1368,7 @@ class CrosstalkVeto(object):
             for t in vetotimes:
                 self.nhits[t+a:t+b] += 1
 
-            pileuptimes = vetotimes[ds.p_max_posttrig_deriv[g]>pileup_limit]
+            pileuptimes = vetotimes[ds.p_postpeak_deriv[g]>pileup_limit]
             print len(pileuptimes)
             for t in pileuptimes:
                 self.nhits[t+b:t+b+8] += 1

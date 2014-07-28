@@ -90,7 +90,7 @@
        </item>
        <item>
         <property name="text">
-         <string>4: Max Posttrig dp/dt</string>
+         <string>4: Max Post-peak dp/dt</string>
         </property>
        </item>
        <item>
