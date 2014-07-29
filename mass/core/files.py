@@ -352,8 +352,8 @@ class LJHFile(MicrocalFile):
         return first, end, self.data
 
     def clear_cached_segment(self):
-        del(self.data)
-        del(self.datatimes_float)
+        if hasattr(self, "data"): del(self.data)
+        if hasattr(self, "datatimes_float"): del(self.datatimes_float)
         self.__cached_segment = None
 
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
