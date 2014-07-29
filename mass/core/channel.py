@@ -422,6 +422,8 @@ class PulseRecords(object):
         self.cuts = None
         self.bad = None
         self.good = None
+        self.data = np.array([],ndmin=2)
+        self.times = np.array([],ndmin=2)
 
 
     def __open_file(self, filename, file_format=None):

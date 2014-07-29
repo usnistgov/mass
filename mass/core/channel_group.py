@@ -670,6 +670,9 @@ class TESGroup(object):
                          has p_postpeak_deriv exceeding <max_post_deriv>
         """
 
+        for ds in self:
+            if ds.nPulses == 0: self.set_chan_bad(ds.channum, "has 0 pulses")
+
         masks = []
         if use_gains:
             if gains is None:
@@ -804,18 +807,19 @@ class TESGroup(object):
             for imask,mask in enumerate(masks):
                 valid = mask[first:end]
                 for ichan,chan in enumerate(self.datasets):
-                    if (imask%self.n_channels) != ichan:
-                        continue
+                    if not chan.channum in self.why_chan_bad:
+                        if (imask%self.n_channels) != ichan:
+                            continue
 
-                    if mask.shape != (chan.nPulses,):
-                        raise ValueError("\nmasks[%d] has shape %s, but it needs to be (%d,)"%
-                             (imask, mask.shape, chan.nPulses ))
-                    if len(valid)>chan.data.shape[0]:
-                        good_pulses = chan.data[valid[:chan.data.shape[0]], :]
-                    else:
-                        good_pulses = chan.data[valid, :]
-                    pulse_counts[ichan,imask] += good_pulses.shape[0]
-                    pulse_sums[ichan,imask,:] += good_pulses.sum(axis=0)
+                        if mask.shape != (chan.nPulses,):
+                            raise ValueError("\nmasks[%d] has shape %s, but it needs to be (%d,)"%
+                                 (imask, mask.shape, chan.nPulses ))
+                        if len(valid)>chan.data.shape[0]:
+                            good_pulses = chan.data[valid[:chan.data.shape[0]], :]
+                        else:
+                            good_pulses = chan.data[valid, :]
+                        pulse_counts[ichan,imask] += good_pulses.shape[0]
+                        pulse_sums[ichan,imask,:] += good_pulses.sum(axis=0)
 
 
         # Rescale and store result to each MicrocalDataSet
@@ -1144,12 +1148,7 @@ class TESGroup(object):
 
         first_pnum,end_pnum = -1,-1
         for ds in self.datasets:
-            a,b = ds.pulse_records.read_segment(segnum)
-            ds.data = ds.pulse_records.data
-            try:
-                ds.times = ds.pulse_records.datafile.datatimes_float
-            except AttributeError:
-                ds.times = ds.pulse_records.datafile.datatimes/1e3
+            a,b = ds.read_segment(segnum)
 
             # Possibly some channels are shorter than others (in TDM data)
             # Make sure to return first_pnum,end_pnum for longest VALID channel only
