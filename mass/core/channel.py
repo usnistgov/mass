@@ -610,7 +610,6 @@ class MicrocalDataSet(object):
         self.peak_time_microsec = None   # Look for retriggers only after this time.
         self.index = None   # Index in the larger TESGroup or CDMGroup object
         self.last_used_calibration = None
-        self.pumped_band_knowledge = None
 
         try:
             self.hdf5_group = hdf5_group
