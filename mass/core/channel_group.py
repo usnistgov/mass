@@ -39,6 +39,8 @@ def _generate_hdf5_filename(rawname):
     import re
     fparts = re.split("_chan\d+", rawname)
     prefix_path = fparts[0]
+    if rawname.endswith("noi"):
+        prefix_path += '_noise'
     return prefix_path+"_mass.hdf5"
 
 
@@ -1352,7 +1354,7 @@ class CrosstalkVeto(object):
 #        self.veto = np.zeros((self.n_channels, self.n_pulses), dtype=np.bool8)
 
         ms0 = np.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min()*1e3 + window_ms[0]
-        ms9 = np.array([ds.p_timestamp.max() for ds in datagroup.datasets]).max()*1e3 + window_ms[1]
+        ms9 = np.array([ds.p_timestamp[-1] for ds in datagroup.datasets]).max()*1e3 + window_ms[1]
         self.nhits = np.zeros(ms9-ms0+1, dtype=np.int8)
         self.time0 = ms0
 
