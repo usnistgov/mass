@@ -55,7 +55,8 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
     
     npulses = pulse_data.shape[0]
     try:
-        rising_data = ((pulse_data[:,nPretrig:idx_last_pk+1].T - baseline_value) / value_at_peak).T
+        rising_data = ((pulse_data[:, nPretrig:idx_last_pk+1] - baseline_value[:, np.newaxis]) /
+                       value_at_peak[:, np.newaxis])
         # Find the last and first indices at which the data are in (0.1, 0.9] times the
         # peak value. Then make sure last is at least 1 past first.
         last_idx = (rising_data>MAXTHRESH).argmax(axis=1)-1
