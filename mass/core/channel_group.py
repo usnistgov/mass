@@ -31,7 +31,7 @@ import mass.calibration
 from mass.core.utilities import InlineUpdater
 from mass.core.channel import PulseRecords, NoiseRecords
 
-
+class FilterCanvas: pass
 
 def _generate_hdf5_filename(rawname):
     """Generate the appropriate HDF5 filename based on a file's LJH name.
@@ -902,7 +902,6 @@ class TESGroup(object):
 
         printUpdater = InlineUpdater('compute_filters')
         for ds_num,ds in enumerate(self):
-            if forceNew: del(ds.hdf5_group["filters"])
             if "filters" not in ds.hdf5_group or forceNew:
                 if ds.cuts.good().sum() < 10:
                     ds.filter = None
@@ -932,7 +931,19 @@ class TESGroup(object):
                     vec = h5grp.create_dataset(k, data=v)
                     vec.attrs['variance'] = f.variances.get(k[5:], 0)
             else:
-                print("chan %d skipping compute_filter because already done"%ds.channum)
+                print("chan %d skipping compute_filter because already done, and loading filter"%ds.channum)
+                for ds in self:
+                    h5grp = ds.hdf5_group['filters']
+                    ds.filter = FilterCanvas()
+                    ds.filter.peak_signal = h5grp.attrs['peak'].read()
+                    ds.filter.shorten = h5grp.attrs['shorten'].read()
+                    ds.filter.f_3db = h5grp.attrs['f_3db'].read()
+                    ds.filter.fmax =  h5grp.attrs['fmax'].read()
+                    for name in h5grp:
+                        if name.startswith("filt_"):
+                            setattr(ds.filter, name, h5grp[name].read())
+                            # doesn't do variances
+
 
 
     def plot_filters(self, first=0, end=-1):
