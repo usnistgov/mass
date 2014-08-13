@@ -902,6 +902,7 @@ class TESGroup(object):
 
         printUpdater = InlineUpdater('compute_filters')
         for ds_num,ds in enumerate(self):
+            if forceNew: del(ds.hdf5_group["filters"])
             if "filters" not in ds.hdf5_group or forceNew:
                 if ds.cuts.good().sum() < 10:
                     ds.filter = None
