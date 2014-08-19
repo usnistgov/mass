@@ -425,6 +425,7 @@ class PulseRecords(object):
         self.data = np.array([],ndmin=2)
         self.times = np.array([],ndmin=2)
 
+        self.hdf5_trace = None
 
     def __open_file(self, filename, file_format=None):
         """Detect the filetype and open it."""
@@ -1197,6 +1198,22 @@ class MicrocalDataSet(object):
         self.times = self.pulse_records.times
         return first, end
 
+    @property
+    def traces(self):
+        try:
+            tr = self.pulse_records.hdf5_trace["traces"]
+        except KeyError:
+            chunk_size = self.pulse_records.pulses_per_seg
+            while chunk_size > self.nPulses:
+                chunk_size /= 2
+
+            tr = self.pulse_records.hdf5_trace.create_dataset("traces", shape=(self.nPulses, self.nSamples),
+                                                              chunks=(chunk_size, self.nSamples),
+                                                              compression="gzip", shuffle=True, dtype=np.uint16)
+            for n in range(self.pulse_records.n_segments):
+                first, end = self.read_segment(n)
+                tr[first:end] = self.data
+        return tr
 
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None):

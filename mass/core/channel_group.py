@@ -33,6 +33,7 @@ from mass.core.channel import PulseRecords, NoiseRecords
 
 class FilterCanvas: pass
 
+
 def _generate_hdf5_filename(rawname):
     """Generate the appropriate HDF5 filename based on a file's LJH name.
     Takes /path/to/data_chan33.ljh --> /path/to/data_mass.hdf5"""
@@ -42,6 +43,12 @@ def _generate_hdf5_filename(rawname):
     if rawname.endswith("noi"):
         prefix_path += '_noise'
     return prefix_path+"_mass.hdf5"
+
+
+def _generate_hdf5_trace_filename(name):
+    import re
+
+    return re.split("_chan\d+", name)[0] + "_trace_mass.hdf5"
 
 
 def RestoreTESGroup(hdf5filename, hdf5noisename=None):
@@ -86,7 +93,6 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
 
     return TESGroup(pulsefiles, noisefiles, hdf5_filename=hdf5filename,
                     hdf5_noisefilename = hdf5noisename)
-
 
 
 class TESGroup(object):
@@ -137,6 +143,8 @@ class TESGroup(object):
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
 
+        self.hdf5_trace = h5py.File(_generate_hdf5_trace_filename(filenames[0]))
+
         # Set up other aspects of the object
         self.nhits = None
         self.n_segments = 0
@@ -177,6 +185,9 @@ class TESGroup(object):
                 hdf5_group.attrs['filename'] = fname
             except:
                 hdf5_group = None
+
+            pulse.hdf5_trace = self.hdf5_trace.require_group("chan{0:d}".format(pulse.channum))
+
             dset = mass.channel.MicrocalDataSet(pulse.__dict__, hdf5_group=hdf5_group)
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
