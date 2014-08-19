@@ -1388,4 +1388,18 @@ class MicrocalDataSet(object):
             print("%d pulses cut by %s"%(np.sum(self.cuts.isCut(j)), cutname.upper()))
         print("%d pulses total"%self.nPulses)
 
+    def smart_cuts(self):
+        from sklearn.covariance import MinCovDet
 
+        mdata = np.vstack([self.p_pretrig_mean[...], self.p_pretrig_rms[...],
+                           self.p_min_value, self.p_postpeak_deriv[...]])
+        mdata = mdata.transpose()
+
+        robust = MinCovDet().fit(mdata)
+        # It excludes only extreme outliers.
+        flag = robust.mahalanobis(mdata) > 100.0
+
+        self.cuts.cut(self.CUT_NAME.index('pretrigger_mean'), flag)
+        self.cuts.cut(self.CUT_NAME.index('pretrigger_rms'), flag)
+        self.cuts.cut(self.CUT_NAME.index('min_value'), flag)
+        self.cuts.cut(self.CUT_NAME.index('postpeak_deriv'), flag)
