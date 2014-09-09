@@ -18,7 +18,6 @@ from matplotlib.ticker import MaxNLocator
 from matplotlib import patheffects
 
 mpl.rcParams['font.sans-serif'] = 'Arial'
-from sklearn.cluster import DBSCAN
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration.fluorescence_lines
 import mass.mathstat.interpolate
@@ -41,7 +40,6 @@ class EnergyCalibration(object):
     def __init__(self, size_related_to_energy_resolution=20.0, min_counts_per_cluster=100, fit_range_ev=200, excl=(),
                  plot_on_fail=False,max_num_clusters=np.inf, max_pulses_for_dbscan=1e5, use_00=True, bin_size_ev=2):
         self.size_related_to_energy_resolution=size_related_to_energy_resolution
-        self.dbs = DBSCAN(eps=self.size_related_to_energy_resolution)
         self.data = np.zeros(0)
         self.mcs = min_counts_per_cluster
         self.hw = fit_range_ev
@@ -57,31 +55,6 @@ class EnergyCalibration(object):
         self.max_pulses_for_dbscan = max_pulses_for_dbscan
         self.__acc = np.inf
 
-    def __identify_clusters(self, pulse_heights):
-        self.data = np.hstack([self.data, pulse_heights])
-
-        if len(self.data)>self.max_pulses_for_dbscan:
-            self.dbs.fit(self.data[:self.max_pulses_for_dbscan-1, np.newaxis])
-        else:
-            self.dbs.fit(self.data[:, np.newaxis])
-
-        count = Counter(self.dbs.labels_)
-        peak_positions = []
-
-        for (i,(l, c)) in enumerate(count.most_common()):
-            # Outlier cluster won't count.
-            if l < -0.5:
-                continue
-            # Not bright enough cluster won't count either.
-            if c < self.mcs:
-                break
-            # or stop counting when you exceed the number of expected lines
-            if i >= self.max_num_clusters:
-                break
-
-            peak_positions.append(np.average(self.data[self.dbs.labels_ == l]))
-
-        return np.array(peak_positions)
 
     def __find_local_maxima(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
@@ -178,7 +151,6 @@ class EnergyCalibration(object):
 
     def fit(self, pulse_heights, line_names):
         # Identify unlabeled clusters in a given spectrum
-        #peak_positions = self.__identify_clusters(pulse_heights)
         peak_positions = self.__find_local_maxima(pulse_heights)
 
         if len(peak_positions) < len(line_names):
