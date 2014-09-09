@@ -935,13 +935,13 @@ class TESGroup(object):
                 for ds in self:
                     h5grp = ds.hdf5_group['filters']
                     ds.filter = FilterCanvas()
-                    ds.filter.peak_signal = h5grp.attrs['peak'].read()
-                    ds.filter.shorten = h5grp.attrs['shorten'].read()
-                    ds.filter.f_3db = h5grp.attrs['f_3db'].read()
-                    ds.filter.fmax =  h5grp.attrs['fmax'].read()
+                    ds.filter.peak_signal = h5grp.attrs['peak']
+                    ds.filter.shorten = h5grp.attrs['shorten']
+                    ds.filter.f_3db = h5grp.attrs['f_3db'] if 'f_3db' in h5grp.attrs else None
+                    ds.filter.fmax =  h5grp.attrs['fmax'] if 'fmax' in h5grp.attrs else None
                     for name in h5grp:
                         if name.startswith("filt_"):
-                            setattr(ds.filter, name, h5grp[name].read())
+                            setattr(ds.filter, name, h5grp[name][:])
                             # doesn't do variances
 
 
