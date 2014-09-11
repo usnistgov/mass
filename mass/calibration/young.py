@@ -307,6 +307,20 @@ class EnergyCalibration(object):
             return errs
         return None
 
+    # calculates the error in calibration at each element if that element is not included in the calibration spline
+    def knockout_errors(self):
+        knockout_energy_diff = np.zeros(len(self.elements),dtype="float64")
+        for j in range(len(self.elements)):
+            peak_positions = self.refined_peak_positions[:]
+            knockout_peak_position = peak_positions.pop(j)
+            peak_energies = self.peak_energies[:]
+            knockout_peak_energy = peak_energies.pop(j)
+            zero = [0.] if self.use_00 else []
+            ph2energy = mass.mathstat.interpolate.CubicSpline(zero+peak_positions, zero+peak_energies)
+            predicted_energy = ph2energy(knockout_peak_position)
+            knockout_energy_diff[j] = predicted_energy-knockout_peak_energy
+        return knockout_energy_diff
+
     @property
     def energy_resolutions(self):
         if self.complex_fitters is not None:
