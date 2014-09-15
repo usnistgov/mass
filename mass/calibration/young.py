@@ -9,7 +9,10 @@ from scipy.stats import gaussian_kde
 from scipy.optimize import brentq
 from scipy.misc import comb
 
-import statsmodels.api as sm
+try:
+    import statsmodels.api as sm
+except ImportError: # On linux the name was as follows:
+    import scikits.statsmodels.api as sm 
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
