@@ -447,7 +447,7 @@ class LJHFile(MicrocalFile):
         # more precise if we convert to frame number, then back to time
         # this should as long as the frame rate is greater than or equal to 4 us
         frame_count = np.ceil(self.datatimes_float/self.timebase)
-        self.datatimes_float_new = (frame_count+self.row_number/float(self.number_of_rows))*self.timebase
+        self.datatimes_float = (frame_count+self.row_number/float(self.number_of_rows))*self.timebase
 
 
         # Cut out zeros and the timestamp, which are 3 uint16 words @ start of each pulse
