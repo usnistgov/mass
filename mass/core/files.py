@@ -206,6 +206,10 @@ class LJHFile(MicrocalFile):
         self.segment_pulses = 0
         self.header_size = 0
         self.pulse_size_bytes = 0
+        self.row_number = -1
+        self.column_number= -1
+        self.number_of_rows = -1
+        self.number_of_columns = -1
         self.data = None
         self.__cached_segment = None
         self.__read_header(filename)
@@ -258,6 +262,18 @@ class LJHFile(MicrocalFile):
             elif line.startswith("Presamples"):
                 words = line.split()
                 self.nPresamples = int(words[-1])
+            elif line.startswith("Row number"):
+                words = line.split()
+                self.row_number = int(words[-1])
+            elif line.startswith("Column number"):
+                words = line.split()
+                self.column_number = int(words[-1])
+            elif line.startswith("Number of rows"):
+                words = line.split()
+                self.number_of_rows = int(words[-1])
+            elif line.startswith("Number of columns"):
+                words = line.split()
+                self.number_of_columns = int(words[-1])
             elif line.startswith("Timestamp offset (s)"):
                 words = line.split()
                 try:
@@ -426,6 +442,13 @@ class LJHFile(MicrocalFile):
         self.datatimes_float = np.array(self.data[:, 0], dtype=np.double)*SECONDS_PER_4MICROSECOND_TICK
         self.datatimes_float += self.data[:, 1]*SECONDS_PER_MILLISECOND
         self.datatimes_float += self.data[:, 2]*(SECONDS_PER_MILLISECOND*65536.)
+
+        # since the timestamps is stored in 4 us units, which are not commensurate with the actual frame rate, we can be
+        # more precise if we convert to frame number, then back to time
+        # this should as long as the frame rate is greater than or equal to 4 us
+        frame_count = np.ceil(self.datatimes_float/self.timebase)
+        self.datatimes_float_new = (frame_count+self.row_number/float(self.number_of_rows))*self.timebase
+
 
         # Cut out zeros and the timestamp, which are 3 uint16 words @ start of each pulse
         self.data = self.data[:, 3:]
