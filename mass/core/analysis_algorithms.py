@@ -8,7 +8,7 @@ Created on Jun 9, 2014
 @author: fowlerj
 '''
 
-__all__ = ['make_smooth_histogram', 'HistogramSmoother', 'FilterTimeCorrection']
+__all__ = ['make_smooth_histogram', 'HistogramSmoother', 'FilterTimeCorrection','nearest_arrivals']
 
 import numpy as np
 import scipy as sp
@@ -544,3 +544,34 @@ class FilterTimeCorrection(object):
             plt.xlabel(xlab)
             plt.ylabel("Correction, in raw (filtered) units")
 
+def nearest_arrivals(reference_times, other_times):
+    """nearest_arrivals(reference_times, other_times)
+    reference_times - 1d array
+    other_times - 1d array
+    returns: before_times, after_times
+    before_times - d array same size as reference_times, before_times[i] contains the difference between
+    the closest lesser time contained in other_times and reference_times[i]  or inf
+    if there was no earlier time in other_times
+    note that before_times is always a positive number even though the time difference it represents is negative
+    after_times - 1d array same size as reference_times, after_times[i] contains the difference between
+    reference_times[i] and the closest greater time contained in other_times or a inf
+    number if there was no later time in other_times
+    """
+    nearest_after_index = np.searchsorted(other_times, reference_times)
+    # because both sets of arrival times should be sorted, there are faster algorithms than searchsorted
+    # for example: https://github.com/kwgoodman/bottleneck/issues/47
+    # we could use one if performance becomes an issue
+    last_index = np.searchsorted(nearest_after_index, other_times.size,side="left")
+    first_index = np.searchsorted(nearest_after_index, 1)
+
+    nearest_before_index = np.copy(nearest_after_index)
+    nearest_before_index[:first_index]=1
+    nearest_before_index-=1
+    before_times = reference_times-other_times[nearest_before_index]
+    before_times[:first_index] = np.Inf
+
+    nearest_after_index[last_index:]=other_times.size-1
+    after_times = other_times[nearest_after_index]-reference_times
+    after_times[last_index:] = np.Inf
+
+    return before_times, after_times
