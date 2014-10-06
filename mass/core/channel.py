@@ -16,6 +16,7 @@ import mass.mathstat.power_spectrum
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
 from mass.calibration import young
+import h5py
 import ljh_util
 import cPickle
 from os import path
@@ -621,6 +622,7 @@ class MicrocalDataSet(object):
 
 
 
+
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
         about each pulse in memory.
@@ -660,10 +662,40 @@ class MicrocalDataSet(object):
         grp = self.hdf5_group.require_group('cuts')
         self.cuts = Cuts(self.nPulses, hdf5_group=grp)
 
+
+
     @property
     def p_peak_time(self):
         # this is a property to reduce memory usage, I hope it works
         return (np.asarray(self.p_peak_index, dtype=np.int)-self.nPresamples)*self.timebase
+
+
+    @property
+    def external_trigger_rowcount(self):
+        if not hasattr(self, "_external_trigger_rowcount"):
+            filename = mass.ljh_util.ljh_get_extern_trig_fname(self.filename)
+            h5 = h5py.File(filename)
+            crate_clock_hz = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]*h5["trig_times"].attrs["sample_rate_hz"]
+            # the crate clock can really only be 50MHz or 100Mhz, so pick the closer of those
+            crate_clock_hz = (crate_clock_hz//1000000)*1000000
+            assert(crate_clock_hz in [50000000, 100000000])
+            timebase = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]/float(crate_clock_hz)
+            assert(np.abs(timebase-self.timebase)<1e-15) # make sure the timebase is the same to within some reasonable precision
+            self._external_trigger_rowcount = h5["trig_times"]
+            self.row_timebase = self.timebase/float(self.number_of_rows)
+        return self._external_trigger_rowcount
+
+    @property
+    def external_trigger_timestamp(self):
+        return self.external_trigger_rowcount[:]*self.timebase/float(self.number_of_rows)
+
+    @property
+    def time_after_last_external_trigger(self):
+        if "time_after_last_external_trigger" in self.hdf5_group:
+            return self.hdf5_group["time_after_last_external_trigger"]
+        before, after = mass.core.analysis_algorithms.nearest_arrivals(self.p_timestamp, self.external_trigger_timestamp)
+        self.hdf5_group["time_after_last_external_trigger"] = before
+        return self.hdf5_group["time_after_last_external_trigger"]
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
@@ -723,6 +755,11 @@ class MicrocalDataSet(object):
             printUpdater.update((s+1)/float(self.pulse_records.n_segments))
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
+
+        self.number_of_rows = self.pulse_records.datafile.number_of_rows
+        self.row_number = self.pulse_records.datafile.row_number
+        self.number_of_columns = self.pulse_records.datafile.number_of_columns
+        self.column_number = self.pulse_records.datafile.column_number
 
 
     def _summarize_data_segment(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):

@@ -36,6 +36,10 @@ def ljh_get_aux_fname(fname):
 def ljh_get_mic_fname(fname):
     return path.join(path.dirname(fname), "microphone_timestamps")
 
+def ljh_get_extern_trig_fname(fname):
+    basename, chan = ljh_basename(fname)
+    return basename+"_extern_trig.hdf5"
+
 def load_aux_file(fname):
     fname = ljh_get_aux_fname(fname)
     raw = np.fromfile(fname, dtype=np.uint64)

@@ -229,8 +229,7 @@ class VKBeta(SpectralLine):
     energies = np.array((18.20, 24.50, 26.998))+5400
     fwhm = np.array((18.86, 5.48, 2.498))
     integral_intensity = np.array((258, 236, 507), dtype=np.float)/1e3
-    ## The energy at the main peak (from table IV beta_1,3)
-    nominal_peak_energy = 5427.32 # eV
+    nominal_peak_energy = 5426.962 # eV
 
 class CrKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
