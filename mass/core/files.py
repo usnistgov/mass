@@ -370,6 +370,7 @@ class LJHFile(MicrocalFile):
     def clear_cached_segment(self):
         if hasattr(self, "data"): del(self.data)
         if hasattr(self, "datatimes_float"): del(self.datatimes_float)
+        if hasattr(self, "row_count"): del(self.row_count)
         self.__cached_segment = None
 
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
@@ -437,17 +438,27 @@ class LJHFile(MicrocalFile):
 #        self.datatimes += (self.data[:,1])
 
         # Store times as seconds in floating point.  Max value is 2^32 ms = 4.3x10^6
-        SECONDS_PER_4MICROSECOND_TICK = (4.0/1e6)
-        SECONDS_PER_MILLISECOND = 1e-3
-        self.datatimes_float = np.array(self.data[:, 0], dtype=np.double)*SECONDS_PER_4MICROSECOND_TICK
-        self.datatimes_float += self.data[:, 1]*SECONDS_PER_MILLISECOND
-        self.datatimes_float += self.data[:, 2]*(SECONDS_PER_MILLISECOND*65536.)
 
+        datatime_4usec_tics = np.array(self.data[:,0]+250*(self.data[:,1]+65536*self.data[:,2]), dtype=np.int64)
+        NS_PER_4USEC_TICK = 4000
+        NS_PER_FRAME = np.int64(self.timebase*1e9)
         # since the timestamps is stored in 4 us units, which are not commensurate with the actual frame rate, we can be
         # more precise if we convert to frame number, then back to time
         # this should as long as the frame rate is greater than or equal to 4 us
-        frame_count = np.ceil(self.datatimes_float/self.timebase)
+
+        # this is integer division but rounding up
+        frame_count = (datatime_4usec_tics*NS_PER_4USEC_TICK)//NS_PER_FRAME + np.sign((datatime_4usec_tics*NS_PER_4USEC_TICK)%NS_PER_FRAME)
+        frame_count +=3 # account for 4 point triggering algorithm
+        # leave in the old calculation for comparison, later this should be removed
+        SECONDS_PER_4MICROSECOND_TICK = (4.0/1e6)
+        SECONDS_PER_MILLISECOND = 1e-3
+        self.datatimes_float_old = np.array(self.data[:, 0], dtype=np.double)*SECONDS_PER_4MICROSECOND_TICK
+        self.datatimes_float_old += self.data[:, 1]*SECONDS_PER_MILLISECOND
+        self.datatimes_float_old += self.data[:, 2]*(SECONDS_PER_MILLISECOND*65536.)
+
+        self.row_count = np.array(frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
         self.datatimes_float = (frame_count+self.row_number/float(self.number_of_rows))*self.timebase
+
 
 
         # Cut out zeros and the timestamp, which are 3 uint16 words @ start of each pulse
