@@ -34,7 +34,7 @@ STANDARD_FEATURES = {
    'TiKAlpha': 4510.90,
    'TiKBeta':  4931.83, #http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
    'VKAlpha':  4952.22,
-   'VKBeta':   5427.32,
+   'VKBeta':   5426.962, # From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
    'CrKAlpha' :5414.805,
    'CrKBeta':  5946.82,
    'MnKAlpha': 5898.801,
