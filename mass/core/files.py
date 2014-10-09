@@ -438,8 +438,8 @@ class LJHFile(MicrocalFile):
 #        self.datatimes += (self.data[:,1])
 
         # Store times as seconds in floating point.  Max value is 2^32 ms = 4.3x10^6
-
-        datatime_4usec_tics = np.array(self.data[:,0]+250*(self.data[:,1]+65536*self.data[:,2]), dtype=np.int64)
+        datatime_4usec_tics = np.array(self.data[:,0],dtype=np.uint64)
+        datatime_4usec_tics = 250*(np.array(self.data[:,1],dtype=np.uint64)+65536*np.array(self.data[:,2], dtype=np.uint64))
         NS_PER_4USEC_TICK = 4000
         NS_PER_FRAME = np.int64(self.timebase*1e9)
         # since the timestamps is stored in 4 us units, which are not commensurate with the actual frame rate, we can be
