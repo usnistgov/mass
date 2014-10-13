@@ -739,6 +739,11 @@ class MicrocalDataSet(object):
         """Summarize the complete data set one chunk at a time.
         """
         # Don't proceed if not necessary and not forced
+        self.number_of_rows = self.pulse_records.datafile.number_of_rows
+        self.row_number = self.pulse_records.datafile.row_number
+        self.number_of_columns = self.pulse_records.datafile.number_of_columns
+        self.column_number = self.pulse_records.datafile.column_number
+
         not_done =  all(self.p_pretrig_mean[:]==0)
         if not (not_done or forceNew):
             print('\nchan %d did not summarize because results were already preloaded'%self.channum)
@@ -756,10 +761,7 @@ class MicrocalDataSet(object):
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
-        self.number_of_rows = self.pulse_records.datafile.number_of_rows
-        self.row_number = self.pulse_records.datafile.row_number
-        self.number_of_columns = self.pulse_records.datafile.number_of_columns
-        self.column_number = self.pulse_records.datafile.column_number
+
 
 
     def _summarize_data_segment(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
