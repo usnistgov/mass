@@ -66,7 +66,8 @@ end
 # Returns: new LJHHeader object.
 function readLJHHeader(filename::String)
     str=open(filename)
-    labels={"base"   =>"Timebase:",
+    labels={"version"=>"Save File Format Version: ",
+            "base"   =>"Timebase:",
             "date"   =>"Date:",
             "date1"  =>"File First Record Time:",
             "end"    =>"#End of Header",
@@ -77,6 +78,7 @@ function readLJHHeader(filename::String)
     nlines=0
     maxnlines=100
     date = "unknown" # If header standard for date labels changes, we don't want a hard error
+    version = v"1.0.0" # default.
 
     # Read channel # from the file name, then update that result from the header, if it exists.
     channum = uint16(-1)
@@ -91,13 +93,18 @@ function readLJHHeader(filename::String)
             close(str)
             return(LJHHeader(filename,npresamples,nsamples,
                              timebase,timestampOffset,date,headerSize,channum))
+        elseif beginswith(line,labels["version"])
+            println("LJH file version number $s")
+            # Beware: the following assumues a length-2 line term ('\r\n');
+            # If that is incorrect, then the following line will fail.
+            version = convert(VersionNumber, line[1+length(labels["version"]):end-2])
         elseif beginswith(line,labels["base"])
             timebase = float64(line[1+length(labels["base"]):end])
         elseif beginswith(line,labels["date"]) # Old LJH files
             date = line[7:end-2]
         elseif beginswith(line,labels["date1"])# Newer LJH files
             date = line[25:end-2]
-        elseif beginswith(line,labels["channum"])# Newer LJH files
+        elseif beginswith(line,labels["channum"]) && version >= v"2.1.0" # Newer LJH files
             channum = uint16(line[10:end])
         elseif beginswith(line,labels["offset"])
             timestampOffset = float64(line[1+length(labels["offset"]):end])
