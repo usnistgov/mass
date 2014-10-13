@@ -9,8 +9,11 @@ Module mass.mathstat.interpolate
 Contains interpolations functions not readily available elsewhere.
 
 CubicSpline   - Perform an exact cubic spline through the data, with
-                either specified slope at the end of the interval or 
-                'natural boundary conditions' (y''=0 at ends). 
+                either specified slope at the end of the interval or
+                'natural boundary conditions' (y''=0 at ends).
+
+LinterpCubicSpline - Create a new CubicSpline that's the linear interpolation
+                of two existing ones.
 
 Joe Fowler, NIST
 """
@@ -22,17 +25,17 @@ import numpy as np
 
 class CubicSpline(object):
     """An exact cubic spline, with either a specified slope or 'natural boundary
-    conditions' (y''=0) at ends of interval. 
-    
+    conditions' (y''=0) at ends of interval.
+
     Note that the interface is similar
     to scipy.interpolate.InterpolatedUnivariateSpline, but the behavior is different.
     The scipy version will remove the 2nd and 2nd-to-last data points from the
     set of knots as a way of using the 2 extra degrees of freedom. This class
     instead sets the 1st or 2nd derivatives at the end of the interval to use
     the extra degrees of freedom.
-    
+
     This code is inspired by section 3.3. of Numerical Recipes, 3rd Edition.
-    
+
     Usage:
     x=np.linspace(4,12,20)
     y=(x-6)**2+np.random.standard_normal(20)
@@ -42,12 +45,12 @@ class CubicSpline(object):
     xa = np.linspace(0,16,200)
     plt.plot(xa, cs(xa), 'b-')
     """
-    
+
     def __init__(self, x, y, yprime1=None, yprimeN=None):
         """
         Create an exact cubic spline representation for the function y(x).
         'Exact' means that the spline will strictly pass through the given points.
-        
+
         The user can give specific values for the slope at either boundary through
         <yprime1> and <yprimeN>, or can use the default value of None. The
         slope of None means to use 'natural boundary conditions' by fixing the
@@ -65,16 +68,16 @@ class CubicSpline(object):
     def _compute_y2(self):
         self.dy = self._y[1:]-self._y[:-1]
         self.dx = self._x[1:] - self._x[:-1]
-        
+
         u = self.dy/self.dx
         u[1:] = u[1:] - u[:-1]
 
         # For natural boundary conditions, u[0]=y2[0]=0.
         if self.yprime1 is None:
-            u[0] = 0 
+            u[0] = 0
             self._y2[0] = 0
         else:
-            u[0] = (3.0/self.dx[0])*(self.dy[0]/self.dx[0]-self.yprime1) 
+            u[0] = (3.0/self.dx[0])*(self.dy[0]/self.dx[0]-self.yprime1)
             self._y2[0] = -0.5
 
         for i in range(1, self._n-1):
@@ -90,11 +93,11 @@ class CubicSpline(object):
             qn = 0.5
             un = (3.0/self.dx[-1])*(self.yprimeN-self.dy[-1]/self.dx[-1])
         self._y2[self._n-1] = (un-qn*u[self._n-2])/(qn*self._y2[self._n-2]+1.0)
-        
+
         # Backsubstitution:
         for k in range(self._n-2, -1, -1):
             self._y2[k] = self._y2[k]*self._y2[k+1]+u[k]
-        
+
         if self.yprime1 is None:
             self.yprime1 = self.dy[0]/self.dx[0] - self.dx[0]*(self._y2[0]/3.+self._y2[1]/6.)
         if self.yprimeN is None:
@@ -157,3 +160,25 @@ class CubicSpline(object):
                 result[interp] = .0
 
         return result
+
+
+
+class LinterpCubicSpline(CubicSpline):
+    '''A CubicSpline object which is a linear combination of CubicSpline objects
+    s1 and s2, effectively fraction*s1 + (1-fraction)*s2'''
+
+    def __init__(self, s1, s2, fraction):
+        if s1._n != s2._n:
+            raise ValueError("Splines must be of the same length to be linearly interpolated")
+        if np.max(np.abs(s1._x - s2._x)) > 1e-3:
+            raise ValueError("Splines must have same abscissa values to be interpolated")
+
+        wtsum = lambda a,b,frac: a*frac + b*(1-frac)
+        self._n = s1._n
+        self._x = s1._x
+        self._y = wtsum(s1._y, s2._y, fraction)
+        self._y2 = wtsum(s1._y2, s2._y2, fraction)
+        self.yprime1 = wtsum(s1.yprime1, s2.yprime1, fraction)
+        self.yprimeN  = wtsum(s1.yprimeN, s2.yprimeN, fraction)
+        self.dx = wtsum(s1.dx, s2.dx, fraction)
+        self.dy = wtsum(s1.dy, s2.dy, fraction)
