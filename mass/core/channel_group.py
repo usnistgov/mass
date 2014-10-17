@@ -1246,12 +1246,21 @@ class TESGroup(object):
 
 
     def phase_correct2014(self, typical_resolution, maximum_num_records = 50000,
-                          plot=False, forceNew=False):
+                          plot=False, forceNew=False, pre_sanitize_p_filt_phase=True):
+        if pre_sanitize_p_filt_phase:
+            self.sanitize_p_filt_phase()
         for ds in self:
             try:
                 ds.phase_correct2014(typical_resolution, maximum_num_records, plot, forceNew)
             except:
                 self.set_chan_bad(ds.channum, "failed phase_correct2014")
+
+    def sanitize_p_filt_phase(self):
+        ds = self.first_good_dataset
+        cutnum = ds.CUT_NAME.index("p_filt_phase")
+        print("p_filt_phase_cut")
+        for ds in self:
+            ds.cut_parameter(ds.p_filt_phase, (-2,2), cutnum)
 
 
     def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10,
@@ -1263,7 +1272,7 @@ class TESGroup(object):
                 ds.calibrate(attr, line_names,name_ext,size_related_to_energy_resolution,
                              min_counts_per_cluster, fit_range_ev, excl, plot_on_fail,
                              max_num_clusters, max_pulses_for_dbscan, forceNew)
-            except ValueError:
+            except:
                 self.set_chan_bad(ds.channum, "failed calibration %s"%attr+name_ext)
         self.convert_to_energy(attr, attr+name_ext)
 
