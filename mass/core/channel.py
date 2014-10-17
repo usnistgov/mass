@@ -579,7 +579,8 @@ class MicrocalDataSet(object):
                 'timestamp_diff_sec',
                 'peak_value',
                 'energy',
-                'timing']
+                'timing',
+                'smart_cuts']
 
     # Attributes that all such objects must have.
     expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum",
@@ -1405,22 +1406,26 @@ class MicrocalDataSet(object):
             print("%d pulses cut by %s"%(np.sum(self.cuts.isCut(j)), cutname.upper()))
         print("%d pulses total"%self.nPulses)
 
-    def smart_cuts(self, threshold=10.0, n_trainings=10000):
-        from sklearn.covariance import MinCovDet
+    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
+        # first check to see if this had already been done
+        cutnum = self.CUT_NAME.index('smart_cuts')
+        if not any(self.cuts.isCut(cutnum)) or forceNew:
+            from sklearn.covariance import MinCovDet
 
-        mdata = np.vstack([self.p_pretrig_mean[:n_trainings], self.p_pretrig_rms[:n_trainings],
-                           self.p_min_value[:n_trainings], self.p_postpeak_deriv[:n_trainings]])
-        mdata = mdata.transpose()
+            mdata = np.vstack([self.p_pretrig_mean[:n_trainings], self.p_pretrig_rms[:n_trainings],
+                               self.p_min_value[:n_trainings], self.p_postpeak_deriv[:n_trainings]])
+            mdata = mdata.transpose()
 
-        robust = MinCovDet().fit(mdata)
+            robust = MinCovDet().fit(mdata)
 
-        # It excludes only extreme outliers.
-        mdata = np.vstack([self.p_pretrig_mean[...], self.p_pretrig_rms[...],
-                           self.p_min_value[...], self.p_postpeak_deriv[...]])
-        mdata = mdata.transpose()
-        flag = robust.mahalanobis(mdata) > threshold**2
+            # It excludes only extreme outliers.
+            mdata = np.vstack([self.p_pretrig_mean[...], self.p_pretrig_rms[...],
+                               self.p_min_value[...], self.p_postpeak_deriv[...]])
+            mdata = mdata.transpose()
+            flag = robust.mahalanobis(mdata) > threshold**2
 
-        self.cuts.cut(self.CUT_NAME.index('pretrigger_mean'), flag)
-        self.cuts.cut(self.CUT_NAME.index('pretrigger_rms'), flag)
-        self.cuts.cut(self.CUT_NAME.index('min_value'), flag)
-        self.cuts.cut(self.CUT_NAME.index('postpeak_deriv'), flag)
+            self.cuts.cut(cutnum, flag)
+            print("channel %g ran smart cuts, %g of %g pulses passed"%(self.channum, (~self.cuts.isCut(cutnum)).sum(), self.nPulses))
+        else:
+            print("channel %g skipping smart cuts because it was already done"%(self.channum))
+
