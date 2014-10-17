@@ -57,6 +57,7 @@ immutable LJHFile
 end
 
 
+
 ###############################################################################
 # FILE-READING FUNCTIONS
 ###############################################################################
@@ -94,10 +95,10 @@ function readLJHHeader(filename::String)
             return(LJHHeader(filename,npresamples,nsamples,
                              timebase,timestampOffset,date,headerSize,channum))
         elseif beginswith(line,labels["version"])
-            println("LJH file version number $s")
             # Beware: the following assumues a length-2 line term ('\r\n');
             # If that is incorrect, then the following line will fail.
             version = convert(VersionNumber, line[1+length(labels["version"]):end-2])
+            println("LJH file version number $version")
         elseif beginswith(line,labels["base"])
             timebase = float64(line[1+length(labels["base"]):end])
         elseif beginswith(line,labels["date"]) # Old LJH files
@@ -105,7 +106,10 @@ function readLJHHeader(filename::String)
         elseif beginswith(line,labels["date1"])# Newer LJH files
             date = line[25:end-2]
         elseif beginswith(line,labels["channum"]) && version >= v"2.1.0" # Newer LJH files
-            channum = uint16(line[10:end])
+            try
+                channum = uint16(line[10:end])
+            catch;
+            end
         elseif beginswith(line,labels["offset"])
             timestampOffset = float64(line[1+length(labels["offset"]):end])
         elseif beginswith(line,labels["pre"])
