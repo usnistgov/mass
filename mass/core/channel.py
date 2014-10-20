@@ -426,6 +426,7 @@ class PulseRecords(object):
         self.data = np.array([],ndmin=2)
         self.times = np.array([],ndmin=2)
 
+        self.hdf5_trace = None
 
     def __open_file(self, filename, file_format=None):
         """Detect the filetype and open it."""
@@ -580,7 +581,8 @@ class MicrocalDataSet(object):
                 'peak_value',
                 'energy',
                 'timing',
-                "p_filt_phase"]
+                "p_filt_phase",
+                'smart_cuts']
 
     # Attributes that all such objects must have.
     expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum",
@@ -1242,6 +1244,22 @@ class MicrocalDataSet(object):
         self.times = self.pulse_records.times
         return first, end
 
+    @property
+    def traces(self):
+        try:
+            tr = self.pulse_records.hdf5_trace["traces"]
+        except KeyError:
+            chunk_size = self.pulse_records.pulses_per_seg
+            while chunk_size > self.nPulses:
+                chunk_size /= 2
+
+            tr = self.pulse_records.hdf5_trace.create_dataset("traces", shape=(self.nPulses, self.nSamples),
+                                                              chunks=(chunk_size, self.nSamples),
+                                                              compression="gzip", shuffle=True, dtype=np.uint16)
+            for n in range(self.pulse_records.n_segments):
+                first, end = self.read_segment(n)
+                tr[first:end] = self.data
+        return tr
 
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None):
@@ -1433,4 +1451,26 @@ class MicrocalDataSet(object):
             print("%d pulses cut by %s"%(np.sum(self.cuts.isCut(j)), cutname.upper()))
         print("%d pulses total"%self.nPulses)
 
+    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
+        # first check to see if this had already been done
+        cutnum = self.CUT_NAME.index('smart_cuts')
+        if not any(self.cuts.isCut(cutnum)) or forceNew:
+            from sklearn.covariance import MinCovDet
+
+            mdata = np.vstack([self.p_pretrig_mean[:n_trainings], self.p_pretrig_rms[:n_trainings],
+                               self.p_min_value[:n_trainings], self.p_postpeak_deriv[:n_trainings]])
+            mdata = mdata.transpose()
+
+            robust = MinCovDet().fit(mdata)
+
+            # It excludes only extreme outliers.
+            mdata = np.vstack([self.p_pretrig_mean[...], self.p_pretrig_rms[...],
+                               self.p_min_value[...], self.p_postpeak_deriv[...]])
+            mdata = mdata.transpose()
+            flag = robust.mahalanobis(mdata) > threshold**2
+
+            self.cuts.cut(cutnum, flag)
+            print("channel %g ran smart cuts, %g of %g pulses passed"%(self.channum, (~self.cuts.isCut(cutnum)).sum(), self.nPulses))
+        else:
+            print("channel %g skipping smart cuts because it was already done"%(self.channum))
 
