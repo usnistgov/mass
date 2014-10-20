@@ -1325,6 +1325,10 @@ class TESGroup(object):
         plt.grid("on")
         plt.legend()
 
+    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
+        for ds in self:
+            ds.smart_cuts(threshold, n_trainings, forceNew)
+
 
 
 def _sort_filenames_numerically(fnames, inclusion_list=None):
@@ -1358,11 +1362,6 @@ def _replace_path(fnames, newpath):
         _,name = os.path.split(f)
         result.append(os.path.join(newpath,name))
     return result
-
-    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
-        for ds in self:
-            ds.smart_cuts(threshold, n_trainings, forceNew)
-
 
 
 class CrosstalkVeto(object):
@@ -1412,5 +1411,3 @@ class CrosstalkVeto(object):
         seconds.  Resolution is 1 ms for the veto."""
         index = np.asarray(times_sec*1e3-self.time0+0.5, dtype=np.int)
         return self.nhits[index]>1
-
-    smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
