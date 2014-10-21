@@ -426,6 +426,7 @@ class PulseRecords(object):
         self.data = np.array([],ndmin=2)
         self.times = np.array([],ndmin=2)
 
+        self.hdf5_trace = None
 
     def __open_file(self, filename, file_format=None):
         """Detect the filetype and open it."""
@@ -579,7 +580,9 @@ class MicrocalDataSet(object):
                 'timestamp_diff_sec',
                 'peak_value',
                 'energy',
-                'timing']
+                'timing',
+                "p_filt_phase",
+                'smart_cuts']
 
     # Attributes that all such objects must have.
     expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum",
@@ -675,13 +678,14 @@ class MicrocalDataSet(object):
         if not hasattr(self, "_external_trigger_rowcount"):
             filename = mass.ljh_util.ljh_get_extern_trig_fname(self.filename)
             h5 = h5py.File(filename)
+            ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
             crate_clock_hz = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]*h5["trig_times"].attrs["sample_rate_hz"]
             # the crate clock can really only be 50MHz or 100Mhz, so pick the closer of those
             crate_clock_hz = (crate_clock_hz//1000000)*1000000
             assert(crate_clock_hz in [50000000, 100000000])
             timebase = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]/float(crate_clock_hz)
             assert(np.abs(timebase-self.timebase)<1e-15) # make sure the timebase is the same to within some reasonable precision
-            self._external_trigger_rowcount = h5["trig_times"]
+            self._external_trigger_rowcount = h5[ds_name]
             self.row_timebase = self.timebase/float(self.number_of_rows)
         return self._external_trigger_rowcount
 
@@ -1198,28 +1202,32 @@ class MicrocalDataSet(object):
         if verbose: print 'Resolution: %5.2f +- %5.2f eV'%(params[0]*scale,np.sqrt(covar[0,0])*scale)
         return params, covar, fitter
 
+    @property
+    def pkl_fname(self):
+        return ljh_util.mass_folder_from_ljh_fname(self.filename,filename="ch%d_calibration.pkl"%self.channum)
+
 
     def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10, min_counts_per_cluster=20,
                   fit_range_ev=200, excl=(), plot_on_fail=False,max_num_clusters=np.inf,max_pulses_for_dbscan=1e5, forceNew=False):
-        pkl_fname = ljh_util.mass_folder_from_ljh_fname(self.filename,filename="ch%d_calibration.pkl"%self.channum)
-        if path.isfile(pkl_fname):
-            with open(pkl_fname,"r") as file:
-                self.calibration = cPickle.load(file)
-        calname = attr+name_ext
-        if self.calibration.has_key(calname):
-            cal = self.calibration[calname]
-            if young.is_calibrated(cal) and not forceNew:
-                print("Not calibrating chan %d %s because it already exists"%(self.channum, calname))
-                return None
-            # first does this already exist? if the calibration already exists and has more than 1 pt,
-            # we probably dont need to redo it
-        print("Calibrating chan %d to create %s"%(self.channum, calname))
-        cal = young.EnergyCalibration(size_related_to_energy_resolution, min_counts_per_cluster, fit_range_ev, excl,
-                 plot_on_fail,max_num_clusters, max_pulses_for_dbscan)
-        cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
-        self.calibration[calname]=cal
-        with open(pkl_fname, "w") as file:
-            cPickle.dump(self.calibration, file)
+            pkl_fname = self.pkl_fname
+            if path.isfile(pkl_fname) and not forceNew:
+                with open(pkl_fname,"r") as file:
+                    self.calibration = cPickle.load(file)
+            calname = attr+name_ext
+            if self.calibration.has_key(calname):
+                cal = self.calibration[calname]
+                if young.is_calibrated(cal) and not forceNew:
+                    print("Not calibrating chan %d %s because it already exists"%(self.channum, calname))
+                    return None
+                # first does this already exist? if the calibration already exists and has more than 1 pt,
+                # we probably dont need to redo it
+            print("Calibrating chan %d to create %s"%(self.channum, calname))
+            cal = young.EnergyCalibration(size_related_to_energy_resolution, min_counts_per_cluster, fit_range_ev, excl,
+                     plot_on_fail,max_num_clusters, max_pulses_for_dbscan)
+            cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
+            self.calibration[calname]=cal
+            with open(pkl_fname, "w") as file:
+                cPickle.dump(self.calibration, file)
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None: calname = attr
@@ -1236,6 +1244,22 @@ class MicrocalDataSet(object):
         self.times = self.pulse_records.times
         return first, end
 
+    @property
+    def traces(self):
+        try:
+            tr = self.pulse_records.hdf5_trace["traces"]
+        except KeyError:
+            chunk_size = self.pulse_records.pulses_per_seg
+            while chunk_size > self.nPulses:
+                chunk_size /= 2
+
+            tr = self.pulse_records.hdf5_trace.create_dataset("traces", shape=(self.nPulses, self.nSamples),
+                                                              chunks=(chunk_size, self.nSamples),
+                                                              compression="gzip", shuffle=True, dtype=np.uint16)
+            for n in range(self.pulse_records.n_segments):
+                first, end = self.read_segment(n)
+                tr[first:end] = self.data
+        return tr
 
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None):
@@ -1427,4 +1451,26 @@ class MicrocalDataSet(object):
             print("%d pulses cut by %s"%(np.sum(self.cuts.isCut(j)), cutname.upper()))
         print("%d pulses total"%self.nPulses)
 
+    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
+        # first check to see if this had already been done
+        cutnum = self.CUT_NAME.index('smart_cuts')
+        if not any(self.cuts.isCut(cutnum)) or forceNew:
+            from sklearn.covariance import MinCovDet
+
+            mdata = np.vstack([self.p_pretrig_mean[:n_trainings], self.p_pretrig_rms[:n_trainings],
+                               self.p_min_value[:n_trainings], self.p_postpeak_deriv[:n_trainings]])
+            mdata = mdata.transpose()
+
+            robust = MinCovDet().fit(mdata)
+
+            # It excludes only extreme outliers.
+            mdata = np.vstack([self.p_pretrig_mean[...], self.p_pretrig_rms[...],
+                               self.p_min_value[...], self.p_postpeak_deriv[...]])
+            mdata = mdata.transpose()
+            flag = robust.mahalanobis(mdata) > threshold**2
+
+            self.cuts.cut(cutnum, flag)
+            print("channel %g ran smart cuts, %g of %g pulses passed"%(self.channum, (~self.cuts.isCut(cutnum)).sum(), self.nPulses))
+        else:
+            print("channel %g skipping smart cuts because it was already done"%(self.channum))
 
