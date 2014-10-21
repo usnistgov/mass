@@ -309,16 +309,16 @@ end
 
 
 function noise_covariance(m::NoiseModel, n::Integer)
-    @assert n <= m.max_white_length
     R = zeros(Float64, n)
     R[1] = sum(real(m.exp_amplitudes))
+    # Outer loop is over the exponentials i; inner loop is over lags j.
     for i = 1:m.nexp
         a,b = m.exp_amplitudes[i], m.exp_bases[i]
         bi = b
         for j = 2:n
             R[j] += real(a*bi)
             bi *= b
-            abs(bi)<1e-6 && break
+            abs(bi)<1e-12 && break
         end
     end
     R
@@ -345,27 +345,46 @@ end
 
 # Whiten a data stream
 function whiten(m::NoiseModel, v::Vector)
+    w = Array(Float64, length(v))
+    whiten(m,v, w)
+    w
+end
+
+
+# Whiten a data stream
+function whiten(m::NoiseModel, v::Vector, w::Vector{Float64})
     # First, apply the A matrix. Result a<-v is "half-whitened" in that the
-    # AR part of the model is removed, but MA part still to be done
+    # AR part of the model is removed, but MA part still to be done.
     N = length(v)
     p = m.nexp
-    a = conv(v, phi)[1:N]
+    a = conv(v, m.phi)[1:N]
 
-    # Next, solve Bw=a=Av. First the small case where direct inversion makes sense
+    # Next, solve Bw=a=Av. First the small case where direct inversion makes sense.
     if N <= p+1
         return m.Bcorner[1:N,1:N] \ a
     end
 
-    @show a[1:10]
-    w = similar(a)
+    # Now the larger Bw=a solution. Note that we have computed the rows of banded
+    # B only to some limit. Beyond that limit, we can continue using the last row
+    # of B and hope that B has converged well enough for this to be safe.
+    Nb = m.max_white_length # This is # of rows in m.Bcorner
     w[1:p+1] = m.Bcorner \ a[1:p+1]
-    @show w[1:10]
-    for i=p+2:N
+    for i=p+2:min(Nb, N)
         s = sum(m.Bbands[i, 1:end-1] * w[i-p:i-1])
         w[i] = (a[i]-s)/m.Bbands[i,end]
     end
+    # From here on out, we have to approximate un-computed rows of B by the
+    # last computed row and hope it works.
+    if N > Nb
+        for i=Nb+1:N
+            s = sum(m.Bbands[end, 1:end-1] * w[i-p:i-1])
+            w[i] = (a[i]-s)/m.Bbands[end,end]
+        end
+    end
     w
 end
+
+
 
 # Create a toeplitz matrix with c as the first column and
 # (optional) r as the first row. r[1] will be ignored in
