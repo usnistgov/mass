@@ -135,6 +135,19 @@ function fileRecords(f::LJHFile, nrec::Integer,
 end
 
 
+# Read the next nrec records and for each return time and samples
+# (error if eof occurs or insufficient space in times or data)
+# Here data is a 1D vector instead of a 2D matrix
+function fileRecords(f::LJHFile, nrec::Integer,
+                     times::Vector{Uint64}, data::Vector{Uint16})
+    N = length(data)
+    @assert nrec * f.nsamp == N
+    data = resize(data, f.nsamp, nrec)
+    fileRecords(f, nrec, times, data)
+    resize(data, N)
+end
+
+
 function LJHRewind(f::LJHFile)
     seek(f.str, f.header.headerSize)
 end
@@ -155,16 +168,22 @@ end
 
 
 
-# From LJH file, return all data samples as single vector. Drop the timestamps.
-function fileData(filename::String)
+# From LJHfile, return all or some data samples as a single vector. Drop timestamps.
+# Let nrec be the number of data records to return or (if null or non-positive) return all data.
+# Always returns the first records in a file.
+function fileData(filename::String, nrec::Integer=null)
     ljh = LJHFile(filename)
-    time = Array(Uint64, ljh.nrec)
-    data = Array(Uint16, ljh.nsamp, ljh.nrec)
-    fileRecords(ljh, ljh.nrec, time, data)
+    if nrec == null || nrec <= 0
+        nrec = ljh.nrec
+    else
+        @assert nrec <= ljh.nrec
+    end
+    time = Array(Uint64, nrec)
+    data = Array(Uint16, ljh.nsamp, nrec)
+    fileRecords(ljh, nrec, time, data)
     close(ljh.str)
     vec(data)
 end
-
 
 
 # Decode the record time packed into the 6-byte record header (LJH version 2.1.0)
