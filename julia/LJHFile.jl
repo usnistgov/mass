@@ -141,10 +141,14 @@ end
 function fileRecords(f::LJHFile, nrec::Integer,
                      times::Vector{Uint64}, data::Vector{Uint16})
     N = length(data)
-    @assert nrec * f.nsamp == N
-    data = resize(data, f.nsamp, nrec)
-    fileRecords(f, nrec, times, data)
-    resize(data, N)
+    @assert nrec * f.nsamp <= N
+    @assert nrec <= length(times)
+    for i=1:nrec
+        times[i] = recordTime(read(f.str, Uint8, LJH_RECORD_HDR_SIZE))
+        b = i*f.nsamp
+        a = b-f.nsamp+1
+        data[a:b] = read(f.str, Uint16, f.nsamp)
+    end
 end
 
 
@@ -169,11 +173,11 @@ end
 
 
 # From LJHfile, return all or some data samples as a single vector. Drop timestamps.
-# Let nrec be the number of data records to return or (if null or non-positive) return all data.
+# Let nrec be the number of data records to return or (if non-positive) return all data.
 # Always returns the first records in a file.
-function fileData(filename::String, nrec::Integer=null)
+function fileData(filename::String, nrec::Integer=-1)
     ljh = LJHFile(filename)
-    if nrec == null || nrec <= 0
+    if nrec <= 0
         nrec = ljh.nrec
     else
         @assert nrec <= ljh.nrec

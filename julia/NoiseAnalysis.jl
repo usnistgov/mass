@@ -233,7 +233,8 @@ end
 #
 # Thus the returned array will be 1 longer than length(bases).
 
-function fit_exponential_amplitudes_plusdelta(data::Vector{Float64}, bases::Vector)
+function fit_exponential_amplitudes_plusdelta(data::Vector{Float64},
+                                              bases::Vector)
     N = length(data)
     M = length(bases)
     const j = 1:N-1
@@ -273,13 +274,20 @@ type NoiseModel
     phi                  ::Vector{Float64}
     max_white_length     ::Integer
     nexp                 ::Integer
-    Mcorner           ::Array{Float64,2}
-    Bcorner           ::Array{Float64,2}
-    Bbands              ::Array{Float64,2}
+    Mcorner              ::Array{Float64,2}
+    Bcorner              ::Array{Float64,2}
+    Bbands               ::Array{Float64,2}
+
+    function NoiseModel{T<:Number,U<:Number}(bases::Vector{T}, amplitudes::Vector{U},
+                        maxlen::Integer)
+        NoiseModel(complex128(bases), complex128(amplitudes), maxlen)
+    end
 
     function NoiseModel(bases::Vector{Complex128}, amplitudes::Vector{Complex128},
-                         maxlen::Integer)
+                        maxlen::Integer)
         nexp = length(bases)
+        @assert length(amplitudes) == 1+nexp
+
         phi = build_phi(bases)
         Mcorner = zeros(Float64, nexp+1, nexp+1)
         Bcorner = zeros(Float64, nexp+1, nexp+1)
@@ -343,52 +351,84 @@ function covar2MAcovar(m::NoiseModel)
 end
 
 
-# Whiten a data stream
-function whiten(m::NoiseModel, v::Vector)
+# Whiten a data stream v using the causal whitening filter implied by
+# the m::NoiseModel and return the whitened result.
+function whiten{T<:Number}(m::NoiseModel, v::Vector{T})
     w = Array(Float64, length(v))
-    whiten(m,v, w)
+    whiten!(m, v, w)
     w
 end
 
 
-# Whiten a data stream
-function whiten(m::NoiseModel, v::Vector, w::Vector{Float64})
-    # First, apply the A matrix. Result a<-v is "half-whitened" in that the
-    # AR part of the model is removed, but MA part still to be done.
+
+# Whiten a data stream v using the causal whitening filter implied by
+# the m::NoiseModel. The result is returned in w
+
+function whiten!{T<:Number}(m::NoiseModel, v::Vector{T}, w::Vector{Float64},
+                 first_nonzero::Integer=1)
     N = length(v)
     p = m.nexp
-    a = conv(v, m.phi)[1:N]
+    @assert length(w) >= N
 
-    # Next, solve Bw=a=Av. First the small case where direct inversion makes sense.
+    # Note that is(v, float(v)) will be true when v is already Vector{Float64}.
+    v = float(v)
+
+    # A shortcut will involve ignoring all leading zeros in v. Leading zeros
+    # in v produce leading zeros in w, because whitening is linear and causal.
+    # If first_nonzero is passed in from outside, we'll trust it. Otherwise
+    # compute it.
+    if first_nonzero <= 1
+        first_nonzero = N
+        for i in 1:N
+            if v[i] != 0.0
+                first_nonzero = i
+                break
+            end
+        end
+    end
+    num_nonzero = N+1-first_nonzero
+
+    # 1) Apply the A matrix. Result w is "half-whitened" in that the
+    # AR part of the model is removed, but MA part still to be done.
+    w[1:first_nonzero-1]  = 0.0
+    w[first_nonzero:N] = conv(v[first_nonzero:N], m.phi)[1:num_nonzero]
+
+    # 2) Solve Bw=a=Av.
+    # 2a) First the small case where direct inversion makes sense.
     if N <= p+1
-        return m.Bcorner[1:N,1:N] \ a
+        w[1:N] = m.Bcorner[1:N,1:N] \ w[1:N]
     end
 
-    # Now the larger Bw=a solution. Note that we have computed the rows of banded
+    # 2b) Now the larger Bw=a solution. Note that we have computed the rows of banded
     # B only to some limit. Beyond that limit, we can continue using the last row
     # of B and hope that B has converged well enough for this to be safe.
     Nb = m.max_white_length # This is # of rows in m.Bcorner
-    w[1:p+1] = m.Bcorner \ a[1:p+1]
-    for i=p+2:min(Nb, N)
-        s = sum(m.Bbands[i, 1:end-1] * w[i-p:i-1])
-        w[i] = (a[i]-s)/m.Bbands[i,end]
+    if first_nonzero <= p+1
+        w[1:p+1] = m.Bcorner \ w[1:p+1]
+    end
+    start_at = max(p+2, first_nonzero)
+    for i = start_at:min(Nb, N)
+        for j=i-p:i-1
+            w[i] -= m.Bbands[i, j-i+p+1] * w[j]
+        end  # s = sum(m.Bbands[i, 1:end-1] * w[i-p:i-1])
+        w[i] /= m.Bbands[i,end]
     end
     # From here on out, we have to approximate un-computed rows of B by the
     # last computed row and hope it works.
-    if N > Nb
-        for i=Nb+1:N
-            s = sum(m.Bbands[end, 1:end-1] * w[i-p:i-1])
-            w[i] = (a[i]-s)/m.Bbands[end,end]
-        end
+    start_at = max(Nb+1, first_nonzero)
+    for i = start_at:N
+        for j=i-p:i-1
+            w[i] -= m.Bbands[end, j-i+p+1] * w[j]
+        end  # s = sum(m.Bbands[end, 1:end-1] * w[i-p:i-1])
+        w[i] /= m.Bbands[end,end]
     end
-    w
 end
 
 
 
-# Create a toeplitz matrix with c as the first column and
+# Create and return a toeplitz matrix with c as the first column and
 # (optional) r as the first row. r[1] will be ignored in
-# favor of c[1].
+# favor of c[1] to determine the diagonal.
 
 function toeplitz{T<:Number}(c::Vector{T}, r::Vector{T})
     nr = length(c)
@@ -405,5 +445,7 @@ function toeplitz{T<:Number}(c::Vector{T}, r::Vector{T})
     m
 end
 
+
+# Create and return a symmetric toeplitz matrix given the first column c
 
 toeplitz{T<:Number}(c::Vector{T}) = toeplitz(c,c)
