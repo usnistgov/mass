@@ -267,6 +267,8 @@ function build_phi(bases::Vector)
 end
 
 
+# Warning: do not use! I replaced this with my version CovarianceModel which
+# is based on Brad's very fast code!
 
 type NoiseModel
     exp_bases            ::Vector{Complex128}
