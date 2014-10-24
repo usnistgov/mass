@@ -32,7 +32,7 @@ function all_MPF_analysis(setname::String="S", noiseset::String="V", date::Strin
     end
     for cnum=1:2:120
         cnum in badchan && continue
-        filename = @sprintf("%s/2012_06_14_%s_chan%d.ljh", PATH, setname, cnum)
+        filename = @sprintf("%s/2012_06_%s_%s_chan%d.ljh", PATH, date, setname, cnum)
         println("Working on $filename")
         MPF_analysis(filename)
     end
@@ -40,9 +40,9 @@ end
 
 
 function oct24_work ()
-    @time all_MPF_analysis("ZB", "V", "14")
-    @time all_MPF_analysis("ZA", "V", "14")
-    @time all_MPF_analysis("Z", "V", "14")
+    #@time all_MPF_analysis("ZB", "V", "14")
+    #@time all_MPF_analysis("ZA", "V", "14")
+    #@time all_MPF_analysis("Z", "V", "14")
     @time all_MPF_analysis("G", "B", "15")
 end
 
@@ -124,11 +124,11 @@ end
 function MPF_analysis(filename::String, forceNew::Bool=false)
     file = MicrocalFiles.LJHFile(filename)
     hdf5name = hdf5_name_from_ljh_name(filename, "mpf")
-    println("We are about to compute MPF results and store into '$hdf5name'")
+    println("We are about to compute MPF results; store into\n$hdf5name")
     h5file = h5file_update(hdf5name)
     try
-        const do_all_trigtimes = true
-        const do_all_fits = true
+        const do_all_trigtimes = false
+        const do_all_fits = false
 
         grpname=string("chan$(file.channum)")
         h5grp = g_create_or_open(h5file, grpname)
@@ -157,7 +157,7 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
 
             println("Computing multi-pulse fits...\n")
             fitter = MultiPulseFitter(avg_pulse, covar_model)
-            extendMPF!(fitter, 8000, 20)
+            extendMPF!(fitter, 8000)
             ph, dph, resid, baseline = multi_pulse_fit_file(file, trigger_times, fitter)
 
             mpfgrp = g_create_or_open(h5grp, "mpf")
@@ -308,26 +308,19 @@ type MultiPulseFitter
     white_slope                 ::Vector{Float64}
     covar_model                 ::CovarianceModel
 
-    # The following is "scratch space" so that many data chunks can be fit without
-    # having to repeatedly allocate arrays
-    model_components            ::Array{Float64}
-    nsamp_allocated             ::Int64
-    nparam_allocated            ::Int64
-
 
     function MultiPulseFitter(pulse_model::Vector, covar_model::CovarianceModel,
-                              chunklength::Integer=5120, nparam::Integer=10)
-        const npm = length(pulse_model)
+                              chunklength::Integer=5120)
 
-        pulse_model = pulse_model / maximum(pulse_model) # Normalize!
+        const npm = length(pulse_model)
+        pulse_model = pulse_model / maximum(pulse_model) # Normalize model to max=1
         dpdt = similar(pulse_model)
         dpdt[2:end] = pulse_model[2:end]-pulse_model[1:end-1]
         dpdt[2] = dpdt[3]
         dpdt[1] = 0
 
-        fitter = new(pulse_model, dpdt,
-            Array(Float64,0), Array(Float64,0), covar_model,
-            Array(Float64,chunklength,nparam), chunklength, nparam)
+        fitter = new(pulse_model, dpdt, Array(Float64,chunklength),
+                     Array(Float64,chunklength), covar_model)
     end
 end
 
@@ -339,27 +332,19 @@ function MultiPulseFitter(hdf5name::String, channum::Integer)
     noisegrp = file[channame*"/noise"]
     covar_model = CovarianceModel(read_complex(noisegrp["model_amplitudes"]),
                                   read_complex(noisegrp["model_bases"]), 5120)
-    fitter = MultiPulseFitter(read(file[channame*"/average_pulse"]), covar_model)
-    extendMPF!(fitter, 5120, 20)
-    fitter
+    MultiPulseFitter(read(file[channame*"/average_pulse"]), covar_model, 5120)
 end
 
 
 
 # Extend the MultiPulseFitter so it can take longer data chunks
-function extendMPF!(mpf::MultiPulseFitter, chunklength::Integer, nparam::Integer)
-    if chunklength <= mpf.nsamp_allocated && nparam <= mpf.nparam_allocated
+function extendMPF!(mpf::MultiPulseFitter, chunklength::Integer)
+    if chunklength <= length(mpf.white_const)
         return
     end
-    if chunklength > mpf.nsamp_allocated
-        println("Extending the MPF to size $(chunklength) from $(mpf.nsamp_allocated)")
-    else
-        chunklength = mpf.nsamp_allocated
-    end
-    if nparam > mpf.nparam_allocated
-        println("Extending the MPF to params $(nparam) from $(mpf.nparam_allocated)")
-    else
-        nparam = mpf.nparam_allocated
+    println("Extending the MPF to size $(chunklength) from $(length(mpf.white_const))")
+    if chunklength > mpf.covar_model.max_length
+        error("Cannot extend the MultiPulseFitter longer than the CovarianceModel")
     end
 
     # Whiten some functions to their new length
@@ -368,13 +353,6 @@ function extendMPF!(mpf::MultiPulseFitter, chunklength::Integer, nparam::Integer
     long_dpdt_model  = [mpf.dpdt_model, zeros(Float64, chunklength-npm)]
     mpf.white_const = whiten(mpf.covar_model, ones(Float64, chunklength))
     mpf.white_slope = whiten(mpf.covar_model, linspace(-1, 1, chunklength))
-
-    # Now expand the scratch space to the right size
-    mpf.model_components = Array(Float64, chunklength, nparam)
-    mpf.model_components[:,1] = mpf.white_const
-    mpf.model_components[:,2] = mpf.white_slope
-    mpf.nsamp_allocated = chunklength
-    mpf.nparam_allocated = nparam
 
     mpf
 end
@@ -394,57 +372,34 @@ function multi_pulse_fit(data::Vector, pulse_times::Vector{Int64},
     const Nonpulse_param = 2
     const Nparam = Np+Nonpulse_param
     @assert maximum(pulse_times) <= Nd
-    if Nd > mpf.nsamp_allocated || Nparam > mpf.nparam_allocated
-        extendMPF!(mpf, Nd, Nparam)
+    if Nd > length(mpf.white_const)
+        extendMPF!(mpf, Nd)
     end
-    @assert Nparam <= mpf.nparam_allocated
 
-    # Update the 1:Nd leading rows and columns 3:Np+2 of the already-allocated
-    # mpf.model_components array.
-    mpf.model_components[1:end, 1+Nonpulse_param:end] = 0.0
+    # Build the (whitened) components of the data model
+    model_components = zeros(Float64, Nd, Nparam)
+    model_components[:, 1] = mpf.white_const[1:Nd]
+    model_components[:, 2] = mpf.white_slope[1:Nd]
     for i = 1:Np
         pstart = pulse_times[i]-2
         pend = min(pstart+length(mpf.pulse_model)-1, Nd)
         pstart = max(1, pstart)
-        mpf.model_components[pstart:pend, i+Nonpulse_param] =
+        model_components[pstart:pend, i+Nonpulse_param] =
             whiten(mpf.covar_model, mpf.pulse_model[1:pend-pstart+1])
     end
 
-    # Compute the model's state matrix.
-    # The following would be correct but slower:
-    # A = model_components' * model_components
-    # (here, model_components = mpf.model_components[1:Nd,:] )
-    A = Array(Float64, Nparam, Nparam)
-    first_nonzero_val = ones(Integer, Nparam)
-    for i=1:Np
-        first_nonzero_val[i+Nonpulse_param] = max(1, pulse_times[i]-2)
-    end
-    for i=1:Nparam
-        for j=1:i
-            fnzv = max(first_nonzero_val[i], first_nonzero_val[j])
-            A[i,j] = dot(mpf.model_components[fnzv:Nd,i], mpf.model_components[fnzv:Nd,j])
-            A[j,i] = A[i,j]
-        end
-    end
-
+    # Compute the model's "design matrix".
+    # The following BLAS call seemed like it might be faster, but it was no different.
+    # A = BLAS.gemm('T', 'N', model_components, model_components)
+    A = model_components' * model_components
     covar = inv(A)
+
     white_data = whiten(mpf.covar_model, data)
-
-    # Correct but slower would be:  mc_dot_data = (model_components' *wdata)
-    mc_dot_data = Array(Float64, Nparam)
-    for i=1:Nparam
-        fnzv = first_nonzero_val[i]
-        mc_dot_data[i] = dot(mpf.model_components[fnzv:Nd,i], white_data[fnzv:Nd])
-    end
+    mc_dot_data = (model_components' * white_data)
     param = A \ mc_dot_data
+    residual = white_data - model_components * param
 
-    # Correct but slower would be: residual = wdata - model_components * param
-    residual = white_data[1:Nd]
-    for i=1:Nparam
-        fnzv = first_nonzero_val[i]
-        residual[fnzv:Nd] -= mpf.model_components[fnzv:Nd,i] * param[i]
-    end
-    param, covar, sqrt(mean(residual.^2))
+    return param, covar, norm(residual)
 end
 
 
@@ -481,7 +436,7 @@ end
 function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
                          mpf::MultiPulseFitter)
     nrecs = 3
-    extendMPF!(mpf, (nrecs+1)*file.nsamp, 10)
+    extendMPF!(mpf, (nrecs+1)*file.nsamp)
 
     const MIN_POST_TRIG_SAMPS = 200
     MicrocalFiles.LJHRewind(file)
@@ -540,7 +495,7 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
         resid[np_seen+1:np_seen+ncp] = this_resid
         baseline[np_seen+1:np_seen+ncp] = param[1]
         np_seen += ncp
-        if mod(i,100) == 0
+        if mod(i,1000) == 0
             println("$i chunks seen, with $(np_seen) pulses fit.")
         end
     end
