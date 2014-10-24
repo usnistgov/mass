@@ -3,7 +3,7 @@
 using HDF5, PyPlot
 using MicrocalFiles, HDF5Helpers
 
-include("NoiseAnalysis.jl")
+include("CovarianceModel.jl")
 
 # Try on "/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_S_chan93.ljh"
 # Noise  "/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_V_chan93.noi"
@@ -145,13 +145,13 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
         # Do the fits
         if forceNew || ! exists(h5grp, "mpf") | do_all_fits
             avg_pulse = read(h5grp["average_pulse"])
-            noise_model = NoiseModel(read_complex(h5grp["noise/model_bases"]),
-                                     read_complex(h5grp["noise/model_amplitudes"]),
-                                     6000)
+            covar_model = CovarianceModel(read_complex(h5grp["noise/model_amplitudes"]),
+                                          read_complex(h5grp["noise/model_bases"]),
+                                          8000)
 
             println("Computing multi-pulse fits...\n")
-            fitter = MultiPulseFitter(avg_pulse, noise_model)
-            extendMPF!(fitter, 6000, 20)
+            fitter = MultiPulseFitter(avg_pulse, covar_model)
+            extendMPF!(fitter, 8000, 20)
             ph, dph, resid, baseline = multi_pulse_fit_file(file, trigger_times, fitter)
 
             mpfgrp = g_create_or_open(h5grp, "mpf")
@@ -294,18 +294,18 @@ type MultiPulseFitter
     dpdt_model                  ::Vector{Float64}
     white_const                 ::Vector{Float64}
     white_slope                 ::Vector{Float64}
-    noise_model                 ::NoiseModel
+    covar_model                 ::CovarianceModel
 
     # The following is "scratch space" so that many data chunks can be fit without
     # having to repeatedly allocate arrays
     model_components            ::Array{Float64}
-    white_data                  ::Vector{Float64}
-    nsamp_allocated             ::Integer
-    nparam_allocated            ::Integer
+    white_data                  ::Vector{Float64}  ## DELETE ME
+    nsamp_allocated             ::Int64
+    nparam_allocated            ::Int64
 
 
-    function MultiPulseFitter(pulse_model::Vector, noise_model::NoiseModel,
-                            chunklength::Integer=2048, nparam::Integer=10)
+    function MultiPulseFitter(pulse_model::Vector, covar_model::CovarianceModel,
+                              chunklength::Integer=5120, nparam::Integer=10)
         const npm = length(pulse_model)
 
         pulse_model = pulse_model / maximum(pulse_model) # Normalize!
@@ -315,7 +315,7 @@ type MultiPulseFitter
         dpdt[1] = 0
 
         fitter = new(pulse_model, dpdt,
-            Array(Float64,0), Array(Float64,0), noise_model,
+            Array(Float64,0), Array(Float64,0), covar_model,
             Array(Float64,0,nparam), Array(Float64,0), 0, nparam)
         extendMPF!(fitter, chunklength, nparam)
     end
@@ -327,9 +327,9 @@ function MultiPulseFitter(hdf5name::String, channum::Integer)
     file = h5open(hdf5name, "r")
     channame = string("chan",channum)
     noisegrp = file[channame*"/noise"]
-    noise_model = NoiseModel(read_complex(noisegrp["model_bases"]),
-                             read_complex(noisegrp["model_amplitudes"]), 5120)
-    fitter = MultiPulseFitter(read(file[channame*"/average_pulse"]), noise_model)
+    covar_model = CovarianceModel(read_complex(noisegrp["model_amplitudes"]),
+                                  read_complex(noisegrp["model_bases"]), 5120)
+    fitter = MultiPulseFitter(read(file[channame*"/average_pulse"]), covar_model)
     extendMPF!(fitter, 5120, 20)
     fitter
 end
@@ -356,11 +356,10 @@ function extendMPF!(mpf::MultiPulseFitter, chunklength::Integer, nparam::Integer
     const npm = length(mpf.pulse_model)
     long_pulse_model = [mpf.pulse_model, zeros(Float64, chunklength-npm)]
     long_dpdt_model  = [mpf.dpdt_model, zeros(Float64, chunklength-npm)]
-    mpf.white_const = whiten(mpf.noise_model, ones(Float64, chunklength))
-    mpf.white_slope = whiten(mpf.noise_model, linspace(-1, 1, chunklength))
+    mpf.white_const = whiten(mpf.covar_model, ones(Float64, chunklength))
+    mpf.white_slope = whiten(mpf.covar_model, linspace(-1, 1, chunklength))
 
     # Now expand the scratch space to the right size
-    mpf.white_data = Array(Float64, chunklength)
     mpf.model_components = Array(Float64, chunklength, nparam)
     mpf.model_components[:,1] = mpf.white_const
     mpf.model_components[:,2] = mpf.white_slope
@@ -398,7 +397,7 @@ function multi_pulse_fit(data::Vector, pulse_times::Vector{Int64},
         pend = min(pstart+length(mpf.pulse_model)-1, Nd)
         pstart = max(1, pstart)
         mpf.model_components[pstart:pend, i+Nonpulse_param] =
-            whiten(mpf.noise_model, mpf.pulse_model[1:pend-pstart+1])
+            whiten(mpf.covar_model, mpf.pulse_model[1:pend-pstart+1])
     end
 
     # Compute the model's state matrix.
@@ -419,18 +418,18 @@ function multi_pulse_fit(data::Vector, pulse_times::Vector{Int64},
     end
 
     covar = inv(A)
-    whiten!(mpf.noise_model, data, mpf.white_data)
+    white_data = whiten(mpf.covar_model, data)
 
     # Correct but slower would be:  mc_dot_data = (model_components' *wdata)
     mc_dot_data = Array(Float64, Nparam)
     for i=1:Nparam
         fnzv = first_nonzero_val[i]
-        mc_dot_data[i] = dot(mpf.model_components[fnzv:Nd,i], mpf.white_data[fnzv:Nd])
+        mc_dot_data[i] = dot(mpf.model_components[fnzv:Nd,i], white_data[fnzv:Nd])
     end
     param = A \ mc_dot_data
 
     # Correct but slower would be: residual = wdata - model_components * param
-    residual = mpf.white_data[1:Nd]
+    residual = white_data[1:Nd]
     for i=1:Nparam
         fnzv = first_nonzero_val[i]
         residual[fnzv:Nd] -= mpf.model_components[fnzv:Nd,i] * param[i]

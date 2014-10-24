@@ -179,7 +179,7 @@ function covsolut{T<:Number}(y::Array{T,1},k,nsav,b,d,dsum,dsuminv)
     return x
 end
 
-function covarsolve{T<:Number}(y::Array{T,1}, model::CovarianceModel,
+function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,1}, 
                               leadingzeros::Integer=0)
     const n=length(y)
     if n>model.max_length
@@ -200,7 +200,7 @@ function covarsolve{T<:Number}(y::Array{T,1}, model::CovarianceModel,
     return x
 end
 # Solves with multiple right hand sides
-function covarsolve{T<:Number}(y::Array{T,2}, model::CovarianceModel)
+function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,2})
     const n,m = size(y)
     if n>model.max_length
         error("covarsolve: length(y[:,1]) greater than that supported in the CovarianceModel")

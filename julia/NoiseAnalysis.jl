@@ -274,8 +274,8 @@ type NoiseModel
     exp_bases            ::Vector{Complex128}
     exp_amplitudes       ::Vector{Complex128}
     phi                  ::Vector{Float64}
-    max_white_length     ::Integer
-    nexp                 ::Integer
+    max_white_length     ::Int64
+    nexp                 ::Int64
     Mcorner              ::Array{Float64,2}
     Bcorner              ::Array{Float64,2}
     Bbands               ::Array{Float64,2}
