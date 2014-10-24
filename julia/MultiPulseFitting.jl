@@ -289,40 +289,6 @@ function compute_average_pulse(file::MicrocalFiles.LJHFile,
 end
 
 
-
-# function multi_pulse_fit_version1(data::Vector, pulse_times::Vector, pulse_model::Vector,
-#                         noise::NoiseModel)
-#     @assert maximum(pulse_times) < length(data)
-#     Nd = length(data)
-#     Np = length(pulse_times)
-#     mp = whiten(noise, pulse_model)
-#     model_components = zeros(Float64, Nd, Np+2)
-#     model_components[:,end-1] = whiten(noise, ones(Float64, Nd))
-#     model_components[:,end] = whiten(noise, linspace(-1,1,Nd))
-#     for i = 1:Np
-#         pstart = pulse_times[i]-2
-#         pend = min(pstart+length(mp)-1, Nd)
-#         model_components[pstart:pend, i] = mp[1:pend-pstart+1]
-#     end
-
-#     wdata = whiten(noise, data)
-#     param = pinv(model_components) * wdata
-#     println(param)
-#     wmodel = model_components*param
-
-#     clf()
-#     model = 0.0*wmodel
-#     model += param[end-1] + param[end] * linspace(-1,1,Nd)
-#     for i = 1:Np
-#         pstart = pulse_times[i]-2
-#         pend = min(pstart+length(mp)-1, Nd)
-#         model[pstart:pend] += param[i] * pulse_model[1:pend-pstart+1]
-#     end
-#     plot(data,"r")
-#     plot(model,"k")
-# end
-
-
 type MultiPulseFitter
     pulse_model                 ::Vector{Float64}
     dpdt_model                  ::Vector{Float64}
