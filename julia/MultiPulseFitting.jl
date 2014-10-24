@@ -4,6 +4,7 @@ using HDF5, PyPlot
 using MicrocalFiles, HDF5Helpers
 
 include("CovarianceModel.jl")
+include("RandomMatrix.jl")
 
 # Try on "/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_S_chan93.ljh"
 # Noise  "/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_V_chan93.noi"
@@ -38,6 +39,12 @@ function all_MPF_analysis(setname::String="S", noiseset::String="V", date::Strin
 end
 
 
+function oct24_work ()
+    @time all_MPF_analysis("ZB", "V", "14")
+    @time all_MPF_analysis("ZA", "V", "14")
+    @time all_MPF_analysis("Z", "V", "14")
+    @time all_MPF_analysis("G", "B", "15")
+end
 
 # Analyze a noise set for use in MPF analysis later
 
@@ -120,8 +127,7 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
     println("We are about to compute MPF results and store into '$hdf5name'")
     h5file = h5file_update(hdf5name)
     try
-        const do_all_trigtimes = false
-        const do_all_noise = false
+        const do_all_trigtimes = true
         const do_all_fits = true
 
         grpname=string("chan$(file.channum)")
@@ -254,7 +260,7 @@ function compute_average_pulse(file::MicrocalFiles.LJHFile,
     # Find which trigger times are isolated
     PRE_PERIOD, PRE_DELAY, POST_DELAY = 100, 400, 600
     isolated_times = Integer[]
-    for i in 2:npulses
+    for i in 2:npulses-1
         if trigger_times[i]-trigger_times[i-1] > PRE_DELAY &&
             trigger_times[i+1]-trigger_times[i] > POST_DELAY &&
             trigger_times[i] > PRE_PERIOD && trigger_times[i]+POST_DELAY < length(data)
@@ -269,12 +275,18 @@ function compute_average_pulse(file::MicrocalFiles.LJHFile,
         plot(pulses[:,i]+i*5, color=((float(i)/length(isolated_times)),0,0))
     end
 
+    if length(isolated_times) < 1
+        avg_pulse = zeros(Float64, PRE_PERIOD+POST_DELAY)
+        avg_pulse[PRE_PERIOD:PRE_PERIOD+50] = 1.0
+        return avg_pulse
+    end
+    
     # From the isolated pulses, do an SVD and throw out the outliers.
     u,w,v = find_svd_randomly(pulses, 10)
     badness = sum(v[:,2:end].^2, 2)
-    critical_badness = 10*median(badness)
     avg_pulse = zeros(Float64, PRE_PERIOD+POST_DELAY)
     np = 0
+    critical_badness = 6*median(badness)
     for i=1:length(isolated_times)
         if badness[i] < critical_badness
             avg_pulse += pulses[:, i]
@@ -299,7 +311,6 @@ type MultiPulseFitter
     # The following is "scratch space" so that many data chunks can be fit without
     # having to repeatedly allocate arrays
     model_components            ::Array{Float64}
-    white_data                  ::Vector{Float64}  ## DELETE ME
     nsamp_allocated             ::Int64
     nparam_allocated            ::Int64
 
@@ -316,8 +327,7 @@ type MultiPulseFitter
 
         fitter = new(pulse_model, dpdt,
             Array(Float64,0), Array(Float64,0), covar_model,
-            Array(Float64,0,nparam), Array(Float64,0), 0, nparam)
-        extendMPF!(fitter, chunklength, nparam)
+            Array(Float64,chunklength,nparam), chunklength, nparam)
     end
 end
 
