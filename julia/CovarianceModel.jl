@@ -3,12 +3,15 @@
 # R_{ij} = r(|j-i|) = \sum_{m=1}^k a(m) b(m)^|j-i| is real for i,j = 1,2,...
 # and |b(m)|<1 for m = 1,...,k.
 
-immutable CovarianceModel
+FloatOrComplex = Union(FloatingPoint, Complex)
+
+immutable CovarianceModel{T<:FloatOrComplex}
     num_exps          ::Int64     # was: k
     max_length        ::Int64     # was: nsav
-    bases             ::Vector{Complex128}  # was: b
-    amplitudes        ::Vector{Complex128}  # was not previously saved
-    d                 ::Matrix{Complex128}
+    bases_type        ::DataType
+    bases             ::Vector{T}  # was: b
+    amplitudes        ::Vector{T}  # was not previously saved
+    d                 ::Matrix{T}
     dsum              ::Vector{Float64}
     dsuminv           ::Vector{Float64}
 
@@ -17,18 +20,18 @@ immutable CovarianceModel
     # are supplied, then the last (kth) base is assumed to be very small, so that
     # its powers are approximately [1,0,0,...].
 
-    function CovarianceModel(a::Vector{Complex128}, b::Vector{Complex128}, n::Integer)
+    function CovarianceModel(a::Vector{T}, b::Vector{T}, n::Integer)
         if length(a)==length(b)+1
             const verysmall = minimum(abs(b)) *1e-5
             b = [b, verysmall];
         elseif length(a)!=length(b)
             error("CovarianceModel: a,b must be vectors of same length")
         end
-        
+  
         k=length(a)
-        d=zeros(Complex128,k,n)
-        bb=zeros(Complex128,k,k)
-        accum=zeros(Complex128,k,k)
+        d=zeros(T,k,n)
+        bb=zeros(T,k,k)
+        accum=zeros(T,k,k)
         dsum=zeros(Float64,n)
         dsuminv=zeros(Float64,n)
         s=1/sqrt(real(sum(a)))
@@ -40,7 +43,7 @@ immutable CovarianceModel
             accum[j,i]=conj(d[j,1])*d[i,1]*bb[j,i]
         end
         # Proceed row by row to factor
-        v=zeros(Complex128,k)
+        v=zeros(T,k)
         for m=2:n
             for i=1:k
                 v[i]=a[i]-sum(accum[:,i])
@@ -61,14 +64,12 @@ immutable CovarianceModel
             dsum[m]=s
             dsuminv[m]=1/dsum[m]
         end
-        new(k, n, copy(b), copy(a), d, dsum, dsuminv)
+        new(k, n, typeof(b[1]), copy(b), copy(a), d, dsum, dsuminv)
     end
 end
 
-# Alternate constructor for non-complex bases/amplitudes
-function CovarianceModel{T<:FloatingPoint}(a::Vector{T}, b::Vector{T}, n::Integer)
-    CovarianceModel(complex(a), complex(b), n)
-end
+CovarianceModel{T<:FloatOrComplex}(a::Vector{T}, b::Vector{T}, n::Integer) =
+    CovarianceModel{T}(a, b, n)
 
 
 # Generate the model noise covariance function out to arbitrary length
@@ -79,11 +80,11 @@ function noisecovariance(m::CovarianceModel, n::Integer)
     # Outer loop is over the exponentials i; inner loop is over lags j.
     for i = 1:m.nexp
         a,b = m.amplitudes[i], m.bases[i]
-        powerb = b
+        term = a*b
         for j = 2:n
-            R[j] += real(a*powerb)
-            powerb *= b
-            abs(powerb)<1e-12 && break
+            R[j] += real(term)
+            term *= b
+            abs(term)<1e-12 && break
         end
     end
     R
@@ -91,30 +92,21 @@ end
 
 
 
-# Matrix-vector product U' x = y, where R = U' U is the covariance matrix
-# described above and cholsav was produced by covchol above. The number
-# of unknowns n can be less than or equal to the size for which covchol
-# was created.
+# Matrix-vector product L x = y, where R = L L' is the covariance matrix
+# described above. The number # of unknowns n can be less than or equal to
+# the size for which the model was created.
 
-function covprodut{T<:Number}(x::Array{T,1},k,nsav,b,d,dsum,dsuminv)
+function choleskyproduct{T<:Number}(model::CovarianceModel, x::Array{T,1}, 
+                                 leadingzeros::Integer=0)
     const n=length(x)
-    if n>nsav
-        error("covprodut: length(x) greater than that provided in cholsav")
+    if n>model.max_length
+        error("choleskyproduct: length(x) greater than that supported in the CovarianceModel")
     end
-    const conjb=conj(b)
-    ss=zeros(Complex128,k)
-    y=zeros(T,n)
-    for i=1:n
-        y[i]=x[i]*dsum[i]+real(sum(ss))
-        for j = 1:k
-            ss[j]=(ss[j]+x[i]*conj(d[j,i]))*conjb[j]
-        end
-    end
-    return y
+    covarproduct(model, x, leadingzeros, false)
 end
 
 function covarproduct{T<:Number}(model::CovarianceModel, x::Array{T,1}, 
-                                 leadingzeros::Integer=0)
+                                 leadingzeros::Integer=0, both::Bool=true)
     const n=length(x)
     if n>model.max_length
         error("covarproduct: length(x) greater than that supported in the CovarianceModel")
@@ -123,8 +115,13 @@ function covarproduct{T<:Number}(model::CovarianceModel, x::Array{T,1},
     const k = model.num_exps
     const d = model.d
     const dsum = model.dsum
-    ss=zeros(Complex128, k)
+    InternalType = typeof(model.bases[1])
     y=zeros(T, n)
+    if both
+        #     ss=zeros(InternalType, k)
+        error("Joe has not written a full covarproduct for Rx=y computation")
+    end
+    ss=zeros(InternalType, k)
     for i = 1:n
         y[i] = x[i]*dsum[i]+real(sum(ss))
         for j = 1:k
@@ -133,19 +130,21 @@ function covarproduct{T<:Number}(model::CovarianceModel, x::Array{T,1},
     end
     return y
 end
+
 # Solves with multiple right hand sides
-function covarproduct{T<:Number}(model::CovarianceModel, x::Array{T,2})
+function choleskyproduct{T<:Number}(model::CovarianceModel, x::Array{T,2})
     const n,m = size(x)
     if n>model.max_legnth
-        error("covarproduct: length(y) greater than supported in the CovarianceModel")
+        error("choleskyproduct: length(y) greater than supported in the CovarianceModel")
     end
     const conjb=conj(model.bases)
     const k = model.num_exps
     const d = model.d
     const dsum = model.dsum
+    const InternalType = typeof(model.bases[1])
     y=zeros(T,n,m)
     for j = 1:m
-        ss=zeros(Complex128,model.num_exps)
+        ss=zeros(InternalType, k)
         for i=1:n
             y[i,j] = x[i,j]*dsum[i]+real(sum(ss))
             for l = 1:k
@@ -156,31 +155,26 @@ function covarproduct{T<:Number}(model::CovarianceModel, x::Array{T,2})
     return y
 end
 
-# Solve linear system U' x = y, where R = U' U is the covariance matrix
-# described above and cholsav was produced by covchol above. The number
-# of unknowns n can be less than or equal to the size for which covchol
-# was created.
+# Solve linear system L x = y, where R = L L' is the covariance matrix
+# described above. The number of unknowns n can be less than or equal to
+# the size for which the model was created.
 
-function covsolut{T<:Number}(y::Array{T,1},k,nsav,b,d,dsum,dsuminv)
-    n=length(y)
-    if n>nsav
-        error("covsolut: length(y) greater than that provided in cholsav")
+function choleskysolve{T<:Number}(model::CovarianceModel, y::Array{T,1}, 
+                              leadingzeros::Integer=0)
+    const n=length(y)
+    if n>model.max_length
+        error("choleskysolve: length(y) greater than that supported in the CovarianceModel")
     end
-    conjb=conj(b)
-    x=zeros(T,n)
-    ss=zeros(Complex128,k)
-    for i=1:n
-        x[i]=(y[i]-real(sum(ss)))*dsuminv[i]
-        #ss=(ss+x[i]*conj(d[:,i])).*conjb
-        for j = 1:k
-            ss[j] =(ss[j]+x[i]*conj(d[j,i]))*conjb[j]
-        end
-    end
-    return x
+    covarsolve(model, y, leadingzeros, false)
 end
 
+# Solve linear system R x = y, where R is the covariance matrix
+# described above. The number of unknowns n can be less than or equal to
+# the size for which the model was created. Since this shares much code
+# with choleskysolve, that function calls this one
+
 function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,1}, 
-                              leadingzeros::Integer=0)
+                               leadingzeros::Integer=0, both::Bool=true)
     const n=length(y)
     if n>model.max_length
         error("covarsolve: length(y) greater than that supported in the CovarianceModel")
@@ -190,28 +184,48 @@ function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,1},
     const k = model.num_exps
     const d = model.d
     const dsuminv = model.dsuminv
-    ss=zeros(Complex128, k)
+    const InternalType = typeof(model.bases[1])
+    ss=zeros(InternalType, k)
     for i = 1+leadingzeros:n
         x[i] = (y[i]-real(sum(ss)))*dsuminv[i]
         for j = 1:k
             ss[j] =(ss[j]+x[i]*conj(d[j,i]))*conjb[j]
         end
     end
+    if both
+        const b = model.bases
+        ss=zeros(InternalType, k)
+        for i = n:-1:1
+            sds = 0.0
+            for j = 1:k
+                sds += real(ss[j]*d[j,i])
+            end
+            x[i] = (x[i]-sds)*dsuminv[i]
+            for j = 1:k
+                ss[j] =(ss[j]+x[i])*b[j]
+            end
+        end
+    end
     return x
 end
+
 # Solves with multiple right hand sides
-function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,2})
+# Note that we don't have an implementation of covarsolve for a 2D array. Do it
+# if needed.
+
+function choleskysolve{T<:Number}(model::CovarianceModel, y::Array{T,2})
     const n,m = size(y)
     if n>model.max_length
-        error("covarsolve: length(y[:,1]) greater than that supported in the CovarianceModel")
+        error("choleskysolve: length(y[:,1]) greater than that supported in the CovarianceModel")
     end
     const conjb=conj(model.bases)
     const k = model.num_exps
     const d = model.d
     const dsuminv = model.dsuminv
+    const InternalType = typeof(model.bases[1])
     x=zeros(T,n,m)
     for j=1:m
-        ss=zeros(Complex128, k)
+        ss=zeros(InternalType, k)
         for i=1:n
             x[i,j]=(y[i,j]-real(sum(ss)))*dsuminv[i]
             for l = 1:k
@@ -222,7 +236,8 @@ function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,2})
     return x
 end
 
-whiten = covarsolve
+whiten = choleskysolve
+unwhiten = choleskyproduct
 
 
 function main()
@@ -248,21 +263,75 @@ function main()
        -0.652465-0.506429im;
        0.696761+0.622623im;
        0.696761-0.622623im]
+
+    reala = real(a)
+    realb = [.12, -.3204, -.3942, .720, .820, .370, .320, -.6524, -.5490, .697, .650]
     n=1000000 # for 1000000 expect 5.5 sec, .08, .08 for 3 parts
     x=rand(n)
 
+    print("Doing preparatory work   ")
     tic()
-    model = CovarianceModel(a,b,n)
+    #model = CovarianceModel(a,b,n)
+    model = CovarianceModel(reala,realb,n)
     toc()
+    print("Doing choleskyproduct    ")
     tic()
-    y=covarproduct(model, x)
-    #y=covprodut(x, model.num_exps, model.max_length, model.bases, model.d, model.dsum, model.dsuminv)
+    y=choleskyproduct(model, x)
     toc()
+    print("Doing choleskysolve      ")
     tic()
-    z=covarsolve(model, y)
-    #z=covsolut(y, model.num_exps, model.max_length, model.bases, model.d, model.dsum, model.dsuminv)
+    z=choleskysolve(model, y)
     toc()
+    print("Doing covarsolve         ")
+    tic()
+    u = covarsolve(model, x)
+    toc()
+    #print("Doing covarproduct       ")
+    #tic()
+    #v = covarproduct(model, u)
+    #toc()
     println(norm(x-z)/norm(z))
+    #println(norm(v-x)/norm(x))
+    
 end
 
 #main()
+
+    #y=covprodut(x, model.num_exps, model.max_length, model.bases, model.d, model.dsum, model.dsuminv)
+    #z=covsolut(y, model.num_exps, model.max_length, model.bases, model.d, model.dsum, model.dsuminv)
+# function covprodut{T<:Number}(x::Array{T,1},k,nsav,b,d,dsum,dsuminv)
+#     const n=length(x)
+#     if n>nsav
+#         error("covprodut: length(x) greater than that provided in cholsav")
+#     end
+#     const conjb=conj(b)
+#     ss=zeros(Complex128,k)
+#     y=zeros(T,n)
+#     for i=1:n
+#         y[i]=x[i]*dsum[i]+real(sum(ss))
+#         for j = 1:k
+#             ss[j]=(ss[j]+x[i]*conj(d[j,i]))*conjb[j]
+#         end
+#     end
+#     return y
+# end
+
+
+# function covsolut{T<:Number}(y::Array{T,1},k,nsav,b,d,dsum,dsuminv)
+#     n=length(y)
+#     if n>nsav
+#         error("covsolut: length(y) greater than that provided in cholsav")
+#     end
+#     conjb=conj(b)
+#     x=zeros(T,n)
+#     ss=zeros(Complex128,k)
+#     for i=1:n
+#         x[i]=(y[i]-real(sum(ss)))*dsuminv[i]
+#         #ss=(ss+x[i]*conj(d[:,i])).*conjb
+#         for j = 1:k
+#             ss[j] =(ss[j]+x[i]*conj(d[j,i]))*conjb[j]
+#         end
+#     end
+#     return x
+# end
+
