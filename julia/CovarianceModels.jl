@@ -181,10 +181,14 @@ end
 # described above. The number of unknowns n can be less than or equal to
 # the size for which the model was created. Since this shares much code
 # with choleskysolve, that function calls this one
+#
+# If leadingzeros > 0 (0 is the default), then the function will effectively
+# prepend that many leading zeros before y. Although these zeros do not appear
+# in the INPUT, they DO APPEAR IN THE OUTPUT
 
 function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,1}, 
                                leadingzeros::Integer=0, both::Bool=true)
-    const n=length(y)
+    const n=length(y)+leadingzeros
     if n>model.max_length
         error("covarsolve: length(y) greater than that supported in the CovarianceModel")
     end
@@ -196,7 +200,7 @@ function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,1},
     const InternalType = typeof(model.bases[1])
     ss=zeros(InternalType, k)
     for i = 1+leadingzeros:n
-        x[i] = (y[i]-real(sum(ss)))*dsuminv[i]
+        x[i] = (y[i-leadingzeros]-real(sum(ss)))*dsuminv[i]
         for j = 1:k
             ss[j] =(ss[j]+x[i]*conj(d[j,i]))*conjb[j]
         end
