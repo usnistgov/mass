@@ -1,3 +1,12 @@
+module CovarianceModels
+
+export CovarianceModel,
+noisecovariance,
+choleskyproduct,
+covarproduct,
+choleskysolve,
+whiten,
+unwhiten
 
 # Cholesky decomposition of covariance matrix R, where
 # R_{ij} = r(|j-i|) = \sum_{m=1}^k a(m) b(m)^|j-i| is real for i,j = 1,2,...
@@ -239,6 +248,7 @@ end
 whiten = choleskysolve
 unwhiten = choleskyproduct
 
+end # module
 
 function main()
     a=[10.0+0.0im;
@@ -334,4 +344,6 @@ end
 #     end
 #     return x
 # end
+
+
 
