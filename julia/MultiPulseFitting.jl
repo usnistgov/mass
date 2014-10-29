@@ -1,9 +1,9 @@
 
 
 using HDF5, PyPlot
-using MicrocalFiles, HDF5Helpers
+using MicrocalFiles, HDF5Helpers, CovarianceModels
 
-include("CovarianceModel.jl")
+include("NoiseAnalysis.jl")
 include("RandomMatrix.jl")
 
 # Try on "/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_S_chan93.ljh"
@@ -38,12 +38,64 @@ function all_MPF_analysis(setname::String="S", noiseset::String="V", date::Strin
     end
 end
 
+function MPF_analysis_2011(setname::String="C_auto", noiseset::String="C",
+                           pulseshape=nothing)
+    const PATH="/Volumes/Data2014/Data/Data_CDM/2011_09_12"
+    const cnum = 1
+    filename = @sprintf("%s/2011_09_12_%s_chan%d.ljh", PATH, setname, cnum)
+    noisename = @sprintf("%s/2011_09_12_%s_chan%d.noi", PATH, noiseset, cnum)
+    println("Working on $filename noise")
+    hdf5name = hdf5_name_from_ljh_name(filename, "mpf")
+    Noise_analysis(hdf5name, noisename)
+    println("Working on $filename data")
+    if pulseshape != nothing
+        h5file = h5file_update(hdf5name)
+        g = g_create_or_open(h5file, "chan1")
+        ds = ds_update(g, "average_pulse", pulseshape)
+        close(h5file)
+    end
+    MPF_analysis(filename)
+end
+
 
 function oct24_work ()
     #@time all_MPF_analysis("ZB", "V", "14")
     #@time all_MPF_analysis("ZA", "V", "14")
     #@time all_MPF_analysis("Z", "V", "14")
     @time all_MPF_analysis("G", "B", "15")
+end
+
+function oct27_work()
+    @time MPF_analysis_2011("C_auto", "C")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_D_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_E_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_F_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_G_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_H_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+                        "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_I_auto_mpf.hdf5")
+    pulse_shape = 0
+    h5file = h5file_update("/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5")
+    g = g_create_or_open(h5file, "chan1")
+    pulse_shape = g["average_pulse"][:]
+    close(h5file)
+    @time MPF_analysis_2011("D_auto", "C", pulse_shape)
+    @time MPF_analysis_2011("E_auto", "C", pulse_shape)
+    @time MPF_analysis_2011("F_auto", "C", pulse_shape)
+    @time MPF_analysis_2011("G_auto", "C", pulse_shape)
+    @time MPF_analysis_2011("H_auto", "C", pulse_shape)
+    @time MPF_analysis_2011("I_auto", "C", pulse_shape)
 end
 
 # Analyze a noise set for use in MPF analysis later
@@ -60,11 +112,12 @@ function Noise_analysis(hdf5name::String, noisename::String, forceNew::Bool=fals
             println("\nComputing noise analysis on chan $(channum)...")
             println(noisename)
             data = MicrocalFiles.fileData(noisename)
-            deblip_nsls_data!(data, -8)
-            nlags, nexps = 88, 3
+            nlags, nexps = 500, 1 # For 2011 TDM data
+            #deblip_nsls_data!(data, -8)
+            #nlags, nexps = 88, 3 # For 2012 NSLS data
             summary = compute_noise_summary(data, nlags, nexps)
             plot_noise_summary(summary)
-            title("Channel $(file.channum) noise model")
+            title("Channel $(channum) noise model")
             summgrp = g_create_or_open(h5grp,"noise")
 
             # Store basic information
@@ -80,6 +133,8 @@ function Noise_analysis(hdf5name::String, noisename::String, forceNew::Bool=fals
             ds_update(summgrp, "model_autocorr", summary.model_autocorr)
             ds_update(summgrp, "model_amplitudes", summary.exp_amplitudes)
             ds_update(summgrp, "model_bases", summary.exp_bases)
+            println("Bases are ",summary.exp_bases)
+            println("Amps  are ",summary.exp_amplitudes)
         end
     finally
         close(h5file)
@@ -128,7 +183,8 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
     h5file = h5file_update(hdf5name)
     try
         const do_all_trigtimes = false
-        const do_all_fits = false
+        const do_avg_pulse = false
+        const do_all_fits = true
 
         grpname=string("chan$(file.channum)")
         h5grp = g_create_or_open(h5file, grpname)
@@ -141,7 +197,7 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
         trigger_times = read(h5grp["trigger_times"])
 
         # Analyze the average pulse
-        if forceNew || ! exists(h5grp, "average_pulse")
+        if forceNew || ! exists(h5grp, "average_pulse") | do_avg_pulse
             println("\nComputing average pulse shape...")
             avg_pulse = compute_average_pulse(file, trigger_times)
             ds_update(h5grp, "average_pulse", avg_pulse)
@@ -151,13 +207,14 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
         # Do the fits
         if forceNew || ! exists(h5grp, "mpf") | do_all_fits
             avg_pulse = read(h5grp["average_pulse"])
+            MAXSAMP = 200000  # 8000 for NSLS
             covar_model = CovarianceModel(read_complex(h5grp["noise/model_amplitudes"]),
                                           read_complex(h5grp["noise/model_bases"]),
-                                          8000)
+                                          MAXSAMP)
 
             println("Computing multi-pulse fits...\n")
             fitter = MultiPulseFitter(avg_pulse, covar_model)
-            extendMPF!(fitter, 8000)
+            extendMPF!(fitter, MAXSAMP)
             ph, dph, resid, baseline = multi_pulse_fit_file(file, trigger_times, fitter)
 
             mpfgrp = g_create_or_open(h5grp, "mpf")
@@ -190,7 +247,7 @@ function find_all_pulses(file::MicrocalFiles.LJHFile, threshold=-99.9)
 
         MicrocalFiles.fileRecords(file, nrec, times, d)
         Ndata = nrec*file.nsamp
-        deblip_nsls_data!(d, -8)
+        #deblip_nsls_data!(d, -8)
         if nrec < segsize
             clf()
             plot(d)
@@ -207,18 +264,21 @@ function find_all_pulses(file::MicrocalFiles.LJHFile, threshold=-99.9)
         if threshold < 0
             med = median(x[5:end])
             mad = median(abs(x[5:end]-med))
-            threshold = 6*mad
+            threshold = 10*mad # NSLS 6*mad
         end
 
+        skip_until = 0
         for i in 2:Ndata
-            if x[i]>threshold && x[i-1] < threshold &&
-                d[i] > 25+data_med
+            i<skip_until && continue
+            if x[i]>threshold && d[i] > 50+data_med
                 push!(trigger_times, i+records_read*file.nsamp)
+                skip_until = i+10
             end
         end
 
         history = d[end-4:end]
         records_read += nrec
+        println("Read $records_read of $(file.nrec) data records for trigger analysis")
     end
     n = length(trigger_times)
     dt = file.dt * records_read * file.nsamp
@@ -250,15 +310,18 @@ function compute_average_pulse(file::MicrocalFiles.LJHFile,
     npulses = min(2000, length(trigger_times))
     last_tt = trigger_times[npulses]
     nrecs = 1+div(last_tt, file.nsamp)
+    println("Searching $nrecs records for pulses to average")
+
     MicrocalFiles.LJHRewind(file)
     _times = Array(Uint64, nrecs)
     data = Array(Uint16, file.nsamp, nrecs)
     MicrocalFiles.fileRecords(file, nrecs, _times, data)
     data = reshape(data, length(data))
-    deblip_nsls_data!(data, -9)
+    #deblip_nsls_data!(data, -9)
 
     # Find which trigger times are isolated
-    PRE_PERIOD, PRE_DELAY, POST_DELAY = 100, 400, 600
+    #PRE_PERIOD, PRE_DELAY, POST_DELAY = 100, 400, 600  # NSLS
+    PRE_PERIOD, PRE_DELAY, POST_DELAY = 100, 30000, 30000
     isolated_times = Integer[]
     for i in 2:npulses-1
         if trigger_times[i]-trigger_times[i-1] > PRE_DELAY &&
@@ -275,6 +338,8 @@ function compute_average_pulse(file::MicrocalFiles.LJHFile,
         plot(pulses[:,i]+i*5, color=((float(i)/length(isolated_times)),0,0))
     end
 
+    # If you can't find ANY isolated pulses, then you are screwed, but here
+    # is a dummy (boxcar) filter you can have instead.
     if length(isolated_times) < 1
         avg_pulse = zeros(Float64, PRE_PERIOD+POST_DELAY)
         avg_pulse[PRE_PERIOD:PRE_PERIOD+50] = 1.0
@@ -286,7 +351,7 @@ function compute_average_pulse(file::MicrocalFiles.LJHFile,
     badness = sum(v[:,2:end].^2, 2)
     avg_pulse = zeros(Float64, PRE_PERIOD+POST_DELAY)
     np = 0
-    critical_badness = 6*median(badness)
+    critical_badness = 8*median(badness)
     for i=1:length(isolated_times)
         if badness[i] < critical_badness
             avg_pulse += pulses[:, i]
@@ -319,8 +384,10 @@ type MultiPulseFitter
         dpdt[2] = dpdt[3]
         dpdt[1] = 0
 
-        fitter = new(pulse_model, dpdt, Array(Float64,chunklength),
-                     Array(Float64,chunklength), covar_model)
+        fitter = new(pulse_model, dpdt, Array(Float64,0),
+                     Array(Float64,0), covar_model)
+        extendMPF!(fitter, chunklength)
+        fitter
     end
 end
 
@@ -330,9 +397,12 @@ function MultiPulseFitter(hdf5name::String, channum::Integer)
     file = h5open(hdf5name, "r")
     channame = string("chan",channum)
     noisegrp = file[channame*"/noise"]
+    const MAXLEN = 100000 # NSLS was 5120
     covar_model = CovarianceModel(read_complex(noisegrp["model_amplitudes"]),
-                                  read_complex(noisegrp["model_bases"]), 5120)
-    MultiPulseFitter(read(file[channame*"/average_pulse"]), covar_model, 5120)
+                                  read_complex(noisegrp["model_bases"]), MAXLEN)
+    avgpulse = read(file[channame*"/average_pulse"])
+    close(file)
+    MultiPulseFitter(avgpulse, covar_model, MAXLEN)
 end
 
 
@@ -342,19 +412,15 @@ function extendMPF!(mpf::MultiPulseFitter, chunklength::Integer)
     if chunklength <= length(mpf.white_const)
         return
     end
-    println("Extending the MPF to size $(chunklength) from $(length(mpf.white_const))")
     if chunklength > mpf.covar_model.max_length
+        @show chunklength, mpf.covar_model.max_length, length(mpf.white_const)
         error("Cannot extend the MultiPulseFitter longer than the CovarianceModel")
     end
 
-    # Whiten some functions to their new length
-    const npm = length(mpf.pulse_model)
-    long_pulse_model = [mpf.pulse_model, zeros(Float64, chunklength-npm)]
-    long_dpdt_model  = [mpf.dpdt_model, zeros(Float64, chunklength-npm)]
-    mpf.white_const = whiten(mpf.covar_model, ones(Float64, chunklength))
-    mpf.white_slope = whiten(mpf.covar_model, linspace(-1, 1, chunklength))
-
-    mpf
+    # Whiten baseline functions to their new length
+    mpf.white_const = CovarianceModels.whiten(mpf.covar_model, ones(Float64, chunklength))
+    mpf.white_slope = CovarianceModels.whiten(mpf.covar_model, linspace(-1, 1, chunklength))
+    return mpf
 end
 
 
@@ -385,7 +451,7 @@ function multi_pulse_fit(data::Vector, pulse_times::Vector{Int64},
         pend = min(pstart+length(mpf.pulse_model)-1, Nd)
         pstart = max(1, pstart)
         model_components[pstart:pend, i+Nonpulse_param] =
-            whiten(mpf.covar_model, mpf.pulse_model[1:pend-pstart+1])
+            CovarianceModels.whiten(mpf.covar_model, mpf.pulse_model[1:pend-pstart+1])
     end
 
     # Compute the model's "design matrix".
@@ -394,7 +460,7 @@ function multi_pulse_fit(data::Vector, pulse_times::Vector{Int64},
     A = model_components' * model_components
     covar = inv(A)
 
-    white_data = whiten(mpf.covar_model, data)
+    white_data = CovarianceModels.whiten(mpf.covar_model, data)
     mc_dot_data = (model_components' * white_data)
     param = A \ mc_dot_data
     residual = white_data - model_components * param
@@ -412,13 +478,14 @@ function multi_pulse_fit_with_plot(data::Vector, pulse_times::Vector{Int64},
     clf()
     ax2 = subplot(212)
     model = ones(Float64, length(data))*param[1]
-    slope = linspace(1, -1, length(mpf.white_slope))[1:length(data)]*param[2]
-    plot(slope, color="k")
+    slope = linspace(-1, 1, length(mpf.white_slope))[1:length(data)]*param[2]
     model += slope
+    plot(model, color="k")
     sampnum = 1:length(model)
+    @show param
     for i=1:length(pulse_times)
         first = pulse_times[i]-2
-        last = min(pulse_times[i]+600, length(data))
+        last = min(first+length(mpf.pulse_model)-1, length(data))
         np = last+1-first
         component = param[i+2]*copy(mpf.pulse_model[1:np])
         plot(sampnum[first:last], component)
@@ -435,10 +502,11 @@ end
 
 function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
                          mpf::MultiPulseFitter)
-    nrecs = 3
+    nrecs = 1
     extendMPF!(mpf, (nrecs+1)*file.nsamp)
 
-    const MIN_POST_TRIG_SAMPS = 200
+    const MIN_POST_TRIG_SAMPS = 20000
+    # const MIN_POST_TRIG_SAMPS = 200 NSLS
     MicrocalFiles.LJHRewind(file)
     _times = Array(Uint64, nrecs)
     newdata = Array(Uint16, file.nsamp*nrecs)
@@ -462,7 +530,7 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
         else
             data = copy(newdata)
         end
-        deblip_nsls_data!(data, -8)
+        #deblip_nsls_data!(data, -8)
 
         # Select times from the pulse_times list
         t1 = t2
@@ -488,8 +556,8 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
         ncp = t2-t1
         current_times = pulse_times[t1:t2-1] - (last_samp-length(data))
         param, covar, this_resid = multi_pulse_fit(float(data), current_times, mpf)
-        # param, covar, this_resid = multi_pulse_fit_with_plot(float(data),
-        #   current_times, mpf)
+        #param,covar,this_resid = multi_pulse_fit_with_plot(float(data), current_times, mpf)
+        #i>=11 && error("End of test on section $(i)!")
         pheights[np_seen+1:np_seen+ncp] = param[3:2+ncp]
         pheight_unc[np_seen+1:np_seen+ncp] = sqrt(diag(covar)[3:2+ncp])
         resid[np_seen+1:np_seen+ncp] = this_resid
