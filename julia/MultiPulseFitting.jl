@@ -70,28 +70,26 @@ function oct27_work()
     g = g_create_or_open(h5file, "chan1")
     pulse_shape = g["average_pulse"][:]
     close(h5file)
-    approx_exp_rate = -1./(30003-18748)
-    pulse_shape = vcat(pulse_shape, 6.75*exp([1:30000]*approx_exp_rate))
 
-    # @time MPF_analysis_2011("C_auto", "C", pulse_shape)
-    # copy_noise_analysis(
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_D_auto_mpf.hdf5")
-    # copy_noise_analysis(
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_E_auto_mpf.hdf5")
-    # copy_noise_analysis(
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_F_auto_mpf.hdf5")
-    # copy_noise_analysis(
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_G_auto_mpf.hdf5")
-    # copy_noise_analysis(
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_H_auto_mpf.hdf5")
-    # copy_noise_analysis(
-    #       "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
-    #                     "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_I_auto_mpf.hdf5")
+    @time MPF_analysis_2011("C_auto", "C", pulse_shape)
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_D_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_E_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_F_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_G_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_H_auto_mpf.hdf5")
+    copy_noise_analysis(
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
+          "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_I_auto_mpf.hdf5")
 
     @time MPF_analysis_2011("D_auto", "C", pulse_shape)
     @time MPF_analysis_2011("E_auto", "C", pulse_shape)
@@ -115,7 +113,7 @@ function Noise_analysis(hdf5name::String, noisename::String, forceNew::Bool=fals
             println("\nComputing noise analysis on chan $(channum)...")
             println(noisename)
             data = MicrocalFiles.fileData(noisename)
-            nlags, nexps = 500, 1 # For 2011 TDM data
+            nlags, nexps = 2500, 2 # For 2011 TDM data
             #deblip_nsls_data!(data, -8)
             #nlags, nexps = 88, 3 # For 2012 NSLS data
             summary = compute_noise_summary(data, nlags, nexps)
@@ -168,6 +166,21 @@ function copy_noise_analysis(oldhdf5name::String, newhdf5name::String)
                 ds_update(summgrp, dskey, read(oldsumm[dskey]) )
             end
         end
+    finally
+        close(h5file)
+        close(oldh5)
+    end
+end
+
+
+function copy_all_avg_pulses(oldhdf5name::String, newhdf5name::String)
+    oldh5 = h5open(oldhdf5name, "r")
+    h5file = h5file_update(newhdf5name)
+    try
+        oldavg = oldh5["chan1/average_pulse"]
+        summgrp = g_create_or_open(h5file,"chan1")
+
+        ds_update (summgrp, "average_pulse", read(oldavg))
     finally
         close(h5file)
         close(oldh5)
@@ -362,16 +375,22 @@ function compute_average_pulse(file::MicrocalFiles.LJHFile,
     np = 0
     critical_badness = 8*median(badness)
     for i=1:length(isolated_times)
-        if badness[i] < critical_badness
-            avg_pulse += pulses[:, i]
-            np += 1
+        if badness[i] > critical_badness ||
+            pulses[288+PRE_PERIOD,i] < 20000 || pulses[288+PRE_PERIOD,i] > 30000 # MnKA
+            continue
         end
+        avg_pulse += pulses[:, i]
+        np += 1
     end
 
     println("Computed avg pulse from $np clean pulses out of $(length(isolated_times)) isolated.")
     avg_pulse = avg_pulse / float(np)
     avg_pulse -= mean(avg_pulse[1:PRE_PERIOD-3])
-    avg_pulse[PRE_PERIOD-2:end]
+    avg_pulse = avg_pulse[PRE_PERIOD-2:end]
+    # For 2011_09_12 data, do the following:
+    t = [1:100000]
+    avg_pulse = vcat( avg_pulse[1:5000-2],
+                     2243.93*exp(-t/1862.65) + 73.84*exp(-t/9264.97))
 end
 
 
@@ -628,6 +647,9 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
             if length(data_unused) >= div(file.nsamp*nrecs, 2) # Too much was trimmed
                 while last_samp < pulse_times[t2-1]
                     cut_out_samples = last_samp - (pulse_times[t2-1] - 5000)
+                    if cut_out_samples >= length(data)
+                        cut_out_samples = length(data)-1
+                    end
                     last_samp -= cut_out_samples
                     data_unused = vcat(data[end-cut_out_samples:end], data_unused)
                     data = data[1:end-cut_out_samples]
@@ -652,7 +674,7 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
         if DO_WITH_PLOTS
             param,covar,this_resid = multi_pulse_fit_with_plot(float(data), current_times,
                                                                mpf, use_dpdt)
-            i>1 && error("End of test on section $(i)!")
+            i>7 && error("End of test on section $(i)!")
         else
             param, covar, this_resid = multi_pulse_fit(float(data), current_times,
                                                        mpf, use_dpdt)
@@ -687,3 +709,65 @@ tt=f["chan99/trigger_times"][:];
 mpf=MultiPulseFitter("/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_S_mpf.hdf5", 
      99);
 """
+
+
+# Investigate statistical power
+function explore_power(mpf::MultiPulseFitter)
+    clf()
+    const ND=3000
+    for s0 in 50:100:ND
+        s = zeros(Float64, ND)
+        s[s0:end] = mpf.pulse_model[1:ND+1-s0]
+        swhite = CovarianceModels.whiten(mpf.covar_model, s)
+        M=hcat(swhite, mpf.white_const[1:ND])
+        A=inv(M'*M)
+        dph = sqrt(A[1,1])
+        #        dph=1/sqrt(norm(swhite))
+        dbl = sqrt(A[2,2])
+        plot(s0, dph, "ro")
+        plot(s0, dbl, "bo")
+        s0==2450 && @show(s0, dph, dbl)
+    end
+end
+
+function explore_power2(mpf::MultiPulseFitter)
+    ND1=12000
+    ND2=24000
+
+    s1=zeros(Float64,ND1)
+    s2=zeros(Float64,ND2)
+    s3a=zeros(Float64,ND2)
+    s3b=zeros(Float64,ND2)
+    s1[2001:ND1] = mpf.pulse_model[1:ND1-2000]
+    s2[2001:ND2] = mpf.pulse_model[1:ND2-2000]
+    s3a[2001:ND2] = mpf.pulse_model[1:ND2-2000]
+    s3b[12001:ND2] = mpf.pulse_model[1:ND2-12000]
+    clf()
+    t=[1-2000:ND2-2000]*.00064
+    plot(t[1:ND1], s1, "g", t, s2+.4,"b", t, s3a+s3b+.8,"r")
+    xlabel("Time (ms) after first pulse")
+    ylabel("Pulse (arbs)")
+
+    s1white = CovarianceModels.whiten(mpf.covar_model, s1)
+    s2white = CovarianceModels.whiten(mpf.covar_model, s2)
+    s3awhite = CovarianceModels.whiten(mpf.covar_model, s3a)
+    s3bwhite = CovarianceModels.whiten(mpf.covar_model, s3b)
+    M1=hcat(s1white, mpf.white_const[1:ND1])
+    M2=hcat(s2white, mpf.white_const[1:ND2])
+    M3=hcat(s3awhite, s3bwhite, mpf.white_const[1:ND2])
+    A1=inv(M1'*M1)
+    A2=inv(M2'*M2)
+    A3=inv(M3'*M3)
+
+    dph1 = sqrt(A1[1,1])
+    dbl1 = sqrt(A1[2,2])
+    dph2 = sqrt(A2[1,1])
+    dbl2 = sqrt(A2[2,2])
+    dph3a = sqrt(A3[1,1])
+    dph3b = sqrt(A3[2,2])
+    dbl3 = sqrt(A3[3,3])
+    @show dph1, dph2, dph3a, dph3b
+    @show dbl1, dbl2, dbl3
+    @show dph2/dph1, dph3a/dph1, dph3b/dph1
+    nothing
+end
