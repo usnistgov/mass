@@ -68,10 +68,10 @@ end
 function oct27_work()
     h5file = h5file_update("/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5")
     g = g_create_or_open(h5file, "chan1")
-    pulse_shape = g["average_pulse"][:]
+    pulse_shape = g["average_pulse"][:];
     close(h5file)
 
-    @time MPF_analysis_2011("C_auto", "C", pulse_shape)
+    #@time MPF_analysis_2011("C_auto", "C", pulse_shape)
     copy_noise_analysis(
           "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_C_auto_mpf.hdf5",
           "/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_D_auto_mpf.hdf5")
@@ -94,9 +94,9 @@ function oct27_work()
     @time MPF_analysis_2011("D_auto", "C", pulse_shape)
     @time MPF_analysis_2011("E_auto", "C", pulse_shape)
     @time MPF_analysis_2011("F_auto", "C", pulse_shape)
-    @time MPF_analysis_2011("G_auto", "C", pulse_shape)
+    #@time MPF_analysis_2011("G_auto", "C", pulse_shape)
     @time MPF_analysis_2011("H_auto", "C", pulse_shape)
-    @time MPF_analysis_2011("I_auto", "C", pulse_shape)
+    #@time MPF_analysis_2011("I_auto", "C", pulse_shape)
 end
 
 # Analyze a noise set for use in MPF analysis later
@@ -179,7 +179,6 @@ function copy_all_avg_pulses(oldhdf5name::String, newhdf5name::String)
     try
         oldavg = oldh5["chan1/average_pulse"]
         summgrp = g_create_or_open(h5file,"chan1")
-
         ds_update (summgrp, "average_pulse", read(oldavg))
     finally
         close(h5file)
@@ -207,7 +206,8 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
 
         # Find trigger times
         if forceNew || ! exists(h5grp, "trigger_times") | do_all_trigtimes
-            trig_times = find_all_pulses(file)
+            # NSLS trig_times = find_all_pulses(file)
+            trig_times = find_all_pulses(file, 65)
             ds_update(h5grp, "trigger_times", trig_times)
         end
         trigger_times = read(h5grp["trigger_times"])
@@ -223,18 +223,24 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
         # Do the fits
         if forceNew || ! exists(h5grp, "mpf") | do_all_fits
             avg_pulse = read(h5grp["average_pulse"])
-            MAXSAMP = 220000  # 8000 for NSLS
-            covar_model = CovarianceModel(read_complex(h5grp["noise/model_amplitudes"]),
-                                          read_complex(h5grp["noise/model_bases"]),
-                                          MAXSAMP)
+            MAXSAMP = 400000  # 8000 for NSLS
+#            covar_model = CovarianceModel(read_complex(h5grp["noise/model_amplitudes"]),
+#                                          read_complex(h5grp["noise/model_bases"]),
+#                                          MAXSAMP)
+
+            # Try the model from lab book 6 page 124.
+            covar_model = CovarianceModel([82.5463,24.8891,13.6768,3.1515,0],
+                                          [.0871940295,.9941810695,
+                                           .9992481192,.9999235960], MAXSAMP)
 
             println("Computing multi-pulse fits...\n")
             fitter = MultiPulseFitter(avg_pulse, covar_model)
             extendMPF!(fitter, MAXSAMP)
             const DPDT = true
-            ph, dpdts, dph, ddpdt, resid, baseline =
+            ph, dpdts, dph, ddpdt, prior_level, residW, residR, baseline =
                 multi_pulse_fit_file(file, trigger_times, fitter, DPDT)
-
+            @show dph[1:100]
+            
             mpfgrp = g_create_or_open(h5grp, "mpf")
             ds_update(mpfgrp, "pulse_heights", ph)
             ds_update(mpfgrp, "Dpulse_heights", dph)
@@ -242,7 +248,9 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
                 ds_update(mpfgrp, "dpdt", dpdts)
                 ds_update(mpfgrp, "Ddpdt", ddpdt)
             end
-            ds_update(mpfgrp, "fit_residuals", resid)
+            ds_update(mpfgrp, "prior_level", prior_level)
+            ds_update(mpfgrp, "fit_mahal_dist", residW)
+            ds_update(mpfgrp, "fit_residuals", residR)
             ds_update(mpfgrp, "baseline", baseline)
         end
     finally
@@ -286,13 +294,16 @@ function find_all_pulses(file::MicrocalFiles.LJHFile, threshold=-99.9)
         if threshold < 0
             med = median(x[5:end])
             mad = median(abs(x[5:end]-med))
-            threshold = 10*mad # NSLS 6*mad
+            threshold = 6.5*mad # NSLS 6*mad
+            clf()
+            PyPlot.plt.hist(x[5:end], 1000, histtype="step", color="r")
+            println( threshold)
         end
 
         skip_until = 0
         for i in 2:Ndata
             i<skip_until && continue
-            if x[i]>threshold && d[i] > 50+data_med
+            if x[i]>threshold && d[i] > 1500# 50+data_med
                 push!(trigger_times, i+records_read*file.nsamp)
                 skip_until = i+10
             end
@@ -300,7 +311,9 @@ function find_all_pulses(file::MicrocalFiles.LJHFile, threshold=-99.9)
 
         history = d[end-4:end]
         records_read += nrec
-        println("Read $records_read of $(file.nrec) data records for trigger analysis")
+
+        print("Read $records_read of $(file.nrec) data records for trigger analysis.  ")
+        println("Found $(length(trigger_times)) so far.")
     end
     n = length(trigger_times)
     dt = file.dt * records_read * file.nsamp
@@ -387,10 +400,11 @@ function compute_average_pulse(file::MicrocalFiles.LJHFile,
     avg_pulse = avg_pulse / float(np)
     avg_pulse -= mean(avg_pulse[1:PRE_PERIOD-3])
     avg_pulse = avg_pulse[PRE_PERIOD-2:end]
-    # For 2011_09_12 data, do the following:
+
+    # For 2011_09_12 data, do the following to extend the data:
     t = [1:100000]
-    avg_pulse = vcat( avg_pulse[1:5000-2],
-                     2243.93*exp(-t/1862.65) + 73.84*exp(-t/9264.97))
+    avg_pulse = vcat( avg_pulse[1:5000-2], 1.002278815*(
+                     2243.93*exp(-t/1862.65) + 73.84*exp(-t/9264.97)))
 end
 
 
@@ -455,7 +469,7 @@ end
 
 # Key parameters to control the multi-pulse fitting
 BG_FIT_SLOPE = false
-DO_WITH_PLOTS = false
+DO_WITH_PLOTS= false
 
 # Perform multi-pulse fitting on a length of data. Note that the pulse arrival
 # times vector has to be (1) computed already and (2) be referenced to the
@@ -522,10 +536,20 @@ function multi_pulse_fit(data::Vector, pulse_times::Vector{Int64},
     white_data = CovarianceModels.whiten(mpf.covar_model, data)
     mc_dot_data = (model_components' * white_data)
     param = A \ mc_dot_data
-    residual = white_data - model_components * param
-
-    return param, covar, norm(residual)/sqrt(length(residual))
+    model = model_components * param
+    unwhite_model = CovarianceModels.unwhiten(mpf.covar_model, model, length(model))
+    residualW = norm(white_data - model)/sqrt(Nd)
+    residualR = norm(data - unwhite_model)/sqrt(Nd)
+    prior_level = zeros(Np)
+    for i = 1:Np
+        t = pulse_times[i]
+        if t > 0 && t <= length(model)
+            prior_level[i] = unwhite_model[t]
+        end
+    end
+    return param, covar, residualW, residualR, prior_level
 end
+
 
 
 # A temporary replacement for multi_pulse_fit which makes a plot of the
@@ -535,10 +559,13 @@ function multi_pulse_fit_with_plot(data::Vector, pulse_times::Vector{Int64},
                                    mpf::MultiPulseFitter, use_dpdt::Bool=false)
     clf()
     ax2 = subplot(313)
-    param, covar, resid = multi_pulse_fit(data, pulse_times, mpf, use_dpdt)
+    param, covar, residW, residR, prior_level =
+        multi_pulse_fit(data, pulse_times, mpf, use_dpdt)
+    @show pulse_times
     @show param
+    @show prior_level
     @show diag(covar).^0.5
-    @show length(data), resid
+    @show length(data), residW, residR
     if BG_FIT_SLOPE
         const Nonpulse_param = 2
     else
@@ -576,7 +603,7 @@ function multi_pulse_fit_with_plot(data::Vector, pulse_times::Vector{Int64},
     plot(data, "r", model, "b"); title("Data and model")
     subplot(312)
     plot((data-model), "g"); title("Residuals")
-    param, covar, resid
+    param, covar, residW, residR, prior_level
 end
 
 
@@ -587,8 +614,9 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
                          mpf::MultiPulseFitter, use_dpdt::Bool=false)
     nrecs = 1
     extendMPF!(mpf, (nrecs+1)*file.nsamp)
-
-    const MIN_POST_TRIG_SAMPS = 10000
+    
+    const MIN_POST_TRIG_SAMPS = 15000
+    const MIN_PRE_TRIG_SAMPS = 5000
     # const MIN_POST_TRIG_SAMPS = 200 NSLS
     if BG_FIT_SLOPE
         const Nonpulse_param = 2
@@ -609,8 +637,13 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
     pheight_unc = Array(Float64, np)
     dpdt_unc = Array(Float64, np)
     baseline = Array(Float64, np)
-    resid = Array(Float64, np)
+    prior_level = Array(Float64, np)
+    residW = Array(Float64, np)
+    residR = Array(Float64, np)
     np_seen = 0
+
+    # Store the expected continuation of prior pulses
+    tails = zeros(Float64, 70000) 
 
     for i=1:div(file.nrec, nrecs)
         MicrocalFiles.fileRecords(file, nrecs, _times, newdata)
@@ -637,16 +670,20 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
         # become unboundedly large. We will stop trimming when the length of this
         # becomes less than one half of a normal chunk.
         last_samp = nsamp_read
-        while last_samp - pulse_times[t2-1] < MIN_POST_TRIG_SAMPS
-            cut_out_samples = last_samp - (pulse_times[t2-1] - 5000)
+        while last_samp < pulse_times[t2-1] + MIN_POST_TRIG_SAMPS
+            cut_out_samples = last_samp - (pulse_times[t2-1] - MIN_PRE_TRIG_SAMPS)
             last_samp -= cut_out_samples
-            data_unused = vcat(data[end-cut_out_samples:end], data_unused)
-            data = data[1:end-cut_out_samples]
+            if cut_out_samples < length(data)
+                data_unused = vcat(data[end+1-cut_out_samples:end], data_unused)
+                data = data[1:end-cut_out_samples]
+            else
+                data_unused = vcat(data, data_unused)
+            end
             t2 -= 1
-            t2==t1 && break  # No more pulses in the interval!
+            t2 == t1 && break  # No more pulses in the interval!
             if length(data_unused) >= div(file.nsamp*nrecs, 2) # Too much was trimmed
                 while last_samp < pulse_times[t2-1]
-                    cut_out_samples = last_samp - (pulse_times[t2-1] - 5000)
+                    cut_out_samples = last_samp - (pulse_times[t2-1] - MIN_POST_TRIG_SAMPS)
                     if cut_out_samples >= length(data)
                         cut_out_samples = length(data)-1
                     end
@@ -658,7 +695,9 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
                 end
                 break
             end
-            
+            #if (length(data_unused) + 2*length(newdata) > 300000) # MAXSAMP
+            #    break
+            #end
         end
 
         ncp = t2-t1
@@ -671,13 +710,31 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
             @show current_times, length(data)
         end
 
+        floatdata = float(data)
+        N = min(length(tails), length(data))
+        floatdata[1:N] -= tails[1:N]
         if DO_WITH_PLOTS
-            param,covar,this_resid = multi_pulse_fit_with_plot(float(data), current_times,
-                                                               mpf, use_dpdt)
-            i>7 && error("End of test on section $(i)!")
+            @show pulse_times[t1:t2-1]
+            param, covar, this_residW, this_residR, this_prior = 
+                multi_pulse_fit_with_plot(floatdata, current_times,
+                                          mpf, use_dpdt)
+            println("That was segment $i\n")
+            i>=22 && error("End of test on section $(i)!")
         else
-            param, covar, this_resid = multi_pulse_fit(float(data), current_times,
-                                                       mpf, use_dpdt)
+            param, covar, this_residW, this_residR, this_prior = 
+                multi_pulse_fit(floatdata, current_times,
+                                mpf, use_dpdt)
+        end
+
+        # Figure out the tail you'd expect in the next record
+        const NTAIL = 70000
+        tails = zeros(Float64, NTAIL)
+        for i = 1:length(current_times)
+            cti = length(data) - current_times[i]
+            if NTAIL-cti <= 0 || cti <= 0
+                continue
+            end
+            tails[1:NTAIL-cti] += param[i]*mpf.pulse_model[1+cti:NTAIL]
         end
 
         
@@ -686,15 +743,19 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
         if use_dpdt
             dpdts[np_seen+1:np_seen+ncp] = param[1+ncp:2*ncp]
             dpdt_unc[np_seen+1:np_seen+ncp] = sqrt(diag(covar)[1+ncp:2*ncp])
+            baseline[np_seen+1:np_seen+ncp] = param[2*ncp+1]
+        else
+            baseline[np_seen+1:np_seen+ncp] = param[ncp+1]
         end
-        resid[np_seen+1:np_seen+ncp] = this_resid
-        baseline[np_seen+1:np_seen+ncp] = param[2*ncp+1]
+        prior_level[np_seen+1:np_seen+ncp] = this_prior
+        residW[np_seen+1:np_seen+ncp] = this_residW
+        residR[np_seen+1:np_seen+ncp] = this_residR
         np_seen += ncp
         if mod(i,1000) == 0
             println("$i chunks seen, with $(np_seen) pulses fit.")
         end
     end
-    pheights, dpdts, pheight_unc, dpdt_unc, resid, baseline
+    pheights, dpdts, pheight_unc, dpdt_unc, prior_level, residW, residR, baseline
 end
 
 
