@@ -79,9 +79,12 @@ end
 
 
 function compute_noise_summary(data::Vector, nlags::Integer, nexps=4)
+    compute_noise_from_acorr(autocorrelation(data, nlags), nexps)
+end
+function compute_noise_from_acorr(acorr::Vector{Float64}, nexps::Int=4)
+    const nlags = length(acorr)
     summary = NoiseSummary(nlags, nexps)
-    summary.noise_autocorr = autocorrelation(data, nlags)
-
+    summary.noise_autocorr = acorr
     as, bs = fit_exponential_model(summary.noise_autocorr, nexps)
     summary.exp_amplitudes = as
     summary.exp_bases = bs
@@ -252,6 +255,13 @@ end
 
 function fit_exponential_model(autocorr::Vector, nval::Integer)
     bases = estimate_exponentials(autocorr[2:end], nval)
+    const MAXBASE = exp(-.01/length(autocorr))
+    for i=1:length(bases)
+        if abs(bases[i]) >= 1.0
+            println("Fixing exp base $(bases[i])")
+            bases[i] *= MAXBASE/bases[i]
+        end
+    end
     amplitudes = fit_exponential_amplitudes_plusdelta(autocorr, bases)
     amplitudes, bases
 end
