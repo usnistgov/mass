@@ -765,3 +765,315 @@ mpf=MultiPulseFitter("/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_S_m
      99);
 """
 
+
+#############################################################################
+
+function create_traditional_filters(covar_model::CovarianceModel,
+                                    pulse_model::Vector)
+
+    dpdt_model = finite_diff_deriv(pulse_model)
+    const SCALE = 525*2.3548
+
+    filterN = [195, 390, 780, 1560, 390, 195, 117]
+    filtNPT = [117, 234, 468,  936, 234, 117, 117]
+    names = ["2.5ms", "5ms", "10ms", "20ms", "5msexp", "2.5msexp", "ptmean"]
+    
+    filters = Dict{String,Vector{Float64}}()
+    clf()
+    for i = 1:length(filterN)
+        npre = filtNPT[i]
+        nsamp = filterN[i]
+        npost = nsamp-npre
+        ncol = i<=4 ? 3 : 5
+
+        if npost <= 0
+            filters[names[i]] = fill(1.0/nsamp, nsamp)
+            continue
+        end
+
+        model = zeros(Float64, nsamp, ncol)
+        modelW = zeros(Float64, nsamp, ncol)
+        model[npre+1:end, 1] = pulse_model[1:npost]
+        model[npre+1:end, 2] = dpdt_model[1:npost]
+        model[:, 3] = 1.0
+        if ncol > 3
+            t = float([1:nsamp])
+            model[:, 4] = exp(-t ./ 50.0)
+            model[:, 5] = exp(-t ./ 80.0)
+        end
+
+        for j = 1:ncol
+            modelW[:,j] = CovarianceModels.whiten(covar_model, model[:,j])
+        end
+        A = modelW' * modelW
+        RinvM = Array(Float64, nsamp, ncol)
+        for c =1:ncol
+            RinvM[:,c] = CovarianceModels.covarsolve(covar_model, model[:,c])
+        end
+        allfilt = A \ (RinvM')
+        println(names[i], "   ", sqrt(inv(A)[1,1])*SCALE)
+        filters[names[i]] = vec(allfilt[1,:])
+        x = .0128 .* [1-npre:npost]
+        if i==1
+            plot(.0128 .* [0:npost], .8+pulse_model[1:npost+1] .* 0.03, "k", label="Pulse")
+            plot(.0128 .* [1-npre:0], .8+zeros(Int,npre), "k")
+        end
+        plot(x, .8-i*0.08+filters[names[i]].*1e5, label=names[i])
+    end
+    legend(loc="upper left")
+    PyPlot.draw()
+
+    npre = Dict{String,Int}()
+    for i=1:length(names)
+        npre[names[i]] = filtNPT[i]
+    end
+    filters, npre
+end
+
+
+function filter_file(file::LJHFile,
+                     trigger_times::Vector{Int},
+                     filters::Dict{String,Vector{Float64}},
+                     npre::Dict{String,Int})
+
+    const TRIG_TIME_OFFSET = -2
+    const np = length(trigger_times)
+    results = Dict{String, Vector{Float64}}()
+    for k in keys(filters)
+        results[k] = Array(Float64, np)
+    end
+
+    const nrecs = 50
+    MicrocalFiles.LJHRewind(file)
+    _times = Array(Uint64, nrecs)
+    newdata = Array(Uint16, file.nsamp*nrecs)
+    data_unused = Uint16[]
+    t1,t2 = 1,1
+    nsamp_read = 0
+    np_seen = 0
+
+    const MIN_POST_TRIG_SAMPS = 625
+    const MIN_PRE_TRIG_SAMPS = 1000
+
+    for i=1:div(file.nrec, nrecs)
+        MicrocalFiles.fileRecords(file, nrecs, _times, newdata)
+        deblip_nsls_data!(newdata, -8)
+
+        nsamp_read += length(newdata)
+        if length(data_unused) > 0
+            data = vcat(data_unused, newdata)
+            data_unused = Uint16[]
+        else
+            data = copy(newdata)
+        end
+        # If record is too short, add the next one
+        if length(data) < MIN_PRE_TRIG_SAMPS + MIN_POST_TRIG_SAMPS
+            data_unused = data
+            continue
+        end
+        
+        # Select times from the trigger_times list
+        first_read = nsamp_read - length(data)
+        while (t2 < length(trigger_times) &&
+               trigger_times[t2] + TRIG_TIME_OFFSET < first_read)
+            t2 += 1
+        end
+        t1 = t2
+        while t2 <= np && trigger_times[t2] < nsamp_read
+            t2 += 1
+        end
+        t2 <= t1 && continue # No pulses to fit for
+
+        if t2 > t1
+            # Is t2 too close to the end of the vector? If so, back off and save some
+            # data for later. Remove one (or more) triggers from the trigger set AND
+            # trim down the data vector.
+            # But also be careful: if you trim TOO much, then the next record could
+            # become unboundedly large. We will stop trimming when the length of this
+            # becomes less than one half of a normal chunk.
+            last_samp = nsamp_read
+            while last_samp < trigger_times[t2-1] + MIN_POST_TRIG_SAMPS
+                cut_out_samples = last_samp - (trigger_times[t2-1] - MIN_PRE_TRIG_SAMPS)
+                last_samp -= cut_out_samples
+                if cut_out_samples < length(data)
+                    data_unused = vcat(data[end+1-cut_out_samples:end], data_unused)
+                    data = data[1:end-cut_out_samples]
+                else
+                    data_unused = vcat(data, data_unused)
+                end
+                t2 -= 1
+                t2 == t1 && break  # No more pulses in the interval!
+            end
+        end
+
+        ncp = t2-t1
+
+        if ncp > 0
+            current_times = (trigger_times[t1:t2-1] - (last_samp-length(data)) +
+                             TRIG_TIME_OFFSET)
+            if current_times[end] >= length(data)
+                warn("Problem!")
+                @show current_times, length(data)
+            end
+            
+            floatdata = float(data)
+            
+            # Do the filters!
+            for k in keys(filters)
+                f = filters[k]
+                pre = npre[k]
+                nsamp = length(f)
+                post = nsamp - pre
+                theseresults = results[k]
+                
+                for j=1:length(current_times)
+                    npulse = j-1+t1
+                    t = current_times[j]
+                    t<=pre && continue
+                    #k=="2.5msexp" && @show t, pre, t-pre,t-pre-1+nsamp, length(floatdata), npulse
+                    theseresults[npulse] = dot(f,  floatdata[t-pre:t-pre-1+nsamp])
+                end
+                #t2<100 && @show k,theseresults[t1:t2-1]
+            end
+        end
+
+        # Save last 200 samples for use next time
+        if length(data)>200
+            data_unused = vcat(data[end+1-200:end], data_unused)
+        else
+            data_unused = copy(data)
+        end
+        
+        np_seen += ncp
+        if mod(i,1000) == 0
+            println("$i chunks seen, with $(np_seen) pulses fit.")
+        end
+    end
+    results
+end
+
+
+# Try to do a classic record-based analysis starting with a pulse file
+# and a raw file. Assumes Noise_analysis(noisename) is already done
+
+function classic_analysis(filename::String, forceNew::Bool=false)
+    file = MicrocalFiles.LJHFile(filename)
+    hdf5name = hdf5_name_from_ljh_name(filename, "mpf")
+    println("We are about to filter data; store into\n$hdf5name")
+    h5file = h5file_update(hdf5name)
+    try
+        const do_all_trigtimes = false
+        const do_avg_pulse = false
+        const do_all_fits = true
+
+        grpname=string("chan$(file.channum)")
+        h5grp = g_create_or_open(h5file, grpname)
+
+        # Find trigger times
+        if forceNew || ! exists(h5grp, "trigger_times") || do_all_trigtimes
+            trig_times = find_all_pulses(file)
+            ds_update(h5grp, "trigger_times", trig_times)
+        end
+        trigger_times = read(h5grp["trigger_times"])
+
+        # Analyze the average pulse
+        if forceNew || ! exists(h5grp, "average_dpdt") || do_avg_pulse
+            println("\nComputing average pulse shape...")
+            avg_pulse = compute_average_pulse(file, trigger_times)
+            dpdt = finite_diff_deriv(avg_pulse)
+            dpdt[1:end-1]=dpdt[2:end]
+            ds_update(h5grp, "average_pulse", avg_pulse)
+            ds_update(h5grp, "average_dpdt", dpdt)
+        end
+
+        pulse_model = read(h5grp["average_pulse"])
+        MAXSAMP = 10000
+        covar_model = CovarianceModel(read_complex(h5grp["noise/model_amplitudes"]),
+                                      read_complex(h5grp["noise/model_bases"]),
+                                      MAXSAMP)
+        
+        # Do the fits
+        if forceNew || ! exists(h5grp, "classic") || do_all_fits
+            MAXSAMP = 8000
+
+            println("Computing classic pulse filters...\n")
+            filters, npre = create_traditional_filters(covar_model, pulse_model)
+
+            println("Computing classic pulse fits...\n")
+            results = filter_file(file, trigger_times, filters, npre)
+
+            grp = g_create_or_open(h5grp, "classic")
+            for k in keys(results)
+                ds_update(grp, k, results[k])
+            end
+        end
+    finally
+        close(h5file)
+    end
+    nothing
+end
+
+
+function all_classic_analysis(setname::String="S", date::String="14")
+    badchan = [3,5,11,13,19,29,33,35,39,53,55,57,61,65,71,73,87,113]
+    if setname=="Z"
+        push!(badchan,37)
+    elseif setname=="ZA"
+        append!(badchan,[15,25,27,37])
+    elseif setname=="ZB"
+        append!(badchan,[15,25,27,31,37,59])
+    end
+    const PATH="/Volumes/Data2014/Data/NSLS_data/2012_06_$(date)"
+    for cnum=1:2:120
+        cnum in badchan && continue
+        filename = @sprintf("%s/2012_06_%s_%s_chan%d.ljh", PATH, date, setname, cnum) 
+        println("Working on $filename")
+        classic_analysis(filename)
+    end
+end
+
+function dec11_work()
+    #@time all_classic_analysis("X", "14")
+    #@time all_classic_analysis("Y", "14")
+    #@time all_classic_analysis("Z", "14")
+    @time all_classic_analysis("ZA", "14")
+    @time all_classic_analysis("ZB", "14")
+end
+
+function dec15_work()
+    @time all_classic_analysis("X", "14")
+    @time all_classic_analysis("Y", "14")
+    @time all_classic_analysis("Z", "14")
+    @time all_classic_analysis("ZA", "14")
+    @time all_classic_analysis("ZB", "14")
+end
+
+
+function copy_Z_avgpulse_to_ZB(target="ZB")
+    const badchan = [3,5,11,13,19,29,33,35,39,53,55,57,61,65,71,73,87,113]
+        
+    date = "14"
+    const PATH="/Volumes/Data2014/Data/NSLS_data/2012_06_$(date)"
+    filename1 = @sprintf("%s/2012_06_%s_Z_chan119.ljh", PATH, date) 
+    filename2 = @sprintf("%s/2012_06_%s_%s_chan119.ljh", PATH, date, target) 
+    hdf5name1 = hdf5_name_from_ljh_name(filename1, "mpf")
+    hdf5name2 = hdf5_name_from_ljh_name(filename2, "mpf")
+
+    hd5file1 = h5open(hdf5name1, "r")
+    hd5file2 = h5file_update(hdf5name2)
+    try
+        for cnum=1:2:120
+            cnum in badchan && continue
+            println("Copying channel $cnum avg pulse from Z to $target")
+            Zgrp = hd5file1["chan$(cnum)"]
+            ZBgrp = g_create_or_open(hd5file2, "chan$(cnum)")
+            ds_update(ZBgrp, "average_pulse", read(Zgrp["average_pulse"]))
+            ds_update(ZBgrp, "average_dpdt", read(Zgrp["average_dpdt"]))
+        end
+        close(hd5file1)
+    finally
+        close(hd5file2)
+    end
+    nothing
+end
+    
