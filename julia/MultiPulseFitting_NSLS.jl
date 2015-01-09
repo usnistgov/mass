@@ -58,14 +58,15 @@ function finite_diff_deriv(input::Vector{Float64})
 end
 
 
-function dec3_work ()
-    @time all_MPF_analysis("S", "V", "14")
-    @time all_MPF_analysis("T", "V", "14")
-    @time all_MPF_analysis("X", "V", "14")
+function jan9_work()    # Was: dec3_work()
+    #@time all_MPF_analysis("X", "V", "14")
     @time all_MPF_analysis("Y", "V", "14")
     @time all_MPF_analysis("Z", "V", "14")
     @time all_MPF_analysis("ZA", "V", "14")
     @time all_MPF_analysis("ZB", "V", "14")
+
+    @time all_MPF_analysis("S", "V", "14")
+    @time all_MPF_analysis("T", "V", "14")
     @time all_MPF_analysis("G", "B", "15")
 end
 
@@ -616,7 +617,7 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
     _times = Array(Uint64, nrecs)
     newdata = Array(Uint16, file.nsamp*nrecs)
     data_unused = Uint16[]
-    t1,t2 = 0,1
+    p1,p2 = 1,1
     nsamp_read = 0
 
     np = length(pulse_times)
@@ -647,21 +648,26 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
         deblip_nsls_data!(data, -8)
 
         # Select times from the pulse_times list
-        t1 = t2
-        while t2 <= np && pulse_times[t2] < nsamp_read
-            t2 += 1
+        first_read = nsamp_read - length(data)
+        while (p2 < length(pulse_times) &&
+               pulse_times[p2]+TRIG_TIME_OFFSET < first_read)
+            p2 += 1
         end
-        t2 <= t1 && continue  # There were no pulses to fit for
+        p1 = p2
+        while p2 <= np && pulse_times[p2]+TRIG_TIME_OFFSET < nsamp_read
+            p2 += 1
+        end
+        p2 <= p1 && continue  # There were no pulses to fit for
 
-        # Is t2 too close to the end of the vector? If so, back off and save some
+        # Is p2 too close to the end of the vector? If so, back off and save some
         # data for later. Remove one (or more) triggers from the trigger set AND
         # trim down the data vector.
         # But also be careful: if you trim TOO much, then the next record could
         # become unboundedly large. We will stop trimming when the length of this
         # becomes less than one half of a normal chunk.
         last_samp = nsamp_read
-        while last_samp < pulse_times[t2-1] + MIN_POST_TRIG_SAMPS
-            cut_out_samples = last_samp - (pulse_times[t2-1] - MIN_PRE_TRIG_SAMPS)
+        while last_samp < pulse_times[p2-1] + MIN_POST_TRIG_SAMPS
+            cut_out_samples = last_samp - (pulse_times[p2-1] - MIN_PRE_TRIG_SAMPS - 5)
             last_samp -= cut_out_samples
             if cut_out_samples < length(data)
                 data_unused = vcat(data[end+1-cut_out_samples:end], data_unused)
@@ -669,19 +675,20 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
             else
                 data_unused = vcat(data, data_unused)
             end
-            t2 -= 1
-            t2 == t1 && break  # No more pulses in the interval!
+            p2 -= 1
+            p2 == p1 && break  # No more pulses in the interval!
             if length(data_unused) >= div(file.nsamp*nrecs, 2) # Too much was trimmed
-                while last_samp < pulse_times[t2-1]
-                    cut_out_samples = last_samp - (pulse_times[t2-1] - MIN_POST_TRIG_SAMPS)
+                #println("Too much was trimmed")
+                while last_samp < pulse_times[p2-1]
+                    cut_out_samples = last_samp - (pulse_times[p2-1] - MIN_POST_TRIG_SAMPS)
                     if cut_out_samples >= length(data)
                         cut_out_samples = length(data)-1
                     end
                     last_samp -= cut_out_samples
                     data_unused = vcat(data[end-cut_out_samples:end], data_unused)
                     data = data[1:end-cut_out_samples]
-                    t2 -= 1
-                    t2==t1 && break  # No more pulses in the interval!
+                    p2 -= 1
+                    p2==p1 && break  # No more pulses in the interval!
                 end
                 break
             end
@@ -690,11 +697,13 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
             #end
         end
 
-        ncp = t2-t1
-        ncp <= 0 && continue  # There were no pulses to fit for
+        ncp = p2-p1
+        if ncp <= 0   # There were no pulses to fit for
+            #println("No pulses in the record ending at $nsamp_read\n")
+            continue
+        end
 
-        const TRIG_TIME_OFFSET = -2
-        current_times = pulse_times[t1:t2-1] - (last_samp-length(data)) + TRIG_TIME_OFFSET
+        current_times = pulse_times[p1:p2-1] - (last_samp-length(data)) + TRIG_TIME_OFFSET
         if current_times[end] >= length(data)
             warn("Problem!")
             @show current_times, length(data)
@@ -704,7 +713,7 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
         N = min(length(tails), length(data))
         floatdata[1:N] -= tails[1:N]
         if DO_WITH_PLOTS
-            @show pulse_times[t1:t2-1]
+            @show pulse_times[p1:p2-1], p1, p2
             param, covar, this_residW, this_residR, this_prior = 
                 multi_pulse_fit_with_plot(floatdata, current_times,
                                           mpf, use_dpdt)
@@ -731,20 +740,19 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
             tails[1:NTAIL-cti] += param[i]*mpf.pulse_model[1+cti:NTAIL]
         end
 
-        
-        pheights[np_seen+1:np_seen+ncp] = param[1:ncp]
-        pheight_unc[np_seen+1:np_seen+ncp] = sqrt(diag(covar)[1:ncp])
+        # Store the results
+        pheights[p1:p2-1] = param[1:ncp]
+        pheight_unc[p1:p2-1] = sqrt(complex(diag(covar))[1:ncp])
         if use_dpdt
-            dpdts[np_seen+1:np_seen+ncp] = param[1+ncp:2*ncp]
-            dpdt_unc[np_seen+1:np_seen+ncp] = sqrt(diag(covar)[1+ncp:2*ncp])
-            baseline[np_seen+1:np_seen+ncp] = param[2*ncp+1]
+            dpdts[p1:p2-1] = param[1+ncp:2*ncp]
+            dpdt_unc[p1:p2-1] = sqrt(diag(covar)[1+ncp:2*ncp])
+            baseline[p1:p2-1] = param[2*ncp+1]
         else
-            baseline[np_seen+1:np_seen+ncp] = param[ncp+1]
+            baseline[p1:p2-1] = param[ncp+1]
         end
-        prior_level[np_seen+1:np_seen+ncp] = this_prior
-        residW[np_seen+1:np_seen+ncp] = this_residW
-        residR[np_seen+1:np_seen+ncp] = this_residR
-        np_seen += ncp
+        prior_level[p1:p2-1] = this_prior
+        residW[p1:p2-1] = this_residW
+        residR[p1:p2-1] = this_residR
         if mod(i,1000) == 0
             println("$i chunks seen, with $(np_seen) pulses fit.")
         end
