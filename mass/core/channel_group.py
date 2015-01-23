@@ -143,7 +143,7 @@ class TESGroup(object):
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
 
-        self.hdf5_trace = h5py.File(_generate_hdf5_trace_filename(filenames[0]))
+        self.hdf5_trace = h5py.File(_generate_hdf5_trace_filename(filenames[0]),'a')
 
         # Set up other aspects of the object
         self.nhits = None
@@ -1308,7 +1308,7 @@ class TESGroup(object):
 
     def plot_count_rate(self, bin_s=60, title=""):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
-                             self.first_good_dataset.p_timestamp[-1], bin_s)
+                             np.amax(self.first_good_dataset.p_timestamp), bin_s)
         bin_centers = bin_edge[:-1]+0.5*(bin_edge[1]-bin_edge[0])
         rates_all = np.array([ds.count_rate(False, bin_edge)[1] for ds in self])
         rates_good = np.array([ds.count_rate(True, bin_edge)[1] for ds in self])

@@ -1235,7 +1235,7 @@ class MicrocalDataSet(object):
         if not self.calibration.has_key(calname):
             raise ValueError("For chan %d calibration %s does not exist"(self.channum, calname))
         cal = self.calibration[calname]
-        self.p_energy = cal.ph2energy(getattr(self, attr))
+        self.p_energy[:] = cal.ph2energy(getattr(self, attr))
         self.last_used_calibration = cal
 
 
