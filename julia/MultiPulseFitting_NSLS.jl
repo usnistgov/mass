@@ -823,11 +823,16 @@ function create_traditional_filters(covar_model::CovarianceModel,
         filters[names[i]] = vec(allfilt[1,:])
         x = .0128 .* [1-npre:npost]
         if i==1
-            plot(.0128 .* [0:npost], .8+pulse_model[1:npost+1] .* 0.03, "k", label="Pulse")
-            plot(.0128 .* [1-npre:0], .8+zeros(Int,npre), "k")
+            #plot(.0128 .* [0:npost], .8+pulse_model[1:npost+1] .* 0.03, "k", label="Pulse")
+            #plot(.0128 .* [1-npre:0], .8+zeros(Int,npre), "k")
         end
-        plot(x, .8-i*0.08+filters[names[i]].*1e5, label=names[i])
+        plot(x, .8-i*1.+filters[names[i]].*.8e4, label=names[i], lw=2, color=
+             ["purple","b","#008888","g","orange","r"][i])
     end
+    plt.yticks([])
+    plt.xlim([-12.5,8.5])
+    plt.xlabel("Time (ms)", fontsize="large")
+    plt.xticks([-12,-8,-4,0,4,8], fontsize="large")
     legend(loc="upper left")
     PyPlot.draw()
 
