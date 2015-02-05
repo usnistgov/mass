@@ -412,12 +412,14 @@ class CoKAlpha(SpectralLine):
     ## The Lorentzian energies (Table II E_i)
     energies = np.array((6930.425, 6929.388, 6927.676, 6930.941, 6915.713, 6914.659, 6913.078))
     ## The Lorentzian widths (Table II W_i)
-    # the calculated amplitude for the 4th entry 0.808 differs from the paper, but the other numbers appear to
-    # be correct, so I think they may have a typo
     fwhm = np.array((1.795, 2.695, 4.555, 0.808, 2.406, 2.773, 4.463))
     ## The Lorentzian peak height (Table II I_i)
     peak_heights = np.array((809, 205, 107, 41, 314, 131, 43), dtype=np.float)/1e3
     ## Amplitude of the Lorentzians
+    # Note that the calculated amplitude for the 4th entry 0.808 differs from the paper,
+    # but the other numbers appear to be correct, so I think they may have a typo.
+    # Also supporting this: the integral intensities
+    # in the paper do not add to 1.0 as they are supposed to.
     integral_intensity = (0.5*np.pi*fwhm) * peak_heights
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
