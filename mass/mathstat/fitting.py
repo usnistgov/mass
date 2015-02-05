@@ -292,7 +292,6 @@ class MaximumLikelihoodHistogramFitter(object):
             else:
                 no_change_counter = 0
 
-            print iter_number, prev_chisq, trial_chisq, atry
             if (trial_chisq < prev_chisq ): # success: we've improved chisq
                 lambda_coef *= 0.1
                 alpha = trial_alpha

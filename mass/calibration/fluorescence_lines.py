@@ -1116,28 +1116,57 @@ class MultiLorentzianComplexFitter(object):
 
     ## Compute the smeared line complex.
     #
-    # @param params  The 6 parameters of the fit (see self.fit for details).
+    # @param params  The 8 parameters of the fit (see self.fit for details).
     # @param x       An array of pulse heights (params will scale them to energy).
     # @return:       The line complex intensity, including resolution smearing.
     def fitfunc(self, params, x):
         """Return the smeared line complex.
 
-        <params>  The 6 parameters of the fit (see self.fit for details).
+        <params>  The 8 parameters of the fit (see self.fit for details).
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
         """
-        E_peak = self.spect.peak_energy
+        (P_gaussfwhm, P_phpeak, P_dphde, P_amplitude,
+         P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
 
-        energy = (x-params[1])/abs(params[2]) + E_peak
-        self.spect.set_gauss_fwhm(abs(params[0]))
-        spectrum = self.spect.pdf(energy)
+        energy = (x-P_phpeak)/P_dphde + self.spect.peak_energy
+        self.spect.set_gauss_fwhm(P_gaussfwhm)
+
+        # Now either return the pure sum-of-Voigt function spectrum, if no low-E tail
+        if P_tailfrac <= 1e-5:
+            spectrum = self.spect.pdf(energy)
+
+        # Or compute the low-E-tailed spectrum. This is done by
+        # convolution, which is computed using DFT methods.
+        # A wider energy range must be used, or wrap-around effects of
+        # tails will corrupt the model.
+        else:
+            de = energy[1]-energy[0]
+            nlow = int(min(P_tailtau, 100)*6/de + 0.5)
+            nhi = int((abs(params[0])+min(P_tailtau, 50))/de + 0.5)
+            nlow = max(nlow, nhi)
+            lowe = np.arange(-nlow,0)*de + energy[0]
+            highe = np.arange(1,nhi+1)*de + energy[-1]
+            energy_wide = np.hstack([lowe, energy, highe])
+            freq = np.fft.rfftfreq(len(energy_wide), d=de)
+            rawspectrum = self.spect.pdf(energy_wide)
+            ft = np.fft.rfft(rawspectrum)
+            # Joe writes: Not sure why the following fails. Hmm.
+#             ft = np.zeros(len(freq), dtype=complex)
+#             for line_e, line_fwhm, line_intens in zip(self.spect.energies, self.spect.fwhm,
+#                                                        self.spect.integral_intensity):
+#                 ft += line_intens*np.exp(-np.pi*(line_fwhm*np.abs(freq)+2j*freq*line_e))
+#             ft *= np.exp(-2*(np.pi*params[0]/2.3548)**2)
+            ft += ft*P_tailfrac*(1.0/(1-2j*np.pi*freq*P_tailtau)-1)
+            smoothspectrum = np.fft.irfft(ft, n=len(energy_wide))
+            spectrum = smoothspectrum[nlow:nlow+len(energy)]
         nbins = len(x)
-        return spectrum * abs(params[3]) + abs(params[4]) + params[5]*np.arange(nbins)
+        return spectrum * P_amplitude + P_bg + P_bgslope*np.arange(nbins)
 
 
 
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
-            vary_bg=True, vary_bg_slope=False, hold=None):
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None,
+            label="", vary_bg=True, vary_bg_slope=False, vary_tail=False, hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
 
@@ -1146,11 +1175,12 @@ class MultiLorentzianComplexFitter(object):
                       If pulseheights is None, then the parameters
                       normally having pulseheight units will be returned as bin numbers instead.
 
-        params: a 6-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
+        params: a 8-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
                 energy scale factor (pulseheight/eV), amplitude, background level (per bin),
-                and background slope (in counts per bin per bin) ]
+                background slope (in counts per bin per bin), fraction in low-E-tail, and
+                exponential scale length (eV) of the tail. ]
                 If params is None, all params will be guessed.
-                If params is a 6 element list, all elements with value None will be guessed.
+                If params is a 8 element list, all elements with value None will be guessed.
 
         plot:   Whether to make a plot.  If not, then the next few args are ignored
         axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
@@ -1160,100 +1190,120 @@ class MultiLorentzianComplexFitter(object):
 
         vary_bg:       Whether to let a constant background level vary in the fit
         vary_bg_slope: Whether to let a slope on the background level vary in the fit
-        hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  BG and BG slope will
-                       be held if 4 or 5 appears in the hold sequence OR if the relevant boolean
-                       vary_* tests False.
+        vary_tail:     Whether to let an exponential tail vary in the fit
+        hold:          A sequence of parameter numbers (0 to 7, inclusive) to hold, or None.
+                       BG, BG slope, and tail will be held if 4, 5, or 6 appears in the hold
+                       sequence OR if the relevant boolean vary_* tests False.
         ====================================================================
         returns fitparams, covariance
         fitparams has same format as input variable params
         """
 
-        # Work with bin edges
+        # Were we given bin edges? Recognize by having 1 extra value.
         if len(pulseheights) == len(data) + 1:
             dp = pulseheights[1]-pulseheights[0]
             pulseheights = 0.5*dp + pulseheights[:-1]
 
-        # Pulseheights doesn't make sense as bin centers, either.
-        # So just use the integers starting at zero.
+        # Pulseheights is the wrong length to be either bin edges OR centers,
+        # so just use the integers starting at zero and ignore the input
         elif len(pulseheights) != len(data):
+            print "Warning: len(pulseheights)=%d makes no sense given len(data)=%d"%(
+                len(pulseheights), len(data))
             pulseheights = np.arange(len(data), dtype=np.float)
 
+        # If params is None, use guesses for all parameters. If it's a sequence with some
+        # None values, use guesses just for those.
         guess_params = self.guess_starting_params(data, pulseheights)
-
         if params is None:
             params = guess_params
         for j in xrange(len(params)):
             if params[j] is None: params[j] = guess_params[j]
-        ph_binsize = pulseheights[1]-pulseheights[0]
 
-        # Joe's max-likelihood MLfitter
-        epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01))
-        MLfitter = MaximumLikelihoodHistogramFitter(
-                    pulseheights, data, params,
-                    self.fitfunc, TOL=1e-4, epsilon=epsilon)
+        # Set up the maximum-likelihood fitter
+        epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01, .01, 1))
+        MLfitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
+                                                    self.fitfunc, TOL=1e-4, epsilon=epsilon)
+        MLfitter.setbounds(0, 0, None) # FWHM > 0
+        MLfitter.setbounds(2, 0, None) # amplitude > 0
+        MLfitter.setbounds(3, 0, None) # dPH/dE > 0
+        MLfitter.setbounds(4, 0, None) # BG level > 0
+        MLfitter.setbounds(6, 0, 1)    # 0 < tailamplitude < 1
+        MLfitter.setbounds(7, 0, None) # tailtau > 0
 
-        if hold is not None:
-            for h in hold:
-                MLfitter.hold(h)
-        if not vary_bg: MLfitter.hold(4)
-        if not vary_bg_slope: MLfitter.hold(5)
+        # Set held parameters to be held.
+        # Note that some can be held in either of two different ways.
+        if hold is None:
+            hold = set()
+        else:
+            hold = set(hold)
+        if not vary_bg: hold.add(4)
+        if not vary_bg_slope: hold.add(5)
+        if not vary_tail: hold.add(6)
+        if 6 in hold and params[6] <= 0.0: hold.add(7)
+        for h in hold:
+            MLfitter.hold(h)
 
         fitparams, covariance = MLfitter.fit()
-        iflag = 0
-
-        fitparams[0] = abs(fitparams[0])
 
         self.last_fit_params = fitparams
         self.last_fit_cov = covariance
+        self.last_fit_chisq = MLfitter.chisq
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
-
-        ## all this plot stuff should go into a seperate function then we have
-        ## if plot: self.plotFit(self.last_fit_result, self.last_fit_params)
-        if plot:
-            if color is None:
-                color = 'blue'
-            if axis is None:
-                plt.clf()
-                axis = plt.subplot(111)
-                plt.xlabel('pulseheight (arb) - %s'%self.spect.name)
-                plt.ylabel('counts per %.3f unit bin'%ph_binsize)
-                plt.title('resolution %.3f, amplitude %.3f, dph/de %.3f\n amp %.3f, bg %.3f, bg_slope %.3f'%tuple(fitparams))
-            plot_as_stepped_hist(axis, data, pulseheights, color=color)
-            axis.set_xlim([pulseheights[0]-0.5*ph_binsize, pulseheights[-1]+0.5*ph_binsize])
-
-#        if iflag not in (1,2,3,4):
-        if iflag not in (0, 2):
-            print "Oh no! iflag=%d"%iflag
-        elif plot:
-            de = np.sqrt(covariance[0, 0])
-            axis.plot(pulseheights, self.last_fit_result, color='#666666',
-                      label="%.2f +- %.2f eV %s"%(fitparams[0], de, label))
-            axis.legend(loc='upper left')
-
-        # Fix negative amplitudes and/or background
-        if fitparams[3] < 0:
-            fitparams[3] = -fitparams[3]
-            covariance[3,:] *= -1
-            covariance[:,3] *= -1
-        if fitparams[4] < 0:
-            fitparams[4] = -fitparams[4]
-            covariance[4,:] *= -1
-            covariance[:,4] *= -1
+        self.last_fit_bins = pulseheights.copy()
+        self.last_fit_contents = data.copy()
+        if plot: self.plotFit(color, axis, label)
 
         return fitparams, covariance
 
 
+    def plotFit(self, color=None, axis=None, label=""):
+        """Plot the last fit and the data to which it was fit."""
+        if color is None: color = 'blue'
+        bins = self.last_fit_bins
+        data = self.last_fit_contents
+        ph_binsize = bins[1]-bins[0]
+        if axis is None:
+            plt.clf()
+            axis = plt.subplot(111)
+            plt.xlabel('pulseheight (arb) - %s'%self.spect.name)
+            plt.ylabel('counts per %.3f unit bin'%ph_binsize)
+            plt.title(('resolution %.3f, amplitude %.3f, dph/de %.3f\n amp %.3f, '
+                      'bg %.3f, bg_slope %.3f. T=%.3f $\\tau$=%.3f')%
+                      tuple(self.last_fit_params))
+        plot_as_stepped_hist(axis, data, bins, color=color)
+        axis.set_xlim([bins[0]-0.5*ph_binsize, bins[-1]+0.5*ph_binsize])
+        de = np.sqrt(self.last_fit_cov[0, 0])
+        axis.plot(bins, self.last_fit_result, color='#666666',
+                  label="%.2f +- %.2f eV %s"%(self.last_fit_params[0], de, label))
+        axis.legend(loc='upper left')
+
+
+
 class GenericKAlphaFitter(MultiLorentzianComplexFitter):
-    """Fits a generic K alpha spectrum for energy shift and scale, amplitude, and resolution"""
-    def __init__(self, spectrumDef = mass.fluorescence_lines.MnKAlpha):
-        """ """
+    """
+    Fits a generic K alpha spectrum for energy shift and scale, amplitude, and resolution.
+    Background level (including a fixed slope) and low-E tailing are also included.
+
+    Note that self.tailfrac and self.tailtau are attributes that determine the starting
+    guess for the fraction of events in an exponential low-energy tail and for that tail's
+    exponential scale length (in eV). Change if desired.
+    """
+
+    def __init__(self, spectrumDef):
+        """
+        Constructor argument spectrumDef should be mass.fluorescence_lines.MnKAlpha, or similar
+        subclasses of SpectralLine.
+        """
         self.spect = spectrumDef
         MultiLorentzianComplexFitter.__init__(self)
         self.tailfrac = 0.0
         self.tailtau = 25
 
     def guess_starting_params(self, data, binctrs):
-        """"""
+        """
+        A decent heuristic for guessing the inital values, though your informed
+        starting point is likely to be better than this.
+        """
         if data.sum()<=0: raise ValueError("This histogram has no contents")
 
         # Heuristic: find the Ka1 line as the peak bin, and then make
@@ -1280,13 +1330,17 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
 
 
 
-
 class GenericKBetaFitter(MultiLorentzianComplexFitter):
     def __init__(self, spectrumDef=MnKBeta):
-        """ """
-        ## Spectrum function object
+        """
+        Constructor argument spectrumDef should be mass.fluorescence_lines.MnKAlpha, or similar
+        subclasses of SpectralLine.
+        """
         self.spect = spectrumDef
         MultiLorentzianComplexFitter.__init__(self)
+        self.tailfrac = 0.0
+        self.tailtau = 25
+
     def guess_starting_params(self, data, binctrs):
         """If the cuts are tight enough, then we can estimate the locations of the
         K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
@@ -1297,7 +1351,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
 #        rms_d = np.sqrt(sum_d2/n - mean_d**2)
 #        print n, sum_d, sum_d2, mean_d, rms_d
         ph_peak = mean_d
-        ampl = data.max() *9.4
+        ampl = data.max() * 9.4
         res = 4.0
         if len(data) > 20:
             baseline = data[0:10].mean()
@@ -1307,8 +1361,11 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
             baseline_slope = 0.0
         return [res, ph_peak, 1.0, ampl, baseline, baseline_slope]
 
+
 ## create specific KAlpha Fitters
 class _lowZ_KAlphaFitter(GenericKAlphaFitter):
+    """Overrides the starting parameter guesses, more appropriate
+    for low Z where the Ka1,2 peaks can't be resolved."""
     def guess_starting_params(self, data, binctrs):
         n = data.sum()
         if n<=0:
@@ -1321,13 +1378,14 @@ class _lowZ_KAlphaFitter(GenericKAlphaFitter):
         ampl = 4*np.max(data)
         return [res, ph_ka1, dph_de, ampl, baseline, baseline_slope]
 
+
+
 class AlKAlphaFitter(_lowZ_KAlphaFitter):
     def __init__(self):
         _lowZ_KAlphaFitter.__init__(self, AlKAlpha())
 class MgKAlphaFitter(_lowZ_KAlphaFitter):
     def __init__(self):
         _lowZ_KAlphaFitter.__init__(self, MgKAlpha())
-
 class ScKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, ScKAlpha())
