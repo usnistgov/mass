@@ -1342,24 +1342,18 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         self.tailtau = 25
 
     def guess_starting_params(self, data, binctrs):
-        """If the cuts are tight enough, then we can estimate the locations of the
-        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
-        n = data.sum()
-        sum_d = (data*binctrs).sum()
-#        sum_d2 = (data*binctrs*binctrs).sum()
-        mean_d = sum_d/n
-#        rms_d = np.sqrt(sum_d2/n - mean_d**2)
-#        print n, sum_d, sum_d2, mean_d, rms_d
-        ph_peak = mean_d
+        """Hard to estimate dph/de from a K-beta line. Have to guess scale=1 and
+        hope it's close enough to get convergence. Ugh!"""
+        peak_ph = binctrs[data.argmax()]
         ampl = data.max() * 9.4
         res = 4.0
         if len(data) > 20:
             baseline = data[0:10].mean()
-            baseline_slope = (data[-10:].mean()-baseline)/len(data)
         else:
             baseline = 0.1
-            baseline_slope = 0.0
-        return [res, ph_peak, 1.0, ampl, baseline, baseline_slope]
+        baseline_slope = 0.0
+        return [res, peak_ph, 1.0, ampl, baseline, baseline_slope,
+                self.tailfrac, self.tailtau]
 
 
 ## create specific KAlpha Fitters
