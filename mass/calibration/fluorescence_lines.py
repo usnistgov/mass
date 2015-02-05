@@ -83,6 +83,7 @@ class MgKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
     nominal_peak_energy = 1253.5587
+    ka12_energy_diff = 2.2 # eV (not real, but scales the parameter initial guesses)
 
 
 class AlKAlpha(SpectralLine):
@@ -105,6 +106,7 @@ class AlKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
     nominal_peak_energy = 1486.88931733
+    ka12_energy_diff = 3. # eV (not real, but scales the parameter initial guesses)
 
 
 class AlOxKAlpha(SpectralLine):
@@ -127,6 +129,7 @@ class AlOxKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
     nominal_peak_energy = 1486.930456 # eV
+    ka12_energy_diff = 3. # eV (not real, but scales the parameter initial guesses)
 
 
 class ScKAlpha(SpectralLine):
@@ -153,6 +156,8 @@ class ScKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
     nominal_peak_energy = 4090.735 # eV
+    ka12_energy_diff = 5.1 # eV
+
 
 
 class TiKAlpha(SpectralLine):
@@ -182,6 +187,7 @@ class TiKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
     nominal_peak_energy = 4510.903 # eV
+    ka12_energy_diff = 6.0 # eV
 
 class TiKBeta(SpectralLine):
     """From C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
@@ -193,6 +199,8 @@ class TiKBeta(SpectralLine):
     integral_intensity = np.array((199, 455, 326, 19.2), dtype=np.float)/1e3
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 4931.966 # eV
+
+
 
 class VKAlpha(SpectralLine):
     """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
@@ -220,6 +228,7 @@ class VKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table III Kalpha_1^0)
     nominal_peak_energy = 4952.216 # eV
+    ka12_energy_diff = 7.5 # eV
 
 class VKBeta(SpectralLine):
     """From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013).
@@ -231,6 +240,8 @@ class VKBeta(SpectralLine):
     integral_intensity = np.array((258, 236, 507), dtype=np.float)/1e3
     nominal_peak_energy = 5426.962 # eV
 
+
+
 class CrKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -240,12 +251,9 @@ class CrKAlpha(SpectralLine):
     Note that the subclass holds all the data (as class attributes), while
     the parent class SpectralLine holds all the code.
     """
-
     ## Spectral complex name.
     name = 'Chromium K-alpha'
-
     # The approximation is as a series of 7 Lorentzians (5 for KA1,2 for KA2)
-
     ## The Lorentzian energies (Table II E_i)
     energies = 5400+np.array((14.874, 14.099, 12.745, 10.583, 18.304, 5.551, 3.986))
     ## The Lorentzian widths (Table II W_i)
@@ -257,6 +265,7 @@ class CrKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
     nominal_peak_energy = 5414.81 # eV
+    ka12_energy_diff = 9.2 # eV
 
 class CrKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -311,7 +320,7 @@ class MnKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
     nominal_peak_energy = 5898.802 # eV
-
+    ka12_energy_diff = 11.1 # eV
 
 
 class MnKBeta(SpectralLine):
@@ -339,6 +348,8 @@ class MnKBeta(SpectralLine):
     ## The energy at the main peak
     nominal_peak_energy = 6490.18 # eV
 
+
+
 class FeKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -361,6 +372,7 @@ class FeKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
     nominal_peak_energy = 6404.01 # eV
+    ka12_energy_diff = 13.0 # eV
 
 class FeKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -383,6 +395,8 @@ class FeKBeta(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 7058.18 # eV
+
+
 
 class CoKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -408,6 +422,7 @@ class CoKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
     nominal_peak_energy = 6930.38 # eV
+    ka12_energy_diff = 15.0 # eV
 
 class CoKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -431,6 +446,8 @@ class CoKBeta(SpectralLine):
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 7649.45 # eV
 
+
+
 class NiKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -453,6 +470,7 @@ class NiKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV alpha_1)
     nominal_peak_energy = 7478.26 # eV
+    ka12_energy_diff = 17.2 # eV
 
 class NiKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -474,17 +492,16 @@ class NiKBeta(SpectralLine):
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 8264.78 # eV
 
+
+
 class CuKAlpha(SpectralLine):
     """Function object to approximate the copper K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
     """
-
     ## Spectral complex name.
     name = 'Copper K-alpha'
-
     # The approximation is 4 of Lorentzians (2 for Ka1, 2 for Ka2)
-
     ## The Lorentzian energies
     energies = np.array((8047.8372, 8045.3672, 8027.9935, 8026.5041))
     ## The Lorentzian widths
@@ -496,6 +513,7 @@ class CuKAlpha(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak
     nominal_peak_energy = 8047.83 # eV
+    ka12_energy_diff = 20.0 # eV
 
 class CuKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -1225,38 +1243,40 @@ class MultiLorentzianComplexFitter(object):
 
 class GenericKAlphaFitter(MultiLorentzianComplexFitter):
     """Fits a generic K alpha spectrum for energy shift and scale, amplitude, and resolution"""
-    def __init__(self, spectrumDef = MnKAlpha):
+    def __init__(self, spectrumDef = mass.fluorescence_lines.MnKAlpha):
         """ """
-        ## Spectrum function object
         self.spect = spectrumDef
         MultiLorentzianComplexFitter.__init__(self)
-        # At first, I was pre-computing lots of stuff, but now I don't think it's needed.
+        self.tailfrac = 0.0
+        self.tailtau = 25
+
     def guess_starting_params(self, data, binctrs):
-        """If the cuts are tight enough, then we can estimate the locations of the
-        K alpha-1 and -2 peaks as the (mean + 2/3 sigma) and (mean-sigma)."""
-        n = data.sum()
-        if n<=0:
-            raise ValueError("This histogram has no contents")
-        sum_d = (data*binctrs).sum()
-        sum_d2 = (data*binctrs*binctrs).sum()
-        mean_d = sum_d/n
-        rms_d = np.sqrt(sum_d2/n - mean_d**2)
-#        print n, sum_d, sum_d2, mean_d, rms_d
-        ph_ka1 = mean_d + rms_d*.65
-        ph_ka2 = mean_d - rms_d
-        dph = ph_ka1-ph_ka2
-        dE = 11.1 # eV difference between KAlpha peaks
-        # this should be caluclated from data in the spectrumDef, but currently
-        # the KAlpha object don't include the KAlpha2 energy.
-        ampl = data.max() *9.4
+        """"""
+        if data.sum()<=0: raise ValueError("This histogram has no contents")
+
+        # Heuristic: find the Ka1 line as the peak bin, and then make
+        # assumptions about the full width (from 1/4-peak to 1/4-peak) and
+        # how that relates to the PH spacing between Ka1 and Ka2
+        peak_val = data.max()
+        peak_ph = binctrs[data.argmax()]
+        lowqtr = binctrs[(data>peak_val*0.25).argmax()]
+        N = len(data)
+        topqtr = binctrs[N-(data>peak_val*0.25)[::-1].argmax()]
+
+        ph_ka1 = peak_ph
+        dph = 0.66*(topqtr-lowqtr)
+        dE = self.spect.ka12_energy_diff # eV difference between KAlpha peaks
+        ampl = data.max() * 9.4
         res = 4.0
         if len(data) > 20:
             baseline = data[0:10].mean()
-            baseline_slope = (data[-10:].mean()-baseline)/len(data)
         else:
             baseline = 0.1
-            baseline_slope = 0.0
-        return [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope]
+        baseline_slope = 0.0
+        return [res, ph_ka1, dph/dE, ampl, baseline, baseline_slope,
+                self.tailfrac, self.tailtau]
+
+
 
 
 class GenericKBetaFitter(MultiLorentzianComplexFitter):
