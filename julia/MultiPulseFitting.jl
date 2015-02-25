@@ -1106,7 +1106,12 @@ end
 
 
 
-function create_traditional_filters(noise_model::Union(Bool, NoiseSummary)=false)
+function create_traditional_filters(noise_model::Union(Bool, NoiseSummary)=false,
+                                    long2015::Bool=false)
+    # Use long2015=true for the final 2015 analysis with longer filters
+    # Use long2015=false for the Nov 2014 analysis to study effect of varying
+    # filter length AND pretrigger/posttrigger fractions.
+    
     const MAXSAMP = 40000
     if noise_model == false
         covar_model = CovarianceModel([82.5463,24.8891,13.6768,3.1515,0],
@@ -1121,17 +1126,26 @@ function create_traditional_filters(noise_model::Union(Bool, NoiseSummary)=false
     dpdt_model = finite_diff_deriv(pulse_model)
     const SCALE = 5898*2.3548
 
-    filterN = [7812, 3125, 1562, 1562, 1562, 1562, 7812, 3125]
-    filtNPT = [4687, 1875,  312,  625,  937, 1250, 4687, 1875]
-    names = ["5ms", "2ms", "1ms20", "1ms40", "1ms60", "1ms80", "5msexp", "2msexp"]
+    if long2015
+        filterN = [31248, 15624, 7812, 3906, 7812, 3906]
+        filtNPT = [18748,  9374, 4687, 2344, 4687, 2344]
+        names = ["20ms", "10ms", "5ms", "2.5ms", "5msexp", "2.5msexp"]
+    else
+        filterN = [7812, 3125, 1562, 1562, 1562, 1562, 7812, 3125]
+        filtNPT = [4687, 1875,  312,  625,  937, 1250, 4687, 1875]
+        names = ["5ms", "2ms", "1ms20", "1ms40", "1ms60", "1ms80", "5msexp", "2msexp"]
+    end
     
     filters = Dict{String,Vector{Float64}}()
     clf()
-    for i = 1:8
+    for i = 1:length(names)
         npre = filtNPT[i]
         nsamp = filterN[i]
         npost = nsamp-npre
-        ncol = i<=6 ? 3 : 5
+        ncol = 3
+        if (long2015 && i>=5) || i >= 7
+            ncol = 5
+        end
 
         model = zeros(Float64, nsamp, ncol)
         modelW = zeros(Float64, nsamp, ncol)
@@ -1165,7 +1179,7 @@ function create_traditional_filters(noise_model::Union(Bool, NoiseSummary)=false
     legend(loc="center left")
 
     npre = Dict{String,Int}()
-    for i=1:8
+    for i=1:length(names)
         npre[names[i]] = filtNPT[i]
     end
     filters, npre
@@ -1173,7 +1187,8 @@ end
 
 
 
-function classic_analysis(filename::String, forceNew::Bool=false)
+function classic_analysis(filename::String, forceNew::Bool=false,
+                          long2015::Bool=false)
     file = MicrocalFiles.LJHFile(filename)
     hdf5name = hdf5_name_from_ljh_name(filename, "mpf")
     println("We are about to filter data; store into\n$hdf5name")
@@ -1198,7 +1213,7 @@ function classic_analysis(filename::String, forceNew::Bool=false)
             MAXSAMP = 10000
 
             println("Computing classic pulse filters...\n")
-            filters, npre = create_traditional_filters()
+            filters, npre = create_traditional_filters(false, long2015)
 
             println("Computing classic pulse fits...\n")
             results = filter_file(file, trigger_times, filters, npre)
@@ -1220,13 +1235,14 @@ function filter_file(file::LJHFile,
                      filters::Dict{String,Vector{Float64}},
                      npre::Dict{String,Int})
 
+    const TRIG_TIME_OFFSET = -2
     const np = length(trigger_times)
     results = Dict{String, Vector{Float64}}()
     for k in keys(filters)
         results[k] = Array(Float64, np)
     end
 
-    const nrecs = 4
+    const nrecs = 6
     MicrocalFiles.LJHRewind(file)
     _times = Array(Uint64, nrecs)
     newdata = Array(Uint16, file.nsamp*nrecs)
@@ -1235,8 +1251,8 @@ function filter_file(file::LJHFile,
     nsamp_read = 0
     np_seen = 0
 
-    const MIN_POST_TRIG_SAMPS = 5000
-    const MIN_PRE_TRIG_SAMPS = 6000
+    const MIN_POST_TRIG_SAMPS = 13000
+    const MIN_PRE_TRIG_SAMPS = 20000
 
     for i=1:div(file.nrec, nrecs)
         MicrocalFiles.fileRecords(file, nrecs, _times, newdata)
@@ -1247,50 +1263,42 @@ function filter_file(file::LJHFile,
         else
             data = copy(newdata)
         end
+        # If record is too short, add the next one
+        if length(data) < MIN_PRE_TRIG_SAMPS + MIN_POST_TRIG_SAMPS
+            data_unused = data
+            continue
+        end
 
         # Select times from the trigger_times list
+        first_read = nsamp_read - length(data)
+        while (t2 < length(trigger_times) &&
+               trigger_times[t2] - 2 < first_read)
+            t2 += 1
+        end
         t1 = t2
         while t2 <= np && trigger_times[t2] < nsamp_read
             t2 += 1
         end
+        t2 <= t1 && continue # No pulses to fit for
 
-        if t2 > t1
-            # Is t2 too close to the end of the vector? If so, back off and save some
-            # data for later. Remove one (or more) triggers from the trigger set AND
-            # trim down the data vector.
-            # But also be careful: if you trim TOO much, then the next record could
-            # become unboundedly large. We will stop trimming when the length of this
-            # becomes less than one half of a normal chunk.
-            last_samp = nsamp_read
-            while last_samp < trigger_times[t2-1] + MIN_POST_TRIG_SAMPS
-                cut_out_samples = last_samp - (trigger_times[t2-1] - MIN_PRE_TRIG_SAMPS)
-                last_samp -= cut_out_samples
-                if cut_out_samples < length(data)
-                    data_unused = vcat(data[end+1-cut_out_samples:end], data_unused)
-                    data = data[1:end-cut_out_samples]
-                else
-                    data_unused = vcat(data, data_unused)
-                end
-                t2 -= 1
-                t2 == t1 && break  # No more pulses in the interval!
-                if length(data_unused) >= div(file.nsamp*nrecs, 2) # Too much was trimmed
-                    while last_samp < trigger_times[t2-1]
-                        cut_out_samples = last_samp - (trigger_times[t2-1] - MIN_POST_TRIG_SAMPS)
-                        if cut_out_samples >= length(data)
-                            cut_out_samples = length(data)-1
-                        end
-                        last_samp -= cut_out_samples
-                        data_unused = vcat(data[end-cut_out_samples:end], data_unused)
-                        data = data[1:end-cut_out_samples]
-                        t2 -= 1
-                        t2==t1 && break  # No more pulses in the interval!
-                    end
-                    break
-                end
-                #if (length(data_unused) + 2*length(newdata) > 300000) # MAXSAMP
-                #    break
-                #end
+        # Is t2 too close to the end of the vector? If so, back off and save some
+        # data for later. Remove one (or more) triggers from the trigger set AND
+        # trim down the data vector.
+        # But also be careful: if you trim TOO much, then the next record could
+        # become unboundedly large. We will stop trimming when the length of this
+        # becomes less than one half of a normal chunk.
+        last_samp = nsamp_read
+        while last_samp < trigger_times[t2-1] + MIN_POST_TRIG_SAMPS
+            cut_out_samples = last_samp - (trigger_times[t2-1] - MIN_PRE_TRIG_SAMPS)
+            last_samp -= cut_out_samples
+            if cut_out_samples < length(data)
+                data_unused = vcat(data[end+1-cut_out_samples:end], data_unused)
+                data = data[1:end-cut_out_samples]
+            else
+                data_unused = vcat(data, data_unused)
             end
+            t2 -= 1
+            t2 == t1 && break  # No more pulses in the interval!
         end
 
         ncp = t2-t1
@@ -1304,8 +1312,6 @@ function filter_file(file::LJHFile,
             end
             
             floatdata = float(data)
-            #N = min(length(tails), length(data))
-            #floatdata[1:N] -= tails[1:N]
             
             # Do the filters!
             for k in keys(filters)
@@ -1325,7 +1331,8 @@ function filter_file(file::LJHFile,
         end
 
         # Save last 5k samples for use next time
-        data_unused = vcat(data[end+1-5000:end], data_unused)
+        samp2save = min(5000, length(data))
+        data_unused = vcat(data[end+1-samp2save:end], data_unused)
         
         np_seen += ncp
         if mod(i,1000) == 0
@@ -1348,6 +1355,14 @@ function nov25_work()
     @time classic_analysis( expand_name("E_auto"))
     @time classic_analysis( expand_name("F_auto"))
     @time classic_analysis( expand_name("G_auto"))
+end
+
+function feb6_2015_work()
+    @time classic_analysis( expand_name("C_auto"), false, true)
+    @time classic_analysis( expand_name("D_auto"), false, true)
+    @time classic_analysis( expand_name("E_auto"), false, true)
+    @time classic_analysis( expand_name("F_auto"), false, true)
+    #@time classic_analysis( expand_name("G_auto"), false, true)
 end
 
 
