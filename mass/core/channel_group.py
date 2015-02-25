@@ -143,7 +143,10 @@ class TESGroup(object):
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
 
-        self.hdf5_trace = h5py.File(_generate_hdf5_trace_filename(filenames[0]),'a')
+        if len(filenames) > 0:
+            self.hdf5_trace = h5py.File(_generate_hdf5_trace_filename(filenames[0]),"a")
+        else:
+            self.hdf5_trace = None  # Must handle the case of noise-only data
 
         # Set up other aspects of the object
         self.nhits = None
