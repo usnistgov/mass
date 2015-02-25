@@ -631,13 +631,14 @@ class TESGroup(object):
 
             vect=eval("ds.%s"%vect)[valid_mask]
 
+            # Scatter plots on left half of figure
             if i==0:
                 ax_master=plt.subplot(ny_plots, 2, 1+i*2)
             else:
                 plt.subplot(ny_plots, 2, 1+i*2, sharex=ax_master)
 
             if len(vect)>0:
-                plt.plot(hour, vect[::downsample],',', color=color)
+                plt.plot(hour, vect[::downsample],'.', ms=1, color=color)
             else:
                 plt.text(.5,.5,'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
@@ -646,6 +647,7 @@ class TESGroup(object):
             if i==ny_plots-1:
                 plt.xlabel("Time since server start (hours)")
 
+            # Histograms on right half of figure
             if i==0:
                 axh_master = plt.subplot(ny_plots, 2, 2+i*2)
             else:

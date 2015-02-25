@@ -931,7 +931,7 @@ class MicrocalDataSet(object):
             plt.ylabel(label)
             if valid is not None:
                 vect = vect[valid]
-            plt.plot(hour, vect[::downsample],',', color=color)
+            plt.plot(hour, vect[::downsample],'.', ms=1, color=color)
 
             # Histogram (right-hand panels)
             plt.subplot(len(plottables), 2, 2+i*2)
