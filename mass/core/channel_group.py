@@ -143,7 +143,10 @@ class TESGroup(object):
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
 
-        self.hdf5_trace = h5py.File(_generate_hdf5_trace_filename(filenames[0]))
+        if len(filenames) > 0:
+            self.hdf5_trace = h5py.File(_generate_hdf5_trace_filename(filenames[0]),"a")
+        else:
+            self.hdf5_trace = None  # Must handle the case of noise-only data
 
         # Set up other aspects of the object
         self.nhits = None
@@ -628,13 +631,14 @@ class TESGroup(object):
 
             vect=eval("ds.%s"%vect)[valid_mask]
 
+            # Scatter plots on left half of figure
             if i==0:
                 ax_master=plt.subplot(ny_plots, 2, 1+i*2)
             else:
                 plt.subplot(ny_plots, 2, 1+i*2, sharex=ax_master)
 
             if len(vect)>0:
-                plt.plot(hour, vect[::downsample],',', color=color)
+                plt.plot(hour, vect[::downsample],'.', ms=1, color=color)
             else:
                 plt.text(.5,.5,'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
@@ -643,6 +647,7 @@ class TESGroup(object):
             if i==ny_plots-1:
                 plt.xlabel("Time since server start (hours)")
 
+            # Histograms on right half of figure
             if i==0:
                 axh_master = plt.subplot(ny_plots, 2, 2+i*2)
             else:
@@ -1277,12 +1282,12 @@ class TESGroup(object):
     def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10,
                   min_counts_per_cluster=20,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  max_num_clusters=np.inf,max_pulses_for_dbscan=1e5, forceNew=False):
+                  max_num_clusters=np.inf, max_pulses_for_dbscan=1e5, bin_size_ev=2, forceNew=False):
         for ds in self:
             try:
                 ds.calibrate(attr, line_names,name_ext,size_related_to_energy_resolution,
                              min_counts_per_cluster, fit_range_ev, excl, plot_on_fail,
-                             max_num_clusters, max_pulses_for_dbscan, forceNew)
+                             max_num_clusters, max_pulses_for_dbscan, bin_size_ev, forceNew)
             except:
                 self.set_chan_bad(ds.channum, "failed calibration %s"%attr+name_ext)
         self.convert_to_energy(attr, attr+name_ext)
@@ -1308,7 +1313,7 @@ class TESGroup(object):
 
     def plot_count_rate(self, bin_s=60, title=""):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
-                             self.first_good_dataset.p_timestamp[-1], bin_s)
+                             np.amax(self.first_good_dataset.p_timestamp), bin_s)
         bin_centers = bin_edge[:-1]+0.5*(bin_edge[1]-bin_edge[0])
         rates_all = np.array([ds.count_rate(False, bin_edge)[1] for ds in self])
         rates_good = np.array([ds.count_rate(True, bin_edge)[1] for ds in self])

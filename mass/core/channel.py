@@ -931,7 +931,7 @@ class MicrocalDataSet(object):
             plt.ylabel(label)
             if valid is not None:
                 vect = vect[valid]
-            plt.plot(hour, vect[::downsample],',', color=color)
+            plt.plot(hour, vect[::downsample],'.', ms=1, color=color)
 
             # Histogram (right-hand panels)
             plt.subplot(len(plottables), 2, 2+i*2)
@@ -1207,8 +1207,9 @@ class MicrocalDataSet(object):
         return ljh_util.mass_folder_from_ljh_fname(self.filename,filename="ch%d_calibration.pkl"%self.channum)
 
 
-    def calibrate(self, attr, line_names,name_ext="",size_related_to_energy_resolution=10, min_counts_per_cluster=20,
-                  fit_range_ev=200, excl=(), plot_on_fail=False,max_num_clusters=np.inf,max_pulses_for_dbscan=1e5, forceNew=False):
+    def calibrate(self, attr, line_names,name_ext="", size_related_to_energy_resolution=10, min_counts_per_cluster=20,
+                  fit_range_ev=200, excl=(), plot_on_fail=False,max_num_clusters=np.inf, max_pulses_for_dbscan=1e5,
+                  bin_size_ev=2.0, forceNew=False):
             pkl_fname = self.pkl_fname
             if path.isfile(pkl_fname) and not forceNew:
                 with open(pkl_fname,"r") as file:
@@ -1223,7 +1224,7 @@ class MicrocalDataSet(object):
                 # we probably dont need to redo it
             print("Calibrating chan %d to create %s"%(self.channum, calname))
             cal = young.EnergyCalibration(size_related_to_energy_resolution, min_counts_per_cluster, fit_range_ev, excl,
-                     plot_on_fail,max_num_clusters, max_pulses_for_dbscan)
+                     plot_on_fail,max_num_clusters, max_pulses_for_dbscan, bin_size_ev=bin_size_ev)
             cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
             self.calibration[calname]=cal
             with open(pkl_fname, "w") as file:
@@ -1234,7 +1235,7 @@ class MicrocalDataSet(object):
         if not self.calibration.has_key(calname):
             raise ValueError("For chan %d calibration %s does not exist"(self.channum, calname))
         cal = self.calibration[calname]
-        self.p_energy = cal.ph2energy(getattr(self, attr))
+        self.p_energy[:] = cal.ph2energy(getattr(self, attr))
         self.last_used_calibration = cal
 
 
