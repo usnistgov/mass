@@ -1,6 +1,8 @@
 module CovarianceModels
 
 export CovarianceModel,
+ExactCovarianceSolver,
+StreamCovarianceSolver,
 noisecovariance,
 choleskyproduct,
 covarproduct,
@@ -8,16 +10,39 @@ choleskysolve,
 whiten,
 unwhiten
 
+# Several experimental whiteners:
+abstract CovarianceModel
+
+
+function toeplitz(c1::Vector, r1::Vector)
+    nr = length(c1)
+    nc = length(r1)
+    t = zeros(eltype(c1), nr, nc)
+    for r=1:nr
+        for c=1:r
+            t[r,c] = c1[1+r-c]
+        end
+        for c=r+1:nc
+            t[r,c] = r1[1+c-r]
+        end
+    end
+    return t
+end
+
+function toeplitz(c1::Vector)
+    toeplitz(c1, c1)
+end
+
+
 # Cholesky decomposition of covariance matrix R, where
 # R_{ij} = r(|j-i|) = \sum_{m=1}^k a(m) b(m)^|j-i| is real for i,j = 1,2,...
 # and |b(m)|<1 for m = 1,...,k.
 
 FloatOrComplex = Union(FloatingPoint, Complex)
 
-immutable CovarianceModel{T<:FloatOrComplex}
+immutable ExactCovarianceSolver{T<:FloatOrComplex} <: CovarianceModel
     num_exps          ::Int64     # was: k
     max_length        ::Int64     # was: nsav
-    bases_type        ::DataType
     bases             ::Vector{T}  # was: b
     amplitudes        ::Vector{T}  # was not previously saved
     d                 ::Matrix{T}
@@ -29,14 +54,14 @@ immutable CovarianceModel{T<:FloatOrComplex}
     # are supplied, then the last (kth) base is assumed to be very small, so that
     # its powers are approximately [1,0,0,...].
 
-    function CovarianceModel(a::Vector{T}, b::Vector{T}, n::Integer)
+    function ExactCovarianceSolver(a::Vector{T}, b::Vector{T}, n::Integer)
         if length(a)==length(b)+1
             const verysmall = minimum(abs(b)) *1e-5
             b = [b, verysmall];
         elseif length(a)!=length(b)
-            error("CovarianceModel: a,b must be vectors of same length")
+            error("ExactCovarianceSolver: a,b must be vectors of same length")
         end
-  
+
         k=length(a)
         d=zeros(T,k,n)
         bb=zeros(T,k,k)
@@ -73,12 +98,12 @@ immutable CovarianceModel{T<:FloatOrComplex}
             dsum[m]=s
             dsuminv[m]=1/dsum[m]
         end
-        new(k, n, typeof(b[1]), copy(b), copy(a), d, dsum, dsuminv)
+        new(k, n, copy(b), copy(a), d, dsum, dsuminv)
     end
 end
 
-CovarianceModel{T<:FloatOrComplex}(a::Vector{T}, b::Vector{T}, n::Integer) =
-    CovarianceModel{T}(a, b, n)
+ExactCovarianceSolver{T<:FloatOrComplex}(a::Vector{T}, b::Vector{T}, n::Integer) =
+    ExactCovarianceSolver{T}(a, b, n)
 
 
 # Generate the model noise covariance function out to arbitrary length
@@ -105,7 +130,7 @@ end
 # described above. The number # of unknowns n can be less than or equal to
 # the size for which the model was created.
 
-function choleskyproduct{T<:Number}(model::CovarianceModel, x::Array{T,1}, 
+function choleskyproduct{T<:Number}(model::ExactCovarianceSolver, x::Array{T,1},
                                  leadingzeros::Integer=0)
     const n=length(x)
     if n>model.max_length
@@ -114,7 +139,7 @@ function choleskyproduct{T<:Number}(model::CovarianceModel, x::Array{T,1},
     covarproduct(model, x, leadingzeros, false)
 end
 
-function covarproduct{T<:Number}(model::CovarianceModel, x::Array{T,1}, 
+function covarproduct{T<:Number}(model::ExactCovarianceSolver, x::Array{T,1},
                                  leadingzeros::Integer=0, both::Bool=true)
     const n=length(x)
     if n>model.max_length
@@ -141,7 +166,7 @@ function covarproduct{T<:Number}(model::CovarianceModel, x::Array{T,1},
 end
 
 # Solves with multiple right hand sides
-function choleskyproduct{T<:Number}(model::CovarianceModel, x::Array{T,2})
+function choleskyproduct{T<:Number}(model::ExactCovarianceSolver, x::Array{T,2})
     const n,m = size(x)
     if n>model.max_legnth
         error("choleskyproduct: length(y) greater than supported in the CovarianceModel")
@@ -168,7 +193,7 @@ end
 # described above. The number of unknowns n can be less than or equal to
 # the size for which the model was created.
 
-function choleskysolve{T<:Number}(model::CovarianceModel, y::Array{T,1}, 
+function choleskysolve{T<:Number}(model::ExactCovarianceSolver, y::Array{T,1},
                               leadingzeros::Integer=0)
     const n=length(y)
     if n>model.max_length
@@ -186,7 +211,7 @@ end
 # prepend that many leading zeros before y. Although these zeros do not appear
 # in the INPUT, they DO APPEAR IN THE OUTPUT
 
-function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,1}, 
+function covarsolve{T<:Number}(model::ExactCovarianceSolver, y::Array{T,1},
                                leadingzeros::Integer=0, both::Bool=true)
     const n=length(y)+leadingzeros
     if n>model.max_length
@@ -197,7 +222,7 @@ function covarsolve{T<:Number}(model::CovarianceModel, y::Array{T,1},
     const k = model.num_exps
     const d = model.d
     const dsuminv = model.dsuminv
-    const InternalType = typeof(model.bases[1])
+    const InternalType = eltype(model.bases)
     ss=zeros(InternalType, k)
     for i = 1+leadingzeros:n
         x[i] = (y[i-leadingzeros]-real(sum(ss)))*dsuminv[i]
@@ -226,7 +251,7 @@ end
 # Note that we don't have an implementation of covarsolve for a 2D array. Do it
 # if needed.
 
-function choleskysolve{T<:Number}(model::CovarianceModel, y::Array{T,2})
+function choleskysolve{T<:Number}(model::ExactCovarianceSolver, y::Array{T,2})
     const n,m = size(y)
     if n>model.max_length
         error("choleskysolve: length(y[:,1]) greater than that supported in the CovarianceModel")
@@ -235,7 +260,7 @@ function choleskysolve{T<:Number}(model::CovarianceModel, y::Array{T,2})
     const k = model.num_exps
     const d = model.d
     const dsuminv = model.dsuminv
-    const InternalType = typeof(model.bases[1])
+    const InternalType = eltype(model.bases)
     x=zeros(T,n,m)
     for j=1:m
         ss=zeros(InternalType, k)
@@ -249,10 +274,155 @@ function choleskysolve{T<:Number}(model::CovarianceModel, y::Array{T,2})
     return x
 end
 
+
+function derive_polynomials_from_covar{T<:FloatOrComplex}(a::Vector{T}, b::Vector{T})
+    # Given covariance as a sum over exponentials with amplitudes in a and bases in b,
+    # derive and return (phi,mu), the two polynomials representing the rational function
+    # expression for the ARMA process.
+    @assert maximum(abs(b)) < 1
+    @assert length(a)==length(b)
+    @assert b[1] == 0
+
+    # First the phi polynomial. That's easy: phi(z) = product_i=1:p of (1-z/r_i) for {r_i}
+    # are the roots of the polynomial. Note that for each base b, there is a root 1/b.
+    # Note that we're representing the polynomial as [1, phi1, phi2, ...phi_p] from zero
+    # to higher powers of z, and NOT the way numpy represents it.
+    p = length(b)-1
+    phicplx = zeros(Complex128, 1+p)
+    phicplx[1] = 1
+    if p >= 0
+        for r in b
+            if r != 0; phicplx[2:end] -= phicplx[1:end-1] * r; end
+        end
+    end
+    phi = float(abs(phicplx))
+    @show phi
+
+    # Now the mu polynomial. That's trickier, because it is the solution of a nonlinear
+    # system.  Starting guess comes from factoring a large-ish chunk of the infinite matrix:
+    N = 500
+    philong = zeros(Float64, N)
+    philong[1:p+1] = phi
+    P = toeplitz(philong, 0*philong)
+    t = [0:N-1]
+    Covar = zeros(Float64, N)
+    Covar[1] = a[1]
+    for i=2:p+1
+        Covar += a[i] * b[i].^t
+    end
+    CovarMA = P*toeplitz(Covar)*P'
+    B1 = float(chol(CovarMA, :L))
+    mu_sig2 = vec([B1][end, end:-1:N-p])
+    mu = mu_sig2/mu_sig2[1]
+    @show mu
+    # So far, that's only a starting guess to use in a nonlinear solver. But for now, let's
+    # just use it. (If using a solver, you can reduce N to speed that part up.)
+
+    (phi,mu)
+end
+#@show derive_polynomials_from_covar([82.5463,24.8891,13.6768, 3.1515],[0,.994180695,.9992481192,.9999235960])
+
+
+
+type StreamCovarianceSolver{T<:FloatOrComplex} <: CovarianceModel
+    bases             ::Vector{T}
+    amplitudes        ::Vector{T}
+    phi               ::Vector{T}
+    theta             ::Vector{T}
+    isinitialized     ::Bool
+    inhistory         ::Vector{T}
+    outhistory        ::Vector{T}
+
+
+    # Constructor takes a vector of k amplitudes; k (or k-1) exponential
+    # bases; and n, the maximum length of vector to be modeled. If only k-1 bases
+    # are supplied, then the last (kth) base is assumed to be very small, so that
+    # its powers are approximately [1,0,0,...].
+
+    function StreamCovarianceSolver(a::Vector{T}, b::Vector{T})
+        if length(a)==length(b)+1
+            const verysmall = minimum(abs(b)) *1e-5
+            b = [b, verysmall];
+        elseif length(a)!=length(b)
+            error("StreamCovarianceSolver: a,b must be vectors of same length")
+        end
+
+        (phi,theta) = derive_polynomials_from_covar(a, b)
+
+        new(copy(b), copy(a), phi, theta, false, 0*phi, 0*theta)
+    end
+end
+
+StreamCovarianceSolver{T<:FloatOrComplex}(a::Vector{T}, b::Vector{T}) =
+    StreamCovarianceSolver{T}(a, b)
+
+
+function _initialize_stream{T<:Number}(model::StreamCovarianceSolver, x::Array{T,1})
+    const n=length(x)
+    const p=length(model.phi)-1
+    const q=length(model.theta)-1
+    @assert p==q # for now
+    if n<=p
+        error("choleskysolve: length(y) too small to set up solver (implement this later")
+    end
+    initialPhi = toeplitz(model.phi, 0*model.phi)
+    initialTheta = toeplitz(model.theta, 0*model.theta)
+    x = x[1:p+1]
+    out = initialTheta \  initialPhi * x
+    model.inhistory[:] = x[:]
+    model.outhistory[:] = out[:]
+end
+
+
+# Solve linear system L w = x, where R = L L' is the covariance matrix
+# described above. The number of unknowns n can be less than or equal to
+# the size for which the model was created.
+
+function choleskysolve{T<:Number}(model::StreamCovarianceSolver, x::Array{T,1})
+    const n=length(x)
+    const p=length(model.phi)-1
+    const q=length(model.theta)-1
+    @assert p==q # for now
+
+    w = copy(x)
+
+    if !model.isinitialized
+        _initialize_stream(model, x[1:p+1])
+        w[1:p+1] = model.outhistory[:]
+    else
+        for i=1:p+1
+            for j=2:i
+                w[i] -= model.theta[j]*w[i+1-j]
+                w[i] += model.phi[j]*x[i+1-j]
+            end
+            for j=i+1:q+1
+                w[i] -= model.theta[j]*model.outhistory[q+i+1-j]
+                w[i] += model.phi[j]*model.inhistory[q+i+1-j]
+            end
+        end
+    end
+    for i=p+2:n
+        for j=2:q+1
+            w[i] -= model.theta[j]*w[i+1-j]
+            w[i] += model.phi[j]*x[i+1-j]
+        end
+    end
+    model.inhistory = x[end-p:end]
+    model.outhistory = w[end-q:end]
+    return w
+end
+
+
+
 whiten = choleskysolve
 unwhiten = choleskyproduct
 
+
 end # module
+
+#using PyPlot
+#solver=StreamCovarianceSolver([82.5463,24.8891,13.6768, 3.1515],[0,.994180694,.9992481192,.9999235960]); clf(); plot( choleskysolve(solver, ones(Float64,1269)),"-b")
+
 
 function main()
     a=[10.0+0.0im;
@@ -306,10 +476,10 @@ function main()
     #toc()
     println(norm(x-z)/norm(z))
     #println(norm(v-x)/norm(x))
-    
+
 end
 
-#main()
+# main()
 
     #y=covprodut(x, model.num_exps, model.max_length, model.bases, model.d, model.dsum, model.dsuminv)
     #z=covsolut(y, model.num_exps, model.max_length, model.bases, model.d, model.dsum, model.dsuminv)

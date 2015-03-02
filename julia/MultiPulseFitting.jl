@@ -94,9 +94,9 @@ function oct24_work ()
 end
 
 function load_model_pulse(modelname::String)
-    
+
     model = Dict{String,Vector{Float64}}()
-    
+
     # Experiment using my 2013 model pulse:
     t=[0:100000]
     model["model2013"] = (-5807.6803*(.980251.^t)-23588.2151*(.99033.^t)
@@ -114,7 +114,7 @@ function load_model_pulse(modelname::String)
     close(h5file)
 
     model["spline"] = spline_model_pulse()
-                          
+
     if haskey(model, modelname)
         return model[modelname]
     else
@@ -313,17 +313,17 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
             avg_pulse = read(h5grp["average_pulse"])
             dpdt = read(h5grp["average_dpdt"])
             MAXSAMP = 400000  # 8000 for NSLS
-#            covar_model = CovarianceModel(read_complex(h5grp["noise/model_amplitudes"]),
+#            covar_model = ExactCovarianceSolver(read_complex(h5grp["noise/model_amplitudes"]),
 #                                          read_complex(h5grp["noise/model_bases"]),
 #                                          MAXSAMP)
 
             # Try the model from lab book 6 page 124.
-            covar_model = CovarianceModel([82.5463,24.8891,13.6768,3.1515,0],
+            covar_model = ExactCovarianceSolver([82.5463,24.8891,13.6768,3.1515,0],
                                           [.0871940295,.9941810695,
                                            .9992481192,.9999235960], MAXSAMP)
 
             println("Computing multi-pulse fits...\n")
-            
+
             fitter = MultiPulseFitter(avg_pulse, dpdt, covar_model)
             extendMPF!(fitter, MAXSAMP)
 
@@ -331,7 +331,7 @@ function MPF_analysis(filename::String, forceNew::Bool=false)
             ph, dpdts, dph, ddpdt, prior_level, residW, residR, baseline =
                 multi_pulse_fit_file(file, trigger_times, fitter, DPDT)
             @show dph[1:10]
-            
+
             mpfgrp = g_create_or_open(h5grp, "mpf")
             ds_update(mpfgrp, "pulse_heights", ph)
             ds_update(mpfgrp, "Dpulse_heights", dph)
@@ -471,7 +471,7 @@ function compute_average_pulse(file::MicrocalFiles.LJHFile,
         avg_pulse[PRE_PERIOD:PRE_PERIOD+50] = 1.0
         return avg_pulse
     end
-    
+
     # From the isolated pulses, do an SVD and throw out the outliers.
     u,w,v = find_svd_randomly(pulses, 10)
     badness = sum(v[:,2:end].^2, 2)
@@ -531,11 +531,11 @@ function MultiPulseFitter(hdf5name::String, channum::Integer)
     channame = string("chan",channum)
     noisegrp = file[channame*"/noise"]
     const MAXLEN = 100000 # NSLS was 5120
-    covar_model = CovarianceModel(read_complex(noisegrp["model_amplitudes"]),
-                                  read_complex(noisegrp["model_bases"]), MAXLEN)
+    covar_model = ExactCovarianceSolver(read_complex(noisegrp["model_amplitudes"]),
+                                        read_complex(noisegrp["model_bases"]), MAXLEN)
     avgpulse = read(file[channame*"/average_pulse"])
     close(file)
-    
+
     dpdt = finite_diff_deriv(avg_pulse)
     MultiPulseFitter(avgpulse, covar_model, MAXLEN)
 end
@@ -550,7 +550,7 @@ function extendMPF!(mpf::MultiPulseFitter, chunklength::Integer)
     end
     if chunklength > mpf.covar_model.max_length
         @show chunklength, mpf.covar_model.max_length, length(mpf.white_const)
-        error("Cannot extend the MultiPulseFitter longer than the CovarianceModel")
+        error("Cannot extend the MultiPulseFitter longer than the ExactCovarianceSolver")
     end
 
     # Whiten baseline functions to their new length
@@ -668,7 +668,7 @@ function multi_pulse_fit_with_plot(data::Vector, pulse_times::Vector{Int64},
         slope = linspace(-1, 1, length(mpf.white_slope))[1:length(data)]*param[end]
         model += slope
     end
-    
+
     clf()
     subplot(313)
     plot(model, color="k")
@@ -708,7 +708,7 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
                          mpf::MultiPulseFitter, use_dpdt::Bool=false)
     const nrecs = 1
     extendMPF!(mpf, (nrecs+1)*file.nsamp)
-    
+
     const MIN_POST_TRIG_SAMPS = 15000
     const MIN_PRE_TRIG_SAMPS = 5000
     # const MIN_POST_TRIG_SAMPS = 200 NSLS
@@ -737,7 +737,7 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
     np_seen = 0
 
     # Store the expected continuation of prior pulses
-    tails = zeros(Float64, 70000) 
+    tails = zeros(Float64, 70000)
 
     for i=1:div(file.nrec, nrecs)
         MicrocalFiles.fileRecords(file, nrecs, _times, newdata)
@@ -809,13 +809,13 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
         floatdata[1:N] -= tails[1:N]
         if DO_WITH_PLOTS
             @show pulse_times[t1:t2-1]
-            param, covar, this_residW, this_residR, this_prior = 
+            param, covar, this_residW, this_residR, this_prior =
                 multi_pulse_fit_with_plot(floatdata, current_times,
                                           mpf, use_dpdt)
             println("That was segment $i\n")
             i>=6 && error("End of test on section $(i)!")
         else
-            param, covar, this_residW, this_residR, this_prior = 
+            param, covar, this_residW, this_residR, this_prior =
                 multi_pulse_fit(floatdata, current_times,
                                 mpf, use_dpdt)
         end
@@ -831,7 +831,7 @@ function multi_pulse_fit_file(file::MicrocalFiles.LJHFile, pulse_times::Vector,
             tails[1:NTAIL-cti] += param[i]*mpf.pulse_model[1+cti:NTAIL]
         end
 
-        
+
         pheights[np_seen+1:np_seen+ncp] = param[1:ncp]
         pheight_unc[np_seen+1:np_seen+ncp] = sqrt(diag(covar)[1:ncp])
         if use_dpdt
@@ -861,7 +861,7 @@ filename="/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_S_chan99.ljh";
 data=MicrocalFiles.fileData(filename, 3);
 f = h5open("/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_S_mpf.hdf5", "r");
 tt=f["chan99/trigger_times"][:];
-mpf=MultiPulseFitter("/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_S_mpf.hdf5", 
+mpf=MultiPulseFitter("/Volumes/Data2014/Data/NSLS_data/2012_06_14/2012_06_14_S_mpf.hdf5",
      99);
 """
 
@@ -1040,7 +1040,7 @@ function assess_traditional_filters(noise_model::Union(Bool, NoiseSummary)=false
     for i=1:true_covar_model.num_exps-1
         true_acorr += real(true_covar_model.amplitudes[i] * (true_covar_model.bases[i].^t))
     end
-    
+
     pulse_model = load_model_pulse("model2014")
     dpdt_model = finite_diff_deriv(pulse_model)
     const SCALE = 5898*2.3548
@@ -1048,7 +1048,7 @@ function assess_traditional_filters(noise_model::Union(Bool, NoiseSummary)=false
     filterN = [31248, 7812, 3125, 1562, 1562, 1562, 1562, 7812, 3125]
     filtNPT = [16000, 4687, 1875,  312,  625,  937, 1250, 4687, 1875]
     names = ["20ms", "5ms", "2ms", "1ms20", "1ms40", "1ms60", "1ms80", "5msexp", "2msexp"]
-    
+
     for i = 1:length(filterN)
         npre = filtNPT[i]
         nsamp = filterN[i]
@@ -1097,8 +1097,8 @@ function assess_traditional_filters(noise_model::Union(Bool, NoiseSummary)=false
         end
         MTRiTRiM = RinvM' * X
         MTRiTRiM += MTRiTRiM'
-                 
-        
+
+
         Cpp = inv(A) * MTRiTRiM * inv(A)
         println(sqrt(Cpp[1,1])*SCALE)
     end
@@ -1111,14 +1111,14 @@ function create_traditional_filters(noise_model::Union(Bool, NoiseSummary)=false
     # Use long2015=true for the final 2015 analysis with longer filters
     # Use long2015=false for the Nov 2014 analysis to study effect of varying
     # filter length AND pretrigger/posttrigger fractions.
-    
+
     const MAXSAMP = 40000
     if noise_model == false
-        covar_model = CovarianceModel([82.5463,24.8891,13.6768,3.1515,0],
+        covar_model = ExactCovarianceSolver([82.5463,24.8891,13.6768,3.1515,0],
                                       [.0871940295,.9941810695,
                                        .9992481192,.9999235960], MAXSAMP)
     else
-        covar_model = CovarianceModel(noise_model.exp_amplitudes,
+        covar_model = ExactCovarianceSolver(noise_model.exp_amplitudes,
                                       noise_model.exp_bases, MAXSAMP)
     end
     pulse_model = load_model_pulse("model2014")
@@ -1135,7 +1135,7 @@ function create_traditional_filters(noise_model::Union(Bool, NoiseSummary)=false
         filtNPT = [4687, 1875,  312,  625,  937, 1250, 4687, 1875]
         names = ["5ms", "2ms", "1ms20", "1ms40", "1ms60", "1ms80", "5msexp", "2msexp"]
     end
-    
+
     filters = Dict{String,Vector{Float64}}()
     clf()
     for i = 1:length(names)
@@ -1310,9 +1310,9 @@ function filter_file(file::LJHFile,
                 warn("Problem!")
                 @show current_times, length(data)
             end
-            
+
             floatdata = float(data)
-            
+
             # Do the filters!
             for k in keys(filters)
                 f = filters[k]
@@ -1320,7 +1320,7 @@ function filter_file(file::LJHFile,
                 nsamp = length(f)
                 post = nsamp - pre
                 theseresults = results[k]
-                
+
                 for j=1:length(current_times)
                     npulse = j-1+t1
                     t = current_times[j]
@@ -1333,7 +1333,7 @@ function filter_file(file::LJHFile,
         # Save last 5k samples for use next time
         samp2save = min(5000, length(data))
         data_unused = vcat(data[end+1-samp2save:end], data_unused)
-        
+
         np_seen += ncp
         if mod(i,1000) == 0
             println("$i chunks seen, with $(np_seen) pulses fit.")
@@ -1348,7 +1348,7 @@ end
 expand_name(setname) =
     @sprintf("/Volumes/Data2014/Data/Data_CDM/2011_09_12/2011_09_12_%s_chan1.ljh",
              setname)
-    
+
 function nov25_work()
     @time classic_analysis( expand_name("C_auto"))
     @time classic_analysis( expand_name("D_auto"))
@@ -1380,7 +1380,7 @@ function find_noise_level(setname::String, nrecords::Int=20)
     h5file = h5open(hdf5name, "r")
     ttimes = read(h5file,"chan1/trigger_times")
     close(h5file)
-    
+
     const SEGLENGTH=32768*2    # ~42 ms
     const WAITAFTERPULSE=25000 # 16 ms
     const BADBEFOREPULSE=100
@@ -1468,7 +1468,7 @@ function plot_noise(acorr::Dict{Char,Vector{Float64}},
     end
     legend(loc="upper right")
 end
-    
+
 
 
 #####
@@ -1481,7 +1481,7 @@ function demoplot()
     date = "14"
     const PATH="/Volumes/Data2014/Data/NSLS_data/2012_06_$(date)"
     filename = @sprintf("%s/2012_06_%s_%s_chan%d.ljh", PATH, date, setname, cnum)
-    
+
     ljhfile = MicrocalFiles.LJHFile(filename)
     nrecs=20
     _times = Array(Uint64, nrecs)
@@ -1492,7 +1492,7 @@ function demoplot()
 
     filter = [.4, .1, -.2, -.5, -.8, 1]
     trigger = xcorr(data, filter)[length(data)-length(filter)-1:end-length(filter)-1]
-    
+
     ptimes = Int[-999]
     for i=1:length(trigger)
         if trigger[i] > 25 && i>10+ptimes[end]
@@ -1524,7 +1524,7 @@ function demoplot()
     ylim([OFFSET_DIFF-150, OFFSET_TRIG+200])
     xticks([])
     yticks([])
-    
+
     plot(trigger+OFFSET_TRIG, "purple")
     text(XTEXT, OFFSET_TRIG,"Trig", va="center", ha="right", fontsize="large")
     plot(data, "b", lw=2)
@@ -1547,7 +1547,7 @@ function demoplot()
     # set_cmap("winter")
     color(x) = [0, x, 1-.5*x]  # winter
     color(x) = [1, x, 0]  # autumn
-    color(x) = [1, .7*x, 0] 
+    color(x) = [1, .7*x, 0]
 #    color(x) = [1, x, 1-x] # spring
 
     avg_pulse = vcat(avg_pulse, zeros(Float64, N))
@@ -1589,7 +1589,7 @@ function demoplot()
     plot((data-final_model)*10+OFFSET_DIFF, color="g")
     text(XTEXT, OFFSET_DIFF, "Diff\nx10", va="center", ha="right", fontsize="large")
     println("Residual: ", norm(data-final_model))
-    
+
     data, trigger, param, rho
 end
 
