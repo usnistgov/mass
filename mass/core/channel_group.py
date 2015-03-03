@@ -572,8 +572,8 @@ class TESGroup(object):
             ("p_pretrig_mean", 'Pretrig Mean', 'green', None),
             ("p_peak_value", 'Peak value', '#88cc00',None),
             ("p_postpeak_deriv", 'Max PT deriv', 'gold', [0,700]),
-            ("p_rise_time*1e3", 'Rise time (ms)', 'orange', [0,12]),
-            ("p_peak_time*1e3", 'Peak time (ms)', 'red', [-3,9])
+            ("p_rise_time[:]*1e3", 'Rise time (ms)', 'orange', [0,12]),
+            ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3,9])
           )
 
         quant_names = [p[1].lower().replace(" ","") for p in plottables]
@@ -720,7 +720,7 @@ class TESGroup(object):
                 middle = 0.5*(r[0]+r[1])
                 abslim = 0.5*np.abs(r[1]-r[0])
                 for gain,dataset in zip(gains,self.datasets):
-                    m = np.abs(dataset.p_pulse_average/gain-middle) <= abslim
+                    m = np.abs(dataset.p_pulse_average[:]/gain-middle) <= abslim
                     if cut_crosstalk:
                         m = np.logical_and(m, self.nhits==1)
                         if max_ptrms is not None:
@@ -741,7 +741,7 @@ class TESGroup(object):
                 middle = 0.5*(r[0]+r[1])
                 abslim = 0.5*np.abs(r[1]-r[0])
                 for gain,dataset in zip(gains,self.datasets):
-                    m = np.abs(dataset.p_peak_value/gain-middle) <= abslim
+                    m = np.abs(dataset.p_peak_value[:]/gain-middle) <= abslim
                     if cut_crosstalk:
                         m = np.logical_and(m, self.nhits==1)
                         if max_ptrms is not None:
