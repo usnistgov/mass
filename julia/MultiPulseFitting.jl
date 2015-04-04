@@ -7,13 +7,23 @@ Joe Fowler, Autumn 2014
 
 # Key parameters to control the multi-pulse fitting
 BG_FIT_SLOPE = false
-DO_WITH_PLOTS= true
+DO_WITH_PLOTS =  false
 
 using HDF5, PyPlot, Dierckx
+cd("/Users/fowlerj/Software/mass/julia")
 using MicrocalFiles, HDF5Helpers, CovarianceModels
 
 include("NoiseAnalysis.jl")
 include("RandomMatrix.jl")
+
+# While developing, use the following in place of "using"
+# include("CovarianceModels.jl")
+# choleskysolve = CovarianceModels.choleskysolve
+# CovarianceModel = CovarianceModels.CovarianceModel
+# StreamCovarianceSolver = CovarianceModels.StreamCovarianceSolver
+# BadCovarianceSolver = CovarianceModels.BadCovarianceSolver
+# ExactCovarianceSolver = CovarianceModels.ExactCovarianceSolver
+
 
 
 # Works only on 1d vectors, not arrays!
@@ -548,14 +558,15 @@ function extendMPF!(mpf::MultiPulseFitter, chunklength::Integer)
     if chunklength <= length(mpf.white_const)
         return
     end
-    if chunklength > mpf.covar_model.max_length
+    if typeof(mpf) == ExactCovarianceSolver && chunklength > mpf.covar_model.max_length
         @show chunklength, mpf.covar_model.max_length, length(mpf.white_const)
         error("Cannot extend the MultiPulseFitter longer than the ExactCovarianceSolver")
     end
 
     # Whiten baseline functions to their new length
-    mpf.white_const = CovarianceModels.whiten(mpf.covar_model, ones(Float64, chunklength))
-    mpf.white_slope = CovarianceModels.whiten(mpf.covar_model, linspace(-1, 1, chunklength))
+    mpf.white_slope = choleskysolve(mpf.covar_model, linspace(-1, 1, chunklength))
+    mpf.white_const = choleskysolve(mpf.covar_model, ones(Float64, chunklength))
+#      clf(); plot(mpf.white_const,"r", mpf.white_slope,"g"); plot(yomama)
     return mpf
 end
 
@@ -610,11 +621,11 @@ function multi_pulse_fit(data::Vector, pulse_times::Vector{Int64},
         pstart = max(1, pstart)
 
         model_components[pstart:pend, i] =
-        CovarianceModels.whiten(mpf.covar_model, mpf.pulse_model[1:pend-pstart+1],
+            choleskysolve(mpf.covar_model, mpf.pulse_model[1:pend-pstart+1],
                                 pstart-1)[pstart:end]
         if use_dpdt
             model_components[pstart:pend, i+Np] =
-            CovarianceModels.whiten(mpf.covar_model, mpf.dpdt_model[1:pend-pstart+1],
+            choleskysolve(mpf.covar_model, mpf.dpdt_model[1:pend-pstart+1],
                                     pstart-1)[pstart:end]
         end
     end
@@ -625,11 +636,28 @@ function multi_pulse_fit(data::Vector, pulse_times::Vector{Int64},
     A = model_components' * model_components
     covar = inv(A)
 
-    white_data = CovarianceModels.whiten(mpf.covar_model, data)
+    white_data = choleskysolve(mpf.covar_model, data)
+#     clf(); plot(model_components); plot(white_data/5000,color="brown"); plot(yomama)
+
     mc_dot_data = (model_components' * white_data)
     param = A \ mc_dot_data
     model = model_components * param
-    unwhite_model = CovarianceModels.unwhiten(mpf.covar_model, model, length(model))
+    #unwhite_model = choleskyproduct(mpf.covar_model, model, length(model))
+    if BG_FIT_SLOPE
+        unwhite_model = ones(Float64, Nd) * param[end-1]
+        unwhite_model += linspace(-1, 1, Nd)
+    else
+        unwhite_model = ones(Float64, Nd) * param[end]
+    end
+    for i = 1:Np
+        pstart = pulse_times[i]
+        pend = min(pstart+length(mpf.pulse_model)-1, Nd)
+        pstart = max(1, pstart)
+        unwhite_model[Nd-pend+pstart:end] += mpf.pulse_model[1:pend-pstart+1]*param[i]
+        if use_dpdt
+            unwhite_model[Nd-pend+pstart:end] += mpf.dpdt_model[1:pend-pstart+1]*param[i+Np]
+        end
+    end
     residualW = norm(white_data - model)/sqrt(Nd)
     residualR = norm(data - unwhite_model)/sqrt(Nd)
 
@@ -694,7 +722,7 @@ function multi_pulse_fit_with_plot(data::Vector, pulse_times::Vector{Int64},
         end
     end
     subplot(311)
-    plot(data, "r", model, "b"); title("Data and model")
+    plot(data, "r", model, "b"); title("Data (red) and model (blue)")
     subplot(312)
     plot((data-model), "g"); title("Residuals")
     param, covar, residW, residR, prior_level
@@ -1473,6 +1501,7 @@ end
 
 #####
 # Demonstration of the method: make a plot using NSLS data
+# This becomes paper figure 2.
 #####
 
 function demoplot()
@@ -1538,9 +1567,9 @@ function demoplot()
     h5file = h5open(hdf5name, "r")
     avg_pulse = read(h5file["chan1/average_pulse"])
     avg_dpdt = finite_diff_deriv(avg_pulse)
-    covar_model = CovarianceModel(read_complex(h5file["chan1/noise/model_amplitudes"]),
-                                  read_complex(h5file["chan1/noise/model_bases"]),
-                                  10000)
+    covar_model = ExactCovarianceSolver(
+        read_complex(h5file["chan1/noise/model_amplitudes"]),
+        read_complex(h5file["chan1/noise/model_bases"]), 10000)
     close(h5file)
 
     # color map hack! I don't know how to use a colormap like
@@ -1566,7 +1595,7 @@ function demoplot()
     for (i,p) in enumerate(ptimes)
         model = zeros(Float64, N)
         model[p-3:end] = avg_dpdt[1:N-p+4]
-        plot(model+OFFSET_COMPS+i*20, color=color(i*.5/np))#, color="#ff66ff")
+        plot(model+OFFSET_COMPS+i*20, color=color(i*.5/np))#, color="#ff66ff
         M[:,i+np] = model
         MW[:,i+np] = CovarianceModels.whiten(covar_model, model)
     end
@@ -1582,7 +1611,17 @@ function demoplot()
         rho [:,i] /= s
     end
     println( param)
-
+    for (i,p) in enumerate(ptimes)
+        if i==8
+            text(p, -60, "8,9", color="b")
+        elseif i==10
+            text(p, -60, "10,11", color="b")
+        elseif i in (9,11)
+            ;
+        else
+            text(p, -60, string(i), color="b")
+        end
+    end
     final_model = M * param
     plot(final_model+OFFSET_MODEL, "k")
     text(XTEXT, OFFSET_MODEL, "Model", va="center", ha="right", fontsize="large")
@@ -1594,3 +1633,86 @@ function demoplot()
 end
 
 
+# Try to do the entire Multi-Pulse Fitting analysis starting with a pulse file
+# and a raw file. Assumes Noise_analysis(noisename) is already done
+# Use all 3 whiteners
+function MPF_analysis_driver(setname::String="C_auto", whitenum::Int=1)
+    const PATH="/Volumes/Data2014/Data/Data_CDM/2011_09_12"
+    const cnum = 1
+    filename = @sprintf("%s/2011_09_12_%s_chan%d.ljh", PATH, setname, cnum)
+    println("Working on $filename with technique $whitenum")
+    MPF_analysis_3whiteners(filename, false, whitenum)
+end
+
+function MPF_analysis_3whiteners(filename::String, forceNew::Bool=false, whitenum::Int=1)
+    file = MicrocalFiles.LJHFile(filename)
+    hdf5name = hdf5_name_from_ljh_name(filename, "mpf")
+    println("We are about to compute MPF results; store into\n$hdf5name")
+    h5file = h5file_update(hdf5name)
+    try
+        const do_all_fits = true
+
+        grpname=string("chan$(file.channum)")
+        h5grp = g_create_or_open(h5file, grpname)
+        trigger_times = read(h5grp["trigger_times"])
+        const MAXSAMP = 400000  # 8000 for NSLS
+
+        # Do the fits
+        if forceNew || ! exists(h5grp, "mpf") | do_all_fits
+            avg_pulse = read(h5grp["average_pulse"])
+            dpdt = read(h5grp["average_dpdt"])
+
+            # Try the model from lab book 6 page 124.
+            if whitenum==1
+                covar_model = ExactCovarianceSolver([82.5463,24.8891,13.6768,3.1515,0],
+                                              [.0871940295,.9941810695,
+                                               .9992481192,.9999235960], MAXSAMP)
+                mpfgrp = g_create_or_open(h5grp, "mpf")
+            elseif whitenum == 2
+                covar_model = StreamCovarianceSolver([24.8891,13.6768,3.1515,82.5463],
+                                              [.9941810695, .9992481192,.9999235960, 0.])
+                mpfgrp = g_create_or_open(h5grp, "mpfstream")
+            elseif whitenum==4
+                covar_model = StreamCovarianceSolver([82.5463] , [0.])
+                mpfgrp = g_create_or_open(h5grp, "mpfstreamX")
+            else
+                covar_model = BadCovarianceSolver([24.8891,13.6768,3.1515,82.5463],
+                                              [.9941810695, .9992481192,.9999235960, 0.])
+                mpfgrp = g_create_or_open(h5grp, "mpfbad")
+            end
+
+            println("Computing multi-pulse fits...\n")
+
+            fitter = MultiPulseFitter(avg_pulse, dpdt, covar_model)
+            extendMPF!(fitter, MAXSAMP)
+
+            const DPDT = true
+            ph, dpdts, dph, ddpdt, prior_level, residW, residR, baseline =
+                multi_pulse_fit_file(file, trigger_times, fitter, DPDT)
+            @show dph[1:10]
+
+            ds_update(mpfgrp, "pulse_heights", ph)
+            ds_update(mpfgrp, "Dpulse_heights", dph)
+            if DPDT
+                ds_update(mpfgrp, "dpdt", dpdts)
+                ds_update(mpfgrp, "Ddpdt", ddpdt)
+            end
+            ds_update(mpfgrp, "prior_level", prior_level)
+            ds_update(mpfgrp, "fit_mahal_dist", residW)
+            ds_update(mpfgrp, "fit_residuals", residR)
+            ds_update(mpfgrp, "baseline", baseline)
+        end
+    finally
+        close(h5file)
+    end
+    nothing
+end
+
+
+try
+    MPF_analysis_driver("C_auto",4)
+catch
+    @show "There was an error"
+finally
+    @show "Hohoho"
+end
