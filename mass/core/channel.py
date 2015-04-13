@@ -938,7 +938,7 @@ class MicrocalDataSet(object):
             if limits is None:
                 in_limit = np.ones(len(vect), dtype=np.bool)
             else:
-                in_limit = np.logical_and(vect>limits[0], vect<limits[1])
+                in_limit = np.logical_and(vect[:]>limits[0], vect[:]<limits[1])
             contents, _bins, _patches = plt.hist(vect[in_limit],200, log=log,
                            histtype='stepfilled', fc=color, alpha=0.5)
             if log:
