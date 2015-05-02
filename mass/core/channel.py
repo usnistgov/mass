@@ -529,6 +529,9 @@ class Cuts(object):
         bitmask = ~(1<<cutnum)
         self._mask[:] &= bitmask
 
+    def clearAll(self):
+        self._mask[:] = 0
+
     def good(self):
         return np.logical_not(self._mask)
 
@@ -1071,7 +1074,7 @@ class MicrocalDataSet(object):
 
 
     def clear_cuts(self):
-        self.cuts = Cuts(self.nPulses)
+        self.cuts.clearAll()
 
 
     def drift_correct(self, forceNew=False):
@@ -1112,7 +1115,10 @@ class MicrocalDataSet(object):
             print("channel %d doing phase_correct2014 with %d good pulses"%(self.channum, data.shape[0]))
             prompt = self.p_promptness[:]
 
-            dataFilter = self.filter.filt_noconst
+            if self.filter is not None:
+                dataFilter = self.filter.__dict__['filt_noconst']
+            else:
+                dataFilter = self.hdf5_group['filters/filt_noconst'][:]
             tc = mass.core.analysis_algorithms.FilterTimeCorrection(
                     data, prompt[g], self.p_pulse_rms[:][g], dataFilter,
                     self.nPresamples, typicalResolution=typical_resolution)
