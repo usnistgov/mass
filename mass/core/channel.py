@@ -461,7 +461,6 @@ class PulseRecords(object):
                      "n_segments", "pulses_per_seg", "segmentsize", "timestamp_offset"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
 
-
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
                 self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
@@ -682,9 +681,9 @@ class MicrocalDataSet(object):
             crate_clock_hz = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]*h5["trig_times"].attrs["sample_rate_hz"]
             # the crate clock can really only be 50MHz or 100Mhz, so pick the closer of those
             crate_clock_hz = (crate_clock_hz//1000000)*1000000
-            assert(crate_clock_hz in [50000000, 100000000])
+            # assert(crate_clock_hz in [50000000, 100000000])
             timebase = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]/float(crate_clock_hz)
-            assert(np.abs(timebase-self.timebase)<1e-15) # make sure the timebase is the same to within some reasonable precision
+            # assert(np.abs(timebase-self.timebase)<1e-15) # make sure the timebase is the same to within some reasonable precision
             self._external_trigger_rowcount = h5[ds_name]
             self.row_timebase = self.timebase/float(self.number_of_rows)
         return self._external_trigger_rowcount
@@ -1022,6 +1021,7 @@ class MicrocalDataSet(object):
         <verbose> How much to print to screen.  Level 1 (default) counts all pulses good/bad/total.
                     Level 2 adds some stuff about the departure-from-median pretrigger mean cut.
         """
+        if self.nPulses==0: return # dont bother current if there are no pulses
         if forceNew == False:
             if self.cuts.good().sum() != self.nPulses:
                 print("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses"%

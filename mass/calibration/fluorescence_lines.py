@@ -1537,3 +1537,12 @@ def plot_spectrum(spectrum=MnKAlpha(),
     plt.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrum.name)
     plt.xlabel("Energy (eV)")
     plt.ylabel("Intensity (arb.)")
+
+
+# code for exporting lineshapes
+# for key in mass.fluorescence_lines.__dict__:
+#     try:
+#         obj = mass.fluorescence_lines.__dict__[key]
+#         print(key+'=MultiLorentzianComplex('+str(obj.energies)+','+str(obj.fwhm)+','+str(obj.integral_intensity)+','+str(obj.nominal_peak_energy)+')')
+#     except:
+#         pass
