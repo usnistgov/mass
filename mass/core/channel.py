@@ -528,6 +528,9 @@ class Cuts(object):
         bitmask = ~(1<<cutnum)
         self._mask[:] &= bitmask
 
+    def clearAll(self):
+        self._mask[:] = 0
+
     def good(self):
         return np.logical_not(self._mask)
 
@@ -937,7 +940,7 @@ class MicrocalDataSet(object):
             if limits is None:
                 in_limit = np.ones(len(vect), dtype=np.bool)
             else:
-                in_limit = np.logical_and(vect>limits[0], vect<limits[1])
+                in_limit = np.logical_and(vect[:]>limits[0], vect[:]<limits[1])
             contents, _bins, _patches = plt.hist(vect[in_limit],200, log=log,
                            histtype='stepfilled', fc=color, alpha=0.5)
             if log:
@@ -1071,7 +1074,7 @@ class MicrocalDataSet(object):
 
 
     def clear_cuts(self):
-        self.cuts = Cuts(self.nPulses)
+        self.cuts.clearAll()
 
 
     def drift_correct(self, forceNew=False):
@@ -1111,18 +1114,28 @@ class MicrocalDataSet(object):
             data,g = self.first_n_good_pulses(maximum_num_records)
             print("channel %d doing phase_correct2014 with %d good pulses"%(self.channum, data.shape[0]))
             prompt = self.p_promptness[:]
+            prms = self.p_pulse_rms[:]
 
-            dataFilter = self.filter.filt_noconst
+            if self.filter is not None:
+                dataFilter = self.filter.__dict__['filt_noconst']
+            else:
+                dataFilter = self.hdf5_group['filters/filt_noconst'][:]
             tc = mass.core.analysis_algorithms.FilterTimeCorrection(
-                    data, prompt[g], self.p_pulse_rms[:][g], dataFilter,
+                    data, prompt[g], prms[g], dataFilter,
                     self.nPresamples, typicalResolution=typical_resolution)
 
-            self.p_filt_value_phc[:] = self.p_filt_value_dc[:] - tc(prompt, self.p_pulse_rms)
+            print tc([.58,.605,.644,.649],[2952, 2952, 2952,2952]), 'blah'
+            self.p_filt_value_phc[:] = 0.0
+            self.p_filt_value_phc[:] = self.p_filt_value_dc[:]
+#             self.p_filt_value_phc[:] -= tc(prompt, prms)
             if plot:
+                fnum = plt.gcf().number
+                plt.figure(5)
                 plt.clf()
                 g = self.cuts.good()
                 plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
                 plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
+                plt.figure(fnum)
         else:
             print("channel %d skipping phase_correct2014"%self.channum)
 

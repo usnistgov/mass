@@ -1228,7 +1228,8 @@ class MultiLorentzianComplexFitter(object):
         MLfitter.setbounds(3, 0, None) # dPH/dE > 0
         MLfitter.setbounds(4, 0, None) # BG level > 0
         MLfitter.setbounds(6, 0, 1)    # 0 < tailamplitude < 1
-        MLfitter.setbounds(7, 0, None) # tailtau > 0
+        maxtail = 200 / params[2]
+        MLfitter.setbounds(7, 0, maxtail) # 0 < tailtau < 200 eV
 
         # Set held parameters to be held.
         # Note that some can be held in either of two different ways.

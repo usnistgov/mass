@@ -264,10 +264,10 @@ class MaximumLikelihoodHistogramFitter(object):
                                                overwrite_a=False, overwrite_b=False)
             except sp.linalg.LinAlgError, ex:
                 print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, iter_number)
-                print 'Internal: ',self.internal
-                print 'Params: ', self.params
-                print 'Alpha-prime: ',alpha_prime
-                print 'Beta: ', beta
+#                 print 'Internal: ',self.internal
+#                 print 'Params: ', self.params
+#                 print 'Alpha-prime: ',alpha_prime
+#                 print 'Beta: ', beta
                 raise ex
 
             # Did the trial succeed?
@@ -415,7 +415,18 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         if len(self.nobs) != self.ndat:
             raise ValueError("x and nobs must have the same length")
 
-        self.mfit = self.nparam = 0
+        self.mfit = 0
+        self.nparam = 5
+        # Handle bounded parameters with translations between internal (-inf,+inf) and bounded
+        # parameters. Until and unless self.setbounds is called, we'll assume that no
+        # parameters have bounds.
+        self.lowerbound = [None for _ in range(self.nparam)]
+        self.upperbound = [None for _ in range(self.nparam)]
+        self.internal2bounded = [lambda x:x for _ in range(self.nparam)]
+        self.bounded2internal = [lambda x:x for _ in range(self.nparam)]
+        self.boundedinternal_grad = [lambda x:x for _ in range(self.nparam)]
+        for pnum in range(self.nparam):
+            self.setbounds(pnum, None, None)
         self.set_parameters(params)
         if self.nparam < 3 or self.nparam > 5:
             raise ValueError("params requires 3 to 5 values")
@@ -478,8 +489,8 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
                 alpha[j, i] = alpha[i, j]
 
         nonzero_obs = nobs > 0
-        self.chisq = 2*(y_model.sum()-self.total_obs)  \
+        chisq = 2*(y_model.sum()-self.total_obs)  \
                 + 2*(nobs[nonzero_obs]*np.log((nobs/y_model)[nonzero_obs])).sum()
-        return alpha, beta
+        return alpha, beta, chisq
 
 
