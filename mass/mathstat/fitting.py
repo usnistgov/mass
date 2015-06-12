@@ -264,10 +264,10 @@ class MaximumLikelihoodHistogramFitter(object):
                                                overwrite_a=False, overwrite_b=False)
             except sp.linalg.LinAlgError, ex:
                 print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, iter_number)
-                print 'Internal: ',self.internal
-                print 'Params: ', self.params
-                print 'Alpha-prime: ',alpha_prime
-                print 'Beta: ', beta
+#                 print 'Internal: ',self.internal
+#                 print 'Params: ', self.params
+#                 print 'Alpha-prime: ',alpha_prime
+#                 print 'Beta: ', beta
                 raise ex
 
             # Did the trial succeed?
