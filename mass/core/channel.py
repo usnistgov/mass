@@ -1054,7 +1054,7 @@ class MicrocalDataSet(object):
                            self.CUT_NAME.index('peak_value'))
         self.cut_parameter(self.p_min_value[:]-self.p_pretrig_mean[:], c['min_value'],
                            self.CUT_NAME.index('min_value'))
-        self.cut_parameter(self.p_timestamp, c['timestamp_sec'],
+        self.cut_parameter(self.p_timestamp[:], c['timestamp_sec'],
                            self.CUT_NAME.index('timestamp_sec'))
         if c['timestamp_diff_sec'] is not None:
             self.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
