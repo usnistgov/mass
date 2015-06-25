@@ -1124,10 +1124,8 @@ class MicrocalDataSet(object):
                     data, prompt[g], prms[g], dataFilter,
                     self.nPresamples, typicalResolution=typical_resolution)
 
-            print tc([.58,.605,.644,.649],[2952, 2952, 2952,2952]), 'blah'
-            self.p_filt_value_phc[:] = 0.0
             self.p_filt_value_phc[:] = self.p_filt_value_dc[:]
-#             self.p_filt_value_phc[:] -= tc(prompt, prms)
+            self.p_filt_value_phc[:] -= tc(prompt, prms)
             if plot:
                 fnum = plt.gcf().number
                 plt.figure(5)
