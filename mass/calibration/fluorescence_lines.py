@@ -1218,7 +1218,8 @@ class MultiLorentzianComplexFitter(object):
         if params is None:
             params = guess_params
         for j in xrange(len(params)):
-            if params[j] is None: params[j] = guess_params[j]
+            if params[j] is not None:
+                guess_params[j] = params[j]
 
         # Set held parameters to be held.
         # Note that some can be held in either of two different ways.

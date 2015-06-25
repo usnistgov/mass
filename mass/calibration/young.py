@@ -228,7 +228,11 @@ class EnergyCalibration(object):
             # Trying to fit histograms with different number of bins
             # with a corresponding complex fitter.
             while nbins > 32:
-                params_guess = [None] * 6
+                # params: a 8-element sequence of [Resolution (fwhm), Pulseheight of the Kalpha1 peak,
+                # energy scale factor (pulseheight/eV), amplitude, background level (per bin),
+                # background slope (in counts per bin per bin), fraction in low-E-tail, and
+                # exponential scale length (eV) of the tail. ]
+                params_guess = [None] * 8
                 # resolution guess parameter should be something you can pass
                 params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
                 params_guess[1] = pp  # Approximate peak position
@@ -348,6 +352,10 @@ class EnergyCalibration(object):
             return len(self.complex_fitters)
 
         return 0
+
+    @property
+    def anyfailed(self):
+        return any([isinstance(cf, FailedFitter) for cf in self.complex_fitters])
 
     def __repr__(self):
         return "EnergyCalibration with %d features" % (0 if self.complex_fitters is None else len(self.complex_fitters))

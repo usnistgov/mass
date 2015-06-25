@@ -330,6 +330,7 @@ class MaximumLikelihoodHistogramFitter(object):
         dyda = (self.theory_gradient(params, self.x).T * dpdi_grad).T
         if dyda[0].sum()==0:
             print 'Problem:',self.epsilon, dyda[:,:4], params
+            raise Exception
         y_model[y_model==0.0] = 1e-50
         dyda_over_y = dyda/y_model
         nobs = self.nobs
