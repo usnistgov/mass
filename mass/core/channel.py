@@ -1054,7 +1054,7 @@ class MicrocalDataSet(object):
                            self.CUT_NAME.index('peak_value'))
         self.cut_parameter(self.p_min_value[:]-self.p_pretrig_mean[:], c['min_value'],
                            self.CUT_NAME.index('min_value'))
-        self.cut_parameter(self.p_timestamp, c['timestamp_sec'],
+        self.cut_parameter(self.p_timestamp[:], c['timestamp_sec'],
                            self.CUT_NAME.index('timestamp_sec'))
         if c['timestamp_diff_sec'] is not None:
             self.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
@@ -1124,10 +1124,8 @@ class MicrocalDataSet(object):
                     data, prompt[g], prms[g], dataFilter,
                     self.nPresamples, typicalResolution=typical_resolution)
 
-            print tc([.58,.605,.644,.649],[2952, 2952, 2952,2952]), 'blah'
-            self.p_filt_value_phc[:] = 0.0
             self.p_filt_value_phc[:] = self.p_filt_value_dc[:]
-#             self.p_filt_value_phc[:] -= tc(prompt, prms)
+            self.p_filt_value_phc[:] -= tc(prompt, prms)
             if plot:
                 fnum = plt.gcf().number
                 plt.figure(5)

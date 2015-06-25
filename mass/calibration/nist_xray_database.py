@@ -12,7 +12,7 @@ For updating the data files:
 * NISTXrayDBRetrieve
 * GetAllLines
 
-Basic usage (assuming you put the x-ray files in 
+Basic usage (assuming you put the x-ray files in
 ${MASS_HOME}/mass/calibration/nist_xray_data.dat):
 
 
@@ -23,29 +23,29 @@ February 2014
 ELEMENTS=('','H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar',
           'K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb',
           'Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe',
-          'Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re',  
+          'Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re',
           'Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn',
           'Fr','Ra','Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr')
 ATOMIC_NUMBERS = dict((ELEMENTS[i],i) for i in range(len(ELEMENTS)))
 
 
-    
+
 class NISTXrayDBFile(object):
     DEFAULT_FILENAMES = "nist_xray_data.dat", "low_z_xray_data.dat"
-    
+
     def __init__(self, *filenames):
         """Initialize the database from 1 or more <filenames>, which point to
         files downloaded using NISTXrayDBRetrieve. If the list is empty (the
         default), then the file named by self.DEFAULT_FILENAME will be used."""
-        
+
         self.lines={}
         self.alllines = set()
-        
+
         import os
         if len(filenames) == 0:
             path = os.path.split(__file__)[0]
             filenames = [os.path.join(path, df) for df in self.DEFAULT_FILENAMES]
-        
+
         self.loaded_filenames = []
         for filename in filenames:
             try:
@@ -53,12 +53,12 @@ class NISTXrayDBFile(object):
             except IOError:
                 print "'%s' is not a readable file with X-ray database info! Continuing..."%filename
                 continue
-            
+
             while True:
                 line = fp.readline()
                 if "Theory" in line and "Blend" in line and "Ref." in line:
                     break
-            
+
             for textline in fp.readlines():
                 try:
                     xrayline = NISTXrayLine(textline)
@@ -66,10 +66,10 @@ class NISTXrayDBFile(object):
                     self.alllines.add(xrayline)
                 except:
                     continue
-                
+
             self.loaded_filenames.append(filename)
             fp.close()
-    
+
 
     LINE_NICKNAMES={
         'KA1' : 'KL3',
@@ -77,8 +77,15 @@ class NISTXrayDBFile(object):
         'KB1' : 'KM3',
         'KB3' : 'KM2',
         'KB5' : 'KM5',
+        'LA1' : 'L3M5',
+        'LA2' : 'L3M4',
+        'Ll'  : 'L3M1',
+        'LB3' : 'L1M3',
+        'LB1' : 'L2M4',
+        'LB2' : 'L3N5',
+        'LG1' : 'L2N4',
         }
-    
+
     def get_lines_by_type(self, linetype):
         """Return a tuple containing all lines of a certain type, e.g., "KL3".
         See self.LINE_NICKNAMES for some known line "nicknames"."""
@@ -96,7 +103,7 @@ class NISTXrayDBFile(object):
             if linename in self.lines:
                 lines.append(self.lines[linename])
         return tuple(lines)
-    
+
     def __getitem__(self, key):
         element,line = key.split()[:2]
         element = element.capitalize()
@@ -112,7 +119,7 @@ class NISTXrayDBFile(object):
             key = "%s %s"%(element, self.LINE_NICKNAMES[lcline])
             return self.lines[key]
         raise KeyError("%s is not a known line or line nickname"%key)
-    
+
 
 class NISTXrayLine(object):
     DEFAULT_COLUMN_DEFS = {'element':(1,4),
@@ -121,7 +128,7 @@ class NISTXrayLine(object):
                           'peak_unc':(61,72),
                           'blend':(74,79),
                           'ref':(81,91)}
-    
+
     def __init__(self, textline, column_defs=None):
         if column_defs is None:
             column_defs = self.DEFAULT_COLUMN_DEFS
@@ -147,13 +154,13 @@ def plot_line_uncertainties():
     db = NISTXrayDBFile()
     transitions = ('KL3','KL2','KM3','KM5','L3M5','L3M4', 'L2M4', 'L3N5','L2N4','L1M3','L3N7','L3M1')
     titles={
-        'KL3':'K$\\alpha_1$: Intense', 
-        'KL2':'K$\\alpha_2$: Intense, but not easily resolved', 
-        'KM3':'K$\\beta_1$: Intense', 
-        'KM2':'K$\\beta_3$: Intense, usually unresolvable', 
+        'KL3':'K$\\alpha_1$: Intense',
+        'KL2':'K$\\alpha_2$: Intense, but not easily resolved',
+        'KM3':'K$\\beta_1$: Intense',
+        'KM2':'K$\\beta_3$: Intense, usually unresolvable',
         'KM5':'K$\\beta_5$: Weak line on high-E tail of K$\\beta_1$',
         'L3M5':'L$\\alpha_1$: Prominent',
-        'L3M4':'L$\\alpha_2$: Small satellite', 
+        'L3M4':'L$\\alpha_2$: Small satellite',
         'L2M4':'L$\\beta_1$: Prominent',
         'L3N5':'L$\\beta_2$: Prominent',
         'L2N4': 'K$\\gamma_1$: Weaker',
@@ -161,7 +168,7 @@ def plot_line_uncertainties():
         'L3N7': 'Lu: barely visible',
         'L3M1': 'L$\ell$: very weak',
     }
-    
+
     axes = {}
     NX, NY = 3,4
     plt.clf()
@@ -176,7 +183,7 @@ def plot_line_uncertainties():
             plt.ylabel("Line uncertainty (eV)")
         plt.ylim([1e-3,10])
         plt.xlim([100,3e4])
-    
+
     for line in db.lines.values():
         if line.transition not in transitions: continue
         i = transitions.index(line.transition)
@@ -205,7 +212,7 @@ def plot_line_energies():
 
 
 ###############################################################
-# Below here are functions to recreate the nist_xray_data.dat 
+# Below here are functions to recreate the nist_xray_data.dat
 # file, which I don't think anyone will ever need again.
 # J Fowler, Feb 28, 2014.
 ###############################################################
@@ -223,7 +230,7 @@ def _NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
     joined_lines = '&'.join(['trans=%s'%name for name in line_names])
     get = '%s%s&%s'%(form, joined_args, joined_lines)
     print 'Grabbing %s'%get
-    
+
     import urllib
     page = urllib.urlopen(get)
     fp = open(savefile, "w")
