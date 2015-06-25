@@ -1144,6 +1144,7 @@ class MultiLorentzianComplexFitter(object):
             de = energy[1]-energy[0]
             nlow = int(min(P_tailtau, 100)*6/de + 0.5)
             nhi = int((abs(params[0])+min(P_tailtau, 50))/de + 0.5)
+            nhi = min(3000, nhi) # A practical limit
             nlow = max(nlow, nhi)
             lowe = np.arange(-nlow,0)*de + energy[0]
             highe = np.arange(1,nhi+1)*de + energy[-1]
@@ -1219,17 +1220,6 @@ class MultiLorentzianComplexFitter(object):
         for j in xrange(len(params)):
             if params[j] is None: params[j] = guess_params[j]
 
-        # Set up the maximum-likelihood fitter
-        epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01, .01, 1))
-        MLfitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
-                                                    self.fitfunc, TOL=1e-4, epsilon=epsilon)
-        MLfitter.setbounds(0, 0, None) # FWHM > 0
-        MLfitter.setbounds(2, 0, None) # amplitude > 0
-        MLfitter.setbounds(3, 0, None) # dPH/dE > 0
-        MLfitter.setbounds(4, 0, None) # BG level > 0
-        MLfitter.setbounds(6, 0, 1)    # 0 < tailamplitude < 1
-        MLfitter.setbounds(7, 0, None) # tailtau > 0
-
         # Set held parameters to be held.
         # Note that some can be held in either of two different ways.
         if hold is None:
@@ -1240,6 +1230,22 @@ class MultiLorentzianComplexFitter(object):
         if not vary_bg_slope: hold.add(5)
         if not vary_tail: hold.add(6)
         if 6 in hold and params[6] <= 0.0: hold.add(7)
+        if 6 not in hold and params[6] <= 0.0: params[6] = .01
+        if params[4] <=0: params[4] = 1e-6
+
+        # Set up the maximum-likelihood fitter
+        epsilon = np.array((1e-3, params[1]/1e5, 1e-3, params[3]/1e5, params[4]/1e2, .01, .01, 1))
+        MLfitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
+                                                    self.fitfunc, TOL=1e-4, epsilon=epsilon)
+        MLfitter.setbounds(0, 0, 100)  # 100 > FWHM > 0
+        MLfitter.setbounds(1, 0, None) # PH at peak > 0
+        MLfitter.setbounds(2, 0, None) # dPH/dE > 0
+        MLfitter.setbounds(3, 0, None) # amplitude > 0
+        MLfitter.setbounds(4, 0, None) # BG level > 0
+        MLfitter.setbounds(6, 0, 1)    # 0 < tailamplitude < 1
+        maxtail = 200 * params[2]
+        MLfitter.setbounds(7, 0, maxtail) # 0 < tailtau < 200 eV
+
         for h in hold:
             MLfitter.hold(h)
 
@@ -1321,7 +1327,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         ampl = data.max() * 9.4
         res = 4.0
         if len(data) > 20:
-            baseline = data[0:10].mean()
+            baseline = data[0:10].mean()+1e-6
         else:
             baseline = 0.1
         baseline_slope = 0.0
@@ -1537,3 +1543,12 @@ def plot_spectrum(spectrum=MnKAlpha(),
     plt.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrum.name)
     plt.xlabel("Energy (eV)")
     plt.ylabel("Intensity (arb.)")
+
+
+# code for exporting lineshapes
+# for key in mass.fluorescence_lines.__dict__:
+#     try:
+#         obj = mass.fluorescence_lines.__dict__[key]
+#         print(key+'=MultiLorentzianComplex('+str(obj.energies)+','+str(obj.fwhm)+','+str(obj.integral_intensity)+','+str(obj.nominal_peak_energy)+')')
+#     except:
+#         pass

@@ -183,6 +183,11 @@ class TESGroup(object):
 
             # Create the pulse records file interface and the overall MicrocalDataSet
             pulse = PulseRecords(fname)
+            print("%s %i"%(fname, pulse.nPulses))
+            if pulse.nPulses==0:
+                print("TESGroup is skipping a file that has zero pulses: %s"%fname)
+                continue # don't load files with zero pulses
+
             try:
                 hdf5_group = self.hdf5_file.require_group("chan%d"%pulse.channum)
                 hdf5_group.attrs['filename'] = fname

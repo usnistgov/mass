@@ -461,7 +461,6 @@ class PulseRecords(object):
                      "n_segments", "pulses_per_seg", "segmentsize", "timestamp_offset"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
 
-
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
                 self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
@@ -528,6 +527,9 @@ class Cuts(object):
             raise ValueError("cutnum must be in the range [0,31] inclusive")
         bitmask = ~(1<<cutnum)
         self._mask[:] &= bitmask
+
+    def clearAll(self):
+        self._mask[:] = 0
 
     def good(self):
         return np.logical_not(self._mask)
@@ -682,9 +684,9 @@ class MicrocalDataSet(object):
             crate_clock_hz = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]*h5["trig_times"].attrs["sample_rate_hz"]
             # the crate clock can really only be 50MHz or 100Mhz, so pick the closer of those
             crate_clock_hz = (crate_clock_hz//1000000)*1000000
-            assert(crate_clock_hz in [50000000, 100000000])
+            # assert(crate_clock_hz in [50000000, 100000000])
             timebase = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]/float(crate_clock_hz)
-            assert(np.abs(timebase-self.timebase)<1e-15) # make sure the timebase is the same to within some reasonable precision
+            # assert(np.abs(timebase-self.timebase)<1e-15) # make sure the timebase is the same to within some reasonable precision
             self._external_trigger_rowcount = h5[ds_name]
             self.row_timebase = self.timebase/float(self.number_of_rows)
         return self._external_trigger_rowcount
@@ -938,7 +940,7 @@ class MicrocalDataSet(object):
             if limits is None:
                 in_limit = np.ones(len(vect), dtype=np.bool)
             else:
-                in_limit = np.logical_and(vect>limits[0], vect<limits[1])
+                in_limit = np.logical_and(vect[:]>limits[0], vect[:]<limits[1])
             contents, _bins, _patches = plt.hist(vect[in_limit],200, log=log,
                            histtype='stepfilled', fc=color, alpha=0.5)
             if log:
@@ -1022,6 +1024,7 @@ class MicrocalDataSet(object):
         <verbose> How much to print to screen.  Level 1 (default) counts all pulses good/bad/total.
                     Level 2 adds some stuff about the departure-from-median pretrigger mean cut.
         """
+        if self.nPulses==0: return # dont bother current if there are no pulses
         if forceNew == False:
             if self.cuts.good().sum() != self.nPulses:
                 print("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses"%
@@ -1051,7 +1054,7 @@ class MicrocalDataSet(object):
                            self.CUT_NAME.index('peak_value'))
         self.cut_parameter(self.p_min_value[:]-self.p_pretrig_mean[:], c['min_value'],
                            self.CUT_NAME.index('min_value'))
-        self.cut_parameter(self.p_timestamp, c['timestamp_sec'],
+        self.cut_parameter(self.p_timestamp[:], c['timestamp_sec'],
                            self.CUT_NAME.index('timestamp_sec'))
         if c['timestamp_diff_sec'] is not None:
             self.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
@@ -1071,7 +1074,7 @@ class MicrocalDataSet(object):
 
 
     def clear_cuts(self):
-        self.cuts = Cuts(self.nPulses)
+        self.cuts.clearAll()
 
 
     def drift_correct(self, forceNew=False):
@@ -1111,18 +1114,26 @@ class MicrocalDataSet(object):
             data,g = self.first_n_good_pulses(maximum_num_records)
             print("channel %d doing phase_correct2014 with %d good pulses"%(self.channum, data.shape[0]))
             prompt = self.p_promptness[:]
+            prms = self.p_pulse_rms[:]
 
-            dataFilter = self.filter.filt_noconst
+            if self.filter is not None:
+                dataFilter = self.filter.__dict__['filt_noconst']
+            else:
+                dataFilter = self.hdf5_group['filters/filt_noconst'][:]
             tc = mass.core.analysis_algorithms.FilterTimeCorrection(
-                    data, prompt[g], self.p_pulse_rms[:][g], dataFilter,
+                    data, prompt[g], prms[g], dataFilter,
                     self.nPresamples, typicalResolution=typical_resolution)
 
-            self.p_filt_value_phc[:] = self.p_filt_value_dc[:] - tc(prompt, self.p_pulse_rms)
+            self.p_filt_value_phc[:] = self.p_filt_value_dc[:]
+            self.p_filt_value_phc[:] -= tc(prompt, prms)
             if plot:
+                fnum = plt.gcf().number
+                plt.figure(5)
                 plt.clf()
                 g = self.cuts.good()
                 plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
                 plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
+                plt.figure(fnum)
         else:
             print("channel %d skipping phase_correct2014"%self.channum)
 
