@@ -1238,6 +1238,9 @@ class MicrocalDataSet(object):
                      plot_on_fail,max_num_clusters, max_pulses_for_dbscan, bin_size_ev=bin_size_ev)
             cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
             self.calibration[calname]=cal
+            if cal.anyfailed:
+                print("chan %d failed calibration because on of the fitter was a FailedFitter"%self.channum)
+                raise Exception()
             with open(pkl_fname, "w") as file:
                 cPickle.dump(self.calibration, file)
 
