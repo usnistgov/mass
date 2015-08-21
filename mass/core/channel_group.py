@@ -496,10 +496,13 @@ class TESGroup(object):
             nchan = float(self.num_good_channels)
 
         for i,chan in enumerate(self.iter_channel_numbers(include_badchan)):
-            self.channel[chan].summarize_data(peak_time_microsec,
-                                              pretrigger_ignore_microsec, forceNew)
-            printUpdater.update((i+1)/nchan)
-            self.hdf5_file.flush()
+            try:
+                self.channel[chan].summarize_data(peak_time_microsec,
+                                                  pretrigger_ignore_microsec, forceNew)
+                printUpdater.update((i+1)/nchan)
+                self.hdf5_file.flush()
+            except:
+                self.set_chan_bad(chan, "summarize_data")
 
 
     def read_trace(self, record_num, dataset_num=0, chan_num=None):
