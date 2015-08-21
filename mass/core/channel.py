@@ -486,6 +486,7 @@ class PulseRecords(object):
             return -1,-1
         first_pnum, end_pnum, data = self.datafile.read_segment(segment_num)
         self.data = data
+        self.rowcount = self.datafile.rowcount
         try:
             self.times = self.datafile.datatimes_float
         except AttributeError:
@@ -649,9 +650,11 @@ class MicrocalDataSet(object):
                           'filt_phase','filt_value','filt_value_dc','filt_value_phc','filt_value_tdc',
                           'energy')
         uint16_fields = ('peak_index', 'peak_value', 'min_value')
+        int64_fields = ('rowcount')
         for dtype,fieldnames in ((np.float64, float64_fields),
                                  (np.float32, float32_fields),
-                                 (np.uint16, uint16_fields)):
+                                 (np.uint16, uint16_fields),
+                                 (np.int64, int64_fields)):
             for field in fieldnames:
                 self.__dict__['p_%s'%field] = h5grp.require_dataset(field, shape=(npulses,),
                                                                     dtype=dtype)
@@ -790,6 +793,7 @@ class MicrocalDataSet(object):
 
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
+        self.p_rowcount[first:end] = self.rowcount[:seg_size]
         self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
         self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
         self.p_peak_index[first:end] = self.data[:seg_size,:].argmax(axis=1)
@@ -1257,6 +1261,7 @@ class MicrocalDataSet(object):
         first, end = self.pulse_records.read_segment(n)
         self.data = self.pulse_records.data
         self.times = self.pulse_records.times
+        self.rowcount = self.pulse_records.rowcount
         return first, end
 
     @property
