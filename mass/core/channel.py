@@ -695,16 +695,19 @@ class MicrocalDataSet(object):
         return self._external_trigger_rowcount
 
     @property
-    def external_trigger_timestamp(self):
+    def external_trigger_rowcount_as_seconds(self):
+        """
+        this is not a posix timestamp, it is just the external trigger rowcount converted to seconds based on the nominal clock rate of the crate
+        """
         return self.external_trigger_rowcount[:]*self.timebase/float(self.number_of_rows)
 
     @property
-    def time_after_last_external_trigger(self):
-        if "time_after_last_external_trigger" in self.hdf5_group:
-            return self.hdf5_group["time_after_last_external_trigger"]
-        before, after = mass.core.analysis_algorithms.nearest_arrivals(self.p_timestamp, self.external_trigger_timestamp)
-        self.hdf5_group["time_after_last_external_trigger"] = before
-        return self.hdf5_group["time_after_last_external_trigger"]
+    def rows_after_last_external_trigger(self):
+        if "rows_after_last_external_trigger" in self.hdf5_group:
+            return self.hdf5_group["rows_after_last_external_trigger"]
+        before, after = mass.mathstat.nearest_arrivals.nearest_arrivals(self.p_rowcount, self.external_trigger_rowcount)
+        ## this line is probably wrong self.hdf5_group["rows_after_last_external_trigger"] = before
+        return self.hdf5_group["rows_after_last_external_trigger"]
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
