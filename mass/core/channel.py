@@ -706,7 +706,7 @@ class MicrocalDataSet(object):
         if "rows_after_last_external_trigger" in self.hdf5_group:
             return self.hdf5_group["rows_after_last_external_trigger"]
         before, after = mass.mathstat.nearest_arrivals.nearest_arrivals(self.p_rowcount, self.external_trigger_rowcount)
-        ## this line is probably wrong self.hdf5_group["rows_after_last_external_trigger"] = before
+        self.hdf5_group["rows_after_last_external_trigger"] = before
         return self.hdf5_group["rows_after_last_external_trigger"]
 
     def __str__(self):
