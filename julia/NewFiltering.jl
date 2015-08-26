@@ -7,6 +7,8 @@ using MicrocalFiles, HDF5Helpers, CovarianceModels
 #include("RandomMatrix.jl")
 
 # Use "/Volumes/Data2014/Data/Data_tupac/20130906_RIKENexpts/20130906_T3B_mass.hdf5"
+# Or  "/Volumes/Data2014/Data/Data_tupac/20130904_RIKENexpts/20130904_T1B_2_mass.hdf5"
+# with channels 13, 63, 83, 135, 163, 209, 243, 319.
 
 function analyze_file(hdf5name::String, channum::Int)
     pulse_model, noise_autocorr, npre = load_file(hdf5name, channum)
@@ -17,7 +19,7 @@ function analyze_file(hdf5name::String, channum::Int)
 
     h5 = h5open(hdf5name, "r+")
     try
-        grp = g_create_or_open(h5["chan$(channum)"], "nov10filter")
+        grp = g_create_or_open(h5["chan$(channum)"], "filter_experiment")
         ds_update(grp, "pulse_height", ph)
         ds_update(grp, "ph_times_at", dpdt)
         ds_update(grp, "baseline", baseline)
@@ -50,9 +52,7 @@ function make_noise_model(noise_autocorr::Vector{Float64})
 end
 
 
-function make_componentsXXXSHIFTED(pulse_model::Vector{Float64},
-                                   noise_model::CovarianceModel,
-                                   npre::Int)
+function make_componentsXXXSHIFTED(pulse_model::Vector{Float64}, noise_model::CovarianceModel, npre::Int)
     n = length(pulse_model)-1
     dpds = pulse_model[2:end] - pulse_model[1:n]
     M=hcat(pulse_model[1:end-1], dpds, ones(Float64, n))
@@ -260,7 +260,7 @@ function filter_data(filename::String, filters::Dict{String,Vector{Float64}})
         end
         
         nsamp_read += nrecs
-        println("Done with  $(nsamp_read) samples")
+        println("Done with  $(nsamp_read) samples out of $(np).")
     end
     ph
 end
