@@ -504,6 +504,19 @@ class TESGroup(object):
             except:
                 self.set_chan_bad(chan, "summarize_data")
 
+    def calc_rows_after_last_external_trigger(self, forceNew=False):
+        ds = self.first_good_dataset
+        external_trigger_rowcount = ds.external_trigger_rowcount[:] #loading this dataset can be slow, so lets do it only once for the whole ChannelGroup
+        external_trigger_rowcount.dtype = np.int64
+        for ds in self:
+            try:
+                if "rows_after_last_external_trigger" in ds.hdf5_group and not forceNew:
+                    continue
+                rows_after = mass.mathstat.nearest_arrivals.nearest_arrivals(ds.p_rowcount[:], external_trigger_rowcount)
+                ds.hdf5_group["rows_after_last_external_trigger"] = rows_after
+                ds.rows_after_last_external_trigger = ds.hdf5_group["rows_after_last_external_trigger"]
+            except:
+                self.set_chan_bad(ds.channum, "calc_rows_after_last_external_trigger")
 
     def read_trace(self, record_num, dataset_num=0, chan_num=None):
         """Read (from cache or disk) and return the pulse numbered <record_num> for
