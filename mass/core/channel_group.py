@@ -299,7 +299,7 @@ class TESGroup(object):
         for chan, ds in zip(self.channels, self.datasets):
             ds.pulse_records = chan
         self._setup_channels_list()
-        if len(self.datasets)>0:
+        if len(self.datasets) > 0:
             self.timestamp_offset = self.first_good_dataset.timestamp_offset
 
         for ds in self:
@@ -347,9 +347,9 @@ class TESGroup(object):
         for k in added_to_list:
             if k in self._bad_channums:
                 comment = self._bad_channums.pop(k)
-                print("chan %d set good, had previously been set bad for %s"%(k, str(comment)))
+                print("chan %d set good, had previously been set bad for %s" % (k, str(comment)))
             else:
-                print("chan %d not set good because it was not set bad"%k)
+                print("chan %d not set good because it was not set bad" % k)
         self.update_chan_info()
 
     def set_chan_bad(self, *args):
@@ -371,7 +371,7 @@ class TESGroup(object):
 
         for k in added_to_list:
             self._bad_channums[k] = self._bad_channums.get(k, [])+[comment]
-            print('chan %s flagged bad because %s'%(k, comment))
+            print('chan %s flagged bad because %s' % (k, comment))
 
         self.update_chan_info()
 
@@ -389,7 +389,7 @@ class TESGroup(object):
 
     def _setup_channels_list(self):
         self.channel = {}
-        for ds_num,ds in enumerate(self.datasets):
+        for ds_num, ds in enumerate(self.datasets):
             try:
                 ds.index = ds_num
                 self.channel[ds.channum] = ds
@@ -531,13 +531,12 @@ class TESGroup(object):
         else:
             dataset = self.datasets[dataset_num]
             if chan_num is not None:
-                print "Cannot find chan_num[%d], so using dataset #%d" % (
-                                            chan_num, dataset_num)
+                print "Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num)
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
                                    residual, valid_status)
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
-                        dataset_numbers=None):
+                       dataset_numbers=None):
         """Plot a summary of one quantity from the data set, including time series and histograms of
         this quantity.  This method plots all channels in the group, but only one quantity.  If you
         would rather see all quantities for one channel, then use the group's
@@ -591,7 +590,7 @@ class TESGroup(object):
 
         plt.clf()
         ny_plots = len(datasets)
-        for i, (channum,ds) in enumerate(zip(dataset_numbers, datasets)):
+        for i, (channum, ds) in enumerate(zip(dataset_numbers, datasets)):
             print 'TES%2d ' % channum,
 
             # Convert "uncut" or "cut" to array of all good or all bad data
@@ -611,7 +610,7 @@ class TESGroup(object):
             if valid_mask is not None:
                 nrecs = valid_mask.sum()
                 if downsample is None:
-                    downsample=nrecs/10000
+                    downsample = nrecs/10000
                     if downsample < 1:
                         downsample = 1
                 hour = ds.p_timestamp[valid_mask][::downsample]/3600.0
@@ -622,8 +621,7 @@ class TESGroup(object):
                     if downsample < 1:
                         downsample = 1
                 hour = ds.p_timestamp[::downsample]/3600.0
-            print " (%d records; %d in scatter plots)" % (
-                nrecs, len(hour))
+            print " (%d records; %d in scatter plots)" % (nrecs, len(hour))
 
             (vect, label, color, default_limits) = plottable
             if hist_limits is None:
@@ -631,7 +629,7 @@ class TESGroup(object):
             else:
                 limits = hist_limits
 
-            vect = eval("ds.%s"%vect)[valid_mask]
+            vect = eval("ds.%s" % vect)[valid_mask]
 
             # Scatter plots on left half of figure
             if i == 0:
@@ -642,7 +640,7 @@ class TESGroup(object):
             if len(vect) > 0:
                 plt.plot(hour, vect[::downsample], '.', ms=1, color=color)
             else:
-                plt.text(.5,.5,'empty', ha='center', va='center', size='large',
+                plt.text(.5, .5, 'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
             if i == 0:
                 plt.title(label)
@@ -667,7 +665,7 @@ class TESGroup(object):
                 plt.text(.5, .5, 'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
             else:
-                contents, _bins, _patches = plt.hist(vect[in_limit],200, log=log,
+                contents, _bins, _patches = plt.hist(vect[in_limit], 200, log=log,
                                                      histtype='stepfilled', fc=color, alpha=0.5)
             if i == ny_plots-1:
                 plt.xlabel(label)
@@ -691,7 +689,8 @@ class TESGroup(object):
         """
 
         for ds in self:
-            if ds.nPulses == 0: self.set_chan_bad(ds.channum, "has 0 pulses")
+            if ds.nPulses == 0:
+                self.set_chan_bad(ds.channum, "has 0 pulses")
 
         masks = []
         if use_gains:
@@ -895,7 +894,7 @@ class TESGroup(object):
         for ds in self.datasets:
             gain = ds.gain
             _ = plt.hist(ds.p_pulse_average[ds.cuts.good()]/gain, 200,
-                         [meangain*.8,meangain*1.2], alpha=0.5)
+                         [meangain*.8, meangain*1.2], alpha=0.5)
             print ds.p_pulse_average[ds.cuts.good()].mean()
         return meangain
 
@@ -979,8 +978,8 @@ class TESGroup(object):
         for i, ds in enumerate(self.datasets[first:first+nplot]):
             ax1 = plt.subplot(nplot, 2, 1+2*i)
             ax2 = plt.subplot(nplot, 2, 2+2*i)
-            ax1.set_title("chan %d signal" % (ds.channum))
-            ax2.set_title("chan %d baseline" % (ds.channum))
+            ax1.set_title("chan %d signal" % ds.channum)
+            ax2.set_title("chan %d baseline" % ds.channum)
             for ax in (ax1, ax2):
                 ax.set_xlim([0, self.nSamples])
 #             if 'filter' in ds.__dict__:
@@ -990,7 +989,7 @@ class TESGroup(object):
 
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
         rms_fwhm = np.sqrt(np.log(2)*8)  # FWHM is this much times the RMS
-        print 'V/dV for time, Fourier filters: '
+        print('V/dV for time, Fourier filters: ')
         for i, ds in enumerate(self):
             try:
                 if ds.filter is not None:
@@ -1086,7 +1085,7 @@ class TESGroup(object):
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse-1.0)/dt
 #            grate = (ng-1.0)/dt
-            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good'%(
+            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' % (
                                    ds.channum, npulse, rate, dt/3600., 100.0*ng/npulse)
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
@@ -1106,10 +1105,11 @@ class TESGroup(object):
             cmap = plt.cm.get_cmap("spectral")
 
         axis.grid(True)
-        for i,ds in enumerate(self.datasets):
-            if i not in channels: continue
+        for i, ds in enumerate(self.datasets):
+            if i not in channels:
+                continue
             noise = ds.noise_records
-            noise.plot_autocorrelation(axis=axis, label='TES %d'%i,
+            noise.plot_autocorrelation(axis=axis, label='TES %d' % i,
                                        color=cmap(float(i)/self.n_channels))
 #        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         axis.set_xlabel("Time lag (ms)")
@@ -1121,7 +1121,7 @@ class TESGroup(object):
         filename += '.energies'
         energy = []
         for ds in self:
-            energy=np.hstack((energy,ds.p_energy[ds.cuts.good()]))
+            energy = np.hstack((energy, ds.p_energy[ds.cuts.good()]))
         np.savetxt(filename, energy, fmt='%.10e')
 
     def copy(self):
@@ -1135,12 +1135,11 @@ class TESGroup(object):
         # Ensure they are compatible
         print('join probably doesnt work since galen messed with it moving things inside datasets')
         for g in others:
-            for attr in ('nPresamples','nSamples', 'noise_only', 'timebase'):
+            for attr in ('nPresamples', 'nSamples', 'noise_only', 'timebase'):
                 if g.__dict__[attr] != self.__dict__[attr]:
-                    raise RuntimeError("All objects must agree on group.%s"%attr)
+                    raise RuntimeError("All objects must agree on group.%s" % attr)
 
         for g in others:
-            #n_extra = self.n_channels
             self.datasets += g.datasets
             self.n_channels += g.n_channels
             self.n_segments = max(self.n_segments, g.n_segments)
@@ -1168,7 +1167,7 @@ class TESGroup(object):
         if segnum == self._cached_segment and use_cache:
             return self._cached_pnum_range
 
-        first_pnum,end_pnum = -1, -1
+        first_pnum, end_pnum = -1, -1
         for ds in self.datasets:
             a, b = ds.read_segment(segnum)
 
@@ -1179,7 +1178,7 @@ class TESGroup(object):
                     assert a == first_pnum
                 first_pnum = a
             if b >= end_pnum:
-                end_pnum=b
+                end_pnum = b
         self._cached_segment = segnum
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
@@ -1212,13 +1211,13 @@ class TESGroup(object):
             yvalue = ds.noise_records.noise_psd[:]*scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
-                axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)"%units)
+                axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)" % units)
             df = ds.noise_records.noise_psd.attrs['delta_f']
             freq = np.arange(1, 1+len(yvalue))*df
-            axis.plot(freq, yvalue, label='TES chan %d'%ds.channum,
+            axis.plot(freq, yvalue, label='TES chan %d' % ds.channum,
                       color=cmap(float(ds_num)/self.n_channels))
         axis.set_xlim([freq[1]*0.9, freq[-1]*1.1])
-        axis.set_ylabel("Power Spectral Density (%s^2/Hz)"%units)
+        axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
 
         axis.loglog()
@@ -1280,7 +1279,8 @@ class TESGroup(object):
         self.convert_to_energy(attr, attr+name_ext)
 
     def convert_to_energy(self, attr, calname=None):
-        if calname is None: calname = attr
+        if calname is None:
+            calname = attr
         print("for all channels converting %s to energy with calibration %s" % (attr, calname))
         for ds in self:
             ds.convert_to_energy(attr, calname)
@@ -1383,14 +1383,14 @@ class CrosstalkVeto(object):
         for ds in datagroup.datasets:
             g = ds.cuts.good()
             vetotimes = np.asarray(ds.p_timestamp[g]*1e3-ms0, dtype=np.int64)
-            vetotimes[vetotimes<0] = 0
+            vetotimes[vetotimes < 0] = 0
             print vetotimes, len(vetotimes), 1.0e3*ds.nPulses/(ms9-ms0),
             a, b = window_ms
             b += 1
             for t in vetotimes:
                 self.nhits[t+a:t+b] += 1
 
-            pileuptimes = vetotimes[ds.p_postpeak_deriv[g]>pileup_limit]
+            pileuptimes = vetotimes[ds.p_postpeak_deriv[g] > pileup_limit]
             print len(pileuptimes)
             for t in pileuptimes:
                 self.nhits[t+b:t+b+8] += 1
