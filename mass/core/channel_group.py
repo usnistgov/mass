@@ -105,6 +105,22 @@ class TESGroup(object):
 
     BRIGHT_ORANGE = '#ff7700'
 
+    DEFAULT_BOOLEAN_CUT_FIELDS = ['pretrigger_rms',
+                                  'pretrigger_mean',
+                                  'pretrigger_mean_departure_from_median',
+                                  'peak_time_ms',
+                                  'rise_time_ms',
+                                  'postpeak_deriv',
+                                  'pulse_average',
+                                  'min_value',
+                                  'timestamp_sec',
+                                  'timestamp_diff_sec',
+                                  'peak_value',
+                                  'energy',
+                                  'timing',
+                                  "p_filt_phase",
+                                  'smart_cuts']
+
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
                  hdf5_filename=None, hdf5_noisefilename=None):
@@ -136,6 +152,22 @@ class TESGroup(object):
             self.filenames = tuple(filenames)
             self.n_channels = len(self.filenames)
             self.hdf5_file = h5py.File(hdf5_filename, 'a')
+
+        # Cut parameter description need to initialized.
+        # Cut parameters may be different from one TESGroup object to other TESGroup object.
+        # I think that's why this cannot be a static variable.
+        self._cut_boolean_fields = {}
+        self._cut_boolean_fields_by_idx = {}
+        self._cut_compound_fields = {}
+        self._cut_categorical_fields = {}
+        self._cut_n_used_bits = 0
+
+        try:
+            cut_boolean_fields = self.hdf5_file.attrs["cut_boolean_fields"]
+            cut_compound_fields = self.hdf5_file.attrs["cut_compound_fields"]
+            cut_categorical_fields = self.hdf5_file.attrs["cut_categorical_fields"]
+        except (AttributeError, KeyError):
+
 
         # Same for noise filenames
         self.noise_filenames = None
