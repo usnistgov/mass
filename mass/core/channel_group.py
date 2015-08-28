@@ -85,9 +85,9 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
     h5file.close()
 
     if hdf5noisename is not None:
-        h5file = h5py.File(hdf5noisename,"r")
+        h5file = h5py.File(hdf5noisename, "r")
         for ch in channum:
-            group = h5file['chan%d'%ch]
+            group = h5file['chan%d' % ch]
             noisefiles.append(group.attrs['filename'])
         h5file.close()
     else:
@@ -162,9 +162,9 @@ class TESGroup(object):
         self._allowed_pnum_ranges = None
         self._allowed_segnums = None
         self.pulses_per_seg = None
-        self._bad_channums=dict()
+        self._bad_channums = dict()
 
-        if self.n_channels <=4:
+        if self.n_channels <= 4:
             self.colors = ("blue", "#aaaa00", "green", "red")
         else:
             self.colors = ('purple', "blue", "cyan", "green", "gold", self.BRIGHT_ORANGE, "red", "brown")
@@ -282,8 +282,8 @@ class TESGroup(object):
                 for attr in ("nSamples", "nPresamples", "timebase"):
                     if self.__dict__[attr] != noise.__dict__[attr]:
                         raise ValueError(
-                             "Unequal values of %s: %f != %f" % (attr, float(self.__dict__[attr]),
-                                                                 float(noise.__dict__[attr])))
+                            "Unequal values of %s: %f != %f" % (attr, float(self.__dict__[attr]),
+                                                                float(noise.__dict__[attr])))
             self.n_segments = max(self.n_segments, noise.n_segments)
             self.nPulses = max(self.nPulses, noise.nPulses)
 
@@ -570,7 +570,7 @@ class TESGroup(object):
             ("p_pulse_average", 'Pulse Avg', 'purple', [0, 5000]),
             ("p_pretrig_rms", 'Pretrig RMS', 'blue', [0, 4000]),
             ("p_pretrig_mean", 'Pretrig Mean', 'green', None),
-            ("p_peak_value", 'Peak value', '#88cc00',None),
+            ("p_peak_value", 'Peak value', '#88cc00', None),
             ("p_postpeak_deriv", 'Max PT deriv', 'gold', [0, 700]),
             ("p_rise_time[:]*1e3", 'Rise time (ms)', 'orange', [0, 12]),
             ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3, 9])
