@@ -6,6 +6,9 @@ Created on Feb 16, 2011
 
 __all__=['NoiseRecords', 'PulseRecords', 'Cuts', 'MicrocalDataSet']
 
+import functools
+import operator
+
 import numpy as np
 import scipy as sp
 import pylab as plt
@@ -507,49 +510,203 @@ class PulseRecords(object):
 class Cuts(object):
     "Object to hold a 32-bit cut mask for each triggered record."
 
+    _boolean_fields = {}
+    _boolean_fields_by_idx = {}
+
+    _compound_fields = {}
+
+    _categorical_fields = {}
+
+    _n_used_bits = 0
+
     def __init__(self, n, hdf5_group=None):
         "Create an object to hold n masks of 32 bits each"
         self.hdf5_group = hdf5_group
         if hdf5_group is None:
-            self._mask = np.zeros( n, dtype=np.int32 )
+            self._mask = np.zeros(n, dtype=np.int32)
         else:
             self._mask = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.int32)
 
-    def cut(self, cutnum, mask):
-        if cutnum < 0 or cutnum >= 32:
-            raise ValueError("cutnum must be in the range [0,31] inclusive")
-        assert(mask.size == self._mask.size)
-        bitval = 1<<cutnum
-        self._mask[mask] |= bitval
+    @classmethod
+    def register_boolean_fields(cls, *field_names):
+        if cls._n_used_bits + len(field_names) > 32:
+            raise ValueError("Not enough bits for another set of boolean field.")
+        for field_name in field_names:
+            field_prop = {'name': field_name, 'pos': cls._n_used_bits, 'mask': np.uint32(1 << cls._n_used_bits)}
+            cls._boolean_fields[field_name] = field_prop
+            cls._boolean_fields_by_idx[cls._n_used_bits] = field_prop
+            cls._n_used_bits += 1
 
-    def clearCut(self, cutnum):
-        if cutnum < 0 or cutnum >= 32:
-            raise ValueError("cutnum must be in the range [0,31] inclusive")
-        bitmask = ~(1<<cutnum)
-        self._mask[:] &= bitmask
+    @classmethod
+    def register_compound_field(cls, field_name, sub_field_names):
+        mask = np.uint32(0)
+        for sub_field_name in sub_field_names:
+            mask |= cls._boolean_fields[sub_field_name]["mask"]
+
+        cls._compound_fields[field_name] = {"name": field_name, "num_components": len(sub_field_names),
+                                            "mask": mask}
+
+    @classmethod
+    def register_categorical_field(cls, field_name, categories):
+        n_bits = 1
+        while True:
+            if len(categories) > (1 << n_bits):
+                n_bits += 1
+                continue
+            break
+
+        if cls._n_used_bits + n_bits > 32:
+            raise ValueError("Not enough bits for another categorial field.")
+
+        cls._categorical_fields[field_name] = {"name": field_name,
+                                               "pos": cls._n_used_bits,
+                                               "num_bits": n_bits,
+                                               "mask": np.uint32(((1 << n_bits) - 1) << cls._n_used_bits),
+                                               "categories": categories}
+        cls._n_used_bits += n_bits
+
+    @classmethod
+    def _get_boolean_field_prop(cls, k):
+        prop = cls._boolean_fields.get(k, None) or cls._boolean_fields_by_idx.get(k, None)
+        if prop is None:
+            raise ValueError(str(k) + " is not found!")
+
+        return prop
+
+    @classmethod
+    def _convert_to_field_names(cls, fields):
+        names = []
+        for field in fields:
+            if type(field) is int:
+                names.append(cls._boolean_fields_by_idx[field]['name'])
+            else:
+                names.append(field)
+
+        return names
+
+    def cut(self, cutnum, mask):
+        """
+        Set the mask of a single field. It could be a boolean or categorical field.
+        """
+        assert(mask.size == self._mask.size)
+        if type(cutnum) is int:
+            cut_name = self._boolean_fields_by_idx[cutnum]["name"]
+        else:
+            cut_name = cutnum
+
+        if cut_name in self._boolean_fields:
+            self._mask[mask] |= self._boolean_fields[cut_name]["mask"]
+        elif cut_name in self._categorical_fields:
+            prop = self._categorical_fields[cut_name]
+            temp = self._mask[...] & ~prop["mask"]
+            self._mask[...] = (temp | (mask << prop["pos"]))
+
+    def select_category(self, **kwargs):
+        category_field_bit_mask = np.uint32(0)
+        category_field_target_bits = np.uint32(0)
+
+        for name, category_label in kwargs.iteritems():
+            prop = self._categorical_fields[name]
+            try:
+                category = prop["categories"].index(category_label)
+            except ValueError:
+                raise ValueError(category_label + " is not valid category of " + name + ".")
+            if (category < 0) or (category >= len(prop["categories"])):
+                raise ValueError("Category is out of range")
+
+            category_field_bit_mask |= prop["mask"]
+            category_field_target_bits |= (category << prop["pos"])
+
+        category_mask = (self._mask[...] & category_field_bit_mask) == category_field_target_bits
+
+        return category_mask
+
+    def clearCut(self, *args):
+        """
+        Clear one or more boolean fields.
+        """
+
+        bit_mask = np.uint32(0)
+
+        field_props = [self._get_boolean_field_prop(arg) for arg in args]
+
+        for prop in field_props:
+            bit_mask |= prop["mask"]
+
+        self._mask[:] &= ~bit_mask
 
     def clearAll(self):
-        self._mask[:] = 0
+        """
+        Clear all boolean fields
+        """
+        self.clearCut(*self._boolean_fields.keys())
 
-    def good(self):
-        return np.logical_not(self._mask)
+    def _boolean_fields_bit_mask(self, names):
+        bit_mask = np.uint32(0)
 
-    def bad(self):
-        return self._mask[:] != 0
+        for name in names:
+            prop = self._boolean_fields.get(name, None) or self._compound_fields.get(name, None)
+            if prop is None:
+                raise ValueError(name + " is not found.")
+            bit_mask |= prop["mask"]
 
-    def isCut(self, cutnum=None):
-        if cutnum is None: return self.bad()
-        return (self._mask[:] & (1<<cutnum)) != 0
+        return bit_mask
 
-    def isUncut(self, cutnum=None):
-        if cutnum is None: return self.good()
-        return (self._mask[:] & (1<<cutnum)) == 0
+    def good(self, *args, **kwargs):
+        if args:
+            bit_mask = self._boolean_fields_bit_mask(args)
+        else:
+            bit_mask = self._boolean_fields_bit_mask(self._boolean_fields.keys())
 
-    def nCut(self):
-        return (self._mask[:] != 0).sum()
+        g = ((self._mask[...] & bit_mask) == 0)
+
+        if kwargs:
+            return g & self.select_category(**kwargs)
+
+        return g
+
+
+    def bad(self, *args, **kwargs):
+        if args:
+            bit_mask = self._boolean_fields_bit_mask(args)
+        else:
+            bit_mask = self._boolean_fields_bit_mask(self._boolean_fields.keys())
+
+        g = ((self._mask[...] & bit_mask != 0))
+
+        if kwargs:
+            return g & self.select_category(**kwargs)
+
+        return g
+
+    def isCut(self, *args, **kwargs):
+        """
+        You can use the bad method instead.
+        """
+        return self.bad(*self._convert_to_field_names(args), **kwargs)
+
+    def isUncut(self, *args, **kwargs):
+        """
+        You can use the good method instead.
+        """
+        return self.good(*self._convert_to_field_names(args), **kwargs)
+
+    def nCut(self, *args, **kwargs):
+        g = self.bad(*args)
+
+        if kwargs:
+            g &= self.select_category(**kwargs)
+
+        return g.sum()
+
 
     def nUncut(self):
-        return (self._mask[:] == 0).sum()
+        g = self.good(*args)
+
+        if kwargs:
+            g &= self.select_category(**kwargs)
+
+        return g.sum()
 
     def __repr__(self):
         return "Cuts(%d)"%len(self._mask)
@@ -585,6 +742,8 @@ class MicrocalDataSet(object):
                 'timing',
                 "p_filt_phase",
                 'smart_cuts']
+
+    Cuts.register_boolean_fields(*CUT_NAME)
 
     # Attributes that all such objects must have.
     expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum",
