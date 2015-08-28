@@ -32,7 +32,8 @@ from mass.core.utilities import InlineUpdater
 from mass.core.channel import PulseRecords, NoiseRecords
 
 
-class FilterCanvas: pass
+class FilterCanvas(object):
+    pass
 
 
 def _generate_hdf5_filename(rawname):
@@ -205,7 +206,7 @@ class TESGroup(object):
                 nf = self.noise_filenames[i]
                 hdf5_group.attrs['noise_filename'] = nf
                 try:
-                    hdf5_noisegroup = self.hdf5_noisefile.require_group("chan%d"%pulse.channum)
+                    hdf5_noisegroup = self.hdf5_noisefile.require_group("chan%d" % pulse.channum)
                     hdf5_noisegroup.attrs['filename'] = nf
                 except:
                     hdf5_noisegroup = None
@@ -213,7 +214,7 @@ class TESGroup(object):
                                      hdf5_group=hdf5_noisegroup)
 
                 if pulse.channum != noise.channum:
-                    print("TESGroup did not add data: channums don't match %s, %s"%(fname, nf))
+                    print("TESGroup did not add data: channums don't match %s, %s" % (fname, nf))
                     continue
                 dset.noise_records = noise
                 assert(dset.channum == dset.noise_records.channum)
@@ -476,7 +477,7 @@ class TESGroup(object):
             if segment_mask is not None:
                 if not segment_mask[i]:
                     print 'We can skip segment %4d' % i
-                    continue # Don't need anything in this segment.  Sweet!
+                    continue  # Don't need anything in this segment.  Sweet!
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
 
@@ -621,7 +622,7 @@ class TESGroup(object):
                     if downsample < 1:
                         downsample = 1
                 hour = ds.p_timestamp[::downsample]/3600.0
-            print " (%d records; %d in scatter plots)" % (nrecs, len(hour))
+            print " (%d records; %d in scatter plots)" % (nrecs, hour.shape[0])
 
             (vect, label, color, default_limits) = plottable
             if hist_limits is None:
@@ -791,7 +792,7 @@ class TESGroup(object):
         # Make sure that masks is either a 2D or 1D array of the right shape,
         # or a sequence of 1D arrays of the right shape
         if isinstance(masks, np.ndarray):
-            nd = len(masks.shape)
+            nd = masks.ndim
             if nd == 1:
                 n = len(masks)
                 masks = masks.reshape((n/self.nPulses, self.nPulses))
@@ -1085,8 +1086,8 @@ class TESGroup(object):
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse-1.0)/dt
 #            grate = (ng-1.0)/dt
-            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' % (
-                                   ds.channum, npulse, rate, dt/3600., 100.0*ng/npulse)
+            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' % \
+                  (ds.channum, npulse, rate, dt/3600., 100.0*ng/npulse)
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
         """Compare the noise autocorrelation functions.
@@ -1365,7 +1366,7 @@ class CrosstalkVeto(object):
     An object to allow vetoing of data in 1 channel when another is hit
     """
 
-    def __init__(self, datagroup, window_ms=(-10,3), pileup_limit=100):
+    def __init__(self, datagroup, window_ms=(-10, 3), pileup_limit=100):
         if datagroup is None:
             return
 
