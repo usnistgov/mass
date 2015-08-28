@@ -752,7 +752,7 @@ class MicrocalDataSet(object):
     HDF5_CHUNK_SIZE = 256
 
 
-    def __init__(self, pulserec_dict, hdf5_group=None):
+    def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None):
         """
         Pass in a dictionary (presumably that of a PulseRecords object)
         containing the expected attributes that must be copied to this
@@ -776,6 +776,7 @@ class MicrocalDataSet(object):
         self.index = None   # Index in the larger TESGroup or CDMGroup object
         self.last_used_calibration = None
 
+        self.tes_group = tes_group
         try:
             self.hdf5_group = hdf5_group
             self.hdf5_group.attrs['npulses'] = self.nPulses
