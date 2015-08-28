@@ -1,7 +1,5 @@
 from numpy.math cimport INFINITY
-from libc.stdint cimport uint32_t, int64_t
 cimport cython
-cimport numpy as cnp
 import numpy as np
 
 @cython.boundscheck(False)
@@ -46,12 +44,12 @@ cpdef nearest_arrivals_float(double[:] pulse_timestamps, double[:] external_trig
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef nearest_arrivals(int64_t[:] pulse_timestamps, int64_t[:] external_trigger_timestamps):
+cpdef nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigger_timestamps):
     cdef:
         Py_ssize_t num_pulses, num_triggers
         Py_ssize_t i = 0, j = 0, t
-        int64_t[:] delay_from_trigger
-        int64_t a = np.iinfo(np.int64).min, b, pt
+        long long[:] delay_from_trigger
+        long long a = np.iinfo(np.int64).min, b, pt
 
     num_pulses = pulse_timestamps.shape[0]
     num_triggers = external_trigger_timestamps.shape[0]
