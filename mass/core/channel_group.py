@@ -121,6 +121,17 @@ class TESGroup(object):
                                   "p_filt_phase",
                                   'smart_cuts']
 
+    __cut_boolean_field_desc_dtype = np.dtype([("name", np.str_, 64),
+                                               ("mask", np.uint32)])
+    __cut_compound_fields_desc_dtype = np.dtype([("name", np.str_, 64),
+                                                 ("boolean_subfield", np.str_, 64)])
+    __cut_categorical_field_desc_dtype = np.dtype([("name", np.str_, 64),
+                                                   ("pos", np.uint8),
+                                                   ("mask", np.uint32)])
+    __cut_category_list_dtype = np.dtype([("field", np.str_, 64),
+                                          ("category", np.str_, 64),
+                                          ("index", np.uint8)])
+
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
                  hdf5_filename=None, hdf5_noisefilename=None):
@@ -154,20 +165,22 @@ class TESGroup(object):
             self.hdf5_file = h5py.File(hdf5_filename, 'a')
 
         # Cut parameter description need to initialized.
-        # Cut parameters may be different from one TESGroup object to other TESGroup object.
-        # I think that's why this cannot be a static variable.
-        self._cut_boolean_fields = {}
-        self._cut_boolean_fields_by_idx = {}
-        self._cut_compound_fields = {}
-        self._cut_categorical_fields = {}
-        self._cut_n_used_bits = 0
+        if self.hdf5_file:
+            if "cut_num_used_bits" not in self.hdf5_file.attrs:
+                self.hdf5_file.attrs["cut_num_used_bits"] = 0
 
-        try:
-            cut_boolean_fields = self.hdf5_file.attrs["cut_boolean_fields"]
-            cut_compound_fields = self.hdf5_file.attrs["cut_compound_fields"]
-            cut_categorical_fields = self.hdf5_file.attrs["cut_categorical_fields"]
-        except (AttributeError, KeyError):
+            if "cut_boolean_field_desc" not in self.hdf5_file.attrs:
+                self.hdf5_file.attrs["cut_boolean_field_desc"] = np.zeros(32, dtype=self.__cut_boolean_field_desc_dtype)
+                self.register_boolean_cut_fields(*self.DEFAULT_BOOLEAN_CUT_FIELDS)
 
+            for name, dtype in zip(["cut_categorical_field_desc",
+                                    "cut_category_list",
+                                    "cut_compound_field_desc"],
+                                   [self.__cut_categorical_field_desc_dtype,
+                                    self.__cut_category_list_dtype,
+                                    self.__cut_compound_fields_desc_dtype]):
+                if name not in self.hdf5_file.attrs:
+                    self.hdf5_file.attrs[name] = np.zeros(0, dtype=dtype)
 
         # Same for noise filenames
         self.noise_filenames = None
@@ -209,6 +222,45 @@ class TESGroup(object):
         if max_cachesize is not None:
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
                 self.set_segment_size(max_cachesize / self.n_channels)
+
+    def register_boolean_cut_fields(self, *names):
+        num_used_bits = self.hdf5_file.attrs["cut_num_used_bits"]
+
+        new_fields = []
+        for name in names:
+            if not np.any(self.hdf5_file.attrs["cut_boolean_field_desc"]["name"] == name):
+                new_fields.append(name)
+
+        if new_fields:
+            new_boolean_field_desc = np.array([(name, 1 << (i + num_used_bits)) for i, name in enumerate(new_fields)],
+                                              dtype=self.__cut_boolean_field_desc_dtype)
+            old_desc = self.hdf5_file.attrs["cut_boolean_field_desc"]
+            old_desc[num_used_bits:num_used_bits + len(new_fields)] = new_boolean_field_desc
+            self.hdf5_file.attrs["cut_boolean_field_desc"] = old_desc
+            self.hdf5_file.attrs["cut_num_used_bits"] += len(new_fields)
+
+    def register_compound_cut_fields(self, name, sub_fields):
+        pass
+
+    def register_categorical_cut_field(self, name, categories):
+        if np.any(self.hdf5_file.attrs["cut_categorical_field_desc"]["name"] == name):
+            return
+
+        category_list = np.array([(name, category, i) for i, category in enumerate(["uncategorized"] + categories)],
+                                 dtype=self.__cut_category_list_dtype)
+        self.hdf5_file.attrs["cut_category_list"] = np.hstack([self.hdf5_file.attrs["cut_category_list"],
+                                                               category_list])
+        num_bits = 1
+        while (1 << num_bits) < (len(categories) + 1):
+            num_bits += 1
+
+        field_desc_item = np.array([(name,
+                                     self.hdf5_file.attrs["cut_num_used_bits"],
+                                     ((1 << num_bits) - 1) << self.hdf5_file.attrs["cut_num_used_bits"])],
+                                   dtype=self.__cut_categorical_field_desc_dtype)
+        self.hdf5_file.attrs["cut_categorical_field_desc"] = np.hstack([self.hdf5_file.attrs["cut_categorical_field_desc"],
+                                                                       field_desc_item])
+        self.hdf5_file.attrs["cut_num_used_bits"] += num_bits
 
     def _setup_per_channel_objects(self, noise_is_continuous=True):
         pulse_list = []

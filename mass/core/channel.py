@@ -512,6 +512,7 @@ class Cuts(object):
 
     _boolean_fields = {}
     _boolean_fields_by_idx = {}
+    # name, pos, mask
 
     _compound_fields = {}
 
@@ -519,8 +520,9 @@ class Cuts(object):
 
     _n_used_bits = 0
 
-    def __init__(self, n, hdf5_group=None):
+    def __init__(self, n, tes_group, hdf5_group=None):
         "Create an object to hold n masks of 32 bits each"
+        self.tes_group = tes_group
         self.hdf5_group = hdf5_group
         if hdf5_group is None:
             self._mask = np.zeros(n, dtype=np.int32)
@@ -589,33 +591,48 @@ class Cuts(object):
         Set the mask of a single field. It could be a boolean or categorical field.
         """
         assert(mask.size == self._mask.size)
-        if type(cutnum) is int:
-            cut_name = self._boolean_fields_by_idx[cutnum]["name"]
-        else:
-            cut_name = cutnum
 
-        if cut_name in self._boolean_fields:
-            self._mask[mask] |= self._boolean_fields[cut_name]["mask"]
-        elif cut_name in self._categorical_fields:
-            prop = self._categorical_fields[cut_name]
-            temp = self._mask[...] & ~prop["mask"]
-            self._mask[...] = (temp | (mask << prop["pos"]))
+        boolean_field = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+        categorical_field = self.tes_group.hdf5_file.attrs["cut_categorical_field_desc"]
+
+        if type(cutnum) is int:
+            if (cutnum < 0) or (cutnum > 31):
+                raise ValueError(str(cutnum) + "is out of range.")
+            _, bit_mask = boolean_field[cutnum]
+            self._mask[mask] |= bit_mask
+        elif type(cutnum) is str:
+            boolean_g = (boolean_field["name"] == cutnum)
+            if np.any(boolean_g):
+                _, bit_mask = desc[boolean_g][0]
+                self._mask[mask] |= bit_mask
+            else:
+                categorical_g = (categorical_field["name"] == cutnum)
+                if np.any(categorical_g):
+                    _, bit_pos, bit_mask = categorical_field[categorical_g][0]
+                    temp = self._mask[...] & bit_mask
+                    self._mask[...] = (temp | (mask << bit_pos))
+                else:
+                    raise ValueError(cut_num + " field is not found.")
 
     def select_category(self, **kwargs):
         category_field_bit_mask = np.uint32(0)
         category_field_target_bits = np.uint32(0)
 
-        for name, category_label in kwargs.iteritems():
-            prop = self._categorical_fields[name]
-            try:
-                category = prop["categories"].index(category_label)
-            except ValueError:
-                raise ValueError(category_label + " is not valid category of " + name + ".")
-            if (category < 0) or (category >= len(prop["categories"])):
-                raise ValueError("Category is out of range")
+        categorical_field = self.tes_group.hdf5_file.attrs["cut_categorical_field_desc"]
+        category_list = self.tes_group.hdf5_file.attrs["cut_category_list"]
 
-            category_field_bit_mask |= prop["mask"]
-            category_field_target_bits |= (category << prop["pos"])
+        for name, category_label in kwargs.iteritems():
+            categorical_g = (categorical_field["name"] == name)
+            category_g = (category_list["field"] == name)
+            category_list = category_list[category_g]
+            category_g = (category_list["category"] == category_label)
+
+            _, bit_pos, bit_mask = categorical_field[categorical_g][0]
+            _, _, category = category_list[category_g][0]
+            category = np.uint32(category)
+
+            category_field_bit_mask |= bit_mask
+            category_field_target_bits |= (category << bit_pos)
 
         category_mask = (self._mask[...] & category_field_bit_mask) == category_field_target_bits
 
@@ -643,12 +660,16 @@ class Cuts(object):
 
     def _boolean_fields_bit_mask(self, names):
         bit_mask = np.uint32(0)
+        boolean_field = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
 
         for name in names:
-            prop = self._boolean_fields.get(name, None) or self._compound_fields.get(name, None)
-            if prop is None:
+            boolean_g = (boolean_field["name"] == name)
+
+            if not np.any(boolean_g):
                 raise ValueError(name + " is not found.")
-            bit_mask |= prop["mask"]
+
+            _, mask = boolean_field[boolean_g][0]
+            bit_mask |= mask
 
         return bit_mask
 
@@ -656,7 +677,9 @@ class Cuts(object):
         if args:
             bit_mask = self._boolean_fields_bit_mask(args)
         else:
-            bit_mask = self._boolean_fields_bit_mask(self._boolean_fields.keys())
+            boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+            all_boolean_fields = [name for name in boolean_fields["name"] if len(name) > 0]
+            bit_mask = self._boolean_fields_bit_mask(all_boolean_fields)
 
         g = ((self._mask[...] & bit_mask) == 0)
 
@@ -670,7 +693,9 @@ class Cuts(object):
         if args:
             bit_mask = self._boolean_fields_bit_mask(args)
         else:
-            bit_mask = self._boolean_fields_bit_mask(self._boolean_fields.keys())
+            boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+            all_boolean_fields = [name for name in boolean_fields["name"] if len(name) > 0]
+            bit_mask = self._boolean_fields_bit_mask(all_boolean_fields)
 
         g = ((self._mask[...] & bit_mask != 0))
 
@@ -700,7 +725,7 @@ class Cuts(object):
         return g.sum()
 
 
-    def nUncut(self):
+    def nUncut(self, *args, **kwargs):
         g = self.good(*args)
 
         if kwargs:
@@ -825,7 +850,7 @@ class MicrocalDataSet(object):
         self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
                                                     dtype=np.float64)
         grp = self.hdf5_group.require_group('cuts')
-        self.cuts = Cuts(self.nPulses, hdf5_group=grp)
+        self.cuts = Cuts(self.nPulses, self.tes_group, hdf5_group=grp)
 
 
 
