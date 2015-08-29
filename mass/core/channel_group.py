@@ -1203,8 +1203,8 @@ class TESGroup(object):
         Report on the number of data points and similar
         """
         for ds in self.datasets:
-            ng = ds.cuts.n_uncut()
             good = ds.cuts.good()
+            ng = ds.cuts.good().sum()
             dt = (ds.p_timestamp[good][-1]*1.0 - ds.p_timestamp[good][0])  # seconds
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse-1.0)/dt
