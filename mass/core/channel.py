@@ -576,6 +576,12 @@ class Cuts(object):
 
         return category_mask
 
+    def category(self, name):
+        categorical_field = self.tes_group.categorical_cut_desc
+        _, bit_pos, bit_mask = categorical_field[categorical_field["name"] == name]
+
+        return (self._mask[...] & bit_mask) >> bit_pos
+
     def clear_cut(self, *args):
         """
         Clear one or more boolean fields.
