@@ -525,8 +525,8 @@ class Cuts(object):
         """
         assert(mask.size == self._mask.size)
 
-        boolean_field = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
-        categorical_field = self.tes_group.hdf5_file.attrs["cut_categorical_field_desc"]
+        boolean_field = self.tes_group.boolean_cut_desc
+        categorical_field = self.tes_group.categorical_cut_desc
 
         if type(cut_num) is int:
             if (cut_num < 0) or (cut_num > 31):
@@ -551,8 +551,8 @@ class Cuts(object):
         category_field_bit_mask = np.uint32(0)
         category_field_target_bits = np.uint32(0)
 
-        categorical_field = self.tes_group.hdf5_file.attrs["cut_categorical_field_desc"]
-        category_list = self.tes_group.hdf5_file.attrs["cut_category_list"]
+        categorical_field = self.tes_group.categorical_cut_desc
+        category_list = self.tes_group.cut_category_list
 
         for name, category_label in kwargs.iteritems():
             categorical_g = (categorical_field["name"] == name)
@@ -576,7 +576,7 @@ class Cuts(object):
         if args:
             bit_mask = self._boolean_fields_bit_mask(args)
         else:
-            boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+            boolean_fields = self.tes_group.boolean_cut_desc
             all_boolean_fields = [name for name in boolean_fields["name"] if len(name) > 0]
             bit_mask = self._boolean_fields_bit_mask(all_boolean_fields)
 
@@ -586,10 +586,10 @@ class Cuts(object):
         """
         Clear all boolean fields
         """
-        self.clearCut(*self._boolean_fields.keys())
+        self.clearCut()
 
     def _boolean_fields_bit_mask(self, names):
-        boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+        boolean_fields = self.tes_group.boolean_cut_desc
         all_field_names = set([n for n in boolean_fields["name"] if n])
 
         not_found_fields = set(names) - all_field_names
@@ -606,7 +606,7 @@ class Cuts(object):
         if args:
             bit_mask = self._boolean_fields_bit_mask(args)
         else:
-            boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+            boolean_fields = self.tes_group.boolean_cut_desc
             all_bit_masks = [mask for name, mask in boolean_fields if name]
             bit_mask = functools.reduce(operator.or_, all_bit_masks, np.uint32(0))
 
@@ -621,7 +621,7 @@ class Cuts(object):
         if args:
             bit_mask = self._boolean_fields_bit_mask(args)
         else:
-            boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+            boolean_fields = self.tes_group.boolean_cut_desc
             all_bit_masks = [mask for name, mask in boolean_fields if name]
             bit_mask = functools.reduce(operator.or_, all_bit_masks, np.uint32(0))
 

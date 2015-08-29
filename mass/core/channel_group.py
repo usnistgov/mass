@@ -219,43 +219,70 @@ class TESGroup(object):
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
                 self.set_segment_size(max_cachesize / self.n_channels)
 
-    def register_boolean_cut_fields(self, *names):
-        num_used_bits = self.hdf5_file.attrs["cut_num_used_bits"]
-        boolean_fields = self.hdf5_file.attrs["cut_boolean_field_desc"]
+    @property
+    def boolean_cut_desc(self):
+        return self.hdf5_file.attrs["cut_boolean_field_desc"]
 
-        new_fields = []
-        for name in names:
-            if not np.any(boolean_fields["name"] == name):
-                new_fields.append(name)
+    @boolean_cut_desc.setter
+    def boolean_cut_desc(self, value):
+        self.hdf5_file.attrs["cut_boolean_field_desc"] = value
+
+    @property
+    def categorical_cut_desc(self):
+        return self.hdf5_file.attrs["cut_categorical_field_desc"]
+
+    @categorical_cut_desc.setter
+    def categorical_cut_desc(self, value):
+        self.hdf5_file.attrs["cut_categorical_field_desc"] = value
+
+    @property
+    def cut_category_list(self):
+        return self.hdf5_file.attr["cut_category_list"]
+
+    @cut_category_list.setter
+    def cut_category_list(self, value):
+        self.hdf5_file.attrs["cut_category_list"] = value
+
+    @property
+    def cut_num_used_bits(self):
+        return self.hdf5_file.attrs["cut_num_used_bits"]
+
+    @cut_num_used_bits.setter
+    def cut_num_used_bits(self, value):
+        self.hdf5_file.attrs["cut_num_used_bits"] = value
+
+    def register_boolean_cut_fields(self, *names):
+        num_used_bits = self.cut_num_used_bits
+        boolean_fields = self.boolean_cut_desc
+
+        new_fields = [name for name in names if name not in boolean_fields["name"]]
 
         if new_fields:
             new_boolean_field_desc = np.array([(name, 1 << (i + num_used_bits)) for i, name in enumerate(new_fields)],
                                               dtype=self.__cut_boolean_field_desc_dtype)
-            old_desc = self.hdf5_file.attrs["cut_boolean_field_desc"]
-            old_desc[num_used_bits:num_used_bits + len(new_fields)] = new_boolean_field_desc
-            self.hdf5_file.attrs["cut_boolean_field_desc"] = old_desc
-            self.hdf5_file.attrs["cut_num_used_bits"] += len(new_fields)
+            boolean_fields[num_used_bits:num_used_bits + len(new_fields)] = new_boolean_field_desc
+            self.boolean_cut_desc = boolean_fields
+            self.cut_num_used_bits += len(new_fields)
 
     def register_categorical_cut_field(self, name, categories):
-        categorical_fields = self.hdf5_file.attrs["cut_categorical_field_desc"]
-        if np.any(categorical_fields["name"] == name):
+        categorical_fields = self.categorical_cut_desc
+        if name in categorical_fields["name"]:
             return
 
-        category_list = np.array([(name, category, i) for i, category in enumerate(["uncategorized"] + categories)],
-                                 dtype=self.__cut_category_list_dtype)
-        self.hdf5_file.attrs["cut_category_list"] = np.hstack([self.hdf5_file.attrs["cut_category_list"],
-                                                               category_list])
+        new_list = np.array([(name, category, i) for i, category in enumerate(["uncategorized"] + categories)],
+                            dtype=self.__cut_category_list_dtype)
+        self.cut_category_list = np.hstack([self.cut_category_list,
+                                            new_list])
         num_bits = 1
         while (1 << num_bits) < (len(categories) + 1):
             num_bits += 1
 
         field_desc_item = np.array([(name,
-                                     self.hdf5_file.attrs["cut_num_used_bits"],
-                                     ((1 << num_bits) - 1) << self.hdf5_file.attrs["cut_num_used_bits"])],
+                                     self.cut_num_used_bits
+                                     ((1 << num_bits) - 1) << self.cut_num_used_bits)],
                                    dtype=self.__cut_categorical_field_desc_dtype)
-        self.hdf5_file.attrs["cut_categorical_field_desc"] = np.hstack([categorical_fields,
-                                                                       field_desc_item])
-        self.hdf5_file.attrs["cut_num_used_bits"] += num_bits
+        self.categorical_cut_desc = np.hstack([categorical_fields, field_desc_item])
+        self.cut_num_used_bits += num_bits
 
     def _setup_per_channel_objects(self, noise_is_continuous=True):
         pulse_list = []
