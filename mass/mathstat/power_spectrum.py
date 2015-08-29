@@ -108,7 +108,7 @@ class PowerSpectrum(object):
             sum_window = (w**2).sum()
 
         scale_factor = 2./(sum_window*self.m2)
-        if True: # we want real units
+        if True:  # we want real units
             scale_factor *= self.dt*self.m2
         wksp = np.fft.rfft(wksp)
         
@@ -187,7 +187,7 @@ class PowerSpectrumOverlap(PowerSpectrum):
         length 2m."""
         nt = len(data)
         nk = (nt-1)/self.m
-        if nk>1:
+        if nk > 1:
             delta_el = (nt-self.m2)/(nk-1.0)
         else:
             delta_el = 0.0
@@ -207,7 +207,7 @@ def bartlett(n):
 
 def welch(n):
     """A Welch window (parabolic) of length n"""
-    return 1-(2*np.arange(n, dtype=np.float)/(n-1.)-1)**2
+    return 1 - (2*np.arange(n, dtype=np.float)/(n - 1.) - 1)**2
 
 
 def hann(n):
