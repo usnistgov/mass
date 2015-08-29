@@ -183,7 +183,7 @@ class NoiseRecords(object):
             nseg_choices = [16]
             while nseg_choices[-1] <= n/16 and nseg_choices[-1] < 20000:
                 nseg_choices.append(nseg_choices[-1]*8)
-        print nseg_choices
+        print(nseg_choices)
 
         spectra = [self.compute_power_spectrum_reshape(window=window, nsegments=ns)
                    for ns in nseg_choices]
@@ -390,7 +390,7 @@ class NoiseRecords(object):
 
     def plot_autocorrelation(self, axis=None, color='blue', label=None):
         if all(self.autocorrelation[:] == 0):
-            print "Autocorrelation will be computed first"
+            print("Autocorrelation will be computed first")
             self.compute_autocorrelation(plot=False)
         if axis is None:
             plt.clf()
@@ -597,26 +597,25 @@ class Cuts(object):
 
     def _boolean_fields_bit_mask(self, names):
         boolean_fields = self.tes_group.boolean_cut_desc
-        all_field_names = set([n for n in boolean_fields["name"] if n])
 
-        not_found_fields = set(names) - all_field_names
+        if names:
+            all_field_names = set([n for n in boolean_fields["name"] if n])
 
-        if not_found_fields:
-            raise ValueError(", ".join(not_found_fields) + "not found.")
+            not_found_fields = set(names) - all_field_names
 
-        bit_masks = [mask for name, mask in boolean_fields if name in names]
+            if not_found_fields:
+                raise ValueError(", ".join(not_found_fields) + "not found.")
+
+            bit_masks = [mask for name, mask in boolean_fields if name in names]
+        else:
+            bit_masks = boolean_fields["mask"]
+
         bit_mask = functools.reduce(operator.or_, bit_masks, np.uint32(0))
 
         return bit_mask
 
     def good(self, *args, **kwargs):
-        if args:
-            bit_mask = self._boolean_fields_bit_mask(args)
-        else:
-            boolean_fields = self.tes_group.boolean_cut_desc
-            all_bit_masks = [mask for name, mask in boolean_fields if name]
-            bit_mask = functools.reduce(operator.or_, all_bit_masks, np.uint32(0))
-
+        bit_mask = self._boolean_fields_bit_mask(args)
         g = ((self._mask[...] & bit_mask) == 0)
 
         if kwargs:
@@ -625,13 +624,7 @@ class Cuts(object):
         return g
 
     def bad(self, *args, **kwargs):
-        if args:
-            bit_mask = self._boolean_fields_bit_mask(args)
-        else:
-            boolean_fields = self.tes_group.boolean_cut_desc
-            all_bit_masks = [mask for name, mask in boolean_fields if name]
-            bit_mask = functools.reduce(operator.or_, all_bit_masks, np.uint32(0))
-
+        bit_mask = self._boolean_fields_bit_mask(args)
         g = (self._mask[...] & bit_mask != 0)
 
         if kwargs:
@@ -639,39 +632,11 @@ class Cuts(object):
 
         return g
 
-    def is_cut(self, *args, **kwargs):
-        """
-        You can use the bad method instead.
-        """
-        return self.bad(*args, **kwargs)
-
-    def is_uncut(self, *args, **kwargs):
-        """
-        You can use the good method instead.
-        """
-        return self.good(*args, **kwargs)
-
-    def n_cut(self, *args, **kwargs):
-        g = self.bad(*args)
-
-        if kwargs:
-            g &= self.select_category(**kwargs)
-
-        return g.sum()
-
-    def n_uncut(self, *args, **kwargs):
-        g = self.good(*args)
-
-        if kwargs:
-            g &= self.select_category(**kwargs)
-
-        return g.sum()
-
     def __repr__(self):
         return "Cuts(%d)" % len(self._mask)
 
     def __str__(self):
-        return "Cuts(%d) with %d cut and %d uncut" % (len(self._mask), self.n_cut(), self.n_uncut())
+        return "Cuts(%d) with %d cut and %d uncut" % (len(self._mask), self.bad().sum(), self.good().sum())
 
     def copy(self):
         """
@@ -700,6 +665,7 @@ class MicrocalDataSet(object):
         containing the expected attributes that must be copied to this
         MicrocalDataSet.
         """
+        self.channum = None
         self.filter = None
         self.lastUsedFilterHash = -1
         self.drift_correct_info = {}
@@ -712,19 +678,33 @@ class MicrocalDataSet(object):
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename', 'virtual data set')
         self.gain = 1.0
-        self.pretrigger_ignore_microsec = None # Cut this long before trigger in computing pretrig values
+        self.pretrigger_ignore_microsec = None  # Cut this long before trigger in computing pretrig values
         self.pretrigger_ignore_samples = 0
         self.peak_time_microsec = None   # Look for retriggers only after this time.
         self.index = None   # Index in the larger TESGroup or CDMGroup object
         self.last_used_calibration = None
 
+        self.data = None
+        self.times = None
+        self.rowcount = None
+
+        self.number_of_rows = None
+        self.row_number = None
+        self.number_of_columns = None
+        self.column_number = None
+
+        self._external_trigger_rowcount = None
+        self.row_timebase = None
+
         self.tes_group = tes_group
+
         try:
             self.hdf5_group = hdf5_group
             self.hdf5_group.attrs['npulses'] = self.nPulses
             self.hdf5_group.attrs['channum'] = self.channum
         except KeyError:
             self.hdf5_group = None
+
         self.__setup_vectors(npulses=self.nPulses)
 
     def __setup_vectors(self, npulses=None):
@@ -743,16 +723,16 @@ class MicrocalDataSet(object):
 
         # Set up the per-pulse vectors
         float64_fields = ('timestamp',)
-        float32_fields = ('pretrig_mean','pretrig_rms', 'pulse_average', 'pulse_rms',
+        float32_fields = ('pretrig_mean', 'pretrig_rms', 'pulse_average', 'pulse_rms',
                           'promptness', 'rise_time', 'postpeak_deriv',
                           'filt_phase', 'filt_value', 'filt_value_dc', 'filt_value_phc', 'filt_value_tdc',
                           'energy')
         uint16_fields = ('peak_index', 'peak_value', 'min_value')
         int64_fields = ('rowcount',)
         for dtype, fieldnames in ((np.float64, float64_fields),
-                                 (np.float32, float32_fields),
-                                 (np.uint16, uint16_fields),
-                                 (np.int64, int64_fields)):
+                                  (np.float32, float32_fields),
+                                  (np.uint16, uint16_fields),
+                                  (np.int64, int64_fields)):
             for field in fieldnames:
                 self.__dict__['p_%s' % field] = h5grp.require_dataset(field, shape=(npulses,),
                                                                       dtype=dtype)
@@ -975,13 +955,13 @@ class MicrocalDataSet(object):
         if isinstance(valid, str):
             if "uncut" in valid.lower():
                 valid = self.cuts.good()
-                print "Plotting only uncut data",
+                print("Plotting only uncut data"),
             elif "cut" in valid.lower():
                 valid = self.cuts.bad()
-                print "Plotting only cut data",
+                print("Plotting only cut data"),
             elif 'all' in valid.lower():
                 valid = None
-                print "Plotting all data, cut or uncut",
+                print("Plotting all data, cut or uncut"),
             else:
                 raise ValueError("If valid is a string, it must contain 'all', 'uncut' or 'cut'.")
 
@@ -1121,7 +1101,7 @@ class MicrocalDataSet(object):
         if not forceNew:
             if self.cuts.good().sum() != self.nPulses:
                 print("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses" %
-                      (self.channum, self.cuts.n_uncut(), self.cuts.n_cut(), self.nPulses))
+                      (self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
 
         if clear:
             self.clear_cuts()
@@ -1154,11 +1134,10 @@ class MicrocalDataSet(object):
                                'pretrigger_mean_departure_from_median')
         if verbose > 0:
             print("Chan %d after cuts, %d are good, %d are bad of %d total pulses" % (
-                self.channum, self.cuts.n_uncut(),
-                self.cuts.n_cut(), self.nPulses))
+                self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
 
     def clear_cuts(self):
-        self.cuts.clearAll()
+        self.cuts.clear_all()
 
     def drift_correct(self, forceNew=False):
         """Drift correct using the standard entropy-minimizing algorithm"""
@@ -1452,7 +1431,7 @@ class MicrocalDataSet(object):
         if all(self.p_filt_value_tdc[:]==0.0) or forceNew:
             print("chan %d doing time_drift_correct"%self.channum)
             attr = getattr(self, attr)
-            _, info = mass.analysis_algorithms.drift_correct(self.p_timestamp[self.cuts.good()],attr[self.cuts.good()])
+            _, info = mass.analysis_algorithms.drift_correct(self.p_timestamp[self.cuts.good()], attr[self.cuts.good()])
             median_timestamp = info['median_pretrig_mean']
             slope = info['slope']
 
@@ -1542,9 +1521,9 @@ class MicrocalDataSet(object):
         for c1 in boolean_fields:
             for c2 in boolean_fields:
                 print("%d pulses cut by both %s and %s" % (
-                    np.sum(self.cuts.bad(c1, c2)), c1.upper(), c2.upper()))
+                    self.cuts.bad(c1, c2).sum(), c1.upper(), c2.upper()))
         for cut_name in boolean_fields:
-            print("%d pulses cut by %s" % (np.sum(self.cuts.bad(cut_name)), cut_name.upper()))
+            print("%d pulses cut by %s" % self.cuts.bad(cut_name).sum(), cut_name.upper())
         print("%d pulses total" % self.nPulses)
 
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
@@ -1566,7 +1545,7 @@ class MicrocalDataSet(object):
 
             self.cuts.cut("smart_cuts", flag)
             print("channel %g ran smart cuts, %g of %g pulses passed" % (self.channum,
-                                                                         (~self.cuts.bad("smart_cuts")).sum(),
+                                                                         self.cuts.good("smart_cuts").sum(),
                                                                          self.nPulses))
         else:
             print("channel %g skipping smart cuts because it was already done" % self.channum)
