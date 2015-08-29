@@ -22,6 +22,9 @@ Started March 2, 2011
 """
 __all__ = ['TESGroup', 'RestoreTESGroup', 'CrosstalkVeto']
 
+import functools
+import operator
+
 import numpy as np
 import pylab as plt
 import os
@@ -123,8 +126,6 @@ class TESGroup(object):
 
     __cut_boolean_field_desc_dtype = np.dtype([("name", np.str_, 64),
                                                ("mask", np.uint32)])
-    __cut_compound_fields_desc_dtype = np.dtype([("name", np.str_, 64),
-                                                 ("boolean_subfield", np.str_, 64)])
     __cut_categorical_field_desc_dtype = np.dtype([("name", np.str_, 64),
                                                    ("pos", np.uint8),
                                                    ("mask", np.uint32)])
@@ -174,11 +175,9 @@ class TESGroup(object):
                 self.register_boolean_cut_fields(*self.DEFAULT_BOOLEAN_CUT_FIELDS)
 
             for name, dtype in zip(["cut_categorical_field_desc",
-                                    "cut_category_list",
-                                    "cut_compound_field_desc"],
+                                    "cut_category_list"],
                                    [self.__cut_categorical_field_desc_dtype,
-                                    self.__cut_category_list_dtype,
-                                    self.__cut_compound_fields_desc_dtype]):
+                                    self.__cut_category_list_dtype]):
                 if name not in self.hdf5_file.attrs:
                     self.hdf5_file.attrs[name] = np.zeros(0, dtype=dtype)
 
@@ -225,10 +224,11 @@ class TESGroup(object):
 
     def register_boolean_cut_fields(self, *names):
         num_used_bits = self.hdf5_file.attrs["cut_num_used_bits"]
+        boolean_fields = self.hdf5_file.attrs["cut_boolean_field_desc"]
 
         new_fields = []
         for name in names:
-            if not np.any(self.hdf5_file.attrs["cut_boolean_field_desc"]["name"] == name):
+            if not np.any(boolean_fields["name"] == name):
                 new_fields.append(name)
 
         if new_fields:
@@ -239,11 +239,9 @@ class TESGroup(object):
             self.hdf5_file.attrs["cut_boolean_field_desc"] = old_desc
             self.hdf5_file.attrs["cut_num_used_bits"] += len(new_fields)
 
-    def register_compound_cut_fields(self, name, sub_fields):
-        pass
-
     def register_categorical_cut_field(self, name, categories):
-        if np.any(self.hdf5_file.attrs["cut_categorical_field_desc"]["name"] == name):
+        categorical_fields = self.hdf5_file.attrs["cut_categorical_field_desc"]
+        if np.any(categorical_fields["name"] == name):
             return
 
         category_list = np.array([(name, category, i) for i, category in enumerate(["uncategorized"] + categories)],
@@ -258,7 +256,7 @@ class TESGroup(object):
                                      self.hdf5_file.attrs["cut_num_used_bits"],
                                      ((1 << num_bits) - 1) << self.hdf5_file.attrs["cut_num_used_bits"])],
                                    dtype=self.__cut_categorical_field_desc_dtype)
-        self.hdf5_file.attrs["cut_categorical_field_desc"] = np.hstack([self.hdf5_file.attrs["cut_categorical_field_desc"],
+        self.hdf5_file.attrs["cut_categorical_field_desc"] = np.hstack([categorical_fields,
                                                                        field_desc_item])
         self.hdf5_file.attrs["cut_num_used_bits"] += num_bits
 

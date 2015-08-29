@@ -506,22 +506,15 @@ class PulseRecords(object):
         return c
 
 
-
 class Cuts(object):
-    "Object to hold a 32-bit cut mask for each triggered record."
-
-    _boolean_fields = {}
-    _boolean_fields_by_idx = {}
-    # name, pos, mask
-
-    _compound_fields = {}
-
-    _categorical_fields = {}
-
-    _n_used_bits = 0
+    """
+    Object to hold a 32-bit cut mask for each triggered record.
+    """
 
     def __init__(self, n, tes_group, hdf5_group=None):
-        "Create an object to hold n masks of 32 bits each"
+        """
+        Create an object to hold n masks of 32 bits each
+        """
         self.tes_group = tes_group
         self.hdf5_group = hdf5_group
         if hdf5_group is None:
@@ -529,64 +522,7 @@ class Cuts(object):
         else:
             self._mask = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.int32)
 
-    @classmethod
-    def register_boolean_fields(cls, *field_names):
-        if cls._n_used_bits + len(field_names) > 32:
-            raise ValueError("Not enough bits for another set of boolean field.")
-        for field_name in field_names:
-            field_prop = {'name': field_name, 'pos': cls._n_used_bits, 'mask': np.uint32(1 << cls._n_used_bits)}
-            cls._boolean_fields[field_name] = field_prop
-            cls._boolean_fields_by_idx[cls._n_used_bits] = field_prop
-            cls._n_used_bits += 1
-
-    @classmethod
-    def register_compound_field(cls, field_name, sub_field_names):
-        mask = np.uint32(0)
-        for sub_field_name in sub_field_names:
-            mask |= cls._boolean_fields[sub_field_name]["mask"]
-
-        cls._compound_fields[field_name] = {"name": field_name, "num_components": len(sub_field_names),
-                                            "mask": mask}
-
-    @classmethod
-    def register_categorical_field(cls, field_name, categories):
-        n_bits = 1
-        while True:
-            if len(categories) > (1 << n_bits):
-                n_bits += 1
-                continue
-            break
-
-        if cls._n_used_bits + n_bits > 32:
-            raise ValueError("Not enough bits for another categorial field.")
-
-        cls._categorical_fields[field_name] = {"name": field_name,
-                                               "pos": cls._n_used_bits,
-                                               "num_bits": n_bits,
-                                               "mask": np.uint32(((1 << n_bits) - 1) << cls._n_used_bits),
-                                               "categories": categories}
-        cls._n_used_bits += n_bits
-
-    @classmethod
-    def _get_boolean_field_prop(cls, k):
-        prop = cls._boolean_fields.get(k, None) or cls._boolean_fields_by_idx.get(k, None)
-        if prop is None:
-            raise ValueError(str(k) + " is not found!")
-
-        return prop
-
-    @classmethod
-    def _convert_to_field_names(cls, fields):
-        names = []
-        for field in fields:
-            if type(field) is int:
-                names.append(cls._boolean_fields_by_idx[field]['name'])
-            else:
-                names.append(field)
-
-        return names
-
-    def cut(self, cutnum, mask):
+    def cut(self, cut_num, mask):
         """
         Set the mask of a single field. It could be a boolean or categorical field.
         """
@@ -595,18 +531,18 @@ class Cuts(object):
         boolean_field = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
         categorical_field = self.tes_group.hdf5_file.attrs["cut_categorical_field_desc"]
 
-        if type(cutnum) is int:
-            if (cutnum < 0) or (cutnum > 31):
-                raise ValueError(str(cutnum) + "is out of range.")
-            _, bit_mask = boolean_field[cutnum]
+        if type(cut_num) is int:
+            if (cut_num < 0) or (cut_num > 31):
+                raise ValueError(str(cut_num) + "is out of range.")
+            _, bit_mask = boolean_field[cut_num]
             self._mask[mask] |= bit_mask
-        elif type(cutnum) is str:
-            boolean_g = (boolean_field["name"] == cutnum)
+        elif type(cut_num) is str:
+            boolean_g = (boolean_field["name"] == cut_num)
             if np.any(boolean_g):
-                _, bit_mask = desc[boolean_g][0]
+                _, bit_mask = boolean_field[boolean_g][0]
                 self._mask[mask] |= bit_mask
             else:
-                categorical_g = (categorical_field["name"] == cutnum)
+                categorical_g = (categorical_field["name"] == cut_num)
                 if np.any(categorical_g):
                     _, bit_pos, bit_mask = categorical_field[categorical_g][0]
                     temp = self._mask[...] & bit_mask
@@ -623,9 +559,7 @@ class Cuts(object):
 
         for name, category_label in kwargs.iteritems():
             categorical_g = (categorical_field["name"] == name)
-            category_g = (category_list["field"] == name)
-            category_list = category_list[category_g]
-            category_g = (category_list["category"] == category_label)
+            category_g = (category_list["field"] == name) & (category_list["category"] == category_label)
 
             _, bit_pos, bit_mask = categorical_field[categorical_g][0]
             _, _, category = category_list[category_g][0]
@@ -642,13 +576,12 @@ class Cuts(object):
         """
         Clear one or more boolean fields.
         """
-
-        bit_mask = np.uint32(0)
-
-        field_props = [self._get_boolean_field_prop(arg) for arg in args]
-
-        for prop in field_props:
-            bit_mask |= prop["mask"]
+        if args:
+            bit_mask = self._boolean_fields_bit_mask(args)
+        else:
+            boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+            all_boolean_fields = [name for name in boolean_fields["name"] if len(name) > 0]
+            bit_mask = self._boolean_fields_bit_mask(all_boolean_fields)
 
         self._mask[:] &= ~bit_mask
 
@@ -659,17 +592,16 @@ class Cuts(object):
         self.clearCut(*self._boolean_fields.keys())
 
     def _boolean_fields_bit_mask(self, names):
-        bit_mask = np.uint32(0)
-        boolean_field = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+        boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+        all_field_names = set([n for n in boolean_fields["name"] if n])
 
-        for name in names:
-            boolean_g = (boolean_field["name"] == name)
+        not_found_fields = set(names) - all_field_names
 
-            if not np.any(boolean_g):
-                raise ValueError(name + " is not found.")
+        if not_found_fields:
+            raise ValueError(", ".join(not_found_fields) + "not found.")
 
-            _, mask = boolean_field[boolean_g][0]
-            bit_mask |= mask
+        bit_masks = [mask for name, mask in boolean_fields if name in names]
+        bit_mask = functools.reduce(operator.or_, bit_masks, np.uint32(0))
 
         return bit_mask
 
@@ -678,8 +610,8 @@ class Cuts(object):
             bit_mask = self._boolean_fields_bit_mask(args)
         else:
             boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
-            all_boolean_fields = [name for name in boolean_fields["name"] if len(name) > 0]
-            bit_mask = self._boolean_fields_bit_mask(all_boolean_fields)
+            all_bit_masks = [mask for name, mask in boolean_fields if name]
+            bit_mask = functools.reduce(operator.or_, all_bit_masks, np.uint32(0))
 
         g = ((self._mask[...] & bit_mask) == 0)
 
@@ -688,16 +620,15 @@ class Cuts(object):
 
         return g
 
-
     def bad(self, *args, **kwargs):
         if args:
             bit_mask = self._boolean_fields_bit_mask(args)
         else:
             boolean_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
-            all_boolean_fields = [name for name in boolean_fields["name"] if len(name) > 0]
-            bit_mask = self._boolean_fields_bit_mask(all_boolean_fields)
+            all_bit_masks = [mask for name, mask in boolean_fields if name]
+            bit_mask = functools.reduce(operator.or_, all_bit_masks, np.uint32(0))
 
-        g = ((self._mask[...] & bit_mask != 0))
+        g = (self._mask[...] & bit_mask != 0)
 
         if kwargs:
             return g & self.select_category(**kwargs)
@@ -708,13 +639,13 @@ class Cuts(object):
         """
         You can use the bad method instead.
         """
-        return self.bad(*self._convert_to_field_names(args), **kwargs)
+        return self.bad(*args, **kwargs)
 
     def isUncut(self, *args, **kwargs):
         """
         You can use the good method instead.
         """
-        return self.good(*self._convert_to_field_names(args), **kwargs)
+        return self.good(*args, **kwargs)
 
     def nCut(self, *args, **kwargs):
         g = self.bad(*args)
@@ -723,7 +654,6 @@ class Cuts(object):
             g &= self.select_category(**kwargs)
 
         return g.sum()
-
 
     def nUncut(self, *args, **kwargs):
         g = self.good(*args)
@@ -737,13 +667,16 @@ class Cuts(object):
         return "Cuts(%d)"%len(self._mask)
 
     def __str__(self):
-        return ("Cuts(%d) with %d cut and %d uncut"%(len(self._mask), self.nCut(), self.nUncut()))
+        return "Cuts(%d) with %d cut and %d uncut"%(len(self._mask), self.nCut(), self.nUncut())
 
     def copy(self):
+        """
+        I don't see the point of this shallow copy.
+        I don't see the point of this shallow copy.
+        """
         c = Cuts(len(self._mask), hdf5_group=self.hdf5_group)
-        c._mask = self._mask.copy()
+        #c._mask = self._mask.copy()
         return c
-
 
 
 class MicrocalDataSet(object):
@@ -776,7 +709,6 @@ class MicrocalDataSet(object):
 
     HDF5_CHUNK_SIZE = 256
 
-
     def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None):
         """
         Pass in a dictionary (presumably that of a PulseRecords object)
@@ -789,11 +721,11 @@ class MicrocalDataSet(object):
         self.phase_correct_info = {}
         self.noise_autocorr = None
         self.noise_demodulated = None
-        self.calibration = {'p_filt_value':mass.calibration.energy_calibration.EnergyCalibration('p_filt_value')}
+        self.calibration = {'p_filt_value': mass.calibration.energy_calibration.EnergyCalibration('p_filt_value')}
 
         for a in self.expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
-        self.filename = pulserec_dict.get('filename','virtual data set')
+        self.filename = pulserec_dict.get('filename', 'virtual data set')
         self.gain = 1.0
         self.pretrigger_ignore_microsec = None # Cut this long before trigger in computing pretrig values
         self.pretrigger_ignore_samples = 0
@@ -809,9 +741,6 @@ class MicrocalDataSet(object):
         except KeyError:
             self.hdf5_group = None
         self.__setup_vectors(npulses=self.nPulses)
-
-
-
 
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
