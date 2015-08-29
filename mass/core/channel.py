@@ -4,17 +4,15 @@ Created on Feb 16, 2011
 @author: fowlerj
 """
 
-__all__=['NoiseRecords', 'PulseRecords', 'Cuts', 'MicrocalDataSet']
+__all__ = ['NoiseRecords', 'PulseRecords', 'Cuts', 'MicrocalDataSet']
 
 import functools
 import operator
 
 import numpy as np
-import scipy as sp
 import pylab as plt
 
 # MASS modules
-#import mass.mathstat
 import mass.mathstat.power_spectrum
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
@@ -54,17 +52,17 @@ class NoiseRecords(object):
         self.noise_psd = None
         if self.hdf5_group is not None:
             self.autocorrelation = self.hdf5_group.require_dataset(
-                                            "autocorrelation", shape=(self.nSamples,),
-                                            dtype=np.float64)
+                "autocorrelation", shape=(self.nSamples,),
+                dtype=np.float64)
             nfreq = 1+self.nSamples/2
             self.noise_psd = self.hdf5_group.require_dataset(
-                                            'noise_psd', shape=(nfreq,),
-                                            dtype=np.float64)
+                'noise_psd', shape=(nfreq,),
+                dtype=np.float64)
 
     def __open_file(self, filename, use_records=None, file_format=None):
         """Detect the filetype and open it."""
 
-        ALLOWED_TYPES=("ljh","root","virtual")
+        ALLOWED_TYPES = ("ljh", "root", "virtual")
         if file_format is None:
             if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
@@ -75,14 +73,14 @@ class NoiseRecords(object):
             else:
                 file_format = "ljh"
         if file_format not in ALLOWED_TYPES:
-            raise ValueError("file_format must be None or one of %s"%ALLOWED_TYPES)
+            raise ValueError("file_format must be None or one of %s" % ALLOWED_TYPES)
 
         if file_format == "ljh":
             self.datafile = LJHFile(filename, segmentsize=self.maxsegmentsize)
         elif file_format == "root":
             self.datafile = LANLFile(filename)
         elif file_format == "virtual":
-            vfile = filename # Aha!  It must not be a string
+            vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
             self.datafile.segmentsize = vfile.nPulses*(6+2*vfile.nSamples)
             filename = 'Virtual file'
@@ -114,7 +112,7 @@ class NoiseRecords(object):
 
     def set_fake_data(self):
         """Use when this does not correspond to a real datafile (e.g., CDM data)"""
-        self.datafile = mass.VirtualFile(np.zeros((0,0)))
+        self.datafile = mass.VirtualFile(np.zeros((0, 0)))
 
     def copy(self):
         """Return a copy of the object.
@@ -159,13 +157,13 @@ class NoiseRecords(object):
         for _first_pnum, _end_pnum, _seg_num, data in self.datafile.iter_segments():
             if self.continuous and seg_length is not None:
                 data = data.ravel()
-                n=len(data)
-                n = n-n%seg_length
-                data=data[:n].reshape((n/seg_length, seg_length))
+                n = len(data)
+                n -= n % seg_length
+                data = data[:n].reshape((n/seg_length, seg_length))
 
             for d in data:
                 y = d-d.mean()
-                if y.max() - y.min() < max_excursion and len(y)==spectrum.m2:
+                if y.max() - y.min() < max_excursion and len(y) == spectrum.m2:
                     spectrum.addDataSegment(y, window=window)
 
         freq = spectrum.frequencies()
@@ -179,7 +177,7 @@ class NoiseRecords(object):
         n = np.prod(self.data.shape)
         if nseg_choices is None:
             nseg_choices = [16]
-            while nseg_choices[-1] <= n/16 and nseg_choices[-1]<20000:
+            while nseg_choices[-1] <= n/16 and nseg_choices[-1] < 20000:
                 nseg_choices.append(nseg_choices[-1]*8)
         print nseg_choices
 
@@ -215,14 +213,14 @@ class NoiseRecords(object):
         yvalue = self.noise_psd[1:] * (scale**2)
         if sqrt_psd:
             yvalue = np.sqrt(yvalue)
-        freq = np.arange(1, 1+len(yvalue))*self.noise_psd.attrs['delta_f']
+        freq = np.arange(1, 1 + len(yvalue))*self.noise_psd.attrs['delta_f']
         axis.plot(freq, yvalue, **kwarg)
         plt.loglog()
         axis.grid()
         axis.set_xlim([10, 3e5])
         axis.set_xlabel("Frequency (Hz)")
         axis.set_ylabel("Power Spectral Density (counts$^2$ Hz$^{-1}$)")
-        axis.set_title("Noise power spectrum for %s"%self.filename)
+        axis.set_title("Noise power spectrum for %s" % self.filename)
 
     def _compute_continuous_autocorrelation(self, n_lags=None, data_samples=None,
                                             max_excursion=1000):
@@ -346,20 +344,25 @@ class NoiseRecords(object):
             n_data = data_samples[1] - data_samples[0]
 
             records_used = samples_used = 0
-            ac=np.zeros(self.nSamples, dtype=np.float)
+            ac = np.zeros(self.nSamples, dtype=np.float)
             try:
                 for first_pnum, end_pnum, _seg_num, intdata in self.datafile.iter_segments():
-                    if end_pnum <= data_samples[0]: continue
-                    if first_pnum >= data_samples[1]: break
+                    if end_pnum <= data_samples[0]:
+                        continue
+                    if first_pnum >= data_samples[1]:
+                        break
                     for i in range(first_pnum, end_pnum):
-                        if i < data_samples[0]: continue
-                        if i >= data_samples[1]: break
+                        if i < data_samples[0]:
+                            continue
+                        if i >= data_samples[1]:
+                            break
 
-                        data = 1.0*(intdata[i-first_pnum,:])
-                        if data.max() - data.min() > max_excursion: continue
+                        data = 1.0*(intdata[i-first_pnum, :])
+                        if data.max() - data.min() > max_excursion:
+                            continue
                         data -= data.mean()
 
-                        ac += np.correlate(data,data,'full')[self.nSamples-1:]
+                        ac += np.correlate(data, data, 'full')[self.nSamples-1:]
                         samples_used += self.nSamples
                         records_used += 1
                         if n_data is not None and samples_used >= n_data:
@@ -370,11 +373,11 @@ class NoiseRecords(object):
             ac /= records_used
             ac /= self.nSamples - np.arange(self.nSamples, dtype=np.float)
             if n_lags is not None and n_lags < self.nSamples:
-                ac=ac[:n_lags]
+                ac = ac[:n_lags]
             self.autocorrelation[:] = ac
 
         if self.hdf5_group is not None:
-            grp = self.hdf5_group.require_group("reclen%d"%n_lags)
+            grp = self.hdf5_group.require_group("reclen%d" % n_lags)
             ds = grp.require_dataset("autocorrelation", shape=(n_lags,), dtype=np.float64)
             ds[:] = self.autocorrelation[:]
 
@@ -390,7 +393,7 @@ class NoiseRecords(object):
             axis = plt.subplot(111)
         t = self.timebase * 1e3 * np.arange(len(self.autocorrelation))
         axis.plot(t, self.autocorrelation, label=label, color=color)
-        axis.plot([0],[self.autocorrelation[0]],'o', color=color)
+        axis.plot([0], [self.autocorrelation[0]], 'o', color=color)
         axis.set_xlabel("Lag (ms)")
         axis.set_ylabel("Autocorrelation (counts$^2$)")
 
@@ -421,8 +424,8 @@ class PulseRecords(object):
         self.cuts = None
         self.bad = None
         self.good = None
-        self.data = np.array([],ndmin=2)
-        self.times = np.array([],ndmin=2)
+        self.data = np.array([], ndmin=2)
+        self.times = np.array([], ndmin=2)
 
         self.hdf5_trace = None
 
@@ -461,8 +464,8 @@ class PulseRecords(object):
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
-                self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
-                1e6*self.timebase)
+            self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
+            1e6*self.timebase)
 
     def __repr__(self):
         return "%s('%s')"%(self.__class__.__name__, self.filename)
@@ -479,7 +482,7 @@ class PulseRecords(object):
         meaning: the first record number, 1 more than the last record number,
         and the nPulse x nSamples array."""
         if segment_num >= self.n_segments:
-            return -1,-1
+            return -1, -1
         first_pnum, end_pnum, data = self.datafile.read_segment(segment_num)
         self.data = data
         self.rowcount = self.datafile.rowcount
@@ -495,7 +498,7 @@ class PulseRecords(object):
         Handy when coding and you don't want to read the whole data set back in, but
         you do want to update the method definitions."""
         c = PulseRecords(self.filename)
-        c.__dict__.update( self.__dict__ )
+        c.__dict__.update(self.__dict__)
         c.datafile = self.datafile.copy()
         return c
 
@@ -747,14 +750,14 @@ class MicrocalDataSet(object):
                                  (np.int64, int64_fields)):
             for field in fieldnames:
                 self.__dict__['p_%s' % field] = h5grp.require_dataset(field, shape=(npulses,),
-                                                                    dtype=dtype)
+                                                                      dtype=dtype)
 
         # Other vectors needed per-channel
         self.average_pulse = h5grp.require_dataset('average_pulse', shape=(self.nSamples,),
                                                    dtype=np.float32)
         self.noise_autocorr = h5grp.require_dataset('noise_autocorr', shape=(self.nSamples,),
                                                     dtype=np.float64)
-        nfreq = 1+self.nSamples/2
+        nfreq = 1 + self.nSamples/2
         self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
                                                dtype=np.float64)
         grp = self.hdf5_group.require_group('cuts')
@@ -789,12 +792,12 @@ class MicrocalDataSet(object):
         return self.external_trigger_rowcount[:]*self.timebase/float(self.number_of_rows)
 
     def __str__(self):
-        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time"%(
-                self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
-                1e6*self.timebase)
+        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
+            self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
+            1e6*self.timebase)
 
     def __repr__(self):
-        return "%s('%s')"%(self.__class__.__name__, self.filename)
+        return "%s('%s')" % (self.__class__.__name__, self.filename)
 
     def good(self):
         """Return a boolean vector, one per pulse record, saying whether record is good"""
@@ -806,7 +809,7 @@ class MicrocalDataSet(object):
 
     def resize(self, nPulses):
         if self.nPulses < nPulses:
-            raise ValueError("Can only shrink using resize(), but the requested size %d is larger than current %d"%
+            raise ValueError("Can only shrink using resize(), but the requested size %d is larger than current %d" %
                              (nPulses, self.nPulses))
         self.nPulses = nPulses
         self.__setup_vectors()
@@ -816,14 +819,14 @@ class MicrocalDataSet(object):
 
         Handy when coding and you don't want to read the whole data set back in, but
         you do want to update the method definitions."""
-        c = MicrocalDataSet(self.__dict__ )
-        c.__dict__.update( self.__dict__ )
+        c = MicrocalDataSet(self.__dict__)
+        c.__dict__.update(self.__dict__)
         for k in self.calibration.keys():
             c.calibration[k] = self.calibration[k].copy()
         c.cuts = self.cuts.copy()
         return c
 
-    def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0, forceNew=False):
+    def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
         """
         # Don't proceed if not necessary and not forced
@@ -832,24 +835,24 @@ class MicrocalDataSet(object):
         self.number_of_columns = self.pulse_records.datafile.number_of_columns
         self.column_number = self.pulse_records.datafile.column_number
 
-        not_done =  all(self.p_pretrig_mean[:]==0)
+        not_done = all(self.p_pretrig_mean[:] == 0)
         if not (not_done or forceNew):
-            print('\nchan %d did not summarize because results were already preloaded'%self.channum)
+            print('\nchan %d did not summarize because results were already preloaded' % self.channum)
             return
 
         if len(self.p_timestamp) < self.pulse_records.nPulses:
             self.__setup_vectors(npulses=self.pulse_records.nPulses) # make sure vectors are setup correctly
         self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
 
-        printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d'%self.channum)
+        printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
         for s in range(self.pulse_records.n_segments):
-            first, end = self.read_segment(s) # this reloads self.data to contain new pulses
+            first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
             self._summarize_data_segment(first, end, peak_time_microsec, pretrigger_ignore_microsec)
             printUpdater.update((s+1)/float(self.pulse_records.n_segments))
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
-    def _summarize_data_segment(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0):
+    def _summarize_data_segment(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0):
         """Summarize the complete data file
         summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0)
         peak_time_microsec is used when calculating max dp/dt after trigger
@@ -864,18 +867,18 @@ class MicrocalDataSet(object):
         if len(self.p_timestamp) <= 0:
             self.__setup_vectors(npulses=self.nPulses)
 
-        maxderiv_holdoff = int(self.peak_time_microsec*1e-6/self.timebase) # don't look for retriggers before this # of samples
+        maxderiv_holdoff = int(self.peak_time_microsec*1e-6/self.timebase)  # don't look for retriggers before this # of samples
         self.pretrigger_ignore_samples = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
 
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
         self.p_rowcount[first:end] = self.rowcount[:seg_size]
-        self.p_pretrig_mean[first:end] = self.data[:seg_size,:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
-        self.p_pretrig_rms[first:end] = self.data[:seg_size,:self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
-        self.p_peak_index[first:end] = self.data[:seg_size,:].argmax(axis=1)
-        self.p_peak_value[first:end] = self.data[:seg_size,:].max(axis=1)
-        self.p_min_value[first:end] = self.data[:seg_size,:].min(axis=1)
-        self.p_pulse_average[first:end] = self.data[:seg_size,self.nPresamples:].mean(axis=1)
+        self.p_pretrig_mean[first:end] = self.data[:seg_size, :self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
+        self.p_pretrig_rms[first:end] = self.data[:seg_size, :self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
+        self.p_peak_index[first:end] = self.data[:seg_size, :].argmax(axis=1)
+        self.p_peak_value[first:end] = self.data[:seg_size, :].max(axis=1)
+        self.p_min_value[first:end] = self.data[:seg_size, :].min(axis=1)
+        self.p_pulse_average[first:end] = self.data[:seg_size, self.nPresamples:].mean(axis=1)
 
         # Remove the pretrigger mean from the peak value and the pulse average figures.
         PTM = self.p_pretrig_mean[first:end]
@@ -901,14 +904,14 @@ class MicrocalDataSet(object):
         """Filter the complete data file one chunk at a time.
         """
         if not(forceNew or all(self.p_filt_value[:]==0)):
-            print('\nchan %d did not filter because results were already loaded'%self.channum)
+            print('\nchan %d did not filter because results were already loaded' % self.channum)
             return
 
         if self.filter is not None:
             filter_values = self.filter.__dict__[filter_name]
         else:
             filter_values = self.hdf5_group['filters/%s'%filter_name].value
-        printUpdater = InlineUpdater('channel.filter_data_tdm chan %d'%self.channum)
+        printUpdater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
         for s in range(self.pulse_records.n_segments):
             first, end = self.read_segment(s) # this reloads self.data to contain new pulses
             (self.p_filt_phase[first:end],
@@ -921,13 +924,13 @@ class MicrocalDataSet(object):
 
     def _filter_data_segment(self, filter_values, first, end, transform=None):
         if first >= self.nPulses:
-            return None,None
+            return None, None
 
         # These parameters fit a parabola to any 5 evenly-spaced points
         fit_array = np.array((
-                ( -6,24, 34,24,-6),
-                (-14,-7,  0, 7,14),
-                ( 10,-5,-10,-5,10)), dtype=np.float)/70.0
+            (-6, 24, 34, 24, -6),
+            (-14, -7, 0, 7, 14),
+            (10, -5, -10, -5, 10)), dtype=np.float)/70.0
 
         assert len(filter_values)+4 == self.nSamples
 
@@ -935,18 +938,17 @@ class MicrocalDataSet(object):
         conv = np.zeros((5, seg_size), dtype=np.float)
         if transform is not None:
             ptmean = self.p_pretrig_mean[first:end]
-            ptmean.shape = (len(ptmean),1)
+            ptmean.shape = (len(ptmean), 1)
             data = transform(self.data-ptmean)
         else:
             data = self.data
         for i in range(4):
-            conv[i,:] = np.dot(data[:seg_size,i:i-4], filter_values)
-        conv[4,:] = np.dot(data[:,4:], filter_values)
-
+            conv[i, :] = np.dot(data[:seg_size, i:i-4], filter_values)
+        conv[4, :] = np.dot(data[:, 4:], filter_values)
 
         param = np.dot(fit_array, conv)
-        peak_x = -0.5*param[1,:]/param[2,:]
-        peak_y = param[0,:] - 0.25*param[1,:]**2 / param[2,:]
+        peak_x = -0.5*param[1, :]/param[2, :]
+        peak_y = param[0, :] - 0.25*param[1, :]**2 / param[2, :]
         return peak_x, peak_y
 
     def plot_summaries(self, valid='uncut', downsample=None, log=False):
@@ -982,26 +984,27 @@ class MicrocalDataSet(object):
             nrecs = valid.sum()
             if downsample is None:
                 downsample=nrecs/10000
-                if downsample < 1: downsample = 1
+                if downsample < 1:
+                    downsample = 1
             hour = self.p_timestamp[valid][::downsample]/3600.0
         else:
             nrecs = self.nPulses
             if downsample is None:
                 downsample = self.nPulses / 10000
-                if downsample < 1: downsample = 1
+                if downsample < 1:
+                    downsample = 1
             hour = self.p_timestamp[::downsample]/3600.0
-        print " (%d records; %d in scatter plots)"%(
-            nrecs, len(hour))
+        print(" (%d records; %d in scatter plots)" % (nrecs, len(hour)))
 
         plottables = (
             (self.p_pulse_average, 'Pulse Avg', 'purple', None),
-            (self.p_pretrig_rms, 'Pretrig RMS', 'blue', [0,4000]),
+            (self.p_pretrig_rms, 'Pretrig RMS', 'blue', [0, 4000]),
             (self.p_pretrig_mean, 'Pretrig Mean', 'green', None),
-            (self.p_peak_value, 'Peak value', '#88cc00',None),
-            (self.p_postpeak_deriv, 'Max PostPk deriv', 'gold', [0,700]),
-            (self.p_rise_time[:]*1e3, 'Rise time (ms)', 'orange', [0,12]),
-            (self.p_peak_time[:]*1e3, 'Peak time (ms)', 'red', [-3,9])
-          )
+            (self.p_peak_value, 'Peak value', '#88cc00', None),
+            (self.p_postpeak_deriv, 'Max PostPk deriv', 'gold', [0, 700]),
+            (self.p_rise_time[:]*1e3, 'Rise time (ms)', 'orange', [0, 12]),
+            (self.p_peak_time[:]*1e3, 'Peak time (ms)', 'red', [-3, 9])
+        )
 
         plt.clf()
         for i, (vect, label, color, limits) in enumerate(plottables):
@@ -1011,16 +1014,16 @@ class MicrocalDataSet(object):
             plt.ylabel(label)
             if valid is not None:
                 vect = vect[valid]
-            plt.plot(hour, vect[::downsample],'.', ms=1, color=color)
+            plt.plot(hour, vect[::downsample], '.', ms=1, color=color)
 
             # Histogram (right-hand panels)
             plt.subplot(len(plottables), 2, 2+i*2)
             if limits is None:
                 in_limit = np.ones(len(vect), dtype=np.bool)
             else:
-                in_limit = np.logical_and(vect[:]>limits[0], vect[:]<limits[1])
-            contents, _bins, _patches = plt.hist(vect[in_limit],200, log=log,
-                           histtype='stepfilled', fc=color, alpha=0.5)
+                in_limit = np.logical_and(vect[:]>limits[0], vect[:] < limits[1])
+            contents, _bins, _patches = plt.hist(vect[in_limit], 200, log=log,
+                                                 histtype='stepfilled', fc=color, alpha=0.5)
             if log:
                 plt.ylim(ymin=contents.min())
 
@@ -1112,7 +1115,7 @@ class MicrocalDataSet(object):
             return  # dont bother current if there are no pulses
         if not forceNew:
             if self.cuts.good().sum() != self.nPulses:
-                print("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses"%
+                print("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses" %
                       (self.channum, self.cuts.nUncut(), self.cuts.nCut(), self.nPulses))
 
         if clear:
@@ -1183,7 +1186,7 @@ class MicrocalDataSet(object):
         """
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:]==self.p_filt_value_dc[:])
         if forceNew or doesnt_exist:
-            data,g = self.first_n_good_pulses(maximum_num_records)
+            data, g = self.first_n_good_pulses(maximum_num_records)
             print("channel %d doing phase_correct2014 with %d good pulses" % (self.channum, data.shape[0]))
             prompt = self.p_promptness[:]
             prms = self.p_pulse_rms[:]
@@ -1287,14 +1290,14 @@ class MicrocalDataSet(object):
 
     @property
     def pkl_fname(self):
-        return ljh_util.mass_folder_from_ljh_fname(self.filename,filename="ch%d_calibration.pkl" % self.channum)
+        return ljh_util.mass_folder_from_ljh_fname(self.filename, filename="ch%d_calibration.pkl" % self.channum)
 
-    def calibrate(self, attr, line_names,name_ext="", size_related_to_energy_resolution=10, min_counts_per_cluster=20,
+    def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10, min_counts_per_cluster=20,
                   fit_range_ev=200, excl=(), plot_on_fail=False,max_num_clusters=np.inf, max_pulses_for_dbscan=1e5,
                   bin_size_ev=2.0, forceNew=False):
             pkl_fname = self.pkl_fname
             if path.isfile(pkl_fname) and not forceNew:
-                with open(pkl_fname,"r") as file:
+                with open(pkl_fname, "r") as file:
                     self.calibration = cPickle.load(file)
             calname = attr+name_ext
             if self.calibration.has_key(calname):
@@ -1304,7 +1307,7 @@ class MicrocalDataSet(object):
                     return None
                 # first does this already exist? if the calibration already exists and has more than 1 pt,
                 # we probably dont need to redo it
-            print("Calibrating chan %d to create %s"%(self.channum, calname))
+            print("Calibrating chan %d to create %s" % (self.channum, calname))
             cal = young.EnergyCalibration(size_related_to_energy_resolution, min_counts_per_cluster, fit_range_ev, excl,
                      plot_on_fail,max_num_clusters, max_pulses_for_dbscan, bin_size_ev=bin_size_ev)
             cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
@@ -1316,7 +1319,8 @@ class MicrocalDataSet(object):
                 cPickle.dump(self.calibration, f)
 
     def convert_to_energy(self, attr, calname=None):
-        if calname is None: calname = attr
+        if calname is None:
+            calname = attr
         if not self.calibration.has_key(calname):
             raise ValueError("For chan %d calibration %s does not exist"(self.channum, calname))
         cal = self.calibration[calname]
@@ -1376,7 +1380,7 @@ class MicrocalDataSet(object):
             raise ValueError("Only one of residual and difference can be True.")
 
         dt = (np.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
-        color= 'purple','blue','green','#88cc00','gold','orange','red', 'brown','gray','#444444','magenta'
+        color = 'purple', 'blue', 'green', '#88cc00', 'gold', 'orange', 'red', 'brown', 'gray', '#444444', 'magenta'
         MAX_TO_SUMMARIZE = 20
 
         if axis is None:
@@ -1393,16 +1397,18 @@ class MicrocalDataSet(object):
 
         cuts_good = self.cuts.good()[pulsenums]
         pulses_plotted = -1
-        for i,pn in enumerate(pulsenums):
-            if valid_status == 'cut' and cuts_good[i]: continue
-            if valid_status == 'valid' and not cuts_good[i]: continue
+        for i, pn in enumerate(pulsenums):
+            if valid_status == 'cut' and cuts_good[i]:
+                continue
+            if valid_status == 'valid' and not cuts_good[i]:
+                continue
             pulses_plotted += 1
 
             data = self.read_trace(pn)
             if difference:
-                data = data*1.0-np.roll(data,1)
+                data = data*1.0-np.roll(data, 1)
                 data[0] = 0
-                data += np.roll(data,1) + np.roll(data,-1)
+                data += np.roll(data, 1) + np.roll(data, -1)
                 data[0] = 0
             elif residual:
                 model = self.p_filt_value[pn] * self.average_pulse[:] / np.max(self.average_pulse)
@@ -1417,15 +1423,15 @@ class MicrocalDataSet(object):
                       linewidth=linewidth)
             if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(self.p_pretrig_mean)>=pn:
                 try:
-                    summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f"%(
-                                cutchar, pn, self.p_pretrig_mean[pn], self.p_pretrig_rms[pn],
-                                self.p_postpeak_deriv[pn], self.p_rise_time[pn]*1e6,
-                                self.p_peak_value[pn], self.p_pulse_average[pn])
+                    summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f" % (
+                        cutchar, pn, self.p_pretrig_mean[pn], self.p_pretrig_rms[pn],
+                        self.p_postpeak_deriv[pn], self.p_rise_time[pn]*1e6,
+                        self.p_peak_value[pn], self.p_pulse_average[pn])
                 except IndexError:
                     pulse_summary = False
                     continue
                 axis.text(.975, .93-.02*pulses_plotted, summary, color=color[pulses_plotted % len(color)],
-                           family='monospace', size='medium', transform = axis.transAxes, ha='right')
+                          family='monospace', size='medium', transform=axis.transAxes, ha='right')
 
     def read_trace(self, record_num):
         """Read (from cache or disk) and return the pulse numbered <record_num> for
@@ -1475,10 +1481,10 @@ class MicrocalDataSet(object):
             counts = [h[0].sum() for h in cal.histograms]
             for i in np.argsort(counts)[-1:-num_lines-1:-1]:
                 line_name = cal.elements[i]
-                low,high =cal.histograms[i][1][[0,-1]]
-                use = np.logical_and(attr_good>low, attr_good<high)
+                low, high =cal.histograms[i][1][[0,-1]]
+                use = np.logical_and(attr_good > low, attr_good < high)
                 use_time = self.p_timestamp[self.cuts.good()][use]-t0
-                pfit = np.polyfit(use_time, attr_good[use],poly_order)
+                pfit = np.polyfit(use_time, attr_good[use], poly_order)
                 pfits.append(pfit)
             pfits = np.array(pfits)
 
