@@ -30,6 +30,8 @@ class NoiseRecords(object):
     """
     DEFAULT_MAXSEGMENTSIZE = 32000000
 
+    ALLOWED_TYPES = ("ljh", "root", "virtual")
+
     def __init__(self, filename, records_are_continuous=False, use_records=None,
                  maxsegmentsize=None, hdf5_group=None):
         """
@@ -47,6 +49,8 @@ class NoiseRecords(object):
 
         self.nSamples = self.nPresamples = self.nPulses = 0
         self.timebase = 0.0
+
+        self.datafile = None
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
         self.noise_psd = None
@@ -62,7 +66,6 @@ class NoiseRecords(object):
     def __open_file(self, filename, use_records=None, file_format=None):
         """Detect the filetype and open it."""
 
-        ALLOWED_TYPES = ("ljh", "root", "virtual")
         if file_format is None:
             if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
@@ -72,8 +75,8 @@ class NoiseRecords(object):
                 file_format = "ljh"
             else:
                 file_format = "ljh"
-        if file_format not in ALLOWED_TYPES:
-            raise ValueError("file_format must be None or one of %s" % ALLOWED_TYPES)
+        if file_format not in self.ALLOWED_TYPES:
+            raise ValueError("file_format must be None or one of %s" % ",".join(self.ALLOWED_TYPES))
 
         if file_format == "ljh":
             self.datafile = LJHFile(filename, segmentsize=self.maxsegmentsize)
@@ -128,7 +131,8 @@ class NoiseRecords(object):
                                max_excursion=1000):
         self.compute_power_spectrum_reshape(window=window, nsegments=None,
                                             max_excursion=max_excursion)
-        if plot: self.plot_power_spectrum()
+        if plot:
+            self.plot_power_spectrum()
 
     def compute_power_spectrum_reshape(self, window=mass.mathstat.power_spectrum.hann,
                                        seg_length=None, max_excursion=1000):
@@ -219,7 +223,7 @@ class NoiseRecords(object):
         axis.grid()
         axis.set_xlim([10, 3e5])
         axis.set_xlabel("Frequency (Hz)")
-        axis.set_ylabel("Power Spectral Density (counts$^2$ Hz$^{-1}$)")
+        axis.set_ylabel(r"Power Spectral Density (counts$^2$ Hz$^{-1}$)")
         axis.set_title("Noise power spectrum for %s" % self.filename)
 
     def _compute_continuous_autocorrelation(self, n_lags=None, data_samples=None,
@@ -385,7 +389,7 @@ class NoiseRecords(object):
             self.plot_autocorrelation()
 
     def plot_autocorrelation(self, axis=None, color='blue', label=None):
-        if all(self.autocorrelation[:]==0):
+        if all(self.autocorrelation[:] == 0):
             print "Autocorrelation will be computed first"
             self.compute_autocorrelation(plot=False)
         if axis is None:
@@ -408,6 +412,8 @@ class PulseRecords(object):
     was not exactly the case).
     """
 
+    ALLOWED_TYPES = ("ljh", "root", "virtual")
+
     def __init__(self, filename, file_format=None):
         self.nSamples = 0
         self.nPresamples = 0
@@ -419,6 +425,7 @@ class PulseRecords(object):
         self.timebase = None
         self.timestamp_offset = None
 
+        self.datafile = None
         self.__open_file(filename, file_format=file_format)
 
         self.cuts = None
@@ -426,13 +433,13 @@ class PulseRecords(object):
         self.good = None
         self.data = np.array([], ndmin=2)
         self.times = np.array([], ndmin=2)
+        self.rowcount = None
 
         self.hdf5_trace = None
 
     def __open_file(self, filename, file_format=None):
         """Detect the filetype and open it."""
 
-        ALLOWED_TYPES=("ljh", "root", "virtual")
         if file_format is None:
             if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
@@ -442,8 +449,8 @@ class PulseRecords(object):
                 file_format = "ljh"
             else:
                 file_format = "ljh"
-        if file_format not in ALLOWED_TYPES:
-            raise ValueError("file_format must be None or one of %s" % ALLOWED_TYPES)
+        if file_format not in self.ALLOWED_TYPES:
+            raise ValueError("file_format must be None or one of %s" % ",".join(self.ALLOWED_TYPES))
 
         if file_format == "ljh":
             self.datafile = LJHFile(filename)
@@ -569,7 +576,7 @@ class Cuts(object):
 
         return category_mask
 
-    def clearCut(self, *args):
+    def clear_cut(self, *args):
         """
         Clear one or more boolean fields.
         """
@@ -582,11 +589,11 @@ class Cuts(object):
 
         self._mask[:] &= ~bit_mask
 
-    def clearAll(self):
+    def clear_all(self):
         """
         Clear all boolean fields
         """
-        self.clearCut()
+        self.clear_cut()
 
     def _boolean_fields_bit_mask(self, names):
         boolean_fields = self.tes_group.boolean_cut_desc
@@ -632,19 +639,19 @@ class Cuts(object):
 
         return g
 
-    def isCut(self, *args, **kwargs):
+    def is_cut(self, *args, **kwargs):
         """
         You can use the bad method instead.
         """
         return self.bad(*args, **kwargs)
 
-    def isUncut(self, *args, **kwargs):
+    def is_uncut(self, *args, **kwargs):
         """
         You can use the good method instead.
         """
         return self.good(*args, **kwargs)
 
-    def nCut(self, *args, **kwargs):
+    def n_cut(self, *args, **kwargs):
         g = self.bad(*args)
 
         if kwargs:
@@ -652,7 +659,7 @@ class Cuts(object):
 
         return g.sum()
 
-    def nUncut(self, *args, **kwargs):
+    def n_uncut(self, *args, **kwargs):
         g = self.good(*args)
 
         if kwargs:
@@ -664,15 +671,13 @@ class Cuts(object):
         return "Cuts(%d)" % len(self._mask)
 
     def __str__(self):
-        return "Cuts(%d) with %d cut and %d uncut" % (len(self._mask), self.nCut(), self.nUncut())
+        return "Cuts(%d) with %d cut and %d uncut" % (len(self._mask), self.n_cut(), self.n_uncut())
 
     def copy(self):
         """
         I don't see the point of this shallow copy.
-        I don't see the point of this shallow copy.
         """
-        c = Cuts(len(self._mask), hdf5_group=self.hdf5_group)
-        #c._mask = self._mask.copy()
+        c = Cuts(len(self._mask), tes_group=self.tes_group, hdf5_group=self.hdf5_group)
         return c
 
 
@@ -744,7 +749,7 @@ class MicrocalDataSet(object):
                           'energy')
         uint16_fields = ('peak_index', 'peak_value', 'min_value')
         int64_fields = ('rowcount',)
-        for dtype,fieldnames in ((np.float64, float64_fields),
+        for dtype, fieldnames in ((np.float64, float64_fields),
                                  (np.float32, float32_fields),
                                  (np.uint16, uint16_fields),
                                  (np.int64, int64_fields)):
@@ -1116,7 +1121,7 @@ class MicrocalDataSet(object):
         if not forceNew:
             if self.cuts.good().sum() != self.nPulses:
                 print("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses" %
-                      (self.channum, self.cuts.nUncut(), self.cuts.nCut(), self.nPulses))
+                      (self.channum, self.cuts.n_uncut(), self.cuts.n_cut(), self.nPulses))
 
         if clear:
             self.clear_cuts()
@@ -1149,8 +1154,8 @@ class MicrocalDataSet(object):
                                'pretrigger_mean_departure_from_median')
         if verbose > 0:
             print("Chan %d after cuts, %d are good, %d are bad of %d total pulses" % (
-                self.channum, self.cuts.nUncut(),
-                self.cuts.nCut(), self.nPulses))
+                self.channum, self.cuts.n_uncut(),
+                self.cuts.n_cut(), self.nPulses))
 
     def clear_cuts(self):
         self.cuts.clearAll()
