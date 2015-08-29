@@ -122,7 +122,7 @@ class NoiseRecords(object):
         Handy when coding and you don't want to read the whole data set back in, but
         you do want to update the method definitions."""
         c = NoiseRecords(self.filename)
-        c.__dict__.update( self.__dict__ )
+        c.__dict__.update(self.__dict__)
         c.datafile = self.datafile.copy()
         return c
 
@@ -179,7 +179,7 @@ class NoiseRecords(object):
         n = np.prod(self.data.shape)
         if nseg_choices is None:
             nseg_choices = [16]
-            while nseg_choices[-1]<=n/16 and nseg_choices[-1]<20000:
+            while nseg_choices[-1] <= n/16 and nseg_choices[-1]<20000:
                 nseg_choices.append(nseg_choices[-1]*8)
         print nseg_choices
 
@@ -189,15 +189,15 @@ class NoiseRecords(object):
             plt.clf()
             lowest_freq = np.array([1./(sp.dt*sp.m2) for sp in spectra])
 
-            start_freq=0.0
-            for i,sp in enumerate(spectra):
-                x,y = sp.frequencies(), sp.spectrum()
-                if i==len(spectra)-1:
-                    good = x>=start_freq
+            start_freq = 0.0
+            for i, sp in enumerate(spectra):
+                x, y = sp.frequencies(), sp.spectrum()
+                if i == len(spectra)-1:
+                    good = x >= start_freq
                 else:
-                    good = np.logical_and(x>=start_freq, x<4*lowest_freq[i+1])
+                    good = np.logical_and(x >= start_freq, x < 4*lowest_freq[i+1])
                     start_freq = 1*lowest_freq[i+1]
-                plt.loglog(x[good],y[good],'-')
+                plt.loglog(x[good], y[good], '-')
 
     def plot_power_spectrum(self, axis=None, scale=1.0, sqrt_psd=False, **kwarg):
         """
@@ -244,11 +244,14 @@ class NoiseRecords(object):
             That is, choose (1, 3, or 5)*(a power of two), whichever is smallest
             """
             pow2 = np.round(2**np.ceil(np.log2(n)))
-            if n==pow2: return int(n)
-            elif n>0.75*pow2: return int(pow2)
-            elif n>0.625*pow2: return int(np.round(0.75*pow2))
-            else: return int(np.round(0.625*pow2))
-
+            if n == pow2:
+                return int(n)
+            elif n > 0.75*pow2:
+                return int(pow2)
+            elif n > 0.625*pow2:
+                return int(np.round(0.75*pow2))
+            else:
+                return int(np.round(0.625*pow2))
 
         # When there are 10 million data points and only 10,000 lags wanted,
         # it's hugely inefficient to compute the full autocorrelation, especially
@@ -810,7 +813,6 @@ class MicrocalDataSet(object):
     def __repr__(self):
         return "%s('%s')"%(self.__class__.__name__, self.filename)
 
-
     def good(self):
         """Return a boolean vector, one per pulse record, saying whether record is good"""
         return self.cuts.good()
@@ -837,8 +839,6 @@ class MicrocalDataSet(object):
             c.calibration[k] = self.calibration[k].copy()
         c.cuts = self.cuts.copy()
         return c
-
-
 
     def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
@@ -1158,7 +1158,7 @@ class MicrocalDataSet(object):
                                self.CUT_NAME.index('timestamp_diff_sec'))
         if c['pretrigger_mean_departure_from_median'] is not None:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
-            if verbose>1:
+            if verbose > 1:
                 print'applying cut on pretrigger mean around its median value of ',median
             self.cut_parameter(self.p_pretrig_mean-median,
                                c['pretrigger_mean_departure_from_median'],
@@ -1255,11 +1255,11 @@ class MicrocalDataSet(object):
         in mass.calibration.gaussian_lines (e.g. 'Gd97'), or a number.  In this last case, it is assumed to
         be a single Gaussian line.
         """
-        all_values={'filt': self.p_filt_value,
-                    'phc': self.p_filt_value_phc,
-                    'dc': self.p_filt_value_dc,
-                    'energy': self.p_energy,
-                    }[fit_type]
+        all_values = {'filt': self.p_filt_value,
+                      'phc': self.p_filt_value_phc,
+                      'dc': self.p_filt_value_dc,
+                      'energy': self.p_energy,
+                      }[fit_type]
         if mask is not None:
             valid = np.array(mask)
         else:
