@@ -87,14 +87,13 @@ class PowerSpectrum(object):
         c = PowerSpectrum(self.m, dt=self.dt)
         c.__dict__.update(self.__dict__)
         return c
-        
 
     def addDataSegment(self, data, window=None):
         """Process a data segment of length 2m using the window function
         given.  window can be None (square window), a callable taking the
         length and returning a sequence, or a sequence."""
         if len(data) != self.m2:
-            raise ValueError("wrong size data segment.  len(data)=%d but require %d"%(len(data), self.m2))
+            raise ValueError("wrong size data segment.  len(data)=%d but require %d" % (len(data), self.m2))
         if np.isnan(data).any():
             raise ValueError("data contains NaN")
         if window is None:
@@ -110,7 +109,7 @@ class PowerSpectrum(object):
 
         scale_factor = 2./(sum_window*self.m2)
         if True: # we want real units
-            scale_factor *=  self.dt*self.m2
+            scale_factor *= self.dt*self.m2
         wksp = np.fft.rfft(wksp)
         
         # The first line adds 2x too much to the first/last bins.
@@ -135,31 +134,30 @@ class PowerSpectrum(object):
                                          data[noff:noff+self.m2], 
                                          window=window)
 
-        
     def spectrum(self, nbins=None):
-        "If <nbins> is given, the data are averaged into <nbins> bins."
+        """If <nbins> is given, the data are averaged into <nbins> bins."""
         if nbins is None:
             return self.specsum / self.nsegments
         if nbins > self.m: 
-            raise ValueError("Cannot rebin into more than m=%d bins"%self.m)
+            raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
     
         newbin = np.asarray(0.5+np.arange(self.m+1, dtype=np.float)/(self.m+1)*nbins, dtype=np.int)
         result = np.zeros(nbins+1, dtype=np.float)
-        for i in range (nbins+1):
-            result[i] = self.specsum[newbin==i].mean()
+        for i in range(nbins+1):
+            result[i] = self.specsum[newbin == i].mean()
         return result/self.nsegments
     
     def autocorrelation(self):
-        "Return the autocorrelation (the DFT of this power spectrum)"
-        raise NotImplementedError ("The autocorrelation method is not yet implemented.")
+        """Return the autocorrelation (the DFT of this power spectrum)"""
+        raise NotImplementedError("The autocorrelation method is not yet implemented.")
 
     def frequencies(self, nbins=None):
-        "If <nbins> is given, the data are averaged into <nbins> bins."
-        if nbins is None: nbins=self.m
+        """If <nbins> is given, the data are averaged into <nbins> bins."""
+        if nbins is None:
+            nbins = self.m
         if nbins > self.m: 
-            raise ValueError("Cannot rebin into more than m=%d bins"%self.m)
+            raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
         return np.arange(nbins+1, dtype=np.float)/(2*self.dt*nbins)
-
 
 
 class PowerSpectrumOverlap(PowerSpectrum):
@@ -201,26 +199,31 @@ class PowerSpectrumOverlap(PowerSpectrum):
 
 # Commonly used window functions
 
+
 def bartlett(n):
-    "A Bartlett window (triangle shape) of length n"
+    """A Bartlett window (triangle shape) of length n"""
     return np.bartlett(n)
 
+
 def welch(n):
-    "A Welch window (parabolic) of length n"
+    """A Welch window (parabolic) of length n"""
     return 1-(2*np.arange(n, dtype=np.float)/(n-1.)-1)**2
 
+
 def hann(n):
-    "A Hann window (sine-squared) of length n"
+    """A Hann window (sine-squared) of length n"""
     # twopi = np.pi*2
     # i = np.arange(n, dtype=np.float)
     # return  0.5*(1.0-np.cos(i*twopi/(n-1)))
     return np.hanning(n)
 
+
 def hamming(n):
-    "A Hamming window (0.08 + 0.92*sine-squared) of length n"
+    """A Hamming window (0.08 + 0.92*sine-squared) of length n"""
     return np.hamming(n)
 
 # Convenience functions
+
 
 def computeSpectrum(data, segfactor=1, dt=None, window=None):
     """Convenience function to compute the power spectrum of a single data array.
@@ -242,7 +245,7 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
     N = len(data)
     M = N/(2*segfactor)
     try:
-        window = window(2*M) # precompute
+        window = window(2*M)  # precompute
     except TypeError:
         window = None
 
@@ -252,7 +255,7 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
     else:
         spec = PowerSpectrumOverlap(M, dt=dt)
         for i in range(2*segfactor-1):
-            spec.addDataSegment( data[i*M : (i+1)*M], window=window)
+            spec.addDataSegment(data[i*M:(i+1)*M], window=window)
 
     if dt is None:
         return spec.spectrum()
@@ -261,10 +264,11 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
 
 
 import matplotlib.pylab as pylab
+
+
 def demo(N=1024, window=np.hanning):
-    data=np.random.standard_normal(N)
+    data = np.random.standard_normal(N)
     pylab.clf()
-    for i in (2,4,8,1):
-        f,s = computeSpectrum(data, segfactor=i, dt=1e0, 
-                                 window=window)
+    for i in (2, 4, 8, 1):
+        f, s = computeSpectrum(data, segfactor=i, dt=1e0, window=window)
         pylab.plot(f, s)
