@@ -16,3 +16,5 @@ TAGS
 
 .idea/*
 *.h5
+
+mass/mathstat/nearest_arrivals.c

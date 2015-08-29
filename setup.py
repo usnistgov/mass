@@ -124,7 +124,11 @@ if __name__ == "__main__":
           description='Microcalorimeter Analysis Software Suite',
           ext_modules = [Extension('mass.mathstat._robust', 
                                    [os.path.join('mass','mathstat','robust')+ext for ext in (".pyx",)],
+                                   include_dirs=[numpy_include_path]),
+                         Extension('mass.mathstat.nearest_arrivals',
+                                   [os.path.join('mass','mathstat','nearest_arrivals.pyx')],
                                    include_dirs=[numpy_include_path])],
+
 
           cmdclass = {'build_ext': build_ext,
                       'build': QtBuilder,

@@ -43,7 +43,7 @@ import os
 import sys
 import time
 import glob
-
+from distutils.version import StrictVersion
 
 # Beware that the Mac Ports install of ROOT does not add
 # /opt/local/lib/root to the PYTHONPATH.  Still, you should do it yourself.
@@ -211,6 +211,7 @@ class LJHFile(MicrocalFile):
         self.number_of_rows = -1
         self.number_of_columns = -1
         self.data = None
+        self.version_str = None
         self.__cached_segment = None
         self.__read_header(filename)
         self.set_segment_size(segmentsize)
@@ -280,6 +281,9 @@ class LJHFile(MicrocalFile):
                     self.timestamp_offset = float(words[-1])
                 except:
                     self.timestamp_offset = 0.0
+            elif line.startswith("Save File Format Version:"):
+                words = line.split()
+                self.version_str = words[-1]
 
             if len(lines) > TOO_LONG_HEADER:
                 raise IOError("header is too long--seems not to contain '#End of Header'\n"+
@@ -291,7 +295,12 @@ class LJHFile(MicrocalFile):
         self.binary_size = fp.tell() - self.header_size
         fp.close()
 
-        self.nPulses = self.binary_size / (6+2*self.nSamples)
+        if StrictVersion(self.version_str) >= StrictVersion("2.2.0"):
+            self.pulse_size_bytes = (16+2*self.nSamples)
+        else:
+            self.pulse_size_bytes = (6+2*self.nSamples)
+
+        self.nPulses = self.binary_size / self.pulse_size_bytes
 
         # Check for major problems in the LJH file:
         if self.header_lines < 1:
@@ -307,22 +316,19 @@ class LJHFile(MicrocalFile):
 
         # This used to be fatal, but it prevented opening files cut short by
         # a crash of the DAQ software.
-        if self.nPulses * (6+2*self.nSamples) != self.binary_size:
+        if self.nPulses * self.pulse_size_bytes != self.binary_size:
             print "Warning: The binary size "+ \
-            "(%d) is not an integer multiple of the pulse size %d"%(
-                self.binary_size, 6+2*self.nSamples)
+            "(%d) is not an integer multiple of the pulse size %d bytes"%(
+                self.binary_size, self.pulse_size_bytes)
             print "      %s"%filename
 
         # Record the sample times in microseconds
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
-
     def set_segment_size(self, segmentsize):
         """Set the standard segmentsize used in the read_segment() method.  This number will
         be rounded down to equal an integer number of pulses.
-
         Raises ValueError if segmentsize is smaller than a single pulse."""
-        self.pulse_size_bytes = 6 + 2*self.nSamples
         maxitems = segmentsize/self.pulse_size_bytes
         if maxitems < 1:
             raise ValueError("segmentsize=%d is not permitted to be smaller than the pulse record (%d bytes)"
@@ -331,7 +337,6 @@ class LJHFile(MicrocalFile):
         self.pulses_per_seg = self.segmentsize / self.pulse_size_bytes
         self.n_segments = 1+(self.binary_size-1)/self.segmentsize
         self.__cached_segment = None
-
 
     def read_trace(self, trace_num):
         """Return a single data trace (number <trace_num>),
@@ -391,6 +396,38 @@ class LJHFile(MicrocalFile):
                     will be read.  (Beware: memory filling danger if <max_size> is negative!)
         <error_on_partial_pulse> Whether to raise an error when caller requests non-integer
                                  number of pulses.
+        """
+        if StrictVersion(self.version_str) >= StrictVersion("2.2.0"):
+            self.__read_binary_post22(skip, max_size, error_on_partial_pulse)
+        else:
+            self.__read_binary_pre22(skip, max_size, error_on_partial_pulse)
+
+
+    def __read_binary_post22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
+        """
+        Version 2.2 and later include two pieces of time information for each pulse.
+        8 bytes - Int64 row count number
+        8 bytes - Int64 posix microsecond time
+        technically both could be read as uint64, but then you get overflows when differencing, so we'll give up a factor of 2 to avoid that
+        """
+        with open(self.filename,"rb") as fp:
+            if skip > 0:
+                fp.seek(skip)
+            maxitems = max_size/self.pulse_size_bytes
+            # should use a platform independent spec for the order of the bytes in the ints
+            dt = np.dtype( [('rowcount', np.int64), ('posix_usec', np.int64), ('data', np.uint16, self.nSamples)] )
+            array = np.fromfile(fp, dtype=dt, sep="", count=maxitems)
+            #fromfile will read up to max items
+
+        self.rowcount = array["rowcount"]
+        self.datatimes_float = array["posix_usec"]*1e-6 # convert to floating point with units of seconds
+        self.data = array["data"]
+
+    def __read_binary_pre22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
+        """
+        This is for version before version 2.2 of ljh files. The key distinction is how pulse arrival time data is encoded.
+        Pre 2.2 each pulse has a timestamp encoded in a weird way that contains arrival time at 4 usec resolution. If the frame time is
+        greater than or equal to 4 usec, the exact frame number can be recovered.
         """
         fp = open(self.filename,"rb")
         if skip > 0:
@@ -456,14 +493,13 @@ class LJHFile(MicrocalFile):
         self.datatimes_float_old += self.data[:, 1]*SECONDS_PER_MILLISECOND
         self.datatimes_float_old += self.data[:, 2]*(SECONDS_PER_MILLISECOND*65536.)
 
-        self.row_count = np.array(frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
+        self.rowcount = np.array(frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
         self.datatimes_float = (frame_count+self.row_number/float(self.number_of_rows))*self.timebase
 
 
 
         # Cut out zeros and the timestamp, which are 3 uint16 words @ start of each pulse
         self.data = self.data[:, 3:]
-
 
 
 class LANLFile(MicrocalFile):
