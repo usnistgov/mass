@@ -105,7 +105,7 @@ class TESGroup(object):
 
     BRIGHT_ORANGE = '#ff7700'
 
-    DEFAULT_BOOLEAN_CUT_FIELDS = ['pretrigger_rms',
+    BUILTIN_BOOLEAN_CUT_FIELDS = ['pretrigger_rms',
                                   'pretrigger_mean',
                                   'pretrigger_mean_departure_from_median',
                                   'peak_time_ms',
@@ -169,7 +169,7 @@ class TESGroup(object):
 
             if "cut_boolean_field_desc" not in self.hdf5_file.attrs:
                 self.hdf5_file.attrs["cut_boolean_field_desc"] = np.zeros(32, dtype=self.__cut_boolean_field_desc_dtype)
-                self.register_boolean_cut_fields(*self.DEFAULT_BOOLEAN_CUT_FIELDS)
+                self.register_boolean_cut_fields(*self.BUILTIN_BOOLEAN_CUT_FIELDS)
 
             for name, dtype in zip(["cut_categorical_field_desc",
                                     "cut_category_list"],

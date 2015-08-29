@@ -219,7 +219,7 @@ class NoiseRecords(object):
         axis.plot(freq, yvalue, **kwarg)
         plt.loglog()
         axis.grid()
-        axis.set_xlim([10,3e5])
+        axis.set_xlim([10, 3e5])
         axis.set_xlabel("Frequency (Hz)")
         axis.set_ylabel("Power Spectral Density (counts$^2$ Hz$^{-1}$)")
         axis.set_title("Noise power spectrum for %s"%self.filename)
@@ -658,10 +658,10 @@ class Cuts(object):
         return g.sum()
 
     def __repr__(self):
-        return "Cuts(%d)"%len(self._mask)
+        return "Cuts(%d)" % len(self._mask)
 
     def __str__(self):
-        return "Cuts(%d) with %d cut and %d uncut"%(len(self._mask), self.nCut(), self.nUncut())
+        return "Cuts(%d) with %d cut and %d uncut" % (len(self._mask), self.nCut(), self.nUncut())
 
     def copy(self):
         """
@@ -679,27 +679,10 @@ class MicrocalDataSet(object):
     This channel can be directly from a TDM detector, or it
     can be the demodulated result of a CDM modulation.
     """
-    CUT_NAME = ['pretrigger_rms',
-                'pretrigger_mean',
-                'pretrigger_mean_departure_from_median',
-                'peak_time_ms',
-                'rise_time_ms',
-                'postpeak_deriv',
-                'pulse_average',
-                'min_value',
-                'timestamp_sec',
-                'timestamp_diff_sec',
-                'peak_value',
-                'energy',
-                'timing',
-                "p_filt_phase",
-                'smart_cuts']
-
-    Cuts.register_boolean_fields(*CUT_NAME)
 
     # Attributes that all such objects must have.
-    expected_attributes=("nSamples","nPresamples","nPulses","timebase", "channum",
-                         "timestamp_offset")
+    expected_attributes = ("nSamples", "nPresamples", "nPulses", "timebase", "channum",
+                           "timestamp_offset")
 
     HDF5_CHUNK_SIZE = 256
 
@@ -1039,7 +1022,7 @@ class MicrocalDataSet(object):
             contents, _bins, _patches = plt.hist(vect[in_limit],200, log=log,
                            histtype='stepfilled', fc=color, alpha=0.5)
             if log:
-                plt.ylim(ymin = contents.min())
+                plt.ylim(ymin=contents.min())
 
     def cut_parameter(self, data, allowed, cut_id):
         """Apply a cut on some per-pulse parameter.
@@ -1048,8 +1031,7 @@ class MicrocalDataSet(object):
                   can be computed from one (or more),
                   but it must be an array of length self.nPulses
         <allowed> The cut to apply (see below).
-        <cut_id>  The bit number (range [0,31]) to identify this cut.  Should be one of
-                  self.CUT_NAME
+        <cut_id>  The bit number (range [0,31]) to identify this cut or the name of the cut.
 
         <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b.
         Either a or b may be None, indicating no cut.
@@ -1058,10 +1040,16 @@ class MicrocalDataSet(object):
         for any of the two element sequences, if any element in allowed is ''invert'' then it swaps cut and uncut
         """
 
-        if allowed is None: # no cut here!
+        if allowed is None:  # no cut here!
             return
-        if cut_id < 0 or cut_id >= 32:
-            raise ValueError("cut_id must be in the range [0,31]")
+        if type(cut_id) is int:
+            if cut_id < 0 or cut_id >= 32:
+                raise ValueError("cut_id must be in the range [0,31]")
+        elif (type(cut_id) is bytes) or (type(cut_id) is unicode):
+            boolean_cut_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+            g = boolean_cut_fields["name"] == cut_id
+            if not np.any(g):
+                raise ValueError(cut_id + " is not found.")
 
         # determine if allowed is a sequence or a sequence of sequences
         if np.size(allowed[0]) == 2 or allowed[0] == 'invert':
@@ -1070,7 +1058,7 @@ class MicrocalDataSet(object):
             for element in allowed:
                 if np.size(element) == 2:
                     try:
-                        a,b = element
+                        a, b = element
                         if a is not None and b is not None:
                             index = np.logical_and(data[:] >= a, data[:] <= b)
                         elif a is not None:
@@ -1079,7 +1067,8 @@ class MicrocalDataSet(object):
                             index = data[:] <= b
                         cut_vec[index] = False
                     except:
-                        raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid'%str(element))
+                        raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid' %
+                                         str(element))
                 elif element == 'invert':
                     doInvert = True
             if doInvert:
@@ -1088,13 +1077,14 @@ class MicrocalDataSet(object):
                 self.cuts.cut(cut_id, cut_vec)
         else:
             try:
-                a,b = allowed
+                a, b = allowed
                 if a is not None:
                     self.cuts.cut(cut_id, data[:] <= a)
                 if b is not None:
                     self.cuts.cut(cut_id, data[:] >= b)
             except ValueError:
-                raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'%str(allowed))
+                raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'
+                                 % str(allowed))
 
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """<n_lags>, if not None, is the number of lags in each noise spectrum and the max lag
@@ -1132,41 +1122,32 @@ class MicrocalDataSet(object):
             controls = mass.controller.standardControl()
         c = controls.cuts_prm
 
-        self.cut_parameter(self.p_energy, c['energy'], self.CUT_NAME.index('energy'))
-        self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'],
-                           self.CUT_NAME.index('pretrigger_rms'))
-        self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'],
-                           self.CUT_NAME.index('pretrigger_mean'))
+        self.cut_parameter(self.p_energy, c['energy'], 'energy')
+        self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], 'pretrigger_rms')
+        self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'], 'pretrigger_mean')
 
-        self.cut_parameter(self.p_peak_time[:]*1e3, c['peak_time_ms'],
-                           self.CUT_NAME.index('peak_time_ms'))
-        self.cut_parameter(self.p_rise_time[:]*1e3, c['rise_time_ms'],
-                           self.CUT_NAME.index('rise_time_ms'))
-        self.cut_parameter(self.p_postpeak_deriv, c['postpeak_deriv'],
-                           self.CUT_NAME.index('postpeak_deriv'))
-        self.cut_parameter(self.p_pulse_average, c['pulse_average'],
-                           self.CUT_NAME.index('pulse_average'))
-        self.cut_parameter(self.p_peak_value, c['peak_value'],
-                           self.CUT_NAME.index('peak_value'))
-        self.cut_parameter(self.p_min_value[:]-self.p_pretrig_mean[:], c['min_value'],
-                           self.CUT_NAME.index('min_value'))
-        self.cut_parameter(self.p_timestamp[:], c['timestamp_sec'],
-                           self.CUT_NAME.index('timestamp_sec'))
+        self.cut_parameter(self.p_peak_time[:]*1e3, c['peak_time_ms'], 'peak_time_ms')
+        self.cut_parameter(self.p_rise_time[:]*1e3, c['rise_time_ms'], 'rise_time_ms')
+        self.cut_parameter(self.p_postpeak_deriv, c['postpeak_deriv'], 'postpeak_deriv')
+        self.cut_parameter(self.p_pulse_average, c['pulse_average'], 'pulse_average')
+        self.cut_parameter(self.p_peak_value, c['peak_value'], 'peak_value')
+        self.cut_parameter(self.p_min_value[:]-self.p_pretrig_mean[:], c['min_value'], 'min_value')
+        self.cut_parameter(self.p_timestamp[:], c['timestamp_sec'], 'timestamp_sec')
+
         if c['timestamp_diff_sec'] is not None:
             self.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
-                               c['timestamp_diff_sec'],
-                               self.CUT_NAME.index('timestamp_diff_sec'))
+                               c['timestamp_diff_sec'], 'timestamp_diff_sec')
         if c['pretrigger_mean_departure_from_median'] is not None:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
             if verbose > 1:
-                print'applying cut on pretrigger mean around its median value of ',median
+                print('applying cut on pretrigger mean around its median value of ', median)
             self.cut_parameter(self.p_pretrig_mean-median,
                                c['pretrigger_mean_departure_from_median'],
-                               self.CUT_NAME.index('pretrigger_mean_departure_from_median'))
-        if verbose>0:
-            print "Chan %d after cuts, %d are good, %d are bad of %d total pulses"%(
+                               'pretrigger_mean_departure_from_median')
+        if verbose > 0:
+            print("Chan %d after cuts, %d are good, %d are bad of %d total pulses" % (
                 self.channum, self.cuts.nUncut(),
-                self.cuts.nCut(), self.nPulses)
+                self.cuts.nCut(), self.nPulses))
 
     def clear_cuts(self):
         self.cuts.clearAll()
@@ -1182,7 +1163,7 @@ class MicrocalDataSet(object):
         indicator = self.p_pretrig_mean[g]
         drift_corr_param, self.drift_correct_info = \
             mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
-        print 'chan %d best drift correction parameter: %.6f' % (self.channum, drift_corr_param)
+        print('chan %d best drift correction parameter: %.6f' % (self.channum, drift_corr_param))
 
         # Apply correction
         ptm_offset = self.drift_correct_info['median_pretrig_mean']
@@ -1190,7 +1171,7 @@ class MicrocalDataSet(object):
         self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
         self.hdf5_group.file.flush()
 
-    def phase_correct2014(self, typical_resolution, maximum_num_records = 50000, plot=False, forceNew=False):
+    def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False, forceNew=False):
         """Apply the phase correction that seems good for calibronium-like
         data as of June 2014. For more notes, do
         help(mass.core.analysis_algorithms.FilterTimeCorrection)
@@ -1528,9 +1509,9 @@ class MicrocalDataSet(object):
         plt.xlabel("energy (eV)")
         plt.ylabel("energy resolution fwhm (eV)")
         plt.grid("on")
-        plt.title("chan %d cal comparison"%self.channum)
+        plt.title("chan %d cal comparison" % self.channum)
 
-    def count_rate(self, goodonly=False,bin_s=60):
+    def count_rate(self, goodonly=False, bin_s=60):
         g = self.cuts.good()
         if not goodonly:
             g[:] = True
@@ -1545,18 +1526,19 @@ class MicrocalDataSet(object):
         return bin_centers, rate
 
     def cut_summary(self):
-        for i, c1 in enumerate(self.CUT_NAME):
-            for j, c2 in enumerate(self.CUT_NAME):
+        boolean_fields = [name for name in self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]["name"] if name]
+
+        for c1 in boolean_fields:
+            for c2 in boolean_fields:
                 print("%d pulses cut by both %s and %s" % (
-                np.sum( np.logical_and(self.cuts.isCut(i), self.cuts.isCut(j))), c1.upper(), c2.upper()))
-        for j, cutname in enumerate(self.CUT_NAME):
-            print("%d pulses cut by %s" % (np.sum(self.cuts.isCut(j)), cutname.upper()))
-        print("%d pulses total"%self.nPulses)
+                    np.sum(self.cuts.bad(c1, c2)), c1.upper(), c2.upper()))
+        for cut_name in boolean_fields:
+            print("%d pulses cut by %s" % (np.sum(self.cuts.bad(cut_name)), cut_name.upper()))
+        print("%d pulses total" % self.nPulses)
 
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         # first check to see if this had already been done
-        cutnum = self.CUT_NAME.index('smart_cuts')
-        if not any(self.cuts.isCut(cutnum)) or forceNew:
+        if all(self.cuts.good("smart_cuts")) or forceNew:
             from sklearn.covariance import MinCovDet
 
             mdata = np.vstack([self.p_pretrig_mean[:n_trainings], self.p_pretrig_rms[:n_trainings],
@@ -1571,9 +1553,9 @@ class MicrocalDataSet(object):
             mdata = mdata.transpose()
             flag = robust.mahalanobis(mdata) > threshold**2
 
-            self.cuts.cut(cutnum, flag)
+            self.cuts.cut("smart_cuts", flag)
             print("channel %g ran smart cuts, %g of %g pulses passed" % (self.channum,
-                                                                         (~self.cuts.isCut(cutnum)).sum(),
+                                                                         (~self.cuts.bad("smart_cuts")).sum(),
                                                                          self.nPulses))
         else:
-            print("channel %g skipping smart cuts because it was already done" % (self.channum))
+            print("channel %g skipping smart cuts because it was already done" % self.channum)
