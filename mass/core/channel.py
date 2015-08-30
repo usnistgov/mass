@@ -667,18 +667,18 @@ class MicrocalDataSet(object):
     def external_trigger_rowcount(self):
         if not hasattr(self, "_external_trigger_rowcount"):
             filename = mass.ljh_util.ljh_get_extern_trig_fname(self.filename)
-            with h5py.File(filename) as h5:
-                ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
-                crate_clock_hz = h5["trig_times"].attrs["Nrows"] * \
-                                 h5["trig_times"].attrs["lsync"]* \
-                                 h5["trig_times"].attrs["sample_rate_hz"]
-                # the crate clock can really only be 50MHz or 100Mhz, so pick the closer of those
-                crate_clock_hz = (crate_clock_hz//1000000)*1000000
-                # assert(crate_clock_hz in [50000000, 100000000])
-                timebase = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]/float(crate_clock_hz)
-                # assert(np.abs(timebase-self.timebase)<1e-15) # make sure the timebase is the same to within some reasonable precision
-                self._external_trigger_rowcount = h5[ds_name]
-                self.row_timebase = self.timebase/float(self.number_of_rows)
+            h5 = h5py.File(filename)
+            ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
+            crate_clock_hz = h5["trig_times"].attrs["Nrows"] * \
+                             h5["trig_times"].attrs["lsync"] * \
+                             h5["trig_times"].attrs["sample_rate_hz"]
+            # the crate clock can really only be 50MHz or 100Mhz, so pick the closer of those
+            crate_clock_hz = (crate_clock_hz//1000000)*1000000
+            # assert(crate_clock_hz in [50000000, 100000000])
+            timebase = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]/float(crate_clock_hz)
+            # assert(np.abs(timebase-self.timebase)<1e-15) # make sure the timebase is the same to within some reasonable precision
+            self._external_trigger_rowcount = h5[ds_name]
+            self.row_timebase = self.timebase/float(self.number_of_rows)
         return self._external_trigger_rowcount
 
     @property
