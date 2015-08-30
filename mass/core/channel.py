@@ -588,12 +588,16 @@ class Cuts(object):
         boolean_field = self.tes_group.boolean_cut_desc
         categorical_field = self.tes_group.categorical_cut_desc
 
-        boolean_field_names = [name for name, _ in boolean_field if name in args]
-        categorical_field_names = [name for name, _, _ in categorical_field if name in args]
+        if args:
+            boolean_field_names = [name for name, _ in boolean_field if name in args]
+            categorical_field_names = [name for name, _, _ in categorical_field if name in args]
 
-        not_found = set(args) - (set(boolean_field_names).union(set(categorical_field_names)))
-        if not_found:
-            raise ValueError(",".join(not_found) + " are not found.")
+            not_found = set(args) - (set(boolean_field_names).union(set(categorical_field_names)))
+            if not_found:
+                raise ValueError(",".join(not_found) + " are not found.")
+        else:
+            boolean_field_names = [name for name, _ in boolean_field if name]
+            categorical_field_names = [name for name, _, _ in categorical_field]
 
         mask_dtype = np.dtype([(name, np.bool) for name in boolean_field_names] +
                               [(name, np.uint8) for name in categorical_field_names])
