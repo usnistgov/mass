@@ -567,14 +567,11 @@ class Cuts(object):
 
             _, bit_pos, bit_mask = categorical_field[categorical_g][0]
             _, _, category = category_list[category_g][0]
-            category = np.uint32(category)
 
             category_field_bit_mask |= bit_mask
-            category_field_target_bits |= (category << bit_pos)
+            category_field_target_bits |= np.uint32(category << bit_pos)
 
-        category_mask = (self._mask[...] & category_field_bit_mask) == category_field_target_bits
-
-        return category_mask
+        return (self._mask[...] & category_field_bit_mask) == category_field_target_bits
 
     def category(self, name):
         categorical_field = self.tes_group.categorical_cut_desc
@@ -602,10 +599,13 @@ class Cuts(object):
         self.clear_cut()
 
     def _boolean_fields_bit_mask(self, names):
+        """
+        Calculate the bit mask for any combination of boolean cut fields.
+        """
         boolean_fields = self.tes_group.boolean_cut_desc
 
         if names:
-            all_field_names = set([n for n in boolean_fields["name"] if n])
+            all_field_names = set([name for name, mask in boolean_fields if name])
 
             not_found_fields = set(names) - all_field_names
 
@@ -614,13 +614,17 @@ class Cuts(object):
 
             bit_masks = [mask for name, mask in boolean_fields if name in names]
         else:
-            bit_masks = boolean_fields["mask"]
+            bit_masks = [mask for name, mask in boolean_fields if name]
 
         bit_mask = functools.reduce(operator.or_, bit_masks, np.uint32(0))
 
         return bit_mask
 
     def good(self, *args, **kwargs):
+        """
+        Select pulses which are good for all of specified boolean cut fields.
+        If any categorical cut fields are given, only pulses in the combination of categories are considered.
+        """
         bit_mask = self._boolean_fields_bit_mask(args)
         g = ((self._mask[...] & bit_mask) == 0)
 
@@ -630,6 +634,10 @@ class Cuts(object):
         return g
 
     def bad(self, *args, **kwargs):
+        """
+        Select pulses which are bad for at least one of specified boolean cut fields.
+        If any categorical cut fields are given, only pulses in the combination of categories are considered.
+        """
         bit_mask = self._boolean_fields_bit_mask(args)
         g = (self._mask[...] & bit_mask != 0)
 
