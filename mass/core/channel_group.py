@@ -237,7 +237,7 @@ class TESGroup(object):
 
     @property
     def cut_category_list(self):
-        return self.hdf5_file.attr["cut_category_list"]
+        return self.hdf5_file.attrs["cut_category_list"]
 
     @cut_category_list.setter
     def cut_category_list(self, value):

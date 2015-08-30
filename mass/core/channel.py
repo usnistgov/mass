@@ -569,13 +569,18 @@ class Cuts(object):
             _, _, category = category_list[category_g][0]
 
             category_field_bit_mask |= bit_mask
-            category_field_target_bits |= np.uint32(category << bit_pos)
+            category_field_target_bits |= np.uint32(category) << bit_pos
 
         return (self._mask[...] & category_field_bit_mask) == category_field_target_bits
 
     def category(self, name):
         categorical_field = self.tes_group.categorical_cut_desc
-        _, bit_pos, bit_mask = categorical_field[categorical_field["name"] == name]
+
+        categorical_field_g = categorical_field["name"] == name
+        if np.any(categorical_field_g):
+            _, bit_pos, bit_mask = categorical_field[categorical_field_g][0]
+        else:
+            raise ValueError(name + " is not found.")
 
         return (self._mask[...] & bit_mask) >> bit_pos
 
@@ -586,7 +591,7 @@ class Cuts(object):
         boolean_field_names = [name for name, _ in boolean_field if name in args]
         categorical_field_names = [name for name, _, _ in categorical_field if name in args]
 
-        not_found = set(args) - (set(boolean_field_names).union(set(categorical_field)))
+        not_found = set(args) - (set(boolean_field_names).union(set(categorical_field_names)))
         if not_found:
             raise ValueError(",".join(not_found) + " are not found.")
 
@@ -600,6 +605,8 @@ class Cuts(object):
 
         for name in categorical_field_names:
             cut_mask[name] = self.category(name)
+
+        return cut_mask
 
     def clear_cut(self, *args):
         """
