@@ -550,7 +550,8 @@ class Cuts(object):
                 if np.any(categorical_g):
                     _, bit_pos, bit_mask = categorical_field[categorical_g][0]
                     temp = self._mask[...] & ~bit_mask
-                    self._mask[...] = (temp | np.asarray(mask << bit_pos, dtype=np.uint32))
+                    category_values = np.asarray(mask, dtype=np.uint32)
+                    self._mask[...] = (temp | np.asarray(category_values << bit_pos, dtype=np.uint32))
                 else:
                     raise ValueError(cut_num + " field is not found.")
 
