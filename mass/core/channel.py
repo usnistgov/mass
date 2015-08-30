@@ -579,6 +579,28 @@ class Cuts(object):
 
         return (self._mask[...] & bit_mask) >> bit_pos
 
+    def cut_mask(self, *args):
+        boolean_field = self.tes_group.boolean_cut_desc
+        categorical_field = self.tes_group.categorical_cut_desc
+
+        boolean_field_names = [name for name, _ in boolean_field if name in args]
+        categorical_field_names = [name for name, _, _ in categorical_field if name in args]
+
+        not_found = set(args) - (set(boolean_field_names).union(set(categorical_field)))
+        if not_found:
+            raise ValueError(",".join(not_found) + " are not found.")
+
+        mask_dtype = np.dtype([(name, np.bool) for name in boolean_field_names] +
+                              [(name, np.uint8) for name in categorical_field_names])
+
+        cut_mask = np.zeros(self._mask.shape[0], dtype=mask_dtype)
+
+        for name in boolean_field_names:
+            cut_mask[name] = self.good(name)
+
+        for name in categorical_field_names:
+            cut_mask[name] = self.category(name)
+
     def clear_cut(self, *args):
         """
         Clear one or more boolean fields.
