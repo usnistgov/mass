@@ -582,21 +582,11 @@ class Cuts(object):
     def clear_cut(self, *args):
         """
         Clear one or more boolean fields.
+        If no name is given, it will clear all boolean fields.
         """
-        if args:
-            bit_mask = self._boolean_fields_bit_mask(args)
-        else:
-            boolean_fields = self.tes_group.boolean_cut_desc
-            all_boolean_fields = [name for name in boolean_fields["name"] if len(name) > 0]
-            bit_mask = self._boolean_fields_bit_mask(all_boolean_fields)
+        bit_mask = self._boolean_fields_bit_mask(args)
 
         self._mask[:] &= ~bit_mask
-
-    def clear_all(self):
-        """
-        Clear all boolean fields
-        """
-        self.clear_cut()
 
     def _boolean_fields_bit_mask(self, names):
         """
@@ -1155,7 +1145,7 @@ class MicrocalDataSet(object):
                 self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
 
     def clear_cuts(self):
-        self.cuts.clear_all()
+        self.cuts.clear_cut()
 
     def drift_correct(self, forceNew=False):
         """Drift correct using the standard entropy-minimizing algorithm"""
