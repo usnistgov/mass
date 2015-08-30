@@ -549,8 +549,8 @@ class Cuts(object):
                 categorical_g = (categorical_field["name"] == cut_num)
                 if np.any(categorical_g):
                     _, bit_pos, bit_mask = categorical_field[categorical_g][0]
-                    temp = self._mask[...] & bit_mask
-                    self._mask[...] = (temp | (mask << bit_pos))
+                    temp = self._mask[...] & ~bit_mask
+                    self._mask[...] = (temp | np.asarray(mask << bit_pos, dtype=np.uint32))
                 else:
                     raise ValueError(cut_num + " field is not found.")
 
@@ -788,7 +788,7 @@ class MicrocalDataSet(object):
 
     @property
     def external_trigger_rowcount(self):
-        if not hasattr(self, "_external_trigger_rowcount"):
+        if not self._external_trigger_rowcount:
             filename = mass.ljh_util.ljh_get_extern_trig_fname(self.filename)
             h5 = h5py.File(filename)
             ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
@@ -819,13 +819,13 @@ class MicrocalDataSet(object):
     def __repr__(self):
         return "%s('%s')" % (self.__class__.__name__, self.filename)
 
-    def good(self):
+    def good(self, *args, **kwargs):
         """Return a boolean vector, one per pulse record, saying whether record is good"""
-        return self.cuts.good()
+        return self.cuts.good(*args, **kwargs)
 
-    def bad(self):
+    def bad(self, *args, **kwargs):
         """Return a boolean vector, one per pulse record, saying whether record is bad"""
-        return self.cuts.bad()
+        return self.cuts.bad(*args, **kwargs)
 
     def resize(self, nPulses):
         if self.nPulses < nPulses:
