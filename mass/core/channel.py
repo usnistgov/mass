@@ -1340,7 +1340,7 @@ class MicrocalDataSet(object):
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10, min_counts_per_cluster=20,
                   fit_range_ev=200, excl=(), plot_on_fail=False, max_num_clusters=np.inf, max_pulses_for_dbscan=1e5,
-                  bin_size_ev=2.0, forceNew=False):
+                  bin_size_ev=2.0, calibration_category=None, forceNew=False):
             pkl_fname = self.pkl_fname
             if path.isfile(pkl_fname) and not forceNew:
                 with open(pkl_fname, "r") as f:
@@ -1357,7 +1357,10 @@ class MicrocalDataSet(object):
             cal = young.EnergyCalibration(size_related_to_energy_resolution, min_counts_per_cluster,
                                           fit_range_ev, excl, plot_on_fail, max_num_clusters,
                                           max_pulses_for_dbscan, bin_size_ev=bin_size_ev)
-            cal.fit(getattr(self, attr)[self.cuts.good()], line_names)
+            # By default, it only uses the "in" category of the calibration categorical cut field.
+            if calibration_category is None:
+                calibration_category = {"calibration": "in"}
+            cal.fit(getattr(self, attr)[self.cuts.good(**calibration_category)], line_names)
             self.calibration[calname] = cal
             if cal.anyfailed:
                 print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)

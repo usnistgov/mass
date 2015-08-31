@@ -1407,12 +1407,14 @@ class TESGroup(object):
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   min_counts_per_cluster=20,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  max_num_clusters=np.inf, max_pulses_for_dbscan=1e5, bin_size_ev=2, forceNew=False):
+                  max_num_clusters=np.inf, max_pulses_for_dbscan=1e5,
+                  bin_size_ev=2, calibration_category=None, forceNew=False):
         for ds in self:
             try:
                 ds.calibrate(attr, line_names, name_ext, size_related_to_energy_resolution,
                              min_counts_per_cluster, fit_range_ev, excl, plot_on_fail,
-                             max_num_clusters, max_pulses_for_dbscan, bin_size_ev, forceNew)
+                             max_num_clusters, max_pulses_for_dbscan, bin_size_ev,
+                             calibration_category, forceNew)
             except:
                 self.set_chan_bad(ds.channum, "failed calibration %s" % attr+name_ext)
         self.convert_to_energy(attr, attr+name_ext)
