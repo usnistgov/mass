@@ -337,10 +337,10 @@ class NoiseRecords(object):
         else:
             if n_lags is not None and n_lags > self.nSamples:
                 raise ValueError("The autocorrelation requires "
-                                 "n_lags<=%d when data are not continuous"%self.nSamples)
+                                 "n_lags<=%d when data are not continuous" % self.nSamples)
 
             class TooMuchData(StopIteration):
-                "Use to signal that the computation loop is done"
+                """Use to signal that the computation loop is done"""
                 pass
 
             if data_samples is None:
@@ -522,9 +522,15 @@ class Cuts(object):
         self.tes_group = tes_group
         self.hdf5_group = hdf5_group
         if hdf5_group is None:
-            self._mask = np.zeros(n, dtype=np.int32)
+            self._mask = np.zeros(n, dtype=np.uint32)
         else:
-            self._mask = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.int32)
+            try:
+                self._mask = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.uint32)
+            except TypeError:
+                temp = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.int32)[...]
+                del hdf5_group['mask']
+                self._mask = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.uint32)
+                self._mask[...] = np.asarray(temp, dtype=np.uint32)
 
     def cut(self, cut_num, mask):
         """
