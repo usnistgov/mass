@@ -558,7 +558,7 @@ class Cuts(object):
                     temp = self._mask[...] & ~bit_mask
                     category_values = np.asarray(mask, dtype=np.uint32)
                     bit_pos = np.uint32(bit_pos)
-                    self._mask[...] = temp | (category_values << bit_pos)
+                    self._mask[...] = temp | ((category_values << bit_pos) & bit_mask)
                 else:
                     raise ValueError(cut_num + " field is not found.")
 

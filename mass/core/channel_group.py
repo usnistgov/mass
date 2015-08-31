@@ -258,6 +258,11 @@ class TESGroup(object):
     def cut_num_used_bits(self, value):
         self.hdf5_file.attrs["cut_num_used_bits"] = value
 
+    @property
+    def cut_field_categories(self, field_name):
+        category_list = self.cut_category_list
+        return {name: index for name, index in category_list if name == field_name}
+
     def register_boolean_cut_fields(self, *names):
         num_used_bits = self.cut_num_used_bits
         boolean_fields = self.boolean_cut_desc
