@@ -546,7 +546,7 @@ class Cuts(object):
                 raise ValueError(str(cut_num) + "is out of range.")
             _, bit_mask = boolean_field[cut_num]
             self._mask[mask] |= bit_mask
-        elif type(cut_num) is str:
+        elif type(cut_num) is bytes or type(cut_num) is unicode:
             boolean_g = (boolean_field["name"] == cut_num)
             if np.any(boolean_g):
                 _, bit_mask = boolean_field[boolean_g][0]
@@ -1082,7 +1082,7 @@ class MicrocalDataSet(object):
             if cut_id < 0 or cut_id >= 32:
                 raise ValueError("cut_id must be in the range [0,31]")
         elif (type(cut_id) is bytes) or (type(cut_id) is unicode):
-            boolean_cut_fields = self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]
+            boolean_cut_fields = self.tes_group.boolean_cut_desc
             g = boolean_cut_fields["name"] == cut_id
             if not np.any(g):
                 raise ValueError(cut_id + " is not found.")
@@ -1114,10 +1114,13 @@ class MicrocalDataSet(object):
         else:
             try:
                 a, b = allowed
-                if a is not None:
-                    self.cuts.cut(cut_id, data[:] <= a)
-                if b is not None:
-                    self.cuts.cut(cut_id, data[:] >= b)
+                if a and b:
+                    self.cuts.cut(cut_id, (data[:] <= a) | (data[:] >= b))
+                else:
+                    if a is not None:
+                        self.cuts.cut(cut_id, data[:] <= a)
+                    if b is not None:
+                        self.cuts.cut(cut_id, data[:] >= b)
             except ValueError:
                 raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'
                                  % str(allowed))
