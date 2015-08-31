@@ -571,7 +571,14 @@ class Cuts(object):
 
         for name, category_label in kwargs.iteritems():
             categorical_g = (categorical_field["name"] == name)
+
+            if not np.any(categorical_g):
+                raise ValueError(name + " categorical field is not found.")
+
             category_g = (category_list["field"] == name) & (category_list["category"] == category_label)
+
+            if not np.any(category_g):
+                raise ValueError(category_label + " category is not found.")
 
             _, bit_pos, bit_mask = categorical_field[categorical_g][0]
             _, _, category = category_list[category_g][0]

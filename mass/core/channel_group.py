@@ -121,6 +121,10 @@ class TESGroup(object):
                                   "p_filt_phase",
                                   'smart_cuts']
 
+    BUILTIN_CATEGORICAL_FIELDS = [
+        ['calibration', ['in', 'out'], 'in'],
+        ]
+
     __cut_boolean_field_desc_dtype = np.dtype([("name", np.str_, 64),
                                                ("mask", np.uint32)])
     __cut_categorical_field_desc_dtype = np.dtype([("name", np.str_, 64),
@@ -171,12 +175,15 @@ class TESGroup(object):
                 self.hdf5_file.attrs["cut_boolean_field_desc"] = np.zeros(32, dtype=self.__cut_boolean_field_desc_dtype)
                 self.register_boolean_cut_fields(*self.BUILTIN_BOOLEAN_CUT_FIELDS)
 
-            for name, dtype in zip(["cut_categorical_field_desc",
-                                    "cut_category_list"],
-                                   [self.__cut_categorical_field_desc_dtype,
-                                    self.__cut_category_list_dtype]):
-                if name not in self.hdf5_file.attrs:
-                    self.hdf5_file.attrs[name] = np.zeros(0, dtype=dtype)
+            if ("cut_categorical_field_desc" not in self.hdf5_file.attrs) and \
+                    ("cut_category_list" not in self.hdf5_file):
+                self.hdf5_file.attrs["cut_categorical_field_desc"] = \
+                    np.zeros(0, dtype=self.__cut_categorical_field_desc_dtype)
+                self.hdf5_file.attrs["cut_category_list"] =\
+                    np.zeros(0, dtype=self.__cut_category_list_dtype)
+
+                for categorical_desc in self.BUILTIN_CATEGORICAL_FIELDS:
+                    self.register_categorical_cut_field(*categorical_desc)
 
         # Same for noise filenames
         self.noise_filenames = None
@@ -264,21 +271,29 @@ class TESGroup(object):
             self.boolean_cut_desc = boolean_fields
             self.cut_num_used_bits += len(new_fields)
 
-    def register_categorical_cut_field(self, name, categories):
+    def register_categorical_cut_field(self, name, categories, default="uncategorized"):
         categorical_fields = self.categorical_cut_desc
         if name in categorical_fields["name"]:
             return
 
-        new_list = np.array([(name, category, i) for i, category in enumerate(["uncategorized"] + categories)],
+        category_list = list(categories)
+
+        # if the default category is already included, it's temporarily removed from the category_list
+        # and insert into the head of the category_list.
+        if default in category_list:
+            category_list.remove(default)
+        category_list.insert(0, default)
+
+        new_list = np.array([(name, category, i) for i, category in enumerate(category_list)],
                             dtype=self.__cut_category_list_dtype)
         self.cut_category_list = np.hstack([self.cut_category_list,
                                             new_list])
         num_bits = 1
-        while (1 << num_bits) < (len(categories) + 1):
+        while (1 << num_bits) < len(category_list):
             num_bits += 1
 
         field_desc_item = np.array([(name,
-                                     self.cut_num_used_bits
+                                     self.cut_num_used_bits,
                                      ((1 << num_bits) - 1) << self.cut_num_used_bits)],
                                    dtype=self.__cut_categorical_field_desc_dtype)
         self.categorical_cut_desc = np.hstack([categorical_fields, field_desc_item])
