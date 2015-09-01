@@ -1590,7 +1590,7 @@ class MicrocalDataSet(object):
                 print("%d pulses cut by both %s and %s" % (
                     self.cuts.bad(c1, c2).sum(), c1.upper(), c2.upper()))
         for cut_name in boolean_fields:
-            print("%d pulses cut by %s" % self.cuts.bad(cut_name).sum(), cut_name.upper())
+            print("%d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
         print("%d pulses total" % self.nPulses)
 
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
