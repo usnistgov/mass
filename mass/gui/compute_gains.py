@@ -1,22 +1,26 @@
 #!/usr/bin/env python
-'''
+"""
 asdjfhaskdfhlsdjkfh
 
 
 Created on June 7, 2012
 
 @author: fowlerj
-'''
+"""
 
 __all__ = ['create_dataset']
 
 
-from PyQt4 import QtCore, QtGui
-from PyQt4.QtCore import pyqtSlot
-import os, re, sys
+import os
+import re
+import sys
 import glob
 import subprocess
-import pylab, numpy
+import pylab
+import numpy
+
+from PyQt4 import QtCore, QtGui
+from PyQt4.QtCore import pyqtSlot
 
 import mass
 
@@ -31,7 +35,7 @@ try:
 
 except ImportError:
     import PyQt4.uic
-    path,_ = os.path.split(__file__)
+    path, _ = os.path.split(__file__)
     ui_filename = os.path.join(path, "compute_gains_form.ui")
     Ui_CreateDataset, _load_data_dialog_baseclass = PyQt4.uic.loadUiType(ui_filename)
 
@@ -43,19 +47,19 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
     This class is meant to be used by factory function create_dataset, and not by the end
     user.  Jeez.  Why are you even reading this?
     """
-    def __init__(self, parent=None, directory="", disabled_channels=() ):
+    def __init__(self, parent=None, directory="", disabled_channels=()):
         QtGui.QDialog.__init__(self, parent)
         self.setupUi(self)
         self.choose_pulse_file.clicked.connect(self.choose_file)
-        self.nchannels=0
+        self.nchannels = 0
         self.channels_known = []
         self.chan_check_boxes = []        
-        self.use_only_odd_channels=True
+        self.use_only_odd_channels = True
         self.disabled_channels = disabled_channels
         self.default_directory = directory
-        self.pulse_files={}
-        self.channel_check_status={} # Keep a record of whether channel is wanted!
-        self.line_energy=None
+        self.pulse_files = {}
+        self.channel_check_status = {}  # Keep a record of whether channel is wanted!
+        self.line_energy = None
         self.output_file_textEdited()
         
     def accept(self):
@@ -73,7 +77,6 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
 
         QtGui.QDialog.accept(self)
         
-    
     def output_file_textEdited(self): pass
 #        filename = str(self.OutputFile.text())
 #        direct, _base = os.path.split(filename)
@@ -417,7 +420,5 @@ def main():
     save_gains(data, energy, filename)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()
-        
-
