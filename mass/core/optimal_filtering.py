@@ -286,9 +286,9 @@ class Filter(object):
             try:
                 var = self.variances[f]
                 v_dv = var**(-.5) / np.sqrt(8*np.log(2))
-                print "%-20s  %10.3f  %10.4e"%(f, v_dv, var)
+                print("%-20s  %10.3f  %10.4e" % (f, v_dv, var))
             except KeyError:
-                print "%-20s not known"%f
+                print("%-20s not known" % f)
 
 
 
@@ -458,18 +458,19 @@ class ExperimentalFilter(Filter):
                 self.normalize_filter(filt)
                 self.__dict__[name] = filt
                 
-                print '%15s'%name,
+                print('%15s' % name),
 #                plt.plot(filt, label=name)
                 for v in (avg_signal,np.ones(n),np.exp(-expx/self.tau[0]),sp.special.chebyt(1)(chebyx),
                           sp.special.chebyt(2)(chebyx)):
-                    print '%10.5f '%np.dot(v,filt),
+                    print('%10.5f ' % np.dot(v,filt)),
                     
                 self.variances[shortname] = self.bracketR(filt, R)
-                print 'Res=%6.3f eV = %.5f'%(5898.801*np.sqrt(8*np.log(2))*self.variances[shortname]**(.5), (self.variances[shortname]/self.variances['full'])**.5)
+                print('Res=%6.3f eV = %.5f' % (5898.801*np.sqrt(8*np.log(2))*self.variances[shortname]**(.5),
+                                               (self.variances[shortname]/self.variances['full'])**.5))
 #            plt.legend()
 
             self.filt_baseline = np.dot(avg_signal, Rinv_sig)*Rinv_unit - Rinv_sig.sum()*Rinv_sig
-            self.filt_baseline /=  self.filt_baseline.sum()
+            self.filt_baseline /= self.filt_baseline.sum()
             self.variances['baseline'] = self.bracketR(self.filt_baseline, R)
             
             Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger]/self.peak_signal**2)
@@ -478,24 +479,23 @@ class ExperimentalFilter(Filter):
             self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, R[:self.n_pretrigger])
 
             if self.noise_psd is not None:
-                r =  self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2
+                r = self.noise_autocorr[:len(self.filt_fourier)]/self.peak_signal**2
                 self.variances['fourier'] = self.bracketR(self.filt_fourier, r)
 
-
-            
     def plot(self, axes=None):
         if axes is None:
             plt.clf()
             axis1 = plt.subplot(211)
             axis2 = plt.subplot(212)
         else:
-            axis1,axis2 = axes
+            axis1, axis2 = axes
         try:
-            axis1.plot(self.filt_noconst,color='red')
-            axis2.plot(self.filt_baseline,color='purple')
-            axis2.plot(self.filt_baseline_pretrig,color='blue')
-        except AttributeError: pass
+            axis1.plot(self.filt_noconst, color='red')
+            axis2.plot(self.filt_baseline, color='purple')
+            axis2.plot(self.filt_baseline_pretrig, color='blue')
+        except AttributeError:
+            pass
         try:
-            axis1.plot(self.filt_fourier,color='gold')
-        except AttributeError: pass
-
+            axis1.plot(self.filt_fourier, color='gold')
+        except AttributeError:
+            pass

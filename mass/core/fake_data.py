@@ -99,7 +99,7 @@ class FakeDataGenerator(object):
         n_pulses      number of pulses to put in the "file"
         """
 
-        print 'Making fake noise'
+        print('Making fake noise')
         data = np.zeros((n_pulses, self.n_samples), dtype=np.uint16)
         pulse_times = np.arange(n_pulses, dtype=np.float)*self.sample_time_us/1e6
 

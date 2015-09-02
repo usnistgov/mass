@@ -317,10 +317,10 @@ class LJHFile(MicrocalFile):
         # This used to be fatal, but it prevented opening files cut short by
         # a crash of the DAQ software.
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
-            print "Warning: The binary size "+ \
+            print("Warning: The binary size " + \
             "(%d) is not an integer multiple of the pulse size %d bytes"%(
-                self.binary_size, self.pulse_size_bytes)
-            print "      %s"%filename
+                self.binary_size, self.pulse_size_bytes))
+            print("      %s" % filename)
 
         # Record the sample times in microseconds
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
@@ -450,9 +450,9 @@ class LJHFile(MicrocalFile):
         try:
             fp.close()
         except:
-            print fp
-            print ('array[-4:]', array[-4:])
-            print ('wordcount', wordcount,'skip',skip)
+            print(fp)
+            print('array[-4:]', array[-4:])
+            print('wordcount', wordcount, 'skip', skip)
             print('arrays.size', array.size, 'array.dtype', array.dtype)
             raise
 
@@ -461,8 +461,8 @@ class LJHFile(MicrocalFile):
         array = array[:self.segment_pulses*(self.pulse_size_bytes/2)]
         try:
             self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes/2])
-        except ValueError, ex:
-            print skip, max_size, self.segment_pulses, self.pulse_size_bytes, len(array)
+        except ValueError as ex:
+            print(skip, max_size, self.segment_pulses, self.pulse_size_bytes, len(array))
             raise ex
         # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,
         # where u is a byte giving microseconds/4, x is a reserved byte, and mmmm is a 4-byte
@@ -711,8 +711,8 @@ class LANLFile(MicrocalFile):
                                  (self.filename, self.n_segments, segment_num))
 
             if end > self.nPulses: end = self.nPulses
-            print "Reading pulses [%d,%d)"%(first,end)
-            self.data = np.array([self.read_trace(i) for i in range(first,end)])
+            print("Reading pulses [%d,%d)" % (first, end))
+            self.data = np.array([self.read_trace(i) for i in range(first, end)])
             self.datatimes = self.raw_datatimes[first:end]
             self.__cached_segment = segment_num
         return first, end, self.data
@@ -742,10 +742,9 @@ def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=500
                  If a 2-element-sequence (a,b), then remove a from the start and b from the end.
     """
 
-    print "Attempting to translate '%s' " % rootfile,
-    lanl = LANLFile(filename=rootfile, segmentsize=segmentsize, use_noise = use_noise)
-    print "Looking at channel " +str(channum)#RDH
-
+    print("Attempting to translate '%s' " % rootfile),
+    lanl = LANLFile(filename=rootfile, segmentsize=segmentsize, use_noise=use_noise)
+    print("Looking at channel " +str(channum))  #RDH
 
     if isinstance(excise_endpoints, int):
         excise_endpoints = (excise_endpoints, excise_endpoints)
@@ -848,5 +847,4 @@ def root2ljh_translate_all(directory):
         try:
             root2ljh_translator(fname, overwrite=False)
         except IOError:
-            print "Could not translate '%s' .  Moving on..."% fname
-
+            print("Could not translate '%s' .  Moving on..." % fname)

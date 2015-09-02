@@ -578,10 +578,10 @@ class TESGroup(object):
         self._allowed_segnums = allowed_segnums
 
         if ranges is not None:
-            print 'Warning!  This feature is only half-complete.  Currently, granularity is limited.'
-            print '   Only full "segments" of size %d records can be ignored.' % self.pulses_per_seg
-            print '   Will use %d segments and ignore %d.' % (self._allowed_segnums.sum(),
-                                                              self.n_segments-self._allowed_segnums.sum())
+            print('Warning!  This feature is only half-complete.  Currently, granularity is limited.')
+            print('   Only full "segments" of size %d records can be ignored.' % self.pulses_per_seg)
+            print('   Will use %d segments and ignore %d.' % (self._allowed_segnums.sum(),
+                                                              self.n_segments-self._allowed_segnums.sum()))
 
     def iter_segments(self, first_seg=0, end_seg=-1, sample_mask=None, segment_mask=None):
         if self._allowed_segnums is None:
@@ -597,11 +597,11 @@ class TESGroup(object):
                 if b > len(sample_mask):
                     b = len(sample_mask)
                 if not sample_mask[a:b].any():
-                    print 'We can skip segment %4d' % i
+                    print('We can skip segment %4d' % i)
                     continue  # Don't need anything in this segment.  Sweet!
             if segment_mask is not None:
                 if not segment_mask[i]:
-                    print 'We can skip segment %4d' % i
+                    print('We can skip segment %4d' % i)
                     continue  # Don't need anything in this segment.  Sweet!
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
@@ -673,7 +673,7 @@ class TESGroup(object):
         else:
             dataset = self.datasets[dataset_num]
             if chan_num is not None:
-                print "Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num)
+                print("Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num))
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
                                    residual, valid_status)
 
@@ -733,19 +733,19 @@ class TESGroup(object):
         plt.clf()
         ny_plots = len(datasets)
         for i, (channum, ds) in enumerate(zip(dataset_numbers, datasets)):
-            print 'TES%2d ' % channum,
+            print('TES%2d ' % channum),
 
             # Convert "uncut" or "cut" to array of all good or all bad data
             if isinstance(valid, str):
                 if "uncut" in valid.lower():
                     valid_mask = ds.cuts.good()
-                    print "Plotting only uncut data",
+                    print("Plotting only uncut data"),
                 elif "cut" in valid.lower():
                     valid_mask = ds.cuts.bad()
-                    print "Plotting only cut data",
+                    print("Plotting only cut data"),
                 elif 'all' in valid.lower():
                     valid_mask = None
-                    print "Plotting all data, cut or uncut",
+                    print("Plotting all data, cut or uncut"),
                 else:
                     raise ValueError("If valid is a string, it must contain 'all', 'uncut' or 'cut'.")
 
@@ -763,7 +763,7 @@ class TESGroup(object):
                     if downsample < 1:
                         downsample = 1
                 hour = ds.p_timestamp[::downsample]/3600.0
-            print " (%d records; %d in scatter plots)" % (nrecs, hour.shape[0])
+            print(" (%d records; %d in scatter plots)" % (nrecs, hour.shape[0]))
 
             (vect, label, color, default_limits) = plottable
             if hist_limits is None:
@@ -843,18 +843,18 @@ class TESGroup(object):
 
         # Cut crosstalk only makes sense in CDM data
         if cut_crosstalk and not isinstance(self, mass.nonstandard.CDM.CDMGroup):
-            print 'Cannot cut crosstalk because this is not CDM data'
+            print('Cannot cut crosstalk because this is not CDM data')
             cut_crosstalk = False
 
         if not cut_crosstalk:
             if max_ptrms is not None:
-                print "Warning: make_masks ignores max_ptrms when not cut_crosstalk"
+                print("Warning: make_masks ignores max_ptrms when not cut_crosstalk")
             if max_post_deriv is not None:
-                print "Warning: make_masks ignores max_post_deriv when not cut_crosstalk"
+                print("Warning: make_masks ignores max_post_deriv when not cut_crosstalk")
 
         if pulse_avg_ranges is not None:
             if pulse_peak_ranges is not None:
-                print "Warning: make_masks uses only one range argument.  Ignoring pulse_peak_ranges."
+                print("Warning: make_masks uses only one range argument.  Ignoring pulse_peak_ranges.")
 
             if isinstance(pulse_avg_ranges[0], (int, float)) and len(pulse_avg_ranges) == 2:
                 pulse_avg_ranges = tuple(pulse_avg_ranges),
@@ -1037,7 +1037,7 @@ class TESGroup(object):
             gain = ds.gain
             _ = plt.hist(ds.p_pulse_average[ds.cuts.good()]/gain, 200,
                          [meangain*.8, meangain*1.2], alpha=0.5)
-            print ds.p_pulse_average[ds.cuts.good()].mean()
+            print(ds.p_pulse_average[ds.cuts.good()].mean())
         return meangain
 
     def set_gains(self, gains):
@@ -1056,7 +1056,7 @@ class TESGroup(object):
         needs_noise = any([ds.noise_autocorr[0] == 0.0 or
                            ds.noise_psd[1] == 0 for ds in self])
         if needs_noise:
-            print "Computing noise autocorrelation and spectrum"
+            print("Computing noise autocorrelation and spectrum")
             self.compute_noise_spectra()
 
         printUpdater = InlineUpdater('compute_filters')
@@ -1195,7 +1195,7 @@ class TESGroup(object):
                         pfx = '%g' % pf.x
                     except TypeError:
                         continue
-                    print 'Click on line #%d at %s' % (i+1, pfx)
+                    print('Click on line #%d at %s' % (i+1, pfx))
                     x.append(pf.x)
                     break
             del pf
@@ -1209,7 +1209,7 @@ class TESGroup(object):
         if energy is None:
             energy = mass.calibration.energy_calibration.STANDARD_FEATURES[name]
 
-        print "Please click with the mouse on each channel's histogram at the %s line" % name
+        print("Please click with the mouse on each channel's histogram at the %s line" % name)
         xvalues = self.find_features_with_mouse(channame=channame, nclicks=1,
                                                 prange=prange, trange=trange).ravel()
         for ds, xval in zip(self.datasets, xvalues):
@@ -1227,8 +1227,8 @@ class TESGroup(object):
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse-1.0)/dt
 #            grate = (ng-1.0)/dt
-            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' % \
-                  (ds.channum, npulse, rate, dt/3600., 100.0*ng/npulse)
+            print('chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' %
+                  (ds.channum, npulse, rate, dt/3600., 100.0*ng/npulse))
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
         """Compare the noise autocorrelation functions.
@@ -1481,7 +1481,7 @@ def _sort_filenames_numerically(fnames, inclusion_list=None):
         channum = int(name.split('_chan')[1].split(".")[0])
         if inclusion_list is not None and channum not in inclusion_list:
             continue
-        print channum, name
+        print(channum, name)
         chan2fname[channum] = name
     sorted_chan = chan2fname.keys()
     sorted_chan.sort()
@@ -1525,14 +1525,14 @@ class CrosstalkVeto(object):
             g = ds.cuts.good()
             vetotimes = np.asarray(ds.p_timestamp[g]*1e3-ms0, dtype=np.int64)
             vetotimes[vetotimes < 0] = 0
-            print vetotimes, len(vetotimes), 1.0e3*ds.nPulses/(ms9-ms0),
+            print(vetotimes, len(vetotimes), 1.0e3*ds.nPulses/(ms9-ms0)),
             a, b = window_ms
             b += 1
             for t in vetotimes:
                 self.nhits[t+a:t+b] += 1
 
             pileuptimes = vetotimes[ds.p_postpeak_deriv[g] > pileup_limit]
-            print len(pileuptimes)
+            print(len(pileuptimes))
             for t in pileuptimes:
                 self.nhits[t+b:t+b+8] += 1
 
