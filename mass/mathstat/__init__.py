@@ -5,3 +5,4 @@ Joe Fowler, NIST
 """
 
 import nearest_arrivals
+import robust
