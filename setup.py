@@ -19,10 +19,11 @@ import os.path
 from distutils.command.build import build as basic_build
 
 
-def parse_version_number(VERSIONFILE="mass/_version.py"):
+def parse_version_number(VERSIONFILE=None):
     # Parse the version number out of the _version.py file without importing it
     import re
 
+    VERSIONFILE = os.path.join("mass", "_version.py")
     verstrline = open(VERSIONFILE, "rt").read()
     VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
     mo = re.search(VSRE, verstrline, re.M)
@@ -34,7 +35,7 @@ def parse_version_number(VERSIONFILE="mass/_version.py"):
 MASS_VERSION = parse_version_number()
 
 
-def configuration_fortran(parent_package='',top_path=None):
+def configuration_fortran(parent_package='', top_path=None):
     """Configure FORTRAN extensions only."""
     from numpy.distutils.misc_util import Configuration
     config = Configuration('mass', parent_package, top_path)
@@ -51,7 +52,8 @@ class QtBuilder(basic_build):
     """Subclass the usual distutils builder so that it can convert Qt Designer files
     *.ui and *.rc to python files."""
 
-    def compile_ui(self, ui_file, py_file=None):
+    @staticmethod
+    def compile_ui(ui_file, py_file=None):
         # Search for pyuic4 in python bin dir, then in the $Path.
         if py_file is None:
             py_file = os.path.splitext(ui_file)[0] + "_ui.py"
@@ -60,12 +62,13 @@ class QtBuilder(basic_build):
             fp = open(py_file, 'w')
             uic.compileUi(ui_file, fp, indent=4)
             fp.close()
-            print "compiled", ui_file, "into", py_file
+            print("compiled", ui_file, "into", py_file)
         except Exception, e:
-            print 'Unable to compile user interface', e
+            print('Unable to compile user interface', e)
             return
 
-    def compile_rc(self, qrc_file, py_file=None):
+    @staticmethod
+    def compile_rc(qrc_file, py_file=None):
         # Search for pyuic4 in python bin dir, then in the $Path.
         if py_file is None:
             py_file = os.path.splitext(qrc_file)[0] + "_rc.py"
