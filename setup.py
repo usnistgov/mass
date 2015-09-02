@@ -19,10 +19,11 @@ import os.path
 from distutils.command.build import build as basic_build
 
 
-def parse_version_number(VERSIONFILE="mass/_version.py"):
+def parse_version_number(VERSIONFILE=None):
     # Parse the version number out of the _version.py file without importing it
     import re
 
+    VERSIONFILE = os.path.join("mass", "_version.py")
     verstrline = open(VERSIONFILE, "rt").read()
     VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
     mo = re.search(VSRE, verstrline, re.M)
@@ -51,7 +52,8 @@ class QtBuilder(basic_build):
     """Subclass the usual distutils builder so that it can convert Qt Designer files
     *.ui and *.rc to python files."""
 
-    def compile_ui(self, ui_file, py_file=None):
+    @staticmethod
+    def compile_ui(ui_file, py_file=None):
         # Search for pyuic4 in python bin dir, then in the $Path.
         if py_file is None:
             py_file = os.path.splitext(ui_file)[0] + "_ui.py"
@@ -65,7 +67,8 @@ class QtBuilder(basic_build):
             print('Unable to compile user interface', e)
             return
 
-    def compile_rc(self, qrc_file, py_file=None):
+    @staticmethod
+    def compile_rc(qrc_file, py_file=None):
         # Search for pyuic4 in python bin dir, then in the $Path.
         if py_file is None:
             py_file = os.path.splitext(qrc_file)[0] + "_rc.py"
