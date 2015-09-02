@@ -34,7 +34,7 @@ def parse_version_number(VERSIONFILE="mass/_version.py"):
 MASS_VERSION = parse_version_number()
 
 
-def configuration_fortran(parent_package='',top_path=None):
+def configuration_fortran(parent_package='', top_path=None):
     """Configure FORTRAN extensions only."""
     from numpy.distutils.misc_util import Configuration
     config = Configuration('mass', parent_package, top_path)
@@ -42,7 +42,7 @@ def configuration_fortran(parent_package='',top_path=None):
     # Extensions in FORTRAN90
     sourcename = os.path.join('mass', 'mathstat', 'factor_covariance')
     config.add_extension('mathstat._factor_covariance',
-                         [sourcename + ext for ext in ".pyf", ".f90"])
+                         [sourcename + ext for ext in [".pyf", ".f90"]])
 
     return config
 
@@ -60,9 +60,9 @@ class QtBuilder(basic_build):
             fp = open(py_file, 'w')
             uic.compileUi(ui_file, fp, indent=4)
             fp.close()
-            print "compiled", ui_file, "into", py_file
-        except Exception, e:
-            print 'Unable to compile user interface', e
+            print("compiled", ui_file, "into", py_file)
+        except Exception as e:
+            print('Unable to compile user interface', e)
             return
 
     def compile_rc(self, qrc_file, py_file=None):
@@ -70,7 +70,7 @@ class QtBuilder(basic_build):
         if py_file is None:
             py_file = os.path.splitext(qrc_file)[0] + "_rc.py"
         if os.system('pyrcc4 "%s" -o "%s"' % (qrc_file, py_file)) > 0:
-            print "Unable to generate python module for resource file", qrc_file
+            print("Unable to generate python module for resource file", qrc_file)
 
     def run(self):
         # Compile the Qt files to Python files, then call the base class run() method
