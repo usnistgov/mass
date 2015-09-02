@@ -104,13 +104,12 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
             self.LineEnergySpin.setValue(e)
             return
 
-
     def choose_file(self, *args, **kwargs):
         filename = QtGui.QFileDialog.getOpenFileName(parent=self,
                            caption=QtCore.QString("pick a file"),
                            directory=self.default_directory,  
                            filter="LJH Files (*.ljh *.noi)")
-        if len(str(filename))>0:
+        if len(str(filename)) > 0:
             if self.sender() == self.choose_pulse_file:
                 self.pulse_file_edit.setText(filename)
                 
@@ -118,7 +117,7 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
     def file_template_textEdited(self, file_string):
         filename = str(file_string)
 #        print "Processing new file template: ",filename
-        if len(filename)>0 and not os.path.exists(filename):
+        if len(filename) > 0 and not os.path.exists(filename):
             return
         
         if self.sender() == self.pulse_file_edit:
@@ -133,7 +132,7 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         channels_found = []
         file_dict.clear()
         for f in all_files:
-            m=rexp.search(f)
+            m = rexp.search(f)
             chanstr = m.group()
             if chanstr.startswith("chan"):
                 channum = int(chanstr[4:])
@@ -149,10 +148,9 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
             self.update_channel_chooser_boxes()
 
     def update_channel_chooser_boxes(self):
-
         # Remove all the chan_check_boxes, storing their check/unchecked status     
 #        print "Deleting %d check boxes..."%len(self.chan_check_boxes)   
-        while len(self.chan_check_boxes)>0:
+        while len(self.chan_check_boxes) > 0:
             ccb = self.chan_check_boxes.pop()
             ccb.hide()
             self.channel_check_status[ccb.chan_number] = ccb.isChecked()
@@ -163,10 +161,10 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
 #        print "Updating the channel chooser boxes with %d files"%(np)
         
         ncol = 16
-        while self.nchannels/ncol < 8 and ncol>8:
-            ncol -=2
-        for i,cnum in enumerate(self.channels_known):
-            name = QtCore.QString("%3d"%cnum)
+        while (self.nchannels/ncol < 8) and (ncol > 8):
+            ncol -= 2
+        for i, cnum in enumerate(self.channels_known):
+            name = QtCore.QString("%3d" % cnum)
             box = QtGui.QCheckBox(name, parent=None)
             box.chan_number = cnum
             
@@ -177,10 +175,8 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
                     box.setChecked(False)
                 else:
                     box.setChecked(True)
-            
-                    
-            
-            col, row = i%ncol, i/ncol
+
+            col, row = i % ncol, i/ncol
             self.chan_selection_layout.addWidget(box, row, col)
             self.chan_check_boxes.append(box)
         self.chan_selection_label.setEnabled(True)
@@ -192,7 +188,7 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         self.check_no_chan.clicked.connect(self.manipulate_chan_checker)
     
     def manipulate_chan_checker(self):
-        if self.nchannels<=0:
+        if self.nchannels <= 0:
             return
         if self.sender() == self.check_all_chan:
             for box in self.chan_check_boxes:
@@ -206,8 +202,10 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
 
     def get_pulse_files(self):
         return self._get_files(self.pulse_files)
+
     def get_noise_files(self):
         return self._get_files(self.noise_files)
+
     def _get_files(self, file_dict):
         chan = []
         file_list = []
@@ -237,19 +235,20 @@ def create_dataset(default_directory="", disabled_channels=()):
     dialog = _DataLoader(disabled_channels=disabled_channels)
     retval = dialog.exec_()
     if retval == _DataLoader.Rejected:
-        print "User cancelled."
+        print("User cancelled.")
         return None
     
     assert retval == _DataLoader.Accepted
     pulse_files = dialog.get_pulse_files()
     npulses = dialog.MaxPulsesSpin.value()
-    if npulses <=0: npulses = None
+    if npulses <= 0:
+        npulses = None
     energy = dialog.LineEnergySpin.value()
     gain_file = dialog.OutputFile.text()
     
     np = len(pulse_files)
-    if np>0:
-        data =  mass.TESGroup(pulse_files, pulse_only=True)
+    if np > 0:
+        data = mass.TESGroup(pulse_files, pulse_only=True)
     else:
         return None
     return data, npulses, energy, gain_file
@@ -262,7 +261,7 @@ def chan_from_dataset(ds):
 
 def process_data(data, npulses=None, nsamples=None):
     """Compute the relevant pulse summary quantities."""
-    print "Computing pulse heights for all data..."
+    print("Computing pulse heights for all data...")
     first_seg = 0
     end_seg = -1
     if npulses is not None:
@@ -275,22 +274,22 @@ def process_data(data, npulses=None, nsamples=None):
         ds.p_peak_value = numpy.array(ds.p_peak_value, dtype=numpy.float)
     
     ndet = data.n_channels
-    for first,end in data.iter_segments(first_seg, end_seg):
-        print '...handling pulses %6d to %6d for all %d detectors'%(first, end-1, ndet)
-        for ids,ds in enumerate(data.datasets):
+    for first, end in data.iter_segments(first_seg, end_seg):
+        print('...handling pulses %6d to %6d for all %d detectors' % (first, end-1, ndet))
+        for ids, ds in enumerate(data.datasets):
             if first >= ds.nPulses:
                 continue
             this_end = end
             if this_end >= ds.nPulses:
                 this_end = ds.nPulses
 
-            np,_ns = ds.data.shape
+            np, _ns = ds.data.shape
             if np != (this_end-first):
-                print "Weird: np=%d, first,end=%d,%d"%(np,first,this_end),
-                print " for ds[%d]"%ids
+                print("Weird: np=%d, first,end=%d,%d" % (np, first, this_end)),
+                print(" for ds[%d]" % ids)
                 continue
             
-            baseline = ds.data[:,:data.nPresamples-1].mean(axis=1)
+            baseline = ds.data[:, :data.nPresamples-1].mean(axis=1)
             peak = ds.data.max(axis=1)-baseline
             
             ds.p_pretrig_mean[first:this_end] = baseline
@@ -311,7 +310,7 @@ def find_center(values, first_cut=0.01):
     and uses that to choose the width to use in a bisquare weighted mean.
     """
     ctr = numpy.median(values)
-    good = numpy.abs(values/ctr-1.0)<0.01
+    good = numpy.abs(values/ctr-1.0) < 0.01
     try:
         sigma = mass.robust.shorth_range(values[good], normalize=True)
         ctr = mass.robust.bisquare_weighted_mean(values[good], k=4*sigma, center=ctr)
@@ -332,28 +331,28 @@ def find_peaks(data):
 #    axis2 = pylab.subplot(212)
     axis1 = pylab.subplot(111)
     
-    peak_lim = [.98,1.10]
+    peak_lim = [.98, 1.10]
 #    filt_lim = [.98,1.10]
     offset = 0.06*len(data.datasets[0].p_peak_value)
     nbins = 400
     
-    for i,ds in enumerate(data.datasets):
-        print numpy.median(ds.p_pretrig_mean), numpy.median(ds.p_peak_value),
+    for i, ds in enumerate(data.datasets):
+        print(numpy.median(ds.p_pretrig_mean), numpy.median(ds.p_peak_value)),
         ds.ctr_peak = find_center(ds.p_peak_value)
-        print ds.ctr_peak
+        print(ds.ctr_peak)
 #        ds.ctr_filt = find_center(ds.p_filt_value)
 #        print ds.ctr_peak, ds.ctr_filt
 
-        contents,bins = numpy.histogram(ds.p_peak_value/ds.ctr_peak, nbins, peak_lim)
+        contents, bins = numpy.histogram(ds.p_peak_value/ds.ctr_peak, nbins, peak_lim)
         mass.plot_as_stepped_hist(axis1, contents+i*offset, bins, color='b')
-        pylab.text(.981,(i+.1)*offset, 'Chan %2d'%chan_from_dataset(ds))
+        pylab.text(.981, (i+.1)*offset, 'Chan %2d' % chan_from_dataset(ds))
         
 #        contents,bins = numpy.histogram(ds.p_filt_value/ds.ctr_filt, nbins, filt_lim)
 #        mass.plot_as_stepped_hist(axis2, contents+i*offset, bins, color='g')
 
     for ax in (axis1,):
         ax.set_xlabel("Ratio of rescaled pulse size to line center")
-        ax.set_ylabel("Pulses per bin (%d total bins)"%nbins)
+        ax.set_ylabel("Pulses per bin (%d total bins)" % nbins)
     axis1.set_title("Spectrum of rescaled pulse heights")
 #    axis2.set_title("Spectrum of rescaled filtered pulse heights")
 
@@ -361,21 +360,20 @@ def find_peaks(data):
     imgfile = "/tmp/compute_gains_histogram.png"
     pylab.savefig(imgfile)
     if sys.platform == 'darwin':
-        args = ['open',imgfile]
+        args = ['open', imgfile]
     elif sys.platform.startswith('linux'):
-        args = ['eog',imgfile]
+        args = ['eog', imgfile]
     else:
         args = None
     if args:
-        print "Histogram file is %s (if you need to see it again)."%imgfile
+        print("Histogram file is %s (if you need to see it again)." % imgfile)
         subprocess.Popen(args)
-
 
 
 def save_gains(data, energy, filename=None):
     if filename is not None:
-        fp = open(filename,"w")
-        facts="""#
+        fp = open(filename, "w")
+        facts = """#
 # Detector gains, estimated by compute_gains.py
 # These involved a search for the center of the line located at the median pulse height.
 # If your data don't have a median pulse in the middle of a bright line, then these make
@@ -395,17 +393,16 @@ def save_gains(data, energy, filename=None):
     median_ctr_peak = numpy.median([ds.ctr_peak for ds in data.datasets])
     for ds in data.datasets:
         ichan = chan_from_dataset(ds)
-        if energy>0:
+        if energy > 0:
             gain = ds.ctr_peak/energy
         else:
             gain = ds.ctr_peak/median_ctr_peak
-        line = "%3d %8.2f %8.6f\n"%(ichan, ds.ctr_peak, gain)
-        print line,
+        line = "%3d %8.2f %8.6f\n" % (ichan, ds.ctr_peak, gain)
+        print(line),
         if fp:
             fp.write(line)
     if fp:
         fp.close()
-
 
 
 def main():
