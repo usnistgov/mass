@@ -683,7 +683,7 @@ class VoigtFitter(object):
             hold.append(4)
         if not vary_bg_slope:
             hold.append(5)
-        print 'Params is: ', params
+        print('Params is: ', params)
         try:
             _, _, _, _, _, _ = params
         except:
@@ -724,7 +724,7 @@ class VoigtFitter(object):
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
 
         if iflag not in (0, 2):
-            print "Oh no! iflag=%d"%iflag
+            print("Oh no! iflag=%d" % iflag)
         elif plot:
             de = np.sqrt(covariance[2, 2])
             label = "Lorentz HWHM: %.2f +- %.2f eV %s"%(fitparams[2], de, label)
@@ -831,7 +831,7 @@ class TwoVoigtFitter(object):
             hold.append(0)
         if not vary_bg:
             hold.append(7)
-        print 'Params is: ', params
+        print('Params is: ', params)
         try:
             _, _, _, _, _, _, _, _ = params
         except:
@@ -873,7 +873,7 @@ class TwoVoigtFitter(object):
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
 
         if iflag not in (0, 2):
-            print "Oh no! iflag=%d"%iflag
+            print("Oh no! iflag=%d" % iflag)
         elif plot:
             de1 = np.sqrt(covariance[2, 2])
             label = "Lorentz HWHM 1: %.2f +- %.2f eV %s"%(fitparams[2], de1, label)
@@ -886,8 +886,6 @@ class TwoVoigtFitter(object):
                       label=label)
             axis.legend(loc='upper left')
         return fitparams, covariance
-
-
 
 
 class LorentzianFitter(VoigtFitter):
@@ -1046,8 +1044,8 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         if params == None:
             params = self.guess_starting_params(data, pulseheights)
         if params[4]==0: params[4]=1e-7 # the fitter crashes if params[4] bg_level is zero
-        print 'start params'
-        print params
+        print('start params')
+        print(params)
         assert len(params) == 5+len(self.spectraDefs)
 
 #            print 'Guessed parameters: ',params
@@ -1208,8 +1206,8 @@ class MultiLorentzianComplexFitter(object):
         # Pulseheights is the wrong length to be either bin edges OR centers,
         # so just use the integers starting at zero and ignore the input
         elif len(pulseheights) != len(data):
-            print "Warning: len(pulseheights)=%d makes no sense given len(data)=%d"%(
-                len(pulseheights), len(data))
+            print("Warning: len(pulseheights)=%d makes no sense given len(data)=%d" % (
+                len(pulseheights), len(data)))
             pulseheights = np.arange(len(data), dtype=np.float)
 
         # If params is None, use guesses for all parameters. If it's a sequence with some
@@ -1536,7 +1534,7 @@ def plot_spectrum(spectrum=MnKAlpha(),
         if res < 8.12:
             pk2 = smeared_spectrum[np.abs(e-epk2)<2].max()
             pval = smeared_spectrum[np.abs(e-evalley)<3].min()
-            print "Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2/p1, pval/pk2)
+            print("Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2/p1, pval/pk2))
 
     plt.xlim(energy_range)
     plt.ylim([0, 1.13])

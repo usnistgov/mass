@@ -51,7 +51,7 @@ class NISTXrayDBFile(object):
             try:
                 fp = open(filename, "r")
             except IOError:
-                print "'%s' is not a readable file with X-ray database info! Continuing..."%filename
+                print("'%s' is not a readable file with X-ray database info! Continuing..." % filename)
                 continue
 
             while True:
@@ -229,7 +229,7 @@ def _NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
     joined_args = '&'.join(['%s=%s'%(k,v) for (k,v) in args.iteritems()])
     joined_lines = '&'.join(['trans=%s'%name for name in line_names])
     get = '%s%s&%s'%(form, joined_args, joined_lines)
-    print 'Grabbing %s'%get
+    print('Grabbing %s' % get)
 
     import urllib
     page = urllib.urlopen(get)

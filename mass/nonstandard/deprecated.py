@@ -84,8 +84,8 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
     fitparams[2] = 0
     correction = model(fitparams, self.p_filt_phase)
     self.p_filt_value_phc = ph_vector - correction
-    print 'RMS phase correction is: %9.3f (%6.2f parts/thousand)'%(correction.std(),
-                                        1e3*correction.std()/ph_vector.mean())
+    print('RMS phase correction is: %9.3f (%6.2f parts/thousand)'%(correction.std(),
+                                                                   1e3*correction.std()/ph_vector.mean()))
 
     if plot:
         plt.subplot(212)
@@ -93,7 +93,6 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
         plt.xlim([-.55,.55])
         if prange is not None:
             plt.ylim(prange)
-
 
 
 def MicrocalDataSet_auto_drift_correct_rms(self, prange=None, times=None, ptrange=None, plot=False,
@@ -142,17 +141,18 @@ def MicrocalDataSet_auto_drift_correct_rms(self, prange=None, times=None, ptrang
     corrector = self.p_pretrig_mean[valid]
     mean_pretrig_mean = corrector.mean()
     corrector -= mean_pretrig_mean
-    if slopes is None: slopes = np.arange(-.2,.9,.05)
-    rms_widths=[]
+    if slopes is None:
+        slopes = np.arange(-.2, .9, .05)
+    rms_widths = []
     for sl in slopes:
         rms = (data+corrector*sl).std()
         rms_widths.append(rms)
 #            print "%6.3f %7.2f"%(sl,rms)
         if plot:
-            plt.plot(sl,rms,'bo')
+            plt.plot(sl, rms, 'bo')
     poly_coef = sp.polyfit(slopes, rms_widths, 2)
     best_slope = -0.5*poly_coef[1]/poly_coef[0]
-    print "Drift correction requires slope %6.3f"%best_slope
+    print("Drift correction requires slope %6.3f" % best_slope)
     self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
 
     if plot:
@@ -180,7 +180,7 @@ def MicrocalDataSet_auto_drift_correct(self, prange=None, times=None, plot=False
     line_name: name of the element whose Kalpha complex you want to fit for drift correction
     """
 
-    if self.p_filt_value_phc[0] ==0:
+    if self.p_filt_value_phc[0] == 0:
         self.p_filt_value_phc = self.p_filt_value.copy()
 
     # Default: use the calibration to pick a prange
@@ -200,13 +200,14 @@ def MicrocalDataSet_auto_drift_correct(self, prange=None, times=None, plot=False
     corrector = self.p_pretrig_mean[valid]
     mean_pretrig_mean = corrector.mean()
     corrector -= mean_pretrig_mean
-    if slopes is None: slopes = np.arange(0,1.,.09)
+    if slopes is None:
+        slopes = np.arange(0, 1., .09)
 
     fit_resolutions=[]
     for sl in slopes:
         self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*sl
-        params,_covar,_fitter = self.fit_spectral_line(prange=prange, times=times, plot=False,
-                                               fit_type='dc', line=line_name, verbose=False)
+        params, _covar, _fitter = self.fit_spectral_line(prange=prange, times=times, plot=False,
+                                                         fit_type='dc', line=line_name, verbose=False)
 #            print "%5.1f %s"%(sl, params[:4])
         fit_resolutions.append(params[0])
 #        print(fit_resolutions)
@@ -218,7 +219,7 @@ def MicrocalDataSet_auto_drift_correct(self, prange=None, times=None, plot=False
     best_slope = slopes[np.argmin(fit_resolutions)]
     best_slope_resolution = np.interp(best_slope, slopes, fit_resolutions)
 
-    print "Drift correction requires slope (using min not quadratic fit) %6.3f"%best_slope
+    print("Drift correction requires slope (using min not quadratic fit) %6.3f" % best_slope)
     self.p_filt_value_dc = self.p_filt_value_phc + (self.p_pretrig_mean-mean_pretrig_mean)*best_slope
 
     if plot:
@@ -241,7 +242,6 @@ def MicrocalDataSet_auto_drift_correct(self, prange=None, times=None, plot=False
         plt.ylabel("Selected, uncorrected pulse heights")
 
     return best_slope, mean_pretrig_mean
-
 
 
 def fitExponentialRiseTime(ts, dt=1.0, nPretrig=0):
@@ -313,7 +313,7 @@ def MicrocalDataSet_fit_MnK_lines(self, mask=None, times=None, update_energy=Tru
                                                          verbose=verbose, plot=plot, axis=ax2)
         calib.add_cal_point(params[1], 'MnKBeta')
     except sp.linalg.LinAlgError:
-        print "Failed to fit Mn K-beta!"
+        print("Failed to fit Mn K-beta!")
     if update_energy: self.p_energy = calib(self.p_filt_value_dc)
 
     if plot:
@@ -323,8 +323,8 @@ def MicrocalDataSet_fit_MnK_lines(self, mask=None, times=None, update_energy=Tru
         ax1.set_xlabel("Filtered, drift-corr. PH")
         ax2.set_xlabel("Filtered, drift-corr. PH")
         ax3.set_xlabel("Energy (eV)")
-        ax1.text(.06,.8,'Mn K$\\alpha$', transform=ax1.transAxes)
-        ax2.text(.06,.8,'Mn K$\\beta$', transform=ax2.transAxes)
-        ax3.text(.06,.8,'Mn K$\\alpha$', transform=ax3.transAxes)
+        ax1.text(.06, .8, 'Mn K$\\alpha$', transform=ax1.transAxes)
+        ax2.text(.06, .8, 'Mn K$\\beta$', transform=ax2.transAxes)
+        ax3.text(.06, .8, 'Mn K$\\alpha$', transform=ax3.transAxes)
 
 

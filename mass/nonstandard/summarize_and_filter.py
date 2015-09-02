@@ -137,18 +137,18 @@ try:
 except ImportError:
     print('numba not installed, disabled summarize_numba')
     
-except Exception, e:
+except Exception as e:
     print("Galen's summarize_numba did not compile, even though numba is installed.")
     print("Please suggest to Galen that he not commit code without testing it.")
 
 
 def summarize_old(data, nPresamples, pretrigger_ignore_samples, timebase, peak_time_microsec):
-    p_pretrig_mean = data[:,:nPresamples-pretrigger_ignore_samples].mean(axis=1, dtype=numpy.float32)
-    p_pretrig_rms = data[:,:nPresamples-pretrigger_ignore_samples].std(axis=1, dtype=numpy.float32)
+    p_pretrig_mean = data[:, :nPresamples-pretrigger_ignore_samples].mean(axis=1, dtype=numpy.float32)
+    p_pretrig_rms = data[:, :nPresamples-pretrigger_ignore_samples].std(axis=1, dtype=numpy.float32)
     p_peak_index = numpy.array(data.argmax(axis=1), dtype=numpy.uint16)
     p_peak_value = data.max(axis=1)
     p_min_value = data.min(axis=1)
-    p_pulse_average = data[:,nPresamples:].mean(axis=1, dtype=numpy.float32)
+    p_pulse_average = data[: ,nPresamples:].mean(axis=1, dtype=numpy.float32)
     
     # Remove the pretrigger mean from the peak value and the pulse average figures. 
     p_peak_value -= p_pretrig_mean
@@ -167,6 +167,7 @@ def summarize_old(data, nPresamples, pretrigger_ignore_samples, timebase, peak_t
 #        self.p_max_posttrig_deriv[first:last]
     return p_pretrig_mean, p_pretrig_rms, p_peak_index, p_peak_value, p_min_value, p_pulse_average, p_rise_time, p_max_posttrig_deriv
 
+
 def compare_summarize(data, nPresamples, pretrigger_ignore_samples):
     import time
     out_numba = summarize_numba(numpy.random.rand(100,500), 5, 0) # forces numba to compile summarize_numba
@@ -184,7 +185,8 @@ def compare_summarize(data, nPresamples, pretrigger_ignore_samples):
         print(varnames[i])
         print(i, all(out_numba[i]==out_old[i]), numpy.max(out_numba[i]-out_old[i]))
     print('numba took %f ms, old took %f ms, data.dtype=%s'%(1e3*t_numba, 1e3*t_old, data.dtype))
-    
+
+
 def estimateRiseTime(pulse_data, dt=1.0, nPretrig=0):
     """Compute the rise time of timeseries <pulse_data>, where the time steps are <dt>.
     If <nPretrig> >= 4, then the samples pulse_data[:nPretrig] are averaged to estimate
