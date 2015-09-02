@@ -91,8 +91,6 @@ if __name__ == "__main__":
     from numpy.distutils.core import setup
     from Cython.Build import cythonize
 
-    from Cython.Distutils import build_ext
-
     if sys.platform != 'win32':
         setup(configuration=configuration_fortran)
 
@@ -113,6 +111,5 @@ if __name__ == "__main__":
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
                         },
-          cmdclass={'build_ext': build_ext,
-                    'build': QtBuilder}
+          cmdclass={'build': QtBuilder}
           )
