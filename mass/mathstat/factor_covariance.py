@@ -386,9 +386,9 @@ class FitExponentialSum(object):
                 ngood = max_values
         if ngood<1:
             ngood=1
-        print "Using %d singular values exceeding %f" % (ngood, min_sval)
+        print("Using %d singular values exceeding %f" % (ngood, min_sval))
         if ngood > len(self.svalues):
-            print "Have to recompute Handle SVD"
+            print("Have to recompute Handle SVD")
             self._hankel_svd()
 
         # Cut the matrices of the SVD, saving the full list of singular values.
@@ -403,8 +403,8 @@ class FitExponentialSum(object):
         gplus = (self.svdv_t.T*(self.svalues**-0.5))
         self.system = dot(dot(fplus, self.hankel2), gplus)
 
-        print 'Solving system of shape ', self.system.shape
-        print '  |system| = %.4g' % np.linalg.det(self.system)
+        print('Solving system of shape ', self.system.shape)
+        print('  |system| = %.4g' % np.linalg.det(self.system))
         eigval, _evec = np.linalg.eig(self.system)
         self.bases = eigval
 #        print 'Bases are: ', eigval
@@ -495,17 +495,17 @@ class FitExponentialSum(object):
         self.negative_bases = negative_bases
         self.complex_bases = complex_bases
         if verbose:
-            for w,b in zip(fweights, real_bases):
-                log=np.log(b)
+            for w, b in zip(fweights, real_bases):
+                log = np.log(b)
                 if np.isnan(log):
                     log = np.log(-b)+np.pi*1j
-                print " %10.5f*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w,b.real, b.imag, log.real, log.imag)
+                print(" %10.5f*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w,b.real, b.imag, log.real, log.imag))
 
             nr = len(real_bases)
-            for i,nb in enumerate(negative_bases):
+            for i, nb in enumerate(negative_bases):
                 w = fweights[i+nr]
-                log=np.log(-nb)
-                print " %10.5f*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w,nb.real, nb.imag, log.real, log.imag)
+                log = np.log(-nb)
+                print(" %10.5f*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w,nb.real, nb.imag, log.real, log.imag))
 
             nr = len(real_bases) + len(negative_bases)
             for i,cb in enumerate(complex_bases):
@@ -513,9 +513,8 @@ class FitExponentialSum(object):
                 if np.isnan(log):
                     log = np.log(-cb)+np.pi*1j
                 w=fweights[2*i+nr:2*i+nr+2]
-                print " %10.5f *[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[0],cb.real, cb.imag, log.real, log.imag)
-                print "+%10.5fj*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[1],cb.real, cb.imag, log.real, log.imag)
-
+                print(" %10.5f *[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[0],cb.real, cb.imag, log.real, log.imag))
+                print("+%10.5fj*[(%9.6f+%8.5fj)**m] or exp((%8.5f+%8.5fj)m)"%(w[1],cb.real, cb.imag, log.real, log.imag))
 
     def results(self):
         """This takes the "packed" results and returns them in a form suitable for use by
@@ -537,7 +536,6 @@ class FitExponentialSum(object):
             amplitudes.append(r + 1j*c)
             amplitudes.append(r - 1j*c)
         return np.array(amplitudes), np.array(bases)
-
 
     def plot(self, axis=None, axis2=None):
         import pylab

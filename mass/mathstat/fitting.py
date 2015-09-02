@@ -262,8 +262,8 @@ class MaximumLikelihoodHistogramFitter(object):
             try:
                 delta_params = sp.linalg.solve(alpha_prime, beta[self.param_free],
                                                overwrite_a=False, overwrite_b=False)
-            except sp.linalg.LinAlgError, ex:
-                print 'alpha (lambda=%f, iteration %d) is singular:'%(lambda_coef, iter_number)
+            except sp.linalg.LinAlgError as ex:
+                print('alpha (lambda=%f, iteration %d) is singular:' % (lambda_coef, iter_number))
 #                 print 'Internal: ',self.internal
 #                 print 'Params: ', self.params
 #                 print 'Alpha-prime: ',alpha_prime
@@ -299,18 +299,17 @@ class MaximumLikelihoodHistogramFitter(object):
                 self.internal = atry.copy()
                 self.params = np.array([f(p) for f,p in zip(self.internal2bounded,self.internal)])
                 if verbose:
-                    print "Improved: chisq=%9.4e->%9.4e l=%.1e params=%s..."%(
-                              trial_chisq, prev_chisq, lambda_coef, self.params[:2])
+                    print("Improved: chisq=%9.4e->%9.4e l=%.1e params=%s..." %
+                          (trial_chisq, prev_chisq, lambda_coef, self.params[:2]))
                 self.chisq = prev_chisq = trial_chisq
             else:   # failure.  Increase lambda and return to previous starting point.
                 lambda_coef *= 10.0
                 if verbose:
-                    print "No imprv: chisq=%9.4e >= %9.4e l=%.1e params=%s..."%(
-                              trial_chisq, prev_chisq, lambda_coef, self.params[:2])
+                    print("No imprv: chisq=%9.4e >= %9.4e l=%.1e params=%s..." %
+                          (trial_chisq, prev_chisq, lambda_coef, self.params[:2]))
                 self.chisq = prev_chisq
 
-        raise RuntimeError("MaximumLikelihoodHistogramFitter.fit() reached ITMAX=%d iterations"%self.ITMAX)
-
+        raise RuntimeError("MaximumLikelihoodHistogramFitter.fit() reached ITMAX=%d iterations" % self.ITMAX)
 
     def _mrqcof(self, internal):
         """Used by fit to evaluate the linearized fitting matrix alpha and vector beta,
@@ -328,10 +327,10 @@ class MaximumLikelihoodHistogramFitter(object):
 
         y_model = self.theory_function(params, self.x)
         dyda = (self.theory_gradient(params, self.x).T * dpdi_grad).T
-        if dyda[0].sum()==0:
-            print 'Problem:',self.epsilon, dyda[:,:4], params
-            raise Exception
-        y_model[y_model==0.0] = 1e-50
+        if dyda[0].sum() == 0:
+            print('Problem:', self.epsilon, dyda[:,:4], params)
+            raise Exception()
+        y_model[y_model == 0.0] = 1e-50
         dyda_over_y = dyda/y_model
         nobs = self.nobs
         y_resid = nobs - y_model
@@ -348,11 +347,10 @@ class MaximumLikelihoodHistogramFitter(object):
                 alpha[i,j] = (nobs*dyda_over_y[overallrow,:]*dyda_over_y[overallcol,:]).sum()
                 alpha[j,i] = alpha[i,j]
 
-        nonzero_obs = nobs>0
-        chisq = 2*(y_model.sum()-self.total_obs)  \
-                + 2*(nobs[nonzero_obs]*np.log((nobs/y_model)[nonzero_obs])).sum()
+        nonzero_obs = nobs > 0
+        chisq = 2*(y_model.sum()-self.total_obs) + \
+                2*(nobs[nonzero_obs]*np.log((nobs/y_model)[nonzero_obs])).sum()
         return alpha, beta, chisq
-
 
     def __cov_sort_in_place(self, C):
         """Expand the matrix C in place, so as to account
@@ -367,8 +365,6 @@ class MaximumLikelihoodHistogramFitter(object):
                     C[m, k], C[m, j] = C[m, j], C[m, k]
                     C[k, m], C[j, m] = C[j, m], C[k, m]
                 k -= 1
-
-
 
 
 class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):

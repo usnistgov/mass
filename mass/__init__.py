@@ -58,12 +58,12 @@ def reload_all():
     for modname in modnames:
         if modname.endswith("demo"):
             continue    
-        print "Reloading %s..." % modname
+        print("Reloading %s..." % modname)
         module_path = "/".join(modname.split(".")[1:-1])
         module_path = os.path.join(__path__[0], module_path)
         try:
             x, y, z = imp.find_module(modname.split(".")[-1], [module_path])
             imp.load_module(modname, x, y, z)
-        except Exception, ex:
-            print "Error on reloading", modname
-            print ex
+        except Exception as ex:
+            print("Error on reloading", modname)
+            print(ex)

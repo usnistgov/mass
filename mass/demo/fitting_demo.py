@@ -46,7 +46,8 @@ guess_params = [fwhm, mu, hist.max(), 0]
 fitter = mass.fitting.MaximumLikelihoodGaussianFitter(bin_ctr, hist, guess_params)
 params, covariance = fitter.fit()
 for i in range(len(guess_params)):
-    print "Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f"%(i, guess_params[i], params[i], covariance[i,i]**.5)
+    print("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
+          (i, guess_params[i], params[i], covariance[i, i]**.5))
 
 # Compute the model function and plot it in red.
 model = fitter.theory_function(params, bin_ctr)
@@ -69,17 +70,18 @@ axis = pylab.subplot(111)
 mass.plot_as_stepped_hist(axis, hist, bin_ctr, color='blue')
 
 guess_params = [fwhm, mu, hist.max()]
-color='red','gold','green'
-title='No BG','Constant BG','Sloped BG'
-print 'True parameter values: FWHM=%.4f Ctr=%.4f'%(fwhm, mu)
-for nbg in (0,1,2):
-    if nbg == 1 or nbg==2:
+color = 'red', 'gold', 'green'
+title = 'No BG', 'Constant BG', 'Sloped BG'
+print('True parameter values: FWHM=%.4f Ctr=%.4f' % (fwhm, mu))
+for nbg in (0, 1, 2):
+    if nbg == 1 or nbg == 2:
         guess_params.append(0)
     fitter = mass.fitting.MaximumLikelihoodGaussianFitter(bin_ctr, hist, guess_params)
     params, covariance = fitter.fit()
-    print "Model: %s"%title[nbg]
+    print("Model: %s" % title[nbg])
     for i in range(len(guess_params)):
-        print "Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f"%(i, guess_params[i], params[i], covariance[i,i]**.5)
+        print("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
+              (i, guess_params[i], params[i], covariance[i,i]**.5))
     print
     
     # Compute the model function and plot it in red.
@@ -105,12 +107,12 @@ fitter = mass.GaussianFitter()
 params, covariance = fitter.fit(hist, bin_ctr, plot=True)
 true_params = [FWHM_SIGMA_RATIO*sigma, mu, N*(bin_edges[1]-bin_edges[0])/sigma/(2*numpy.pi)**0.5, 0]
 for i in range(len(true_params)):
-    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, 
-                true_params[i], params[i], covariance[i,i]**.5)
+    print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
+          (i,true_params[i], params[i], covariance[i,i]**.5))
 # <demo> stop
 
 # Now let's generate data from a Lorentzian (Cauchy) distribution
-mu,sigma = 100.0, 3.0
+mu, sigma = 100.0, 3.0
 dc = numpy.random.standard_cauchy(size=N)+mu
 histc, bin_edges = numpy.histogram(dc, 200, [mu-10-4*sigma, mu+10+4*sigma])
 bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
@@ -120,8 +122,8 @@ fitter = mass.calibration.fluorescence_lines.LorentzianFitter()
 params, covariance = fitter.fit(histc, bin_ctr, plot=True)
 true_params = [mu, 1.0, N*(bin_edges[1]-bin_edges[0])]
 for i in range(len(true_params)):
-    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, 
-                true_params[i], params[i], covariance[i,i]**.5)
+    print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
+          (i, true_params[i], params[i], covariance[i,i]**.5))
 
 # Notice that we could have used the VoigtFitter, and it would probably work.
 # By choosing the Lorentzian fitter, we insist that the Gaussian smearing = 0.
@@ -134,8 +136,8 @@ fitter = mass.calibration.fluorescence_lines.VoigtFitter()
 params, covariance = fitter.fit(histc, bin_ctr, plot=True)
 true_params = [0, mu, 1.0, N*(bin_edges[1]-bin_edges[0])]
 for i in range(len(true_params)):
-    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, 
-                true_params[i], params[i], covariance[i,i]**.5)
+    print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
+          (i, true_params[i], params[i], covariance[i,i]**.5))
 # <demo> stop
 
 # Finally, put real Gaussian smearing on the data and use the Voigt fitter again.
@@ -146,8 +148,8 @@ bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 params, covariance = fitter.fit(histv, bin_ctr, plot=True)
 true_params = [FWHM_SIGMA_RATIO*sigma, mu, 1.0, N*(bin_edges[1]-bin_edges[0])/sigma/(2*numpy.pi)**0.5]
 for i in range(len(true_params)):
-    print "Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f"%(i, 
-                true_params[i], params[i], covariance[i,i]**.5)
+    print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
+          (i, true_params[i], params[i], covariance[i,i]**.5))
 
 # <demo> stop
 
@@ -156,16 +158,17 @@ N1, N2, Nbg = 3000, 2000, 1000
 mu1, mu2, sigma = 100.0, 105.0, 0.5
 dc1 = numpy.random.standard_cauchy(size=N1)+mu1
 dc2 = numpy.random.standard_cauchy(size=N2)+mu2
-dc = numpy.hstack([dc1,dc2])
+dc = numpy.hstack([dc1, dc2])
 dc += numpy.random.standard_normal(size=N1+N2)*sigma
 
 histc, bin_edges = numpy.histogram(dc, 200, [mu1-10-4*sigma, mu2+10+4*sigma])
 bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
 fitter = mass.calibration.fluorescence_lines.TwoVoigtFitter()
-param_guess= numpy.array([sigma*2.3548, mu1, 1, N1, mu2, 1, N2, .1])
+param_guess = numpy.array([sigma*2.3548, mu1, 1, N1, mu2, 1, N2, .1])
 # Those are the correct values.  Let's mess with them by 3% (more or less):
 param_guess *= 1+numpy.random.standard_normal(8)*0.03
 
-params,covar=fitter.fit(histc, bin_edges[:-1]+0.5*(bin_edges[1]-bin_edges[0]), params=param_guess)
-print params; print covar.diagonal()**0.5
+params, covar=fitter.fit(histc, bin_edges[:-1]+0.5*(bin_edges[1]-bin_edges[0]), params=param_guess)
+print(params)
+print(covar.diagonal()**0.5)

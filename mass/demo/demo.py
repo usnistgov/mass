@@ -13,6 +13,8 @@ November 9, 2011
 # <demo> silent
 
 import mass
+import mass.calibration.fluorescence_lines
+
 
 def generate_mnkalphabeta_data(
           sample_time_us=10.24,
@@ -39,8 +41,8 @@ def generate_mnkalphabeta_data(
                                        nchan=n_chan)
     return data
 
-print "This silent block defines the help text and the short function used for"
-print "generating fake data."
+print("This silent block defines the help text and the short function used for")
+print("generating fake data.")
 # <demo> --- stop ---
 
 # A simple demonstration of how to use MASS
@@ -95,7 +97,7 @@ data.plot_summaries(quantity=1, log=False)
 # <demo> --- stop ---
 # That was a quantity selected by number (0-6).  You can also select by name.
 # For the name-number correspondence, do
-print data.plot_summaries.__doc__
+print(data.plot_summaries.__doc__)
 data.plot_summaries('Pulse Avg', log=False)
 # <demo> --- stop ---
 
@@ -108,8 +110,8 @@ data.plot_summaries('Pulse Avg', log=False)
 medians = numpy.array([numpy.median(ds.p_peak_value) for ds in data.datasets])
 avgmed = medians.mean()
 gains = medians/avgmed    # The gains will be very close to 1.00 in sim data
-print 'Medians: ', medians
-print 'Gains:   ', gains
+print('Medians: ', medians)
+print('Gains:   ', gains)
 
 # Next we make a mask to select which pulses will be used.
 # For now, make a quite liberal +- 3% around the median in each channel
@@ -148,7 +150,7 @@ medians = numpy.array([numpy.median(ds.p_filt_value) for ds in data.datasets])
 hist_limits = numpy.array([.99,1.01])*medians.mean()
 pylab.clf()
 colors = 'purple', 'blue', 'green', 'gold', 'orange', 'red'
-for i,(color,median,ds) in enumerate(zip(colors, medians, data.datasets)):
+for i, (color,median,ds) in enumerate(zip(colors, medians, data.datasets)):
     good = numpy.abs(ds.p_filt_value/median-1.0)<.02
     pylab.subplot(2,1,1+i)
     pylab.hist(ds.p_filt_value[good], 200, hist_limits, 
@@ -163,10 +165,10 @@ for i,(color,median,ds) in enumerate(zip(colors, medians, data.datasets)):
 # 
 
 pylab.clf()
-for i,ds in enumerate(data.datasets):
+for i, ds in enumerate(data.datasets):
     axis =pylab.subplot(211+i)
-    ds.fit_spectral_line(prange=hist_limits, line='MnKAlpha', 
-                                                plot=True, axis=axis)
+    ds.fit_spectral_line(prange=hist_limits, line='MnKAlpha',
+                         plot=True, axis=axis)
 
 # <demo> --- stop --
 # Notice that it's not so easy to automate, because you had to pass in a specific

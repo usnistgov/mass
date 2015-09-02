@@ -11,12 +11,16 @@ only certain keys and can optionally check the type of any values that
 the user tries to assign.
 """
 
-import re, os, sys, operator
+import re
+import os
+import sys
+import operator
+
 
 def message(m):
     """Print a usage message but only if environment "DEBUG"==1."""
     if os.environ.get('DEBUG', '1') == '1':
-        print m
+        print(m)
     
 
 class PrmDictBase(object):
@@ -74,12 +78,12 @@ class PrmDictBase(object):
             d = self.__dict__[name]
             if isinstance(d, dict):
                 k = d.keys()
-                k.sort(lambda a,b: cmp(a.lower(),b.lower()))
+                k.sort(lambda a, b: cmp(a.lower(), b.lower()))
                 prm_names += k
-        if verbose >0:
-            print 'registered parameters:\n'
+        if verbose > 0:
+            print('registered parameters:\n')
             for i in prm_names:
-                print i
+                print(i)
         # alternative:
         # names = []
         # for d in self._prm_list:
@@ -90,9 +94,9 @@ class PrmDictBase(object):
     def dump_set(self):
         for d in self._prm_list:
             keys = d.keys()
-            keys.sort(lambda a,b: cmp(a.lower(),b.lower()))
+            keys.sort(lambda a, b: cmp(a.lower(), b.lower()))
             for prm in keys:
-                print '%s = %s' % (prm, d[prm])
+                print('%s = %s' % (prm, d[prm]))
         
     def set(self, **kwargs):
         """Set kwargs data in parameter dictionaries."""
@@ -105,13 +109,13 @@ class PrmDictBase(object):
             set = False
             for d in self._prm_list:
                 if len(d.keys()) == 0:
-                    raise ValueError, 'self._prm_list is wrong (empty)'
+                    raise ValueError('self._prm_list is wrong (empty)')
                 try:
                     if self.set_in_dict(prm, kwargs[prm], d):
                         set = True
                         break
-                except TypeError, msg:
-                    print msg
+                except TypeError as msg:
+                    print(msg)
                     #break
                     sys.exit(1)  # type error is fatal
 
@@ -122,8 +126,7 @@ class PrmDictBase(object):
                     message('%s=%s assigned in self.user_prm' % \
                             (prm, kwargs[prm]))
                 else:
-                    raise NameError, \
-                          'parameter "%s" not registered' % prm
+                    raise NameError('parameter "%s" not registered' % prm)
         self._update()
 
     def set_in_dict(self, prm, value, d):
@@ -153,16 +156,11 @@ class PrmDictBase(object):
                     if isinstance(value, self._type_check[prm]):
                         can_set = True
                     else:
-                        raise TypeError, \
-                              '\n\n%s=%s has type %s, not %s or None\n'\
-                              'self._type_check=%s' % \
-                              (prm, value, type(d[prm]),
-                               self._type_check[prm],
-                               self._type_check)
+                        raise TypeError('\n\n%s=%s has type %s, not %s or None\nself._type_check=%s' %
+                                        (prm, value, type(d[prm], self._type_check[prm], self._type_check)))
                 else:
-                    raise TypeError, 'self._type_check["%s"] must be '\
-                          'int/book or type (float,int,...) values, '\
-                          'not %s' % (prm,type(self._type_check[prm]))
+                    raise TypeError('self._type_check["%s"] must be int/book or type (float,int,...) values, not %s' %
+                                    (prm, type(self._type_check[prm])))
             else:
                 can_set = True
         else:
@@ -173,7 +171,6 @@ class PrmDictBase(object):
             return True
         return False
         
-
     def _update(self):
         """Check data consistency and make updates."""
         # to be implemented in subclasses
@@ -190,8 +187,8 @@ class PrmDictBase(object):
                       'lambda self: self.%s["%s"], %s)' % \
                       (self.__class__.__name__, prm, ds, prm,
                        ' doc="read-only property"')
-                print cmd
-                exec cmd in global_namespace, locals()
+                print(cmd)
+                exec(cmd, global_namespace, locals())
 
     def dicts2namespace(self, namespace, dicts, overwrite=True):
         """Make namespace variables out of dict items."""
@@ -202,7 +199,7 @@ class PrmDictBase(object):
             else:
                 for key in d:
                     if key in namespace and not overwrite:
-                        print 'cannot overwrite %s' % key
+                        print('cannot overwrite %s' % key)
                     else:
                         namespace[key] = d[key]
 
@@ -211,7 +208,7 @@ class PrmDictBase(object):
         # can be tuned in subclasses
         for d in dicts:
             for key in d:
-                exec '%s=%s' % (key,repr(d[key])) in globals(), namespace
+                exec('%s=%s' % (key, repr(d[key])), globals(), namespace)
 
     def namespace2dicts(self, namespace, dicts):
         """Update dicts from variables in a namespace."""
