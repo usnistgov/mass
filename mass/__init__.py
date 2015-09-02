@@ -35,22 +35,7 @@ Joe Fowler, NIST Boulder Labs.  November 2010--
 """
 
 from _version import __version__, __version_info__
-
-import mathstat
-import calibration
-import core
-import nonstandard
-# Do not import gui, as that can be problematic when people don't have 
-# Qt configured as the matplotlib backend.
-
 from core import *
-from calibration import *
-from mathstat import *
-
-__all__ = []
-__all__.extend(core.__all__)
-__all__.extend(calibration.__all__)
-__all__.extend(mathstat.__all__)
 
 
 def reload_all():
@@ -60,8 +45,11 @@ def reload_all():
     WARNING: your TESGroup or CDMGroup will need to be fixed via: data=data.copy(), or else its
     methods will still be the methods of the old code.
     """
-    print "We are reloading MASS."
-    import imp, os, pkgutil
+    print("We are reloading MASS.")
+
+    import imp
+    import os
+    import pkgutil
 
     # Use pkgutil to walk the package tree, but then reverse order to go depth-first.  
     modnames = [name for _importer, name, _ispkg in pkgutil.walk_packages(__path__, "mass.")]
@@ -70,11 +58,11 @@ def reload_all():
     for modname in modnames:
         if modname.endswith("demo"):
             continue    
-        print "Reloading %s..."%modname
+        print "Reloading %s..." % modname
         module_path = "/".join(modname.split(".")[1:-1])
         module_path = os.path.join(__path__[0], module_path)
         try:
-            x, y ,z = imp.find_module(modname.split(".")[-1], [module_path])
+            x, y, z = imp.find_module(modname.split(".")[-1], [module_path])
             imp.load_module(modname, x, y, z)
         except Exception, ex:
             print "Error on reloading", modname
