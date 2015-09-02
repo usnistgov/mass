@@ -18,8 +18,12 @@ from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
 from mass.calibration import young
 import h5py
-import ljh_util
-import cPickle
+import mass.core.ljh_util
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
 from os import path
 
 
@@ -811,7 +815,7 @@ class MicrocalDataSet(object):
     @property
     def external_trigger_rowcount(self):
         if not self._external_trigger_rowcount:
-            filename = mass.ljh_util.ljh_get_extern_trig_fname(self.filename)
+            filename = ljh_util.ljh_get_extern_trig_fname(self.filename)
             h5 = h5py.File(filename)
             ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
             crate_clock_hz = h5["trig_times"].attrs["Nrows"] * \
@@ -1344,7 +1348,7 @@ class MicrocalDataSet(object):
             pkl_fname = self.pkl_fname
             if path.isfile(pkl_fname) and not forceNew:
                 with open(pkl_fname, "r") as f:
-                    self.calibration = cPickle.load(f)
+                    self.calibration = pickle.load(f)
             calname = attr+name_ext
             if calname in self.calibration:
                 cal = self.calibration[calname]
@@ -1366,7 +1370,7 @@ class MicrocalDataSet(object):
                 print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
                 raise Exception()
             with open(pkl_fname, "w") as f:
-                cPickle.dump(self.calibration, f)
+                pickle.dump(self.calibration, f)
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None:

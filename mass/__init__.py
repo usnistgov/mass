@@ -34,8 +34,8 @@ For a demonstration of some capabilities:
 Joe Fowler, NIST Boulder Labs.  November 2010--
 """
 
-from _version import __version__, __version_info__
-from core import *
+from ._version import __version__, __version_info__
+from .core import *
 
 
 def reload_all():

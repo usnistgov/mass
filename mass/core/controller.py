@@ -12,7 +12,8 @@ Created on Feb 16, 2011
 
 __all__ = ['AnalysisControl', 'standardControl']
 
-from param_dict_base import PrmDictBase
+from .param_dict_base import PrmDictBase
+
 
 class AnalysisControl(PrmDictBase):
     """Control the behavior of an analysis operation."""
