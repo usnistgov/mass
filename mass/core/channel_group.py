@@ -548,8 +548,8 @@ class TESGroup(object):
     def sample2segnum(self, samplenum):
         """Returns the segment number of sample number <samplenum>."""
         if samplenum >= self.nPulses:
-            samplenum = self.nPulses-1
-        return samplenum/self.pulses_per_seg
+            samplenum = self.nPulses - 1
+        return samplenum // self.pulses_per_seg
 
     def segnum2sample_range(self, segnum):
         """Return the (first,end) sample numbers of the segment numbered <segnum>.
@@ -639,10 +639,10 @@ class TESGroup(object):
         external_trigger_rowcount.dtype = np.int64
         for ds in self:
             try:
-                if not "rows_after_last_external_trigger" in ds.hdf5_group or forceNew:
+                if "rows_after_last_external_trigger" not in ds.hdf5_group or forceNew:
                     rows_after = mass.mathstat.nearest_arrivals.nearest_arrivals(ds.p_rowcount[:], external_trigger_rowcount)
                     ds.hdf5_group["rows_after_last_external_trigger"] = rows_after
-                ds.rows_after_last_external_trigger = ds.hdf5_group["rows_after_last_external_trigger"]
+                ds._rows_after_last_external_trigger = ds.hdf5_group["rows_after_last_external_trigger"]
             except:
                 self.set_chan_bad(ds.channum, "calc_rows_after_last_external_trigger")
 
@@ -960,7 +960,7 @@ class TESGroup(object):
         segment_mask = np.zeros(self.n_segments, dtype=np.bool)
         for m in masks:
             n = len(m)
-            nseg = 1+(n-1)/self.pulses_per_seg
+            nseg = 1 + (n - 1) // self.pulses_per_seg
             for i in range(nseg):
                 if segment_mask[i]:
                     continue
@@ -1090,7 +1090,7 @@ class TESGroup(object):
                     h5grp.attrs['fmax'] = f.fmax
                 h5grp.attrs['peak'] = f.peak_signal
                 h5grp.attrs['shorten'] = f.shorten
-                for k, v in ds.filter.__dict__.iteritems():
+                for k, v in ds.filter.__dict__.items():
                     if not k.startswith("filt_"):
                         continue
                     if k in h5grp:
@@ -1380,13 +1380,13 @@ class TESGroup(object):
         for ds in self:
             ds.apply_cuts(cuts, forceNew)
 
-    def avg_pulses_auto_masks(self, max_pulses_to_use=7000):
+    def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
         median_pulse_avg = np.array([np.median(ds.p_pulse_average[ds.good()]) for ds in self])
         masks = self.make_masks([.95, 1.05], use_gains=True, gains=median_pulse_avg)
         for m in masks:
             if len(m) > max_pulses_to_use:
                 m[max_pulses_to_use:] = False
-        self.compute_average_pulse(masks)
+        self.compute_average_pulse(masks, forceNew=forceNew)
 
     def drift_correct(self, forceNew=False):
         for ds in self:

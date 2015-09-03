@@ -18,7 +18,7 @@ from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
 from mass.calibration import young
 import h5py
-import mass.core.ljh_util
+from mass.core import ljh_util
 try:
     import cPickle as pickle
 except ImportError:
@@ -755,6 +755,7 @@ class MicrocalDataSet(object):
         self.column_number = None
 
         self._external_trigger_rowcount = None
+        self._rows_after_last_external_trigger = None
         self.row_timebase = None
 
         self.tes_group = tes_group
@@ -838,6 +839,14 @@ class MicrocalDataSet(object):
         this is not a posix timestamp, it is just the external trigger rowcount converted to seconds based on the nominal clock rate of the crate
         """
         return self.external_trigger_rowcount[:]*self.timebase/float(self.number_of_rows)
+
+    @property
+    def rows_after_last_external_trigger(self):
+        if not self._rows_after_last_external_trigger:
+            raise ValueError("row_after_last_external_trigger has not been calculated.\n" +
+                             "Call TESGroup.calc_rows_after_last_external_trigger first.")
+
+        return self._rows_after_last_external_trigger
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (

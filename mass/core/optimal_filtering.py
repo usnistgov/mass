@@ -13,6 +13,7 @@ import scipy as sp
 import pylab as plt
 
 import mass
+import mass.mathstat.toeplitz
 
 
 class Filter(object):
