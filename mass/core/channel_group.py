@@ -125,13 +125,13 @@ class TESGroup(object):
         ['calibration', ['in', 'out'], 'in'],
         ]
 
-    __cut_boolean_field_desc_dtype = np.dtype([("name", np.str_, 64),
+    __cut_boolean_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
                                                ("mask", np.uint32)])
-    __cut_categorical_field_desc_dtype = np.dtype([("name", np.str_, 64),
+    __cut_categorical_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
                                                    ("pos", np.uint8),
                                                    ("mask", np.uint32)])
-    __cut_category_list_dtype = np.dtype([("field", np.str_, 64),
-                                          ("category", np.str_, 64),
+    __cut_category_list_dtype = np.dtype([("field", np.bytes_, 64),
+                                          ("category", np.bytes_, 64),
                                           ("index", np.uint8)])
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
