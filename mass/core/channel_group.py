@@ -619,7 +619,7 @@ class TESGroup(object):
         else:
             nchan = float(self.num_good_channels)
 
-        for i,chan in enumerate(self.iter_channel_numbers(include_badchan)):
+        for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
             try:
                 self.channel[chan].summarize_data(peak_time_microsec,
                                                   pretrigger_ignore_microsec, forceNew)
