@@ -1356,10 +1356,14 @@ class MicrocalDataSet(object):
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, calibration_category=None, forceNew=False):
-            pkl_fname = self.pkl_fname
-            if path.isfile(pkl_fname) and not forceNew:
-                with open(pkl_fname, "r") as f:
-                    self.calibration = pickle.load(f)
+            try:
+                pkl_fname = self.pkl_fname
+                if path.isfile(pkl_fname) and not forceNew:
+                    with open(pkl_fname, "rb") as f:
+                        self.calibration = pickle.load(f)
+            except pickle.UnpicklingError:
+                print("Unpicking calibration objects is failed!")
+
             calname = attr+name_ext
             if calname in self.calibration:
                 cal = self.calibration[calname]
@@ -1380,13 +1384,14 @@ class MicrocalDataSet(object):
             if cal.anyfailed:
                 print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
                 raise Exception()
-            with open(pkl_fname, "w") as f:
+
+            with open(pkl_fname, "wb") as f:
                 pickle.dump(self.calibration, f)
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
             calname = attr
-        if not self.calibration.has_key(calname):
+        if not calname in self.calibration:
             raise ValueError("For chan %d calibration %s does not exist"(self.channum, calname))
         cal = self.calibration[calname]
         self.p_energy[:] = cal.ph2energy(getattr(self, attr))

@@ -1205,7 +1205,7 @@ class MultiLorentzianComplexFitter(object):
         guess_params = self.guess_starting_params(data, pulseheights)
         if params is None:
             params = guess_params
-        for j in xrange(len(params)):
+        for j in range(len(params)):
             if params[j] is not None:
                 guess_params[j] = params[j]
         params = guess_params
