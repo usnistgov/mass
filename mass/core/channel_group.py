@@ -260,13 +260,14 @@ class TESGroup(object):
 
     def cut_field_categories(self, field_name):
         category_list = self.cut_category_list
-        return {name: index for field, name, index in category_list if field == field_name}
+
+        return {name.decode(): index for field, name, index in category_list if field == field_name.encode()}
 
     def register_boolean_cut_fields(self, *names):
         num_used_bits = self.cut_num_used_bits
         boolean_fields = self.boolean_cut_desc
 
-        new_fields = [name for name in names if name not in boolean_fields["name"]]
+        new_fields = [n.encode() for n in names if n.encode() not in boolean_fields["name"]]
 
         if new_fields:
             new_boolean_field_desc = np.array([(name, 1 << (i + num_used_bits)) for i, name in enumerate(new_fields)],
@@ -277,26 +278,30 @@ class TESGroup(object):
 
     def register_categorical_cut_field(self, name, categories, default="uncategorized"):
         categorical_fields = self.categorical_cut_desc
-        if name in categorical_fields["name"]:
+        if name.encode() in categorical_fields["name"]:
             return
 
+        # categories might be an immutable tuple.
         category_list = list(categories)
 
         # if the default category is already included, it's temporarily removed from the category_list
-        # and insert into the head of the category_list.
+        # and insert into at the head of the category_list.
         if default in category_list:
             category_list.remove(default)
         category_list.insert(0, default)
 
-        new_list = np.array([(name, category, i) for i, category in enumerate(category_list)],
+        # Updates the 'cut_category_list' attribute
+        new_list = np.array([(name.encode(), category.encode(), i) for i, category in enumerate(category_list)],
                             dtype=self.__cut_category_list_dtype)
         self.cut_category_list = np.hstack([self.cut_category_list,
                                             new_list])
+
+        # Needs to update the 'cut_categorical_field_desc' attribute.
         num_bits = 1
         while (1 << num_bits) < len(category_list):
             num_bits += 1
 
-        field_desc_item = np.array([(name,
+        field_desc_item = np.array([(name.encode(),
                                      self.cut_num_used_bits,
                                      ((1 << num_bits) - 1) << self.cut_num_used_bits)],
                                    dtype=self.__cut_categorical_field_desc_dtype)

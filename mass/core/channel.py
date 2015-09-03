@@ -545,18 +545,19 @@ class Cuts(object):
         boolean_field = self.tes_group.boolean_cut_desc
         categorical_field = self.tes_group.categorical_cut_desc
 
-        if type(cut_num) is int:
+        if isinstance(cut_num, int):
             if (cut_num < 0) or (cut_num > 31):
                 raise ValueError(str(cut_num) + "is out of range.")
             _, bit_mask = boolean_field[cut_num]
             self._mask[mask] |= bit_mask
-        elif type(cut_num) is bytes or type(cut_num) is unicode:
-            boolean_g = (boolean_field["name"] == cut_num)
+        elif isinstance(cut_num, bytes) or isinstance(cut_num, str):
+            # This condition will work because we don't expect Python 2.7 users to pass an unicode cut_num.
+            boolean_g = (boolean_field["name"] == cut_num.encode())
             if np.any(boolean_g):
                 _, bit_mask = boolean_field[boolean_g][0]
                 self._mask[mask] |= bit_mask
             else:
-                categorical_g = (categorical_field["name"] == cut_num)
+                categorical_g = (categorical_field["name"] == cut_num.encode())
                 if np.any(categorical_g):
                     _, bit_pos, bit_mask = categorical_field[categorical_g][0]
                     temp = self._mask[...] & ~bit_mask
@@ -573,13 +574,14 @@ class Cuts(object):
         categorical_field = self.tes_group.categorical_cut_desc
         category_list = self.tes_group.cut_category_list
 
-        for name, category_label in kwargs.iteritems():
-            categorical_g = (categorical_field["name"] == name)
+        for name, category_label in kwargs.items():
+            categorical_g = (categorical_field["name"] == name.encode())
 
             if not np.any(categorical_g):
                 raise ValueError(name + " categorical field is not found.")
 
-            category_g = (category_list["field"] == name) & (category_list["category"] == category_label)
+            category_g = (category_list["field"] == name.encode()) &\
+                         (category_list["category"] == category_label.encode())
 
             if not np.any(category_g):
                 raise ValueError(category_label + " category is not found.")
@@ -597,7 +599,7 @@ class Cuts(object):
     def category(self, name):
         categorical_field = self.tes_group.categorical_cut_desc
 
-        categorical_field_g = categorical_field["name"] == name
+        categorical_field_g = categorical_field["name"] == name.encode()
         if np.any(categorical_field_g):
             _, bit_pos, bit_mask = categorical_field[categorical_field_g][0]
             bit_pos = np.uint32(bit_pos)
@@ -611,8 +613,8 @@ class Cuts(object):
         categorical_field = self.tes_group.categorical_cut_desc
 
         if args:
-            boolean_field_names = [name for name, _ in boolean_field if name in args]
-            categorical_field_names = [name for name, _, _ in categorical_field if name in args]
+            boolean_field_names = [name for name, _ in boolean_field if name.decode() in args]
+            categorical_field_names = [name for name, _, _ in categorical_field if name.decode() in args]
 
             not_found = set(args) - (set(boolean_field_names).union(set(categorical_field_names)))
             if not_found:
@@ -1093,12 +1095,12 @@ class MicrocalDataSet(object):
 
         if allowed is None:  # no cut here!
             return
-        if type(cut_id) is int:
+        if isinstance(cut_id, int):
             if cut_id < 0 or cut_id >= 32:
                 raise ValueError("cut_id must be in the range [0,31]")
-        elif (type(cut_id) is bytes) or (type(cut_id) is unicode):
+        elif isinstance(cut_id, bytes) or isinstance(cut_id, str):
             boolean_cut_fields = self.tes_group.boolean_cut_desc
-            g = boolean_cut_fields["name"] == cut_id
+            g = boolean_cut_fields["name"] == cut_id.encode()
             if not np.any(g):
                 raise ValueError(cut_id + " is not found.")
 
