@@ -1383,20 +1383,20 @@ class TESGroup(object):
                 m[max_pulses_to_use:] = False
         self.compute_average_pulse(masks)
 
-    def drift_correct(self, forceNew=False):
+    def drift_correct(self, forceNew=False, category=None):
         for ds in self:
             try:
-                ds.drift_correct(forceNew)
+                ds.drift_correct(forceNew, category)
             except ValueError:
                 self.set_chan_bad(ds.channum, "failed drift correct")
 
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
-                          plot=False, forceNew=False, pre_sanitize_p_filt_phase=True):
+                          plot=False, forceNew=False, pre_sanitize_p_filt_phase=True, category=None):
         if pre_sanitize_p_filt_phase:
             self.sanitize_p_filt_phase()
         for ds in self:
             try:
-                ds.phase_correct2014(typical_resolution, maximum_num_records, plot, forceNew)
+                ds.phase_correct2014(typical_resolution, maximum_num_records, plot, forceNew, category)
             except:
                 self.set_chan_bad(ds.channum, "failed phase_correct2014")
 
@@ -1409,12 +1409,12 @@ class TESGroup(object):
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2, calibration_category=None, forceNew=False):
+                  bin_size_ev=2, category=None, forceNew=False):
         for ds in self:
             try:
                 ds.calibrate(attr, line_names, name_ext, size_related_to_energy_resolution,
                              fit_range_ev, excl, plot_on_fail,
-                             bin_size_ev, calibration_category, forceNew)
+                             bin_size_ev, category, forceNew)
             except:
                 self.set_chan_bad(ds.channum, "failed calibration %s" % attr+name_ext)
         self.convert_to_energy(attr, attr+name_ext)
