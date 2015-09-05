@@ -567,6 +567,21 @@ class Cuts(object):
                 else:
                     raise ValueError(cut_num + " field is not found.")
 
+    def cut_categorical(self, field, booldict):
+        """
+        field - string name of category
+        booldict - dictionary with keys are category of the field and entries are bool vectors of length equal to make indicating belongingness
+        """
+        category_names = self.tes_group.cut_field_categories(field)
+        labels = np.zeros(len(self._mask),dtype=np.uint16)
+        for (category, catbool) in booldict.items():
+            labels[catbool] = category_names[category]
+        for (category, catbool) in booldict.items():
+            if not all(labels[booldict[category]] == category_names[category]):
+                raise ValueError("bools passed for %s conflict with some other"%category)
+        self.cut(field, labels)
+
+
     def select_category(self, **kwargs):
         category_field_bit_mask = np.uint32(0)
         category_field_target_bits = np.uint32(0)
@@ -1216,13 +1231,15 @@ class MicrocalDataSet(object):
     def clear_cuts(self):
         self.cuts.clear_cut()
 
-    def drift_correct(self, forceNew=False):
+    def drift_correct(self, forceNew=False, category=None):
         """Drift correct using the standard entropy-minimizing algorithm"""
         doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(self.p_filt_value_dc[:] == self.p_filt_value[:])
         if not (forceNew or doesnt_exist):
             print("chan %d not drift correction, p_filt_value_dc already populated" % self.channum)
             return
-        g = self.cuts.good()
+        if category is None:
+            category = {"calibration": "in"}
+        g = self.cuts.good(**category)
         uncorrected = self.p_filt_value[g]
         indicator = self.p_pretrig_mean[g]
         drift_corr_param, self.drift_correct_info = \
@@ -1235,7 +1252,7 @@ class MicrocalDataSet(object):
         self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
         self.hdf5_group.file.flush()
 
-    def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False, forceNew=False):
+    def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False, forceNew=False, category=None):
         """Apply the phase correction that seems good for calibronium-like
         data as of June 2014. For more notes, do
         help(mass.core.analysis_algorithms.FilterTimeCorrection)
@@ -1247,7 +1264,9 @@ class MicrocalDataSet(object):
         """
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:]==self.p_filt_value_dc[:])
         if forceNew or doesnt_exist:
-            data, g = self.first_n_good_pulses(maximum_num_records)
+            if category is  None:
+                category={"calibration":"in"}
+            data, g = self.first_n_good_pulses(maximum_num_records, category)
             print("channel %d doing phase_correct2014 with %d good pulses" % (self.channum, data.shape[0]))
             prompt = self.p_promptness[:]
             prms = self.p_pulse_rms[:]
@@ -1273,7 +1292,7 @@ class MicrocalDataSet(object):
         else:
             print("channel %d skipping phase_correct2014" % self.channum)
 
-    def first_n_good_pulses(self, n=50000):
+    def first_n_good_pulses(self, n=50000, category=None):
         """
         :param n: maximum number of good pulses to include
         :return: data, g
@@ -1283,9 +1302,11 @@ class MicrocalDataSet(object):
         return ds.data[ds.cuts.good()][:n], np.nonzero(ds.cuts.good())[0][:n]
         """
         first, end = self.read_segment(0)
-        g = self.cuts.good()
+        if category is None:
+            category = {"calibration": "in"}
+        g = self.cuts.good(**category)
         data = self.data[g[first:end]]
-        for j in xrange(1, self.pulse_records.n_segments):
+        for j in range(1, self.pulse_records.n_segments):
             first, end = self.read_segment(j)
             data = np.vstack((data, self.data[g[first:end], :]))
             if data.shape[0] > n:
@@ -1355,7 +1376,7 @@ class MicrocalDataSet(object):
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2.0, calibration_category=None, forceNew=False):
+                  bin_size_ev=2.0, category=None, forceNew=False):
             try:
                 pkl_fname = self.pkl_fname
                 if path.isfile(pkl_fname) and not forceNew:
@@ -1377,9 +1398,9 @@ class MicrocalDataSet(object):
                                           fit_range_ev, excl, plot_on_fail,
                                           bin_size_ev=bin_size_ev)
             # By default, it only uses the "in" category of the calibration categorical cut field.
-            if calibration_category is None:
-                calibration_category = {"calibration": "in"}
-            cal.fit(getattr(self, attr)[self.cuts.good(**calibration_category)], line_names)
+            if category is None:
+                category = {"calibration": "in"}
+            cal.fit(getattr(self, attr)[self.cuts.good(**category)], line_names)
             self.calibration[calname] = cal
             if cal.anyfailed:
                 print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
