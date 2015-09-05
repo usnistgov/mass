@@ -45,12 +45,6 @@ def _generate_hdf5_filename(rawname):
     return prefix_path+"_mass.hdf5"
 
 
-def _generate_hdf5_trace_filename(name):
-    import re
-
-    return re.split("_chan\d+", name)[0] + "_trace_mass.hdf5"
-
-
 def RestoreTESGroup(hdf5filename, hdf5noisename=None):
     """Generate a TESGroup object from a data summary HDF5 filename 'hdf5filename'
     and optionally an 'hdf5noisename', though the latter can often be inferred from
@@ -196,11 +190,6 @@ class TESGroup(object):
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
 
-        if len(filenames) > 0:
-            self.hdf5_trace = h5py.File(_generate_hdf5_trace_filename(filenames[0]), "a")
-        else:
-            self.hdf5_trace = None  # Must handle the case of noise-only data
-
         # Set up other aspects of the object
         self.nhits = None
         self.n_segments = 0
@@ -326,8 +315,6 @@ class TESGroup(object):
                 hdf5_group.attrs['filename'] = fname
             except:
                 hdf5_group = None
-
-            pulse.hdf5_trace = self.hdf5_trace.require_group("chan{0:d}".format(pulse.channum))
 
             dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
