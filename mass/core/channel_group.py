@@ -29,7 +29,7 @@ import h5py
 
 import mass.calibration
 from mass.core.utilities import InlineUpdater
-from mass.core.channel import PulseRecords, NoiseRecords
+from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
 
 
 class FilterCanvas(object):
@@ -329,7 +329,7 @@ class TESGroup(object):
 
             pulse.hdf5_trace = self.hdf5_trace.require_group("chan{0:d}".format(pulse.channum))
 
-            dset = mass.channel.MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
+            dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
