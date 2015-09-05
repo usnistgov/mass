@@ -1196,17 +1196,18 @@ class TESGroup(object):
             plt.title("Detector %d: attribute %s" % (i, channame))
             fig = plt.gcf()
             pf = mass.core.utilities.MouseClickReader(fig)
-            for i in range(nclicks):
+
+            for j in range(nclicks):
                 while True:
                     plt.waitforbuttonpress()
                     try:
                         pfx = '%g' % pf.x
                     except TypeError:
                         continue
-                    print('Click on line #%d at %s' % (i+1, pfx))
+                    print('Click on line #%d at %s' % (j + 1, pfx))
                     x.append(pf.x)
                     break
-            del pf
+
         xvalues = np.array(x)
         xvalues.shape = (self.n_channels, nclicks)
         return xvalues
