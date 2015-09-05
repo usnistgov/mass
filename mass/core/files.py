@@ -324,6 +324,46 @@ class LJHFile(MicrocalFile):
         self.n_segments = 1 + (self.binary_size - 1) // self.segmentsize
         self.__cached_segment = None
 
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            if item < 0 or item >= self.nPulses:
+                raise ValueError("Out of range")
+            return self.read_trace(item)
+
+        first_slice = None
+        second_slice = slice(None, None)
+
+        if isinstance(item, slice):
+            first_slice = item
+
+        if isinstance(item, tuple):
+            if len(item) is not 2:
+                raise ValueError("Not supported dimensions!")
+            first_slice = item[0]
+            second_slice = item[1]
+
+        trace_range = range(self.nPulses)[first_slice]
+        num_traces = len(trace_range)
+        num_samples = len(range(self.nSamples)[second_slice])
+
+        last_segment = trace_range[0] // self.pulses_per_seg
+        self.read_segment(last_segment)
+
+        traces = np.zeros((num_traces, num_samples), dtype=np.uint16)
+        print(traces.shape)
+
+        for i, j in enumerate(trace_range):
+            segment_num = j // self.pulses_per_seg
+            trace_idx = j % self.pulses_per_seg
+
+            if segment_num is not last_segment:
+                self.read_segment(segment_num)
+                last_segment = segment_num
+
+            traces[i] = self.data[trace_idx][second_slice]
+
+        return traces
+
     def read_trace(self, trace_num):
         """Return a single data trace (number <trace_num>),
         either from cache or by reading off disk, if needed."""
@@ -805,7 +845,7 @@ Discrimination level (%%): 1.000000
     for i in range(lanl.nPulses):
         trace = lanl.read_trace(i)
         if excise_endpoints is not None:
-            trace = trace[excise_endpoints[0]:len(trace)-excise_endpoints[1]]  #RDH accepts 0 as an argument
+            trace = trace[excise_endpoints[0]:len(trace)-excise_endpoints[1]]  # RDH accepts 0 as an argument
         if channum is not None and lanl.channel[0] != channum:
             continue
         prefix = struct.pack(prefix_fmt, int(lanl.timestamp[0]))
