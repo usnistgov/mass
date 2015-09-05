@@ -816,7 +816,7 @@ class MicrocalDataSet(object):
                                                    dtype=np.float32)
         self.noise_autocorr = h5grp.require_dataset('noise_autocorr', shape=(self.nSamples,),
                                                     dtype=np.float64)
-        nfreq = 1 + self.nSamples/2
+        nfreq = 1 + self.nSamples // 2
         self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
                                                dtype=np.float64)
         grp = self.hdf5_group.require_group('cuts')
@@ -848,7 +848,8 @@ class MicrocalDataSet(object):
     @property
     def external_trigger_rowcount_as_seconds(self):
         """
-        this is not a posix timestamp, it is just the external trigger rowcount converted to seconds based on the nominal clock rate of the crate
+        This is not a posix timestamp, it is just the external trigger rowcount converted to seconds
+        based on the nominal clock rate of the crate.
         """
         return self.external_trigger_rowcount[:]*self.timebase/float(self.number_of_rows)
 
