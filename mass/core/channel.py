@@ -62,7 +62,7 @@ class NoiseRecords(object):
             self.autocorrelation = self.hdf5_group.require_dataset(
                 "autocorrelation", shape=(self.nSamples,),
                 dtype=np.float64)
-            nfreq = 1+self.nSamples/2
+            nfreq = 1 + self.nSamples // 2
             self.noise_psd = self.hdf5_group.require_dataset(
                 'noise_psd', shape=(nfreq,),
                 dtype=np.float64)
@@ -94,12 +94,12 @@ class NoiseRecords(object):
         else:
             raise RuntimeError("It is a programming error to get here")
         self.filename = filename
-        self.records_per_segment = self.datafile.segmentsize / (6+2*self.datafile.nSamples)
+        self.records_per_segment = self.datafile.segmentsize // (6+2*self.datafile.nSamples)
 
         if use_records is not None:
             if use_records < self.datafile.nPulses:
                 self.datafile.nPulses = use_records
-                self.datafile.n_segments = use_records / self.records_per_segment
+                self.datafile.n_segments = use_records // self.records_per_segment
 
         # Copy up some of the most important attributes
         for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum"):
@@ -156,7 +156,7 @@ class NoiseRecords(object):
         if seg_length is None:
             seg_length = self.nSamples
 
-        spectrum = mass.mathstat.power_spectrum.PowerSpectrum(seg_length/2, dt=self.timebase)
+        spectrum = mass.mathstat.power_spectrum.PowerSpectrum(seg_length // 2, dt=self.timebase)
         if window is None:
             window = np.ones(seg_length)
         else:
@@ -167,7 +167,7 @@ class NoiseRecords(object):
                 data = data.ravel()
                 n = len(data)
                 n -= n % seg_length
-                data = data[:n].reshape((n/seg_length, seg_length))
+                data = data[:n].reshape((n // seg_length, seg_length))
 
             for d in data:
                 y = d-d.mean()
@@ -175,7 +175,7 @@ class NoiseRecords(object):
                     spectrum.addDataSegment(y, window=window)
 
         freq = spectrum.frequencies()
-        self.noise_psd.attrs['delta_f'] = freq[1]-freq[0]
+        self.noise_psd.attrs['delta_f'] = freq[1] - freq[0]
         self.noise_psd[:] = spectrum.spectrum()
 
     def compute_fancy_power_spectrum(self, window=mass.mathstat.power_spectrum.hann,
@@ -185,7 +185,7 @@ class NoiseRecords(object):
         n = np.prod(self.data.shape)
         if nseg_choices is None:
             nseg_choices = [16]
-            while nseg_choices[-1] <= n/16 and nseg_choices[-1] < 20000:
+            while nseg_choices[-1] <= n // 16 and nseg_choices[-1] < 20000:
                 nseg_choices.append(nseg_choices[-1]*8)
         print(nseg_choices)
 
@@ -198,7 +198,7 @@ class NoiseRecords(object):
             start_freq = 0.0
             for i, sp in enumerate(spectra):
                 x, y = sp.frequencies(), sp.spectrum()
-                if i == len(spectra)-1:
+                if i == len(spectra) - 1:
                     good = x >= start_freq
                 else:
                     good = np.logical_and(x >= start_freq, x < 4*lowest_freq[i+1])
@@ -264,11 +264,11 @@ class NoiseRecords(object):
         # in memory.  Instead, compute it on chunks several times the length of the desired
         # correlation, and average.
         CHUNK_MULTIPLE=15
-        if n_data >= (1+CHUNK_MULTIPLE)*n_lags:
+        if n_data >= (1 + CHUNK_MULTIPLE) * n_lags:
             # Be sure to pad chunksize samples by AT LEAST n_lags zeros, to prevent
             # unwanted wraparound in the autocorrelation.
             # padded_data is what we do DFT/InvDFT on; ac is the unnormalized output.
-            chunksize=CHUNK_MULTIPLE*n_lags
+            chunksize=CHUNK_MULTIPLE * n_lags
             padsize = n_lags
             padded_data = np.zeros(padded_length(padsize+chunksize), dtype=np.float)
 
@@ -277,7 +277,7 @@ class NoiseRecords(object):
             entries = 0.0
 
             for first_pnum, end_pnum, _seg_num, data in self.datafile.iter_segments():
-                data_consumed=0
+                data_consumed = 0
                 data = data.ravel()
                 samples_this_segment = len(data)
                 if data_samples[0] > self.nSamples*first_pnum:
@@ -322,7 +322,7 @@ class NoiseRecords(object):
             ft = ft.real
             acsum = np.fft.irfft(ft)
             del ft
-            ac = acsum[:n_lags+1] / (n_data-np.arange(n_lags+1.0))
+            ac = acsum[:n_lags+1] / (n_data-np.arange(n_lags + 1.0))
             del acsum
 
         self.autocorrelation[:] = ac
@@ -578,9 +578,8 @@ class Cuts(object):
             labels[catbool] = category_names[category]
         for (category, catbool) in booldict.items():
             if not all(labels[booldict[category]] == category_names[category]):
-                raise ValueError("bools passed for %s conflict with some other"%category)
+                raise ValueError("bools passed for %s conflict with some other" % category)
         self.cut(field, labels)
-
 
     def select_category(self, **kwargs):
         category_field_bit_mask = np.uint32(0)
@@ -1021,7 +1020,7 @@ class MicrocalDataSet(object):
         conv[4, :] = np.dot(data[:, 4:], filter_values)
 
         param = np.dot(fit_array, conv)
-        peak_x = -0.5*param[1, :]/param[2, :]
+        peak_x = -0.5*param[1, :] / param[2, :]
         peak_y = param[0, :] - 0.25*param[1, :]**2 / param[2, :]
         return peak_x, peak_y
 
@@ -1057,17 +1056,17 @@ class MicrocalDataSet(object):
         if valid is not None:
             nrecs = valid.sum()
             if downsample is None:
-                downsample = nrecs/10000
+                downsample = nrecs // 10000
                 if downsample < 1:
                     downsample = 1
-            hour = self.p_timestamp[valid][::downsample]/3600.0
+            hour = self.p_timestamp[valid][::downsample] / 3600.0
         else:
             nrecs = self.nPulses
             if downsample is None:
-                downsample = self.nPulses / 10000
+                downsample = self.nPulses // 10000
                 if downsample < 1:
                     downsample = 1
-            hour = self.p_timestamp[::downsample]/3600.0
+            hour = self.p_timestamp[::downsample] / 3600.0
         print(" (%d records; %d in scatter plots)" % (nrecs, len(hour)))
 
         plottables = (
@@ -1189,7 +1188,7 @@ class MicrocalDataSet(object):
                     Level 2 adds some stuff about the departure-from-median pretrigger mean cut.
         """
         if self.nPulses == 0:
-            return  # dont bother current if there are no pulses
+            return  # don't bother current if there are no pulses
         if not forceNew:
             if self.cuts.good().sum() != self.nPulses:
                 print("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses" %
@@ -1262,10 +1261,10 @@ class MicrocalDataSet(object):
         which pulses go together into a single peak.  Be careful to use a semi-reasonable
         quantity here.
         """
-        doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:]==self.p_filt_value_dc[:])
+        doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
         if forceNew or doesnt_exist:
-            if category is  None:
-                category={"calibration":"in"}
+            if category is None:
+                category = {"calibration": "in"}
             data, g = self.first_n_good_pulses(maximum_num_records, category)
             print("channel %d doing phase_correct2014 with %d good pulses" % (self.channum, data.shape[0]))
             prompt = self.p_promptness[:]
@@ -1432,7 +1431,7 @@ class MicrocalDataSet(object):
         except KeyError:
             chunk_size = self.pulse_records.pulses_per_seg
             while chunk_size > self.nPulses:
-                chunk_size /= 2
+                chunk_size //= 2
 
             tr = self.pulse_records.hdf5_trace.create_dataset("traces", shape=(self.nPulses, self.nSamples),
                                                               chunks=(chunk_size, self.nSamples),
@@ -1497,7 +1496,7 @@ class MicrocalDataSet(object):
 
             data = self.read_trace(pn)
             if difference:
-                data = data*1.0-np.roll(data, 1)
+                data = data*1.0 - np.roll(data, 1)
                 data[0] = 0
                 data += np.roll(data, 1) + np.roll(data, -1)
                 data[0] = 0
@@ -1559,7 +1558,7 @@ class MicrocalDataSet(object):
          and taking an appropriate average of the polyonomials from each line weighted by the counts in each line
         """
         if not hasattr(self, 'p_filt_value_tdc') or forceNew:
-            print("chan %d doing time_drift_correct_polynomail with order %d"%(self.channum, poly_order))
+            print("chan %d doing time_drift_correct_polynomail with order %d" % (self.channum, poly_order))
             cal = self.calibration[attr]
             attr = getattr(self, attr)
             attr_good = attr[self.cuts.good()]

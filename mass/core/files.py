@@ -1,4 +1,4 @@
-'''
+"""
 The mass.files module contains classes required for handling the various types
 of pulse data files.  In principle, there are several data file types:
 * LANL files
@@ -26,10 +26,10 @@ Created on Feb 16, 2011
 LANLFile and translation added June 2011 by Doug Bennett and Joe Fowler
 
 @author: fowlerj
-'''
+"""
 
 
-## \file files.py
+# \file files.py
 # \brief File handling classes.
 #
 # The class MicrocalFile defines the shared interface of all derived classes that are
@@ -184,6 +184,8 @@ class LJHFile(MicrocalFile):
     """Process a single LJH-format file.  All non-LJH-specific data and methods
     appear in the parent pulseRecords class"""
 
+    TOO_LONG_HEADER = 100  # headers can't contain this many lines, or they are insane!
+
     def __init__(self, filename, segmentsize=(2**23)):
         """Open an LJH file for reading.  Read its header.  Set the standard segment
         size **in bytes** so that read_segment() will always return segments of a
@@ -206,7 +208,7 @@ class LJHFile(MicrocalFile):
         self.header_size = 0
         self.pulse_size_bytes = 0
         self.row_number = -1
-        self.column_number= -1
+        self.column_number = -1
         self.number_of_rows = -1
         self.number_of_columns = -1
         self.data = None
@@ -223,7 +225,7 @@ class LJHFile(MicrocalFile):
         """
         self.clear_cache()
         c = LJHFile(self.filename, self.segmentsize)
-        c.__dict__.update( self.__dict__ )
+        c.__dict__.update(self.__dict__)
         return c
 
     def __read_header(self, filename):
@@ -234,7 +236,6 @@ class LJHFile(MicrocalFile):
 
         <filename>: path to the file to be opened.
         """
-        TOO_LONG_HEADER = 100 # headers can't contain this many lines, or they are insane!
 
         fp = open(filename, "rb")
 
@@ -279,7 +280,7 @@ class LJHFile(MicrocalFile):
                 words = line.split()
                 self.version_str = words[-1]
 
-            if len(lines) > TOO_LONG_HEADER:
+            if len(lines) > self.TOO_LONG_HEADER:
                 raise IOError("header is too long--seems not to contain '#End of Header'\n" +
                               "in file %s" % filename)
 
@@ -306,7 +307,7 @@ class LJHFile(MicrocalFile):
         if self.nPresamples is None:
             raise IOError("No 'Presamples' line found in header.\n   File: %s" % filename)
         if self.nPulses < 1:
-            print ("Warning: no pulses found.\n   File: %s" % filename)
+            print("Warning: no pulses found.\n   File: %s" % filename)
 
         # This used to be fatal, but it prevented opening files cut short by
         # a crash of the DAQ software.
