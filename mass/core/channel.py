@@ -4,13 +4,11 @@ Created on Feb 16, 2011
 @author: fowlerj
 """
 
-__all__ = ['NoiseRecords', 'PulseRecords', 'Cuts', 'MicrocalDataSet']
-
 import functools
 import operator
 
 import numpy as np
-import pylab as plt
+import matplotlib.pylab as plt
 
 # MASS modules
 import mass.mathstat.power_spectrum

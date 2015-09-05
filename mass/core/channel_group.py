@@ -20,10 +20,8 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
-__all__ = ['TESGroup', 'RestoreTESGroup', 'CrosstalkVeto']
-
 import numpy as np
-import pylab as plt
+import matplotlib.pylab as plt
 import os
 import h5py
 
