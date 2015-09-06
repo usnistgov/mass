@@ -119,7 +119,7 @@ class NoiseRecords(object):
 
     def set_fake_data(self):
         """Use when this does not correspond to a real datafile (e.g., CDM data)"""
-        self.datafile = mass.VirtualFile(np.zeros((0, 0)))
+        self.datafile = VirtualFile(np.zeros((0, 0)))
 
     def copy(self):
         """Return a copy of the object.
@@ -133,7 +133,7 @@ class NoiseRecords(object):
 
     def compute_power_spectrum(self, window=mass.mathstat.power_spectrum.hann, plot=True,
                                max_excursion=1000):
-        self.compute_power_spectrum_reshape(window=window, nsegments=None,
+        self.compute_power_spectrum_reshape(window=window, seg_length=None,
                                             max_excursion=max_excursion)
         if plot:
             self.plot_power_spectrum()
@@ -145,8 +145,8 @@ class NoiseRecords(object):
         self.data.nPulses, will be used as the number of segments, each having length
         self.data.nSamples.)
 
-        By making <nsegments> large, you improve the noise on the PSD estimates at the price of poor
-        frequency resolution.  By making it small, you get good frequency resolution with worse
+        By making <seg_length> small, you improve the noise on the PSD estimates at the price of poor
+        frequency resolution.  By making it large, you get good frequency resolution with worse
         uncertainty on each PSD estimate.  No free lunch, know what I mean?
         """
 
@@ -166,6 +166,8 @@ class NoiseRecords(object):
             if self.continuous and seg_length is not None:
                 data = data.ravel()
                 n = len(data)
+
+                # Would it be a problem if n % seg_length is non-zero?
                 n -= n % seg_length
                 data = data[:n].reshape((n // seg_length, seg_length))
 
