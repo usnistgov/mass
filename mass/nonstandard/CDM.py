@@ -1,14 +1,20 @@
-'''
+"""
 Created on Jun 11, 2014
 
 @author: fowlerj
-'''
+"""
 
 import numpy as np
 import pylab as plt
 import time
 import mass
-from mass.core.channel_group import BaseChannelGroup
+# BaseChannelGroup does not exist any more
+# from mass.core.channel_group import BaseChannelGroup
+
+
+class BaseChannelGroup:
+    pass
+
 
 class CDMGroup(BaseChannelGroup):
     """

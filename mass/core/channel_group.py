@@ -402,7 +402,7 @@ class TESGroup(object):
             except:
                 hdf5_group = None
 
-            dset = mass.channel.MicrocalDataSet(noise.__dict__, hdf5_group=hdf5_group)
+            dset = MicrocalDataSet(noise.__dict__, hdf5_group=hdf5_group)
             dset.noise_records = noise
             noise_list.append(noise)
             dset_list.append(dset)
@@ -475,7 +475,7 @@ class TESGroup(object):
             try:
                 goodones = set(a)
             except TypeError:
-                goodones = set([a])
+                goodones = {a}
             added_to_list.update(goodones)
         for k in added_to_list:
             if k in self._bad_channums:
@@ -499,7 +499,7 @@ class TESGroup(object):
             try:
                 badones = set(a)
             except TypeError:
-                badones = set([a])
+                badones = {a}
             added_to_list.update(badones)
 
         for k in added_to_list:

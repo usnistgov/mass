@@ -50,6 +50,7 @@ class NoiseRecords(object):
             self.maxsegmentsize = self.DEFAULT_MAXSEGMENTSIZE
 
         self.nSamples = self.nPresamples = self.nPulses = 0
+        self.n_segments = 0
         self.timebase = 0.0
 
         self.datafile = None
