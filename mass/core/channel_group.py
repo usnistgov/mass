@@ -27,6 +27,7 @@ import h5py
 
 import mass.core
 import mass.calibration
+import mass.calibration.energy_calibration
 import mass.mathstat
 import mass.nonstandard.CDM
 
@@ -61,22 +62,25 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
     pulsefiles = []
     channum = []
     noisefiles = []
+    generated_noise_hdf5_name = None
+
     h5file = h5py.File(hdf5filename, "r")
     for name, group in h5file.iteritems():
-        if not name.startswith("chan"): continue
+        if not name.startswith("chan"):
+            continue
         pulsefiles.append(group.attrs['filename'])
         channum.append(group.attrs['channum'])
 
         if hdf5noisename is None:
             fname = group.attrs['noise_filename']
-            if len(noisefiles) == 0:
+            if generated_noise_hdf5_name is None:
                 generated_noise_hdf5_name = _generate_hdf5_filename(fname)
             elif generated_noise_hdf5_name != _generate_hdf5_filename(fname):
                 raise RuntimeError("""The implied HDF5 noise files names are not the same for all channels.
                 The first channel implies '%s'
                 and another implies '%s'.
                 Instead, you should run RestoreTESGroup with an explicit hdf5noisename argument.""" %
-                generated_noise_hdf5_name, _generate_hdf5_filename(fname))
+                                   (generated_noise_hdf5_name, _generate_hdf5_filename(fname)))
             noisefiles.append(fname)
     h5file.close()
 
@@ -1518,7 +1522,7 @@ class CrosstalkVeto(object):
     An object to allow vetoing of data in 1 channel when another is hit
     """
 
-    def __init__(self, datagroup, window_ms=(-10, 3), pileup_limit=100):
+    def __init__(self, datagroup=None, window_ms=(-10, 3), pileup_limit=100):
         if datagroup is None:
             return
 
@@ -1549,7 +1553,7 @@ class CrosstalkVeto(object):
                 self.nhits[t+b:t+b+8] += 1
 
     def copy(self):
-        v = CrosstalkVeto(None)
+        v = CrosstalkVeto()
         v.__dict__ = self.__dict__.copy()
         return v
 
