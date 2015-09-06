@@ -98,13 +98,14 @@ class Filter(object):
 
     def _compute_fourier_filter(self, fmax=None, f_3db=None):
         """Compute the Fourier-domain filter"""
-        if self.noise_psd is None: return
+        if self.noise_psd is None:
+            return
         
         # Careful: let's be sure that the Fourier domain filter is done consistently in Filter and
         # its child classes.
         
         n = len(self.noise_psd)
-#        window = power_spectrum.hamming(2*(n-1-self.shorten))
+        # window = power_spectrum.hamming(2*(n-1-self.shorten))
         window = 1.0
 
         if self.shorten > 0:
@@ -128,7 +129,7 @@ class Filter(object):
         
         # Band-limit
         if fmax is not None or f_3db is not None:
-            freq = np.arange(0, n-self.shorten,dtype=np.float)*0.5/((n-1)*self.sample_time)
+            freq = np.arange(0, n-self.shorten, dtype=np.float)*0.5/((n-1)*self.sample_time)
             if fmax is not None:
                 sig_ft_weighted[freq > fmax] = 0.0
             if f_3db is not None:
@@ -411,7 +412,7 @@ class ExperimentalFilter(Filter):
                     band_limit(vector, fmax, f_3db)
 
             exp_orthogs = ['exps[%d]' % i for i in range(len(self.tau))]
-            orthogonalities={
+            orthogonalities = {
                 'filt_full': (),
                 'filt_noconst': ('unit',),
                 'filt_noexp': exp_orthogs,
@@ -432,7 +433,7 @@ class ExperimentalFilter(Filter):
                 orthnames = orthogonalities[name]
                 filt = Rinv_sig
                 
-                N_orth = len(orthnames) # To how many vectors are we orthgonal?
+                N_orth = len(orthnames)  # To how many vectors are we orthgonal?
                 if N_orth > 0:
                     u = np.vstack((Rinv_sig, [eval('Rinv_%s' % v) for v in orthnames]))
                 else:
