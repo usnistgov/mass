@@ -12,6 +12,8 @@ import matplotlib.pylab as plt
 
 # MASS modules
 import mass.mathstat.power_spectrum
+import mass.core.analysis_algorithms
+
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
 from mass.calibration import young
@@ -55,6 +57,8 @@ class NoiseRecords(object):
         self.timebase = 0.0
 
         self.datafile = None
+        self.data = None
+
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
         self.noise_psd = None
@@ -184,6 +188,7 @@ class NoiseRecords(object):
                                      plot=True, nseg_choices=None):
         assert self.continuous
 
+        # Does it assume that all data fit into a single segment?
         n = np.prod(self.data.shape)
         if nseg_choices is None:
             nseg_choices = [16]
@@ -191,7 +196,8 @@ class NoiseRecords(object):
                 nseg_choices.append(nseg_choices[-1]*8)
         print(nseg_choices)
 
-        spectra = [self.compute_power_spectrum_reshape(window=window, nsegments=ns)
+        # It would be a problem if self.nSamples % ns is non-zero.
+        spectra = [self.compute_power_spectrum_reshape(window=window, seg_length=self.nSamples // ns)
                    for ns in nseg_choices]
         if plot:
             plt.clf()
@@ -740,7 +746,13 @@ class MicrocalDataSet(object):
         containing the expected attributes that must be copied to this
         MicrocalDataSet.
         """
+        self.nSamples = 0
+        self.nPresamples = 0
+        self.nPulses = 0
+        self.timebase = 0.0
         self.channum = None
+        self.timestamp_offset = 0
+
         self.filter = None
         self.lastUsedFilterHash = -1
         self.drift_correct_info = {}
