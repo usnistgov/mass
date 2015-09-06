@@ -25,7 +25,11 @@ import matplotlib.pylab as plt
 import os
 import h5py
 
+import mass.core
 import mass.calibration
+import mass.mathstat
+import mass.nonstandard.CDM
+
 from mass.core.utilities import InlineUpdater
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
 
@@ -193,7 +197,12 @@ class TESGroup(object):
         # Set up other aspects of the object
         self.nhits = None
         self.n_segments = 0
+
         self.nPulses = 0
+        self.nPresamples = 0
+        self.nSamples = 0
+        self.timebase = 0.0
+
         self._cached_segment = None
         self._cached_pnum_range = None
         self._allowed_pnum_ranges = None
@@ -205,6 +214,10 @@ class TESGroup(object):
             self.colors = ("blue", "#aaaa00", "green", "red")
         else:
             self.colors = ('purple', "blue", "cyan", "green", "gold", self.BRIGHT_ORANGE, "red", "brown")
+
+        self.num_good_channels = 0
+        self.good_channels = []
+        self.first_good_dataset = None
 
         if self.noise_only:
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
@@ -362,7 +375,9 @@ class TESGroup(object):
         self.datasets = tuple(dset_list)
         for chan, ds in zip(self.channels, self.datasets):
             ds.pulse_records = chan
+
         self._setup_channels_list()
+
         if len(pulse_list) > 0:
             self.pulses_per_seg = pulse_list[0].pulses_per_seg
         if len(self.datasets) > 0:
@@ -552,7 +567,6 @@ class TESGroup(object):
                 or a sequence of 2-element sequences, which is like the previous
                 but with multiple sample ranges allowed.
         """
-        allowed_ranges = []
         if ranges is None:
             allowed_ranges = [[0, self.nPulses]]
         elif len(ranges) == 2 and np.isscalar(ranges[0]) and np.isscalar(ranges[1]):
@@ -622,7 +636,9 @@ class TESGroup(object):
 
     def calc_rows_after_last_external_trigger(self, forceNew=False):
         ds = self.first_good_dataset
-        external_trigger_rowcount = ds.external_trigger_rowcount[:]  #loading this dataset can be slow, so lets do it only once for the whole ChannelGroup
+
+        # loading this dataset can be slow, so lets do it only once for the whole ChannelGroup
+        external_trigger_rowcount = ds.external_trigger_rowcount[:]
         external_trigger_rowcount.dtype = np.int64
         for ds in self:
             try:
