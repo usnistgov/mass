@@ -35,9 +35,6 @@ LANLFile and translation added June 2011 by Doug Bennett and Joe Fowler
 # The class MicrocalFile defines the shared interface of all derived classes that are
 # specific for a single file type: LJHFile, LANLFile, ...?
 
-__all__ = ['VirtualFile', 'LJHFile', 'LANLFile',
-           'root2ljh_translator', 'root2ljh_translate_all']
-
 import numpy as np
 import os
 import sys
@@ -350,7 +347,6 @@ class LJHFile(MicrocalFile):
         self.read_segment(last_segment)
 
         traces = np.zeros((num_traces, num_samples), dtype=np.uint16)
-        print(traces.shape)
 
         for i, j in enumerate(trace_range):
             segment_num = j // self.pulses_per_seg
