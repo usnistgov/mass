@@ -209,6 +209,11 @@ class LJHFile(MicrocalFile):
                                            ('posix_usec', np.int64),
                                            ('data', np.uint16, self.nSamples)])
 
+        if StrictVersion(self.version_str.decode()) >= StrictVersion("2.2.0"):
+            self.__read_binary = self.__read_binary_post22
+        else:
+            self.__read_binary = self.__read_binary_pre22
+
     def copy(self):
         """Return a copy of the object.
 
@@ -425,10 +430,7 @@ class LJHFile(MicrocalFile):
         <error_on_partial_pulse> Whether to raise an error when caller requests non-integer
                                  number of pulses.
         """
-        if StrictVersion(self.version_str.decode()) >= StrictVersion("2.2.0"):
-            self.__read_binary_post22(skip, max_size, error_on_partial_pulse)
-        else:
-            self.__read_binary_pre22(skip, max_size, error_on_partial_pulse)
+        raise NotImplemented("The method needs to be substituted by " + self.version_str)
 
     def __read_binary_post22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
         """
@@ -437,7 +439,7 @@ class LJHFile(MicrocalFile):
         8 bytes - Int64 posix microsecond time
         technically both could be read as uint64, but then you get overflows when differencing, so we'll give up a factor of 2 to avoid that
         """
-        if (max_size > 0) and (max_size % self.pulse_size_bytes != 0):
+        if error_on_partial_pulse and (max_size > 0) and (max_size % self.pulse_size_bytes != 0):
             msg = "__read_binary(max_size=%d) requests a non-integer number of pulses" % max_size
             raise ValueError(msg)
 
