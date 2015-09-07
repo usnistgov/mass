@@ -1,4 +1,4 @@
-'''
+"""
 mass.core.analysis_algorithms - main algorithms used in data analysis
 
 Designed to ... ?
@@ -6,19 +6,15 @@ Designed to ... ?
 Created on Jun 9, 2014
 
 @author: fowlerj
-'''
-
-__all__ = ['make_smooth_histogram', 'HistogramSmoother', 'FilterTimeCorrection','nearest_arrivals']
-
+"""
 import numpy as np
 import scipy as sp
-import pylab as plt
+import matplotlib.pylab as plt
 import sklearn.cluster
 
 
 ########################################################################################
 # Pulse summary quantities
-
 def estimateRiseTime(pulse_data, timebase, nPretrig):
     """Compute the rise time of timeseries <pulse_data>, where the time steps are <timebase>.
     <pulse_data> can be a 2D array where each row is a different pulse record, in which case
@@ -39,9 +35,9 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
     # If pulse_data is a 1D array, turn it into 2
     pulse_data = np.asarray(pulse_data)
     ndim = len(pulse_data.shape)
-    if ndim>2 or ndim<1:
+    if ndim > 2 or ndim < 1:
         raise ValueError("input pulse_data should be a 1d or 2d array.")
-    if ndim==1:
+    if ndim == 1:
         pulse_data.shape = (1, pulse_data.shape[0])
 
     # The following requires a lot of numpy foo to read. Sorry!
@@ -59,15 +55,15 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
                        value_at_peak[:, np.newaxis])
         # Find the last and first indices at which the data are in (0.1, 0.9] times the
         # peak value. Then make sure last is at least 1 past first.
-        last_idx = (rising_data>MAXTHRESH).argmax(axis=1)-1
-        first_idx = (rising_data>MINTHRESH).argmax(axis=1)
-        last_idx[last_idx<first_idx] = first_idx[last_idx<first_idx]+1
-        last_idx[last_idx==rising_data.shape[1]]=rising_data.shape[1]-1
+        last_idx = (rising_data > MAXTHRESH).argmax(axis=1)-1
+        first_idx = (rising_data > MINTHRESH).argmax(axis=1)
+        last_idx[last_idx < first_idx] = first_idx[last_idx < first_idx]+1
+        last_idx[last_idx == rising_data.shape[1]] = rising_data.shape[1]-1
         
         pulsenum = np.arange(npulses)
-        y_diff = np.asarray(rising_data[pulsenum,last_idx]-rising_data[pulsenum,first_idx],
+        y_diff = np.asarray(rising_data[pulsenum, last_idx]-rising_data[pulsenum, first_idx],
                             dtype=float)
-        y_diff[y_diff<timebase] = timebase
+        y_diff[y_diff < timebase] = timebase
         time_diff = timebase*(last_idx-first_idx)
         rise_time = time_diff / y_diff
         rise_time[y_diff <= 0] = -9.9e-6
@@ -75,7 +71,6 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
     
     except ValueError:
         return -9.9e-6+np.zeros(npulses, dtype=float)
-
 
 
 def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
@@ -101,11 +96,11 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
     # If pulse_data is a 1D array, turn it into 2
     pulse_data = np.asarray(pulse_data)
     ndim = len(pulse_data.shape)
-    if ndim>2 or ndim<1:
+    if ndim > 2 or ndim < 1:
         raise ValueError("input pulse_data should be a 1d or 2d array.")
-    if ndim==1:
+    if ndim == 1:
         pulse_data.shape = (1, pulse_data.shape[0])
-    pulse_data = np.array(pulse_data[:,ignore_leading:], dtype=float)
+    pulse_data = np.array(pulse_data[:, ignore_leading:], dtype=float)
     NPulse, NSamp = pulse_data.shape
 
 #     # Get a rough estimate of the place where pulse derivative is largest
@@ -141,7 +136,7 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
         # of an M=3rd order polynomial to the five points [-1,+3] and
         # finding the slope of the polynomial at 0.
         # Note that we reverse the order of coefficients because convolution will re-reverse
-        filter_coef = np.array([ -0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905,   ])[::-1]
+        filter_coef = np.array([-0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905])[::-1]
         
     elif kernel is not None:
         filter_coef = np.array(kernel).ravel()
@@ -158,10 +153,8 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
     return max_deriv
 
 
-
 ########################################################################################
 # Drift correction and related algorithms
-
 class HistogramSmoother(object):
     """Object that can repeatedly smooth histograms with the same bin
     count and width to the same Gaussian width.  By pre-computing the
@@ -180,24 +173,23 @@ class HistogramSmoother(object):
         dlimits = self.limits[1] - self.limits[0]
         nbins = int(dlimits/stepsize+0.5)
         pow2 = 1024
-        while pow2<nbins:
+        while pow2 < nbins:
             pow2 *= 2
         self.nbins = pow2
         self.stepsize = dlimits / self.nbins
         
         # Compute the Fourier-space smoothing kernel
         kernel = np.exp(-0.5*(np.arange(self.nbins)*self.stepsize/self.smooth_sigma)**2)
-        kernel[1:] += kernel[-1:0:-1] # Handle the negative frequencies 
+        kernel[1:] += kernel[-1:0:-1]  # Handle the negative frequencies
         kernel /= kernel.sum()
         self.kernel_ft = np.fft.rfft(kernel)
 
-    
     def __call__(self, values):
         """Return a smoothed histogram of the data vector <values>"""
         contents, _ = np.histogram(values, self.nbins, self.limits)
         ftc = np.fft.rfft(contents) 
         csmooth = np.fft.irfft(self.kernel_ft * ftc)
-        csmooth[csmooth<0] = 0
+        csmooth[csmooth < 0] = 0
         return csmooth
 
 
@@ -213,7 +205,6 @@ def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
     if upper_limit is None:
         limit, upper_limit = 0, limit
     return HistogramSmoother(smooth_sigma, [limit,upper_limit])(values)
-
 
 
 def drift_correct(indicator, uncorrected, limit=None):
@@ -242,25 +233,24 @@ def drift_correct(indicator, uncorrected, limit=None):
         pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
         limit = 1.25 * pct99
     
-    smoother = HistogramSmoother(0.5, [0,limit])
+    smoother = HistogramSmoother(0.5, [0, limit])
+
     def entropy(param, indicator, uncorrected, smoother):
         corrected = uncorrected * (1+indicator*param)
         hsmooth = smoother(corrected)
-        w = hsmooth>0
+        w = hsmooth > 0
         return -(np.log(hsmooth[w])*hsmooth[w]).sum()
     
     drift_corr_param = sp.optimize.brent(entropy, (indicator, uncorrected, smoother), brack=[0, .001])
     
-    drift_correct_info = {'type':'ptmean_gain',
+    drift_correct_info = {'type': 'ptmean_gain',
                                   'slope': drift_corr_param,
                                   'median_pretrig_mean': ptm_offset}
     return drift_corr_param, drift_correct_info
 
 
-
 ########################################################################################
 # Arrival-time correction
-
 class FilterTimeCorrection(object):
     """Represent the phase-dependent correction to a filter, based on
     running model pulses through the filter.  Developed November 2013 to
@@ -312,11 +302,11 @@ class FilterTimeCorrection(object):
         self.verbose = verbose
         if trainingPulses is  None: return  # used in self.copy() only
         
-        _,M = trainingPulses.shape
+        _, M = trainingPulses.shape
         F = len(linearFilter)
-        if F>M or (M-F)%2 != 0:
+        if F > M or (M-F) % 2 != 0:
             raise RuntimeError(
-                "The filter (length %d) should be equal in length to training pulses (%d)\n"%(F,M)+
+                "The filter (length %d) should be equal in length to training pulses (%d)\n" % (F ,M) +
                 "or shorter by an even number of samples")
         
         if labels is None:
@@ -329,7 +319,7 @@ class FilterTimeCorrection(object):
             labels = np.array(labels)
         
         self._sort_labels(labels, energy)
-        self.labels=labels
+        self.labels = labels
         self._make_pulse_model(trainingPulses, promptness, energy, labels)
         Nlabels = 1+labels.max()
         self._filter_model(Nlabels, linearFilter)
@@ -341,7 +331,6 @@ class FilterTimeCorrection(object):
         new.__dict__.update(self.__dict__)
         return new
 
-    
     def _label_data(self, energy, res):
         """Label all pulses by clustering them in energy.
         <energy> is an energy indicator (generally, a pulse height)
@@ -351,28 +340,26 @@ class FilterTimeCorrection(object):
         MIN_PCT = 2.0 
         MIN_PULSES = 50
         N = len(energy)
-        min_samples = max(MIN_PULSES, int(0.5+ 0.01*MIN_PCT*N))
+        min_samples = max(MIN_PULSES, int(0.5 + 0.01*MIN_PCT*N))
 
-        _core_samples, labels = sklearn.cluster.dbscan(energy.reshape((N,1)), eps=res, 
+        _core_samples, labels = sklearn.cluster.dbscan(energy.reshape((N, 1)), eps=res,
                                                        min_samples=min_samples)
         labels = np.asarray(labels, dtype=int)
-        labelCounts,_ = np.histogram(labels, 1+labels.max(), [-.5, .5+labels.max()])
-        if self.verbose >0:
+        labelCounts, _ = np.histogram(labels, 1+labels.max(), [-.5, .5+labels.max()])
+        if self.verbose > 0:
             print('Label counts: ', labelCounts)
         return labels
-    
 
     def _sort_labels(self, labels, energy):
         # Now sort the labels from low to high energy
         NL = int(1+labels.max())
         self.meanEnergyByLabel = np.zeros(NL, dtype=float)
         for i in range(NL):
-            self.meanEnergyByLabel[i] = energy[labels==i].mean()
+            self.meanEnergyByLabel[i] = energy[labels == i].mean()
         
         args = self.meanEnergyByLabel.argsort()
         self.meanEnergyByLabel = self.meanEnergyByLabel[args]
-        labels[labels>=0] = args.argsort()[labels[labels>=0]]
-        
+        labels[labels >= 0] = args.argsort()[labels[labels >= 0]]
 
     def _make_pulse_model(self, trainingPulses, promptness, energy, labels):
         """Fit the data samples."""
@@ -381,16 +368,16 @@ class FilterTimeCorrection(object):
         self.num_zeros = self.nPresamples+2
         self.nSamp = nSamp
         
-        self.raw_fits={}
-        self.prompt_range={}
+        self.raw_fits = {}
+        self.prompt_range = {}
     
         # Loop over spectral lines (or clusters)
         Nlabels = 1+labels.max()
         for i in range(Nlabels):
-            self.raw_fits[i] = np.zeros((nSamp-(self.num_zeros), 
+            self.raw_fits[i] = np.zeros((nSamp - self.num_zeros,
                                          self.max_poly_order+1), dtype=np.float)
             
-            use = (labels ==i )
+            use = (labels == i)
             if self.verbose > 0:
                 print('Using %4d pulses for cluster %d' % (use.sum(), i))
             
@@ -399,33 +386,32 @@ class FilterTimeCorrection(object):
             ptmean = trainingPulses[use, :self.nPresamples].mean(axis=1)
             med = np.median(prompt)
             self.prompt_range[i] = np.array((sp.stats.scoreatpercentile(prompt, 1),
-                med, sp.stats.scoreatpercentile(prompt, 99)))
+                                             med, sp.stats.scoreatpercentile(prompt, 99)))
                 
-            later_order = min(self.max_poly_order,3)
+            later_order = min(self.max_poly_order, 3)
             for j in range(self.num_zeros, nSamp):
                 # For the first few samples, do a high-order fit
-                if j<=18+self.num_zeros:
-                    fit = np.polyfit(prompt-med, trainingPulses[use,j]-ptmean, self.max_poly_order)
-                    self.raw_fits[i][j-self.num_zeros,:] = fit
+                if j <= 18 + self.num_zeros:
+                    fit = np.polyfit(prompt-med, trainingPulses[use, j]-ptmean, self.max_poly_order)
+                    self.raw_fits[i][j-self.num_zeros, :] = fit
                     
                 # For the later samples, a cubic will suffice (?)
                 else:
-                    fit = np.polyfit(prompt-med, trainingPulses[use,j]-ptmean, later_order)
-                    self.raw_fits[i][j-self.num_zeros,-1-later_order:] = fit
-
+                    fit = np.polyfit(prompt-med, trainingPulses[use, j]-ptmean, later_order)
+                    self.raw_fits[i][j-self.num_zeros, -1-later_order:] = fit
 
     def _filter_model(self, Nlabels, linearFilter, plot=True):
-        self.lag0_results={}
-        self.parab_results={}
+        self.lag0_results = {}
+        self.parab_results = {}
          
         if plot: 
             plt.clf()
-            axes = [plt.subplot(Nlabels,2,1)]
-            for i in range(2,1+2*Nlabels):
-                if i%2==0:
-                    axes.append(plt.subplot(Nlabels,2,i, sharex=axes[0], sharey=axes[-1]))
+            axes = [plt.subplot(Nlabels, 2, 1)]
+            for i in range(2, 1 + 2*Nlabels):
+                if i % 2 == 0:
+                    axes.append(plt.subplot(Nlabels, 2, i, sharex=axes[0], sharey=axes[-1]))
                 else:
-                    axes.append(plt.subplot(Nlabels,2,i, sharex=axes[0]))
+                    axes.append(plt.subplot(Nlabels, 2, i, sharex=axes[0]))
             axes[-2].set_xlabel("Promptness")
             axes[-1].set_xlabel("Promptness")
             axes[0].set_title("Lag 0 filter output")
@@ -435,13 +421,13 @@ class FilterTimeCorrection(object):
         # Loop over labels
         for i in range(Nlabels):
             fit = np.zeros((self.nSamp, self.raw_fits[i].shape[1]), dtype=np.float)
-            fit[self.num_zeros:,:] = self.raw_fits[i]
+            fit[self.num_zeros:, :] = self.raw_fits[i]
               
             # These parameters fit a parabola to any 5 evenly-spaced points
             fit_array = np.array((
-                    ( -6,24, 34,24,-6),
-                    (-14,-7,  0, 7,14),
-                    ( 10,-5,-10,-5,10)), dtype=np.float)/70.0
+                    (-6, 24, 34, 24, -6),
+                    (-14, -7, 0, 7, 14),
+                    (10, -5, -10, -5, 10)), dtype=np.float)/70.0
       
             pvalues = np.linspace(self.prompt_range[i][0]-.003, self.prompt_range[i][2]+.003, 60) 
             med_prompt = self.prompt_range[i][1]
@@ -449,8 +435,8 @@ class FilterTimeCorrection(object):
             output_lag0 = np.zeros_like(pvalues)
             output_fit = np.zeros_like(pvalues)
               
-            for ip,prompt in enumerate(pvalues):
-                pwrs_prompt = (prompt-med_prompt)**np.arange(self.max_poly_order,-0.5,-1)
+            for ip, prompt in enumerate(pvalues):
+                pwrs_prompt = (prompt-med_prompt)**np.arange(self.max_poly_order, -0.5, -1)
                 model = np.dot(fit, pwrs_prompt)
   
                 conv = np.zeros(5, dtype=np.float)
@@ -474,27 +460,27 @@ class FilterTimeCorrection(object):
                 ax = axes[(Nlabels-1-i)*2]
                 ax.plot(pvalues, output_lag0, 'o', color=colors[i])
   
-                ax.text(.1,.85, 'Cluster %2d:  FWHM: %.2f arbs'%(i,2.3548*np.std(output_lag0)), transform=ax.transAxes)
+                ax.text(.1, .85, 'Cluster %2d:  FWHM: %.2f arbs' % (i, 2.3548*np.std(output_lag0)),
+                        transform=ax.transAxes)
                 ax = axes[(Nlabels-1-i)*2+1]
                 ax.plot(pvalues, output_fit, 'd-', color=colors[i])
-                ax.text(.1,.85, 'Cluster %2d:  FWHM: %.2f arbs'%(i, 2.3548*np.std(output_fit)), transform=ax.transAxes)
- 
- 
+                ax.text(.1, .85, 'Cluster %2d:  FWHM: %.2f arbs' % (i, 2.3548*np.std(output_fit)),
+                        transform=ax.transAxes)
+
     def _create_interpolation(self, Nlabels):
         """generate cubic spline for each curve, and then use the linear
         interp of those, based one which interval of the four: <Cr, Cr-Mn, Mn-Fe, >Fe"""
         self.meanEnergyByLabel
         
-        self.splines=[] 
+        self.splines = []
         for i in range(Nlabels):
-            x,y = self.parab_results[i]
+            x, y = self.parab_results[i]
             y = y-y.mean()
             spl = sp.interpolate.UnivariateSpline(x, y, w=25+np.zeros_like(y), s=len(x), k=3,
                                                   bbox=[x[0]-.05, x[-1]+.05])
             self.splines.append(spl)
-        self.interval_boundaries=self.meanEnergyByLabel
-        
-        
+        self.interval_boundaries = self.meanEnergyByLabel
+
     def __call__(self, prompt, pulse_rms):
         """Compute and return a pulse height correction for a filtered pulse with
         promptness 'prompt' and pulse_rms 'pulse_rms'. Can be arrays."""
@@ -513,13 +499,14 @@ class FilterTimeCorrection(object):
             return self.splines[0](prompt)
         
         pulse_interval = np.zeros(len(pulse_rms))
-        for ib in range(1,n_intervals):
+        for ib in range(1, n_intervals):
             pulse_interval[pulse_rms > self.interval_boundaries[ib]] = ib
  
         for interval in range(n_intervals):
-            a,b = self.interval_boundaries[interval:interval+2]
+            a, b = self.interval_boundaries[interval:interval+2]
             use = pulse_interval == interval
-            if use.sum() <= 0: continue
+            if use.sum() <= 0:
+                continue
             fraction = (pulse_rms[use]-a)/(b-a)
 #             # Limit extrapolation
             fraction[fraction < -0.5] = -0.5
@@ -538,15 +525,20 @@ class FilterTimeCorrection(object):
             x = xraw.copy()
             y = y-y.mean()
  
-            if center_x: x -= self.prompt_range[i][1]
-            if scale_x: x /= (self.prompt_range[i][2]-self.prompt_range[i][0])
+            if center_x:
+                x -= self.prompt_range[i][1]
+            if scale_x:
+                x /= (self.prompt_range[i][2]-self.prompt_range[i][0])
             plt.plot(x, self.splines[i](xraw), 'gray')
-            plt.plot(x,y,'d-', color=colors[i])
+            plt.plot(x, y, 'd-', color=colors[i])
             xlab = "Promptness"
-            if center_x: xlab += ', centered'
-            if scale_x: xlab += ', scaled'
+            if center_x:
+                xlab += ', centered'
+            if scale_x:
+                xlab += ', scaled'
             plt.xlabel(xlab)
             plt.ylabel("Correction, in raw (filtered) units")
+
 
 def nearest_arrivals(reference_times, other_times):
     """nearest_arrivals(reference_times, other_times)
@@ -565,12 +557,12 @@ def nearest_arrivals(reference_times, other_times):
     # because both sets of arrival times should be sorted, there are faster algorithms than searchsorted
     # for example: https://github.com/kwgoodman/bottleneck/issues/47
     # we could use one if performance becomes an issue
-    last_index = np.searchsorted(nearest_after_index, other_times.size,side="left")
+    last_index = np.searchsorted(nearest_after_index, other_times.size, side="left")
     first_index = np.searchsorted(nearest_after_index, 1)
 
     nearest_before_index = np.copy(nearest_after_index)
-    nearest_before_index[:first_index]=1
-    nearest_before_index-=1
+    nearest_before_index[:first_index] = 1
+    nearest_before_index -= 1
     before_times = reference_times-other_times[nearest_before_index]
     before_times[:first_index] = np.Inf
 

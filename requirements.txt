@@ -4,3 +4,4 @@ matplotlib
 Cython
 scikit-learn
 h5py
+sklearn
