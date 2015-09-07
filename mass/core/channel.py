@@ -106,7 +106,7 @@ class NoiseRecords(object):
                 self.datafile.n_segments = use_records // self.records_per_segment
 
         # Copy up some of the most important attributes
-        for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum"):
+        for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum", "n_segments"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
             self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
 
