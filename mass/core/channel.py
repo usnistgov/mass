@@ -764,6 +764,10 @@ class MicrocalDataSet(object):
         self.column_number = None
 
         self._external_trigger_rowcount = None
+        self._rows_after_last_external_trigger = None
+        self._rows_until_next_external_trigger = None
+        self._rows_from_nearest_external_trigger = None
+
         self.row_timebase = None
 
         self.tes_group = tes_group
@@ -829,14 +833,6 @@ class MicrocalDataSet(object):
             filename = mass.ljh_util.ljh_get_extern_trig_fname(self.filename)
             h5 = h5py.File(filename)
             ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
-            crate_clock_hz = h5["trig_times"].attrs["Nrows"] * \
-                             h5["trig_times"].attrs["lsync"] * \
-                             h5["trig_times"].attrs["sample_rate_hz"]
-            # the crate clock can really only be 50MHz or 100Mhz, so pick the closer of those
-            crate_clock_hz = (crate_clock_hz//1000000)*1000000
-            # assert(crate_clock_hz in [50000000, 100000000])
-            timebase = h5["trig_times"].attrs["Nrows"]*h5["trig_times"].attrs["lsync"]/float(crate_clock_hz)
-            # assert(np.abs(timebase-self.timebase)<1e-15) # make sure the timebase is the same to within some reasonable precision
             self._external_trigger_rowcount = h5[ds_name]
             self.row_timebase = self.timebase/float(self.number_of_rows)
         return self._external_trigger_rowcount
@@ -847,6 +843,24 @@ class MicrocalDataSet(object):
         this is not a posix timestamp, it is just the external trigger rowcount converted to seconds based on the nominal clock rate of the crate
         """
         return self.external_trigger_rowcount[:]*self.timebase/float(self.number_of_rows)
+
+    @property
+    def rows_after_last_external_trigger(self):
+        if not self._rows_after_last_external_trigger:
+            raise ValueError("run tes_group.calc_external_trigger_timing with after_last=True before calling this")
+        return self._rows_after_last_external_trigger
+
+    @property
+    def rows_until_next_external_trigger(self):
+        if not self._rows_until_next_external_trigger:
+            raise ValueError("run tes_group.calc_external_trigger_timing with until_next=True before calling this")
+        return self._rows_until_next_external_trigger
+
+    @property
+    def rows_from_nearest_external_trigger(self):
+        if not self._rows_from_nearest_external_trigger:
+            raise ValueError("run tes_group.calc_external_trigger_timing with from_nearest=True before calling this")
+        return self._rows_from_nearest_external_trigger
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
