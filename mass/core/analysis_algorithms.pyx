@@ -7,6 +7,7 @@ Created on Jun 9, 2014
 
 @author: fowlerj
 """
+import cython
 import numpy as np
 import scipy as sp
 import matplotlib.pylab as plt
@@ -73,7 +74,7 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
         return -9.9e-6+np.zeros(npulses, dtype=float)
 
 
-def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
+def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
     """Compute the maximum derivative in timeseries <pulse_data>.
     <pulse_data> can be a 2D array where each row is a different pulse record, in which case
     the return value will be an array last long as the number of rows in <pulse_data>.
@@ -150,6 +151,76 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
             conv = np.fmin(conv[2:], conv[:-2])
         max_deriv[i] = np.max(conv)
         
+    return max_deriv
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
+    cdef:
+        double f0, f1, f2, f3, f4
+        double t0, t1, t2, t3, t_max_deriv
+        Py_ssize_t i, j
+        double [:, :] pulse_view
+        double [:] pulses
+
+    # If pulse_data is a 1D array, turn it into 2
+    pulse_data = np.asarray(pulse_data)
+    ndim = len(pulse_data.shape)
+    if ndim > 2 or ndim < 1:
+        raise ValueError("input pulse_data should be a 1d or 2d array.")
+    if ndim == 1:
+        pulse_data.shape = (1, pulse_data.shape[0])
+    pulse_data = np.asarray(pulse_data[:, ignore_leading:], dtype=np.float64)
+    NPulse, NSamp = pulse_data.shape
+    pulse_view = pulse_data
+
+    # The default filter:
+    filter_coef = np.array([+.2, +.1, 0, -.1, -.2])
+    if kernel == "SG":
+        # This filter is the Savitzky-Golay filter of n_L=1, n_R=3 and M=3, to use the
+        # language of Numerical Recipes 3rd edition.  It amounts to least-squares fitting
+        # of an M=3rd order polynomial to the five points [-1,+3] and
+        # finding the slope of the polynomial at 0.
+        # Note that we reverse the order of coefficients because convolution will re-reverse
+        filter_coef = np.array([-0.45238,   -0.02381,    0.28571,    0.30952,   -0.11905])[::-1]
+
+    elif kernel is not None:
+        filter_coef = np.array(kernel).ravel()
+
+    f0, f1, f2, f3, f4 = filter_coef
+
+    max_deriv = np.zeros(NPulse, dtype=np.float64)
+
+    if spike_reject:
+        for i in range(NPulse):
+            pulses = pulse_view[i]
+            t0 = f4 * pulses[0] + f3 * pulses[1] + f2 * pulses[2] + f1 * pulses[3] + f0 * pulses[4]
+            t1 = f4 * pulses[1] + f3 * pulses[2] + f2 * pulses[3] + f1 * pulses[4] + f0 * pulses[5]
+            t2 = f4 * pulses[2] + f3 * pulses[3] + f2 * pulses[4] + f1 * pulses[5] + f0 * pulses[6]
+            t_max_deriv = t2 if t2 < t0 else t0
+
+            for j in range(7, NSamp):
+                t3 = f4 * pulses[j - 4] + f3 * pulses[j - 3] + f2 * pulses[j - 2] + f1 * pulses[j - 1] + f0 * pulses[j]
+                t4 = t3 if t3 < t1 else t1
+                if t4 > t_max_deriv:
+                    t_max_deriv = t4
+
+                t0, t1, t2 = t1, t2, t3
+
+            max_deriv[i] = t_max_deriv
+    else:
+        for i in range(NPulse):
+            pulses = pulse_view[i]
+            t0 = f4 * pulses[0] + f3 * pulses[1] + f2 * pulses[2] + f1 * pulses[3] + f0 * pulses[4]
+            t_max_deriv = t0
+
+            for j in range(5, NSamp):
+                t0 = f4 * pulses[j - 4] + f3 * pulses[j - 3] + f2 * pulses[j - 2] + f1 * pulses[j -1] + f0 * pulses[j]
+                if t0 > t_max_deriv:
+                    t_max_deriv = t0
+            max_deriv[i] = t_max_deriv
+
     return max_deriv
 
 
