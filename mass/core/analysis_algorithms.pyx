@@ -656,6 +656,7 @@ cpdef summarize_data_segment(ds, first, end,
                               float[:] p_pulse_rms_array,
                               float[:] p_promptness_array,
                               float[:] p_rise_times_array,
+                              float[:] p_postpeak_deriv_array,
                               unsigned short[:] p_peak_index_array,
                               unsigned short[:] p_peak_value_array,
                               unsigned short[:] p_min_value_array,
@@ -675,13 +676,20 @@ cpdef summarize_data_segment(ds, first, end,
         double ptm
         unsigned short peak_value, peak_index, min_value
         unsigned short signal
-        unsigned short nPresamples, nSamples, pretrigger_ignore_samples
+        unsigned short nPresamples, nSamples, pretrigger_ignore_samples, peak_time_samples
+        unsigned short e_nPresamples, s_prompt, e_prompt
+        unsigned short peak_time
 
         unsigned short low_th, high_th
         unsigned short log_value, high_value
         unsigned short low_idx, high_idx
 
         double timebase
+
+        long f0 = 2, f1 = 1, f3 = -1, f4 = -2
+        long s0, s1, s2, s3, s4
+        long t0, t1, t2, t3, t_max_deriv
+
 
     pulse_data = ds.data
 
@@ -698,10 +706,14 @@ cpdef summarize_data_segment(ds, first, end,
     timebase = ds.timebase
     pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6 / timebase)
     ds.pretrigger_ignore_samples = pretrigger_ignore_samples
+    peak_time_samples = int(peak_time_microsec*1e-6 / timebase)
 
     nPresamples = ds.nPresamples
     nSamples = ds.nSamples
-
+    e_nPresamples = nPresamples - pretrigger_ignore_samples
+    s_prompt = nPresamples + 6
+    e_prompt = nPresamples + 12
+    peak_time = nPresamples + peak_time_samples
 
     seg_size = end-first
 
@@ -716,43 +728,29 @@ cpdef summarize_data_segment(ds, first, end,
         peak_index = 0
         min_value = 65535
 
-        for j in range(0, nPresamples - pretrigger_ignore_samples):
+        for j in range(0, nSamples):
             signal = pulse[j]
-            pretrig_sum += signal
-            pretrig_rms_sum += signal**2
+
             if signal > peak_value:
                 peak_value = signal
                 peak_index = j
             if signal < min_value:
                 min_value = signal
 
-        ptm = pretrig_sum / (nPresamples - pretrigger_ignore_samples)
-        p_pretrig_mean_array[i] = <float>ptm
-        p_pretrig_rms_array[i] = <float>sqrt(pretrig_rms_sum / (nPresamples - pretrigger_ignore_samples) - ptm**2)
+            if j < e_nPresamples:
+                pretrig_sum += signal
+                pretrig_rms_sum += signal**2
 
-        for j in range(nPresamples - pretrigger_ignore_samples, nPresamples + 12):
-            signal = pulse[j]
-            if signal > peak_value:
-                peak_value = signal
-                peak_index = j
-            if signal < min_value:
-                min_value = signal
-
-            if j > nPresamples + 5:
+            if (j < e_prompt) and (j > s_prompt):
                 promptness_sum += signal
 
-        for j in range(nPresamples + 12, nSamples):
-            signal = pulse[j]
+            if j > nPresamples:
+                pulse_sum += signal
+                pulse_rms_sum += signal**2
 
-            if signal > peak_value:
-                peak_value = signal
-                peak_index = j
-            if signal < min_value:
-                min_value = signal
-
-            pulse_sum += signal
-            pulse_rms_sum += signal**2
-
+        ptm = pretrig_sum / e_nPresamples
+        p_pretrig_mean_array[i] = <float>ptm
+        p_pretrig_rms_array[i] = <float>sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
         peak_value -= <unsigned short>ptm
         p_promptness_array[i] = (promptness_sum / 6.0 - ptm) / peak_value
         p_peak_value_array[i] = peak_value
@@ -766,6 +764,7 @@ cpdef summarize_data_segment(ds, first, end,
         high_th = <unsigned short>(0.9 * peak_value + 0.1 * ptm)
 
         j = nPresamples
+        low_value = high_value = pulse[j]
         while j < nSamples:
             signal = pulse[j]
             if signal > low_th:
@@ -782,7 +781,26 @@ cpdef summarize_data_segment(ds, first, end,
                 break
             j += 1
 
-        if high_idx > low_idx:
+        if high_value > low_value:
             p_rise_times_array[i] = <float>(timebase / (high_value - low_value) * (<double>peak_value - ptm) * (high_idx - low_idx))
         else:
             p_rise_times_array[i] = <float>timebase
+
+        s0 = pulse[peak_time]
+        s1 = pulse[peak_time + 1]
+        s2 = pulse[peak_time + 2]
+        s3 = pulse[peak_time + 3]
+        t_max_deriv = t0 = t1 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
+
+        for j in range(peak_time + 4, nSamples):
+            s4 = pulse[j]
+            t2 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
+
+            t3 = t2 if t2 < t0 else t0
+            if t3 > t_max_deriv:
+                t_max_deriv = t3
+
+            s0, s1, s2, s3 = s1, s2, s3, s4
+            t0, t1 = t1, t2
+
+        p_postpeak_deriv_array[i] = 0.1 * t_max_deriv

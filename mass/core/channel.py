@@ -943,6 +943,7 @@ class MicrocalDataSet(object):
         p_pulse_rms_array = np.zeros(pulses_per_seg, dtype=np.float32)
         p_promptness_array = np.zeros(pulses_per_seg, dtype=np.float32)
         p_rise_times_array = np.zeros(pulses_per_seg, dtype=np.float32)
+        p_postpeak_deriv_array = np.zeros(pulses_per_seg, dtype=np.float32)
         p_peak_index_array = np.zeros(pulses_per_seg, dtype=np.uint16)
         p_peak_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
         p_min_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
@@ -955,8 +956,8 @@ class MicrocalDataSet(object):
             seg_size = end - first
             summarize_data_segment(self, first, end, p_pretrig_mean_array, p_pretrig_rms_array,
                                     p_pulse_average_array, p_pulse_rms_array, p_promptness_array,
-                                    p_rise_times_array, p_peak_index_array, p_peak_value_array,
-                                    p_min_value_array, peak_time_microsec=peak_time_microsec)
+                                    p_rise_times_array, p_postpeak_deriv_array, p_peak_index_array,
+                                    p_peak_value_array, p_min_value_array, peak_time_microsec=peak_time_microsec)
             self.p_timestamp[first:end] = self.times[:seg_size]
             self.p_rowcount[first:end] = self.rowcount[:seg_size]
             self.p_pretrig_mean[first:end] = p_pretrig_mean_array[:seg_size]
@@ -964,14 +965,15 @@ class MicrocalDataSet(object):
             self.p_pulse_average[first:end] = p_pulse_average_array[:seg_size]
             self.p_pulse_rms[first:end] = p_pulse_rms_array[:seg_size]
             self.p_promptness[first:end] = p_promptness_array[:seg_size]
+            self.p_postpeak_deriv[first:end] = p_postpeak_deriv_array[:seg_size]
             self.p_peak_index[first:end] = p_peak_index_array[:seg_size]
             self.p_peak_value[first:end] = p_peak_value_array[:seg_size]
             self.p_min_value[first:end] = p_min_value_array[:seg_size]
             self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
 
-            self.p_postpeak_deriv[first:end] = \
-                mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
-                                                                ignore_leading=self.nPresamples+maxderiv_holdoff)
+            # self.p_postpeak_deriv[first:end] = \
+            #     mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
+            #                                                     ignore_leading=self.nPresamples+maxderiv_holdoff)
 
     def python_summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
