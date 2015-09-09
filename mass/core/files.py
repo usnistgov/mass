@@ -464,30 +464,29 @@ class LJHFile(MicrocalFile):
         Pre 2.2 each pulse has a timestamp encoded in a weird way that contains arrival time at 4 usec resolution. If the frame time is
         greater than or equal to 4 usec, the exact frame number can be recovered.
         """
-        fp = open(self.filename, "rb")
-        if skip > 0:
-            fp.seek(skip)
-
-        if max_size >= 0:
-            maxitems = max_size // self.pulse_size_bytes
-            BYTES_PER_WORD = 2
-            wordcount = maxitems*self.pulse_size_bytes//BYTES_PER_WORD
-            if error_on_partial_pulse and wordcount*BYTES_PER_WORD != max_size:
-                msg = "__read_binary(max_size=%d) requests a non-integer number of pulses" % max_size
-                raise ValueError(msg)
-        else:
-            wordcount = -1
-
-#        array = np.core.records.fromfile(self.filename, dtype=np.uint16, offset=skip, shape=wordcount)
-        array = np.fromfile(fp, dtype=np.uint16, sep="", count=wordcount)
-
         try:
-            fp.close()
+            array = None
+            with open(self.filename, "rb") as fp:
+                if skip > 0:
+                    fp.seek(skip)
+
+                if max_size >= 0:
+                    maxitems = max_size // self.pulse_size_bytes
+                    BYTES_PER_WORD = 2
+                    wordcount = maxitems*self.pulse_size_bytes//BYTES_PER_WORD
+                    if error_on_partial_pulse and wordcount*BYTES_PER_WORD != max_size:
+                        msg = "__read_binary(max_size=%d) requests a non-integer number of pulses" % max_size
+                        raise ValueError(msg)
+                else:
+                    wordcount = -1
+
+                array = np.fromfile(fp, dtype=np.uint16, sep="", count=wordcount)
         except:
-            print(fp)
-            print('array[-4:]', array[-4:])
-            print('wordcount', wordcount, 'skip', skip)
-            print('arrays.size', array.size, 'array.dtype', array.dtype)
+            if not array:
+                print(fp)
+                print('array[-4:]', array[-4:])
+                print('wordcount', wordcount, 'skip', skip)
+                print('arrays.size', array.size, 'array.dtype', array.dtype)
             raise
 
         # If data has a fractional record at the end, truncate to make it go away.
@@ -519,7 +518,8 @@ class LJHFile(MicrocalFile):
         # this should as long as the frame rate is greater than or equal to 4 us
 
         # this is integer division but rounding up
-        frame_count = (datatime_4usec_tics*NS_PER_4USEC_TICK) // NS_PER_FRAME + np.sign((datatime_4usec_tics*NS_PER_4USEC_TICK) % NS_PER_FRAME)
+        #frame_count = (datatime_4usec_tics*NS_PER_4USEC_TICK) // NS_PER_FRAME + np.sign((datatime_4usec_tics*NS_PER_4USEC_TICK) % NS_PER_FRAME)
+        frame_count = (datatime_4usec_tics*NS_PER_4USEC_TICK - 1) // NS_PER_FRAME + 1
         frame_count += 3  # account for 4 point triggering algorithm
         # leave in the old calculation for comparison, later this should be removed
         SECONDS_PER_4MICROSECOND_TICK = (4.0/1e6)

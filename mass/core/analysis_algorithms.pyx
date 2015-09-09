@@ -660,7 +660,8 @@ cpdef summarize_data_segment(ds, first, end,
                               unsigned short[:] p_peak_index_array,
                               unsigned short[:] p_peak_value_array,
                               unsigned short[:] p_min_value_array,
-                              peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0):
+                              unsigned short peak_time_samples,
+                              unsigned short pretrigger_ignore_samples):
     """Summarize the complete data file
     summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0)
     peak_time_microsec is used when calculating max dp/dt after trigger
@@ -676,9 +677,8 @@ cpdef summarize_data_segment(ds, first, end,
         double ptm
         unsigned short peak_value, peak_index, min_value
         unsigned short signal
-        unsigned short nPresamples, nSamples, pretrigger_ignore_samples, peak_time_samples
+        unsigned short nPresamples, nSamples, peak_time
         unsigned short e_nPresamples, s_prompt, e_prompt
-        unsigned short peak_time
 
         unsigned short low_th, high_th
         unsigned short log_value, high_value
@@ -693,20 +693,12 @@ cpdef summarize_data_segment(ds, first, end,
 
     pulse_data = ds.data
 
-    ds.peak_time_microsec = peak_time_microsec
-    ds.pretrigger_ignore_microsec = pretrigger_ignore_microsec
-
     if first >= ds.nPulses:
         return
     if end > ds.nPulses:
         end = ds.nPulses
-    if ds.p_timestamp.shape[0] <= 0:
-        ds.__setup_vectors(npulses=ds.nPulses)
 
     timebase = ds.timebase
-    pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6 / timebase)
-    ds.pretrigger_ignore_samples = pretrigger_ignore_samples
-    peak_time_samples = int(peak_time_microsec*1e-6 / timebase)
 
     nPresamples = ds.nPresamples
     nSamples = ds.nSamples

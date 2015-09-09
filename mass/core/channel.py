@@ -843,7 +843,7 @@ class MicrocalDataSet(object):
     @property
     def p_peak_time(self):
         # this is a property to reduce memory usage, I hope it works
-        return (np.asarray(self.p_peak_index, dtype=np.int)-self.nPresamples)*self.timebase
+        return (self.p_peak_index[:] - self.nPresamples) * self.timebase
 
     @property
     def external_trigger_rowcount(self):
@@ -925,6 +925,11 @@ class MicrocalDataSet(object):
         self.number_of_columns = self.pulse_records.datafile.number_of_columns
         self.column_number = self.pulse_records.datafile.column_number
 
+        self.peak_time_microsec = peak_time_microsec
+        self.pretrigger_ignore_microsec = pretrigger_ignore_microsec
+        self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6 / self.timebase)
+        peak_time_samples = int(peak_time_microsec*1e-6 / self.timebase)
+
         not_done = all(self.p_pretrig_mean[:] == 0)
         if not (not_done or forceNew):
             print('\nchan %d did not summarize because results were already preloaded' % self.channum)
@@ -935,8 +940,6 @@ class MicrocalDataSet(object):
         self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
 
         pulses_per_seg = self.pulse_records.pulses_per_seg
-        p_timestamp_array = np.zeros(pulses_per_seg, dtype=np.float64)
-        p_rowcount_array = np.zeros(pulses_per_seg, dtype=np.int64)
         p_pretrig_mean_array = np.zeros(pulses_per_seg, dtype=np.float32)
         p_pretrig_rms_array = np.zeros(pulses_per_seg, dtype=np.float32)
         p_pulse_average_array = np.zeros(pulses_per_seg, dtype=np.float32)
@@ -948,7 +951,8 @@ class MicrocalDataSet(object):
         p_peak_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
         p_min_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
 
-        maxderiv_holdoff = int(peak_time_microsec*1e-6/self.timebase)  # don't look for retriggers before this # of samples
+        # don't look for retriggers before this # of samples
+        maxderiv_holdoff = int(peak_time_microsec*1e-6/self.timebase)
         self.peak_time_microsec = peak_time_microsec
 
         for i in range(self.pulse_records.n_segments):
@@ -957,7 +961,8 @@ class MicrocalDataSet(object):
             summarize_data_segment(self, first, end, p_pretrig_mean_array, p_pretrig_rms_array,
                                     p_pulse_average_array, p_pulse_rms_array, p_promptness_array,
                                     p_rise_times_array, p_postpeak_deriv_array, p_peak_index_array,
-                                    p_peak_value_array, p_min_value_array, peak_time_microsec=peak_time_microsec)
+                                    p_peak_value_array, p_min_value_array, peak_time_samples=peak_time_samples,
+                                    pretrigger_ignore_samples=self.pretrigger_ignore_samples)
             self.p_timestamp[first:end] = self.times[:seg_size]
             self.p_rowcount[first:end] = self.rowcount[:seg_size]
             self.p_pretrig_mean[first:end] = p_pretrig_mean_array[:seg_size]
@@ -970,10 +975,6 @@ class MicrocalDataSet(object):
             self.p_peak_value[first:end] = p_peak_value_array[:seg_size]
             self.p_min_value[first:end] = p_min_value_array[:seg_size]
             self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
-
-            # self.p_postpeak_deriv[first:end] = \
-            #     mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
-            #                                                     ignore_leading=self.nPresamples+maxderiv_holdoff)
 
     def python_summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
