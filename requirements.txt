@@ -2,6 +2,7 @@ numpy
 scipy
 matplotlib
 Cython
+pandas
+statsmodels
 scikit-learn
 h5py
-sklearn
