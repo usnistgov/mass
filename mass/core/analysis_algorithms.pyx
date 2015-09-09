@@ -760,7 +760,7 @@ cpdef summarize_data_segment(ds, first, end,
         p_min_value_array[i] = min_value
         pulse_avg = pulse_sum / (nSamples - nPresamples)
         p_pulse_average_array[i] = <float>pulse_avg
-        p_pulse_rms_array[i] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples) - pulse_avg**2)
+        p_pulse_rms_array[i] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples) - ptm*pulse_avg*2 + ptm**2)
 
         low_th = <unsigned short>(0.1 * peak_value + 0.9 * ptm)
         high_th = <unsigned short>(0.9 * peak_value + 0.1 * ptm)
