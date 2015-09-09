@@ -741,8 +741,6 @@ cpdef summarize_data_segment(ds, first, end,
             if j > nPresamples + 5:
                 promptness_sum += signal
 
-        p_promptness_array[i] = <float>(promptness_sum / 6 / peak_value)
-
         for j in range(nPresamples + 12, nSamples):
             signal = pulse[j]
 
@@ -755,10 +753,12 @@ cpdef summarize_data_segment(ds, first, end,
             pulse_sum += signal
             pulse_rms_sum += signal**2
 
+        peak_value -= <unsigned short>ptm
+        p_promptness_array[i] = (promptness_sum / 6.0 - ptm) / peak_value
         p_peak_value_array[i] = peak_value
         p_peak_index_array[i] = peak_index
         p_min_value_array[i] = min_value
-        pulse_avg = pulse_sum / (nSamples - nPresamples)
+        pulse_avg = pulse_sum / (nSamples - nPresamples) - ptm
         p_pulse_average_array[i] = <float>pulse_avg
         p_pulse_rms_array[i] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples) - ptm*pulse_avg*2 + ptm**2)
 
