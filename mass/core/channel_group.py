@@ -644,7 +644,7 @@ class TESGroup(object):
         ds = self.first_good_dataset
 
         # loading this dataset can be slow, so lets do it only once for the whole ChannelGroup
-        external_trigger_rowcount = ds.external_trigger_rowcount[:]
+        external_trigger_rowcount = np.asarray(ds.external_trigger_rowcount[:], dtype=np.int64)
 
         for ds in self:
             try:
