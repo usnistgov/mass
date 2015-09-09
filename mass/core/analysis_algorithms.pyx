@@ -161,8 +161,9 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
         double f0, f1, f2, f3, f4
         double t0, t1, t2, t3, t_max_deriv
         Py_ssize_t i, j
-        double [:, :] pulse_view
-        double [:] pulses
+        unsigned short [:, :] pulse_view
+        unsigned short [:] pulses
+        double [:] max_deriv
 
     # If pulse_data is a 1D array, turn it into 2
     pulse_data = np.asarray(pulse_data)
@@ -171,9 +172,9 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
         raise ValueError("input pulse_data should be a 1d or 2d array.")
     if ndim == 1:
         pulse_data.shape = (1, pulse_data.shape[0])
-    pulse_data = np.asarray(pulse_data[:, ignore_leading:], dtype=np.float64)
-    NPulse, NSamp = pulse_data.shape
-    pulse_view = pulse_data
+    pulse_view = pulse_data[:, ignore_leading:]
+    NPulse = pulse_view.shape[0]
+    NSamp = pulse_view.shape[1]
 
     # The default filter:
     filter_coef = np.array([+.2, +.1, 0, -.1, -.2])
@@ -221,7 +222,7 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
                     t_max_deriv = t0
             max_deriv[i] = t_max_deriv
 
-    return max_deriv
+    return np.asarray(max_deriv, dtype=np.float32)
 
 
 ########################################################################################
