@@ -331,10 +331,13 @@ class LJHFile(MicrocalFile):
         self.__cached_segment = None
 
     def __getitem__(self, item):
-        if isinstance(item, int):
+        try:
+            item = int(item)
             if item < 0 or item >= self.nPulses:
                 raise ValueError("Out of range")
             return self.read_trace(item)
+        except TypeError:
+            pass
 
         first_slice = None
         second_slice = slice(None, None)
