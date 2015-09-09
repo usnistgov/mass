@@ -13,6 +13,8 @@ import scipy as sp
 import matplotlib.pylab as plt
 import sklearn.cluster
 
+from libc.math cimport sqrt
+
 
 ########################################################################################
 # Pulse summary quantities
@@ -643,3 +645,144 @@ def nearest_arrivals(reference_times, other_times):
     after_times[last_index:] = np.Inf
 
     return before_times, after_times
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef summarize_data_segment(ds, first, end,
+                              float[:] p_pretrig_mean_array,
+                              float[:] p_pretrig_rms_array,
+                              float[:] p_pulse_average_array,
+                              float[:] p_pulse_rms_array,
+                              float[:] p_promptness_array,
+                              float[:] p_rise_times_array,
+                              unsigned short[:] p_peak_index_array,
+                              unsigned short[:] p_peak_value_array,
+                              unsigned short[:] p_min_value_array,
+                              peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0):
+    """Summarize the complete data file
+    summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0)
+    peak_time_microsec is used when calculating max dp/dt after trigger
+
+    """
+    cdef:
+        Py_ssize_t i, j
+        unsigned short [:, :] pulse_data
+        unsigned short [:] pulse
+        double pretrig_sum, pretrig_rms_sum
+        double pulse_sum, pulse_rms_sum
+        double promptness_sum
+        double ptm
+        unsigned short peak_value, peak_index, min_value
+        unsigned short signal
+        unsigned short nPresamples, nSamples, pretrigger_ignore_samples
+
+        unsigned short low_th, high_th
+        unsigned short log_value, high_value
+        unsigned short low_idx, high_idx
+
+        double timebase
+
+    pulse_data = ds.data
+
+    ds.peak_time_microsec = peak_time_microsec
+    ds.pretrigger_ignore_microsec = pretrigger_ignore_microsec
+
+    if first >= ds.nPulses:
+        return
+    if end > ds.nPulses:
+        end = ds.nPulses
+    if ds.p_timestamp.shape[0] <= 0:
+        ds.__setup_vectors(npulses=ds.nPulses)
+
+    timebase = ds.timebase
+    pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6 / timebase)
+    ds.pretrigger_ignore_samples = pretrigger_ignore_samples
+
+    nPresamples = ds.nPresamples
+    nSamples = ds.nSamples
+
+
+    seg_size = end-first
+
+    for i in range(seg_size):
+        pulse = pulse_data[i]
+        pretrig_sum = 0.0
+        pretrig_rms_sum = 0.0
+        pulse_sum = 0.0
+        pulse_rms_sum = 0.0
+        promptness_sum = 0.0
+        peak_value = 0
+        peak_index = 0
+        min_value = 65535
+
+        for j in range(0, nPresamples - pretrigger_ignore_samples):
+            signal = pulse[j]
+            pretrig_sum += signal
+            pretrig_rms_sum += signal**2
+            if signal > peak_value:
+                peak_value = signal
+                peak_index = j
+            if signal < min_value:
+                min_value = signal
+
+        ptm = pretrig_sum / (nPresamples - pretrigger_ignore_samples)
+        p_pretrig_mean_array[i] = <float>ptm
+        p_pretrig_rms_array[i] = <float>sqrt(pretrig_rms_sum / (nPresamples - pretrigger_ignore_samples) - ptm**2)
+
+        for j in range(nPresamples - pretrigger_ignore_samples, nPresamples + 12):
+            signal = pulse[j]
+            if signal > peak_value:
+                peak_value = signal
+                peak_index = j
+            if signal < min_value:
+                min_value = signal
+
+            if j > nPresamples + 5:
+                promptness_sum += signal
+
+        p_promptness_array[i] = <float>(promptness_sum / 6 / peak_value)
+
+        for j in range(nPresamples + 12, nSamples):
+            signal = pulse[j]
+
+            if signal > peak_value:
+                peak_value = signal
+                peak_index = j
+            if signal < min_value:
+                min_value = signal
+
+            pulse_sum += signal
+            pulse_rms_sum += signal**2
+
+        p_peak_value_array[i] = peak_value
+        p_peak_index_array[i] = peak_index
+        p_min_value_array[i] = min_value
+        pulse_avg = pulse_sum / (nSamples - nPresamples)
+        p_pulse_average_array[i] = <float>pulse_avg
+        p_pulse_rms_array[i] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples) - pulse_avg**2)
+
+        low_th = <unsigned short>(0.1 * peak_value + 0.9 * ptm)
+        high_th = <unsigned short>(0.9 * peak_value + 0.1 * ptm)
+
+        j = nPresamples
+        while j < nSamples:
+            signal = pulse[j]
+            if signal > low_th:
+                low_idx = j
+                low_value = signal
+                break
+            j += 1
+
+        while j < nSamples:
+            signal = pulse[j]
+            if signal > high_th:
+                high_idx = j - 1
+                high_value = signal
+                break
+            j += 1
+
+        if high_idx > low_idx:
+            p_rise_times_array[i] = <float>(timebase / (high_value - low_value) * (<double>peak_value - ptm) * (high_idx - low_idx))
+        else:
+            p_rise_times_array[i] = <float>timebase

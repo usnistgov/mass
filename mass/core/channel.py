@@ -14,6 +14,7 @@ import matplotlib.pylab as plt
 import mass.mathstat.power_spectrum
 import mass.core.analysis_algorithms
 
+from mass.core.analysis_algorithms import summarize_data_segment
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
 from mass.calibration import young
@@ -911,6 +912,63 @@ class MicrocalDataSet(object):
         return c
 
     def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
+        """Summarize the complete data set one chunk at a time.
+        """
+        # Don't proceed if not necessary and not forced
+        self.number_of_rows = self.pulse_records.datafile.number_of_rows
+        self.row_number = self.pulse_records.datafile.row_number
+        self.number_of_columns = self.pulse_records.datafile.number_of_columns
+        self.column_number = self.pulse_records.datafile.column_number
+
+        not_done = all(self.p_pretrig_mean[:] == 0)
+        if not (not_done or forceNew):
+            print('\nchan %d did not summarize because results were already preloaded' % self.channum)
+            return
+
+        if len(self.p_timestamp) < self.pulse_records.nPulses:
+            self.__setup_vectors(npulses=self.pulse_records.nPulses)  # make sure vectors are setup correctly
+        self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
+
+        pulses_per_seg = self.pulse_records.pulses_per_seg
+        p_timestamp_array = np.zeros(pulses_per_seg, dtype=np.float64)
+        p_rowcount_array = np.zeros(pulses_per_seg, dtype=np.int64)
+        p_pretrig_mean_array = np.zeros(pulses_per_seg, dtype=np.float32)
+        p_pretrig_rms_array = np.zeros(pulses_per_seg, dtype=np.float32)
+        p_pulse_average_array = np.zeros(pulses_per_seg, dtype=np.float32)
+        p_pulse_rms_array = np.zeros(pulses_per_seg, dtype=np.float32)
+        p_promptness_array = np.zeros(pulses_per_seg, dtype=np.float32)
+        p_rise_times_array = np.zeros(pulses_per_seg, dtype=np.float32)
+        p_peak_index_array = np.zeros(pulses_per_seg, dtype=np.uint16)
+        p_peak_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
+        p_min_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
+
+        maxderiv_holdoff = int(peak_time_microsec*1e-6/self.timebase)  # don't look for retriggers before this # of samples
+        self.peak_time_microsec = peak_time_microsec
+
+        for i in range(self.pulse_records.n_segments):
+            first, end = self.read_segment(i)
+            seg_size = end - first
+            summarize_data_segment(self, first, end, p_pretrig_mean_array, p_pretrig_rms_array,
+                                    p_pulse_average_array, p_pulse_rms_array, p_promptness_array,
+                                    p_rise_times_array, p_peak_index_array, p_peak_value_array,
+                                    p_min_value_array, peak_time_microsec=peak_time_microsec)
+            self.p_timestamp[first:end] = self.times[:seg_size]
+            self.p_rowcount[first:end] = self.rowcount[:seg_size]
+            self.p_pretrig_mean[first:end] = p_pretrig_mean_array[:seg_size]
+            self.p_pretrig_rms[first:end] = p_pretrig_rms_array[:seg_size]
+            self.p_pulse_average[first:end] = p_pulse_average_array[:seg_size]
+            self.p_pulse_rms[first:end] = p_pulse_rms_array[:seg_size]
+            self.p_promptness[first:end] = p_promptness_array[:seg_size]
+            self.p_peak_index[first:end] = p_peak_index_array[:seg_size]
+            self.p_peak_value[first:end] = p_peak_value_array[:seg_size]
+            self.p_min_value[first:end] = p_min_value_array[:seg_size]
+            self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
+
+            self.p_postpeak_deriv[first:end] = \
+                mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
+                                                                ignore_leading=self.nPresamples+maxderiv_holdoff)
+
+    def python_summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
         """
         # Don't proceed if not necessary and not forced
