@@ -849,7 +849,7 @@ class MicrocalDataSet(object):
     def external_trigger_rowcount(self):
         if not self._external_trigger_rowcount:
             filename = ljh_util.ljh_get_extern_trig_fname(self.filename)
-            h5 = h5py.File(filename)
+            h5 = h5py.File(filename,"r")
             ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
             self._external_trigger_rowcount = h5[ds_name]
             self.row_timebase = self.timebase/float(self.number_of_rows)

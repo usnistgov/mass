@@ -23,7 +23,9 @@ def parse_version_number(VERSIONFILE=None):
     # Parse the version number out of the _version.py file without importing it
     import re
 
-    VERSIONFILE = os.path.join("mass", "_version.py")
+    if not VERSIONFILE:
+        VERSIONFILE = os.path.join("mass", "_version.py")
+
     verstrline = open(VERSIONFILE, "rt").read()
     VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
     mo = re.search(VSRE, verstrline, re.M)
