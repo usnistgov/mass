@@ -928,6 +928,8 @@ class MicrocalDataSet(object):
         self.peak_time_microsec = peak_time_microsec
         self.pretrigger_ignore_microsec = pretrigger_ignore_microsec
         self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6 / self.timebase)
+
+        # don't look for retriggers before this # of samples
         peak_time_samples = int(peak_time_microsec*1e-6 / self.timebase)
 
         not_done = all(self.p_pretrig_mean[:] == 0)
@@ -935,9 +937,8 @@ class MicrocalDataSet(object):
             print('\nchan %d did not summarize because results were already preloaded' % self.channum)
             return
 
-        if len(self.p_timestamp) < self.pulse_records.nPulses:
+        if self.p_timestamp.shape[0] < self.pulse_records.nPulses:
             self.__setup_vectors(npulses=self.pulse_records.nPulses)  # make sure vectors are setup correctly
-        self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
 
         pulses_per_seg = self.pulse_records.pulses_per_seg
         p_pretrig_mean_array = np.zeros(pulses_per_seg, dtype=np.float32)
@@ -951,10 +952,7 @@ class MicrocalDataSet(object):
         p_peak_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
         p_min_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
 
-        # don't look for retriggers before this # of samples
-        maxderiv_holdoff = int(peak_time_microsec*1e-6/self.timebase)
-        self.peak_time_microsec = peak_time_microsec
-
+        print_updater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
         for i in range(self.pulse_records.n_segments):
             first, end = self.read_segment(i)
             seg_size = end - first
@@ -975,6 +973,7 @@ class MicrocalDataSet(object):
             self.p_peak_value[first:end] = p_peak_value_array[:seg_size]
             self.p_min_value[first:end] = p_min_value_array[:seg_size]
             self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
+            print_updater.update((i+1)/self.pulse_records.n_segments)
 
     def python_summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
