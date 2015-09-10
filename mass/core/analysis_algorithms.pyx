@@ -649,7 +649,7 @@ def nearest_arrivals(reference_times, other_times):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef summarize_data_segment(ds, first, end,
+def summarize_data_segment(ds, first, end,
                               float[:] p_pretrig_mean_array,
                               float[:] p_pretrig_rms_array,
                               float[:] p_pulse_average_array,
@@ -765,11 +765,14 @@ cpdef summarize_data_segment(ds, first, end,
                 break
             j += 1
 
+        high_value = low_value
+        high_idx = low_idx
+
         while j < nSamples:
             signal = pulse[j]
             if signal > high_th:
                 high_idx = j - 1
-                high_value = signal
+                high_value = pulse[high_idx]
                 break
             j += 1
 

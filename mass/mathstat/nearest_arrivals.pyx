@@ -3,7 +3,7 @@ import numpy as np
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigger_timestamps):
+def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigger_timestamps):
     cdef:
         Py_ssize_t num_pulses, num_triggers
         Py_ssize_t i = 0, j = 0, t
