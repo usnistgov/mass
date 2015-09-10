@@ -799,3 +799,103 @@ def summarize_data_segment(ds, first, end,
             t0, t1 = t1, t2
 
         p_postpeak_deriv_array[i] = 0.1 * t_max_deriv
+
+def filter_data(ds, double [:] filter_values, transform=None):
+    cdef:
+        Py_ssize_t i, j, k
+        int n_segments, pulses_per_seg, seg_size, nSamples, filter_length
+        double conv0, conv1, conv2, conv3, conv4
+        unsigned short [:, :] pulse_data
+        unsigned short [:] pulse
+        double f0, f1, f2, f3, f4
+        double p0, p1, p2
+
+    n_segments = ds.pulse_records.n_segments
+    pulses_per_seg = ds.pulse_records.pulses_per_seg
+    nSamples = ds.nSamples
+    filter_length = nSamples - 4
+
+    filt_phase_array = np.zeros(pulses_per_seg, dtype=np.float64)
+    filt_value_array = np.zeros(pulses_per_seg, dtype=np.float64)
+
+    for i in range(n_segments):
+        first, end = ds.read_segment(i)  # this reloads self.data to contain new pulses
+        seg_size = end - first
+
+        pulse_data = ds.data
+
+        for j in range(seg_size):
+            pulse = pulse_data[j]
+
+            f0, f1, f2, f3 = filter_values[0], filter_values[1], filter_values[2], filter_values[3]
+
+            conv0 = pulse[0] * f0 +\
+                    pulse[1] * f1 +\
+                    pulse[2] * f2 +\
+                    pulse[3] * f3
+            conv1 = pulse[1] * f0 +\
+                    pulse[2] * f1 +\
+                    pulse[3] * f2
+            conv2 = pulse[2] * f0 +\
+                    pulse[3] * f1
+            conv3 = pulse[3] * f0
+            conv4 = 0.0
+
+            for k in range(4, nSamples - 4):
+                f4 = filter_values[k]
+                conv0 += pulse[k] * f4
+                conv1 += pulse[k] * f3
+                conv2 += pulse[k] * f2
+                conv3 += pulse[k] * f1
+                conv4 += pulse[k] * f0
+                f0, f1, f2, f3 = f1, f2, f3, f4
+
+            conv4 += pulse[nSamples - 4] * f1 +\
+                     pulse[nSamples - 3] * f2 +\
+                     pulse[nSamples - 2] * f3 +\
+                     pulse[nSamples - 1] * f4
+            conv3 += pulse[nSamples - 4] * f2 +\
+                     pulse[nSamples - 3] * f3 +\
+                     pulse[nSamples - 2] * f4
+            conv2 += pulse[nSamples - 4] * f3 +\
+                     pulse[nSamples - 3] * f4
+            conv1 += pulse[nSamples - 4] * f4
+
+            p0 = conv0*(-6.0/70) + conv1*(24.0/70) + conv2*(34.0/70) + conv3*(24.0/70) + conv4*(-6.0/70)
+            p1 = conv0*(-14.0/70) + conv1*(-7.0/70) + conv3*(7.0/70) + conv4*(14.0/70)
+            p2 = conv0*(10.0/70) + conv1*(-5.0/70) + conv2*(-10.0/70) + conv3*(-10.0/70) + conv4*(10.0/70)
+
+            filt_phase_array[j] = -0.5*p1 / p2
+            filt_value_array[j] = p0 - 0.25*p1**2 / p2
+
+        ds.p_filt_value[first:end] = filt_value_array[:seg_size]
+        ds.p_filt_phase[first:end] = filt_phase_array[:seg_size]
+
+def _filter_data_segment(self, filter_values, first, end, transform=None):
+    if first >= self.nPulses:
+        return None, None
+
+    # These parameters fit a parabola to any 5 evenly-spaced points
+    fit_array = np.array((
+        (-6, 24, 34, 24, -6),
+        (-14, -7, 0, 7, 14),
+        (10, -5, -10, -5, 10)), dtype=np.float)/70.0
+
+    assert len(filter_values)+4 == self.nSamples
+
+    seg_size = min(end-first, self.data.shape[0])
+    conv = np.zeros((5, seg_size), dtype=np.float)
+    if transform is not None:
+        ptmean = self.p_pretrig_mean[first:end]
+        ptmean.shape = (len(ptmean), 1)
+        data = transform(self.data-ptmean)
+    else:
+        data = self.data
+    for i in range(4):
+        conv[i, :] = np.dot(data[:seg_size, i:i-4], filter_values)
+    conv[4, :] = np.dot(data[:, 4:], filter_values)
+
+    param = np.dot(fit_array, conv)
+    peak_x = -0.5*param[1, :] / param[2, :]
+    peak_y = param[0, :] - 0.25*param[1, :]**2 / param[2, :]
+    return peak_x, peak_y

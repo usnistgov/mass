@@ -14,7 +14,7 @@ import matplotlib.pylab as plt
 import mass.mathstat.power_spectrum
 import mass.core.analysis_algorithms
 
-from mass.core.analysis_algorithms import summarize_data_segment
+from mass.core.analysis_algorithms import summarize_data_segment, filter_data
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
 from mass.calibration import young
@@ -1052,6 +1052,21 @@ class MicrocalDataSet(object):
                                                             ignore_leading=self.nPresamples+maxderiv_holdoff)
 
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
+        """Filter the complete data file one chunk at a time.
+        """
+        if not(forceNew or all(self.p_filt_value[:] == 0)):
+            print('\nchan %d did not filter because results were already loaded' % self.channum)
+            return
+
+        if self.filter is not None:
+            filter_values = self.filter.__dict__[filter_name]
+        else:
+            filter_values = self.hdf5_group['filters/%s' % filter_name].value
+
+        filter_data(self, filter_values, transform)
+        self.hdf5_group.file.flush()
+
+    def python_filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
         """Filter the complete data file one chunk at a time.
         """
         if not(forceNew or all(self.p_filt_value[:] == 0)):
