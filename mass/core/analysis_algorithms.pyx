@@ -800,6 +800,8 @@ def summarize_data_segment(ds, first, end,
 
         p_postpeak_deriv_array[i] = 0.1 * t_max_deriv
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def filter_data(ds, double [:] filter_values, transform=None):
     cdef:
         Py_ssize_t i, j, k
@@ -807,6 +809,7 @@ def filter_data(ds, double [:] filter_values, transform=None):
         double conv0, conv1, conv2, conv3, conv4
         unsigned short [:, :] pulse_data
         unsigned short [:] pulse
+        unsigned short sample
         double f0, f1, f2, f3, f4
         double p0, p1, p2
 
@@ -843,11 +846,12 @@ def filter_data(ds, double [:] filter_values, transform=None):
 
             for k in range(4, nSamples - 4):
                 f4 = filter_values[k]
-                conv0 += pulse[k] * f4
-                conv1 += pulse[k] * f3
-                conv2 += pulse[k] * f2
-                conv3 += pulse[k] * f1
-                conv4 += pulse[k] * f0
+                sample = pulse[k]
+                conv0 += sample * f4
+                conv1 += sample * f3
+                conv2 += sample * f2
+                conv3 += sample * f1
+                conv4 += sample * f0
                 f0, f1, f2, f3 = f1, f2, f3, f4
 
             conv4 += pulse[nSamples - 4] * f1 +\
@@ -870,32 +874,3 @@ def filter_data(ds, double [:] filter_values, transform=None):
 
         ds.p_filt_value[first:end] = filt_value_array[:seg_size]
         ds.p_filt_phase[first:end] = filt_phase_array[:seg_size]
-
-def _filter_data_segment(self, filter_values, first, end, transform=None):
-    if first >= self.nPulses:
-        return None, None
-
-    # These parameters fit a parabola to any 5 evenly-spaced points
-    fit_array = np.array((
-        (-6, 24, 34, 24, -6),
-        (-14, -7, 0, 7, 14),
-        (10, -5, -10, -5, 10)), dtype=np.float)/70.0
-
-    assert len(filter_values)+4 == self.nSamples
-
-    seg_size = min(end-first, self.data.shape[0])
-    conv = np.zeros((5, seg_size), dtype=np.float)
-    if transform is not None:
-        ptmean = self.p_pretrig_mean[first:end]
-        ptmean.shape = (len(ptmean), 1)
-        data = transform(self.data-ptmean)
-    else:
-        data = self.data
-    for i in range(4):
-        conv[i, :] = np.dot(data[:seg_size, i:i-4], filter_values)
-    conv[4, :] = np.dot(data[:, 4:], filter_values)
-
-    param = np.dot(fit_array, conv)
-    peak_x = -0.5*param[1, :] / param[2, :]
-    peak_y = param[0, :] - 0.25*param[1, :]**2 / param[2, :]
-    return peak_x, peak_y
