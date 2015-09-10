@@ -649,7 +649,7 @@ def nearest_arrivals(reference_times, other_times):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef summarize_data_segment(ds, first, end,
+def summarize_data_segment(ds, first, end,
                               float[:] p_pretrig_mean_array,
                               float[:] p_pretrig_rms_array,
                               float[:] p_pulse_average_array,
