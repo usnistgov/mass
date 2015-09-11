@@ -1171,8 +1171,8 @@ class TESGroup(object):
                 else:
                     rms = ds.hdf5_group['filters/filt_%s' % filter_name].attrs['variance']**0.5
                 v_dv = (1/rms)/rms_fwhm
-                print("Chan %3d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV") % (
-                    ds.channum, filter_name, v_dv, std_energy, std_energy / v_dv)
+                print("Chan %3d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" %
+                      (ds.channum, filter_name, v_dv, std_energy, std_energy / v_dv))
             except Exception as e:
                 print("Filter %d can't be used" % i)
                 print(e)
