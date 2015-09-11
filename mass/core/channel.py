@@ -767,6 +767,7 @@ class MicrocalDataSet(object):
         self._rows_after_last_external_trigger = None
         self._rows_until_next_external_trigger = None
         self._rows_from_nearest_external_trigger = None
+        self._3lag_filter = False
 
         self.row_timebase = None
 
@@ -985,17 +986,23 @@ class MicrocalDataSet(object):
         else:
             filter_values = self.hdf5_group['filters/%s' % filter_name].value
         printUpdater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
+        if self._3lag_filter:
+            filterfunction = self._filter_data_segment3
+        else:
+            filterfunction = self._filter_data_segment
+
         for s in range(self.pulse_records.n_segments):
             first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
             (self.p_filt_phase[first:end],
              self.p_filt_value[first:end]) = \
-                self._filter_data_segment(filter_values, first, end, transform)
+                filterfunction(filter_values, first, end, transform)
             printUpdater.update((end+1)/float(self.nPulses))
 
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
     def _filter_data_segment(self, filter_values, first, end, transform=None):
+        """Traditional 5-lag filter used by default until 2015"""
         if first >= self.nPulses:
             return None, None
 
@@ -1017,11 +1024,41 @@ class MicrocalDataSet(object):
             data = self.data
         for i in range(4):
             conv[i, :] = np.dot(data[:seg_size, i:i-4], filter_values)
-        conv[4, :] = np.dot(data[:, 4:], filter_values)
+        conv[4, :] = np.dot(data[:seg_size, 4:], filter_values)
 
         param = np.dot(fit_array, conv)
         peak_x = -0.5*param[1, :]/param[2, :]
         peak_y = param[0, :] - 0.25*param[1, :]**2 / param[2, :]
+        return peak_x, peak_y
+
+    def _filter_data_segment3(self, filter_values, first, end, transform=None):
+        """3-lag filter developed in 2015"""
+        if first >= self.nPulses:
+            return None, None
+
+        assert len(filter_values)+2 == self.nSamples
+
+        seg_size = min(end-first, self.data.shape[0])
+        conv = np.zeros((3, seg_size), dtype=np.float)
+        ptmean = self.p_pretrig_mean[first:end]
+        if transform is not None:
+            ptmean.shape = (len(ptmean), 1)
+            data = transform(self.data-ptmean)
+            ptmean.shape = (end-first,)
+        else:
+            data = self.data
+        conv[0, :] = np.dot(data[:seg_size, 0:-2], filter_values)
+        conv[1, :] = np.dot(data[:seg_size, 1:-1], filter_values)
+        conv[2, :] = np.dot(data[:seg_size, 2:], filter_values)
+
+        # Find the peak X by finding the parabola through the 3 points
+        peak_x = (conv[0]-conv[2])*0.5/(conv[0]+conv[2]-2*conv[1])
+        peak_y = np.array(conv[1])
+
+        # Find pulses that triggered 1 sample too late and "want to shift"
+        want_to_shift = data[:,self.nPresamples+2]-ptmean > 4*data[:,:self.nPresamples].std(axis=1)
+        peak_x[want_to_shift] += 1
+        peak_y[want_to_shift] = conv[0,want_to_shift]
         return peak_x, peak_y
 
     def plot_summaries(self, valid='uncut', downsample=None, log=False):

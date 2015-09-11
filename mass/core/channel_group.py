@@ -1088,10 +1088,13 @@ class TESGroup(object):
                     spectrum = ds.noise_spectrum.spectrum()
                 except:
                     spectrum = ds.noise_psd[:]
+
+                nshort = 1 if ds._3lag_filter else 2
                 f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
                                      spectrum, ds.noise_autocorr, sample_time=self.timebase,
-                                     fmax=fmax, f_3db=f_3db, shorten=2)
+                                     fmax=fmax, f_3db=f_3db, shorten=nshort)
                 ds.filter = f
+
                 # Store all filters created to a new HDF5 group
                 h5grp = ds.hdf5_group.require_group('filters')
                 if f.f_3db is not None:
