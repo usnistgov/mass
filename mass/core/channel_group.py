@@ -1141,10 +1141,8 @@ class TESGroup(object):
             ax2.set_title("chan %d baseline" % ds.channum)
             for ax in (ax1, ax2):
                 ax.set_xlim([0, self.nSamples])
-#             if 'filter' in ds.__dict__:
-#                 ds.filter.plot(axes=(ax1,ax2))
-#             else:
-#                 pass ???
+            ax1.plot(ds.filter.filt_noconst, color='b')
+            ax2.plot(ds.filter.filt_baseline, color='r')
 
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
         rms_fwhm = np.sqrt(np.log(2)*8)  # FWHM is this much times the RMS
