@@ -804,9 +804,11 @@ class MicrocalDataSet(object):
                           'energy')
         uint16_fields = ('peak_index', 'peak_value', 'min_value')
         int64_fields = ('rowcount',)
+        bool_fields = ('shift1',)
         for dtype, fieldnames in ((np.float64, float64_fields),
                                   (np.float32, float32_fields),
                                   (np.uint16, uint16_fields),
+                                  (np.bool, bool_fields),
                                   (np.int64, int64_fields)):
             for field in fieldnames:
                 self.__dict__['p_%s' % field] = h5grp.require_dataset(field, shape=(npulses,),
@@ -965,6 +967,9 @@ class MicrocalDataSet(object):
             (self.data[:seg_size, self.nPresamples+6:self.nPresamples+12].mean(axis=1) - ptm) /\
             self.p_peak_value[first:end]
 
+        self.p_shift1[first:end] = (self.data[:seg_size,self.nPresamples+2]-ptm >
+                                    3.3*self.p_pretrig_rms[first:end])
+
         self.p_rise_time[first:end] = \
             mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size],
                                                            timebase=self.timebase,
@@ -1056,7 +1061,7 @@ class MicrocalDataSet(object):
         peak_y = np.array(conv[1])
 
         # Find pulses that triggered 1 sample too late and "want to shift"
-        want_to_shift = data[:,self.nPresamples+2]-ptmean > 4*data[:,:self.nPresamples].std(axis=1)
+        want_to_shift = self.p_shift1[first:end]
         peak_x[want_to_shift] += 1
         peak_y[want_to_shift] = conv[0,want_to_shift]
         return peak_x, peak_y
