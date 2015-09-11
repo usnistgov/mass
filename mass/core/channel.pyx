@@ -1356,6 +1356,7 @@ class MicrocalDataSet(object):
     def clear_cache(self):
         self.data = None
         self.rowcount = None
+        self.times = None
         self.pulse_records.clear_cache()
 
     def plot_summaries(self, valid='uncut', downsample=None, log=False):
