@@ -1115,10 +1115,12 @@ class TESGroup(object):
                 ds.filter.shorten = h5grp.attrs['shorten']
                 ds.filter.f_3db = h5grp.attrs['f_3db'] if 'f_3db' in h5grp.attrs else None
                 ds.filter.fmax = h5grp.attrs['fmax'] if 'fmax' in h5grp.attrs else None
+                ds.filter.variances = {}
                 for name in h5grp:
                     if name.startswith("filt_"):
                         setattr(ds.filter, name, h5grp[name][:])
-                        # doesn't do variances
+                        suffix = name.split("filt_")[1]
+                        ds.filter.variances[suffix] = h5grp[name].attrs['variance']
 
     def plot_filters(self, first=0, end=-1):
         """Plot the filters from <first> through <end>-1.  By default, plots all filters,
