@@ -1248,6 +1248,7 @@ class MicrocalDataSet(object):
             seg_size = end - first
 
             pulse_data = self.data
+            print_updater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
 
             for j in range(seg_size):
                 pulse = pulse_data[j]
@@ -1296,6 +1297,7 @@ class MicrocalDataSet(object):
 
             self.p_filt_value[first:end] = filt_value_array[:seg_size]
             self.p_filt_phase[first:end] = filt_phase_array[:seg_size]
+            print_updater.update((end+1)/float(self.nPulses))
 
         self.clear_cache()
         self.hdf5_group.file.flush()
