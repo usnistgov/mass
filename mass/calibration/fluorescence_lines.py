@@ -1218,7 +1218,9 @@ class MultiLorentzianComplexFitter(object):
         if params is None:
             params = guess_params
         for j in xrange(len(params)):
-            if params[j] is None: params[j] = guess_params[j]
+            if params[j] is not None:
+                guess_params[j] = params[j]
+        params = guess_params
 
         # Set held parameters to be held.
         # Note that some can be held in either of two different ways.
@@ -1319,7 +1321,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         peak_ph = binctrs[data.argmax()]
         lowqtr = binctrs[(data>peak_val*0.25).argmax()]
         N = len(data)
-        topqtr = binctrs[N-(data>peak_val*0.25)[::-1].argmax()]
+        topqtr = binctrs[N-1-(data>peak_val*0.25)[::-1].argmax()]
 
         ph_ka1 = peak_ph
         dph = 0.66*(topqtr-lowqtr)

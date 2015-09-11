@@ -6,7 +6,7 @@ Joe Fowler, NIST
 
 
 __all__ = ['factor_covariance', 'fitting', 'interpolate', 'power_spectrum',
-           'robust', 'special', 'toeplitz']
+           'robust', 'special', 'toeplitz','nearest_arrivals']
 
 
 import factor_covariance
