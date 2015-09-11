@@ -16,6 +16,6 @@ TAGS
 .idea/*
 *.h5
 
-mass/mathstat/robust.c
-mass/mathstat/nearest_arrivals.c
+mass/core/channel.c
 mass/core/analysis_algorithms.c
+mass/mathstat/robust.c

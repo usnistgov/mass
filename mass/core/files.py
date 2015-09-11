@@ -410,8 +410,8 @@ class LJHFile(MicrocalFile):
             del self.data
         if hasattr(self, "datatimes_float"):
             del self.datatimes_float
-        if hasattr(self, "row_count"):
-            del self.row_count
+        if hasattr(self, "rowcount"):
+            del self.rowcount
         self.__cached_segment = None
 
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):

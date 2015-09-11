@@ -26,6 +26,7 @@ import os
 import h5py
 
 import mass.core
+import mass.core.analysis_algorithms
 import mass.calibration
 import mass.calibration.energy_calibration
 import mass.mathstat
@@ -653,7 +654,7 @@ class TESGroup(object):
                         ("rows_until_next_external_trigger" not in ds.hdf5_group and until_next) or\
                         ("rows_from_nearest_external_trigger" not in ds.hdf5_group and from_nearest):
                     rows_after_last_external_trigger, rows_until_next_external_trigger = \
-                        mass.mathstat.nearest_arrivals.nearest_arrivals(ds.p_rowcount[:], external_trigger_rowcount)
+                        mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:], external_trigger_rowcount)
                     if after_last:
                         g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)

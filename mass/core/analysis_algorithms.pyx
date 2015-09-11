@@ -614,7 +614,7 @@ class FilterTimeCorrection(object):
             plt.ylabel("Correction, in raw (filtered) units")
 
 
-def nearest_arrivals(reference_times, other_times):
+def python_nearest_arrivals(reference_times, other_times):
     """nearest_arrivals(reference_times, other_times)
     reference_times - 1d array
     other_times - 1d array
@@ -646,231 +646,77 @@ def nearest_arrivals(reference_times, other_times):
 
     return before_times, after_times
 
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def summarize_data_segment(ds, first, end,
-                              float[:] p_pretrig_mean_array,
-                              float[:] p_pretrig_rms_array,
-                              float[:] p_pulse_average_array,
-                              float[:] p_pulse_rms_array,
-                              float[:] p_promptness_array,
-                              float[:] p_rise_times_array,
-                              float[:] p_postpeak_deriv_array,
-                              unsigned short[:] p_peak_index_array,
-                              unsigned short[:] p_peak_value_array,
-                              unsigned short[:] p_min_value_array,
-                              unsigned short peak_time_samples,
-                              unsigned short pretrigger_ignore_samples):
-    """Summarize the complete data file
-    summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0)
-    peak_time_microsec is used when calculating max dp/dt after trigger
-
-    """
+def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigger_timestamps):
     cdef:
-        Py_ssize_t i, j
-        unsigned short [:, :] pulse_data
-        unsigned short [:] pulse
-        double pretrig_sum, pretrig_rms_sum
-        double pulse_sum, pulse_rms_sum
-        double promptness_sum
-        double ptm
-        unsigned short peak_value, peak_index, min_value
-        unsigned short signal
-        unsigned short nPresamples, nSamples, peak_time
-        unsigned short e_nPresamples, s_prompt, e_prompt
+        Py_ssize_t num_pulses, num_triggers
+        Py_ssize_t i = 0, j = 0, t
+        long long[:] delay_from_last_trigger
+        long long[:] delay_until_next_trigger
+        long long a, b, pt
+        long long max_value
 
-        unsigned short low_th, high_th
-        unsigned short log_value, high_value
-        unsigned short low_idx, high_idx
+    num_pulses = pulse_timestamps.shape[0]
+    num_triggers = external_trigger_timestamps.shape[0]
 
-        double timebase
+    if num_pulses < 1:
+        return np.array([],dtype=np.int64)
 
-        long f0 = 2, f1 = 1, f3 = -1, f4 = -2
-        long s0, s1, s2, s3, s4
-        long t0, t1, t2, t3, t_max_deriv
+    delay_from_last_trigger = np.zeros_like(pulse_timestamps, dtype=np.int64)
+    delay_until_next_trigger = np.zeros_like(pulse_timestamps, dtype=np.int64)
 
+    max_value = np.iinfo(np.int64).max
 
-    pulse_data = ds.data
+    if num_triggers > 1:
+        a = external_trigger_timestamps[0]
+        b = external_trigger_timestamps[1]
+        j = 1
 
-    if first >= ds.nPulses:
-        return
-    if end > ds.nPulses:
-        end = ds.nPulses
-
-    timebase = ds.timebase
-
-    nPresamples = ds.nPresamples
-    nSamples = ds.nSamples
-    e_nPresamples = nPresamples - pretrigger_ignore_samples
-    s_prompt = nPresamples + 6
-    e_prompt = nPresamples + 12
-    peak_time = nPresamples + peak_time_samples
-
-    seg_size = end-first
-
-    for i in range(seg_size):
-        pulse = pulse_data[i]
-        pretrig_sum = 0.0
-        pretrig_rms_sum = 0.0
-        pulse_sum = 0.0
-        pulse_rms_sum = 0.0
-        promptness_sum = 0.0
-        peak_value = 0
-        peak_index = 0
-        min_value = 65535
-
-        for j in range(0, nSamples):
-            signal = pulse[j]
-
-            if signal > peak_value:
-                peak_value = signal
-                peak_index = j
-            if signal < min_value:
-                min_value = signal
-
-            if j < e_nPresamples:
-                pretrig_sum += signal
-                pretrig_rms_sum += signal**2
-
-            if (j < e_prompt) and (j > s_prompt):
-                promptness_sum += signal
-
-            if j > nPresamples:
-                pulse_sum += signal
-                pulse_rms_sum += signal**2
-
-        ptm = pretrig_sum / e_nPresamples
-        p_pretrig_mean_array[i] = <float>ptm
-        p_pretrig_rms_array[i] = <float>sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
-        peak_value -= <unsigned short>ptm
-        p_promptness_array[i] = (promptness_sum / 6.0 - ptm) / peak_value
-        p_peak_value_array[i] = peak_value
-        p_peak_index_array[i] = peak_index
-        p_min_value_array[i] = min_value
-        pulse_avg = pulse_sum / (nSamples - nPresamples) - ptm
-        p_pulse_average_array[i] = <float>pulse_avg
-        p_pulse_rms_array[i] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples) - ptm*pulse_avg*2 + ptm**2)
-
-        low_th = <unsigned short>(0.1 * peak_value + 0.9 * ptm)
-        high_th = <unsigned short>(0.9 * peak_value + 0.1 * ptm)
-
-        j = nPresamples
-        low_value = high_value = pulse[j]
-        while j < nSamples:
-            signal = pulse[j]
-            if signal > low_th:
-                low_idx = j
-                low_value = signal
+        # handle the case where pulses arrive before the fist external trigger
+        while True:
+            pt = pulse_timestamps[i]
+            if pt < a:
+                delay_from_last_trigger[i] = max_value
+                delay_until_next_trigger[i] = a - pt
+                i += 1
+            else:
                 break
-            j += 1
 
-        high_value = low_value
-        high_idx = low_idx
+        # at this point in the code a and b are values from external_trigger_timestamps that bracket pulse_timestamp[i]
+        while True:
+            pt = pulse_timestamps[i]
+            if pt < b:
+                delay_from_last_trigger[i] = pt - a
+                delay_until_next_trigger[i] = b - pt
+                i += 1
+                if i >= num_pulses:
+                    break
+            else:
+                j += 1
+                if j >= num_triggers:
+                    break
+                else:
+                    a, b = b, external_trigger_timestamps[j]
 
-        while j < nSamples:
-            signal = pulse[j]
-            if signal > high_th:
-                high_idx = j - 1
-                high_value = pulse[high_idx]
-                break
-            j += 1
+        # handle the case where pulses arrive after the last external trigger
+        for t in range(i, num_pulses):
+            delay_from_last_trigger[t] = pulse_timestamps[t] - b
+            delay_until_next_trigger[t] = max_value
+    elif num_triggers > 0:
+        a = b = external_trigger_timestamps[0]
 
-        if high_value > low_value:
-            p_rise_times_array[i] = <float>(timebase / (high_value - low_value) * (<double>peak_value - ptm) * (high_idx - low_idx))
-        else:
-            p_rise_times_array[i] = <float>timebase
+        for i in range(num_pulses):
+            pt = pulse_timestamps[i]
+            if pt > a:
+                delay_from_last_trigger[i] = pt - a
+                delay_until_next_trigger[i] = max_value
+            else:
+                delay_from_last_trigger[i] = max_value
+                dealay_until_next_trigger = a - pt
+    else:
+        for i in range(num_pulses):
+            delay_from_last_trigger[i] = max_value
+            delay_until_next_trigger[i] = max_value
 
-        s0 = pulse[peak_time]
-        s1 = pulse[peak_time + 1]
-        s2 = pulse[peak_time + 2]
-        s3 = pulse[peak_time + 3]
-        t_max_deriv = t0 = t1 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
-
-        for j in range(peak_time + 4, nSamples):
-            s4 = pulse[j]
-            t2 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
-
-            t3 = t2 if t2 < t0 else t0
-            if t3 > t_max_deriv:
-                t_max_deriv = t3
-
-            s0, s1, s2, s3 = s1, s2, s3, s4
-            t0, t1 = t1, t2
-
-        p_postpeak_deriv_array[i] = 0.1 * t_max_deriv
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def filter_data(ds, double [:] filter_values, transform=None):
-    cdef:
-        Py_ssize_t i, j, k
-        int n_segments, pulses_per_seg, seg_size, nSamples, filter_length
-        double conv0, conv1, conv2, conv3, conv4
-        unsigned short [:, :] pulse_data
-        unsigned short [:] pulse
-        unsigned short sample
-        double f0, f1, f2, f3, f4
-        double p0, p1, p2
-
-    n_segments = ds.pulse_records.n_segments
-    pulses_per_seg = ds.pulse_records.pulses_per_seg
-    nSamples = ds.nSamples
-    filter_length = nSamples - 4
-
-    filt_phase_array = np.zeros(pulses_per_seg, dtype=np.float64)
-    filt_value_array = np.zeros(pulses_per_seg, dtype=np.float64)
-
-    for i in range(n_segments):
-        first, end = ds.read_segment(i)  # this reloads self.data to contain new pulses
-        seg_size = end - first
-
-        pulse_data = ds.data
-
-        for j in range(seg_size):
-            pulse = pulse_data[j]
-
-            f0, f1, f2, f3 = filter_values[0], filter_values[1], filter_values[2], filter_values[3]
-
-            conv0 = pulse[0] * f0 +\
-                    pulse[1] * f1 +\
-                    pulse[2] * f2 +\
-                    pulse[3] * f3
-            conv1 = pulse[1] * f0 +\
-                    pulse[2] * f1 +\
-                    pulse[3] * f2
-            conv2 = pulse[2] * f0 +\
-                    pulse[3] * f1
-            conv3 = pulse[3] * f0
-            conv4 = 0.0
-
-            for k in range(4, nSamples - 4):
-                f4 = filter_values[k]
-                sample = pulse[k]
-                conv0 += sample * f4
-                conv1 += sample * f3
-                conv2 += sample * f2
-                conv3 += sample * f1
-                conv4 += sample * f0
-                f0, f1, f2, f3 = f1, f2, f3, f4
-
-            conv4 += pulse[nSamples - 4] * f1 +\
-                     pulse[nSamples - 3] * f2 +\
-                     pulse[nSamples - 2] * f3 +\
-                     pulse[nSamples - 1] * f4
-            conv3 += pulse[nSamples - 4] * f2 +\
-                     pulse[nSamples - 3] * f3 +\
-                     pulse[nSamples - 2] * f4
-            conv2 += pulse[nSamples - 4] * f3 +\
-                     pulse[nSamples - 3] * f4
-            conv1 += pulse[nSamples - 4] * f4
-
-            p0 = conv0*(-6.0/70) + conv1*(24.0/70) + conv2*(34.0/70) + conv3*(24.0/70) + conv4*(-6.0/70)
-            p1 = conv0*(-14.0/70) + conv1*(-7.0/70) + conv3*(7.0/70) + conv4*(14.0/70)
-            p2 = conv0*(10.0/70) + conv1*(-5.0/70) + conv2*(-10.0/70) + conv3*(-10.0/70) + conv4*(10.0/70)
-
-            filt_phase_array[j] = -0.5*p1 / p2
-            filt_value_array[j] = p0 - 0.25*p1**2 / p2
-
-        ds.p_filt_value[first:end] = filt_value_array[:seg_size]
-        ds.p_filt_phase[first:end] = filt_phase_array[:seg_size]
+    return np.asarray(delay_from_last_trigger,dtype=np.int64), np.asarray(delay_until_next_trigger, dtype=np.int64)
