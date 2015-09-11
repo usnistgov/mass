@@ -515,6 +515,7 @@ class PulseRecords(object):
     def clear_cache(self):
         self.data = None
         self.rowcount = None
+        self.times = None
         self.datafile.clear_cached_segment()
 
     def copy(self):
