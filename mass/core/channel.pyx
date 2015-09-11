@@ -512,6 +512,11 @@ class PulseRecords(object):
             self.times = self.datafile.datatimes/1e3
         return first_pnum, end_pnum
 
+    def clear_cache(self):
+        self.data = None
+        self.rowcount = None
+        self.datafile.clear_cached_segment()
+
     def copy(self):
         """Return a copy of the object.
 
@@ -1126,7 +1131,7 @@ class MicrocalDataSet(object):
 
             print_updater.update((i+1)/self.pulse_records.n_segments)
 
-        self.pulse_records.datafile.clear_cache()
+        self.clear_cache()
 
     def python_summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
@@ -1292,7 +1297,7 @@ class MicrocalDataSet(object):
             self.p_filt_value[first:end] = filt_value_array[:seg_size]
             self.p_filt_phase[first:end] = filt_phase_array[:seg_size]
 
-        self.pulse_records.datafile.clear_cache()
+        self.clear_cache()
         self.hdf5_group.file.flush()
 
     def python_filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
@@ -1345,6 +1350,11 @@ class MicrocalDataSet(object):
         peak_x = -0.5*param[1, :] / param[2, :]
         peak_y = param[0, :] - 0.25*param[1, :]**2 / param[2, :]
         return peak_x, peak_y
+
+    def clear_cache(self):
+        self.data = None
+        self.rowcount = None
+        self.pulse_records.clear_cache()
 
     def plot_summaries(self, valid='uncut', downsample=None, log=False):
         """Plot a summary of the data set, including time series and histograms of
