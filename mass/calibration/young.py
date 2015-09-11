@@ -40,11 +40,10 @@ class FailedFitter(object):
 
 
 class EnergyCalibration(object):
-    def __init__(self, size_related_to_energy_resolution=20.0, min_counts_per_cluster=100, fit_range_ev=200, excl=(),
-                 plot_on_fail=False,max_num_clusters=np.inf, max_pulses_for_dbscan=1e5, use_00=True, bin_size_ev=2):
-        self.size_related_to_energy_resolution=size_related_to_energy_resolution
+    def __init__(self, size_related_to_energy_resolution=20.0, fit_range_ev=200, excl=(),
+                 plot_on_fail=False, use_00=True, bin_size_ev=2):
+        self.size_related_to_energy_resolution = size_related_to_energy_resolution
         self.data = np.zeros(0)
-        self.mcs = min_counts_per_cluster
         self.hw = fit_range_ev
         self.bs = bin_size_ev
         self.excl = excl
@@ -54,10 +53,7 @@ class EnergyCalibration(object):
         self.ph2energy = None
         self.plot_on_fail = plot_on_fail
         self.use_00 = use_00
-        self.max_num_clusters = max_num_clusters
-        self.max_pulses_for_dbscan = max_pulses_for_dbscan
         self.__acc = np.inf
-
 
     def __find_local_maxima(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
@@ -72,7 +68,6 @@ class EnergyCalibration(object):
         lm = lm[np.argsort(-y[lm])][:30]
 
         return np.array(x[lm])
-
 
     def __find_opt_assignment(self, peak_positions, line_names):
         name_e, e_e = zip(*sorted([[element, STANDARD_FEATURES.get(element, element)] for element in line_names],
@@ -138,7 +133,6 @@ class EnergyCalibration(object):
         return list(opt_assign)
 
         # if lh_results[0][1] > 0.0004:
-
 
     def __build_calibration_spline(self, pht, energy):
         interp_peak_positions = pht
@@ -271,7 +265,6 @@ class EnergyCalibration(object):
         self.ph2energy = self.__build_calibration_spline(self.refined_peak_positions, e_e)
 
         return self
-
 
     def __call__(self, ph, der=0):
         if self.ph2energy is None:

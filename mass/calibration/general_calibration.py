@@ -670,15 +670,15 @@ class GeneralCalibration(object):
         totalCounts = ds.nPulses
         countsPassedCuts = ds.cuts.good().sum()
         elapsedTime = ds.p_timestamp[ds.cuts.good()][-1]-ds.p_timestamp[ds.cuts.good()][0]
-        print('%d pulses cut by CUT_PRETRIG_RMS'%np.sum(ds.cuts.isCut(ds.CUT_PRETRIG_RMS)))
-        print('%d pulses cut by CUT_BIAS_PULSE'%np.sum(ds.cuts.isCut(ds.CUT_BIAS_PULSE)))
-        print('%d pulses cut by CUT_RISETIME'%np.sum(ds.cuts.isCut(ds.CUT_RISETIME)))
-        print('%d pulses cut by CUT_TIMESTAMP'%np.sum(ds.cuts.isCut(ds.CUT_TIMESTAMP)))
-        print('%d pulses cut by CUT_PRETRIG_MEAN'%np.sum(ds.cuts.isCut(ds.CUT_PRETRIG_MEAN)))
-        print('%d pulses cut by CUT_RETRIGGER'%np.sum(ds.cuts.isCut(ds.CUT_RETRIGGER)))
-        print('%d pulses cut by CUT_SATURATED'%np.sum(ds.cuts.isCut(ds.CUT_SATURATED)))
-        print('%d pulses cut by CUT_UNLOCK'%np.sum(ds.cuts.isCut(ds.CUT_UNLOCK)))
-        print('%d pulses cut by CUT_TIMESTAMP'%np.sum(ds.cuts.isCut(ds.CUT_TIMESTAMP)))
+        print('%d pulses cut by CUT_PRETRIG_RMS'%np.sum(ds.cuts.is_cut(ds.CUT_PRETRIG_RMS)))
+        print('%d pulses cut by CUT_BIAS_PULSE'%np.sum(ds.cuts.is_cut(ds.CUT_BIAS_PULSE)))
+        print('%d pulses cut by CUT_RISETIME'%np.sum(ds.cuts.is_cut(ds.CUT_RISETIME)))
+        print('%d pulses cut by CUT_TIMESTAMP'%np.sum(ds.cuts.is_cut(ds.CUT_TIMESTAMP)))
+        print('%d pulses cut by CUT_PRETRIG_MEAN'%np.sum(ds.cuts.is_cut(ds.CUT_PRETRIG_MEAN)))
+        print('%d pulses cut by CUT_RETRIGGER'%np.sum(ds.cuts.is_cut(ds.CUT_RETRIGGER)))
+        print('%d pulses cut by CUT_SATURATED'%np.sum(ds.cuts.is_cut(ds.CUT_SATURATED)))
+        print('%d pulses cut by CUT_UNLOCK'%np.sum(ds.cuts.is_cut(ds.CUT_UNLOCK)))
+        print('%d pulses cut by CUT_TIMESTAMP'%np.sum(ds.cuts.is_cut(ds.CUT_TIMESTAMP)))
         print('totalCounts %d, countsPassedCuts %d, elapsedTime %f'%(totalCounts, countsPassedCuts, elapsedTime))
 
     def countRateInfo(self, usefulEnergyRange = (5300, 6000), doPlots = False, verbose = False ):
