@@ -410,6 +410,8 @@ class LJHFile(MicrocalFile):
             del self.data
         if hasattr(self, "datatimes_float"):
             del self.datatimes_float
+        if hasattr(self, "datatimes_float_old"):
+            del self.datatimes_float_old
         if hasattr(self, "rowcount"):
             del self.rowcount
         self.__cached_segment = None
