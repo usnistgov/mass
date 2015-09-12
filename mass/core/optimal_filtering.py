@@ -70,15 +70,27 @@ class Filter(object):
         if noise_psd is None:
             self.noise_psd = None
         else:
-            self.noise_psd = np.array(noise_psd)
+            self.noise_psd = np.asarray(noise_psd)
         if noise_autocorr is None:
             self.noise_autocorr = None
         else:
-            self.noise_autocorr = np.array(noise_autocorr)
+            self.noise_autocorr = np.asarray(noise_autocorr)
         if noise_psd is None and noise_autocorr is None:
             raise ValueError("Filter must have noise_psd or noise_autocorr arguments (or both)")
-        
-        self.compute(fmax=fmax, f_3db=f_3db)
+
+        self.fmax = fmax
+        self.f_3db = f_3db
+
+        self.filt_fourier = None
+        self.filt_fourierfull = None
+        self.filt_noconst = None
+        self.filt_baseline = None
+        self.filt_baseline_pretrig = None
+
+        self.variances = {}
+        self.predicted_v_over_dv = {}
+
+        #self.compute(fmax=fmax, f_3db=f_3db)
 
     def normalize_filter(self, q):
         """Rescale filter <q> so that it gives unit response to self.avg_signal"""
@@ -96,7 +108,7 @@ class Filter(object):
         else:
             q *= 1.0/np.dot(q, self.avg_signal[self.shorten:-self.shorten])
 
-    def _compute_fourier_filter(self, fmax=None, f_3db=None):
+    def _compute_fourier_filter(self):
         """Compute the Fourier-domain filter"""
         if self.noise_psd is None:
             return
@@ -128,12 +140,12 @@ class Filter(object):
         sig_ft_weighted = sig_ft/noise_psd
         
         # Band-limit
-        if fmax is not None or f_3db is not None:
+        if self.fmax is not None or self.f_3db is not None:
             freq = np.arange(0, n-self.shorten, dtype=np.float)*0.5/((n-1)*self.sample_time)
-            if fmax is not None:
-                sig_ft_weighted[freq > fmax] = 0.0
-            if f_3db is not None:
-                sig_ft_weighted /= (1+(freq*1.0/f_3db)**2)
+            if self.fmax is not None:
+                sig_ft_weighted[freq > self.fmax] = 0.0
+            if self.f_3db is not None:
+                sig_ft_weighted /= (1+(freq*1.0/self.f_3db)**2)
 
         # Compute both the normal (DC-free) and the full (with DC) filters.
         self.filt_fourierfull = np.fft.irfft(sig_ft_weighted)/window
@@ -157,23 +169,18 @@ class Filter(object):
             # print 'Fourier filter done.  Variance: ',self.variances['fourier'],
             # 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
 
-    def compute(self, fmax=None, f_3db=None, use_toeplitz_solver=True):
+    def compute(self, use_toeplitz_solver=True):
         """
         Compute a set of filters.  This is called once on construction, but you can call it
         again if you want to change the frequency cutoff or f_3db rolloff point.
         """
-
-        self.fmax = fmax
-        self.f_3db = f_3db
-        self.variances = {}
-        self.predicted_v_over_dv = {}
-        self._compute_fourier_filter(fmax=fmax, f_3db=f_3db)
+        self._compute_fourier_filter()
 
         # Time domain filters
         if self.noise_autocorr is not None:
             n = len(self.avg_signal) - 2*self.shorten
             if len(self.noise_autocorr) < n:
-                raise ValueError("Noise autocorrelation is only %d samples long, but filter requires %d"%
+                raise ValueError("Noise autocorrelation is only %d samples long, but filter requires %d" %
                                  (len(self.noise_autocorr), n))
             if self.shorten > 0:
                 avg_signal = self.avg_signal[self.shorten:-self.shorten]
@@ -187,7 +194,8 @@ class Filter(object):
                 Rinv_1 = ts(np.ones(n))
             else:
                 if n > 6000:
-                    raise ValueError("Not allowed to use generic solver for vectors longer than 6000, because it's slow-ass.")
+                    raise ValueError("Not allowed to use generic solver for vectors longer than 6000, " +
+                                     "because it's slow-ass.")
                 R = sp.linalg.toeplitz(noise_corr)
                 Rinv_sig = np.linalg.solve(R, avg_signal)
                 Rinv_1 = np.linalg.solve(R, np.ones(n))
@@ -195,15 +203,15 @@ class Filter(object):
             self.filt_noconst = Rinv_1.sum()*Rinv_sig - Rinv_sig.sum()*Rinv_1
 
             # Band-limit
-            if fmax is not None or f_3db is not None:
+            if self.fmax is not None or self.f_3db is not None:
                 filt_length = len(self.filt_noconst)
                 sig_ft = np.fft.rfft(self.filt_noconst)
                 freq = np.fft.fftfreq(filt_length, d=self.sample_time)
                 freq = np.abs(freq[:len(sig_ft)])
-                if fmax is not None:
-                    sig_ft[freq > fmax] = 0.0
-                if f_3db is not None:
-                    sig_ft /= (1.+(1.0*freq/f_3db)**2)
+                if self.fmax is not None:
+                    sig_ft[freq > self.fmax] = 0.0
+                if self.f_3db is not None:
+                    sig_ft /= (1.+(1.0*freq/self.f_3db)**2)
                 self.filt_noconst = np.fft.irfft(sig_ft, n=filt_length)  # n= is needed when filt_length is ODD
 
             self.normalize_filter(self.filt_noconst)

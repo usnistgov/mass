@@ -1091,15 +1091,15 @@ class TESGroup(object):
             print("Computing noise autocorrelation and spectrum")
             self.compute_noise_spectra()
 
-        printUpdater = InlineUpdater('compute_filters')
+        print_updater = InlineUpdater('compute_filters')
         for ds_num, ds in enumerate(self):
             if "filters" not in ds.hdf5_group or forceNew:
                 if ds.cuts.good().sum() < 10:
                     ds.filter = None
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
-                printUpdater.update((ds_num+1) / float(self.n_channels))
-                avg_signal = np.array(ds.average_pulse)
+                print_updater.update((ds_num+1) / float(self.n_channels))
+                avg_signal = np.asarray(ds.average_pulse)
 
                 try:
                     spectrum = ds.noise_spectrum.spectrum()
@@ -1108,6 +1108,7 @@ class TESGroup(object):
                 f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
                                      spectrum, ds.noise_autocorr, sample_time=self.timebase,
                                      fmax=fmax, f_3db=f_3db, shorten=2)
+                f.compute()
                 ds.filter = f
                 # Store all filters created to a new HDF5 group
                 h5grp = ds.hdf5_group.require_group('filters')
@@ -1117,25 +1118,41 @@ class TESGroup(object):
                     h5grp.attrs['fmax'] = f.fmax
                 h5grp.attrs['peak'] = f.peak_signal
                 h5grp.attrs['shorten'] = f.shorten
-                for k, v in ds.filter.__dict__.items():
-                    if not k.startswith("filt_"):
-                        continue
+                # for k, v in ds.filter.__dict__.items():
+                #     if not k.startswith("filt_"):
+                #         continue
+                #     if k in h5grp:
+                #         del h5grp[k]
+                #     vec = h5grp.create_dataset(k, data=v)
+                #     vec.attrs['variance'] = f.variances.get(k[5:], 0)
+                for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
+                          "filt_baseline", "filt_baseline_pretrig"]:
                     if k in h5grp:
                         del h5grp[k]
-                    vec = h5grp.create_dataset(k, data=v)
-                    vec.attrs['variance'] = f.variances.get(k[5:], 0)
+                    if getattr(f, k):
+                        vec = h5grp.create_dataset(k, data=getattr(f, k))
+                        vec.attrs['variance'] = f.variances[k]
+                        vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv[k]
             else:
                 print("chan %d skipping compute_filter because already done, and loading filter" % ds.channum)
                 h5grp = ds.hdf5_group['filters']
-                ds.filter = FilterCanvas()
+                ds.filter = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
+                                             spectrum, ds.noise_autocorr, sample_time=self.timebase,
+                                             fmax=fmax, f_3db=f_3db, shorten=2)
                 ds.filter.peak_signal = h5grp.attrs['peak']
                 ds.filter.shorten = h5grp.attrs['shorten']
                 ds.filter.f_3db = h5grp.attrs['f_3db'] if 'f_3db' in h5grp.attrs else None
                 ds.filter.fmax = h5grp.attrs['fmax'] if 'fmax' in h5grp.attrs else None
-                for name in h5grp:
-                    if name.startswith("filt_"):
-                        setattr(ds.filter, name, h5grp[name][:])
-                        # doesn't do variances
+                # for name in h5grp:
+                #     if name.startswith("filt_"):
+                #         setattr(ds.filter, name, h5grp[name][:])
+                #         # doesn't do variances
+                for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
+                          "filt_baseline", "filt_baseline_pretrig"]:
+                    if k in h5grp:
+                        setattr(ds.filter, k, h5grp[k][...])
+                        ds.filter.variances[k] = h5grp[k].attrs['variance']
+                        ds.filter.predicted_v_over_dv = h5grp[k].attrs['predicted_v_over_dc']
 
     def plot_filters(self, first=0, end=-1):
         """Plot the filters from <first> through <end>-1.  By default, plots all filters,
