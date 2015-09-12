@@ -32,8 +32,9 @@ import mass.calibration.energy_calibration
 import mass.mathstat
 import mass.nonstandard.CDM
 
-from mass.core.utilities import InlineUpdater
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
+from mass.core.optimal_filtering import Filter
+from mass.core.utilities import InlineUpdater
 
 
 class FilterCanvas(object):
@@ -378,6 +379,7 @@ class TESGroup(object):
         self.channels = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)
         self.datasets = tuple(dset_list)
+
         for chan, ds in zip(self.channels, self.datasets):
             ds.pulse_records = chan
 
@@ -1105,9 +1107,9 @@ class TESGroup(object):
                     spectrum = ds.noise_spectrum.spectrum()
                 except:
                     spectrum = ds.noise_psd[:]
-                f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
-                                     spectrum, ds.noise_autocorr, sample_time=self.timebase,
-                                     fmax=fmax, f_3db=f_3db, shorten=2)
+                f = Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
+                           spectrum, ds.noise_autocorr, sample_time=self.timebase,
+                           fmax=fmax, f_3db=f_3db, shorten=2)
                 f.compute()
                 ds.filter = f
                 # Store all filters created to a new HDF5 group
@@ -1136,9 +1138,9 @@ class TESGroup(object):
             else:
                 print("chan %d skipping compute_filter because already done, and loading filter" % ds.channum)
                 h5grp = ds.hdf5_group['filters']
-                ds.filter = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
-                                             spectrum, ds.noise_autocorr, sample_time=self.timebase,
-                                             fmax=fmax, f_3db=f_3db, shorten=2)
+                ds.filter = Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
+                                   spectrum, ds.noise_autocorr, sample_time=self.timebase,
+                                   fmax=fmax, f_3db=f_3db, shorten=2)
                 ds.filter.peak_signal = h5grp.attrs['peak']
                 ds.filter.shorten = h5grp.attrs['shorten']
                 ds.filter.f_3db = h5grp.attrs['f_3db'] if 'f_3db' in h5grp.attrs else None

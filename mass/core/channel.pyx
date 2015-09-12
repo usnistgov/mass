@@ -6,7 +6,14 @@ Created on Feb 16, 2011
 
 import functools
 import operator
+from os import path
 
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
+import h5py
 import numpy as np
 import matplotlib.pylab as plt
 import cython
@@ -18,16 +25,11 @@ import mass.mathstat.power_spectrum
 import mass.core.analysis_algorithms
 
 from mass.core.files import VirtualFile, LJHFile, LANLFile
+from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
 from mass.calibration import young
-import h5py
-from mass.core import ljh_util
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
-from os import path
+from mass.core import ljh_util
 
 
 class NoiseRecords(object):
@@ -845,6 +847,29 @@ class MicrocalDataSet(object):
         nfreq = 1 + self.nSamples // 2
         self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
                                                dtype=np.float64)
+
+        if 'filters' in h5grp:
+            filter_group = h5grp['filters']
+
+            fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
+            f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
+            shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
+
+            self.filter = Filter(self.average_pulse[...],
+                                 self.tes_group.nPresamples - self.pretrigger_ignore_samples,
+                                 self.noise_psd[...],
+                                 self.noise_autocorr, sample_time=self.timebase,
+                                 fmax=fmax,
+                                 f_3db=f_3db,
+                                 shorten=shorten)
+
+            for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
+                      "filt_baseline", "filt_baseline_pretrig"]:
+                if k in filter_group:
+                    setattr(self.filter, k, h5grp[k][...])
+                    self.filter.variances[k] = h5grp[k].attrs['variance']
+                    self.filter.predicted_v_over_dv = h5grp[k].attrs['predicted_v_over_dc']
+
         grp = self.hdf5_group.require_group('cuts')
         self.cuts = Cuts(self.nPulses, self.tes_group, hdf5_group=grp)
 
