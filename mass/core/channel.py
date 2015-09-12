@@ -917,6 +917,7 @@ class MicrocalDataSet(object):
         if len(self.p_timestamp) < self.pulse_records.nPulses:
             self.__setup_vectors(npulses=self.pulse_records.nPulses)  # make sure vectors are setup correctly
         self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
+        self._peakidx = None
 
         printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
         for s in range(self.pulse_records.n_segments):
@@ -963,12 +964,20 @@ class MicrocalDataSet(object):
         self.p_pulse_rms[first:end] = np.sqrt(
             (self.data[:seg_size, self.nPresamples:]**2.0).mean(axis=1) -
             ptm*(ptm + 2*self.p_pulse_average[first:end]))
-        self.p_promptness[first:end] = \
-            (self.data[:seg_size, self.nPresamples+6:self.nPresamples+12].mean(axis=1) - ptm) /\
-            self.p_peak_value[first:end]
 
-        self.p_shift1[first:end] = (self.data[:seg_size,self.nPresamples+2]-ptm >
-                                    3.3*self.p_pretrig_rms[first:end])
+        shift1 = (self.data[:seg_size,self.nPresamples+2]-ptm >
+                  4.3*self.p_pretrig_rms[first:end])
+        self.p_shift1[first:end] = shift1
+
+        if self._peakidx is None:
+            self._peakidx = np.median(self.p_peak_index[first:end])
+        halfidx = (self.nPresamples+5+self._peakidx)/2
+        pkval = self.p_peak_value[first:end]
+        prompt = (self.data[:seg_size, self.nPresamples+5:halfidx].mean(axis=1)
+                  - ptm) / pkval
+        prompt[shift1] = (self.data[shift1, self.nPresamples+4:halfidx-1].mean(axis=1)
+                  - ptm[shift1]) / pkval[shift1]
+        self.p_promptness[first:end] = prompt
 
         self.p_rise_time[first:end] = \
             mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size],
