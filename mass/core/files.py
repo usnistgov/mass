@@ -410,11 +410,10 @@ class LJHFile(MicrocalFile):
         return first, end, self.data
 
     def clear_cached_segment(self):
-        self.data = None
+        super(LJHFile, self).clear_cache()
         self.datatimes_float = None
         self.datatimes_float_old = None
         self.rowcount = None
-        self.__cached_segment = None
 
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
         """Read the binary section of an LJH file, interpret it, and store the results in
@@ -462,30 +461,31 @@ class LJHFile(MicrocalFile):
 
     def __read_binary_pre22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
         """
-        This is for version before version 2.2 of ljh files. The key distinction is how pulse arrival time data is encoded.
-        Pre 2.2 each pulse has a timestamp encoded in a weird way that contains arrival time at 4 usec resolution. If the frame time is
-        greater than or equal to 4 usec, the exact frame number can be recovered.
+        This is for version before version 2.2 of ljh files.
+        The key distinction is how pulse arrival time data is encoded.
+        Pre 2.2 each pulse has a timestamp encoded in a weird way that contains arrival time at 4 usec resolution.
+        If the frame time is greater than or equal to 4 usec, the exact frame number can be recovered.
         """
+        array = None
+
+        if max_size >= 0:
+            maxitems = max_size // self.pulse_size_bytes
+            BYTES_PER_WORD = 2
+            wordcount = maxitems*self.pulse_size_bytes//BYTES_PER_WORD
+            if error_on_partial_pulse and wordcount*BYTES_PER_WORD != max_size:
+                msg = "__read_binary(max_size=%d) requests a non-integer number of pulses" % max_size
+                raise ValueError(msg)
+        else:
+            wordcount = -1
+
         try:
-            array = None
             with open(self.filename, "rb") as fp:
                 if skip > 0:
                     fp.seek(skip)
-
-                if max_size >= 0:
-                    maxitems = max_size // self.pulse_size_bytes
-                    BYTES_PER_WORD = 2
-                    wordcount = maxitems*self.pulse_size_bytes//BYTES_PER_WORD
-                    if error_on_partial_pulse and wordcount*BYTES_PER_WORD != max_size:
-                        msg = "__read_binary(max_size=%d) requests a non-integer number of pulses" % max_size
-                        raise ValueError(msg)
-                else:
-                    wordcount = -1
-
                 array = np.fromfile(fp, dtype=np.uint16, sep="", count=wordcount)
         except:
             if not array:
-                print(fp)
+                print(self.filename)
                 print('array[-4:]', array[-4:])
                 print('wordcount', wordcount, 'skip', skip)
                 print('arrays.size', array.size, 'array.dtype', array.dtype)
