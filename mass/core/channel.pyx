@@ -1096,14 +1096,16 @@ class MicrocalDataSet(object):
                 else:
                     p_rise_times_array[j] = <float>timebase
 
-                # Calculating the postpeak_deriv with a simple kernel (f0, f1, f2, f3, f4) and spike_reject on.
+                # Calculating the postpeak_deriv with a simple kernel (f0, f1, f2 = 0, f3, f4) and spike_reject on.
                 s0 = pulse[peak_time]
                 s1 = pulse[peak_time + 1]
                 s2 = pulse[peak_time + 2]
                 s3 = pulse[peak_time + 3]
+                s4 = pulse[peak_time + 4]
                 t_max_deriv = t0 = t1 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
 
-                for k in range(peak_time + 4, nSamples):
+                for k in range(peak_time + 5, nSamples):
+                    s0, s1, s2, s3 = s1, s2, s3, s4
                     s4 = pulse[k]
                     t2 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
 
@@ -1111,7 +1113,6 @@ class MicrocalDataSet(object):
                     if t3 > t_max_deriv:
                         t_max_deriv = t3
 
-                    s0, s1, s2, s3 = s1, s2, s3, s4
                     t0, t1 = t1, t2
 
                 p_postpeak_deriv_array[j] = 0.1 * t_max_deriv
