@@ -205,6 +205,10 @@ class LJHFile(MicrocalFile):
         self.__read_header(filename)
         self.set_segment_size(segmentsize)
 
+        self.datatimes_float = None
+        self.datatimes_float_old = None
+        self.rowcount = None
+
         self.post22_data_dtype = np.dtype([('rowcount', np.int64),
                                            ('posix_usec', np.int64),
                                            ('data', np.uint16, self.nSamples)])
@@ -406,14 +410,10 @@ class LJHFile(MicrocalFile):
         return first, end, self.data
 
     def clear_cached_segment(self):
-        if hasattr(self, "data"):
-            del self.data
-        if hasattr(self, "datatimes_float"):
-            del self.datatimes_float
-        if hasattr(self, "datatimes_float_old"):
-            del self.datatimes_float_old
-        if hasattr(self, "rowcount"):
-            del self.rowcount
+        self.data = None
+        self.datatimes_float = None
+        self.datatimes_float_old = None
+        self.rowcount = None
         self.__cached_segment = None
 
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
