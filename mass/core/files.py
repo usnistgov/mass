@@ -466,8 +466,6 @@ class LJHFile(MicrocalFile):
         Pre 2.2 each pulse has a timestamp encoded in a weird way that contains arrival time at 4 usec resolution.
         If the frame time is greater than or equal to 4 usec, the exact frame number can be recovered.
         """
-        array = None
-
         if max_size >= 0:
             maxitems = max_size // self.pulse_size_bytes
             BYTES_PER_WORD = 2
@@ -478,27 +476,28 @@ class LJHFile(MicrocalFile):
         else:
             wordcount = -1
 
-        try:
-            with open(self.filename, "rb") as fp:
-                if skip > 0:
-                    fp.seek(skip)
-                array = np.fromfile(fp, dtype=np.uint16, sep="", count=wordcount)
-        except:
-            if not array:
-                print(self.filename)
-                print('array[-4:]', array[-4:])
-                print('wordcount', wordcount, 'skip', skip)
-                print('arrays.size', array.size, 'array.dtype', array.dtype)
-            raise
+        with open(self.filename, "rb") as fp:
+            if skip > 0:
+                fp.seek(skip)
+            array = np.fromfile(fp, dtype=np.uint16, sep="", count=wordcount)
+
+        # Let's not catch an Exception, if we don't know which one to catch.
+        #     print(self.filename)
+        #     print('array[-4:]', array[-4:])
+        #     print('wordcount', wordcount, 'skip', skip)
+        #     print('arrays.size', array.size, 'array.dtype', array.dtype)
+        # raise
 
         # If data has a fractional record at the end, truncate to make it go away.
         self.segment_pulses = len(array) // (self.pulse_size_bytes // 2)
         array = array[:self.segment_pulses * (self.pulse_size_bytes // 2)]
+
         try:
             self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes // 2])
         except ValueError as ex:
             print(skip, max_size, self.segment_pulses, self.pulse_size_bytes, len(array))
             raise ex
+
         # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,
         # where u is a byte giving microseconds/4, x is a reserved byte, and mmmm is a 4-byte
         # little-ending giving milliseconds.  The uu should always be in [0,999]
