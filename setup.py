@@ -90,14 +90,18 @@ class QtBuilder(basic_build):
 
 if __name__ == "__main__":
     import sys
-    from distutils.extension import Extension
 
     import numpy as np
-    from numpy.distutils.core import setup
     from Cython.Build import cythonize
 
     if sys.platform != 'win32':
+        from numpy.distutils.core import setup
+        from distutils.extension import Extension
+
         setup(configuration=configuration_fortran)
+    else:
+        from setuptools import setup
+        from setuptools.extension import Extension
 
     setup(name='mass',
           version=MASS_VERSION,
