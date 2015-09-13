@@ -110,7 +110,7 @@ if __name__ == "__main__":
           ext_modules=cythonize([Extension('mass.core.channel',
                                            [os.path.join('mass', 'core', 'channel.pyx')],
                                            include_dirs=[np.get_include()]),
-                                 Extension('mass.mathstat._robust',
+                                 Extension('mass.mathstat.robust',
                                            [os.path.join('mass', 'mathstat', 'robust.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.core.analysis_algorithms',
