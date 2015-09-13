@@ -1,4 +1,6 @@
 /build
+/dist
+/mass.egg-info
 .project
 .pydevproject
 lint-report.txt
