@@ -52,13 +52,14 @@ data.drift_correct(forceNew=False,category={"pump":"pumped"}) # does drift corre
 There is an alternate API that may be more convenient in some cases. Imagine we have an experiment with a delay stage that was in many positions thruout the experiment.
 
 ```
-data.register_categorical_cut_field("delay",["-150mm","-100mm","-50mm",...,"200mm"])
-categories = data.cut_field_categories("delay") # gets a dict of category name ("-150mm") to category label (1)
-labels = np.zeros(ds.nPulses, dtype=np.int64) # note 0 is always the default category, unless otherwise specified named "uncategorized"
+data.register_categorical_cut_field("delay",["-150mm","-100mm","-50mm",...,"200mm"])  # Register a categorical cut field named "delay".
+categories = data.cut_field_categories("delay") # gets a dict of category label ("-150mm") to category code (1)
+category_codes = np.zeros(ds.nPulses, dtype=np.int64) # note 0 is always the default category, unless otherwise specified named "uncategorized"
+
 for i in range(ds.nPulses):
     delay_stage_pos = get_delay_stage_pos(i)
-    labels[i]=categories[delay_stage_pos] # labels is a one per pulse vector with integer valued labels, each integer corresponds to a category name in the dictionary categories
-    ds.cuts.cut("delay", labels)
+    category_codes[i]=categories[delay_stage_pos] # category_codes is a one per pulse vector with integer valued codes, each integer corresponds to a category label in the dictionary categories
+    ds.cuts.cut("delay", category_codes)
 ```
 
 
