@@ -1117,19 +1117,19 @@ class MicrocalDataSet(object):
 
         assert len(filter_values)+1 == self.nSamples
 
-        seg_size = min(end-first, self.data.shape[0])
+        seg_size = end-first
+        assert seg_size == self.data.shape[0]
         ptmean = self.p_pretrig_mean[first:end]
+        data = self.data
         if transform is not None:
-            ptmean.shape = (len(ptmean), 1)
+            ptmean.shape = (seg_size, 1)
             data = transform(self.data-ptmean)
-            ptmean.shape = (end-first,)
-        else:
-            data = self.data
-        conv0 = np.dot(data[:seg_size, 1:], filter_values)
-        conv1 = np.dot(data[:seg_size, 1:], filter_AT)
+            ptmean.shape = (seg_size,)
+        conv0 = np.dot(data[:, 1:], filter_values)
+        conv1 = np.dot(data[:, 1:], filter_AT)
 
         # Find pulses that triggered 1 sample too late and "want to shift"
-        want_to_shift = self.p_shift1[first:end][:seg_size]
+        want_to_shift = self.p_shift1[first:end]
         conv0[want_to_shift] = np.dot(data[want_to_shift, :-1], filter_values)
         conv1[want_to_shift] = np.dot(data[want_to_shift, :-1], filter_AT)
         AT = conv1/conv0
