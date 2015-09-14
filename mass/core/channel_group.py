@@ -1082,17 +1082,10 @@ class TESGroup(object):
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
                 printUpdater.update((ds_num+1)/float(self.n_channels))
-                avg_signal = np.array(ds.average_pulse)
-
-                try:
-                    spectrum = ds.noise_spectrum.spectrum()
-                except:
-                    spectrum = ds.noise_psd[:]
-
-                nshort = 1 if ds._3lag_filter else 2
-                f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
-                                     spectrum, ds.noise_autocorr, sample_time=self.timebase,
-                                     fmax=fmax, f_3db=f_3db, shorten=nshort)
+                if ds._use_new_filters:
+                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db)
+                else:
+                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db)
                 ds.filter = f
 
                 # Store all filters created to a new HDF5 group
@@ -1124,6 +1117,8 @@ class TESGroup(object):
                         setattr(ds.filter, name, h5grp[name][:])
                         suffix = name.split("filt_")[1]
                         ds.filter.variances[suffix] = h5grp[name].attrs['variance']
+
+
 
     def plot_filters(self, first=0, end=-1):
         """Plot the filters from <first> through <end>-1.  By default, plots all filters,
