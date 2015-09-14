@@ -1025,9 +1025,9 @@ class MicrocalDataSet(object):
 
         # The raw training data
         raw = self.data[:, 1:]
-        raw = (raw.T-self.p_pretrig_mean[begin:end]).T
         shift1 = self.p_shift1[begin:end]
         raw[shift1, :] = self.data[shift1, 0:-1]
+        raw = (raw.T-self.p_pretrig_mean[begin:end]).T
         raw = raw[use,:]
         ATime = ATime[use]
 
