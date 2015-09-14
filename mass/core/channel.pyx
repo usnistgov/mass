@@ -1276,12 +1276,13 @@ class MicrocalDataSet(object):
         filt_phase_array = np.zeros(pulses_per_seg, dtype=np.float64)
         filt_value_array = np.zeros(pulses_per_seg, dtype=np.float64)
 
+        print_updater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
+
         for i in range(n_segments):
             first, end = self.read_segment(i)  # this reloads self.data to contain new pulses
             seg_size = end - first
 
             pulse_data = self.data
-            print_updater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
 
             for j in range(seg_size):
                 pulse = pulse_data[j]
