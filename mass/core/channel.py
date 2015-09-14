@@ -1006,16 +1006,16 @@ class MicrocalDataSet(object):
         begin,end = self.read_segment(0)
         gthis = self.good()[begin:end]
         mprms = np.median(self.p_pulse_rms[begin:end][gthis])
-        use = np.logical_and(gthis, np.abs(self.p_pulse_rms[begin:end]-mprms) < 0.4)
+        use = np.logical_and(gthis, np.abs(self.p_pulse_rms[begin:end]/mprms-1.0) < 0.4)
 
-        # Center promptness around 0, using a quadratic function of Prms
-        prompt = self.p_promptness[begin:end][use]
-        prms = self.p_pulse_rms[begin:end][use]
-        promptshift = np.poly1d(np.polyfit(prms, prompt, 1))
+        # Center promptness around 0, using a simple function of Prms
+        prompt = self.p_promptness[begin:end]
+        prms = self.p_pulse_rms[begin:end]
+        promptshift = np.poly1d(np.polyfit(prms[use], prompt[use], 1))
         prompt -= promptshift(prms)
 
         # Scale it quadratically to cover the range -0.5 to +0.5, approximately
-        x,y,z = sp.stats.scoreatpercentile(prompt, [20,50,80])
+        x,y,z = sp.stats.scoreatpercentile(prompt[use], [20,50,80])
         A = np.array([[x*x,x,1],
                       [y*y,y,1],
                       [z*z,z,1]])
@@ -1029,6 +1029,7 @@ class MicrocalDataSet(object):
         shift1 = self.p_shift1[begin:end]
         raw[shift1, :] = self.data[shift1, 0:-1]
         raw = raw[use,:]
+        ATime = ATime[use]
 
         def cost(param, x0, y0):
             "The cost function is the sum of absolute deviations from the model"
@@ -1064,7 +1065,7 @@ class MicrocalDataSet(object):
         printUpdater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
         if self._use_new_filters:
             filterfunction = self._filter_data_segment_new
-            filter_AT = self.filt_aterms[0]
+            filter_AT = self.filter.filt_aterms[0]
         else:
             filterfunction = self._filter_data_segment_old
             filter_AT = None

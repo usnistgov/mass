@@ -360,6 +360,10 @@ class ArrivalTimeSafeFilter(Filter):
         self.filt_noconst = filt[0]
         self.filt_aterms = filt[1:-1]
         self.filt_baseline = filt[-1]
+        scale = np.max(self.avg_signal) / np.dot(filt[0], self.avg_signal)
+        self.filt_noconst *= scale
+        self.filt_aterms *= scale
+#         self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr)
 
 
 

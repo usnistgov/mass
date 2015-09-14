@@ -1081,12 +1081,12 @@ class TESGroup(object):
                     ds.filter = None
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
-                printUpdater.update((ds_num+1)/float(self.n_channels))
                 if ds._use_new_filters:
                     f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db)
                 else:
                     f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db)
                 ds.filter = f
+                printUpdater.update((ds_num+1)/float(self.n_channels))
 
                 # Store all filters created to a new HDF5 group
                 h5grp = ds.hdf5_group.require_group('filters')
