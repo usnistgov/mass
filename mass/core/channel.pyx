@@ -562,9 +562,12 @@ class Cuts(object):
         boolean_field = self.tes_group.boolean_cut_desc
         categorical_field = self.tes_group.categorical_cut_desc
 
-        if isinstance(cut_num, int):
+        if isinstance(cut_num, int) or isinstance(cut_num, np.uint) or isinstance(cut_num, np.int):
+            cut_num = int(cut_num)
             if (cut_num < 0) or (cut_num > 31):
-                raise ValueError(str(cut_num) + "is out of range.")
+                raise ValueError(str(cut_num) + " is out of range.")
+            if boolean_field[cut_num]['name'] == ''.encode():
+                raise ValueError(str(cut_num) + " is not a registered boolean cut.")
             _, bit_mask = boolean_field[cut_num]
             self._mask[mask] |= bit_mask
         elif isinstance(cut_num, bytes) or isinstance(cut_num, str):
