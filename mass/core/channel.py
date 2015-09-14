@@ -18,10 +18,19 @@ import mass.mathstat.power_spectrum
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.utilities import InlineUpdater
 from mass.calibration import young
+import mass.robust
 import h5py
 import ljh_util
 import cPickle
 from os import path
+
+def log_and(a, b, *args):
+    """Generalize np.logical_and() to 2 OR MORE arguments."""
+    result = np.logical_and(a,b)
+    for c in args:
+        result = np.logical_and(result, c)
+    return result
+
 
 
 class NoiseRecords(object):
@@ -801,7 +810,8 @@ class MicrocalDataSet(object):
         float64_fields = ('timestamp',)
         float32_fields = ('pretrig_mean', 'pretrig_rms', 'pulse_average', 'pulse_rms',
                           'promptness', 'rise_time', 'postpeak_deriv',
-                          'filt_phase', 'filt_value', 'filt_value_dc', 'filt_value_phc', 'filt_value_tdc',
+                          'filt_phase', 'filt_phase_corr', 'filt_value', 'filt_value_dc',
+                          'filt_value_phc', 'filt_value_tdc',
                           'energy')
         uint16_fields = ('peak_index', 'peak_value', 'min_value')
         int64_fields = ('rowcount',)
@@ -1401,6 +1411,111 @@ class MicrocalDataSet(object):
                 plt.figure(fnum)
         else:
             print("channel %d skipping phase_correct2014" % self.channum)
+
+    def _find_peaks_heuristic(self):
+        """A heuristic method to identify the peaks in a spectrum that can be used to
+        design the arrival-time-bias correction. Of course, you might have better luck
+        finding peaks by an experiment-specific method, but this will stand in if you
+        cannot or do not want to find peaks another way."""
+        g = self.good()
+        phnorm = self.p_filt_value[g]
+        median_scale = 1 / np.median(phnorm)
+        phnorm*= median_scale
+        # First make histogram with bins = 0.2% of median PH
+        hist,bins = np.histogram(phnorm, 1000, [0,2])
+        binctr = bins[1:]-0.5*(bins[1]-bins[0])
+        # Then smooth these to find # of events with a range of 1.0% of median PH
+        N1pct = sp.signal.fftconvolve(hist, np.ones(5), 'same')
+        Ntotal = hist.sum()
+
+        # A peak must contain 1% of the data or 3000 events, whichever is more,
+        # but the requirement is not more than 10% of data (for meager data sets)
+        MinCountsInPeak = min(max(3000, Ntotal/100), Ntotal/10)
+        localmax = 1 + np.nonzero(log_and(N1pct[1:-1]>N1pct[2:],
+                                          N1pct[1:-1]>N1pct[:-2],
+                                          N1pct[1:-1]>MinCountsInPeak))[0]
+        peaks=[]
+        for lm in localmax:
+            Nmax = hist[lm]/10
+            if log_and((hist[lm-12:lm-7]<Nmax).all(),
+                       (hist[lm+10:lm+13]<Nmax).all()):
+                peaks.append(binctr[lm]/median_scale)
+        return np.array(peaks)
+
+
+    def _phasecorr_find_alignment(self, peak, delta_ph=60, nf=10):
+        phrange = np.array([-delta_ph,delta_ph])+peak
+        g = self.good()
+        use = log_and(g, np.abs(self.p_filt_value_dc[:]-peak)<delta_ph)
+        median_phase = np.median(self.p_filt_phase[use])
+
+        Pedges = np.linspace(-.5,.5,nf+1)+median_phase
+        Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
+        dP = 2.0/nf
+        Pbin = np.digitize(self.p_filt_phase, Pedges)-1
+
+        NBINS=200
+        hists=np.zeros((nf, NBINS), dtype=float)
+        for i,P in enumerate(Pctrs):
+            use = log_and(g, Pbin==i)
+            c,b = np.histogram(self.p_filt_value_dc[use], NBINS, phrange)
+            hists[i] = c
+
+        hists = np.vstack(hists)
+        kernel = np.mean(hists, axis=0)[::-1]
+        peaks = np.zeros(nf, dtype=float)
+        for i in range(nf):
+            conv = sp.signal.fftconvolve(kernel, hists[i], 'same')
+            m = conv.argmax()
+            if conv[m] <= 0: continue
+            p = np.poly1d(np.polyfit(b[m-2:m+3], conv[m-2:m+3], 2))
+            peak = p.deriv(m=1).r[0]
+            peaks[i] = peak
+        curve = mass.CubicSpline(Pctrs, peaks)
+        return curve, median_phase
+
+
+    def phase_correct(self, nf=9, ph_peaks=None):
+        """2015 phase correction method. Arguments are:
+        nf        How many phase bins to use in constructing correction splines.
+        ph_peaks  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
+        """
+        if ph_peaks is None:
+            ph_peaks = self._find_peaks_heuristic()
+
+        corrections = []
+        median_phase = []
+        for pk in ph_peaks:
+            c, mphase = self._phasecorr_find_alignment(pk, .012*np.mean(ph_peaks))
+            corrections.append(c)
+            median_phase.append(mphase)
+        median_phase = np.array(median_phase)
+        phase_corrector = mass.CubicSpline(ph_peaks, median_phase)
+        self.p_filt_phase_corr = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
+        NC = len(corrections)
+
+        # Compute a correction for each pulse for each correction-line energy
+        ph = np.hstack([0] + [c(0) for c in corrections])
+        assert (ph[1:]>ph[:-1]).all()
+        corr = np.zeros((NC+1, self.nPulses), dtype=float)
+        final = np.zeros(self.nPulses, dtype=float)
+        for i,c in enumerate(corrections):
+            corr[i+1] = c(0)-c(self.p_filt_phase)
+
+        filtval =  self.p_filt_value_dc[:]
+        binnum = np.digitize(filtval, ph)
+        for b in range(NC):
+            # Don't correct binnum=0, which would be negative PH
+            use = (binnum == 1+b)
+            if b+1 == NC: # For the last bin, extrapolate
+                use = (binnum >= 1+b)
+            frac = (filtval[use]-ph[b])/(ph[b+1]-ph[b])
+            final[use] = frac*corr[b+1,use]+(1-frac)*corr[b,use]+filtval[use]
+        self.p_filt_value_phc[:] = final
+        print 'Channel %3d phase corrected. MAD-based correction size: %.2f'%(
+            mass.robust.median_abs_dev(final[g]-filtval[g], True))
+        return corrections
+
 
     def first_n_good_pulses(self, n=50000, category=None):
         """
