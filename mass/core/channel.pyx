@@ -866,9 +866,12 @@ class MicrocalDataSet(object):
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                       "filt_baseline", "filt_baseline_pretrig"]:
                 if k in filter_group:
-                    setattr(self.filter, k, h5grp[k][...])
-                    self.filter.variances[k] = h5grp[k].attrs['variance']
-                    self.filter.predicted_v_over_dv = h5grp[k].attrs['predicted_v_over_dc']
+                    filter_ds = filter_group[k]
+                    setattr(self.filter, k, filter_ds[...])
+                    if 'variance' in filter_ds.attrs:
+                        self.filter.variances[k.split("filt_")[1]] = filter_ds.attrs['variance']
+                    if 'predicted_v_over_dv' in filter_ds.attrs:
+                        self.filter.predicted_v_over_dv[k.split("filt_")[1]] = filter_ds.attrs['predicted_v_over_dv']
 
         grp = self.hdf5_group.require_group('cuts')
         self.cuts = Cuts(self.nPulses, self.tes_group, hdf5_group=grp)

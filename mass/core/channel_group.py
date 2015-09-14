@@ -1131,10 +1131,10 @@ class TESGroup(object):
                           "filt_baseline", "filt_baseline_pretrig"]:
                     if k in h5grp:
                         del h5grp[k]
-                    if getattr(f, k):
+                    if hasattr(f, k):
                         vec = h5grp.create_dataset(k, data=getattr(f, k))
-                        vec.attrs['variance'] = f.variances[k]
-                        vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv[k]
+                        vec.attrs['variance'] = f.variances[k.split('filt_')[1]]
+                        vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv[k.split('filt_')[1]]
             else:
                 print("chan %d skipping compute_filter because already done, and loading filter" % ds.channum)
                 h5grp = ds.hdf5_group['filters']
@@ -1154,7 +1154,7 @@ class TESGroup(object):
                     if k in h5grp:
                         setattr(ds.filter, k, h5grp[k][...])
                         ds.filter.variances[k] = h5grp[k].attrs['variance']
-                        ds.filter.predicted_v_over_dv = h5grp[k].attrs['predicted_v_over_dc']
+                        ds.filter.predicted_v_over_dv[k] = h5grp[k].attrs['predicted_v_over_dc']
 
     def plot_filters(self, first=0, end=-1):
         """Plot the filters from <first> through <end>-1.  By default, plots all filters,
