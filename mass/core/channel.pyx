@@ -27,7 +27,7 @@ import mass.core.analysis_algorithms
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
-from mass.calibration import young
+from mass.calibration import young, energy_calibration
 
 from mass.core import ljh_util
 
@@ -773,7 +773,7 @@ class MicrocalDataSet(object):
         self.phase_correct_info = {}
         self.noise_autocorr = None
         self.noise_demodulated = None
-        self.calibration = {'p_filt_value': mass.calibration.energy_calibration.EnergyCalibration('p_filt_value')}
+        self.calibration = {'p_filt_value': energy_calibration.EnergyCalibration('p_filt_value')}
 
         for a in self.expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
