@@ -18,6 +18,6 @@ TAGS
 .idea/*
 *.h5
 
-mass/core/channel.c
-mass/core/analysis_algorithms.c
-mass/mathstat/robust.c
+# Cython produces C source files
+mass/core/*.c
+mass/mathstat/*.c
