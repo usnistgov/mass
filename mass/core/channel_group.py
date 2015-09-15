@@ -1139,7 +1139,7 @@ class TESGroup(object):
                 print("chan %d skipping compute_filter because already done, and loading filter" % ds.channum)
                 h5grp = ds.hdf5_group['filters']
                 ds.filter = Filter(ds.average_pulse[...], self.nPresamples-ds.pretrigger_ignore_samples,
-                                   ds.noise_spectrum[...], ds.noise_autocorr[...], sample_time=self.timebase,
+                                   ds.noise_psd[...], ds.noise_autocorr[...], sample_time=self.timebase,
                                    fmax=fmax, f_3db=f_3db, shorten=2)
                 ds.filter.peak_signal = h5grp.attrs['peak']
                 ds.filter.shorten = h5grp.attrs['shorten']
@@ -1153,8 +1153,10 @@ class TESGroup(object):
                           "filt_baseline", "filt_baseline_pretrig"]:
                     if k in h5grp:
                         setattr(ds.filter, k, h5grp[k][...])
-                        ds.filter.variances[k] = h5grp[k].attrs['variance']
-                        ds.filter.predicted_v_over_dv[k] = h5grp[k].attrs['predicted_v_over_dc']
+                        if 'variance' in h5grp[k].attrs:
+                            ds.filter.variances[k] = h5grp[k].attrs['variance']
+                        if 'predicted_v_over_dv' in h5grp[k].attrs:
+                            ds.filter.predicted_v_over_dv[k] = h5grp[k].attrs['predicted_v_over_dv']
 
     def plot_filters(self, first=0, end=-1):
         """Plot the filters from <first> through <end>-1.  By default, plots all filters,
