@@ -14,22 +14,23 @@ July 12, 2012  : added fitting of Voigt and Lorentzians
 November 24, 2010 : started as mn_kalpha.py
 """
 
-__all__ = ['VoigtFitter', 'LorentzianFitter',
-           'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter',
-           'MnKAlphaDistribution', 'CuKAlphaDistribution',
-           'MgKAlphaFitter', 'AlKAlphaFitter',
-           'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter',
-           'CrKAlphaFitter', 'MnKAlphaFitter', 'FeKAlphaFitter', 'CoKAlphaFitter',
-           'NiKAlphaFitter', 'CuKAlphaFitter','TiKBetaFitter', 'CrKBetaFitter',
-           'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter',
-           'CuKBetaFitter', 'plot_spectrum']
+# __all__ = ['VoigtFitter', 'LorentzianFitter',
+#            'MultiLorentzianDistribution_gen', 'MultiLorentzianComplexFitter',
+#            'MnKAlphaDistribution', 'CuKAlphaDistribution',
+#            'MgKAlphaFitter', 'AlKAlphaFitter',
+#            'ScKAlphaFitter', 'TiKAlphaFitter', 'VKAlphaFitter',
+#            'CrKAlphaFitter', 'MnKAlphaFitter', 'FeKAlphaFitter', 'CoKAlphaFitter',
+#            'NiKAlphaFitter', 'CuKAlphaFitter','TiKBetaFitter', 'CrKBetaFitter',
+#            'MnKBetaFitter', 'FeKBetaFitter', 'CoKBetaFitter', 'NiKBetaFitter',
+#            'CuKBetaFitter', 'plot_spectrum']
 
 import numpy as np
 import scipy as sp
 import pylab as plt
 
-from mass.mathstat import MaximumLikelihoodHistogramFitter, \
-    plot_as_stepped_hist, voigt
+from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
+from mass.mathstat.utilities import plot_as_stepped_hist
+from mass.mathstat.special import voigt
 
 
 class SpectralLine(object):
@@ -62,7 +63,6 @@ class SpectralLine(object):
             result += ampl*voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gauss_sigma)
             # Note that voigt is normalized to have unit integrated intensity
         return result
-
 
 
 class MgKAlpha(SpectralLine):
@@ -159,7 +159,6 @@ class ScKAlpha(SpectralLine):
     ka12_energy_diff = 5.1 # eV
 
 
-
 class TiKAlpha(SpectralLine):
     """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
     "Characterization of K spectral profiles for vanadium, component redetermination for
@@ -189,6 +188,7 @@ class TiKAlpha(SpectralLine):
     nominal_peak_energy = 4510.903 # eV
     ka12_energy_diff = 6.0 # eV
 
+
 class TiKBeta(SpectralLine):
     """From C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
     http://iopscience.iop.org/0953-4075/46/14/145601
@@ -199,7 +199,6 @@ class TiKBeta(SpectralLine):
     integral_intensity = np.array((199, 455, 326, 19.2), dtype=np.float)/1e3
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 4931.966 # eV
-
 
 
 class VKAlpha(SpectralLine):
@@ -230,6 +229,7 @@ class VKAlpha(SpectralLine):
     nominal_peak_energy = 4952.216 # eV
     ka12_energy_diff = 7.5 # eV
 
+
 class VKBeta(SpectralLine):
     """From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013).
     http://pra.aps.org/abstract/PRA/v87/i2/e022512
@@ -239,7 +239,6 @@ class VKBeta(SpectralLine):
     fwhm = np.array((18.86, 5.48, 2.498))
     integral_intensity = np.array((258, 236, 507), dtype=np.float)/1e3
     nominal_peak_energy = 5426.962 # eV
-
 
 
 class CrKAlpha(SpectralLine):
@@ -267,6 +266,7 @@ class CrKAlpha(SpectralLine):
     nominal_peak_energy = 5414.81 # eV
     ka12_energy_diff = 9.2 # eV
 
+
 class CrKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -291,6 +291,7 @@ class CrKBeta(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 5946.82 # eV
+
 
 class MnKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
@@ -349,7 +350,6 @@ class MnKBeta(SpectralLine):
     nominal_peak_energy = 6490.18 # eV
 
 
-
 class FeKAlpha(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -374,6 +374,7 @@ class FeKAlpha(SpectralLine):
     nominal_peak_energy = 6404.01 # eV
     ka12_energy_diff = 13.0 # eV
 
+
 class FeKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -395,7 +396,6 @@ class FeKBeta(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 7058.18 # eV
-
 
 
 class CoKAlpha(SpectralLine):
@@ -426,6 +426,7 @@ class CoKAlpha(SpectralLine):
     nominal_peak_energy = 6930.38 # eV
     ka12_energy_diff = 15.0 # eV
 
+
 class CoKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -447,7 +448,6 @@ class CoKBeta(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 7649.45 # eV
-
 
 
 class NiKAlpha(SpectralLine):
@@ -474,6 +474,7 @@ class NiKAlpha(SpectralLine):
     nominal_peak_energy = 7478.26 # eV
     ka12_energy_diff = 17.2 # eV
 
+
 class NiKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -493,7 +494,6 @@ class NiKBeta(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta_1,3)
     nominal_peak_energy = 8264.78 # eV
-
 
 
 class CuKAlpha(SpectralLine):
@@ -517,6 +517,7 @@ class CuKAlpha(SpectralLine):
     nominal_peak_energy = 8047.83 # eV
     ka12_energy_diff = 20.0 # eV
 
+
 class CuKBeta(SpectralLine):
     """Function object to approximate the manganese K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
@@ -538,7 +539,6 @@ class CuKBeta(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     ## The energy at the main peak (from table IV beta1,3)
     nominal_peak_energy = 8905.42 # eV
-
 
 
 
@@ -577,16 +577,14 @@ class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
         return lor + self.distribution.energies[iline]
 
 
-
 # Some specific fluorescence lines
 # You can see how to make more if you like.
 MnKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=MnKAlpha(),
                                                        name="Mn Kalpha fluorescence")
-MnKBetaDistribution  = MultiLorentzianDistribution_gen(distribution=MnKBeta(),
-                                                       name="Mn Kbeta fluorescence")
+MnKBetaDistribution = MultiLorentzianDistribution_gen(distribution=MnKBeta(),
+                                                      name="Mn Kbeta fluorescence")
 CuKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=CuKAlpha(),
                                                        name="Cu Kalpha fluorescence")
-
 
 
 class VoigtFitter(object):
@@ -597,7 +595,6 @@ class VoigtFitter(object):
         self.last_fit_params = None
         ## Fit function samples from last successful fit
         self.last_fit_result = None
-
 
     def guess_starting_params(self, data, binctrs):
         order_stat = np.array(data.cumsum(), dtype=np.float)/data.sum()
@@ -610,7 +607,6 @@ class VoigtFitter(object):
         baseline_slope = (data[-10:].mean()-baseline)/len(data)
         ampl = (data.max()-baseline)*np.pi
         return [res, peak_loc, lor_hwhm, ampl, baseline, baseline_slope]
-
 
     ## Compute the smeared line value.
     #
@@ -628,8 +624,6 @@ class VoigtFitter(object):
         spectrum = voigt(x, params[1], params[2], sigma)
         nbins = len(x)
         return spectrum * abs(params[3]) + abs(params[4]) + params[5]*np.arange(nbins)
-
-
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
             vary_resolution=True, vary_bg=True, vary_bg_slope=False, hold=None):
@@ -683,7 +677,7 @@ class VoigtFitter(object):
             hold.append(4)
         if not vary_bg_slope:
             hold.append(5)
-        print 'Params is: ', params
+        print('Params is: ', params)
         try:
             _, _, _, _, _, _ = params
         except:
@@ -724,7 +718,7 @@ class VoigtFitter(object):
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
 
         if iflag not in (0, 2):
-            print "Oh no! iflag=%d"%iflag
+            print("Oh no! iflag=%d" % iflag)
         elif plot:
             de = np.sqrt(covariance[2, 2])
             label = "Lorentz HWHM: %.2f +- %.2f eV %s"%(fitparams[2], de, label)
@@ -735,7 +729,6 @@ class VoigtFitter(object):
                       label=label)
             axis.legend(loc='upper left')
         return fitparams, covariance
-
 
 
 class TwoVoigtFitter(object):
@@ -781,8 +774,7 @@ class TwoVoigtFitter(object):
         sigma = params[0]/(8*np.log(2))**0.5
         spectrum = voigt(x, params[1], params[2], sigma) * abs(params[3]) +\
              voigt(x, params[4], params[5], sigma) * abs(params[6])
-        return spectrum  + abs(params[7])
-
+        return spectrum + abs(params[7])
 
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
@@ -831,7 +823,7 @@ class TwoVoigtFitter(object):
             hold.append(0)
         if not vary_bg:
             hold.append(7)
-        print 'Params is: ', params
+        print('Params is: ', params)
         try:
             _, _, _, _, _, _, _, _ = params
         except:
@@ -873,7 +865,7 @@ class TwoVoigtFitter(object):
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
 
         if iflag not in (0, 2):
-            print "Oh no! iflag=%d"%iflag
+            print("Oh no! iflag=%d" % iflag)
         elif plot:
             de1 = np.sqrt(covariance[2, 2])
             label = "Lorentz HWHM 1: %.2f +- %.2f eV %s"%(fitparams[2], de1, label)
@@ -886,8 +878,6 @@ class TwoVoigtFitter(object):
                       label=label)
             axis.legend(loc='upper left')
         return fitparams, covariance
-
-
 
 
 class LorentzianFitter(VoigtFitter):
@@ -1002,7 +992,6 @@ class SimultaneousMultiLorentzianComplexFitter(object):
             param.append(data.max())
         return param
 
-
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
             vary_bg=True, vary_bg_slope=False, hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
@@ -1046,8 +1035,8 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         if params == None:
             params = self.guess_starting_params(data, pulseheights)
         if params[4]==0: params[4]=1e-7 # the fitter crashes if params[4] bg_level is zero
-        print 'start params'
-        print params
+        print('start params')
+        print(params)
         assert len(params) == 5+len(self.spectraDefs)
 
 #            print 'Guessed parameters: ',params
@@ -1098,7 +1087,7 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         return fitparams, covariance
 
 
-# Galen 20130208: I think this could be completly replaced by SimultaneousMultiLorentzianCompleFitter
+# Galen 20130208: I think this could be completely replaced by SimultaneousMultiLorentzianComplexFitter
 class MultiLorentzianComplexFitter(object):
     """Abstract base class for objects that can fit a spectral line complex.
 
@@ -1165,7 +1154,6 @@ class MultiLorentzianComplexFitter(object):
         return spectrum * P_amplitude + P_bg + P_bgslope*np.arange(nbins)
 
 
-
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None,
             label="", vary_bg=True, vary_bg_slope=False, vary_tail=False, hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
@@ -1208,8 +1196,8 @@ class MultiLorentzianComplexFitter(object):
         # Pulseheights is the wrong length to be either bin edges OR centers,
         # so just use the integers starting at zero and ignore the input
         elif len(pulseheights) != len(data):
-            print "Warning: len(pulseheights)=%d makes no sense given len(data)=%d"%(
-                len(pulseheights), len(data))
+            print("Warning: len(pulseheights)=%d makes no sense given len(data)=%d" % (
+                len(pulseheights), len(data)))
             pulseheights = np.arange(len(data), dtype=np.float)
 
         # If params is None, use guesses for all parameters. If it's a sequence with some
@@ -1217,7 +1205,7 @@ class MultiLorentzianComplexFitter(object):
         guess_params = self.guess_starting_params(data, pulseheights)
         if params is None:
             params = guess_params
-        for j in xrange(len(params)):
+        for j in range(len(params)):
             if params[j] is not None:
                 guess_params[j] = params[j]
         params = guess_params
@@ -1263,7 +1251,6 @@ class MultiLorentzianComplexFitter(object):
 
         return fitparams, covariance
 
-
     def plotFit(self, color=None, axis=None, label=""):
         """Plot the last fit and the data to which it was fit."""
         if color is None: color = 'blue'
@@ -1284,7 +1271,6 @@ class MultiLorentzianComplexFitter(object):
         axis.plot(bins, self.last_fit_result, color='#666666',
                   label="%.2f +- %.2f eV %s"%(self.last_fit_params[0], de, label))
         axis.legend(loc='upper left')
-
 
 
 class GenericKAlphaFitter(MultiLorentzianComplexFitter):
@@ -1337,7 +1323,6 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
                 self.tailfrac, self.tailtau]
 
 
-
 class GenericKBetaFitter(MultiLorentzianComplexFitter):
     def __init__(self, spectrumDef=MnKBeta):
         """
@@ -1381,63 +1366,97 @@ class _lowZ_KAlphaFitter(GenericKAlphaFitter):
         return [res, ph_ka1, dph_de, ampl, baseline, baseline_slope]
 
 
-
 class AlKAlphaFitter(_lowZ_KAlphaFitter):
     def __init__(self):
         _lowZ_KAlphaFitter.__init__(self, AlKAlpha())
+
+
 class MgKAlphaFitter(_lowZ_KAlphaFitter):
     def __init__(self):
         _lowZ_KAlphaFitter.__init__(self, MgKAlpha())
+
+
 class ScKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, ScKAlpha())
+
+
 class TiKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, TiKAlpha())
+
+
 class VKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, VKAlpha())
+
+
 class CrKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, CrKAlpha())
+
+
 class MnKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, MnKAlpha())
+
+
 class FeKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, FeKAlpha())
+
+
 class CoKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, CoKAlpha())
+
+
 class NiKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, NiKAlpha())
+
+
 class CuKAlphaFitter(GenericKAlphaFitter):
     def __init__(self):
         GenericKAlphaFitter.__init__(self, CuKAlpha())
+
 
 ## create specific KBeta Fitters
 class TiKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, TiKBeta())
+
+
 class VKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, VKBeta())
+
+
 class CrKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, CrKBeta())
+
+
 class MnKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, MnKBeta())
+
+
 class FeKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, FeKBeta())
+
+
 class CoKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, CoKBeta())
+
+
 class NiKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, NiKBeta())
+
+
 class CuKBetaFitter(GenericKBetaFitter):
     def __init__(self):
         GenericKBetaFitter.__init__(self, CuKBeta())
@@ -1536,7 +1555,7 @@ def plot_spectrum(spectrum=MnKAlpha(),
         if res < 8.12:
             pk2 = smeared_spectrum[np.abs(e-epk2)<2].max()
             pval = smeared_spectrum[np.abs(e-evalley)<3].min()
-            print "Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2/p1, pval/pk2)
+            print("Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2/p1, pval/pk2))
 
     plt.xlim(energy_range)
     plt.ylim([0, 1.13])

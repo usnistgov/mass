@@ -1,4 +1,4 @@
-'''
+"""
 Demonstration scripts for learning how to use Mass.
 
 See mass.demo.helptxt for more info.
@@ -6,7 +6,7 @@ See mass.demo.helptxt for more info.
 Created on Nov 9, 2011
 
 @author: fowlerj
-'''
+"""
 
 try:
     from IPython.lib.demo import Demo
@@ -18,7 +18,7 @@ __all__ = []
 import os
 this_dir, this_file= os.path.split(__file__)
 
-demo_files=['demo.py', 'fitting_demo.py']
+demo_files = ['demo.py', 'fitting_demo.py']
 
 fullpath = lambda f: os.path.join(this_dir, f) 
 
@@ -41,4 +41,4 @@ The full list of available demos is:
 %s
 """ % (demo_files[0], demo_files)
 
-print helptxt
+print(helptxt)

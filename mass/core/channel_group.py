@@ -20,16 +20,18 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
-__all__ = ['TESGroup', 'RestoreTESGroup', 'CrosstalkVeto']
-
 import numpy as np
-import pylab as plt
+import matplotlib.pylab as plt
 import os
 import h5py
 
-import mass.calibration
+import mass.core.analysis_algorithms
+import mass.calibration.energy_calibration
+import mass.nonstandard.CDM
+
+from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
+from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
-from mass.core.channel import PulseRecords, NoiseRecords
 
 
 class FilterCanvas(object):
@@ -40,17 +42,11 @@ def _generate_hdf5_filename(rawname):
     """Generate the appropriate HDF5 filename based on a file's LJH name.
     Takes /path/to/data_chan33.ljh --> /path/to/data_mass.hdf5"""
     import re
-    fparts = re.split("_chan\d+", rawname)
+    fparts = re.split(r"_chan\d+", rawname)
     prefix_path = fparts[0]
     if rawname.endswith("noi"):
         prefix_path += '_noise'
-    return prefix_path+"_mass.hdf5"
-
-
-def _generate_hdf5_trace_filename(name):
-    import re
-
-    return re.split("_chan\d+", name)[0] + "_trace_mass.hdf5"
+    return prefix_path + "_mass.hdf5"
 
 
 def RestoreTESGroup(hdf5filename, hdf5noisename=None):
@@ -65,22 +61,25 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
     pulsefiles = []
     channum = []
     noisefiles = []
+    generated_noise_hdf5_name = None
+
     h5file = h5py.File(hdf5filename, "r")
     for name, group in h5file.iteritems():
-        if not name.startswith("chan"): continue
+        if not name.startswith("chan"):
+            continue
         pulsefiles.append(group.attrs['filename'])
         channum.append(group.attrs['channum'])
 
         if hdf5noisename is None:
             fname = group.attrs['noise_filename']
-            if len(noisefiles) == 0:
+            if generated_noise_hdf5_name is None:
                 generated_noise_hdf5_name = _generate_hdf5_filename(fname)
             elif generated_noise_hdf5_name != _generate_hdf5_filename(fname):
                 raise RuntimeError("""The implied HDF5 noise files names are not the same for all channels.
                 The first channel implies '%s'
                 and another implies '%s'.
                 Instead, you should run RestoreTESGroup with an explicit hdf5noisename argument.""" %
-                generated_noise_hdf5_name, _generate_hdf5_filename(fname))
+                                   (generated_noise_hdf5_name, _generate_hdf5_filename(fname)))
             noisefiles.append(fname)
     h5file.close()
 
@@ -121,17 +120,19 @@ class TESGroup(object):
                                   "p_filt_phase",
                                   'smart_cuts']
 
-    BUILTIN_CATEGORICAL_FIELDS = [
+    # Categorical cut field item format
+    # [name of field, list of categories, default category]
+    BUILTIN_CATEGORICAL_CUT_FIELDS = [
         ['calibration', ['in', 'out'], 'in'],
-        ]
+    ]
 
-    __cut_boolean_field_desc_dtype = np.dtype([("name", np.str_, 64),
+    __cut_boolean_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
                                                ("mask", np.uint32)])
-    __cut_categorical_field_desc_dtype = np.dtype([("name", np.str_, 64),
+    __cut_categorical_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
                                                    ("pos", np.uint8),
                                                    ("mask", np.uint32)])
-    __cut_category_list_dtype = np.dtype([("field", np.str_, 64),
-                                          ("category", np.str_, 64),
+    __cut_category_list_dtype = np.dtype([("field", np.bytes_, 64),
+                                          ("category", np.bytes_, 64),
                                           ("index", np.uint8)])
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
@@ -182,7 +183,7 @@ class TESGroup(object):
                 self.hdf5_file.attrs["cut_category_list"] =\
                     np.zeros(0, dtype=self.__cut_category_list_dtype)
 
-                for categorical_desc in self.BUILTIN_CATEGORICAL_FIELDS:
+                for categorical_desc in self.BUILTIN_CATEGORICAL_CUT_FIELDS:
                     self.register_categorical_cut_field(*categorical_desc)
 
         # Same for noise filenames
@@ -196,15 +197,15 @@ class TESGroup(object):
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
 
-        if len(filenames) > 0:
-            self.hdf5_trace = h5py.File(_generate_hdf5_trace_filename(filenames[0]), "a")
-        else:
-            self.hdf5_trace = None  # Must handle the case of noise-only data
-
         # Set up other aspects of the object
         self.nhits = None
         self.n_segments = 0
+
         self.nPulses = 0
+        self.nPresamples = 0
+        self.nSamples = 0
+        self.timebase = 0.0
+
         self._cached_segment = None
         self._cached_pnum_range = None
         self._allowed_pnum_ranges = None
@@ -217,6 +218,10 @@ class TESGroup(object):
         else:
             self.colors = ('purple', "blue", "cyan", "green", "gold", self.BRIGHT_ORANGE, "red", "brown")
 
+        self.num_good_channels = 0
+        self.good_channels = []
+        self.first_good_dataset = None
+
         if self.noise_only:
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
         else:
@@ -224,7 +229,7 @@ class TESGroup(object):
 
         if max_cachesize is not None:
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
-                self.set_segment_size(max_cachesize / self.n_channels)
+                self.set_segment_size(max_cachesize // self.n_channels)
 
     @property
     def boolean_cut_desc(self):
@@ -260,13 +265,14 @@ class TESGroup(object):
 
     def cut_field_categories(self, field_name):
         category_list = self.cut_category_list
-        return {name: index for field, name, index in category_list if field == field_name}
+
+        return {name.decode(): index for field, name, index in category_list if field == field_name.encode()}
 
     def register_boolean_cut_fields(self, *names):
         num_used_bits = self.cut_num_used_bits
         boolean_fields = self.boolean_cut_desc
 
-        new_fields = [name for name in names if name not in boolean_fields["name"]]
+        new_fields = [n.encode() for n in names if n.encode() not in boolean_fields["name"]]
 
         if new_fields:
             new_boolean_field_desc = np.array([(name, 1 << (i + num_used_bits)) for i, name in enumerate(new_fields)],
@@ -277,26 +283,30 @@ class TESGroup(object):
 
     def register_categorical_cut_field(self, name, categories, default="uncategorized"):
         categorical_fields = self.categorical_cut_desc
-        if name in categorical_fields["name"]:
+        if name.encode() in categorical_fields["name"]:
             return
 
+        # categories might be an immutable tuple.
         category_list = list(categories)
 
         # if the default category is already included, it's temporarily removed from the category_list
-        # and insert into the head of the category_list.
+        # and insert into at the head of the category_list.
         if default in category_list:
             category_list.remove(default)
         category_list.insert(0, default)
 
-        new_list = np.array([(name, category, i) for i, category in enumerate(category_list)],
+        # Updates the 'cut_category_list' attribute
+        new_list = np.array([(name.encode(), category.encode(), i) for i, category in enumerate(category_list)],
                             dtype=self.__cut_category_list_dtype)
         self.cut_category_list = np.hstack([self.cut_category_list,
                                             new_list])
+
+        # Needs to update the 'cut_categorical_field_desc' attribute.
         num_bits = 1
         while (1 << num_bits) < len(category_list):
             num_bits += 1
 
-        field_desc_item = np.array([(name,
+        field_desc_item = np.array([(name.encode(),
                                      self.cut_num_used_bits,
                                      ((1 << num_bits) - 1) << self.cut_num_used_bits)],
                                    dtype=self.__cut_categorical_field_desc_dtype)
@@ -322,9 +332,7 @@ class TESGroup(object):
             except:
                 hdf5_group = None
 
-            pulse.hdf5_trace = self.hdf5_trace.require_group("chan{0:d}".format(pulse.channum))
-
-            dset = mass.channel.MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
+            dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
@@ -368,9 +376,12 @@ class TESGroup(object):
         self.channels = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)
         self.datasets = tuple(dset_list)
+
         for chan, ds in zip(self.channels, self.datasets):
             ds.pulse_records = chan
+
         self._setup_channels_list()
+
         if len(pulse_list) > 0:
             self.pulses_per_seg = pulse_list[0].pulses_per_seg
         if len(self.datasets) > 0:
@@ -395,7 +406,7 @@ class TESGroup(object):
             except:
                 hdf5_group = None
 
-            dset = mass.channel.MicrocalDataSet(noise.__dict__, hdf5_group=hdf5_group)
+            dset = MicrocalDataSet(noise.__dict__, hdf5_group=hdf5_group)
             dset.noise_records = noise
             noise_list.append(noise)
             dset_list.append(dset)
@@ -468,7 +479,7 @@ class TESGroup(object):
             try:
                 goodones = set(a)
             except TypeError:
-                goodones = set([a])
+                goodones = {a}
             added_to_list.update(goodones)
         for k in added_to_list:
             if k in self._bad_channums:
@@ -492,11 +503,11 @@ class TESGroup(object):
             try:
                 badones = set(a)
             except TypeError:
-                badones = set([a])
+                badones = {a}
             added_to_list.update(badones)
 
         for k in added_to_list:
-            self._bad_channums[k] = self._bad_channums.get(k, [])+[comment]
+            self._bad_channums[k] = self._bad_channums.get(k, []) + [comment]
             print('chan %s flagged bad because %s' % (k, comment))
 
         self.update_chan_info()
@@ -543,13 +554,13 @@ class TESGroup(object):
     def sample2segnum(self, samplenum):
         """Returns the segment number of sample number <samplenum>."""
         if samplenum >= self.nPulses:
-            samplenum = self.nPulses-1
-        return samplenum/self.pulses_per_seg
+            samplenum = self.nPulses - 1
+        return samplenum // self.pulses_per_seg
 
     def segnum2sample_range(self, segnum):
         """Return the (first,end) sample numbers of the segment numbered <segnum>.
         Note that <end> is 1 beyond the last sample number in that segment."""
-        return segnum*self.pulses_per_seg, (segnum+1)*self.pulses_per_seg
+        return segnum * self.pulses_per_seg, (segnum + 1) * self.pulses_per_seg
 
     def set_data_use_ranges(self, ranges=None):
         """Set the range of sample numbers that this object will use when iterating over
@@ -560,7 +571,6 @@ class TESGroup(object):
                 or a sequence of 2-element sequences, which is like the previous
                 but with multiple sample ranges allowed.
         """
-        allowed_ranges = []
         if ranges is None:
             allowed_ranges = [[0, self.nPulses]]
         elif len(ranges) == 2 and np.isscalar(ranges[0]) and np.isscalar(ranges[1]):
@@ -571,17 +581,17 @@ class TESGroup(object):
         allowed_segnums = np.zeros(self.n_segments, dtype=np.bool)
         for first, end in allowed_ranges:
             assert first <= end
-            for sn in range(self.sample2segnum(first), self.sample2segnum(end-1)+1):
+            for sn in range(self.sample2segnum(first), self.sample2segnum(end - 1) + 1):
                 allowed_segnums[sn] = True
 
         self._allowed_pnum_ranges = allowed_ranges
         self._allowed_segnums = allowed_segnums
 
         if ranges is not None:
-            print 'Warning!  This feature is only half-complete.  Currently, granularity is limited.'
-            print '   Only full "segments" of size %d records can be ignored.' % self.pulses_per_seg
-            print '   Will use %d segments and ignore %d.' % (self._allowed_segnums.sum(),
-                                                              self.n_segments-self._allowed_segnums.sum())
+            print('Warning!  This feature is only half-complete.  Currently, granularity is limited.')
+            print('   Only full "segments" of size %d records can be ignored.' % self.pulses_per_seg)
+            print('   Will use %d segments and ignore %d.' % (self._allowed_segnums.sum(),
+                                                              self.n_segments - self._allowed_segnums.sum()))
 
     def iter_segments(self, first_seg=0, end_seg=-1, sample_mask=None, segment_mask=None):
         if self._allowed_segnums is None:
@@ -597,11 +607,11 @@ class TESGroup(object):
                 if b > len(sample_mask):
                     b = len(sample_mask)
                 if not sample_mask[a:b].any():
-                    print 'We can skip segment %4d' % i
+                    print('We can skip segment %4d' % i)
                     continue  # Don't need anything in this segment.  Sweet!
             if segment_mask is not None:
                 if not segment_mask[i]:
-                    print 'We can skip segment %4d' % i
+                    print('We can skip segment %4d' % i)
                     continue  # Don't need anything in this segment.  Sweet!
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
@@ -619,11 +629,11 @@ class TESGroup(object):
         else:
             nchan = float(self.num_good_channels)
 
-        for i,chan in enumerate(self.iter_channel_numbers(include_badchan)):
+        for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
             try:
                 self.channel[chan].summarize_data(peak_time_microsec,
                                                   pretrigger_ignore_microsec, forceNew)
-                printUpdater.update((i+1)/nchan)
+                printUpdater.update((i + 1) / nchan)
                 self.hdf5_file.flush()
             except:
                 self.set_chan_bad(chan, "summarize_data")
@@ -632,28 +642,34 @@ class TESGroup(object):
         if not (after_last or until_next or from_nearest):
             raise ValueError("at least one of from_last, until_next, or from_nearest should be True")
         ds = self.first_good_dataset
-        external_trigger_rowcount = ds.external_trigger_rowcount[:] #loading this dataset can be slow, so lets do it only once for the whole ChannelGroup
-        external_trigger_rowcount.dtype = np.int64
+
+        # loading this dataset can be slow, so lets do it only once for the whole ChannelGroup
+        external_trigger_rowcount = np.asarray(ds.external_trigger_rowcount[:], dtype=np.int64)
+
         for ds in self:
             try:
                 if forceNew or\
                         ("rows_after_last_external_trigger" not in ds.hdf5_group and after_last) or\
                         ("rows_until_next_external_trigger" not in ds.hdf5_group and until_next) or\
                         ("rows_from_nearest_external_trigger" not in ds.hdf5_group and from_nearest):
-                    rows_after_last_external_trigger, rows_until_next_external_trigger = mass.mathstat.nearest_arrivals.nearest_arrivals(ds.p_rowcount[:], external_trigger_rowcount)
+                    rows_after_last_external_trigger, rows_until_next_external_trigger = \
+                        mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:], external_trigger_rowcount)
                     if after_last:
-                        g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger", (ds.nPulses,), dtype=np.int64)
+                        g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
+                                                          (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_after_last_external_trigger
                         ds._rows_after_last_external_trigger = g
                     if until_next:
-                        g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger", (ds.nPulses,), dtype=np.int64)
+                        g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger",
+                                                          (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_until_next_external_trigger
                         ds._rows_until_next_external_trigger = g
                     if from_nearest:
-                        g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger", (ds.nPulses,), dtype=np.int64)
-                        g[:] = np.fmin(rows_after_last_external_trigger,rows_until_next_external_trigger)
+                        g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
+                                                          (ds.nPulses,), dtype=np.int64)
+                        g[:] = np.fmin(rows_after_last_external_trigger, rows_until_next_external_trigger)
                         ds._rows_from_nearest_external_trigger = g
-            except Exception as e:
+            except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 
     def read_trace(self, record_num, dataset_num=0, chan_num=None):
@@ -688,7 +704,7 @@ class TESGroup(object):
         else:
             dataset = self.datasets[dataset_num]
             if chan_num is not None:
-                print "Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num)
+                print("Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num))
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
                                    residual, valid_status)
 
@@ -748,37 +764,37 @@ class TESGroup(object):
         plt.clf()
         ny_plots = len(datasets)
         for i, (channum, ds) in enumerate(zip(dataset_numbers, datasets)):
-            print 'TES%2d ' % channum,
+            print('TES%2d ' % channum),
 
             # Convert "uncut" or "cut" to array of all good or all bad data
             if isinstance(valid, str):
                 if "uncut" in valid.lower():
                     valid_mask = ds.cuts.good()
-                    print "Plotting only uncut data",
+                    print("Plotting only uncut data"),
                 elif "cut" in valid.lower():
                     valid_mask = ds.cuts.bad()
-                    print "Plotting only cut data",
+                    print("Plotting only cut data"),
                 elif 'all' in valid.lower():
                     valid_mask = None
-                    print "Plotting all data, cut or uncut",
+                    print("Plotting all data, cut or uncut"),
                 else:
                     raise ValueError("If valid is a string, it must contain 'all', 'uncut' or 'cut'.")
 
             if valid_mask is not None:
                 nrecs = valid_mask.sum()
                 if downsample is None:
-                    downsample = nrecs/10000
+                    downsample = nrecs // 10000
                     if downsample < 1:
                         downsample = 1
-                hour = ds.p_timestamp[valid_mask][::downsample]/3600.0
+                hour = ds.p_timestamp[valid_mask][::downsample] / 3600.0
             else:
                 nrecs = ds.nPulses
                 if downsample is None:
-                    downsample = ds.nPulses / 10000
+                    downsample = ds.nPulses // 10000
                     if downsample < 1:
                         downsample = 1
-                hour = ds.p_timestamp[::downsample]/3600.0
-            print " (%d records; %d in scatter plots)" % (nrecs, hour.shape[0])
+                hour = ds.p_timestamp[::downsample] / 3600.0
+            print(" (%d records; %d in scatter plots)" % (nrecs, hour.shape[0]))
 
             (vect, label, color, default_limits) = plottable
             if hist_limits is None:
@@ -786,13 +802,13 @@ class TESGroup(object):
             else:
                 limits = hist_limits
 
-            vect = eval("ds.%s" % vect)[valid_mask]
+            vect = ds.__dict__[vect][valid_mask]
 
             # Scatter plots on left half of figure
             if i == 0:
-                ax_master = plt.subplot(ny_plots, 2, 1+i*2)
+                ax_master = plt.subplot(ny_plots, 2, 1 + i * 2)
             else:
-                plt.subplot(ny_plots, 2, 1+i*2, sharex=ax_master)
+                plt.subplot(ny_plots, 2, 1 + i * 2, sharex=ax_master)
 
             if len(vect) > 0:
                 plt.plot(hour, vect[::downsample], '.', ms=1, color=color)
@@ -802,17 +818,17 @@ class TESGroup(object):
             if i == 0:
                 plt.title(label)
             plt.ylabel("TES %d" % channum)
-            if i == ny_plots-1:
+            if i == ny_plots - 1:
                 plt.xlabel("Time since server start (hours)")
 
             # Histograms on right half of figure
             if i == 0:
-                axh_master = plt.subplot(ny_plots, 2, 2+i*2)
+                axh_master = plt.subplot(ny_plots, 2, 2 + i * 2)
             else:
                 if 'Pretrig Mean' == label:
-                    plt.subplot(ny_plots, 2, 2+i*2)
+                    plt.subplot(ny_plots, 2, 2 + i * 2)
                 else:
-                    plt.subplot(ny_plots, 2, 2+i*2, sharex=axh_master)
+                    plt.subplot(ny_plots, 2, 2 + i * 2, sharex=axh_master)
 
             if limits is None:
                 in_limit = np.ones(len(vect), dtype=np.bool)
@@ -824,7 +840,7 @@ class TESGroup(object):
             else:
                 contents, _bins, _patches = plt.hist(vect[in_limit], 200, log=log,
                                                      histtype='stepfilled', fc=color, alpha=0.5)
-            if i == ny_plots-1:
+            if i == ny_plots - 1:
                 plt.xlabel(label)
             if log:
                 plt.ylim(ymin=contents.min())
@@ -858,27 +874,27 @@ class TESGroup(object):
 
         # Cut crosstalk only makes sense in CDM data
         if cut_crosstalk and not isinstance(self, mass.nonstandard.CDM.CDMGroup):
-            print 'Cannot cut crosstalk because this is not CDM data'
+            print('Cannot cut crosstalk because this is not CDM data')
             cut_crosstalk = False
 
         if not cut_crosstalk:
             if max_ptrms is not None:
-                print "Warning: make_masks ignores max_ptrms when not cut_crosstalk"
+                print("Warning: make_masks ignores max_ptrms when not cut_crosstalk")
             if max_post_deriv is not None:
-                print "Warning: make_masks ignores max_post_deriv when not cut_crosstalk"
+                print("Warning: make_masks ignores max_post_deriv when not cut_crosstalk")
 
         if pulse_avg_ranges is not None:
             if pulse_peak_ranges is not None:
-                print "Warning: make_masks uses only one range argument.  Ignoring pulse_peak_ranges."
+                print("Warning: make_masks uses only one range argument.  Ignoring pulse_peak_ranges.")
 
             if isinstance(pulse_avg_ranges[0], (int, float)) and len(pulse_avg_ranges) == 2:
                 pulse_avg_ranges = tuple(pulse_avg_ranges),
 
             for r in pulse_avg_ranges:
-                middle = 0.5*(r[0]+r[1])
-                abslim = 0.5*np.abs(r[1]-r[0])
+                middle = 0.5 * (r[0] + r[1])
+                abslim = 0.5 * np.abs(r[1] - r[0])
                 for gain, dataset in zip(gains, self.datasets):
-                    m = np.abs(dataset.p_pulse_average[:]/gain-middle) <= abslim
+                    m = np.abs(dataset.p_pulse_average[:] / gain - middle) <= abslim
                     if cut_crosstalk:
                         m = np.logical_and(m, self.nhits == 1)
                         if max_ptrms is not None:
@@ -898,10 +914,10 @@ class TESGroup(object):
             if isinstance(pulse_peak_ranges[0], (int, float)) and len(pulse_peak_ranges) == 2:
                 pulse_peak_ranges = tuple(pulse_peak_ranges),
             for r in pulse_peak_ranges:
-                middle = 0.5*(r[0]+r[1])
-                abslim = 0.5*np.abs(r[1]-r[0])
+                middle = 0.5 * (r[0] + r[1])
+                abslim = 0.5 * np.abs(r[1] - r[0])
                 for gain, dataset in zip(gains, self.datasets):
-                    m = np.abs(dataset.p_peak_value[:]/gain-middle) <= abslim
+                    m = np.abs(dataset.p_peak_value[:] / gain - middle) <= abslim
                     if cut_crosstalk:
                         m = np.logical_and(m, self.nhits == 1)
                         if max_ptrms is not None:
@@ -951,7 +967,7 @@ class TESGroup(object):
             nd = masks.ndim
             if nd == 1:
                 n = len(masks)
-                masks = masks.reshape((n/self.nPulses, self.nPulses))
+                masks = masks.reshape((n // self.nPulses, self.nPulses))
             elif nd > 2:
                 raise ValueError("masks argument should be a 2D array or a sequence of 1D arrays")
             nbins = masks.shape[0]
@@ -970,20 +986,20 @@ class TESGroup(object):
         segment_mask = np.zeros(self.n_segments, dtype=np.bool)
         for m in masks:
             n = len(m)
-            nseg = 1+(n-1)/self.pulses_per_seg
+            nseg = 1 + (n - 1) // self.pulses_per_seg
             for i in range(nseg):
                 if segment_mask[i]:
                     continue
                 a, b = self.segnum2sample_range(i)
                 if m[a:b].any():
                     segment_mask[i] = True
-            a, b = self.segnum2sample_range(nseg+1)
+            a, b = self.segnum2sample_range(nseg + 1)
             if a < n and m[a:].any():
-                segment_mask[nseg+1] = True
+                segment_mask[nseg + 1] = True
 
         printUpdater = InlineUpdater('compute_average_pulse')
         for first, end in self.iter_segments(segment_mask=segment_mask):
-            printUpdater.update(end/float(self.nPulses))
+            printUpdater.update(end / float(self.nPulses))
             for imask, mask in enumerate(masks):
                 valid = mask[first:end]
                 for ichan, chan in enumerate(self.datasets):
@@ -1008,7 +1024,7 @@ class TESGroup(object):
             if subtract_mean:
                 for imask in range(average_pulses.shape[0]):
                     average_pulses[imask, :] -= np.mean(average_pulses[imask,
-                                                        :self.nPresamples-ds.pretrigger_ignore_samples])
+                                                                       :self.nPresamples - ds.pretrigger_ignore_samples])
             ds.average_pulse[:] = average_pulses[ichan, :]
 
     def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
@@ -1020,7 +1036,7 @@ class TESGroup(object):
             axis = plt.subplot(111)
 
         axis.set_color_cycle(self.colors)
-        dt = (np.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
+        dt = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e3
 
         if channum in self.channel:
             plt.plot(dt, self.channel[channum].average_pulse, label='Chan %d' % channum)
@@ -1039,20 +1055,20 @@ class TESGroup(object):
     def plot_raw_spectra(self):
         """Plot distribution of raw pulse averages, with and without gain"""
         ds = self.first_good_dataset
-        meangain = ds.p_pulse_average[ds.cuts.good()].mean()/ds.gain
+        meangain = ds.p_pulse_average[ds.cuts.good()].mean() / ds.gain
         plt.clf()
         plt.subplot(211)
         for ds in self.datasets:
             gain = ds.gain
             _ = plt.hist(ds.p_pulse_average[ds.cuts.good()], 200,
-                         [meangain*.8, meangain*1.2], alpha=0.5)
+                         [meangain * .8, meangain * 1.2], alpha=0.5)
 
         plt.subplot(212)
         for ds in self.datasets:
             gain = ds.gain
-            _ = plt.hist(ds.p_pulse_average[ds.cuts.good()]/gain, 200,
-                         [meangain*.8, meangain*1.2], alpha=0.5)
-            print ds.p_pulse_average[ds.cuts.good()].mean()
+            _ = plt.hist(ds.p_pulse_average[ds.cuts.good()] / gain, 200,
+                         [meangain * .8, meangain * 1.2], alpha=0.5)
+            print(ds.p_pulse_average[ds.cuts.good()].mean())
         return meangain
 
     def set_gains(self, gains):
@@ -1071,26 +1087,27 @@ class TESGroup(object):
         needs_noise = any([ds.noise_autocorr[0] == 0.0 or
                            ds.noise_psd[1] == 0 for ds in self])
         if needs_noise:
-            print "Computing noise autocorrelation and spectrum"
+            print("Computing noise autocorrelation and spectrum")
             self.compute_noise_spectra()
 
-        printUpdater = InlineUpdater('compute_filters')
+        print_updater = InlineUpdater('compute_filters')
         for ds_num, ds in enumerate(self):
             if "filters" not in ds.hdf5_group or forceNew:
                 if ds.cuts.good().sum() < 10:
                     ds.filter = None
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
-                printUpdater.update((ds_num+1)/float(self.n_channels))
-                avg_signal = np.array(ds.average_pulse)
+                print_updater.update((ds_num + 1) / float(self.n_channels))
+                avg_signal = np.asarray(ds.average_pulse)
 
                 try:
                     spectrum = ds.noise_spectrum.spectrum()
                 except:
                     spectrum = ds.noise_psd[:]
-                f = mass.core.Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
-                                     spectrum, ds.noise_autocorr, sample_time=self.timebase,
-                                     fmax=fmax, f_3db=f_3db, shorten=2)
+                f = Filter(avg_signal, self.nPresamples - ds.pretrigger_ignore_samples,
+                           spectrum, ds.noise_autocorr, sample_time=self.timebase,
+                           fmax=fmax, f_3db=f_3db, shorten=2)
+                f.compute()
                 ds.filter = f
                 # Store all filters created to a new HDF5 group
                 h5grp = ds.hdf5_group.require_group('filters')
@@ -1100,25 +1117,43 @@ class TESGroup(object):
                     h5grp.attrs['fmax'] = f.fmax
                 h5grp.attrs['peak'] = f.peak_signal
                 h5grp.attrs['shorten'] = f.shorten
-                for k, v in ds.filter.__dict__.iteritems():
-                    if not k.startswith("filt_"):
-                        continue
+                # for k, v in ds.filter.__dict__.items():
+                #     if not k.startswith("filt_"):
+                #         continue
+                #     if k in h5grp:
+                #         del h5grp[k]
+                #     vec = h5grp.create_dataset(k, data=v)
+                #     vec.attrs['variance'] = f.variances.get(k[5:], 0)
+                for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
+                          "filt_baseline", "filt_baseline_pretrig"]:
                     if k in h5grp:
                         del h5grp[k]
-                    vec = h5grp.create_dataset(k, data=v)
-                    vec.attrs['variance'] = f.variances.get(k[5:], 0)
+                    if hasattr(f, k):
+                        vec = h5grp.create_dataset(k, data=getattr(f, k))
+                        vec.attrs['variance'] = f.variances[k.split('filt_')[1]]
+                        vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv[k.split('filt_')[1]]
             else:
                 print("chan %d skipping compute_filter because already done, and loading filter" % ds.channum)
                 h5grp = ds.hdf5_group['filters']
-                ds.filter = FilterCanvas()
+                ds.filter = Filter(ds.average_pulse[...], self.nPresamples - ds.pretrigger_ignore_samples,
+                                   ds.noise_psd[...], ds.noise_autocorr[...], sample_time=self.timebase,
+                                   fmax=fmax, f_3db=f_3db, shorten=2)
                 ds.filter.peak_signal = h5grp.attrs['peak']
                 ds.filter.shorten = h5grp.attrs['shorten']
                 ds.filter.f_3db = h5grp.attrs['f_3db'] if 'f_3db' in h5grp.attrs else None
                 ds.filter.fmax = h5grp.attrs['fmax'] if 'fmax' in h5grp.attrs else None
-                for name in h5grp:
-                    if name.startswith("filt_"):
-                        setattr(ds.filter, name, h5grp[name][:])
-                        # doesn't do variances
+                # for name in h5grp:
+                #     if name.startswith("filt_"):
+                #         setattr(ds.filter, name, h5grp[name][:])
+                #         # doesn't do variances
+                for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
+                          "filt_baseline", "filt_baseline_pretrig"]:
+                    if k in h5grp:
+                        setattr(ds.filter, k, h5grp[k][...])
+                        if 'variance' in h5grp[k].attrs:
+                            ds.filter.variances[k] = h5grp[k].attrs['variance']
+                        if 'predicted_v_over_dv' in h5grp[k].attrs:
+                            ds.filter.predicted_v_over_dv[k] = h5grp[k].attrs['predicted_v_over_dv']
 
     def plot_filters(self, first=0, end=-1):
         """Plot the filters from <first> through <end>-1.  By default, plots all filters,
@@ -1131,21 +1166,21 @@ class TESGroup(object):
             end = self.n_channels
         if first >= self.n_channels:
             raise ValueError("First channel must be less than %d" % self.n_channels)
-        nplot = min(end-first, 8)
-        for i, ds in enumerate(self.datasets[first:first+nplot]):
-            ax1 = plt.subplot(nplot, 2, 1+2*i)
-            ax2 = plt.subplot(nplot, 2, 2+2*i)
+        nplot = min(end - first, 8)
+        for i, ds in enumerate(self.datasets[first:first + nplot]):
+            ax1 = plt.subplot(nplot, 2, 1 + 2 * i)
+            ax2 = plt.subplot(nplot, 2, 2 + 2 * i)
             ax1.set_title("chan %d signal" % ds.channum)
             ax2.set_title("chan %d baseline" % ds.channum)
             for ax in (ax1, ax2):
                 ax.set_xlim([0, self.nSamples])
-#             if 'filter' in ds.__dict__:
-#                 ds.filter.plot(axes=(ax1,ax2))
-#             else:
-#                 pass ???
+                if hasattr(ds, 'filter'):
+                    ds.filter.plot(axes=(ax1, ax2))
+
+        plt.show()
 
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
-        rms_fwhm = np.sqrt(np.log(2)*8)  # FWHM is this much times the RMS
+        rms_fwhm = np.sqrt(np.log(2) * 8)  # FWHM is this much times the RMS
         print('V/dV for time, Fourier filters: ')
         for i, ds in enumerate(self):
             try:
@@ -1153,7 +1188,7 @@ class TESGroup(object):
                     rms = ds.filter.variances[filter_name]**0.5
                 else:
                     rms = ds.hdf5_group['filters/filt_%s' % filter_name].attrs['variance']**0.5
-                v_dv = (1/rms)/rms_fwhm
+                v_dv = (1 / rms) / rms_fwhm
                 print("Chan %3d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" %
                       (ds.channum, filter_name, v_dv, std_energy, std_energy / v_dv))
             except Exception as e:
@@ -1169,7 +1204,7 @@ class TESGroup(object):
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
             self.channel[chan].filter_data(filter_name, transform, forceNew)
-            printUpdater.update((i+1)/nchan)
+            printUpdater.update((i + 1) / nchan)
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
         """
@@ -1202,17 +1237,18 @@ class TESGroup(object):
             plt.title("Detector %d: attribute %s" % (i, channame))
             fig = plt.gcf()
             pf = mass.core.utilities.MouseClickReader(fig)
-            for i in range(nclicks):
+
+            for j in range(nclicks):
                 while True:
                     plt.waitforbuttonpress()
                     try:
                         pfx = '%g' % pf.x
                     except TypeError:
                         continue
-                    print 'Click on line #%d at %s' % (i+1, pfx)
+                    print('Click on line #%d at %s' % (j + 1, pfx))
                     x.append(pf.x)
                     break
-            del pf
+
         xvalues = np.array(x)
         xvalues.shape = (self.n_channels, nclicks)
         return xvalues
@@ -1223,7 +1259,7 @@ class TESGroup(object):
         if energy is None:
             energy = mass.calibration.energy_calibration.STANDARD_FEATURES[name]
 
-        print "Please click with the mouse on each channel's histogram at the %s line" % name
+        print("Please click with the mouse on each channel's histogram at the %s line" % name)
         xvalues = self.find_features_with_mouse(channame=channame, nclicks=1,
                                                 prange=prange, trange=trange).ravel()
         for ds, xval in zip(self.datasets, xvalues):
@@ -1237,12 +1273,12 @@ class TESGroup(object):
         for ds in self.datasets:
             good = ds.cuts.good()
             ng = ds.cuts.good().sum()
-            dt = (ds.p_timestamp[good][-1]*1.0 - ds.p_timestamp[good][0])  # seconds
+            dt = (ds.p_timestamp[good][-1] * 1.0 - ds.p_timestamp[good][0])  # seconds
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
-            rate = (npulse-1.0)/dt
+            rate = (npulse - 1.0) / dt
 #            grate = (ng-1.0)/dt
-            print 'chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' % \
-                  (ds.channum, npulse, rate, dt/3600., 100.0*ng/npulse)
+            print('chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' %
+                  (ds.channum, npulse, rate, dt / 3600., 100.0 * ng / npulse))
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
         """Compare the noise autocorrelation functions.
@@ -1266,7 +1302,7 @@ class TESGroup(object):
                 continue
             noise = ds.noise_records
             noise.plot_autocorrelation(axis=axis, label='TES %d' % i,
-                                       color=cmap(float(i)/self.n_channels))
+                                       color=cmap(float(i) / self.n_channels))
 #        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         axis.set_xlabel("Time lag (ms)")
         plt.legend(loc='best')
@@ -1364,15 +1400,15 @@ class TESGroup(object):
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
         for ds_num, ds in enumerate(self):
-            yvalue = ds.noise_records.noise_psd[:]*scale_factor**2
+            yvalue = ds.noise_records.noise_psd[:] * scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
                 axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)" % units)
             df = ds.noise_records.noise_psd.attrs['delta_f']
-            freq = np.arange(1, 1+len(yvalue))*df
+            freq = np.arange(1, 1 + len(yvalue)) * df
             axis.plot(freq, yvalue, label='TES chan %d' % ds.channum,
-                      color=cmap(float(ds_num)/self.n_channels))
-        axis.set_xlim([freq[1]*0.9, freq[-1]*1.1])
+                      color=cmap(float(ds_num) / self.n_channels))
+        axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
 
@@ -1389,13 +1425,13 @@ class TESGroup(object):
         for ds in self:
             ds.apply_cuts(cuts, forceNew)
 
-    def avg_pulses_auto_masks(self, max_pulses_to_use=7000):
+    def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
         median_pulse_avg = np.array([np.median(ds.p_pulse_average[ds.good()]) for ds in self])
         masks = self.make_masks([.95, 1.05], use_gains=True, gains=median_pulse_avg)
         for m in masks:
             if len(m) > max_pulses_to_use:
                 m[max_pulses_to_use:] = False
-        self.compute_average_pulse(masks)
+        self.compute_average_pulse(masks, forceNew=forceNew)
 
     def drift_correct(self, forceNew=False, category=None):
         for ds in self:
@@ -1430,8 +1466,8 @@ class TESGroup(object):
                              fit_range_ev, excl, plot_on_fail,
                              bin_size_ev, category, forceNew)
             except:
-                self.set_chan_bad(ds.channum, "failed calibration %s" % attr+name_ext)
-        self.convert_to_energy(attr, attr+name_ext)
+                self.set_chan_bad(ds.channum, "failed calibration %s" % attr + name_ext)
+        self.convert_to_energy(attr, attr + name_ext)
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
@@ -1453,7 +1489,7 @@ class TESGroup(object):
     def plot_count_rate(self, bin_s=60, title=""):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
                              np.amax(self.first_good_dataset.p_timestamp), bin_s)
-        bin_centers = bin_edge[:-1]+0.5*(bin_edge[1]-bin_edge[0])
+        bin_centers = bin_edge[:-1] + 0.5 * (bin_edge[1] - bin_edge[0])
         rates_all = np.array([ds.count_rate(False, bin_edge)[1] for ds in self])
         rates_good = np.array([ds.count_rate(True, bin_edge)[1] for ds in self])
         plt.figure()
@@ -1495,7 +1531,7 @@ def _sort_filenames_numerically(fnames, inclusion_list=None):
         channum = int(name.split('_chan')[1].split(".")[0])
         if inclusion_list is not None and channum not in inclusion_list:
             continue
-        print channum, name
+        print(channum, name)
         chan2fname[channum] = name
     sorted_chan = chan2fname.keys()
     sorted_chan.sort()
@@ -1520,7 +1556,7 @@ class CrosstalkVeto(object):
     An object to allow vetoing of data in 1 channel when another is hit
     """
 
-    def __init__(self, datagroup, window_ms=(-10, 3), pileup_limit=100):
+    def __init__(self, datagroup=None, window_ms=(-10, 3), pileup_limit=100):
         if datagroup is None:
             return
 
@@ -1530,33 +1566,33 @@ class CrosstalkVeto(object):
         self.n_pulses = datagroup.nPulses
 #        self.veto = np.zeros((self.n_channels, self.n_pulses), dtype=np.bool8)
 
-        ms0 = np.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min()*1e3 + window_ms[0]
-        ms9 = np.array([ds.p_timestamp[-1] for ds in datagroup.datasets]).max()*1e3 + window_ms[1]
-        self.nhits = np.zeros(ms9-ms0+1, dtype=np.int8)
+        ms0 = np.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min() * 1e3 + window_ms[0]
+        ms9 = np.array([ds.p_timestamp[-1] for ds in datagroup.datasets]).max() * 1e3 + window_ms[1]
+        self.nhits = np.zeros(ms9 - ms0 + 1, dtype=np.int8)
         self.time0 = ms0
 
         for ds in datagroup.datasets:
             g = ds.cuts.good()
-            vetotimes = np.asarray(ds.p_timestamp[g]*1e3-ms0, dtype=np.int64)
+            vetotimes = np.asarray(ds.p_timestamp[g] * 1e3 - ms0, dtype=np.int64)
             vetotimes[vetotimes < 0] = 0
-            print vetotimes, len(vetotimes), 1.0e3*ds.nPulses/(ms9-ms0),
+            print(vetotimes, len(vetotimes), 1.0e3 * ds.nPulses / (ms9 - ms0)),
             a, b = window_ms
             b += 1
             for t in vetotimes:
-                self.nhits[t+a:t+b] += 1
+                self.nhits[t + a:t + b] += 1
 
             pileuptimes = vetotimes[ds.p_postpeak_deriv[g] > pileup_limit]
-            print len(pileuptimes)
+            print(len(pileuptimes))
             for t in pileuptimes:
-                self.nhits[t+b:t+b+8] += 1
+                self.nhits[t + b:t + b + 8] += 1
 
     def copy(self):
-        v = CrosstalkVeto(None)
+        v = CrosstalkVeto()
         v.__dict__ = self.__dict__.copy()
         return v
 
     def veto(self, times_sec):
         """Return boolean vector for whether a given moment is vetoed.  Times are given in
         seconds.  Resolution is 1 ms for the veto."""
-        index = np.asarray(times_sec*1e3-self.time0+0.5, dtype=np.int)
+        index = np.asarray(times_sec * 1e3 - self.time0 + 0.5, dtype=np.int)
         return self.nhits[index] > 1

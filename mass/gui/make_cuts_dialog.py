@@ -49,7 +49,7 @@ def create_cuts(datagroup, existing_cuts=None):
     dialog = _CutsCreator(datagroup, existing_cuts=existing_cuts)
     retval = dialog.exec_()
     if retval == _CutsCreator.Rejected:
-        print "User chose not to load anything."
+        print("User chose not to load anything.")
         return None
 
     assert retval == _CutsCreator.Accepted
@@ -59,16 +59,17 @@ def create_cuts(datagroup, existing_cuts=None):
         for ds in datagroup.datasets:
             ds.apply_cuts(cuts)
 
-    print 75*'#'
-    print '#   You can copy/paste the following text into a script to re-use these cuts:'
-    print 75*'#'
-    print code_text
+    print(75*'#')
+    print('#   You can copy/paste the following text into a script to re-use these cuts:')
+    print(75*'#')
+    print(code_text)
 
     return cuts
 
 
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+
 
 class MyMplCanvas(FigureCanvas):
     """Ultimately, this is a QWidget (as well as a FigureCanvasAgg, etc.)."""
@@ -91,7 +92,6 @@ class MyMplCanvas(FigureCanvas):
 
     def compute_initial_figure(self):
         pass
-
 
 
 class CutVectorStatus(object):

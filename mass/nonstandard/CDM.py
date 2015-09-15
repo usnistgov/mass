@@ -1,14 +1,20 @@
-'''
+"""
 Created on Jun 11, 2014
 
 @author: fowlerj
-'''
+"""
 
 import numpy as np
 import pylab as plt
 import time
 import mass
-from mass.core.channel_group import BaseChannelGroup
+# BaseChannelGroup does not exist any more
+# from mass.core.channel_group import BaseChannelGroup
+
+
+class BaseChannelGroup:
+    pass
+
 
 class CDMGroup(BaseChannelGroup):
     """
@@ -196,8 +202,7 @@ class CDMGroup(BaseChannelGroup):
 
         # How many detectors were hit in each record?
         self.nhits = np.array([d.p_pulse_average>50 for d in self.datasets]).sum(axis=0)
-        print "Summarized data in %.0f seconds" %(time.time()-t0)
-        
+        print("Summarized data in %.0f seconds"  % (time.time()-t0))
 
     def compute_average_pulse(self, masks, subtract_mean=True):
         """
@@ -229,9 +234,9 @@ class CDMGroup(BaseChannelGroup):
         nrec = 9999999
         for n in self.noise_channels:
             if compute_raw_spectra:
-                print "Computing raw power spectrum for %s"%n.filename
+                print("Computing raw power spectrum for %s" % n.filename)
                 n.compute_power_spectrum(plot=False)
-            if nrec>n.nPulses:
+            if nrec > n.nPulses:
                 nrec = n.nPulses
         
         # Now generate a set of fake channels, where we'll store the demodulated data
@@ -240,7 +245,7 @@ class CDMGroup(BaseChannelGroup):
         shape = (nrec,self.noise_channels[0].nSamples)
 
         # Demodulate noise
-        print "Demodulating noise for nrec=%d"%nrec
+        print("Demodulating noise for nrec=%d" % nrec)
         for i,nc in enumerate(self.noise_channels_demod):
             nc.set_fake_data()
             nc.nPulses = nrec
@@ -249,15 +254,15 @@ class CDMGroup(BaseChannelGroup):
                 for first, end, _segnum, data in n.datafile.iter_segments():
                     if end > nrec:
                         end = nrec
-                    print i, j, first, end, data.shape, 'is here', self.demodulation[i,j]
-                    nc.data[first:end] += self.demodulation[i,j] * data[:(end-first),:]
+                    print(i, j, first, end, data.shape, 'is here', self.demodulation[i, j])
+                    nc.data[first:end] += self.demodulation[i, j] * data[:(end-first), :]
             nc.data -= nc.data.mean()
             
         # Compute spectra    
-        for nc,ds in zip(self.noise_channels_demod, self.datasets):
-            print "Computing demodulated noise autocorrelation for %s"%ds
+        for nc, ds in zip(self.noise_channels_demod, self.datasets):
+            print("Computing demodulated noise autocorrelation for %s" % ds)
             nc.compute_autocorrelation(n_lags=self.nSamples, plot=False)
-            print "Computing demodulated power spectrum for %s"%ds
+            print("Computing demodulated power spectrum for %s" % ds)
             nc.compute_power_spectrum(plot=False)
             ds.noise_spectrum = nc.spectrum
             ds.noise_autocorr = nc.autocorrelation

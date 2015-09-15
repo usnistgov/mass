@@ -16,6 +16,7 @@ import mass.calibration
 
 __all__ = ['SpectrumGroup']
 
+
 class RawSpectrum(object):
     """
     Object to contain a single detector's voltage spectrum and its calibration
@@ -127,18 +128,17 @@ class RawSpectrum(object):
                 if len(lines) >= max_lines:
                     break
                 
-            except RuntimeError, e:
-                print e
-            except ValueError, e:
-                print e
+            except RuntimeError as e:
+                print(e)
+            except ValueError as e:
+                print(e)
     
-        if len(lines)==0:
+        if len(lines) == 0:
             return []
         lines = np.array(lines)
-        line_order = lines[:,0].argsort()[::-1]
+        line_order = lines[:, 0].argsort()[::-1]
         return lines[line_order]
-    
-    
+
 
 class SpectrumGroup(object):
     '''
@@ -229,14 +229,14 @@ def load_spectrum_group(filename):
     fp = open(filename, "rb")
     up = pickle.Unpickler(fp)
     group = SpectrumGroup()
-    nchan =  up.load()
-    print "Loading %d channels from %s"%(nchan, filename)
+    nchan = up.load()
+    print("Loading %d channels from %s" % (nchan, filename))
     while True:
         try:
             group.add_spectrum(up.load())
         except EOFError:
             break
-    print nchan, group.nchan
+    print(nchan, group.nchan)
     fp.close()
     return group
 
@@ -284,11 +284,11 @@ def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=F
 #    print 'a,b,c=', a, b, c
     
     best_scale, best_ks_stat, _iter, funcalls = \
-        sp.optimize.brent(ks_statistic, args=(s1, s2, ex, ey), 
-                             brack=search_range, tol=tol, full_output=True)
+        sp.optimize.brent(ks_statistic, args=(s1, s2, ex, ey),
+                          brack=search_range, tol=tol, full_output=True)
     if print_output:
-        print "Brent's method scale=%.6f Best KS-stat %.6f.  %d function calls."%(
-                best_scale, best_ks_stat, funcalls)
+        print("Brent's method scale=%.6f Best KS-stat %.6f.  %d function calls." % (
+            best_scale, best_ks_stat, funcalls))
     v1 = s1.calibration.energy2ph(ex)
     v2 = s2.calibration.energy2ph(ex)
     return best_scale, v1*best_scale, v2/best_scale
@@ -297,16 +297,16 @@ def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=F
 def match_two_spectra(s1, s2, initial_energies, min_scale=0.9, max_scale=1.1):
     c1 = s1.calibration
     c2 = s2.calibration
-    for cal in (c1,c2):
+    for cal in (c1, c2):
         cal.remove_cal_point_prefix("tmp")
         cal.set_use_spline(False)
-    print c1
-    for i,erange in enumerate(initial_energies):
+    print(c1)
+    for i, erange in enumerate(initial_energies):
         ematch, emax = erange
         best_scale, v1, v2 = minimize_ks_prob(s1, s2, ematch, emax, tol=1e-4, search_range=[.96,1.04])
         if best_scale > min_scale and best_scale<max_scale:
-            print "Range %f to %f has best_scale, v1, v2=%f %f %f"%(ematch, emax, best_scale, v1, v2)
-            c1.add_cal_point(v1, ematch, "tmp%d"%i)
-            c2.add_cal_point(v2, ematch, "tmp%d"%i)
+            print("Range %f to %f has best_scale, v1, v2=%f %f %f" % (ematch, emax, best_scale, v1, v2))
+            c1.add_cal_point(v1, ematch, "tmp%d" % i)
+            c2.add_cal_point(v2, ematch, "tmp%d" % i)
     s1.recompute_energies()
     s2.recompute_energies()

@@ -90,14 +90,18 @@ class QtBuilder(basic_build):
 
 if __name__ == "__main__":
     import sys
-    from distutils.extension import Extension
 
     import numpy as np
-    from numpy.distutils.core import setup
     from Cython.Build import cythonize
 
     if sys.platform != 'win32':
+        from numpy.distutils.core import setup
+        from distutils.extension import Extension
+
         setup(configuration=configuration_fortran)
+    else:
+        from setuptools import setup
+        from setuptools.extension import Extension
 
     setup(name='mass',
           version=MASS_VERSION,
@@ -107,12 +111,16 @@ if __name__ == "__main__":
           description='Microcalorimeter Analysis Software Suite',
           packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
                     'mass.demo', 'mass.gui', 'mass.nonstandard'],
-          ext_modules=cythonize([Extension('mass.mathstat._robust',
+          ext_modules=cythonize([Extension('mass.core.channel',
+                                           [os.path.join('mass', 'core', 'channel.pyx')],
+                                           include_dirs=[np.get_include()]),
+                                 Extension('mass.mathstat.robust',
                                            [os.path.join('mass', 'mathstat', 'robust.pyx')],
                                            include_dirs=[np.get_include()]),
-                                 Extension('mass.mathstat.nearest_arrivals',
-                                           [os.path.join('mass', 'mathstat', 'nearest_arrivals.pyx')],
-                                           include_dirs=[np.get_include()])]),
+                                 Extension('mass.core.analysis_algorithms',
+                                           [os.path.join('mass', 'core', 'analysis_algorithms.pyx')],
+                                           include_dirs=[np.get_include()])
+                                 ]),
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
                         },

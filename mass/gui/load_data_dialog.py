@@ -16,7 +16,8 @@ __all__ = ['create_dataset']
 
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import pyqtSlot
-import os, re
+import os
+import re
 import glob
 
 import mass
@@ -32,7 +33,7 @@ try:
 
 except ImportError:
     import PyQt4.uic
-    path,_ = os.path.split(__file__)
+    path, _ = os.path.split(__file__)
     ui_filename = os.path.join(path, "load_data_dialog_form.ui")
     Ui_CreateDataset, _load_data_dialog_baseclass = PyQt4.uic.loadUiType(ui_filename)
 
@@ -192,9 +193,8 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
                     if os.stat(filename).st_size > 0:
                         file_list.append(filename)
                     else:
-                        print "Warning: Zero-size file ignored:\n    %s"%filename
+                        print("Warning: Zero-size file ignored:\n    %s" % filename)
         return file_list
-
 
 
 def _dataset_command(pulse_files, noise_files):
@@ -202,8 +202,8 @@ def _dataset_command(pulse_files, noise_files):
     to re-generate this dataset in the future."""
     
     np, nn = len(pulse_files), len(noise_files)
-    pulse_only = (nn==0)
-    noise_only = (np==0)
+    pulse_only = (nn == 0)
+    noise_only = (np == 0)
     if pulse_only and noise_only:
         return ""
     dir_p = dir_n = None
@@ -272,7 +272,7 @@ def create_dataset(default_directory="", disabled_channels=()):
     dialog = _DataLoader(disabled_channels=disabled_channels)
     retval = dialog.exec_()
     if retval == _DataLoader.Rejected:
-        print "User chose not to load anything."
+        print("User chose not to load anything.")
         return None
 
     assert retval == _DataLoader.Accepted
@@ -291,13 +291,13 @@ def create_dataset(default_directory="", disabled_channels=()):
         else:
             return None
 
-    print 75*'#'
-    print '#   Use the following Python code in your script to generate this data set in the future'
-    print 75*'#'
-    print _dataset_command(pulse_files, noise_files)
-    print 75*'#'
-    print '# End of code'
-    print 75*'#'
+    print(75*'#')
+    print('#   Use the following Python code in your script to generate this data set in the future')
+    print(75*'#')
+    print(_dataset_command(pulse_files, noise_files))
+    print(75*'#')
+    print('# End of code')
+    print(75*'#')
     
     if dialog.summarize_on_load.isChecked():
         data.summarize_data()

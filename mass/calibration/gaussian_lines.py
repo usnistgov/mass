@@ -89,7 +89,7 @@ class GaussianFitter(object):
 
 #        if iflag not in (1,2,3,4):
         if iflag not in (0, 2):
-            print "Oh no! iflag=%d" % iflag
+            print("Oh no! iflag=%d" % iflag)
         elif plot:
             if color is None:
                 color = 'blue'

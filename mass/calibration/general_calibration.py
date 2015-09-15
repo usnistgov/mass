@@ -46,8 +46,8 @@ class GeneralCalibration(object):
         else:
 #            channel = dataset_number_subset[0]*2+1
 #            print('couldnt find '+ pulse_filename%channel + 'and/or '+ noise_filename%channel)
-            print pulse_filename%(dataset_number_subset[0]*2+1)
-            print noise_filename%(dataset_number_subset[0]*2+1)
+            print(pulse_filename % (dataset_number_subset[0]*2+1))
+            print(noise_filename % (dataset_number_subset[0]*2+1))
             raise ValueError('WARNING no files had both noise and pulse files')
 
     def copy(self):
@@ -128,10 +128,10 @@ class GeneralCalibration(object):
 
     def how_many_records(self):
         for i,c in enumerate(self.CHANS):
-            print "Chan %3d: "%c,
+            print("Chan %3d: " % c),
             for d in self.alldata:
                 ds=d.datasets[i]
-                print "%6d  "%ds.nPulses,
+                print("%6d  " % ds.nPulses),
             print
 
     def apply_cuts(self, timestampCuts = (None, None), pretrigger_departure_cuts = (-40,40), pulse_average_cuts = (5.0, None),
@@ -349,16 +349,18 @@ class GeneralCalibration(object):
             #energy scale factor (counts/eV), amplitude, background level (per bin),
             #and background slope (in counts per bin per bin) ]
         except RuntimeError:
-            print 'Cannot fit'
+            print('Cannot fit')
 
         res = param[0]
         dres = covar[0,0]**0.5
         ph = param[1]
         dph = covar[1,1]**0.5
-        print "Resolution is %.2f +- %.2f eV"%(res,dres)
+        print("Resolution is %.2f +- %.2f eV" % (res, dres))
         return param
 
-    def calibrate_carefully(self,line_names = ['MnKAlpha', 'MnKBeta'], whichCalibration = 'p_filt_value_dc', doPlot = False, energyRangeFracs=[0.98, 1.02], append_to_cal=True, whichFiltValue = None, minEdgeDropCounts = 30):
+    def calibrate_carefully(self, line_names=['MnKAlpha', 'MnKBeta'], whichCalibration='p_filt_value_dc',
+                            doPlot = False, energyRangeFracs=(0.98, 1.02), append_to_cal=True,
+                            whichFiltValue = None, minEdgeDropCounts = 30):
         if type(line_names) != type(list()): line_names = [line_names]
         line_known_energies = [mass.energy_calibration.STANDARD_FEATURES[line_name] for line_name in line_names]
         line_names_reverse_energy_order = [line_names[line_known_energies.index(energy)] for energy in sorted(line_known_energies)][::-1]
@@ -557,7 +559,7 @@ class GeneralCalibration(object):
             except:
                 self.data.set_chan_bad(ds.channum, 'failed convert_to energy with %s'%whichCalibration)
 
-    def plot_energy_spectra(self, erange=[5850,5950]):
+    def plot_energy_spectra(self, erange=(5850, 5950)):
         plt.clf()
         fitter = mass.MnKAlphaFitter()
         nbins = erange[1]-erange[0]
@@ -570,13 +572,13 @@ class GeneralCalibration(object):
             try:
                 param, covar = fitter.fit(c, bin_ctrs, plot=False)
             except RuntimeError:
-                print 'Cannot fit'
+                print('Cannot fit')
                 continue
             res = param[0]
             dres = covar[0,0]**0.5
             ph = param[1]
             dph = covar[1,1]**0.5
-            print 'res = %.2f +/- %.2f' %(res, dres)
+            print('res = %.2f +/- %.2f' % (res, dres))
 
         axis = plt.subplot(111)
         color = 'green'
@@ -815,8 +817,8 @@ class GeneralCalibration(object):
                                     'calibration_to_correct':whichCalibration}
                 correction = self.phaseCorrectionModel(fitparams, ds.p_filt_phase)
                 ds.p_filt_value_phc = toCorrect - correction
-                print 'RMS phase correction chan %d %s is: %9.3f (%6.2f parts/thousand)'%(ds.channum, line_name, correction.std(),
-                                                    1e3*correction.std()/toCorrect.mean())
+                print('RMS phase correction chan %d %s is: %9.3f (%6.2f parts/thousand)'%(ds.channum, line_name, correction.std(),
+                                                    1e3*correction.std()/toCorrect.mean()))
 
                 if doPlot:
                     # print self.phaseCorrectionModel(fitparams, plot_phases)
@@ -831,8 +833,8 @@ class GeneralCalibration(object):
                         plt.ylim(ph_range)
 
     def phaseCorrectionModel(self, params, phase):
-        "Params are (phase of center, curvature, mean peak height)"
-        phase = (phase - params[0]+.5)%1 - 0.5
+        """Params are (phase of center, curvature, mean peak height)"""
+        phase = (phase - params[0]+.5) % 1 - 0.5
         return 4*params[1]*(phase**2 - 0.125) + params[2]
 
     def apply_stored_phase_correct(self):
@@ -845,10 +847,3 @@ class GeneralCalibration(object):
                 ds.p_filt_value_phc = toCorrect - correction
             else:
                 self.data.set_chan_bad(ds.channum, 'phase_correct_info[''phase''] does not exist')
-
-
-
-
-
-
-

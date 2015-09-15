@@ -1,10 +1,11 @@
 /build
+/dist
+/mass.egg-info
 .project
 .pydevproject
 lint-report.txt
 *.pyc
 *~
-mass/mathstat/robust.c
 
 *.orig
 
@@ -17,4 +18,6 @@ TAGS
 .idea/*
 *.h5
 
-mass/mathstat/nearest_arrivals.c
+# Cython produces C source files
+mass/core/*.c
+mass/mathstat/*.c

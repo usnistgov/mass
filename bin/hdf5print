@@ -12,32 +12,34 @@ or from the command line:
 
 """
 
-import h5py, sys
+import h5py
+import sys
 
-def printHDF5(node, depth = 0, maxchan=1):
+
+def printHDF5(node, depth=0, maxchan=1):
     if node is None or len(node) == 0:
-        print "\t" * depth, "-"
+        print("\t" * depth, "-")
         return
 
     # Print the object
     name = '/'+node.name.split('/')[-1]
     prefix = prefix_attr = ''
-    if depth>0:
-        prefix_attr = '|\t'*(depth)
-        prefix = '|\t'*(depth-1)+ '+ - - -'
+    if depth > 0:
+        prefix_attr = '|\t' * depth
+        prefix = '|\t'*(depth-1) + '+ - - -'
     if isinstance(node, h5py.Dataset):
-        print '%s %s (shape=%s dtype=%s)'%(prefix, name, node.shape, node.dtype)
+        print('%s %s (shape=%s dtype=%s)'%(prefix, name, node.shape, node.dtype))
     elif isinstance(node, h5py.File):
-        print('HDF5 file "%s"'%node.filename)
+        print('HDF5 file "%s"' % node.filename)
     else:
-        print prefix, name
+        print(prefix, name)
 
     # Print its attributes
-    for ak,av in node.attrs.iteritems():
-        print('%s|-{%s=%s}'%(prefix_attr, ak, str(av)))
+    for ak, av in node.attrs.iteritems():
+        print('%s|-{%s=%s}' % (prefix_attr, ak, str(av)))
 
     # Print its children
-    seenchan=0
+    seenchan = 0
     if isinstance(node, h5py.Group):
         for key,val in node.items():
             if key.startswith('chan'):
@@ -48,10 +50,8 @@ def printHDF5(node, depth = 0, maxchan=1):
             printHDF5(val, depth+1)
 
 
-
-if __name__=='__main__':
+if __name__ == '__main__':
     for n in sys.argv[1:]:
         f = h5py.File(n, "r")
         printHDF5(f)
         f.close()
-
