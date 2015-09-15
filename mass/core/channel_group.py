@@ -1138,8 +1138,8 @@ class TESGroup(object):
             else:
                 print("chan %d skipping compute_filter because already done, and loading filter" % ds.channum)
                 h5grp = ds.hdf5_group['filters']
-                ds.filter = Filter(avg_signal, self.nPresamples-ds.pretrigger_ignore_samples,
-                                   spectrum, ds.noise_autocorr, sample_time=self.timebase,
+                ds.filter = Filter(ds.average_pulse, self.nPresamples-ds.pretrigger_ignore_samples,
+                                   ds.noise_spectrum, ds.noise_autocorr, sample_time=self.timebase,
                                    fmax=fmax, f_3db=f_3db, shorten=2)
                 ds.filter.peak_signal = h5grp.attrs['peak']
                 ds.filter.shorten = h5grp.attrs['shorten']
