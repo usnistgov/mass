@@ -1281,11 +1281,16 @@ class MicrocalDataSet(object):
         return f
 
     def compute_newfilter(self, fmax=None, f_3db=None):
-        DEGREE=2
-        begin,end = self.read_segment(0)
-        gthis = self.good()[begin:end]
-        mprms = np.median(self.p_pulse_rms[begin:end][gthis])
-        use = np.logical_and(gthis, np.abs(self.p_pulse_rms[begin:end]/mprms-1.0) < 0.4)
+        DEGREE = 2
+        for snum in xrange(10000):
+            begin, end = self.read_segment(snum)
+            if end - begin <= 0:
+                return None  # Failed to find a good segment
+            gthis = self.good()[begin:end]
+            mprms = np.median(self.p_pulse_rms[begin:end][gthis])
+            use = np.logical_and(gthis, np.abs(self.p_pulse_rms[begin:end]/mprms-1.0) < 0.4)
+            if use.sum() > (end - begin) * 0.05:
+                break
 
         # Center promptness around 0, using a simple function of Prms
         prompt = self.p_promptness[begin:end]
@@ -1294,10 +1299,10 @@ class MicrocalDataSet(object):
         prompt -= promptshift(prms)
 
         # Scale it quadratically to cover the range -0.5 to +0.5, approximately
-        x,y,z = sp.stats.scoreatpercentile(prompt[use], [20,50,80])
-        A = np.array([[x*x,x,1],
-                      [y*y,y,1],
-                      [z*z,z,1]])
+        x, y, z = sp.stats.scoreatpercentile(prompt[use], [20,50,80])
+        A = np.array([[x*x, x, 1],
+                      [y*y, y, 1],
+                      [z*z, z, 1]])
         param = np.linalg.solve(A, [-.3, 0, +.3])
         ATime = np.poly1d(param)(prompt)
         use = np.logical_and(use, np.abs(ATime)<0.4)
@@ -1847,7 +1852,7 @@ class MicrocalDataSet(object):
             p = np.poly1d(np.polyfit(b[m-2:m+3], conv[m-2:m+3], 2))
             peak = p.deriv(m=1).r[0]
             peaks[i] = peak
-        curve = mass.mathstat.interpolate.CubicSpline(Pctrs, peaks)
+        curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, peaks)
         return curve, median_phase
 
 
@@ -1859,6 +1864,7 @@ class MicrocalDataSet(object):
         if ph_peaks is None:
             ph_peaks = self._find_peaks_heuristic()
 
+        # Compute a correction function at each line in ph_peaks
         corrections = []
         median_phase = []
         for pk in ph_peaks:
@@ -1874,9 +1880,8 @@ class MicrocalDataSet(object):
         ph = np.hstack([0] + [c(0) for c in corrections])
         assert (ph[1:] > ph[:-1]).all()
         corr = np.zeros((NC+1, self.nPulses), dtype=float)
-        final = np.zeros(self.nPulses, dtype=float)
         for i, c in enumerate(corrections):
-            corr[i+1] = c(0) - c(self.p_filt_phase)
+            corr[i+1] = c(0) - c(self.p_filt_phase_corr)
 
         filtval = self.p_filt_value_dc[:]
         binnum = np.digitize(filtval, ph)
@@ -1886,11 +1891,13 @@ class MicrocalDataSet(object):
             if b+1 == NC: # For the last bin, extrapolate
                 use = (binnum >= 1+b)
             frac = (filtval[use]-ph[b])/(ph[b+1]-ph[b])
-            final[use] = frac*corr[b+1,use]+(1-frac)*corr[b,use]+filtval[use]
-        self.p_filt_value_phc[:] = final
+            filtval[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
+        self.p_filt_value_phc[:] = filtval
         g = self.good()
         print 'Channel %3d phase corrected. MAD-based correction size: %.2f'%(
-            self.channum, mass.mathstat.robust.median_abs_dev(final[g]-filtval[g], True))
+            self.channum, mass.mathstat.robust.median_abs_dev(filtval[g] -
+                                                              self.p_filt_value_dc[g], True))
+        self.phase_corrections = corrections
         return corrections
 
 
