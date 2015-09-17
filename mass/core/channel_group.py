@@ -1112,13 +1112,6 @@ class TESGroup(object):
                     h5grp.attrs['fmax'] = f.fmax
                 h5grp.attrs['peak'] = f.peak_signal
                 h5grp.attrs['shorten'] = f.shorten
-                # for k, v in ds.filter.__dict__.items():
-                #     if not k.startswith("filt_"):
-                #         continue
-                #     if k in h5grp:
-                #         del h5grp[k]
-                #     vec = h5grp.create_dataset(k, data=v)
-                #     vec.attrs['variance'] = f.variances.get(k[5:], 0)
                 for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                           "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
                     if k in h5grp:

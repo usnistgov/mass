@@ -1318,33 +1318,35 @@ class MicrocalDataSet(object):
         prompt -= promptshift(prms)
 
         # Scale it quadratically to cover the range -0.5 to +0.5, approximately
-        x, y, z = sp.stats.scoreatpercentile(prompt[use], [20,50,80])
+        x, y, z = sp.stats.scoreatpercentile(prompt[use], [10, 50, 90])
         A = np.array([[x*x, x, 1],
                       [y*y, y, 1],
                       [z*z, z, 1]])
-        param = np.linalg.solve(A, [-.3, 0, +.3])
+        param = np.linalg.solve(A, [-.4, 0, +.4])
         ATime = np.poly1d(param)(prompt)
-        use = np.logical_and(use, np.abs(ATime)<0.4)
+        use = np.logical_and(use, np.abs(ATime)<0.45)
 
         # The raw training data
         raw = self.data[:, 1:]
         shift1 = self.p_shift1[begin:end]
         raw[shift1, :] = self.data[shift1, 0:-1]
-        raw = (raw.T-self.p_pretrig_mean[begin:end]).T
-        raw = raw[use,:]
-        ATime = ATime[use]
+        ptm = self.p_pretrig_mean[begin:end]
+        ptm.shape = (end-begin, 1)
+        raw = (raw-ptm)[use,:]
+        rawscale = raw.max(axis=1)
 
-        def cost(param, x0, y0):
-            "The cost function is the sum of absolute deviations from the model"
-            model = np.poly1d(param)(x0)
-            return np.abs((model-y0)).sum()
+        # Arrival time and a binned version of it
+        ATime = ATime[use]
+        NBINS = 9
+        bins = np.digitize(ATime, np.linspace(ATime.min(), ATime.max(), NBINS+1))-1
 
         model = np.zeros((self.nSamples-1, 1+DEGREE), dtype=float)
         for s in range(self.nPresamples+2, self.nSamples-1):
-            y = raw[:,s]
-            fit_init = np.polyfit(ATime, y, DEGREE)
-            fit = sp.optimize.minimize(cost, fit_init, args=(ATime, y), method='Powell')['x']
-            model[s,:] = fit[::-1]  # Reverse so order is [const, lin, quad] terms
+            y = raw[:,s]/rawscale
+            xmed = [np.median(ATime[bins==i]) for i in range(NBINS)]
+            ymed = [np.median(y[bins==i]) for i in range(NBINS)]
+            fit = np.polyfit(xmed, ymed, DEGREE)
+            model[s,:] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
 
         self.pulsemodel = model
         ATSF = mass.optimal_filtering.ArrivalTimeSafeFilter
