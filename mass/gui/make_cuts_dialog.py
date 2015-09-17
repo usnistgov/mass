@@ -18,6 +18,7 @@ from PyQt4.QtCore import pyqtSlot
 import os
 import numpy, pylab
 import mass
+import mass.mathstat.utilities
 
 
 # Import the form created by QtDesigner.  If possible, use a *.py file created
@@ -391,14 +392,14 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         for dsnum, (h1,h2) in enumerate(zip(hist_all,hist_good)):
             color = self.color_of_channel(dsnum)
             if (h1 != h2).any():
-                mass.plot_as_stepped_hist(axis, h1+dsnum*offset, bins, color='gray')
-            mass.plot_as_stepped_hist(axis, h2+dsnum*offset, bins, color=color)
+                mass.mathstat.utilities.plot_as_stepped_hist(axis, h1+dsnum*offset, bins, color='gray')
+            mass.mathstat.utilities.plot_as_stepped_hist(axis, h2+dsnum*offset, bins, color=color)
             if dsnum in subaxis_number:
                 subaxis = self.canvas.axes[subaxis_number[dsnum]]
                 this_offset = n_offsets_per_sub[subaxis_number[dsnum]]*offset
                 if (h1 != h2).any():
-                    mass.plot_as_stepped_hist(subaxis, h1+this_offset, bins, color='gray')
-                mass.plot_as_stepped_hist(subaxis, h2+this_offset, bins, color=color)
+                    mass.mathstat.utilities.plot_as_stepped_hist(subaxis, h1+this_offset, bins, color='gray')
+                mass.mathstat.utilities.plot_as_stepped_hist(subaxis, h2+this_offset, bins, color=color)
                 subaxis.text(bins[5], 0.2*offset+this_offset, "Channel %d"%dsnum2channum[dsnum], color=color)
                 n_offsets_per_sub[subaxis_number[dsnum]] += 1
 
