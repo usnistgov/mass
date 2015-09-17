@@ -88,6 +88,12 @@ $ cp build/lib*/mass/mathstat/*so mass/mathstat/
 Let me know what works for you!
 
 
+INSTALLATION ON UBUNTU 14.04
+=========================================
+The following should get you the required packages:
+
+sudo apt-get install python-qt4 ipython python-numpy python-matplotlib python-scipy pyqt4-dev-tools cython gfortran python-sklearn python-h5py python-statsmodels
+
 POSSIBLE INSTALLATION PROBLEMS
 =========================================
 There is no limit to the possibilities!  One I have found, which seems like
