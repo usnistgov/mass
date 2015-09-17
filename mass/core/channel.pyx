@@ -20,6 +20,7 @@ import matplotlib.pylab as plt
 import cython
 
 from libc.math cimport sqrt
+from libcpp cimport bool
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -989,6 +990,7 @@ class MicrocalDataSet(object):
             unsigned short[:] p_peak_index_array,
             unsigned short[:] p_peak_value_array,
             unsigned short[:] p_min_value_array,
+            unsigned short[:] p_shift1_array,
 
             unsigned short peak_time_samples,
             unsigned short pretrigger_ignore_samples
@@ -997,7 +999,7 @@ class MicrocalDataSet(object):
             double pulse_sum, pulse_rms_sum
             double promptness_sum
             double ptm
-            unsigned short peak_value, peak_index, min_value
+            unsigned short peak_value, peak_index, min_value, val_npre2
             unsigned short signal
             unsigned short nPresamples, nSamples, peak_time
             unsigned short e_nPresamples, s_prompt, e_prompt
@@ -1048,13 +1050,14 @@ class MicrocalDataSet(object):
         p_peak_index_array = np.zeros(pulses_per_seg, dtype=np.uint16)
         p_peak_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
         p_min_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
+        p_shift1_array = np.zeros(pulses_per_seg, dtype=np.uint16)
 
         timebase = self.timebase
         nPresamples = self.nPresamples
         nSamples = self.nSamples
         e_nPresamples = nPresamples - pretrigger_ignore_samples
-        s_prompt = nPresamples + 6
-        e_prompt = nPresamples + 12
+        s_prompt = nPresamples + 5
+        e_prompt = nPresamples + 11
         peak_time = nPresamples + peak_time_samples
 
         print_updater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
@@ -1075,6 +1078,7 @@ class MicrocalDataSet(object):
                 peak_value = 0
                 peak_index = 0
                 min_value = 65535
+                val_npre2 = 0
 
                 # Memory access (pulse[k]) is expensive.
                 # It calculates several quantities with a single memory access.
@@ -1091,16 +1095,20 @@ class MicrocalDataSet(object):
                         pretrig_sum += signal
                         pretrig_rms_sum += signal**2
 
-                    if (k < e_prompt) and (k > s_prompt):
+                    if (k < e_prompt) and (k >= s_prompt):
                         promptness_sum += signal
+
+                    if k == nPresamples + 2:
+                        val_npre2 = signal
 
                     if k > nPresamples:
                         pulse_sum += signal
                         pulse_rms_sum += signal**2
 
                 ptm = pretrig_sum / e_nPresamples
+                ptrms = sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
                 p_pretrig_mean_array[j] = <float>ptm
-                p_pretrig_rms_array[j] = <float>sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
+                p_pretrig_rms_array[j] = <float>ptrms
                 peak_value -= <unsigned short>ptm
                 p_promptness_array[j] = (promptness_sum / 6.0 - ptm) / peak_value
                 p_peak_value_array[j] = peak_value
@@ -1108,7 +1116,9 @@ class MicrocalDataSet(object):
                 p_min_value_array[j] = min_value
                 pulse_avg = pulse_sum / (nSamples - nPresamples) - ptm
                 p_pulse_average_array[j] = <float>pulse_avg
-                p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples) - ptm*pulse_avg*2 + ptm**2)
+                p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples)
+                                                   - ptm*pulse_avg*2 + ptm**2)
+                p_shift1_array[j] = <unsigned short>(val_npre2-ptm > 4.3 * ptrms)
 
                 # Estimating a rise time.
                 low_th = <unsigned short>(0.1 * peak_value + 0.9 * ptm)
@@ -1174,6 +1184,7 @@ class MicrocalDataSet(object):
             self.p_peak_value[first:end] = p_peak_value_array[:seg_size]
             self.p_min_value[first:end] = p_min_value_array[:seg_size]
             self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
+            self.p_shift1[first:end] = p_shift1_array[:seg_size]
 
             print_updater.update((i+1)/self.pulse_records.n_segments)
 
@@ -1863,6 +1874,9 @@ class MicrocalDataSet(object):
         """
         if ph_peaks is None:
             ph_peaks = self._find_peaks_heuristic()
+        if len(ph_peaks) <= 0:
+            print ("Could not phase_correct on chan %3d because no peaks"%self.channum)
+            return
 
         # Compute a correction function at each line in ph_peaks
         corrections = []
