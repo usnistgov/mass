@@ -1002,7 +1002,7 @@ class TESGroup(object):
             printUpdater.update(end / float(self.nPulses))
             for imask, mask in enumerate(masks):
                 valid = mask[first:end]
-                for ichan, chan in enumerate(self.datasets):
+                for ichan, chan in enumerate(self):  # loop over only valid datasets
                     if chan.channum not in self.why_chan_bad:
                         if (imask % self.n_channels) != ichan:
                             continue
