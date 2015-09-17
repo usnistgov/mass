@@ -999,7 +999,7 @@ class MicrocalDataSet(object):
             double pulse_sum, pulse_rms_sum
             double promptness_sum
             double ptm
-            unsigned short peak_value, peak_index, min_value, val_npre2
+            unsigned short peak_value, peak_index, min_value
             unsigned short signal
             unsigned short nPresamples, nSamples, peak_time
             unsigned short e_nPresamples, s_prompt, e_prompt
@@ -1056,8 +1056,6 @@ class MicrocalDataSet(object):
         nPresamples = self.nPresamples
         nSamples = self.nSamples
         e_nPresamples = nPresamples - pretrigger_ignore_samples
-        s_prompt = nPresamples + 5
-        e_prompt = nPresamples + 11
         peak_time = nPresamples + peak_time_samples
 
         print_updater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
@@ -1078,10 +1076,13 @@ class MicrocalDataSet(object):
                 peak_value = 0
                 peak_index = 0
                 min_value = 65535
-                val_npre2 = 0
+                # Reset s_ and e_prompt for each pulse, b/c they can be shifted
+                # for individual pulses
+                s_prompt = nPresamples + 5
+                e_prompt = nPresamples + 11
 
                 # Memory access (pulse[k]) is expensive.
-                # It calculates several quantities with a single memory access.
+                # So calculate several quantities with a single memory access.
                 for k in range(0, nSamples):
                     signal = pulse[k]
 
@@ -1099,14 +1100,20 @@ class MicrocalDataSet(object):
                         promptness_sum += signal
 
                     if k == nPresamples + 2:
-                        val_npre2 = signal
+                        ptm = pretrig_sum / e_nPresamples
+                        ptrms = sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
+                        if (signal - ptm > 4.3 * ptrms):
+                            e_prompt -= 1
+                            s_prompt -= 1
+                            p_shift1_array[j] = True
+                        else:
+                            p_shift1_array[j] = False
+                        end
 
-                    if k > nPresamples:
+                    if k >= nPresamples + 2:
                         pulse_sum += signal
                         pulse_rms_sum += signal**2
 
-                ptm = pretrig_sum / e_nPresamples
-                ptrms = sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
                 p_pretrig_mean_array[j] = <float>ptm
                 p_pretrig_rms_array[j] = <float>ptrms
                 peak_value -= <unsigned short>ptm
@@ -1118,7 +1125,7 @@ class MicrocalDataSet(object):
                 p_pulse_average_array[j] = <float>pulse_avg
                 p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples)
                                                    - ptm*pulse_avg*2 + ptm**2)
-                p_shift1_array[j] = <unsigned short>(val_npre2-ptm > 4.3 * ptrms)
+
 
                 # Estimating a rise time.
                 # Beware! peak_value here has already had the pretrigger mean (ptm) subtracted!
