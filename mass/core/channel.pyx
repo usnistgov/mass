@@ -1111,8 +1111,9 @@ class MicrocalDataSet(object):
                 p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples) - ptm*pulse_avg*2 + ptm**2)
 
                 # Estimating a rise time.
-                low_th = <unsigned short>(0.1 * peak_value + 0.9 * ptm)
-                high_th = <unsigned short>(0.9 * peak_value + 0.1 * ptm)
+                # Beware! peak_value here has already had the pretrigger mean (ptm) subtracted!
+                low_th = <unsigned short>(0.1 * peak_value + ptm)
+                high_th = <unsigned short>(0.9 * peak_value + ptm)
 
                 k = nPresamples
                 low_value = high_value = pulse[k]
@@ -1136,7 +1137,7 @@ class MicrocalDataSet(object):
                     k += 1
 
                 if high_value > low_value:
-                    p_rise_times_array[j] = <float>(timebase / (high_value - low_value) * (<double>peak_value - ptm) * (high_idx - low_idx))
+                    p_rise_times_array[j] = <float>(timebase * (high_idx - low_idx) * (<double>peak_value) / (high_value - low_value))
                 else:
                     p_rise_times_array[j] = <float>timebase
 
