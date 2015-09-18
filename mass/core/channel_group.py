@@ -682,7 +682,7 @@ class TESGroup(object):
         return ds.read_trace(record_num)
 
     def plot_traces(self, pulsenums, dataset_num=0, chan_num=None, pulse_summary=True, axis=None,
-                    difference=False, residual=False, valid_status=None):
+                    difference=False, residual=False, valid_status=None, channum=None, shift1=False):
         """Plot some example pulses, given by sample number.
         <pulsenums>   A sequence of sample numbers, or a single one.
         <dataset_num> Dataset index (0 to n_dets-1, inclusive).  Will be used only if
@@ -696,8 +696,12 @@ class TESGroup(object):
                      or just raw data.
         <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                      that have been cut.  If "cut", show only those that have been cut.
+        <channum>    Synonym for chan_num (an unfortunate but old choice)
+        <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
         """
 
+        if chan_num is None:
+            chan_num = channum 
         if chan_num in self.channel:
             dataset = self.channel[chan_num]
             dataset_num = dataset.index
@@ -706,7 +710,7 @@ class TESGroup(object):
             if chan_num is not None:
                 print("Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num))
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
-                                   residual, valid_status)
+                                   residual, valid_status, shift1)
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
                        dataset_numbers=None):

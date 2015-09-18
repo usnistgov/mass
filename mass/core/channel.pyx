@@ -1351,7 +1351,7 @@ class MicrocalDataSet(object):
 
         self.pulsemodel = model
         ATSF = mass.optimal_filtering.ArrivalTimeSafeFilter
-        f = ATSF(model, self.nPresamples,self.noise_autocorr, fmax=fmax,
+        f = ATSF(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
                  f_3db=f_3db, sample_time=self.timebase)
         f.compute(fmax=fmax, f_3db=f_3db)
         return f
@@ -2060,7 +2060,7 @@ class MicrocalDataSet(object):
         return first, end
 
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
-                    residual=False, valid_status=None):
+                    residual=False, valid_status=None, shift1=False):
         """Plot some example pulses, given by sample number.
         <pulsenums>   A sequence of sample numbers, or a single one.
         <pulse_summary> Whether to put text about the first few pulses on the plot
@@ -2069,6 +2069,7 @@ class MicrocalDataSet(object):
         <residual>   Whether to show the residual between data and opt filtered model, or just raw data.
         <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                      that have been cut.  If "cut", show only those that have been cut.
+        <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
         """
         # Don't print pulse summaries if the summary data is not available
 
@@ -2088,8 +2089,8 @@ class MicrocalDataSet(object):
             raise ValueError("Only one of residual and difference can be True.")
 
         dt = (np.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
-        color = 'purple', 'blue', 'green', '#88cc00', 'gold', 'orange', 'red', 'brown', 'gray', '#444444', 'magenta'
-        MAX_TO_SUMMARIZE = 20
+        cm = plt.cm.jet
+        MAX_TO_SUMMARIZE = 30
 
         if axis is None:
             plt.clf()
@@ -2121,14 +2122,17 @@ class MicrocalDataSet(object):
             elif residual:
                 model = self.p_filt_value[pn] * self.average_pulse[:] / np.max(self.average_pulse)
                 data = data-model
+            if shift1 and self.p_shift1[pn]:
+                data = np.hstack([data[0], data[:-1]])
 
             cutchar, alpha, linestyle, linewidth = ' ', 1.0, '-', 1
 
             # When plotting both cut and valid, mark the cut data with x and dashed lines
             if valid_status is None and not cuts_good[i]:
                 cutchar, alpha, linestyle, linewidth = 'X', 1.0, '--', 1
-            axis.plot(dt, data, color=color[pulses_plotted % len(color)], linestyle=linestyle, alpha=alpha,
-                      linewidth=linewidth)
+            color=cm(pulses_plotted*1.0/len(pulsenums))
+            axis.plot(dt, data, color=color,
+                      linestyle=linestyle, alpha=alpha, linewidth=linewidth)
             if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(self.p_pretrig_mean) >= pn:
                 try:
                     summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f" % (
@@ -2138,8 +2142,9 @@ class MicrocalDataSet(object):
                 except IndexError:
                     pulse_summary = False
                     continue
-                axis.text(.975, .93-.02*pulses_plotted, summary, color=color[pulses_plotted % len(color)],
-                          family='monospace', size='medium', transform=axis.transAxes, ha='right')
+                axis.text(.975, .93-.025*pulses_plotted, summary, color=color,
+                          family='monospace', size='medium',
+                          transform=axis.transAxes, ha='right')
 
     def read_trace(self, record_num):
         """Read (from cache or disk) and return the pulse numbered <record_num> for
