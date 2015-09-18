@@ -1432,7 +1432,7 @@ class TESGroup(object):
         for ds in self:
             try:
                 ds.phase_correct(forceNew=forceNew, category=category)
-            except (Exception,e):
+            except Exception as e:
                 self.set_chan_bad(ds.channum, "failed phase_correct with %s"%e)
 
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
