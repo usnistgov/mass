@@ -25,6 +25,7 @@ from libcpp cimport bool
 # MASS modules
 import mass.mathstat.power_spectrum
 import mass.mathstat.interpolate
+import mass.mathstat.robust
 import mass.core.analysis_algorithms
 
 from mass.core.files import VirtualFile, LJHFile, LANLFile
