@@ -701,7 +701,7 @@ class TESGroup(object):
         """
 
         if chan_num is None:
-            chan_num = channum 
+            chan_num = channum
         if chan_num in self.channel:
             dataset = self.channel[chan_num]
             dataset_num = dataset.index
@@ -1427,6 +1427,13 @@ class TESGroup(object):
                 ds.drift_correct(forceNew, category)
             except ValueError:
                 self.set_chan_bad(ds.channum, "failed drift correct")
+
+    def phase_correct(self, plot=False, forceNew=False, category=None):
+        for ds in self:
+            try:
+                ds.phase_correct(forceNew=forceNew, category=category)
+            except (Exception,e):
+                self.set_chan_bad(ds.channum, "failed phase_correct with %s"%e)
 
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
                           plot=False, forceNew=False, pre_sanitize_p_filt_phase=True, category=None):

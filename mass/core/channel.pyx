@@ -1786,42 +1786,44 @@ class MicrocalDataSet(object):
         quantity here.
         """
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
-        if forceNew or doesnt_exist:
-            if category is None:
-                category = {"calibration": "in"}
-            data, g = self.first_n_good_pulses(maximum_num_records, category)
-            print("channel %d doing phase_correct2014 with %d good pulses" % (self.channum, data.shape[0]))
-            prompt = self.p_promptness[:]
-            prms = self.p_pulse_rms[:]
-
-            if self.filter is not None:
-                dataFilter = self.filter.__dict__['filt_noconst']
-            else:
-                dataFilter = self.hdf5_group['filters/filt_noconst'][:]
-            tc = mass.core.analysis_algorithms.FilterTimeCorrection(
-                data, prompt[g], prms[g], dataFilter,
-                self.nPresamples, typicalResolution=typical_resolution)
-
-            self.p_filt_value_phc[:] = self.p_filt_value_dc[:]
-            self.p_filt_value_phc[:] -= tc(prompt, prms)
-            if plot:
-                fnum = plt.gcf().number
-                plt.figure(5)
-                plt.clf()
-                g = self.cuts.good()
-                plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
-                plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
-                plt.figure(fnum)
-        else:
+        if not (forceNew or doesnt_exist):
             print("channel %d skipping phase_correct2014" % self.channum)
+            return
 
-    def _find_peaks_heuristic(self):
+        if category is None:
+            category = {"calibration": "in"}
+        data, g = self.first_n_good_pulses(maximum_num_records, category)
+        print("channel %d doing phase_correct2014 with %d good pulses" % (self.channum, data.shape[0]))
+        prompt = self.p_promptness[:]
+        prms = self.p_pulse_rms[:]
+
+        if self.filter is not None:
+            dataFilter = self.filter.__dict__['filt_noconst']
+        else:
+            dataFilter = self.hdf5_group['filters/filt_noconst'][:]
+        tc = mass.core.analysis_algorithms.FilterTimeCorrection(
+            data, prompt[g], prms[g], dataFilter,
+            self.nPresamples, typicalResolution=typical_resolution)
+
+        self.p_filt_value_phc[:] = self.p_filt_value_dc[:]
+        self.p_filt_value_phc[:] -= tc(prompt, prms)
+        if plot:
+            fnum = plt.gcf().number
+            plt.figure(5)
+            plt.clf()
+            g = self.cuts.good()
+            plt.plot(prompt[g], self.p_filt_value_dc[g], 'g.')
+            plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
+            plt.figure(fnum)
+
+    def _find_peaks_heuristic(self, good=None):
         """A heuristic method to identify the peaks in a spectrum that can be used to
         design the arrival-time-bias correction. Of course, you might have better luck
         finding peaks by an experiment-specific method, but this will stand in if you
         cannot or do not want to find peaks another way."""
-        g = self.good()
-        phnorm = self.p_filt_value[g]
+        if good is None:
+            good = self.good()
+        phnorm = self.p_filt_value[good]
         median_scale = 1 / np.median(phnorm)
         phnorm *= median_scale
         # First make histogram with bins = 0.2% of median PH
@@ -1846,10 +1848,11 @@ class MicrocalDataSet(object):
         return np.array(peaks)
 
 
-    def _phasecorr_find_alignment(self, peak, delta_ph=60, nf=10):
+    def _phasecorr_find_alignment(self, peak, delta_ph=60, nf=10, good=None):
         phrange = np.array([-delta_ph,delta_ph])+peak
-        g = self.good()
-        use = log_and(g, np.abs(self.p_filt_value_dc[:]-peak)<delta_ph)
+        if good is None:
+            good = self.good()
+        use = log_and(good, np.abs(self.p_filt_value_dc[:]-peak)<delta_ph)
         median_phase = np.median(self.p_filt_phase[use])
 
         Pedges = np.linspace(-.5,.5,nf+1)+median_phase
@@ -1860,7 +1863,7 @@ class MicrocalDataSet(object):
         NBINS=200
         hists=np.zeros((nf, NBINS), dtype=float)
         for i,P in enumerate(Pctrs):
-            use = log_and(g, Pbin==i)
+            use = log_and(good, Pbin==i)
             c,b = np.histogram(self.p_filt_value_dc[use], NBINS, phrange)
             hists[i] = c
 
@@ -1878,13 +1881,23 @@ class MicrocalDataSet(object):
         return curve, median_phase
 
 
-    def phase_correct(self, nf=9, ph_peaks=None):
+    def phase_correct(self, forceNew=False, category=None, ph_peaks=None):
         """2015 phase correction method. Arguments are:
-        nf        How many phase bins to use in constructing correction splines.
+        forceNew  To repeat computation if it already exists.
+        category  From the new named/categorical cuts system.
         ph_peaks  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
         """
+        doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
+        if not (forceNew or doesnt_exist):
+            print("channel %d skipping phase_correct" % self.channum)
+            return
+
+        if category is None:
+            category = {"calibration": "in"}
+        good = self.cuts.good(**category)
+
         if ph_peaks is None:
-            ph_peaks = self._find_peaks_heuristic()
+            ph_peaks = self._find_peaks_heuristic(good=good)
         if len(ph_peaks) <= 0:
             print ("Could not phase_correct on chan %3d because no peaks"%self.channum)
             return
@@ -1893,7 +1906,7 @@ class MicrocalDataSet(object):
         corrections = []
         median_phase = []
         for pk in ph_peaks:
-            c, mphase = self._phasecorr_find_alignment(pk, .012*np.mean(ph_peaks))
+            c, mphase = self._phasecorr_find_alignment(pk, .012*np.mean(ph_peaks), good=good)
             corrections.append(c)
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
@@ -1903,11 +1916,12 @@ class MicrocalDataSet(object):
 
         # Compute a correction for each pulse for each correction-line energy
         ph = np.hstack([0] + [c(0) for c in corrections])
-        assert (ph[1:] > ph[:-1]).all()
+        assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
         corr = np.zeros((NC+1, self.nPulses), dtype=float)
         for i, c in enumerate(corrections):
             corr[i+1] = c(0) - c(self.p_filt_phase_corr)
 
+        # Now apply the appropriate correction (a linear interp between 2 neighboring values)
         filtval = self.p_filt_value_dc[:]
         binnum = np.digitize(filtval, ph)
         for b in range(NC):
@@ -1918,10 +1932,9 @@ class MicrocalDataSet(object):
             frac = (filtval[use]-ph[b])/(ph[b+1]-ph[b])
             filtval[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
         self.p_filt_value_phc[:] = filtval
-        g = self.good()
         print 'Channel %3d phase corrected. MAD-based correction size: %.2f'%(
-            self.channum, mass.mathstat.robust.median_abs_dev(filtval[g] -
-                                                              self.p_filt_value_dc[g], True))
+            self.channum, mass.mathstat.robust.median_abs_dev(filtval[good] -
+                                                              self.p_filt_value_dc[good], True))
         self.phase_corrections = corrections
         return corrections
 
