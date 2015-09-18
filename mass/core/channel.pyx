@@ -1297,7 +1297,7 @@ class MicrocalDataSet(object):
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
                              fmax=fmax, f_3db=f_3db, shorten=2)
-        f.compute(fmax=fmax, f_3db=f_3db)
+        f.compute()
         return f
 
     def compute_newfilter(self, fmax=None, f_3db=None):
