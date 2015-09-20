@@ -1320,7 +1320,7 @@ class MicrocalDataSet(object):
 
     def compute_newfilter(self, fmax=None, f_3db=None):
         DEGREE = 2
-        for snum in xrange(10000):
+        for snum in range(10000):
             begin, end = self.read_segment(snum)
             if end - begin <= 0:
                 return None  # Failed to find a good segment
@@ -1950,9 +1950,9 @@ class MicrocalDataSet(object):
             frac = (filtval[use]-ph[b])/(ph[b+1]-ph[b])
             filtval[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
         self.p_filt_value_phc[:] = filtval
-        print 'Channel %3d phase corrected. MAD-based correction size: %.2f'%(
+        print('Channel %3d phase corrected. MAD-based correction size: %.2f' % (
             self.channum, mass.mathstat.robust.median_abs_dev(filtval[good] -
-                                                              self.p_filt_value_dc[good], True))
+                                                              self.p_filt_value_dc[good], True)))
         self.phase_corrections = corrections
         return corrections
 
