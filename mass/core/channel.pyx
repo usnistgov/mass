@@ -641,15 +641,33 @@ class Cuts(object):
 
         return (self._mask[...] & category_field_bit_mask) == category_field_target_bits
 
-    def category(self, name):
+    def category_codes(self, name):
+        """Returns the category codes of a single categorical cut field.
+
+        Parameters
+        ----------
+        first : string
+            the name of a categorical cut field.
+
+        Returns
+        -------
+        numpy array of uint32 :
+            category codes of a categorical cut field 'name'.
+
+        Raises
+        ------
+        KeyError
+            when a name is not a registered categorical cut field.
+        """
         categorical_field = self.tes_group.categorical_cut_desc
 
         categorical_field_g = categorical_field["name"] == name.encode()
+
         if np.any(categorical_field_g):
             _, bit_pos, bit_mask = categorical_field[categorical_field_g][0]
             bit_pos = np.uint32(bit_pos)
         else:
-            raise ValueError(name + " is not found.")
+            raise KeyError(name + " is not found.")
 
         return (self._mask[...] & bit_mask) >> bit_pos
 
@@ -677,7 +695,7 @@ class Cuts(object):
             cut_mask[name] = self.good(name)
 
         for name in categorical_field_names:
-            cut_mask[name] = self.category(name)
+            cut_mask[name] = self.category_codes(name)
 
         return cut_mask
 
@@ -1023,7 +1041,7 @@ class MicrocalDataSet(object):
 
         # don't look for retriggers before this # of samples
         peak_time_samples = <unsigned short>(peak_time_microsec*1e-6 / self.timebase)
-        pretrigger_ignore_samples = <unsigned short>(peak_time_microsec*1e-6 / self.timebase)
+        pretrigger_ignore_samples = <unsigned short>(pretrigger_ignore_microsec*1e-6 / self.timebase)
 
         self.peak_time_microsec = peak_time_microsec
         self.pretrigger_ignore_microsec = pretrigger_ignore_microsec
@@ -1122,9 +1140,9 @@ class MicrocalDataSet(object):
                 p_peak_value_array[j] = peak_value
                 p_peak_index_array[j] = peak_index
                 p_min_value_array[j] = min_value
-                pulse_avg = pulse_sum / (nSamples - nPresamples) - ptm
+                pulse_avg = pulse_sum / (nSamples - nPresamples - 2) - ptm
                 p_pulse_average_array[j] = <float>pulse_avg
-                p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples)
+                p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples - 2)
                                                    - ptm*pulse_avg*2 + ptm**2)
 
 
@@ -1301,12 +1319,12 @@ class MicrocalDataSet(object):
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
                              fmax=fmax, f_3db=f_3db, shorten=2)
-        f.compute(fmax=fmax, f_3db=f_3db)
+        f.compute()
         return f
 
     def compute_newfilter(self, fmax=None, f_3db=None):
         DEGREE = 2
-        for snum in xrange(10000):
+        for snum in range(10000):
             begin, end = self.read_segment(snum)
             if end - begin <= 0:
                 return None  # Failed to find a good segment
@@ -1828,28 +1846,31 @@ class MicrocalDataSet(object):
         if good is None:
             good = self.good()
         phnorm = self.p_filt_value[good]
-        median_scale = 1 / np.median(phnorm)
-        phnorm *= median_scale
-        # First make histogram with bins = 0.2% of median PH
-        hist, bins = np.histogram(phnorm, 1000, [0, 2])
-        binctr = bins[1:] - 0.5 * (bins[1] - bins[0])
-        # Then smooth these to find # of events with a range of 1.0% of median PH
-        N1pct = sp.signal.fftconvolve(hist, np.ones(5), 'same')
-        Ntotal = hist.sum()
+        median_scale = np.median(phnorm)
 
-        # A peak must contain 1% of the data or 3000 events, whichever is more,
+        # First make histogram with bins = 0.2% of median PH
+        hist, bins = np.histogram(phnorm, 1000, [0, 2*median_scale])
+        binctr = bins[1:] - 0.5 * (bins[1] - bins[0])
+
+        # Scipy continuous wavelet transform
+        pk1 = np.array(sp.signal.find_peaks_cwt(hist, np.array([2,4,8,12])))
+
+        # A peak must contain 1% of the data or 1000 events, whichever is more,
         # but the requirement is not more than 10% of data (for meager data sets)
-        MinCountsInPeak = min(max(3000, Ntotal/100), Ntotal/10)
-        localmax = 1 + np.nonzero(log_and(N1pct[1:-1] > N1pct[2:],
-                                          N1pct[1:-1] > N1pct[:-2],
-                                          N1pct[1:-1] > MinCountsInPeak))[0]
-        peaks = []
-        for lm in localmax:
-            Nmax = hist[lm] / 10
-            if log_and((hist[lm-12:lm-7] < Nmax).all(),
-                       (hist[lm+10:lm+13] < Nmax).all()):
-                peaks.append(binctr[lm] / median_scale)
-        return np.array(peaks)
+        Ntotal = len(phnorm)
+        MinCountsInPeak = min(max(1000, Ntotal/100), Ntotal/10)
+        pk2 = pk1[hist[pk1]>MinCountsInPeak]
+
+        # Now take peaks from highest to lowest, provided they are at least 40 bins from any neighbor
+        ordering = hist[pk2].argsort()
+        pk2 = pk2[ordering]
+        peaks = [pk2[0]]
+
+        for pk in pk2[1:]:
+            if (np.abs(peaks-pk) > 40).all():
+                peaks.append(pk)
+        peaks.sort()
+        return np.array(binctr[peaks])
 
 
     def _phasecorr_find_alignment(self, peak, delta_ph=60, nf=10, good=None):
@@ -1905,6 +1926,8 @@ class MicrocalDataSet(object):
         if len(ph_peaks) <= 0:
             print ("Could not phase_correct on chan %3d because no peaks"%self.channum)
             return
+        ph_peaks = np.asarray(ph_peaks)
+        ph_peaks.sort()
 
         # Compute a correction function at each line in ph_peaks
         corrections = []
@@ -1915,15 +1938,19 @@ class MicrocalDataSet(object):
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
         phase_corrector = mass.mathstat.interpolate.CubicSpline(ph_peaks, median_phase)
-        self.p_filt_phase_corr = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
+        self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
         NC = len(corrections)
 
         # Compute a correction for each pulse for each correction-line energy
+        # For the actual correction, don't let |ph| > 0.6 sample
+        corrected_phase = self.p_filt_phase_corr[:]
+        corrected_phase[corrected_phase>0.6] = 0.6
+        corrected_phase[corrected_phase<-0.6] = -0.6
         ph = np.hstack([0] + [c(0) for c in corrections])
         assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
         corr = np.zeros((NC+1, self.nPulses), dtype=float)
         for i, c in enumerate(corrections):
-            corr[i+1] = c(0) - c(self.p_filt_phase_corr)
+            corr[i+1] = c(0) - c(corrected_phase)
 
         # Now apply the appropriate correction (a linear interp between 2 neighboring values)
         filtval = self.p_filt_value_dc[:]
@@ -1936,9 +1963,9 @@ class MicrocalDataSet(object):
             frac = (filtval[use]-ph[b])/(ph[b+1]-ph[b])
             filtval[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
         self.p_filt_value_phc[:] = filtval
-        print 'Channel %3d phase corrected. MAD-based correction size: %.2f'%(
+        print('Channel %3d phase corrected. MAD-based correction size: %.2f' % (
             self.channum, mass.mathstat.robust.median_abs_dev(filtval[good] -
-                                                              self.p_filt_value_dc[good], True))
+                                                              self.p_filt_value_dc[good], True)))
         self.phase_corrections = corrections
         return corrections
 
