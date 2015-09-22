@@ -1041,7 +1041,7 @@ class MicrocalDataSet(object):
 
         # don't look for retriggers before this # of samples
         peak_time_samples = <unsigned short>(peak_time_microsec*1e-6 / self.timebase)
-        pretrigger_ignore_samples = <unsigned short>(peak_time_microsec*1e-6 / self.timebase)
+        pretrigger_ignore_samples = <unsigned short>(pretrigger_ignore_microsec*1e-6 / self.timebase)
 
         self.peak_time_microsec = peak_time_microsec
         self.pretrigger_ignore_microsec = pretrigger_ignore_microsec
