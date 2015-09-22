@@ -641,15 +641,33 @@ class Cuts(object):
 
         return (self._mask[...] & category_field_bit_mask) == category_field_target_bits
 
-    def category(self, name):
+    def category_codes(self, name):
+        """Returns the category codes of a single categorical cut field.
+
+        Parameters
+        ----------
+        first : string
+            the name of a categorical cut field.
+
+        Returns
+        -------
+        numpy array of uint32 :
+            category codes of a categorical cut field 'name'.
+
+        Raises
+        ------
+        KeyError
+            when a name is not a registered categorical cut field.
+        """
         categorical_field = self.tes_group.categorical_cut_desc
 
         categorical_field_g = categorical_field["name"] == name.encode()
+
         if np.any(categorical_field_g):
             _, bit_pos, bit_mask = categorical_field[categorical_field_g][0]
             bit_pos = np.uint32(bit_pos)
         else:
-            raise ValueError(name + " is not found.")
+            raise KeyError(name + " is not found.")
 
         return (self._mask[...] & bit_mask) >> bit_pos
 
@@ -677,7 +695,7 @@ class Cuts(object):
             cut_mask[name] = self.good(name)
 
         for name in categorical_field_names:
-            cut_mask[name] = self.category(name)
+            cut_mask[name] = self.category_codes(name)
 
         return cut_mask
 
@@ -1302,7 +1320,7 @@ class MicrocalDataSet(object):
 
     def compute_newfilter(self, fmax=None, f_3db=None):
         DEGREE = 2
-        for snum in xrange(10000):
+        for snum in range(10000):
             begin, end = self.read_segment(snum)
             if end - begin <= 0:
                 return None  # Failed to find a good segment
@@ -1941,9 +1959,9 @@ class MicrocalDataSet(object):
             frac = (filtval[use]-ph[b])/(ph[b+1]-ph[b])
             filtval[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
         self.p_filt_value_phc[:] = filtval
-        print 'Channel %3d phase corrected using %2d peaks. MAD-based correction size: %.2f'%(
-            self.channum, NC, mass.mathstat.robust.median_abs_dev(filtval[good] -
-                                                              self.p_filt_value_dc[good], True))
+        print('Channel %3d phase corrected. MAD-based correction size: %.2f' % (
+            self.channum, mass.mathstat.robust.median_abs_dev(filtval[good] -
+                                                              self.p_filt_value_dc[good], True)))
         self.phase_corrections = corrections
         return corrections
 
