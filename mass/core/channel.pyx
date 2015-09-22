@@ -1140,9 +1140,9 @@ class MicrocalDataSet(object):
                 p_peak_value_array[j] = peak_value
                 p_peak_index_array[j] = peak_index
                 p_min_value_array[j] = min_value
-                pulse_avg = pulse_sum / (nSamples - nPresamples) - ptm
+                pulse_avg = pulse_sum / (nSamples - nPresamples - 2) - ptm
                 p_pulse_average_array[j] = <float>pulse_avg
-                p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples)
+                p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples - 2)
                                                    - ptm*pulse_avg*2 + ptm**2)
 
 
