@@ -617,7 +617,7 @@ class TESGroup(object):
             yield first_rnum, end_rnum
 
     def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0,
-                       include_badchan=False, forceNew=False):
+                       include_badchan=False, forceNew=False, use_cython=True):
         """
         Compute summary quantities for each pulse.
         We are (July 2014) developing a Julia replacement for this, but you can use Python
@@ -631,8 +631,12 @@ class TESGroup(object):
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
             try:
-                self.channel[chan].summarize_data(peak_time_microsec,
-                                                  pretrigger_ignore_microsec, forceNew)
+                if use_cython:
+                    self.channel[chan].summarize_data(peak_time_microsec,
+                                                      pretrigger_ignore_microsec, forceNew)
+                else:
+                    self.channel[chan].python_summarize_data(peak_time_microsec,
+                                                             pretrigger_ignore_microsec, forceNew)
                 printUpdater.update((i + 1) / nchan)
                 self.hdf5_file.flush()
             except:
