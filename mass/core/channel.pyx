@@ -20,6 +20,7 @@ import matplotlib.pylab as plt
 import cython
 
 from libc.math cimport sqrt
+cimport libc.limits
 from libcpp cimport bool
 
 # MASS modules
@@ -1187,7 +1188,7 @@ class MicrocalDataSet(object):
                 s0, s1, s2, s3 = s1, s2, s3, s4
                 s4 = pulse[peak_time + 5]
                 t1 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
-                t_max_deriv = t0 if t0 < t1 else t1
+                t_max_deriv = libc.limits.LONG_MIN
 
                 for k in range(peak_time + 6, nSamples):
                     s0, s1, s2, s3 = s1, s2, s3, s4
