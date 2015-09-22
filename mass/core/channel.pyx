@@ -1176,7 +1176,7 @@ class MicrocalDataSet(object):
             self.p_min_value[first:end] = p_min_value_array[:seg_size]
             self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
 
-            print_updater.update((i+1)/self.pulse_records.n_segments)
+            print_updater.update((i+1.0)/self.pulse_records.n_segments)
 
         self.clear_cache()
 
