@@ -1095,7 +1095,7 @@ class MicrocalDataSet(object):
                 promptness_sum = 0.0
                 peak_value = 0
                 peak_index = 0
-                min_value = 65535
+                min_value = libc.limits.USHRT_MAX
                 # Reset s_ and e_prompt for each pulse, b/c they can be shifted
                 # for individual pulses
                 s_prompt = nPresamples + 5
