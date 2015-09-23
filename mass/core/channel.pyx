@@ -1122,13 +1122,12 @@ class MicrocalDataSet(object):
                     if k == nPresamples + 2:
                         ptm = pretrig_sum / e_nPresamples
                         ptrms = sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
-                        if (signal - ptm > 4.3 * ptrms):
+                        if signal - ptm > 4.3 * ptrms:
                             e_prompt -= 1
                             s_prompt -= 1
                             p_shift1_array[j] = True
                         else:
                             p_shift1_array[j] = False
-                        end
 
                     if k >= nPresamples + 2:
                         pulse_sum += signal
