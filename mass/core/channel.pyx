@@ -1466,7 +1466,7 @@ class MicrocalDataSet(object):
 
                 p0 = conv0*(-6.0/70) + conv1*(24.0/70) + conv2*(34.0/70) + conv3*(24.0/70) + conv4*(-6.0/70)
                 p1 = conv0*(-14.0/70) + conv1*(-7.0/70) + conv3*(7.0/70) + conv4*(14.0/70)
-                p2 = conv0*(10.0/70) + conv1*(-5.0/70) + conv2*(-10.0/70) + conv3*(-10.0/70) + conv4*(10.0/70)
+                p2 = conv0*(10.0/70) + conv1*(-5.0/70) + conv2*(-10.0/70) + conv3*(-5.0/70) + conv4*(10.0/70)
 
                 filt_phase_array[j] = -0.5*p1 / p2
                 filt_value_array[j] = p0 - 0.25*p1**2 / p2
