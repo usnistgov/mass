@@ -1187,7 +1187,7 @@ class TESGroup(object):
                 print("Filter %d can't be used" % i)
                 print(e)
 
-    def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False, use_cython=True):
         printUpdater = InlineUpdater('filter_data')
         if include_badchan:
             nchan = float(len(self.channel.keys()))
@@ -1195,7 +1195,11 @@ class TESGroup(object):
             nchan = float(self.num_good_channels)
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
-            self.channel[chan].filter_data(filter_name, transform, forceNew)
+            if use_cython:
+                self.channel[chan].filter_data(filter_name, transform, forceNew)
+            else:
+                self.channel[chan].python_filter_data(filter_name, transform, forceNew)
+                    
             printUpdater.update((i + 1) / nchan)
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
