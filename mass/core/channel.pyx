@@ -1453,16 +1453,16 @@ class MicrocalDataSet(object):
                     conv4 += sample * f0
                     f0, f1, f2, f3 = f1, f2, f3, f4
 
-                conv4 += pulse[nSamples - 4] * f1 +\
+                conv4 += pulse[nSamples - 4] * f0 +\
+                         pulse[nSamples - 3] * f1 +\
+                         pulse[nSamples - 2] * f2 +\
+                         pulse[nSamples - 1] * f3
+                conv3 += pulse[nSamples - 4] * f1 +\
                          pulse[nSamples - 3] * f2 +\
-                         pulse[nSamples - 2] * f3 +\
-                         pulse[nSamples - 1] * f4
-                conv3 += pulse[nSamples - 4] * f2 +\
-                         pulse[nSamples - 3] * f3 +\
-                         pulse[nSamples - 2] * f4
-                conv2 += pulse[nSamples - 4] * f3 +\
-                         pulse[nSamples - 3] * f4
-                conv1 += pulse[nSamples - 4] * f4
+                         pulse[nSamples - 2] * f3
+                conv2 += pulse[nSamples - 4] * f2 +\
+                         pulse[nSamples - 3] * f3
+                conv1 += pulse[nSamples - 4] * f3
 
                 p0 = conv0*(-6.0/70) + conv1*(24.0/70) + conv2*(34.0/70) + conv3*(24.0/70) + conv4*(-6.0/70)
                 p1 = conv0*(-14.0/70) + conv1*(-7.0/70) + conv3*(7.0/70) + conv4*(14.0/70)
