@@ -1322,7 +1322,7 @@ class MicrocalDataSet(object):
         f.compute()
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None, transform=transform):
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=None):
         DEGREE = 2
         for snum in range(10000):
             begin, end = self.read_segment(snum)
