@@ -810,7 +810,8 @@ class TESGroup(object):
             else:
                 limits = hist_limits
 
-            vect = ds.__dict__[vect][valid_mask]
+            # Vectors are being sampled and multiplied, so eval() is needed.
+            vect = eval("ds.%s"%vect)[valid_mask]
 
             # Scatter plots on left half of figure
             if i == 0:
