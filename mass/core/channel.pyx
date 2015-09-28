@@ -1322,7 +1322,7 @@ class MicrocalDataSet(object):
         f.compute()
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None):
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=transform):
         DEGREE = 2
         for snum in range(10000):
             begin, end = self.read_segment(snum)
@@ -1356,6 +1356,8 @@ class MicrocalDataSet(object):
         ptm = self.p_pretrig_mean[begin:end]
         ptm.shape = (end-begin, 1)
         raw = (raw-ptm)[use,:]
+        if transform is not None:
+            raw = transform(raw)
         rawscale = raw.max(axis=1)
 
         # Arrival time and a binned version of it
