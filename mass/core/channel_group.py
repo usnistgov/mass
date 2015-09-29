@@ -682,7 +682,7 @@ class TESGroup(object):
         return ds.read_trace(record_num)
 
     def plot_traces(self, pulsenums, dataset_num=0, chan_num=None, pulse_summary=True, axis=None,
-                    difference=False, residual=False, valid_status=None):
+                    difference=False, residual=False, valid_status=None, channum=None, shift1=False):
         """Plot some example pulses, given by sample number.
         <pulsenums>   A sequence of sample numbers, or a single one.
         <dataset_num> Dataset index (0 to n_dets-1, inclusive).  Will be used only if
@@ -696,8 +696,12 @@ class TESGroup(object):
                      or just raw data.
         <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                      that have been cut.  If "cut", show only those that have been cut.
+        <channum>    Synonym for chan_num (an unfortunate but old choice)
+        <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
         """
 
+        if chan_num is None:
+            chan_num = channum
         if chan_num in self.channel:
             dataset = self.channel[chan_num]
             dataset_num = dataset.index
@@ -706,7 +710,7 @@ class TESGroup(object):
             if chan_num is not None:
                 print("Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num))
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
-                                   residual, valid_status)
+                                   residual, valid_status, shift1)
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
                        dataset_numbers=None):
@@ -802,7 +806,8 @@ class TESGroup(object):
             else:
                 limits = hist_limits
 
-            vect = ds.__dict__[vect][valid_mask]
+            # Vectors are being sampled and multiplied, so eval() is needed.
+            vect = eval("ds.%s"%vect)[valid_mask]
 
             # Scatter plots on left half of figure
             if i == 0:
@@ -1002,7 +1007,7 @@ class TESGroup(object):
             printUpdater.update(end / float(self.nPulses))
             for imask, mask in enumerate(masks):
                 valid = mask[first:end]
-                for ichan, chan in enumerate(self.datasets):
+                for ichan, chan in enumerate(self):  # loop over only valid datasets
                     if chan.channum not in self.why_chan_bad:
                         if (imask % self.n_channels) != ichan:
                             continue
@@ -1112,13 +1117,6 @@ class TESGroup(object):
                     h5grp.attrs['fmax'] = f.fmax
                 h5grp.attrs['peak'] = f.peak_signal
                 h5grp.attrs['shorten'] = f.shorten
-                # for k, v in ds.filter.__dict__.items():
-                #     if not k.startswith("filt_"):
-                #         continue
-                #     if k in h5grp:
-                #         del h5grp[k]
-                #     vec = h5grp.create_dataset(k, data=v)
-                #     vec.attrs['variance'] = f.variances.get(k[5:], 0)
                 for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                           "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
                     if k in h5grp:
@@ -1430,6 +1428,13 @@ class TESGroup(object):
                 ds.drift_correct(forceNew, category)
             except ValueError:
                 self.set_chan_bad(ds.channum, "failed drift correct")
+
+    def phase_correct(self, plot=False, forceNew=False, category=None):
+        for ds in self:
+            try:
+                ds.phase_correct(forceNew=forceNew, category=category)
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "failed phase_correct with %s"%e)
 
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
                           plot=False, forceNew=False, pre_sanitize_p_filt_phase=True, category=None):
