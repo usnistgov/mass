@@ -1143,7 +1143,7 @@ class MicrocalDataSet(object):
                 pulse_avg = pulse_sum / (nSamples - nPresamples - 2) - ptm
                 p_pulse_average_array[j] = <float>pulse_avg
                 p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples - 2)
-                                                   - ptm*pulse_avg*2 + ptm**2)
+                                                   - ptm*pulse_avg*2 - ptm**2)
 
 
                 # Estimating a rise time.
