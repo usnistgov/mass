@@ -1322,7 +1322,7 @@ class MicrocalDataSet(object):
         f.compute()
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None):
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=None):
         DEGREE = 2
         for snum in range(10000):
             begin, end = self.read_segment(snum)
@@ -1356,6 +1356,8 @@ class MicrocalDataSet(object):
         ptm = self.p_pretrig_mean[begin:end]
         ptm.shape = (end-begin, 1)
         raw = (raw-ptm)[use,:]
+        if transform is not None:
+            raw = transform(raw)
         rawscale = raw.max(axis=1)
 
         # Arrival time and a binned version of it
@@ -1937,9 +1939,26 @@ class MicrocalDataSet(object):
             corrections.append(c)
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
-        phase_corrector = mass.mathstat.interpolate.CubicSpline(ph_peaks, median_phase)
-        self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
         NC = len(corrections)
+        if NC > 3:
+            phase_corrector = mass.mathstat.interpolate.CubicSpline(ph_peaks, median_phase)
+        else:
+            # Too few peaks to spline, so just bin and take the median per bin, then
+            # interpolated (approximating) spline through/near these points.
+            NBINS=40
+            dc = self.p_filt_value_dc[good]
+            ph = self.p_filt_phase[good]
+            top = min(dc.max(), 1.5*sp.stats.scoreatpercentile(dc, 95))
+            bin = np.digitize(dc, np.linspace(0, top, 1+NBINS))-1
+            x = np.zeros(NBINS, dtype=float)
+            y = np.zeros(NBINS, dtype=float)
+            w = np.zeros(NBINS, dtype=float)
+            for i in range(NBINS):
+                x[i] = np.median(dc[bin==i])
+                y[i] = np.median(ph[bin==i])
+                w[i] = (bin==i).sum()
+            phase_corrector = sp.interpolate.UnivariateSpline(x, y, w=w*(12**-0.5))
+        self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
 
         # Compute a correction for each pulse for each correction-line energy
         # For the actual correction, don't let |ph| > 0.6 sample
