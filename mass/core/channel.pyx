@@ -1957,7 +1957,9 @@ class MicrocalDataSet(object):
                 x[i] = np.median(dc[bin==i])
                 y[i] = np.median(ph[bin==i])
                 w[i] = (bin==i).sum()
-            phase_corrector = sp.interpolate.UnivariateSpline(x, y, w=w*(12**-0.5))
+
+            nonempty = w>0
+            phase_corrector = sp.interpolate.UnivariateSpline(x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5))
         self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
 
         # Compute a correction for each pulse for each correction-line energy
