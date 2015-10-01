@@ -1143,7 +1143,7 @@ class MicrocalDataSet(object):
                 pulse_avg = pulse_sum / (nSamples - nPresamples - 2) - ptm
                 p_pulse_average_array[j] = <float>pulse_avg
                 p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples - 2)
-                                                   - ptm*pulse_avg*2 + ptm**2)
+                                                   - ptm*pulse_avg*2 - ptm**2)
 
 
                 # Estimating a rise time.
@@ -1957,7 +1957,9 @@ class MicrocalDataSet(object):
                 x[i] = np.median(dc[bin==i])
                 y[i] = np.median(ph[bin==i])
                 w[i] = (bin==i).sum()
-            phase_corrector = sp.interpolate.UnivariateSpline(x, y, w=w*(12**-0.5))
+
+            nonempty = w>0
+            phase_corrector = sp.interpolate.UnivariateSpline(x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5))
         self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
 
         # Compute a correction for each pulse for each correction-line energy

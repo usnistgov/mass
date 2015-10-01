@@ -334,6 +334,15 @@ class TESGroup(object):
 
             dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
+            # If rows_after_last_external_trigger, rows_until_next_external_trigger, or
+            # rows_from_nearest_external_trigger have been calculated, load them into MicrocalDataSet
+            if "rows_after_last_external_trigger" in hdf5_group:
+                dset._rows_after_last_external_trigger = hdf5_group["rows_after_last_external_trigger"]
+            if "rows_until_next_external_trigger" in hdf5_group:
+                dset._rows_until_next_external_trigger = hdf5_group["rows_until_next_external_trigger"]
+            if "rows_from_nearest_external_trigger" in hdf5_group:
+                dset._rows_from_nearest_external_trigger = hdf5_group["rows_from_nearest_external_trigger"]
+
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
                 nf = self.noise_filenames[i]
@@ -352,6 +361,7 @@ class TESGroup(object):
                 dset.noise_records = noise
                 assert(dset.channum == dset.noise_records.channum)
                 noise_list.append(noise)
+
             pulse_list.append(pulse)
             dset_list.append(dset)
 
