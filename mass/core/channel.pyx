@@ -1220,7 +1220,7 @@ class MicrocalDataSet(object):
             self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
             self.p_shift1[first:end] = p_shift1_array[:seg_size]
 
-            print_updater.update((i+1)/self.pulse_records.n_segments)
+            print_updater.update((i+1.0)/self.pulse_records.n_segments)
 
         self.clear_cache()
 
@@ -1878,14 +1878,16 @@ class MicrocalDataSet(object):
         return np.array(binctr[peaks])
 
 
-    def _phasecorr_find_alignment(self, peak, delta_ph=60, nf=10, good=None):
+    def _phasecorr_find_alignment(self, peak, delta_ph, nf=10, good=None):
         phrange = np.array([-delta_ph,delta_ph])+peak
         if good is None:
             good = self.good()
-        use = log_and(good, np.abs(self.p_filt_value_dc[:]-peak)<delta_ph)
-        median_phase = np.median(self.p_filt_phase[use])
+        use = log_and(good, np.abs(self.p_filt_value_dc[:]-peak)<delta_ph,
+            np.abs(self.p_filt_phase)<1)
+        low_phase, median_phase, high_phase = \
+            sp.stats.scoreatpercentile(self.p_filt_phase[use], [1,50,99])
 
-        Pedges = np.linspace(-.5,.5,nf+1)+median_phase
+        Pedges = np.linspace(low_phase, high_phase, nf+1)
         Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
         dP = 2.0/nf
         Pbin = np.digitize(self.p_filt_phase, Pedges)-1
@@ -1897,7 +1899,6 @@ class MicrocalDataSet(object):
             c,b = np.histogram(self.p_filt_value_dc[use], NBINS, phrange)
             hists[i] = c
 
-        hists = np.vstack(hists)
         kernel = np.mean(hists, axis=0)[::-1]
         peaks = np.zeros(nf, dtype=float)
         for i in range(nf):
@@ -1962,7 +1963,12 @@ class MicrocalDataSet(object):
                 w[i] = (bin==i).sum()
 
             nonempty = w>0
-            phase_corrector = sp.interpolate.UnivariateSpline(x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5))
+            # Use sp.interpolate.UnivariateSpline because it can make an approximating
+            # spline. But then use its x/y data and knots to create a Mass CubicSpline,
+            # because that one can have natural boundary conditions instead of insane
+            # cubic functions in the extrapolation.
+            crazy_spline = sp.interpolate.UnivariateSpline(x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5))
+            phase_corrector = mass.mathstat.interpolate.CubicSpline(crazy_spline._data[0], crazy_spline._data[1])
         self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
 
         # Compute a correction for each pulse for each correction-line energy
