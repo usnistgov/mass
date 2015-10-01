@@ -26,7 +26,8 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def summarize_data(self, double peak_time_microsec=220.0, double pretrigger_ignore_microsec=20.0, forceNew=False):
+    def summarize_data(self, double peak_time_microsec=220.0, double pretrigger_ignore_microsec=20.0,
+                       forceNew=False, use_cython=True):
         """Summarize the complete data set one chunk at a time.
         """
         cdef:
@@ -68,6 +69,12 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             long f0 = 2, f1 = 1, f3 = -1, f4 = -2
             long s0, s1, s2, s3, s4
             long t0, t1, t2, t3, t_max_deriv
+
+        if not use_cython:
+            super(CythonMicrocalDataSet, self).summarize_data(peak_time_microsec=peak_time_microsec,
+                                                              pretrigger_ignore_microsec=pretrigger_ignore_microsec,
+                                                              forceNew=forceNew)
+            return
 
         # Don't proceed if not necessary and not forced
         self.number_of_rows = self.pulse_records.datafile.number_of_rows
@@ -258,7 +265,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=True):
         """Filter the complete data file one chunk at a time.
         """
         cdef:
@@ -272,6 +279,10 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             double f0, f1, f2, f3, f4
             double p0, p1, p2
 
+        if not use_cython:
+            super(CythonMicrocalDataSet, self).filter_dadta(filter_name=filtername, transform=transform, forceNew=forceNew)
+            return
+        
         if not(forceNew or all(self.p_filt_value[:] == 0)):
             print('\nchan %d did not filter because results were already loaded' % self.channum)
             return

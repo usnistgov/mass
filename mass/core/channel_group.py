@@ -633,12 +633,8 @@ class TESGroup(object):
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
             try:
-                if use_cython:
-                    self.channel[chan].summarize_data(peak_time_microsec,
-                                                      pretrigger_ignore_microsec, forceNew)
-                else:
-                    self.channel[chan].python_summarize_data(peak_time_microsec,
-                                                             pretrigger_ignore_microsec, forceNew)
+                self.channel[chan].summarize_data(peak_time_microsec,
+                                                  pretrigger_ignore_microsec, forceNew, use_cython=True)
                 printUpdater.update((i + 1) / nchan)
                 self.hdf5_file.flush()
             except:
@@ -1198,10 +1194,7 @@ class TESGroup(object):
             nchan = float(self.num_good_channels)
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
-            if use_cython:
-                self.channel[chan].filter_data(filter_name, transform, forceNew)
-            else:
-                self.channel[chan].python_filter_data(filter_name, transform, forceNew)
+            self.channel[chan].python_filter_data(filter_name, transform, forceNew, use_cython=True)
                     
             printUpdater.update((i + 1) / nchan)
 
