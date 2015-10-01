@@ -30,6 +30,7 @@ import mass.calibration.energy_calibration
 import mass.nonstandard.CDM
 
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
+from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
 
@@ -332,7 +333,7 @@ class TESGroup(object):
             except:
                 hdf5_group = None
 
-            dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
+            dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
