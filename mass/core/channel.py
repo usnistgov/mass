@@ -821,9 +821,6 @@ class MicrocalDataSet(object):
         self.column_number = None
 
         self._external_trigger_rowcount = None
-        self._rows_after_last_external_trigger = None
-        self._rows_until_next_external_trigger = None
-        self._rows_from_nearest_external_trigger = None
         self._use_new_filters = False
 
         self.row_timebase = None
