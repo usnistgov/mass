@@ -334,15 +334,6 @@ class TESGroup(object):
 
             dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
-            # If rows_after_last_external_trigger, rows_until_next_external_trigger, or
-            # rows_from_nearest_external_trigger have been calculated, load them into MicrocalDataSet
-            if "rows_after_last_external_trigger" in hdf5_group:
-                dset._rows_after_last_external_trigger = hdf5_group["rows_after_last_external_trigger"]
-            if "rows_until_next_external_trigger" in hdf5_group:
-                dset._rows_until_next_external_trigger = hdf5_group["rows_until_next_external_trigger"]
-            if "rows_from_nearest_external_trigger" in hdf5_group:
-                dset._rows_from_nearest_external_trigger = hdf5_group["rows_from_nearest_external_trigger"]
-
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
                 nf = self.noise_filenames[i]
@@ -668,17 +659,17 @@ class TESGroup(object):
                         g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_after_last_external_trigger
-                        ds._rows_after_last_external_trigger = g
+                        #ds._rows_after_last_external_trigger = g
                     if until_next:
                         g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_until_next_external_trigger
-                        ds._rows_until_next_external_trigger = g
+                        #ds._rows_until_next_external_trigger = g
                     if from_nearest:
                         g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = np.fmin(rows_after_last_external_trigger, rows_until_next_external_trigger)
-                        ds._rows_from_nearest_external_trigger = g
+                        #ds._rows_from_nearest_external_trigger = g
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 

@@ -938,21 +938,24 @@ class MicrocalDataSet(object):
 
     @property
     def rows_after_last_external_trigger(self):
-        if not self._rows_after_last_external_trigger:
-            raise ValueError("run tes_group.calc_external_trigger_timing with after_last=True before calling this")
-        return self._rows_after_last_external_trigger
+        try:
+            return self.hdf5_group["rows_after_last_external_trigger"]
+        except KeyError:
+            raise ValueError("run tes_group.calc_external_trigger_timing with after_last=True before accessing this")
 
     @property
     def rows_until_next_external_trigger(self):
-        if not self._rows_until_next_external_trigger:
-            raise ValueError("run tes_group.calc_external_trigger_timing with until_next=True before calling this")
-        return self._rows_until_next_external_trigger
+        try:
+            return self.hdf5_group["rows_until_next_external_trigger"]
+        except KeyError:
+            raise ValueError("run tes_group.calc_external_trigger_timing with until_next=True before accessing this")
 
     @property
     def rows_from_nearest_external_trigger(self):
-        if not self._rows_from_nearest_external_trigger:
-            raise ValueError("run tes_group.calc_external_trigger_timing with from_nearest=True before calling this")
-        return self._rows_from_nearest_external_trigger
+        try:
+            return self.hdf5_group["rows_from_nearest_external_trigger"]
+        except KeyError:
+            raise ValueError("run tes_group.calc_external_trigger_timing with from_nearest=True before accessing this")
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
