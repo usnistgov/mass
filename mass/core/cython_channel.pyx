@@ -280,9 +280,9 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             double p0, p1, p2
 
         if not use_cython:
-            super(CythonMicrocalDataSet, self).filter_dadta(filter_name=filtername, transform=transform, forceNew=forceNew)
+            super(CythonMicrocalDataSet, self).filter_dadta(filter_name=filter_name, transform=transform, forceNew=forceNew)
             return
-        
+
         if not(forceNew or all(self.p_filt_value[:] == 0)):
             print('\nchan %d did not filter because results were already loaded' % self.channum)
             return
