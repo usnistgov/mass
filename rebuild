@@ -1,0 +1,12 @@
+#! /bin/sh
+
+sudo rm -fr /usr/local/lib/python2.7/dist-packages/mass
+
+rm -f mass/mathstat/*.c
+rm -f mass/core/*.c
+
+rm -fr build
+
+python setup.py build
+
+sudo python setup.py install
