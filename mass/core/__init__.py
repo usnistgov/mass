@@ -1,6 +1,7 @@
 import mass.core.analysis_algorithms
-import mass.core.channel_group
 import mass.core.channel
+import mass.core.cython_channel
+import mass.core.channel_group
 import mass.core.controller
 import mass.core.fake_data
 import mass.core.files
@@ -10,6 +11,7 @@ import mass.core.ljh_util
 from .analysis_algorithms import *
 from .channel_group import *
 from .channel import *
+from .cython_channel import *
 from .controller import *
 from .fake_data import *
 from .files import *

@@ -30,6 +30,7 @@ import mass.calibration.energy_calibration
 import mass.nonstandard.CDM
 
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
+from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
 
@@ -332,7 +333,7 @@ class TESGroup(object):
             except:
                 hdf5_group = None
 
-            dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
+            dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
@@ -632,12 +633,8 @@ class TESGroup(object):
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
             try:
-                if use_cython:
-                    self.channel[chan].summarize_data(peak_time_microsec,
-                                                      pretrigger_ignore_microsec, forceNew)
-                else:
-                    self.channel[chan].python_summarize_data(peak_time_microsec,
-                                                             pretrigger_ignore_microsec, forceNew)
+                self.channel[chan].summarize_data(peak_time_microsec,
+                                                  pretrigger_ignore_microsec, forceNew, use_cython=use_cython)
                 printUpdater.update((i + 1) / nchan)
                 self.hdf5_file.flush()
             except:
@@ -1197,10 +1194,7 @@ class TESGroup(object):
             nchan = float(self.num_good_channels)
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
-            if use_cython:
-                self.channel[chan].filter_data(filter_name, transform, forceNew)
-            else:
-                self.channel[chan].python_filter_data(filter_name, transform, forceNew)
+            self.channel[chan].filter_data(filter_name, transform, forceNew, use_cython=use_cython)
                     
             printUpdater.update((i + 1) / nchan)
 
