@@ -1,6 +1,14 @@
 #! /bin/sh
+#
+# Written by Dan Becker.
+# Updated for arbitrary install location by Joe Fowler.
+# However! I don't see the point. You should not have to remove the Cython
+# files nor the entire build directory unless something is going badly wrong.
 
-sudo rm -fr /usr/local/lib/python2.7/dist-packages/mass
+
+INSTALL_DIR=`python -c "import sys; print '%s/lib/python%s/site-packages' % ( sys.prefix, sys.version[:3] )"`
+
+sudo rm -fr ${INSTALL_DIR}/mass
 
 rm -f mass/mathstat/*.c
 rm -f mass/core/*.c
