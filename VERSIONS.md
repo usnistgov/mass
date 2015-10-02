@@ -1,0 +1,14 @@
+## Note on version numbers of Mass
+
+* 0.4.2 October 2015
+Return the main objects to pure Python, with Cython subclasses. Also not sure
+this is a good idea, but we'll experiment with it.
+
+* 0.4.1 October 1, 2015
+Uses pure Cython for channel.pyx. We decided that this experiment was not a
+positive development, but it was worth trying.
+
+* 0.4.0 September 2015
+New filtering methods available from Joe. Still experimental! Don't set
+```MicrocalDataSet._use_new_filters = True``` unless you know what you're
+doing!
