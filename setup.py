@@ -6,7 +6,7 @@ Joe Fowler, NIST Boulder Labs
 
 This setup file must be able to build both FORTRAN and Cython extension modules, which
 requires using the numpy+f2py distutils for the former and Cython.Distutils for the
-latter.  
+latter.
 
 I found it not at all clear how to mix the two types until discovering the two recent
 discussions:
@@ -35,19 +35,6 @@ def parse_version_number(VERSIONFILE=None):
         raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
 
 MASS_VERSION = parse_version_number()
-
-
-def configuration_fortran(parent_package='', top_path=None):
-    """Configure FORTRAN extensions only."""
-    from numpy.distutils.misc_util import Configuration
-    config = Configuration('mass', parent_package, top_path)
-
-    # Extensions in FORTRAN90
-    sourcename = os.path.join('mass', 'mathstat', 'factor_covariance')
-    config.add_extension('mathstat._factor_covariance',
-                         [sourcename + ext for ext in [".pyf", ".f90"]])
-
-    return config
 
 
 class QtBuilder(basic_build):
@@ -98,7 +85,6 @@ if __name__ == "__main__":
         from numpy.distutils.core import setup
         from distutils.extension import Extension
 
-        setup(configuration=configuration_fortran)
     else:
         from setuptools import setup
         from setuptools.extension import Extension
