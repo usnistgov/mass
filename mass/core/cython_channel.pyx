@@ -24,6 +24,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
     def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None):
         super(CythonMicrocalDataSet, self).__init__(pulserec_dict, tes_group=tes_group, hdf5_group=hdf5_group)
 
+    @cython.embedsignature(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def summarize_data(self, double peak_time_microsec=220.0, double pretrigger_ignore_microsec=20.0,
@@ -263,6 +264,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
         self.clear_cache()
 
+    @cython.embedsignature(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=True):
