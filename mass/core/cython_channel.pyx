@@ -296,8 +296,8 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
         # For now, the "new" (2015) filters cannot be applied in cython.
         if self._use_new_filters:
-            return self.python_filter_data(filter_name=filter_name, transform=transform,
-                                           forceNew=forceNew)
+            return MicrocalDataSet.filter_data(self, filter_name=filter_name,
+                    transform=transform, forceNew=forceNew)
 
         #filter_data(self, filter_values, transform)
         n_segments = self.pulse_records.n_segments
