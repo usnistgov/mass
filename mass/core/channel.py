@@ -1086,21 +1086,15 @@ class MicrocalDataSet(object):
         f.compute()
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None, transform=None):
-        DEGREE = 2
-        for snum in range(10000):
-            begin, end = self.read_segment(snum)
-            if end - begin <= 0:
-                return None  # Failed to find a good segment
-            gthis = self.good()[begin:end]
-            mprms = np.median(self.p_pulse_rms[begin:end][gthis])
-            use = np.logical_and(gthis, np.abs(self.p_pulse_rms[begin:end]/mprms-1.0) < 0.4)
-            if use.sum() > (end - begin) * 0.05:
-                break
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, DEGREE = 1):
+        data, pulsenums = self.first_n_good_pulses(1000)
+        end = len(pulsenums)
 
         # Center promptness around 0, using a simple function of Prms
-        prompt = self.p_promptness[begin:end]
-        prms = self.p_pulse_rms[begin:end]
+        prompt = self.p_promptness[:][pulsenums]
+        prms = self.p_pulse_rms[:][pulsenums]
+        mprms = np.median(prms)
+        use = np.abs(prms/mprms-1.0) < 0.4
         promptshift = np.poly1d(np.polyfit(prms[use], prompt[use], 1))
         prompt -= promptshift(prms)
 
@@ -1114,11 +1108,11 @@ class MicrocalDataSet(object):
         use = np.logical_and(use, np.abs(ATime)<0.45)
 
         # The raw training data
-        raw = self.data[:, 1:]
-        shift1 = self.p_shift1[begin:end]
-        raw[shift1, :] = self.data[shift1, 0:-1]
-        ptm = self.p_pretrig_mean[begin:end]
-        ptm.shape = (end-begin, 1)
+        raw = data[:, 1:]
+        shift1 = self.p_shift1[:][pulsenums]
+        raw[shift1, :] = data[shift1, 0:-1]
+        ptm = self.p_pretrig_mean[:][pulsenums]
+        ptm.shape = (len(pulsenums), 1)
         raw = (raw-ptm)[use,:]
         if transform is not None:
             raw = transform(raw)
@@ -1142,6 +1136,7 @@ class MicrocalDataSet(object):
         f = ATSF(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
                  f_3db=f_3db, sample_time=self.timebase)
         f.compute(fmax=fmax, f_3db=f_3db)
+        self.filter = f
         return f
 
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
