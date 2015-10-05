@@ -1195,7 +1195,7 @@ class TESGroup(object):
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
             self.channel[chan].filter_data(filter_name, transform, forceNew, use_cython=use_cython)
-                    
+
             printUpdater.update((i + 1) / nchan)
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
@@ -1451,10 +1451,10 @@ class TESGroup(object):
 
     def sanitize_p_filt_phase(self):
         ds = self.first_good_dataset
-        cutnum = ds.CUT_NAME.index("p_filt_phase")
-        print("p_filt_phase_cut")
+        self.register_boolean_cut_fields("filt_phase")
+        print("filt_phase cut")
         for ds in self:
-            ds.cut_parameter(ds.p_filt_phase, (-2, 2), cutnum)
+            ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:])>2)
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
