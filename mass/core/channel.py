@@ -1841,7 +1841,7 @@ class MicrocalDataSet(object):
 
         cuts_good = self.cuts.good()[pulsenums]
         pulses_plotted = -1
-        nplottable = cuts_good[pulsenums].sum()
+        nplottable = cuts_good.sum()
         for i, pn in enumerate(pulsenums):
             if valid_status == 'cut' and cuts_good[i]:
                 continue
