@@ -1506,7 +1506,7 @@ class MicrocalDataSet(object):
         cannot or do not want to find peaks another way."""
         if good is None:
             good = self.good()
-        phnorm = self.p_filt_value[good]
+        phnorm = self.p_filt_value_dc[good]
         median_scale = np.median(phnorm)
 
         # First make histogram with bins = 0.2% of median PH
@@ -1516,10 +1516,10 @@ class MicrocalDataSet(object):
         # Scipy continuous wavelet transform
         pk1 = np.array(sp.signal.find_peaks_cwt(hist, np.array([2,4,8,12])))
 
-        # A peak must contain 1% of the data or 1000 events, whichever is more,
-        # but the requirement is not more than 10% of data (for meager data sets)
+        # A peak must contain 0.5% of the data or 500 events, whichever is more,
+        # but the requirement is not more than 5% of data (for meager data sets)
         Ntotal = len(phnorm)
-        MinCountsInPeak = min(max(1000, Ntotal/100), Ntotal/10)
+        MinCountsInPeak = min(max(500, Ntotal/200), Ntotal/20)
         pk2 = pk1[hist[pk1]>MinCountsInPeak]
 
         # Now take peaks from highest to lowest, provided they are at least 40 bins from any neighbor
@@ -1528,7 +1528,7 @@ class MicrocalDataSet(object):
         peaks = [pk2[0]]
 
         for pk in pk2[1:]:
-            if (np.abs(peaks-pk) > 40).all():
+            if (np.abs(peaks-pk) > 10).all():
                 peaks.append(pk)
         peaks.sort()
         return np.array(binctr[peaks])
