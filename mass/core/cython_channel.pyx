@@ -178,10 +178,17 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
                 p_pretrig_mean_array[j] = <float>ptm
                 p_pretrig_rms_array[j] = <float>ptrms
-                peak_value -= <unsigned short>ptm
-                p_promptness_array[j] = (promptness_sum / 6.0 - ptm) / peak_value
-                p_peak_value_array[j] = peak_value
-                p_peak_index_array[j] = peak_index
+                if ptm < peak_value:
+                    peak_value -= <unsigned short>(ptm+0.5)
+                    p_promptness_array[j] = (promptness_sum / 6.0 - ptm) / peak_value
+                    p_peak_value_array[j] = peak_value
+                    p_peak_index_array[j] = peak_index
+                else:
+                    # Basically a nonsense pulse: the pretrigger mean exceeds the highest post-trigger value.
+                    # This would normally happen only if the crate's re-lock mechanism fires during a record.
+                    p_promptness_array[j] = 0
+                    p_peak_value_array[j] = 0
+                    p_peak_index_array[j] = 0
                 p_min_value_array[j] = min_value
                 pulse_avg = pulse_sum / (nSamples - nPresamples - 2) - ptm
                 p_pulse_average_array[j] = <float>pulse_avg
