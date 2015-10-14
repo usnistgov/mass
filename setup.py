@@ -109,6 +109,5 @@ if __name__ == "__main__":
                                  ]),
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
-                        },
-          cmdclass={'build': QtBuilder}
+                        }
           )
