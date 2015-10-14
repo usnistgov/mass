@@ -1614,9 +1614,10 @@ class MicrocalDataSet(object):
             y = np.zeros(NBINS, dtype=float)
             w = np.zeros(NBINS, dtype=float)
             for i in range(NBINS):
+                w[i] = (bin==i).sum()
+                if w[i] == 0: continue
                 x[i] = np.median(dc[bin==i])
                 y[i] = np.median(ph[bin==i])
-                w[i] = (bin==i).sum()
 
             nonempty = w>0
             # Use sp.interpolate.UnivariateSpline because it can make an approximating
