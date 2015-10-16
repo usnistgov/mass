@@ -121,15 +121,9 @@ class NoiseRecords(object):
         # Copy up some of the most important attributes
         for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum", "n_segments"):
             self.__dict__[attr] = self.datafile.__dict__[attr]
-            self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
+            if self.hdf5_group is not None:
+                self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
 
-#        for first_pnum, end_pnum, seg_num, data in self.datafile.iter_segments():
-#            if seg_num > 0 or first_pnum>0 or end_pnum != self.nPulses:
-#                msg = "NoiseRecords objects can't (yet) handle multi-segment noise files.\n"+\
-#                    "File size %d exceeds maximum allowed segment size of %d"%(
-#                    self.datafile.binary_size, self.maxsegmentsize)
-#                raise NotImplementedError(msg)
-#            self.data = data
 
     def clear_cache(self):
         self.datafile.clear_cache()
@@ -194,24 +188,32 @@ class NoiseRecords(object):
                     spectrum.addDataSegment(y, window=window)
 
         freq = spectrum.frequencies()
-        self.noise_psd.attrs['delta_f'] = freq[1] - freq[0]
-        self.noise_psd[:] = spectrum.spectrum()
+        psd = spectrum.spectrum()
+        if self.hdf5_group is not None:
+            self.noise_psd[:] = psd
+            self.noise_psd.attrs['delta_f'] = freq[1] - freq[0]
+        else:
+            self.noise_psd = psd
+        return spectrum
 
-    def compute_fancy_power_spectrum(self, window=mass.mathstat.power_spectrum.hann,
-                                     plot=True, nseg_choices=None):
+    def compute_fancy_power_spectra(self, window=mass.mathstat.power_spectrum.hann,
+                                     plot=True, seglength_choices=None):
         assert self.continuous
 
         # Does it assume that all data fit into a single segment?
-        n = np.prod(self.data.shape)
-        if nseg_choices is None:
-            nseg_choices = [16]
-            while nseg_choices[-1] <= n // 16 and nseg_choices[-1] < 20000:
-                nseg_choices.append(nseg_choices[-1]*8)
-        print(nseg_choices)
+        self.datafile.read_segment(0)
+        n = np.prod(self.datafile.data.shape)
+        if seglength_choices is None:
+            longest_seg = 1
+            while longest_seg <= n//16:
+                longest_seg *= 2
+            seglength_choices = [longest_seg]
+            while seglength_choices[-1] > 256:
+                seglength_choices.append(seglength_choices[-1]//4)
+            print("Will use segments of length: %s"%seglength_choices)
 
-        # It would be a problem if self.nSamples % ns is non-zero.
-        spectra = [self.compute_power_spectrum_reshape(window=window, seg_length=self.nSamples // ns)
-                   for ns in nseg_choices]
+        spectra = [self.compute_power_spectrum_reshape(window=window, seg_length=seglen)
+                   for seglen in seglength_choices]
         if plot:
             plt.clf()
             lowest_freq = np.array([1./(sp.dt*sp.m2) for sp in spectra])
@@ -219,12 +221,13 @@ class NoiseRecords(object):
             start_freq = 0.0
             for i, sp in enumerate(spectra):
                 x, y = sp.frequencies(), sp.spectrum()
-                if i == len(spectra) - 1:
+                if i == len(spectra)-1:
                     good = x >= start_freq
                 else:
-                    good = np.logical_and(x >= start_freq, x < 4*lowest_freq[i+1])
-                    start_freq = 1*lowest_freq[i+1]
+                    good = np.logical_and(x >= start_freq, x < 10*lowest_freq[i+1])
                 plt.loglog(x[good], y[good], '-')
+                start_freq = lowest_freq[i] * 10
+        return spectra
 
     def plot_power_spectrum(self, axis=None, scale=1.0, sqrt_psd=False, **kwarg):
         """
