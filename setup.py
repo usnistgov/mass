@@ -3,16 +3,6 @@
 setup.py  distutils build/install file for Mass, the Microcalorimeter Analysis Software Suite
 
 Joe Fowler, NIST Boulder Labs
-
-This setup file must be able to build both FORTRAN and Cython extension modules, which
-requires using the numpy+f2py distutils for the former and Cython.Distutils for the
-latter.
-
-I found it not at all clear how to mix the two types until discovering the two recent
-discussions:
-
-1. http://stackoverflow.com/questions/7932028/setup-py-for-packages-that-depend-on-both-cython-and-f2py
-2. http://answerpot.com/showthread.php?601643-cython%20and%20f2py
 """
 
 import os.path
@@ -81,13 +71,8 @@ if __name__ == "__main__":
     import numpy as np
     from Cython.Build import cythonize
 
-    if sys.platform != 'win32':
-        from numpy.distutils.core import setup
-        from distutils.extension import Extension
-
-    else:
-        from setuptools import setup
-        from setuptools.extension import Extension
+    from setuptools import setup
+    from setuptools.extension import Extension
 
     setup(name='mass',
           version=MASS_VERSION,
