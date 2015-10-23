@@ -1377,7 +1377,7 @@ class TESGroup(object):
         """
 
         if channels is None:
-            channels = list(data.channel.keys())
+            channels = list(self.channel.keys())
             channels.sort()
 
         if axis is None:
@@ -1392,7 +1392,7 @@ class TESGroup(object):
         axis.grid(True)
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
-        for channum in channels:
+        for ds_num,channum in enumerate(channels):
             if channum not in self.channel: continue
             ds = self.channel[channum]
             yvalue = ds.noise_records.noise_psd[:] * scale_factor**2
