@@ -347,18 +347,33 @@ class LJHFile(MicrocalFile):
         first_slice = None
         second_slice = slice(None, None)
 
-        if isinstance(item, slice):
-            first_slice = item
+        if isinstance(item, np.ndarray):
+            if item.ndim == 1 and item.dtype == np.bool:
+                trace_range = np.arange(self.nPulses, dtype=np.int32)[item]
+                num_samples = self.nSamples
+        elif isinstance(item, list):
+            try:
+                trace_range = np.array(item, dtype=np.uint32)
 
-        if isinstance(item, tuple):
-            if len(item) is not 2:
-                raise ValueError("Not supported dimensions!")
-            first_slice = item[0]
-            second_slice = item[1]
+                if trace_range.ndim != 1:
+                    raise ValueError("Unsupported list type.")
+                num_samples = self.nSamples
+            except ValueError:
+                raise ValueError("Unsupported list type.")
+        else:
+            if isinstance(item, slice):
+                first_slice = item
 
-        trace_range = range(self.nPulses)[first_slice]
+            if isinstance(item, tuple):
+                if len(item) is not 2:
+                    raise ValueError("Not supported dimensions!")
+                first_slice = item[0]
+                second_slice = item[1]
+
+            trace_range = range(self.nPulses)[first_slice]
+            num_samples = len(range(self.nSamples)[second_slice])
+
         num_traces = len(trace_range)
-        num_samples = len(range(self.nSamples)[second_slice])
 
         last_segment = trace_range[0] // self.pulses_per_seg
         self.read_segment(last_segment)
