@@ -1393,8 +1393,8 @@ class TESGroup(object):
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
         for channum in channels:
-            if channum not in data.channel: continue
-            ds = data.channel[channum]
+            if channum not in self.channel: continue
+            ds = self.channel[channum]
             yvalue = ds.noise_records.noise_psd[:] * scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
