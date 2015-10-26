@@ -1426,7 +1426,7 @@ class MicrocalDataSet(object):
         if c['timestamp_diff_sec'] is not None:
             self.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
                                c['timestamp_diff_sec'], 'timestamp_diff_sec')
-        if c['pretrigger_mean_departure_from_median'] is not None:
+        if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum()>0:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
             if verbose > 1:
                 print('applying cut on pretrigger mean around its median value of ', median)
