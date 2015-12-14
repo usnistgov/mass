@@ -1502,14 +1502,15 @@ class MicrocalDataSet(object):
             plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
             plt.figure(fnum)
 
-    def _find_peaks_heuristic(self, good=None):
+    def _find_peaks_heuristic(self, phnorm):
         """A heuristic method to identify the peaks in a spectrum that can be used to
         design the arrival-time-bias correction. Of course, you might have better luck
         finding peaks by an experiment-specific method, but this will stand in if you
-        cannot or do not want to find peaks another way."""
-        if good is None:
-            good = self.good()
-        phnorm = self.p_filt_value_dc[good]
+        cannot or do not want to find peaks another way.
+
+        phnorm should be a vector of pulse heights, found by whatever means you like.
+        Normally it will be the self.p_filt_value_dc AFTER CUTS.
+        """
         median_scale = np.median(phnorm)
 
         # First make histogram with bins = 0.2% of median PH
@@ -1537,25 +1538,23 @@ class MicrocalDataSet(object):
         return np.array(binctr[peaks])
 
 
-    def _phasecorr_find_alignment(self, peak, delta_ph, nf=10, good=None):
+    def _phasecorr_find_alignment(self, phase_indicator, pulse_heights, peak, delta_ph, nf=10):
         phrange = np.array([-delta_ph,delta_ph])+peak
-        if good is None:
-            good = self.good()
-        use = log_and(good, np.abs(self.p_filt_value_dc[:]-peak)<delta_ph,
-            np.abs(self.p_filt_phase)<1)
+        use = log_and(np.abs(pulse_heights[:]-peak)<delta_ph,
+            np.abs(phase_indicator)<1)
         low_phase, median_phase, high_phase = \
-            sp.stats.scoreatpercentile(self.p_filt_phase[use], [1,50,99])
+            sp.stats.scoreatpercentile(phase_indicator[use], [1,50,99])
 
         Pedges = np.linspace(low_phase, high_phase, nf+1)
         Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
         dP = 2.0/nf
-        Pbin = np.digitize(self.p_filt_phase, Pedges)-1
+        Pbin = np.digitize(phase_indicator, Pedges)-1
 
         NBINS=200
         hists=np.zeros((nf, NBINS), dtype=float)
         for i,P in enumerate(Pctrs):
-            use = log_and(good, Pbin==i)
-            c,b = np.histogram(self.p_filt_value_dc[use], NBINS, phrange)
+            use = Pbin==i
+            c,b = np.histogram(pulse_heights[use], NBINS, phrange)
             hists[i] = c
 
         kernel = np.mean(hists, axis=0)[::-1]
@@ -1587,7 +1586,7 @@ class MicrocalDataSet(object):
         good = self.cuts.good(**category)
 
         if ph_peaks is None:
-            ph_peaks = self._find_peaks_heuristic(good=good)
+            ph_peaks = self._find_peaks_heuristic(self.p_filt_value_dc[good])
         if len(ph_peaks) <= 0:
             print ("Could not phase_correct on chan %3d because no peaks"%self.channum)
             return
@@ -1598,7 +1597,8 @@ class MicrocalDataSet(object):
         corrections = []
         median_phase = []
         for pk in ph_peaks:
-            c, mphase = self._phasecorr_find_alignment(pk, .012*np.mean(ph_peaks), good=good)
+            c, mphase = self._phasecorr_find_alignment(self.p_filt_phase[good],
+                                self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks))
             corrections.append(c)
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
