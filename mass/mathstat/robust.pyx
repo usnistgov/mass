@@ -519,7 +519,7 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
     cdef unsigned int trial_q_row = 0, trial_q_col = 0
     cdef Py_ssize_t i, counter
     cdef double trial_distance = 0.0  #, trial_val=0.0
-    cdef unsigned int candidates_below_trial_dist
+    cdef long candidates_below_trial_dist
 
     # Keep track of which candidates on each ROW are still in the running.
     # These limits are of length (n-1) because the lowest row has no upper-triangle elements.
@@ -529,9 +529,9 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
     cdef long[:] right
     cdef double[:] per_row_value
 
-    trial_column = np.zeros(n-1, dtype=np.int32)
-    left = np.zeros(n-1, dtype=np.int32)
-    right = np.zeros(n-1, dtype=np.int32)
+    trial_column = np.zeros(n-1, dtype=int)
+    left = np.zeros(n-1, dtype=int)
+    right = np.zeros(n-1, dtype=int)
 
     for i in range(n-1):
         right[i] = n-1
@@ -585,7 +585,7 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
                     break
             trial_column[i] = ia
 
-        candidates_below_trial_dist = trial_column.sum() - ((n-2)*(n-1))/2
+        candidates_below_trial_dist = np.sum(trial_column) - ((n-2)*(n-1))/2
 
 
 #        print 'Iter %3d: %2d cand < tri_dist %f (ij=%d,%d)'%(_counter, candidates_below_trial_dist, trial_distance, trial_q_row, trial_q_col
