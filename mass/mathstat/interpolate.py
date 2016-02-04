@@ -354,7 +354,7 @@ class SmoothingSpline(object):
         def chisq_difference(p, target_chisq):
             beta = best_params(p)
             ys = np.dot(self.N0, beta)
-            chisq = np.sum(((self.y-ys)/self.dy)**2)
+            chisq = np.sum(((self.y-ys)/self.err)**2)
             return chisq - target_chisq
 
         pbest = sp.optimize.brentq(chisq_difference, 1e-15, 1, args=(chisq,))
@@ -382,11 +382,11 @@ class SmoothingSpline(object):
 
 
 class SmoothingSplineLog(object):
-    def __init__(self, x, y, dy, dx=None):
+    def __init__(self, x, y, dy, dx=None, maxchisq=None):
         if np.any(x<=0) or np.any(y<=0):
             raise ValueError("The x and y data must all be positive to use a SmoothingSplineLog")
         if dx is not None:
             dx = dx/x
-        self.linear_model = SmoothingSpline(np.log(x), np.log(y), dy/y, dx)
+        self.linear_model = SmoothingSpline(np.log(x), np.log(y), dy/y, dx, maxchisq=maxchisq)
     def __call__(self, x, der=0):
         return np.exp(self.linear_model(np.log(x), der=der))
