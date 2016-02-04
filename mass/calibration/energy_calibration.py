@@ -227,7 +227,7 @@ class EnergyCalibration(object):
         if pht_error is None:
             pht_error = pht*0.001
         if e_error is None:
-            e_error = energy*1e-5
+            e_error = 0.01 # Assume 0.01 eV error if none given
 
         if name != "" and name in self._names:  # Update an existing point
             if not overwrite:
@@ -327,12 +327,12 @@ class EnergyCalibration(object):
             if self._use_loglog:
                 x = np.log(self._ph)
                 y = np.log(self._energies)
-                self._x2yfun = mass.mathstat.interpolate.CubicSpline(x, y)
+                self._x2yfun = CubicSpline(x, y)
                 self.ph2energy = lambda p: np.exp(self._x2yfun(np.log(p)))
             else:
                 x = np.hstack(([0], self._ph))
                 y = np.hstack(([0], self._energies))
-                self.ph2energy = mass.mathstat.interpolate.CubicSpline(x, y)
+                self.ph2energy = CubicSpline(x, y)
 
 
     def name2ph(self, name):
