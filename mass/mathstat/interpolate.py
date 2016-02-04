@@ -31,6 +31,7 @@ Joe Fowler, NIST
 __all__ = ['CubicSpline', 'SmoothingSpline', 'SmoothingSplineLog']
 
 import numpy as np
+import scipy as sp
 
 
 class CubicSpline(object):

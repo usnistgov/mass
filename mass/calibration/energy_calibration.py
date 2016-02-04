@@ -9,9 +9,8 @@ Created on May 16, 2011
 __all__ = ['EnergyCalibration']
 
 import numpy as np
-import scipy.interpolate
-import scipy.optimize
-import mass.mathstat.interpolate
+import scipy as sp
+from mass.mathstat.interpolate import *
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = {
@@ -249,7 +248,7 @@ class EnergyCalibration(object):
             self.info.append(info.copy())
 
         # Sort in ascending energy order
-        sortkeys = np.argsort(self._energies)
+        sortkeys = np.argsort(self._ph)
         self._ph = self._ph[sortkeys]
         self._energies = self._energies[sortkeys]
         self._dph = self._dph[sortkeys]
