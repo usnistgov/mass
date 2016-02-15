@@ -141,8 +141,10 @@ class EnergyCalibration(object):
             energy = [.0] + energy
         if len(energy) > 3:
             ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, energy)
+        elif len(energy)>=2: # use quadratic with 3 points and line with 2 points
+            ph2energy = InterpolatedUnivariateSpline(interp_peak_positions, energy, k=len(energy)-1)
         else:
-            ph2energy = InterpolatedUnivariateSpline(interp_peak_positions, energy, k=1)
+            raise ValueError
 
         return ph2energy
 

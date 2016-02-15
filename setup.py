@@ -3,16 +3,6 @@
 setup.py  distutils build/install file for Mass, the Microcalorimeter Analysis Software Suite
 
 Joe Fowler, NIST Boulder Labs
-
-This setup file must be able to build both FORTRAN and Cython extension modules, which
-requires using the numpy+f2py distutils for the former and Cython.Distutils for the
-latter.  
-
-I found it not at all clear how to mix the two types until discovering the two recent
-discussions:
-
-1. http://stackoverflow.com/questions/7932028/setup-py-for-packages-that-depend-on-both-cython-and-f2py
-2. http://answerpot.com/showthread.php?601643-cython%20and%20f2py
 """
 
 import os.path
@@ -35,19 +25,6 @@ def parse_version_number(VERSIONFILE=None):
         raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
 
 MASS_VERSION = parse_version_number()
-
-
-def configuration_fortran(parent_package='', top_path=None):
-    """Configure FORTRAN extensions only."""
-    from numpy.distutils.misc_util import Configuration
-    config = Configuration('mass', parent_package, top_path)
-
-    # Extensions in FORTRAN90
-    sourcename = os.path.join('mass', 'mathstat', 'factor_covariance')
-    config.add_extension('mathstat._factor_covariance',
-                         [sourcename + ext for ext in [".pyf", ".f90"]])
-
-    return config
 
 
 class QtBuilder(basic_build):
@@ -94,14 +71,8 @@ if __name__ == "__main__":
     import numpy as np
     from Cython.Build import cythonize
 
-    if sys.platform != 'win32':
-        from numpy.distutils.core import setup
-        from distutils.extension import Extension
-
-        setup(configuration=configuration_fortran)
-    else:
-        from setuptools import setup
-        from setuptools.extension import Extension
+    from setuptools import setup
+    from setuptools.extension import Extension
 
     setup(name='mass',
           version=MASS_VERSION,
@@ -111,8 +82,8 @@ if __name__ == "__main__":
           description='Microcalorimeter Analysis Software Suite',
           packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
                     'mass.demo', 'mass.gui', 'mass.nonstandard'],
-          ext_modules=cythonize([Extension('mass.core.channel',
-                                           [os.path.join('mass', 'core', 'channel.pyx')],
+          ext_modules=cythonize([Extension('mass.core.cython_channel',
+                                           [os.path.join('mass', 'core', 'cython_channel.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.mathstat.robust',
                                            [os.path.join('mass', 'mathstat', 'robust.pyx')],
@@ -123,6 +94,5 @@ if __name__ == "__main__":
                                  ]),
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
-                        },
-          cmdclass={'build': QtBuilder}
+                        }
           )

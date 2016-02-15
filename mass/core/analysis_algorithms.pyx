@@ -680,6 +680,9 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
                 delay_from_last_trigger[i] = max_value
                 delay_until_next_trigger[i] = a - pt
                 i += 1
+                if i >= num_pulses:
+                    return np.asarray(delay_from_last_trigger,dtype=np.int64),\
+                           np.asarray(delay_until_next_trigger, dtype=np.int64)
             else:
                 break
 

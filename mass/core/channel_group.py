@@ -30,6 +30,7 @@ import mass.calibration.energy_calibration
 import mass.nonstandard.CDM
 
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
+from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
 
@@ -332,7 +333,7 @@ class TESGroup(object):
             except:
                 hdf5_group = None
 
-            dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
+            dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
@@ -632,12 +633,8 @@ class TESGroup(object):
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
             try:
-                if use_cython:
-                    self.channel[chan].summarize_data(peak_time_microsec,
-                                                      pretrigger_ignore_microsec, forceNew)
-                else:
-                    self.channel[chan].python_summarize_data(peak_time_microsec,
-                                                             pretrigger_ignore_microsec, forceNew)
+                self.channel[chan].summarize_data(peak_time_microsec,
+                                                  pretrigger_ignore_microsec, forceNew, use_cython=use_cython)
                 printUpdater.update((i + 1) / nchan)
                 self.hdf5_file.flush()
             except:
@@ -1197,11 +1194,8 @@ class TESGroup(object):
             nchan = float(self.num_good_channels)
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
-            if use_cython:
-                self.channel[chan].filter_data(filter_name, transform, forceNew)
-            else:
-                self.channel[chan].python_filter_data(filter_name, transform, forceNew)
-                    
+            self.channel[chan].filter_data(filter_name, transform, forceNew, use_cython=use_cython)
+
             printUpdater.update((i + 1) / nchan)
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
@@ -1383,7 +1377,8 @@ class TESGroup(object):
         """
 
         if channels is None:
-            channels = np.arange(self.n_channels)
+            channels = list(self.channel.keys())
+            channels.sort()
 
         if axis is None:
             plt.clf()
@@ -1397,15 +1392,17 @@ class TESGroup(object):
         axis.grid(True)
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
-        for ds_num, ds in enumerate(self):
+        for ds_num,channum in enumerate(channels):
+            if channum not in self.channel: continue
+            ds = self.channel[channum]
             yvalue = ds.noise_records.noise_psd[:] * scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
                 axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)" % units)
             df = ds.noise_records.noise_psd.attrs['delta_f']
             freq = np.arange(1, 1 + len(yvalue)) * df
-            axis.plot(freq, yvalue, label='TES chan %d' % ds.channum,
-                      color=cmap(float(ds_num) / self.n_channels))
+            axis.plot(freq, yvalue, label='TES chan %d' % channum,
+                      color=cmap(float(ds_num) / len(channels)))
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
@@ -1457,10 +1454,10 @@ class TESGroup(object):
 
     def sanitize_p_filt_phase(self):
         ds = self.first_good_dataset
-        cutnum = ds.CUT_NAME.index("p_filt_phase")
-        print("p_filt_phase_cut")
+        self.register_boolean_cut_fields("filt_phase")
+        print("filt_phase cut")
         for ds in self:
-            ds.cut_parameter(ds.p_filt_phase, (-2, 2), cutnum)
+            ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:])>2)
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,

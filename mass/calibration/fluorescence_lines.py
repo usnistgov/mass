@@ -597,17 +597,18 @@ class VoigtFitter(object):
         # Fit function samples from last successful fit
         self.last_fit_result = None
 
+
     def guess_starting_params(self, data, binctrs):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
         percentiles = lambda p: binctrs[(order_stat > p).argmax()]
         peak_loc = percentiles(0.5)
         iqr = (percentiles(0.75) - percentiles(0.25))
         res = iqr * 0.7
-        lor_hwhm = res * 0.5
+        lor_fwhm = res
         baseline = data[0:10].mean()
         baseline_slope = (data[-10:].mean() - baseline) / len(data)
         ampl = (data.max() - baseline) * np.pi
-        return [res, peak_loc, lor_hwhm, ampl, baseline, baseline_slope]
+        return [res, peak_loc, lor_fwhm, ampl, baseline, baseline_slope]
 
     # Compute the smeared line value.
     #
@@ -622,11 +623,12 @@ class VoigtFitter(object):
         Returns:  The line complex intensity, including resolution smearing.
         """
         sigma = params[0] / (8 * np.log(2))**0.5
-        spectrum = voigt(x, params[1], params[2], sigma)
+        lorentz_hwhm = params[2]*0.5
+        spectrum = voigt(x, params[1], lorentz_hwhm, sigma)
         nbins = len(x)
-        return spectrum * abs(params[3]) + abs(params[4]) + params[5] * np.arange(nbins)
+        return spectrum * params[3] + params[4] + (params[5] * np.arange(nbins))
 
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label=False,
             vary_resolution=True, vary_bg=True, vary_bg_slope=False, hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
@@ -635,7 +637,7 @@ class VoigtFitter(object):
                       normally having pulseheight units will be returned as bin numbers instead.
 
         params: a 6-element sequence of [Gaussian resolution (fwhm), Pulseheight of the line peak,
-                Lorenztian HALF-width at half-max, amplitude, background level (per bin),
+                Lorenztian FULL-width at half-max, amplitude, background level (per bin),
                 and background slope (in counts per bin per bin) ]
                 If params is None or does not have 6 elements, then they will be guessed.
 
@@ -678,7 +680,6 @@ class VoigtFitter(object):
             hold.append(4)
         if not vary_bg_slope:
             hold.append(5)
-        print('Params is: ', params)
         try:
             _, _, _, _, _, _ = params
         except:
@@ -702,33 +703,42 @@ class VoigtFitter(object):
             ph_binsize = pulseheights[1] - pulseheights[0]
             axis.set_xlim([pulseheights[0] - 0.5 * ph_binsize, pulseheights[-1] + 0.5 * ph_binsize])
 
-        # Joe's new max-likelihood fitter
+        # Max-likelihood histogram fitter
         epsilon = np.array((1e-3, params[1] / 1e5, 1e-3, params[3] / 1e5, params[4] / 1e2, .01))
         fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
                                                   self.fitfunc, TOL=1e-4, epsilon=epsilon)
+
+        fitter.setbounds(0, 0, 100)   # 100 > Gauss FWHM > 0
+        fitter.setbounds(1, 0, None)  # PH at peak > 0
+        fitter.setbounds(2, 0, 200)   # 200 > Lorentz FWHM > 0
+        fitter.setbounds(3, 0, None)  # amplitude > 0
+        fitter.setbounds(4, 0, None)  # BG level > 0
 
         for h in hold:
             fitter.hold(h)
 
         fitparams, covariance = fitter.fit()
-        iflag = 0
-
-        fitparams[0] = abs(fitparams[0])
 
         self.last_fit_params = fitparams
+        self.last_fit_cov = covariance
+        self.last_fit_chisq = fitter.chisq
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
+        self.last_fit_bins = pulseheights.copy()
+        self.last_fit_contents = data.copy()
 
-        if iflag not in (0, 2):
-            print("Oh no! iflag=%d" % iflag)
-        elif plot:
+        if plot:
             de = np.sqrt(covariance[2, 2])
-            label = "Lorentz HWHM: %.2f +- %.2f eV %s" % (fitparams[2], de, label)
-            if 0 not in hold:
-                de = np.sqrt(covariance[0, 0])
-                label += "\nGauss FWHM: %.2f +- %.2f eV" % (fitparams[0], de)
+            if not label:
+                label = ""
+            else:
+                label = "Lorentz FWHM: %.2f +- %.2f eV" % (fitparams[2], de)
+                if 0 not in hold:
+                    de = np.sqrt(covariance[0, 0])
+                    label += "\nGauss FWHM: %.2f +- %.2f eV" % (fitparams[0], de)
             axis.plot(pulseheights, self.last_fit_result, color='#666666',
                       label=label)
-            axis.legend(loc='upper left')
+            if len(label) > 0:
+                axis.legend(loc='upper left')
         return fitparams, covariance
 
 
@@ -772,9 +782,9 @@ class TwoVoigtFitter(object):
         Returns:  The line complex intensity, including resolution smearing.
         """
         sigma = params[0] / (8 * np.log(2))**0.5
-        spectrum = voigt(x, params[1], params[2], sigma) * abs(params[3]) +\
-            voigt(x, params[4], params[5], sigma) * abs(params[6])
-        return spectrum + abs(params[7])
+        spectrum = voigt(x, params[1], params[2]*0.5, sigma) * params[3] +\
+            voigt(x, params[4], params[5]*0.5, sigma) * params[6]
+        return spectrum + params[7]
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
             vary_resolution=True, vary_bg=True, hold=None):
@@ -822,7 +832,6 @@ class TwoVoigtFitter(object):
             hold.append(0)
         if not vary_bg:
             hold.append(7)
-        print('Params is: ', params)
         try:
             _, _, _, _, _, _, _, _ = params
         except:
@@ -852,30 +861,43 @@ class TwoVoigtFitter(object):
         fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
                                                   self.fitfunc, TOL=1e-4, epsilon=epsilon)
 
+        fitter.setbounds(0, 0, 100)   # 100 > Gauss FWHM > 0
+        fitter.setbounds(1, 0, None)  # PH at peak 1 > 0
+        fitter.setbounds(2, 0, 200)   # 200 > Lorentz FWHM 1 > 0
+        fitter.setbounds(3, 0, None)  # amplitude 1 > 0
+        fitter.setbounds(4, 0, None)  # PH at peak 2 > 0
+        fitter.setbounds(5, 0, 200)   # 200 > Lorentz FWHM 2 > 0
+        fitter.setbounds(6, 0, None)  # amplitude 2 > 0
+        fitter.setbounds(7, 0, None)  # BG level > 0
+
         for h in hold:
             fitter.hold(h)
 
         fitparams, covariance = fitter.fit()
-        iflag = 0
-
-        fitparams[0] = abs(fitparams[0])
 
         self.last_fit_params = fitparams
+        self.last_fit_cov = covariance
+        self.last_fit_chisq = fitter.chisq
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
+        self.last_fit_bins = pulseheights.copy()
+        self.last_fit_contents = data.copy()
 
-        if iflag not in (0, 2):
-            print("Oh no! iflag=%d" % iflag)
-        elif plot:
-            de1 = np.sqrt(covariance[2, 2])
-            label = "Lorentz HWHM 1: %.2f +- %.2f eV %s" % (fitparams[2], de1, label)
-            de2 = np.sqrt(covariance[5, 5])
-            label += "\nLorentz HWHM 2: %.2f +- %.2f eV" % (fitparams[5], de2)
-            if 0 not in hold:
-                de = np.sqrt(covariance[0, 0])
-                label += "\nGauss FWHM: %.2f +- %.2f eV" % (fitparams[0], de)
+        if plot:
+            de = np.sqrt(covariance[2, 2])
+            if not label:
+                label = ""
+            else:
+                de1 = np.sqrt(covariance[2, 2])
+                label = "Lorentz HWHM 1: %.2f +- %.2f eV %s" % (fitparams[2], de1, label)
+                de2 = np.sqrt(covariance[5, 5])
+                label += "\nLorentz HWHM 2: %.2f +- %.2f eV" % (fitparams[5], de2)
+                if 0 not in hold:
+                    de = np.sqrt(covariance[0, 0])
+                    label += "\nGauss FWHM: %.2f +- %.2f eV" % (fitparams[0], de)
             axis.plot(pulseheights, self.last_fit_result, color='#666666',
                       label=label)
-            axis.legend(loc='upper left')
+            if len(label) > 0:
+                axis.legend(loc='upper left')
         return fitparams, covariance
 
 
