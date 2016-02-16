@@ -113,12 +113,16 @@ class EnergyCalibration(object):
     need to solve for vectors of energy->PH conversions.
     """
 
-    def __init__(self, nonlinearity=1.1):
+    def __init__(self, nonlinearity=1.1, loglog=True, approximate=True, zerozero=True):
         """
         Create an EnergyCalibration object for pulse-height-related field.
 
-        <nonlinearity> is the exponent N in the default, low-energy limit of
+        `nonlinearity` is the exponent N in the default, low-energy limit of
         E \propto (PH)^N.  Typically 1.0 to 1.3 are reasonable.
+        `loglog`  Whether to spline in log(E) vs log(PH) space. (If not, spline E vs PH.)
+        `approximate`  Whether to use approximate "smoothing splines". (If not, use splines
+                        that go exactly through the data.)
+        `zerozero` Whether to force the cal curve to go through (0,0).
         """
 
         self.ph2energy = lambda x: x
@@ -131,9 +135,10 @@ class EnergyCalibration(object):
         self._names = []
         self.npts = 0
         self.nonlinearity = nonlinearity
-        self._use_approximation = True
+        self._use_approximation = approximate
+        self._use_loglog = loglog
+        self._use_zerozero = zerozero
         self._model_is_stale = False
-        self._use_loglog = True
 
     def __call__(self, pulse_ht):
         "Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV)."
@@ -159,6 +164,12 @@ class EnergyCalibration(object):
         """Switch to using (or to NOT using) splines in log(PH) vs log(E) space."""
         if useit != self._use_loglog:
             self._use_loglog = useit
+            self._model_is_stale = True
+
+    def set_use_zerozero(self, useit):
+        """Switch to using (or to NOT using) (PH,E)=(0,0) as an implied cal point."""
+        if useit != self._use_zerozero:
+            self._use_zerozero = useit
             self._model_is_stale = True
 
     def copy(self, new_ph_field=None):
@@ -298,11 +309,11 @@ class EnergyCalibration(object):
         if self._use_loglog:
             self.ph2energy = SmoothingSplineLog(ph, e, de, dph)
         else:
-            if 0.0 not in ph:
+            if self._use_zerozero and (0.0 not in ph):
                 ph = np.hstack([[0],ph])
                 e  = np.hstack([[0],e])
-                de = np.hstack([[1e-2],de])
-                dph= np.hstack([[1e-2],dph])
+                de = np.hstack([[de.min()*0.1],de])
+                dph= np.hstack([[dph.min()*0.1],dph])
             self.ph2energy = SmoothingSpline(ph, e, de, dph)
 
 
