@@ -126,7 +126,6 @@ class EnergyCalibration(object):
         """
 
         self.ph2energy = lambda x: x
-        self.energy2ph = lambda x: x
         self.info = [{}]
         self._ph = np.zeros(0, dtype=np.float)
         self._energies = np.zeros(0, dtype=np.float)
@@ -145,6 +144,16 @@ class EnergyCalibration(object):
         if self._model_is_stale:
             self._update_converters()
         return self.ph2energy(pulse_ht)
+
+    def energy2ph(self, energy):
+        """Convert a single energy `energy` in eV to a pulse height.
+        Inverts the ph2energy function by Brent's method for root finding."""
+        if self._model_is_stale:
+            self._update_converters()
+
+        energy_residual = lambda ph, etarget: self.ph2energy(ph)-etarget
+        return sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(energy,))
+
 
     def __str__(self):
         seq = ["EnergyCalibration()"]
@@ -284,9 +293,6 @@ class EnergyCalibration(object):
         else:
             self._update_exactcurves()
 
-        # The inverse function is found numerically, with a root-finder.
-        energy_residual = lambda ph, etarget: self.ph2energy(ph)-etarget
-        self.energy2ph = lambda e: sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(e,))
         self._model_is_stale = False
 
 
