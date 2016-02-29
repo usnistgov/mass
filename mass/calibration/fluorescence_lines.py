@@ -588,7 +588,20 @@ CuKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=CuKAlpha(),
 
 
 class VoigtFitter(object):
-    """Fit a single Lorentzian line, with Gaussian smearing."""
+    """Fit a single Lorentzian line, with Gaussian smearing and potentially a low-E tail.
+
+    Parameters are:
+    0 - Gaussian resolution (FWHM)
+    1 - Pulse height (x-value) of the line peak
+    2 - Lorentzian component width (FWHM)
+    3 - Amplitude (y-value) of the line peak
+    4 - Mean background counts per bin
+    5 - Background slope (counts per bin per bin)
+    6 - Low-energy tail fraction (0 <= f <= 1)
+    7 - Low-energy tail scale length
+
+    The units of 0, 1, 2, and 7 are all whatsoever units are used for pulse heights.
+    """
 
     def __init__(self):
         """ """
@@ -598,7 +611,7 @@ class VoigtFitter(object):
         self.last_fit_result = None
 
 
-    def guess_starting_params(self, data, binctrs):
+    def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
         percentiles = lambda p: binctrs[(order_stat > p).argmax()]
         peak_loc = percentiles(0.5)
@@ -608,38 +621,60 @@ class VoigtFitter(object):
         baseline = data[0:10].mean()
         baseline_slope = (data[-10:].mean() - baseline) / len(data)
         ampl = (data.max() - baseline) * np.pi
-        return [res, peak_loc, lor_fwhm, ampl, baseline, baseline_slope]
+        return [res, peak_loc, lor_fwhm, ampl, baseline, baseline_slope, tailf, tailt]
 
     # Compute the smeared line value.
     #
-    # @param params  The 6 parameters of the fit (see self.fit for details).
-    # @param x       An array of pulse heights (params will scale them to energy).
+    # @param params  The 8 parameters of the fit (see self.__doc__ for details).
+    # @param x       An array of pulse heights.
     # @return:       The line complex intensity, including resolution smearing.
     def fitfunc(self, params, x):
         """Return the smeared line complex.
 
-        <params>  The 6 parameters of the fit (see self.fit for details).
+        <params>  The 8 parameters of the fit (see self.__doc__ for details).
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
         """
-        sigma = params[0] / (8 * np.log(2))**0.5
-        lorentz_hwhm = params[2]*0.5
-        spectrum = voigt(x, params[1], lorentz_hwhm, sigma)
-        nbins = len(x)
-        return spectrum * params[3] + params[4] + (params[5] * np.arange(nbins))
+        (P_gaussfwhm, P_phpeak, P_lorenzfwhm, P_amplitude,
+         P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
+        sigma = P_gaussfwhm / (8 * np.log(2))**0.5
+        lorentz_hwhm = P_lorenzfwhm*0.5
+        if P_tailfrac <= 1e-5:
+            spectrum = voigt(x, params[1], lorentz_hwhm, sigma)
 
-    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label=False,
+        else:
+            # Compute the low-E-tailed spectrum. This is done by
+            # convolution, which is computed using DFT methods.
+            # A wider energy range must be used, or wrap-around effects of
+            # tails will corrupt the model.
+            dx = x[1] - x[0]
+            nlow = int(min(P_tailtau, 100) * 6 / dx + 0.5)
+            nhi = int((abs(params[0]) + min(P_tailtau, 50)) / dx + 0.5)
+            nhi = min(3000, nhi)  # A practical limit
+            nlow = max(nlow, nhi)
+            lowx = np.arange(-nlow, 0) * dx + x[0]
+            highx = np.arange(1, nhi + 1) * dx + x[-1]
+            x_wide = np.hstack([lowx, x, highx])
+            freq = np.fft.rfftfreq(len(x_wide), d=dx)
+            rawspectrum = voigt(x_wide, params[1], lorentz_hwhm, sigma)
+            ft = np.fft.rfft(rawspectrum)
+            ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
+            smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
+            spectrum = smoothspectrum[nlow:nlow + len(x)]
+        nbins = len(x)
+        return spectrum * P_amplitude + P_bg + P_bgslope * np.arange(nbins)
+
+    def fit(self, data, pulseheights, params=None, plot=True, axis=None, color=None, label=False,
             vary_resolution=True, vary_bg=True, vary_bg_slope=False, hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
 
-        pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters
-                      normally having pulseheight units will be returned as bin numbers instead.
+        pulseheights: the histogram bin centers.
 
-        params: a 6-element sequence of [Gaussian resolution (fwhm), Pulseheight of the line peak,
+        params: a 8-element sequence of [Gaussian resolution (fwhm), Pulseheight of the line peak,
                 Lorenztian FULL-width at half-max, amplitude, background level (per bin),
                 and background slope (in counts per bin per bin) ]
-                If params is None or does not have 6 elements, then they will be guessed.
+                If params is None or does not have 8 elements, then they will be guessed.
 
         plot:   Whether to make a plot.  If not, then the next few args are ignored
         axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
@@ -655,12 +690,13 @@ class VoigtFitter(object):
                        if the relevant boolean vary_* tests False.
 
         The interaction between <hold> (or its vary_* aliases) and <params> is simple if <params> is given
-        as a 6-element sequence.  Otherwise, for i in [0,4,5], params[i] will be forced to 0 if the given
+        as an 8-element sequence.  Otherwise, for i in [0,4,5], params[i] will be forced to 0 if the given
         parameter i is in the <hold> list.  So you can fix the resolution at 0 by vary_resolution=False.
         If you want to fix it at 2.5, then you have to give params=[2.5, u,v,w,x,y].
 
         """
         # Work with bin edges
+        pulseheights = np.asarray(pulseheights)
         if len(pulseheights) == len(data) + 1:
             dp = pulseheights[1] - pulseheights[0]
             pulseheights = 0.5 * dp + pulseheights[:-1]
@@ -681,7 +717,7 @@ class VoigtFitter(object):
         if not vary_bg_slope:
             hold.append(5)
         try:
-            _, _, _, _, _, _ = params
+            _, _, _, _, _, _, _, _ = params
         except:
             params = self.guess_starting_params(data, pulseheights)
             if 0 in hold:
@@ -704,15 +740,18 @@ class VoigtFitter(object):
             axis.set_xlim([pulseheights[0] - 0.5 * ph_binsize, pulseheights[-1] + 0.5 * ph_binsize])
 
         # Max-likelihood histogram fitter
-        epsilon = np.array((1e-3, params[1] / 1e5, 1e-3, params[3] / 1e5, params[4] / 1e2, .01))
+        epsilon = np.array((1e-3, params[1] / 1e5, 1e-3, params[3] / 1e5, params[4] / 1e2, .01, 1e-4, 1e-2))
         fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
                                                   self.fitfunc, TOL=1e-4, epsilon=epsilon)
 
-        fitter.setbounds(0, 0, 100)   # 100 > Gauss FWHM > 0
-        fitter.setbounds(1, 0, None)  # PH at peak > 0
-        fitter.setbounds(2, 0, 200)   # 200 > Lorentz FWHM > 0
-        fitter.setbounds(3, 0, None)  # amplitude > 0
-        fitter.setbounds(4, 0, None)  # BG level > 0
+        DE = pulseheights.max() - pulseheights.min()
+        fitter.setbounds(0, 0, 10*DE)   # 0 < Gauss FWHM < 10DE
+        fitter.setbounds(1, 0, None)    # 0 < PH at peak
+        fitter.setbounds(2, 0, 10*DE)   # 0 < Lorentz FWHM < 10DE
+        fitter.setbounds(3, 0, None)    # 0 < amplitude
+        fitter.setbounds(4, 0, None)    # 0 < BG level
+        fitter.setbounds(6, 0, 1)       # 0 <= tail fraction <= 1
+        fitter.setbounds(7, 1e-5, None) # 0 < tail scale length
 
         for h in hold:
             fitter.hold(h)
@@ -987,7 +1026,6 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         sum_d2 = (data * binctrs * binctrs).sum()
         mean_d = sum_d / n
         rms_d = np.sqrt(sum_d2 / n - mean_d**2)
-#        print n, sum_d, sum_d2, mean_d, rms_d
 
         ph_ka1 = binctrs[np.argmax(data)]
         dph = 2 * rms_d
@@ -1062,14 +1100,11 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         print(params)
         assert len(params) == 5 + len(self.spectraDefs)
 
-#            print 'Guessed parameters: ',params
-#            print 'PH range: ',pulseheights[0],pulseheights[-1]
         ph_binsize = pulseheights[1] - pulseheights[0]
 
         # Joe's new max-likelihood fitter
         epsilon = np.ones_like(params) * params[1] / 1e4
         epsilon[:6] = np.array((1e-3, params[1] / 1e5, 1e-3, params[3] / 1e5, params[4] / 1e2, .01))
-#        print 'epsilon', epsilon
         fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
                                                   self.fitfunc, TOL=1e-4, epsilon=epsilon)
 
@@ -1080,8 +1115,6 @@ class SimultaneousMultiLorentzianComplexFitter(object):
             fitter.hold(4)
         if not vary_bg_slope:
             fitter.hold(5)
-#        print 'held'
-#        print fitter.param_free
 
         fitparams, covariance = fitter.fit(verbose=False)
 
@@ -1111,7 +1144,6 @@ class SimultaneousMultiLorentzianComplexFitter(object):
         return fitparams, covariance
 
 
-# Galen 20130208: I think this could be completely replaced by SimultaneousMultiLorentzianComplexFitter
 class MultiLorentzianComplexFitter(object):
     """Abstract base class for objects that can fit a spectral line complex.
 
@@ -1166,11 +1198,11 @@ class MultiLorentzianComplexFitter(object):
             rawspectrum = self.spect.pdf(energy_wide)
             ft = np.fft.rfft(rawspectrum)
             # Joe writes: Not sure why the following fails. Hmm.
-#             ft = np.zeros(len(freq), dtype=complex)
-#             for line_e, line_fwhm, line_intens in zip(self.spect.energies, self.spect.fwhm,
-#                                                        self.spect.integral_intensity):
-#                 ft += line_intens*np.exp(-np.pi*(line_fwhm*np.abs(freq)+2j*freq*line_e))
-#             ft *= np.exp(-2*(np.pi*params[0]/2.3548)**2)
+            # ft = np.zeros(len(freq), dtype=complex)
+            # for line_e, line_fwhm, line_intens in zip(self.spect.energies, self.spect.fwhm,
+            #                                            self.spect.integral_intensity):
+            #     ft += line_intens*np.exp(-np.pi*(line_fwhm*np.abs(freq)+2j*freq*line_e))
+            # ft *= np.exp(-2*(np.pi*params[0]/2.3548)**2)
             ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
             smoothspectrum = np.fft.irfft(ft, n=len(energy_wide))
             spectrum = smoothspectrum[nlow:nlow + len(energy)]
