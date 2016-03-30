@@ -1865,7 +1865,7 @@ class MicrocalDataSet(object):
             # When plotting both cut and valid, mark the cut data with x and dashed lines
             if valid_status is None and not cuts_good[i]:
                 cutchar, alpha, linestyle, linewidth = 'X', 1.0, '--', 1
-            color=cm(pulses_plotted*1.0/nplottable)
+            color=cm(pulses_plotted*1.0/len(cuts_good))
             axis.plot(dt, data, color=color,
                       linestyle=linestyle, alpha=alpha, linewidth=linewidth)
             if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(self.p_pretrig_mean) >= pn:
