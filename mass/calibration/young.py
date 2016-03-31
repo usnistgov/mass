@@ -12,7 +12,7 @@ from scipy.misc import comb
 try:
     import statsmodels.api as sm
 except ImportError: # On linux the name was as follows:
-    import scikits.statsmodels.api as sm 
+    import scikits.statsmodels.api as sm
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -207,6 +207,12 @@ class EnergyCalibration(object):
                                                                  np.max(hist), 0, 0))
                 fitter.fit()
                 histograms.append((hist, bins))
+                # lambas cant be pickled, so write over them
+                # this is an ugly hack
+                # param order for MaximumLikelihoodGaussianFitter [FWHM, centroid, peak value, sqrt(constant) background, background slope]
+                fitter.internal2bounded = []
+                fitter.bounded2internal = []
+                fitter.boundedinternal_grad = []
                 complex_fitters.append(fitter)
                 continue
 
