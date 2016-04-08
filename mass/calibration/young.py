@@ -77,8 +77,8 @@ class EnergyCalibration(object):
         n_sel_pp = len(line_names) + 3
 
         while n_sel_pp < (len(line_names) + 15):
-            sel_positions = peak_positions[:n_sel_pp]
-            energies = np.array(e_e)
+            sel_positions = np.array(peak_positions[:n_sel_pp],dtype="float")
+            energies = np.array(e_e,dtype="float")
             assign = np.array(list(itertools.combinations(sel_positions, len(line_names))))
             assign.sort(axis=1)
             fracs = (energies[1:-1] - energies[:-2])/(energies[2:] - energies[:-2])
