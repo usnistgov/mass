@@ -802,7 +802,7 @@ class MicrocalDataSet(object):
         self.phase_correct_info = {}
         self.noise_autocorr = None
         self.noise_demodulated = None
-        self.calibration = {'p_filt_value': energy_calibration.EnergyCalibration('p_filt_value')}
+        self.calibration = {}
 
         for a in self.expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
