@@ -1432,7 +1432,7 @@ class TESGroup(object):
         for ds in self:
             try:
                 ds.drift_correct(forceNew, category)
-            except ValueError:
+            except:
                 self.set_chan_bad(ds.channum, "failed drift correct")
 
     def phase_correct(self, plot=False, forceNew=False, category=None):
