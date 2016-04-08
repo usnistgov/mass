@@ -12,7 +12,7 @@ from scipy.misc import comb
 try:
     import statsmodels.api as sm
 except ImportError: # On linux the name was as follows:
-    import scikits.statsmodels.api as sm 
+    import scikits.statsmodels.api as sm
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -41,7 +41,17 @@ class FailedFitter(object):
 
 class EnergyCalibration(object):
     def __init__(self, size_related_to_energy_resolution=20.0, fit_range_ev=200, excl=(),
-                 plot_on_fail=False, use_00=True, bin_size_ev=2):
+                 plot_on_fail=False, use_00=True, bin_size_ev=2, nextra=3, maxacc = 0.015):
+        """
+        size_related_to_energy_resolution - convolve the spectra in arbs with a gaussian of this width in arbs
+        fit_range_ev - use approximatley this range for fitting
+        excl - add lines here you dont want to calibrate on, but want to avoid in your fit ranges
+        plot_on_fail - if true will help you figure out what lines the algorithm is finding
+        use_00 - add 0,0 when calculating spline
+        bin_size_ev - approx size of bins when making histograms for fitting
+        nextra - the first attempt at peak assignment uses the number of lines you passed plus this
+        maxacc - a number found empirically, generally good peak assignments have a lower self.__acc than this
+        """
         self.size_related_to_energy_resolution = size_related_to_energy_resolution
         self.data = np.zeros(0)
         self.hw = fit_range_ev
@@ -54,6 +64,8 @@ class EnergyCalibration(object):
         self.plot_on_fail = plot_on_fail
         self.use_00 = use_00
         self.__acc = np.inf
+        self.maxacc = maxacc
+        self.nextra = nextra
 
     def __find_local_maxima(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
@@ -74,7 +86,7 @@ class EnergyCalibration(object):
                                   key=operator.itemgetter(1)))
         self.elements = name_e
 
-        n_sel_pp = len(line_names) + 3
+        n_sel_pp = len(line_names)+self.nextra
 
         while n_sel_pp < (len(line_names) + 15):
             sel_positions = np.array(peak_positions[:n_sel_pp],dtype="float")
@@ -90,7 +102,9 @@ class EnergyCalibration(object):
             self.__acc = acc_est[opt_assign_i]
             opt_assign = assign[opt_assign_i]
 
-            if self.__acc > 0.015 * np.sqrt(len(energies)):
+
+            ### was 0.015
+            if self.__acc > self.maxacc * np.sqrt(len(energies)):
                 n_sel_pp += 3
                 continue
             else:
@@ -209,6 +223,12 @@ class EnergyCalibration(object):
                                                                  np.max(hist), 0, 0))
                 fitter.fit()
                 histograms.append((hist, bins))
+                # lambas cant be pickled, so write over them
+                # this is an ugly hack
+                # param order for MaximumLikelihoodGaussianFitter [FWHM, centroid, peak value, sqrt(constant) background, background slope]
+                fitter.internal2bounded = []
+                fitter.bounded2internal = []
+                fitter.boundedinternal_grad = []
                 complex_fitters.append(fitter)
                 continue
 
