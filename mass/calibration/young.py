@@ -179,11 +179,13 @@ class EnergyCalibration(object):
             width = self.hw * slope_dpulseheight_denergy
 
             try:
-                lnp = np.max(peak_positions[peak_positions < pp - (slope_dpulseheight_denergy * 50)])
+                #lnp = np.max(peak_positions[peak_positions < pp - (slope_dpulseheight_denergy * 50)])
+                lnp = np.max(peak_positions[peak_positions < pp])
             except ValueError:
                 lnp = -np.inf
             try:
-                rnp = np.min(peak_positions[peak_positions > pp + (slope_dpulseheight_denergy * 50)])
+                #rnp = np.min(peak_positions[peak_positions > pp + (slope_dpulseheight_denergy * 50)])
+                rnp = np.min(peak_positions[peak_positions > pp])
             except ValueError:
                 rnp = np.inf
 
