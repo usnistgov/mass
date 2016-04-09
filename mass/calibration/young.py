@@ -13,6 +13,7 @@ try:
     import statsmodels.api as sm
 except ImportError: # On linux the name was as follows:
     import scikits.statsmodels.api as sm
+    sm.nonparametric.KDEUnivariate = sm.nonparametric.KDE
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
