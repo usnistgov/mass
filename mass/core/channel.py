@@ -616,11 +616,11 @@ class Cuts(object):
         category_field_bit_mask = np.uint32(0)
         category_field_target_bits = np.uint32(0)
 
-        categorical_field = self.tes_group.categorical_cut_desc
+        categorical_fields = self.tes_group.categorical_cut_desc
         category_list = self.tes_group.cut_category_list
 
         for name, category_label in kwargs.items():
-            categorical_g = (categorical_field["name"] == name.encode())
+            categorical_g = (categorical_fields["name"] == name.encode())
 
             if not np.any(categorical_g):
                 raise ValueError(name + " categorical field is not found.")
@@ -631,7 +631,7 @@ class Cuts(object):
             if not np.any(category_g):
                 raise ValueError(category_label + " category is not found.")
 
-            _, bit_pos, bit_mask = categorical_field[categorical_g][0]
+            _, bit_pos, bit_mask = categorical_fields[categorical_g][0]
             _, _, category = category_list[category_g][0]
             bit_pos = np.uint32(bit_pos)
             category = np.uint32(category)
