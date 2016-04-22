@@ -590,14 +590,15 @@ class Cuts(object):
             else:
                 categorical_g = (categorical_field["name"] == cut_num.encode())
                 if np.any(categorical_g):
-                    # _, bit_pos, bit_mask = categorical_field[categorical_g][0]
-                    # temp = self._mask[...] & ~bit_mask
-                    # category_values = np.asarray(mask, dtype=np.uint32)
-                    # bit_pos = np.uint32(bit_pos)
-                    # self._mask[...] = temp | ((category_values << bit_pos) & bit_mask)
                     _, bit_mask = categorical_field[categorical_g][0]
+
+                    for i in range(32):
+                        bit_pos = np.uint32(i)
+                        if (bit_mask >> bit_pos) & np.uint32(1):
+                            break
+
                     temp = self._mask[...] & ~bit_mask
-                    category_values = np.asarray(mask, dtype=np.uint32)
+                    category_values = np.asarray(mask, dtype=np.uint32) << bit_pos
                     self._mask[...] = temp | (category_values & bit_mask)
                 else:
                     raise ValueError(cut_num + " field is not found.")
@@ -643,52 +644,49 @@ class Cuts(object):
             if not np.any(category_g):
                 raise ValueError(category_label + " category is not found.")
 
-            # _, bit_pos, bit_mask = categorical_fields[categorical_g][0]
-            # _, _, category = category_list[category_g][0]
-            # bit_pos = np.uint32(bit_pos)
-            # category = np.uint32(category)
-            #
-            # category_field_bit_mask |= bit_mask
-            # category_field_target_bits |= category << bit_pos
-
             _, bit_mask = categorical_fields[categorical_g][0]
             _, _, code = category_list[category_g][0]
 
+            for i in range(32):
+                bit_pos = np.uint32(i)
+                if (bit_mask >> bit_pos) & np.uint32(1):
+                    break
+
             category_field_bit_mask |= bit_mask
-            category_field_target_bits |= code
+            category_field_target_bits |= code << bit_pos
 
         return (self._mask[...] & category_field_bit_mask) == category_field_target_bits
 
     def category_codes(self, name):
-        """Returns the category codes of a single categorical cut field.
+        """
+        Returns the category codes of a single categorical cut field.
 
-        Parameters
-        ----------
-        first : string
-            the name of a categorical cut field.
+        Args:
+            name : string
+                the name of a categorical cut field.
 
-        Returns
-        -------
-        numpy array of uint32 :
-            category codes of a categorical cut field 'name'.
+        Returns:
+            numpy array of uint32 :
+                category codes of a categorical cut field 'name'.
 
-        Raises
-        ------
-        KeyError
-            when a name is not a registered categorical cut field.
+        Raises:
+            KeyError
+                when a name is not a registered categorical cut field.
         """
         categorical_field = self.tes_group.categorical_cut_desc
-
         categorical_field_g = categorical_field["name"] == name.encode()
 
         if np.any(categorical_field_g):
-            # _, bit_pos, bit_mask = categorical_field[categorical_field_g][0]
-            # bit_pos = np.uint32(bit_pos)
             _, bit_mask = categorical_field[categorical_field_g][0]
+
+            for i in range(32):
+                bit_pos = np.uint32(i)
+                if (bit_mask >> bit_pos) & np.uint32(1):
+                    break
         else:
             raise KeyError(name + " is not found.")
 
-        return self._mask[...] & bit_mask
+        return (self._mask[...] & bit_mask) >> bit_pos
 
     def cut_mask(self, *args):
         """
