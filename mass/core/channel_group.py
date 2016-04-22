@@ -294,7 +294,7 @@ class TESGroup(object):
     def cut_field_categories(self, field_name):
         category_list = self.cut_category_list
 
-        return {name.decode(): index for field, name, index in category_list if field == field_name.encode()}
+        return {category.decode(): code for field, category, code in category_list if field == field_name.encode()}
 
     @staticmethod
     def __lowest_available_cut_bit(cut_used_bit_flags):
