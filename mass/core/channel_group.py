@@ -20,9 +20,10 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
+import os
+
 import numpy as np
 import matplotlib.pylab as plt
-import os
 import h5py
 
 import mass.core.analysis_algorithms
@@ -129,15 +130,10 @@ class TESGroup(object):
 
     __cut_boolean_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
                                                ("mask", np.uint32)])
-    # __cut_categorical_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
-    #                                                ("pos", np.uint8),
-    #                                                ("mask", np.uint32)])
+
     __cut_categorical_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
                                                    ("mask", np.uint32)])
 
-    # __cut_category_list_dtype = np.dtype([("field", np.bytes_, 64),
-    #                                       ("category", np.bytes_, 64),
-    #                                       ("index", np.uint8)])
     __cut_category_list_dtype = np.dtype([("field", np.bytes_, 64),
                                           ("category", np.bytes_, 64),
                                           ("code", np.uint32)])
@@ -294,18 +290,26 @@ class TESGroup(object):
 
     @staticmethod
     def __lowest_available_cut_bit(cut_used_bit_flags):
-        mask = np.uint32(1)
+        """
+        Returns the index of lowest available cut bit.
+
+        Return:
+            np.uint32
+        """
+        uint32_one = np.uint32(1)
 
         for i in range(32):
-            trial_bit = mask << np.uint32(i)
+            trial_bit_pos = np.uint32(i)
+            trial_bit = uint32_one << trial_bit_pos
             if cut_used_bit_flags & trial_bit == 0:
-                return np.uint8(i)
+                return trial_bit_pos
 
         raise ValueError("No available cut bit.")
 
     def register_boolean_cut_fields(self, *names):
         """
         Register one or more boolean cut field(s).
+        If any of given boolean cut fields already exist, it silently ignore.
 
          Args:
              names: name(s) of one or more cut fields(s).
@@ -315,10 +319,11 @@ class TESGroup(object):
 
         new_fields = [n.encode() for n in names if n.encode() not in boolean_fields["name"]]
 
+        uint32_one = np.uint32(1)
         for new_field in new_fields:
-            available_bit = self.__lowest_available_cut_bit(cut_used_bit_flags)
-            boolean_fields[available_bit] = (new_field, np.uint32(1) << available_bit)
-            cut_used_bit_flags |= (np.uint32(1) << available_bit)
+            available_bit_pos = self.__lowest_available_cut_bit(cut_used_bit_flags)
+            boolean_fields[available_bit_pos] = (new_field, uint32_one << available_bit_pos)
+            cut_used_bit_flags |= (uint32_one << available_bit_pos)
 
         self.boolean_cut_desc = boolean_fields
         self.cut_used_bit_flags = cut_used_bit_flags
@@ -382,15 +387,15 @@ class TESGroup(object):
 
         individual_bit_masks = []
         bit_mask = np.uint32(0)
-        # individual_bit_masks.insert(0, bit_mask)
-        lowest_bit_pos = 31
+        lowest_bit_pos = np.uint32(31)
+        uint32_one = np.uint32(1)
 
         for _ in range(num_bits):
             bit_pos = self.__lowest_available_cut_bit(cut_used_bit_flags | bit_mask)
             if bit_pos < lowest_bit_pos:
                 lowest_bit_pos = bit_pos
-            bit_mask |= (np.uint32(1) << bit_pos)
-            individual_bit_masks.insert(0, np.uint32(1) << bit_pos)
+            bit_mask |= (uint32_one << bit_pos)
+            individual_bit_masks.insert(0, uint32_one << bit_pos)
 
         # Updates the 'cut_category_list' attribute
         new_list = []
@@ -398,12 +403,9 @@ class TESGroup(object):
             digits = map(np.uint32, "{0:032b}".format(i)[-num_bits:])
             code = np.sum([a * b for a, b in zip(individual_bit_masks, digits)])
             new_list.append((name.encode(), category.encode(), code >> lowest_bit_pos))
-        new_list = np.array(new_list, dtype=self.__cut_category_list_dtype)
 
-        # new_list = np.array([(name.encode(), category.encode()) for category in category_list],
-        #                     dtype=self.__cut_category_list_dtype)
-        self.cut_category_list = np.hstack([self.cut_category_list,
-                                            new_list])
+        new_list = np.array(new_list, dtype=self.__cut_category_list_dtype)
+        self.cut_category_list = np.hstack([self.cut_category_list, new_list])
 
         # Needs to update the 'cut_categorical_field_desc' attribute.
         field_desc_item = np.array([(name.encode(), bit_mask)],
@@ -414,7 +416,6 @@ class TESGroup(object):
     def unregister_categorical_cut_field(self, name):
         categorical_fields = self.categorical_cut_desc
         category_list = self.cut_category_list
-        cut_used_bit_flags = self.cut_used_bit_flags
 
         if not np.any(categorical_fields['name'] == name.encode()):
             raise ValueError("{0:s} field is not a registered categorical field.".format(name))
@@ -431,8 +432,8 @@ class TESGroup(object):
         pulse_list = []
         noise_list = []
         dset_list = []
-        for i, fname in enumerate(self.filenames):
 
+        for i, fname in enumerate(self.filenames):
             # Create the pulse records file interface and the overall MicrocalDataSet
             pulse = PulseRecords(fname)
             print("%s %i" % (fname, pulse.nPulses))
