@@ -187,7 +187,7 @@ class TESGroup(object):
                                                    dtype=self.__cut_boolean_field_desc_dtype)
                 self.categorical_cut_desc = np.asarray(self.categorical_cut_desc[['name', 'mask']],
                                                        dtype=self.__cut_categorical_field_desc_dtype)
-                self.cut_category_list = np.asarray(self.cut_category_list,
+                self.cut_category_list = np.asarray(list(self.cut_category_list),
                                                     dtype=self.__cut_category_list_dtype)
 
                 del self.hdf5_file.attrs['cut_num_used_bits']
