@@ -155,26 +155,26 @@ class Cuts(object):
 
         return (self._mask[...] & bit_mask) >> bit_pos
 
-    def cut_mask(self, *args):
+    def cut_mask(self, *fields):
         """
          Retrieves masks of multiple cut fields. They could be boolean or categorical.
 
          Args:
-             args: cut field name or names.
+             fields: cut field name or names.
         """
         boolean_field = self.tes_group.boolean_cut_desc
         categorical_field = self.tes_group.categorical_cut_desc
 
-        if args:
-            boolean_field_names = [name for name, _ in boolean_field if name.decode() in args]
-            categorical_field_names = [name for name, _ in categorical_field if name.decode() in args]
+        if fields:
+            boolean_field_names = [name.decode() for name, _ in boolean_field if name.decode() in fields]
+            categorical_field_names = [name.decode() for name, _ in categorical_field if name.decode() in fields]
 
-            not_found = set(args) - (set(boolean_field_names).union(set(categorical_field_names)))
+            not_found = set(fields) - (set(boolean_field_names).union(set(categorical_field_names)))
             if not_found:
                 raise ValueError(",".join(not_found) + " are not found.")
         else:
-            boolean_field_names = [name for name, _ in boolean_field if name]
-            categorical_field_names = [name for name, _, in categorical_field]
+            boolean_field_names = [name.decode() for name, _ in boolean_field if name]
+            categorical_field_names = [name.decode() for name, _, in categorical_field]
 
         mask_dtype = np.dtype([(name, np.bool) for name in boolean_field_names] +
                               [(name, np.uint32) for name in categorical_field_names])
@@ -182,10 +182,10 @@ class Cuts(object):
         cut_mask = np.zeros(self._mask.shape[0], dtype=mask_dtype)
 
         for name in boolean_field_names:
-            cut_mask[name] = self.good(name)
+            cut_mask[:][name] = self.good(name)
 
         for name in categorical_field_names:
-            cut_mask[name] = self.category_codes(name)
+            cut_mask[:][name] = self.category_codes(name)
 
         return cut_mask
 
@@ -205,14 +205,14 @@ class Cuts(object):
         boolean_fields = self.tes_group.boolean_cut_desc
 
         if names:
-            all_field_names = set([name for name, mask in boolean_fields if name])
+            all_field_names = set([name.decode() for name, mask in boolean_fields if name])
 
             not_found_fields = set(names) - all_field_names
 
             if not_found_fields:
-                raise ValueError(", ".join(not_found_fields) + "not found.")
+                raise ValueError(", ".join(not_found_fields) + " not found.")
 
-            bit_masks = [mask for name, mask in boolean_fields if name in names]
+            bit_masks = [mask for name, mask in boolean_fields if name.decode() in names]
         else:
             bit_masks = [mask for name, mask in boolean_fields if name]
 
