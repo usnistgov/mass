@@ -179,15 +179,18 @@ class TESGroup(object):
             if 'cut_num_used_bits' in self.hdf5_file.attrs:
                 self.hdf5_file.attrs['cut_format_ver'] = b'1'
 
-                # convert to the verion 2
+                # convert from version 1 to the verion 2
                 cut_num_used_bits = np.uint32(self.hdf5_file.attrs["cut_num_used_bits"])
                 self.hdf5_file.attrs['cut_used_bit_flags'] = np.uint32((np.uint64(1) << cut_num_used_bits) - 1)
+
+                self.categorical_cut_des = np.asarray(self.categorical_cut_des[['name', 'mask']],
+                                                      dtype=self.__cut_categorical_field_desc_dtype)
+                self.boolean_cut_desc = np.asarray(self.boolean_cut_desc,
+                                                   dtype=self.__cut_boolean_field_desc_dtype)
 
                 del self.hdf5_file.attrs['cut_num_used_bits']
 
             #  here, we can assume that cut descriptions are empty or version 2
-            self.hdf5_file.attrs['cut_format_ver'] = b'2'
-
             if "cut_used_bit_flags" not in self.hdf5_file.attrs:
                 self.hdf5_file.attrs['cut_used_bit_flags'] = np.uint32(0)
 
@@ -202,6 +205,8 @@ class TESGroup(object):
 
                 for categorical_desc in self.BUILTIN_CATEGORICAL_CUT_FIELDS:
                     self.register_categorical_cut_field(*categorical_desc)
+
+            self.hdf5_file.attrs['cut_format_ver'] = b'2'
 
         # Same for noise filenames
         self.noise_filenames = None
