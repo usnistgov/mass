@@ -129,12 +129,18 @@ class TESGroup(object):
 
     __cut_boolean_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
                                                ("mask", np.uint32)])
+    # __cut_categorical_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
+    #                                                ("pos", np.uint8),
+    #                                                ("mask", np.uint32)])
     __cut_categorical_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
-                                                   ("pos", np.uint8),
                                                    ("mask", np.uint32)])
+
+    # __cut_category_list_dtype = np.dtype([("field", np.bytes_, 64),
+    #                                       ("category", np.bytes_, 64),
+    #                                       ("index", np.uint8)])
     __cut_category_list_dtype = np.dtype([("field", np.bytes_, 64),
                                           ("category", np.bytes_, 64),
-                                          ("index", np.uint8)])
+                                          ("code", np.uint32)])
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
@@ -170,24 +176,32 @@ class TESGroup(object):
 
         # Cut parameter description need to initialized.
         if self.hdf5_file:
+            if "cut_num_used_bits" in self.hdf5_file.attrs:
+                self.hdf5_file.attrs['cut_format_ver'] = b'1'
+
+            # convert to the verion 2
+            if self.hdf5_file.attrs['cut_format_ver'] == b'1':
+                cut_num_used_bits = np.uint32(self.hdf5_file.attrs["cut_num_used_bits"])
+                self.hdf5_file.attrs['cut_used_bit_flags'] = np.uint32((np.uint64(1) << cut_num_used_bits) - 1)
+
+                del self.hdf5_file.attrs['cut_num_used_bits']
+
+                # convert other cut_desc too
+
+            #  here, we can assume that cut descriptions are empty or version 2
+            self.hdf5_file.attrs['cut_format_ver'] = b'2'
+
             if "cut_used_bit_flags" not in self.hdf5_file.attrs:
-                # This condition is for the backward-compatibility.
-                if "cut_num_used_bits" in self.hdf5_file.attrs:
-                    cut_num_used_bits = np.uint32(self.hdf5_file.attrs["cut_num_used_bits"])
-                else:
-                    cut_num_used_bits = np.uint32(0)
-                self.hdf5_file.attrs["cut_used_bit_flags"] = np.uint32((np.uint64(1) << cut_num_used_bits) - 1)
+                self.hdf5_file.attrs['cut_used_bit_flags'] = np.uint32(0)
 
             if "cut_boolean_field_desc" not in self.hdf5_file.attrs:
-                self.hdf5_file.attrs["cut_boolean_field_desc"] = np.zeros(32, dtype=self.__cut_boolean_field_desc_dtype)
+                self.cut_boolean_field_desc = np.zeros(32, dtype=self.__cut_boolean_field_desc_dtype)
                 self.register_boolean_cut_fields(*self.BUILTIN_BOOLEAN_CUT_FIELDS)
 
             if ("cut_categorical_field_desc" not in self.hdf5_file.attrs) and \
                     ("cut_category_list" not in self.hdf5_file):
-                self.hdf5_file.attrs["cut_categorical_field_desc"] = \
-                    np.zeros(0, dtype=self.__cut_categorical_field_desc_dtype)
-                self.hdf5_file.attrs["cut_category_list"] =\
-                    np.zeros(0, dtype=self.__cut_category_list_dtype)
+                self.categorical_field_desc = np.zeros(0, dtype=self.__cut_categorical_field_desc_dtype)
+                self.cut_category_list = np.zeros(0, dtype=self.__cut_category_list_dtype)
 
                 for categorical_desc in self.BUILTIN_CATEGORICAL_CUT_FIELDS:
                     self.register_categorical_cut_field(*categorical_desc)
@@ -342,26 +356,36 @@ class TESGroup(object):
             category_list.remove(default)
         category_list.insert(0, default)
 
+        num_bits = 1
+        while (1 << num_bits) < len(category_list):
+            num_bits += 1
+
+        individual_bit_masks = []
+        bit_mask = np.uint32(0)
+        individual_bit_masks.insert(0, bit_mask)
+
+        for _ in range(num_bits):
+            bit_pos = self.__lowest_available_cut_bit(cut_used_bit_flags | bit_mask)
+            bit_mask |= (np.uint32(1) << bit_pos)
+            individual_bit_masks.insert(0, np.uint32(1) << bit_pos)
+
         # Updates the 'cut_category_list' attribute
-        new_list = np.array([(name.encode(), category.encode(), i) for i, category in enumerate(category_list)],
-                            dtype=self.__cut_category_list_dtype)
+        new_list = []
+        for i, category in enumerate(category_list):
+            digits = map(np.uint32, "{0:032b}".format(i)[-num_bits:])
+            code = np.sum([a * b for a, b in zip(individual_bit_masks, digits)])
+            new_list.append((name.encode(), category.encode(), code))
+        new_list = np.array(new_list, dtype=self.__cut_category_list_dtype)
+
+        # new_list = np.array([(name.encode(), category.encode()) for category in category_list],
+        #                     dtype=self.__cut_category_list_dtype)
+
         self.cut_category_list = np.hstack([self.cut_category_list,
                                             new_list])
 
         # Needs to update the 'cut_categorical_field_desc' attribute.
 
-        num_bits = 1
-        while (1 << num_bits) < len(category_list):
-            num_bits += 1
-
-        mask_pos = self.__lowest_available_cut_bit(cut_used_bit_flags)
-        bit_mask = np.uint32(0)
-        for _ in range(num_bits):
-            bit_mask |= (np.uint32(1) << self.__lowest_available_cut_bit(cut_used_bit_flags | bit_mask))
-
-        field_desc_item = np.array([(name.encode(),
-                                     mask_pos,
-                                     bit_mask)],
+        field_desc_item = np.array([(name.encode(), bit_mask)],
                                    dtype=self.__cut_categorical_field_desc_dtype)
         self.categorical_cut_desc = np.hstack([categorical_fields, field_desc_item])
         self.cut_used_bit_flags |= bit_mask
