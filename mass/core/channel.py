@@ -1748,7 +1748,7 @@ class MicrocalDataSet(object):
         return bin_centers, rate
 
     def cut_summary(self):
-        boolean_fields = [name for name in self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]["name"] if name]
+        boolean_fields = [name.decode() for name, _ in self.tes_group.boolean_cut_desc if name]
 
         for c1 in boolean_fields:
             for c2 in boolean_fields:
