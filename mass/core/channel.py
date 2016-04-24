@@ -4,8 +4,6 @@ Created on Feb 16, 2011
 @author: fowlerj
 """
 
-import functools
-import operator
 from os import path
 
 try:
@@ -28,7 +26,7 @@ from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
-from mass.calibration import young, energy_calibration
+from mass.calibration import young
 
 from mass.core import ljh_util
 
@@ -124,7 +122,6 @@ class NoiseRecords(object):
             self.__dict__[attr] = self.datafile.__dict__[attr]
             if self.hdf5_group is not None:
                 self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
-
 
     def clear_cache(self):
         self.datafile.clear_cache()
@@ -1310,7 +1307,6 @@ class MicrocalDataSet(object):
         peaks.sort()
         return np.array(binctr[peaks])
 
-
     def _phasecorr_find_alignment(self, phase_indicator, pulse_heights, peak, delta_ph, nf=10):
         phrange = np.array([-delta_ph,delta_ph])+peak
         use = log_and(np.abs(pulse_heights[:]-peak)<delta_ph,
@@ -1341,7 +1337,6 @@ class MicrocalDataSet(object):
             peaks[i] = peak
         curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, peaks)
         return curve, median_phase
-
 
     def phase_correct(self, forceNew=False, category=None, ph_peaks=None):
         """2015 phase correction method. Arguments are:
@@ -1431,7 +1426,6 @@ class MicrocalDataSet(object):
                                                               self.p_filt_value_dc[good], True)))
         self.phase_corrections = corrections
         return corrections
-
 
     def first_n_good_pulses(self, n=50000, category=None):
         """
