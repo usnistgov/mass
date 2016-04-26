@@ -53,7 +53,7 @@ data.drift_correct(forceNew=False,category={"pump":"pumped"}) # does drift corre
 If you want to remove a categorical cut, or change the categories within the cut, you can use the following:
 
 ```
-data.unregister_categorical_cut("pump")
+data.unregister_categorical_cut_field("pump")
 ```
 
 
@@ -62,7 +62,7 @@ There is an alternate API that may be more convenient in some cases. Imagine we 
 ```
 data.register_categorical_cut_field("delay",["-150mm","-100mm","-50mm",...,"200mm"])  # Register a categorical cut field named "delay".
 categories = data.cut_field_categories("delay") # gets a dict of category label ("-150mm") to category code (1)
-category_codes = np.zeros(ds.nPulses, dtype=np.int64) # note 0 is always the default category, unless otherwise specified named "uncategorized"
+category_codes = np.zeros(ds.nPulses, dtype=np.uint32) # note 0 is always the default category, unless otherwise specified named "uncategorized"
 
 for i in range(ds.nPulses):
     delay_stage_pos = get_delay_stage_pos(i)
