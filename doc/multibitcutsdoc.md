@@ -6,7 +6,7 @@ There are two types of cut fields, `boolean` and `categorical`.
 ```
 ds.good() # works as normal returning True for pulses that are good by every boolean critera
 ds.good("pretrigger_rms") # returns True for pulses that are good by the "pretrigger_rms" critera, ignoring all other boolean fields
-ds.cuts.cut("pretrigger_rms",boolvec) # changes the contents of the "pretrigger_rms" cut field to match the values in boolvec (on entry per pulse)
+ds.cuts.cut("pretrigger_rms",boolvec) # changes the contents of the "pretrigger_rms" cut field to match the values in boolvec (one entry per pulse)
 
 # the default boolean cut fields are
 In [7]: data.boolean_cut_desc
@@ -47,7 +47,15 @@ it will raise an error. If any pulses have `False` in both, those pulses will be
 ```
 ds.good(pump="pumped") # returns True for pulses that pass all boolean cut fields AND is in category pumped
 data.drift_correct(forceNew=False,category={"pump":"pumped"}) # does drift correct with only "pump":"pumped" pulses instead of "calibration":"in"
+
 ```
+
+If you want to remove a categorical cut, or change the categories within the cut, you can use the following:
+
+```
+data.unregister_categorical_cut("pump")
+```
+
 
 There is an alternate API that may be more convenient in some cases. Imagine we have an experiment with a delay stage that was in many positions thruout the experiment.
 
