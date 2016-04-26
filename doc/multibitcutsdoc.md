@@ -67,7 +67,7 @@ category_codes = np.zeros(ds.nPulses, dtype=np.int64) # note 0 is always the def
 for i in range(ds.nPulses):
     delay_stage_pos = get_delay_stage_pos(i)
     category_codes[i]=categories[delay_stage_pos] # category_codes is a one per pulse vector with integer valued codes, each integer corresponds to a category label in the dictionary categories
-    ds.cuts.cut("delay", category_codes)
+ds.cuts.cut("delay", category_codes)
 ```
 
 
