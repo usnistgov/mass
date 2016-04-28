@@ -193,6 +193,10 @@ class TiKAlpha(SpectralLine):
 class TiKBeta(SpectralLine):
     """From C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
     http://iopscience.iop.org/0953-4075/46/14/145601
+
+    Careful! Note that Chantler's instrument had a beam sigma of 1.244+-.041 eV,
+    or so this result cannot be taken very seriously below 3 eV (FWHM) of Gaussian
+    smearing.
     """
     name = 'Titanium K-beta'
     energies = np.array((25.37, 30.096, 31.967, 35.59)) + 4900
@@ -232,14 +236,18 @@ class VKAlpha(SpectralLine):
 
 
 class VKBeta(SpectralLine):
-    """From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013).
+    """We were using L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013).
     http://pra.aps.org/abstract/PRA/v87/i2/e022512
+
+    BUT these were adjusted in C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
+    http://iopscience.iop.org/0953-4075/46/14/145601  (see Section 5 "Redefinition of
+    vanadium K-beta standard")  Both papers are by the same group, of course.
     """
     name = 'Vanadium K-beta'
-    energies = np.array((18.20, 24.50, 26.998)) + 5400
-    fwhm = np.array((18.86, 5.48, 2.498))
+    energies = np.array((18.19, 24.50, 26.992)) + 5400
+    fwhm = np.array((18.86, 5.48, 2.499))
     integral_intensity = np.array((258, 236, 507), dtype=np.float) / 1e3
-    nominal_peak_energy = 5426.962  # eV
+    nominal_peak_energy = 5426.956  # eV
 
 
 class CrKAlpha(SpectralLine):
