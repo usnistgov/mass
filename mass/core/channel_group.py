@@ -1432,7 +1432,7 @@ class TESGroup(object):
         for ds in self:
             try:
                 ds.drift_correct(forceNew, category)
-            except ValueError:
+            except:
                 self.set_chan_bad(ds.channum, "failed drift correct")
 
     def phase_correct(self, plot=False, forceNew=False, category=None):
@@ -1461,12 +1461,12 @@ class TESGroup(object):
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2, category=None, forceNew=False):
+                  bin_size_ev=2, category=None, forceNew=False, maxacc=0.015, nextra=3):
         for ds in self:
             try:
                 ds.calibrate(attr, line_names, name_ext, size_related_to_energy_resolution,
                              fit_range_ev, excl, plot_on_fail,
-                             bin_size_ev, category, forceNew)
+                             bin_size_ev, category, forceNew, maxacc, nextra)
             except:
                 self.set_chan_bad(ds.channum, "failed calibration %s" % attr + name_ext)
         self.convert_to_energy(attr, attr + name_ext)

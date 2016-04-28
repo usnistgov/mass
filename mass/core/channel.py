@@ -802,7 +802,7 @@ class MicrocalDataSet(object):
         self.phase_correct_info = {}
         self.noise_autocorr = None
         self.noise_demodulated = None
-        self.calibration = {'p_filt_value': energy_calibration.EnergyCalibration('p_filt_value')}
+        self.calibration = {}
 
         for a in self.expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
@@ -1744,7 +1744,7 @@ class MicrocalDataSet(object):
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2.0, category=None, forceNew=False):
+                  bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3):
             try:
                 pkl_fname = self.pkl_fname
                 if path.isfile(pkl_fname) and not forceNew:
@@ -1764,7 +1764,7 @@ class MicrocalDataSet(object):
             print("Calibrating chan %d to create %s" % (self.channum, calname))
             cal = young.EnergyCalibration(size_related_to_energy_resolution,
                                           fit_range_ev, excl, plot_on_fail,
-                                          bin_size_ev=bin_size_ev)
+                                          bin_size_ev=bin_size_ev, maxacc=maxacc, nextra=nextra)
             # By default, it only uses the "in" category of the calibration categorical cut field.
             if category is None:
                 category = {"calibration": "in"}
