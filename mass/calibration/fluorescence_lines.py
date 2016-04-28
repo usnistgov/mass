@@ -792,7 +792,7 @@ class VoigtFitter(object):
 class NVoigtFitter(object):
     """Fit a set of N Lorentzian lines, with Gaussian smearing.
 
-    So far, I don't know how to guess the starting parameters, so you have to supply all 3N+2.
+    So far, I don't know how to guess the starting parameters, so you have to supply all 3N+4.
     (See method fit() for explanation).
     """
 
@@ -817,15 +817,39 @@ class NVoigtFitter(object):
     def fitfunc(self, params, x):
         """Return the smeared line complex.
 
-        <params>  The 3N+2 parameters of the fit (see self.fit for details).
+        <params>  The 3N+4 parameters of the fit (see self.fit for details).
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
         """
+        P_bg, P_tailfrac, P_tailtau = params[-3:]
         sigma = params[0] / (8 * np.log(2))**0.5
-        spectrum = voigt(x, params[1], params[2]*0.5, sigma) * params[3]
-        for i in range(1, self.Nlines):
-            spectrum += voigt(x, params[1+3*i], params[2+3*i]*0.5, sigma) * params[3+3*i]
-        return spectrum + params[-1]
+        if P_tailfrac < 1e-5:
+            spectrum = voigt(x, params[1], params[2]*0.5, sigma) * params[3]
+            for i in range(1, self.Nlines):
+                spectrum += voigt(x, params[1+3*i], params[2+3*i]*0.5, sigma) * params[3+3*i]
+        else:
+            # Compute the low-E-tailed spectrum. This is done by
+            # convolution, which is computed using DFT methods.
+            # A wider energy range must be used, or wrap-around effects of
+            # tails will corrupt the model.
+            dx = x[1] - x[0]
+            nlow = int(6 * min(P_tailtau, 100) / dx + 0.5)
+            nhi = int((abs(params[0]) + min(P_tailtau, 50)) / dx + 0.5)
+            nhi = min(3000, nhi)  # A practical limit
+            nlow = max(nlow, nhi)
+            lowx = np.arange(-nlow, 0) * dx + x[0]
+            highx = np.arange(1, nhi + 1) * dx + x[-1]
+            x_wide = np.hstack([lowx, x, highx])
+            freq = np.fft.rfftfreq(len(x_wide), d=dx)
+
+            rawspectrum = voigt(x_wide, params[1], params[2]*0.5, sigma) * params[3]
+            for i in range(1, self.Nlines):
+                rawspectrum += voigt(x_wide, params[1+3*i], params[2+3*i]*0.5, sigma) * params[3+3*i]
+            ft = np.fft.rfft(rawspectrum)
+            ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
+            smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
+            spectrum = smoothspectrum[nlow:nlow + len(x)]
+        return spectrum + P_bg
 
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None, color=None, label="",
@@ -836,13 +860,13 @@ class NVoigtFitter(object):
         pulseheights: the histogram bin centers.  If pulseheights is None, then the parameters
                       normally having pulseheight units will be returned as bin numbers instead.
 
-        params: a (3N+2)-element sequence of
+        params: a (3N+4)-element sequence of
                 [Gaussian resolution (fwhm),
                 Pulseheight of the line 1 peak, Lorenztian FULL-width at half-max of line 1, amplitude of line 1,
                 Pulseheight of the line 2 peak, Lorenztian FULL-width at half-max of line 2, amplitude of line 2,
                 Pulseheight of the line 3 peak, Lorenztian FULL-width at half-max of line 3, amplitude of line 3, ...
-                and constant background level (per bin) ]
-                If params is None or does not have 3N+2 elements, then they will be guessed.
+                and constant background level (per bin), tail fraction, and tail length ]
+                If params is None or does not have 3N+4 elements, then they will be guessed.
 
         plot:   Whether to make a plot.  If not, then the next few args are ignored
         axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
@@ -852,7 +876,7 @@ class NVoigtFitter(object):
 
         vary_resolution Whether to let the Gaussian resolution vary in the fit
         vary_bg:       Whether to let a constant background level vary in the fit
-        hold:          A sequence of parameter numbers (0 to 2N+1, inclusive) to hold.
+        hold:          A sequence of parameter numbers (0 to 3N+3, inclusive) to hold.
 
         """
         # Work with bin edges
@@ -873,7 +897,7 @@ class NVoigtFitter(object):
             hold.append(0)
         if not vary_bg:
             hold.append(self.Nlines*3+1)
-        assert len(params) == 3*self.Nlines+2
+        assert len(params) == 3*self.Nlines+4
         params = np.asarray(params, dtype=np.float)
 
         if plot:
@@ -890,7 +914,9 @@ class NVoigtFitter(object):
         # Our max-likelihood fitter
         epsilon = np.copy(params)
         epsilon[0] = 1e-3
-        epsilon[-1] = 1e-2*params[-1]
+        epsilon[-3] = 0.1 # BG level
+        epsilon[-2] = 1e-5
+        epsilon[-1] = 1e-3
         for i in range(self.Nlines):
             epsilon[1+i*3] *= 1e-5
             epsilon[2+i*3] = 1e-3
@@ -902,10 +928,12 @@ class NVoigtFitter(object):
         DE = pulseheights.max() - pulseheights.min()
         fitter.setbounds(0, 0, 10*DE)   # 100 > Gauss FWHM > 0
         for i in range(self.Nlines):
-            fitter.setbounds(1+3*i, 0, None)  # PH at peak 1 > 0
+            fitter.setbounds(1+3*i, np.min(pulseheights), np.max(pulseheights))  # PH at peak is in range
             fitter.setbounds(2+3*i, 0, 10*DE)   # 200 > Lorentz FWHM 1 > 0
             fitter.setbounds(3+3*i, 0, None)  # amplitude 1 > 0
         fitter.setbounds(3*self.Nlines+1, 0, None)  # BG level > 0
+        fitter.setbounds(3*self.Nlines+2, 0, 1)     # 0 < tailfrac < 1
+        fitter.setbounds(3*self.Nlines+3, 0, 200)  # 0 < tailtau < 200
 
         for h in hold:
             fitter.hold(h)
