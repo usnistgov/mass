@@ -1537,11 +1537,21 @@ class TESGroup(object):
             ds.apply_cuts(cuts, forceNew)
 
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
+        """
+        Compute average pulse using an automatically generated mask of
+        +- 5%% around the median pulse_average value. Use no more than
+        the first `max_pulses_to_use` good pulses.
+        """
+        for ds in self:
+            if ds.good().sum() == 0:
+                self.set_chan_bad(ds.channum, "No good pulses")
         median_pulse_avg = np.array([np.median(ds.p_pulse_average[ds.good()]) for ds in self])
         masks = self.make_masks([.95, 1.05], use_gains=True, gains=median_pulse_avg)
         for m in masks:
-            if len(m) > max_pulses_to_use:
-                m[max_pulses_to_use:] = False
+            if np.sum(m) > max_pulses_to_use:
+                good_so_far = np.cumsum(m)
+                stop_at = (good_so_far == max_pulses_to_use).argmax()
+                m[stop_at+1:] = False
         self.compute_average_pulse(masks, forceNew=forceNew)
 
     def drift_correct(self, forceNew=False, category=None):
