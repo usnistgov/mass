@@ -966,20 +966,20 @@ class TESGroup(object):
             if log:
                 plt.ylim(ymin=contents.min())
 
-    def make_masks(self, pulse_avg_ranges=None, pulse_peak_ranges=None,
-                   use_gains=True, gains=None, cut_crosstalk=False,
-                   max_ptrms=None, max_post_deriv=None):
+    def make_masks(self, pulse_avg_range=None,
+                   pulse_peak_range=None,
+                   pulse_rms_range=None,
+                   use_gains=True, gains=None):
         """Generate a sequence of masks for use in compute_average_pulses().
 
-        <use_gains>   Rescale the pulses by a set of "gains", either from <gains> or from
-                      the MicrocalDataSet.gain parameter if <gains> is None.
-        <gains>       The set of gains to use, overriding the self.datasets[*].gain, if
-                      <use_gains> is True.  (If False, this argument is ignored.)
-        <cut_crosstalk>  Whether to mask out events having nhits>1.  (Makes no sense in TDM data).
-        <max_ptrms>      When <cut_crosstalk>, we can also mask out events where any other channel
-                         has p_pretrig_rms exceeding <max_ptrms>
-        <max_post_deriv> When <cut_crosstalk>, we can also mask out events where any other channel
-                         has p_postpeak_deriv exceeding <max_post_deriv>
+        Arguments:
+        pulse_avg_range -- A 2-sequence giving the (minimum,maximum) p_pulse_average
+        pulse_peak_range -- A 2-sequence giving the (minimum,maximum) p_peak_value
+        pulse_rms_range --  A 2-sequence giving the (minimum,maximum) p_pulse_rms
+        use_gains -- Whether to rescale the pulses by a set of "gains", either from
+                     `gains` or from the ds.gain parameter if `gains` is None.
+        gains -- The set of gains to use, overriding the self.datasets[*].gain, if
+                 `use_gains` is True.  (If False, this argument is ignored.)
         """
 
         for ds in self:
@@ -993,70 +993,33 @@ class TESGroup(object):
         else:
             gains = np.ones(self.n_channels)
 
-        # Cut crosstalk only makes sense in CDM data
-        if cut_crosstalk and not isinstance(self, mass.nonstandard.CDM.CDMGroup):
-            print('Cannot cut crosstalk because this is not CDM data')
-            cut_crosstalk = False
+        nranges = 0
+        if pulse_avg_range is not None:
+            nranges += 1
+            vectname = "p_pulse_average"
+            pmin, pmax = pulse_avg_range
+        if pulse_peak_range is not None:
+            nranges += 1
+            vectname = "p_peak_value"
+            pmin, pmax = pulse_peak_range
+        if pulse_rms_range is not None:
+            nranges += 1
+            vectname = "p_pulse_rms"
+            pmin, pmax = pulse_rms_range
 
-        if not cut_crosstalk:
-            if max_ptrms is not None:
-                print("Warning: make_masks ignores max_ptrms when not cut_crosstalk")
-            if max_post_deriv is not None:
-                print("Warning: make_masks ignores max_post_deriv when not cut_crosstalk")
+        if nranges == 0:
+            raise ValueError("Call make_masks with one of pulse_avg_range"
+                             " pulse_rms_range, or pulse_peak_range specified.")
+        elif nranges > 1:
+            print("Warning: make_masks uses only one range argument.  Checking only '%s'."%vectname)
 
-        if pulse_avg_ranges is not None:
-            if pulse_peak_ranges is not None:
-                print("Warning: make_masks uses only one range argument.  Ignoring pulse_peak_ranges.")
-
-            if isinstance(pulse_avg_ranges[0], (int, float)) and len(pulse_avg_ranges) == 2:
-                pulse_avg_ranges = tuple(pulse_avg_ranges),
-
-            for r in pulse_avg_ranges:
-                middle = 0.5 * (r[0] + r[1])
-                abslim = 0.5 * np.abs(r[1] - r[0])
-                for gain, dataset in zip(gains, self.datasets):
-                    m = np.abs(dataset.p_pulse_average[:] / gain - middle) <= abslim
-                    if cut_crosstalk:
-                        m = np.logical_and(m, self.nhits == 1)
-                        if max_ptrms is not None:
-                            for ds in self.datasets:
-                                if ds == dataset:
-                                    continue
-                                m = np.logical_and(m, ds.p_pretrig_rms < max_ptrms)
-                        if max_post_deriv is not None:
-                            for ds in self.datasets:
-                                if ds == dataset:
-                                    continue
-                                m = np.logical_and(m, ds.p_postpeak_deriv < max_post_deriv)
-                    m = np.logical_and(m, dataset.cuts.good())
-                    masks.append(m)
-
-        elif pulse_peak_ranges is not None:
-            if isinstance(pulse_peak_ranges[0], (int, float)) and len(pulse_peak_ranges) == 2:
-                pulse_peak_ranges = tuple(pulse_peak_ranges),
-            for r in pulse_peak_ranges:
-                middle = 0.5 * (r[0] + r[1])
-                abslim = 0.5 * np.abs(r[1] - r[0])
-                for gain, dataset in zip(gains, self.datasets):
-                    m = np.abs(dataset.p_peak_value[:] / gain - middle) <= abslim
-                    if cut_crosstalk:
-                        m = np.logical_and(m, self.nhits == 1)
-                        if max_ptrms is not None:
-                            for ds in self.datasets:
-                                if ds == dataset:
-                                    continue
-                                m = np.logical_and(m, ds.p_pretrig_rms < max_ptrms)
-                        if max_post_deriv is not None:
-                            for ds in self.datasets:
-                                if ds == dataset:
-                                    continue
-                                m = np.logical_and(m, ds.p_postpeak_deriv < max_post_deriv)
-                    m = np.logical_and(m, dataset.cuts.good())
-                    masks.append(m)
-        else:
-            raise ValueError("Call make_masks with only one of pulse_avg_ranges"
-                             " and pulse_peak_ranges specified.")
-
+        middle = 0.5 * (pmin + pmax)
+        abs_lim = 0.5 * np.abs(pmax - pmin)
+        for gain, dataset in zip(gains, self.datasets):
+            v = dataset.__dict__[vecname][:]
+            m = np.abs(v / gain - middle) <= abs_lim
+            m = np.logical_and(m, dataset.cuts.good())
+            masks.append(m)
         return masks
 
     def compute_average_pulse(self, masks, subtract_mean=True, forceNew=False):
