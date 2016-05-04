@@ -1016,100 +1016,34 @@ class TESGroup(object):
         middle = 0.5 * (pmin + pmax)
         abs_lim = 0.5 * np.abs(pmax - pmin)
         for gain, dataset in zip(gains, self.datasets):
-            v = dataset.__dict__[vecname][:]
+            v = dataset.__dict__[vectname][:]
             m = np.abs(v / gain - middle) <= abs_lim
             m = np.logical_and(m, dataset.cuts.good())
             masks.append(m)
         return masks
 
     def compute_average_pulse(self, masks, subtract_mean=True, forceNew=False):
-        """
-        Compute several average pulses in each TES channel, one per mask given in
-        <masks>.  Store the averages in self.datasets.average_pulse with shape (m,n)
-        where m is the number of masks and n equals self.nPulses (the # of records).
+        """Compute an average pulse in each TES channel.
 
+        Store the averages in self.datasets.average_pulse, a length nSamp vector.
         Note that this method replaces any previously computed self.datasets.average_pulse
 
-        <masks> is either an array of shape (m,n) or an array (or other sequence) of length
-        (m*n).  It's required that n equal self.nPulses.   In the second case,
-        m must be an integer.  The elements of <masks> should be booleans or interpretable
-        as booleans.
+        `masks` -- a sequence of length self.n_channels, one sequence per channel.
+        The elements of `masks` should be booleans or interpretable as booleans.
 
-        If <subtract_mean> is True, then each average pulse will subtract a constant
+        `subtract_mean` -- whether each average pulse will subtract a constant
         to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
         """
+        if len(masks) != len(self.datasets):
+            raise ValueError("masks must include exactly one mask per data channel")
 
-        # Don't proceed if not necessary and not forced
-        already_done = all([ds.average_pulse[-1] != 0 for ds in self])
-        if already_done and not forceNew:
-            print("skipping compute average pulse")
-            return
-
-        # Make sure that masks is either a 2D or 1D array of the right shape,
-        # or a sequence of 1D arrays of the right shape
-        if isinstance(masks, np.ndarray):
-            nd = masks.ndim
-            if nd == 1:
-                n = len(masks)
-                masks = masks.reshape((n // self.nPulses, self.nPulses))
-            elif nd > 2:
-                raise ValueError("masks argument should be a 2D array or a sequence of 1D arrays")
-            nbins = masks.shape[0]
-        else:
-            nbins = len(masks)
-
+        # Make sure that masks is a sequence of 1D arrays of the right shape
         for i, m in enumerate(masks):
             if not isinstance(m, np.ndarray):
                 raise ValueError("masks[%d] is not a np.ndarray" % i)
 
-        pulse_counts = np.zeros((self.n_channels, nbins))
-        pulse_sums = np.zeros((self.n_channels, nbins, self.nSamples), dtype=np.float)
-
-        # Compute a master mask to say whether ANY mask wants a pulse from each segment
-        # This can speed up work a lot when the pulses being averaged are from certain times only.
-        segment_mask = np.zeros(self.n_segments, dtype=np.bool)
-        for m in masks:
-            n = len(m)
-            nseg = 1 + (n - 1) // self.pulses_per_seg
-            for i in range(nseg):
-                if segment_mask[i]:
-                    continue
-                a, b = self.segnum2sample_range(i)
-                if m[a:b].any():
-                    segment_mask[i] = True
-            a, b = self.segnum2sample_range(nseg + 1)
-            if a < n and m[a:].any():
-                segment_mask[nseg + 1] = True
-
-        printUpdater = InlineUpdater('compute_average_pulse')
-        for first, end in self.iter_segments(segment_mask=segment_mask):
-            printUpdater.update(end / float(self.nPulses))
-            for imask, mask in enumerate(masks):
-                valid = mask[first:end]
-                for ichan, chan in enumerate(self):  # loop over only valid datasets
-                    if chan.channum not in self.why_chan_bad:
-                        if (imask % self.n_channels) != ichan:
-                            continue
-
-                        if mask.shape != (chan.nPulses,):
-                            raise ValueError("\nmasks[%d] has shape %s, but it needs to be (%d,)" %
-                                             (imask, mask.shape, chan.nPulses))
-                        if len(valid) > chan.data.shape[0]:
-                            good_pulses = chan.data[valid[:chan.data.shape[0]], :]
-                        else:
-                            good_pulses = chan.data[valid, :]
-                        pulse_counts[ichan, imask] += good_pulses.shape[0]
-                        pulse_sums[ichan, imask, :] += good_pulses.sum(axis=0)
-
-        # Rescale and store result to each MicrocalDataSet
-        pulse_sums /= pulse_counts.reshape((self.n_channels, nbins, 1))
-        for ichan, ds in enumerate(self.datasets):
-            average_pulses = pulse_sums[ichan, :, :]
-            if subtract_mean:
-                for imask in range(average_pulses.shape[0]):
-                    average_pulses[imask, :] -= np.mean(average_pulses[imask,
-                                                                       :self.nPresamples - ds.pretrigger_ignore_samples])
-            ds.average_pulse[:] = average_pulses[ichan, :]
+        for (mask,ds) in zip(masks,self.datasets):
+            ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
     def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
         """Plot average pulse for cahannel number <channum> on matplotlib.Axes <axis>, or
