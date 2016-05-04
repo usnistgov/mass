@@ -1382,11 +1382,11 @@ class TESGroup(object):
             dt = (ds.p_timestamp[good][-1] * 1.0 - ds.p_timestamp[good][0])  # seconds
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse - 1.0) / dt
-#            grate = (ng-1.0)/dt
             print('chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' %
                   (ds.channum, npulse, rate, dt / 3600., 100.0 * ng / npulse))
 
-    def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
+    def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None,
+        legend=True):
         """Compare the noise autocorrelation functions.
 
         <channels>    Sequence of channels to display.  If None, then show all.
@@ -1409,11 +1409,11 @@ class TESGroup(object):
             noise = ds.noise_records
             noise.plot_autocorrelation(axis=axis, label='TES %d' % i,
                                        color=cmap(float(i) / self.n_channels))
-#        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         axis.set_xlabel("Time lag (ms)")
-        plt.legend(loc='best')
-        ltext = axis.get_legend().get_texts()
-        plt.setp(ltext, fontsize='small')
+        if legend:
+            plt.legend(loc='best')
+            ltext = axis.get_legend().get_texts()
+            plt.setp(ltext, fontsize='small')
 
     def save_pulse_energies_ascii(self, filename='all'):
         filename += '.energies'
@@ -1481,13 +1481,15 @@ class TESGroup(object):
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
 
-    def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False, cmap=None):
+    def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False,
+                   cmap=None, legend=True):
         """Compare the noise power spectra.
 
         <channels>    Sequence of channels to display.  If None, then show all.
         <scale_factor> Multiply counts by this number to get physical units.
         <sqrt_psd>     Whether to show the sqrt(PSD) or (by default) the PSD itself.
         <cmap>         A matplotlib color map.  Defaults to something.
+        `legend` -- Whether to plot the legend
         """
 
         if channels is None:
@@ -1520,11 +1522,11 @@ class TESGroup(object):
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
-
         axis.loglog()
-        plt.legend(loc='best')
-        ltext = axis.get_legend().get_texts()
-        plt.setp(ltext, fontsize='small')
+        if legend:
+            plt.legend(loc='best')
+            ltext = axis.get_legend().get_texts()
+            plt.setp(ltext, fontsize='small')
 
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         for ds in self:
