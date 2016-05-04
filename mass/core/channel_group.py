@@ -837,13 +837,14 @@ class TESGroup(object):
 
         <quantity> A case-insensitive whitespace-ignored one of the following list, or the numbers
                    that go with it:
-                   "Pulse Avg" (0)
-                   "Pretrig RMS" (1)
-                   "Pretrig Mean" (2)
-                   "Peak Value" (3)
-                   "Max PT Deriv" (4)
-                   "Rise Time" (5)
-                   "Peak Time" (6)
+                   "Pulse RMS" (0)
+                   "Pulse Avg" (1)
+                   "Peak Value" (2)
+                   "Pretrig RMS" (3)
+                   "Pretrig Mean" (4)
+                   "Max PT Deriv" (5)
+                   "Rise Time" (6)
+                   "Peak Time" (7)
 
         <valid> The words 'uncut' or 'cut', meaning that only uncut or cut data are to be plotted
                 *OR* None, meaning that all pulses should be plotted.
@@ -859,11 +860,12 @@ class TESGroup(object):
         """
 
         plottables = (
-            ("p_pulse_average", 'Pulse Avg', 'purple', [0, 5000]),
-            ("p_pretrig_rms", 'Pretrig RMS', 'blue', [0, 4000]),
-            ("p_pretrig_mean", 'Pretrig Mean', 'green', None),
-            ("p_peak_value", 'Peak value', '#88cc00', None),
-            ("p_postpeak_deriv", 'Max PT deriv', 'gold', [0, 700]),
+            ("p_pulse_rms", 'Pulse RMS', 'magenta', None),
+            ("p_pulse_average", 'Pulse Avg', 'purple', [0,5000]),
+            ("p_peak_value", 'Peak value', 'blue', None),
+            ("p_pretrig_rms", 'Pretrig RMS', 'green', [0, 4000]),
+            ("p_pretrig_mean", 'Pretrig Mean', '#88cc00', None),
+            ("p_postpeak_deriv", 'Max PostPk deriv', 'gold', [0, 700]),
             ("p_rise_time[:]*1e3", 'Rise time (ms)', 'orange', [0, 12]),
             ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3, 9])
         )

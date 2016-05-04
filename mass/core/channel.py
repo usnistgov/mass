@@ -1105,10 +1105,11 @@ class MicrocalDataSet(object):
         print(" (%d records; %d in scatter plots)" % (nrecs, len(hour)))
 
         plottables = (
+            (self.p_pulse_rms, 'Pulse RMS', 'magenta', None),
             (self.p_pulse_average, 'Pulse Avg', 'purple', None),
-            (self.p_pretrig_rms, 'Pretrig RMS', 'blue', [0, 4000]),
-            (self.p_pretrig_mean, 'Pretrig Mean', 'green', None),
-            (self.p_peak_value, 'Peak value', '#88cc00', None),
+            (self.p_peak_value, 'Peak value', 'blue', None),
+            (self.p_pretrig_rms, 'Pretrig RMS', 'green', [0, 4000]),
+            (self.p_pretrig_mean, 'Pretrig Mean', '#88cc00', None),
             (self.p_postpeak_deriv, 'Max PostPk deriv', 'gold', [0, 700]),
             (self.p_rise_time[:]*1e3, 'Rise time (ms)', 'orange', [0, 12]),
             (self.p_peak_time[:]*1e3, 'Peak time (ms)', 'red', [-3, 9])
