@@ -1043,6 +1043,8 @@ class TESGroup(object):
                 raise ValueError("masks[%d] is not a np.ndarray" % i)
 
         for (mask,ds) in zip(masks,self.datasets):
+            if ds.channum not in self.good_channels:
+                continue
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
     def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
@@ -1439,10 +1441,12 @@ class TESGroup(object):
         +- 5%% around the median pulse_average value. Use no more than
         the first `max_pulses_to_use` good pulses.
         """
-        for ds in self:
-            if ds.good().sum() == 0:
+        median_pulse_avg = np.ones(self.n_channels, dtype=float)
+        for i,ds in enumerate(self.datasets):
+            if ds.good().sum() > 0:
+                median_pulse_avg[i] = np.median(ds.p_pulse_average[ds.good()])
+            else:
                 self.set_chan_bad(ds.channum, "No good pulses")
-        median_pulse_avg = np.array([np.median(ds.p_pulse_average[ds.good()]) for ds in self])
         masks = self.make_masks([.95, 1.05], use_gains=True, gains=median_pulse_avg)
         for m in masks:
             if np.sum(m) > max_pulses_to_use:
