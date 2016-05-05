@@ -966,6 +966,189 @@ class NVoigtFitter(object):
                 axis.legend(loc='upper left')
         return fitparams, covariance
 
+class GaussianFitter(VoigtFitter):
+    """Fit a single Gaussian line, with a low-E tail.
+
+    Parameters are:
+    0 - Gaussian resolution (FWHM)
+    1 - Pulse height (x-value) of the line peak
+    2 - Amplitude (y-value) of the line peak
+    3 - Mean background counts per bin
+    4 - Background slope (counts per bin per bin)
+    5 - Low-energy tail fraction (0 <= f <= 1)
+    6 - Low-energy tail scale length
+
+    The units of 0, 1, 2, and 6 are all whatsoever units are used for pulse heights.
+    """
+
+    def __init__(self):
+        """ """
+        # Parameters from last successful fit
+        self.last_fit_params = None
+        # Fit function samples from last successful fit
+        self.last_fit_result = None
+
+
+    def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
+        order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+        percentiles = lambda p: binctrs[(order_stat > p).argmax()]
+        peak_loc = percentiles(0.5)
+        iqr = (percentiles(0.75) - percentiles(0.25))
+        res = iqr * 0.95
+        baseline = data[0:10].mean()
+        baseline_slope = (data[-10:].mean() - baseline) / len(data)
+        ampl = (data.max() - baseline) * np.pi
+        return [res, peak_loc, ampl, baseline, baseline_slope, tailf, tailt]
+
+    def fitfunc(self, params, x):
+        """Return the smeared line complex.
+
+        <params>  The 7 parameters of the fit (see self.__doc__ for details).
+        <x>       An array of pulse heights (params will scale them to energy).
+        Returns:  The line complex intensity, including resolution smearing.
+        """
+        (P_gaussfwhm, P_phpeak, P_amplitude,
+         P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
+        sigma = P_gaussfwhm / (8 * np.log(2))**0.5
+        lorentz_hwhm = 0
+        spectrum_function = lambda x: np.exp(-0.5*(x-params[1])**2/(sigma**2))
+        spectrum = spectrum_function(x)
+
+        if P_tailfrac > 1e-5:
+            # Compute the low-E-tailed spectrum. This is done by
+            # convolution, which is computed using DFT methods.
+            # A wider energy range must be used, or wrap-around effects of
+            # tails will corrupt the model.
+            dx = x[1] - x[0]
+            nlow = int(min(P_tailtau, 100) * 6 / dx + 0.5)
+            nhi = int((abs(params[0]) + min(P_tailtau, 50)) / dx + 0.5)
+            nhi = min(3000, nhi)  # A practical limit
+            nlow = max(nlow, nhi)
+            lowx = np.arange(-nlow, 0) * dx + x[0]
+            highx = np.arange(1, nhi + 1) * dx + x[-1]
+            x_wide = np.hstack([lowx, x, highx])
+            freq = np.fft.rfftfreq(len(x_wide), d=dx)
+            rawspectrum = spectrum_function(x_wide)
+            ft = np.fft.rfft(rawspectrum)
+            ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
+            smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
+            spectrum = smoothspectrum[nlow:nlow + len(x)]
+        nbins = len(x)
+        return spectrum * P_amplitude + P_bg + P_bgslope * np.arange(nbins)
+
+    def fit(self, data, pulseheights, params=None, plot=True, axis=None, color=None, label=False,
+            vary_resolution=True, vary_bg=True, vary_bg_slope=False, vary_tail=False,  hold=None):
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
+        set of histogram bins <pulseheights>.
+
+        pulseheights: the histogram bin centers.
+
+        params: a 7-element sequence of [Gaussian resolution (fwhm), Pulseheight of the line peak,
+                amplitude, background level (per bin),
+                and background slope (in counts per bin per bin) ]
+                If params is None or does not have 8 elements, then they will be guessed.
+
+        plot:   Whether to make a plot.  If not, then the next few args are ignored
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
+                current figure.
+        color:  Color for drawing the histogram contents behind the fit.
+        label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
+
+        vary_resolution Whether to let the Gaussian resolution vary in the fit
+        vary_bg:       Whether to let a constant background level vary in the fit
+        vary_bg_slope: Whether to let a slope on the background level vary in the fit
+        hold:          A sequence of parameter numbers (0 to 5, inclusive) to hold.  Resolution, BG
+                       or BG slope will be held if 0, 4 or 5 appears in the hold sequence OR
+                       if the relevant boolean vary_* tests False.
+
+        The interaction between <hold> (or its vary_* aliases) and <params> is simple if <params> is given
+        as an 8-element sequence.  Otherwise, for i in [0,4,5], params[i] will be forced to 0 if the given
+        parameter i is in the <hold> list.  So you can fix the resolution at 0 by vary_resolution=False.
+        If you want to fix it at 2.5, then you have to give params=[2.5, ... ].
+
+        """
+        # Work with bin edges
+        pulseheights = np.asarray(pulseheights)
+        if len(pulseheights) == len(data) + 1:
+            dp = pulseheights[1] - pulseheights[0]
+            pulseheights = 0.5 * dp + pulseheights[:-1]
+
+        # Pulseheights doesn't make sense as bin centers, either.
+        # So just use the integers starting at zero.
+        elif len(pulseheights) != len(data):
+            pulseheights = np.arange(len(data), dtype=np.float)
+
+        if hold is None:
+            hold = []
+        else:
+            hold = list(hold)
+        if not vary_resolution:
+            hold.append(0)
+        if not vary_bg:
+            hold.append(3)
+        if not vary_bg_slope:
+            hold.append(4)
+        if not vary_tail:
+            hold.extend([5,6])
+        try:
+            _, _, _, _, _, _, _ = params
+        except:
+            params = self.guess_starting_params(data, pulseheights)
+            if 0 in hold:
+                params[0] = 0
+            if 3 in hold:
+                params[3] = 0
+            if 4 in hold:
+                params[4] = 0
+
+        if plot:
+            if color is None:
+                color = 'blue'
+            if axis is None:
+                plt.clf()
+                axis = plt.subplot(111)
+
+            plot_as_stepped_hist(axis, data, pulseheights, color=color)
+            ph_binsize = pulseheights[1] - pulseheights[0]
+            axis.set_xlim([pulseheights[0] - 0.5 * ph_binsize, pulseheights[-1] + 0.5 * ph_binsize])
+
+        # Max-likelihood histogram fitter
+        epsilon = np.array((1e-3, params[0] / 1e5, params[2] / 1e5, params[3] / 1e2, .01, 1e-4, 1e-2))
+        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
+                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
+
+        DE = pulseheights.max() - pulseheights.min()
+        fitter.setbounds(0, 0, 10*DE)   # 0 < Gauss FWHM < 10DE
+        fitter.setbounds(1, 0, None)    # 0 < PH at peak
+        fitter.setbounds(2, 0, None)    # 0 < amplitude
+        fitter.setbounds(3, 0, None)    # 0 < BG level
+        fitter.setbounds(5, 0, 1)       # 0 <= tail fraction <= 1
+        fitter.setbounds(6, 1e-5, None) # 0 < tail scale length
+
+        for h in hold:
+            fitter.hold(h)
+
+        fitparams, covariance = fitter.fit()
+
+        self.last_fit_params = fitparams
+        self.last_fit_cov = covariance
+        self.last_fit_chisq = fitter.chisq
+        self.last_fit_result = self.fitfunc(fitparams, pulseheights)
+        self.last_fit_bins = pulseheights.copy()
+        self.last_fit_contents = data.copy()
+
+        if plot:
+            if not label:
+                label = ""
+            else:
+                de = np.sqrt(covariance[0, 0])
+                label = "\nGauss FWHM: %.2f +- %.2f eV" % (fitparams[0], de)
+            axis.plot(pulseheights, self.last_fit_result, color='#666666',
+                      label=label)
+            if len(label) > 0:
+                axis.legend(loc='upper left')
+        return fitparams, covariance
+
 
 class LorentzianFitter(VoigtFitter):
     """Fit a single Lorentzian line, without Gaussian smearing.
