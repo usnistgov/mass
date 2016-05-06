@@ -86,6 +86,48 @@ class Test_MnKA(unittest.TestCase):
         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=1)
         plt.savefig("/tmp/testfit_mnka2.pdf")
 
+
+class Test_MnKB(unittest.TestCase):
+    def setUp(self):
+        self.fitter = mass.calibration.line_fits.MnKBetaFitter()
+        self.distrib = mass.calibration.fluorescence_lines.MnKBetaDistribution
+
+    def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
+              bg = 10, nbins=150, vary_tail=False):
+        bmin, bmax = 6460,6510
+
+        values = self.distrib.rvs(size=n)
+        sigma = resolution/2.3548
+        values += sigma*np.random.standard_normal(size=n)
+
+        tweak = np.random.uniform(0, 1, size=n) < tailfrac
+        ntweak = tweak.sum()
+        if ntweak > 0:
+            values[tweak] -= np.random.standard_exponential(size=ntweak)*tailtau
+        obs,bins = np.histogram(values, nbins, [bmin, bmax])
+        obs += np.random.poisson(size=nbins, lam=bg)
+
+        params = np.array([resolution, 6490.5, 1.0, n, bg, 0, tailfrac, tailtau])
+        twiddle = np.random.standard_normal(len(params))*[.0, .2, 0, n/1e3, 1,
+                                                          0.001, .001, 0.1]
+        if not vary_tail:
+            twiddle[6:8] = 0.0
+        guess = params + twiddle
+        plt.clf()
+        ax = plt.subplot(111)
+        pfit, covar = self.fitter.fit(obs, bins, guess, plot=True, axis=ax,
+                                      hold=(0,2,), vary_tail=vary_tail)
+        plt.text(.05, .8, "Fit   : %s"%pfit, transform=ax.transAxes)
+        plt.text(.05, .9, "Actual: %s"%params, transform=ax.transAxes)
+
+    def test_basic(self):
+        self.do_test()
+        plt.savefig("/tmp/testfit_mnkb1.pdf")
+
+    def test_tail(self):
+        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=1)
+        plt.savefig("/tmp/testfit_mnkb2.pdf")
+
 class Test_Voigt(unittest.TestCase):
 
     def setUp(self):
