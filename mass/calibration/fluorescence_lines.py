@@ -32,11 +32,6 @@ from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
 from mass.mathstat.utilities import plot_as_stepped_hist
 from mass.mathstat.special import voigt
 
-from line_fits import *
-# JWF: The above line is temporary, to keep user code from breaking, until we
-# do a real re-org of the visibility of classes/functions in modules and sub-
-# modules.
-
 
 class SpectralLine(object):
     """An abstract base class for modeling spectral lines as a sum
