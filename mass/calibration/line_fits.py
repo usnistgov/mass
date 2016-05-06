@@ -13,6 +13,7 @@ import pylab as plt
 from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
 from mass.mathstat.utilities import plot_as_stepped_hist
 from mass.mathstat.special import voigt
+import fluorescence_lines as lines
 
 
 def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
@@ -432,11 +433,12 @@ class MultiLorentzianComplexFitter(LineFitter):
         energy = (x - P_phpeak) / P_dphde + self.spect.peak_energy
         self.spect.set_gauss_fwhm(P_gaussfwhm)
         cleanspectrum_fn = self.spect.pdf
-        spectrum = _smear_lowEtail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
+        spectrum = _smear_lowEtail(cleanspectrum_fn, energy, P_gaussfwhm, P_tailfrac, P_tailtau)
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def stepsize(self, params):
-        eps = np.array((1e-3, params[0]/1e5, 1e-3, params[3]/1e5, 1e-3, 1e-3, 1e-4, 1e-2))
+        "Vector of the parameter step sizes for finding discrete gradient."
+        eps = np.array((1e-3, 1e-3, 1e-4, params[3]/1e4, 1e-3, 1e-3, 1e-3, 1e-1))
         return eps
 
     def setbounds(self, params, ph):
@@ -452,7 +454,7 @@ class MultiLorentzianComplexFitter(LineFitter):
         self.bounds.append((0, None))   # Background level
         self.bounds.append((None, None))# Background slope
         self.bounds.append((0, 1))      # Tail fraction
-        self.bounds.append((0, None))   # Tail scale length
+        self.bounds.append((0, 10*DE))   # Tail scale length
 
     def plotFit(self, color=None, axis=None, label=""):
         """Plot the last fit and the data to which it was fit."""
@@ -574,112 +576,112 @@ class _lowZ_KAlphaFitter(GenericKAlphaFitter):
 class AlKAlphaFitter(_lowZ_KAlphaFitter):
 
     def __init__(self):
-        super( AlKAlphaFitter, self ).__init__(self, AlKAlpha())
+        super( AlKAlphaFitter, self ).__init__(self, lines.AlKAlpha())
 
 
 class MgKAlphaFitter(_lowZ_KAlphaFitter):
 
     def __init__(self):
-        super( MgKAlphaFitter, self ).__init__(self, MgKAlpha())
+        super( MgKAlphaFitter, self ).__init__(self, lines.MgKAlpha())
 
 
 class ScKAlphaFitter(GenericKAlphaFitter):
 
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, ScKAlpha())
+        GenericKAlphaFitter.__init__(self, lines.ScKAlpha())
 
 
 class TiKAlphaFitter(GenericKAlphaFitter):
 
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, TiKAlpha())
+        GenericKAlphaFitter.__init__(self, lines.TiKAlpha())
 
 
 class VKAlphaFitter(GenericKAlphaFitter):
 
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, VKAlpha())
+        GenericKAlphaFitter.__init__(self, lines.VKAlpha())
 
 
 class CrKAlphaFitter(GenericKAlphaFitter):
 
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, CrKAlpha())
+        GenericKAlphaFitter.__init__(self, lines.CrKAlpha())
 
 
 class MnKAlphaFitter(GenericKAlphaFitter):
 
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, MnKAlpha())
+        GenericKAlphaFitter.__init__(self, lines.MnKAlpha())
 
 
 class FeKAlphaFitter(GenericKAlphaFitter):
 
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, FeKAlpha())
+        GenericKAlphaFitter.__init__(self, lines.FeKAlpha())
 
 
 class CoKAlphaFitter(GenericKAlphaFitter):
 
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, CoKAlpha())
+        GenericKAlphaFitter.__init__(self, lines.CoKAlpha())
 
 
 class NiKAlphaFitter(GenericKAlphaFitter):
 
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, NiKAlpha())
+        GenericKAlphaFitter.__init__(self, lines.NiKAlpha())
 
 
 class CuKAlphaFitter(GenericKAlphaFitter):
 
     def __init__(self):
-        GenericKAlphaFitter.__init__(self, CuKAlpha())
+        GenericKAlphaFitter.__init__(self, lines.CuKAlpha())
 
 
 class TiKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
-        GenericKBetaFitter.__init__(self, TiKBeta())
+        GenericKBetaFitter.__init__(self, lines.TiKBeta())
 
 
 class VKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
-        GenericKBetaFitter.__init__(self, VKBeta())
+        GenericKBetaFitter.__init__(self, lines.VKBeta())
 
 
 class CrKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
-        GenericKBetaFitter.__init__(self, CrKBeta())
+        GenericKBetaFitter.__init__(self, lines.CrKBeta())
 
 
 class MnKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
-        GenericKBetaFitter.__init__(self, MnKBeta())
+        GenericKBetaFitter.__init__(self, lines.MnKBeta())
 
 
 class FeKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
-        GenericKBetaFitter.__init__(self, FeKBeta())
+        GenericKBetaFitter.__init__(self, lines.FeKBeta())
 
 
 class CoKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
-        GenericKBetaFitter.__init__(self, CoKBeta())
+        GenericKBetaFitter.__init__(self, lines.CoKBeta())
 
 
 class NiKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
-        GenericKBetaFitter.__init__(self, NiKBeta())
+        GenericKBetaFitter.__init__(self, lines.NiKBeta())
 
 
 class CuKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
-        GenericKBetaFitter.__init__(self, CuKBeta())
+        GenericKBetaFitter.__init__(self, lines.CuKBeta())
