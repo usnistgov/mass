@@ -181,7 +181,7 @@ class EnergyCalibration(object):
         complex_fitters = []
 
         for pp, el, slope in zip(opt_assignment, self.elements, app_slope):
-            flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
+            flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.line_fits)}
 
             # hw is the histogram width in eV. It needs to be converted into the pulse height unit.
             slope_dpulseheight_denergy = slope
@@ -249,6 +249,11 @@ class EnergyCalibration(object):
                 params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
                 params_guess[1] = pp  # Approximate peak position
                 params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
+                params_guess[3] = np.max(hist) * 10
+                params_guess[4] = np.max(hist) / 1000
+                params_guess[5] = 0
+                params_guess[6] = 0.15
+                params_guess[7] = 40
                 hold = [2]  # hold the slope_dpulseheight_denergy constant while fitting
 
                 try:

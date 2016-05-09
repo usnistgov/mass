@@ -10,7 +10,7 @@ __all__ = ['EnergyCalibration']
 
 import numpy as np
 import scipy as sp
-from mass.mathstat.interpolate import *
+from ..mathstat.interpolate import *
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = {
