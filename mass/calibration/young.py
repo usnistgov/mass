@@ -462,7 +462,7 @@ def diagnose_calibration(cal, hist_plot=False):
     w, h, lm, bm, hs, vs = 0.6, 0.9, 0.05, 0.08, 0.1, 0.1
     for i, (el, hist, fitter) in enumerate(zip(cal.elements, cal.histograms, cal.complex_fitters)):
         ax = fig.add_axes([w * (i % n) / n + lm,
-                           h * (i / n) / n + bm,
+                           h * (i // n) / n + bm,
                            (w - hs) / n,
                            (h - vs) / n])
         ax.xaxis.set_major_locator(MaxNLocator(4, integer=True))
