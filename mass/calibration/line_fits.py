@@ -7,17 +7,16 @@ Separated line fits (here) from the line shapes (still in fluorescence_lines.py)
 """
 
 import numpy as np
-import scipy as sp
 import pylab as plt
 
 from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
 from mass.mathstat.utilities import plot_as_stepped_hist
 from mass.mathstat.special import voigt
-import fluorescence_lines as lines
+from . import fluorescence_lines as lines
 
 
 def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
-    "Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E tail."
+    """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E tail."""
     if P_tailfrac <= 1e-5:
         return cleanspectrum_fn(x)
 
@@ -45,7 +44,7 @@ def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
     "Scale a spectrum and add a constant+slope background."
     spectrum = spectrum * P_amplitude + P_bg
     if P_bgslope != 0:
-        spectrum +=  P_bgslope * np.arange(len(spectrum))
+        spectrum += P_bgslope * np.arange(len(spectrum))
     return spectrum
 
 
@@ -275,7 +274,6 @@ class NVoigtFitter(LineFitter):
     def guess_starting_params(self, data, binctrs):
         raise NotImplementedError("I don't know how to guess starting parameters for a %d-peak Voigt."%self.Nlines)
 
-
     # Compute the smeared line value.
     #
     # @param params  The parameters of the fit (see self.fit for details).
@@ -323,7 +321,6 @@ class NVoigtFitter(LineFitter):
             epsilon[2+i*3] = 1e-3
             epsilon[3+i*3] *= 1e-5
         return epsilon
-
 
 
 class GaussianFitter(LineFitter):
@@ -399,7 +396,6 @@ class GaussianFitter(LineFitter):
         return eps
 
 
-
 class MultiLorentzianComplexFitter(LineFitter):
     """Abstract base class for objects that can fit a spectral line complex.
 
@@ -437,7 +433,7 @@ class MultiLorentzianComplexFitter(LineFitter):
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def stepsize(self, params):
-        "Vector of the parameter step sizes for finding discrete gradient."
+        """Vector of the parameter step sizes for finding discrete gradient."""
         eps = np.array((1e-3, 1e-3, 1e-4, params[3]/1e4, 1e-3, 1e-3, 1e-3, 1e-1))
         return eps
 
@@ -537,8 +533,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         subclasses of SpectralLine.
         """
         self.spect = spectrumDef
-        super( GenericKBetaFitter, self ).__init__()
-
+        super(GenericKBetaFitter, self).__init__()
 
     def guess_starting_params(self, data, binctrs):
         """Hard to estimate dph/de from a K-beta line. Have to guess scale=1 and
