@@ -232,6 +232,7 @@ class EnergyCalibration(object):
                 fitter_cls = flu_members[el + 'Fitter']
                 fitter = fitter_cls()
             except KeyError:
+                print("{0:s}Fitter is not found.".format(el))
                 fitter = FailedFitter(hist, bins)
                 histograms.append((hist, bins))
                 complex_fitters.append(fitter)
