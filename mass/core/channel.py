@@ -4,8 +4,6 @@ Created on Feb 16, 2011
 @author: fowlerj
 """
 
-import functools
-import operator
 from os import path
 
 try:
@@ -24,10 +22,11 @@ import mass.mathstat.interpolate
 import mass.mathstat.robust
 import mass.core.analysis_algorithms
 
+from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
-from mass.calibration import young, energy_calibration
+from mass.calibration import young
 
 from mass.core import ljh_util
 
@@ -123,7 +122,6 @@ class NoiseRecords(object):
             self.__dict__[attr] = self.datafile.__dict__[attr]
             if self.hdf5_group is not None:
                 self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
-
 
     def clear_cache(self):
         self.datafile.clear_cache()
@@ -542,234 +540,6 @@ class PulseRecords(object):
         return c
 
 
-class Cuts(object):
-    """
-    Object to hold a 32-bit cut mask for each triggered record.
-    """
-
-    def __init__(self, n, tes_group, hdf5_group=None):
-        """
-        Create an object to hold n masks of 32 bits each
-        """
-        self.tes_group = tes_group
-        self.hdf5_group = hdf5_group
-        if hdf5_group is None:
-            self._mask = np.zeros(n, dtype=np.uint32)
-        else:
-            try:
-                self._mask = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.uint32)
-            except TypeError:
-                temp = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.int32)[...]
-                del hdf5_group['mask']
-                self._mask = hdf5_group.require_dataset('mask', shape=(n,), dtype=np.uint32)
-                self._mask[...] = np.asarray(temp, dtype=np.uint32)
-
-    def cut(self, cut_num, mask):
-        """
-        Set the mask of a single field. It could be a boolean or categorical field.
-        """
-        assert(mask.size == self._mask.size)
-
-        boolean_field = self.tes_group.boolean_cut_desc
-        categorical_field = self.tes_group.categorical_cut_desc
-
-        if isinstance(cut_num, int) or isinstance(cut_num, np.uint) or isinstance(cut_num, np.int):
-            cut_num = int(cut_num)
-            if (cut_num < 0) or (cut_num > 31):
-                raise ValueError(str(cut_num) + " is out of range.")
-            if boolean_field[cut_num]['name'] == ''.encode():
-                raise ValueError(str(cut_num) + " is not a registered boolean cut.")
-            _, bit_mask = boolean_field[cut_num]
-            self._mask[mask] |= bit_mask
-        elif isinstance(cut_num, bytes) or isinstance(cut_num, str):
-            # This condition will work because we don't expect Python 2.7 users to pass an unicode cut_num.
-            boolean_g = (boolean_field["name"] == cut_num.encode())
-            if np.any(boolean_g):
-                _, bit_mask = boolean_field[boolean_g][0]
-                self._mask[mask] |= bit_mask
-            else:
-                categorical_g = (categorical_field["name"] == cut_num.encode())
-                if np.any(categorical_g):
-                    _, bit_pos, bit_mask = categorical_field[categorical_g][0]
-                    temp = self._mask[...] & ~bit_mask
-                    category_values = np.asarray(mask, dtype=np.uint32)
-                    bit_pos = np.uint32(bit_pos)
-                    self._mask[...] = temp | ((category_values << bit_pos) & bit_mask)
-                else:
-                    raise ValueError(cut_num + " field is not found.")
-
-    def cut_categorical(self, field, booldict):
-        """
-        field - string name of category
-        booldict - dictionary with keys are category of the field and entries are bool vectors of length equal to make indicating belongingness
-        """
-        category_names = self.tes_group.cut_field_categories(field)
-        labels = np.zeros(len(self._mask),dtype=np.uint16)
-        for (category, catbool) in booldict.items():
-            labels[catbool] = category_names[category]
-        for (category, catbool) in booldict.items():
-            if not all(labels[booldict[category]] == category_names[category]):
-                raise ValueError("bools passed for %s conflict with some other" % category)
-        self.cut(field, labels)
-
-    def select_category(self, **kwargs):
-        category_field_bit_mask = np.uint32(0)
-        category_field_target_bits = np.uint32(0)
-
-        categorical_field = self.tes_group.categorical_cut_desc
-        category_list = self.tes_group.cut_category_list
-
-        for name, category_label in kwargs.items():
-            categorical_g = (categorical_field["name"] == name.encode())
-
-            if not np.any(categorical_g):
-                raise ValueError(name + " categorical field is not found.")
-
-            category_g = (category_list["field"] == name.encode()) &\
-                         (category_list["category"] == category_label.encode())
-
-            if not np.any(category_g):
-                raise ValueError(category_label + " category is not found.")
-
-            _, bit_pos, bit_mask = categorical_field[categorical_g][0]
-            _, _, category = category_list[category_g][0]
-            bit_pos = np.uint32(bit_pos)
-            category = np.uint32(category)
-
-            category_field_bit_mask |= bit_mask
-            category_field_target_bits |= category << bit_pos
-
-        return (self._mask[...] & category_field_bit_mask) == category_field_target_bits
-
-    def category_codes(self, name):
-        """Returns the category codes of a single categorical cut field.
-
-        Parameters
-        ----------
-        first : string
-            the name of a categorical cut field.
-
-        Returns
-        -------
-        numpy array of uint32 :
-            category codes of a categorical cut field 'name'.
-
-        Raises
-        ------
-        KeyError
-            when a name is not a registered categorical cut field.
-        """
-        categorical_field = self.tes_group.categorical_cut_desc
-
-        categorical_field_g = categorical_field["name"] == name.encode()
-
-        if np.any(categorical_field_g):
-            _, bit_pos, bit_mask = categorical_field[categorical_field_g][0]
-            bit_pos = np.uint32(bit_pos)
-        else:
-            raise KeyError(name + " is not found.")
-
-        return (self._mask[...] & bit_mask) >> bit_pos
-
-    def cut_mask(self, *args):
-        boolean_field = self.tes_group.boolean_cut_desc
-        categorical_field = self.tes_group.categorical_cut_desc
-
-        if args:
-            boolean_field_names = [name for name, _ in boolean_field if name.decode() in args]
-            categorical_field_names = [name for name, _, _ in categorical_field if name.decode() in args]
-
-            not_found = set(args) - (set(boolean_field_names).union(set(categorical_field_names)))
-            if not_found:
-                raise ValueError(",".join(not_found) + " are not found.")
-        else:
-            boolean_field_names = [name for name, _ in boolean_field if name]
-            categorical_field_names = [name for name, _, _ in categorical_field]
-
-        mask_dtype = np.dtype([(name, np.bool) for name in boolean_field_names] +
-                              [(name, np.uint8) for name in categorical_field_names])
-
-        cut_mask = np.zeros(self._mask.shape[0], dtype=mask_dtype)
-
-        for name in boolean_field_names:
-            cut_mask[name] = self.good(name)
-
-        for name in categorical_field_names:
-            cut_mask[name] = self.category_codes(name)
-
-        return cut_mask
-
-    def clear_cut(self, *args):
-        """
-        Clear one or more boolean fields.
-        If no name is given, it will clear all boolean fields.
-        """
-        bit_mask = self._boolean_fields_bit_mask(args)
-
-        self._mask[:] &= ~bit_mask
-
-    def _boolean_fields_bit_mask(self, names):
-        """
-        Calculate the bit mask for any combination of boolean cut fields.
-        """
-        boolean_fields = self.tes_group.boolean_cut_desc
-
-        if names:
-            all_field_names = set([name for name, mask in boolean_fields if name])
-
-            not_found_fields = set(names) - all_field_names
-
-            if not_found_fields:
-                raise ValueError(", ".join(not_found_fields) + "not found.")
-
-            bit_masks = [mask for name, mask in boolean_fields if name in names]
-        else:
-            bit_masks = [mask for name, mask in boolean_fields if name]
-
-        bit_mask = functools.reduce(operator.or_, bit_masks, np.uint32(0))
-
-        return bit_mask
-
-    def good(self, *args, **kwargs):
-        """
-        Select pulses which are good for all of specified boolean cut fields.
-        If any categorical cut fields are given, only pulses in the combination of categories are considered.
-        """
-        bit_mask = self._boolean_fields_bit_mask(args)
-        g = ((self._mask[...] & bit_mask) == 0)
-
-        if kwargs:
-            return g & self.select_category(**kwargs)
-
-        return g
-
-    def bad(self, *args, **kwargs):
-        """
-        Select pulses which are bad for at least one of specified boolean cut fields.
-        If any categorical cut fields are given, only pulses in the combination of categories are considered.
-        """
-        bit_mask = self._boolean_fields_bit_mask(args)
-        g = (self._mask[...] & bit_mask != 0)
-
-        if kwargs:
-            return g & self.select_category(**kwargs)
-
-        return g
-
-    def __repr__(self):
-        return "Cuts(%d)" % len(self._mask)
-
-    def __str__(self):
-        return "Cuts(%d) with %d cut and %d uncut" % (len(self._mask), self.bad().sum(), self.good().sum())
-
-    def copy(self):
-        """
-        I don't see the point of this shallow copy.
-        """
-        c = Cuts(len(self._mask), tes_group=self.tes_group, hdf5_group=self.hdf5_group)
-        return c
-
-
 class MicrocalDataSet(object):
     """
     Represent a single microcalorimeter's PROCESSED data.
@@ -802,7 +572,7 @@ class MicrocalDataSet(object):
         self.phase_correct_info = {}
         self.noise_autocorr = None
         self.noise_demodulated = None
-        self.calibration = {'p_filt_value': energy_calibration.EnergyCalibration('p_filt_value')}
+        self.calibration = {}
 
         for a in self.expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
@@ -1076,6 +846,61 @@ class MicrocalDataSet(object):
             mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
                                                             ignore_leading=self.nPresamples+maxderiv_holdoff)
 
+    def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
+        """Compute the average pulse this channel.
+
+        mask -- A boolean array saying which records to average.
+        subtract_mean -- Whether to subtract the pretrigger mean and set the
+            pretrigger period to strictly zero.
+        forceNew -- Whether to recompute when already exists
+        """
+        # Don't proceed if not necessary and not forced
+        already_done = self.average_pulse[-1] != 0
+        if already_done and not forceNew:
+            print("skipping compute average pulse on chan %d"%self.channum)
+            return
+
+        pulse_count = 0
+        pulse_sum = np.zeros(self.nSamples, dtype = float)
+
+        # Compute a master mask to say whether ANY mask wants a pulse from each segment
+        # This can speed up work a lot when the pulses being averaged are from certain times only.
+        segment_mask = np.zeros(self.pulse_records.n_segments, dtype=np.bool)
+        n = len(mask)
+        ppseg = self.pulse_records.pulses_per_seg
+        nseg = 1 + (n - 1) // ppseg
+        for i in range(nseg):
+            a = i * ppseg
+            b = a + ppseg
+            if b >= len(mask):
+                b = len(mask) - 1
+            if mask[a:b].any():
+                segment_mask[i] = True
+
+        printUpdater = InlineUpdater('compute_average_pulse chan %d'%self.channum)
+        for iseg in range(nseg):
+            if not segment_mask[iseg]: continue
+            first, end = self.read_segment(iseg)
+            printUpdater.update(end / float(self.nPulses))
+            valid = mask[first:end]
+
+            if mask.shape != (self.nPulses,):
+                raise ValueError("\nmasks[%d] has shape %s, but it needs to be (%d,)" %
+                                 (imask, mask.shape, self.nPulses))
+            if len(valid) > self.data.shape[0]:
+                good_pulses = self.data[valid[:self.data.shape[0]], :]
+            else:
+                good_pulses = self.data[valid, :]
+            pulse_count += good_pulses.shape[0]
+            pulse_sum[:] += good_pulses.sum(axis=0)
+
+        # Rescale and store result to each MicrocalDataSet
+        average_pulse = pulse_sum / pulse_count
+        if subtract_mean:
+            average_pulse -= np.mean(average_pulse[:self.nPresamples - self.pretrigger_ignore_samples])
+        self.average_pulse[:] = average_pulse
+        print
+
     def compute_oldfilter(self, fmax=None, f_3db=None):
         try:
             spectrum = self.noise_spectrum.spectrum()
@@ -1280,10 +1105,11 @@ class MicrocalDataSet(object):
         print(" (%d records; %d in scatter plots)" % (nrecs, len(hour)))
 
         plottables = (
+            (self.p_pulse_rms, 'Pulse RMS', 'magenta', None),
             (self.p_pulse_average, 'Pulse Avg', 'purple', None),
-            (self.p_pretrig_rms, 'Pretrig RMS', 'blue', [0, 4000]),
-            (self.p_pretrig_mean, 'Pretrig Mean', 'green', None),
-            (self.p_peak_value, 'Peak value', '#88cc00', None),
+            (self.p_peak_value, 'Peak value', 'blue', None),
+            (self.p_pretrig_rms, 'Pretrig RMS', 'green', [0, 4000]),
+            (self.p_pretrig_mean, 'Pretrig Mean', '#88cc00', None),
             (self.p_postpeak_deriv, 'Max PostPk deriv', 'gold', [0, 700]),
             (self.p_rise_time[:]*1e3, 'Rise time (ms)', 'orange', [0, 12]),
             (self.p_peak_time[:]*1e3, 'Peak time (ms)', 'red', [-3, 9])
@@ -1537,7 +1363,6 @@ class MicrocalDataSet(object):
         peaks.sort()
         return np.array(binctr[peaks])
 
-
     def _phasecorr_find_alignment(self, phase_indicator, pulse_heights, peak, delta_ph, nf=10):
         phrange = np.array([-delta_ph,delta_ph])+peak
         use = log_and(np.abs(pulse_heights[:]-peak)<delta_ph,
@@ -1568,7 +1393,6 @@ class MicrocalDataSet(object):
             peaks[i] = peak
         curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, peaks)
         return curve, median_phase
-
 
     def phase_correct(self, forceNew=False, category=None, ph_peaks=None):
         """2015 phase correction method. Arguments are:
@@ -1659,7 +1483,6 @@ class MicrocalDataSet(object):
         self.phase_corrections = corrections
         return corrections
 
-
     def first_n_good_pulses(self, n=50000, category=None):
         """
         :param n: maximum number of good pulses to include
@@ -1744,7 +1567,7 @@ class MicrocalDataSet(object):
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2.0, category=None, forceNew=False):
+                  bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3):
             try:
                 pkl_fname = self.pkl_fname
                 if path.isfile(pkl_fname) and not forceNew:
@@ -1764,7 +1587,7 @@ class MicrocalDataSet(object):
             print("Calibrating chan %d to create %s" % (self.channum, calname))
             cal = young.EnergyCalibration(size_related_to_energy_resolution,
                                           fit_range_ev, excl, plot_on_fail,
-                                          bin_size_ev=bin_size_ev)
+                                          bin_size_ev=bin_size_ev, maxacc=maxacc, nextra=nextra)
             # By default, it only uses the "in" category of the calibration categorical cut field.
             if category is None:
                 category = {"calibration": "in"}
@@ -1865,7 +1688,7 @@ class MicrocalDataSet(object):
             # When plotting both cut and valid, mark the cut data with x and dashed lines
             if valid_status is None and not cuts_good[i]:
                 cutchar, alpha, linestyle, linewidth = 'X', 1.0, '--', 1
-            color=cm(pulses_plotted*1.0/nplottable)
+            color=cm(pulses_plotted*1.0/len(cuts_good))
             axis.plot(dt, data, color=color,
                       linestyle=linestyle, alpha=alpha, linewidth=linewidth)
             if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(self.p_pretrig_mean) >= pn:
@@ -1981,7 +1804,7 @@ class MicrocalDataSet(object):
         return bin_centers, rate
 
     def cut_summary(self):
-        boolean_fields = [name for name in self.tes_group.hdf5_file.attrs["cut_boolean_field_desc"]["name"] if name]
+        boolean_fields = [name.decode() for name, _ in self.tes_group.boolean_cut_desc if name]
 
         for c1 in boolean_fields:
             for c2 in boolean_fields:
