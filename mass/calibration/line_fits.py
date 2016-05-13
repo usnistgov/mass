@@ -64,7 +64,7 @@ class LineFitter(object):
         self.phscale_positive = True
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None,
-            color=None, label=False, vary_resolution=True, vary_bg=True,
+            color=None, label=True, vary_resolution=True, vary_bg=True,
             vary_bg_slope=False, vary_tail=False, hold=None):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
@@ -154,18 +154,19 @@ class LineFitter(object):
         self.last_fit_contents = data.copy()
 
         if plot:
-            # de = np.sqrt(covariance[2, 2])
-            # if not label:
-            #     label = ""
-            # else:
-            #     label = "Lorentz FWHM: %.2f +- %.2f eV" % (fitparams[2], de)
-            #     if 0 not in hold:
-            #         de = np.sqrt(covariance[0, 0])
-            #         label += "\nGauss FWHM: %.2f +- %.2f eV" % (fitparams[0], de)
-            label = ""
+            pnum_res = self.param_meaning["resolution"]
+            slabel = ""
+            if label and pnum_res not in hold:
+                pnum_tf = self.param_meaning["tail_frac"]
+                res = fitparams[pnum_res]
+                err = covariance[pnum_res,pnum_res]**0.5
+                tf = fitparams[pnum_tf]
+                slabel = "FWHM: %.2f +- %.2f eV" % (res, err)
+                if tf > 0.001:
+                    slabel += "\nf$_\\mathrm{tail}$: %.1f%%"%(tf*100)
             axis.plot(pulseheights, self.last_fit_result, color='#666666',
-                      label=label)
-            if len(label) > 0:
+                      label=slabel)
+            if len(slabel) > 0:
                 axis.legend(loc='upper left')
         return fitparams, covariance
 

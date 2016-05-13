@@ -77,8 +77,8 @@ class Test_MnKA(unittest.TestCase):
         ax = plt.subplot(111)
         pfit, covar = self.fitter.fit(obs, bins, guess, plot=True, axis=ax,
                                       vary_tail=vary_tail)
-        plt.text(.05, .8, "Fit   : %s"%pfit, transform=ax.transAxes)
-        plt.text(.05, .9, "Actual: %s"%params, transform=ax.transAxes)
+        plt.text(.05, .76, "Actual: %s"%params, transform=ax.transAxes)
+        plt.text(.05, .66, "Fit   : %s"%pfit, transform=ax.transAxes)
 
     def test_basic(self):
         self.do_test()
@@ -120,8 +120,8 @@ class Test_MnKB(unittest.TestCase):
         ax = plt.subplot(111)
         pfit, covar = self.fitter.fit(obs, bins, guess, plot=True, axis=ax,
                                       hold=(0,2,), vary_tail=vary_tail)
-        plt.text(.05, .8, "Fit   : %s"%pfit, transform=ax.transAxes)
-        plt.text(.05, .9, "Actual: %s"%params, transform=ax.transAxes)
+        plt.text(.05, .76, "Actual: %s"%params, transform=ax.transAxes)
+        plt.text(.05, .66, "Fit   : %s"%pfit, transform=ax.transAxes)
 
     def test_basic(self):
         self.do_test()
@@ -173,8 +173,8 @@ class Test_Voigt(unittest.TestCase):
         pfit, covar = self.fitter.fit(self.obs, self.x, params*twiddle,
                                plot=True, vary_resolution=vary_resolution,
                                vary_tail=vary_tail, hold=hold, axis=ax)
-        plt.text(.05, .9, "Actual: %s"%params, transform=ax.transAxes)
-        plt.text(.05, .8, "Fit   : %s"%pfit, transform=ax.transAxes)
+        plt.text(.05, .76, "Actual: %s"%params, transform=ax.transAxes)
+        plt.text(.05, .66, "Fit   : %s"%pfit, transform=ax.transAxes)
         return pfit, covar, params
 
     def test_fit(self):
