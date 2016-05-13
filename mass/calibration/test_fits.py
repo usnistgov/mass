@@ -21,6 +21,7 @@ class Test_Gaussian(unittest.TestCase):
         self.params = [2.3548*sigma, center, ampl, 0.1, 0, 1e-9, 10]
         self.x = np.linspace(10,20,200)
         self.y = ampl * np.exp(-0.5*(self.x-center)**2/(sigma**2))
+        np.random.seed(94)
         self.obs = np.array([np.random.poisson(lam=y0) for y0 in self.y])
         self.fitter = mass.calibration.line_fits.GaussianFitter()
 
@@ -49,6 +50,7 @@ class Test_MnKA(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.line_fits.MnKAlphaFitter()
         self.distrib = mass.calibration.fluorescence_lines.MnKAlphaDistribution
+        np.random.seed(95)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
               bg = 10, nbins=150, vary_tail=False):
@@ -91,6 +93,7 @@ class Test_MnKB(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.line_fits.MnKBetaFitter()
         self.distrib = mass.calibration.fluorescence_lines.MnKBetaDistribution
+        np.random.seed(97)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
               bg = 10, nbins=150, vary_tail=False):
@@ -145,7 +148,7 @@ class Test_Voigt(unittest.TestCase):
         bmin = self.x[0]-0.5*db
         bmax = self.x[-1]+0.5*db
         self.y = ampl/(1+((self.x-center)/(0.5*fwhm))**2)
-        n = self.y.sum()
+        n = int(self.y.sum())
         values = np.random.standard_cauchy(size=n)*fwhm*0.5 + center
         values += sigma*np.random.standard_normal(size=n)
         tweak = np.random.uniform(0, 1, size=n) < tailfrac
