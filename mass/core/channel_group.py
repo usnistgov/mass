@@ -128,15 +128,15 @@ class TESGroup(object):
         ['calibration', ['in', 'out'], 'in'],
     ]
 
-    __cut_boolean_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
-                                               ("mask", np.uint32)])
+    CUT_BOOLEAN_FIELD_DESC_DTYPE = np.dtype([("name", np.bytes_, 64),
+                                             ("mask", np.uint32)])
 
-    __cut_categorical_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
-                                                   ("mask", np.uint32)])
+    CUT_CATEGORICAL_FIELD_DESC_DTYPE = np.dtype([("name", np.bytes_, 64),
+                                                 ("mask", np.uint32)])
 
-    __cut_category_list_dtype = np.dtype([("field", np.bytes_, 64),
-                                          ("category", np.bytes_, 64),
-                                          ("code", np.uint32)])
+    CUT_CATEGORY_LIST_DTYPE = np.dtype([("field", np.bytes_, 64),
+                                        ("category", np.bytes_, 64),
+                                        ("code", np.uint32)])
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
@@ -180,11 +180,11 @@ class TESGroup(object):
                 self.hdf5_file.attrs['cut_used_bit_flags'] = np.uint32((np.uint64(1) << cut_num_used_bits) - 1)
 
                 self.boolean_cut_desc = np.asarray(self.boolean_cut_desc,
-                                                   dtype=self.__cut_boolean_field_desc_dtype)
+                                                   dtype=self.CUT_BOOLEAN_FIELD_DESC_DTYPE)
                 self.categorical_cut_desc = np.asarray(self.categorical_cut_desc[['name', 'mask']],
-                                                       dtype=self.__cut_categorical_field_desc_dtype)
+                                                       dtype=self.CUT_CATEGORICAL_FIELD_DESC_DTYPE)
                 self.cut_category_list = np.asarray(list(self.cut_category_list),
-                                                    dtype=self.__cut_category_list_dtype)
+                                                    dtype=self.CUT_CATEGORY_LIST_DTYPE)
 
                 del self.hdf5_file.attrs['cut_num_used_bits']
 
@@ -193,13 +193,13 @@ class TESGroup(object):
                 self.hdf5_file.attrs['cut_used_bit_flags'] = np.uint32(0)
 
             if "cut_boolean_field_desc" not in self.hdf5_file.attrs:
-                self.boolean_cut_desc = np.zeros(32, dtype=self.__cut_boolean_field_desc_dtype)
+                self.boolean_cut_desc = np.zeros(32, dtype=self.CUT_BOOLEAN_FIELD_DESC_DTYPE)
                 self.register_boolean_cut_fields(*self.BUILTIN_BOOLEAN_CUT_FIELDS)
 
             if ("cut_categorical_field_desc" not in self.hdf5_file.attrs) and \
                     ("cut_category_list" not in self.hdf5_file.attrs):
-                self.categorical_cut_desc = np.zeros(0, dtype=self.__cut_categorical_field_desc_dtype)
-                self.cut_category_list = np.zeros(0, dtype=self.__cut_category_list_dtype)
+                self.categorical_cut_desc = np.zeros(0, dtype=self.CUT_CATEGORICAL_FIELD_DESC_DTYPE)
+                self.cut_category_list = np.zeros(0, dtype=self.CUT_CATEGORY_LIST_DTYPE)
 
                 for categorical_desc in self.BUILTIN_CATEGORICAL_CUT_FIELDS:
                     self.register_categorical_cut_field(*categorical_desc)
@@ -404,12 +404,12 @@ class TESGroup(object):
             code = np.sum([a * b for a, b in zip(individual_bit_masks, digits)])
             new_list.append((name.encode(), category.encode(), code >> lowest_bit_pos))
 
-        new_list = np.array(new_list, dtype=self.__cut_category_list_dtype)
+        new_list = np.array(new_list, dtype=self.CUT_CATEGORY_LIST_DTYPE)
         self.cut_category_list = np.hstack([self.cut_category_list, new_list])
 
         # Needs to update the 'cut_categorical_field_desc' attribute.
         field_desc_item = np.array([(name.encode(), bit_mask)],
-                                   dtype=self.__cut_categorical_field_desc_dtype)
+                                   dtype=self.CUT_CATEGORICAL_FIELD_DESC_DTYPE)
         self.categorical_cut_desc = np.hstack([categorical_fields, field_desc_item])
         self.cut_used_bit_flags |= bit_mask
 
