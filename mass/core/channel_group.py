@@ -290,8 +290,11 @@ class TESGroup(object):
 
     @staticmethod
     def __lowest_available_cut_bit(cut_used_bit_flags):
-        """
-        Returns the index of lowest available cut bit.
+        """Returns the index of lowest available cut bit.
+
+        Args:
+            cut_used_bit_flags (np.uint32): This number represents a status of used cut bits.
+                It doesn't need to be same with the current status of cut bits.
 
         Return:
             np.uint32
@@ -307,12 +310,11 @@ class TESGroup(object):
         raise ValueError("No available cut bit.")
 
     def register_boolean_cut_fields(self, *names):
-        """
-        Register one or more boolean cut field(s).
+        """Register one or more boolean cut field(s).
         If any of given boolean cut fields already exist, it silently ignore.
 
          Args:
-             names: name(s) of one or more cut fields(s).
+             names (list[str]): name(s) of one or more cut fields(s).
         """
         boolean_fields = self.boolean_cut_desc
         cut_used_bit_flags = self.cut_used_bit_flags
@@ -329,11 +331,10 @@ class TESGroup(object):
         self.cut_used_bit_flags = cut_used_bit_flags
 
     def unregister_boolean_cut_fields(self, *names):
-        """
-        Unregister one or more boolean cut fields.
+        """Unregister one or more boolean cut fields.
 
         Args:
-            names: one or more name(s) of boolean cut fields.
+            names (list[str]): one or more name(s) of boolean cut fields.
 
         Raise:
             KeyError: when any of cut fields don't exist.
@@ -357,14 +358,13 @@ class TESGroup(object):
         self.cut_used_bit_flags &= ~clear_mask
 
     def register_categorical_cut_field(self, name, categories, default="uncategorized"):
-        """
-        Register one categorical cut field.
+        """Register one categorical cut field.
 
         Args:
-            name: the name of a new categorical cut field.
-            categories: the list of the names of categories of the cut field.
+            name (str): the name of a new categorical cut field.
+            categories (list[str]): the list of the names of categories of the cut field.
                 "uncategorized" category will be added if it doesn't have already.
-            default: the name of default category.
+            default (str): the name of default category.
         """
         categorical_fields = self.categorical_cut_desc
         cut_used_bit_flags = self.cut_used_bit_flags
@@ -373,7 +373,10 @@ class TESGroup(object):
             return
 
         # categories might be an immutable tuple.
-        category_list = list(categories)
+        # And it converts categories into str(s).
+        category_list = [str(category) for category in categories]
+
+        default = str(default)
 
         # if the default category is already included, it's temporarily removed from the category_list
         # and insert into at the head of the category_list.
@@ -414,6 +417,11 @@ class TESGroup(object):
         self.cut_used_bit_flags |= bit_mask
 
     def unregister_categorical_cut_field(self, name):
+        """Unregister one categorical cut field
+
+        Args:
+            name (str): the name of a categorical cut field to be unregistered.
+        """
         categorical_fields = self.categorical_cut_desc
         category_list = self.cut_category_list
 
