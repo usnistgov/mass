@@ -341,15 +341,17 @@ class GaussianFitter(LineFitter):
 
     param_meaning = {
         "resolution": 0,
+        "pulseheight": 1,
+        "amplitude":2,
         "background": 3,
         "bg_slope": 4,
         "tail_frac": 5,
         "tail_length": 6
     }
+    nparam = len(param_meaning)
 
     def __init__(self):
         super( GaussianFitter, self ).__init__()
-        self.nparam = 7
 
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
