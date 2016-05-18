@@ -161,7 +161,7 @@ class LineFitter(object):
                 res = fitparams[pnum_res]
                 err = covariance[pnum_res,pnum_res]**0.5
                 tf = fitparams[pnum_tf]
-                slabel = "FWHM: %.2f +- %.2f eV" % (res, err)
+                slabel = "FWHM: %.2f +- %.2f" % (res, err)
                 if tf > 0.001:
                     slabel += "\nf$_\\mathrm{tail}$: %.1f%%"%(tf*100)
             axis.plot(pulseheights, self.last_fit_result, color='#666666',
@@ -189,15 +189,18 @@ class VoigtFitter(LineFitter):
 
     param_meaning = {
         "resolution": 0,
+        "peak_ph": 1,
+        "lorentz_fwhm": 2,
+        "amplitude":3,
         "background": 4,
         "bg_slope": 5,
         "tail_frac": 6,
         "tail_length": 7
     }
+    nparam = 8
 
     def __init__(self):
         super( VoigtFitter, self ).__init__()
-        self.nparam = 8
 
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
@@ -264,13 +267,18 @@ class NVoigtFitter(LineFitter):
         assert Nlines >= 1
         super( NVoigtFitter, self ).__init__()
         self.nparam = 5+3*Nlines
-        param_meaning = {
+        self.param_meaning = {
             "resolution": 0,
             "background": self.nparam-4,
             "bg_slope": self.nparam-3,
             "tail_frac": self.nparam-2,
             "tail_length": self.nparam-1
         }
+        for i in range(Nlines):
+            j = i+1
+            self.param_meaning["peak_ph%d"%j] = i*3+1
+            self.param_meaning["lorentz_fwhm%d"%j] = i*3+2
+            self.param_meaning["amplitude%d"%j] = i*3+3
 
     def guess_starting_params(self, data, binctrs):
         raise NotImplementedError("I don't know how to guess starting parameters for a %d-peak Voigt."%self.Nlines)
@@ -341,14 +349,14 @@ class GaussianFitter(LineFitter):
 
     param_meaning = {
         "resolution": 0,
-        "pulseheight": 1,
+        "peak_ph": 1,
         "amplitude":2,
         "background": 3,
         "bg_slope": 4,
         "tail_frac": 5,
         "tail_length": 6
     }
-    nparam = len(param_meaning)
+    nparam = 7
 
     def __init__(self):
         super( GaussianFitter, self ).__init__()
@@ -409,15 +417,18 @@ class MultiLorentzianComplexFitter(LineFitter):
 
     param_meaning = {
         "resolution": 0,
+        "peak_ph": 1,
+        "dP_dE":2,
+        "amplitude":3,
         "background": 4,
         "bg_slope": 5,
         "tail_frac": 6,
         "tail_length": 7
     }
+    nparam = 8
 
     def __init__(self):
         super( MultiLorentzianComplexFitter, self ).__init__()
-        self.nparam = 8
 
     def fitfunc(self, params, x):
         """Return the smeared line complex.
