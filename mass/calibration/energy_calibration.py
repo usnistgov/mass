@@ -125,7 +125,7 @@ class EnergyCalibration(object):
         `zerozero` Whether to force the cal curve to go through (0,0).
         """
 
-        self.ph2energy = lambda x: x
+        self._ph2energy_anon = lambda x: x
         self._ph = np.zeros(0, dtype=np.float)
         self._energies = np.zeros(0, dtype=np.float)
         self._dph = np.zeros(0, dtype=np.float)
@@ -142,15 +142,21 @@ class EnergyCalibration(object):
         "Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV)."
         if self._model_is_stale:
             self._update_converters()
-        return self.ph2energy(pulse_ht)
+        return self._ph2energy_anon(pulse_ht)
+
+    def ph2energy(self, pulse_ht):
+        """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
+        This is a synonym for self.__call__(...). """
+        if self._model_is_stale:
+            self._update_converters()
+        return self._ph2energy_anon(pulse_ht)
 
     def energy2ph(self, energy):
         """Convert a single energy `energy` in eV to a pulse height.
-        Inverts the ph2energy function by Brent's method for root finding."""
+        Inverts the _ph2energy_anon function by Brent's method for root finding."""
         if self._model_is_stale:
             self._update_converters()
-
-        energy_residual = lambda ph, etarget: self.ph2energy(ph)-etarget
+        energy_residual = lambda ph, etarget: self._ph2energy_anon(ph)-etarget
         return sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(energy,))
 
     def energy2dedph(self, energy, denergy=1):
@@ -202,6 +208,7 @@ class EnergyCalibration(object):
         return ecal
 
     def _remove_cal_point_idx(self, idx):
+        "Remove calibration point number `idx` from the calibration."
         self._names.pop(idx)
         self._ph = np.hstack((self._ph[:idx], self._ph[idx+1:]))
         self._energies = np.hstack((self._energies[:idx], self._energies[idx+1:]))
@@ -324,7 +331,7 @@ class EnergyCalibration(object):
         ph, dph, e, de = self._ph, self._dph, self._energies, self._de
 
         if self._use_loglog:
-            self.ph2energy = SmoothingSplineLog(ph, e, de, dph)
+            self._ph2energy_anon = SmoothingSplineLog(ph, e, de, dph)
         else:
             if self._use_zerozero and (0.0 not in ph):
                 print("dooby")
@@ -332,7 +339,7 @@ class EnergyCalibration(object):
                 e  = np.hstack([[0],e])
                 de = np.hstack([[de.min()*0.1],de])
                 dph= np.hstack([[dph.min()*0.1],dph])
-            self.ph2energy = SmoothingSpline(ph, e, de, dph)
+            self._ph2energy_anon = SmoothingSpline(ph, e, de, dph)
 
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
@@ -341,30 +348,30 @@ class EnergyCalibration(object):
         # For N=1 points, use a power law of the assumed nonlinearity
         # For N=2 points, use a power law, updating nonlinearity to be the actual value.
         if self.npts <= 0:
-            self.ph2energy = lambda p: p
+            self._ph2energy_anon = lambda p: p
         elif self.npts == 1:
             p1 = self._ph[0]
             e1 = self._energies[0]
-            self.ph2energy = lambda p: e1*(p/p1)**self.nonlinearity
+            self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
         elif self.npts == 2:
             p1,p2 = self._ph
             e1,e2 = self._energies
             self.nonlinearity = np.log(e2/e1) / np.log(p2/p1)
-            self.ph2energy = lambda p: e1*(p/p1)**self.nonlinearity
+            self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
         else:
             if self._use_loglog:
                 x = np.log(self._ph)
                 y = np.log(self._energies)
                 self._x2yfun = CubicSpline(x, y)
-                self.ph2energy = lambda p: np.exp(self._x2yfun(np.log(p)))
+                self._ph2energy_anon = lambda p: np.exp(self._x2yfun(np.log(p)))
             elif self._use_zerozero:
                 x = np.hstack(([0], self._ph))
                 y = np.hstack(([0], self._energies))
-                self.ph2energy = CubicSpline(x, y)
+                self._ph2energy_anon = CubicSpline(x, y)
             else:
                 x = self._ph
                 y = self._energies
-                self.ph2energy = CubicSpline(x, y)
+                self._ph2energy_anon = CubicSpline(x, y)
 
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""
@@ -413,15 +420,14 @@ class EnergyCalibration(object):
             axis.set_title("Energy calibration curve, scaled by %.4f power of PH"%ph_rescale_power)
 
     def drop_one_errors(self):
-        """For each calibration point, calculate the difference between the 'correct' energy and
-        the energy predicted by creating a calibration without that poing and using ph2energy to calculate the predicted energy,
-        return energies, drop_one_energy_diff"""
+        """For each calibration point, calculate the difference between the 'correct' energy
+        and the energy predicted by creating a calibration without that point and using
+        ph2energy to calculate the predicted energy, return energies, drop_one_energy_diff"""
         drop_one_energy_diff = np.zeros(self.npts)
         for i in range(self.npts):
             drop_one_energy, drop_one_pulseheight = self._energies[i], self._ph[i]
             cal2 = self.copy()
             cal2._remove_cal_point_idx(i)
-            cal2._update_converters() # this shouldnt be neccesary, but seems to be
             predicted_energy = cal2.ph2energy(drop_one_pulseheight)
             drop_one_energy_diff[i] = predicted_energy-drop_one_energy
         perm = np.argsort(self._energies)
