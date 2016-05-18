@@ -334,7 +334,6 @@ class EnergyCalibration(object):
             self._ph2energy_anon = SmoothingSplineLog(ph, e, de, dph)
         else:
             if self._use_zerozero and (0.0 not in ph):
-                print("dooby")
                 ph = np.hstack([[0],ph])
                 e  = np.hstack([[0],e])
                 de = np.hstack([[de.min()*0.1],de])
