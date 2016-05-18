@@ -327,6 +327,7 @@ class EnergyCalibration(object):
             self.ph2energy = SmoothingSplineLog(ph, e, de, dph)
         else:
             if self._use_zerozero and (0.0 not in ph):
+                print("dooby")
                 ph = np.hstack([[0],ph])
                 e  = np.hstack([[0],e])
                 de = np.hstack([[de.min()*0.1],de])
@@ -356,11 +357,14 @@ class EnergyCalibration(object):
                 y = np.log(self._energies)
                 self._x2yfun = CubicSpline(x, y)
                 self.ph2energy = lambda p: np.exp(self._x2yfun(np.log(p)))
-            else:
+            elif self._use_zerozero:
                 x = np.hstack(([0], self._ph))
                 y = np.hstack(([0], self._energies))
                 self.ph2energy = CubicSpline(x, y)
-
+            else:
+                x = self._ph
+                y = self._energies
+                self.ph2energy = CubicSpline(x, y)
 
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""
