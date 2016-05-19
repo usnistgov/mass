@@ -28,8 +28,6 @@ class CutFieldMixin(object):
 
     # Categorical cut field item format
     # [name of field, list of categories, default category]
-
-
     BUILTIN_CATEGORICAL_CUT_FIELDS = [
         ['calibration', ['in', 'out'], 'in'],
     ]
@@ -45,6 +43,9 @@ class CutFieldMixin(object):
                                         ("code", np.uint32)])
 
     def cut_field_desc_init(self):
+        """Initialize the cut field descriptions.
+            This methods expects the hdf5_file attribute.
+        """
         if self.hdf5_file:
             if 'cut_num_used_bits' in self.hdf5_file.attrs:
                 self.hdf5_file.attrs['cut_format_ver'] = b'1'
@@ -267,13 +268,16 @@ class CutFieldMixin(object):
 
 
 class Cuts(object):
-    """
-    Object to hold a 32-bit cut mask for each triggered record.
+    """Object to hold a 32-bit cut mask for each triggered record.
     """
 
     def __init__(self, n, tes_group, hdf5_group=None):
-        """
-        Create an object to hold n masks of 32 bits each
+        """Create an object to hold n masks of 32 bits each
+
+        Args:
+            n (int): the number of pulses
+            tes_group (mass.core.TESGroup): the TESGroup object that holds all channels.
+            hdf5_group : the hdf5 group for the channel that owns the cut.
         """
         self.tes_group = tes_group
         self.hdf5_group = hdf5_group
@@ -289,8 +293,11 @@ class Cuts(object):
                 self._mask[...] = np.asarray(temp, dtype=np.uint32)
 
     def cut(self, cut_num, mask):
-        """
-        Set the mask of a single field. It could be a boolean or categorical field.
+        """Set the mask of a single field. It could be a boolean or categorical field.
+
+        Args:
+            cut_num (str or int): the name of a cut field.
+            mask (np.array(dtype=bool) or np.array(dtype=np.uint32): a cut mask for the cut field.
         """
         assert(mask.size == self._mask.size)
 
@@ -328,11 +335,10 @@ class Cuts(object):
                     raise ValueError(cut_num + " field is not found.")
 
     def cut_categorical(self, field, booldict):
-        """
-        Args:
-            field: string name of category
-            booldict: dictionary with keys are category of the field and
-                entries are bool vectors of length equal to make indicating belongingness
+        """Args:
+            field (str): the name of category
+            booldict (dict{str: np.array(dtype=bool)}): Keys are categories of the field and
+                entries are bool vectors of length equal to mask indicating belongingness
         """
         category_names = self.tes_group.cut_field_categories(field)
         labels = np.zeros(len(self._mask), dtype=np.uint32)
@@ -344,8 +350,7 @@ class Cuts(object):
         self.cut(field, labels)
 
     def select_category(self, **kwargs):
-        """
-        Select pulses belongs to all of specified categories.
+        """ Select pulses belongs to all of specified categories.
 
         Returns:
             A numpy array of booleans.
@@ -386,8 +391,7 @@ class Cuts(object):
         Returns the category codes of a single categorical cut field.
 
         Args:
-            name : string
-                the name of a categorical cut field.
+            name (str): the name of a categorical cut field.
 
         Returns:
             numpy array of uint32 :
@@ -413,11 +417,10 @@ class Cuts(object):
         return (self._mask[...] & bit_mask) >> bit_pos
 
     def cut_mask(self, *fields):
-        """
-         Retrieves masks of multiple cut fields. They could be boolean or categorical.
+        """Retrieves masks of multiple cut fields. They could be boolean or categorical.
 
          Args:
-             fields: cut field name or names.
+             fields (list(str)): cut field name or names.
         """
         boolean_field = self.tes_group.boolean_cut_desc
         categorical_field = self.tes_group.categorical_cut_desc
