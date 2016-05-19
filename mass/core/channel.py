@@ -5,6 +5,7 @@ Created on Feb 16, 2011
 """
 
 from os import path
+from functools import reduce
 
 try:
     import cPickle as pickle
@@ -33,10 +34,7 @@ from mass.core import ljh_util
 
 def log_and(a, b, *args):
     """Generalize np.logical_and() to 2 OR MORE arguments."""
-    result = np.logical_and(a, b)
-    for c in args:
-        result = np.logical_and(result, c)
-    return result
+    return reduce(np.logical_and, args, np.logical_and(a, b))
 
 
 class NoiseRecords(object):
