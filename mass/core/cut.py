@@ -9,6 +9,263 @@ import operator
 import numpy as np
 
 
+class CutFieldMixin(object):
+    BUILTIN_BOOLEAN_CUT_FIELDS = ['pretrigger_rms',
+                                  'pretrigger_mean',
+                                  'pretrigger_mean_departure_from_median',
+                                  'peak_time_ms',
+                                  'rise_time_ms',
+                                  'postpeak_deriv',
+                                  'pulse_average',
+                                  'min_value',
+                                  'timestamp_sec',
+                                  'timestamp_diff_sec',
+                                  'peak_value',
+                                  'energy',
+                                  'timing',
+                                  "p_filt_phase",
+                                  'smart_cuts']
+
+    # Categorical cut field item format
+    # [name of field, list of categories, default category]
+
+
+    BUILTIN_CATEGORICAL_CUT_FIELDS = [
+        ['calibration', ['in', 'out'], 'in'],
+    ]
+
+    CUT_BOOLEAN_FIELD_DESC_DTYPE = np.dtype([("name", np.bytes_, 64),
+                                             ("mask", np.uint32)])
+
+    CUT_CATEGORICAL_FIELD_DESC_DTYPE = np.dtype([("name", np.bytes_, 64),
+                                                 ("mask", np.uint32)])
+
+    CUT_CATEGORY_LIST_DTYPE = np.dtype([("field", np.bytes_, 64),
+                                        ("category", np.bytes_, 64),
+                                        ("code", np.uint32)])
+
+    def cut_field_desc_init(self):
+        if self.hdf5_file:
+            if 'cut_num_used_bits' in self.hdf5_file.attrs:
+                self.hdf5_file.attrs['cut_format_ver'] = b'1'
+
+                # convert from version 1 to the verion 2
+                cut_num_used_bits = np.uint32(self.hdf5_file.attrs["cut_num_used_bits"])
+                self.hdf5_file.attrs['cut_used_bit_flags'] = np.uint32((np.uint64(1) << cut_num_used_bits) - 1)
+
+                self.boolean_cut_desc = np.asarray(self.boolean_cut_desc,
+                                                   dtype=self.CUT_BOOLEAN_FIELD_DESC_DTYPE)
+                self.categorical_cut_desc = np.asarray(self.categorical_cut_desc[['name', 'mask']],
+                                                       dtype=self.CUT_CATEGORICAL_FIELD_DESC_DTYPE)
+                self.cut_category_list = np.asarray(list(self.cut_category_list),
+                                                    dtype=self.CUT_CATEGORY_LIST_DTYPE)
+
+                del self.hdf5_file.attrs['cut_num_used_bits']
+
+            # here, we can assume that cut descriptions are empty or version 2
+            if "cut_used_bit_flags" not in self.hdf5_file.attrs:
+                self.hdf5_file.attrs['cut_used_bit_flags'] = np.uint32(0)
+
+            if "cut_boolean_field_desc" not in self.hdf5_file.attrs:
+                self.boolean_cut_desc = np.zeros(32, dtype=self.CUT_BOOLEAN_FIELD_DESC_DTYPE)
+                self.register_boolean_cut_fields(*self.BUILTIN_BOOLEAN_CUT_FIELDS)
+
+            if ("cut_categorical_field_desc" not in self.hdf5_file.attrs) and \
+                    ("cut_category_list" not in self.hdf5_file.attrs):
+                self.categorical_cut_desc = np.zeros(0, dtype=self.CUT_CATEGORICAL_FIELD_DESC_DTYPE)
+                self.cut_category_list = np.zeros(0, dtype=self.CUT_CATEGORY_LIST_DTYPE)
+
+                for categorical_desc in self.BUILTIN_CATEGORICAL_CUT_FIELDS:
+                    self.register_categorical_cut_field(*categorical_desc)
+
+            self.hdf5_file.attrs['cut_format_ver'] = b'2'
+
+    @property
+    def boolean_cut_desc(self):
+        return self.hdf5_file.attrs["cut_boolean_field_desc"]
+
+    @boolean_cut_desc.setter
+    def boolean_cut_desc(self, value):
+        self.hdf5_file.attrs["cut_boolean_field_desc"] = value
+
+    @property
+    def categorical_cut_desc(self):
+        return self.hdf5_file.attrs["cut_categorical_field_desc"]
+
+    @categorical_cut_desc.setter
+    def categorical_cut_desc(self, value):
+        self.hdf5_file.attrs["cut_categorical_field_desc"] = value
+
+    @property
+    def cut_category_list(self):
+        return self.hdf5_file.attrs["cut_category_list"]
+
+    @cut_category_list.setter
+    def cut_category_list(self, value):
+        self.hdf5_file.attrs["cut_category_list"] = value
+
+    @property
+    def cut_used_bit_flags(self):
+        return self.hdf5_file.attrs["cut_used_bit_flags"]
+
+    @cut_used_bit_flags.setter
+    def cut_used_bit_flags(self, value):
+        self.hdf5_file.attrs["cut_used_bit_flags"] = np.uint32(value)
+
+    def cut_field_categories(self, field_name):
+        category_list = self.cut_category_list
+
+        return {category.decode(): code for field, category, code in category_list if field == field_name.encode()}
+
+    @staticmethod
+    def __lowest_available_cut_bit(cut_used_bit_flags):
+        """Returns the index of lowest available cut bit.
+
+        Args:
+            cut_used_bit_flags (np.uint32): This number represents a status of used cut bits.
+                It doesn't need to be same with the current status of cut bits.
+
+        Return:
+            np.uint32
+        """
+        uint32_one = np.uint32(1)
+
+        for i in range(32):
+            trial_bit_pos = np.uint32(i)
+            trial_bit = uint32_one << trial_bit_pos
+            if cut_used_bit_flags & trial_bit == 0:
+                return trial_bit_pos
+
+        raise ValueError("No available cut bit.")
+
+    def register_boolean_cut_fields(self, *names):
+        """Register one or more boolean cut field(s).
+        If any of given boolean cut fields already exist, it silently ignore.
+
+         Args:
+             names (list[str]): name(s) of one or more cut fields(s).
+        """
+        boolean_fields = self.boolean_cut_desc
+        cut_used_bit_flags = self.cut_used_bit_flags
+
+        new_fields = [n.encode() for n in names if n.encode() not in boolean_fields["name"]]
+
+        uint32_one = np.uint32(1)
+        for new_field in new_fields:
+            available_bit_pos = self.__lowest_available_cut_bit(cut_used_bit_flags)
+            boolean_fields[available_bit_pos] = (new_field, uint32_one << available_bit_pos)
+            cut_used_bit_flags |= (uint32_one << available_bit_pos)
+
+        self.boolean_cut_desc = boolean_fields
+        self.cut_used_bit_flags = cut_used_bit_flags
+
+    def unregister_boolean_cut_fields(self, *names):
+        """Unregister one or more boolean cut fields.
+
+        Args:
+            names (list[str]): one or more name(s) of boolean cut fields.
+
+        Raise:
+            KeyError: when any of cut fields don't exist.
+        """
+        boolean_fields = self.boolean_cut_desc
+
+        enc_names = [name.encode() for name in names]
+
+        for name in enc_names:
+            if not name or name not in boolean_fields['name']:
+                raise KeyError("{0:s} is not a registered boolean field.".format(name.decode()))
+
+        clear_mask = np.uint32(0)
+
+        for i in range(32):
+            if boolean_fields[i][0] in enc_names:
+                clear_mask |= boolean_fields[i][1]
+                boolean_fields[i] = (b'', 0)
+
+        self.boolean_cut_desc = boolean_fields
+        self.cut_used_bit_flags &= ~clear_mask
+
+    def register_categorical_cut_field(self, name, categories, default="uncategorized"):
+        """Register one categorical cut field.
+
+        Args:
+            name (str): the name of a new categorical cut field.
+            categories (list[str]): the list of the names of categories of the cut field.
+                "uncategorized" category will be added if it doesn't have already.
+            default (str): the name of default category.
+        """
+        categorical_fields = self.categorical_cut_desc
+        cut_used_bit_flags = self.cut_used_bit_flags
+
+        if name.encode() in categorical_fields["name"]:
+            return
+
+        # categories might be an immutable tuple.
+        # And it converts categories into str(s).
+        category_list = [str(category) for category in categories]
+
+        default = str(default)
+
+        # if the default category is already included, it's temporarily removed from the category_list
+        # and insert into at the head of the category_list.
+        if default in category_list:
+            category_list.remove(default)
+        category_list.insert(0, default)
+
+        num_bits = 1
+        while (1 << num_bits) < len(category_list):
+            num_bits += 1
+
+        individual_bit_masks = []
+        bit_mask = np.uint32(0)
+        lowest_bit_pos = np.uint32(31)
+        uint32_one = np.uint32(1)
+
+        for _ in range(num_bits):
+            bit_pos = self.__lowest_available_cut_bit(cut_used_bit_flags | bit_mask)
+            if bit_pos < lowest_bit_pos:
+                lowest_bit_pos = bit_pos
+            bit_mask |= (uint32_one << bit_pos)
+            individual_bit_masks.insert(0, uint32_one << bit_pos)
+
+        # Updates the 'cut_category_list' attribute
+        new_list = []
+        for i, category in enumerate(category_list):
+            digits = map(np.uint32, "{0:032b}".format(i)[-num_bits:])
+            code = np.sum([a * b for a, b in zip(individual_bit_masks, digits)])
+            new_list.append((name.encode(), category.encode(), code >> lowest_bit_pos))
+
+        new_list = np.array(new_list, dtype=self.CUT_CATEGORY_LIST_DTYPE)
+        self.cut_category_list = np.hstack([self.cut_category_list, new_list])
+
+        # Needs to update the 'cut_categorical_field_desc' attribute.
+        field_desc_item = np.array([(name.encode(), bit_mask)],
+                                   dtype=self.CUT_CATEGORICAL_FIELD_DESC_DTYPE)
+        self.categorical_cut_desc = np.hstack([categorical_fields, field_desc_item])
+        self.cut_used_bit_flags |= bit_mask
+
+    def unregister_categorical_cut_field(self, name):
+        """Unregister one categorical cut field
+
+        Args:
+            name (str): the name of a categorical cut field to be unregistered.
+        """
+        categorical_fields = self.categorical_cut_desc
+        category_list = self.cut_category_list
+
+        if not np.any(categorical_fields['name'] == name.encode()):
+            raise ValueError("{0:s} field is not a registered categorical field.".format(name))
+
+        new_categorical_fields = categorical_fields[categorical_fields['name'] != name.encode()]
+        new_category_list = category_list[category_list['field'] != name.encode()]
+        clear_mask = categorical_fields['mask'][categorical_fields['name'] == name.encode()][0]
+
+        self.categorical_cut_desc = new_categorical_fields
+        self.cut_category_list = new_category_list
+        self.cut_used_bit_flags &= ~clear_mask
+
+
 class Cuts(object):
     """
     Object to hold a 32-bit cut mask for each triggered record.
