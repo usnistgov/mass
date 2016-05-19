@@ -1134,71 +1134,6 @@ class MicrocalDataSet(object):
             if log:
                 plt.ylim(ymin=contents.min())
 
-    def cut_parameter(self, data, allowed, cut_id):
-        """Apply a cut on some per-pulse parameter.
-
-        <data>    The per-pulse parameter to cut on.  It can be an attribute of self, or it
-                  can be computed from one (or more),
-                  but it must be an array of length self.nPulses
-        <allowed> The cut to apply (see below).
-        <cut_id>  The bit number (range [0,31]) to identify this cut or the name of the cut.
-
-        <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b.
-        Either a or b may be None, indicating no cut.
-        OR
-        <allowed> is a sequence of 2-element sequences (a,b), then the cut cuts data that does not meet a <= data <=b
-        for any of the two element sequences, if any element in allowed is ''invert'' then it swaps cut and uncut
-        """
-
-        if allowed is None:  # no cut here!
-            return
-        if isinstance(cut_id, int):
-            if cut_id < 0 or cut_id >= 32:
-                raise ValueError("cut_id must be in the range [0,31]")
-        elif isinstance(cut_id, bytes) or isinstance(cut_id, str):
-            boolean_cut_fields = self.tes_group.boolean_cut_desc
-            g = boolean_cut_fields["name"] == cut_id.encode()
-            if not np.any(g):
-                raise ValueError(cut_id + " is not found.")
-
-        # determine if allowed is a sequence or a sequence of sequences
-        if np.size(allowed[0]) == 2 or allowed[0] == 'invert':
-            doInvert = False
-            cut_vec = np.ones_like(data, dtype='bool')
-            for element in allowed:
-                if np.size(element) == 2:
-                    try:
-                        a, b = element
-                        if a is not None and b is not None:
-                            index = np.logical_and(data[:] >= a, data[:] <= b)
-                        elif a is not None:
-                            index = data[:] >= a
-                        elif b is not None:
-                            index = data[:] <= b
-                        cut_vec[index] = False
-                    except:
-                        raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid' %
-                                         str(element))
-                elif element == 'invert':
-                    doInvert = True
-            if doInvert:
-                self.cuts.cut(cut_id, ~cut_vec)
-            else:
-                self.cuts.cut(cut_id, cut_vec)
-        else:
-            try:
-                a, b = allowed
-                if a and b:
-                    self.cuts.cut(cut_id, (data[:] <= a) | (data[:] >= b))
-                else:
-                    if a is not None:
-                        self.cuts.cut(cut_id, data[:] <= a)
-                    if b is not None:
-                        self.cuts.cut(cut_id, data[:] >= b)
-            except ValueError:
-                raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'
-                                 % str(allowed))
-
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """<n_lags>, if not None, is the number of lags in each noise spectrum and the max lag
         for the autocorrelation.  If None, the record length is used."""
@@ -1235,28 +1170,28 @@ class MicrocalDataSet(object):
             controls = mass.controller.standardControl()
         c = controls.cuts_prm
 
-        self.cut_parameter(self.p_energy, c['energy'], 'energy')
-        self.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], 'pretrigger_rms')
-        self.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'], 'pretrigger_mean')
+        self.cuts.cut_parameter(self.p_energy, c['energy'], 'energy')
+        self.cuts.cut_parameter(self.p_pretrig_rms, c['pretrigger_rms'], 'pretrigger_rms')
+        self.cuts.cut_parameter(self.p_pretrig_mean, c['pretrigger_mean'], 'pretrigger_mean')
 
-        self.cut_parameter(self.p_peak_time[:]*1e3, c['peak_time_ms'], 'peak_time_ms')
-        self.cut_parameter(self.p_rise_time[:]*1e3, c['rise_time_ms'], 'rise_time_ms')
-        self.cut_parameter(self.p_postpeak_deriv, c['postpeak_deriv'], 'postpeak_deriv')
-        self.cut_parameter(self.p_pulse_average, c['pulse_average'], 'pulse_average')
-        self.cut_parameter(self.p_peak_value, c['peak_value'], 'peak_value')
-        self.cut_parameter(self.p_min_value[:]-self.p_pretrig_mean[:], c['min_value'], 'min_value')
-        self.cut_parameter(self.p_timestamp[:], c['timestamp_sec'], 'timestamp_sec')
+        self.cuts.cut_parameter(self.p_peak_time[:]*1e3, c['peak_time_ms'], 'peak_time_ms')
+        self.cuts.cut_parameter(self.p_rise_time[:]*1e3, c['rise_time_ms'], 'rise_time_ms')
+        self.cuts.cut_parameter(self.p_postpeak_deriv, c['postpeak_deriv'], 'postpeak_deriv')
+        self.cuts.cut_parameter(self.p_pulse_average, c['pulse_average'], 'pulse_average')
+        self.cuts.cut_parameter(self.p_peak_value, c['peak_value'], 'peak_value')
+        self.cuts.cut_parameter(self.p_min_value[:] - self.p_pretrig_mean[:], c['min_value'], 'min_value')
+        self.cuts.cut_parameter(self.p_timestamp[:], c['timestamp_sec'], 'timestamp_sec')
 
         if c['timestamp_diff_sec'] is not None:
-            self.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
-                               c['timestamp_diff_sec'], 'timestamp_diff_sec')
-        if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum()>0:
+            self.cuts.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
+                                    c['timestamp_diff_sec'], 'timestamp_diff_sec')
+        if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum() > 0:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
             if verbose > 1:
                 print('applying cut on pretrigger mean around its median value of ', median)
-            self.cut_parameter(self.p_pretrig_mean-median,
-                               c['pretrigger_mean_departure_from_median'],
-                               'pretrigger_mean_departure_from_median')
+            self.cuts.cut_parameter(self.p_pretrig_mean-median,
+                                    c['pretrigger_mean_departure_from_median'],
+                                    'pretrigger_mean_departure_from_median')
         if verbose > 0:
             print("Chan %d after cuts, %d are good, %d are bad of %d total pulses" % (
                 self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))

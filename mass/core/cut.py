@@ -349,6 +349,72 @@ class Cuts(object):
                 raise ValueError("bools passed for %s conflict with some other" % category)
         self.cut(field, labels)
 
+    def cut_parameter(self, data, allowed, cut_id):
+        """Apply a cut on some per-pulse parameter.
+
+        Args:
+            <data>    The per-pulse parameter to cut on.  It can be an attribute of self, or it
+                      can be computed from one (or more),
+                      but it must be an array of length self.nPulses
+            <allowed> The cut to apply (see below).
+            <cut_id>  The bit number (range [0,31]) to identify this cut or the name of the cut.
+
+        <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b.
+        Either a or b may be None, indicating no cut.
+        OR
+        <allowed> is a sequence of 2-element sequences (a,b), then the cut cuts data that does not meet a <= data <=b
+        for any of the two element sequences, if any element in allowed is ''invert'' then it swaps cut and uncut
+        """
+
+        if allowed is None:  # no cut here!
+            return
+        if isinstance(cut_id, int):
+            if cut_id < 0 or cut_id >= 32:
+                raise ValueError("cut_id must be in the range [0,31]")
+        elif isinstance(cut_id, bytes) or isinstance(cut_id, str):
+            boolean_cut_fields = self.tes_group.boolean_cut_desc
+            g = boolean_cut_fields["name"] == cut_id.encode()
+            if not np.any(g):
+                raise ValueError(cut_id + " is not found.")
+
+        # determine if allowed is a sequence or a sequence of sequences
+        if np.size(allowed[0]) == 2 or allowed[0] == 'invert':
+            doInvert = False
+            cut_vec = np.ones_like(data, dtype='bool')
+            for element in allowed:
+                if np.size(element) == 2:
+                    try:
+                        a, b = element
+                        if a is not None and b is not None:
+                            index = np.logical_and(data[:] >= a, data[:] <= b)
+                        elif a is not None:
+                            index = data[:] >= a
+                        elif b is not None:
+                            index = data[:] <= b
+                        cut_vec[index] = False
+                    except:
+                        raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid' %
+                                         str(element))
+                elif element == 'invert':
+                    doInvert = True
+            if doInvert:
+                self.cut(cut_id, ~cut_vec)
+            else:
+                self.cut(cut_id, cut_vec)
+        else:
+            try:
+                a, b = allowed
+                if a and b:
+                    self.cut(cut_id, (data[:] <= a) | (data[:] >= b))
+                else:
+                    if a is not None:
+                        self.cut(cut_id, data[:] <= a)
+                    if b is not None:
+                        self.cut(cut_id, data[:] >= b)
+            except ValueError:
+                raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'
+                                 % str(allowed))
+
     def select_category(self, **kwargs):
         """ Select pulses belongs to all of specified categories.
 
