@@ -115,6 +115,7 @@ class CubicSpline(object):
             self.yprimeN = self.dy[-1]/self.dx[-1] + self.dx[-1]*(self._y2[-2]/6.+self._y2[-1]/3.)
 
     def __call__(self, x, der=0):
+        scalar = np.isscalar(x)
         x = np.asarray(x)
         if x.size == 0:
             return np.array([])
@@ -170,6 +171,8 @@ class CubicSpline(object):
             elif der > 3:
                 result[interp] = .0
 
+        if scalar:
+            result = result[()]
         return result
 
 
@@ -370,6 +373,8 @@ class SmoothingSpline(object):
     def __call__(self, x, der=0):
         """Return the value of (the `der`th derivative of) the smoothing spline
         at data points `x`."""
+        scalar = np.isscalar(x)
+        x = np.asarray(x)
         splresult = splev(x, (self.basis.padknots, self.coeff, 3), der=der)
         low = x<self.x[0]
         high = x>self.x[-1]
@@ -377,6 +382,8 @@ class SmoothingSpline(object):
             splresult[low] = self.lowline(x[low]-self.x[0])
         if np.any(high):
             splresult[high] = self.highline(x[high]-self.x[-1])
+        if scalar:
+            splresult = splresult[()]
         return splresult
 
 

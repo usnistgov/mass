@@ -100,17 +100,26 @@ class EnergyCalibration(object):
     Object to store information relevant to one detector's absolute energy
     calibration and to offer conversions between pulse height and energy.
 
-    The conversion function depends on the number of calibration points known so
-    far.  The point (ph=0, energy=0) is always known.  If there is one additional
-    non-trivial point known, then the conversion is linear.  If there are two
-    non-trivial points known, then the conversion is quadratic.  If there are at
-    least three non-trivial points known, then the conversion is a smoothing
-    cubic spline.  (Adjust self.smooth if you don't like the default value of
-    1 eV smoothing).
+    The behavior is goverened by the constructor arguments `loglog`, `approximate`,
+    and `zerozero` and by the number of data points. The construction-time arguments
+    can be changed by calling EnergyCalibration.use_loglog() and similar.
 
-    The inverse conversion self.energy2ph **for now** works only on a scalar energy.
-    It calls Brent's method of root-finding.  Fix this method if you find that you
-    need to solve for vectors of energy->PH conversions.
+    loglog -- Whether to spline in log(E) vs log(PH) space. Default: yes. If not,
+              then splines are in E vs PH.
+    approximate -- Whether to construct a smoothing spline (minimal curvature
+            subject to a condition that chi-squared not be too large). If not,
+            curve will be an exact spline in E vs PH or in log(E) vs log(PH).
+    zerozero -- Only used when loglog==False. Whether to include the implicit
+            points PH=0 and E=0 in the curve.
+
+    The forward conversion from PH to E uses the callable __call__ method or its synonym,
+    the method ph2energy.
+
+    The inverse conversion method energy2ph calls Brent's method of root-finding.
+    It's probably quite slow compared to a self.ph2energy for an array of equal length.
+
+    All of __call__, ph2energy, and energy2ph should return a scalar when given a
+    scalar input, or a matching numpy array when given any sequence as an imput.
     """
 
     def __init__(self, nonlinearity=1.1, loglog=True, approximate=True, zerozero=True):
@@ -137,6 +146,7 @@ class EnergyCalibration(object):
         self._use_loglog = loglog
         self._use_zerozero = zerozero
         self._model_is_stale = False
+        self._e2phwarned = False
 
     def __call__(self, pulse_ht):
         "Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV)."
@@ -157,7 +167,13 @@ class EnergyCalibration(object):
         if self._model_is_stale:
             self._update_converters()
         energy_residual = lambda ph, etarget: self._ph2energy_anon(ph)-etarget
-        return sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(energy,))
+        if np.isscalar(energy):
+            return sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(energy,))
+        elif len(energy) > 10 and not self._e2phwarned:
+            print "WARNING: EnergyCalibration.energy2ph can be slow for long inputs."
+            self._e2phwarned = False
+        result = [sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
+        return np.array(result)
 
     def energy2dedph(self, energy, denergy=1):
         """Calculate the slope between <energy-denergy> and <energy>+<denergy> with two points.
