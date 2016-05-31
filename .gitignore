@@ -21,3 +21,5 @@ TAGS
 # Cython produces C source files
 mass/core/*.c
 mass/mathstat/*.c
+
+mass/test/*.hdf5

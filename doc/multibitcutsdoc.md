@@ -4,9 +4,9 @@ There are two types of cut fields, `boolean` and `categorical`.
 
 #### Boolean 
 ```
-ds.good() # works as normal returning True for pulses that are good by every boolean critera
-ds.good("pretrigger_rms") # returns True for pulses that are good by the "pretrigger_rms" critera, ignoring all other boolean fields
-ds.cuts.cut("pretrigger_rms",boolvec) # changes the contents of the "pretrigger_rms" cut field to match the values in boolvec (on entry per pulse)
+ds.good()  # works as normal returning True for pulses that are good by every boolean criterion.
+ds.good("pretrigger_rms")  # returns True for pulses that are good by the "pretrigger_rms" critera, ignoring all other boolean fields.
+ds.cuts.cut("pretrigger_rms", boolvec)  # changes the contents of the "pretrigger_rms" cut field to match the values in boolvec (one entry per pulse)
 
 # the default boolean cut fields are
 In [7]: data.boolean_cut_desc
@@ -35,31 +35,41 @@ Categorical cuts are used when you want to evaluate your pulses as different gro
 By default every pulse is in `in`. The functions `ds.drift_correct`, `ds.phase_correct_2014`, and `ds.calibrate` all use the category `in` by default. So if you want to use only some pulses for calibration, you can do this for each dataset.
 
 ```
-ds.cuts.cut_categorical("calibration",{"in":use_for_calibration,
-                                    "out":~use_for_calibration})
+# Here, use_for_calibration is a 32 bit unsigned integer numpy array
+# of length ds.nPulses.
+ds.cuts.cut_categorical("calibration", {"in": use_for_calibration,
+                                        "out": ~use_for_calibration})
 ```
 
-If you want to register a new categorical cut, for example in a pump-probe experiment you may want to cut based on delay stage position. You would do
-`data.register_categorical_cut_field("pump",["pumped",unpumped"])`, this registers a new 2 bit field to represent 3 categories "pumped", "unpumped", and "uncategorized". By default all pulses are in "uncategorized" (calibration is weird because it's default category is "in"). To apply the cut we do
+If you want to register a new categorical cut field, for example in a pump-probe experiment you may want to cut based on optical pumps. You would do
+`data.register_categorical_cut_field("pump",["pumped",unpumped"])`, this registers a new 2 bit field to represents 3 categories "pumped", "unpumped", and "uncategorized". By default all pulses are in "uncategorized" (calibration is weird because it's default category is "in"). To apply the cut we do
 `ds.cuts.cut_categorical("pump",{"pumped":pumped_bool, "unpumped":unpumped_bool})`. `pumped_bool` is a 1 per pulse vector of bools, `True` for the ones that are pumped. If any pulses have `True` in both `pumped_bool` and `unpumped_bool`
 it will raise an error. If any pulses have `False` in both, those pulses will be assigned to "uncategorized".
 
 ```
-ds.good(pump="pumped") # returns True for pulses that pass all boolean cut fields AND is in category pumped
-data.drift_correct(forceNew=False,category={"pump":"pumped"}) # does drift correct with only "pump":"pumped" pulses instead of "calibration":"in"
+ds.good(pump="pumped")  # returns True for pulses that pass all boolean cut fields AND is in the category "pumped".
+data.drift_correct(forceNew=False,category={"pump":"pumped"})  # does drift correct with only "pump":"pumped" pulses instead of "calibration":"in"
+
 ```
 
-There is an alternate API that may be more convenient in some cases. Imagine we have an experiment with a delay stage that was in many positions thruout the experiment.
+If you want to remove a categorical cut, or change the categories within the cut, you can use the following:
+
+```
+data.unregister_categorical_cut_field("pump")
+```
+
+
+There is an alternate API that may be more convenient in some cases. Imagine we have an experiment with a delay stage that was in many positions throughout the experiment.
 
 ```
 data.register_categorical_cut_field("delay",["-150mm","-100mm","-50mm",...,"200mm"])  # Register a categorical cut field named "delay".
-categories = data.cut_field_categories("delay") # gets a dict of category label ("-150mm") to category code (1)
-category_codes = np.zeros(ds.nPulses, dtype=np.int64) # note 0 is always the default category, unless otherwise specified named "uncategorized"
+categories = data.cut_field_categories("delay")  # gets a dict of category label ("-150mm") to category code (1)
+category_codes = np.zeros(ds.nPulses, dtype=np.uint32)  # note 0 is always the default category, unless otherwise specified named "uncategorized"
 
 for i in range(ds.nPulses):
     delay_stage_pos = get_delay_stage_pos(i)
     category_codes[i]=categories[delay_stage_pos] # category_codes is a one per pulse vector with integer valued codes, each integer corresponds to a category label in the dictionary categories
-    ds.cuts.cut("delay", category_codes)
+ds.cuts.cut("delay", category_codes)
 ```
 
 

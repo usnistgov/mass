@@ -20,9 +20,10 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
+import os
+
 import numpy as np
 import matplotlib.pylab as plt
-import os
 import h5py
 
 import mass.core.analysis_algorithms
@@ -30,6 +31,8 @@ import mass.calibration.energy_calibration
 import mass.nonstandard.CDM
 
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
+from mass.core.cython_channel import CythonMicrocalDataSet
+from mass.core.cut import CutFieldMixin
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
 
@@ -96,45 +99,18 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
                     hdf5_noisefilename=hdf5noisename)
 
 
+<<<<<<< HEAD
 
 class TESGroup(object):
+=======
+class TESGroup(CutFieldMixin):
+>>>>>>> develop
     """
     Provides the interface for a group of one or more microcalorimeters,
     multiplexed by TDM.
     """
 
     BRIGHT_ORANGE = '#ff7700'
-
-    BUILTIN_BOOLEAN_CUT_FIELDS = ['pretrigger_rms',
-                                  'pretrigger_mean',
-                                  'pretrigger_mean_departure_from_median',
-                                  'peak_time_ms',
-                                  'rise_time_ms',
-                                  'postpeak_deriv',
-                                  'pulse_average',
-                                  'min_value',
-                                  'timestamp_sec',
-                                  'timestamp_diff_sec',
-                                  'peak_value',
-                                  'energy',
-                                  'timing',
-                                  "p_filt_phase",
-                                  'smart_cuts']
-
-    # Categorical cut field item format
-    # [name of field, list of categories, default category]
-    BUILTIN_CATEGORICAL_CUT_FIELDS = [
-        ['calibration', ['in', 'out'], 'in'],
-    ]
-
-    __cut_boolean_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
-                                               ("mask", np.uint32)])
-    __cut_categorical_field_desc_dtype = np.dtype([("name", np.bytes_, 64),
-                                                   ("pos", np.uint8),
-                                                   ("mask", np.uint32)])
-    __cut_category_list_dtype = np.dtype([("field", np.bytes_, 64),
-                                          ("category", np.bytes_, 64),
-                                          ("index", np.uint8)])
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
@@ -169,23 +145,7 @@ class TESGroup(object):
             self.hdf5_file = h5py.File(hdf5_filename, 'a')
 
         # Cut parameter description need to initialized.
-        if self.hdf5_file:
-            if "cut_num_used_bits" not in self.hdf5_file.attrs:
-                self.hdf5_file.attrs["cut_num_used_bits"] = 0
-
-            if "cut_boolean_field_desc" not in self.hdf5_file.attrs:
-                self.hdf5_file.attrs["cut_boolean_field_desc"] = np.zeros(32, dtype=self.__cut_boolean_field_desc_dtype)
-                self.register_boolean_cut_fields(*self.BUILTIN_BOOLEAN_CUT_FIELDS)
-
-            if ("cut_categorical_field_desc" not in self.hdf5_file.attrs) and \
-                    ("cut_category_list" not in self.hdf5_file):
-                self.hdf5_file.attrs["cut_categorical_field_desc"] = \
-                    np.zeros(0, dtype=self.__cut_categorical_field_desc_dtype)
-                self.hdf5_file.attrs["cut_category_list"] =\
-                    np.zeros(0, dtype=self.__cut_category_list_dtype)
-
-                for categorical_desc in self.BUILTIN_CATEGORICAL_CUT_FIELDS:
-                    self.register_categorical_cut_field(*categorical_desc)
+        self.cut_field_desc_init()
 
         # Same for noise filenames
         self.noise_filenames = None
@@ -232,94 +192,12 @@ class TESGroup(object):
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
                 self.set_segment_size(max_cachesize // self.n_channels)
 
-    @property
-    def boolean_cut_desc(self):
-        return self.hdf5_file.attrs["cut_boolean_field_desc"]
-
-    @boolean_cut_desc.setter
-    def boolean_cut_desc(self, value):
-        self.hdf5_file.attrs["cut_boolean_field_desc"] = value
-
-    @property
-    def categorical_cut_desc(self):
-        return self.hdf5_file.attrs["cut_categorical_field_desc"]
-
-    @categorical_cut_desc.setter
-    def categorical_cut_desc(self, value):
-        self.hdf5_file.attrs["cut_categorical_field_desc"] = value
-
-    @property
-    def cut_category_list(self):
-        return self.hdf5_file.attrs["cut_category_list"]
-
-    @cut_category_list.setter
-    def cut_category_list(self, value):
-        self.hdf5_file.attrs["cut_category_list"] = value
-
-    @property
-    def cut_num_used_bits(self):
-        return self.hdf5_file.attrs["cut_num_used_bits"]
-
-    @cut_num_used_bits.setter
-    def cut_num_used_bits(self, value):
-        self.hdf5_file.attrs["cut_num_used_bits"] = value
-
-    def cut_field_categories(self, field_name):
-        category_list = self.cut_category_list
-
-        return {name.decode(): index for field, name, index in category_list if field == field_name.encode()}
-
-    def register_boolean_cut_fields(self, *names):
-        num_used_bits = self.cut_num_used_bits
-        boolean_fields = self.boolean_cut_desc
-
-        new_fields = [n.encode() for n in names if n.encode() not in boolean_fields["name"]]
-
-        if new_fields:
-            new_boolean_field_desc = np.array([(name, 1 << (i + num_used_bits)) for i, name in enumerate(new_fields)],
-                                              dtype=self.__cut_boolean_field_desc_dtype)
-            boolean_fields[num_used_bits:num_used_bits + len(new_fields)] = new_boolean_field_desc
-            self.boolean_cut_desc = boolean_fields
-            self.cut_num_used_bits += len(new_fields)
-
-    def register_categorical_cut_field(self, name, categories, default="uncategorized"):
-        categorical_fields = self.categorical_cut_desc
-        if name.encode() in categorical_fields["name"]:
-            return
-
-        # categories might be an immutable tuple.
-        category_list = list(categories)
-
-        # if the default category is already included, it's temporarily removed from the category_list
-        # and insert into at the head of the category_list.
-        if default in category_list:
-            category_list.remove(default)
-        category_list.insert(0, default)
-
-        # Updates the 'cut_category_list' attribute
-        new_list = np.array([(name.encode(), category.encode(), i) for i, category in enumerate(category_list)],
-                            dtype=self.__cut_category_list_dtype)
-        self.cut_category_list = np.hstack([self.cut_category_list,
-                                            new_list])
-
-        # Needs to update the 'cut_categorical_field_desc' attribute.
-        num_bits = 1
-        while (1 << num_bits) < len(category_list):
-            num_bits += 1
-
-        field_desc_item = np.array([(name.encode(),
-                                     self.cut_num_used_bits,
-                                     ((1 << num_bits) - 1) << self.cut_num_used_bits)],
-                                   dtype=self.__cut_categorical_field_desc_dtype)
-        self.categorical_cut_desc = np.hstack([categorical_fields, field_desc_item])
-        self.cut_num_used_bits += num_bits
-
     def _setup_per_channel_objects(self, noise_is_continuous=True):
         pulse_list = []
         noise_list = []
         dset_list = []
-        for i, fname in enumerate(self.filenames):
 
+        for i, fname in enumerate(self.filenames):
             # Create the pulse records file interface and the overall MicrocalDataSet
             pulse = PulseRecords(fname)
             print("%s %i" % (fname, pulse.nPulses))
@@ -333,7 +211,7 @@ class TESGroup(object):
             except:
                 hdf5_group = None
 
-            dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
+            dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
@@ -353,6 +231,7 @@ class TESGroup(object):
                 dset.noise_records = noise
                 assert(dset.channum == dset.noise_records.channum)
                 noise_list.append(noise)
+
             pulse_list.append(pulse)
             dset_list.append(dset)
 
@@ -618,7 +497,7 @@ class TESGroup(object):
             yield first_rnum, end_rnum
 
     def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0,
-                       include_badchan=False, forceNew=False):
+                       include_badchan=False, forceNew=False, use_cython=True):
         """
         Compute summary quantities for each pulse.
         We are (July 2014) developing a Julia replacement for this, but you can use Python
@@ -633,7 +512,7 @@ class TESGroup(object):
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
             try:
                 self.channel[chan].summarize_data(peak_time_microsec,
-                                                  pretrigger_ignore_microsec, forceNew)
+                                                  pretrigger_ignore_microsec, forceNew, use_cython=use_cython)
                 printUpdater.update((i + 1) / nchan)
                 self.hdf5_file.flush()
             except:
@@ -659,17 +538,17 @@ class TESGroup(object):
                         g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_after_last_external_trigger
-                        ds._rows_after_last_external_trigger = g
+                        #ds._rows_after_last_external_trigger = g
                     if until_next:
                         g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_until_next_external_trigger
-                        ds._rows_until_next_external_trigger = g
+                        #ds._rows_until_next_external_trigger = g
                     if from_nearest:
                         g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = np.fmin(rows_after_last_external_trigger, rows_until_next_external_trigger)
-                        ds._rows_from_nearest_external_trigger = g
+                        #ds._rows_from_nearest_external_trigger = g
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 
@@ -683,7 +562,7 @@ class TESGroup(object):
         return ds.read_trace(record_num)
 
     def plot_traces(self, pulsenums, dataset_num=0, chan_num=None, pulse_summary=True, axis=None,
-                    difference=False, residual=False, valid_status=None):
+                    difference=False, residual=False, valid_status=None, channum=None, shift1=False):
         """Plot some example pulses, given by sample number.
         <pulsenums>   A sequence of sample numbers, or a single one.
         <dataset_num> Dataset index (0 to n_dets-1, inclusive).  Will be used only if
@@ -697,8 +576,12 @@ class TESGroup(object):
                      or just raw data.
         <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                      that have been cut.  If "cut", show only those that have been cut.
+        <channum>    Synonym for chan_num (an unfortunate but old choice)
+        <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
         """
 
+        if chan_num is None:
+            chan_num = channum
         if chan_num in self.channel:
             dataset = self.channel[chan_num]
             dataset_num = dataset.index
@@ -707,7 +590,7 @@ class TESGroup(object):
             if chan_num is not None:
                 print("Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num))
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
-                                   residual, valid_status)
+                                   residual, valid_status, shift1)
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
                        dataset_numbers=None):
@@ -718,13 +601,14 @@ class TESGroup(object):
 
         <quantity> A case-insensitive whitespace-ignored one of the following list, or the numbers
                    that go with it:
-                   "Pulse Avg" (0)
-                   "Pretrig RMS" (1)
-                   "Pretrig Mean" (2)
-                   "Peak Value" (3)
-                   "Max PT Deriv" (4)
-                   "Rise Time" (5)
-                   "Peak Time" (6)
+                   "Pulse RMS" (0)
+                   "Pulse Avg" (1)
+                   "Peak Value" (2)
+                   "Pretrig RMS" (3)
+                   "Pretrig Mean" (4)
+                   "Max PT Deriv" (5)
+                   "Rise Time" (6)
+                   "Peak Time" (7)
 
         <valid> The words 'uncut' or 'cut', meaning that only uncut or cut data are to be plotted
                 *OR* None, meaning that all pulses should be plotted.
@@ -740,11 +624,12 @@ class TESGroup(object):
         """
 
         plottables = (
-            ("p_pulse_average", 'Pulse Avg', 'purple', [0, 5000]),
-            ("p_pretrig_rms", 'Pretrig RMS', 'blue', [0, 4000]),
-            ("p_pretrig_mean", 'Pretrig Mean', 'green', None),
-            ("p_peak_value", 'Peak value', '#88cc00', None),
-            ("p_postpeak_deriv", 'Max PT deriv', 'gold', [0, 700]),
+            ("p_pulse_rms", 'Pulse RMS', 'magenta', None),
+            ("p_pulse_average", 'Pulse Avg', 'purple', [0,5000]),
+            ("p_peak_value", 'Peak value', 'blue', None),
+            ("p_pretrig_rms", 'Pretrig RMS', 'green', [0, 4000]),
+            ("p_pretrig_mean", 'Pretrig Mean', '#88cc00', None),
+            ("p_postpeak_deriv", 'Max PostPk deriv', 'gold', [0, 700]),
             ("p_rise_time[:]*1e3", 'Rise time (ms)', 'orange', [0, 12]),
             ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3, 9])
         )
@@ -803,7 +688,8 @@ class TESGroup(object):
             else:
                 limits = hist_limits
 
-            vect = ds.__dict__[vect][valid_mask]
+            # Vectors are being sampled and multiplied, so eval() is needed.
+            vect = eval("ds.%s"%vect)[valid_mask]
 
             # Scatter plots on left half of figure
             if i == 0:
@@ -846,20 +732,20 @@ class TESGroup(object):
             if log:
                 plt.ylim(ymin=contents.min())
 
-    def make_masks(self, pulse_avg_ranges=None, pulse_peak_ranges=None,
-                   use_gains=True, gains=None, cut_crosstalk=False,
-                   max_ptrms=None, max_post_deriv=None):
+    def make_masks(self, pulse_avg_range=None,
+                   pulse_peak_range=None,
+                   pulse_rms_range=None,
+                   use_gains=True, gains=None):
         """Generate a sequence of masks for use in compute_average_pulses().
 
-        <use_gains>   Rescale the pulses by a set of "gains", either from <gains> or from
-                      the MicrocalDataSet.gain parameter if <gains> is None.
-        <gains>       The set of gains to use, overriding the self.datasets[*].gain, if
-                      <use_gains> is True.  (If False, this argument is ignored.)
-        <cut_crosstalk>  Whether to mask out events having nhits>1.  (Makes no sense in TDM data).
-        <max_ptrms>      When <cut_crosstalk>, we can also mask out events where any other channel
-                         has p_pretrig_rms exceeding <max_ptrms>
-        <max_post_deriv> When <cut_crosstalk>, we can also mask out events where any other channel
-                         has p_postpeak_deriv exceeding <max_post_deriv>
+        Arguments:
+        pulse_avg_range -- A 2-sequence giving the (minimum,maximum) p_pulse_average
+        pulse_peak_range -- A 2-sequence giving the (minimum,maximum) p_peak_value
+        pulse_rms_range --  A 2-sequence giving the (minimum,maximum) p_pulse_rms
+        use_gains -- Whether to rescale the pulses by a set of "gains", either from
+                     `gains` or from the ds.gain parameter if `gains` is None.
+        gains -- The set of gains to use, overriding the self.datasets[*].gain, if
+                 `use_gains` is True.  (If False, this argument is ignored.)
         """
 
         for ds in self:
@@ -873,160 +759,59 @@ class TESGroup(object):
         else:
             gains = np.ones(self.n_channels)
 
-        # Cut crosstalk only makes sense in CDM data
-        if cut_crosstalk and not isinstance(self, mass.nonstandard.CDM.CDMGroup):
-            print('Cannot cut crosstalk because this is not CDM data')
-            cut_crosstalk = False
+        nranges = 0
+        if pulse_avg_range is not None:
+            nranges += 1
+            vectname = "p_pulse_average"
+            pmin, pmax = pulse_avg_range
+        if pulse_peak_range is not None:
+            nranges += 1
+            vectname = "p_peak_value"
+            pmin, pmax = pulse_peak_range
+        if pulse_rms_range is not None:
+            nranges += 1
+            vectname = "p_pulse_rms"
+            pmin, pmax = pulse_rms_range
 
-        if not cut_crosstalk:
-            if max_ptrms is not None:
-                print("Warning: make_masks ignores max_ptrms when not cut_crosstalk")
-            if max_post_deriv is not None:
-                print("Warning: make_masks ignores max_post_deriv when not cut_crosstalk")
+        if nranges == 0:
+            raise ValueError("Call make_masks with one of pulse_avg_range"
+                             " pulse_rms_range, or pulse_peak_range specified.")
+        elif nranges > 1:
+            print("Warning: make_masks uses only one range argument.  Checking only '%s'."%vectname)
 
-        if pulse_avg_ranges is not None:
-            if pulse_peak_ranges is not None:
-                print("Warning: make_masks uses only one range argument.  Ignoring pulse_peak_ranges.")
-
-            if isinstance(pulse_avg_ranges[0], (int, float)) and len(pulse_avg_ranges) == 2:
-                pulse_avg_ranges = tuple(pulse_avg_ranges),
-
-            for r in pulse_avg_ranges:
-                middle = 0.5 * (r[0] + r[1])
-                abslim = 0.5 * np.abs(r[1] - r[0])
-                for gain, dataset in zip(gains, self.datasets):
-                    m = np.abs(dataset.p_pulse_average[:] / gain - middle) <= abslim
-                    if cut_crosstalk:
-                        m = np.logical_and(m, self.nhits == 1)
-                        if max_ptrms is not None:
-                            for ds in self.datasets:
-                                if ds == dataset:
-                                    continue
-                                m = np.logical_and(m, ds.p_pretrig_rms < max_ptrms)
-                        if max_post_deriv is not None:
-                            for ds in self.datasets:
-                                if ds == dataset:
-                                    continue
-                                m = np.logical_and(m, ds.p_postpeak_deriv < max_post_deriv)
-                    m = np.logical_and(m, dataset.cuts.good())
-                    masks.append(m)
-
-        elif pulse_peak_ranges is not None:
-            if isinstance(pulse_peak_ranges[0], (int, float)) and len(pulse_peak_ranges) == 2:
-                pulse_peak_ranges = tuple(pulse_peak_ranges),
-            for r in pulse_peak_ranges:
-                middle = 0.5 * (r[0] + r[1])
-                abslim = 0.5 * np.abs(r[1] - r[0])
-                for gain, dataset in zip(gains, self.datasets):
-                    m = np.abs(dataset.p_peak_value[:] / gain - middle) <= abslim
-                    if cut_crosstalk:
-                        m = np.logical_and(m, self.nhits == 1)
-                        if max_ptrms is not None:
-                            for ds in self.datasets:
-                                if ds == dataset:
-                                    continue
-                                m = np.logical_and(m, ds.p_pretrig_rms < max_ptrms)
-                        if max_post_deriv is not None:
-                            for ds in self.datasets:
-                                if ds == dataset:
-                                    continue
-                                m = np.logical_and(m, ds.p_postpeak_deriv < max_post_deriv)
-                    m = np.logical_and(m, dataset.cuts.good())
-                    masks.append(m)
-        else:
-            raise ValueError("Call make_masks with only one of pulse_avg_ranges"
-                             " and pulse_peak_ranges specified.")
-
+        middle = 0.5 * (pmin + pmax)
+        abs_lim = 0.5 * np.abs(pmax - pmin)
+        for gain, dataset in zip(gains, self.datasets):
+            v = dataset.__dict__[vectname][:]
+            m = np.abs(v / gain - middle) <= abs_lim
+            m = np.logical_and(m, dataset.cuts.good())
+            masks.append(m)
         return masks
 
     def compute_average_pulse(self, masks, subtract_mean=True, forceNew=False):
-        """
-        Compute several average pulses in each TES channel, one per mask given in
-        <masks>.  Store the averages in self.datasets.average_pulse with shape (m,n)
-        where m is the number of masks and n equals self.nPulses (the # of records).
+        """Compute an average pulse in each TES channel.
 
+        Store the averages in self.datasets.average_pulse, a length nSamp vector.
         Note that this method replaces any previously computed self.datasets.average_pulse
 
-        <masks> is either an array of shape (m,n) or an array (or other sequence) of length
-        (m*n).  It's required that n equal self.nPulses.   In the second case,
-        m must be an integer.  The elements of <masks> should be booleans or interpretable
-        as booleans.
+        `masks` -- a sequence of length self.n_channels, one sequence per channel.
+        The elements of `masks` should be booleans or interpretable as booleans.
 
-        If <subtract_mean> is True, then each average pulse will subtract a constant
+        `subtract_mean` -- whether each average pulse will subtract a constant
         to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
         """
+        if len(masks) != len(self.datasets):
+            raise ValueError("masks must include exactly one mask per data channel")
 
-        # Don't proceed if not necessary and not forced
-        already_done = all([ds.average_pulse[-1] != 0 for ds in self])
-        if already_done and not forceNew:
-            print("skipping compute average pulse")
-            return
-
-        # Make sure that masks is either a 2D or 1D array of the right shape,
-        # or a sequence of 1D arrays of the right shape
-        if isinstance(masks, np.ndarray):
-            nd = masks.ndim
-            if nd == 1:
-                n = len(masks)
-                masks = masks.reshape((n // self.nPulses, self.nPulses))
-            elif nd > 2:
-                raise ValueError("masks argument should be a 2D array or a sequence of 1D arrays")
-            nbins = masks.shape[0]
-        else:
-            nbins = len(masks)
-
+        # Make sure that masks is a sequence of 1D arrays of the right shape
         for i, m in enumerate(masks):
             if not isinstance(m, np.ndarray):
                 raise ValueError("masks[%d] is not a np.ndarray" % i)
 
-        pulse_counts = np.zeros((self.n_channels, nbins))
-        pulse_sums = np.zeros((self.n_channels, nbins, self.nSamples), dtype=np.float)
-
-        # Compute a master mask to say whether ANY mask wants a pulse from each segment
-        # This can speed up work a lot when the pulses being averaged are from certain times only.
-        segment_mask = np.zeros(self.n_segments, dtype=np.bool)
-        for m in masks:
-            n = len(m)
-            nseg = 1 + (n - 1) // self.pulses_per_seg
-            for i in range(nseg):
-                if segment_mask[i]:
-                    continue
-                a, b = self.segnum2sample_range(i)
-                if m[a:b].any():
-                    segment_mask[i] = True
-            a, b = self.segnum2sample_range(nseg + 1)
-            if a < n and m[a:].any():
-                segment_mask[nseg + 1] = True
-
-        printUpdater = InlineUpdater('compute_average_pulse')
-        for first, end in self.iter_segments(segment_mask=segment_mask):
-            printUpdater.update(end / float(self.nPulses))
-            for imask, mask in enumerate(masks):
-                valid = mask[first:end]
-                for ichan, chan in enumerate(self.datasets):
-                    if chan.channum not in self.why_chan_bad:
-                        if (imask % self.n_channels) != ichan:
-                            continue
-
-                        if mask.shape != (chan.nPulses,):
-                            raise ValueError("\nmasks[%d] has shape %s, but it needs to be (%d,)" %
-                                             (imask, mask.shape, chan.nPulses))
-                        if len(valid) > chan.data.shape[0]:
-                            good_pulses = chan.data[valid[:chan.data.shape[0]], :]
-                        else:
-                            good_pulses = chan.data[valid, :]
-                        pulse_counts[ichan, imask] += good_pulses.shape[0]
-                        pulse_sums[ichan, imask, :] += good_pulses.sum(axis=0)
-
-        # Rescale and store result to each MicrocalDataSet
-        pulse_sums /= pulse_counts.reshape((self.n_channels, nbins, 1))
-        for ichan, ds in enumerate(self.datasets):
-            average_pulses = pulse_sums[ichan, :, :]
-            if subtract_mean:
-                for imask in range(average_pulses.shape[0]):
-                    average_pulses[imask, :] -= np.mean(average_pulses[imask,
-                                                                       :self.nPresamples - ds.pretrigger_ignore_samples])
-            ds.average_pulse[:] = average_pulses[ichan, :]
+        for (mask,ds) in zip(masks,self.datasets):
+            if ds.channum not in self.good_channels:
+                continue
+            ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
     def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
         """Plot average pulse for cahannel number <channum> on matplotlib.Axes <axis>, or
@@ -1113,13 +898,6 @@ class TESGroup(object):
                     h5grp.attrs['fmax'] = f.fmax
                 h5grp.attrs['peak'] = f.peak_signal
                 h5grp.attrs['shorten'] = f.shorten
-                # for k, v in ds.filter.__dict__.items():
-                #     if not k.startswith("filt_"):
-                #         continue
-                #     if k in h5grp:
-                #         del h5grp[k]
-                #     vec = h5grp.create_dataset(k, data=v)
-                #     vec.attrs['variance'] = f.variances.get(k[5:], 0)
                 for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                           "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
                     if k in h5grp:
@@ -1187,7 +965,7 @@ class TESGroup(object):
                 print("Filter %d can't be used" % i)
                 print(e)
 
-    def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False, use_cython=True):
         printUpdater = InlineUpdater('filter_data')
         if include_badchan:
             nchan = float(len(self.channel.keys()))
@@ -1195,7 +973,8 @@ class TESGroup(object):
             nchan = float(self.num_good_channels)
 
         for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
-            self.channel[chan].filter_data(filter_name, transform, forceNew)
+            self.channel[chan].filter_data(filter_name, transform, forceNew, use_cython=use_cython)
+
             printUpdater.update((i + 1) / nchan)
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
@@ -1268,11 +1047,11 @@ class TESGroup(object):
             dt = (ds.p_timestamp[good][-1] * 1.0 - ds.p_timestamp[good][0])  # seconds
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse - 1.0) / dt
-#            grate = (ng-1.0)/dt
             print('chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' %
                   (ds.channum, npulse, rate, dt / 3600., 100.0 * ng / npulse))
 
-    def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None):
+    def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None,
+        legend=True):
         """Compare the noise autocorrelation functions.
 
         <channels>    Sequence of channels to display.  If None, then show all.
@@ -1295,11 +1074,11 @@ class TESGroup(object):
             noise = ds.noise_records
             noise.plot_autocorrelation(axis=axis, label='TES %d' % i,
                                        color=cmap(float(i) / self.n_channels))
-#        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         axis.set_xlabel("Time lag (ms)")
-        plt.legend(loc='best')
-        ltext = axis.get_legend().get_texts()
-        plt.setp(ltext, fontsize='small')
+        if legend:
+            plt.legend(loc='best')
+            ltext = axis.get_legend().get_texts()
+            plt.setp(ltext, fontsize='small')
 
     def save_pulse_energies_ascii(self, filename='all'):
         filename += '.energies'
@@ -1367,17 +1146,20 @@ class TESGroup(object):
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
 
-    def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False, cmap=None):
+    def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False,
+                   cmap=None, legend=True):
         """Compare the noise power spectra.
 
         <channels>    Sequence of channels to display.  If None, then show all.
         <scale_factor> Multiply counts by this number to get physical units.
         <sqrt_psd>     Whether to show the sqrt(PSD) or (by default) the PSD itself.
         <cmap>         A matplotlib color map.  Defaults to something.
+        `legend` -- Whether to plot the legend
         """
 
         if channels is None:
-            channels = np.arange(self.n_channels)
+            channels = list(self.channel.keys())
+            channels.sort()
 
         if axis is None:
             plt.clf()
@@ -1391,23 +1173,25 @@ class TESGroup(object):
         axis.grid(True)
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
-        for ds_num, ds in enumerate(self):
+        for ds_num,channum in enumerate(channels):
+            if channum not in self.channel: continue
+            ds = self.channel[channum]
             yvalue = ds.noise_records.noise_psd[:] * scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
                 axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)" % units)
             df = ds.noise_records.noise_psd.attrs['delta_f']
             freq = np.arange(1, 1 + len(yvalue)) * df
-            axis.plot(freq, yvalue, label='TES chan %d' % ds.channum,
-                      color=cmap(float(ds_num) / self.n_channels))
+            axis.plot(freq, yvalue, label='TES chan %d' % channum,
+                      color=cmap(float(ds_num) / len(channels)))
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
-
         axis.loglog()
-        plt.legend(loc='best')
-        ltext = axis.get_legend().get_texts()
-        plt.setp(ltext, fontsize='small')
+        if legend:
+            plt.legend(loc='best')
+            ltext = axis.get_legend().get_texts()
+            plt.setp(ltext, fontsize='small')
 
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         for ds in self:
@@ -1418,19 +1202,38 @@ class TESGroup(object):
             ds.apply_cuts(cuts, forceNew)
 
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
-        median_pulse_avg = np.array([np.median(ds.p_pulse_average[ds.good()]) for ds in self])
+        """
+        Compute average pulse using an automatically generated mask of
+        +- 5%% around the median pulse_average value. Use no more than
+        the first `max_pulses_to_use` good pulses.
+        """
+        median_pulse_avg = np.ones(self.n_channels, dtype=float)
+        for i,ds in enumerate(self.datasets):
+            if ds.good().sum() > 0:
+                median_pulse_avg[i] = np.median(ds.p_pulse_average[ds.good()])
+            else:
+                self.set_chan_bad(ds.channum, "No good pulses")
         masks = self.make_masks([.95, 1.05], use_gains=True, gains=median_pulse_avg)
         for m in masks:
-            if len(m) > max_pulses_to_use:
-                m[max_pulses_to_use:] = False
+            if np.sum(m) > max_pulses_to_use:
+                good_so_far = np.cumsum(m)
+                stop_at = (good_so_far == max_pulses_to_use).argmax()
+                m[stop_at+1:] = False
         self.compute_average_pulse(masks, forceNew=forceNew)
 
     def drift_correct(self, forceNew=False, category=None):
         for ds in self:
             try:
                 ds.drift_correct(forceNew, category)
-            except ValueError:
+            except:
                 self.set_chan_bad(ds.channum, "failed drift correct")
+
+    def phase_correct(self, plot=False, forceNew=False, category=None):
+        for ds in self:
+            try:
+                ds.phase_correct(forceNew=forceNew, category=category)
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "failed phase_correct with %s"%e)
 
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
                           plot=False, forceNew=False, pre_sanitize_p_filt_phase=True, category=None):
@@ -1444,19 +1247,19 @@ class TESGroup(object):
 
     def sanitize_p_filt_phase(self):
         ds = self.first_good_dataset
-        cutnum = ds.CUT_NAME.index("p_filt_phase")
-        print("p_filt_phase_cut")
+        self.register_boolean_cut_fields("filt_phase")
+        print("filt_phase cut")
         for ds in self:
-            ds.cut_parameter(ds.p_filt_phase, (-2, 2), cutnum)
+            ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:])>2)
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2, category=None, forceNew=False):
+                  bin_size_ev=2, category=None, forceNew=False, maxacc=0.015, nextra=3):
         for ds in self:
             try:
                 ds.calibrate(attr, line_names, name_ext, size_related_to_energy_resolution,
                              fit_range_ev, excl, plot_on_fail,
-                             bin_size_ev, category, forceNew)
+                             bin_size_ev, category, forceNew, maxacc, nextra)
             except:
                 self.set_chan_bad(ds.channum, "failed calibration %s" % attr + name_ext)
         self.convert_to_energy(attr, attr + name_ext)

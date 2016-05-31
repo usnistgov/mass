@@ -40,6 +40,7 @@ import os
 import sys
 import time
 import glob
+import struct
 from distutils.version import StrictVersion
 
 # Beware that the Mac Ports install of ROOT does not add
@@ -346,18 +347,33 @@ class LJHFile(MicrocalFile):
         first_slice = None
         second_slice = slice(None, None)
 
-        if isinstance(item, slice):
-            first_slice = item
+        if isinstance(item, np.ndarray):
+            if item.ndim == 1 and item.dtype == np.bool:
+                trace_range = np.arange(self.nPulses, dtype=np.int32)[item]
+                num_samples = self.nSamples
+        elif isinstance(item, list):
+            try:
+                trace_range = np.array(item, dtype=np.uint32)
 
-        if isinstance(item, tuple):
-            if len(item) is not 2:
-                raise ValueError("Not supported dimensions!")
-            first_slice = item[0]
-            second_slice = item[1]
+                if trace_range.ndim != 1:
+                    raise ValueError("Unsupported list type.")
+                num_samples = self.nSamples
+            except ValueError:
+                raise ValueError("Unsupported list type.")
+        else:
+            if isinstance(item, slice):
+                first_slice = item
 
-        trace_range = range(self.nPulses)[first_slice]
+            if isinstance(item, tuple):
+                if len(item) is not 2:
+                    raise ValueError("Not supported dimensions!")
+                first_slice = item[0]
+                second_slice = item[1]
+
+            trace_range = range(self.nPulses)[first_slice]
+            num_samples = len(range(self.nSamples)[second_slice])
+
         num_traces = len(trace_range)
-        num_samples = len(range(self.nSamples)[second_slice])
 
         last_segment = trace_range[0] // self.pulses_per_seg
         self.read_segment(last_segment)
@@ -744,56 +760,16 @@ class LANLFile(MicrocalFile):
         return first, end, self.data
 
 
-def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=5000000,
-                        channum=None, use_noise=False, excise_endpoints=None):
+def make_ljh_header(header_dict):
     """
-    Translate a single LANL ROOT file into a single LJH file.
+    Returns a string containing an LJH header (version 2.2.0).
 
-    The ROOT reader in PyROOT is rather slow, whereas LJH data can be read efficiently in large segments.
-    I believe this is because ROOT cannot assume that all events are homogeneous (of course, they are).
-    The point of this translator is to let us read LANL data many times without paying this
-    penalty each time.
-
-    Parameters:
-    -------------
-    ljhfile   -- The filename of the output file.  If not given, it will be chosen by replacing
-                 a trailing ".root" with ".ljh" if possible (and will fail if not possible).
-    overwrite -- If the output file exists and overwrite is not True, then translation fails.
-    segmentsize -- The number of ROOT file bytes to read at one gulp.  Not likely that you care about this.
-    channum     -- If not set to None, then write out only data with this channel number.
-    use_noise   -- We want the output to grab the ucal_noise rather than the ucal_data tree.
-    excise_endpoints -- Remove the first and last few samples from each trace, optionally.  If None,
-                 remove nothing.  If a single number, remove that number from each end.
-                 If a 2-element-sequence (a,b), then remove a from the start and b from the end.
+    header_dict should contain the following keys: asctime, timebase, nPresamples, nSamples
     """
 
-    print("Attempting to translate '%s' " % rootfile),
-    lanl = LANLFile(filename=rootfile, segmentsize=segmentsize, use_noise=use_noise)
-    print("Looking at channel " + str(channum))  # RDH
-
-    if isinstance(excise_endpoints, int):
-        excise_endpoints = (excise_endpoints, excise_endpoints)
-    if excise_endpoints is not None and excise_endpoints[1] > 0:
-        excise_endpoints = tuple((excise_endpoints[0], excise_endpoints[1]))
-
-    if ljhfile is None:
-        if not rootfile.endswith(".root"):
-            raise ValueError("ljhfile argument must be supplied if rootfile name doesn't end with '.root'.")
-        if use_noise:
-            ljhfile = rootfile.rstrip("root")+"noi"
-        else:
-            ljhfile = rootfile.rstrip("root")+"ljh"
-
-    if os.path.exists(ljhfile) and not overwrite:
-        raise IOError("The ljhfile '%s' exists and overwrite was not set to True" % ljhfile)
-
-    lanl.asctime = time.asctime(time.gmtime())
-    header_dict = lanl.__dict__.copy()
-    header_dict['nPresamples'] -= excise_endpoints[0]
-    header_dict['nSamples'] -= excise_endpoints[0]+abs(excise_endpoints[1])
     ljh_header = """#LJH Memorial File Format
-Save File Format Version: 2.0.0
-Software Version: Fake LJH file converted from ROOT
+Save File Format Version: %(version_str)s
+Software Version: Fake LJH file
 Software Driver Version: n/a
 Date: %(asctime)s GMT
 Acquisition Mode: 0
@@ -844,22 +820,70 @@ Preamp gain: 1.000000
 Discrimination level (%%): 1.000000
 #End of Header
 """ % header_dict
+    return ljh_header
+    
+def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=5000000,
+                        channum=None, use_noise=False, excise_endpoints=None):
+    """
+    Translate a single LANL ROOT file into a single LJH file.
 
+    The ROOT reader in PyROOT is rather slow, whereas LJH data can be read efficiently in large segments.
+    I believe this is because ROOT cannot assume that all events are homogeneous (of course, they are).
+    The point of this translator is to let us read LANL data many times without paying this
+    penalty each time.
+
+    Parameters:
+    -------------
+    ljhfile   -- The filename of the output file.  If not given, it will be chosen by replacing
+                 a trailing ".root" with ".ljh" if possible (and will fail if not possible).
+    overwrite -- If the output file exists and overwrite is not True, then translation fails.
+    segmentsize -- The number of ROOT file bytes to read at one gulp.  Not likely that you care about this.
+    channum     -- If not set to None, then write out only data with this channel number.
+    use_noise   -- We want the output to grab the ucal_noise rather than the ucal_data tree.
+    excise_endpoints -- Remove the first and last few samples from each trace, optionally.  If None,
+                 remove nothing.  If a single number, remove that number from each end.
+                 If a 2-element-sequence (a,b), then remove a from the start and b from the end.
+    """
+
+    print("Attempting to translate '%s' " % rootfile),
+    lanl = LANLFile(filename=rootfile, segmentsize=segmentsize, use_noise=use_noise)
+    print("Looking at channel " + str(channum))  # RDH
+
+    if isinstance(excise_endpoints, int):
+        excise_endpoints = (excise_endpoints, excise_endpoints)
+    if excise_endpoints is not None and excise_endpoints[1] > 0:
+        excise_endpoints = tuple((excise_endpoints[0], excise_endpoints[1]))
+
+    if ljhfile is None:
+        if not rootfile.endswith(".root"):
+            raise ValueError("ljhfile argument must be supplied if rootfile name doesn't end with '.root'.")
+        if use_noise:
+            ljhfile = rootfile.rstrip("root")+"noi"
+        else:
+            ljhfile = rootfile.rstrip("root")+"ljh"
+
+    if os.path.exists(ljhfile) and not overwrite:
+        raise IOError("The ljhfile '%s' exists and overwrite was not set to True" % ljhfile)
+
+    lanl.asctime = time.asctime(time.gmtime())
+    header_dict = lanl.__dict__.copy()
+    header_dict['version_str'] = '2.1.0'
+    header_dict['nPresamples'] -= excise_endpoints[0]
+    header_dict['nSamples'] -= excise_endpoints[0]+abs(excise_endpoints[1])
+
+    ljh_header = make_ljh_header(header_dict)
     ljh_fp = open(ljhfile, "wb")
     ljh_fp.write(ljh_header)
 
-    import struct
-    prefix_fmt = "<xxL"
-    binary_separator = ""
     for i in range(lanl.nPulses):
         trace = lanl.read_trace(i)
         if excise_endpoints is not None:
             trace = trace[excise_endpoints[0]:len(trace)-excise_endpoints[1]]  # RDH accepts 0 as an argument
         if channum is not None and lanl.channel[0] != channum:
             continue
-        prefix = struct.pack(prefix_fmt, int(lanl.timestamp[0]))
+        prefix = struct.pack("<xxL", int(lanl.timestamp[0]))
         ljh_fp.write(prefix)
-        trace.tofile(ljh_fp, sep=binary_separator)
+        trace.tofile(ljh_fp, sep="")
 
     ljh_fp.close()
 
@@ -872,3 +896,95 @@ def root2ljh_translate_all(directory):
             root2ljh_translator(fname, overwrite=False)
         except IOError:
             print("Could not translate '%s' .  Moving on..." % fname)
+
+
+def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
+    """
+    Copy traces from one ljh file to another. The destination file is version 2.2.0.
+
+    Can be used to grab specific traces from some other ljh file, and put them into a new file
+
+    Parameters:
+    -------------
+    src_name  -- the name of the source file
+    dest_name -- the name of the destination file
+    pulses    -- indices of the pulses to copy
+    overwrite -- If the destination file exists and overwrite is not True, then the copy fails.
+    """
+
+    if os.path.exists(dest_name) and not overwrite:
+        raise IOError("The ljhfile '%s' exists and overwrite was not set to True" % dest_name)
+
+    src = LJHFile(src_name)
+    
+    header_dict = src.__dict__.copy()
+    header_dict['asctime'] = time.asctime(time.gmtime())
+    header_dict['version_str'] = '2.2.0'
+    ljh_header = make_ljh_header(header_dict)
+
+    with open(dest_name, "wb") as dest_fp:
+        dest_fp.write(ljh_header)
+        for i in pulses:
+            trace = src.read_trace(i)
+            prefix = struct.pack('<Q', int(1))
+            dest_fp.write(prefix)
+            prefix = struct.pack('<Q', int(1244))
+            dest_fp.write(prefix)
+            trace.tofile(dest_fp, sep="")
+            
+
+def ljh_append_traces(src_name, dest_name, pulses):
+    """
+    Append traces from one ljh file onto another. The destination file is assumed to be version 2.2.0.
+
+    Can be used to grab specific traces from some other ljh file, and append them onto an existing ljh file.
+
+    Parameters:
+    -------------
+    src_name  -- the name of the source file
+    dest_name -- the name of the destination file
+    pulses    -- indices of the pulses to copy
+    """
+
+    src = LJHFile(src_name)
+    with open(dest_name, "ab") as dest_fp:
+        for i in pulses:
+            trace = src.read_trace(i)
+            prefix = struct.pack('<Q', int(1))
+            dest_fp.write(prefix)
+            prefix = struct.pack('<Q', int(1244))
+            dest_fp.write(prefix)
+            trace.tofile(dest_fp, sep="")
+
+
+if __name__ == '__main__':
+    # test code
+    src_name = '20150828_163416_chan1.ljh'
+    dest_name = 'foo_chan0.ljh'
+    src = LJHFile(src_name)
+
+    ljh_copy_traces(src_name, dest_name, [20], overwrite=True)
+    dest = LJHFile(dest_name)
+    print (src.read_trace(20) != dest.read_trace(0)).nonzero()
+    
+    ljh_copy_traces(src_name, dest_name, [0, 30, 23], overwrite=True)
+    dest = LJHFile(dest_name)
+    print (src.read_trace(0) != dest.read_trace(0)).nonzero()
+    print (src.read_trace(30) != dest.read_trace(1)).nonzero()
+    print (src.read_trace(23) != dest.read_trace(2)).nonzero()
+    
+    ljh_append_traces(src_name, dest_name, [5])
+    dest = LJHFile(dest_name)
+    print (src.read_trace(0) != dest.read_trace(0)).nonzero()
+    print (src.read_trace(30) != dest.read_trace(1)).nonzero()
+    print (src.read_trace(23) != dest.read_trace(2)).nonzero()
+    print (src.read_trace(5) != dest.read_trace(3)).nonzero()
+
+    ljh_append_traces(src_name, dest_name, [43, 30])
+    dest = LJHFile(dest_name)
+    print (src.read_trace(0) != dest.read_trace(0)).nonzero()
+    print (src.read_trace(30) != dest.read_trace(1)).nonzero()
+    print (src.read_trace(23) != dest.read_trace(2)).nonzero()
+    print (src.read_trace(5) != dest.read_trace(3)).nonzero()
+    print (src.read_trace(43) != dest.read_trace(4)).nonzero()
+    print (src.read_trace(30) != dest.read_trace(5)).nonzero()

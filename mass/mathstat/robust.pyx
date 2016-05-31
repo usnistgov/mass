@@ -36,6 +36,7 @@ import scipy.stats
 
 cimport cython
 
+@cython.embedsignature(True)
 def bisquare_weighted_mean(x, k, center=None, tol=None):
     """Return the bisquare weighted mean of the data <x> with a k-value of <k>.
     A sensible choice of <k> is 3 to 5 times the rms width or 1.3 to 2 times the
@@ -68,6 +69,7 @@ def bisquare_weighted_mean(x, k, center=None, tol=None):
                        "Consider using higher <tol> or better <center>, or change to trimean(x).")
 
 
+@cython.embedsignature(True)
 def huber_weighted_mean(x, k, center=None, tol=None):
     """Return Huber's weighted mean of the data <x> with a k-value of <k>.
     A sensible choice of <k> is 1 to 1.5 times the rms width or 0.4 to 0.6 times the
@@ -100,6 +102,7 @@ def huber_weighted_mean(x, k, center=None, tol=None):
                        "Consider using higher <tol> or better <center>, or change to trimean(x).")
 
 
+@cython.embedsignature(True)
 def trimean(x):
     """Return Tukey's trimean for a data set <x>, a measure of its central tendency
     ("location" or "center").
@@ -111,6 +114,7 @@ def trimean(x):
     return trimean
 
 
+@cython.embedsignature(True)
 def median_abs_dev(x, normalize=False):
     """
     Median absolute deviation (from the median) of data set <x>.
@@ -124,6 +128,7 @@ def median_abs_dev(x, normalize=False):
     return mad
 
 
+@cython.embedsignature(True)
 def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     """
     Return the Shortest Half (shorth) Range, a robust estimator of dispersion.
@@ -200,6 +205,7 @@ for both the dispersion and the location of a unimodal distribution.
 """
 
 
+@cython.embedsignature(True)
 def high_median(x, weights=None, return_index=False):
     """Compute the weighted high median of data set x with weights <weights>.
 
@@ -226,6 +232,7 @@ def high_median(x, weights=None, return_index=False):
     return x[ri]
 
 
+@cython.embedsignature(True)
 def Qscale(x, sort_inplace=False):
     """Compute the robust estimator of scale Q of Rousseeuw and Croux using only O(n log n)
     memory and computations.  (A naive implementation is O(n^2) in both.)
@@ -421,10 +428,10 @@ def _high_median(long[:] sort_idx, double[:] weights, int n):
     Compute the weighted high median of data set with weights <weights>.
     Instead of sending the data set x, send the order statistics <sort_idx> over
     the data.
-    
+
     It returns the smallest j such that the sum of all weights for data
     with x[i] <= x[j] is strictly greater than half the total weight.
-    
+
     If return_index is True, then the chosen index is returned also as (highmed, index).
     """
     cdef double total_weight, half_weight
@@ -446,14 +453,14 @@ def _high_median(long[:] sort_idx, double[:] weights, int n):
     while imax-imin > 1:
 #        trial_left_weight = weights[sort_idx[imin:itrial]].sum() # from [imin,itrial)
 #        trial_right_weight = weights[sort_idx[itrial+1:imax]].sum()  # from (itrial,imax)
-        
+
         trial_left_weight = 0
         trial_right_weight = 0
         for i in range(imin, itrial):
             trial_left_weight += weights[sort_idx[i]]
         for i in range(itrial+1, imax):
             trial_right_weight += weights[sort_idx[i]]
-        
+
         if left_weight + trial_left_weight > half_weight: # j < itrial
             right_weight += trial_right_weight
             imax = itrial
@@ -491,7 +498,7 @@ def _choose_trial_val(long[:] left, long[:] right, double[:] x, int n):
         if ctr_index>=n:
             ctr_index = n-1
         row_median[i] = x[ctr_index]-x[i]
-    
+
     cdef long[:] row_sort_idx
     row_sort_idx = np.argsort(row_median)
 
@@ -506,24 +513,25 @@ def _choose_trial_val(long[:] left, long[:] right, double[:] x, int n):
 
 
 
+@cython.embedsignature(True)
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
     cdef unsigned int trial_q_row = 0, trial_q_col = 0
     cdef Py_ssize_t i, counter
     cdef double trial_distance = 0.0  #, trial_val=0.0
-    cdef unsigned int candidates_below_trial_dist
-    
+    cdef long candidates_below_trial_dist
+
     # Keep track of which candidates on each ROW are still in the running.
-    # These limits are of length (n-1) because the lowest row has no upper-triangle elements. 
+    # These limits are of length (n-1) because the lowest row has no upper-triangle elements.
     # These mean that element A_ij = xj-xi is in the running if and only if  left(i) <= j <= right(i).
     cdef long[:] trial_column
     cdef long[:] left
     cdef long[:] right
     cdef double[:] per_row_value
 
-    trial_column = np.zeros(n-1, dtype=np.int32)
-    left = np.zeros(n-1, dtype=np.int32)
-    right = np.zeros(n-1, dtype=np.int32)
+    trial_column = np.zeros(n-1, dtype=int)
+    left = np.zeros(n-1, dtype=int)
+    right = np.zeros(n-1, dtype=int)
 
     for i in range(n-1):
         right[i] = n-1
@@ -537,26 +545,26 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
         for i in range(n-1):
             per_row_value[i] = trial_distance + x[i]
         #per_row_value = x[:n-1] + trial_distance
-        
+
         # In each row i, find the highest index trial_column such that x[tc]-x[i] < trial_distance
-        # If such an index is out of the candidate range, then let it be left-1 or right. 
-        # We must be extremely careful in this loop, because rounding errors can make 
+        # If such an index is out of the candidate range, then let it be left-1 or right.
+        # We must be extremely careful in this loop, because rounding errors can make
         # (trial_distance + x[i]) != x[j] even when trial distance was defined as (x[j]-x[i])
         # So instead we have the choose_trial_val tell us the (i,j) pair being considered
         # and test for it.
-        
+
         # trial_column tracks the column in each row which is the highest column strictly less than
         # the trial distance.
         #for i, trial_val in enumerate(per_row_value):
         for i in range(per_row_value.shape[0]):
             trial_val = per_row_value[i]
-            
+
             # Test for if this is the row containing the trial Q-value.  If so, column is known.
             # Use this to avoid comparing exact equality of floats on the trial Q's (row,col).
             if i == trial_q_row:
                 trial_column[i] = trial_q_col-1
                 continue
-            
+
             ia = left[i]
             ib = right[i]
             if ia>ib or x[ia] >= trial_val:
@@ -577,9 +585,9 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
                     break
             trial_column[i] = ia
 
-        candidates_below_trial_dist = trial_column.sum() - ((n-2)*(n-1))/2
+        candidates_below_trial_dist = np.sum(trial_column) - ((n-2)*(n-1))/2
 
-        
+
 #        print 'Iter %3d: %2d cand < tri_dist %f (ij=%d,%d)'%(_counter, candidates_below_trial_dist, trial_distance, trial_q_row, trial_q_col
 #                                                                                ), trial_column, trial_column-numpy.arange(n-1)
         if candidates_below_trial_dist == target_k:
@@ -587,7 +595,7 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
         elif candidates_below_trial_dist > target_k:
             for i in range(n-1):
                 right[i] = trial_column[i]
-                if right[i] >= n: 
+                if right[i] >= n:
                     right[i] = n-1
         else:
             for i in range(n-1):

@@ -15,12 +15,23 @@ CubicSpline   - Perform an exact cubic spline through the data, with
 LinterpCubicSpline - Create a new CubicSpline that's the linear interpolation
                 of two existing ones.
 
+SmoothingSpline - Create a smoothing spline that does not exactly interpolate
+                  the data, but finds the cubic spline with lowest "curvature
+                  energy" among all splines that meet the maximum allowed value
+                  of chi-squared.
+
+SmoothingSplineLog - Create a SmoothingSpline using the log of the x,y points.
+
+NaturalBsplineBasis - A tool for expressing a spline basis using B-splines but
+                  also enforcing 'natural boundary conditions'.
+
 Joe Fowler, NIST
 """
 
-__all__ = ['CubicSpline']
+__all__ = ['CubicSpline', 'SmoothingSpline', 'SmoothingSplineLog']
 
 import numpy as np
+import scipy as sp
 
 
 class CubicSpline(object):
@@ -104,6 +115,7 @@ class CubicSpline(object):
             self.yprimeN = self.dy[-1]/self.dx[-1] + self.dx[-1]*(self._y2[-2]/6.+self._y2[-1]/3.)
 
     def __call__(self, x, der=0):
+        scalar = np.isscalar(x)
         x = np.asarray(x)
         if x.size == 0:
             return np.array([])
@@ -159,6 +171,8 @@ class CubicSpline(object):
             elif der > 3:
                 result[interp] = .0
 
+        if scalar:
+            result = result[()]
         return result
 
 
@@ -182,3 +196,204 @@ class LinterpCubicSpline(CubicSpline):
         self.yprimeN  = wtsum(s1.yprimeN, s2.yprimeN, fraction)
         self.dx = wtsum(s1.dx, s2.dx, fraction)
         self.dy = wtsum(s1.dy, s2.dy, fraction)
+
+
+from scipy.interpolate import splev
+
+
+class NaturalBsplineBasis(object):
+    """Represent a cubic B-spline basis in 1D with natural boundary conditions.
+    That is, f''(x)=0 at the first and last knots. This constraint reduces the
+    effective number of basis functions from (2+Nknots) to Nknots.
+
+    Usage:
+    knots = [0,5,8,9,10,12]
+    basis = NaturalBsplineBasis(knots)
+    x = np.linspace(0, 12, 200)
+    plt.clf()
+    for id in range(len(knots)):
+        plt.plot(x, basis(x, id))
+    """
+
+    def __init__(self, knots):
+        "Initialization requires only the list of knots."
+        Nk = len(knots)
+        b, e = knots[0], knots[-1]
+        padknots = np.hstack([[b,b,b],knots,[e,e,e]])
+
+        # Combinations of basis function #1 into 2 and 3 (and #N+2 into N+1
+        # and N) are used to enforce the natural B.C. of f''(x)=0 at the ends.
+        lowfpp = np.zeros(3, dtype=float)
+        hifpp = np.zeros(3, dtype=float)
+        for i in (0,1,2):
+            scoef = np.zeros(Nk+2, dtype=float)
+            scoef[i] = 1.0
+            lowfpp[i] = splev(b, (padknots,scoef,3), der=2)
+        for i in (0,1,2):
+            scoef = np.zeros(Nk+2, dtype=float)
+            scoef[Nk+1-i] = 1.0 # go from last to 3rd-to-last
+            hifpp[i] = splev(e, (padknots,scoef,3), der=2)
+        self.coef_b = -lowfpp[1:3]/lowfpp[0]
+        self.coef_e = -hifpp[1:3]/hifpp[0]
+
+        self.Nk = Nk
+        self.knots = np.array(knots)
+        self.padknots = padknots
+
+    def __call__(self, x, id, der=0):
+        if id<0 or id >= self.Nk:
+            raise ValueError("Require 0 <= id < Nk=%d"%self.Nk)
+        coef = np.zeros(self.Nk+2, dtype=float)
+        coef[id+1] = 1.0
+        if id<2:
+            coef[0] = self.coef_b[id]
+        elif id >= self.Nk-2:
+            coef[-1] = self.coef_e[self.Nk-id-1]
+        return splev(x, (self.padknots, coef, 3), der=der)
+
+    def values_matrix(self, der=0):
+        """Return matrix M where M_ij = value at knot i for basis function j.
+        If der>0, then return the derivative of that order instead of the value."""
+        # Note the array is naturally built by vstack as the Transpose of what we want.
+        return np.vstack([self(self.knots, id, der=der)] for id in range(self.Nk)).T
+
+    def expand_coeff(self, beta):
+        """Given coefficients of this length-Nk basis, return the coefficients
+        needed by FITPACK, which are of length Nk+2."""
+        c = np.hstack([[0], beta, [0]])
+        c[0] = beta[0]*self.coef_b[0] + beta[1]*self.coef_b[1]
+        c[-1] = beta[-1]*self.coef_e[0] + beta[-2]*self.coef_e[1]
+        return c
+
+
+
+class SmoothingSpline(object):
+    """A callable object that performs a smoothing cubic spline operation, using
+    the NaturalBsplineBasis object for the basis representation of splines.
+
+    The smoothing spline is the cubic spline minimizing the "curvature
+    energy" subject to a constraint that the maximum allowed chi-squared is
+    equal to the number of data points. Here curvature energy is defined as
+    the integral of the square of the second derivative from the lowest to
+    the highest knots.
+
+    For a proof see Reinsch, C. H. (1967). "Smoothing by spline functions."
+    Numerische Mathematik, 10(3), 177–183. http://doi.org/10.1007/BF02162161
+    """
+
+    def __init__(self, x, y, dy, dx=None, maxchisq=None):
+        """Smoothing spline for data {x,y} with errors {dy} on the y values
+        and {dx} on the x values (or zero if not given).
+
+        If dx errors are given, a global quadratic fit is done to the data to
+        estimate the local slope. If that's a poor choice, then you should
+        combine your dx and dy errors to create a sensible single error list,
+        and you should pass that in as dy.
+
+        maxchisq specifies the largest allowed value of chi-squared (the sum of
+        the squares of the differences y_i-f(x_i), divided by the variance v_i).
+        If not given, this defaults to the number of data values. When a
+        (weighted) least squares fit of a line to the data meets the maxchisq
+        constraint, then the actual chi-squared will be less than maxchisq.
+        """
+        if dx is None:
+            err = np.array(np.abs(dy))
+        else:
+            roughfit = np.polyfit(x, y, 2)
+            slope = np.poly1d(np.polyder(roughfit, 1))(x)
+            err = np.sqrt((dx*slope)**2 + dy*dy)
+
+        self.x = np.array(x)
+        self.y = np.array(y)
+        self.dx = np.array(dx)
+        self.dy = np.array(dy)
+        self.err = err
+        self.Nk = len(x)
+        if maxchisq is None:
+            maxchisq = self.Nk
+
+        self.basis = NaturalBsplineBasis(self.x)
+        self.N0 = self.basis.values_matrix(0)
+        self.N2 = self.basis.values_matrix(2)
+        self.Omega = self._compute_Omega(self.x, self.N2)
+        self.smooth(chisq = maxchisq)
+
+    def _compute_Omega(self, knots, N2):
+        """Given the matrix M2 of second derivates at the knots (that is, M2_ij is
+        the value of B_j''(x_i), second derivative of basis function #j at knot i),
+        compute the matrix Omega, where Omega_ij is the integral over the entire
+        domain of the product B_i''(x) B_j''(x). This can be done because each B_i(x)
+        is piecewise linear, with the slope changes at each knot location."""
+
+        Nk = len(knots)
+        assert N2.shape[0] == Nk
+        assert N2.shape[1] == Nk
+        Omega = np.zeros_like(N2)
+        for i in range(Nk):
+            for j in range(i+1):
+                for k in range(Nk-1):
+                    Omega[i,j] += (N2[k+1,i]*N2[k,j]+N2[k+1,j]*N2[k,i])*(knots[k+1]-knots[k])/6.0
+                for k in range(Nk):
+                    Omega[i,j] += N2[k,i]*N2[k,j]*(knots[min(k+1,Nk-1)]-knots[max(0,k-1)])/3.0
+                Omega[j,i] = Omega[i,j]
+        return Omega
+
+    def smooth(self, chisq=None):
+        """Choose the value of the curve at the knots so as to achieve the
+        smallest possible curvature subject to the constraint that the
+        sum over all {x,y} pairs S = [(y-f(x))/dy]^2 <= chisq """
+        Nk = self.Nk
+        if chisq is None:
+            chisq = Nk
+
+        Dinv = self.err**(-2) # Vector but stands for diagonals of a diagonal matrix.
+        NTDinv = self.N0.T * Dinv
+        lhs = np.dot(NTDinv, self.N0)
+        rhs = np.dot(self.N0.T, Dinv*self.y)
+
+        def best_params(p):
+            return np.linalg.solve(p*lhs + (1-p)*self.Omega, p * rhs)
+
+        def chisq_difference(p, target_chisq):
+            beta = best_params(p)
+            ys = np.dot(self.N0, beta)
+            chisq = np.sum(((self.y-ys)/self.err)**2)
+            return chisq - target_chisq
+
+        pbest = sp.optimize.brentq(chisq_difference, 1e-15, 1, args=(chisq,))
+        beta = best_params(pbest)
+        self.coeff = self.basis.expand_coeff(beta)
+
+        # Store the linear extrapolation outside the knotted region.
+        val = self([self.x[0], self.x[-1]], 0)
+        slope = self([self.x[0], self.x[-1]], 1)
+        self.lowline = np.poly1d([slope[0], val[0]])
+        self.highline = np.poly1d([slope[1], val[1]])
+
+    def __call__(self, x, der=0):
+        """Return the value of (the `der`th derivative of) the smoothing spline
+        at data points `x`."""
+        scalar = np.isscalar(x)
+        x = np.asarray(x)
+        splresult = splev(x, (self.basis.padknots, self.coeff, 3), der=der)
+        low = x<self.x[0]
+        high = x>self.x[-1]
+        if np.any(low):
+            splresult[low] = self.lowline(x[low]-self.x[0])
+        if np.any(high):
+            splresult[high] = self.highline(x[high]-self.x[-1])
+        if scalar:
+            splresult = splresult[()]
+        return splresult
+
+
+
+class SmoothingSplineLog(object):
+    def __init__(self, x, y, dy, dx=None, maxchisq=None):
+        if np.any(x<=0) or np.any(y<=0):
+            raise ValueError("The x and y data must all be positive to use a SmoothingSplineLog")
+        if dx is not None:
+            dx = dx/x
+        self.linear_model = SmoothingSpline(np.log(x), np.log(y), dy/y, dx, maxchisq=maxchisq)
+    def __call__(self, x, der=0):
+        return np.exp(self.linear_model(np.log(x), der=der))

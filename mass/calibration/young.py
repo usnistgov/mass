@@ -1,18 +1,16 @@
-from collections import Counter
 import itertools
 import operator
 import inspect
 import numpy as np
 from scipy.linalg import LinAlgError
 from scipy.interpolate import InterpolatedUnivariateSpline
-from scipy.stats import gaussian_kde
 from scipy.optimize import brentq
-from scipy.misc import comb
 
 try:
     import statsmodels.api as sm
-except ImportError: # On linux the name was as follows:
-    import scikits.statsmodels.api as sm 
+except ImportError:  # On linux the name was as follows: (I guess the name is different in Anaconda python.)
+    import scikits.statsmodels.api as sm
+    sm.nonparametric.KDEUnivariate = sm.nonparametric.KDE
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -20,11 +18,12 @@ import matplotlib.transforms as mtrans
 from matplotlib.ticker import MaxNLocator
 from matplotlib import patheffects
 
-mpl.rcParams['font.sans-serif'] = 'Arial'
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration.fluorescence_lines
 import mass.mathstat.interpolate
 from mass.mathstat.fitting import MaximumLikelihoodGaussianFitter
+
+mpl.rcParams['font.sans-serif'] = 'Arial'
 
 
 class FailedFitter(object):
@@ -41,7 +40,17 @@ class FailedFitter(object):
 
 class EnergyCalibration(object):
     def __init__(self, size_related_to_energy_resolution=20.0, fit_range_ev=200, excl=(),
-                 plot_on_fail=False, use_00=True, bin_size_ev=2):
+                 plot_on_fail=False, use_00=True, bin_size_ev=2, nextra=3, maxacc=0.015):
+        """
+        size_related_to_energy_resolution - convolve the spectra in arbs with a gaussian of this width in arbs
+        fit_range_ev - use approximatley this range for fitting
+        excl - add lines here you dont want to calibrate on, but want to avoid in your fit ranges
+        plot_on_fail - if true will help you figure out what lines the algorithm is finding
+        use_00 - add 0,0 when calculating spline
+        bin_size_ev - approx size of bins when making histograms for fitting
+        nextra - the first attempt at peak assignment uses the number of lines you passed plus this
+        maxacc - a number found empirically, generally good peak assignments have a lower self.__acc than this
+        """
         self.size_related_to_energy_resolution = size_related_to_energy_resolution
         self.data = np.zeros(0)
         self.hw = fit_range_ev
@@ -54,6 +63,8 @@ class EnergyCalibration(object):
         self.plot_on_fail = plot_on_fail
         self.use_00 = use_00
         self.__acc = np.inf
+        self.maxacc = maxacc
+        self.nextra = nextra
 
     def __find_local_maxima(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])
@@ -74,11 +85,11 @@ class EnergyCalibration(object):
                                   key=operator.itemgetter(1)))
         self.elements = name_e
 
-        n_sel_pp = len(line_names) + 3
+        n_sel_pp = len(line_names)+self.nextra
 
         while n_sel_pp < (len(line_names) + 15):
-            sel_positions = peak_positions[:n_sel_pp]
-            energies = np.array(e_e)
+            sel_positions = np.array(peak_positions[:n_sel_pp], dtype="float")
+            energies = np.array(e_e, dtype="float")
             assign = np.array(list(itertools.combinations(sel_positions, len(line_names))))
             assign.sort(axis=1)
             fracs = (energies[1:-1] - energies[:-2])/(energies[2:] - energies[:-2])
@@ -90,7 +101,7 @@ class EnergyCalibration(object):
             self.__acc = acc_est[opt_assign_i]
             opt_assign = assign[opt_assign_i]
 
-            if self.__acc > 0.015 * np.sqrt(len(energies)):
+            if self.__acc > self.maxacc * np.sqrt(len(energies)):
                 n_sel_pp += 3
                 continue
             else:
@@ -101,7 +112,6 @@ class EnergyCalibration(object):
                 ax = fig.add_subplot(111)
                 bmap = plt.get_cmap("spectral", 11)
 
-                #kde = gaussian_kde(cal.data, bw_method=0.005)
                 kde = sm.nonparametric.KDEUnivariate(self.data)
                 kde.fit(bw=self.size_related_to_energy_resolution)
 
@@ -109,18 +119,19 @@ class EnergyCalibration(object):
 
                 ax.plot(kde.support, kde.density, 'k-')
 
-                for i,p in enumerate(peak_positions):
-                    plt.plot([p,p],[0, np.interp(p, kde.support, kde.density)],'k')
+                for i, p in enumerate(peak_positions):
+                    plt.plot([p, p], [0, np.interp(p, kde.support, kde.density)], 'k')
 
                 for i, (p, el) in enumerate(zip(opt_assign, self.elements)):
                     text = ax.text(p, kde.evaluate(p),
                                    el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$'),
                                    size=24, color='w', ha='center', va='bottom',
-                                   transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72, fig.dpi_scale_trans))
+                                   transform=ax.transData + mtrans.ScaledTranslation(0.0, 5.0 / 72,
+                                                                                     fig.dpi_scale_trans))
                     text.set_path_effects([patheffects.withStroke(linewidth=2, foreground=colors[i]), ])
 
                 ax.set_xlabel('Pulse height', size=16)
-                plt.title("failed calibration acc=%0.5f"%self.__acc)
+                plt.title("failed calibration acc=%0.5f" % self.__acc)
 
                 lmp, rmp = np.min(peak_positions), np.max(peak_positions)
                 margin = 0.03
@@ -132,8 +143,6 @@ class EnergyCalibration(object):
 
         return list(opt_assign)
 
-        # if lh_results[0][1] > 0.0004:
-
     def __build_calibration_spline(self, pht, energy):
         interp_peak_positions = pht
         if self.use_00 and (0 not in interp_peak_positions):
@@ -141,8 +150,10 @@ class EnergyCalibration(object):
             energy = [.0] + energy
         if len(energy) > 3:
             ph2energy = mass.mathstat.interpolate.CubicSpline(interp_peak_positions, energy)
+        elif len(energy) >= 2:  # use quadratic with 3 points and line with 2 points
+            ph2energy = InterpolatedUnivariateSpline(interp_peak_positions, energy, k=len(energy)-1)
         else:
-            ph2energy = InterpolatedUnivariateSpline(interp_peak_positions, energy, k=1)
+            raise ValueError
 
         return ph2energy
 
@@ -170,18 +181,18 @@ class EnergyCalibration(object):
         complex_fitters = []
 
         for pp, el, slope in zip(opt_assignment, self.elements, app_slope):
-            flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.fluorescence_lines)}
+            flu_members = {name: obj for name, obj in inspect.getmembers(mass.calibration.line_fits)}
 
             # hw is the histogram width in eV. It needs to be converted into the pulse height unit.
             slope_dpulseheight_denergy = slope
             width = self.hw * slope_dpulseheight_denergy
 
             try:
-                lnp = np.max(peak_positions[peak_positions < pp - (slope_dpulseheight_denergy * 50)])
+                lnp = np.max(peak_positions[peak_positions < pp])
             except ValueError:
                 lnp = -np.inf
             try:
-                rnp = np.min(peak_positions[peak_positions > pp + (slope_dpulseheight_denergy * 50)])
+                rnp = np.min(peak_positions[peak_positions > pp])
             except ValueError:
                 rnp = np.inf
 
@@ -205,6 +216,13 @@ class EnergyCalibration(object):
                                                                  np.max(hist), 0, 0))
                 fitter.fit()
                 histograms.append((hist, bins))
+                # lambas cant be pickled, so write over them
+                # this is an ugly hack
+                # param order for MaximumLikelihoodGaussianFitter [FWHM, centroid, peak value,
+                # sqrt(constant) background, background slope]
+                fitter.internal2bounded = []
+                fitter.bounded2internal = []
+                fitter.boundedinternal_grad = []
                 complex_fitters.append(fitter)
                 continue
 
@@ -214,6 +232,7 @@ class EnergyCalibration(object):
                 fitter_cls = flu_members[el + 'Fitter']
                 fitter = fitter_cls()
             except KeyError:
+                print("{0:s}Fitter is not found.".format(el))
                 fitter = FailedFitter(hist, bins)
                 histograms.append((hist, bins))
                 complex_fitters.append(fitter)
@@ -231,10 +250,15 @@ class EnergyCalibration(object):
                 params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
                 params_guess[1] = pp  # Approximate peak position
                 params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
-                hold = [2]  #hold the slope_dpulseheight_denergy constant while fitting
+                params_guess[3] = np.max(hist) * 10
+                params_guess[4] = np.max(hist) / 1000
+                params_guess[5] = 0
+                params_guess[6] = 0.15
+                params_guess[7] = 40
+                hold = [2]  # hold the slope_dpulseheight_denergy constant while fitting
 
                 try:
-                    fitter.fit(hist, bins, params_guess, hold=hold,plot=False)
+                    fitter.fit(hist, bins, params_guess, hold=hold, plot=False)
                     break
                 except (ValueError, LinAlgError, RuntimeError):
                     if self.plot_on_fail:
@@ -244,7 +268,7 @@ class EnergyCalibration(object):
                         ax.set_ylabel("counts per %0.2f arb bin" % (bins[1] - bins[0]))
                         ax.set_title("%s, %s" % (el, str(params_guess)))
 
-                        #ax.step(hist[1][:-1], hist[0])
+                        # ax.step(hist[1][:-1], hist[0])
                         ax.fill(np.repeat(bins, 2), np.hstack([[0], np.repeat(hist, 2), [0]]),
                                 fc=(0.1, 0.1, 1.0), ec='b')
 
@@ -309,7 +333,7 @@ class EnergyCalibration(object):
 
     # calculates the error in calibration at each element if that element is not included in the calibration spline
     def knockout_errors(self):
-        knockout_energy_diff = np.zeros(len(self.elements),dtype="float64")
+        knockout_energy_diff = np.zeros(len(self.elements), dtype="float64")
         for j in range(len(self.elements)):
             peak_positions = self.refined_peak_positions[:]
             knockout_peak_position = peak_positions.pop(j)
@@ -410,7 +434,6 @@ def diagnose_calibration(cal, hist_plot=False):
         ax = fig.add_subplot(111)
         bmap = plt.get_cmap("spectral", 11)
 
-        #kde = gaussian_kde(cal.data, bw_method=0.005)
         kde = sm.nonparametric.KDEUnivariate(cal.data)
         kde.fit(bw=cal.size_related_to_energy_resolution)
 
@@ -433,8 +456,6 @@ def diagnose_calibration(cal, hist_plot=False):
         ax.set_ylim(0, np.max(kde.density)*1.15)
         fig.show()
 
-        #return fig
-
     fig = plt.figure(figsize=(16, 9))
 
     n = int(np.ceil(np.sqrt(len(cal.elements))))
@@ -442,12 +463,11 @@ def diagnose_calibration(cal, hist_plot=False):
     w, h, lm, bm, hs, vs = 0.6, 0.9, 0.05, 0.08, 0.1, 0.1
     for i, (el, hist, fitter) in enumerate(zip(cal.elements, cal.histograms, cal.complex_fitters)):
         ax = fig.add_axes([w * (i % n) / n + lm,
-                           h * (i / n) / n + bm,
+                           h * (i // n) / n + bm,
                            (w - hs) / n,
                            (h - vs) / n])
         ax.xaxis.set_major_locator(MaxNLocator(4, integer=True))
 
-        #ax.step(hist[1][:-1], hist[0], where='mid', color='grey', lw=1)
         ax.fill(np.repeat(hist[1], 2), np.hstack([[0], np.repeat(hist[0], 2), [0]]),
                 lw=1, fc=(0.3, 0.3, 0.9), ec=(0.1, 0.1, 1.0), alpha=0.8)
 
@@ -483,7 +503,6 @@ def diagnose_calibration(cal, hist_plot=False):
     ax.scatter(cal.refined_peak_positions,
                cal.peak_energies, s=36, c=(0.2, 0.2, 0.8))
 
-    lb, ub = -np.inf, np.inf
     try:
         lb = cal.complex_fitters[0].params[1]
     except AttributeError:
@@ -537,7 +556,7 @@ def test_young(ch):
 
 
 def is_calibrated(cal):
-    if hasattr(cal,"_names"):  # checks for Joe style calibration
+    if hasattr(cal, "_names"):  # checks for Joe style calibration
         return False
     if cal.elements is None:  # then checks for now many elements are fitted for
         return False
