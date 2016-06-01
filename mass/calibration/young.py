@@ -172,7 +172,11 @@ class EnergyCalibration(object):
         ev_spl = self.__build_calibration_spline(e_e, opt_assignment)
         app_slope = ev_spl(e_e, 1)
 
-        peak_positions = peak_positions[:len(e_e) + 3]
+        # peak positions is used to adjust fitting ranges to avoid interference with other lines
+        # it is conservativley chosento only include lines that are in the optimal assignment (aka have been identified as real lines)
+        # and lines that are pass to excl_positions
+        # another reasonable choice would be to exclude all lines dimmer than the dimmeest (larest index in peak_positions) entry in opt_assignment, could be a keyword choice argument
+        peak_positions = np.array(opt_assignment)
         if len(self.excl) > 0:
             excl_positions = [ev_spl([STANDARD_FEATURES.get(element, element)])[0] for element in self.excl]
             peak_positions = np.hstack([peak_positions, excl_positions])
