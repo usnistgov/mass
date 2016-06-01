@@ -46,6 +46,16 @@ class Test_Gaussian(unittest.TestCase):
         self.assertAlmostEqual(param[1], 0, 1) # Center
         self.assertAlmostEqual(param[2]/self.params[2], 1, 1) # Amplitude
 
+    def test_fit_zero_bg(self):
+        param_guess = self.params[:]
+        param_guess[self.fitter.param_meaning["background"]]=0
+        self.fitter.phscale_positive = True
+        param, covar = self.fitter.fit(self.obs, self.x, param_guess, plot=True)
+        plt.savefig("/tmp/testfit_gaussian1.pdf")
+        self.assertAlmostEqual(param[0], self.params[0], 1) # FWHM
+        self.assertAlmostEqual(param[1], self.params[1], 1) # Center
+        self.assertAlmostEqual(param[2]/self.params[2], 1, 1) # Amplitude
+
 class Test_MnKA(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.line_fits.MnKAlphaFitter()
@@ -87,6 +97,9 @@ class Test_MnKA(unittest.TestCase):
     def test_tail(self):
         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=1)
         plt.savefig("/tmp/testfit_mnka2.pdf")
+
+    def test_zero_bg(self):
+        self.do_test(bg=0)
 
 
 class Test_MnKB(unittest.TestCase):
@@ -130,6 +143,9 @@ class Test_MnKB(unittest.TestCase):
     def test_tail(self):
         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=1)
         plt.savefig("/tmp/testfit_mnkb2.pdf")
+
+    def test_zero_bg(self):
+        self.do_test(bg=0)
 
 class Test_Voigt(unittest.TestCase):
 
@@ -202,7 +218,8 @@ class Test_Voigt(unittest.TestCase):
         self.assertAlmostEqual(pfit[1], params[1], 1) # Center
         self.assertAlmostEqual(pfit[2], params[2], 0) # Lorentz FWHM
 
-
+    def test_zero_bg(self):
+        self.singletest(bg=0)
 
 if __name__ == "__main__":
     unittest.main()
