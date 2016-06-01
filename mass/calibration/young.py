@@ -247,16 +247,15 @@ class EnergyCalibration(object):
                 # exponential scale length (eV) of the tail. ]
                 params_guess = [None] * 8
                 # resolution guess parameter should be something you can pass
-                params_guess[0] = 10 * slope_dpulseheight_denergy  # resolution in pulse height units
+                params_guess[0] = 10   # resolution in eV
                 params_guess[1] = pp  # Approximate peak position
                 params_guess[2] = slope_dpulseheight_denergy  # energy scale factor (pulseheight/eV)
-                params_guess[3] = np.max(hist) * 10
-                params_guess[4] = np.max(hist) / 1000
-                params_guess[5] = 0
-                params_guess[6] = 0.15
-                params_guess[7] = 40
+                params_guess[3] = np.max(hist) * 10. # amplitude
+                params_guess[4] = np.max(hist) / 1000. # background
+                params_guess[5] = 0 # background slope
+                params_guess[6] = 0.15 # tail fraction
+                params_guess[7] = 40 # tail length
                 hold = [2]  # hold the slope_dpulseheight_denergy constant while fitting
-
                 try:
                     fitter.fit(hist, bins, params_guess, hold=hold, plot=False)
                     break
