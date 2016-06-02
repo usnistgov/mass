@@ -325,7 +325,7 @@ class EnergyCalibration(object):
         """There is now one (or more) new data points. All the math goes on in this method."""
         assert len(self._ph)==len(self._energies)
         assert len(self._ph)==self.npts
-        self._max_ph = 20*np.max(self._ph)
+        self._max_ph = 2*np.max(self._ph)
         if self._use_approximation and self.npts > 3:
             self._update_approximators()
         else:
