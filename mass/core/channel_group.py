@@ -99,12 +99,8 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
                     hdf5_noisefilename=hdf5noisename)
 
 
-<<<<<<< HEAD
 
-class TESGroup(object):
-=======
 class TESGroup(CutFieldMixin):
->>>>>>> develop
     """
     Provides the interface for a group of one or more microcalorimeters,
     multiplexed by TDM.
@@ -1346,77 +1342,36 @@ def _replace_path(fnames, newpath):
     return result
 
 
-def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=False):
-    with h5py.File(hdf5_filenames[0],"r") as first_hdf5_file:
-        h5master_fname = mass.core.channel_group._generate_hdf5_filename(hdf5_filenames[0])
+def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=False, require_clean_exit=True):
+    h5master_fname = mass.core.channel_group._generate_hdf5_filename(hdf5_filenames[0])
     if os.path.isfile(h5master_fname):
         if forceNew:
             os.remove(h5master_fname)
-            master_hdf5_file = h5py.File(h5master_fname,"w")
-            with h5py.File(hdf5_filenames[0],"r") as single_channel_file:
-                # put the data where python mass expects it
-                master_hdf5_file.attrs["nsamples"]=single_channel_file["samples_per_record"].value
-                master_hdf5_file.attrs["npresamples"]=single_channel_file["pretrig_nsamples"].value
-                master_hdf5_file.attrs["frametime"]=single_channel_file["filter/frametime"].value
         else:
             print("RESUING EXISTING MASTER HDF5 FILE, %s"%h5master_fname)
             return h5master_fname
-    for h5fname in hdf5_filenames:
-        i = h5fname.find("_chan")
-        channum = int(h5fname[i+5:-5])
-        with h5py.File(h5fname,"a") as single_channel_file:
-            if "clean_exit_posix_timestamp_s" in single_channel_file and len(single_channel_file["filt_value"][:])>1:
-                master_hdf5_file["chan%i"%channum] = h5py.ExternalLink(h5fname, "/")
-                if not "channum" in single_channel_file.attrs.keys(): single_channel_file.attrs["channum"]=channum
-                if not "nPulses" in single_channel_file.attrs.keys(): single_channel_file.attrs["nPulses"]=len(single_channel_file["filt_value"])
-    master_hdf5_file.close()
+
+    with h5py.File(h5master_fname,"a") as master_hdf5_file:
+        with h5py.File(hdf5_filenames[0],"r") as single_channel_file:
+            # put the data where python mass expects it
+            master_hdf5_file.attrs["nsamples"]=single_channel_file["samples_per_record"].value
+            master_hdf5_file.attrs["npresamples"]=single_channel_file["pretrig_nsamples"].value
+            master_hdf5_file.attrs["frametime"]=single_channel_file["filter/frametime"].value
+            print "did the main init"
+            print master_hdf5_file.attrs.keys()
+        for h5fname in hdf5_filenames:
+            i = h5fname.find("_chan")
+            channum = int(h5fname[i+5:-8])
+            print channum
+            with h5py.File(h5fname,"r+") as single_channel_file:
+                if ("clean_exit_posix_timestamp_s" in single_channel_file or not require_clean_exit) and len(single_channel_file["filt_value"][:])>1:
+                    master_hdf5_file["chan%i"%channum] = h5py.ExternalLink(h5fname, "/")
+                    if not "channum" in single_channel_file.attrs.keys(): single_channel_file.attrs["channum"]=channum
+                    if not "npulses" in single_channel_file.attrs.keys(): single_channel_file.attrs["npulses"]=len(single_channel_file["filt_value"])
+            print master_hdf5_file.keys()
+            print master_hdf5_file.attrs.keys()
     return h5master_fname
 
-
-class TESGroupHDF5(TESGroup):
-    def __init__(self, h5master_fname):
-        self.hdf5_file = h5py.File(h5master_fname,"a")
-        self.nPresamples = self.hdf5_file.attrs["npresamples"]
-
-        dset_list = []
-        for key in self.hdf5_file.keys():
-            if not key.startswith("chan"):
-                continue
-            grp = self.hdf5_file[key]
-
-            pulserec_dict = {"nSamples":self.hdf5_file.attrs["nsamples"],
-                             "nPresamples":self.nPresamples,
-                             "nPulses":grp.attrs["npulses"],
-                             "timebase":self.hdf5_file.attrs["frametime"],
-                             "channum":grp.attrs["channum"],
-                             "timestamp_offset":0}
-            dset_list.append(mass.channel.MicrocalDataSet(pulserec_dict, tes_group=self, hdf5_group=grp))
-
-        self.datasets = tuple(dset_list)
-        self._bad_channums = {}
-        self._setup_channels_list()
-
-
-        # Cut parameter description need to initialized.
-        # this should be factoered out into a method of TESGroup instead
-        # of copy and pasted here
-        if self.hdf5_file:
-            if "cut_num_used_bits" not in self.hdf5_file.attrs:
-                self.hdf5_file.attrs["cut_num_used_bits"] = 0
-
-            if "cut_boolean_field_desc" not in self.hdf5_file.attrs:
-                self.hdf5_file.attrs["cut_boolean_field_desc"] = np.zeros(32, dtype=self._TESGroup__cut_boolean_field_desc_dtype)
-                self.register_boolean_cut_fields(*self.BUILTIN_BOOLEAN_CUT_FIELDS)
-
-            if ("cut_categorical_field_desc" not in self.hdf5_file.attrs) and \
-                    ("cut_category_list" not in self.hdf5_file):
-                self.hdf5_file.attrs["cut_categorical_field_desc"] = \
-                    np.zeros(0, dtype=self._TESGroup__cut_categorical_field_desc_dtype)
-                self.hdf5_file.attrs["cut_category_list"] =\
-                    np.zeros(0, dtype=self._TESGroup__cut_category_list_dtype)
-
-            for categorical_desc in self.BUILTIN_CATEGORICAL_CUT_FIELDS:
-                self.register_categorical_cut_field(*categorical_desc)
 
 class CrosstalkVeto(object):
     """
