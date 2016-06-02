@@ -17,6 +17,13 @@ h5filenames = ['/Users/oneilg/.julia/v0.4/ReferenceMicrocalFiles/ljh/20150707_D_
 h5master_fname=mass.make_or_get_master_hdf5_from_julia_hdf5_file(h5filenames,forceNew=True)
 data = mass.TESGroupHDF5(h5master_fname)
 ```
+or
+
+```python
+h5filenames = filter(path.isfile,map(mass.hdf5jl_name_from_ljh_name, pulse_files))
+h5master_fname=mass.make_or_get_master_hdf5_from_julia_hdf5_file(h5filenames,forceNew=True)
+data = mass.TESGroupHDF5(h5master_fname)
+```
 
 Obviously, if you have different hdf5 filenames than in the example, and especially if you have more than one, you
 will have to do a bit more work.
