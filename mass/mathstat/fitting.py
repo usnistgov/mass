@@ -128,18 +128,17 @@ class MaximumLikelihoodHistogramFitter(object):
         self.set_parameters(params)
 
         self.theory_function = theory_function
+        if np.isscalar(epsilon):
+            self.epsilon = epsilon + np.zeros_like(params)
+        else:
+            if len(epsilon) != self.nparam:
+                msg = "epsilon must be a scalar or if a vector, "+\
+                    "a vector of the same length as params"
+                raise ValueError(msg)
+            self.epsilon = np.array(epsilon)
+        self.theory_gradient = theory_gradient
         if theory_gradient is None:
             self.theory_gradient = self.__discrete_gradient
-            if np.isscalar(epsilon):
-                self.epsilon = epsilon + np.zeros_like(params)
-            else:
-                if len(epsilon) != self.nparam:
-                    msg = "epsilon must be a scalar or if a vector, "+\
-                        "a vector of the same length as params"
-                    raise ValueError(msg)
-                self.epsilon = np.array(epsilon)
-        else:
-            self.theory_gradient = theory_gradient
         self.TOL = TOL
         self.chisq = 0.0
         self.iterations = 0
@@ -197,11 +196,11 @@ class MaximumLikelihoodHistogramFitter(object):
             self.boundedinternal_grad[pnum] = lambda x:1.0
         elif upper is None:     # only lower bound
             self.internal2bounded[pnum] = lambda x: lower - 1. + np.sqrt(x * x + 1.)
-            self.bounded2internal[pnum] = lambda x: np.sqrt((1.0 + x - lower)**2 - 1.)
+            self.bounded2internal[pnum] = lambda x: np.sqrt((1.0 + (x - lower))**2 - 1.)
             self.boundedinternal_grad[pnum] = lambda x: x/np.sqrt(x * x + 1.)
         elif lower is None:     # only upper bound
             self.internal2bounded[pnum] = lambda x: upper + 1. - np.sqrt(x * x + 1.)
-            self.bounded2internal[pnum] = lambda x: np.sqrt((upper - x + 1.)**2 - 1.)
+            self.bounded2internal[pnum] = lambda x: np.sqrt(((upper - x) + 1.)**2 - 1.)
             self.boundedinternal_grad[pnum] = lambda x: -x/np.sqrt(x * x + 1.)
         else:                   # lower and upper bounds
             self.internal2bounded[pnum] = lambda x: lower + ((upper - lower) / 2.) * (np.sin(x) + 1.)
@@ -223,12 +222,24 @@ class MaximumLikelihoodHistogramFitter(object):
         npar = len(p)
         dyda=np.zeros((npar, nx), dtype=np.float)
         for i,dx in enumerate(self.epsilon):
+            dxminus = dxplus = dx
+            if self.upperbound[i] is not None and p[i] + dxplus >= self.upperbound[i]:
+                dxplus = .9*(self.upperbound[i]-p[i])
+            if self.lowerbound[i] is not None and p[i] - dxminus <= self.lowerbound[i]:
+                dxminus = .9*(p[i]-self.lowerbound[i])
+
+            # Use a symmetric interval, when possible. But if one side must take a zero-sized
+            # step, then obviously don't make them be symmetrically zero. Duh.
+            if dxplus*dxminus > 0:
+                dxplus = dxminus = min(dxplus, dxminus)
+
             p2 = p.copy()
-            p2[i]+=dx
+            p2[i] = p[i] + dxplus
             tf_plus = self.theory_function(p2,x)
-            p2[i]-=2*dx
+
+            p2[i] = p[i] - dxminus
             tf_minus = self.theory_function(p2,x)
-            dyda[i,:] = 0.5*(tf_plus-tf_minus)/dx
+            dyda[i,:] = (tf_plus - tf_minus)/(dxplus + dxminus)
         return dyda
 
 
@@ -246,6 +257,25 @@ class MaximumLikelihoodHistogramFitter(object):
         When self.ITMAX iterations are reached, this method raises a RuntimeError.
         """
 
+        # Parameters that are bounded but not held need to be placed between the bounds.
+        # Also if at the bound, they should be "pinged" away from the bound.
+        for i in range(self.nparam):
+            if self.param_free[i]:
+                if self.upperbound[i] == self.lowerbound[i] and self.lowerbound[i] is not None:
+                    self.param_free[i] = False
+                    continue
+
+                if self.lowerbound[i] is not None:
+                    if self.lowerbound[i] > self.params[i]:
+                        self.params[i] = self.lowerbound[i]
+                    if self.lowerbound[i] == self.params[i]:
+                        self.params[i] += np.random.uniform(0, self.epsilon[i])
+                if self.upperbound[i] is not None:
+                    if self.upperbound[i] < self.params[i]:
+                        self.params[i] = self.upperbound[i]
+                    if self.upperbound[i] == self.params[i]:
+                        self.params[i] -= np.random.uniform(0, self.epsilon[i])
+
         no_change_counter = 0
         lambda_coef = 0.01
         self.mfit = self.param_free.sum()
@@ -262,12 +292,15 @@ class MaximumLikelihoodHistogramFitter(object):
             try:
                 delta_params = sp.linalg.solve(alpha_prime, beta[self.param_free],
                                                overwrite_a=False, overwrite_b=False)
-            except sp.linalg.LinAlgError as ex:
-                print('alpha (lambda=%f, iteration %d) is singular:' % (lambda_coef, iter_number))
-#                 print 'Internal: ',self.internal
-#                 print 'Params: ', self.params
-#                 print 'Alpha-prime: ',alpha_prime
-#                 print 'Beta: ', beta
+            except (sp.linalg.LinAlgError, ValueError) as ex:
+                print('alpha (lambda=%f, iteration %d) is singular or has NaN:' % (lambda_coef, iter_number))
+                print 'Internal: ',self.internal
+                print 'Params: ', self.params
+                # print 'Limits up: ', self.upperbound
+                # print 'Limits dn: ', self.lowerbound
+                # print 'Free: ', self.param_free
+                # print 'Alpha-prime: ',alpha_prime
+                # print 'Beta: ', beta
                 raise ex
 
             # Did the trial succeed?
@@ -327,9 +360,6 @@ class MaximumLikelihoodHistogramFitter(object):
 
         y_model = self.theory_function(params, self.x)
         dyda = (self.theory_gradient(params, self.x).T * dpdi_grad).T
-        if dyda[0].sum() == 0:
-            print('Problem:', self.epsilon, dyda[:,:4], params)
-            raise Exception()
         y_model[y_model == 0.0] = 1e-50
         dyda_over_y = dyda/y_model
         nobs = self.nobs
@@ -346,6 +376,8 @@ class MaximumLikelihoodHistogramFitter(object):
                 overallcol = pfnz[j]  # convert from the jth free col to the overall col #
                 alpha[i,j] = (nobs*dyda_over_y[overallrow,:]*dyda_over_y[overallcol,:]).sum()
                 alpha[j,i] = alpha[i,j]
+            if alpha[:,i].sum() == 0:
+                alpha[i,i] = 1.0 # This prevents a singular matrix error
 
         nonzero_obs = nobs > 0
         chisq = 2*(y_model.sum()-self.total_obs) + \
@@ -489,5 +521,3 @@ class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
         chisq = 2*(y_model.sum()-self.total_obs)  \
                 + 2*(nobs[nonzero_obs]*np.log((nobs/y_model)[nonzero_obs])).sum()
         return alpha, beta, chisq
-
-

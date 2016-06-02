@@ -65,7 +65,7 @@ class LineFitter(object):
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None,
             color=None, label=True, vary_resolution=True, vary_bg=True,
-            vary_bg_slope=False, vary_tail=False, hold=None):
+            vary_bg_slope=False, vary_tail=False, hold=None, verbose=False):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
 
@@ -144,7 +144,7 @@ class LineFitter(object):
         for h in hold:
             fitter.hold(h)
 
-        fitparams, covariance = fitter.fit()
+        fitparams, covariance = fitter.fit(verbose=verbose)
 
         self.last_fit_params = fitparams
         self.last_fit_cov = covariance
