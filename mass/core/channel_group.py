@@ -1342,35 +1342,6 @@ def _replace_path(fnames, newpath):
     return result
 
 
-def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=False, require_clean_exit=True):
-    h5master_fname = mass.core.channel_group._generate_hdf5_filename(hdf5_filenames[0])
-    if os.path.isfile(h5master_fname):
-        if forceNew:
-            os.remove(h5master_fname)
-        else:
-            print("RESUING EXISTING MASTER HDF5 FILE, %s"%h5master_fname)
-            return h5master_fname
-
-    with h5py.File(h5master_fname,"a") as master_hdf5_file:
-        with h5py.File(hdf5_filenames[0],"r") as single_channel_file:
-            # put the data where python mass expects it
-            master_hdf5_file.attrs["nsamples"]=single_channel_file["samples_per_record"].value
-            master_hdf5_file.attrs["npresamples"]=single_channel_file["pretrig_nsamples"].value
-            master_hdf5_file.attrs["frametime"]=single_channel_file["filter/frametime"].value
-            print "did the main init"
-            print master_hdf5_file.attrs.keys()
-        for h5fname in hdf5_filenames:
-            i = h5fname.find("_chan")
-            channum = int(h5fname[i+5:-8])
-            print channum
-            with h5py.File(h5fname,"r+") as single_channel_file:
-                if ("clean_exit_posix_timestamp_s" in single_channel_file or not require_clean_exit) and len(single_channel_file["filt_value"][:])>1:
-                    master_hdf5_file["chan%i"%channum] = h5py.ExternalLink(h5fname, "/")
-                    if not "channum" in single_channel_file.attrs.keys(): single_channel_file.attrs["channum"]=channum
-                    if not "npulses" in single_channel_file.attrs.keys(): single_channel_file.attrs["npulses"]=len(single_channel_file["filt_value"])
-            print master_hdf5_file.keys()
-            print master_hdf5_file.attrs.keys()
-    return h5master_fname
 
 
 class CrosstalkVeto(object):
