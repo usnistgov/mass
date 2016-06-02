@@ -128,7 +128,8 @@ class EnergyCalibration(object):
         "linear",
         "linear+0",
         "gain",
-        "invgain"
+        "invgain",
+        "loggain",
         )
 
     def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=True):
@@ -375,6 +376,12 @@ class EnergyCalibration(object):
             self._underlying_spline = SmoothingSpline(ph, ig, dg, dph)
             self._ph2energy_anon = lambda p: p*self._underlying_spline(p)
 
+        elif self.curvename() == "loggain":
+            lg = np.log(ph/e)
+            dlg = ((dph/ph)**2+(de/e)**2)**0.5
+            self._underlying_spline = SmoothingSpline(ph, lg, dlg, dph)
+            self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p))
+
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
         # Choose proper curve/interpolating function object
@@ -420,6 +427,12 @@ class EnergyCalibration(object):
             y = self._energies/x
             self._underlying_spline = CubicSpline(x, y)
             self._ph2energy_anon = lambda p: p*self._underlying_spline(p)
+
+        elif self.curvename() == "loggain":
+            x = self._ph
+            y = np.log(x/self._energies)
+            self._underlying_spline = CubicSpline(x, y)
+            self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p))
 
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""
