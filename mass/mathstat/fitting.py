@@ -294,8 +294,8 @@ class MaximumLikelihoodHistogramFitter(object):
                                                overwrite_a=False, overwrite_b=False)
             except (sp.linalg.LinAlgError, ValueError) as ex:
                 print('alpha (lambda=%f, iteration %d) is singular or has NaN:' % (lambda_coef, iter_number))
-                print 'Internal: ',self.internal
-                print 'Params: ', self.params
+                print('Internal: ',self.internal)
+                print('Params: ', self.params)
                 # print 'Limits up: ', self.upperbound
                 # print 'Limits dn: ', self.lowerbound
                 # print 'Free: ', self.param_free
