@@ -369,6 +369,12 @@ class EnergyCalibration(object):
             dg = g * ((dph/ph)**2+(de/e)**2)**0.5
             self._underlying_spline = SmoothingSpline(ph, g, dg, dph)
             self._ph2energy_anon = lambda p: p/self._underlying_spline(p)
+            # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
+            trial_phmax = 10*self._ph.max()
+            if self._underlying_spline(trial_phmax) > 0:
+                self._max_ph = trial_phmax
+            else:
+                self._max_ph = 0.99*sp.optimize.brentq(self._underlying_spline, 0, trial_phmax)
 
         elif self.curvename() == "invgain":
             ig = e/ph
@@ -421,6 +427,12 @@ class EnergyCalibration(object):
             y = x/self._energies
             self._underlying_spline = CubicSpline(x, y)
             self._ph2energy_anon = lambda p: p/self._underlying_spline(p)
+            # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
+            trial_phmax = 10*self._ph.max()
+            if self._underlying_spline(trial_phmax) > 0:
+                self._max_ph = trial_phmax
+            else:
+                self._max_ph = 0.99*sp.optimize.brentq(self._underlying_spline, 0, trial_phmax)
 
         elif self.curvename() == "invgain":
             x = self._ph
