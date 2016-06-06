@@ -352,7 +352,7 @@ class SmoothingSpline(object):
         rhs = np.dot(self.N0.T, Dinv*self.y)
 
         def best_params(p):
-            return np.linalg.solve(p*lhs + (1-p)*self.Omega, p * rhs)
+            return np.linalg.solve(p*(lhs-self.Omega) + self.Omega, p * rhs)
 
         def chisq_difference(p, target_chisq):
             beta = best_params(p)
@@ -360,7 +360,7 @@ class SmoothingSpline(object):
             chisq = np.sum(((self.y-ys)/self.err)**2)
             return chisq - target_chisq
 
-        pbest = sp.optimize.brentq(chisq_difference, 1e-15, 1, args=(chisq,))
+        pbest = sp.optimize.brentq(chisq_difference, 1e-20, 1, args=(chisq,))
         beta = best_params(pbest)
         self.coeff = self.basis.expand_coeff(beta)
 

@@ -102,15 +102,16 @@ class EnergyCalibration(object):
 
     The behavior is goverened by the constructor arguments `loglog`, `approximate`,
     and `zerozero` and by the number of data points. The construction-time arguments
-    can be changed by calling EnergyCalibration.use_loglog() and similar.
+    can be changed by calling EnergyCalibration.set_use_approximation() and
+    EnergyCalibration.set_curvetype().
 
-    loglog -- Whether to spline in log(E) vs log(PH) space. Default: yes. If not,
-              then splines are in E vs PH.
+    curvetype -- Either a code number in the range [0,len(self.CURVETYPE)) or a
+                string from the tuple self.CURVETYPE.
+
     approximate -- Whether to construct a smoothing spline (minimal curvature
             subject to a condition that chi-squared not be too large). If not,
-            curve will be an exact spline in E vs PH or in log(E) vs log(PH).
-    zerozero -- Only used when loglog==False. Whether to include the implicit
-            points PH=0 and E=0 in the curve.
+            curve will be an exact spline in E vs PH, in log(E) vs log(PH), or
+            as appropriate to the curvetype.
 
     The forward conversion from PH to E uses the callable __call__ method or its synonym,
     the method ph2energy.
@@ -122,7 +123,16 @@ class EnergyCalibration(object):
     scalar input, or a matching numpy array when given any sequence as an imput.
     """
 
-    def __init__(self, nonlinearity=1.1, loglog=True, approximate=True, zerozero=True):
+    CURVETYPE=(
+        "loglog",
+        "linear",
+        "linear+0",
+        "gain",
+        "invgain",
+        "loggain",
+        )
+
+    def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=True):
         """
         Create an EnergyCalibration object for pulse-height-related field.
 
@@ -133,7 +143,8 @@ class EnergyCalibration(object):
                         that go exactly through the data.)
         `zerozero` Whether to force the cal curve to go through (0,0).
         """
-
+        self._curvetype = 0
+        self.set_curvetype(curvetype)
         self._ph2energy_anon = lambda x: x
         self._ph = np.zeros(0, dtype=np.float)
         self._energies = np.zeros(0, dtype=np.float)
@@ -143,8 +154,6 @@ class EnergyCalibration(object):
         self.npts = 0
         self.nonlinearity = nonlinearity
         self._use_approximation = approximate
-        self._use_loglog = loglog
-        self._use_zerozero = zerozero
         self._model_is_stale = False
         self._e2phwarned = False
 
@@ -196,16 +205,12 @@ class EnergyCalibration(object):
             self._use_approximation = useit
             self._model_is_stale = True
 
-    def set_use_loglog(self, useit):
-        """Switch to using (or to NOT using) splines in log(PH) vs log(E) space."""
-        if useit != self._use_loglog:
-            self._use_loglog = useit
-            self._model_is_stale = True
-
-    def set_use_zerozero(self, useit):
-        """Switch to using (or to NOT using) (PH,E)=(0,0) as an implied cal point."""
-        if useit != self._use_zerozero:
-            self._use_zerozero = useit
+    def set_curvetype(self, curvetype):
+        if isinstance(curvetype, str):
+            curvetype = self.CURVETYPE.index(curvetype.lower())
+        assert curvetype >= 0 and curvetype < len(self.CURVETYPE)
+        if curvetype != self._curvetype:
+            self._curvetype = curvetype
             self._model_is_stale = True
 
     def copy(self, new_ph_field=None):
@@ -217,10 +222,9 @@ class EnergyCalibration(object):
         ecal._energies = self._energies.copy()
         ecal._dph = self._dph.copy()
         ecal._de = self._de.copy()
-        ecal._use_loglog = self._use_loglog
         ecal._use_approximation = self._use_approximation
-        ecal._use_zerozero = self._use_zerozero
         ecal._model_is_stale = True
+        ecal._curvetype = self._curvetype
         return ecal
 
     def _remove_cal_point_idx(self, idx):
@@ -236,7 +240,7 @@ class EnergyCalibration(object):
     def remove_cal_point_name(self, name):
         "If you don't like calibration point named <name>, this removes it"
         idx = self._names.index(name)
-        self.__remove_cal_point_idx(idx)
+        self._remove_cal_point_idx(idx)
 
     def remove_cal_point_prefix(self, prefix):
         """This removes all cal points whose name starts with <prefix>.  Return number removed."""
@@ -248,7 +252,7 @@ class EnergyCalibration(object):
         "Remove cal points at energies with <de> of <energy>"
         idxs = np.nonzero(np.abs(self._energies-energy)<de)[0]
         for idx in idxs:
-            self.__remove_cal_point_idx(idx)
+            self._remove_cal_point_idx(idx)
 
     def add_cal_point(self, pht, energy, name="", pht_error=None, e_error=None, overwrite=True):
         """
@@ -322,13 +326,16 @@ class EnergyCalibration(object):
         """There is now one (or more) new data points. All the math goes on in this method."""
         assert len(self._ph)==len(self._energies)
         assert len(self._ph)==self.npts
-        self._max_ph = 20*np.max(self._ph)
+        self._max_ph = 2*np.max(self._ph)
         if self._use_approximation and self.npts > 3:
             self._update_approximators()
         else:
             self._update_exactcurves()
 
         self._model_is_stale = False
+
+    def curvename(self):
+        return self.CURVETYPE[self._curvetype]
 
     def _update_approximators(self):
         # Make sure the errors in both dimensions are reasonable (positive)
@@ -346,15 +353,43 @@ class EnergyCalibration(object):
         # Find transformed data. For dy, assume that E and PH errors are uncorrelated.
         ph, dph, e, de = self._ph, self._dph, self._energies, self._de
 
-        if self._use_loglog:
+        if self.curvename() == "loglog":
             self._ph2energy_anon = SmoothingSplineLog(ph, e, de, dph)
-        else:
-            if self._use_zerozero and (0.0 not in ph):
+
+        elif self.curvename().startswith("linear"):
+            if ("+0" in self.curvename()) and (0.0 not in ph):
                 ph = np.hstack([[0],ph])
                 e  = np.hstack([[0],e])
                 de = np.hstack([[de.min()*0.1],de])
                 dph= np.hstack([[dph.min()*0.1],dph])
             self._ph2energy_anon = SmoothingSpline(ph, e, de, dph)
+
+        elif self.curvename() == "gain":
+            g = ph/e
+            scale = ph.mean()
+            dg = g * ((dph/ph)**2+(de/e)**2)**0.5
+            self._underlying_spline = SmoothingSpline(ph/scale, g, dg, dph/scale)
+            self._ph2energy_anon = lambda p: p/self._underlying_spline(p/scale)
+            # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
+            trial_phmax = 10*self._ph.max()
+            if self._underlying_spline(trial_phmax) > 0:
+                self._max_ph = trial_phmax
+            else:
+                self._max_ph = 0.99*sp.optimize.brentq(self._underlying_spline, 0, trial_phmax)
+
+        elif self.curvename() == "invgain":
+            ig = e/ph
+            scale = ph.mean()
+            dg = ig * ((dph/ph)**2+(de/e)**2)**0.5
+            self._underlying_spline = SmoothingSpline(ph/scale, ig, dg, dph/scale)
+            self._ph2energy_anon = lambda p: p*self._underlying_spline(p/scale)
+
+        elif self.curvename() == "loggain":
+            lg = np.log(ph/e)
+            dlg = ((dph/ph)**2+(de/e)**2)**0.5
+            scale = ph.mean()
+            self._underlying_spline = SmoothingSpline(ph/scale, lg, dlg, dph/scale)
+            self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p/scale))
 
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
@@ -364,29 +399,55 @@ class EnergyCalibration(object):
         # For N=2 points, use a power law, updating nonlinearity to be the actual value.
         if self.npts <= 0:
             self._ph2energy_anon = lambda p: p
+
         elif self.npts == 1:
             p1 = self._ph[0]
             e1 = self._energies[0]
             self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
+
         elif self.npts == 2:
             p1,p2 = self._ph
             e1,e2 = self._energies
             self.nonlinearity = np.log(e2/e1) / np.log(p2/p1)
             self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
-        else:
-            if self._use_loglog:
-                x = np.log(self._ph)
-                y = np.log(self._energies)
-                self._x2yfun = CubicSpline(x, y)
-                self._ph2energy_anon = lambda p: np.exp(self._x2yfun(np.log(p)))
-            elif self._use_zerozero:
-                x = np.hstack(([0], self._ph))
-                y = np.hstack(([0], self._energies))
-                self._ph2energy_anon = CubicSpline(x, y)
+
+        elif self.curvename() == "loglog":
+            x = np.log(self._ph)
+            y = np.log(self._energies)
+            self._x2yfun = CubicSpline(x, y)
+            self._ph2energy_anon = lambda p: np.exp(self._x2yfun(np.log(p)))
+
+        elif self.curvename().startswith("linear"):
+            x = self._ph
+            y = self._energies
+            if ("+0" in self.curvename()) and (0.0 not in x):
+                x = np.hstack(([0], x))
+                y = np.hstack(([0], y))
+            self._ph2energy_anon = CubicSpline(x, y)
+
+        elif self.curvename() == "gain":
+            x = self._ph
+            y = x/self._energies
+            self._underlying_spline = CubicSpline(x, y)
+            self._ph2energy_anon = lambda p: p/self._underlying_spline(p)
+            # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
+            trial_phmax = 10*self._ph.max()
+            if self._underlying_spline(trial_phmax) > 0:
+                self._max_ph = trial_phmax
             else:
-                x = self._ph
-                y = self._energies
-                self._ph2energy_anon = CubicSpline(x, y)
+                self._max_ph = 0.99*sp.optimize.brentq(self._underlying_spline, 0, trial_phmax)
+
+        elif self.curvename() == "invgain":
+            x = self._ph
+            y = self._energies/x
+            self._underlying_spline = CubicSpline(x, y)
+            self._ph2energy_anon = lambda p: p*self._underlying_spline(p)
+
+        elif self.curvename() == "loggain":
+            x = self._ph
+            y = np.log(x/self._energies)
+            self._underlying_spline = CubicSpline(x, y)
+            self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p))
 
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""

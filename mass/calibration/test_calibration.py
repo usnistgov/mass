@@ -13,17 +13,15 @@ import pylab as plt
 import mass
 
 
-def test_options(use_loglog1, use_zerozero1, use_approximation1, use_loglog2, use_zerozero2, use_approximation2):
+def test_options(curvetype1, use_approximation1, curvetype2, use_approximation2):
     cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-    cal1.set_use_loglog(use_loglog1)
-    cal1.set_use_zerozero(use_zerozero1)
+    cal1.set_curvetype(curvetype1)
     cal1.set_use_approximation(use_approximation1)
     for energy in np.linspace(3000,6000,10):
         ph = energy**0.8
         cal1.add_cal_point(ph, energy)
     cal2 = cal1.copy()
-    cal2.set_use_loglog(use_loglog2)
-    cal2.set_use_zerozero(use_zerozero2)
+    cal2.set_curvetype(curvetype2)
     cal2.set_use_approximation(use_approximation2)
 
     # Careful here: don't use a point in linspace(3000,6000,10),
@@ -40,34 +38,30 @@ def test_options(use_loglog1, use_zerozero1, use_approximation1, use_loglog2, us
 class TestJoeStyleEnegyCalibration(unittest.TestCase):
 
     def test_copy_equality(self):
-        for use_loglog in [True,False]:
-            for use_zerozero in [True, False]:
-                for use_approximation in [True, False]:
-                    if use_approximation and not use_loglog:
-                        continue # for now this crashes
-                    cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-                    cal1.set_use_loglog(use_loglog)
-                    cal1.set_use_zerozero(use_zerozero)
-                    cal1.set_use_approximation(use_approximation)
-                    for energy in np.linspace(3000,6000,10):
-                        ph = energy**0.8
-                        cal1.add_cal_point(ph, energy)
-                    cal2 = cal1.copy()
-                    ph1, e1, (drop1e, drop1err), \
-                        ph2, e2, (drop2e,drop2err) = (cal1.energy2ph(5000), cal1.ph2energy(5000),
-                                                      cal1.drop_one_errors(), cal2.energy2ph(5000),
-                                                      cal2.ph2energy(5000), cal2.drop_one_errors())
-                    # self.assertEqual(e1,e2)
-                    # self.assertEqual(ph1,ph2)
-                    assert(e1==e2)
-                    assert(ph1==ph2)
+        for curvetype in (0,1,2):
+            for use_approximation in [True, False]:
+                cal1 = mass.calibration.energy_calibration.EnergyCalibration()
+                cal1.set_curvetype(curvetype)
+                cal1.set_use_approximation(use_approximation)
+                for energy in np.linspace(3000,6000,10):
+                    ph = energy**0.8
+                    cal1.add_cal_point(ph, energy)
+                cal2 = cal1.copy()
+                ph1, e1, (drop1e, drop1err), \
+                    ph2, e2, (drop2e,drop2err) = (cal1.energy2ph(5000), cal1.ph2energy(5000),
+                                                  cal1.drop_one_errors(), cal2.energy2ph(5000),
+                                                  cal2.ph2energy(5000), cal2.drop_one_errors())
+                # self.assertEqual(e1,e2)
+                # self.assertEqual(ph1,ph2)
+                assert(e1==e2)
+                assert(ph1==ph2)
 
 
     def test_loglog_exact_diff(self):
         # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
-            use_loglog1=True, use_zerozero1=False, use_approximation1=False,
-            use_loglog2=False, use_zerozero2=False, use_approximation2=False,)
+            curvetype1="loglog", use_approximation1=False,
+            curvetype2="linear", use_approximation2=False,)
         self.assertNotEqual(ph1, ph2)
         self.assertNotEqual(e1, e2)
         self.assertFalse(all(drop1err==drop2err))
@@ -75,8 +69,8 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
     def test_loglog_approx_diff(self):
         # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
-            use_loglog1=True, use_zerozero1=False, use_approximation1=False,
-            use_loglog2=False, use_zerozero2=False, use_approximation2=False,)
+            curvetype1="loglog", use_approximation1=False,
+            curvetype2="linear", use_approximation2=False,)
         self.assertNotEqual(ph1, ph2)
         self.assertNotEqual(e1, e2)
         self.assertFalse(all(drop1err==drop2err))
@@ -84,8 +78,8 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
     def test_zerozero_exact_diff(self):
         # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
-            use_loglog1=False, use_zerozero1=True, use_approximation1=False,
-            use_loglog2=False, use_zerozero2=False, use_approximation2=False,)
+            curvetype1="linear+0", use_approximation1=False,
+            curvetype2="linear", use_approximation2=False,)
         self.assertNotEqual(ph1, ph2)
         self.assertNotEqual(e1, e2)
         self.assertFalse(all(drop1err==drop2err))
@@ -93,32 +87,32 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
     def test_zerozero_approx_diff(self):
         # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
-            use_loglog1=False, use_zerozero1=True, use_approximation1=True,
-            use_loglog2=False, use_zerozero2=False, use_approximation2=True,)
+            curvetype1="linear+0", use_approximation1=False,
+            curvetype2="linear", use_approximation2=False,)
         self.assertNotEqual(ph1, ph2)
         self.assertNotEqual(e1, e2)
         self.assertFalse(all(drop1err==drop2err))
 
     def test_approx_loglog_diff(self):
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
-            use_loglog1=True, use_zerozero1=False, use_approximation1=True,
-            use_loglog2=True, use_zerozero2=False, use_approximation2=False,)
+            curvetype1="loglog", use_approximation1=True,
+            curvetype2="loglog", use_approximation2=False,)
         self.assertNotEqual(ph1, ph2)
         self.assertNotEqual(e1, e2)
         self.assertFalse(all(drop1err==drop2err))
 
     def test_approx_zerozero_diff(self):
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
-            use_loglog1=False, use_zerozero1=True, use_approximation1=True,
-            use_loglog2=False, use_zerozero2=True, use_approximation2=False,)
+            curvetype1="linear+0", use_approximation1=True,
+            curvetype2="linear+0", use_approximation2=False,)
         self.assertNotEqual(ph1, ph2)
         self.assertNotEqual(e1, e2)
         self.assertFalse(all(drop1err==drop2err))
 
     def test_approx_diff(self):
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
-            use_loglog1=False, use_zerozero1=False, use_approximation1=True,
-            use_loglog2=False, use_zerozero2=False, use_approximation2=False,)
+            curvetype1="linear", use_approximation1=True,
+            curvetype2="linear", use_approximation2=False,)
         self.assertNotEqual(ph1, ph2)
         self.assertNotEqual(e1, e2)
         self.assertFalse(all(drop1err==drop2err))
@@ -143,8 +137,7 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
 
     def test_notlog_ph(self):
         cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-        cal1.set_use_loglog(False)
-        cal1.set_use_zerozero(True)
+        cal1.set_curvetype("linear+0")
         cal1.set_use_approximation(True)
         for energy in np.linspace(3000,6000,10):
             ph = energy**0.8
