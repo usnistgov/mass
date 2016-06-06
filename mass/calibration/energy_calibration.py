@@ -366,9 +366,10 @@ class EnergyCalibration(object):
 
         elif self.curvename() == "gain":
             g = ph/e
+            scale = ph.mean()
             dg = g * ((dph/ph)**2+(de/e)**2)**0.5
-            self._underlying_spline = SmoothingSpline(ph, g, dg, dph)
-            self._ph2energy_anon = lambda p: p/self._underlying_spline(p)
+            self._underlying_spline = SmoothingSpline(ph/scale, g, dg, dph/scale)
+            self._ph2energy_anon = lambda p: p/self._underlying_spline(p/scale)
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
             trial_phmax = 10*self._ph.max()
             if self._underlying_spline(trial_phmax) > 0:
@@ -378,15 +379,17 @@ class EnergyCalibration(object):
 
         elif self.curvename() == "invgain":
             ig = e/ph
+            scale = ph.mean()
             dg = ig * ((dph/ph)**2+(de/e)**2)**0.5
-            self._underlying_spline = SmoothingSpline(ph, ig, dg, dph)
-            self._ph2energy_anon = lambda p: p*self._underlying_spline(p)
+            self._underlying_spline = SmoothingSpline(ph/scale, ig, dg, dph/scale)
+            self._ph2energy_anon = lambda p: p*self._underlying_spline(p/scale)
 
         elif self.curvename() == "loggain":
             lg = np.log(ph/e)
             dlg = ((dph/ph)**2+(de/e)**2)**0.5
-            self._underlying_spline = SmoothingSpline(ph, lg, dlg, dph)
-            self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p))
+            scale = ph.mean()
+            self._underlying_spline = SmoothingSpline(ph/scale, lg, dlg, dph/scale)
+            self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p/scale))
 
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
