@@ -291,7 +291,7 @@ class NVoigtFitter(LineFitter):
     def fitfunc(self, params, x):
         """Return the smeared line complex.
 
-        <params>  The 3N+4 parameters of the fit (see self.fit for details).
+        <params>  The 3N+5 parameters of the fit (see self.fit for details).
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
         """
