@@ -78,7 +78,7 @@ def mass_folder_from_ljh_fname(ljh,filename=""):
     basename, chan = ljh_basename(ljh)
     dir, fname = path.split(basename)
     if not path.isdir(dir):
-        raise("ValueError %s is not valid directory"%dir)
+        raise ValueError("%s is not valid directory"%dir)
     outputdir = path.join(dir, "mass")
     if not path.isdir(outputdir): os.mkdir(outputdir)
     return path.join(outputdir, filename)

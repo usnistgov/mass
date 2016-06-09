@@ -99,6 +99,7 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
                     hdf5_noisefilename=hdf5noisename)
 
 
+
 class TESGroup(CutFieldMixin):
     """
     Provides the interface for a group of one or more microcalorimeters,
@@ -1339,6 +1340,8 @@ def _replace_path(fnames, newpath):
         _, name = os.path.split(f)
         result.append(os.path.join(newpath, name))
     return result
+
+
 
 
 class CrosstalkVeto(object):
