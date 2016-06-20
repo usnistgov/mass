@@ -12,7 +12,7 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
         if forceNew:
             os.remove(h5master_fname)
         else:
-            print("RESUING EXISTING MASTER HDF5 FILE, %s"%h5master_fname)
+            print("REUSING THE EXISTING MASTER HDF5 FILE, %s"%h5master_fname)
             return h5master_fname
 
     with h5py.File(h5master_fname,"a") as master_hdf5_file:
@@ -36,10 +36,14 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
 
     return h5master_fname
 
+
+
 class TESGroupHDF5(channel_group.TESGroup):
     def __init__(self, h5master_fname):
         self.hdf5_file = h5py.File(h5master_fname,"a")
         self.nPresamples = self.hdf5_file.attrs["npresamples"]
+        self.nSamples = self.hdf5_file.attrs["nsamples"]
+        self.timebase = self.hdf5_file.attrs["frametime"]
 
         self.cut_field_desc_init()
 
@@ -48,13 +52,10 @@ class TESGroupHDF5(channel_group.TESGroup):
             if not key.startswith("chan"):
                 continue
             grp = self.hdf5_file[key]
-            # print(grp)
-            # print(grp.keys())
-            # print grp.attrs["channum"]
-            pulserec_dict = {"nSamples":self.hdf5_file.attrs["nsamples"],
+            pulserec_dict = {"nSamples":self.nSamples,
                              "nPresamples":self.nPresamples,
+                             "timebase":self.timebase,
                              "nPulses":grp.attrs["npulses"],
-                             "timebase":self.hdf5_file.attrs["frametime"],
                              "channum":grp.attrs["channum"],
                              "timestamp_offset":0,
                              "filename":grp.file.filename}
@@ -64,6 +65,11 @@ class TESGroupHDF5(channel_group.TESGroup):
         self._bad_channums = {}
         self._setup_channels_list()
         self.fix_timestamps()
+        self.n_channels = len(dset_list)
+        if self.n_channels <= 4:
+            self.colors = ("blue", "#aaaa00", "green", "red")
+        else:
+            self.colors = ('purple', "blue", "cyan", "green", "gold", self.BRIGHT_ORANGE, "red", "brown")
 
 
     def fix_timestamps(self):
