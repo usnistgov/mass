@@ -1172,14 +1172,17 @@ class TESGroup(CutFieldMixin):
         for ds_num,channum in enumerate(channels):
             if channum not in self.channel: continue
             ds = self.channel[channum]
-            yvalue = ds.noise_records.noise_psd[:] * scale_factor**2
+            yvalue = ds.noise_psd[:] * scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
                 axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)" % units)
-            df = ds.noise_records.noise_psd.attrs['delta_f']
-            freq = np.arange(1, 1 + len(yvalue)) * df
-            axis.plot(freq, yvalue, label='TES chan %d' % channum,
-                      color=cmap(float(ds_num) / len(channels)))
+            try:
+                df = ds.noise_psd.attrs['delta_f']
+                freq = np.arange(1, 1 + len(yvalue)) * df
+                axis.plot(freq, yvalue, label='TES chan %d' % channum,
+                          color=cmap(float(ds_num) / len(channels)))
+            except:
+                print ("Could not plot channel %4d."%channum)
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
