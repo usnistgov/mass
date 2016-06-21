@@ -8,6 +8,8 @@ except ImportError:  # On linux the name was as follows: (I guess the name is di
     sm.nonparametric.KDEUnivariate = sm.nonparametric.KDE
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration
+import operator
+import itertools
 # this file is intended to include algorithms that could be generally useful
 # for calibration
 # mostly they are pulled out of young.py
@@ -78,6 +80,6 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
         else:
             break
     else: # if break does not occur
-        raise ValueError("no succesful peak assignment found")
+        raise ValueError("no succesful peak assignment found: acc %g, maxacc*sqrt(len(energies)) %g"%(acc, maxacc * np.sqrt(len(energies))))
 
     return energies, list(opt_assign)
