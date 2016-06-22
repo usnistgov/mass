@@ -53,5 +53,42 @@ class TestAlgorithms(unittest.TestCase):
         self.assertAlmostEqual(lo, 2950)
         self.assertAlmostEqual(hi, 3025)
 
+
+    def test_complete(self):
+        # generate pulseheights from known spectrum
+        spect = {}
+        dist = {}
+        num_samples = {k:1000*k for k in [1,2,3,4,5]}
+        spect[1] = mass.fluorescence_lines.MnKAlpha()
+        spect[1].set_gauss_fwhm(2)
+        spect[2] = mass.fluorescence_lines.MnKBeta()
+        spect[2].set_gauss_fwhm(3)
+        spect[3] = mass.fluorescence_lines.CuKAlpha()
+        spect[3].set_gauss_fwhm(4)
+        spect[4] = mass.fluorescence_lines.TiKAlpha()
+        spect[4].set_gauss_fwhm(5)
+        spect[5] = mass.fluorescence_lines.FeKAlpha()
+        spect[5].set_gauss_fwhm(6)
+        dist = {k:mass.fluorescence_lines.MultiLorentzianDistribution_gen(v) for k,v in spect.iteritems()}
+        e =[]
+        for (k,v) in spect.iteritems():
+            sampler = dist[k]
+            for i in xrange(num_samples[k]):
+                e.append(sampler.rvs())
+        e = np.array(e)
+        ph = 2*e**0.9
+
+        smoothing_res_ph = 20
+        lm = find_local_maxima(ph, smoothing_res_ph)
+
+        energies_opt, ph_opt = find_opt_assignment(lm,
+            ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"])
+
+        approxcal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
+        for (ee, phph) in zip(energies_opt, ph_opt):
+            approxcal.add_cal_point(phph, ee)
+
+        energies, fitrange_lo_hi = build_fit_ranges(energies_opt,[], approxcal,100)
+
 if __name__ == "__main__":
     unittest.main()

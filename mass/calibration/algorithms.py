@@ -23,6 +23,9 @@ def __line_names(line_names):
     """
     energies = [STANDARD_FEATURES.get(name_or_energy, name_or_energy) for name_or_energy in line_names]
     names = [str(name_or_energy) for name_or_energy in line_names]
+    sort_ind = np.argsort(energies)
+    energies = [energies[i] for i in sort_ind]
+    names = [names[i] for i in sort_ind]
     return names, energies
 
 def find_local_maxima(pulse_heights, gaussian_fwhm):

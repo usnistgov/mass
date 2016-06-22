@@ -118,7 +118,7 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
         self.assertFalse(all(drop1err==drop2err))
 
     def test_basic_energy(self):
-        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
+        cal1 = mass.energy_calibration.EnergyCalibration()
         for energy in np.linspace(3000,6000,10):
             ph = energy**0.8
             cal1.add_cal_point(ph, energy)
