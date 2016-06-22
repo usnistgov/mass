@@ -21,8 +21,8 @@ def __line_names(line_names):
     can also accept energies in eV directly
     return names, energies
     """
-    names, energies = zip(*sorted([[element, STANDARD_FEATURES.get(element, element)] for element in line_names],
-                              key=operator.itemgetter(1)))
+    energies = [STANDARD_FEATURES.get(name_or_energy, name_or_energy) for name_or_energy in line_names]
+    names = [str(name_or_energy) for name_or_energy in line_names]
     return names, energies
 
 def find_local_maxima(pulse_heights, gaussian_fwhm):
@@ -83,3 +83,34 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
         raise ValueError("no succesful peak assignment found: acc %g, maxacc*sqrt(len(energies)) %g"%(acc, maxacc * np.sqrt(len(energies))))
 
     return energies, list(opt_assign)
+
+def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev):
+    """
+    line_names - list or line names or energies
+    excluded_line_names - list of line_names or energies to avoid when making fit ranges
+    approx_cal - an EnergyCalibration object containing an approximate calibration
+    fit_width_ev - full size in eV of fit ranges
+    returns a list of (lo,hi) where lo and hi have units of pulseheights of ranges to fit in for eacn energy in line_names
+    """
+    name_e, e_e = __line_names(line_names)
+    excl_name_e, excl_e_e = __line_names(excluded_line_names)
+    half_width_ev = fit_width_ev/2.0
+    all_e = np.sort(np.hstack((e_e, excl_e_e)))
+    assert(len(all_e)==len(np.unique(all_e)))
+    fit_lo_hi = []
+    for i in xrange(len(e_e)):
+        e = e_e[i]
+        slope_de_dph = approx_ecal.energy2dedph(e)
+        half_width_ph = half_width_ev/slope_de_dph
+        if any(all_e<e):
+            nearest_below = all_e[all_e<e][-1]
+        else:
+            nearest_below = -np.inf
+        if any(all_e>e):
+            nearest_above = all_e[all_e>e][0]
+        else:
+            nearest_above = np.inf
+        lo = max(e-half_width_ph, (e+nearest_below)/2.0)
+        hi = min(e+half_width_ph, (e+nearest_above)/2.0)
+        fit_lo_hi.append((lo,hi))
+    return e_e, fit_lo_hi

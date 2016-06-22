@@ -29,5 +29,29 @@ class TestAlgorithms(unittest.TestCase):
         local_maxima = find_local_maxima(ph,10)
         rounded = np.round(local_maxima)
         self.assertTrue(all(rounded[:3]==np.array([7000, 4000, 1000])))
+
+    def test_build_fit_ranges(self):
+        known_energies = np.array([1000, 2000, 2050, 3000])
+        # make a 1 to 1 calibration
+        cal1 = mass.energy_calibration.EnergyCalibration(1, approximate=False)
+        for ke in known_energies:
+            cal1.add_cal_point(ke,ke)
+
+        eout, fit_lo_hi = build_fit_ranges(known_energies, [3050], cal1,100)
+        self.assertTrue(all(eout==known_energies))
+        self.assertEqual(len(fit_lo_hi),len(known_energies))
+        lo,hi = fit_lo_hi[0]
+        self.assertAlmostEqual(lo, 950)
+        self.assertAlmostEqual(hi, 1050)
+        lo,hi = fit_lo_hi[1]
+        self.assertAlmostEqual(lo, 1950)
+        self.assertAlmostEqual(hi, 2025)
+        lo,hi = fit_lo_hi[2]
+        self.assertAlmostEqual(lo, 2025)
+        self.assertAlmostEqual(hi, 2100)
+        lo,hi = fit_lo_hi[3]
+        self.assertAlmostEqual(lo, 2950)
+        self.assertAlmostEqual(hi, 3025)
+
 if __name__ == "__main__":
     unittest.main()
