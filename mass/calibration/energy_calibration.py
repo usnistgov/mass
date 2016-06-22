@@ -455,45 +455,74 @@ class EnergyCalibration(object):
         return self.energy2ph(energy)
 
 
-    def plot(self, axis=None, ph_rescale_power=0.0, color='blue', markercolor='red'):
-        """Plot the energy calibration function using pylab.  If <axis> is None,
-        a new pylab.subplot(111) will be used.  Otherwise, axis should be a
-        pylab.Axes object to plot onto.
+    def plot(self, axis=None, ph_rescale_power=0.0, color="blue", markercolor="red"):
+        self._plot(axis, color, markercolor, plottype="linear", rescale=ph_rescale_power)
 
-        <ph_rescale_power>   Plot E/PH**ph_rescale_power vs PH.  Default is 0, so plot E vs PH.
-        """
+    def plotgain(self, axis=None, color="blue", markercolor="red"):
+        self._plot(axis, color, markercolor, plottype="gain")
+
+    def plotinvgain(self, axis=None, color="blue", markercolor="red"):
+        self._plot(axis, color, markercolor, plottype="invgain")
+
+    def plotloggain(self, axis=None, color="blue", markercolor="red"):
+        self._plot(axis, color, markercolor, plottype="loggain")
+
+    def _plot(self, axis=None, color="blue", markercolor="red", plottype="gain", rescale=0.0):
         import pylab
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
-            axis.set_ylim([0, self._energies.max()*1.05/self._ph.max()**ph_rescale_power])
             axis.set_xlim([0, self._ph.max()*1.1])
+            ymax = 0.0
+            ymin = 1e99
+        else:
+            ymin, ymax = axis.get_ylim()
 
         # Plot smooth curve
-        pht = np.arange(0, self._ph.max()*1.1)
-        y = self(pht) / pht**ph_rescale_power
-        axis.plot(pht, y, color=color)
+        pht = np.linspace(self._ph.max()*.001, self._ph.max()*1.1, 1000)
+        smoothgain = pht / self(pht)
+        gains = self._ph / self._energies
+        if plottype=="linear":
+            if rescale == 0.0:
+                axis.plot(pht, self(pht), color=color)
+                y = self._energies
+                axis.set_ylabel("Energy (eV)")
+                axis.set_title("Energy calibration curve")
+            else:
+                axis.plot(pht, self(pht) / (pht**rescale), color=color)
+                y = self._energies / (self._ph**rescale)
+                axis.set_ylabel("Energy (eV) / PH^%.4f"%rescale)
+                axis.set_title("Energy calibration curve, scaled by %.4f power of PH"%rescale)
+        elif plottype=="gain":
+            axis.plot(pht, smoothgain, color=color)
+            y = gains
+            axis.set_ylabel("Gain (PH/eV)")
+            axis.set_title("Energy calibration curve, gain")
+        elif plottype == "invgain":
+            axis.plot(pht, 1.0/smoothgain, color=color)
+            y = 1.0/gains
+            axis.set_ylabel("Inverse Gain (eV/PH)")
+            axis.set_title("Energy calibration curve, inverse gain")
+        elif plottype == "loggain":
+            axis.plot(pht, np.log(smoothgain), color=color)
+            y = np.log(gains)
+            axis.set_ylabel("Log Gain log(eV/PH)")
+            axis.set_title("Energy calibration curve, log gain")
+        else:
+            raise ValueError("plottype must be one of ('linear', 'gain','loggain','invgain').")
+        dy = (self._de/self._energies) * y
 
         # Plot and label cal points
-        if ph_rescale_power==0.0:
-            axis.errorbar(self._ph, self._energies, yerr=self._de, xerr=self._dph, fmt='o',
-                          mec='black', mfc=markercolor, capsize=0)
-        else:
-            yscale = 1.0/(self._ph**ph_rescale_power)
-            dy = np.sqrt(self._de**2 + (self._dph*ph_rescale_power)**2)
-            axis.errorbar(self._ph, self._energies*yscale, yerr=dy*yscale,
-                        xerr=self._dph, fmt='or', capsize=0)
-        for pht, name in zip(self._ph, self._names):
-            axis.text(pht, self(pht)/pht**ph_rescale_power, name+'  ', ha='right')
+        axis.errorbar(self._ph, y, yerr=dy, xerr=self._dph, fmt='o', capsize=0, mfc=markercolor)
+        for pht, name, thisy in zip(self._ph, self._names, y):
+            axis.text(pht, thisy, name+'  ', ha='right')
 
         axis.grid(True)
         axis.set_xlabel("Pulse height")
-        if ph_rescale_power == 0.0:
-            axis.set_ylabel("Energy (eV)")
-            axis.set_title("Energy calibration curve")
-        else:
-            axis.set_ylabel("Energy (eV) / PH^%.4f"%ph_rescale_power)
-            axis.set_title("Energy calibration curve, scaled by %.4f power of PH"%ph_rescale_power)
+        yrange = y.max()-y.min()
+        ymax = max(ymax, y.max()+yrange*0.25)
+        ymin = min(ymin, y.min()-yrange*0.25)
+        axis.set_ylim([ymin, ymax])
 
     def drop_one_errors(self):
         """For each calibration point, calculate the difference between the 'correct' energy
