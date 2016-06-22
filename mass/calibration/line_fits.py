@@ -167,7 +167,7 @@ class LineFitter(object):
             axis.plot(pulseheights, self.last_fit_result, color='#666666',
                       label=slabel)
             if len(slabel) > 0:
-                axis.legend(loc='upper left')
+                axis.legend(loc='upper left', frameon=False)
         return fitparams, covariance
 
 
