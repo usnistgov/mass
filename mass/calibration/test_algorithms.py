@@ -77,8 +77,7 @@ class TestAlgorithms(unittest.TestCase):
                 e.append(sampler.rvs())
         e = np.array(e)
         ph = 2*e**0.9
-
-        smoothing_res_ph = 20
+        smoothing_res_ph=20
         lm = find_local_maxima(ph, smoothing_res_ph)
         line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
 
@@ -91,7 +90,41 @@ class TestAlgorithms(unittest.TestCase):
 
         energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt,[], approxcal,100)
         binsize_ev = 1.0
-        multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph)
+        fitters=multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph)
+
+        line_names_2 = ["MnKAlpha", "MnKBeta", "CuKAlpha", mass.calibration.STANDARD_FEATURES["TiKAlpha"], "FeKAlpha"]
+        fitters2=multifit(ph, line_names_2, fit_lo_hi, binsize_ev, slopes_de_dph)
+
+    def test_autocal(self):
+        # generate pulseheights from known spectrum
+        spect = {}
+        dist = {}
+        num_samples = {k:1000*k for k in [1,2,3,4,5]}
+        spect[1] = mass.fluorescence_lines.MnKAlpha()
+        spect[1].set_gauss_fwhm(2)
+        spect[2] = mass.fluorescence_lines.MnKBeta()
+        spect[2].set_gauss_fwhm(3)
+        spect[3] = mass.fluorescence_lines.CuKAlpha()
+        spect[3].set_gauss_fwhm(4)
+        spect[4] = mass.fluorescence_lines.TiKAlpha()
+        spect[4].set_gauss_fwhm(5)
+        spect[5] = mass.fluorescence_lines.FeKAlpha()
+        spect[5].set_gauss_fwhm(6)
+        dist = {k:mass.fluorescence_lines.MultiLorentzianDistribution_gen(v) for k,v in spect.iteritems()}
+        e =[]
+        for (k,v) in spect.iteritems():
+            sampler = dist[k]
+            for i in xrange(num_samples[k]):
+                e.append(sampler.rvs())
+        e = np.array(e)
+        ph = 2*e**0.9
+
+        line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
+
+        cal = EnergyCalibrationAutocal()
+        cal.autocal(ph, line_names)
+        cal.diagnose()
+
 
 if __name__ == "__main__":
     unittest.main()

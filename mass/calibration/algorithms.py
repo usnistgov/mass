@@ -152,6 +152,7 @@ def getfitter(name):
         fitter = mass.calibration.line_fits.GaussianFitter()
     return fitter
 
+
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
     """
     ph - list of pulseheights
@@ -162,21 +163,125 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
     """
     name_e, e_e = __line_names(line_names)
     fitters = []
+    peak_ph = []
+    eres = []
+
     for i in xrange(len(name_e)):
         lo,hi = fit_lo_hi[i]
         dP_dE = 1/slopes_de_dph[i]
         binsize_ph = binsize_ev*dP_dE
         fitter = singlefit(ph, name_e[i], e_e[i], lo, hi, binsize_ph, dP_dE)
         fitters.append(fitter)
-    return fitters
+        peak_ph.append(fitter.last_fit_params[fitter.param_meaning["peak_ph"]])
+        if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
+            eres.append(fitter.last_fit_params[fitter.param_meaning["resolution"]])
+            eres[-1]/=dP_dE # gaussian fitter reports resolution in ph units
+        else:
+            eres.append(fitter.last_fit_params[fitter.param_meaning["resolution"]])
+    return {"fitters":fitters, "peak_ph":peak_ph,
+            "eres":eres, "line_names":line_names,"energies":e_e}
 
 import pdb
 def singlefit(ph, name, energy, lo, hi, binsize_ph, approx_dP_dE):
     counts, bin_edges = np.histogram(ph, np.arange(lo,hi, binsize_ph))
     fitter = getfitter(name)
     guess_params = fitter.guess_starting_params(counts, bin_edges)
-    guess_params[fitter.param_meaning["dP_dE"]]=approx_dP_dE
-    guess_params[fitter.param_meaning["background"]]=1e-1 # workaround
-    hold = [fitter.param_meaning["dP_dE"]]
-    fitter.fit(ph, bin_edges, guess_params, plot=False, hold=hold)
+    if not isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
+        guess_params[fitter.param_meaning["dP_dE"]]=approx_dP_dE
+        hold = [fitter.param_meaning["dP_dE"]]
+    else:
+        hold = []
+    fitter.fit(counts, bin_edges, guess_params, plot=False, hold=hold)
     return fitter
+
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.transforms as mtrans
+from matplotlib.ticker import MaxNLocator
+from matplotlib import patheffects
+
+from energy_calibration import EnergyCalibration
+class EnergyCalibrationAutocal(EnergyCalibration):
+
+    def autocal(self,ph, line_names, smoothing_res_ph=20, binsize_ev=1.0, nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
+        lm = find_local_maxima(ph, smoothing_res_ph)
+        energies_opt, ph_opt = find_opt_assignment(lm, line_names)
+        approxcal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
+        for (ee, phph) in zip(energies_opt, ph_opt):
+            approxcal.add_cal_point(phph, ee)
+        energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt,[], approxcal,100)
+        mresult=multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph)
+        for (ee, phph) in zip(mresult["energies"],mresult["peak_ph"]):
+            self.add_cal_point(phph, ee)
+        self.fitters = mresult["fitters"]
+        self.energy_resolutions = mresult["eres"]
+        self.line_names = mresult["line_names"]
+
+    def diagnose(self):
+        fig = plt.figure(figsize=(16, 9))
+
+        n = int(np.ceil(np.sqrt(len(self.line_names))))
+
+        w, h, lm, bm, hs, vs = 0.6, 0.9, 0.05, 0.08, 0.1, 0.1
+        for i, (el, fitter, eres) in enumerate(zip(self.line_names, self.fitters, self.energy_resolutions)):
+            ax = fig.add_axes([w * (i % n) / n + lm,
+                               h * (i // n) / n + bm,
+                               (w - hs) / n,
+                               (h - vs) / n])
+            ax.xaxis.set_major_locator(MaxNLocator(4, integer=True))
+
+            binsize = fitter.last_fit_bins[1]-fitter.last_fit_bins[0]
+            bin_edges = np.linspace(fitter.last_fit_bins[0]-binsize/2.0, fitter.last_fit_bins[-1]+binsize/2.0, len(fitter.last_fit_bins)+1)
+            ax.fill(np.repeat(bin_edges, 2), np.hstack([[0], np.repeat(fitter.last_fit_contents, 2), [0]]),
+                    lw=1, fc=(0.3, 0.3, 0.9), ec=(0.1, 0.1, 1.0), alpha=0.8)
+
+            x = np.linspace(fitter.last_fit_bins[0], fitter.last_fit_bins[-1], 201)
+            if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
+                ax.text(0.05, 0.97, str(el) +
+                        ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(eres),
+                        transform=ax.transAxes, ha='left', va='top')
+                y = [np.median(fitter.theory_function(fitter.params, a)) for a in x]
+            else:
+                ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
+                        '\n' + "Resolution: {0:.1f} (eV)".format(eres),
+                        transform=ax.transAxes, ha='left', va='top')
+                y = fitter.fitfunc(fitter.last_fit_params, x)
+            ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
+            ax.set_xlim(np.min(x), np.max(x))
+            ax.set_ylim(0, np.max(fitter.last_fit_contents) * 1.3)
+
+        ax = fig.add_axes([lm + w, bm, (1.0 - lm - w) - 0.06, h - 0.05])
+
+        for el, pht, fitter, energy in zip(self.line_names, self._ph,
+                                           self.fitters, self._energies):
+            peak_name = 'Unknown'
+            if isinstance(el, str):
+                peak_name = el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
+            elif isinstance(el, int) or isinstance(el, float):
+                peak_name = "{0:.1f} (eV)".format(energy)
+            ax.text(pht, energy,
+                    peak_name,
+                    ha='left', va='top',
+                    transform=ax.transData + mtrans.ScaledTranslation(5.0 / 72, -12.0 / 72, fig.dpi_scale_trans))
+
+        ax.scatter(self._ph,
+                   self._energies, s=36, c=(0.2, 0.2, 0.8))
+
+        lb = np.amin(self._ph)
+        ub = np.amax(self._ph)
+        
+        width = ub - lb
+        x = np.linspace(lb - width / 10, ub + width / 10, 101)
+        y = self(x)
+        ax.plot(x, y, '--', color='orange', lw=2, zorder=-2)
+
+        ax.yaxis.set_tick_params(labelleft=False, labelright=True)
+        ax.yaxis.set_label_position('right')
+
+        ax.set_xlabel('Pulse height')
+        ax.set_ylabel('Energy (eV)')
+
+        ax.set_xlim(lb - width / 10, ub + width / 10)
+
+        fig.show()
