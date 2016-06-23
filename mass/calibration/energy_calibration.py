@@ -212,11 +212,17 @@ class EnergyCalibration(object):
 
     def set_curvetype(self, curvetype):
         if isinstance(curvetype, str):
-            curvetype = self.CURVETYPE.index(curvetype.lower())
+            try:
+                curvetype = self.CURVETYPE.index(curvetype.lower())
+            except ValueError:
+                raise ValueError("EnergyCalibration.CURVETYPE does not contain '%s'"%curvetype)
         assert curvetype >= 0 and curvetype < len(self.CURVETYPE)
         if curvetype != self._curvetype:
             self._curvetype = curvetype
             self._model_is_stale = True
+
+    def curvename(self):
+        return self.CURVETYPE[self._curvetype]
 
     def copy(self, new_ph_field=None):
         """Return a deep copy"""
@@ -298,22 +304,32 @@ class EnergyCalibration(object):
         if e_error is None:
             e_error = 0.01 # Assume 0.01 eV error if none given
 
-        if name != "" and name in self._names:  # Update an existing point
+        update_index = None
+        if name != "" and name in self._names:  # Update an existing point by name
             if not overwrite:
                 raise ValueError("Calibration point '%s' is already known and overwrite is False" % name)
-            index = self._names.index(name)
-            self._ph[index] = pht
-            self._energies[index] = energy
-            self._dph[index] = pht_error
-            self._de[index] = e_error
+            update_index = self._names.index(name)
 
-        else:   # Add a new point
+        elif np.abs(energy-self._energies).minimum() <= e_error: # Update existing point by energy
+            if not overwrite:
+                raise ValueError("Calibration point at energy %.2f eV is already known and overwrite is False" % energy)
+            update_index = np.abs(energy-self._energies).argmin()
+
+        if update_index is None:   # Add a new point
             self._ph = np.hstack((self._ph, pht))
             self._energies = np.hstack((self._energies, energy))
             self._dph = np.hstack((self._dph, pht_error))
             self._de = np.hstack((self._de, e_error))
             self._names.append(name)
+        else:
+            self._ph[update_index] = pht
+            self._energies[update_index] = energy
+            self._dph[update_index] = pht_error
+            self._de[update_index] = e_error
+        self.npts = len(self._ph)
 
+    def _update_converters(self):
+        """There is now a change in the set of data points. Change the conversion function."""
         # Sort in ascending energy order
         sortkeys = np.argsort(self._ph)
         self._ph = self._ph[sortkeys]
@@ -321,16 +337,10 @@ class EnergyCalibration(object):
         self._dph = self._dph[sortkeys]
         self._de = self._de[sortkeys]
         self._names = [self._names[s] for s in sortkeys]
-        self.npts = len(self._names)
         assert self.npts == len(self._ph)
         assert self.npts == len(self._dph)
         assert self.npts == len(self._energies)
         assert self.npts == len(self._de)
-
-    def _update_converters(self):
-        """There is now one (or more) new data points. All the math goes on in this method."""
-        assert len(self._ph)==len(self._energies)
-        assert len(self._ph)==self.npts
         self._max_ph = 2*np.max(self._ph)
         if self._use_approximation and self.npts > 3:
             self._update_approximators()
@@ -338,9 +348,6 @@ class EnergyCalibration(object):
             self._update_exactcurves()
 
         self._model_is_stale = False
-
-    def curvename(self):
-        return self.CURVETYPE[self._curvetype]
 
     def _update_approximators(self):
         # Make sure the errors in both dimensions are reasonable (positive)
