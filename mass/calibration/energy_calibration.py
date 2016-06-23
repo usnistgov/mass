@@ -529,6 +529,10 @@ class EnergyCalibration(object):
         axis.grid(True)
         axis.set_xlabel("Pulse height")
         yrange = y.max()-y.min()
+        if yrange <= 0:
+            yrange = y.max()
+        if yrange <= 0:
+            yrange = 1.0
         ymax = max(ymax, y.max()+yrange*0.25)
         ymin = min(ymin, y.min()-yrange*0.25)
         axis.set_ylim([ymin, ymax])
