@@ -132,12 +132,10 @@ class EnergyCalibration(object):
         "loggain",
         )
 
-    def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=True):
+    def __init__(self, curvetype="loglog", approximate=True):
         """
         Create an EnergyCalibration object for pulse-height-related field.
 
-        `nonlinearity` is the exponent N in the default, low-energy limit of
-        E \propto (PH)^N.  Typically 1.0 to 1.3 are reasonable.
         `loglog`  Whether to spline in log(E) vs log(PH) space. (If not, spline E vs PH.)
         `approximate`  Whether to use approximate "smoothing splines". (If not, use splines
                         that go exactly through the data.)
@@ -152,10 +150,10 @@ class EnergyCalibration(object):
         self._de = np.zeros(0, dtype=np.float)
         self._names = []
         self.npts = 0
-        self.nonlinearity = nonlinearity
         self._use_approximation = approximate
         self._model_is_stale = False
         self._e2phwarned = False
+        self.set_nonlinearity()
 
     def __call__(self, pulse_ht):
         "Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV)."
@@ -192,10 +190,17 @@ class EnergyCalibration(object):
         return (hie-loe)/(hiph-loph)
 
     def __str__(self):
+        self._update_converters() # To sort the points
         seq = ["EnergyCalibration()"]
         for name, pulse_ht, energy in zip(self._names, self._ph, self._energies):
             seq.append("  energy(ph=%7.2f) --> %9.2f eV (%s)" % (pulse_ht, energy, name))
         return "\n".join(seq)
+
+    def set_nonlinearity(self, powerlaw=1.15):
+        """Update the power law index assumed when there's 1 data point and a loglog curve type."""
+        if self.curvename() == "loglog" and powerlaw != self.nonlinearity:
+            self.nonlinearity = powerlaw
+            self._model_is_stale = True
 
     def set_use_approximation(self, useit):
         """Switch to using (or to NOT using) approximating splines with
@@ -249,7 +254,7 @@ class EnergyCalibration(object):
                 self.remove_cal_point_name(name)
 
     def remove_cal_point_energy(self, energy, de):
-        "Remove cal points at energies with <de> of <energy>"
+        "Remove all cal points at energies with <de> of <energy>"
         idxs = np.nonzero(np.abs(self._energies-energy)<de)[0]
         for idx in idxs:
             self._remove_cal_point_idx(idx)
