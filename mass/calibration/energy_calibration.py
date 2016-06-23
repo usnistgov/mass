@@ -387,7 +387,7 @@ class EnergyCalibration(object):
             if self._underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
             else:
-                self._max_ph = 0.99*sp.optimize.brentq(self._underlying_spline, 0, trial_phmax)
+                self._max_ph = scale*0.99*sp.optimize.brentq(self._underlying_spline, self._ph.max()/scale, trial_phmax/scale)
 
         elif self.curvename() == "invgain":
             ig = e/ph
