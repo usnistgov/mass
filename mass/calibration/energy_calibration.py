@@ -153,6 +153,7 @@ class EnergyCalibration(object):
         self._use_approximation = approximate
         self._model_is_stale = False
         self._e2phwarned = False
+        self.nonlinearity = None
         self.set_nonlinearity()
 
     def __call__(self, pulse_ht):
@@ -310,7 +311,7 @@ class EnergyCalibration(object):
                 raise ValueError("Calibration point '%s' is already known and overwrite is False" % name)
             update_index = self._names.index(name)
 
-        elif np.abs(energy-self._energies).minimum() <= e_error: # Update existing point by energy
+        elif self.npts>0 and np.abs(energy-self._energies).min() <= e_error: # Update existing point by energy
             if not overwrite:
                 raise ValueError("Calibration point at energy %.2f eV is already known and overwrite is False" % energy)
             update_index = np.abs(energy-self._energies).argmin()
@@ -342,11 +343,10 @@ class EnergyCalibration(object):
         assert self.npts == len(self._energies)
         assert self.npts == len(self._de)
         self._max_ph = 2*np.max(self._ph)
-        if self._use_approximation and self.npts > 3:
+        if self._use_approximation and self.npts >= 3:
             self._update_approximators()
         else:
             self._update_exactcurves()
-
         self._model_is_stale = False
 
     def _update_approximators(self):
@@ -406,22 +406,19 @@ class EnergyCalibration(object):
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
         # Choose proper curve/interpolating function object
-        # For N=0 points, we just let E = PH
-        # For N=1 points, use a power law of the assumed nonlinearity
-        # For N=2 points, use a power law, updating nonlinearity to be the actual value.
+        # For N=0 points, in the absence of any information at all, we just let E = PH.
+        # For N=1 points, use E proportional to PH (or if loglog curve, then a power law of the assumed nonlinearity).
+        # For N>1 points, use the chosen curve type (but for N=2, recall that the spline will be a line).
         if self.npts <= 0:
             self._ph2energy_anon = lambda p: p
 
         elif self.npts == 1:
             p1 = self._ph[0]
             e1 = self._energies[0]
-            self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
-
-        elif self.npts == 2:
-            p1,p2 = self._ph
-            e1,e2 = self._energies
-            self.nonlinearity = np.log(e2/e1) / np.log(p2/p1)
-            self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
+            if self.curvename() == "loglog":
+                self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
+            else:
+                self._ph2energy_anon = lambda p: p*(e1/p1)
 
         elif self.curvename() == "loglog":
             x = np.log(self._ph)
