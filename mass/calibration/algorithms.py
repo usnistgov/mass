@@ -87,6 +87,16 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
 
     return energies, list(opt_assign)
 
+def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_ev):
+    "call build_fit_ranges then convern to ph using approx_ecal"
+    e_e, fit_lo_hi, slopes_de_dph = build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
+    fit_lo_hi_ph = []
+    for (lo,hi) in fit_lo_hi:
+        lo_ph = approx_ecal.energy2ph(lo)
+        hi_ph = approx_ecal.energy2ph(hi)
+        fit_lo_hi_ph.append((lo_ph, hi_ph))
+    return e_e, fit_lo_hi_ph, slopes_de_dph
+
 def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev):
     """
     line_names - list or line names or energies
@@ -101,6 +111,7 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     all_e = np.sort(np.hstack((e_e, excl_e_e)))
     assert(len(all_e)==len(np.unique(all_e)))
     fit_lo_hi = []
+    slopes_de_dph = []
     for i in xrange(len(e_e)):
         e = e_e[i]
         slope_de_dph = approx_ecal.energy2dedph(e)
@@ -116,4 +127,56 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
         lo = max(e-half_width_ph, (e+nearest_below)/2.0)
         hi = min(e+half_width_ph, (e+nearest_above)/2.0)
         fit_lo_hi.append((lo,hi))
-    return e_e, fit_lo_hi
+        slopes_de_dph.append(slope_de_dph)
+    return e_e, fit_lo_hi, slopes_de_dph
+
+class FailedFitter(object):
+    def __init__(self, hist, bins):
+        self.hist = hist
+        self.bins = bins
+        self.last_fit_params = [-1, np.sum(self.hist * bins[:-1]) / np.sum(self.hist)] + [None] * 4
+    def fitfunc(self, param, x):
+        self.last_fit_params = param
+        return np.zeros_like(x)
+
+def getfitter(name):
+    """
+    name - a name like "MnKAlpha" or "1150"
+    "MnKAlpha" will return a MnKAlphaFitter
+    "1150" will return a GaussianFitter
+    """
+    try:
+        class_name = name+"Fitter"
+        fitter = getattr(mass.calibration.line_fits, class_name)()
+    except AttributeError:
+        fitter = mass.calibration.line_fits.GaussianFitter()
+    return fitter
+
+def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
+    """
+    ph - list of pulseheights
+    line_names - as with others
+    fit_lo_hi - a list of (lo,hi) with units of ph, used as edges of histograms for fitting
+    binsize - binsize in eV
+    slopes_de_dph - list of slopes de_dph (e in eV)
+    """
+    name_e, e_e = __line_names(line_names)
+    fitters = []
+    for i in xrange(len(name_e)):
+        lo,hi = fit_lo_hi[i]
+        dP_dE = 1/slopes_de_dph[i]
+        binsize_ph = binsize_ev*dP_dE
+        fitter = singlefit(ph, name_e[i], e_e[i], lo, hi, binsize_ph, dP_dE)
+        fitters.append(fitter)
+    return fitters
+
+import pdb
+def singlefit(ph, name, energy, lo, hi, binsize_ph, approx_dP_dE):
+    counts, bin_edges = np.histogram(ph, np.arange(lo,hi, binsize_ph))
+    fitter = getfitter(name)
+    guess_params = fitter.guess_starting_params(counts, bin_edges)
+    guess_params[fitter.param_meaning["dP_dE"]]=approx_dP_dE
+    guess_params[fitter.param_meaning["background"]]=1e-1 # workaround
+    hold = [fitter.param_meaning["dP_dE"]]
+    fitter.fit(ph, bin_edges, guess_params, plot=False, hold=hold)
+    return fitter

@@ -37,7 +37,7 @@ class TestAlgorithms(unittest.TestCase):
         for ke in known_energies:
             cal1.add_cal_point(ke,ke)
 
-        eout, fit_lo_hi = build_fit_ranges(known_energies, [3050], cal1,100)
+        eout, fit_lo_hi, slopes_de_dph = build_fit_ranges(known_energies, [3050], cal1,100)
         self.assertTrue(all(eout==known_energies))
         self.assertEqual(len(fit_lo_hi),len(known_energies))
         lo,hi = fit_lo_hi[0]
@@ -80,15 +80,18 @@ class TestAlgorithms(unittest.TestCase):
 
         smoothing_res_ph = 20
         lm = find_local_maxima(ph, smoothing_res_ph)
+        line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
 
         energies_opt, ph_opt = find_opt_assignment(lm,
-            ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"])
+            line_names)
 
         approxcal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
         for (ee, phph) in zip(energies_opt, ph_opt):
             approxcal.add_cal_point(phph, ee)
 
-        energies, fitrange_lo_hi = build_fit_ranges(energies_opt,[], approxcal,100)
+        energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt,[], approxcal,100)
+        binsize_ev = 1.0
+        multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph)
 
 if __name__ == "__main__":
     unittest.main()
