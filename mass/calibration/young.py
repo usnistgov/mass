@@ -21,7 +21,6 @@ from matplotlib import patheffects
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration.fluorescence_lines
 import mass.mathstat.interpolate
-from mass.mathstat.fitting import MaximumLikelihoodGaussianFitter
 
 mpl.rcParams['font.sans-serif'] = 'Arial'
 
