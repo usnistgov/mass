@@ -200,7 +200,7 @@ class VoigtFitter(LineFitter):
     nparam = 8
 
     def __init__(self):
-        super( VoigtFitter, self ).__init__()
+        super(VoigtFitter, self).__init__()
 
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
@@ -430,7 +430,7 @@ class MultiLorentzianComplexFitter(LineFitter):
     nparam = 8
 
     def __init__(self):
-        super( MultiLorentzianComplexFitter, self ).__init__()
+        super(MultiLorentzianComplexFitter, self).__init__()
 
     def fitfunc(self, params, x):
         """Return the smeared line complex.

@@ -1,18 +1,26 @@
-import scipy
+import itertools
+import operator
+
 import numpy as np
 import pylab as plt
+
+import matplotlib.pyplot as plt
+import matplotlib.transforms as mtrans
+from matplotlib.ticker import MaxNLocator
+
 try:
     import statsmodels.api as sm
 except ImportError:  # On linux the name was as follows: (I guess the name is different in Anaconda python.)
     import scikits.statsmodels.api as sm
     sm.nonparametric.KDEUnivariate = sm.nonparametric.KDE
+
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration
-import operator
-import itertools
+from .energy_calibration import EnergyCalibration
+
 # this file is intended to include algorithms that could be generally useful
 # for calibration
-# mostly they are pulled out of young.py
+# mostly they are pulled out of mass.calibration.young module
 
 
 def __line_names(line_names):
@@ -21,12 +29,13 @@ def __line_names(line_names):
     can also accept energies in eV directly
     return names, energies
     """
+    if not len(line_names):
+        return [], []
+
     energies = [STANDARD_FEATURES.get(name_or_energy, name_or_energy) for name_or_energy in line_names]
     names = [str(name_or_energy) for name_or_energy in line_names]
-    sort_ind = np.argsort(energies)
-    energies = [energies[i] for i in sort_ind]
-    names = [names[i] for i in sort_ind]
-    return names, energies
+    return zip(*sorted(zip(names, energies), key=operator.itemgetter(1)))
+
 
 def find_local_maxima(pulse_heights, gaussian_fwhm):
     """
@@ -36,7 +45,7 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
     smeares each pulse by a gaussian of gaussian_fhwm and finds local maxima, returns a list of
     their locations in pulse_height units, sorted by number of pulses in peak
     """
-    kde = sm.nonparametric.KDEUnivariate(np.array(pulse_heights,dtype="double"))
+    kde = sm.nonparametric.KDEUnivariate(np.array(pulse_heights, dtype="double"))
     kde.fit(bw=gaussian_fwhm)
     x = kde.support
     y = kde.density
@@ -44,6 +53,7 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
     lm = np.arange(1, len(x)-1)[flag]
     lm = lm[np.argsort(-y[lm])]
     return np.array(x[lm])
+
 
 def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
     """
@@ -60,7 +70,7 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
     """
     name_e, e_e = __line_names(line_names)
 
-    n_sel_pp = len(line_names)+nextra # number of peak_positions to use to line up to line_names
+    n_sel_pp = len(line_names)+nextra  # number of peak_positions to use to line up to line_names
     nmax = len(line_names)+nextramax
 
     while n_sel_pp < nmax:
@@ -82,24 +92,27 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
             continue
         else:
             break
-    else: # if break does not occur
-        raise ValueError("no succesful peak assignment found: acc %g, maxacc*sqrt(len(energies)) %g"%(acc, maxacc * np.sqrt(len(energies))))
+    else:  # if break does not occur
+        raise ValueError("no succesful peak assignment found: acc %g, maxacc*sqrt(len(energies)) %g" %
+                         (acc, maxacc * np.sqrt(len(energies))))
 
     return energies, list(opt_assign)
 
+
 def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_ev):
-    "call build_fit_ranges then convern to ph using approx_ecal"
+    """call build_fit_ranges then convert to ph using approx_ecal
+    """
     e_e, fit_lo_hi, slopes_de_dph = build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     fit_lo_hi_ph = []
-    for (lo,hi) in fit_lo_hi:
+    for (lo, hi) in fit_lo_hi:
         lo_ph = approx_ecal.energy2ph(lo)
         hi_ph = approx_ecal.energy2ph(hi)
         fit_lo_hi_ph.append((lo_ph, hi_ph))
     return e_e, fit_lo_hi_ph, slopes_de_dph
 
+
 def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev):
-    """
-    line_names - list or line names or energies
+    """line_names - list or line names or energies
     excluded_line_names - list of line_names or energies to avoid when making fit ranges
     approx_cal - an EnergyCalibration object containing an approximate calibration
     fit_width_ev - full size in eV of fit ranges
@@ -109,35 +122,39 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     excl_name_e, excl_e_e = __line_names(excluded_line_names)
     half_width_ev = fit_width_ev/2.0
     all_e = np.sort(np.hstack((e_e, excl_e_e)))
-    assert(len(all_e)==len(np.unique(all_e)))
+    assert(len(all_e) == len(np.unique(all_e)))
     fit_lo_hi = []
     slopes_de_dph = []
-    for i in xrange(len(e_e)):
+
+    for i in range(len(e_e)):
         e = e_e[i]
         slope_de_dph = approx_ecal.energy2dedph(e)
         half_width_ph = half_width_ev/slope_de_dph
-        if any(all_e<e):
-            nearest_below = all_e[all_e<e][-1]
+        if any(all_e < e):
+            nearest_below = all_e[all_e < e][-1]
         else:
             nearest_below = -np.inf
-        if any(all_e>e):
-            nearest_above = all_e[all_e>e][0]
+        if any(all_e > e):
+            nearest_above = all_e[all_e > e][0]
         else:
             nearest_above = np.inf
-        lo = max(e-half_width_ph, (e+nearest_below)/2.0)
-        hi = min(e+half_width_ph, (e+nearest_above)/2.0)
-        fit_lo_hi.append((lo,hi))
+        lo = max(e - half_width_ph, (e + nearest_below) / 2.0)
+        hi = min(e + half_width_ph, (e + nearest_above) / 2.0)
+        fit_lo_hi.append((lo, hi))
         slopes_de_dph.append(slope_de_dph)
     return e_e, fit_lo_hi, slopes_de_dph
+
 
 class FailedFitter(object):
     def __init__(self, hist, bins):
         self.hist = hist
         self.bins = bins
         self.last_fit_params = [-1, np.sum(self.hist * bins[:-1]) / np.sum(self.hist)] + [None] * 4
+
     def fitfunc(self, param, x):
         self.last_fit_params = param
         return np.zeros_like(x)
+
 
 def getfitter(name):
     """
@@ -166,28 +183,28 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
     peak_ph = []
     eres = []
 
-    for i in xrange(len(name_e)):
-        lo,hi = fit_lo_hi[i]
+    for i in range(len(name_e)):
+        lo, hi = fit_lo_hi[i]
         dP_dE = 1/slopes_de_dph[i]
-        binsize_ph = binsize_ev*dP_dE
+        binsize_ph = binsize_ev[i]*dP_dE
         fitter = singlefit(ph, name_e[i], e_e[i], lo, hi, binsize_ph, dP_dE)
         fitters.append(fitter)
         peak_ph.append(fitter.last_fit_params[fitter.param_meaning["peak_ph"]])
         if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
             eres.append(fitter.last_fit_params[fitter.param_meaning["resolution"]])
-            eres[-1]/=dP_dE # gaussian fitter reports resolution in ph units
+            eres[-1] /= dP_dE  # gaussian fitter reports resolution in ph units
         else:
             eres.append(fitter.last_fit_params[fitter.param_meaning["resolution"]])
-    return {"fitters":fitters, "peak_ph":peak_ph,
-            "eres":eres, "line_names":line_names,"energies":e_e}
+    return {"fitters": fitters, "peak_ph": peak_ph,
+            "eres": eres, "line_names": name_e, "energies": e_e}
 
-import pdb
+
 def singlefit(ph, name, energy, lo, hi, binsize_ph, approx_dP_dE):
-    counts, bin_edges = np.histogram(ph, np.arange(lo,hi, binsize_ph))
+    counts, bin_edges = np.histogram(ph, np.arange(lo, hi, binsize_ph))
     fitter = getfitter(name)
     guess_params = fitter.guess_starting_params(counts, bin_edges)
     if not isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
-        guess_params[fitter.param_meaning["dP_dE"]]=approx_dP_dE
+        guess_params[fitter.param_meaning["dP_dE"]] = approx_dP_dE
         hold = [fitter.param_meaning["dP_dE"]]
     else:
         hold = []
@@ -195,28 +212,40 @@ def singlefit(ph, name, energy, lo, hi, binsize_ph, approx_dP_dE):
     return fitter
 
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.transforms as mtrans
-from matplotlib.ticker import MaxNLocator
-from matplotlib import patheffects
-
-from energy_calibration import EnergyCalibration
 class EnergyCalibrationAutocal(EnergyCalibration):
+    def __init__(self):
+        super(EnergyCalibrationAutocal, self).__init__()
+        self.fitters = None
+        self.energy_resolutions = None
+        self.line_names = None
 
-    def autocal(self,ph, line_names, smoothing_res_ph=20, binsize_ev=1.0, nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
+        self.energies_opt = None
+        self.ph_opt = None
+        self.fit_lo_hi = None
+        self.slopes_de_dph = None
+
+    def guess_fit_params(self, ph, line_names, smoothing_res_ph=20, binsize_ev=1.0,
+                nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
         lm = find_local_maxima(ph, smoothing_res_ph)
-        energies_opt, ph_opt = find_opt_assignment(lm, line_names)
+        self.energies_opt, self.ph_opt = find_opt_assignment(lm, line_names, maxacc=maxacc)
+        self.binsize_ev = [binsize_ev] * len(self.energies_opt)
         approxcal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
-        for (ee, phph) in zip(energies_opt, ph_opt):
+        for (ee, phph) in zip(self.energies_opt, self.ph_opt):
             approxcal.add_cal_point(phph, ee)
-        energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt,[], approxcal,100)
-        mresult=multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph)
-        for (ee, phph) in zip(mresult["energies"],mresult["peak_ph"]):
+        energies, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approxcal, 100)
+
+    def fit_lines(self, ph, line_names, smoothing_res_ph=20,
+                nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
+        mresult = multifit(ph, line_names, self.fit_lo_hi, self.binsize_ev, self.slopes_de_dph)
+        for (ee, phph) in zip(mresult["energies"], mresult["peak_ph"]):
             self.add_cal_point(phph, ee)
         self.fitters = mresult["fitters"]
         self.energy_resolutions = mresult["eres"]
         self.line_names = mresult["line_names"]
+
+    def autocal(self, *args, **kargs):
+        self.guess_fit_params(*args, **kargs)
+        self.fit_lines(*args, **kargs)
 
     def diagnose(self):
         fig = plt.figure(figsize=(16, 9))
@@ -241,12 +270,12 @@ class EnergyCalibrationAutocal(EnergyCalibration):
                 ax.text(0.05, 0.97, str(el) +
                         ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(eres),
                         transform=ax.transAxes, ha='left', va='top')
-                y = [np.median(fitter.theory_function(fitter.params, a)) for a in x]
+                # y = [np.median(fitter.theory_function(fitter.params, a)) for a in x]
             else:
                 ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
                         '\n' + "Resolution: {0:.1f} (eV)".format(eres),
                         transform=ax.transAxes, ha='left', va='top')
-                y = fitter.fitfunc(fitter.last_fit_params, x)
+            y = fitter.fitfunc(fitter.last_fit_params, x)
             ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
             ax.set_xlim(np.min(x), np.max(x))
             ax.set_ylim(0, np.max(fitter.last_fit_contents) * 1.3)
