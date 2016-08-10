@@ -1,3 +1,4 @@
+import collections
 import itertools
 import operator
 
@@ -38,12 +39,13 @@ def __line_names(line_names):
 
 
 def find_local_maxima(pulse_heights, gaussian_fwhm):
-    """
-    find_local_maxima(pulse_heights, gaussian_fwhm)
-    pulse_heights = list of pulse heights (eg p_filt_value)
-    gaussian_fwhm = fwhm of a gaussian that each pulse is smeared with, in same units as pulse heights
-    smeares each pulse by a gaussian of gaussian_fhwm and finds local maxima, returns a list of
+    """Smears each pulse by a gaussian of gaussian_fhwm and finds local maxima, returns a list of
     their locations in pulse_height units, sorted by number of pulses in peak
+
+    Args:
+        pulse_heights (numpy.array(dtype=np.float)): a list of pulse heights (eg p_filt_value)
+        gaussian_fwhm = fwhm of a gaussian that each pulse is smeared with, in same units as pulse heights
+
     """
     kde = sm.nonparametric.KDEUnivariate(np.array(pulse_heights, dtype="double"))
     kde.fit(bw=gaussian_fwhm)
@@ -56,17 +58,16 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
 
 
 def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
-    """
-    find_opt_assignment(peak_positions, line_names, nextra=2, nextramax=6, maxacc=0.015, nincrement=3)
-    peak_positions = a list of peak locations in arb units, eg p_filt_value units
-    line_names = of energies in eV, either as number, or names to be looked up in STANDARD_FEATURES
-    nextra = the algorithm starts with the first len(line_names)+nextra peak_positions
-    nincrement = each the algorithm fails to find a satisfatory peak assignment, it uses nincrement more lines
-    nextramax = the algorithm fails with an error if the algorithm tries to use more than this many lines
-    maxacc = an emprical number that determines if an assignment is good enough. the default number works reasonably well for tupac data
-    takes a list of peak_positions in arb units and line names that correspond to energies
-    tries to find an assignment of peaks to line names that is reasonably self consistent and smooth
-    returns (energies, opt_assigned_pulseheights)
+    """Tries to find an assignment of peaks to line names that is reasonably self consistent and smooth
+    Args:
+        peak_positions (list[float]): a list of peak locations in arb units, eg p_filt_value units
+        line_names (list[str or float)]): a list of calibration lines either as number (, which is energies in eV,)
+            or name to be looked up in STANDARD_FEATURES
+        nextra = the algorithm starts with the first len(line_names)+nextra peak_positions
+        nincrement = each the algorithm fails to find a satisfatory peak assignment, it uses nincrement more lines
+        nextramax = the algorithm fails with an error if the algorithm tries to use more than this many lines
+        maxacc = an empirical number that determines if an assignment is good enough.
+            The default number works reasonably well for tupac data
     """
     name_e, e_e = __line_names(line_names)
 
@@ -172,11 +173,12 @@ def getfitter(name):
 
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
     """
-    ph - list of pulseheights
-    line_names - as with others
-    fit_lo_hi - a list of (lo,hi) with units of ph, used as edges of histograms for fitting
-    binsize - binsize in eV
-    slopes_de_dph - list of slopes de_dph (e in eV)
+    Args:
+        ph (numpy.array(dtype=float)): list of pulseheights
+        line_names: names of calibration  lines
+        fit_lo_hi (list[list[float]]): a list of (lo,hi) with units of ph, used as edges of histograms for fitting
+        binsize (list[float]): list of binsizes in eV for calibration lines
+        slopes_de_dph (list[float]): - list of slopes de_dph (e in eV)
     """
     name_e, e_e = __line_names(line_names)
     fitters = []
@@ -224,28 +226,55 @@ class EnergyCalibrationAutocal(EnergyCalibration):
         self.fit_lo_hi = None
         self.slopes_de_dph = None
 
-    def guess_fit_params(self, ph, line_names, smoothing_res_ph=20, binsize_ev=1.0,
-                nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
-        lm = find_local_maxima(ph, smoothing_res_ph)
-        self.energies_opt, self.ph_opt = find_opt_assignment(lm, line_names, maxacc=maxacc)
-        self.binsize_ev = [binsize_ev] * len(self.energies_opt)
-        approxcal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
-        for (ee, phph) in zip(self.energies_opt, self.ph_opt):
-            approxcal.add_cal_point(phph, ee)
-        energies, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approxcal, 100)
+        self.binsize_ev = None
+        self.ph = None
 
-    def fit_lines(self, ph, line_names, smoothing_res_ph=20,
-                nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
-        mresult = multifit(ph, line_names, self.fit_lo_hi, self.binsize_ev, self.slopes_de_dph)
+    def guess_fit_params(self, ph, line_names, smoothing_res_ph=20, binsize_ev=1.0,
+                         nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
+        """Calculate reasonable parameters for complex fitters or Gaussian fitters.
+
+         Args:
+             line_names (list[str]): names of calibration lines. Names doesn't need to be ordered in their energies.
+             binsize_ev (float or list[float]): bin sizes of the histograms of given calibration lines.
+                 If a single number is given, this same number will be used for all calibration lines.
+        """
+        lm = find_local_maxima(ph, smoothing_res_ph)
+        self.ph = ph
+        self.line_names = line_names
+
+        # Note that find_opt_assignment does not require line_names be sorted by energies.
+        self.energies_opt, self.ph_opt = find_opt_assignment(lm, self.line_names, nextra,
+                                                             nincrement, nextramax, maxacc=maxacc)
+
+        if isinstance(binsize_ev, collections.Iterable):
+            self.binsize_ev = binsize_ev
+        else:
+            self.binsize_ev = [binsize_ev] * len(self.energies_opt)
+
+        approx_cal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
+        for (pulse_height, energy) in zip(self.ph_opt, self.energies_opt):
+            approx_cal.add_cal_point(pulse_height, energy)
+
+        #  Default fit range width is 100 eV for each line.
+        #  But you can customize these numbers after self.guess_fit_params is finished.
+        #  New self.fit_lo_hi values will be in self.fit_lines in the next step.
+        energies, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approx_cal, 100)
+
+    def fit_lines(self):
+        """All calibration emission lines are fitted with ComplexFitter or GaussianFitter
+        self.line_names will be sored by energy after this method is finished.
+        """
+        mresult = multifit(self.ph, self.line_names, self.fit_lo_hi, self.binsize_ev, self.slopes_de_dph)
         for (ee, phph) in zip(mresult["energies"], mresult["peak_ph"]):
             self.add_cal_point(phph, ee)
         self.fitters = mresult["fitters"]
         self.energy_resolutions = mresult["eres"]
         self.line_names = mresult["line_names"]
 
-    def autocal(self, *args, **kargs):
-        self.guess_fit_params(*args, **kargs)
-        self.fit_lines(*args, **kargs)
+    def autocal(self, ph, line_names, smoothing_res_ph=20, binsize_ev=1.0,
+                nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
+        self.guess_fit_params(ph, line_names, smoothing_res_ph, binsize_ev, nextra, nincrement, nextramax, maxacc)
+        self.fit_lines()
 
     def diagnose(self):
         fig = plt.figure(figsize=(16, 9))
