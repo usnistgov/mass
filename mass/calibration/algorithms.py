@@ -24,7 +24,7 @@ from .energy_calibration import EnergyCalibration
 # mostly they are pulled out of mass.calibration.young module
 
 
-def __line_names(line_names):
+def line_names_and_energies(line_names):
     """
     takes a list of line_names, return name, energy in eV
     can also accept energies in eV directly
@@ -34,8 +34,8 @@ def __line_names(line_names):
         return [], []
 
     energies = [STANDARD_FEATURES.get(name_or_energy, name_or_energy) for name_or_energy in line_names]
-    names = [str(name_or_energy) for name_or_energy in line_names]
-    return zip(*sorted(zip(names, energies), key=operator.itemgetter(1)))
+    # names = [str(name_or_energy) for name_or_energy in line_names]
+    return zip(*sorted(zip(line_names, energies), key=operator.itemgetter(1)))
 
 
 def find_local_maxima(pulse_heights, gaussian_fwhm):
@@ -69,7 +69,7 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
         maxacc = an empirical number that determines if an assignment is good enough.
             The default number works reasonably well for tupac data
     """
-    name_e, e_e = __line_names(line_names)
+    name_e, e_e = line_names_and_energies(line_names)
 
     n_sel_pp = len(line_names)+nextra  # number of peak_positions to use to line up to line_names
     nmax = len(line_names)+nextramax
@@ -97,18 +97,20 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
         raise ValueError("no succesful peak assignment found: acc %g, maxacc*sqrt(len(energies)) %g" %
                          (acc, maxacc * np.sqrt(len(energies))))
 
-    return energies, list(opt_assign)
+    return name_e, energies, list(opt_assign)
 
 
 def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_ev):
     """call build_fit_ranges then convert to ph using approx_ecal
     """
-    e_e, fit_lo_hi, slopes_de_dph = build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
+    e_e, fit_lo_hi, slopes_de_dph = build_fit_ranges(line_names, excluded_line_names,
+                                                             approx_ecal, fit_width_ev)
     fit_lo_hi_ph = []
     for (lo, hi) in fit_lo_hi:
         lo_ph = approx_ecal.energy2ph(lo)
         hi_ph = approx_ecal.energy2ph(hi)
         fit_lo_hi_ph.append((lo_ph, hi_ph))
+
     return e_e, fit_lo_hi_ph, slopes_de_dph
 
 
@@ -119,8 +121,8 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     fit_width_ev - full size in eV of fit ranges
     returns a list of (lo,hi) where lo and hi have units of pulseheights of ranges to fit in for eacn energy in line_names
     """
-    name_e, e_e = __line_names(line_names)
-    excl_name_e, excl_e_e = __line_names(excluded_line_names)
+    name_e, e_e = line_names_and_energies(line_names)
+    excl_name_e, excl_e_e = line_names_and_energies(excluded_line_names)
     half_width_ev = fit_width_ev/2.0
     all_e = np.sort(np.hstack((e_e, excl_e_e)))
     assert(len(all_e) == len(np.unique(all_e)))
@@ -143,6 +145,7 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
         hi = min(e + half_width_ph, (e + nearest_above) / 2.0)
         fit_lo_hi.append((lo, hi))
         slopes_de_dph.append(slope_de_dph)
+
     return e_e, fit_lo_hi, slopes_de_dph
 
 
@@ -168,6 +171,8 @@ def getfitter(name):
         fitter = getattr(mass.calibration.line_fits, class_name)()
     except AttributeError:
         fitter = mass.calibration.line_fits.GaussianFitter()
+    except TypeError:
+        fitter = mass.calibration.line_fits.GaussianFitter()
     return fitter
 
 
@@ -180,7 +185,7 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
         binsize (list[float]): list of binsizes in eV for calibration lines
         slopes_de_dph (list[float]): - list of slopes de_dph (e in eV)
     """
-    name_e, e_e = __line_names(line_names)
+    name_e, e_e = line_names_and_energies(line_names)
     fitters = []
     peak_ph = []
     eres = []
@@ -215,11 +220,15 @@ def singlefit(ph, name, energy, lo, hi, binsize_ph, approx_dP_dE):
 
 
 class EnergyCalibrationAutocal(EnergyCalibration):
-    def __init__(self):
+    def __init__(self, ph=None, line_names=None):
+        """
+        Args:
+            line_names (list[str]): names of calibration lines. Names doesn't need to be ordered in their energies.
+        """
         super(EnergyCalibrationAutocal, self).__init__()
         self.fitters = None
         self.energy_resolutions = None
-        self.line_names = None
+        self.line_names = line_names
 
         self.energies_opt = None
         self.ph_opt = None
@@ -227,24 +236,21 @@ class EnergyCalibrationAutocal(EnergyCalibration):
         self.slopes_de_dph = None
 
         self.binsize_ev = None
-        self.ph = None
+        self.ph = ph
 
-    def guess_fit_params(self, ph, line_names, smoothing_res_ph=20, binsize_ev=1.0,
+    def guess_fit_params(self, smoothing_res_ph=20, binsize_ev=1.0,
                          nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
         """Calculate reasonable parameters for complex fitters or Gaussian fitters.
 
          Args:
-             line_names (list[str]): names of calibration lines. Names doesn't need to be ordered in their energies.
              binsize_ev (float or list[float]): bin sizes of the histograms of given calibration lines.
                  If a single number is given, this same number will be used for all calibration lines.
         """
-        lm = find_local_maxima(ph, smoothing_res_ph)
-        self.ph = ph
-        self.line_names = line_names
+        lm = find_local_maxima(self.ph, smoothing_res_ph)
 
         # Note that find_opt_assignment does not require line_names be sorted by energies.
-        self.energies_opt, self.ph_opt = find_opt_assignment(lm, self.line_names, nextra,
-                                                             nincrement, nextramax, maxacc=maxacc)
+        self.line_names, self.energies_opt, self.ph_opt = find_opt_assignment(lm, self.line_names, nextra,
+                                                                              nincrement, nextramax, maxacc=maxacc)
 
         if isinstance(binsize_ev, collections.Iterable):
             self.binsize_ev = binsize_ev
@@ -252,28 +258,32 @@ class EnergyCalibrationAutocal(EnergyCalibration):
             self.binsize_ev = [binsize_ev] * len(self.energies_opt)
 
         approx_cal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
-        for (pulse_height, energy) in zip(self.ph_opt, self.energies_opt):
-            approx_cal.add_cal_point(pulse_height, energy)
+        for ph, e in zip(self.ph_opt, self.energies_opt):
+            approx_cal.add_cal_point(ph, e)
 
         #  Default fit range width is 100 eV for each line.
         #  But you can customize these numbers after self.guess_fit_params is finished.
         #  New self.fit_lo_hi values will be in self.fit_lines in the next step.
-        energies, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approx_cal, 100)
+        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [],
+                                                                                     approx_cal, 100)
 
     def fit_lines(self):
         """All calibration emission lines are fitted with ComplexFitter or GaussianFitter
         self.line_names will be sored by energy after this method is finished.
         """
         mresult = multifit(self.ph, self.line_names, self.fit_lo_hi, self.binsize_ev, self.slopes_de_dph)
-        for (ee, phph) in zip(mresult["energies"], mresult["peak_ph"]):
-            self.add_cal_point(phph, ee)
+
+        for ph, e in zip(mresult["peak_ph"], mresult["energies"]):
+            self.add_cal_point(ph, e)
+
         self.fitters = mresult["fitters"]
         self.energy_resolutions = mresult["eres"]
         self.line_names = mresult["line_names"]
 
     def autocal(self, ph, line_names, smoothing_res_ph=20, binsize_ev=1.0,
                 nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
-        self.guess_fit_params(ph, line_names, smoothing_res_ph, binsize_ev, nextra, nincrement, nextramax, maxacc)
+        self.ph, self.line_names = ph, line_names
+        self.guess_fit_params(smoothing_res_ph, binsize_ev, nextra, nincrement, nextramax, maxacc)
         self.fit_lines()
 
     def diagnose(self):
