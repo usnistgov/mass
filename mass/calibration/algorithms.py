@@ -3,7 +3,6 @@ import itertools
 import operator
 
 import numpy as np
-import pylab as plt
 
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
@@ -59,30 +58,31 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
 
 def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
     """Tries to find an assignment of peaks to line names that is reasonably self consistent and smooth
+
     Args:
-        peak_positions (list[float]): a list of peak locations in arb units, eg p_filt_value units
+        peak_positions (numpy.array(dtype=numpy.float)): a list of peak locations in arb units, eg p_filt_value units
         line_names (list[str or float)]): a list of calibration lines either as number (, which is energies in eV,)
             or name to be looked up in STANDARD_FEATURES
-        nextra = the algorithm starts with the first len(line_names)+nextra peak_positions
-        nincrement = each the algorithm fails to find a satisfatory peak assignment, it uses nincrement more lines
-        nextramax = the algorithm fails with an error if the algorithm tries to use more than this many lines
-        maxacc = an empirical number that determines if an assignment is good enough.
+        nextra (int): the algorithm starts with the first len(line_names) + nextra peak_positions
+        nincrement (int): each the algorithm fails to find a satisfactory peak assignment, it uses nincrement more lines
+        nextramax (int): the algorithm fails with an error if the algorithm tries to use more than this many lines
+        maxacc (float): an empirical number that determines if an assignment is good enough.
             The default number works reasonably well for tupac data
     """
     name_e, e_e = line_names_and_energies(line_names)
 
-    n_sel_pp = len(line_names)+nextra  # number of peak_positions to use to line up to line_names
-    nmax = len(line_names)+nextramax
+    n_sel_pp = len(line_names) + nextra  # number of peak_positions to use to line up to line_names
+    nmax = len(line_names) + nextramax
 
-    while n_sel_pp < nmax:
-        sel_positions = np.array(peak_positions[:n_sel_pp], dtype="float")
-        energies = np.array(e_e, dtype="float")
+    while True:
+        sel_positions = np.asarray(peak_positions[:n_sel_pp], dtype="float")
+        energies = np.asarray(e_e, dtype="float")
         assign = np.array(list(itertools.combinations(sel_positions, len(line_names))))
         assign.sort(axis=1)
-        fracs = (energies[1:-1] - energies[:-2])/(energies[2:] - energies[:-2])
+        fracs = np.divide(energies[1:-1] - energies[:-2], energies[2:] - energies[:-2])
         est_pos = assign[:, :-2]*(1 - fracs) + assign[:, 2:]*fracs
-        acc_est = np.linalg.norm((est_pos - assign[:, 1:-1]) /
-                                 (assign[:, 2:] - assign[:, :-2]), axis=1)
+        acc_est = np.linalg.norm(np.divide(est_pos - assign[:, 1:-1],
+                                           assign[:, 2:] - assign[:, :-2]), axis=1)
 
         opt_assign_i = np.argmin(acc_est)
         acc = acc_est[opt_assign_i]
@@ -90,23 +90,22 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
 
         if acc > maxacc * np.sqrt(len(energies)):
             n_sel_pp += nincrement
-            continue
+            if n_sel_pp > nmax:
+                raise ValueError("no successful peak assignment found: acc %g, maxacc*sqrt(len(energies)) %g" %
+                                 (acc, maxacc * np.sqrt(len(energies))))
+            else:
+                continue
         else:
-            break
-    else:  # if break does not occur
-        raise ValueError("no succesful peak assignment found: acc %g, maxacc*sqrt(len(energies)) %g" %
-                         (acc, maxacc * np.sqrt(len(energies))))
-
-    return name_e, energies, list(opt_assign)
+            return name_e, energies, list(opt_assign)
 
 
 def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_ev):
     """call build_fit_ranges then convert to ph using approx_ecal
     """
     e_e, fit_lo_hi, slopes_de_dph = build_fit_ranges(line_names, excluded_line_names,
-                                                             approx_ecal, fit_width_ev)
+                                                     approx_ecal, fit_width_ev)
     fit_lo_hi_ph = []
-    for (lo, hi) in fit_lo_hi:
+    for lo, hi in fit_lo_hi:
         lo_ph = approx_ecal.energy2ph(lo)
         hi_ph = approx_ecal.energy2ph(hi)
         fit_lo_hi_ph.append((lo_ph, hi_ph))
@@ -115,11 +114,14 @@ def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_
 
 
 def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev):
-    """line_names - list or line names or energies
-    excluded_line_names - list of line_names or energies to avoid when making fit ranges
-    approx_cal - an EnergyCalibration object containing an approximate calibration
-    fit_width_ev - full size in eV of fit ranges
-    returns a list of (lo,hi) where lo and hi have units of pulseheights of ranges to fit in for eacn energy in line_names
+    """Returns a list of (lo,hi) where lo and hi have units of pulseheights of ranges to fit in
+        for each energy in line_names
+
+    Args:
+        line_names (list[str or float]): list or line names or energies
+        excluded_line_names (list[str or float]): list of line_names or energies to avoid when making fit ranges
+        approx_ecal: an EnergyCalibration object containing an approximate calibration
+        fit_width_ev (float): full size in eV of fit ranges
     """
     name_e, e_e = line_names_and_energies(line_names)
     excl_name_e, excl_e_e = line_names_and_energies(excluded_line_names)
@@ -194,7 +196,7 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
         lo, hi = fit_lo_hi[i]
         dP_dE = 1/slopes_de_dph[i]
         binsize_ph = binsize_ev[i]*dP_dE
-        fitter = singlefit(ph, name_e[i], e_e[i], lo, hi, binsize_ph, dP_dE)
+        fitter = singlefit(ph, name_e[i], lo, hi, binsize_ph, dP_dE)
         fitters.append(fitter)
         peak_ph.append(fitter.last_fit_params[fitter.param_meaning["peak_ph"]])
         if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
@@ -206,7 +208,7 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
             "eres": eres, "line_names": name_e, "energies": e_e}
 
 
-def singlefit(ph, name, energy, lo, hi, binsize_ph, approx_dP_dE):
+def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
     counts, bin_edges = np.histogram(ph, np.arange(lo, hi, binsize_ph))
     fitter = getfitter(name)
     guess_params = fitter.guess_starting_params(counts, bin_edges)
@@ -216,16 +218,19 @@ def singlefit(ph, name, energy, lo, hi, binsize_ph, approx_dP_dE):
     else:
         hold = []
     fitter.fit(counts, bin_edges, guess_params, plot=False, hold=hold)
+
     return fitter
 
 
-class EnergyCalibrationAutocal(EnergyCalibration):
-    def __init__(self, ph=None, line_names=None):
+class EnergyCalibrationAutocal:
+    def __init__(self, calibration, ph=None, line_names=None):
         """
         Args:
             line_names (list[str]): names of calibration lines. Names doesn't need to be ordered in their energies.
         """
-        super(EnergyCalibrationAutocal, self).__init__()
+        if not isinstance(calibration, EnergyCalibration):
+            raise ValueError("EnergyCalibrationAutocal requires an EnergyCalibration calibration.")
+        self.calibration = calibration
         self.fitters = None
         self.energy_resolutions = None
         self.line_names = line_names
@@ -264,8 +269,7 @@ class EnergyCalibrationAutocal(EnergyCalibration):
         #  Default fit range width is 100 eV for each line.
         #  But you can customize these numbers after self.guess_fit_params is finished.
         #  New self.fit_lo_hi values will be in self.fit_lines in the next step.
-        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [],
-                                                                                     approx_cal, 100)
+        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approx_cal, 100)
 
     def fit_lines(self):
         """All calibration emission lines are fitted with ComplexFitter or GaussianFitter
@@ -274,17 +278,20 @@ class EnergyCalibrationAutocal(EnergyCalibration):
         mresult = multifit(self.ph, self.line_names, self.fit_lo_hi, self.binsize_ev, self.slopes_de_dph)
 
         for ph, e in zip(mresult["peak_ph"], mresult["energies"]):
-            self.add_cal_point(ph, e)
+            self.calibration.add_cal_point(ph, e)
 
         self.fitters = mresult["fitters"]
         self.energy_resolutions = mresult["eres"]
         self.line_names = mresult["line_names"]
 
-    def autocal(self, ph, line_names, smoothing_res_ph=20, binsize_ev=1.0,
+        return self.calibration
+
+    def autocal(self, smoothing_res_ph=20, binsize_ev=1.0,
                 nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
-        self.ph, self.line_names = ph, line_names
         self.guess_fit_params(smoothing_res_ph, binsize_ev, nextra, nincrement, nextramax, maxacc)
         self.fit_lines()
+
+        return self.calibration
 
     def diagnose(self):
         fig = plt.figure(figsize=(16, 9))
@@ -300,7 +307,8 @@ class EnergyCalibrationAutocal(EnergyCalibration):
             ax.xaxis.set_major_locator(MaxNLocator(4, integer=True))
 
             binsize = fitter.last_fit_bins[1]-fitter.last_fit_bins[0]
-            bin_edges = np.linspace(fitter.last_fit_bins[0]-binsize/2.0, fitter.last_fit_bins[-1]+binsize/2.0, len(fitter.last_fit_bins)+1)
+            bin_edges = np.linspace(fitter.last_fit_bins[0] - binsize/2.0, fitter.last_fit_bins[-1] + binsize/2.0,
+                                    len(fitter.last_fit_bins)+1)
             ax.fill(np.repeat(bin_edges, 2), np.hstack([[0], np.repeat(fitter.last_fit_contents, 2), [0]]),
                     lw=1, fc=(0.3, 0.3, 0.9), ec=(0.1, 0.1, 1.0), alpha=0.8)
 
@@ -321,8 +329,8 @@ class EnergyCalibrationAutocal(EnergyCalibration):
 
         ax = fig.add_axes([lm + w, bm, (1.0 - lm - w) - 0.06, h - 0.05])
 
-        for el, pht, fitter, energy in zip(self.line_names, self._ph,
-                                           self.fitters, self._energies):
+        for el, pht, fitter, energy in zip(self.line_names, self.calibration.cal_point_phs,
+                                           self.fitters, self.calibration.cal_point_energies):
             peak_name = 'Unknown'
             if isinstance(el, str):
                 peak_name = el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
@@ -333,15 +341,15 @@ class EnergyCalibrationAutocal(EnergyCalibration):
                     ha='left', va='top',
                     transform=ax.transData + mtrans.ScaledTranslation(5.0 / 72, -12.0 / 72, fig.dpi_scale_trans))
 
-        ax.scatter(self._ph,
-                   self._energies, s=36, c=(0.2, 0.2, 0.8))
+        ax.scatter(self.calibration.cal_point_phs,
+                   self.calibration.cal_point_energies, s=36, c=(0.2, 0.2, 0.8))
 
-        lb = np.amin(self._ph)
-        ub = np.amax(self._ph)
+        lb = np.amin(self.calibration.cal_point_phs)
+        ub = np.amax(self.calibration.cal_point_phs)
         
         width = ub - lb
         x = np.linspace(lb - width / 10, ub + width / 10, 101)
-        y = self(x)
+        y = self.calibration(x)
         ax.plot(x, y, '--', color='orange', lw=2, zorder=-2)
 
         ax.yaxis.set_tick_params(labelleft=False, labelright=True)

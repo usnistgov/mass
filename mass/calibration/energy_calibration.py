@@ -23,7 +23,7 @@ STANDARD_FEATURES = {
    # The following Kalpha (alpha 1) and Kbeta (beta 1,3) line positions were
    # cross-checked 4 Feb 2014 against Deslattes.
    # Each is named to agree with the name in fluorescence_lines.
-   'AlKAlpha': 1486.71, # __KAlpha refers to K Alpha 1
+   'AlKAlpha': 1486.71,  # __KAlpha refers to K Alpha 1
    'AlKBeta':  1557.6,
    'SiKAlpha': 1739.99,
    'SiKBeta':  1836.0,
@@ -31,9 +31,9 @@ STANDARD_FEATURES = {
    'CaKBeta':  4012.76,
    'ScKAlpha': 4090.74,
    'TiKAlpha': 4510.90,
-   'TiKBeta':  4931.83, #http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
+   'TiKBeta':  4931.83,  # http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
    'VKAlpha':  4952.22,
-   'VKBeta':   5426.962, # From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
+   'VKBeta':   5426.962,  # From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
    'CrKAlpha' :5414.805,
    'CrKBeta':  5946.82,
    'MnKAlpha': 5898.801,
@@ -47,15 +47,15 @@ STANDARD_FEATURES = {
    'CuKAlpha': 8047.823,
    'CuKBeta':  8905.41,
 
-   'TiKEdge': 4966.0,
-   'VKEdge':  5465.0, # defined as peak of derivative from exafs materials.com
-   'CrKEdge': 5989.0,
-   'MnKEdge': 6539.0,
-   'FeKEdge': 7112.0,
-   'CoKEdge': 7709.0,
-   'NiKEdge': 8333.0,
-   'CuKEdge': 8979.0,
-   'ZnKEdge': 9659.0,
+   'TiKEdge':  4966.0,
+   'VKEdge':   5465.0,  # defined as peak of derivative from exafs materials.com
+   'CrKEdge':  5989.0,
+   'MnKEdge':  6539.0,
+   'FeKEdge':  7112.0,
+   'CoKEdge':  7709.0,
+   'NiKEdge':  8333.0,
+   'CuKEdge':  8979.0,
+   'ZnKEdge':  9659.0,
    # Randy's rare earth metals from Deslattes (Rev Mod Phys vol 75, 2003)
    'RhLl':     2376.55,
    'RhLAlpha2':2692.08,
@@ -96,11 +96,10 @@ STANDARD_FEATURES = {
 
 
 class EnergyCalibration(object):
-    """
-    Object to store information relevant to one detector's absolute energy
+    """Object to store information relevant to one detector's absolute energy
     calibration and to offer conversions between pulse height and energy.
 
-    The behavior is goverened by the constructor arguments `loglog`, `approximate`,
+    The behavior is governed by the constructor arguments `loglog`, `approximate`,
     and `zerozero` and by the number of data points. The construction-time arguments
     can be changed by calling EnergyCalibration.set_use_approximation() and
     EnergyCalibration.set_curvetype().
@@ -120,10 +119,10 @@ class EnergyCalibration(object):
     It's probably quite slow compared to a self.ph2energy for an array of equal length.
 
     All of __call__, ph2energy, and energy2ph should return a scalar when given a
-    scalar input, or a matching numpy array when given any sequence as an imput.
+    scalar input, or a matching numpy array when given any sequence as an input.
     """
 
-    CURVETYPE=(
+    CURVETYPE = (
         "loglog",
         "linear",
         "linear+0",
@@ -133,15 +132,14 @@ class EnergyCalibration(object):
         )
 
     def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=True):
-        """
-        Create an EnergyCalibration object for pulse-height-related field.
+        """Create an EnergyCalibration object for pulse-height-related field.
 
-        `nonlinearity` is the exponent N in the default, low-energy limit of
-        E \propto (PH)^N.  Typically 1.0 to 1.3 are reasonable.
-        `loglog`  Whether to spline in log(E) vs log(PH) space. (If not, spline E vs PH.)
-        `approximate`  Whether to use approximate "smoothing splines". (If not, use splines
-                        that go exactly through the data.)
-        `zerozero` Whether to force the cal curve to go through (0,0).
+        Args:
+            nonlinearity (float): the exponent N in the default, low-energy limit of
+                E \propto (PH)^N.  Typically 1.0 to 1.3 are reasonable.
+            curvetype (str or int): one of EnergyCalibration.CURVETYPE.
+            approximate (boolean):  Whether to use approximate "smoothing splines". (If not, use splines
+                that go exactly through the data.)
         """
         self._curvetype = 0
         self.set_curvetype(curvetype)
@@ -157,25 +155,34 @@ class EnergyCalibration(object):
         self._model_is_stale = False
         self._e2phwarned = False
 
+        self.ph2energy = self.__call__
+
     def __call__(self, pulse_ht):
-        "Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV)."
+        """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
+
+        Args:
+            pulse_ht (float or numpy.array(dtype=numpy.float)): pulse heights in an arbitrary unit.
+        """
         if self._model_is_stale:
             self._update_converters()
         return self._ph2energy_anon(pulse_ht)
 
-    def ph2energy(self, pulse_ht):
-        """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
-        This is a synonym for self.__call__(...). """
-        if self._model_is_stale:
-            self._update_converters()
-        return self._ph2energy_anon(pulse_ht)
+    # def ph2energy(self, pulse_ht):
+    #     """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
+    #     This is a synonym for self.__call__(...). """
+    #     if self._model_is_stale:
+    #         self._update_converters()
+    #     return self._ph2energy_anon(pulse_ht)
 
     def energy2ph(self, energy):
         """Convert a single energy `energy` in eV to a pulse height.
         Inverts the _ph2energy_anon function by Brent's method for root finding."""
         if self._model_is_stale:
             self._update_converters()
-        energy_residual = lambda ph, etarget: self._ph2energy_anon(ph)-etarget
+
+        def energy_residual(ph, etarget):
+            return self._ph2energy_anon(ph) - etarget
+
         if np.isscalar(energy):
             return sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(energy,))
         elif len(energy) > 10 and not self._e2phwarned:
@@ -208,13 +215,14 @@ class EnergyCalibration(object):
     def set_curvetype(self, curvetype):
         if isinstance(curvetype, str):
             curvetype = self.CURVETYPE.index(curvetype.lower())
-        assert curvetype >= 0 and curvetype < len(self.CURVETYPE)
+        assert 0 <= curvetype < len(self.CURVETYPE)
         if curvetype != self._curvetype:
             self._curvetype = curvetype
             self._model_is_stale = True
 
     def copy(self, new_ph_field=None):
-        """Return a deep copy"""
+        """Return a deep copy
+        """
         ecal = EnergyCalibration()
         ecal.__dict__.update(self.__dict__)
         ecal._names = list(self._names)
@@ -228,7 +236,8 @@ class EnergyCalibration(object):
         return ecal
 
     def _remove_cal_point_idx(self, idx):
-        "Remove calibration point number `idx` from the calibration."
+        """Remove calibration point number `idx` from the calibration.
+        """
         self._names.pop(idx)
         self._ph = np.hstack((self._ph[:idx], self._ph[idx+1:]))
         self._energies = np.hstack((self._energies[:idx], self._energies[idx+1:]))
@@ -238,7 +247,8 @@ class EnergyCalibration(object):
         self._model_is_stale = True
 
     def remove_cal_point_name(self, name):
-        "If you don't like calibration point named <name>, this removes it"
+        """If you don't like calibration point named <name>, this removes it
+        """
         idx = self._names.index(name)
         self._remove_cal_point_idx(idx)
 
@@ -249,14 +259,14 @@ class EnergyCalibration(object):
                 self.remove_cal_point_name(name)
 
     def remove_cal_point_energy(self, energy, de):
-        "Remove cal points at energies with <de> of <energy>"
-        idxs = np.nonzero(np.abs(self._energies-energy)<de)[0]
+        """Remove cal points at energies with <de> of <energy>
+        """
+        idxs = np.nonzero(np.abs(self._energies-energy) < de)[0]
         for idx in idxs:
             self._remove_cal_point_idx(idx)
 
     def add_cal_point(self, pht, energy, name="", pht_error=None, e_error=None, overwrite=True):
-        """
-        Add a single energy calibration point <pht>, <energy>, where <pht> must be in units
+        """Add a single energy calibration point <pht>, <energy>, where <pht> must be in units
         of the self.ph_field and <energy> is in eV.  <pht_error> is the 1-sigma uncertainty
         on the pulse height.  If None (the default), then assign pht_error = <pht>/1000.
         <e_error> is the 1-sigma uncertainty on the energy itself. If None (the default),
@@ -277,7 +287,7 @@ class EnergyCalibration(object):
         self._model_is_stale = True
 
         # If <energy> is a string and a known spectral feature's name, use it as the name instead
-        # Otherwise, it needs to be a numeric type convertable to float.
+        # Otherwise, it needs to be a numeric type convertible to float.
         if energy in STANDARD_FEATURES:
             name = energy
             energy = STANDARD_FEATURES[name]
@@ -285,13 +295,13 @@ class EnergyCalibration(object):
             try:
                 energy = float(energy)
             except ValueError:
-                raise ValueError("2nd argument must be an energy or a known name"+
+                raise ValueError("2nd argument must be an energy or a known name" +
                                  " from mass.energy_calibration.STANDARD_FEATURES")
 
         if pht_error is None:
             pht_error = pht*0.001
         if e_error is None:
-            e_error = 0.01 # Assume 0.01 eV error if none given
+            e_error = 0.01  # Assume 0.01 eV error if none given
 
         if name != "" and name in self._names:  # Update an existing point
             if not overwrite:
@@ -302,7 +312,7 @@ class EnergyCalibration(object):
             self._dph[index] = pht_error
             self._de[index] = e_error
 
-        else:   # Add a new point
+        else:  # Add a new point
             self._ph = np.hstack((self._ph, pht))
             self._energies = np.hstack((self._energies, energy))
             self._dph = np.hstack((self._dph, pht_error))
@@ -322,10 +332,18 @@ class EnergyCalibration(object):
         assert self.npts == len(self._energies)
         assert self.npts == len(self._de)
 
+    @property
+    def cal_point_phs(self):
+        return self._ph
+
+    @property
+    def cal_point_energies(self):
+        return self._energies
+
     def _update_converters(self):
         """There is now one (or more) new data points. All the math goes on in this method."""
-        assert len(self._ph)==len(self._energies)
-        assert len(self._ph)==self.npts
+        assert len(self._ph) == len(self._energies)
+        assert len(self._ph) == self.npts
         self._max_ph = 2*np.max(self._ph)
         if self._use_approximation and self.npts > 3:
             self._update_approximators()
@@ -341,12 +359,12 @@ class EnergyCalibration(object):
         # Make sure the errors in both dimensions are reasonable (positive)
         if (self._dph <= 0.0).any():
             if (self._dph > 0).any():
-                self._dph[self._dph<=0.0] = self._dph[self._dph>0].min()
+                self._dph[self._dph <= 0.0] = self._dph[self._dph>0].min()
             else:
                 self._dph = np.zeros_like(self._dph)
         if (self._de <= 0.0).any():
             if (self._de > 0).any():
-                self._de[self._de<=0.0] = self._de[self._de>0].min()
+                self._de[self._de <= 0.0] = self._de[self._de>0].min()
             else:
                 self._de = np.zeros_like(self._de)
 
@@ -358,10 +376,10 @@ class EnergyCalibration(object):
 
         elif self.curvename().startswith("linear"):
             if ("+0" in self.curvename()) and (0.0 not in ph):
-                ph = np.hstack([[0],ph])
-                e  = np.hstack([[0],e])
-                de = np.hstack([[de.min()*0.1],de])
-                dph= np.hstack([[dph.min()*0.1],dph])
+                ph = np.hstack([[0], ph])
+                e  = np.hstack([[0], e])
+                de = np.hstack([[de.min()*0.1], de])
+                dph= np.hstack([[dph.min()*0.1], dph])
             self._ph2energy_anon = SmoothingSpline(ph, e, de, dph)
 
         elif self.curvename() == "gain":
@@ -406,8 +424,8 @@ class EnergyCalibration(object):
             self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
 
         elif self.npts == 2:
-            p1,p2 = self._ph
-            e1,e2 = self._energies
+            p1, p2 = self._ph
+            e1, e2 = self._energies
             self.nonlinearity = np.log(e2/e1) / np.log(p2/p1)
             self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
 
@@ -454,7 +472,6 @@ class EnergyCalibration(object):
         energy = STANDARD_FEATURES[name]
         return self.energy2ph(energy)
 
-
     def plot(self, axis=None, ph_rescale_power=0.0, color='blue', markercolor='red'):
         """Plot the energy calibration function using pylab.  If <axis> is None,
         a new pylab.subplot(111) will be used.  Otherwise, axis should be a
@@ -475,14 +492,14 @@ class EnergyCalibration(object):
         axis.plot(pht, y, color=color)
 
         # Plot and label cal points
-        if ph_rescale_power==0.0:
+        if ph_rescale_power == 0.0:
             axis.errorbar(self._ph, self._energies, yerr=self._de, xerr=self._dph, fmt='o',
                           mec='black', mfc=markercolor, capsize=0)
         else:
             yscale = 1.0/(self._ph**ph_rescale_power)
             dy = np.sqrt(self._de**2 + (self._dph*ph_rescale_power)**2)
             axis.errorbar(self._ph, self._energies*yscale, yerr=dy*yscale,
-                        xerr=self._dph, fmt='or', capsize=0)
+                          xerr=self._dph, fmt='or', capsize=0)
         for pht, name in zip(self._ph, self._names):
             axis.text(pht, self(pht)/pht**ph_rescale_power, name+'  ', ha='right')
 
@@ -492,8 +509,8 @@ class EnergyCalibration(object):
             axis.set_ylabel("Energy (eV)")
             axis.set_title("Energy calibration curve")
         else:
-            axis.set_ylabel("Energy (eV) / PH^%.4f"%ph_rescale_power)
-            axis.set_title("Energy calibration curve, scaled by %.4f power of PH"%ph_rescale_power)
+            axis.set_ylabel("Energy (eV) / PH^%.4f" % ph_rescale_power)
+            axis.set_title("Energy calibration curve, scaled by %.4f power of PH" % ph_rescale_power)
 
     def drop_one_errors(self):
         """For each calibration point, calculate the difference between the 'correct' energy

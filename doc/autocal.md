@@ -1,11 +1,11 @@
-When you want to calibrate a TES detector using a series of X-ray emission lines of chemical elements or any sharp features in a X-ray spectrum, you can use mass.calibration.algorithm.EnergyCalibrationAutocal.
+When you want to calibrate a TES detector using a series of X-ray emission lines of chemical elements or any sharp peaks in a X-ray spectrum, you can use mass.calibration.algorithm.EnergyCalibrationAutocal.
 
-The most simple way to calibrate is using the `EnergyCalibrationAutocal.autocal` method. If you supply the name of emission line, it tries to fit data using a corresponding `MultiLorentzianComplexFitter` And if only peak position (number in the eV unit) is given, it uses the `GuassianLineFitter`.
+The most simple way to calibrate is using the `EnergyCalibrationAutocal.autocal` method. If you supply the name of emission line, it tries to fit data using a corresponding `MultiLorentzianComplexFitter` And if only peak position (number in the eV unit) is given, it uses the `GuassianLineFitter` to fit the data.
 ```python3
 from mass.calibration.algorithm import EnergyCalibrationAutocal
 
-#  Suppose we have a numpy array of pulse_height and know that the names of emission lines that these data consist of
-#  or energies of sharp features in X-ray spectrum.
+#  Suppose we have a numpy array of pulse heights and know that the names of X-ray emission lines
+#  or energies of sharp peaks in X-ray spectrum that data consist of.
 #  pulse_heights (numpy.array(dtype=np.float)): a numpy array of pulse heights.
 #  line_names (list[str or float]): names of emission lines or energies of X-ray feature in eV unit.
 #  e.g. line_names = ['ScKAlpha', 4460.5, 'FeKAlpha', 'FeKBeta', 'AsKAlpha', 11726.2]
@@ -15,8 +15,8 @@ cal.set_use_approximation(False)  # If you want the calibration spline to go exa
 cal.autocal(pulse_heights, line_names)
 ```
 
-`EnergyCalibrationAutocal.autocal` needs to determine how to build histograms for line fitters. Its default parameters usually works for chemical elements from Ti to Cu. Sometimes you need to adjust these histogram parameters before histograms are handed into line fitters.
-In this case you can split `cal.autocal` into `cal.guess_fit_params` and `cal.fit_lines` and adjust default histogram parameters before line fitting starts. 
+Before data are fitted with corresponding line fitters, `EnergyCalibrationAutocal.autocal` needs to determine how to build histograms which are fed into line fitters. Its default parameters usually works for chemical elements from Ti to Cu. Sometimes you need to adjust these histogram parameters before histograms are handed into line fitters.
+In this case you can split `cal.autocal` into `cal.guess_fit_params` and `cal.fit_lines` and adjust default histogram parameters between these method calls by changing member variables such as `fit_lo_hi`, `binsize_ev`, or `ph_opt`. 
 
 ```python3
 cal = EnergyCalibrationAutocal()
