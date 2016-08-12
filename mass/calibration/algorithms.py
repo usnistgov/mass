@@ -243,7 +243,7 @@ class EnergyCalibrationAutocal:
         self.binsize_ev = None
         self.ph = ph
 
-    def guess_fit_params(self, smoothing_res_ph=20, binsize_ev=1.0,
+    def guess_fit_params(self, smoothing_res_ph=20, fit_range_ev=200, binsize_ev=1.0,
                          nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
         """Calculate reasonable parameters for complex fitters or Gaussian fitters.
 
@@ -269,7 +269,7 @@ class EnergyCalibrationAutocal:
         #  Default fit range width is 100 eV for each line.
         #  But you can customize these numbers after self.guess_fit_params is finished.
         #  New self.fit_lo_hi values will be in self.fit_lines in the next step.
-        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approx_cal, 100)
+        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approx_cal, fit_range_ev)
 
     def fit_lines(self):
         """All calibration emission lines are fitted with ComplexFitter or GaussianFitter
@@ -277,8 +277,8 @@ class EnergyCalibrationAutocal:
         """
         mresult = multifit(self.ph, self.line_names, self.fit_lo_hi, self.binsize_ev, self.slopes_de_dph)
 
-        for ph, e in zip(mresult["peak_ph"], mresult["energies"]):
-            self.calibration.add_cal_point(ph, e)
+        for ph, e, n in zip(mresult["peak_ph"], mresult["energies"], mresult['line_names']):
+            self.calibration.add_cal_point(ph, e, name=str(n))
 
         self.fitters = mresult["fitters"]
         self.energy_resolutions = mresult["eres"]
@@ -292,6 +292,10 @@ class EnergyCalibrationAutocal:
         self.fit_lines()
 
         return self.calibration
+
+    @property
+    def anyfailed(self):
+        return any([isinstance(cf, FailedFitter) for cf in self.fitters])
 
     def diagnose(self):
         fig = plt.figure(figsize=(16, 9))

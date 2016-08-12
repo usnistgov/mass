@@ -27,7 +27,9 @@ from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater
-from mass.calibration import young
+from mass.calibration.energy_calibration import EnergyCalibration
+from mass.calibration.algorithms import EnergyCalibrationAutocal
+# from mass.calibration import young
 
 from mass.core import ljh_util
 
@@ -1500,38 +1502,41 @@ class MicrocalDataSet(object):
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3):
-            try:
-                pkl_fname = self.pkl_fname
-                if path.isfile(pkl_fname) and not forceNew:
-                    with open(pkl_fname, "rb") as f:
-                        self.calibration = pickle.load(f)
-            except pickle.UnpicklingError:
-                print("Unpicking calibration objects is failed!")
-
+                  bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3,
+                  param_adjust_closure=None):
             calname = attr+name_ext
-            if calname in self.calibration:
-                cal = self.calibration[calname]
-                if young.is_calibrated(cal) and not forceNew:
-                    print("Not calibrating chan %d %s because it already exists" % (self.channum, calname))
-                    return None
-                # first does this already exist? if the calibration already exists and has more than 1 pt,
-                # we probably dont need to redo it
+            hdf5_cal_group = self.hdf5_group.require_group('calibration')
+
+            # Load a calibration object from a hdf5 file if necessary.
+            if not forceNew and calname in hdf5_cal_group:
+                self.calibration[calname] = EnergyCalibration.load_from_hdf5(hdf5_cal_group, calname)
+                return
+
             print("Calibrating chan %d to create %s" % (self.channum, calname))
-            cal = young.EnergyCalibration(size_related_to_energy_resolution,
-                                          fit_range_ev, excl, plot_on_fail,
-                                          bin_size_ev=bin_size_ev, maxacc=maxacc, nextra=nextra)
-            # By default, it only uses the "in" category of the calibration categorical cut field.
+            cal = EnergyCalibration()
+            cal.set_use_approximation(False)
+
+            # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
             if category is None:
                 category = {"calibration": "in"}
-            cal.fit(getattr(self, attr)[self.cuts.good(**category)], line_names)
-            self.calibration[calname] = cal
-            if cal.anyfailed:
+
+            auto_cal = EnergyCalibrationAutocal(cal,
+                                                self.p_filt_value_dc[self.cuts.good(**category)],
+                                                line_names)
+            auto_cal.guess_fit_params(smoothing_res_ph=size_related_to_energy_resolution,
+                                      fit_range_ev=fit_range_ev,
+                                      binsize_ev=bin_size_ev,
+                                      nextra=nextra, maxacc=maxacc)
+            if param_adjust_closure:
+                param_adjust_closure(self, auto_cal)
+            auto_cal.fit_lines()
+
+            if auto_cal.anyfailed:
                 print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
                 raise Exception()
 
-            with open(pkl_fname, "wb") as f:
-                pickle.dump(self.calibration, f)
+            self.calibration[calname] = cal
+            cal.save_to_hdf5(hdf5_cal_group, calname)
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
