@@ -10,6 +10,8 @@ __all__ = ['EnergyCalibration']
 
 import numpy as np
 import scipy as sp
+import h5py
+
 from ..mathstat.interpolate import *
 
 # Some commonly-used standard energy features.
@@ -130,6 +132,12 @@ class EnergyCalibration(object):
         "invgain",
         "loggain",
         )
+
+    CAL_POINT_DTYPE = np.dtype([("name", np.bytes_, 64),
+                                ("ph", np.double),
+                                ("energy", np.double),
+                                ("dph", np.double),
+                                ("de", np.double)])
 
     def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=True):
         """Create an EnergyCalibration object for pulse-height-related field.
@@ -359,12 +367,12 @@ class EnergyCalibration(object):
         # Make sure the errors in both dimensions are reasonable (positive)
         if (self._dph <= 0.0).any():
             if (self._dph > 0).any():
-                self._dph[self._dph <= 0.0] = self._dph[self._dph>0].min()
+                self._dph[self._dph <= 0.0] = self._dph[self._dph > 0].min()
             else:
                 self._dph = np.zeros_like(self._dph)
         if (self._de <= 0.0).any():
             if (self._de > 0).any():
-                self._de[self._de <= 0.0] = self._de[self._de>0].min()
+                self._de[self._de <= 0.0] = self._de[self._de > 0].min()
             else:
                 self._de = np.zeros_like(self._de)
 
@@ -525,3 +533,31 @@ class EnergyCalibration(object):
             drop_one_energy_diff[i] = predicted_energy-drop_one_energy
         perm = np.argsort(self._energies)
         return self._energies[perm], drop_one_energy_diff[perm]
+
+    def save_to_hdf5(self, hdf5_group, name):
+        if name in hdf5_group:
+            del hdf5_group[name]
+
+        cal_data = np.zeros(self._ph.shape, dtype=self.CAL_POINT_DTYPE)
+        cal_data['name'] = [name.encode() for name in self._names]
+        cal_data['ph'] = self._ph
+        cal_data['energy'] = self._energies
+        cal_data['dph'] = self._dph
+        cal_data['de'] = self._de
+
+        cal_dataset = hdf5_group.create_dataset(name, self._ph.shape, self.CAL_POINT_DTYPE, cal_data)
+        cal_dataset.attrs['nonlinearity'] = self.nonlinearity
+        cal_dataset.attrs['curvetype'] = self.CURVETYPE[self._curvetype]
+        cal_dataset.attrs['approximate'] = self._use_approximation
+
+    @classmethod
+    def load_from_hdf5(cls, hdf5_group, name):
+        cal_dataset = hdf5_group[name]
+        cal = EnergyCalibration(cal_dataset.attrs['nonlinearity'],
+                                cal_dataset.attrs['curvetype'],
+                                cal_dataset.attrs['approximate'])
+
+        for name, ph, e, dph, de in cal_dataset:
+            cal.add_cal_point(ph, e, name.decode(), dph, de)
+
+        return cal
