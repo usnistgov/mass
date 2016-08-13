@@ -181,10 +181,10 @@ def getfitter(name):
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
     """
     Args:
-        ph (numpy.array(dtype=float)): list of pulseheights
+        ph (numpy.array(dtype=float)): list of pulse heights
         line_names: names of calibration  lines
         fit_lo_hi (list[list[float]]): a list of (lo,hi) with units of ph, used as edges of histograms for fitting
-        binsize (list[float]): list of binsizes in eV for calibration lines
+        binsize_ev (list[float]): list of binsizes in eV for calibration lines
         slopes_de_dph (list[float]): - list of slopes de_dph (e in eV)
     """
     name_e, e_e = line_names_and_energies(line_names)
