@@ -53,6 +53,7 @@ def param_adjust_closure(ds, auto_cal):
 
 line_names = ['ScKAlpha', 4460.2, 'TiKAlpha', 'TiKBeta']
  
+# It calibrates the MicrocalDataSet ds using its ds.p_filt_value_dc[ds.good()].
 ds.calibrate('p_filt_value_dc', line_names, param_adjust_closure=param_adjust_closure) 
 ```
 
@@ -68,9 +69,10 @@ def param_adjust_closure(ds, auto_cal):
 
 line_names = ['ScKAlpha', 4460.2, 'TiKAlpha', 'TiKBeta']
  
+ # It calibrates the MicrocalDataSet ds using its ds.p_filt_value_dc[ds.good()].
 data.calibrate('p_filt_value_dc', line_names, param_adjust_closure=param_adjust_closure)
 
-data.why_chan_bad  # Any of failed channels are included in this dictionary.
+data.why_chan_bad  # Any of failed channels are added into this dictionary.
 
 ds = data.channel[1]
 ds.p_energy[ds.good()]  # This field is populated unless ds.channum in data.why_chan_bad
