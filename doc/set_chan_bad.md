@@ -5,7 +5,7 @@ data.set_chan_bad(13, [1, 9], 'failed p_filt_value_dc calibration')
 
 # bad channel information is stored in a python dictionary.
 for chan_num in [1, 9, 13]:
-    assert 'failed p_filt_value_dc calibration' in data._bad_channums
+    assert 'failed p_filt_value_dc calibration' in data._bad_channums[chan_num]
 
 # bad channel information is also stored in a hdf5 file.
 for chan_num in [1, 9, 13]:
