@@ -2,6 +2,7 @@ When you want to calibrate a TES detector using a series of X-ray emission lines
 
 The most simple way to calibrate is using the `EnergyCalibrationAutocal.autocal` method. If you supply the name of emission line, it tries to fit data using a corresponding `MultiLorentzianComplexFitter` And if only peak position (number in the eV unit) is given, it uses the `GuassianLineFitter` to fit the data.
 ```python3
+from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithm import EnergyCalibrationAutocal
 
 #  Suppose we have a numpy array of pulse heights and know that the names of X-ray emission lines
@@ -10,25 +11,30 @@ from mass.calibration.algorithm import EnergyCalibrationAutocal
 #  line_names (list[str or float]): names of emission lines or energies of X-ray feature in eV unit.
 #  e.g. line_names = ['ScKAlpha', 4460.5, 'FeKAlpha', 'FeKBeta', 'AsKAlpha', 11726.2]
 
-cal = EnergyCalibrationAutocal()
+cal = EnergyCalibration()
 cal.set_use_approximation(False)  # If you want the calibration spline to go exactly through data points.
-cal.autocal(pulse_heights, line_names)
+auto_cal = EnergyCalibrationAutocal(cal, pulse_heights, line_names)
+auto_cal.autocal()  # This method modifies the cal object under neath it.
 ```
 
-Before data are fitted with corresponding line fitters, `EnergyCalibrationAutocal.autocal` needs to determine how to build histograms which are fed into line fitters. Its default parameters usually works for chemical elements from Ti to Cu. Sometimes you need to adjust these histogram parameters before histograms are handed into line fitters.
+Before data are fitted with corresponding line fitters, `EnergyCalibrationAutocal.autocal` needs to determine how to build histograms which will be subsequently fed into line fitters. Its default parameters usually work for chemical elements from Ti to Cu on tupac. Sometimes you need to adjust these histogram parameters before histograms are handed into line fitters.
 In this case you can split `cal.autocal` into `cal.guess_fit_params` and `cal.fit_lines` and adjust default histogram parameters between these method calls by changing member variables such as `fit_lo_hi`, `binsize_ev`, or `ph_opt`. 
 
 ```python3
-cal = EnergyCalibrationAutocal()
+cal = EnergyCalibration()
 cal.set_use_approximation(False)  # If you want the calibration spline to go exactly through data points.
-cal.ph, cal.line_names = pulse_heights, line_names
-cal.guess_fit_params(maxacc=0.04)
+auto_cal = EnergyCalibrationAutocal(cal, pulse_heights, line_names)
+
+auto_cal.guess_fit_params(fit_range_ev=100, maxacc=0.24)
 # your customizations goes below.
-gakb_idx = cal.line_names.index("GaKBeta")
-cal.fit_lo_hi[gakb_idx] = (cal.ph_opt[gakb_idx] * 0.9975, cal.ph_opt[gakb_idx] * 1.0025)
-aska_idx = cal.line_names.index("AsKAlpha")
-cal.fit_lo_hi[aska_idx] = (cal.ph_opt[aska_idx] * 0.99, cal.ph_opt[aska_idx] * 1.007)
-cal.binsize_ev[aska_idx] = 3.0
+gakb_idx = emission_line_names.index("GaKBeta")
+auto_cal.fit_lo_hi[gakb_idx] = (auto_cal.ph_opt[gakb_idx] * 0.9975, auto_cal.ph_opt[gakb_idx] * 1.0025)
+aska_idx = emission_line_names.index("AsKAlpha")
+auto_cal.fit_lo_hi[aska_idx] = (auto_cal.ph_opt[aska_idx] * 0.99, auto_cal.ph_opt[aska_idx] * 1.007)
+auto_cal.binsize_ev[aska_idx] = 3.0
 # your customizations are finished.
-cal.fit_lines()
+auto_cal.fit_lines()
+
+auto_cal.diagnose()
+plt.show()
 ```
