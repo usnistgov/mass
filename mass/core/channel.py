@@ -1505,23 +1505,20 @@ class MicrocalDataSet(object):
                   bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3,
                   param_adjust_closure=None):
             calname = attr+name_ext
-            hdf5_cal_group = self.hdf5_group.require_group('calibration')
 
-            # Load a calibration object from a hdf5 file if necessary.
-            if not forceNew and calname in hdf5_cal_group:
-                self.calibration[calname] = EnergyCalibration.load_from_hdf5(hdf5_cal_group, calname)
-                return
+            if not forceNew and calname in self.calibration:
+                return self.calibration[calname]
 
             print("Calibrating chan %d to create %s" % (self.channum, calname))
             cal = EnergyCalibration()
             cal.set_use_approximation(False)
 
-            # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
             if category is None:
                 category = {"calibration": "in"}
 
+            # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
             auto_cal = EnergyCalibrationAutocal(cal,
-                                                self.p_filt_value_dc[self.cuts.good(**category)],
+                                                getattr(self, attr)[self.cuts.good(**category)],
                                                 line_names)
             auto_cal.guess_fit_params(smoothing_res_ph=size_related_to_energy_resolution,
                                       fit_range_ev=fit_range_ev,
@@ -1536,6 +1533,7 @@ class MicrocalDataSet(object):
                 raise Exception()
 
             self.calibration[calname] = cal
+            hdf5_cal_group = self.hdf5_group.require_group('calibration')
             cal.save_to_hdf5(hdf5_cal_group, calname)
 
     def convert_to_energy(self, attr, calname=None):
