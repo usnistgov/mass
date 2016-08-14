@@ -30,6 +30,7 @@ import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
 import mass.nonstandard.CDM
 
+from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
 from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
@@ -186,6 +187,16 @@ class TESGroup(CutFieldMixin):
         if max_cachesize is not None:
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
                 self.set_segment_size(max_cachesize // self.n_channels)
+
+        # load calibration objects from a hdf5 file into ds.calibration
+        for grp_name in self.hdf5_file:
+            hdf5_grp = self.hdf5_file[grp_name]
+
+            if 'calibration' in hdf5_grp:
+                hdf5_cal_grp = hdf5_grp['calibration']
+                ds = self.channel[hdf5_grp.attrs['channum']]
+                for cal_name in hdf5_cal_grp:
+                    ds.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
 
         # bad channel list is loaded from a hdf5_file.
         for grp_name in self.hdf5_file:
