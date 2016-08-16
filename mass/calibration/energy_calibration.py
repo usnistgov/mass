@@ -6,11 +6,8 @@ Created on May 16, 2011
 @author: fowlerj
 """
 
-__all__ = ['EnergyCalibration']
-
 import numpy as np
 import scipy as sp
-import h5py
 
 from ..mathstat.interpolate import *
 
@@ -158,10 +155,11 @@ class EnergyCalibration(object):
         self._de = np.zeros(0, dtype=np.float)
         self._names = []
         self.npts = 0
-        self.nonlinearity = nonlinearity
         self._use_approximation = approximate
         self._model_is_stale = False
         self._e2phwarned = False
+        self.nonlinearity = nonlinearity
+        self.set_nonlinearity()
 
         self.ph2energy = self.__call__
 
@@ -207,10 +205,17 @@ class EnergyCalibration(object):
         return (hie-loe)/(hiph-loph)
 
     def __str__(self):
+        self._update_converters()  # To sort the points
         seq = ["EnergyCalibration()"]
         for name, pulse_ht, energy in zip(self._names, self._ph, self._energies):
             seq.append("  energy(ph=%7.2f) --> %9.2f eV (%s)" % (pulse_ht, energy, name))
         return "\n".join(seq)
+
+    def set_nonlinearity(self, powerlaw=1.15):
+        """Update the power law index assumed when there's 1 data point and a loglog curve type."""
+        if self.curvename() == "loglog" and powerlaw != self.nonlinearity:
+            self.nonlinearity = powerlaw
+            self._model_is_stale = True
 
     def set_use_approximation(self, useit):
         """Switch to using (or to NOT using) approximating splines with
@@ -222,11 +227,18 @@ class EnergyCalibration(object):
 
     def set_curvetype(self, curvetype):
         if isinstance(curvetype, str):
-            curvetype = self.CURVETYPE.index(curvetype.lower())
+            try:
+                curvetype = self.CURVETYPE.index(curvetype.lower())
+            except ValueError:
+                raise ValueError("EnergyCalibration.CURVETYPE does not contain '%s'" % curvetype)
         assert 0 <= curvetype < len(self.CURVETYPE)
+
         if curvetype != self._curvetype:
             self._curvetype = curvetype
             self._model_is_stale = True
+
+    def curvename(self):
+        return self.CURVETYPE[self._curvetype]
 
     def copy(self, new_ph_field=None):
         """Return a deep copy
@@ -270,6 +282,7 @@ class EnergyCalibration(object):
         """Remove cal points at energies with <de> of <energy>
         """
         idxs = np.nonzero(np.abs(self._energies-energy) < de)[0]
+
         for idx in idxs:
             self._remove_cal_point_idx(idx)
 
@@ -311,22 +324,32 @@ class EnergyCalibration(object):
         if e_error is None:
             e_error = 0.01  # Assume 0.01 eV error if none given
 
-        if name != "" and name in self._names:  # Update an existing point
+        update_index = None
+        if name != "" and name in self._names:  # Update an existing point by name
             if not overwrite:
                 raise ValueError("Calibration point '%s' is already known and overwrite is False" % name)
-            index = self._names.index(name)
-            self._ph[index] = pht
-            self._energies[index] = energy
-            self._dph[index] = pht_error
-            self._de[index] = e_error
+            update_index = self._names.index(name)
 
-        else:  # Add a new point
+        elif self.npts > 0 and np.abs(energy-self._energies).min() <= e_error: # Update existing point by energy
+            if not overwrite:
+                raise ValueError("Calibration point at energy %.2f eV is already known and overwrite is False" % energy)
+            update_index = np.abs(energy-self._energies).argmin()
+
+        if update_index is None:   # Add a new point
             self._ph = np.hstack((self._ph, pht))
             self._energies = np.hstack((self._energies, energy))
             self._dph = np.hstack((self._dph, pht_error))
             self._de = np.hstack((self._de, e_error))
             self._names.append(name)
+        else:
+            self._ph[update_index] = pht
+            self._energies[update_index] = energy
+            self._dph[update_index] = pht_error
+            self._de[update_index] = e_error
+        self.npts = len(self._ph)
 
+    def _update_converters(self):
+        """There is now a change in the set of data points. Change the conversion function."""
         # Sort in ascending energy order
         sortkeys = np.argsort(self._ph)
         self._ph = self._ph[sortkeys]
@@ -334,7 +357,6 @@ class EnergyCalibration(object):
         self._dph = self._dph[sortkeys]
         self._de = self._de[sortkeys]
         self._names = [self._names[s] for s in sortkeys]
-        self.npts = len(self._names)
         assert self.npts == len(self._ph)
         assert self.npts == len(self._dph)
         assert self.npts == len(self._energies)
@@ -352,16 +374,13 @@ class EnergyCalibration(object):
         """There is now one (or more) new data points. All the math goes on in this method."""
         assert len(self._ph) == len(self._energies)
         assert len(self._ph) == self.npts
+
         self._max_ph = 2*np.max(self._ph)
-        if self._use_approximation and self.npts > 3:
+        if self._use_approximation and self.npts >= 3:
             self._update_approximators()
         else:
             self._update_exactcurves()
-
         self._model_is_stale = False
-
-    def curvename(self):
-        return self.CURVETYPE[self._curvetype]
 
     def _update_approximators(self):
         # Make sure the errors in both dimensions are reasonable (positive)
@@ -401,7 +420,7 @@ class EnergyCalibration(object):
             if self._underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
             else:
-                self._max_ph = 0.99*sp.optimize.brentq(self._underlying_spline, 0, trial_phmax)
+                self._max_ph = scale*0.99*sp.optimize.brentq(self._underlying_spline, self._ph.max()/scale, trial_phmax/scale)
 
         elif self.curvename() == "invgain":
             ig = e/ph
@@ -420,9 +439,9 @@ class EnergyCalibration(object):
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
         # Choose proper curve/interpolating function object
-        # For N=0 points, we just let E = PH
-        # For N=1 points, use a power law of the assumed nonlinearity
-        # For N=2 points, use a power law, updating nonlinearity to be the actual value.
+        # For N=0 points, in the absence of any information at all, we just let E = PH.
+        # For N=1 points, use E proportional to PH (or if loglog curve, then a power law of the assumed nonlinearity).
+        # For N>1 points, use the chosen curve type (but for N=2, recall that the spline will be a line).
         if self.npts <= 0:
             self._ph2energy_anon = lambda p: p
 
@@ -480,24 +499,62 @@ class EnergyCalibration(object):
         energy = STANDARD_FEATURES[name]
         return self.energy2ph(energy)
 
-    def plot(self, axis=None, ph_rescale_power=0.0, color='blue', markercolor='red'):
-        """Plot the energy calibration function using pylab.  If <axis> is None,
-        a new pylab.subplot(111) will be used.  Otherwise, axis should be a
-        pylab.Axes object to plot onto.
+    def plot(self, axis=None, ph_rescale_power=0.0, color="blue", markercolor="red"):
+        self._plot(axis, color, markercolor, plottype="linear", ph_rescale_power=ph_rescale_power)
 
-        <ph_rescale_power>   Plot E/PH**ph_rescale_power vs PH.  Default is 0, so plot E vs PH.
-        """
+    def plotgain(self, axis=None, color="blue", markercolor="red"):
+        self._plot(axis, color, markercolor, plottype="gain")
+
+    def plotinvgain(self, axis=None, color="blue", markercolor="red"):
+        self._plot(axis, color, markercolor, plottype="invgain")
+
+    def plotloggain(self, axis=None, color="blue", markercolor="red"):
+        self._plot(axis, color, markercolor, plottype="loggain")
+
+    def _plot(self, axis=None, color="blue", markercolor="red", plottype="gain", ph_rescale_power=0.0):
         import pylab
         if axis is None:
             pylab.clf()
             axis = pylab.subplot(111)
-            axis.set_ylim([0, self._energies.max()*1.05/self._ph.max()**ph_rescale_power])
             axis.set_xlim([0, self._ph.max()*1.1])
+            ymax = 0.0
+            ymin = 1e99
+        else:
+            ymin, ymax = axis.get_ylim()
 
         # Plot smooth curve
-        pht = np.arange(0, self._ph.max()*1.1)
-        y = self(pht) / pht**ph_rescale_power
-        axis.plot(pht, y, color=color)
+        pht = np.linspace(self._ph.max()*.001, self._ph.max()*1.1, 1000)
+        smoothgain = pht / self(pht)
+        gains = self._ph / self._energies
+        if plottype == "linear":
+            if ph_rescale_power == 0.0:
+                axis.plot(pht, self(pht), color=color)
+                y = self._energies
+                axis.set_ylabel("Energy (eV)")
+                axis.set_title("Energy calibration curve")
+            else:
+                axis.plot(pht, self(pht) / (pht**ph_rescale_power), color=color)
+                y = self._energies / (self._ph**ph_rescale_power)
+                axis.set_ylabel("Energy (eV) / PH^%.4f" % ph_rescale_power)
+                axis.set_title("Energy calibration curve, scaled by %.4f power of PH" % ph_rescale_power)
+        elif plottype == "gain":
+            axis.plot(pht, smoothgain, color=color)
+            y = gains
+            axis.set_ylabel("Gain (PH/eV)")
+            axis.set_title("Energy calibration curve, gain")
+        elif plottype == "invgain":
+            axis.plot(pht, 1.0/smoothgain, color=color)
+            y = 1.0/gains
+            axis.set_ylabel("Inverse Gain (eV/PH)")
+            axis.set_title("Energy calibration curve, inverse gain")
+        elif plottype == "loggain":
+            axis.plot(pht, np.log(smoothgain), color=color)
+            y = np.log(gains)
+            axis.set_ylabel("Log Gain log(eV/PH)")
+            axis.set_title("Energy calibration curve, log gain")
+        else:
+            raise ValueError("plottype must be one of ('linear', 'gain','loggain','invgain').")
+        dy = (self._de/self._energies) * y
 
         # Plot and label cal points
         if ph_rescale_power == 0.0:

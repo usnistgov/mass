@@ -1,7 +1,7 @@
 """
 mass.mathstat.fitting
 
-Several model- utilities, including:
+Model-fitting utilities, including only:
 * A histogram fitter that uses a full maximum likelihood fit.
 
 Joe Fowler, NIST
@@ -17,8 +17,7 @@ December 15, 2011: forked from utilities.py
 # -# MaximumLikelihoodHistogramFitter
 #
 
-__all__ = ['MaximumLikelihoodHistogramFitter',
-           'MaximumLikelihoodGaussianFitter',]
+__all__ = ['MaximumLikelihoodHistogramFitter',]
 
 
 import numpy as np
@@ -397,127 +396,3 @@ class MaximumLikelihoodHistogramFitter(object):
                     C[m, k], C[m, j] = C[m, j], C[m, k]
                     C[k, m], C[j, m] = C[j, m], C[k, m]
                 k -= 1
-
-
-class MaximumLikelihoodGaussianFitter(MaximumLikelihoodHistogramFitter):
-    """
-    Object to fit a gaussian to a histogram, using the proper likelihood.
-    That is, assume that events in each bin are independent and are
-    Poisson-distributed with an expectation equal to the theory.
-
-    This implementation is a special case of the more general
-    MaximumLikelihoodHistogramFitter, which it subclasses.  Unlike the general
-    fitter, we don't require a model (theory) function nor a way to compute a
-    discretized gradient, because these are done on paper.
-
-    User must supply the bin centers, bin contents, an initial guess at the
-    theory parameters.
-
-    To do: we currently include a constant+linear background level.  There's no reason
-    this could not be an Nth order polynomial.
-
-    For information on the algorithm and its implementation, see
-    MaximumLikelihoodHistogramFitter.NOTES
-    """
-
-    def __init__(self, x, nobs, params, TOL=1e-3):
-        """
-        Initialize the fitter, making copies of the input data.
-
-        Inputs:
-        <x>          The histogram bin centers (used in computing model values)
-        <nobs>       The histogram bin contents (must be same length as <x>)
-        <params>     The theory's vector of parameter starting guesses.  They are [FWHM, centroid,
-                     peak value, sqrt(constant) background, background slope].  These last two are
-                     optional and will be both set to zero and fixed if not given as input.
-                     Note that the constant background is taken to be params[3]**2 to ensure that
-                     it never goes negative.
-        <TOL>       The fractional or absolute tolerance on the minimum "MLE Chi^2".
-                    When self.DONE successive iterations fail to improve the MLE Chi^2 by this
-                    much (aboslutely or fractionally), then fitting will return successfully.
-        """
-        self.x = np.array(x)
-        self.ndat = len(x)
-        self.scaled_x = np.arange(0.5, self.ndat)*2.0/self.ndat - 1.0
-        self.nobs = np.array(nobs)
-        self.total_obs = self.nobs.sum()
-        if len(self.nobs) != self.ndat:
-            raise ValueError("x and nobs must have the same length")
-
-        self.mfit = 0
-        self.nparam = 5
-        # Handle bounded parameters with translations between internal (-inf,+inf) and bounded
-        # parameters. Until and unless self.setbounds is called, we'll assume that no
-        # parameters have bounds.
-        self.lowerbound = [None for _ in range(self.nparam)]
-        self.upperbound = [None for _ in range(self.nparam)]
-        self.internal2bounded = [lambda x:x for _ in range(self.nparam)]
-        self.bounded2internal = [lambda x:x for _ in range(self.nparam)]
-        self.boundedinternal_grad = [lambda x:x for _ in range(self.nparam)]
-        for pnum in range(self.nparam):
-            self.setbounds(pnum, None, None)
-        self.set_parameters(params)
-        if self.nparam < 3 or self.nparam > 5:
-            raise ValueError("params requires 3 to 5 values")
-        elif self.nparam == 3:
-            self.set_parameters(np.hstack((params, [0,0])))
-            self.hold(3, 0.0)
-            self.hold(4, 0.0)
-        elif self.nparam == 4:
-            self.set_parameters(np.hstack((params, [0])))
-            self.hold(4, 0.0)
-
-        self.TOL = TOL
-        self.chisq = 0.0
-
-    def theory_function(self, p, x): #hardcode the theory function
-        """Gaussian shape at location <x> given parameters <p>
-        with p = [FWHM, center, scale, constant BG, BG slope]."""
-        g = (x-p[1])/p[0]
-        tf = abs(p[2])*np.exp(-self.FOUR_LN2*g*g)+p[3]
-        if p[4] != 0:
-            tf += p[4]*self.scaled_x
-        tf[tf < 1e-10] = 1e-10
-        return tf
-
-    EIGHT_LN2 = 8*np.log(2)
-    FOUR_LN2 = 4*np.log(2)
-
-    def _mrqcof(self, params):
-        """Used by fit to evaluate the linearized fitting matrix alpha and vector beta,
-        and to calculate chisq.  Returns (alpha,beta) and stores chisq in self.chisq"""
-
-        # Careful!  Do this smart, or this routine will bog down the entire
-        # fit hugely.
-        # Precompute g = (x-param1)/param0
-        # and h = exp(-ln2* g**2)
-
-        nobs = self.nobs
-        g = (self.x - params[1])/params[0]
-        h = np.exp(-self.FOUR_LN2*g*g)
-        params[2] = abs(params[2])
-
-        y_model = params[2]*h + params[3]
-        if params[4] != 0:
-            y_model += params[4]*self.scaled_x
-        # Don't let model go to zero, or chisq will diverge there.
-        y_model[y_model < 1e-10] = 1e-10
-
-        dy_dp1 = self.EIGHT_LN2 * g*h*params[2]/params[0]
-#        dyda = np.vstack(( g*dy_dp1, dy_dp1, h, 2*params[3]+np.zeros_like(h), self.scaled_x ))
-        dyda = np.vstack(( g*dy_dp1, dy_dp1, h, np.ones_like(h), self.scaled_x ))
-        dyda_over_y = dyda/y_model
-        y_resid = nobs - y_model
-
-        beta = (y_resid*dyda_over_y).sum(axis=1)
-
-        alpha = np.zeros((self.mfit,self.mfit), dtype=np.float)
-        for i in range(self.mfit):
-            for j in range(i+1):
-                alpha[i, j] = (nobs*dyda_over_y[i,:]*dyda_over_y[j,:]).sum()
-                alpha[j, i] = alpha[i, j]
-
-        nonzero_obs = nobs > 0
-        chisq = 2*(y_model.sum()-self.total_obs)  \
-                + 2*(nobs[nonzero_obs]*np.log((nobs/y_model)[nonzero_obs])).sum()
-        return alpha, beta, chisq

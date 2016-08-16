@@ -557,15 +557,11 @@ class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
     # Approximates the random variate defined by multiple Lorentzian components.
     #  @param args  Pass all other parameters to parent class.
     #  @param kwargs  Pass all other parameters to parent class.
-    def __init__(self, distribution, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """<args> and <kwargs> are passed on to sp.stats.rv_continuous"""
-
         sp.stats.rv_continuous.__init__(self, *args, **kwargs)
-        self.distribution = distribution
         self.cumulative_amplitudes = self.distribution.integral_intensity.cumsum()
-        self.name = distribution.name
         self.set_gauss_fwhm = self.distribution.set_gauss_fwhm
-
         # Reimplements probability distribution function.
         self._pdf = self.distribution.pdf
 
@@ -587,12 +583,13 @@ class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
 
 # Some specific fluorescence lines
 # You can see how to make more if you like.
-MnKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=MnKAlpha(),
-                                                       name="Mn Kalpha fluorescence")
-MnKBetaDistribution = MultiLorentzianDistribution_gen(distribution=MnKBeta(),
-                                                      name="Mn Kbeta fluorescence")
-CuKAlphaDistribution = MultiLorentzianDistribution_gen(distribution=CuKAlpha(),
-                                                       name="Cu Kalpha fluorescence")
+class MnKAlphaDistribution(MultiLorentzianDistribution_gen):
+    name = "Mn KAlpha fluorescence"
+    distribution = MnKAlpha()
+
+class MnKBetaDistribution(MultiLorentzianDistribution_gen):
+    name = "Mn KBeta fluorescence"
+    distribution = MnKBeta()
 
 
 def plot_allMultiLorentzianLineComplexes():

@@ -167,7 +167,7 @@ class LineFitter(object):
             axis.plot(pulseheights, self.last_fit_result, color='#666666',
                       label=slabel)
             if len(slabel) > 0:
-                axis.legend(loc='upper left')
+                axis.legend(loc='upper left', frameon=False)
         return fitparams, covariance
 
 
@@ -587,13 +587,13 @@ class _lowZ_KAlphaFitter(GenericKAlphaFitter):
 class AlKAlphaFitter(_lowZ_KAlphaFitter):
 
     def __init__(self):
-        super( AlKAlphaFitter, self ).__init__(self, lines.AlKAlpha())
+        _lowZ_KAlphaFitter.__init__(self, lines.AlKAlpha())
 
 
 class MgKAlphaFitter(_lowZ_KAlphaFitter):
 
     def __init__(self):
-        super( MgKAlphaFitter, self ).__init__(self, lines.MgKAlpha())
+        _lowZ_KAlphaFitter.__init__(self, lines.MgKAlpha())
 
 
 class ScKAlphaFitter(GenericKAlphaFitter):
