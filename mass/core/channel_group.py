@@ -194,9 +194,13 @@ class TESGroup(CutFieldMixin):
 
             if 'calibration' in hdf5_grp:
                 hdf5_cal_grp = hdf5_grp['calibration']
-                ds = self.channel[hdf5_grp.attrs['channum']]
-                for cal_name in hdf5_cal_grp:
-                    ds.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
+                chan_num = hdf5_grp.attrs['channum']
+
+                # Note that a hdf5 file can have more channels than currently TESGroup self has.
+                if chan_num in self.channel:
+                    ds = self.channel[chan_num]
+                    for cal_name in hdf5_cal_grp:
+                        ds.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
 
         # bad channel list is loaded from a hdf5_file.
         for grp_name in self.hdf5_file:
