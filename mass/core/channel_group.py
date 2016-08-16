@@ -207,8 +207,12 @@ class TESGroup(CutFieldMixin):
             hdf5_grp = self.hdf5_file[grp_name]
 
             if 'why_bad' in hdf5_grp.attrs:
-                self._bad_channums[hdf5_grp.attrs['channum']] =\
-                    [comment.decode() for comment in hdf5_grp.attrs['why_bad']]
+                chan_num = hdf5_grp.attrs['channum']
+
+                # Note that a hdf5 file can have more channels than currently TESGroup self has.
+                if chan_num in self.channel:
+                    self._bad_channums[chan_num] =\
+                        [comment.decode() for comment in hdf5_grp.attrs['why_bad']]
         self.update_chan_info()
 
     def _setup_per_channel_objects(self, noise_is_continuous=True):
@@ -267,10 +271,10 @@ class TESGroup(CutFieldMixin):
 
         # Store relevant facts as attributes to the HDF5 file
         if self.hdf5_file is not None:
-            self.hdf5_file.attrs['npulses'] = self.nPulses
-            self.hdf5_file.attrs['nsamples'] = self.nSamples
-            self.hdf5_file.attrs['npresamples'] = self.nPresamples
-            self.hdf5_file.attrs['frametime'] = self.timebase
+            self.hdf5_file.attrs.update({'npulses': self.nPulses,
+                                         'nsamples': self.nSamples,
+                                         'npresamples': self.nPresamples,
+                                         'frametime': self.timebase})
 
         self.channels = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)
@@ -324,10 +328,10 @@ class TESGroup(CutFieldMixin):
 
         # Store relevant facts as attributes to the HDF5 file
         if self.hdf5_file is not None:
-            self.hdf5_file.attrs['npulses'] = self.nPulses
-            self.hdf5_file.attrs['nsamples'] = self.nSamples
-            self.hdf5_file.attrs['npresamples'] = self.nPresamples
-            self.hdf5_file.attrs['frametime'] = self.timebase
+            self.hdf5_file.attrs.update({'npulses': self.nPulses,
+                                         'nsamples': self.nSamples,
+                                         'npresamples': self.nPresamples,
+                                         'frametime': self.timebase})
 
         self.channels = ()
         self.noise_channels = tuple(noise_list)
