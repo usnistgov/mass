@@ -183,37 +183,11 @@ class TESGroup(CutFieldMixin):
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
         else:
             self._setup_per_channel_objects(noise_is_continuous)
+            self.update_chan_info()
 
         if max_cachesize is not None:
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
                 self.set_segment_size(max_cachesize // self.n_channels)
-
-        # load calibration objects from a hdf5 file into ds.calibration
-        for grp_name in self.hdf5_file:
-            hdf5_grp = self.hdf5_file[grp_name]
-
-            if 'calibration' in hdf5_grp:
-                hdf5_cal_grp = hdf5_grp['calibration']
-                chan_num = hdf5_grp.attrs['channum']
-
-                # Note that a hdf5 file can have more channels than currently TESGroup self has.
-                if chan_num in self.channel:
-                    ds = self.channel[chan_num]
-                    for cal_name in hdf5_cal_grp:
-                        ds.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
-
-        # bad channel list is loaded from a hdf5_file.
-        for grp_name in self.hdf5_file:
-            hdf5_grp = self.hdf5_file[grp_name]
-
-            if 'why_bad' in hdf5_grp.attrs:
-                chan_num = hdf5_grp.attrs['channum']
-
-                # Note that a hdf5 file can have more channels than currently TESGroup self has.
-                if chan_num in self.channel:
-                    self._bad_channums[chan_num] =\
-                        [comment.decode() for comment in hdf5_grp.attrs['why_bad']]
-        self.update_chan_info()
 
     def _setup_per_channel_objects(self, noise_is_continuous=True):
         pulse_list = []
@@ -235,6 +209,15 @@ class TESGroup(CutFieldMixin):
                 hdf5_group = None
 
             dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
+
+            if hdf5_group:
+                if 'calibration' in hdf5_group:
+                    hdf5_cal_grp = hdf5_group['calibration']
+                    for cal_name in hdf5_cal_grp:
+                        dset.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
+
+                if 'why_bad' in hdf5_group.attrs:
+                    self._bad_channums[dset.channum] = [comment.decode() for comment in hdf5_group.attrs['why_bad']]
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
@@ -570,17 +553,14 @@ class TESGroup(CutFieldMixin):
                         g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_after_last_external_trigger
-                        #ds._rows_after_last_external_trigger = g
                     if until_next:
                         g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_until_next_external_trigger
-                        #ds._rows_until_next_external_trigger = g
                     if from_nearest:
                         g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = np.fmin(rows_after_last_external_trigger, rows_until_next_external_trigger)
-                        #ds._rows_from_nearest_external_trigger = g
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 
@@ -840,7 +820,7 @@ class TESGroup(CutFieldMixin):
             if not isinstance(m, np.ndarray):
                 raise ValueError("masks[%d] is not a np.ndarray" % i)
 
-        for (mask,ds) in zip(masks,self.datasets):
+        for (mask, ds) in zip(masks, self.datasets):
             if ds.channum not in self.good_channels:
                 continue
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
@@ -1268,7 +1248,7 @@ class TESGroup(CutFieldMixin):
             try:
                 ds.phase_correct(forceNew=forceNew, category=category)
             except Exception as e:
-                self.set_chan_bad(ds.channum, "failed phase_correct with %s"%e)
+                self.set_chan_bad(ds.channum, "failed phase_correct with %s" % e)
 
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
                           plot=False, forceNew=False, pre_sanitize_p_filt_phase=True, category=None):
@@ -1381,8 +1361,6 @@ def _replace_path(fnames, newpath):
         _, name = os.path.split(f)
         result.append(os.path.join(newpath, name))
     return result
-
-
 
 
 class CrosstalkVeto(object):
