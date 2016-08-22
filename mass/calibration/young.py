@@ -64,6 +64,7 @@ class EnergyCalibration(object):
         self.__acc = np.inf
         self.maxacc = maxacc
         self.nextra = nextra
+        print("young.EnergyCalibration is deprecated!! stop using it! try EnergyCalibrationAutocal instead")
 
     def __find_local_maxima(self, pulse_heights):
         self.data = np.hstack([self.data, pulse_heights])

@@ -30,6 +30,7 @@ import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
 import mass.nonstandard.CDM
 
+from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
 from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
@@ -97,7 +98,6 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
 
     return TESGroup(pulsefiles, noisefiles, hdf5_filename=hdf5filename,
                     hdf5_noisefilename=hdf5noisename)
-
 
 
 class TESGroup(CutFieldMixin):
@@ -183,6 +183,7 @@ class TESGroup(CutFieldMixin):
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
         else:
             self._setup_per_channel_objects(noise_is_continuous)
+            self.update_chan_info()
 
         if max_cachesize is not None:
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
@@ -208,6 +209,15 @@ class TESGroup(CutFieldMixin):
                 hdf5_group = None
 
             dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
+
+            if hdf5_group:
+                if 'calibration' in hdf5_group:
+                    hdf5_cal_grp = hdf5_group['calibration']
+                    for cal_name in hdf5_cal_grp:
+                        dset.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
+
+                if 'why_bad' in hdf5_group.attrs:
+                    self._bad_channums[dset.channum] = [comment.decode() for comment in hdf5_group.attrs['why_bad']]
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
@@ -244,10 +254,10 @@ class TESGroup(CutFieldMixin):
 
         # Store relevant facts as attributes to the HDF5 file
         if self.hdf5_file is not None:
-            self.hdf5_file.attrs['npulses'] = self.nPulses
-            self.hdf5_file.attrs['nsamples'] = self.nSamples
-            self.hdf5_file.attrs['npresamples'] = self.nPresamples
-            self.hdf5_file.attrs['frametime'] = self.timebase
+            self.hdf5_file.attrs.update({'npulses': self.nPulses,
+                                         'nsamples': self.nSamples,
+                                         'npresamples': self.nPresamples,
+                                         'frametime': self.timebase})
 
         self.channels = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)
@@ -301,10 +311,10 @@ class TESGroup(CutFieldMixin):
 
         # Store relevant facts as attributes to the HDF5 file
         if self.hdf5_file is not None:
-            self.hdf5_file.attrs['npulses'] = self.nPulses
-            self.hdf5_file.attrs['nsamples'] = self.nSamples
-            self.hdf5_file.attrs['npresamples'] = self.nPresamples
-            self.hdf5_file.attrs['frametime'] = self.timebase
+            self.hdf5_file.attrs.update({'npulses': self.nPulses,
+                                         'nsamples': self.nSamples,
+                                         'npresamples': self.nPresamples,
+                                         'frametime': self.timebase})
 
         self.channels = ()
         self.noise_channels = tuple(noise_list)
@@ -357,21 +367,25 @@ class TESGroup(CutFieldMixin):
             except TypeError:
                 goodones = {a}
             added_to_list.update(goodones)
-        for k in added_to_list:
-            if k in self._bad_channums:
-                comment = self._bad_channums.pop(k)
-                print("chan %d set good, had previously been set bad for %s" % (k, str(comment)))
+        for chan_num in added_to_list:
+            if chan_num in self._bad_channums:
+                comment = self._bad_channums.pop(chan_num)
+                del self.hdf5_file["chan{0:d}".format(chan_num)].attrs['why_bad']
+                print("chan %d set good, had previously been set bad for %s" % (chan_num, str(comment)))
             else:
-                print("chan %d not set good because it was not set bad" % k)
+                print("chan %d not set good because it was not set bad" % chan_num)
         self.update_chan_info()
 
     def set_chan_bad(self, *args):
         """Set one or more channels to be bad.  (No effect for channels already listed
         as bad.)
-        *args  Arguments to this function are integers or containers of integers.  Each
-               integer is added to the bad-channels list."""
+
+        Args:
+            *args  Arguments to this function are integers or containers of integers.  Each
+                integer is added to the bad-channels list."""
         added_to_list = set()
         comment = ''
+
         for a in args:
             if type(a) is type(comment):
                 comment = a
@@ -382,13 +396,18 @@ class TESGroup(CutFieldMixin):
                 badones = {a}
             added_to_list.update(badones)
 
-        for k in added_to_list:
-            self._bad_channums[k] = self._bad_channums.get(k, []) + [comment]
-            print('chan %s flagged bad because %s' % (k, comment))
+        for chan_num in added_to_list:
+            new_comment = self._bad_channums.get(chan_num, []) + [comment]
+            self._bad_channums[chan_num] = new_comment
+            print('chan %s flagged bad because %s' % (chan_num, comment))
+            self.hdf5_file["chan{0:d}".format(chan_num)].attrs['why_bad'] = np.asarray(new_comment, dtype=np.bytes_)
 
         self.update_chan_info()
 
     def update_chan_info(self):
+        """Update any variables related with self._bad_channums.
+            This method needs to be call every time after self._bad_channums is modified.
+        """
         channum = self.channel.keys()
         channum = list(set(channum) - set(self._bad_channums.keys()))
         channum.sort()
@@ -534,17 +553,14 @@ class TESGroup(CutFieldMixin):
                         g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_after_last_external_trigger
-                        #ds._rows_after_last_external_trigger = g
                     if until_next:
                         g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = rows_until_next_external_trigger
-                        #ds._rows_until_next_external_trigger = g
                     if from_nearest:
                         g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
                         g[:] = np.fmin(rows_after_last_external_trigger, rows_until_next_external_trigger)
-                        #ds._rows_from_nearest_external_trigger = g
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 
@@ -804,7 +820,7 @@ class TESGroup(CutFieldMixin):
             if not isinstance(m, np.ndarray):
                 raise ValueError("masks[%d] is not a np.ndarray" % i)
 
-        for (mask,ds) in zip(masks,self.datasets):
+        for (mask, ds) in zip(masks, self.datasets):
             if ds.channum not in self.good_channels:
                 continue
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
@@ -1047,7 +1063,7 @@ class TESGroup(CutFieldMixin):
                   (ds.channum, npulse, rate, dt / 3600., 100.0 * ng / npulse))
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None,
-        legend=True):
+                                   legend=True):
         """Compare the noise autocorrelation functions.
 
         <channels>    Sequence of channels to display.  If None, then show all.
@@ -1169,7 +1185,7 @@ class TESGroup(CutFieldMixin):
         axis.grid(True)
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
-        for ds_num,channum in enumerate(channels):
+        for ds_num, channum in enumerate(channels):
             if channum not in self.channel: continue
             ds = self.channel[channum]
             yvalue = ds.noise_psd[:] * scale_factor**2
@@ -1182,7 +1198,7 @@ class TESGroup(CutFieldMixin):
                 axis.plot(freq, yvalue, label='TES chan %d' % channum,
                           color=cmap(float(ds_num) / len(channels)))
             except:
-                print ("Could not plot channel %4d."%channum)
+                print("Could not plot channel %4d." % channum)
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
@@ -1232,7 +1248,7 @@ class TESGroup(CutFieldMixin):
             try:
                 ds.phase_correct(forceNew=forceNew, category=category)
             except Exception as e:
-                self.set_chan_bad(ds.channum, "failed phase_correct with %s"%e)
+                self.set_chan_bad(ds.channum, "failed phase_correct with %s" % e)
 
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
                           plot=False, forceNew=False, pre_sanitize_p_filt_phase=True, category=None):
@@ -1253,12 +1269,14 @@ class TESGroup(CutFieldMixin):
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2, category=None, forceNew=False, maxacc=0.015, nextra=3):
+                  bin_size_ev=2, category=None, forceNew=False, maxacc=0.015, nextra=3,
+                  param_adjust_closure=None):
         for ds in self:
             try:
                 ds.calibrate(attr, line_names, name_ext, size_related_to_energy_resolution,
                              fit_range_ev, excl, plot_on_fail,
-                             bin_size_ev, category, forceNew, maxacc, nextra)
+                             bin_size_ev, category, forceNew, maxacc, nextra,
+                             param_adjust_closure=param_adjust_closure)
             except:
                 self.set_chan_bad(ds.channum, "failed calibration %s" % attr + name_ext)
         self.convert_to_energy(attr, attr + name_ext)
@@ -1343,8 +1361,6 @@ def _replace_path(fnames, newpath):
         _, name = os.path.split(f)
         result.append(os.path.join(newpath, name))
     return result
-
-
 
 
 class CrosstalkVeto(object):
