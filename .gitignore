@@ -23,3 +23,5 @@ mass/core/*.c
 mass/mathstat/*.c
 
 mass/test/*.hdf5
+
+*.log
