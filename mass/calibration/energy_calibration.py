@@ -165,13 +165,21 @@ class EnergyCalibration(object):
 
     def __call__(self, pulse_ht):
         """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
+        Shoulds return a scalar if passed a scalar, and a numpy array if passed a list or array
 
         Args:
             pulse_ht (float or numpy.array(dtype=numpy.float)): pulse heights in an arbitrary unit.
         """
         if self._model_is_stale:
             self._update_converters()
-        return self._ph2energy_anon(pulse_ht)
+        result = self._ph2energy_anon(pulse_ht)
+        if np.isscalar(pulse_ht):
+            if np.isscalar(result):
+                return result
+            else:
+                return np.asscalar(result)
+        else:
+            return np.array(result)
 
     # def ph2energy(self, pulse_ht):
     #     """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
@@ -182,7 +190,8 @@ class EnergyCalibration(object):
 
     def energy2ph(self, energy):
         """Convert a single energy `energy` in eV to a pulse height.
-        Inverts the _ph2energy_anon function by Brent's method for root finding."""
+        Inverts the _ph2energy_anon function by Brent's method for root finding.
+        Shoulds return a scalar if passed a scalar, and a numpy array if passed a list or array"""
         if self._model_is_stale:
             self._update_converters()
 
