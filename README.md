@@ -1,4 +1,4 @@
-[![Build Status](https://semaphoreci.com/api/v1/projects/682fce58-5d81-4d08-bb85-78a6edd0a4c2/946875/badge.svg)](https://semaphoreci.com/drjoefowler/mass)
+
 
           MASS: The Microcalorimeter Analysis Software System
 
@@ -6,6 +6,10 @@
 
                         November 2010-present
 
+# Test Status
+* Develop, Python 2.7 [![Build Status](https://semaphoreci.com/api/v1/projects/682fce58-5d81-4d08-bb85-78a6edd0a4c2/946875/badge.svg)](https://semaphoreci.com/drjoefowler/mass)
+
+# Intro
 
 
 Mass is a software suite to analyze data from microcalorimeters.  It is meant to be exactly as general as NIST users and their collaborators require, without being any more general than that.  
@@ -24,7 +28,7 @@ single extension module in Cython that I wrote to execute some calculations from
 Mass is being shifted from a personal project to a system that can be shared by microcalorimeters users at NIST and elsewhere.  This step is only a year old, so please be patient!  Let the author know what's missing or wrong or useful.
 
 
-# DOCUMENTATION
+# Documentation
 
 ## Doc md files
 
@@ -43,6 +47,14 @@ help data.datasets[0].obscure_method_name
 ```
 data.datasets[0].obscure_method_name?
 ```
+
+Docstrings are really easy to add, they're a great way to contribute to mass.
+
+
+## Tests
+
+If you look for files named `test_*.py` they will have examples of how the tested functions are called. You can learn a fair amount from looking at them.
+
 ## Doxygen site
 
 The subdirectory doc contains configuration and a Makefile to generate a local copy of a doxygen website.  For a mac:
