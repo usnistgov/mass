@@ -11,7 +11,8 @@ import re
 # search mass and all subdirs for files matching "test_*.py"
 module_dirs = set()
 module_paths = set()
-for dirpath, dirnames, filenames in os.walk(path.expanduser("~/mass")):
+rootdir = os.path.dirname(os.path.realpath(__file__))
+for dirpath, dirnames, filenames in os.walk(path.expanduser(rootdir)):
     for filename in filenames:
         if re.match("test_.+\.py\Z",filename) and not "build" in dirpath:
             module_dirs.add(dirpath)
