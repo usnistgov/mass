@@ -1,3 +1,4 @@
+[![Build Status](https://semaphoreci.com/api/v1/projects/682fce58-5d81-4d08-bb85-78a6edd0a4c2/946875/badge.svg)](https://semaphoreci.com/drjoefowler/mass)
 
           MASS: The Microcalorimeter Analysis Software System
 
