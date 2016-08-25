@@ -27,7 +27,7 @@ Mass is being shifted from a personal project to a system that can be shared by 
 
 ## Doc md files
 
-Look in `mass/doc` for `*.md` files. These will look nice if viewed on github or bitbucket. They contain example code for many of the features of mass. As of August 2016 they are the main way we are tying to add documentation.
+Look in `mass/doc` for `*.md` files. These will look nice if viewed on bitbucket or with a markdown viewer. They contain example code for many of the features of mass. As of August 2016 they are the main way we are tying to add documentation.
 
 ## Docstrings
 
