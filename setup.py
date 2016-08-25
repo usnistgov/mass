@@ -14,7 +14,7 @@ def parse_version_number(VERSIONFILE=None):
     import re
 
     if not VERSIONFILE:
-        VERSIONFILE = os.path.join("mass", "_version.py")
+        VERSIONFILE = os.path.join("src", 'mass', "_version.py")
 
     verstrline = open(VERSIONFILE, "rt").read()
     VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
@@ -56,7 +56,7 @@ class QtBuilder(basic_build):
 
     def run(self):
         # Compile the Qt files to Python files, then call the base class run() method
-        for dirpath, _, filenames in os.walk('mass'):
+        for dirpath, _, filenames in os.walk('src'):
             for filename in filenames:
                 if filename.endswith('.ui'):
                     self.compile_ui(os.path.join(dirpath, filename))
@@ -83,16 +83,17 @@ if __name__ == "__main__":
           packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
                     'mass.demo', 'mass.gui', 'mass.nonstandard'],
           ext_modules=cythonize([Extension('mass.core.cython_channel',
-                                           [os.path.join('mass', 'core', 'cython_channel.pyx')],
+                                           [os.path.join('src', 'mass', 'core', 'cython_channel.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.mathstat.robust',
-                                           [os.path.join('mass', 'mathstat', 'robust.pyx')],
+                                           [os.path.join('src', 'mass', 'mathstat', 'robust.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.core.analysis_algorithms',
-                                           [os.path.join('mass', 'core', 'analysis_algorithms.pyx')],
+                                           [os.path.join('src', 'mass', 'core', 'analysis_algorithms.pyx')],
                                            include_dirs=[np.get_include()])
                                  ]),
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
-                        }
+                        },
+          package_dir={'':'src'}
           )
