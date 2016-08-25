@@ -1,6 +1,6 @@
 /build
 /dist
-/mass.egg-info
+/src/mass.egg-info
 .project
 .pydevproject
 lint-report.txt
@@ -15,7 +15,7 @@ testfile
 
 TAGS
 
-.idea/*
+.idea/
 *.h5
 
 # Cython produces C source files
