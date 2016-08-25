@@ -19,9 +19,9 @@ TAGS
 *.h5
 
 # Cython produces C source files
-mass/core/*.c
-mass/mathstat/*.c
+src/mass/core/*.c
+src/mass/mathstat/*.c
 
-mass/test/*.hdf5
+src/mass/test/*.hdf5
 
 *.log
