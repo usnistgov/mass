@@ -3,7 +3,7 @@ import pylab as pl
 
 import mass
 
-import regression as regress
+import test_regression
 
 cuts = mass.core.controller.AnalysisControl(
         pulse_average=(0.0, 1700.0),
@@ -14,7 +14,7 @@ cuts = mass.core.controller.AnalysisControl(
         rise_time_ms=(0.1, 0.45),
         peak_time_ms=(0.2, 0.7)
     )
-data = regress.process_file("regress", cuts)
+data = test_regression.process_file("regress", cuts)
 ds = data.datasets[0]
 
 np.savez("regress_ds0",
