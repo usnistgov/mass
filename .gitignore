@@ -25,3 +25,5 @@ src/mass/mathstat/*.c
 src/mass/test/*.hdf5
 
 *.log
+
+*.hdf5
