@@ -61,7 +61,10 @@ class InlineUpdater(object):
         if self.elapsedTimeSec > self.minElapseTimeForCalc and self.fracDone > 0:
             fracRemaining = 1 - self.fracDone
             rate = self.fracDone / self.elapsedTimeSec
-            return fracRemaining / rate
+            try:
+                return fracRemaining / rate
+            except ZeroDivisionError:
+                return -1
         else:
             return -1
 
