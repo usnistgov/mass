@@ -401,11 +401,7 @@ class TESGroup(CutFieldMixin):
 
     @property
     def good_channels(self):
-        channum = self.channel.keys()
-        channum = list(set(channum) - set(self._bad_channums.keys()))
-        channum.sort()
-
-        return list(channum)
+        return [ds.channum for ds in self if ds.channum not in self._bad_channums]
 
     @property
     def num_good_channels(self):
