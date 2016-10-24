@@ -1,6 +1,6 @@
 When you want to calibrate a TES detector using a series of X-ray emission lines of chemical elements or any sharp peaks in a X-ray spectrum, you can use mass.calibration.algorithm.EnergyCalibrationAutocal.
 
-The most simple way to calibrate is using the `EnergyCalibrationAutocal.autocal` method. If you supply the name of emission line, it tries to fit data using a corresponding `MultiLorentzianComplexFitter` And if only peak position (number in the eV unit) is given, it uses the `GuassianLineFitter` to fit the data.
+The most simple way to calibrate (manipulating a `mass.calibration.energy_calibration.EnergyCalibration` object) is using the `EnergyCalibrationAutocal.autocal` method. If you supply the name of emission line, it tries to fit data using a corresponding `MultiLorentzianComplexFitter` And if only peak position (number in the eV unit) is given, it uses the `GuassianLineFitter` to fit the data.
 ```python3
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithm import EnergyCalibrationAutocal
@@ -18,7 +18,7 @@ auto_cal.autocal()  # This method modifies the cal object underneath it.
 ```
 
 Before data are fitted with corresponding line fitters, `EnergyCalibrationAutocal.autocal` needs to determine how to build histograms which will be subsequently fed into line fitters. Its default parameters usually work for chemical elements from Ti to Cu on tupac. Sometimes you need to adjust these histogram parameters before histograms are handed into line fitters.
-In this case you can split `cal.autocal` into `cal.guess_fit_params` and `cal.fit_lines` and adjust default histogram parameters between these method calls by changing member variables such as `fit_lo_hi`, `binsize_ev`, or `ph_opt`. 
+In this case you can split `auto_cal.autocal` into `auto_cal.guess_fit_params` and `auto_cal.fit_lines` and adjust default histogram parameters between these method calls by changing member variables such as `auto_cal.fit_lo_hi`, `auto_cal.binsize_ev`, or `auto_cal.ph_opt`. 
 
 ```python3
 cal = EnergyCalibration()
@@ -39,7 +39,7 @@ auto_cal.diagnose()
 plt.show()
 ```
 
-When you need to calibrate a TES detector with any of fields of `mass.core.channel.MicrocalDataSet` such as `p_pulse_rms`, `p_filt_value`, or `p_filt_value_dc`, you can use `mass.core.channel.MicrocalDataSet.calibrate` method.
+When you need to calibrate a TES detector (`mass.core.channel.MicroDataSet`) with any of its fields such as `p_pulse_rms`, `p_filt_value`, or `p_filt_value_dc`, you can use `mass.core.channel.MicrocalDataSet.calibrate` method.
 If you want to customize histogram parameters before any of line fitters use these histograms, you need to supply a closure that modifies any of member variables `mass.calibration.algorithm.EnergyCalibrationAutocal`, which will be called before `EnergyCalibrationAutocal.fit_lines` is called.
 Note that `mass.core.channel.MicrocalDataSet.calibrate` does not actually calculate `p_energy`. It only creates a calibration spline.
 
