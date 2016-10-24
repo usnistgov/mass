@@ -20,6 +20,8 @@ Author: Joe Fowler, NIST
 
 Started March 2, 2011
 """
+from collections import Iterable
+from functools import reduce
 import os
 
 import numpy as np
@@ -337,14 +339,7 @@ class TESGroup(CutFieldMixin):
         as good.)
         *args  Arguments to this function are integers or containers of integers.  Each
                integer is removed from the bad-channels list."""
-        added_to_list = set()
-
-        for a in args:
-            try:
-                goodones = set(a)
-            except TypeError:
-                goodones = {a}
-            added_to_list.update(goodones)
+        added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args])
 
         for chan_num in added_to_list:
             if chan_num in self._bad_channums:
@@ -361,18 +356,8 @@ class TESGroup(CutFieldMixin):
         Args:
             *args  Arguments to this function are integers or containers of integers.  Each
                 integer is added to the bad-channels list."""
-        added_to_list = set()
-        comment = ''
-
-        for a in args:
-            if type(a) is type(comment):
-                comment = a
-                continue
-            try:
-                badones = set(a)
-            except TypeError:
-                badones = {a}
-            added_to_list.update(badones)
+        added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args if not isinstance(x, str)])
+        comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, str)], '')
 
         for chan_num in added_to_list:
             new_comment = self._bad_channums.get(chan_num, []) + [comment]
