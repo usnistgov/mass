@@ -389,7 +389,7 @@ class TESGroup(CutFieldMixin):
 
     @property
     def timestamp_offset(self):
-        ts = set([ds.timestamp_offset for ds in self])
+        ts = set([ds.timestamp_offset for ds in self if ds.channum not in self._bad_channums])
         if len(ts) == 1:
             return ts.pop()
         else:
