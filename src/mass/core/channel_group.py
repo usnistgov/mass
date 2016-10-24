@@ -175,15 +175,10 @@ class TESGroup(CutFieldMixin):
         else:
             self.colors = ('purple', "blue", "cyan", "green", "gold", self.BRIGHT_ORANGE, "red", "brown")
 
-        self.num_good_channels = 0
-        self.good_channels = []
-        self.first_good_dataset = None
-
         if self.noise_only:
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
         else:
             self._setup_per_channel_objects(noise_is_continuous)
-            self.update_chan_info()
 
         if max_cachesize is not None:
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
@@ -270,14 +265,6 @@ class TESGroup(CutFieldMixin):
 
         if len(pulse_list) > 0:
             self.pulses_per_seg = pulse_list[0].pulses_per_seg
-        if len(self.datasets) > 0:
-            # Set master timestamp_offset (seconds)
-            self.timestamp_offset = self.first_good_dataset.timestamp_offset
-
-        for ds in self:
-            if ds.timestamp_offset != self.timestamp_offset:
-                self.timestamp_offset = None
-                break
 
     def _setup_per_channel_objects_noiseonly(self, noise_is_continuous=True):
         noise_list = []
@@ -322,13 +309,6 @@ class TESGroup(CutFieldMixin):
         for chan, ds in zip(self.channels, self.datasets):
             ds.pulse_records = chan
         self._setup_channels_list()
-        if len(self.datasets) > 0:
-            self.timestamp_offset = self.first_good_dataset.timestamp_offset
-
-        for ds in self:
-            if ds.timestamp_offset != self.timestamp_offset:
-                self.timestamp_offset = None
-                break
 
     def __iter__(self):
         """Iterator over the self.datasets in channel number order"""
@@ -337,23 +317,20 @@ class TESGroup(CutFieldMixin):
 
     def iter_channels(self, include_badchan=False):
         """Iterator over the self.datasets in channel number order
-        include_badchan : whether to include officially bad channels in the result."""
-        channum = self.channel.keys()
-        if not include_badchan:
-            channum = list(set(channum) - set(self._bad_channums.keys()))
-        channum.sort()
-        for c in channum:
-            yield self.channel[c]
+        include_badchan : whether to include officially bad channels in the result.
+        """
+        for ds in self.datasets:
+            if not include_badchan:
+                if ds.channum in self._bad_channums:
+                    continue
+            yield ds
 
     def iter_channel_numbers(self, include_badchan=False):
         """Iterator over the channel numbers in numerical order
-        include_badchan : whether to include officially bad channels in the result."""
-        channum = self.channel.keys()
-        if not include_badchan:
-            channum = list(set(channum) - set(self._bad_channums))
-        channum.sort()
-        for c in channum:
-            yield c
+        include_badchan : whether to include officially bad channels in the result.
+        """
+        for ds in self.iter_channels(include_badchan=include_badchan):
+            yield ds.channum
 
     def set_chan_good(self, *args):
         """Set one or more channels to be good.  (No effect for channels already listed
@@ -361,12 +338,14 @@ class TESGroup(CutFieldMixin):
         *args  Arguments to this function are integers or containers of integers.  Each
                integer is removed from the bad-channels list."""
         added_to_list = set()
+
         for a in args:
             try:
                 goodones = set(a)
             except TypeError:
                 goodones = {a}
             added_to_list.update(goodones)
+
         for chan_num in added_to_list:
             if chan_num in self._bad_channums:
                 comment = self._bad_channums.pop(chan_num)
@@ -374,7 +353,6 @@ class TESGroup(CutFieldMixin):
                 print("chan %d set good, had previously been set bad for %s" % (chan_num, str(comment)))
             else:
                 print("chan %d not set good because it was not set bad" % chan_num)
-        self.update_chan_info()
 
     def set_chan_bad(self, *args):
         """Set one or more channels to be bad.  (No effect for channels already listed
@@ -402,32 +380,43 @@ class TESGroup(CutFieldMixin):
             print('chan %s flagged bad because %s' % (chan_num, comment))
             self.hdf5_file["chan{0:d}".format(chan_num)].attrs['why_bad'] = np.asarray(new_comment, dtype=np.bytes_)
 
-        self.update_chan_info()
-
-    def update_chan_info(self):
-        """Update any variables related with self._bad_channums.
-            This method needs to be call every time after self._bad_channums is modified.
-        """
-        channum = self.channel.keys()
-        channum = list(set(channum) - set(self._bad_channums.keys()))
-        channum.sort()
-        self.num_good_channels = len(channum)
-        self.good_channels = list(channum)
-        if self.num_good_channels > 0:
-            self.first_good_dataset = self.channel[channum[0]]
-        elif len(channum) > 0:
-            print("WARNING: All datasets flagged bad, most things won't work.")
-            self.first_good_dataset = None
-
     def _setup_channels_list(self):
-        self.channel = {}
         for ds_num, ds in enumerate(self.datasets):
             try:
                 ds.index = ds_num
-                self.channel[ds.channum] = ds
             except AttributeError:
                 pass
-        self.update_chan_info()
+
+    @property
+    def timestamp_offset(self):
+        ts = set([ds.timestamp_offset for ds in self])
+        if len(ts) == 1:
+            return ts.pop()
+        else:
+            return None
+
+    @property
+    def channel(self):
+        return {ds.channum: ds for ds in self.datasets}
+
+    @property
+    def good_channels(self):
+        channum = self.channel.keys()
+        channum = list(set(channum) - set(self._bad_channums.keys()))
+        channum.sort()
+
+        return list(channum)
+
+    @property
+    def num_good_channels(self):
+        return len(self.good_channels)
+
+    @property
+    def first_good_dataset(self):
+        if self.num_good_channels > 0:
+            return self.channel[self.good_channels[0]]
+        else:
+            raise IndexError("WARNING: All datasets flagged bad, most things won't work.")
 
     @property
     def why_chan_bad(self):

@@ -159,7 +159,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
                         pretrig_sum += signal
                         pretrig_rms_sum += signal**2
 
-                    if (k < e_prompt) and (k >= s_prompt):
+                    if s_prompt <= k < e_prompt:
                         promptness_sum += signal
 
                     if k == nPresamples + 2:

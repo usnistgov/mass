@@ -14,7 +14,7 @@ from mass.calibration.algorithm import EnergyCalibrationAutocal
 cal = EnergyCalibration()
 cal.set_use_approximation(False)  # If you want the calibration spline to go exactly through data points.
 auto_cal = EnergyCalibrationAutocal(cal, pulse_heights, line_names)
-auto_cal.autocal()  # This method modifies the cal object under neath it.
+auto_cal.autocal()  # This method modifies the cal object underneath it.
 ```
 
 Before data are fitted with corresponding line fitters, `EnergyCalibrationAutocal.autocal` needs to determine how to build histograms which will be subsequently fed into line fitters. Its default parameters usually work for chemical elements from Ti to Cu on tupac. Sometimes you need to adjust these histogram parameters before histograms are handed into line fitters.
