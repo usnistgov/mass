@@ -258,10 +258,9 @@ class TESGroup(CutFieldMixin):
         self.noise_channels = tuple(noise_list)
         self.datasets = tuple(dset_list)
 
-        for chan, ds in zip(self.channels, self.datasets):
-            ds.pulse_records = chan
-
-        self._setup_channels_list()
+        for index, (pr, ds) in enumerate(zip(self.channels, self.datasets)):
+            ds.pulse_records = pr
+            ds.index = index
 
         if len(pulse_list) > 0:
             self.pulses_per_seg = pulse_list[0].pulses_per_seg
@@ -306,9 +305,10 @@ class TESGroup(CutFieldMixin):
         self.channels = ()
         self.noise_channels = tuple(noise_list)
         self.datasets = tuple(dset_list)
-        for chan, ds in zip(self.channels, self.datasets):
-            ds.pulse_records = chan
-        self._setup_channels_list()
+
+        for index, (pr, ds) in enumerate(zip(self.channels, self.datasets)):
+            ds.pulse_records = pr
+            ds.index = index
 
     def __iter__(self):
         """Iterator over the self.datasets in channel number order"""
@@ -379,13 +379,6 @@ class TESGroup(CutFieldMixin):
             self._bad_channums[chan_num] = new_comment
             print('chan %s flagged bad because %s' % (chan_num, comment))
             self.hdf5_file["chan{0:d}".format(chan_num)].attrs['why_bad'] = np.asarray(new_comment, dtype=np.bytes_)
-
-    def _setup_channels_list(self):
-        for ds_num, ds in enumerate(self.datasets):
-            try:
-                ds.index = ds_num
-            except AttributeError:
-                pass
 
     @property
     def timestamp_offset(self):
