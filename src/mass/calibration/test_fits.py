@@ -59,7 +59,7 @@ class Test_Gaussian(unittest.TestCase):
 class Test_MnKA(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.line_fits.MnKAlphaFitter()
-        self.distrib = mass.calibration.fluorescence_lines.MnKAlphaDistribution
+        self.distrib = mass.calibration.fluorescence_lines.MnKAlphaDistribution()
         np.random.seed(95)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
@@ -105,7 +105,7 @@ class Test_MnKA(unittest.TestCase):
 class Test_MnKB(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.line_fits.MnKBetaFitter()
-        self.distrib = mass.calibration.fluorescence_lines.MnKBetaDistribution
+        self.distrib = mass.calibration.fluorescence_lines.MnKBetaDistribution()
         np.random.seed(97)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
