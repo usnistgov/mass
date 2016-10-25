@@ -27,3 +27,4 @@ src/mass/test/*.hdf5
 *.log
 
 *.hdf5
+mass.egg-info/*
