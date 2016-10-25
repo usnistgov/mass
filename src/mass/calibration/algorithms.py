@@ -262,14 +262,15 @@ class EnergyCalibrationAutocal:
         else:
             self.binsize_ev = [binsize_ev] * len(self.energies_opt)
 
-        approx_cal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
+        self.approx_cal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
         for ph, e in zip(self.ph_opt, self.energies_opt):
-            approx_cal.add_cal_point(ph, e)
+            self.approx_cal.add_cal_point(ph, e)
+        self.fit_range_ev=fit_range_ev
 
         #  Default fit range width is 100 eV for each line.
         #  But you can customize these numbers after self.guess_fit_params is finished.
         #  New self.fit_lo_hi values will be in self.fit_lines in the next step.
-        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approx_cal, fit_range_ev)
+        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], self.approx_cal, self.fit_range_ev)
 
     def fit_lines(self):
         """All calibration emission lines are fitted with ComplexFitter or GaussianFitter
@@ -286,9 +287,9 @@ class EnergyCalibrationAutocal:
 
         return self.calibration
 
-    def autocal(self, smoothing_res_ph=20, binsize_ev=1.0,
+    def autocal(self, smoothing_res_ph=20, fit_range_ev=200.0, binsize_ev=1.0,
                 nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
-        self.guess_fit_params(smoothing_res_ph, binsize_ev, nextra, nincrement, nextramax, maxacc)
+        self.guess_fit_params(smoothing_res_ph, fit_range_ev, binsize_ev, nextra, nincrement, nextramax, maxacc)
         self.fit_lines()
 
         return self.calibration
@@ -350,7 +351,7 @@ class EnergyCalibrationAutocal:
 
         lb = np.amin(self.calibration.cal_point_phs)
         ub = np.amax(self.calibration.cal_point_phs)
-        
+
         width = ub - lb
         x = np.linspace(lb - width / 10, ub + width / 10, 101)
         y = self.calibration(x)

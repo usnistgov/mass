@@ -550,6 +550,8 @@ class CuKBeta(SpectralLine):
     nominal_peak_energy = 8905.42  # eV
 
 
+# the API for this is terrible, you have to create a class, you cant just pass in a distirubtion
+# it should be changed, and the associated tests failures should be fixed
 class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
     """For producing random variates of the an energy distribution having the form
     of several Lorentzians summed together."""
@@ -590,6 +592,19 @@ class MnKAlphaDistribution(MultiLorentzianDistribution_gen):
 class MnKBetaDistribution(MultiLorentzianDistribution_gen):
     name = "Mn KBeta fluorescence"
     distribution = MnKBeta()
+
+class CuKAlphaDistribution(MultiLorentzianDistribution_gen):
+    name = "Cu KAlpha fluorescence"
+    distribution = CuKAlpha()
+
+class TiKAlphaDistribution(MultiLorentzianDistribution_gen):
+    name = "Ti KAlpha fluorescence"
+    distribution = TiKAlpha()
+
+class FeKAlphaDistribution(MultiLorentzianDistribution_gen):
+    name = "Fe KAlpha fluorescence"
+    distribution = FeKAlpha()
+
 
 
 def plot_allMultiLorentzianLineComplexes():

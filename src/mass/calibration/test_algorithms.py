@@ -16,7 +16,7 @@ class TestAlgorithms(unittest.TestCase):
         for combo in combos:
             tries +=1
             inds = np.array(combo)
-            energies_out, opt_assignments = find_opt_assignment(ph, known_energies[inds])
+            name_e, energies_out, opt_assignments = find_opt_assignment(ph, known_energies[inds])
             if all(energies_out==known_energies[inds]) and all(opt_assignments==ph[inds]):
                 passes +=1
         self.assertTrue(passes>tries*0.9)
@@ -69,7 +69,16 @@ class TestAlgorithms(unittest.TestCase):
         spect[4].set_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha()
         spect[5].set_gauss_fwhm(6)
-        dist = {k:mass.fluorescence_lines.MultiLorentzianDistribution_gen(v) for k,v in spect.iteritems()}
+        dist[1]  = mass.fluorescence_lines.MnKAlphaDistribution()
+        dist[2]  = mass.fluorescence_lines.MnKBetaDistribution()
+        dist[3]  = mass.fluorescence_lines.CuKAlphaDistribution()
+        dist[4]  = mass.fluorescence_lines.TiKAlphaDistribution()
+        dist[5]  = mass.fluorescence_lines.FeKAlphaDistribution()
+        dist[1].distribution.set_gauss_fwhm(4)
+        dist[2].distribution.set_gauss_fwhm(4)
+        dist[3].distribution.set_gauss_fwhm(5)
+        dist[4].distribution.set_gauss_fwhm(3)
+        dist[5].distribution.set_gauss_fwhm(4)
         e =[]
         for (k,v) in spect.iteritems():
             sampler = dist[k]
@@ -81,7 +90,7 @@ class TestAlgorithms(unittest.TestCase):
         lm = find_local_maxima(ph, smoothing_res_ph)
         line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
 
-        energies_opt, ph_opt = find_opt_assignment(lm,
+        names_e, energies_opt, ph_opt = find_opt_assignment(lm,
             line_names)
 
         approxcal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
@@ -90,10 +99,10 @@ class TestAlgorithms(unittest.TestCase):
 
         energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt,[], approxcal,100)
         binsize_ev = 1.0
-        fitters=multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph)
+        fitters=multifit(ph, line_names, fit_lo_hi, np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
 
         line_names_2 = ["MnKAlpha", "MnKBeta", "CuKAlpha", mass.calibration.STANDARD_FEATURES["TiKAlpha"], "FeKAlpha"]
-        fitters2=multifit(ph, line_names_2, fit_lo_hi, binsize_ev, slopes_de_dph)
+        fitters2=multifit(ph, line_names_2, fit_lo_hi, np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
 
     def test_autocal(self):
         # generate pulseheights from known spectrum
@@ -110,7 +119,19 @@ class TestAlgorithms(unittest.TestCase):
         spect[4].set_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha()
         spect[5].set_gauss_fwhm(6)
-        dist = {k:mass.fluorescence_lines.MultiLorentzianDistribution_gen(v) for k,v in spect.iteritems()}
+        dist[1]  = mass.fluorescence_lines.MnKAlphaDistribution()
+        dist[2]  = mass.fluorescence_lines.MnKBetaDistribution()
+        dist[3]  = mass.fluorescence_lines.CuKAlphaDistribution()
+        dist[4]  = mass.fluorescence_lines.TiKAlphaDistribution()
+        dist[5]  = mass.fluorescence_lines.FeKAlphaDistribution()
+        dist[1].distribution.set_gauss_fwhm(4)
+        dist[2].distribution.set_gauss_fwhm(4)
+        dist[3].distribution.set_gauss_fwhm(5)
+        dist[4].distribution.set_gauss_fwhm(3)
+        dist[5].distribution.set_gauss_fwhm(4)
+
+
+
         e =[]
         for (k,v) in spect.iteritems():
             sampler = dist[k]
@@ -121,9 +142,10 @@ class TestAlgorithms(unittest.TestCase):
 
         line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
 
-        cal = EnergyCalibrationAutocal()
-        cal.autocal(ph, line_names)
-        cal.diagnose()
+        cal = EnergyCalibration()
+        auto_cal = EnergyCalibrationAutocal(cal, ph, line_names)
+        auto_cal.autocal()
+        auto_cal.diagnose()
 
 
 if __name__ == "__main__":
