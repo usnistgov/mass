@@ -71,19 +71,25 @@ class MgKAlpha(SpectralLine):
     Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.
     "Magnesium Kalpha X-ray line structure revisited".  Also discussed in more
     detail in C. Klauber, Surface & Interface Analysis 20 (1993), 703-715.
+
+    Klauber offers only an energy shift relative to some absolute standard. For
+    an absolute standard, we use the value 1253.687 as the Ka1 peak as found by
+    J. Schweppe, R. D. Deslattes, T. Mooney, and C. J. Powell in J. Electron
+    Spectroscopy and Related Phenomena 67 (1994) 463-478 titled "Accurate measurement
+    of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5 "Average" column.
     """
 
     # Spectral complex name.
     name = 'Magnesium K-alpha'
     # The approximation is as a series of 7 Lorentzians
-    energies = np.array((-.265, 0, 4.740, 8.210, 8.487, 10.095, 17.404, 20.430)) + 1253.60
+    energies = np.array((-.265, 0, 4.740, 8.210, 8.487, 10.095, 17.404, 20.430)) + 1253.687
     # The Lorentzian widths (FWHM)
     fwhm = np.array((.541, .541, 1.1056, .6264, .7349, 1.0007, 1.4311, .8656))
     # The Lorentzian amplitude, in relative integrated intensity
     integral_intensity = np.array((0.5, 1, .02099, .07868, .04712, .09071, .01129, .00538))
     integral_intensity /= integral_intensity.sum()
     # The energy at the main peak
-    nominal_peak_energy = 1253.5587
+    nominal_peak_energy = 1253.687
     ka12_energy_diff = 2.2  # eV (not real, but scales the parameter initial guesses)
 
 
