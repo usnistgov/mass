@@ -161,9 +161,11 @@ class EnergyCalibration(object):
         self.nonlinearity = nonlinearity
         self.set_nonlinearity()
 
-        self.ph2energy = self.__call__
 
     def __call__(self, pulse_ht):
+        return self.ph2energy(pulse_ht)
+
+    def ph2energy(self, pulse_ht):
         """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
         Shoulds return a scalar if passed a scalar, and a numpy array if passed a list or array
 
