@@ -355,12 +355,18 @@ class SmoothingSpline(object):
             return np.linalg.solve(p*(lhs-self.Omega) + self.Omega, p * rhs)
 
         def chisq_difference(p, target_chisq):
-            beta = best_params(p)
+            # If curvature is too small, the computation can become singular.
+            # Avoid this by returning a crazy-high chisquared, as needed.
+            try:
+                beta = best_params(p)
+            except np.linalg.LinAlgError:
+                return 1e99
             ys = np.dot(self.N0, beta)
             chisq = np.sum(((self.y-ys)/self.err)**2)
             return chisq - target_chisq
 
-        pbest = sp.optimize.brentq(chisq_difference, 1e-20, 1, args=(chisq,))
+        mincurvature = 1e-20
+        pbest = sp.optimize.brentq(chisq_difference, mincurvature, 1, args=(chisq,))
         beta = best_params(pbest)
         self.coeff = self.basis.expand_coeff(beta)
 

@@ -40,8 +40,6 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
     def test_copy_equality(self):
         for curvetype in ['loglog', 'linear', 'linear+0', 'gain', 'invgain', 'loggain']:
             for use_approximation in [True, False]:
-                if curvetype=='loglog' and use_approximation: ## this should be removed, but causes failure
-                    continue # this crashes on constructing SmoothingSplineLog, but I can't replicated it by just calling with same params
                 cal1 = mass.calibration.energy_calibration.EnergyCalibration()
                 cal1.set_curvetype(curvetype)
                 cal1.set_use_approximation(use_approximation)
@@ -96,13 +94,13 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
         self.assertNotEqual(e1, e2)
         self.assertFalse(all(drop1err==drop2err))
 
-    # def test_approx_loglog_diff(self):
-    #     ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
-    #         curvetype1="loglog", use_approximation1=True,
-    #         curvetype2="loglog", use_approximation2=False,)
-    #     self.assertNotEqual(ph1, ph2)
-    #     self.assertNotEqual(e1, e2)
-    #     self.assertFalse(all(drop1err==drop2err))
+    def test_approx_loglog_diff(self):
+        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
+            curvetype1="loglog", use_approximation1=True,
+            curvetype2="loglog", use_approximation2=False,)
+        self.assertNotEqual(ph1, ph2)
+        self.assertNotEqual(e1, e2)
+        self.assertFalse(all(drop1err==drop2err))
 
     def test_approx_zerozero_diff(self):
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e,drop2err) = test_options(
