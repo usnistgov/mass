@@ -6,16 +6,14 @@
 lint-report.txt
 *.pyc
 *~
-
 *.orig
-
-.settings/org.eclipse.core.resources.prefs
 
 testfile
 
 TAGS
 
-.idea/
+*.log
+*.hdf5
 *.h5
 
 # Cython produces C source files
@@ -23,7 +21,3 @@ src/mass/core/*.c
 src/mass/mathstat/*.c
 
 src/mass/test/*.hdf5
-
-*.log
-
-*.hdf5
