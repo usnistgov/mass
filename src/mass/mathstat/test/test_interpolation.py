@@ -25,12 +25,14 @@ class Test_SmoothingSpline(unittest.TestCase):
         de= np.array([ 0.01,  0.01,  0.01,  0.01,  0.01,  0.01,  0.01,  0.01,  0.01])
         dph=np.array([ 0.60491869,  0.65811683,  0.71025965,  0.76146158,  0.81181613,
                 0.86140111,  0.9102821 ,  0.95851515,  1.00614861])
+        # Crashes on next line for Joe, but not Galen
         a=mass.mathstat.interpolate.SmoothingSplineLog(ph,e,de,dph)
 
         cal = mass.calibration.energy_calibration.EnergyCalibration()
         for energy in np.linspace(3000,6000,10):
             ph = energy**0.8
             cal.add_cal_point(ph, energy)
+        # Crashes on next line for Galen, but not Joe
         cal.drop_one_errors() # this caused error
 
 if __name__ == "__main__":

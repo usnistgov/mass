@@ -5,17 +5,7 @@ Model-fitting utilities, including only:
 * A histogram fitter that uses a full maximum likelihood fit.
 
 Joe Fowler, NIST
-
-Started March 24, 2011
-December 15, 2011: forked from utilities.py
 """
-
-## \file fitting.py
-# \brief Model-fitting procedures used by Mass.
-#
-# Math utilities include:
-# -# MaximumLikelihoodHistogramFitter
-#
 
 __all__ = ['MaximumLikelihoodHistogramFitter',]
 
