@@ -41,10 +41,12 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
 
 
 def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
-    "Scale a spectrum and add a constant+slope background."
-    spectrum = spectrum * P_amplitude + P_bg
+    "Scale a spectrum and add a sloped background. BG<0 is replaced with BG->0."
+    bg = np.zeros_like(spectrum) + P_bg
     if P_bgslope != 0:
-        spectrum += P_bgslope * np.arange(len(spectrum))
+        bg += P_bgslope * np.arange(len(spectrum))
+    # bg[bg<0] = 0
+    spectrum = spectrum * P_amplitude + bg # Change in place and return changed vector
     return spectrum
 
 
@@ -244,10 +246,10 @@ class VoigtFitter(LineFitter):
             self.bounds.append((None, None))
         self.bounds.append((0, 10*DE)) # Lorentz FWHM
         self.bounds.append((0, None))   # Amplitude
-        self.bounds.append((0, None))   # Background level
-        self.bounds.append((None, None))# Background slope
-        self.bounds.append((0, 1))      # Tail fraction
-        self.bounds.append((0, None))   # Tail scale length
+        self.bounds.append((None, None))   # Background level (bin 0)
+        self.bounds.append((None, None))   # Background slope (counts/bin)
+        self.bounds.append((0, 1))         # Tail fraction
+        self.bounds.append((0, None))      # Tail scale length
 
     def stepsize(self, params):
         eps = np.array((1e-3, params[0]/1e5, 1e-3, params[3]/1e5, 1e-3, 1e-3, 1e-4, 1e-2))
@@ -314,11 +316,11 @@ class NVoigtFitter(LineFitter):
         for _ in range(self.Nlines):
             self.bounds.append((np.min(ph), np.max(ph)))
             self.bounds.append((0, 10*DE)) # Lorentz FWHM
-            self.bounds.append((0, None))   # Amplitude
-        self.bounds.append((0, None))   # Background level
-        self.bounds.append((None, None))# Background slope
-        self.bounds.append((0, 1))      # Tail fraction
-        self.bounds.append((0, None))   # Tail scale length
+            self.bounds.append((0, None))  # Amplitude
+        self.bounds.append((None, None))   # Background level (bin 0)
+        self.bounds.append((None, None))   # Background slope (counts/bin)
+        self.bounds.append((0, 1))         # Tail fraction
+        self.bounds.append((0, None))      # Tail scale length
 
     def stepsize(self, params):
         epsilon = np.copy(params)
@@ -398,10 +400,10 @@ class GaussianFitter(LineFitter):
         else:
             self.bounds.append((None, None))
         self.bounds.append((0, None))   # Amplitude
-        self.bounds.append((0, None))   # Background level
-        self.bounds.append((None, None))# Background slope
-        self.bounds.append((0, 1))      # Tail fraction
-        self.bounds.append((0, None))   # Tail scale length
+        self.bounds.append((None, None))   # Background level (bin 0)
+        self.bounds.append((None, None))   # Background slope (counts/bin)
+        self.bounds.append((0, 1))         # Tail fraction
+        self.bounds.append((0, None))      # Tail scale length
 
     def stepsize(self, params):
         eps = np.ones(self.nparam, dtype=float)
@@ -463,10 +465,10 @@ class MultiLorentzianComplexFitter(LineFitter):
             self.bounds.append((None, None))
         self.bounds.append((0, None)) # dPH/dE > 0
         self.bounds.append((0, None))   # Amplitude
-        self.bounds.append((0, None))   # Background level
-        self.bounds.append((None, None))# Background slope
-        self.bounds.append((0, 1))      # Tail fraction
-        self.bounds.append((0, 10*DE))   # Tail scale length
+        self.bounds.append((None, None))   # Background level (bin 0)
+        self.bounds.append((None, None))   # Background slope (counts/bin)
+        self.bounds.append((0, 1))         # Tail fraction
+        self.bounds.append((0, None))      # Tail scale length
 
     def plotFit(self, color=None, axis=None, label=""):
         """Plot the last fit and the data to which it was fit."""
