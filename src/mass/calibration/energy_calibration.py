@@ -136,7 +136,7 @@ class EnergyCalibration(object):
                                 ("dph", np.double),
                                 ("de", np.double)])
 
-    def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=True):
+    def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=False):
         """Create an EnergyCalibration object for pulse-height-related field.
 
         Args:
@@ -144,7 +144,8 @@ class EnergyCalibration(object):
                 E \propto (PH)^N.  Typically 1.0 to 1.3 are reasonable.
             curvetype (str or int): one of EnergyCalibration.CURVETYPE.
             approximate (boolean):  Whether to use approximate "smoothing splines". (If not, use splines
-                that go exactly through the data.)
+                that go exactly through the data.) Default = False, because this works
+                poorly unless the user calls with sensible PH and Energy uncertainties.
         """
         self._curvetype = 0
         self.set_curvetype(curvetype)
