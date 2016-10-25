@@ -179,7 +179,7 @@ class LineFitter(object):
                     s+=" H"
                 s+="\n"
                 slabel+=s
-            slabel+="redchisq %4g"%self.last_fit_reduced_chisq
+            slabel+="reduced chisq %4g"%self.last_fit_reduced_chisq
 
         elif label and pnum_res not in self.hold:
             pnum_tf = self.param_meaning["tail_frac"]
