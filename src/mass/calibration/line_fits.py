@@ -45,7 +45,7 @@ def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
     bg = np.zeros_like(spectrum) + P_bg
     if P_bgslope != 0:
         bg += P_bgslope * np.arange(len(spectrum))
-    # bg[bg<0] = 0
+    bg[bg<0] = 0
     spectrum = spectrum * P_amplitude + bg # Change in place and return changed vector
     return spectrum
 
