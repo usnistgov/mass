@@ -82,9 +82,9 @@ class TestAlgorithms(unittest.TestCase):
         e =[]
         for (k,v) in spect.iteritems():
             sampler = dist[k]
-            for i in xrange(num_samples[k]):
-                e.append(sampler.rvs())
+            e.extend(sampler.rvs(size=num_samples[k]))
         e = np.array(e)
+        e = e[e>0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
         smoothing_res_ph=20
         lm = find_local_maxima(ph, smoothing_res_ph)
@@ -130,14 +130,12 @@ class TestAlgorithms(unittest.TestCase):
         dist[4].distribution.set_gauss_fwhm(3)
         dist[5].distribution.set_gauss_fwhm(4)
 
-
-
         e =[]
         for (k,v) in spect.iteritems():
             sampler = dist[k]
-            for i in xrange(num_samples[k]):
-                e.append(sampler.rvs())
+            e.extend(sampler.rvs(size=num_samples[k]))
         e = np.array(e)
+        e = e[e>0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
 
         line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
