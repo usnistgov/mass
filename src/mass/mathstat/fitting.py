@@ -349,8 +349,10 @@ class MaximumLikelihoodHistogramFitter(object):
 
         y_model = self.theory_function(params, self.x)
         dyda = (self.theory_gradient(params, self.x).T * dpdi_grad).T
-        y_model[y_model == 0.0] = 1e-50
-        dyda_over_y = dyda/y_model
+        positive_model = y_model > 0.0
+        adjusted_model = np.array(y_model)
+        adjusted_model[ y_model <= 0] = 1e-5*np.min(y_model[y_model>0])
+        dyda_over_y = (dyda/adjusted_model)
         nobs = self.nobs
         y_resid = nobs - y_model
 
