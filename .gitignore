@@ -1,8 +1,13 @@
-/build
-/dist
-/src/mass.egg-info
+# Distribution/packaging
+build
+dist
+*.egg-info
+
+# Eclipse
 .project
 .pydevproject
+
+# General
 lint-report.txt
 *.pyc
 *~
@@ -19,8 +24,3 @@ TAGS
 # Cython produces C source files
 src/mass/core/*.c
 src/mass/mathstat/*.c
-
-
-*.log
-mass.egg-info/*
-
