@@ -1185,8 +1185,8 @@ class TESGroup(CutFieldMixin):
         +- 5%% around the median pulse_average value. Use no more than
         the first `max_pulses_to_use` good pulses.
         """
-        median_pulse_avg = np.ones(self.n_channels, dtype=float)
-        for i,ds in enumerate(self.datasets):
+        median_pulse_avg = np.ones(self.n_channels, dtype=np.float)
+        for i, ds in enumerate(self.datasets):
             if ds.good().sum() > 0:
                 median_pulse_avg[i] = np.median(ds.p_pulse_average[ds.good()])
             else:
