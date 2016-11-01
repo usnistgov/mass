@@ -49,7 +49,6 @@ class Test_ratio_weighted_averages(unittest.TestCase):
         self.fitter.fit(self.nobs, self.x, self.guess, hold=(4,5,6), plot=False)
         y = self.fitter.last_fit_result
         ratio = self.nobs/y
-        self.assertAlmostEqual( ratio.mean(), 1.0, 1)
         self.assertAlmostEqual( weightavg(ratio, y), 1.0, 1)
 
     def test_weighted_averages_slopedbg(self):
@@ -63,7 +62,6 @@ class Test_ratio_weighted_averages(unittest.TestCase):
         params, _ = self.fitter.fit(self.nobs, self.x, params, hold=(5,6), plot=False)
         y = self.fitter.last_fit_result
         ratio = self.nobs/y
-        self.assertAlmostEqual(ratio.mean(), 1, 1)
         self.assertAlmostEqual( weightavg(ratio, y), 1.0, 1)
 
 

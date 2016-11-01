@@ -6,14 +6,14 @@ import mass
 import test_regression
 
 cuts = mass.core.controller.AnalysisControl(
-        pulse_average=(0.0, 1700.0),
-        pretrigger_rms=(None, 5.5),
-        pretrigger_mean_departure_from_median=(-50, 50),
-        peak_value=(0.0, 17000.0),
-        postpeak_deriv=(0, 3.5),
-        rise_time_ms=(0.1, 0.45),
-        peak_time_ms=(0.2, 0.7)
-    )
+    pulse_average=(0.0, None),
+    pretrigger_rms=(None, 70),
+    pretrigger_mean_departure_from_median=(-50, 50),
+    peak_value=(0.0, None),
+    postpeak_deriv=(0, 30),
+    rise_time_ms=(None, 0.2),
+    peak_time_ms=(None, 0.2)
+)
 data = test_regression.process_file("regress", cuts)
 ds = data.datasets[0]
 

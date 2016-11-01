@@ -12,6 +12,7 @@ import re
 module_dirs = set()
 module_paths = set()
 rootdir = os.path.dirname(os.path.realpath(__file__))
+print "rootdir", rootdir
 for dirpath, dirnames, filenames in os.walk(path.expanduser(rootdir)):
     for filename in filenames:
         if re.match("test_.+\.py\Z",filename) and not "build" in dirpath:
