@@ -96,13 +96,26 @@ class TestFilters(ut.TestCase):
         )
         cls.data = process_file("regress", cuts, do_filter=False)
 
-    def test_filter_summaries(self):
+    def filter_summaries(self, newstyle):
         """Make sure that filters either old-style or new-style have a predicted resolution,
         whether the filters are created fresh or are loaded from HDF5."""
         for ds in self.data:
-            ds._use_new_filters = False
-        self.data.compute_filters(f_3db=10000)
-        self.data.summarize_filters()
+            ds._use_new_filters = newstyle
+        self.data.compute_filters(f_3db=10000, forceNew=True)
+        for ds in self.data:
+            f = ds.filter
+            print f.variances
+            print f.predicted_v_over_dv
+            self.assertIn("noconst", f.variances)
+            self.assertAlmostEqual(f.variances["noconst"], 8.6e-7, delta=5e-8)
+            self.assertIn("noconst", f.predicted_v_over_dv)
+            self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], 456.7, delta=0.1)
+
+    def test_vdv_oldfilters(self):
+        self.filter_summaries(False)
+
+    def test_vdv_newfilters(self):
+        self.filter_summaries(True)
 
 if __name__ == '__main__':
     ut.main()
