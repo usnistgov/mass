@@ -11,10 +11,5 @@ The `test_regression.py` compares the output of `test_regression.process_file` t
 
 #### Updating the LJH and NOI files
 Consider updating the ljh and noi file if you have specific data you need access to. Don't do this often, it makes the mass repository a lot bigger.
-```
-#!python
-import mass.core.files as f
-import numpy as np
-f.ljh_copy_traces('20150828_163641_chan1.ljh', 'regress_chan1.ljh', np.arange(0,100))
-f.ljh_copy_traces('20150829_110048_chan1.noi', 'regress_chan1.ljh', np.arange(0,100))
-```
+
+The data now in regress_chan1.* are data from the Advanced Photon Source, dated August 13, 2015, from noise file named BA and a data file named `BB_8x16_600eV_100um_chan101.ljh`
