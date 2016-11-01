@@ -1643,11 +1643,7 @@ class MicrocalDataSet(object):
                           transform=axis.transAxes, ha='right')
 
     def read_trace(self, record_num):
-        """Read (from cache or disk) and return the pulse numbered <record_num> for
-        dataset number <dataset_num> or channel number <chan_num>.
-        If both are given, then <chan_num> will be used when valid.
-        If this is a CDMGroup, then the pulse is the demodulated
-        channel by that number."""
+        """Read (from cache or disk) and return the pulse numbered `record_num`."""
         seg_num = record_num / self.pulse_records.pulses_per_seg
         self.read_segment(seg_num)
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]

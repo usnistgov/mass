@@ -350,13 +350,13 @@ class TESGroup(CutFieldMixin):
                integer is removed from the bad-channels list."""
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args])
 
-        for chan_num in added_to_list:
-            if chan_num in self._bad_channums:
-                comment = self._bad_channums.pop(chan_num)
-                del self.hdf5_file["chan{0:d}".format(chan_num)].attrs['why_bad']
-                print("chan %d set good, had previously been set bad for %s" % (chan_num, str(comment)))
+        for channum in added_to_list:
+            if channum in self._bad_channums:
+                comment = self._bad_channums.pop(channum)
+                del self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad']
+                print("chan %d set good, had previously been set bad for %s" % (channum, str(comment)))
             else:
-                print("chan %d not set good because it was not set bad" % chan_num)
+                print("chan %d not set good because it was not set bad" % channum)
 
     def set_chan_bad(self, *args):
         """Set one or more channels to be bad.  (No effect for channels already listed
@@ -368,11 +368,11 @@ class TESGroup(CutFieldMixin):
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args if not isinstance(x, str)])
         comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, str)], '')
 
-        for chan_num in added_to_list:
-            new_comment = self._bad_channums.get(chan_num, []) + [comment]
-            self._bad_channums[chan_num] = new_comment
-            print('chan %s flagged bad because %s' % (chan_num, comment))
-            self.hdf5_file["chan{0:d}".format(chan_num)].attrs['why_bad'] = np.asarray(new_comment, dtype=np.bytes_)
+        for channum in added_to_list:
+            new_comment = self._bad_channums.get(channum, []) + [comment]
+            self._bad_channums[channum] = new_comment
+            print('chan %s flagged bad because %s' % (channum, comment))
+            self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] = np.asarray(new_comment, dtype=np.bytes_)
 
     @property
     def timestamp_offset(self):
@@ -536,22 +536,22 @@ class TESGroup(CutFieldMixin):
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 
-    def read_trace(self, record_num, dataset_num=0, chan_num=None):
+    def read_trace(self, record_num, dataset_num=0, channum=None):
         """Read (from cache or disk) and return the pulse numbered <record_num> for
-        dataset number <dataset_num> or channel number <chan_num>.
-        If both are given, then <chan_num> will be used when valid.
+        dataset number <dataset_num> or channel number <channum>.
+        If both are given, then <channum> will be used when valid.
         If this is a CDMGroup, then the pulse is the demodulated
         channel by that number."""
-        ds = self.channel.get(chan_num, self.datasets[dataset_num])
+        ds = self.channel.get(channum, self.datasets[dataset_num])
         return ds.read_trace(record_num)
 
-    def plot_traces(self, pulsenums, dataset_num=0, chan_num=None, pulse_summary=True, axis=None,
-                    difference=False, residual=False, valid_status=None, channum=None, shift1=False):
+    def plot_traces(self, pulsenums, dataset_num=0, channum=None, pulse_summary=True, axis=None,
+                    difference=False, residual=False, valid_status=None, shift1=False):
         """Plot some example pulses, given by sample number.
         <pulsenums>   A sequence of sample numbers, or a single one.
         <dataset_num> Dataset index (0 to n_dets-1, inclusive).  Will be used only if
-                      <chan_num> is invalid.
-        <chan_num>    Dataset channel number.  If valid, it will be used instead of dataset_num.
+                      <channum> is invalid.
+        <channum>    Dataset channel number.  If valid, it will be used instead of dataset_num.
 
         <pulse_summary> Whether to put text about the first few pulses on the plot
         <axis>       A plt axis to plot on.
@@ -560,19 +560,16 @@ class TESGroup(CutFieldMixin):
                      or just raw data.
         <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                      that have been cut.  If "cut", show only those that have been cut.
-        <channum>    Synonym for chan_num (an unfortunate but old choice)
         <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
         """
 
-        if chan_num is None:
-            chan_num = channum
-        if chan_num in self.channel:
-            dataset = self.channel[chan_num]
+        if channum in self.channel:
+            dataset = self.channel[channum]
             dataset_num = dataset.index
         else:
             dataset = self.datasets[dataset_num]
-            if chan_num is not None:
-                print("Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num))
+            if channum is not None:
+                print("Cannot find channum[%d], so using dataset #%d" % (channum, dataset_num))
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
                                    residual, valid_status, shift1)
 
