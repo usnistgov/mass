@@ -38,7 +38,7 @@ def process_file(prefix, cuts, do_filter=True):
     data.avg_pulses_auto_masks()
     if do_filter:
         data.compute_filters(f_3db=10000)
-        data.summarize_filters(std_energy=97000)
+        data.summarize_filters(std_energy=600)
         data.filter_data()
         data.drift_correct(forceNew=True)
 
@@ -104,12 +104,11 @@ class TestFilters(ut.TestCase):
         self.data.compute_filters(f_3db=10000, forceNew=True)
         for ds in self.data:
             f = ds.filter
-            print f.variances
-            print f.predicted_v_over_dv
             self.assertIn("noconst", f.variances)
-            self.assertAlmostEqual(f.variances["noconst"], 8.6e-7, delta=5e-8)
             self.assertIn("noconst", f.predicted_v_over_dv)
-            self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], 456.7, delta=0.1)
+            self.assertAlmostEqual(f.variances["noconst"], 8.8e-7, delta=3e-8)
+            expected = 449.4 if newstyle else 456.7
+            self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], expected, delta=0.1)
 
     def test_vdv_oldfilters(self):
         self.filter_summaries(False)

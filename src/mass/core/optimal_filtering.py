@@ -14,6 +14,28 @@ import mass
 import mass.mathstat.toeplitz
 
 
+
+def band_limit(modelmatrix, sample_time, fmax, f_3db):
+    """Band-limit the column-vectors in a model matrix with a hard and/or
+    1-pole low-pass filter."""
+    assert len(modelmatrix.shape) <= 2
+    if len(modelmatrix.shape) == 2:
+        for i in range(modelmatrix.shape[1]):
+            band_limit(modelmatrix[:, i], sample_time, fmax, f_3db)
+    else:
+        vector = modelmatrix
+        filt_length = len(vector)
+        sig_ft = np.fft.rfft(vector)
+        freq = np.fft.fftfreq(filt_length, d=sample_time)
+        freq = np.abs(freq[:len(sig_ft)])
+        if fmax is not None:
+            sig_ft[freq > fmax] = 0.0
+        if f_3db is not None:
+            sig_ft /= (1. + (1.0 * freq / f_3db)**2)
+        vector[:] = np.fft.irfft(sig_ft, n=filt_length)
+        # n=filt_length is needed when filt_length is ODD
+
+
 class Filter(object):
     """A set of optimal filters based on a single signal and noise set."""
 
@@ -178,60 +200,50 @@ class Filter(object):
         self._compute_fourier_filter()
 
         # Time domain filters
-        if self.noise_autocorr is not None:
-            n = len(self.avg_signal) - 2 * self.shorten
-            if len(self.noise_autocorr) < n:
-                raise ValueError("Noise autocorrelation is only %d samples long, but filter requires %d" %
-                                 (len(self.noise_autocorr), n))
-            if self.shorten > 0:
-                avg_signal = self.avg_signal[self.shorten:-self.shorten]
-            else:
-                avg_signal = self.avg_signal
+        assert self.noise_autocorr is not None
+        n = len(self.avg_signal) - 2 * self.shorten
+        assert len(self.noise_autocorr) >= n
+        if self.shorten > 0:
+            avg_signal = self.avg_signal[self.shorten:-self.shorten]
+        else:
+            avg_signal = self.avg_signal
 
-            noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
-            if use_toeplitz_solver:
-                ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
-                Rinv_sig = ts(avg_signal)
-                Rinv_1 = ts(np.ones(n))
-            else:
-                if n > 6000:
-                    raise ValueError("Not allowed to use generic solver for vectors longer than 6000, " +
-                                     "because it's slow-ass.")
-                R = sp.linalg.toeplitz(noise_corr)
-                Rinv_sig = np.linalg.solve(R, avg_signal)
-                Rinv_1 = np.linalg.solve(R, np.ones(n))
+        noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
+        if use_toeplitz_solver:
+            ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
+            Rinv_sig = ts(avg_signal)
+            Rinv_1 = ts(np.ones(n))
+        else:
+            if n > 6000:
+                raise ValueError("Not allowed to use generic solver for vectors longer than 6000, " +
+                                 "because it's slow-ass.")
+            R = sp.linalg.toeplitz(noise_corr)
+            Rinv_sig = np.linalg.solve(R, avg_signal)
+            Rinv_1 = np.linalg.solve(R, np.ones(n))
 
-            self.filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
+        self.filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
 
-            # Band-limit
-            if self.fmax is not None or self.f_3db is not None:
-                filt_length = len(self.filt_noconst)
-                sig_ft = np.fft.rfft(self.filt_noconst)
-                freq = np.fft.fftfreq(filt_length, d=self.sample_time)
-                freq = np.abs(freq[:len(sig_ft)])
-                if self.fmax is not None:
-                    sig_ft[freq > self.fmax] = 0.0
-                if self.f_3db is not None:
-                    sig_ft /= (1. + (1.0 * freq / self.f_3db)**2)
-                self.filt_noconst = np.fft.irfft(sig_ft, n=filt_length)  # n= is needed when filt_length is ODD
+        # Band-limit
+        if self.fmax is not None or self.f_3db is not None:
+            band_limit(self.filt_noconst, self.sample_time, self.fmax, self.f_3db)
 
-            self.normalize_filter(self.filt_noconst)
-            self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr)
+        self.normalize_filter(self.filt_noconst)
+        self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr)
 
-            self.filt_baseline = np.dot(avg_signal, Rinv_sig) * Rinv_1 - Rinv_sig.sum() * Rinv_sig
-            self.filt_baseline /= self.filt_baseline.sum()
-            self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
+        self.filt_baseline = np.dot(avg_signal, Rinv_sig) * Rinv_1 - Rinv_sig.sum() * Rinv_sig
+        self.filt_baseline /= self.filt_baseline.sum()
+        self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
 
-            try:
-                Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
-                self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
-                self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
-                self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0, :])
-            except sp.linalg.LinAlgError:
-                pass
+        try:
+            Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
+            self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
+            self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
+            self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0, :])
+        except sp.linalg.LinAlgError:
+            pass
 
-            for key in self.variances.keys():
-                self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
+        for key in self.variances.keys():
+            self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
     def bracketR(self, q, noise):
         """Return the dot product (q^T R q) for vector <q> and matrix R constructed from
@@ -305,12 +317,13 @@ class ArrivalTimeSafeFilter(Filter):
     linear (and any higher-order) terms."""
 
     def __init__(self, pulsemodel, n_pretrigger, noise_autocorr,
-                 fmax=None, f_3db=None, sample_time=None):
+                 fmax=None, f_3db=None, sample_time=None, peak=1.0):
         noise_psd = None
         sample_time = sample_time
 
         avg_signal = pulsemodel[:, 0]
         self.pulsemodel = pulsemodel
+        self.peak = peak
         super(self.__class__, self).__init__(avg_signal, n_pretrigger, noise_psd,
                                              noise_autocorr, fmax, f_3db, sample_time,
                                              shorten=0)
@@ -333,31 +346,15 @@ class ArrivalTimeSafeFilter(Filter):
         n = len(self.avg_signal) - 2 * self.shorten
         assert len(self.noise_autocorr) >= n
 
-        R = self.noise_autocorr[:n] / self.peak_signal**2  # A *vector*, not a matrix
-        ts = mass.mathstat.toeplitz.ToeplitzSolver(R, symmetric=True)
+        noise_corr = self.noise_autocorr[:n] / self.peak_signal**2  # A *vector*, not a matrix
+        ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
 
         unit = np.ones(n)
         MT = np.vstack((self.pulsemodel.T, unit))
         RinvM = np.vstack([ts(r) for r in MT]).T
 
-        # Band-limit the column-vectors in a model matrix with a hard and/or
-        # 1-pole low-pass filter.
-        def band_limit(modelmatrix, fmax, f_3db):
-            for i in range(modelmatrix.shape[1]):
-                vector = modelmatrix[:, i]
-                filt_length = len(vector)
-                sig_ft = np.fft.rfft(vector)
-                freq = np.fft.fftfreq(filt_length, d=self.sample_time)
-                freq = np.abs(freq[:len(sig_ft)])
-                if fmax is not None:
-                    sig_ft[freq > fmax] = 0.0
-                if f_3db is not None:
-                    sig_ft /= (1. + (1.0 * freq / f_3db)**2)
-                modelmatrix[:, i] = np.fft.irfft(sig_ft, n=filt_length)
-                # n= is needed when filt_length is ODD
-
         if fmax is not None or f_3db is not None:
-            band_limit(RinvM, fmax, f_3db)
+            band_limit(RinvM, self.sample_time, fmax, f_3db)
 
         A = np.dot(MT, RinvM)
         Ainv = np.linalg.inv(A)
@@ -368,7 +365,22 @@ class ArrivalTimeSafeFilter(Filter):
         scale = np.max(self.avg_signal) / np.dot(filt[0], self.avg_signal)
         self.filt_noconst *= scale
         self.filt_aterms *= scale
-#         self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr)
+        Ainv *= self.peak**-2
+
+        self.variances['noconst'] = Ainv[0,0]
+        self.variances['baseline'] = Ainv[-1,-1]
+
+        # If you wanted a filter based on the pretrigger period for PT mean only.
+        # try:
+        #     Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
+        #     self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
+        #     self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
+        #     self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0, :])
+        # except sp.linalg.LinAlgError:
+        #     pass
+
+        for key in self.variances.keys():
+            self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
 
 class ExperimentalFilter(Filter):

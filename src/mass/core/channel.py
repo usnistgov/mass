@@ -960,10 +960,11 @@ class MicrocalDataSet(object):
             fit = np.polyfit(xmed, ymed, DEGREE)
             model[s,:] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
 
+        modelpeak = np.median(rawscale)
         self.pulsemodel = model
         ATSF = mass.optimal_filtering.ArrivalTimeSafeFilter
         f = ATSF(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
-                 f_3db=f_3db, sample_time=self.timebase)
+                 f_3db=f_3db, sample_time=self.timebase, peak=modelpeak)
         f.compute(fmax=fmax, f_3db=f_3db)
         self.filter = f
         return f
