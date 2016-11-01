@@ -368,9 +368,12 @@ class MaximumLikelihoodHistogramFitter(object):
             if alpha[:,i].sum() == 0:
                 alpha[i,i] = 1.0 # This prevents a singular matrix error
 
+        y_model[y_model<0]=1e-11
         nonzero_obs = nobs > 0
         chisq = 2*(y_model.sum()-self.total_obs) + \
                 2*(nobs[nonzero_obs]*np.log((nobs/y_model)[nonzero_obs])).sum()
+        if np.isnan(chisq):
+            raise ValueError
         return alpha, beta, chisq
 
     def __cov_sort_in_place(self, C):
