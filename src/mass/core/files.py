@@ -821,7 +821,7 @@ Discrimination level (%%): 1.000000
 #End of Header
 """ % header_dict
     return ljh_header
-    
+
 def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=5000000,
                         channum=None, use_noise=False, excise_endpoints=None):
     """
@@ -916,7 +916,7 @@ def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
         raise IOError("The ljhfile '%s' exists and overwrite was not set to True" % dest_name)
 
     src = LJHFile(src_name)
-    
+
     header_dict = src.__dict__.copy()
     header_dict['asctime'] = time.asctime(time.gmtime())
     header_dict['version_str'] = '2.2.0'
@@ -931,7 +931,7 @@ def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
             prefix = struct.pack('<Q', int(1244))
             dest_fp.write(prefix)
             trace.tofile(dest_fp, sep="")
-            
+
 
 def ljh_append_traces(src_name, dest_name, pulses):
     """
@@ -955,36 +955,3 @@ def ljh_append_traces(src_name, dest_name, pulses):
             prefix = struct.pack('<Q', int(1244))
             dest_fp.write(prefix)
             trace.tofile(dest_fp, sep="")
-
-
-if __name__ == '__main__':
-    # test code
-    src_name = '20150828_163416_chan1.ljh'
-    dest_name = 'foo_chan0.ljh'
-    src = LJHFile(src_name)
-
-    ljh_copy_traces(src_name, dest_name, [20], overwrite=True)
-    dest = LJHFile(dest_name)
-    print (src.read_trace(20) != dest.read_trace(0)).nonzero()
-    
-    ljh_copy_traces(src_name, dest_name, [0, 30, 23], overwrite=True)
-    dest = LJHFile(dest_name)
-    print (src.read_trace(0) != dest.read_trace(0)).nonzero()
-    print (src.read_trace(30) != dest.read_trace(1)).nonzero()
-    print (src.read_trace(23) != dest.read_trace(2)).nonzero()
-    
-    ljh_append_traces(src_name, dest_name, [5])
-    dest = LJHFile(dest_name)
-    print (src.read_trace(0) != dest.read_trace(0)).nonzero()
-    print (src.read_trace(30) != dest.read_trace(1)).nonzero()
-    print (src.read_trace(23) != dest.read_trace(2)).nonzero()
-    print (src.read_trace(5) != dest.read_trace(3)).nonzero()
-
-    ljh_append_traces(src_name, dest_name, [43, 30])
-    dest = LJHFile(dest_name)
-    print (src.read_trace(0) != dest.read_trace(0)).nonzero()
-    print (src.read_trace(30) != dest.read_trace(1)).nonzero()
-    print (src.read_trace(23) != dest.read_trace(2)).nonzero()
-    print (src.read_trace(5) != dest.read_trace(3)).nonzero()
-    print (src.read_trace(43) != dest.read_trace(4)).nonzero()
-    print (src.read_trace(30) != dest.read_trace(5)).nonzero()

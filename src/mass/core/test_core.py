@@ -4,6 +4,7 @@ import glob, os
 import mass
 import unittest as ut
 import mass.core.channel_group as mcg
+from mass.core.files import *
 
 class TestFilenameHandling(ut.TestCase):
     # @classmethod
@@ -63,6 +64,40 @@ class TestFilenameHandling(ut.TestCase):
         self.assertEqual(len(sorted_names), len(correct_order))
         for s,c in zip(sorted_names, correct_order):
             self.assertEqual(s, c)
+
+
+class TestFiles(ut.TestCase):
+
+    def test_ljh_copy_and_append_traces(self):
+        src_name = 'src/mass/regression_test/regress_chan1.ljh'
+        dest_name = '/tmp/foo_chan1.ljh'
+        src = LJHFile(src_name)
+
+        source_traces = [20]
+        ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
+        dest = LJHFile(dest_name)
+        for i,st in enumerate(source_traces):
+            self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+
+        source_traces = [0,30,20,10]
+        ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
+        dest = LJHFile(dest_name)
+        for i,st in enumerate(source_traces):
+            self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+
+        source_traces.append(5)
+        ljh_append_traces(src_name, dest_name, [5])
+        dest = LJHFile(dest_name)
+        for i,st in enumerate(source_traces):
+            self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+
+        new_traces=[15,25,3]
+        source_traces.extend(new_traces)
+        ljh_append_traces(src_name, dest_name, new_traces)
+        dest = LJHFile(dest_name)
+        for i,st in enumerate(source_traces):
+            self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+
 
 if __name__ == '__main__':
     ut.main()
