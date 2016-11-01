@@ -22,7 +22,7 @@ Started March 2, 2011
 """
 from collections import Iterable
 from functools import reduce
-import os
+import os, glob
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -1312,6 +1312,18 @@ def _sort_filenames_numerically(fnames, inclusion_list=None):
     sorted_chan.sort()
     sorted_fnames = [chan2fname[key] for key in sorted_chan]
     return sorted_fnames
+
+
+def glob_expand(pattern):
+    """If `pattern` is a string, treat it as a glob pattern and return the glob-result
+    as a list. If it isn't a string, return it unchanged (presumably then it's already
+    a sequence)."""
+    if not isinstance(pattern, str):
+        return pattern
+
+    result = glob.glob(pattern)
+    return _sort_filenames_numerically(result)
+
 
 
 def _replace_path(fnames, newpath):
