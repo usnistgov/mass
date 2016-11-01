@@ -112,7 +112,8 @@ class TESGroup(CutFieldMixin):
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
-                 hdf5_filename=None, hdf5_noisefilename=None):
+                 hdf5_filename=None, hdf5_noisefilename=None,
+                 never_use=None, use_only=None):
 
         if noise_filenames is not None and len(noise_filenames) == 0:
             noise_filenames = None
@@ -122,6 +123,14 @@ class TESGroup(CutFieldMixin):
         self.noise_only = noise_only
         if noise_only and noise_filenames is None:
             filenames, noise_filenames = (), filenames
+
+        # Handle the case that either filename list is a glob pattern (e.g., "files_chan*.ljh")
+        filenames = _glob_expand(filenames)
+        noise_filenames = _glob_expand(noise_filenames)
+
+        # If using a glob pattern especially, we have to be careful to eliminate files that are
+        # missing a partner, either noise without pulse or pulse without noise.
+        _remove_unmatched_channums(filenames, noise_filenames, never_use=never_use, use_only=use_only)
 
         # Figure out where the 2 HDF5 files are to live, if the default argument
         # was given for their paths.
@@ -1292,6 +1301,41 @@ class TESGroup(CutFieldMixin):
         for ds in self:
             ds.smart_cuts(threshold, n_trainings, forceNew)
 
+def _extract_channum(name):
+    return int(name.split('_chan')[1].split(".")[0])
+
+
+def _remove_unmatched_channums(filenames1, filenames2, never_use=None, use_only=None):
+    """Extract the channel number in the filenames appearing in both lists.
+    Remove from each list any file whose channel number doesn't appear on both lists.
+    Also remove any file whose channel number is in the `never_use` list.
+    If `use_only` is a sequence of channel numbers, use only the channels on that list.
+
+    If either `filenames1` or `filenames2` is empty, do nothing."""
+
+    # If one list is empty, then matching is not required or expected.
+    if len(filenames1) == 0 or len(filenames2) == 0:
+        return
+
+    # Now make a mapping of channel numbers to names.
+    names1 = {_extract_channum(f):f for f in filenames1}
+    names2 = {_extract_channum(f):f for f in filenames2}
+    cnum1 = set(names1.keys())
+    cnum2 = set(names2.keys())
+
+    # Find the set of valid channel numbers.
+    valid_cnum = cnum1.intersection(cnum2)
+    if never_use is not None:
+        valid_cnum -= set(never_use)
+    if use_only is not None:
+        valid_cnum = valid_cnum.intersection(set(use_only))
+
+    # Remove invalid channel numbers
+    for c in (cnum1-valid_cnum):
+        filenames1.remove(names1[c])
+    for c in (cnum2-valid_cnum):
+        filenames2.remove(names2[c])
+
 
 def _sort_filenames_numerically(fnames, inclusion_list=None):
     """Take a sequence of filenames of the form '*_chanXXX.*'
@@ -1303,10 +1347,9 @@ def _sort_filenames_numerically(fnames, inclusion_list=None):
         return None
     chan2fname = {}
     for name in fnames:
-        channum = int(name.split('_chan')[1].split(".")[0])
+        channum = _extract_channum(name)
         if inclusion_list is not None and channum not in inclusion_list:
             continue
-        print(channum, name)
         chan2fname[channum] = name
     sorted_chan = chan2fname.keys()
     sorted_chan.sort()
@@ -1314,7 +1357,7 @@ def _sort_filenames_numerically(fnames, inclusion_list=None):
     return sorted_fnames
 
 
-def glob_expand(pattern):
+def _glob_expand(pattern):
     """If `pattern` is a string, treat it as a glob pattern and return the glob-result
     as a list. If it isn't a string, return it unchanged (presumably then it's already
     a sequence)."""
@@ -1323,7 +1366,6 @@ def glob_expand(pattern):
 
     result = glob.glob(pattern)
     return _sort_filenames_numerically(result)
-
 
 
 def _replace_path(fnames, newpath):

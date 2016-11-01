@@ -13,23 +13,18 @@ def process_file(prefix, cuts, do_filter=True):
     channels=(1,)
     pulse_files=[path.join(ljhdir,"%s_chan%d.ljh"%(prefix, c)) for c in channels]
     noise_files=[path.join(ljhdir,"%s_chan%d.noi"%(prefix, c)) for c in channels]
+    pulse_files = path.join(ljhdir,"%s_chan*.ljh"%prefix)
+    noise_files = path.join(ljhdir,"%s_chan*.noi"%prefix)
 
-    # Start from clean slate by removing ay hdf5 files
+    # Start from clean slate by removing any hdf5 files
     for fl in glob.glob(path.join(ljhdir,"%s_mass.hdf5" % prefix)):
         os.remove(fl)
     for fl in glob.glob(path.join(ljhdir,"%s_noise_mass.hdf5" % prefix)):
         os.remove(fl)
 
     data = mass.TESGroup(pulse_files, noise_files)
-
     data.summarize_data(peak_time_microsec=600.0, forceNew=True)
 
-    # remove flux jumps from pretrigger means
-    # TODO: this is really only needed for umux, so it is appropriate
-    #       for the testing infrastructure?
-    for ds in data: ds.p_pretrig_mean[:] = ds.p_pretrig_mean[:]%2**12
-
-    print len(data.datasets), len(data.channels)
     for ds in data:
         ds.clear_cuts()
         ds.apply_cuts(cuts)
