@@ -37,6 +37,8 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
     ft = np.fft.rfft(rawspectrum)
     ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
     smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
+    smoothspectrum[smoothspectrum<0]=0 # in pathalogical cases, the convolutuion can cause negative values
+    # this is a hacky way to protect against that
     return smoothspectrum[nlow:nlow + len(x)]
 
 
@@ -369,7 +371,6 @@ class NVoigtFitter(LineFitter):
             epsilon[3+i*3] *= 1e-5
         return epsilon
 
-
 class GaussianFitter(LineFitter):
     """Fit a single Gaussian line, with a low-E tail.
 
@@ -482,7 +483,10 @@ class MultiLorentzianComplexFitter(LineFitter):
         self.spect.set_gauss_fwhm(P_gaussfwhm)
         cleanspectrum_fn = self.spect.pdf
         spectrum = _smear_lowEtail(cleanspectrum_fn, energy, P_gaussfwhm, P_tailfrac, P_tailtau)
-        return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
+        retval = _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
+        if any(np.isnan(retval)) or any(retval<0):
+            raise ValueError
+        return
 
     def stepsize(self, params):
         """Vector of the parameter step sizes for finding discrete gradient."""
