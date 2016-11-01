@@ -857,11 +857,11 @@ class MicrocalDataSet(object):
         # Don't proceed if not necessary and not forced
         already_done = self.average_pulse[-1] != 0
         if already_done and not forceNew:
-            print("skipping compute average pulse on chan %d"%self.channum)
+            print("skipping compute average pulse on chan %d" % self.channum)
             return
 
         pulse_count = 0
-        pulse_sum = np.zeros(self.nSamples, dtype = float)
+        pulse_sum = np.zeros(self.nSamples, dtype=np.float)
 
         # Compute a master mask to say whether ANY mask wants a pulse from each segment
         # This can speed up work a lot when the pulses being averaged are from certain times only.
@@ -877,16 +877,17 @@ class MicrocalDataSet(object):
             if mask[a:b].any():
                 segment_mask[i] = True
 
-        printUpdater = InlineUpdater('compute_average_pulse chan %d'%self.channum)
+        printUpdater = InlineUpdater('compute_average_pulse chan %d' % self.channum)
         for iseg in range(nseg):
-            if not segment_mask[iseg]: continue
+            if not segment_mask[iseg]:
+                continue
             first, end = self.read_segment(iseg)
             printUpdater.update(end / float(self.nPulses))
             valid = mask[first:end]
 
             if mask.shape != (self.nPulses,):
-                raise ValueError("\nmasks[%d] has shape %s, but it needs to be (%d,)" %
-                                 (imask, mask.shape, self.nPulses))
+                raise ValueError("\nmasks[chan %d] has shape %s, but it needs to be (%d,)" %
+                                 (self.channum, mask.shape, self.nPulses))
             if len(valid) > self.data.shape[0]:
                 good_pulses = self.data[valid[:self.data.shape[0]], :]
             else:
@@ -899,7 +900,7 @@ class MicrocalDataSet(object):
         if subtract_mean:
             average_pulse -= np.mean(average_pulse[:self.nPresamples - self.pretrigger_ignore_samples])
         self.average_pulse[:] = average_pulse
-        print
+        print()
 
     def compute_oldfilter(self, fmax=None, f_3db=None):
         try:
