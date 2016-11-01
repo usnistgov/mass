@@ -1314,7 +1314,8 @@ def _remove_unmatched_channums(filenames1, filenames2, never_use=None, use_only=
     If either `filenames1` or `filenames2` is empty, do nothing."""
 
     # If one list is empty, then matching is not required or expected.
-    if len(filenames1) == 0 or len(filenames2) == 0:
+    if filenames1 is None or len(filenames1) == 0 \
+        or filenames2 is None or len(filenames2) == 0:
         return
 
     # Now make a mapping of channel numbers to names.
