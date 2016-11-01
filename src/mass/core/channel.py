@@ -1216,11 +1216,15 @@ class MicrocalDataSet(object):
         indicator = self.p_pretrig_mean[g]
         drift_corr_param, self.drift_correct_info = \
             mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
+        self.p_filt_value_dc.attrs.update(self.drift_correct_info) # Store in hdf5 file
         print('chan %d best drift correction parameter: %.6f' % (self.channum, drift_corr_param))
+        self._apply_drift_correction()
 
+    def _apply_drift_correction(self):
         # Apply correction
-        ptm_offset = self.drift_correct_info['median_pretrig_mean']
-        gain = 1+(self.p_pretrig_mean[:]-ptm_offset)*drift_corr_param
+        assert self.p_filt_value_dc.attrs["type"] == "ptmean_gain"
+        ptm_offset = self.p_filt_value_dc.attrs["median_pretrig_mean"]
+        gain = 1+(self.p_pretrig_mean[:]-ptm_offset)*self.p_filt_value_dc.attrs["slope"]
         self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
         self.hdf5_group.file.flush()
 
@@ -1333,9 +1337,9 @@ class MicrocalDataSet(object):
 
     def phase_correct(self, forceNew=False, category=None, ph_peaks=None):
         """2015 phase correction method. Arguments are:
-        forceNew  To repeat computation if it already exists.
-        category  From the new named/categorical cuts system.
-        ph_peaks  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
+        `forceNew`  To repeat computation if it already exists.
+        `category`  From the new named/categorical cuts system.
+        `ph_peaks`  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
         """
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
         if not (forceNew or doesnt_exist):
@@ -1363,6 +1367,17 @@ class MicrocalDataSet(object):
             corrections.append(c)
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
+
+        # Store the info needed to reconstruct corrections
+        cx = np.vstack([c._x for c in corrections])
+        cy = np.vstack([c._y for c in corrections])
+        if "phase_corrector_x" in self.hdf5_group:
+            del self.hdf5_group["phase_corrector_x"]
+        if "phase_corrector_y" in self.hdf5_group:
+            del self.hdf5_group["phase_corrector_y"]
+        self.hdf5_group.create_dataset("phase_corrector_x", data=cx)
+        self.hdf5_group.create_dataset("phase_corrector_y", data=cy)
+
         NC = len(corrections)
         if NC > 3:
             phase_corrector = mass.mathstat.interpolate.CubicSpline(ph_peaks, median_phase)
@@ -1391,14 +1406,26 @@ class MicrocalDataSet(object):
             crazy_spline = sp.interpolate.UnivariateSpline(x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5))
             phase_corrector = mass.mathstat.interpolate.CubicSpline(crazy_spline._data[0], crazy_spline._data[1])
         self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
+        return self._apply_phase_correction(category=category)
+
+    def _apply_phase_correction(self, category=None):
+        if category is None:
+            category = {"calibration": "in"}
+        good = self.cuts.good(**category)
 
         # Compute a correction for each pulse for each correction-line energy
         # For the actual correction, don't let |ph| > 0.6 sample
         corrected_phase = self.p_filt_phase_corr[:]
         corrected_phase[corrected_phase>0.6] = 0.6
         corrected_phase[corrected_phase<-0.6] = -0.6
+
+        cx = self.hdf5_group["phase_corrector_x"][...]
+        cy = self.hdf5_group["phase_corrector_y"][...]
+        corrections = [mass.mathstat.interpolate.CubicSpline(x,y) for (x,y) in zip(cx,cy)]
+
         ph = np.hstack([0] + [c(0) for c in corrections])
         assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
+        NC = len(corrections)
         corr = np.zeros((NC+1, self.nPulses), dtype=float)
         for i, c in enumerate(corrections):
             corr[i+1] = c(0) - c(corrected_phase)
