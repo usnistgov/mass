@@ -208,22 +208,18 @@ class TESGroup(CutFieldMixin):
                 print("TESGroup is skipping a file that has zero pulses: %s" % fname)
                 continue  # don't load files with zero pulses
 
-            try:
-                hdf5_group = self.hdf5_file.require_group("chan%d" % pulse.channum)
-                hdf5_group.attrs['filename'] = fname
-            except:
-                hdf5_group = None
+            hdf5_group = self.hdf5_file.require_group("chan%d" % pulse.channum)
+            hdf5_group.attrs['filename'] = fname
 
             dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
-            if hdf5_group:
-                if 'calibration' in hdf5_group:
-                    hdf5_cal_grp = hdf5_group['calibration']
-                    for cal_name in hdf5_cal_grp:
-                        dset.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
+            if 'calibration' in hdf5_group:
+                hdf5_cal_grp = hdf5_group['calibration']
+                for cal_name in hdf5_cal_grp:
+                    dset.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
 
-                if 'why_bad' in hdf5_group.attrs:
-                    self._bad_channums[dset.channum] = [comment.decode() for comment in hdf5_group.attrs['why_bad']]
+            if 'why_bad' in hdf5_group.attrs:
+                self._bad_channums[dset.channum] = [comment.decode() for comment in hdf5_group.attrs['why_bad']]
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
