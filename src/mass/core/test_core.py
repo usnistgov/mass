@@ -99,5 +99,23 @@ class TestFiles(ut.TestCase):
             self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
 
+class TestTESGroup(ut.TestCase):
+
+    def test_all_channels_bad(self):
+        """Make sure it isn't an error to load a data set where all channels are marked bad"""
+        src_name = 'src/mass/regression_test/regress_chan1.ljh'
+        noi_name = 'src/mass/regression_test/regress_chan1.noi'
+        for name in ['src/mass/regression_test/regress_mass.hdf5','src/mass/regression_test/regress_noise_mass.hdf5']:
+            os.remove(name)
+        data = mass.TESGroup([src_name], [noi_name])
+        data.set_chan_bad(1, "testing all channels bad")
+        del data
+        try:
+            data = mass.TESGroup([src_name], [noi_name])
+        except:
+            self.fail("Opening a file with all channels bad raises and Exception.")
+        self.assertNotIn(1, data.good_channels)
+
+
 if __name__ == '__main__':
     ut.main()
