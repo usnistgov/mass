@@ -594,7 +594,7 @@ class MicrocalDataSet(object):
         self.column_number = None
 
         self._external_trigger_rowcount = None
-        self._use_new_filters = False
+        self._use_new_filters = True
 
         self.row_timebase = None
 
