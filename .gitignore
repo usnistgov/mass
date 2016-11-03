@@ -1,25 +1,26 @@
-/build
-/dist
-/mass.egg-info
+# Distribution/packaging
+build
+dist
+*.egg-info
+
+# Eclipse
 .project
 .pydevproject
+
+# General
 lint-report.txt
 *.pyc
 *~
-
 *.orig
-
-.settings/org.eclipse.core.resources.prefs
 
 testfile
 
 TAGS
 
-.idea/*
+*.log
+*.hdf5
 *.h5
 
 # Cython produces C source files
-mass/core/*.c
-mass/mathstat/*.c
-
-mass/test/*.hdf5
+src/mass/core/*.c
+src/mass/mathstat/*.c
