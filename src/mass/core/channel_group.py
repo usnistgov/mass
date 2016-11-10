@@ -875,6 +875,7 @@ class TESGroup(CutFieldMixin):
                     h5grp.attrs['fmax'] = f.fmax
                 h5grp.attrs['peak'] = f.peak_signal
                 h5grp.attrs['shorten'] = f.shorten
+                h5grp.attrs['newfilter'] = ds._use_new_filters
                 for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                           "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
                     if k in h5grp:

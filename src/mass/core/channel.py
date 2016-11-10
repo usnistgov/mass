@@ -25,7 +25,7 @@ import mass.core.analysis_algorithms
 
 from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile, LANLFile
-from mass.core.optimal_filtering import Filter
+from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
 from mass.core.utilities import InlineUpdater
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
@@ -657,14 +657,29 @@ class MicrocalDataSet(object):
             fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
             f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
             shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
+            if "newfilter" in filter_group.attrs:
+                newfilter = filter_group.attrs["newfilter"]
+            else:
+                newfilter = "filt_aterms" in filter_group.keys()
+            self._use_new_filters = newfilter
 
-            self.filter = Filter(self.average_pulse[...],
-                                 self.tes_group.nPresamples - self.pretrigger_ignore_samples,
-                                 self.noise_psd[...],
-                                 self.noise_autocorr, sample_time=self.timebase,
-                                 fmax=fmax,
-                                 f_3db=f_3db,
-                                 shorten=shorten)
+            if newfilter:
+                aterms = filter_group["filt_aterms"][:]
+                model = np.vstack([self.average_pulse[1:], aterms]).T
+                modelpeak = np.max(self.average_pulse)
+                self.filter = ArrivalTimeSafeFilter(model,
+                                                    self.tes_group.nPresamples - self.pretrigger_ignore_samples,
+                                                    self.noise_autocorr,
+                                                    fmax=fmax, f_3db=f_3db,
+                                                    sample_time=self.timebase,
+                                                    peak=modelpeak)
+            else:
+                self.filter = Filter(self.average_pulse[...],
+                                     self.tes_group.nPresamples - self.pretrigger_ignore_samples,
+                                     self.noise_psd[...],
+                                     self.noise_autocorr, sample_time=self.timebase,
+                                     fmax=fmax, f_3db=f_3db,
+                                     shorten=shorten)
 
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                       "filt_baseline", "filt_baseline_pretrig"]:
@@ -962,8 +977,7 @@ class MicrocalDataSet(object):
 
         modelpeak = np.median(rawscale)
         self.pulsemodel = model
-        ATSF = mass.optimal_filtering.ArrivalTimeSafeFilter
-        f = ATSF(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
+        f = ArrivalTimeSafeFilter(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
                  f_3db=f_3db, sample_time=self.timebase, peak=modelpeak)
         f.compute(fmax=fmax, f_3db=f_3db)
         self.filter = f

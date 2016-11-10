@@ -77,39 +77,6 @@ class TestSummaries(ut.TestCase):
         nt.assert_allclose(self.data.datasets[0].p_filt_value_dc, self.d['p_filt_value_dc'])
 
 
-class TestFilters(ut.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cuts = mass.core.controller.AnalysisControl(
-            pulse_average=(0.0, None),
-            pretrigger_rms=(None, 70),
-            pretrigger_mean_departure_from_median=(-50, 50),
-            peak_value=(0.0, None),
-            postpeak_deriv=(0, 30),
-            rise_time_ms=(None, 0.2),
-            peak_time_ms=(None, 0.2)
-        )
-        cls.data = process_file("regress", cuts, do_filter=False)
-
-    def filter_summaries(self, newstyle):
-        """Make sure that filters either old-style or new-style have a predicted resolution,
-        whether the filters are created fresh or are loaded from HDF5."""
-        for ds in self.data:
-            ds._use_new_filters = newstyle
-        self.data.compute_filters(f_3db=10000, forceNew=True)
-        for ds in self.data:
-            f = ds.filter
-            self.assertIn("noconst", f.variances)
-            self.assertIn("noconst", f.predicted_v_over_dv)
-            self.assertAlmostEqual(f.variances["noconst"], 8.8e-7, delta=3e-8)
-            expected = 449.4 if newstyle else 456.7
-            self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], expected, delta=0.1)
-
-    def test_vdv_oldfilters(self):
-        self.filter_summaries(False)
-
-    def test_vdv_newfilters(self):
-        self.filter_summaries(True)
 
 if __name__ == '__main__':
     ut.main()
