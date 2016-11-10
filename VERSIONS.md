@@ -1,5 +1,8 @@
 ## Note on version numbers of Mass
 
+* **0.5.1** November 2016
+Fix a bug in how filters are restored from disk (issue 82).
+
 * **0.5.0** October 2016
 Galen reorganized the source tree. That alone seems like worth a minor version number.
 Also created some 69 regression and other unit tests, which all pass now. Several
