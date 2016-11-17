@@ -53,7 +53,7 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
     flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
     lm = np.arange(1, len(x)-1)[flag]
     lm = lm[np.argsort(-y[lm])]
-    return np.array(x[lm])
+    return np.array(x[lm]), np.array(y[lm])
 
 
 def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
@@ -251,7 +251,7 @@ class EnergyCalibrationAutocal:
              binsize_ev (float or list[float]): bin sizes of the histograms of given calibration lines.
                  If a single number is given, this same number will be used for all calibration lines.
         """
-        lm = find_local_maxima(self.ph, smoothing_res_ph)
+        lm, _ = find_local_maxima(self.ph, smoothing_res_ph)
 
         # Note that find_opt_assignment does not require line_names be sorted by energies.
         self.line_names, self.energies_opt, self.ph_opt = find_opt_assignment(lm, self.line_names, nextra,
