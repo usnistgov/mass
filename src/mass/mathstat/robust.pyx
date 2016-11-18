@@ -522,14 +522,14 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
     # Keep track of which candidates on each ROW are still in the running.
     # These limits are of length (n-1) because the lowest row has no upper-triangle elements.
     # These mean that element A_ij = xj-xi is in the running if and only if  left(i) <= j <= right(i).
-    cdef long[:] trial_column
-    cdef long[:] left
-    cdef long[:] right
+    cdef long long[:] trial_column
+    cdef long long[:] left
+    cdef long long[:] right
     cdef double[:] per_row_value
 
-    trial_column = np.zeros(n-1, dtype=np.int32)
-    left = np.zeros(n-1, dtype=np.int32)
-    right = np.zeros(n-1, dtype=np.int32)
+    trial_column = np.zeros(n-1, dtype=np.int64)
+    left = np.zeros(n-1, dtype=np.int64)
+    right = np.zeros(n-1, dtype=np.int64)
 
     for i in range(n-1):
         right[i] = n-1
