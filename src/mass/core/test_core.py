@@ -1,3 +1,6 @@
+import tempfile
+import os.path
+
 import numpy as np
 import pylab as pl
 import glob, os
@@ -6,14 +9,17 @@ import unittest as ut
 import mass.core.channel_group as mcg
 from mass.core.files import *
 
+
 class TestFilenameHandling(ut.TestCase):
     # @classmethod
     # def setUpClass(cls):
     #     pass
 
     def test_glob(self):
-        self.assertIn("src/mass/regression_test/regress_chan1.ljh", mcg._glob_expand("src/mass/regression_test/regress_chan*.ljh"))
-        self.assertIn("src/mass/regression_test/regress_chan1.noi", mcg._glob_expand("src/mass/regression_test/regress_chan*.noi"))
+        self.assertIn(os.path.join("src", "mass", "regression_test", "regress_chan1.ljh"),
+                      mcg._glob_expand(os.path.join("src", "mass", "regression_test", "regress_chan*.ljh")))
+        self.assertIn(os.path.join("src", "mass", "regression_test", "regress_chan1.noi"),
+                      mcg._glob_expand(os.path.join("src", "mass", "regression_test", "regress_chan*.noi")))
 
     def test_extract_channum(self):
         self.assertEqual(1, mcg._extract_channum("dummy_chan1.ljh"))
@@ -69,33 +75,33 @@ class TestFilenameHandling(ut.TestCase):
 class TestFiles(ut.TestCase):
 
     def test_ljh_copy_and_append_traces(self):
-        src_name = 'src/mass/regression_test/regress_chan1.ljh'
-        dest_name = '/tmp/foo_chan1.ljh'
+        src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan1.ljh')
+        dest_name = os.path.join(tempfile.gettempdir(), 'foo_chan1.ljh')
         src = LJHFile(src_name)
 
         source_traces = [20]
         ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
         dest = LJHFile(dest_name)
-        for i,st in enumerate(source_traces):
+        for i, st in enumerate(source_traces):
             self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
-        source_traces = [0,30,20,10]
+        source_traces = [0, 30, 20, 10]
         ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
         dest = LJHFile(dest_name)
-        for i,st in enumerate(source_traces):
+        for i, st in enumerate(source_traces):
             self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
         source_traces.append(5)
         ljh_append_traces(src_name, dest_name, [5])
         dest = LJHFile(dest_name)
-        for i,st in enumerate(source_traces):
+        for i, st in enumerate(source_traces):
             self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
-        new_traces=[15,25,3]
+        new_traces = [15, 25, 3]
         source_traces.extend(new_traces)
         ljh_append_traces(src_name, dest_name, new_traces)
         dest = LJHFile(dest_name)
-        for i,st in enumerate(source_traces):
+        for i, st in enumerate(source_traces):
             self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
 
@@ -105,7 +111,7 @@ class TestTESGroup(ut.TestCase):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
         src_name = 'src/mass/regression_test/regress_chan1.ljh'
         noi_name = 'src/mass/regression_test/regress_chan1.noi'
-        for name in ['src/mass/regression_test/regress_mass.hdf5','src/mass/regression_test/regress_noise_mass.hdf5']:
+        for name in ['src/mass/regression_test/regress_mass.hdf5', 'src/mass/regression_test/regress_noise_mass.hdf5']:
             os.remove(name)
         data = mass.TESGroup([src_name], [noi_name])
         data.set_chan_bad(1, "testing all channels bad")

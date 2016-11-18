@@ -11,6 +11,7 @@ import unittest
 import numpy
 from mass.mathstat.robust import shorth_range, high_median, Qscale
 
+
 class Test_Shorth(unittest.TestCase):
     """Test the function shorth_range, which computes the range of the shortest half"""
 
@@ -49,7 +50,6 @@ class Test_Shorth(unittest.TestCase):
         _ignore = shorth_range(y, sort_inplace=True) 
         self.assertEqual(y[0], 1, 
              msg="shorth_range has not sorted a ndarray in place when requested to do so.")
-
 
 
 class Test_High_Median(unittest.TestCase):

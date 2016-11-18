@@ -820,7 +820,8 @@ Preamp gain: 1.000000
 Discrimination level (%%): 1.000000
 #End of Header
 """ % header_dict
-    return ljh_header
+    return ljh_header.encode()
+
 
 def root2ljh_translator(rootfile, ljhfile=None, overwrite=False, segmentsize=5000000,
                         channum=None, use_noise=False, excise_endpoints=None):

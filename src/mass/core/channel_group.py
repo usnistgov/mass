@@ -1346,7 +1346,7 @@ def _sort_filenames_numerically(fnames, inclusion_list=None):
         if inclusion_list is not None and channum not in inclusion_list:
             continue
         chan2fname[channum] = name
-    sorted_chan = chan2fname.keys()
+    sorted_chan = list(chan2fname.keys())
     sorted_chan.sort()
     sorted_fnames = [chan2fname[key] for key in sorted_chan]
     return sorted_fnames

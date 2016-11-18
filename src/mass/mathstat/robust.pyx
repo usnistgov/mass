@@ -423,7 +423,7 @@ def _Qscale_subroutine_python(x, n, target_k):
 
 
 @cython.boundscheck(False)
-def _high_median(long[:] sort_idx, double[:] weights, int n):
+def _high_median(long long[:] sort_idx, double[:] weights, int n):
     """
     Compute the weighted high median of data set with weights <weights>.
     Instead of sending the data set x, send the order statistics <sort_idx> over
@@ -474,7 +474,6 @@ def _high_median(long[:] sort_idx, double[:] weights, int n):
     return sort_idx[itrial]
 
 
-
 @cython.boundscheck(False)
 def _choose_trial_val(long[:] left, long[:] right, double[:] x, int n):
     """Choose a trial val as the weighted median of the medians of the remaining candidates in
@@ -499,7 +498,7 @@ def _choose_trial_val(long[:] left, long[:] right, double[:] x, int n):
             ctr_index = n-1
         row_median[i] = x[ctr_index]-x[i]
 
-    cdef long[:] row_sort_idx
+    cdef long long[:] row_sort_idx
     row_sort_idx = np.argsort(row_median)
 
     chosen_row =  _high_median(row_sort_idx, weights, n-1)
@@ -510,7 +509,6 @@ def _choose_trial_val(long[:] left, long[:] right, double[:] x, int n):
         chosen_col = n-1
 
     return trial_val, chosen_row, chosen_col
-
 
 
 @cython.embedsignature(True)
@@ -529,9 +527,9 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
     cdef long[:] right
     cdef double[:] per_row_value
 
-    trial_column = np.zeros(n-1, dtype=int)
-    left = np.zeros(n-1, dtype=int)
-    right = np.zeros(n-1, dtype=int)
+    trial_column = np.zeros(n-1, dtype=np.int32)
+    left = np.zeros(n-1, dtype=np.int32)
+    right = np.zeros(n-1, dtype=np.int32)
 
     for i in range(n-1):
         right[i] = n-1
@@ -574,13 +572,13 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
                 trial_column[i] = ib
                 continue
             while ib-ia>1:
-                imiddle = (ib+ia)/2
+                imiddle = (ib+ia) // 2
                 if x[imiddle] < trial_val:
                     ia = imiddle
                 elif x[imiddle] > trial_val:
                     ib = imiddle
                 else:
-                    ia = imiddle-1
+                    ia = imiddle - 1
                     ib = imiddle
                     break
             trial_column[i] = ia
