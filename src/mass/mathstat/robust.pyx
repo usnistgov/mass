@@ -475,7 +475,7 @@ def _high_median(long long[:] sort_idx, double[:] weights, int n):
 
 
 @cython.boundscheck(False)
-def _choose_trial_val(long[:] left, long[:] right, double[:] x, int n):
+def _choose_trial_val(long long[:] left, long long[:] right, double[:] x, int n):
     """Choose a trial val as the weighted median of the medians of the remaining candidates in
     each row, where the weights are the number of candidates remaining in each row."""
 
@@ -517,7 +517,7 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
     cdef unsigned int trial_q_row = 0, trial_q_col = 0
     cdef Py_ssize_t i, counter
     cdef double trial_distance = 0.0  #, trial_val=0.0
-    cdef long candidates_below_trial_dist
+    cdef long long candidates_below_trial_dist
 
     # Keep track of which candidates on each ROW are still in the running.
     # These limits are of length (n-1) because the lowest row has no upper-triangle elements.
