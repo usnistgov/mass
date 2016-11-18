@@ -28,6 +28,7 @@ class TestAlgorithms(unittest.TestCase):
         ph = np.hstack((ph, np.random.randn(5000)+4000))
         ph = np.hstack((ph, np.random.randn(1000)+1000))
         local_maxima, _ = find_local_maxima(ph, 10)
+        local_maxima, _peak_heights = find_local_maxima(ph,10)
         rounded = np.round(local_maxima)
         self.assertTrue(all(rounded[:3] == np.array([7000, 4000, 1000])))
 
@@ -86,8 +87,8 @@ class TestAlgorithms(unittest.TestCase):
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
-        smoothing_res_ph = 20
-        lm, _ = find_local_maxima(ph, smoothing_res_ph)
+        smoothing_res_ph=20
+        lm, _lm_heights = find_local_maxima(ph, smoothing_res_ph)
         line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
 
         names_e, energies_opt, ph_opt = find_opt_assignment(lm, line_names)

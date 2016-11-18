@@ -15,6 +15,7 @@ import scipy.linalg
 import time
 import unittest
 
+
 class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
     """Test ToeplitzSolver on a 5x5 symmetric matrix"""
     def setUp(self):
@@ -40,17 +41,18 @@ class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
             big_dif = numpy.abs(x_out-x_in).max()
             self.assertAlmostEqual(0, big_dif, 12)
 
+
 class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
     """Test ToeplitzSolver on a 5x5 non-symmetric matrix"""
     def setUp(self):
-        self.autocorr=numpy.array((-1,-2,0,3,6.,4.,2.,1.,0.))
-        self.n=(len(self.autocorr)+1)/2
+        self.autocorr = numpy.asarray((-1, -2, 0, 3, 6., 4., 2., 1., 0.))
+        self.n = (len(self.autocorr) + 1) // 2
         self.solver = ToeplitzSolver(self.autocorr, symmetric=False)
         self.R = scipy.linalg.toeplitz(self.autocorr[self.n-1:], self.autocorr[self.n-1::-1])
 
     def test_all_unit_vectors(self):
         for i in range(self.n):
-            x_in = numpy.zeros(self.n,dtype=numpy.float)
+            x_in = numpy.zeros(self.n, dtype=numpy.float)
             x_in[i] = 1.0
             y = numpy.dot(self.R, x_in)
             x_out = self.solver(y)
@@ -64,6 +66,7 @@ class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
             x_out = self.solver(y)
             big_dif = numpy.abs(x_out-x_in).max()
             self.assertAlmostEqual(0, big_dif, 12)
+
 
 class TestToeplitzSolver_32(unittest.TestCase):
     """Test ToeplitzSolver on a 32x32 symmetric matrix"""
@@ -178,11 +181,11 @@ class TestToeplitzSpeed(object):
             lu_piv = scipy.linalg.lu_factor(R)
             x3 = scipy.linalg.lu_solve(lu_piv, v, overwrite_b=False)
             dt.append(time.time()-t0) 
-            print 'rms rhs diff: %.3g, solution diff: %.3g %.3g'%((v-v2).std(), (x-x2).std(), (x-x3).std())
+            print('rms rhs diff: %.3g, solution diff: %.3g %.3g'%((v-v2).std(), (x-x2).std(), (x-x3).std()))
             
         else:
             dt.extend(4*[numpy.NaN])                
-        print size, ['%6.3f'%t for t in dt]
+        print(size, ['%6.3f'%t for t in dt])
         return dt
 
     def plot(self):
