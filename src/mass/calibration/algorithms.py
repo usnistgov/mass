@@ -39,7 +39,8 @@ def line_names_and_energies(line_names):
 
 def find_local_maxima(pulse_heights, gaussian_fwhm):
     """Smears each pulse by a gaussian of gaussian_fhwm and finds local maxima, returns a list of
-    their locations in pulse_height units, sorted by number of pulses in peak
+    their locations in pulse_height units (sorted by number of pulses in peak) AND their peak values as:
+    (peak_locations, peak_intensities)
 
     Args:
         pulse_heights (numpy.array(dtype=np.float)): a list of pulse heights (eg p_filt_value)
