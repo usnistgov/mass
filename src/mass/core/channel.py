@@ -1125,11 +1125,16 @@ class MicrocalDataSet(object):
             (self.p_pulse_average, 'Pulse Avg', 'purple', None),
             (self.p_peak_value, 'Peak value', 'blue', None),
             (self.p_pretrig_rms, 'Pretrig RMS', 'green', [0, 4000]),
-            (self.p_pretrig_mean, 'Pretrig Mean', '#88cc00', None),
+            (self.p_pretrig_mean, 'Pretrig Mean', '#00ff26', None),
             (self.p_postpeak_deriv, 'Max PostPk deriv', 'gold', [0, 700]),
             (self.p_rise_time[:]*1e3, 'Rise time (ms)', 'orange', [0, 12]),
             (self.p_peak_time[:]*1e3, 'Peak time (ms)', 'red', [-3, 9])
         )
+
+        # Plot timeseries with 0 = the last 00 UT during or before the run.
+        last_record = np.max(self.p_timestamp)
+        last_midnight = last_record - (last_record%86400)
+        hour_offset = last_midnight/3600.
 
         plt.clf()
         for i, (vect, label, color, limits) in enumerate(plottables):
@@ -1139,7 +1144,9 @@ class MicrocalDataSet(object):
             plt.ylabel(label)
             if valid is not None:
                 vect = vect[valid]
-            plt.plot(hour, vect[::downsample], '.', ms=1, color=color)
+            plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
+            if i == len(plottables) - 1:
+                plt.xlabel("Time since last UT midnight (hours)")
 
             # Histogram (right-hand panels)
             plt.subplot(len(plottables), 2, 2+i*2)

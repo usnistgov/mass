@@ -570,7 +570,7 @@ class TESGroup(CutFieldMixin):
                                    residual, valid_status, shift1)
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
-                       dataset_numbers=None):
+                       channel_numbers=None, dataset_numbers=None):
         """Plot a summary of one quantity from the data set, including time series and histograms of
         this quantity.  This method plots all channels in the group, but only one quantity.  If you
         would rather see all quantities for one channel, then use the group's
@@ -596,6 +596,7 @@ class TESGroup(CutFieldMixin):
 
         <log>              Use logarithmic y-axis on the histograms (right panels).
         <hist_limits>
+        <channel_numbers>  A sequence of channel numbers to plot. If None, then plot all.
         <dataset_numbers>  A sequence of the datasets [0...n_channels-1] to plot.  If None
                            (the default) then plot all datasets in numerical order.
         """
@@ -605,7 +606,7 @@ class TESGroup(CutFieldMixin):
             ("p_pulse_average", 'Pulse Avg', 'purple', [0,5000]),
             ("p_peak_value", 'Peak value', 'blue', None),
             ("p_pretrig_rms", 'Pretrig RMS', 'green', [0, 4000]),
-            ("p_pretrig_mean", 'Pretrig Mean', '#88cc00', None),
+            ("p_pretrig_mean", 'Pretrig Mean', '#00ff26', None),
             ("p_postpeak_deriv", 'Max PostPk deriv', 'gold', [0, 700]),
             ("p_rise_time[:]*1e3", 'Rise time (ms)', 'orange', [0, 12]),
             ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3, 9])
@@ -615,19 +616,29 @@ class TESGroup(CutFieldMixin):
         if quantity in range(len(quant_names)):
             plottable = plottables[quantity]
         else:
-            i = quant_names.index(quantity.lower().replace(" ", ""))
-            plottable = plottables[i]
+            quantity = quant_names.index(quantity.lower().replace(" ", ""))
+            plottable = plottables[quantity]
 
-        if dataset_numbers is None:
-            datasets = self.datasets
-            dataset_numbers = range(len(datasets))
+        MAX_TO_PLOT = 16
+        if channel_numbers is None:
+            if dataset_numbers is None:
+                datasets = [ds for ds in self]
+                if len(datasets) > MAX_TO_PLOT:
+                    datasets = datasets[:MAX_TO_PLOT]
+            else:
+                datasets = [self.datasets[i] for i in dataset_numbers]
+            channel_numbers = [ds.channum for ds in datasets]
         else:
-            datasets = [self.datasets[i] for i in dataset_numbers]
+            datasets = [self.channel[i] for i in channel_numbers]
+
+        # Plot timeseries with 0 = the last 00 UT during or before the run.
+        last_record = np.max([ds.p_timestamp[-1] for ds in self])
+        last_midnight = last_record - (last_record%86400)
+        hour_offset = last_midnight/3600.
 
         plt.clf()
         ny_plots = len(datasets)
-        for i, (channum, ds) in enumerate(zip(dataset_numbers, datasets)):
-            print('TES%2d ' % channum),
+        for i, (channum, ds) in enumerate(zip(channel_numbers, datasets)):
 
             # Convert "uncut" or "cut" to array of all good or all bad data
             if isinstance(valid, str):
@@ -657,7 +668,7 @@ class TESGroup(CutFieldMixin):
                     if downsample < 1:
                         downsample = 1
                 hour = ds.p_timestamp[::downsample] / 3600.0
-            print(" (%d records; %d in scatter plots)" % (nrecs, hour.shape[0]))
+            print("Chan %3d (%d records; %d in scatter plots)" % (channum, nrecs, hour.shape[0]))
 
             (vect, label, color, default_limits) = plottable
             if hist_limits is None:
@@ -675,15 +686,15 @@ class TESGroup(CutFieldMixin):
                 plt.subplot(ny_plots, 2, 1 + i * 2, sharex=ax_master)
 
             if len(vect) > 0:
-                plt.plot(hour, vect[::downsample], '.', ms=1, color=color)
+                plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
             else:
                 plt.text(.5, .5, 'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
             if i == 0:
                 plt.title(label)
-            plt.ylabel("TES %d" % channum)
+            plt.ylabel("Ch %d" % channum)
             if i == ny_plots - 1:
-                plt.xlabel("Time since server start (hours)")
+                plt.xlabel("Time since last UT midnight (hours)")
 
             # Histograms on right half of figure
             if i == 0:
@@ -708,6 +719,8 @@ class TESGroup(CutFieldMixin):
                 plt.xlabel(label)
             if log:
                 plt.ylim(ymin=contents.min())
+            plt.tight_layout()
+
 
     def make_masks(self, pulse_avg_range=None,
                    pulse_peak_range=None,
