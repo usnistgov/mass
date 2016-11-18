@@ -1,10 +1,14 @@
-import numpy as np
-import pylab as pl
-import glob, os
-import mass
-import unittest as ut
-import numpy.testing as nt
+import glob
+import os
 from os import path
+
+import numpy as np
+import numpy.testing as nt
+import pylab as pl
+import unittest as ut
+
+import mass
+
 
 ljhdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -55,7 +59,12 @@ class TestSummaries(ut.TestCase):
             peak_time_ms=(None, 0.2)
         )
         cls.data = process_file("regress", cuts)
-        cls.d = np.load(path.join(ljhdir,"regress_ds0.npz"))
+        cls.d = np.load(path.join(ljhdir, "regress_ds0.npz"))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.data.hdf5_file.close()
+        cls.data.hdf5_noisefile.close()
 
     def test_summaries(self):
         nt.assert_allclose(self.data.datasets[0].p_peak_index, self.d['p_peak_index'])
@@ -75,8 +84,6 @@ class TestSummaries(ut.TestCase):
     def test_post_filter(self):
         nt.assert_allclose(self.data.datasets[0].p_filt_value, self.d['p_filt_value'])
         nt.assert_allclose(self.data.datasets[0].p_filt_value_dc, self.d['p_filt_value_dc'])
-
-
 
 if __name__ == '__main__':
     ut.main()

@@ -115,6 +115,9 @@ class TestTESGroup(ut.TestCase):
             os.remove(name)
         data = mass.TESGroup([src_name], [noi_name])
         data.set_chan_bad(1, "testing all channels bad")
+
+        data.hdf5_file.close()
+        data.hdf5_noisefile.close()
         del data
         try:
             data = mass.TESGroup([src_name], [noi_name])

@@ -50,8 +50,7 @@ def process_file(prefix, cuts, do_filter=True):
 
 
 class TestFilters(ut.TestCase):
-    @classmethod
-    def setUpClass(cls):
+    def setUp(self):
         cuts = mass.core.controller.AnalysisControl(
             pulse_average=(0.0, None),
             pretrigger_rms=(None, 70),
@@ -61,7 +60,11 @@ class TestFilters(ut.TestCase):
             rise_time_ms=(None, 0.2),
             peak_time_ms=(None, 0.2)
         )
-        cls.data = process_file("regress", cuts, do_filter=False)
+        self.data = process_file("regress", cuts, do_filter=False)
+
+    def tearDown(self):
+        self.data.hdf5_file.close()
+        self.data.hdf5_noisefile.close()
 
     def filter_summaries(self, newstyle):
         """Make sure that filters either old-style or new-style have a predicted resolution,
@@ -93,14 +96,13 @@ class TestFilters(ut.TestCase):
         pf = ds.filename
         nf = ds.noise_records.filename
 
-        ds = None
-        self.data=None
-        del self.data
         data2 = mass.TESGroup(pf, nf)
         ds = data2.channel[1]
         filter2 = ds.filter
         self.assertEqual(type(filter1), type(filter2))
         self.assertEqual(newstyle, ds._use_new_filters)
+        data2.hdf5_file.close()
+        data2.hdf5_noisefile.close()
 
     def test_filter_reload_new(self):
         """Make sure we can create new filters and reload them"""
