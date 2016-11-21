@@ -534,7 +534,7 @@ class CuKAlpha(SpectralLine):
 
 
 class CuKBeta(SpectralLine):
-    """Function object to approximate the manganese K-alpha complex
+    """Function object to approximate the copper K-beta complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
     """
@@ -554,6 +554,57 @@ class CuKBeta(SpectralLine):
     integral_intensity /= integral_intensity.sum()
     # The energy at the main peak (from table IV beta1,3)
     nominal_peak_energy = 8905.42  # eV
+
+
+class ZnKAlpha(SpectralLine):
+    """Function object to approximate the zinc K-alpha complex.
+    This is a hack, a copy of the Hoelzer, Fritsch, Deutsch, Haertwig, Foerster
+    Phys Rev A56 (#6) pages 4554ff (1997 December) model, with the numbers
+    adjusted to get line energies of 8615.823, 8638.91 eV and widths 10% wider
+    than for Cu. Those are based on Zschornack's book.
+    """
+    # Spectral complex name.
+    name = 'Zinc K-alpha'
+    # The approximation is 4 of Lorentzians (2 for Ka1, 2 for Ka2)
+    # The Lorentzian energies
+    energies = np.array((8047.8372, 8045.3672, 8027.9935, 8026.5041))
+    energies[:2] += 591.05
+    energies[2:] += 587.99
+    # The Lorentzian widths
+    fwhm = np.array((2.285, 3.358, 2.667, 3.571)) * 1.1
+    # The Lorentzian peak height
+    peak_heights = np.array((957, 90, 334, 111), dtype=np.float) / 1e3
+    # Amplitude of the Lorentzians
+    integral_intensity = (0.5 * np.pi * fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
+    # The energy at the main peak
+    nominal_peak_energy = 8638.91  # eV
+    ka12_energy_diff = 23.0  # eV
+
+
+class ZnKBeta(SpectralLine):
+    """Function object to approximate the Zinc K-beta complex
+    Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
+    Phys Rev A56 (#6) pages 4554ff (1997 December) for copper, and
+    adjusted to give 9573.6 eV peak and 6% wider spread.
+    """
+
+    # Spectral complex name.
+    name = 'Zinc K-beta'
+
+    # The approximation is as a series of 5 Lorentzians
+    # The Lorentzian energies (Table III E_i)
+    energies = np.array((8905.532, 8903.109, 8908.462, 8897.387, 8911.393))*1.06 + 133.85
+    # The Lorentzian widths (Table III W_i)
+    fwhm = np.array((3.52, 3.52, 3.55, 8.08, 5.31))*1.06
+    # The Lorentzian peak height (Table III I_i)
+    peak_heights = np.array((757, 388, 171, 68, 55), dtype=np.float) / 1e3
+    # Amplitude of the Lorentzians
+    integral_intensity = (0.5 * np.pi * fwhm) * peak_heights
+    integral_intensity /= integral_intensity.sum()
+    # The energy at the main peak (from table IV beta1,3)
+    nominal_peak_energy = 9573.6  # eV
+
 
 
 # the API for this is terrible, you have to create a class, you cant just pass in a distirubtion

@@ -205,7 +205,7 @@ class EnergyCalibration(object):
             return sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(energy,))
         elif len(energy) > 10 and not self._e2phwarned:
             print("WARNING: EnergyCalibration.energy2ph can be slow for long inputs.")
-            self._e2phwarned = False
+            self._e2phwarned = True
         result = [sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
         return np.array(result)
 

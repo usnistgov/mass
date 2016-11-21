@@ -652,6 +652,12 @@ class CuKAlphaFitter(GenericKAlphaFitter):
         GenericKAlphaFitter.__init__(self, lines.CuKAlpha())
 
 
+class ZnKAlphaFitter(GenericKAlphaFitter):
+
+    def __init__(self):
+        GenericKAlphaFitter.__init__(self, lines.ZnKAlpha())
+
+
 class TiKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
@@ -698,3 +704,9 @@ class CuKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
         GenericKBetaFitter.__init__(self, lines.CuKBeta())
+
+
+class ZnKBetaFitter(GenericKBetaFitter):
+
+    def __init__(self):
+        GenericKBetaFitter.__init__(self, lines.ZnKBeta())
