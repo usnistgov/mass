@@ -45,6 +45,8 @@ STANDARD_FEATURES = {
    'NiKBeta':  8264.78,
    'CuKAlpha': 8047.823,
    'CuKBeta':  8905.41,
+   'ZnKAlpha': 8638.906,
+   'ZnKBeta':  9573.6,
 
    'TiKEdge':  4966.0,
    'VKEdge':   5465.0,  # defined as peak of derivative from exafs materials.com
