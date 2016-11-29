@@ -28,7 +28,6 @@ from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
 from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
-# from mass.calibration import young
 
 from mass.core import ljh_util
 
@@ -972,15 +971,15 @@ class MicrocalDataSet(object):
         model = np.zeros((self.nSamples-1, 1+DEGREE), dtype=float)
         for s in range(self.nPresamples+2, self.nSamples-1):
             y = raw[:, s]/rawscale
-            xmed = [np.median(ATime[bins==i]) for i in range(NBINS)]
-            ymed = [np.median(y[bins==i]) for i in range(NBINS)]
+            xmed = [np.median(ATime[bins == i]) for i in range(NBINS)]
+            ymed = [np.median(y[bins == i]) for i in range(NBINS)]
             fit = np.polyfit(xmed, ymed, DEGREE)
             model[s, :] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
 
         modelpeak = np.median(rawscale)
         self.pulsemodel = model
         f = ArrivalTimeSafeFilter(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
-                 f_3db=f_3db, sample_time=self.timebase, peak=modelpeak)
+                                  f_3db=f_3db, sample_time=self.timebase, peak=modelpeak)
         f.compute(fmax=fmax, f_3db=f_3db)
         self.filter = f
         return f

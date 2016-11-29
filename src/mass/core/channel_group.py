@@ -21,7 +21,7 @@ Author: Joe Fowler, NIST
 Started March 2, 2011
 """
 from collections import Iterable
-from functools import reduce, wraps
+from functools import reduce
 import glob
 import os
 
@@ -719,7 +719,6 @@ class TESGroup(CutFieldMixin):
                 plt.ylim(ymin=contents.min())
             plt.tight_layout()
 
-
     def make_masks(self, pulse_avg_range=None,
                    pulse_peak_range=None,
                    pulse_rms_range=None,
@@ -765,7 +764,7 @@ class TESGroup(CutFieldMixin):
             raise ValueError("Call make_masks with one of pulse_avg_range"
                              " pulse_rms_range, or pulse_peak_range specified.")
         elif nranges > 1:
-            print("Warning: make_masks uses only one range argument.  Checking only '%s'."%vectname)
+            print("Warning: make_masks uses only one range argument.  Checking only '%s'." % vectname)
 
         middle = 0.5 * (pmin + pmax)
         abs_lim = 0.5 * np.abs(pmax - pmin)

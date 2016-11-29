@@ -37,7 +37,6 @@ LANLFile and translation added June 2011 by Doug Bennett and Joe Fowler
 
 import numpy as np
 import os
-import sys
 import time
 import glob
 import struct
@@ -123,8 +122,7 @@ class MicrocalFile(object):
 
 
 class VirtualFile(MicrocalFile):
-    """
-    Object to act like a single microcalorimeter data file on disk, though the data are all
+    """Object to act like a single microcalorimeter data file on disk, though the data are all
     held only in memory.
     """
     def __init__(self, data, times=None, presamples=None):
@@ -151,13 +149,13 @@ class VirtualFile(MicrocalFile):
     def copy(self):
         """Return a copy of the object.  Handy for updating method definitions."""
         c = VirtualFile(self.data)
-        c.__dict__.update( self.__dict__ )
+        c.__dict__.update(self.__dict__)
         return c
 
     def read_trace(self, trace_num):
         """Return the data for pulse number <trace_num>"""
-        if trace_num > self.nPulses:
-            raise ValueError("This VirtualFile has only %d pulses"% self.nPulses)
+        if trace_num >= self.nPulses:
+            raise ValueError("This VirtualFile has only %d pulses" % self.nPulses)
         return self.data[trace_num]
 
     def read_segment(self, segment_num=0):
@@ -288,14 +286,15 @@ class LJHFile(MicrocalFile):
 
         self.header_lines = lines
         self.header_size = fp.tell()
-        fp.seek(0, os.SEEK_END)
-        self.binary_size = fp.tell() - self.header_size
+        # fp.seek(0, os.SEEK_END)
+        # self.binary_size = fp.tell() - self.header_size
+        self.binary_size = os.stat(filename).st_size - self.header_size
         fp.close()
 
         if StrictVersion(self.version_str.decode()) >= StrictVersion("2.2.0"):
-            self.pulse_size_bytes = (16+2*self.nSamples)
+            self.pulse_size_bytes = (16 + 2 * self.nSamples)
         else:
-            self.pulse_size_bytes = (6+2*self.nSamples)
+            self.pulse_size_bytes = (6 + 2 * self.nSamples)
 
         self.nPulses = self.binary_size // self.pulse_size_bytes
 
@@ -394,7 +393,11 @@ class LJHFile(MicrocalFile):
 
     def read_trace(self, trace_num):
         """Return a single data trace (number <trace_num>),
-        either from cache or by reading off disk, if needed."""
+        either from cache or by reading off disk, if needed.
+        """
+        if trace_num >= self.nPulses:
+            raise ValueError("This VirtualFile has only %d pulses" % self.nPulses)
+
         segment_num = trace_num // self.pulses_per_seg
         self.read_segment(segment_num)
         return self.data[trace_num % self.pulses_per_seg]
@@ -414,7 +417,7 @@ class LJHFile(MicrocalFile):
         """
         # Use cached data, if possible
         if segment_num != self.__cached_segment or self.data is None:
-            if segment_num*self.segmentsize > self.binary_size:
+            if segment_num * self.segmentsize > self.binary_size:
                 raise ValueError("File %s has only %d segments;\n\tcannot open segment %d" %
                                  (self.filename, self.n_segments, segment_num))
 
@@ -472,7 +475,7 @@ class LJHFile(MicrocalFile):
             #fromfile will read up to max items
 
         self.rowcount = array["rowcount"]
-        self.datatimes_float = array["posix_usec"]*1e-6  # convert to floating point with units of seconds
+        self.datatimes_float = array["posix_usec"] * 1e-6  # convert to floating point with units of seconds
         self.data = array["data"]
 
     def __read_binary_pre22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
@@ -749,10 +752,11 @@ class LANLFile(MicrocalFile):
         # Use cached data, if possible
         if segment_num != self.__cached_segment:
             if segment_num > self.n_segments:
-                raise ValueError("File %s has only %d segments;\n\tCannot open segment %d"%
+                raise ValueError("File %s has only %d segments;\n\tCannot open segment %d" %
                                  (self.filename, self.n_segments, segment_num))
 
-            if end > self.nPulses: end = self.nPulses
+            if end > self.nPulses:
+                end = self.nPulses
             print("Reading pulses [%d,%d)" % (first, end))
             self.data = np.array([self.read_trace(i) for i in range(first, end)])
             self.datatimes = self.raw_datatimes[first:end]

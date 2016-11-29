@@ -12,12 +12,11 @@ cimport libc.limits
 # MASS modules
 
 from mass.core.channel import MicrocalDataSet
-from mass.core.utilities import InlineUpdater, show_progress
+from mass.core.utilities import show_progress
 
 
 class CythonMicrocalDataSet(MicrocalDataSet):
-    """
-    Represent a single microcalorimeter's PROCESSED data.
+    """Represent a single microcalorimeter's PROCESSED data.
     This channel can be directly from a TDM detector, or it
     can be the demodulated result of a CDM modulation.
     """
