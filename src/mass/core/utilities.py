@@ -85,11 +85,19 @@ class InlineUpdater(object):
         return '%.1f min' % (self.elapsedTimeSec / 60.0)
 
 
+class NullUpdater(object):
+    def update(self, f):
+        pass
+
+
 def show_progress(name):
     def decorator(func):
         @functools.wraps(func)
         def work(self, *args, **kwargs):
-            print_updater = self.updater(name)
+            try:
+                print_updater = self.updater(name)
+            except TypeError:
+                print_updater = NullUpdater()
 
             for d in func(self, *args, **kwargs):
                 print_updater.update(d)

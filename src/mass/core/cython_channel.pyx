@@ -12,7 +12,7 @@ cimport libc.limits
 # MASS modules
 
 from mass.core.channel import MicrocalDataSet
-from mass.core.utilities import InlineUpdater
+from mass.core.utilities import InlineUpdater, show_progress
 
 
 class CythonMicrocalDataSet(MicrocalDataSet):
@@ -27,6 +27,8 @@ class CythonMicrocalDataSet(MicrocalDataSet):
     @cython.embedsignature(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
+
+    @show_progress("channel.summarize_data_tdm")
     def summarize_data(self, double peak_time_microsec=220.0, double pretrigger_ignore_microsec=20.0,
                        forceNew=False, use_cython=True):
         """Summarize the complete data set one chunk at a time.
@@ -121,7 +123,6 @@ class CythonMicrocalDataSet(MicrocalDataSet):
         e_nPresamples = nPresamples - pretrigger_ignore_samples
         peak_time = nPresamples + peak_time_samples
 
-        print_updater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
         for i in range(self.pulse_records.n_segments):
             first, end = self.read_segment(i)
             seg_size = end - first
@@ -267,13 +268,14 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
             self.p_shift1[first:end] = p_shift1_array[:seg_size]
 
-            print_updater.update((i+1.0)/self.pulse_records.n_segments)
+            yield (i+1.0) / self.pulse_records.n_segments
 
         self.clear_cache()
 
     @cython.embedsignature(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
+    @show_progress("filter_data_tdm")
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=True):
         """Filter the complete data file one chunk at a time.
         """
@@ -314,8 +316,6 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
         filt_phase_array = np.zeros(pulses_per_seg, dtype=np.float64)
         filt_value_array = np.zeros(pulses_per_seg, dtype=np.float64)
-
-        print_updater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
 
         for i in range(n_segments):
             first, end = self.read_segment(i)  # this reloads self.data to contain new pulses
@@ -370,7 +370,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
             self.p_filt_value[first:end] = filt_value_array[:seg_size]
             self.p_filt_phase[first:end] = filt_phase_array[:seg_size]
-            print_updater.update((end+1)/float(self.nPulses))
+            yield (end+1) / float(self.nPulses)
 
         self.clear_cache()
         self.hdf5_group.file.flush()
