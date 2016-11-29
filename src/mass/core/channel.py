@@ -4,7 +4,6 @@ Created on Feb 16, 2011
 @author: fowlerj
 """
 
-from os import path
 from functools import reduce
 
 try:
@@ -26,7 +25,7 @@ import mass.core.analysis_algorithms
 from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile, LANLFile
 from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
-from mass.core.utilities import InlineUpdater
+from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
 # from mass.calibration import young
@@ -746,6 +745,9 @@ class MicrocalDataSet(object):
     def __repr__(self):
         return "%s('%s')" % (self.__class__.__name__, self.filename)
 
+    def updater(self, name):
+        return self.tes_group.updater(name + " chan {0:d}".format(self.channum))
+
     def good(self, *args, **kwargs):
         """Return a boolean vector, one per pulse record, saying whether record is good"""
         return self.cuts.good(*args, **kwargs)
@@ -773,6 +775,7 @@ class MicrocalDataSet(object):
         c.cuts = self.cuts.copy()
         return c
 
+    @show_progress("channel.summarize_data_tdm")
     def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
         """Summarize the complete data set one chunk at a time.
         """
@@ -792,11 +795,10 @@ class MicrocalDataSet(object):
         self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
         self._peakidx = None
 
-        printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
         for s in range(self.pulse_records.n_segments):
             first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
             self._summarize_data_segment(first, end, peak_time_microsec, pretrigger_ignore_microsec)
-            printUpdater.update((s+1)/float(self.pulse_records.n_segments))
+            yield (s+1) / float(self.pulse_records.n_segments)
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
@@ -861,6 +863,7 @@ class MicrocalDataSet(object):
             mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
                                                             ignore_leading=self.nPresamples+maxderiv_holdoff)
 
+    @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
         """Compute the average pulse this channel.
 
@@ -892,12 +895,11 @@ class MicrocalDataSet(object):
             if mask[a:b].any():
                 segment_mask[i] = True
 
-        printUpdater = InlineUpdater('compute_average_pulse chan %d' % self.channum)
         for iseg in range(nseg):
             if not segment_mask[iseg]:
                 continue
             first, end = self.read_segment(iseg)
-            printUpdater.update(end / float(self.nPulses))
+            yield end / float(self.nPulses)
             valid = mask[first:end]
 
             if mask.shape != (self.nPulses,):
@@ -969,11 +971,11 @@ class MicrocalDataSet(object):
 
         model = np.zeros((self.nSamples-1, 1+DEGREE), dtype=float)
         for s in range(self.nPresamples+2, self.nSamples-1):
-            y = raw[:,s]/rawscale
+            y = raw[:, s]/rawscale
             xmed = [np.median(ATime[bins==i]) for i in range(NBINS)]
             ymed = [np.median(y[bins==i]) for i in range(NBINS)]
             fit = np.polyfit(xmed, ymed, DEGREE)
-            model[s,:] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
+            model[s, :] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
 
         modelpeak = np.median(rawscale)
         self.pulsemodel = model
@@ -983,6 +985,7 @@ class MicrocalDataSet(object):
         self.filter = f
         return f
 
+    @show_progress("channel.filter_data_tdm")
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
         """Filter the complete data file one chunk at a time.
         """
@@ -994,7 +997,7 @@ class MicrocalDataSet(object):
             filter_values = self.filter.__dict__[filter_name]
         else:
             filter_values = self.hdf5_group['filters/%s' % filter_name].value
-        printUpdater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
+
         if self._use_new_filters:
             filterfunction = self._filter_data_segment_new
             filter_AT = self.filter.filt_aterms[0]
@@ -1007,7 +1010,7 @@ class MicrocalDataSet(object):
             (self.p_filt_phase[first:end],
              self.p_filt_value[first:end]) = \
                 filterfunction(filter_values, filter_AT, first, end, transform)
-            printUpdater.update((end+1)/float(self.nPulses))
+            yield (end+1)/float(self.nPulses)
 
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()

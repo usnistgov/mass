@@ -14,7 +14,7 @@ Young changed the version number, but I do not know why. (JF)
 
 * **0.4.3** May 2016
 Reorganized code that fits spectral line models (Voigt, Gaussian, and specific
-    Kalpha or KBeta lines). Added low-E tails to the Voigt and Gaussian fitters.
+    K&alpha; or K&beta; lines). Added low-E tails to the Voigt and Gaussian fitters.
     Fixed issues #45-51, except for 48.
 
 * **0.4.2** October 2015

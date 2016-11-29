@@ -7,6 +7,9 @@ dist
 .project
 .pydevproject
 
+# PyCharm
+.idea
+
 # General
 lint-report.txt
 *.pyc

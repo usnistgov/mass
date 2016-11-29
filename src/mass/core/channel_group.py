@@ -21,8 +21,9 @@ Author: Joe Fowler, NIST
 Started March 2, 2011
 """
 from collections import Iterable
-from functools import reduce
-import os, glob
+from functools import reduce, wraps
+import glob
+import os
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -37,7 +38,7 @@ from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
 from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
 from mass.core.optimal_filtering import Filter
-from mass.core.utilities import InlineUpdater
+from mass.core.utilities import InlineUpdater, show_progress
 
 
 class FilterCanvas(object):
@@ -194,6 +195,8 @@ class TESGroup(CutFieldMixin):
         if max_cachesize is not None:
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
                 self.set_segment_size(max_cachesize // self.n_channels)
+
+        self.updater = InlineUpdater
 
     def _setup_per_channel_objects(self, noise_is_continuous=True):
         pulse_list = []
@@ -479,27 +482,22 @@ class TESGroup(CutFieldMixin):
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
 
+    @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0,
                        include_badchan=False, forceNew=False, use_cython=True):
-        """
-        Compute summary quantities for each pulse.
+        """Compute summary quantities for each pulse.
         We are (July 2014) developing a Julia replacement for this, but you can use Python
         if you wish.
         """
-        printUpdater = InlineUpdater('summarize_data')
-        if include_badchan:
-            nchan = float(len(self.channel.keys()))
-        else:
-            nchan = float(self.num_good_channels)
+        nchan = float(len(self.channel.keys())) if include_badchan else float(self.num_good_channels)
 
-        for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
+        for i, ds in enumerate(self.iter_channels(include_badchan)):
             try:
-                self.channel[chan].summarize_data(peak_time_microsec,
-                                                  pretrigger_ignore_microsec, forceNew, use_cython=use_cython)
-                printUpdater.update((i + 1) / nchan)
+                ds.summarize_data(peak_time_microsec, pretrigger_ignore_microsec, forceNew, use_cython=use_cython)
+                yield (i + 1) / nchan
                 self.hdf5_file.flush()
             except:
-                self.set_chan_bad(chan, "summarize_data")
+                self.set_chan_bad(ds.channum, "summarize_data")
 
     def calc_external_trigger_timing(self, after_last=False, until_next=False, from_nearest=False, forceNew=False):
         if not (after_last or until_next or from_nearest):
@@ -857,6 +855,7 @@ class TESGroup(CutFieldMixin):
         for g, d in zip(gains, self.datasets):
             d.gain = g
 
+    @show_progress("compute_filters")
     def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
 
         # Analyze the noise, if not already done
@@ -866,7 +865,6 @@ class TESGroup(CutFieldMixin):
             print("Computing noise autocorrelation and spectrum")
             self.compute_noise_spectra()
 
-        print_updater = InlineUpdater('compute_filters')
         for ds_num, ds in enumerate(self):
             if "filters" not in ds.hdf5_group or forceNew:
                 if ds.cuts.good().sum() < 10:
@@ -878,7 +876,7 @@ class TESGroup(CutFieldMixin):
                 else:
                     f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db)
                 ds.filter = f
-                print_updater.update((ds_num + 1) / float(self.n_channels))
+                yield (ds_num + 1) / float(self.n_channels)
 
                 # Store all filters created to a new HDF5 group
                 h5grp = ds.hdf5_group.require_group('filters')
@@ -956,17 +954,13 @@ class TESGroup(CutFieldMixin):
                 print("Filter %d can't be used" % i)
                 print(e)
 
+    @show_progress("filter_data")
     def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False, use_cython=True):
-        printUpdater = InlineUpdater('filter_data')
-        if include_badchan:
-            nchan = float(len(self.channel.keys()))
-        else:
-            nchan = float(self.num_good_channels)
+        nchan = float(len(self.datasets)) if include_badchan else float(self.num_good_channels)
 
-        for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
-            self.channel[chan].filter_data(filter_name, transform, forceNew, use_cython=use_cython)
-
-            printUpdater.update((i + 1) / nchan)
+        for i, ds in enumerate(self.iter_channels(include_badchan)):
+            ds.filter_data(filter_name, transform, forceNew, use_cython=use_cython)
+            yield (i+1) / nchan
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
         """
@@ -1307,6 +1301,7 @@ class TESGroup(CutFieldMixin):
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         for ds in self:
             ds.smart_cuts(threshold, n_trainings, forceNew)
+
 
 def _extract_channum(name):
     return int(name.split('_chan')[1].split(".")[0])

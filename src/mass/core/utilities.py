@@ -3,7 +3,7 @@ Created on Jun 9, 2014
 
 @author: fowlerj
 """
-
+import functools
 import time
 import sys
 
@@ -83,3 +83,17 @@ class InlineUpdater(object):
     @property
     def elapsedTimeStr(self):
         return '%.1f min' % (self.elapsedTimeSec / 60.0)
+
+
+def show_progress(name):
+    def decorator(func):
+        @functools.wraps(func)
+        def work(self, *args, **kwargs):
+            print_updater = self.updater(name)
+
+            for d in func(self, *args, **kwargs):
+                print_updater.update(d)
+
+        return work
+
+    return decorator
