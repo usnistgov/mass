@@ -79,37 +79,39 @@ class Test_gaussian(unittest.TestCase):
         data = np.random.standard_normal(size=n_signal)*fwhm/np.sqrt(8*np.log(2))
         if N_bg>0:
             data = np.hstack((data, np.random.uniform(size=n_bg)*4.0-2.0))
-        nobs, _bins = np.histogram(data, np.arange(nbins+1)*4.0/nbins-2.0)
+        nobs, _bins = np.histogram(data, np.linspace(-2, 2, nbins+1))
         self.sum = nobs.sum()
         self.mean = (x*nobs).sum()/nobs.sum()
         self.var = (x*x*nobs).sum()/nobs.sum() - self.mean**2
         self.nobs = nobs
 
         self.true_params = (fwhm, self.mean, N/fwhm*4.0/nbins/1.06, N_bg*1.0/nbins, 0, 0, 25)
-        self.fitter = mass.calibration.line_fits.GaussianFitter()
         self.guess = np.array([1.09, 0, 17.7, 0.0, 0.0, 0, 25])
         self.hold=[4,5,6]
         if N_bg <= 0:
             self.hold.append(3)
 
-    def run_several_fits(self, N=1000, nfits=10, fwhm=1.0, ctr=0.0, nbins=100, N_bg=10):
+    def run_several_fits(self, N=1000, nfits=10, fwhm=1.0, ctr=0.0, nbins=100, N_bg=10, penalty=None):
+        self.fitter = mass.calibration.line_fits.GaussianFitter()
+        self.fitter.phscale_positive = False
+        self.fitter.set_penalty(penalty)
         correct_params = (fwhm, ctr, .037535932*N, 0, 0, 0, 25)
         sigma_errors = np.zeros((7,nfits), dtype=np.float)
+        params = np.zeros((7,nfits), dtype=np.float)
         for i in range(nfits):
             self.generate_data(N, fwhm, ctr, nbins, N_bg)
             try:
-                params, covar = self.fitter.fit(self.nobs, self.x, self.true_params,
+                p, covar = self.fitter.fit(self.nobs, self.x, self.true_params,
                                                 hold=self.hold, plot=False)
+                params[:,i] = p
 
             except np.linalg.LinAlgError:
                 continue
-            if np.any(np.isnan(params)): continue
-            if np.any(np.isnan(covar)): continue
 
             invcovar = np.array(covar.diagonal())
             invcovar[invcovar <= 0.0] = 1.0
             invcovar = 1.0/invcovar
-            sigma_errors[:,i] = (params-correct_params)*(invcovar**0.5)
+            sigma_errors[:,i] = (p-correct_params)*(invcovar**0.5)
 
         sigma_errors[4,:] = 0
         maxparam=4
@@ -117,6 +119,7 @@ class Test_gaussian(unittest.TestCase):
             sigma_errors[3,:] = 0
             maxparam=3
         self.assertTrue( np.all(sigma_errors[:maxparam].std(axis=1) < 1+2/nfits**0.5))
+        return params
 
 
     def test_30fits_with_bg(self):
@@ -146,6 +149,50 @@ class Test_gaussian(unittest.TestCase):
         N_bg=0
         self.run_several_fits(1000, nfits, fwhm, ctr, nbins, N_bg)
 
+    def test_penalty_noeffect(self):
+        "Test the regularization penalty in case where it has no effect"
+        fwhm = 1.0
+        ctr = 0.0
+        nbins = 100
+        nfits = 50
+        N_bg=0
+        penalty = SimplePenalty(10, 0.2, 10)
+        params = self.run_several_fits(1000, nfits, fwhm, ctr, nbins, N_bg, penalty=penalty)
+        # Be sure that the center is -.05 < c < +.05
+        self.assertTrue(abs(params[1,:].mean()) < 0.05)
+
+    def test_penalty_haseffect(self):
+        "Test the regularization penalty in case where it has an effect"
+        fwhm = 1.0
+        ctr = 0.0
+        nbins = 100
+        nfits = 50
+        N_bg=0
+        penalty = SimplePenalty(-1, 0.3, 30)
+        params = self.run_several_fits(1000, nfits, fwhm, ctr, nbins, N_bg, penalty=penalty)
+        # Be sure that the center is c < -.05, because of the penalty
+        self.assertTrue(params[1,:].mean() < -0.05)
+
+
+class SimplePenalty(object):
+    """Function object to penalize param[1] exceeding pmax."""
+    def __init__(self, pmax, pscale, amplitude):
+        self.pmax = pmax
+        self.pscale = pscale
+        self.amplitude = amplitude
+    def __call__(self, param):
+        Npar = len(param)
+        grad = np.zeros(Npar, dtype=float)
+        hess = np.zeros((Npar, Npar), dtype=float)
+        p=param[1]
+        if p < self.pmax:
+            return 0.0, grad, hess
+
+        ae = self.amplitude*np.exp((p-self.pmax)/self.pscale)
+        B = ae-self.amplitude
+        grad[1] = ae/self.pscale
+        hess[1,1] = ae/self.pscale**2
+        return B, grad, hess
 
 
 class Test_fluorescence(unittest.TestCase):
