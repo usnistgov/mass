@@ -389,7 +389,7 @@ class MaximumLikelihoodHistogramFitter(object):
         nobsNZ = nobs[nonzero_obs]
         y_modelNZ = y_model[nonzero_obs]
         chisq = 2*(y_model.sum()-self.total_obs) + \
-                2*(nobsNZ*np.log(nobsNZ/y_modelNZ)).sum()
+                2*(nobsNZ*(np.log(nobsNZ)-np.log(y_modelNZ))).sum()
 
         # If a penalty is being imposed on the parameters, change the return values
         # of the Hessian, the gradient, and the function value accordingly.
