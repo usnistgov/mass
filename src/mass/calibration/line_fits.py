@@ -306,6 +306,9 @@ class NVoigtFitter(LineFitter):
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
         """
+        x = np.asarray(x)
+        if len(x.shape) == 0:
+            x = x.reshape(1)
         P_gaussfwhm = params[0]
         P_amplitude = 1.0 # overall scale factor covered by the individual Lorentzians
         P_bg, P_bgslope, P_tailfrac, P_tailtau = params[-4:]

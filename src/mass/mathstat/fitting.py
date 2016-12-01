@@ -209,7 +209,16 @@ class MaximumLikelihoodHistogramFitter(object):
 
         Or if no penalty is desired, `penalty=None` should be chosen (which is the default).
         """
+        # Be sure the penalty returns something sensible
+        if penalty is not None:
+            example_params = self.params
+            npar = len(example_params)
+            pen, grad, hess = penalty(example_params)
+            assert np.isscalar(pen)
+            assert len(grad) == npar
+            assert hess.shape == (npar,npar)
         self.penalty=penalty
+
 
     def __discrete_gradient(self, p, x):
         """
