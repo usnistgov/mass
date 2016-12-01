@@ -64,6 +64,12 @@ class LineFitter(object):
         self.tailtau = 25
         # Whether pulse heights are necessarily non-negative.
         self.phscale_positive = True
+        self.penalty_function = None
+
+    def set_penalty(self, penalty):
+        """Set a regularizer, or penalty function, for the fitter. For its requirements,
+        see MaximumLikelihoodHistogramFitter.set_penalty()."""
+        self.penalty_function = penalty
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None,
             color=None, label=True, vary_resolution=True, vary_bg=True,
@@ -145,6 +151,9 @@ class LineFitter(object):
 
         for h in hold:
             fitter.hold(h)
+
+        if self.penalty_function is not None:
+            fitter.set_penalty(self.penalty_function)
 
         fitparams, covariance = fitter.fit(verbose=verbose)
 
