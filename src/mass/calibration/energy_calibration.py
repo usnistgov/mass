@@ -362,20 +362,6 @@ class EnergyCalibration(object):
             self._de[update_index] = e_error
         self.npts = len(self._ph)
 
-    def _update_converters(self):
-        """There is now a change in the set of data points. Change the conversion function."""
-        # Sort in ascending energy order
-        sortkeys = np.argsort(self._ph)
-        self._ph = self._ph[sortkeys]
-        self._energies = self._energies[sortkeys]
-        self._dph = self._dph[sortkeys]
-        self._de = self._de[sortkeys]
-        self._names = [self._names[s] for s in sortkeys]
-        assert self.npts == len(self._ph)
-        assert self.npts == len(self._dph)
-        assert self.npts == len(self._energies)
-        assert self.npts == len(self._de)
-
     @property
     def cal_point_phs(self):
         return self._ph
@@ -386,8 +372,18 @@ class EnergyCalibration(object):
 
     def _update_converters(self):
         """There is now one (or more) new data points. All the math goes on in this method."""
-        assert len(self._ph) == len(self._energies)
-        assert len(self._ph) == self.npts
+        # Sort in ascending energy order
+        sortkeys = np.argsort(self._ph)
+        self._ph = self._ph[sortkeys]
+        self._energies = self._energies[sortkeys]
+        self._dph = self._dph[sortkeys]
+        self._de = self._de[sortkeys]
+        self._names = [self._names[s] for s in sortkeys]
+
+        assert self.npts == len(self._ph)
+        assert self.npts == len(self._dph)
+        assert self.npts == len(self._energies)
+        assert self.npts == len(self._de)
 
         self._max_ph = 2*np.max(self._ph)
         if self._use_approximation and self.npts >= 3:
