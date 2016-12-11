@@ -147,6 +147,15 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
             ph = energy**0.8
             self.assertAlmostEqual(energy, cal1.ph2energy(ph),places=-1)
 
+    def test_unordered_entries(self):
+        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
+        cal1.set_curvetype("gain")
+        cal1.set_use_approximation(True)
+        energies = np.array([6000,3000,4500,4000,5000,5500], dtype=float)
+        for energy in energies:
+            ph = energy**0.8 
+            cal1.add_cal_point(ph, energy)
+        cal1(np.array([2200,4200,4400], dtype=float))
 
 if __name__ == "__main__":
     unittest.main()
