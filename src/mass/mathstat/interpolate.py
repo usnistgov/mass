@@ -32,6 +32,7 @@ __all__ = ['CubicSpline', 'SmoothingSpline', 'SmoothingSplineLog']
 
 import numpy as np
 import scipy as sp
+from scipy.interpolate import splev
 
 
 class CubicSpline(object):
@@ -176,10 +177,10 @@ class CubicSpline(object):
         return result
 
 
-
 class LinterpCubicSpline(CubicSpline):
-    '''A CubicSpline object which is a linear combination of CubicSpline objects
-    s1 and s2, effectively fraction*s1 + (1-fraction)*s2'''
+    """A CubicSpline object which is a linear combination of CubicSpline objects
+    s1 and s2, effectively fraction*s1 + (1-fraction)*s2
+    """
 
     def __init__(self, s1, s2, fraction):
         if s1._n != s2._n:
@@ -193,12 +194,9 @@ class LinterpCubicSpline(CubicSpline):
         self._y = wtsum(s1._y, s2._y, fraction)
         self._y2 = wtsum(s1._y2, s2._y2, fraction)
         self.yprime1 = wtsum(s1.yprime1, s2.yprime1, fraction)
-        self.yprimeN  = wtsum(s1.yprimeN, s2.yprimeN, fraction)
+        self.yprimeN = wtsum(s1.yprimeN, s2.yprimeN, fraction)
         self.dx = wtsum(s1.dx, s2.dx, fraction)
         self.dy = wtsum(s1.dy, s2.dy, fraction)
-
-
-from scipy.interpolate import splev
 
 
 class NaturalBsplineBasis(object):
@@ -216,38 +214,39 @@ class NaturalBsplineBasis(object):
     """
 
     def __init__(self, knots):
-        "Initialization requires only the list of knots."
+        """Initialization requires only the list of knots.
+        """
         Nk = len(knots)
         b, e = knots[0], knots[-1]
-        padknots = np.hstack([[b,b,b],knots,[e,e,e]])
+        padknots = np.hstack([[b, b, b], knots, [e, e, e]])
 
         # Combinations of basis function #1 into 2 and 3 (and #N+2 into N+1
         # and N) are used to enforce the natural B.C. of f''(x)=0 at the ends.
         lowfpp = np.zeros(3, dtype=float)
         hifpp = np.zeros(3, dtype=float)
-        for i in (0,1,2):
-            scoef = np.zeros(Nk+2, dtype=float)
+        for i in (0, 1, 2):
+            scoef = np.zeros(Nk + 2, dtype=float)
             scoef[i] = 1.0
-            lowfpp[i] = splev(b, (padknots,scoef,3), der=2)
-        for i in (0,1,2):
-            scoef = np.zeros(Nk+2, dtype=float)
-            scoef[Nk+1-i] = 1.0 # go from last to 3rd-to-last
-            hifpp[i] = splev(e, (padknots,scoef,3), der=2)
-        self.coef_b = -lowfpp[1:3]/lowfpp[0]
-        self.coef_e = -hifpp[1:3]/hifpp[0]
+            lowfpp[i] = splev(b, (padknots, scoef, 3), der=2)
+        for i in (0, 1, 2):
+            scoef = np.zeros(Nk + 2, dtype=float)
+            scoef[Nk + 1 - i] = 1.0  # go from last to 3rd-to-last
+            hifpp[i] = splev(e, (padknots, scoef, 3), der=2)
+        self.coef_b = -lowfpp[1:3] / lowfpp[0]
+        self.coef_e = -hifpp[1:3] / hifpp[0]
 
         self.Nk = Nk
         self.knots = np.array(knots)
         self.padknots = padknots
 
     def __call__(self, x, id, der=0):
-        if id<0 or id >= self.Nk:
-            raise ValueError("Require 0 <= id < Nk=%d"%self.Nk)
-        coef = np.zeros(self.Nk+2, dtype=float)
-        coef[id+1] = 1.0
-        if id<2:
+        if id < 0 or id >= self.Nk:
+            raise ValueError("Require 0 <= id < Nk=%d" % self.Nk)
+        coef = np.zeros(self.Nk + 2, dtype=float)
+        coef[id + 1] = 1.0
+        if id < 2:
             coef[0] = self.coef_b[id]
-        elif id >= self.Nk-2:
+        elif id >= self.Nk - 2:
             coef[-1] = self.coef_e[self.Nk-id-1]
         return splev(x, (self.padknots, coef, 3), der=der)
 
@@ -264,7 +263,6 @@ class NaturalBsplineBasis(object):
         c[0] = beta[0]*self.coef_b[0] + beta[1]*self.coef_b[1]
         c[-1] = beta[-1]*self.coef_e[0] + beta[-2]*self.coef_e[1]
         return c
-
 
 
 class SmoothingSpline(object):
@@ -316,7 +314,7 @@ class SmoothingSpline(object):
         self.N0 = self.basis.values_matrix(0)
         self.N2 = self.basis.values_matrix(2)
         self.Omega = self._compute_Omega(self.x, self.N2)
-        self.smooth(chisq = maxchisq)
+        self.smooth(chisq=maxchisq)
 
     def _compute_Omega(self, knots, N2):
         """Given the matrix M2 of second derivates at the knots (that is, M2_ij is
@@ -393,13 +391,13 @@ class SmoothingSpline(object):
         return splresult
 
 
-
 class SmoothingSplineLog(object):
     def __init__(self, x, y, dy, dx=None, maxchisq=None):
-        if np.any(x<=0) or np.any(y<=0):
+        if np.any(x <= 0) or np.any(y <= 0):
             raise ValueError("The x and y data must all be positive to use a SmoothingSplineLog")
         if dx is not None:
-            dx = dx/x
+            dx /= x
         self.linear_model = SmoothingSpline(np.log(x), np.log(y), dy/y, dx, maxchisq=maxchisq)
+
     def __call__(self, x, der=0):
         return np.exp(self.linear_model(np.log(x), der=der))

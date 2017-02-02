@@ -1555,38 +1555,41 @@ class MicrocalDataSet(object):
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3,
-                  param_adjust_closure=None):
-            calname = attr+name_ext
+                  param_adjust_closure=None, diagnose=False):
+        calname = attr+name_ext
 
-            if not forceNew and calname in self.calibration:
-                return self.calibration[calname]
+        if not forceNew and calname in self.calibration:
+            return self.calibration[calname]
 
-            print("Calibrating chan %d to create %s" % (self.channum, calname))
-            cal = EnergyCalibration()
-            cal.set_use_approximation(False)
+        print("Calibrating chan %d to create %s" % (self.channum, calname))
+        cal = EnergyCalibration()
+        cal.set_use_approximation(False)
 
-            if category is None:
-                category = {"calibration": "in"}
+        if category is None:
+            category = {"calibration": "in"}
 
-            # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
-            auto_cal = EnergyCalibrationAutocal(cal,
-                                                getattr(self, attr)[self.cuts.good(**category)],
-                                                line_names)
-            auto_cal.guess_fit_params(smoothing_res_ph=size_related_to_energy_resolution,
-                                      fit_range_ev=fit_range_ev,
-                                      binsize_ev=bin_size_ev,
-                                      nextra=nextra, maxacc=maxacc)
-            if param_adjust_closure:
-                param_adjust_closure(self, auto_cal)
-            auto_cal.fit_lines()
+        # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
+        auto_cal = EnergyCalibrationAutocal(cal,
+                                            getattr(self, attr)[self.cuts.good(**category)],
+                                            line_names)
+        auto_cal.guess_fit_params(smoothing_res_ph=size_related_to_energy_resolution,
+                                  fit_range_ev=fit_range_ev,
+                                  binsize_ev=bin_size_ev,
+                                  nextra=nextra, maxacc=maxacc)
+        if param_adjust_closure:
+            param_adjust_closure(self, auto_cal)
+        auto_cal.fit_lines()
 
-            if auto_cal.anyfailed:
-                print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
-                raise Exception()
+        if auto_cal.anyfailed:
+            print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
+            raise Exception()
 
-            self.calibration[calname] = cal
-            hdf5_cal_group = self.hdf5_group.require_group('calibration')
-            cal.save_to_hdf5(hdf5_cal_group, calname)
+        self.calibration[calname] = cal
+        hdf5_cal_group = self.hdf5_group.require_group('calibration')
+        cal.save_to_hdf5(hdf5_cal_group, calname)
+
+        if diagnose:
+            auto_cal.diagnose()
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
