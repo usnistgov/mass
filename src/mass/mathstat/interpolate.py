@@ -380,8 +380,8 @@ class SmoothingSpline(object):
         scalar = np.isscalar(x)
         x = np.asarray(x)
         splresult = splev(x, (self.basis.padknots, self.coeff, 3), der=der)
-        low = x<self.x[0]
-        high = x>self.x[-1]
+        low = x < self.x[0]
+        high = x > self.x[-1]
         if np.any(low):
             splresult[low] = self.lowline(x[low]-self.x[0])
         if np.any(high):
