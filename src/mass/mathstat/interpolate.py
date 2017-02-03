@@ -34,6 +34,8 @@ import numpy as np
 import scipy as sp
 from scipy.interpolate import splev
 
+from mass.mathstat.derivative import *
+
 
 class CubicSpline(object):
     """An exact cubic spline, with either a specified slope or 'natural boundary
@@ -308,13 +310,13 @@ class SmoothingSpline(object):
         self.err = err
         self.Nk = len(x)
         if maxchisq is None:
-            maxchisq = self.Nk
+            self.maxchisq = self.Nk
 
         self.basis = NaturalBsplineBasis(self.x)
         self.N0 = self.basis.values_matrix(0)
         self.N2 = self.basis.values_matrix(2)
         self.Omega = self._compute_Omega(self.x, self.N2)
-        self.smooth(chisq=maxchisq)
+        self.smooth(chisq=self.maxchisq)
 
     def _compute_Omega(self, knots, N2):
         """Given the matrix M2 of second derivates at the knots (that is, M2_ij is
@@ -389,6 +391,23 @@ class SmoothingSpline(object):
         if scalar:
             splresult = splresult[()]
         return splresult
+
+
+class SmoothingSplineFunction(SmoothingSpline):
+    def __init__(self, x, y, dy, dx=None, maxchisq=None, der=0):
+        super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
+        self.der = der
+
+    def derivative(self, der=1):
+        if self.der + der > 3:
+            return ConstantFunction(0)
+
+        return SmoothingSplineFunction(self.x, self.y, self.dy, self.dx, self.maxchisq, der=self.der + der)
+
+    def __call__(self, x, der=0):
+        if self.der + der > 3:
+            return np.zeros_like(x)
+        return super(SmoothingSplineFunction, self).__call__(x, der=self.der + der)
 
 
 class SmoothingSplineLog(object):
