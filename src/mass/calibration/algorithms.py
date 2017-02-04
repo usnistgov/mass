@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 from matplotlib.ticker import MaxNLocator
 
-try:
-    import statsmodels.api as sm
-except ImportError:  # On linux the name was as follows: (I guess the name is different in Anaconda python.)
-    import scikits.statsmodels.api as sm
-    sm.nonparametric.KDEUnivariate = sm.nonparametric.KDE
+# try:
+#     import statsmodels.api as sm
+# except ImportError:  # On linux the name was as follows: (I guess the name is different in Anaconda python.)
+#     import scikits.statsmodels.api as sm
+#     sm.nonparametric.KDEUnivariate = sm.nonparametric.KDE
 
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration
@@ -47,13 +47,29 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
         gaussian_fwhm = fwhm of a gaussian that each pulse is smeared with, in same units as pulse heights
 
     """
-    kde = sm.nonparametric.KDEUnivariate(np.array(pulse_heights, dtype="double"))
-    kde.fit(bw=gaussian_fwhm)
-    x = kde.support
-    y = kde.density
+    # kde = sm.nonparametric.KDEUnivariate(np.array(pulse_heights, dtype="double"))
+    # kde.fit(bw=gaussian_fwhm)
+    # x = kde.support
+    # y = kde.density
+    # flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
+    # lm = np.arange(1, len(x)-1)[flag]
+    # lm = lm[np.argsort(-y[lm])]
+
+    # kernel density estimation (with a gaussian kernel)
+    n = 128 * 1024
+    tbw = 1.0 / gaussian_fwhm / (np.pi * 2)
+    lo = np.min(pulse_heights) - 3 * gaussian_fwhm
+    hi = np.max(pulse_heights) + 3 * gaussian_fwhm
+    hist, bins = np.histogram(pulse_heights, np.linspace(lo, hi, n + 1))
+    tx = np.fft.rfftfreq(n, (lo - hi) / n)
+    ty = np.exp(-tx**2 / 2 / tbw**2)
+    x = (bins[1:] + bins[:-1]) / 2
+    y = np.fft.irfft(np.fft.rfft(hist) * ty)
+
     flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
-    lm = np.arange(1, len(x)-1)[flag]
+    lm = np.arange(1, n - 1)[flag]
     lm = lm[np.argsort(-y[lm])]
+
     return np.array(x[lm]), np.array(y[lm])
 
 
