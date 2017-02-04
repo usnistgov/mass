@@ -540,7 +540,7 @@ class EnergyCalibration(object):
             # self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p))
             underlying_spline = CubicSplineFunction(x, y)
             minus_spline = Multiplication(ConstantFunction(-1), underlying_spline)
-            self._ph2energy_anon = Multiplication(Identity(), Composition(ExponentialFunction, minus_spline))
+            self._ph2energy_anon = Multiplication(Identity(), Composition(ExponentialFunction(), minus_spline))
 
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""
