@@ -57,7 +57,8 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
 
     # kernel density estimation (with a gaussian kernel)
     n = 128 * 1024
-    tbw = 1.0 / gaussian_fwhm / (np.pi * 2)
+    sigma = gaussian_fwhm / (np.sqrt(np.log(2) * 2) * 2)
+    tbw = 1.0 / sigma / (np.pi * 2)
     lo = np.min(pulse_heights) - 3 * gaussian_fwhm
     hi = np.max(pulse_heights) + 3 * gaussian_fwhm
     hist, bins = np.histogram(pulse_heights, np.linspace(lo, hi, n + 1))
