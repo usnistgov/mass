@@ -27,9 +27,6 @@ NaturalBsplineBasis - A tool for expressing a spline basis using B-splines but
 
 Joe Fowler, NIST
 """
-
-__all__ = ['CubicSpline', 'SmoothingSpline', 'SmoothingSplineLog']
-
 import numpy as np
 import scipy as sp
 from scipy.interpolate import splev
@@ -179,6 +176,28 @@ class CubicSpline(object):
         return result
 
 
+class CubicSplineFunction(CubicSpline):
+    def __init__(self, x, y, yprime1=None, yprimeN=None, der=0):
+        super(CubicSplineFunction, self).__init__(x, y, yprime1=yprime1, yprimeN=yprimeN)
+        self.der = der
+
+    def derivative(self, der=1):
+        if self.der + der > 3:
+            return ConstantFunction(0)
+
+        return CubicSplineFunction(self._x, self._y,
+                                   yprime1=self.yprime1, yprimeN=self.yprimeN,
+                                   der=self.der + der)
+
+    def __call__(self, x, der=0):
+        if self.der + der > 3:
+            return np.zeros_like(x)
+        return super(CubicSplineFunction, self).__call__(x, der=self.der + der)
+
+    def __repr__(self):
+        return "CubicSpline" + "'" * self.der + "(x)"
+
+
 class LinterpCubicSpline(CubicSpline):
     """A CubicSpline object which is a linear combination of CubicSpline objects
     s1 and s2, effectively fraction*s1 + (1-fraction)*s2
@@ -311,6 +330,8 @@ class SmoothingSpline(object):
         self.Nk = len(x)
         if maxchisq is None:
             self.maxchisq = self.Nk
+        else:
+            self.maxchisq = maxchisq
 
         self.basis = NaturalBsplineBasis(self.x)
         self.N0 = self.basis.values_matrix(0)
@@ -346,7 +367,7 @@ class SmoothingSpline(object):
         if chisq is None:
             chisq = Nk
 
-        Dinv = self.err**(-2) # Vector but stands for diagonals of a diagonal matrix.
+        Dinv = self.err**(-2)  # Vector but stands for diagonals of a diagonal matrix.
         NTDinv = self.N0.T * Dinv
         lhs = np.dot(NTDinv, self.N0)
         rhs = np.dot(self.N0.T, Dinv*self.y)
@@ -371,31 +392,41 @@ class SmoothingSpline(object):
         self.coeff = self.basis.expand_coeff(beta)
 
         # Store the linear extrapolation outside the knotted region.
-        val = self([self.x[0], self.x[-1]], 0)
-        slope = self([self.x[0], self.x[-1]], 1)
+        val = self.__eval([self.x[0], self.x[-1]], 0)
+        slope = self.__eval([self.x[0], self.x[-1]], 1)
         self.lowline = np.poly1d([slope[0], val[0]])
         self.highline = np.poly1d([slope[1], val[1]])
 
-    def __call__(self, x, der=0):
+    def __eval(self, x, der=0):
         """Return the value of (the `der`th derivative of) the smoothing spline
-        at data points `x`."""
+                at data points `x`."""
         scalar = np.isscalar(x)
         x = np.asarray(x)
         splresult = splev(x, (self.basis.padknots, self.coeff, 3), der=der)
         low = x < self.x[0]
         high = x > self.x[-1]
         if np.any(low):
-            splresult[low] = self.lowline(x[low]-self.x[0])
+            splresult[low] = self.lowline(x[low] - self.x[0])
         if np.any(high):
-            splresult[high] = self.highline(x[high]-self.x[-1])
+            splresult[high] = self.highline(x[high] - self.x[-1])
         if scalar:
             splresult = splresult[()]
         return splresult
+
+    def __call__(self, x, der=0):
+        """Return the value of (the `der`th derivative of) the smoothing spline
+        at data points `x`."""
+        return self.__eval(x, der=der)
 
 
 class SmoothingSplineFunction(SmoothingSpline):
     def __init__(self, x, y, dy, dx=None, maxchisq=None, der=0):
         super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
+        self.x = x
+        self.y = y
+        self.dy = dy
+        self.dx = dx
+        self.maxchisq = maxchisq
         self.der = der
 
     def derivative(self, der=1):
@@ -408,6 +439,9 @@ class SmoothingSplineFunction(SmoothingSpline):
         if self.der + der > 3:
             return np.zeros_like(x)
         return super(SmoothingSplineFunction, self).__call__(x, der=self.der + der)
+
+    def __repr__(self):
+        return "SmoothingSpline" + "'" * self.der + "(x)"
 
 
 class SmoothingSplineLog(object):

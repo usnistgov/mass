@@ -23,25 +23,25 @@ class ConstantFunction:
         return str(self.v)
 
 
-class CubicSplineFunction:
-    def __init__(self, knots, coeffs, der=0):
-        self.knots = knots
-        self.coeffs = coeffs
-        self.der = der
-
-    def derivative(self, der=1):
-        if self.der + der > 3:
-            return ConstantFunction(0)
-        return CubicSplineFunction(self.knots, self.coeffs, der=self.der + der)
-
-    def __call__(self, x, der=0):
-        if self.der + der > 3:
-            return np.zeros_like(x)
-
-        return splev(x, (self.knots, self.coeffs, 3), der=self.der + der)
-
-    def __repr__(self):
-        return "CubicSpline" + ("".join(["\""] * self.der)) + "(x)"
+# class CubicSplineFunction:
+#     def __init__(self, knots, coeffs, der=0):
+#         self.knots = knots
+#         self.coeffs = coeffs
+#         self.der = der
+#
+#     def derivative(self, der=1):
+#         if self.der + der > 3:
+#             return ConstantFunction(0)
+#         return CubicSplineFunction(self.knots, self.coeffs, der=self.der + der)
+#
+#     def __call__(self, x, der=0):
+#         if self.der + der > 3:
+#             return np.zeros_like(x)
+#
+#         return splev(x, (self.knots, self.coeffs, 3), der=self.der + der)
+#
+#     def __repr__(self):
+#         return "CubicSpline" + ("".join(["\""] * self.der)) + "(x)"
 
 
 class PowerFunction:
@@ -63,6 +63,14 @@ class PowerFunction:
 
     def __repr__(self):
         return str("x") + "^" + str(self.n)
+
+
+class Identity(PowerFunction):
+    def __init__(self):
+        super(Identity, self).__init__(1)
+
+    def __repr__(self):
+        return "x"
 
 
 class LogFunction:
