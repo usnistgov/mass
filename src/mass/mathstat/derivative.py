@@ -5,7 +5,7 @@ import numpy as np
 from scipy.interpolate import splev
 
 
-class ConstantFunction:
+class ConstantFunction(object):
     def __init__(self, v):
         self.v = v
 
@@ -44,7 +44,7 @@ class ConstantFunction:
 #         return "CubicSpline" + ("".join(["\""] * self.der)) + "(x)"
 
 
-class PowerFunction:
+class PowerFunction(object):
     def __init__(self, n):
         self.n = n
 
@@ -73,7 +73,7 @@ class Identity(PowerFunction):
         return "x"
 
 
-class LogFunction:
+class LogFunction(object):
     def derivative(self, der=1):
         if der == 0:
             return self
@@ -90,7 +90,7 @@ class LogFunction:
         return "log(x)"
 
 
-class ExponentialFunction:
+class ExponentialFunction(object):
     def derivative(self, der=1):
         return self
 
