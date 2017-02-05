@@ -57,7 +57,10 @@ class PowerFunction(object):
 
     def __call__(self, x, der=0):
         if der == 0:
-            return np.power(x, self.n)
+            if self.n >= 0:
+                return np.power(x, self.n)
+            else:
+                return 1.0 / np.power(x, -self.n)
 
         return self.derivative(der=der)(x, der=0)
 
