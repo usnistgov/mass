@@ -157,7 +157,10 @@ class Composition(BinaryOperation):
         return self.derivative(der=der)(x)
 
     def __repr__(self):
-        return "(" + str(self.g) + " circle " + str(self.h) + ")"
+        if six.PY2:
+            return ("(" + str(self.g) + u" \u2022 " + str(self.h) + ")").encode("utf8")
+        elif six.PY3:
+            return "(" + str(self.g) + " \u2022 " + str(self.h) + ")"
 
 
 class Multiplication(BinaryOperation):
