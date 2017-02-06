@@ -213,15 +213,26 @@ class EnergyCalibration(object):
         elif len(energy) > 10 and not self._e2phwarned:
             print("WARNING: EnergyCalibration.energy2ph can be slow for long inputs.")
             self._e2phwarned = True
+
+        if len(energy) > 1024:
+            phs = np.array(energy)
+            # Newton methods with a fixed number of iterations.
+            for i in range(5):
+                phs -= (self(phs) - energy) / self(phs, der=1)
+
+            return phs
+
         result = [sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
         return np.array(result)
 
     def energy2dedph(self, energy, denergy=1):
         """Calculate the slope between <energy-denergy> and <energy>+<denergy> with two points.
         """
-        loe, hie = energy-denergy, energy+denergy
-        loph, hiph = self.energy2ph(loe), self.energy2ph(hie)
-        return (hie-loe)/(hiph-loph)
+        # loe, hie = energy-denergy, energy+denergy
+        # loph, hiph = self.energy2ph(loe), self.energy2ph(hie)
+        # return (hie-loe)/(hiph-loph)
+        ph = self.energy2ph(energy)
+        return self(ph, der=1)
 
     def __str__(self):
         self._update_converters()  # To sort the points
