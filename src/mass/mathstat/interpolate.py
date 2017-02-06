@@ -406,9 +406,19 @@ class SmoothingSpline(object):
         low = x < self.x[0]
         high = x > self.x[-1]
         if np.any(low):
-            splresult[low] = self.lowline(x[low] - self.x[0])
+            if der == 0:
+                splresult[low] = self.lowline(x[low] - self.x[0])
+            elif der == 1:
+                splresult[low] = self.lowline.coeffs[0]
+            elif der >= 2:
+                splresult[low] = 0.0
         if np.any(high):
-            splresult[high] = self.highline(x[high] - self.x[-1])
+            if der == 0:
+                splresult[high] = self.highline(x[high] - self.x[-1])
+            elif der == 1:
+                splresult[high] = self.highline.coeffs[0]
+            elif der >= 2:
+                splresult[high] = 0.0
         if scalar:
             splresult = splresult[()]
         return splresult
