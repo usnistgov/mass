@@ -16,8 +16,7 @@ from . import fluorescence_lines as lines
 
 
 def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
-    """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E tail.
-    """
+    """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E tail."""
     if P_tailfrac <= 1e-5:
         return cleanspectrum_fn(x)
 
@@ -30,12 +29,6 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
     nhi = int((P_resolution + min(P_tailtau, 50)) / dx + 0.5)
     nhi = min(3000, nhi)  # A practical limit
     nlow = max(nlow, nhi)
-
-    # Enforce that the number of grids is power of 2.
-    total_n = int(np.exp2(np.ceil(np.log2(nlow + x.shape[0] + nhi))))
-    nlow += (total_n - x.shape[0]) // 2
-    nlow += (total_n - x.shape[0]) - (total_n - x.shape[0]) // 2
-
     lowx = np.arange(-nlow, 0) * dx + x[0]
     highx = np.arange(1, nhi + 1) * dx + x[-1]
     x_wide = np.hstack([lowx, x, highx])
@@ -44,18 +37,16 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
     ft = np.fft.rfft(rawspectrum)
     ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
     smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
-
     return smoothspectrum[nlow:nlow + len(x)]
 
 
 def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
-    """Scale a spectrum and add a sloped background. BG<0 is replaced with BG->0.
-    """
+    "Scale a spectrum and add a sloped background. BG<0 is replaced with BG->0."
     bg = np.zeros_like(spectrum) + P_bg
     if P_bgslope != 0:
         bg += P_bgslope * np.arange(len(spectrum))
-    bg[bg < 0] = 0
-    spectrum = spectrum * P_amplitude + bg  # Change in place and return changed vector
+    bg[bg<0] = 0
+    spectrum = spectrum * P_amplitude + bg # Change in place and return changed vector
     return spectrum
 
 
@@ -531,7 +522,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
             subclasses of SpectralLine.
         """
         self.spect = spectrumDef
-        super(GenericKAlphaFitter, self).__init__()
+        super( GenericKAlphaFitter, self ).__init__()
 
     def guess_starting_params(self, data, binctrs):
         """
