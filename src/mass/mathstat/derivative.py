@@ -84,7 +84,7 @@ class LogFunction(object):
 
     def __call__(self, x, der=0):
         if der == 0:
-            return np.log(x)
+            return np.log(np.clip(x, 1e-6, None))
         else:
             return PowerFunction(-1)(x, der=der - 1)
         # return math.factorial(der - 1) * np.power(-1, der + 1) / np.power(x, der)
