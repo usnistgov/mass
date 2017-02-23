@@ -7,6 +7,7 @@ import mass.core.fake_data
 import mass.core.files
 import mass.core.optimal_filtering
 import mass.core.ljh_util
+import mass.core.ljh_modify
 import mass.core.channel_group_hdf5_only
 
 from .analysis_algorithms import *
