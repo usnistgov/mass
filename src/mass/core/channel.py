@@ -23,7 +23,7 @@ import mass.mathstat.robust
 import mass.core.analysis_algorithms
 
 from mass.core.cut import Cuts
-from mass.core.files import VirtualFile, LJHFile, LANLFile
+from mass.core.files import VirtualFile, LJHFile
 from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
 from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
@@ -44,7 +44,7 @@ class NoiseRecords(object):
     """
     DEFAULT_MAXSEGMENTSIZE = 32000000
 
-    ALLOWED_TYPES = ("ljh", "root", "virtual")
+    ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, records_are_continuous=False, use_records=None,
                  maxsegmentsize=None, hdf5_group=None):
@@ -87,8 +87,6 @@ class NoiseRecords(object):
         if file_format is None:
             if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
-            elif filename.endswith("root"):
-                file_format = "root"
             elif filename.endswith("ljh"):
                 file_format = "ljh"
             else:
@@ -98,8 +96,6 @@ class NoiseRecords(object):
 
         if file_format == "ljh":
             self.datafile = LJHFile(filename, segmentsize=self.maxsegmentsize)
-        elif file_format == "root":
-            self.datafile = LANLFile(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
@@ -436,7 +432,7 @@ class PulseRecords(object):
     was not exactly the case).
     """
 
-    ALLOWED_TYPES = ("ljh", "root", "virtual")
+    ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, file_format=None):
         self.nSamples = 0
@@ -465,8 +461,6 @@ class PulseRecords(object):
         if file_format is None:
             if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
-            elif filename.endswith("root"):
-                file_format = "root"
             elif filename.endswith("ljh"):
                 file_format = "ljh"
             else:
@@ -476,8 +470,6 @@ class PulseRecords(object):
 
         if file_format == "ljh":
             self.datafile = LJHFile(filename)
-        elif file_format == "root":
-            self.datafile = LANLFile(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
