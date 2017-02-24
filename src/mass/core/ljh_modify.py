@@ -27,15 +27,16 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
     """
 
     # Check for file problems, then open the input and output LJH files.
-    if os.path.samefile(input_filename, output_filename):
-        raise ValueError("Input '%s' and output '%s' are the same file, which is not allowed." %
-            (input_filename, output_filename))
     if os.path.exists(output_filename):
+        if os.path.samefile(input_filename, output_filename):
+            raise ValueError("Input '%s' and output '%s' are the same file, which is not allowed." %
+                (input_filename, output_filename))
         if overwrite:
             print("WARNING: overwriting output file '%s'"%output_filename)
         else:
             raise ValueError("Output file '%s' exists. Call with overwrite=True to proceed anyway."
                 %output_filename)
+
     infile = mass.core.files.LJHFile(input_filename)
     outfile = open(output_filename, "wb")
 
