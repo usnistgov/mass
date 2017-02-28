@@ -63,7 +63,6 @@ class TESGroupHDF5(channel_group.TESGroup):
 
         self.datasets = tuple(dset_list)
         self._bad_channums = {}
-        self._setup_channels_list()
         self.fix_timestamps()
         self.n_channels = len(dset_list)
         if self.n_channels <= 4:

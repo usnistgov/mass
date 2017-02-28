@@ -126,5 +126,24 @@ class TestTESGroup(ut.TestCase):
         self.assertNotIn(1, data.good_channels)
 
 
+class TestTESHDF5Only(ut.TestCase):
+
+    def test_all_channels_bad(self):
+        """Make sure it mass can open a mass generated file in HDF5 Only mode."""
+        src_name = 'src/mass/regression_test/regress_chan1.ljh'
+        noi_name = 'src/mass/regression_test/regress_chan1.noi'
+        for name in ['src/mass/regression_test/regress_mass.hdf5', 'src/mass/regression_test/regress_noise_mass.hdf5']:
+            if os.path.isfile(name): os.remove(name)
+        data = mass.TESGroup([src_name], [noi_name])
+        h5filename = data.hdf5_file.filename
+        data.hdf5_file.close()
+        data.hdf5_noisefile.close()
+        del data
+
+
+        data2 = mass.TESGroupHDF5(h5filename)
+
+
+
 if __name__ == '__main__':
     ut.main()
