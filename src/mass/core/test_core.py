@@ -112,7 +112,7 @@ class TestTESGroup(ut.TestCase):
         src_name = 'src/mass/regression_test/regress_chan1.ljh'
         noi_name = 'src/mass/regression_test/regress_chan1.noi'
         for name in ['src/mass/regression_test/regress_mass.hdf5', 'src/mass/regression_test/regress_noise_mass.hdf5']:
-            os.remove(name)
+            if os.path.isfile(name): os.remove(name)
         data = mass.TESGroup([src_name], [noi_name])
         data.set_chan_bad(1, "testing all channels bad")
 
