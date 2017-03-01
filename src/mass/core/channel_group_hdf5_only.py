@@ -58,7 +58,7 @@ class TESGroupHDF5(channel_group.TESGroup):
                              "nPulses":grp.attrs["npulses"],
                              "channum":grp.attrs["channum"],
                              "timestamp_offset":0,
-                             "filename":grp.file.filename}
+                             "filename":"from HDF5 file: "+self.hdf5_file.filename}
             dset_list.append(channel.MicrocalDataSet(pulserec_dict, tes_group=self, hdf5_group=grp))
 
         self.datasets = tuple(dset_list)
