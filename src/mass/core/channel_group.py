@@ -1399,7 +1399,7 @@ class CrosstalkVeto(object):
 
         ms0 = np.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min() * 1e3 + window_ms[0]
         ms9 = np.array([ds.p_timestamp[-1] for ds in datagroup.datasets]).max() * 1e3 + window_ms[1]
-        self.nhits = np.zeros(ms9 - ms0 + 1, dtype=np.int8)
+        self.nhits = np.zeros(int(ms9 - ms0 + 1), dtype=np.int8)
         self.time0 = ms0
 
         for ds in datagroup.datasets:
