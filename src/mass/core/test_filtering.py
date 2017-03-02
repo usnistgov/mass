@@ -82,25 +82,30 @@ class TestFilters(ut.TestCase):
 
     def test_vdv_oldfilters(self):
         """Make sure old filters have a v/dv"""
-        self.filter_summaries(False)
+        print "Testing old"
+        self.filter_summaries(newstyle=False)
 
     def test_vdv_newfilters(self):
         """Make sure new filters have a v/dv"""
-        self.filter_summaries(True)
+        print "Testing new"
+        self.filter_summaries(newstyle=True)
+
 
     def filter_reload(self, newstyle):
         self.filter_summaries(newstyle=newstyle)
         ds = self.data.channel[1]
         self.assertEqual(newstyle, ds._use_new_filters)
         filter1 = ds.filter
+
         pf = ds.filename
         nf = ds.noise_records.filename
-
         data2 = mass.TESGroup(pf, nf)
         ds = data2.channel[1]
         filter2 = ds.filter
         self.assertEqual(type(filter1), type(filter2))
         self.assertEqual(newstyle, ds._use_new_filters)
+        for ds in self.data:
+            self.assertIn("filt_aterms", ds.filter.__dict__)
         data2.hdf5_file.close()
         data2.hdf5_noisefile.close()
 
