@@ -914,27 +914,24 @@ class TESGroup(CutFieldMixin):
                             ds.filter.predicted_v_over_dv[name] = \
                                 h5grp[name].attrs['predicted_v_over_dv']
 
-    def plot_filters(self, first=0, end=-1):
+    def plot_filters(self, first=0, end=-1, filtname="filt_noconst"):
         """Plot the filters from <first> through <end>-1.  By default, plots all filters,
-        except that the maximum number is 8.  Left panels are the Fourier and time-domain
-        X-ray energy filters.  Right panels are two different filters for estimating the
-        baseline level.
+        except that the maximum number is 16.  Panels show the Fourier and time-domain
+        X-ray energy filters.
         """
         plt.clf()
         if end <= first:
             end = self.n_channels
         if first >= self.n_channels:
             raise ValueError("First channel must be less than %d" % self.n_channels)
-        nplot = min(end - first, 8)
+        nplot = min(end - first, 16)
         for i, ds in enumerate(self.datasets[first:first + nplot]):
-            ax1 = plt.subplot(nplot, 2, 1 + 2 * i)
-            ax2 = plt.subplot(nplot, 2, 2 + 2 * i)
+            ax1 = plt.subplot(nplot/2, 2, 1 + i)
             ax1.set_title("chan %d signal" % ds.channum)
-            ax2.set_title("chan %d baseline" % ds.channum)
-            for ax in (ax1, ax2):
+            for ax in (ax1, ):
                 ax.set_xlim([0, self.nSamples])
                 if hasattr(ds, 'filter'):
-                    ds.filter.plot(axes=(ax1, ax2))
+                    ds.filter.plot(ax1, filtname=filtname)
         plt.show()
 
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):

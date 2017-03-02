@@ -263,21 +263,12 @@ class Filter(object):
             dot += q[i] * np.dot(r[n - i - 1:2 * n - i - 1], q)
         return dot
 
-    def plot(self, axes=None):
-        if axes is None:
+    def plot(self, axis=None, filtname="filt_noconst"):
+        if axis is None:
             plt.clf()
-            axis1 = plt.subplot(211)
-            axis2 = plt.subplot(212)
-        else:
-            axis1, axis2 = axes
+            axis = plt.subplot(111)
         try:
-            axis1.plot(self.filt_noconst, color='red')
-            axis2.plot(self.filt_baseline, color='purple')
-            axis2.plot(self.filt_baseline_pretrig, color='blue')
-        except AttributeError:
-            pass
-        try:
-            axis1.plot(self.filt_fourier, color='gold')
+            axis.plot(self.__dict__[filtname], color='red')
         except AttributeError:
             pass
 
