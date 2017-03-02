@@ -82,12 +82,10 @@ class TestFilters(ut.TestCase):
 
     def test_vdv_oldfilters(self):
         """Make sure old filters have a v/dv"""
-        print "Testing old"
         self.filter_summaries(newstyle=False)
 
     def test_vdv_newfilters(self):
         """Make sure new filters have a v/dv"""
-        print "Testing new"
         self.filter_summaries(newstyle=True)
 
 
@@ -104,8 +102,9 @@ class TestFilters(ut.TestCase):
         filter2 = ds.filter
         self.assertEqual(type(filter1), type(filter2))
         self.assertEqual(newstyle, ds._use_new_filters)
-        for ds in self.data:
-            self.assertIn("filt_aterms", ds.filter.__dict__)
+        if newstyle:
+            for ds in self.data:
+                self.assertIsNotNone(ds.filter.filt_aterms)
         data2.hdf5_file.close()
         data2.hdf5_noisefile.close()
 

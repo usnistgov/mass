@@ -672,7 +672,7 @@ class MicrocalDataSet(object):
                                      shorten=shorten)
 
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
-                      "filt_baseline", "filt_baseline_pretrig"]:
+                      "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
                 if k in filter_group:
                     filter_ds = filter_group[k]
                     setattr(self.filter, k, filter_ds[...])
