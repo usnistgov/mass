@@ -14,6 +14,7 @@ except ImportError:
 import h5py
 import numpy as np
 import scipy as sp
+import scipy.signal
 import matplotlib.pylab as plt
 
 # MASS modules
