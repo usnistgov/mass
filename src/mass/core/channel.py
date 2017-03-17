@@ -961,11 +961,25 @@ class MicrocalDataSet(object):
         NBINS = 9
         bins = np.digitize(ATime, np.linspace(ATime.min(), ATime.max(), NBINS+1))-1
 
+        # Are all bins populated with at least 5 pulses?
+        valid_bins = []
+        for i in range(NBINS):
+            if (bins==i).sum() >= 5:
+                valid_bins.append(i)
+        valid_bins = np.array(valid_bins)
+
+        # Are there enough populated bins to use DEGREE?
+        n_valid = len(valid_bins)
+        if n_valid < 2:
+            raise RuntimeError("Only %d valid arrival-time bins were found in compute_newfilter"%n_valid)
+        if n_valid <= DEGREE:
+            DEGREE = n_valid-1
+
         model = np.zeros((self.nSamples-1, 1+DEGREE), dtype=float)
         for s in range(self.nPresamples+2, self.nSamples-1):
             y = raw[:, s]/rawscale
-            xmed = [np.median(ATime[bins == i]) for i in range(NBINS)]
-            ymed = [np.median(y[bins == i]) for i in range(NBINS)]
+            xmed = [np.median(ATime[bins == i]) for i in valid_bins]
+            ymed = [np.median(y[bins == i]) for i in valid_bins]
             fit = np.polyfit(xmed, ymed, DEGREE)
             model[s, :] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
 

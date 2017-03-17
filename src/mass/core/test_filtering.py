@@ -119,13 +119,12 @@ class TestFilters(ut.TestCase):
     def test_filter_notmanypulses(self):
         """Be sure we can filter only a small # of pulses. See issue #87"""
 
-        # Temporarily cut all pulses but the first 20. Try to build a filter.
+        # Temporarily cut all pulses but the first 40. Try to build a filter.
         self.data.register_boolean_cut_fields("temporary")
         ds = self.data.channel[1]
         c = np.ones(ds.nPulses, dtype=np.bool)
-        c[:20] = False
+        c[:40] = False
         ds.cuts.cut("temporary", c)
-        print("Now only %d are good"%(ds.cuts.good().sum()))
         ds.compute_newfilter(f_3db=5000)
         f = ds.filter.filt_noconst
         self.assertFalse(np.any(np.isnan(f)))
