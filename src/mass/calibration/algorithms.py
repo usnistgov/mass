@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 from matplotlib.ticker import MaxNLocator
 
-try:
-    import statsmodels.api as sm
-except ImportError:  # On linux the name was as follows: (I guess the name is different in Anaconda python.)
-    import scikits.statsmodels.api as sm
-    sm.nonparametric.KDEUnivariate = sm.nonparametric.KDE
+# try:
+#     import statsmodels.api as sm
+# except ImportError:  # On linux the name was as follows: (I guess the name is different in Anaconda python.)
+#     import scikits.statsmodels.api as sm
+#     sm.nonparametric.KDEUnivariate = sm.nonparametric.KDE
 
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration
@@ -47,13 +47,30 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
         gaussian_fwhm = fwhm of a gaussian that each pulse is smeared with, in same units as pulse heights
 
     """
-    kde = sm.nonparametric.KDEUnivariate(np.array(pulse_heights, dtype="double"))
-    kde.fit(bw=gaussian_fwhm)
-    x = kde.support
-    y = kde.density
+    # kde = sm.nonparametric.KDEUnivariate(np.array(pulse_heights, dtype="double"))
+    # kde.fit(bw=gaussian_fwhm)
+    # x = kde.support
+    # y = kde.density
+    # flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
+    # lm = np.arange(1, len(x)-1)[flag]
+    # lm = lm[np.argsort(-y[lm])]
+
+    # kernel density estimation (with a gaussian kernel)
+    n = 128 * 1024
+    sigma = gaussian_fwhm / (np.sqrt(np.log(2) * 2) * 2)
+    tbw = 1.0 / sigma / (np.pi * 2)
+    lo = np.min(pulse_heights) - 3 * gaussian_fwhm
+    hi = np.max(pulse_heights) + 3 * gaussian_fwhm
+    hist, bins = np.histogram(pulse_heights, np.linspace(lo, hi, n + 1))
+    tx = np.fft.rfftfreq(n, (lo - hi) / n)
+    ty = np.exp(-tx**2 / 2 / tbw**2)
+    x = (bins[1:] + bins[:-1]) / 2
+    y = np.fft.irfft(np.fft.rfft(hist) * ty)
+
     flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
-    lm = np.arange(1, len(x)-1)[flag]
+    lm = np.arange(1, n - 1)[flag]
     lm = lm[np.argsort(-y[lm])]
+
     return np.array(x[lm]), np.array(y[lm])
 
 
@@ -238,13 +255,14 @@ class EnergyCalibrationAutocal:
 
         self.energies_opt = None
         self.ph_opt = None
+        self.fit_range_ev = None
         self.fit_lo_hi = None
         self.slopes_de_dph = None
 
         self.binsize_ev = None
         self.ph = ph
 
-    def guess_fit_params(self, smoothing_res_ph=20, fit_range_ev=200, binsize_ev=1.0,
+    def guess_fit_params(self, smoothing_res_ph=20, fit_range_ev=200.0, binsize_ev=1.0,
                          nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
         """Calculate reasonable parameters for complex fitters or Gaussian fitters.
 
@@ -263,15 +281,15 @@ class EnergyCalibrationAutocal:
         else:
             self.binsize_ev = [binsize_ev] * len(self.energies_opt)
 
-        self.approx_cal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
+        approx_cal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
         for ph, e in zip(self.ph_opt, self.energies_opt):
-            self.approx_cal.add_cal_point(ph, e)
-        self.fit_range_ev=fit_range_ev
+            approx_cal.add_cal_point(ph, e)
+        self.fit_range_ev = fit_range_ev
 
         #  Default fit range width is 100 eV for each line.
         #  But you can customize these numbers after self.guess_fit_params is finished.
         #  New self.fit_lo_hi values will be in self.fit_lines in the next step.
-        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], self.approx_cal, self.fit_range_ev)
+        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approx_cal, self.fit_range_ev)
 
     def fit_lines(self):
         """All calibration emission lines are fitted with ComplexFitter or GaussianFitter

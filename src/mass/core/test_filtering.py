@@ -82,25 +82,29 @@ class TestFilters(ut.TestCase):
 
     def test_vdv_oldfilters(self):
         """Make sure old filters have a v/dv"""
-        self.filter_summaries(False)
+        self.filter_summaries(newstyle=False)
 
     def test_vdv_newfilters(self):
         """Make sure new filters have a v/dv"""
-        self.filter_summaries(True)
+        self.filter_summaries(newstyle=True)
+
 
     def filter_reload(self, newstyle):
         self.filter_summaries(newstyle=newstyle)
         ds = self.data.channel[1]
         self.assertEqual(newstyle, ds._use_new_filters)
         filter1 = ds.filter
+
         pf = ds.filename
         nf = ds.noise_records.filename
-
         data2 = mass.TESGroup(pf, nf)
         ds = data2.channel[1]
         filter2 = ds.filter
         self.assertEqual(type(filter1), type(filter2))
         self.assertEqual(newstyle, ds._use_new_filters)
+        if newstyle:
+            for ds in self.data:
+                self.assertIsNotNone(ds.filter.filt_aterms)
         data2.hdf5_file.close()
         data2.hdf5_noisefile.close()
 
@@ -112,6 +116,24 @@ class TestFilters(ut.TestCase):
         """Make sure we can create old filters and reload them"""
         self.filter_reload(False)
 
+    def test_filter_notmanypulses(self):
+        """Be sure we can filter only a small # of pulses. See issue #87"""
+
+        # Temporarily cut all pulses but the first 40. Try to build a filter.
+        self.data.register_boolean_cut_fields("temporary")
+        ds = self.data.channel[1]
+        c = np.ones(ds.nPulses, dtype=np.bool)
+        c[:40] = False
+        ds.cuts.cut("temporary", c)
+        ds.compute_newfilter(f_3db=5000)
+        f = ds.filter.filt_noconst
+        self.assertFalse(np.any(np.isnan(f)))
+
+        # Now un-do the temporary cut and re-build the filter
+        c = np.zeros(ds.nPulses, dtype=np.bool)
+        ds.cuts.cut("temporary", c)
+        ds.compute_newfilter(f_3db=5000)
+        self.assertFalse(np.any(np.isnan(f)))
 
 if __name__ == '__main__':
     ut.main()

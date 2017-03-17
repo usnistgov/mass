@@ -1,5 +1,9 @@
 ## Note on version numbers of Mass
 
+* **0.5.2** February 2017
+Young is working on some things.
+Joe added LJH modifier. Deprecated ROOT file format handler.
+
 * **0.5.1** November 2016
 Fix a bug in how filters are restored from disk (issue 82).
 

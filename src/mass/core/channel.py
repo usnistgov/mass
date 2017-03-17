@@ -14,6 +14,7 @@ except ImportError:
 import h5py
 import numpy as np
 import scipy as sp
+import scipy.signal
 import matplotlib.pylab as plt
 
 # MASS modules
@@ -23,7 +24,7 @@ import mass.mathstat.robust
 import mass.core.analysis_algorithms
 
 from mass.core.cut import Cuts
-from mass.core.files import VirtualFile, LJHFile, LANLFile
+from mass.core.files import VirtualFile, LJHFile
 from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
 from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
@@ -44,7 +45,7 @@ class NoiseRecords(object):
     """
     DEFAULT_MAXSEGMENTSIZE = 32000000
 
-    ALLOWED_TYPES = ("ljh", "root", "virtual")
+    ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, records_are_continuous=False, use_records=None,
                  maxsegmentsize=None, hdf5_group=None):
@@ -87,8 +88,6 @@ class NoiseRecords(object):
         if file_format is None:
             if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
-            elif filename.endswith("root"):
-                file_format = "root"
             elif filename.endswith("ljh"):
                 file_format = "ljh"
             else:
@@ -98,8 +97,6 @@ class NoiseRecords(object):
 
         if file_format == "ljh":
             self.datafile = LJHFile(filename, segmentsize=self.maxsegmentsize)
-        elif file_format == "root":
-            self.datafile = LANLFile(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
@@ -436,7 +433,7 @@ class PulseRecords(object):
     was not exactly the case).
     """
 
-    ALLOWED_TYPES = ("ljh", "root", "virtual")
+    ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, file_format=None):
         self.nSamples = 0
@@ -465,8 +462,6 @@ class PulseRecords(object):
         if file_format is None:
             if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
-            elif filename.endswith("root"):
-                file_format = "root"
             elif filename.endswith("ljh"):
                 file_format = "ljh"
             else:
@@ -476,8 +471,6 @@ class PulseRecords(object):
 
         if file_format == "ljh":
             self.datafile = LJHFile(filename)
-        elif file_format == "root":
-            self.datafile = LANLFile(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
@@ -680,7 +673,7 @@ class MicrocalDataSet(object):
                                      shorten=shorten)
 
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
-                      "filt_baseline", "filt_baseline_pretrig"]:
+                      "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
                 if k in filter_group:
                     filter_ds = filter_group[k]
                     setattr(self.filter, k, filter_ds[...])
@@ -968,11 +961,25 @@ class MicrocalDataSet(object):
         NBINS = 9
         bins = np.digitize(ATime, np.linspace(ATime.min(), ATime.max(), NBINS+1))-1
 
+        # Are all bins populated with at least 5 pulses?
+        valid_bins = []
+        for i in range(NBINS):
+            if (bins==i).sum() >= 5:
+                valid_bins.append(i)
+        valid_bins = np.array(valid_bins)
+
+        # Are there enough populated bins to use DEGREE?
+        n_valid = len(valid_bins)
+        if n_valid < 2:
+            raise RuntimeError("Only %d valid arrival-time bins were found in compute_newfilter"%n_valid)
+        if n_valid <= DEGREE:
+            DEGREE = n_valid-1
+
         model = np.zeros((self.nSamples-1, 1+DEGREE), dtype=float)
         for s in range(self.nPresamples+2, self.nSamples-1):
             y = raw[:, s]/rawscale
-            xmed = [np.median(ATime[bins == i]) for i in range(NBINS)]
-            ymed = [np.median(y[bins == i]) for i in range(NBINS)]
+            xmed = [np.median(ATime[bins == i]) for i in valid_bins]
+            ymed = [np.median(y[bins == i]) for i in valid_bins]
             fit = np.polyfit(xmed, ymed, DEGREE)
             model[s, :] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
 
@@ -1555,38 +1562,41 @@ class MicrocalDataSet(object):
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3,
-                  param_adjust_closure=None):
-            calname = attr+name_ext
+                  param_adjust_closure=None, diagnose=False):
+        calname = attr+name_ext
 
-            if not forceNew and calname in self.calibration:
-                return self.calibration[calname]
+        if not forceNew and calname in self.calibration:
+            return self.calibration[calname]
 
-            print("Calibrating chan %d to create %s" % (self.channum, calname))
-            cal = EnergyCalibration()
-            cal.set_use_approximation(False)
+        print("Calibrating chan %d to create %s" % (self.channum, calname))
+        cal = EnergyCalibration()
+        cal.set_use_approximation(False)
 
-            if category is None:
-                category = {"calibration": "in"}
+        if category is None:
+            category = {"calibration": "in"}
 
-            # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
-            auto_cal = EnergyCalibrationAutocal(cal,
-                                                getattr(self, attr)[self.cuts.good(**category)],
-                                                line_names)
-            auto_cal.guess_fit_params(smoothing_res_ph=size_related_to_energy_resolution,
-                                      fit_range_ev=fit_range_ev,
-                                      binsize_ev=bin_size_ev,
-                                      nextra=nextra, maxacc=maxacc)
-            if param_adjust_closure:
-                param_adjust_closure(self, auto_cal)
-            auto_cal.fit_lines()
+        # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
+        auto_cal = EnergyCalibrationAutocal(cal,
+                                            getattr(self, attr)[self.cuts.good(**category)],
+                                            line_names)
+        auto_cal.guess_fit_params(smoothing_res_ph=size_related_to_energy_resolution,
+                                  fit_range_ev=fit_range_ev,
+                                  binsize_ev=bin_size_ev,
+                                  nextra=nextra, maxacc=maxacc)
+        if param_adjust_closure:
+            param_adjust_closure(self, auto_cal)
+        auto_cal.fit_lines()
 
-            if auto_cal.anyfailed:
-                print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
-                raise Exception()
+        if auto_cal.anyfailed:
+            print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
+            raise Exception()
 
-            self.calibration[calname] = cal
-            hdf5_cal_group = self.hdf5_group.require_group('calibration')
-            cal.save_to_hdf5(hdf5_cal_group, calname)
+        self.calibration[calname] = cal
+        hdf5_cal_group = self.hdf5_group.require_group('calibration')
+        cal.save_to_hdf5(hdf5_cal_group, calname)
+
+        if diagnose:
+            auto_cal.diagnose()
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None:

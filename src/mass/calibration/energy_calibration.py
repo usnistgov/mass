@@ -9,7 +9,8 @@ Created on May 16, 2011
 import numpy as np
 import scipy as sp
 
-from ..mathstat.interpolate import *
+from mass.mathstat.interpolate import *
+from mass.mathstat.derivative import *
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = {
@@ -151,7 +152,7 @@ class EnergyCalibration(object):
         """
         self._curvetype = 0
         self.set_curvetype(curvetype)
-        self._ph2energy_anon = lambda x: x
+        self._ph2energy_anon = self.__default_ph2energy_anon
         self._ph = np.zeros(0, dtype=np.float)
         self._energies = np.zeros(0, dtype=np.float)
         self._dph = np.zeros(0, dtype=np.float)
@@ -164,11 +165,14 @@ class EnergyCalibration(object):
         self.nonlinearity = nonlinearity
         self.set_nonlinearity()
 
+    @staticmethod
+    def __default_ph2energy_anon(x, der=0):
+        return x
 
-    def __call__(self, pulse_ht):
-        return self.ph2energy(pulse_ht)
+    def __call__(self, pulse_ht, der=0):
+        return self.ph2energy(pulse_ht, der=der)
 
-    def ph2energy(self, pulse_ht):
+    def ph2energy(self, pulse_ht, der=0):
         """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
         Shoulds return a scalar if passed a scalar, and a numpy array if passed a list or array
 
@@ -177,7 +181,8 @@ class EnergyCalibration(object):
         """
         if self._model_is_stale:
             self._update_converters()
-        result = self._ph2energy_anon(pulse_ht)
+        result = self._ph2energy_anon(pulse_ht, der=der)
+
         if np.isscalar(pulse_ht):
             if np.isscalar(result):
                 return result
@@ -208,15 +213,26 @@ class EnergyCalibration(object):
         elif len(energy) > 10 and not self._e2phwarned:
             print("WARNING: EnergyCalibration.energy2ph can be slow for long inputs.")
             self._e2phwarned = True
+
+        if len(energy) > 1024:
+            phs = np.array(energy)
+            # Newton methods with a fixed number of iterations.
+            for i in range(5):
+                phs -= (self(phs) - energy) / self(phs, der=1)
+
+            return phs
+
         result = [sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
         return np.array(result)
 
     def energy2dedph(self, energy, denergy=1):
         """Calculate the slope between <energy-denergy> and <energy>+<denergy> with two points.
         """
-        loe, hie = energy-denergy, energy+denergy
-        loph, hiph = self.energy2ph(loe), self.energy2ph(hie)
-        return (hie-loe)/(hiph-loph)
+        # loe, hie = energy-denergy, energy+denergy
+        # loph, hiph = self.energy2ph(loe), self.energy2ph(hie)
+        # return (hie-loe)/(hiph-loph)
+        ph = self.energy2ph(energy)
+        return self(ph, der=1)
 
     def __str__(self):
         self._update_converters()  # To sort the points
@@ -409,7 +425,8 @@ class EnergyCalibration(object):
         ph, dph, e, de = self._ph, self._dph, self._energies, self._de
 
         if self.curvename() == "loglog":
-            self._ph2energy_anon = SmoothingSplineLog(ph, e, de, dph)
+            cubic_spline = SmoothingSplineFunction(np.log(ph), np.log(e), de/e, dph/ph)
+            self._ph2energy_anon = Composition(ExponentialFunction(), Composition(cubic_spline, LogFunction()))
 
         elif self.curvename().startswith("linear"):
             if ("+0" in self.curvename()) and (0.0 not in ph):
@@ -417,34 +434,47 @@ class EnergyCalibration(object):
                 e  = np.hstack([[0], e])
                 de = np.hstack([[de.min()*0.1], de])
                 dph= np.hstack([[dph.min()*0.1], dph])
-            self._ph2energy_anon = SmoothingSpline(ph, e, de, dph)
+            self._ph2energy_anon = SmoothingSplineFunction(ph, e, de, dph)
 
         elif self.curvename() == "gain":
             g = ph/e
             scale = ph.mean()
             dg = g * ((dph/ph)**2+(de/e)**2)**0.5
-            self._underlying_spline = SmoothingSpline(ph/scale, g, dg, dph/scale)
-            self._ph2energy_anon = lambda p: p/self._underlying_spline(p/scale)
+            # self._underlying_spline = SmoothingSpline(ph/scale, g, dg, dph/scale)
+            # self._ph2energy_anon = lambda p: p/self._underlying_spline(p/scale)
+            underlying_spline = SmoothingSplineFunction(ph / scale, g, dg, dph / scale)
+            p_over_scale = Multiplication(ConstantFunction(1.0 / scale), Identity())
+            over_spline = Composition(PowerFunction(-1), Composition(underlying_spline, p_over_scale))
+            self._ph2energy_anon = Multiplication(Identity(), over_spline)
+
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
-            trial_phmax = 10*self._ph.max()
-            if self._underlying_spline(trial_phmax) > 0:
+            trial_phmax = 10 * self._ph.max()
+            if underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
             else:
-                self._max_ph = scale*0.99*sp.optimize.brentq(self._underlying_spline, self._ph.max()/scale, trial_phmax/scale)
+                self._max_ph = scale*0.99*sp.optimize.brentq(underlying_spline, self._ph.max()/scale, trial_phmax/scale)
 
         elif self.curvename() == "invgain":
             ig = e/ph
             scale = ph.mean()
             dg = ig * ((dph/ph)**2+(de/e)**2)**0.5
-            self._underlying_spline = SmoothingSpline(ph/scale, ig, dg, dph/scale)
-            self._ph2energy_anon = lambda p: p*self._underlying_spline(p/scale)
+            # self._underlying_spline = SmoothingSpline(ph/scale, ig, dg, dph/scale)
+            # self._ph2energy_anon = lambda p: p*self._underlying_spline(p/scale)
+            underlying_spline = SmoothingSplineFunction(ph / scale, ig, dg, dph / scale)
+            p_over_scale = Multiplication(ConstantFunction(1.0 / scale), Identity())
+            self._ph2energy_anon = Multiplication(Identity(), Composition(underlying_spline, p_over_scale))
 
         elif self.curvename() == "loggain":
             lg = np.log(ph/e)
             dlg = ((dph/ph)**2+(de/e)**2)**0.5
             scale = ph.mean()
-            self._underlying_spline = SmoothingSpline(ph/scale, lg, dlg, dph/scale)
-            self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p/scale))
+            # self._underlying_spline = SmoothingSpline(ph/scale, lg, dlg, dph/scale)
+            # self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p/scale))
+            underlying_spline = SmoothingSplineFunction(ph / scale, lg, dlg, dph / scale)
+            p_over_scale = Multiplication(ConstantFunction(1.0 / scale), Identity())
+            minus_spline = Multiplication(ConstantFunction(-1), Composition(underlying_spline, p_over_scale))
+            exp_minus_spline = Composition(ExponentialFunction(), minus_spline)
+            self._ph2energy_anon = Multiplication(Identity(), exp_minus_spline)
 
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
@@ -453,24 +483,34 @@ class EnergyCalibration(object):
         # For N=1 points, use E proportional to PH (or if loglog curve, then a power law of the assumed nonlinearity).
         # For N>1 points, use the chosen curve type (but for N=2, recall that the spline will be a line).
         if self.npts <= 0:
-            self._ph2energy_anon = lambda p: p
+            # self._ph2energy_anon = lambda p: p
+            self._ph2energy_anon = Identity()
 
         elif self.npts == 1:
             p1 = self._ph[0]
             e1 = self._energies[0]
-            self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
+            # self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
+            p_over_scale = Multiplication(ConstantFunction(1.0 / p1), Identity())
+            power_p = Composition(PowerFunction(self.nonlinearity), p_over_scale)
+            self._ph2energy_anon = Multiplication(ConstantFunction(e1), power_p)
 
         elif self.npts == 2:
             p1, p2 = self._ph
             e1, e2 = self._energies
             self.nonlinearity = np.log(e2/e1) / np.log(p2/p1)
-            self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
+
+            # self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
+            p_over_scale = Multiplication(ConstantFunction(1.0 / p1), Identity())
+            power_p = Composition(PowerFunction(self.nonlinearity), p_over_scale)
+            self._ph2energy_anon = Multiplication(ConstantFunction(e1), power_p)
 
         elif self.curvename() == "loglog":
             x = np.log(self._ph)
             y = np.log(self._energies)
-            self._x2yfun = CubicSpline(x, y)
-            self._ph2energy_anon = lambda p: np.exp(self._x2yfun(np.log(p)))
+            # self._x2yfun = CubicSpline(x, y)
+            # self._ph2energy_anon = lambda p: np.exp(self._x2yfun(np.log(p)))
+            underlying_spline = CubicSplineFunction(x, y)
+            self._ph2energy_anon = Composition(ExponentialFunction(), Composition(underlying_spline, LogFunction()))
 
         elif self.curvename().startswith("linear"):
             x = self._ph
@@ -478,31 +518,40 @@ class EnergyCalibration(object):
             if ("+0" in self.curvename()) and (0.0 not in x):
                 x = np.hstack(([0], x))
                 y = np.hstack(([0], y))
-            self._ph2energy_anon = CubicSpline(x, y)
+            # self._ph2energy_anon = CubicSpline(x, y)
+            self._ph2energy_anon = CubicSplineFunction(x, y)
 
         elif self.curvename() == "gain":
             x = self._ph
-            y = x/self._energies
-            self._underlying_spline = CubicSpline(x, y)
-            self._ph2energy_anon = lambda p: p/self._underlying_spline(p)
+            y = x / self._energies
+            # self._underlying_spline = CubicSpline(x, y)
+            # self._ph2energy_anon = lambda p: p/self._underlying_spline(p)
+            underlying_spline = CubicSplineFunction(x, y)
+            self._ph2energy_anon = Multiplication(Identity(), Composition(PowerFunction(-1), underlying_spline))
+
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
             trial_phmax = 10*self._ph.max()
-            if self._underlying_spline(trial_phmax) > 0:
+            if underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
             else:
-                self._max_ph = 0.99*sp.optimize.brentq(self._underlying_spline, 0, trial_phmax)
+                self._max_ph = 0.99*sp.optimize.brentq(underlying_spline, 0, trial_phmax)
 
         elif self.curvename() == "invgain":
             x = self._ph
             y = self._energies/x
-            self._underlying_spline = CubicSpline(x, y)
-            self._ph2energy_anon = lambda p: p*self._underlying_spline(p)
+            # self._underlying_spline = CubicSpline(x, y)
+            # self._ph2energy_anon = lambda p: p*self._underlying_spline(p)
+            underlying_spline = CubicSplineFunction(x, y)
+            self._ph2energy_anon = Multiplication(Identity(), underlying_spline)
 
         elif self.curvename() == "loggain":
             x = self._ph
-            y = np.log(x/self._energies)
-            self._underlying_spline = CubicSpline(x, y)
-            self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p))
+            y = np.log(x / self._energies)
+            # self._underlying_spline = CubicSpline(x, y)
+            # self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p))
+            underlying_spline = CubicSplineFunction(x, y)
+            minus_spline = Multiplication(ConstantFunction(-1), underlying_spline)
+            self._ph2energy_anon = Multiplication(Identity(), Composition(ExponentialFunction(), minus_spline))
 
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""

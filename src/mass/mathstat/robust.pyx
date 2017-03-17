@@ -266,20 +266,20 @@ def Qscale(x, sort_inplace=False):
         raise ValueError("sort_inplace cannot be True unless the data set x is a np.ndarray.")
     x.sort()
     n = len(x)
-    if n<2:
+    if n < 2:
         raise ValueError("Data set <x> must contain at least 2 values!")
-    h = n/2 + 1
-    target_k = h*(h-1)/2 -1 # -1 so that order count can start at 0 instead of conventional 1,2,3...
+    h = n // 2 + 1
+    target_k = h * (h-1) // 2 -1 # -1 so that order count can start at 0 instead of conventional 1,2,3...
 
     # Compute the n-dependent prefactor to make Q consistent with sigma of a Gaussian.
     prefactor = 2.2219
     if n <= 9:
         prefactor *= [0, 0, 0.399, 0.994, 0.512, 0.844, 0.611, 0.857, 0.669, 0.872][n]
     else:
-        if n%2 == 1:
-            prefactor *= n/(n+1.4)
+        if n % 2 == 1:
+            prefactor *= n / (n + 1.4)
         else:
-            prefactor *= n/(n+3.8)
+            prefactor *= n / (n + 3.8)
 
     # Now down to business finding the 25%ile of |xi - xj| for i<j (or equivalently, for i != j)
     # Imagine the upper triangle of the matrix Aij = xj - xi (upper means j>i).
@@ -288,13 +288,12 @@ def Qscale(x, sort_inplace=False):
 
     # For small lists, too many boundary problems arise.  Just do it the slow way:
     if n <= 5:
-        dist = np.hstack([x[j]-x[:j] for j in range(1,n)])
-        assert len(dist) == (n*(n-1))/2
+        dist = np.hstack([x[j] - x[:j] for j in range(1, n)])
+        assert len(dist) == (n * (n - 1)) // 2
         dist.sort()
         return dist[target_k] * prefactor
 
     q, npasses = _Qscale_subroutine(x, n, target_k)
-
 
     if npasses > n:
         raise RuntimeError("Qscale tried %d distances, which is too many"%npasses)
