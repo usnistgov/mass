@@ -90,6 +90,9 @@ if __name__ == "__main__":
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.core.analysis_algorithms',
                                            [os.path.join('src', 'mass', 'core', 'analysis_algorithms.pyx')],
+                                           include_dirs=[np.get_include()]),
+                                 Extension('mass.mathstat.entropy',
+                                           [os.path.join('src', 'mass', 'mathstat', 'entropy.pyx')],
                                            include_dirs=[np.get_include()])
                                  ]),
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
