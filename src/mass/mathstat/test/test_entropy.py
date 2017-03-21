@@ -77,6 +77,15 @@ class Test_LaplaceEntropy(unittest.TestCase):
         self.assertRaises(ValueError, laplace_KL_divergence, [1,2], [1,2], 0.0)
         self.assertRaises(ValueError, laplace_KL_divergence, [1,2], [1,2], -1.0)
 
+    def test_types(self):
+        for t2 in (np.int, np.float, np.float32):
+            e = laplace_entropy(np.array([1,2,3], dtype=t2), 1.0)
+            self.assertAlmostEqual(e, 1.8865648057292637)
+
+            for t1 in (np.float, np.float32):
+                e = laplace_KL_divergence(np.linspace(1,3,30, dtype=t1), np.array([1,2,3], dtype=t2), .2)
+                self.assertAlmostEqual(e, 2.8911307675343667)
+
 
 if __name__ == "__main__":
     unittest.main()

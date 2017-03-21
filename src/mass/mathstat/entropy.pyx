@@ -33,6 +33,7 @@ BYTPE = np.bool
 # type with a _t-suffix.
 ctypedef np.float64_t DTYPE_t
 
+@cython.embedsignature(True)
 cpdef double laplace_entropy(x_in, double w=1.0) except? -9999:
     """`laplace_entropy(x, w=1.0)`
 
@@ -43,15 +44,15 @@ cpdef double laplace_entropy(x_in, double w=1.0) except? -9999:
         raise ValueError("laplace_entropy(x) needs at least 1 element in `x`.")
     if w <= 0.0:
         raise ValueError("laplace_entropy(x, w) needs `w>0`.")
-    cdef np.ndarray[DTYPE_t, ndim=1] x = np.asarray(x_in)
+    cdef np.ndarray[DTYPE_t, ndim=1] x = np.asarray(x_in, dtype=DTYPE)
     return laplace_entropy_array(x, w)
 
 
 cdef double laplace_entropy_array(np.ndarray[DTYPE_t, ndim=1] x, double w=1.0):
     cdef int i
     cdef int N = len(x)
-    cdef np.ndarray[DTYPE_t, ndim=1] c = np.zeros(N, dtype=float)
-    cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=float)
+    cdef np.ndarray[DTYPE_t, ndim=1] c = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t, ndim=1] y = np.sort(x)/w
 
     cdef np.ndarray[DTYPE_t, ndim=1] e = np.exp(y[:-1]-y[1:])
@@ -78,6 +79,7 @@ cdef double laplace_entropy_array(np.ndarray[DTYPE_t, ndim=1] x, double w=1.0):
 
 
 
+@cython.embedsignature(True)
 cpdef _merge_orderedlists(x1_in, x2_in):
     """Given two lists that are assumed to be sorted (in ascending order),
     return `(x, wasfirst)` where `x` is an array that contains all the values
@@ -103,6 +105,7 @@ cpdef _merge_orderedlists(x1_in, x2_in):
     _merge_orderedlists_arrays(out, wasfirst, x1, x2)
     return out, wasfirst
 
+@cython.embedsignature(True)
 cdef _merge_orderedlists_arrays(np.ndarray[DTYPE_t, ndim=1] out,
         np.ndarray wasfirst,
         np.ndarray[DTYPE_t, ndim=1] x1,
@@ -140,9 +143,11 @@ cpdef double laplace_KL_divergence(x, y, double w=1.0) except? -9999:
     if Nx == 0 or Ny == 0:
         raise ValueError("laplace_KL_divergence(x, y) needs at least 1 element apiece in `x` and `y`.")
 
-    return laplace_KL_divergence_arrays(np.sort(x)/w, np.sort(y)/w, w)
+    xsorted = np.asarray(np.sort(x)/w, dtype=DTYPE)
+    ysorted = np.asarray(np.sort(y)/w, dtype=DTYPE)
+    return laplace_KL_divergence_arrays(xsorted, ysorted)
 
-cdef double laplace_KL_divergence_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] y, double w=1.0):
+cdef double laplace_KL_divergence_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] y):
     nodes, isx = _merge_orderedlists(x, y)
 
     cdef int Nx = len(x)
@@ -151,11 +156,11 @@ cdef double laplace_KL_divergence_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarr
     cdef int i
     cdef double factor
 
-    cdef np.ndarray[DTYPE_t, ndim=1] a = np.zeros(N, dtype=float)
-    cdef np.ndarray[DTYPE_t, ndim=1] b = np.zeros(N, dtype=float)
-    cdef np.ndarray[DTYPE_t, ndim=1] c = np.zeros(N, dtype=float)
-    cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=float)
-    cdef np.ndarray[DTYPE_t, ndim=1] decayfactor = np.zeros(N, dtype=float)
+    cdef np.ndarray[DTYPE_t, ndim=1] a = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] b = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] c = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] decayfactor = np.zeros(N, dtype=DTYPE)
     decayfactor[1:] = np.exp(nodes[:-1]-nodes[1:])
 
     cdef double stepX = 1.0/(2*Nx)
