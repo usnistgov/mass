@@ -65,6 +65,25 @@ class Test_LaplaceEntropy(unittest.TestCase):
         e = laplace_KL_divergence(np.linspace(1,3,30), np.linspace(1,3,30), 5)
         self.assertAlmostEqual(e, 1.699711039955758)
 
+    def test_exact_approx_entropy(self):
+        """Test the exact vs approximated modes of laplace_entropy."""
+        x = np.linspace(-1,1,1001)
+        z = np.hstack([x-.001, x-.0005, x, x+.0002, x+.0008])
+        # Because these are size 5005 vectors, they should default to "exact" mode.
+        e = laplace_entropy(z, 1, "exact")
+        self.assertAlmostEqual(e, 1.8064846705587594)
+        e = laplace_entropy(z, 1)
+        self.assertAlmostEqual(e, 1.8064846705587594)
+        e = laplace_entropy(z, 1, "approx")
+        self.assertAlmostEqual(e, 1.7862710795706667)
+
+        e = laplace_entropy(z, .1, "exact")
+        self.assertAlmostEqual(e, 0.8215581872670996)
+        e = laplace_entropy(z, .1)
+        self.assertAlmostEqual(e, 0.8215581872670996)
+        e = laplace_entropy(z, .1, "approx")
+        self.assertAlmostEqual(e, 0.8189686027988935)
+
     def test_empty(self):
         self.assertRaises(ValueError, laplace_entropy, [], 1.0)
         self.assertRaises(ValueError, laplace_KL_divergence, [], [], 1.0)

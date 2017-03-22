@@ -21,6 +21,7 @@ Eventually, plan to translate this to Cython.
 
 import numpy as np
 cimport numpy as np
+import scipy as sp
 cimport cython
 
 # We now need to fix a datatype for our arrays. I've used the variable
@@ -34,18 +35,34 @@ BYTPE = np.bool
 ctypedef np.float64_t DTYPE_t
 
 @cython.embedsignature(True)
-cpdef double laplace_entropy(x_in, double w=1.0) except? -9999:
-    """`laplace_entropy(x, w=1.0)`
+cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -9999:
+    """`laplace_entropy(x, w=1.0, approx_mode="size")`
 
     Compute the entropy of data set `x` where the
-    kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w)."""
+    kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+
+    The `approx_mode` can be one of:
+    ``exact``  The exact integral is computed (can take ~5 sec per 10^6 values).
+    ``approx`` The integral is approximated by histogramming the data, smoothing
+               that, and using Simpson's rule on the PDF samples that result.
+    ``size``   Uses "approx" if len(x)>10000, or "exact" otherwise.
+    """
     cdef int N = len(x_in)
     if N == 0:
         raise ValueError("laplace_entropy(x) needs at least 1 element in `x`.")
     if w <= 0.0:
         raise ValueError("laplace_entropy(x, w) needs `w>0`.")
     cdef np.ndarray[DTYPE_t, ndim=1] x = np.asarray(x_in, dtype=DTYPE)
-    return laplace_entropy_array(x, w)
+
+    if approx_mode == "size":
+        if N <= 10000:
+            approx_mode = "exact"
+        else:
+            approx_mode = "approx"
+    if approx_mode.startswith("exact"):
+        return laplace_entropy_array(x, w)
+    else:
+        return laplace_entropy_approx(x, w)
 
 
 cdef double laplace_entropy_array(np.ndarray[DTYPE_t, ndim=1] x, double w=1.0):
@@ -76,6 +93,31 @@ cdef double laplace_entropy_array(np.ndarray[DTYPE_t, ndim=1] x, double w=1.0):
         A,B = d[i+1], c[i]*e[i]
         H -= w*(A-B)*(np.log(A+B)-1)
     return H
+
+
+cdef laplace_entropy_approx(x, w=1.0):
+    """Approximate the entropy with a binned histogram and the Laplace-distribution
+    kernel-density estimator of the probability distribtion."""
+    cdef double EXTEND_DATA = 5*w
+    cdef double BINS_PER_W = 20
+    cdef double KERNEL_WIDTH_IN_WS = 15.0
+
+    cdef double xmin = x.min()-EXTEND_DATA
+    cdef double xmax = x.max()+EXTEND_DATA
+    cdef int nbins = int(0.5+(xmax-xmin)*BINS_PER_W/w)
+    c,b = np.histogram(x, nbins, [xmin,xmax])
+    cdef double db = b[1]-b[0]
+    cdef int nx = int(0.5+KERNEL_WIDTH_IN_WS*w/db)
+    kx = np.arange(-nx, nx+1)*db
+    kernel = np.exp(-np.abs(kx/w))
+
+    # kde = unnormalized kernel-density estimator.
+    kde = sp.signal.fftconvolve(c, kernel, mode="full")[nx:-nx]
+    kde[kde<kernel.min()] = kernel.min()
+
+    # p = normalized probability distribution.
+    p = kde/sp.integrate.simps(kde, dx=db, even="first")
+    return -sp.integrate.simps(p*np.log(p), dx=db, even="first")
 
 
 
