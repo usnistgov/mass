@@ -4,17 +4,19 @@ entropy.py
 Estimates of the distribution entropy computed using kernel-density estimates
 of the distribution.
 
-* `laplace_entropy(x, w=1.0)` - Compute the entropy of data set `x` where the
-kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
-* `laplace_KL_divergence(x, y, w=1.0)` - Compute the Kullback-Leibler Divergence
-of data set `y` from `x`, where the
-kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+* `laplace_entropy(x, w=1.0)` - Compute the entropy H(p) of data set `x` where the
+kernel used to estimate p from x is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+* `laplace_cross_entropy(x, y, w=1.0)` - Compute the cross entropy of q from p,
+where q and p are the kernel-density estimates taken from data set
+`y` and data set `x`, and where the kernel is the Laplace kernel.
+* `KL_divergence(x, y, w=1.0)` - Compute the Kullback-Leibler Divergence
+of data set `y` from `x`, where the kernel is the Laplace kernel.
 
 The K-L divergence of Q(x) from P(x) is defined as the integral over the full
 x domain of P(x) log[P(x)/Q(x)].
 
-This equals the cross-entropy H(P,Q) - H(P). Note that K-L divergence is not
-symmetric with respect to reversal of `x` and `y`.
+This equals the cross-entropy H(P,Q) - H(P). Note that cross-entropy and K-L divergence
+are not symmetric with respect to reversal of `x` and `y`.
 
 Eventually, plan to translate this to Cython.
 """
@@ -44,7 +46,7 @@ cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -99
     kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
 
     The `approx_mode` can be one of:
-    ``exact``  The exact integral is computed (can take ~5 sec per 10^6 values).
+    ``exact``  The exact integral is computed (can take ~0.25 sec per 10^6 values).
     ``approx`` The integral is approximated by histogramming the data, smoothing
                that, and using Simpson's rule on the PDF samples that result.
     ``size``   Uses "approx" if len(x)>200000, or "exact" otherwise.
@@ -185,20 +187,58 @@ cdef _merge_orderedlists_arrays(np.ndarray[DTYPE_t, ndim=1] out,
                 return
 
 
-cpdef double laplace_KL_divergence(x, y, double w=1.0) except? -9999:
+@cython.embedsignature(True)
+cpdef double laplace_KL_divergence(x, y, double w=1.0, approx_mode="size") except? -9999:
+    """`laplace_KL_divergence(x, y, w=1.0, approx_mode="size")`
+
+    Compute the Kullback-Leibler divergence of data set `y` from data set `x`, where the
+    kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+
+    The `approx_mode` can be one of:
+    ``exact``  The exact integral is computed (can take ~0.25 sec per 10^6 values).
+    ``approx`` The integral is approximated by histogramming the data, smoothing
+               that, and using Simpson's rule on the PDF samples that result.
+    ``size``   Uses "approx" if len(x)+len(y)>200000, or "exact" otherwise.
+    """
+    return laplace_cross_entropy(x, y, w, approx_mode=approx_mode) - laplace_entropy(x, w, approx_mode=approx_mode)
+
+
+
+@cython.embedsignature(True)
+cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") except? -9999:
+    """`laplace_cross_entropy(x, y, w=1.0, approx_mode="size")`
+
+    Compute the cross-entropy of data set `y` from data set `x`, where the
+    kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+
+    The `approx_mode` can be one of:
+    ``exact``  The exact integral is computed (can take ~0.25 sec per 10^6 values).
+    ``approx`` The integral is approximated by histogramming the data, smoothing
+               that, and using Simpson's rule on the PDF samples that result.
+    ``size``   Uses "approx" if len(x)+len(y)>200000, or "exact" otherwise.
+    """
     if w <= 0.0:
-        raise ValueError("laplace_KL_divergence(x, y, w) needs `w>0`.")
+        raise ValueError("laplace_cross_entropy(x, y, w) needs `w>0`.")
     cdef int Nx = len(x)
     cdef int Ny = len(y)
     if Nx == 0 or Ny == 0:
-        raise ValueError("laplace_KL_divergence(x, y) needs at least 1 element apiece in `x` and `y`.")
+        raise ValueError("laplace_cross_entropy(x, y) needs at least 1 element apiece in `x` and `y`.")
 
-    xsorted = np.asarray(np.sort(x)/w, dtype=DTYPE)
-    ysorted = np.asarray(np.sort(y)/w, dtype=DTYPE)
-    return laplace_KL_divergence_arrays(xsorted, ysorted)
+    if approx_mode == "size":
+        if Nx+Ny <= 200000:
+            approx_mode = "exact"
+        else:
+            approx_mode = "approx"
+    if approx_mode.startswith("exact"):
+        xsorted = np.asarray(np.sort(x)/w, dtype=DTYPE)
+        ysorted = np.asarray(np.sort(y)/w, dtype=DTYPE)
+        return laplace_cross_entropy_arrays(xsorted, ysorted)+log(w)
+    else:
+        return laplace_cross_entropy_approx(np.asarray(x, dtype=DTYPE),
+                                            np.asarray(y, dtype=DTYPE), w)
 
 
-cdef double laplace_KL_divergence_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] y):
+cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] y):
     nodes, isx = _merge_orderedlists(x, y)
 
     cdef int Nx = len(x)
@@ -261,3 +301,39 @@ cdef double _antideriv_F(double A, double B, double C, double D) except -9999:
     elif B==0:
         return r+2*D
     return r - 2*(A*D+B*C)/sqrt(A*B) * atan(sqrt(A/B))
+
+
+cdef laplace_cross_entropy_approx(x, y, w=1.0):
+    """Approximate the cross-entropy with a binned histogram and the Laplace-distribution
+    kernel-density estimator of the probability distribtion."""
+    cdef double EXTEND_DATA = 5*w
+    cdef double BINS_PER_W = 20
+    cdef double KERNEL_WIDTH_IN_WS = 15.0
+
+    cdef double xmin = min(x.min(),y.min())-EXTEND_DATA
+    cdef double xmax = max(x.max(),y.max())+EXTEND_DATA
+    cdef int nbins = int(0.5+(xmax-xmin)*BINS_PER_W/w)
+    cx,b = np.histogram(x, nbins, [xmin,xmax])
+    cy,b = np.histogram(y, nbins, [xmin,xmax])
+    cdef double db = b[1]-b[0]
+    cdef int nx = int(0.5+KERNEL_WIDTH_IN_WS*w/db)
+
+    cdef np.ndarray[DTYPE_t, ndim=1] kernel = np.zeros(2*nx+1)
+    cdef double kx
+    for i in range(2*nx+1):
+        kx = (i-nx)*db
+        kernel[i] = exp(-abs(kx/w))
+
+    # kde = unnormalized kernel-density estimator.
+    kde = sp.signal.fftconvolve(cx, kernel, mode="full")[nx:-nx]
+    kde[kde<kernel.min()] = kernel.min()
+
+    # p = normalized probability distribution.
+    cdef double norm = 1.0/sp.integrate.simps(kde, dx=db, even="first")
+    p = kde*norm
+
+    kde = sp.signal.fftconvolve(cy, kernel, mode="full")[nx:-nx]
+    kde[kde<kernel.min()] = kernel.min()
+    norm = 1.0/sp.integrate.simps(kde, dx=db, even="first")
+    q = kde*norm
+    return -sp.integrate.simps(p*np.log(q), dx=db, even="first")
