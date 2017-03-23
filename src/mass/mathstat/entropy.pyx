@@ -24,6 +24,8 @@ cimport numpy as np
 import scipy as sp
 cimport cython
 
+from libc.math cimport exp, atan, log, sqrt, abs
+
 # We now need to fix a datatype for our arrays. I've used the variable
 # DTYPE for this, which is assigned to the usual NumPy runtime
 # type info object.
@@ -45,7 +47,7 @@ cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -99
     ``exact``  The exact integral is computed (can take ~5 sec per 10^6 values).
     ``approx`` The integral is approximated by histogramming the data, smoothing
                that, and using Simpson's rule on the PDF samples that result.
-    ``size``   Uses "approx" if len(x)>10000, or "exact" otherwise.
+    ``size``   Uses "approx" if len(x)>200000, or "exact" otherwise.
     """
     cdef int N = len(x_in)
     if N == 0:
@@ -55,7 +57,7 @@ cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -99
     cdef np.ndarray[DTYPE_t, ndim=1] x = np.asarray(x_in, dtype=DTYPE)
 
     if approx_mode == "size":
-        if N <= 10000:
+        if N <= 200000:
             approx_mode = "exact"
         else:
             approx_mode = "approx"
@@ -72,26 +74,27 @@ cdef double laplace_entropy_array(np.ndarray[DTYPE_t, ndim=1] x, double w=1.0):
     cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t, ndim=1] y = np.sort(x)/w
 
-    cdef np.ndarray[DTYPE_t, ndim=1] e = np.exp(y[:-1]-y[1:])
+    cdef np.ndarray[DTYPE_t, ndim=1] e = np.zeros(N, dtype=DTYPE)
     cdef double stepsize = 1.0/(2*w*N)
     c[0] = stepsize
     for i in range(1,N):
+        e[i-1] = exp(y[i-1]-y[i])
         c[i] = e[i-1]*c[i-1] + stepsize
     d[N-1] = stepsize
     for i in range(N-2, -1, -1):
         d[i] = e[i]*d[i+1] + stepsize
 
-    cdef double H, dp, r, r1, r2, A, B
-    H = w*d[0]*(1-np.log(d[0])) + w*c[N-1]*(1-np.log(c[N-1]))
+    cdef double H, dp, r, r1, e2, A, B
+    H = w*d[0]*(1-log(d[0])) + w*c[N-1]*(1-log(c[N-1]))
     for i in range(N-1):
         dp = d[i+1]*e[i]
-        r = (c[i]/dp)**0.5
+        r = sqrt(c[i]/dp)
         r1 = c[i]/d[i+1]
-        e2 = e[i]**0.5
-        H += 4*w*(c[i]*dp)**0.5*np.arctan((e2-1.0/e2)*r1**0.5/(r1+1.0))
-        H += w*(dp-c[i])*(np.log(c[i]+dp)-1)
+        e2 = sqrt(e[i])
+        H += 4*w*sqrt(c[i]*dp)*atan((e2-1.0/e2)*r1**0.5/(r1+1.0))
+        H += w*(dp-c[i])*(log(c[i]+dp)-1)
         A,B = d[i+1], c[i]*e[i]
-        H -= w*(A-B)*(np.log(A+B)-1)
+        H -= w*(A-B)*(log(A+B)-1)
     return H
 
 
@@ -108,15 +111,20 @@ cdef laplace_entropy_approx(x, w=1.0):
     c,b = np.histogram(x, nbins, [xmin,xmax])
     cdef double db = b[1]-b[0]
     cdef int nx = int(0.5+KERNEL_WIDTH_IN_WS*w/db)
-    kx = np.arange(-nx, nx+1)*db
-    kernel = np.exp(-np.abs(kx/w))
+
+    cdef np.ndarray[DTYPE_t, ndim=1] kernel = np.zeros(2*nx+1)
+    cdef double kx
+    for i in range(2*nx+1):
+        kx = (i-nx)*db
+        kernel[i] = exp(-abs(kx/w))
 
     # kde = unnormalized kernel-density estimator.
     kde = sp.signal.fftconvolve(c, kernel, mode="full")[nx:-nx]
     kde[kde<kernel.min()] = kernel.min()
 
     # p = normalized probability distribution.
-    p = kde/sp.integrate.simps(kde, dx=db, even="first")
+    cdef double norm = 1.0/sp.integrate.simps(kde, dx=db, even="first")
+    p = kde*norm
     return -sp.integrate.simps(p*np.log(p), dx=db, even="first")
 
 
@@ -189,6 +197,7 @@ cpdef double laplace_KL_divergence(x, y, double w=1.0) except? -9999:
     ysorted = np.asarray(np.sort(y)/w, dtype=DTYPE)
     return laplace_KL_divergence_arrays(xsorted, ysorted)
 
+
 cdef double laplace_KL_divergence_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] y):
     nodes, isx = _merge_orderedlists(x, y)
 
@@ -203,7 +212,8 @@ cdef double laplace_KL_divergence_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarr
     cdef np.ndarray[DTYPE_t, ndim=1] c = np.zeros(N, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t, ndim=1] decayfactor = np.zeros(N, dtype=DTYPE)
-    decayfactor[1:] = np.exp(nodes[:-1]-nodes[1:])
+    for i in range(1,N):
+        decayfactor[i] = exp(nodes[i-1]-nodes[i])
 
     cdef double stepX = 1.0/(2*Nx)
     cdef double stepY = 1.0/(2*Ny)
@@ -245,9 +255,9 @@ cdef double laplace_KL_divergence_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarr
 cdef double _antideriv_F(double A, double B, double C, double D) except -9999:
     if A<0 or B<0 or C<0 or D<0:
         raise ValueError
-    r = (D-C)*(np.log(A+B)-1.0)
+    r = (D-C)*(log(A+B)-1.0)
     if A==0:
         return r-2*C
     elif B==0:
         return r+2*D
-    return r - 2*(A*D+B*C)/(A*B)**0.5 * np.arctan((A/B)**0.5)
+    return r - 2*(A*D+B*C)/sqrt(A*B) * atan(sqrt(A/B))
