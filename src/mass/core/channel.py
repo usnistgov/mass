@@ -1677,7 +1677,7 @@ class MicrocalDataSet(object):
                 data[0] = 0
             elif residual:
                 model = self.p_filt_value[pn] * self.average_pulse[:] / np.max(self.average_pulse)
-                data = data-model
+                data -= model
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
 
@@ -1686,10 +1686,10 @@ class MicrocalDataSet(object):
             # When plotting both cut and valid, mark the cut data with x and dashed lines
             if valid_status is None and not cuts_good[i]:
                 cutchar, alpha, linestyle, linewidth = 'X', 1.0, '--', 1
-            color=cm(pulses_plotted*1.0/len(cuts_good))
+            color = cm(pulses_plotted*1.0/len(cuts_good))
             axis.plot(dt, data, color=color,
                       linestyle=linestyle, alpha=alpha, linewidth=linewidth)
-            if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(self.p_pretrig_mean) >= pn:
+            if pulse_summary and pulses_plotted < MAX_TO_SUMMARIZE and len(self.p_pretrig_mean) >= pn:
                 try:
                     summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f" % (
                         cutchar, pn, self.p_pretrig_mean[pn], self.p_pretrig_rms[pn],
@@ -1704,7 +1704,7 @@ class MicrocalDataSet(object):
 
     def read_trace(self, record_num):
         """Read (from cache or disk) and return the pulse numbered `record_num`."""
-        seg_num = record_num / self.pulse_records.pulses_per_seg
+        seg_num = record_num // self.pulse_records.pulses_per_seg
         self.read_segment(seg_num)
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
