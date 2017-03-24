@@ -37,7 +37,7 @@ Joe Fowler, NIST Boulder Labs.  November 2010--
 from ._version import __version__, __version_info__
 from .core import *
 from .calibration import *
-import mathstat
+from .mathstat import *
 
 
 def reload_all():
