@@ -1399,14 +1399,14 @@ class MicrocalDataSet(object):
         median_phase = np.array(median_phase)
 
         # Store the info needed to reconstruct corrections
-        cx = np.vstack([c._x for c in corrections])
-        cy = np.vstack([c._y for c in corrections])
-        if "phase_corrector_x" in self.hdf5_group:
-            del self.hdf5_group["phase_corrector_x"]
-        if "phase_corrector_y" in self.hdf5_group:
-            del self.hdf5_group["phase_corrector_y"]
-        self.hdf5_group.create_dataset("phase_corrector_x", data=cx)
-        self.hdf5_group.create_dataset("phase_corrector_y", data=cy)
+        nc = np.hstack([len(c._x) for c in corrections])
+        cx = np.hstack([c._x for c in corrections])
+        cy = np.hstack([c._y for c in corrections])
+        for name,data in zip(("phase_corrector_x", "phase_corrector_y", "phase_corrector_n"),
+                             (cx, cy, nc)):
+            if name in self.hdf5_group:
+                del self.hdf5_group[name]
+            self.hdf5_group.create_dataset(name, data=data)
 
         NC = len(corrections)
         if NC > 3:
@@ -1449,10 +1449,9 @@ class MicrocalDataSet(object):
         corrected_phase[corrected_phase>0.6] = 0.6
         corrected_phase[corrected_phase<-0.6] = -0.6
 
+        nc = self.hdf5_group["phase_corrector_n"][...]
         cx = self.hdf5_group["phase_corrector_x"][...]
         cy = self.hdf5_group["phase_corrector_y"][...]
-        corrections = [mass.mathstat.interpolate.CubicSpline(x,y) for (x,y) in zip(cx,cy)]
-
         ph = np.hstack([0] + [c(0) for c in corrections])
         assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
         NC = len(corrections)
@@ -1473,6 +1472,15 @@ class MicrocalDataSet(object):
         self.p_filt_value_phc[:] = filtval
         print('Channel %3d phase corrected. MAD-based correction size: %.2f' % (
             self.channum, mass.mathstat.robust.median_abs_dev(filtval[good] -
+        corrections = []
+        idx=0
+        for n in nc:
+            x = cx[idx:idx+n]
+            y = cy[idx:idx+n]
+            idx += n
+            spl = mass.mathstat.interpolate.CubicSpline(x,y)
+            corrections.append(spl)
+
                                                               self.p_filt_value_dc[good], True)))
         self.phase_corrections = corrections
         return corrections
