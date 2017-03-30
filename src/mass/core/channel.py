@@ -1422,26 +1422,6 @@ class MicrocalDataSet(object):
         nc = self.hdf5_group["phase_corrector_n"][...]
         cx = self.hdf5_group["phase_corrector_x"][...]
         cy = self.hdf5_group["phase_corrector_y"][...]
-        ph = np.hstack([0] + [c(0) for c in corrections])
-        assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
-        NC = len(corrections)
-        corr = np.zeros((NC+1, self.nPulses), dtype=float)
-        for i, c in enumerate(corrections):
-            corr[i+1] = c(0) - c(corrected_phase)
-
-        # Now apply the appropriate correction (a linear interp between 2 neighboring values)
-        filtval = self.p_filt_value_dc[:]
-        binnum = np.digitize(filtval, ph)
-        for b in range(NC):
-            # Don't correct binnum=0, which would be negative PH
-            use = (binnum == 1+b)
-            if b+1 == NC: # For the last bin, extrapolate
-                use = (binnum >= 1+b)
-            frac = (filtval[use]-ph[b])/(ph[b+1]-ph[b])
-            filtval[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
-        self.p_filt_value_phc[:] = filtval
-        print('Channel %3d phase corrected. MAD-based correction size: %.2f' % (
-            self.channum, mass.mathstat.robust.median_abs_dev(filtval[good] -
         corrections = []
         idx=0
         for n in nc:
@@ -1451,9 +1431,14 @@ class MicrocalDataSet(object):
             spl = mass.mathstat.interpolate.CubicSpline(x,y)
             corrections.append(spl)
 
+        self.p_filt_value_phc[:] = _phase_corrected_filtvals(corrected_phase, self.p_filt_value_dc, corrections)
+
+        print('Channel %3d phase corrected. Correction size: %.2f' % (
+            self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good] -
                                                               self.p_filt_value_dc[good], True)))
         self.phase_corrections = corrections
         return corrections
+
 
     def first_n_good_pulses(self, n=50000, category=None):
         """
@@ -1882,3 +1867,32 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
     return curve, median_phase
 
 
+
+def _phase_corrected_filtvals(phase, uncorrected, corrections):
+    """Apply phase correction to `uncorrected` and return the corrected
+    vector."""
+    NC = len(corrections)
+    NP = len(phase)
+    assert NP == len(uncorrected)
+    phase = np.asarray(phase)
+    uncorrected = np.asarray(uncorrected)
+
+    ph = np.hstack([0] + [c(0) for c in corrections])
+    assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
+    corr = np.zeros((NC+1, NP), dtype=float)
+    for i, c in enumerate(corrections):
+        corr[i+1] = c(0) - c(phase)
+
+    # Now apply the appropriate correction (a linear interp between 2 neighboring values)
+    corrected = uncorrected.copy()
+    binnum = np.digitize(uncorrected, ph)
+    for b in range(NC):
+        # Don't correct binnum=0, which would be negative PH
+        use = (binnum == 1+b)
+        if b+1 == NC: # For the last bin, extrapolate
+            use = (binnum >= 1+b)
+        if use.sum() == 0:
+            continue
+        frac = (uncorrected[use]-ph[b])/(ph[b+1]-ph[b])
+        corrected[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
+    return corrected
