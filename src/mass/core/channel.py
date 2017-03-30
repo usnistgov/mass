@@ -1334,39 +1334,9 @@ class MicrocalDataSet(object):
         peaks.sort()
         return np.array(binctr[peaks])
 
-    def _phasecorr_find_alignment(self, phase_indicator, pulse_heights, peak, delta_ph, nf=10):
-        phrange = np.array([-delta_ph,delta_ph])+peak
-        use = log_and(np.abs(pulse_heights[:]-peak)<delta_ph,
-            np.abs(phase_indicator)<1)
-        low_phase, median_phase, high_phase = \
-            sp.stats.scoreatpercentile(phase_indicator[use], [1,50,99])
 
-        Pedges = np.linspace(low_phase, high_phase, nf+1)
-        Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
-        dP = 2.0/nf
-        Pbin = np.digitize(phase_indicator, Pedges)-1
-
-        NBINS=200
-        hists=np.zeros((nf, NBINS), dtype=float)
-        for i,P in enumerate(Pctrs):
-            use = Pbin==i
-            c,b = np.histogram(pulse_heights[use], NBINS, phrange)
-            hists[i] = c
-
-        kernel = np.mean(hists, axis=0)[::-1]
-        peaks = np.zeros(nf, dtype=float)
-        for i in range(nf):
-            conv = sp.signal.fftconvolve(kernel, hists[i], 'same')
-            m = conv.argmax()
-            if conv[m] <= 0: continue
-            p = np.poly1d(np.polyfit(b[m-2:m+3], conv[m-2:m+3], 2))
-            peak = p.deriv(m=1).r[0]
-            peaks[i] = peak
-        curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, peaks)
-        return curve, median_phase
-
-    def phase_correct(self, forceNew=False, category=None, ph_peaks=None):
-        """2015 phase correction method. Arguments are:
+    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=True):
+        """2017 or 2015 phase correction method. Arguments are:
         `forceNew`  To repeat computation if it already exists.
         `category`  From the new named/categorical cuts system.
         `ph_peaks`  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
@@ -1392,8 +1362,8 @@ class MicrocalDataSet(object):
         corrections = []
         median_phase = []
         for pk in ph_peaks:
-            c, mphase = self._phasecorr_find_alignment(self.p_filt_phase[good],
-                                self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks))
+            c, mphase = phasecorr_find_alignment(self.p_filt_phase[good],
+                                self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks), method2017=method2017)
             corrections.append(c)
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
@@ -1839,3 +1809,76 @@ class MicrocalDataSet(object):
                                                                          self.nPulses))
         else:
             print("channel %g skipping smart cuts because it was already done" % self.channum)
+
+
+# Below here, these are functions that we might consider moving to Cython for speed.
+# But at any rate, they do not require any MicrocalDataSet attributes, so they are
+# pure functions, not methods.
+
+def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
+                             method2017=True, nf=10):
+    """Find the way to align (flatten) `pulse_heights` as a function of `phase_indicator`
+    working only within the range [peak-delta_ph, peak+delta_ph].
+
+    If `method2017`, then use a scipy LSQUnivariateSpline with a reasonable (?)
+    number of knots. Otherwise, use `nf` bins in `phase_indicator`, shifting each
+    such that its `pulse_heights` histogram best aligns with the overall histogram.
+    `method2017==False` (the 2015 way) is subject to particular problems when
+    there are not a lot of counts in the peak.
+    """
+    phrange = np.array([-delta_ph,delta_ph])+peak
+    use = np.logical_and(np.abs(pulse_heights[:]-peak)<delta_ph,
+        np.abs(phase_indicator)<2)
+    low_phase, median_phase, high_phase = \
+        sp.stats.scoreatpercentile(phase_indicator[use], [3,50,97])
+
+    if method2017:
+        x = phase_indicator[use]
+        y = pulse_heights[use]
+        y = y[x.argsort()]
+        x.sort()
+        nknots = max(2,min(10, len(x)/500))
+        knots = np.linspace(low_phase, high_phase, nknots)
+        weight = delta_ph/np.abs(y-np.median(y))
+        weight[weight>25] = 25
+
+        spl = sp.interpolate.LSQUnivariateSpline(x, y, knots, weight, k=3)
+        curve = mass.mathstat.interpolate.CubicSpline(knots-median_phase, spl.get_coeffs()[1:-1])
+        return curve, median_phase
+
+    Pedges = np.linspace(low_phase, high_phase, nf+1)
+    Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
+    dP = 2.0/nf
+    Pbin = np.digitize(phase_indicator, Pedges)-1
+
+    NBINS = 200
+    hists=np.zeros((nf, NBINS), dtype=float)
+    for i,P in enumerate(Pctrs):
+        use = (Pbin==i)
+        c,b = np.histogram(pulse_heights[use], NBINS, phrange)
+        hists[i] = c
+    bctr = 0.5*(b[1]-b[0])+b[:-1]
+
+    kernel = np.mean(hists, axis=0)[::-1]
+    peaks = np.zeros(nf, dtype=float)
+    for i in range(nf):
+        # Find the PH of this ridge by fitting quadratic to the correlation
+        # of histogram #i and the mean histogram, then finding its local max.
+        conv = sp.signal.fftconvolve(kernel, hists[i], 'same')
+        m = conv.argmax()
+        if conv[m] <= 0: continue
+        p = np.poly1d(np.polyfit(bctr[m-2:m+3], conv[m-2:m+3], 2))
+        # p = np.poly1d(np.polyfit(b[m-2:m+3], conv[m-2:m+3], 2))
+        peak = p.deriv(m=1).r[0]
+        # if peak < bctr[m-2]: peak = bctr[m]
+        # if peak > bctr[m+2]: peak = bctr[m]
+        peaks[i] = peak
+    # use = peaks>0
+    # if use.sum() >= 2:
+    #     curve = mass.mathstat.interpolate.CubicSpline(Pctrs[use]-median_phase, peaks[use])
+    # else:
+    #     curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, np.mean(phrange)+np.zeros_like(Pctrs))
+    curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, peaks)
+    return curve, median_phase
+
+
