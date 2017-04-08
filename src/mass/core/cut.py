@@ -204,12 +204,10 @@ class CutFieldMixin(object):
 
         # categories might be an immutable tuple.
         # duplicated categories are dropped. And original order is intact.
-        # And it converts categories into str(s).
+        # And it converts categories into str(s).%
         category_list = []
         for category in map(str, categories):
-            try:
-                category_list.index(category)
-            except ValueError:
+            if category not in category_list:
                 category_list.append(category)
 
         default = str(default)
