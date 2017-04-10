@@ -2,7 +2,6 @@ import math
 import six
 
 import numpy as np
-from scipy.interpolate import splev
 
 
 class ConstantFunction(object):
@@ -21,27 +20,6 @@ class ConstantFunction(object):
 
     def __repr__(self):
         return str(self.v)
-
-
-# class CubicSplineFunction:
-#     def __init__(self, knots, coeffs, der=0):
-#         self.knots = knots
-#         self.coeffs = coeffs
-#         self.der = der
-#
-#     def derivative(self, der=1):
-#         if self.der + der > 3:
-#             return ConstantFunction(0)
-#         return CubicSplineFunction(self.knots, self.coeffs, der=self.der + der)
-#
-#     def __call__(self, x, der=0):
-#         if self.der + der > 3:
-#             return np.zeros_like(x)
-#
-#         return splev(x, (self.knots, self.coeffs, 3), der=self.der + der)
-#
-#     def __repr__(self):
-#         return "CubicSpline" + ("".join(["\""] * self.der)) + "(x)"
 
 
 class PowerFunction(object):
@@ -84,7 +62,7 @@ class LogFunction(object):
 
     def __call__(self, x, der=0):
         if der == 0:
-            return np.log(x)
+            return np.log(np.clip(x, 1e-6, None))
         else:
             return PowerFunction(-1)(x, der=der - 1)
         # return math.factorial(der - 1) * np.power(-1, der + 1) / np.power(x, der)
@@ -118,13 +96,19 @@ class ExprMeta(type):
             a, b = args[:2]
             if isinstance(a, ConstantFunction):
                 return a
+            elif isinstance(a, Identity):
+                return b
             elif isinstance(b, ConstantFunction):
                 return ConstantFunction(a(b.v))
+            elif isinstance(b, Identity):
+                return a
         elif cls is Multiplication:
             a, b = args[:2]
             if isinstance(a, ConstantFunction) and isinstance(b, ConstantFunction):
                 return ConstantFunction(a.v * b.v)
 
+            # Because of the following statement,
+            # if a is not a Constant function, then b is not a Constant function either.
             if isinstance(b, ConstantFunction):
                 a, b = b, a
 
@@ -136,6 +120,21 @@ class ExprMeta(type):
                 else:
                     if isinstance(b, Multiplication) and isinstance(b.g, ConstantFunction):
                         return Multiplication(ConstantFunction(a.v * b.g.v), b.h)
+            if isinstance(a, PowerFunction):
+                if isinstance(b, PowerFunction):
+                    return PowerFunction(a.n + b.n)
+                elif isinstance(b, Multiplication) and isinstance(b.h, PowerFunction):
+                    return Multiplication(b.g, PowerFunction(a.n + b.h.n))
+
+            if isinstance(a, Multiplication) and isinstance(a.g, ConstantFunction):
+                if isinstance(b, Multiplication) and isinstance(b.g, ConstantFunction):
+                    return Multiplication(ConstantFunction(a.g.v * b.g.v), Multiplication(a.h, b.h))
+
+            if isinstance(a, Multiplication) and isinstance(a.h, PowerFunction):
+                if isinstance(b, PowerFunction):
+                    return Multiplication(a.g, PowerFunction(a.h.n + b.n))
+                elif isinstance(b, Multiplication) and isinstance(b.h, PowerFunction):
+                    return Multiplication(Multiplication(a.g, b.g), PowerFunction(a.h.n + b.h.n))
 
         return type.__call__(cls, *args, **kwarg)
 
