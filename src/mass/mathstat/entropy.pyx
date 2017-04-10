@@ -303,7 +303,8 @@ cdef double _antideriv_F(double A, double B, double C, double D) except -9999:
     return r - 2*(A*D+B*C)/sqrt(A*B) * atan(sqrt(A/B))
 
 
-cdef laplace_cross_entropy_approx(x, y, w=1.0):
+cdef laplace_cross_entropy_approx(np.ndarray[DTYPE_t, ndim=1] x,
+                                  np.ndarray[DTYPE_t, ndim=1] y, double w=1.0):
     """Approximate the cross-entropy with a binned histogram and the Laplace-distribution
     kernel-density estimator of the probability distribtion."""
     cdef double EXTEND_DATA = 5*w

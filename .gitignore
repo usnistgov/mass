@@ -24,6 +24,8 @@ TAGS
 *.hdf5
 *.h5
 
-# Cython produces C source files
+# Cython produces C source files and can produce HTML
 src/mass/core/*.c
+src/mass/core/*.html
 src/mass/mathstat/*.c
+src/mass/mathstat/*.html

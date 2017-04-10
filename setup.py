@@ -41,7 +41,7 @@ class QtBuilder(basic_build):
             fp = open(py_file, 'w')
             uic.compileUi(ui_file, fp, indent=4)
             fp.close()
-            print("compiled", ui_file, "into", py_file)
+            print("Compiled '%s' into '%s'"%(ui_file, py_file))
         except Exception as e:
             print('Unable to compile user interface', e)
             return
@@ -98,5 +98,6 @@ if __name__ == "__main__":
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
                         },
+          cmdclass={'build': QtBuilder},
           package_dir={'':'src'}
           )

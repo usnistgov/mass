@@ -1,5 +1,10 @@
 ## Note on version numbers of Mass
 
+* **0.5.3** March-April 2017
+Joe added entropy, cross-entropy, and Kullback-Leibler divergence computation
+on distributions assuming a Laplace kernel-density estimator. Also, bug fixes.
+Added a new, tentative "method2017" for phase correction.
+
 * **0.5.2** February 2017
 Young is working on some things.
 Joe added LJH modifier. Deprecated ROOT file format handler.

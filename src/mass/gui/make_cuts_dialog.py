@@ -34,7 +34,7 @@ except ImportError:
     import PyQt4.uic
     path,_ = os.path.split(__file__)
     ui_filename = os.path.join(path, "make_cuts_dialog_form.ui")
-    Ui_MakeCuts, _load_data_dialog_baseclass = PyQt4.uic.loadUiType(ui_filename)
+    Ui_Dialog, _load_data_dialog_baseclass = PyQt4.uic.loadUiType(ui_filename)
 
 
 
