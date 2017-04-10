@@ -1335,11 +1335,13 @@ class MicrocalDataSet(object):
         return np.array(binctr[peaks])
 
 
-    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=True):
+    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=False,
+                      kernel_width=None):
         """2017 or 2015 phase correction method. Arguments are:
         `forceNew`  To repeat computation if it already exists.
         `category`  From the new named/categorical cuts system.
         `ph_peaks`  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
+        `kernel_width` Width (in PH units) of the kernel-smearing function. If None, use a heuristic.
         """
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
         if not (forceNew or doesnt_exist):
@@ -1361,9 +1363,12 @@ class MicrocalDataSet(object):
         # Compute a correction function at each line in ph_peaks
         corrections = []
         median_phase = []
+        if kernel_width is None:
+            kernel_width = np.max(ph_peaks)/1000.0
         for pk in ph_peaks:
             c, mphase = phasecorr_find_alignment(self.p_filt_phase[good],
-                                self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks), method2017=method2017)
+                                self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks),
+                                method2017=method2017, kernel_width=kernel_width)
             corrections.append(c)
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
@@ -1384,10 +1389,10 @@ class MicrocalDataSet(object):
         else:
             # Too few peaks to spline, so just bin and take the median per bin, then
             # interpolated (approximating) spline through/near these points.
-            NBINS=40
+            NBINS=10
             dc = self.p_filt_value_dc[good]
             ph = self.p_filt_phase[good]
-            top = min(dc.max(), 1.5*sp.stats.scoreatpercentile(dc, 95))
+            top = min(dc.max(), 1.2*sp.stats.scoreatpercentile(dc, 98))
             bin = np.digitize(dc, np.linspace(0, top, 1+NBINS))-1
             x = np.zeros(NBINS, dtype=float)
             y = np.zeros(NBINS, dtype=float)
@@ -1801,7 +1806,7 @@ class MicrocalDataSet(object):
 # pure functions, not methods.
 
 def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
-                             method2017=True, nf=10):
+                             method2017=False, nf=10, kernel_width=2.0):
     """Find the way to align (flatten) `pulse_heights` as a function of `phase_indicator`
     working only within the range [peak-delta_ph, peak+delta_ph].
 
@@ -1820,17 +1825,55 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
     if method2017:
         x = phase_indicator[use]
         y = pulse_heights[use]
-        y = y[x.argsort()]
-        x.sort()
-        nknots = max(2,min(10, len(x)/500))
-        knots = np.linspace(low_phase, high_phase, nknots)
-        weight = delta_ph/np.abs(y-np.median(y))
-        weight[weight>25] = 25
+        NBINS = len(x) // 300
+        if NBINS<2: NBINS=2
+        if NBINS>12: NBINS=12
 
-        spl = sp.interpolate.LSQUnivariateSpline(x, y, knots, weight, k=3)
-        curve = mass.mathstat.interpolate.CubicSpline(knots-median_phase, spl.get_coeffs()[1:-1])
+        bin_edge = np.linspace(low_phase, high_phase, NBINS+1)
+        dx = high_phase-low_phase
+        bin_edge[0] -= dx
+        bin_edge[-1] += dx
+        bins = np.digitize(x, bin_edge)-1
+
+        knots = np.zeros(NBINS, dtype=float)
+        yknot = np.zeros(NBINS, dtype=float)
+        iter1 = 0
+        for i in range(NBINS):
+            yu = y[bins == i]
+            yo = y[bins != i]
+            knots[i] = np.median(x[bins==i])
+            f = lambda shift: mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
+            brack = 0.002*np.array([-1,1], dtype=float)
+            sbest, KLbest, niter, _ = sp.optimize.brent(f, (), brack=brack, full_output=True, tol=3e-4)
+            # print ("Best KL-div is %7.4f at s[%d]=%.4f after %2d iterations"%(KLbest, i, sbest, niter))
+            iter1 += niter
+            yknot[i] = sbest
+
+        yknot -= yknot.mean()
+        correction1 = mass.CubicSpline(knots, yknot)
+        ycorr = y + correction1(x)
+
+        iter2 = 0
+        yknot2 = np.zeros(NBINS, dtype=float)
+        for i in range(NBINS):
+            yu = ycorr[bins == i]
+            yo = ycorr[bins != i]
+            f = lambda shift: mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
+            brack = 0.002*np.array([-1,1], dtype=float)
+            sbest, KLbest, niter, _ = sp.optimize.brent(f, (), brack=brack, full_output=True, tol=1e-4)
+            iter2 += niter
+            yknot2[i] = sbest
+        correction = mass.CubicSpline(knots, yknot+yknot2)
+        H0 = mass.mathstat.entropy.laplace_entropy(y, kernel_width)
+        H1 = mass.mathstat.entropy.laplace_entropy(ycorr, kernel_width)
+        H2 = mass.mathstat.entropy.laplace_entropy(y+correction(x), kernel_width)
+        print("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)"%(H0, H1, H2, iter1, iter2, NBINS))
+
+        curve = mass.CubicSpline(knots-median_phase, peak-(yknot+yknot2))
         return curve, median_phase
 
+    # Below here is "method2015", in which we perform correlations and fit to quadratics.
+    # It is basically unsuitable for small statistics, so it is no longer preferred.
     Pedges = np.linspace(low_phase, high_phase, nf+1)
     Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
     dP = 2.0/nf
