@@ -926,7 +926,11 @@ class MicrocalDataSet(object):
 
     def compute_newfilter(self, fmax=None, f_3db=None, transform=None, DEGREE = 1):
         data, pulsenums = self.first_n_good_pulses(1000)
-        end = len(pulsenums)
+
+        # The raw training data, which is shifted (trigger-aligned)
+        raw = data[:, 1:]
+        shift1 = self.p_shift1[:][pulsenums]
+        raw[shift1, :] = data[shift1, 0:-1]
 
         # Center promptness around 0, using a simple function of Prms
         prompt = self.p_promptness[:][pulsenums]
@@ -945,10 +949,6 @@ class MicrocalDataSet(object):
         ATime = np.poly1d(param)(prompt)
         use = np.logical_and(use, np.abs(ATime)<0.45)
 
-        # The raw training data
-        raw = data[:, 1:]
-        shift1 = self.p_shift1[:][pulsenums]
-        raw[shift1, :] = data[shift1, 0:-1]
         ptm = self.p_pretrig_mean[:][pulsenums]
         ptm.shape = (len(pulsenums), 1)
         raw = (raw-ptm)[use,:]
@@ -1454,18 +1454,20 @@ class MicrocalDataSet(object):
         if we  did load all of ds.data at once, this would be roughly equivalent to
         return ds.data[ds.cuts.good()][:n], np.nonzero(ds.cuts.good())[0][:n]
         """
-        first, end = self.read_segment(0)
         if category is None:
             category = {"calibration": "in"}
         g = self.cuts.good(**category)
+
+        first, end = self.read_segment(0)
         data = self.data[g[first:end]]
         for j in range(1, self.pulse_records.n_segments):
-            first, end = self.read_segment(j)
-            data = np.vstack((data, self.data[g[first:end], :]))
             if data.shape[0] > n:
                 break
+            first, end = self.read_segment(j)
+            data = np.vstack((data, self.data[g[first:end], :]))
         nrecords = np.amin([n, data.shape[0]])
         return data[:nrecords], np.nonzero(g)[0][:nrecords]
+
 
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha',
                           nbins=200, verbose=True, plot=True, **kwargs):
