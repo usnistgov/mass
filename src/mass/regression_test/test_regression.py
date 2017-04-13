@@ -85,5 +85,14 @@ class TestSummaries(ut.TestCase):
         nt.assert_allclose(self.data.datasets[0].p_filt_value, self.d['p_filt_value'])
         nt.assert_allclose(self.data.datasets[0].p_filt_value_dc, self.d['p_filt_value_dc'])
 
+    def test_peak_time(self):
+        """Be sure that peak_time_microsec=89.0 comes out to the same answers"""
+        ds = self.data.datasets[0]
+        ppd1 = ds.p_postpeak_deriv[:]
+        ds.summarize_data(forceNew=True, peak_time_microsec=89.0)
+        ppd2 = ds.p_postpeak_deriv[:]
+        ds.summarize_data(forceNew=True, peak_time_microsec=None)
+        nt.assert_allclose(ppd1, ppd2)
+
 if __name__ == '__main__':
     ut.main()
