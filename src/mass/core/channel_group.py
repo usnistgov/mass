@@ -1344,16 +1344,11 @@ def _sort_filenames_numerically(fnames, inclusion_list=None):
     """
     if fnames is None or len(fnames) == 0:
         return None
-    chan2fname = {}
-    for name in fnames:
-        channum = _extract_channum(name)
-        if inclusion_list is not None and channum not in inclusion_list:
-            continue
-        chan2fname[channum] = name
-    sorted_chan = list(chan2fname.keys())
-    sorted_chan.sort()
-    sorted_fnames = [chan2fname[key] for key in sorted_chan]
-    return sorted_fnames
+
+    if inclusion_list is not None:
+        fnames = filter(lambda n: _extract_channum(n) in inclusion_list, fnames)
+
+    return sorted(fnames, key=_extract_channum)
 
 
 def _glob_expand(pattern):

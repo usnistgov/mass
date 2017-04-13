@@ -666,7 +666,7 @@ class MicrocalDataSet(object):
                                                     peak=modelpeak)
             else:
                 self.filter = Filter(self.average_pulse[...],
-                                     self.tes_group.nPresamples - self.pretrigger_ignore_samples,
+                                     self.nPresamples - self.pretrigger_ignore_samples,
                                      self.noise_psd[...],
                                      self.noise_autocorr, sample_time=self.timebase,
                                      fmax=fmax, f_3db=f_3db,
