@@ -1,17 +1,13 @@
 import numpy as np
 import pylab as pl
 import glob, os
-import mass
 import unittest as ut
+import numpy.testing as nt
+
+import mass
 import mass.core.channel_group as mcg
 from mass.core.files import *
 
-import numpy as np
-import pylab as pl
-import glob, os
-import mass
-import unittest as ut
-import numpy.testing as nt
 
 ljhdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),"..","regression_test")
 
@@ -30,7 +26,7 @@ def process_file(prefix, cuts, do_filter=True):
         os.remove(fl)
 
     data = mass.TESGroup(pulse_files, noise_files)
-    data.summarize_data(peak_time_microsec=600.0, forceNew=True)
+    data.summarize_data(forceNew=True)
 
     for ds in data:
         ds.clear_cuts()

@@ -27,7 +27,7 @@ def process_file(prefix, cuts, do_filter=True):
         os.remove(fl)
 
     data = mass.TESGroup(pulse_files, noise_files)
-    data.summarize_data(peak_time_microsec=600.0, forceNew=True)
+    data.summarize_data(forceNew=True)
 
     for ds in data:
         ds.clear_cuts()

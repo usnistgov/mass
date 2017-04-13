@@ -495,8 +495,8 @@ class TESGroup(CutFieldMixin):
                                   forceNew=forceNew, use_cython=use_cython)
                 yield (i + 1.0) / nchan
                 self.hdf5_file.flush()
-            except:
-                self.set_chan_bad(ds.channum, "summarize_data")
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "summarize_data failed with %s"%e)
 
     def calc_external_trigger_timing(self, after_last=False, until_next=False, from_nearest=False, forceNew=False):
         if not (after_last or until_next or from_nearest):
