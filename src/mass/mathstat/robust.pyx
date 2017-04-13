@@ -525,6 +525,7 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
     cdef long long[:] left
     cdef long long[:] right
     cdef double[:] per_row_value
+    cdef long ia, ib, imiddle
 
     trial_column = np.zeros(n-1, dtype=np.int64)
     left = np.zeros(n-1, dtype=np.int64)

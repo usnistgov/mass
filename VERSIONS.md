@@ -1,4 +1,12 @@
 ## Note on version numbers of Mass
+* **0.6.0** April 2017
+Fixing a number of outstanding problems (issues 88-95 at least). Fixed problems
+in new-style filtering. Removed requirement that user specify a peak time.
+
+* **0.5.3** March-April 2017
+Joe added entropy, cross-entropy, and Kullback-Leibler divergence computation
+on distributions assuming a Laplace kernel-density estimator. Also, bug fixes.
+Added a new, tentative "method2017" for phase correction.
 
 * **0.5.2** February 2017
 Young is working on some things.
