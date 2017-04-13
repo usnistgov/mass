@@ -767,8 +767,13 @@ class MicrocalDataSet(object):
         c.cuts = self.cuts.copy()
         return c
 
+    def _compute_peak_samplenumber(self):
+        peak_idx = self.data.argmax(axis=1)
+        self.peak_samplenumber = sp.stats.mode(peak_idx)[0][0]
+
     @show_progress("channel.summarize_data_tdm")
-    def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None, forceNew=False):
+    def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
+                       forceNew=False, use_cython=True):
         """Summarize the complete data set one chunk at a time.
         """
         # Don't proceed if not necessary and not forced
@@ -789,15 +794,19 @@ class MicrocalDataSet(object):
             self.peak_samplenumber = None
         else:
             self.peak_samplenumber = int(peak_time_microsec*1e-6/self.timebase)
-        if pretrigger_ignore_samples is None:
+        if pretrigger_ignore_microsec is None:
             self.pretrigger_ignore_samples = 3
         else:
-            self.pretrigger_ignore_samples = int(peak_time_microsec*1e-6/self.timebase)
+            self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
 
         for segnum in range(self.pulse_records.n_segments):
-            self._summarize_data_segment(segnum)
-            yield (segnum+1) / float(self.pulse_records.n_segments)
+            if use_cython:
+                self._summarize_data_segment(segnum)
+            else:
+                MicrocalDataSet._summarize_data_segment(self, segnum)
+            yield (segnum+1.0) / self.pulse_records.n_segments
         self.pulse_records.datafile.clear_cached_segment()
+        self.clear_cache()
         self.hdf5_group.file.flush()
 
     def _summarize_data_segment(self, segnum):
@@ -814,8 +823,7 @@ class MicrocalDataSet(object):
         # Don't look for retriggers before this # of samples. Use the most common
         # value of the peak index in the currently-loaded segment.
         if self.peak_samplenumber is None:
-            peak_idx = self.data.argmax(axis=1)
-            self.peak_samplenumber = sp.stats.mode(peak_idx)[0][0]
+            self._compute_peak_samplenumber()
 
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
