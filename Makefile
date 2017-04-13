@@ -5,7 +5,8 @@
 
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
-PYFILES = mass/*.py mass/*/*.py
+PYFILES = `find . -name "*.py"`
+CYFILES = `find . -name "*.pyx"`
 
 .PHONY: lint archive  build install clean test report_install_location
 
@@ -20,15 +21,11 @@ clean:
 	rm -f `find . -name "*.pyc"`
 
 test:
-	@for dir in `find . -type d -name test`; do \
-	    for pyfile in `find $${dir} -name "*.py"`; do \
-	    	python $${pyfile}; \
-	    done; \
-	done
+	python runtests.py
 
 archive: $(TARGET_ZIP)
 
-$(TARGET_ZIP): $(PYFILES) Makefile
+$(TARGET_ZIP): $(PYFILES) $(CYFILES) Makefile
 	python setup.py sdist --format=gztar,zip
 
 lint: lint-report.txt
