@@ -569,9 +569,8 @@ class MicrocalDataSet(object):
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename', 'virtual data set')
         self.gain = 1.0
-        self.pretrigger_ignore_microsec = None  # Cut this long before trigger in computing pretrig values
-        self.pretrigger_ignore_samples = 0
-        self.peak_time_microsec = None   # Look for retriggers only after this time.
+        self.pretrigger_ignore_samples = 0  # Cut this long before trigger in computing pretrig values
+        self.peak_samplenumber = None   # Look for retriggers only after this time.
         self.index = None   # Index in the larger TESGroup or CDMGroup object
         self.last_used_calibration = None
 
@@ -793,7 +792,7 @@ class MicrocalDataSet(object):
         if peak_time_microsec is None:
             self.peak_samplenumber = None
         else:
-            self.peak_samplenumber = int(peak_time_microsec*1e-6/self.timebase)
+            self.peak_samplenumber = 2+self.nPresamples+int(peak_time_microsec*1e-6/self.timebase)
         if pretrigger_ignore_microsec is None:
             self.pretrigger_ignore_samples = 3
         else:
