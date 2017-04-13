@@ -61,7 +61,9 @@ class TESGroupHDF5(channel_group.TESGroup):
                              "filename":"from HDF5 file: "+self.hdf5_file.filename}
             dset_list.append(channel.MicrocalDataSet(pulserec_dict, tes_group=self, hdf5_group=grp))
 
-        self.datasets = tuple(dset_list)
+        # Sort datasets by channel number
+        dataset_key = lambda ds: ds.channum
+        self.datasets = tuple(sorted(dset_list, key=dataset_key))
         self._bad_channums = {}
         self.fix_timestamps()
         self.n_channels = len(dset_list)
