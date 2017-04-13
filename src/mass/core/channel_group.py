@@ -483,18 +483,17 @@ class TESGroup(CutFieldMixin):
             yield first_rnum, end_rnum
 
     @show_progress("summarize_data")
-    def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0,
+    def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        include_badchan=False, forceNew=False, use_cython=True):
-        """Compute summary quantities for each pulse.
-        We are (July 2014) developing a Julia replacement for this, but you can use Python
-        if you wish.
-        """
+        """Compute summary quantities for each pulse."""
         nchan = float(len(self.channel.keys())) if include_badchan else float(self.num_good_channels)
 
         for i, ds in enumerate(self.iter_channels(include_badchan)):
             try:
-                ds.summarize_data(peak_time_microsec, pretrigger_ignore_microsec, forceNew, use_cython=use_cython)
-                yield (i + 1) / nchan
+                ds.summarize_data(peak_time_microsec=peak_time_microsec,
+                                  pretrigger_ignore_microsec=pretrigger_ignore_microsec,
+                                  forceNew=forceNew, use_cython=use_cython)
+                yield (i + 1.0) / nchan
                 self.hdf5_file.flush()
             except:
                 self.set_chan_bad(ds.channum, "summarize_data")
@@ -926,7 +925,7 @@ class TESGroup(CutFieldMixin):
             raise ValueError("First channel must be less than %d" % self.n_channels)
         nplot = min(end - first, 16)
         for i, ds in enumerate(self.datasets[first:first + nplot]):
-            ax1 = plt.subplot(nplot/2, 2, 1 + i)
+            ax1 = plt.subplot(nplot//2, 2, 1 + i)
             ax1.set_title("chan %d signal" % ds.channum)
             for ax in (ax1, ):
                 ax.set_xlim([0, self.nSamples])
@@ -956,7 +955,7 @@ class TESGroup(CutFieldMixin):
 
         for i, ds in enumerate(self.iter_channels(include_badchan)):
             ds.filter_data(filter_name, transform, forceNew, use_cython=use_cython)
-            yield (i+1) / nchan
+            yield (i+1.0) / nchan
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
         """

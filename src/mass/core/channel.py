@@ -768,7 +768,7 @@ class MicrocalDataSet(object):
         return c
 
     @show_progress("channel.summarize_data_tdm")
-    def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
+    def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None, forceNew=False):
         """Summarize the complete data set one chunk at a time.
         """
         # Don't proceed if not necessary and not forced
@@ -784,33 +784,38 @@ class MicrocalDataSet(object):
 
         if len(self.p_timestamp) < self.pulse_records.nPulses:
             self.__setup_vectors(npulses=self.pulse_records.nPulses)  # make sure vectors are setup correctly
-        self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
-        self._peakidx = None
 
-        for s in range(self.pulse_records.n_segments):
-            first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
-            self._summarize_data_segment(first, end, peak_time_microsec, pretrigger_ignore_microsec)
-            yield (s+1) / float(self.pulse_records.n_segments)
+        if peak_time_microsec is None:
+            self.peak_samplenumber = None
+        else:
+            self.peak_samplenumber = int(peak_time_microsec*1e-6/self.timebase)
+        if pretrigger_ignore_samples is None:
+            self.pretrigger_ignore_samples = 3
+        else:
+            self.pretrigger_ignore_samples = int(peak_time_microsec*1e-6/self.timebase)
+
+        for segnum in range(self.pulse_records.n_segments):
+            self._summarize_data_segment(segnum)
+            yield (segnum+1) / float(self.pulse_records.n_segments)
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
-    def _summarize_data_segment(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0):
-        """Summarize the complete data file
-        summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0)
-        peak_time_microsec is used when calculating max dp/dt after trigger
-
-        """
-        self.peak_time_microsec = peak_time_microsec
-        self.pretrigger_ignore_microsec = pretrigger_ignore_microsec
+    def _summarize_data_segment(self, segnum):
+        """Summarize one segment of the data file, loading it into cache."""
+        first, end = self.read_segment(segnum)  # this reloads self.data to contain new pulses
         if first >= self.nPulses:
             return
         if end > self.nPulses:
             end = self.nPulses
+
         if len(self.p_timestamp) <= 0:
             self.__setup_vectors(npulses=self.nPulses)
 
-        maxderiv_holdoff = int(self.peak_time_microsec*1e-6/self.timebase)  # don't look for retriggers before this # of samples
-        self.pretrigger_ignore_samples = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
+        # Don't look for retriggers before this # of samples. Use the most common
+        # value of the peak index in the currently-loaded segment.
+        if self.peak_samplenumber is None:
+            peak_idx = self.data.argmax(axis=1)
+            self.peak_samplenumber = sp.stats.mode(peak_idx)[0][0]
 
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
@@ -836,9 +841,7 @@ class MicrocalDataSet(object):
                   4.3*self.p_pretrig_rms[first:end])
         self.p_shift1[first:end] = shift1
 
-        if self._peakidx is None:
-            self._peakidx = np.median(self.p_peak_index[first:end])
-        halfidx = (self.nPresamples+5+self._peakidx)/2
+        halfidx = (self.nPresamples+5+self.peak_samplenumber)//2
         pkval = self.p_peak_value[first:end]
         prompt = (self.data[:seg_size, self.nPresamples+5:halfidx].mean(axis=1)
                   - ptm) / pkval
@@ -853,7 +856,7 @@ class MicrocalDataSet(object):
 
         self.p_postpeak_deriv[first:end] = \
             mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
-                                                            ignore_leading=self.nPresamples+maxderiv_holdoff)
+                                                            ignore_leading=self.peak_samplenumber)
 
     @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
@@ -1320,7 +1323,7 @@ class MicrocalDataSet(object):
         # A peak must contain 0.5% of the data or 500 events, whichever is more,
         # but the requirement is not more than 5% of data (for meager data sets)
         Ntotal = len(phnorm)
-        MinCountsInPeak = min(max(500, Ntotal/200), Ntotal/20)
+        MinCountsInPeak = min(max(500, Ntotal//200), Ntotal//20)
         pk2 = pk1[hist[pk1]>MinCountsInPeak]
 
         # Now take peaks from highest to lowest, provided they are at least 40 bins from any neighbor
