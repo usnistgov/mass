@@ -593,6 +593,7 @@ class MicrocalDataSet(object):
             self.hdf5_group = None
 
         self.__setup_vectors(npulses=self.nPulses)
+        self.__load_cals_from_hdf5()
 
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
@@ -678,6 +679,17 @@ class MicrocalDataSet(object):
 
         grp = self.hdf5_group.require_group('cuts')
         self.cuts = Cuts(self.nPulses, self.tes_group, hdf5_group=grp)
+
+    def __load_cals_from_hdf5(self,overwrite=False):
+        """__load_cals_from_hdf5(self,overwrite=False)
+        Load all calibraitons in self.hdf5_group["calibration"] into the dictionary
+        self.calibration"""
+        hdf5_cal_group = self.hdf5_group.require_group('calibration')
+        for k in hdf5_cal_group.keys():
+            if not overwrite:
+                if k in self.calibration.keys():
+                    raise ValueError("trying to load over existing calibration, consider passting overwrite=True")
+            self.calibration[k] = EnergyCalibration.load_from_hdf5(hdf5_cal_group, k)
 
     @property
     def p_peak_time(self):
