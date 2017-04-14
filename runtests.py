@@ -8,6 +8,11 @@ import os
 import os.path as path
 import re
 import subprocess
+import logging
+
+# Raise the logging threshold, to reduce extraneous output during tests
+LOG = logging.getLogger("mass")
+LOG.setLevel(logging.WARNING)
 
 VERBOSE=False
 # search mass and all subdirs for files matching "test_*.py"
