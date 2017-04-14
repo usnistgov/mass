@@ -26,7 +26,8 @@ from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
 
 from mass.core import ljh_util
-
+import logging
+LOG = logging.getLogger("mass")
 
 def log_and(a, b, *args):
     """Generalize np.logical_and() to 2 OR MORE arguments."""
@@ -1189,7 +1190,8 @@ class MicrocalDataSet(object):
         else:
             print("chan %d skipping compute_noise_spectra because already done" % self.channum)
 
-    def apply_cuts(self, controls=None, clear=False, verbose=1, forceNew=True):
+
+    def apply_cuts(self, controls=None, clear=False, forceNew=True):
         """
         <clear>  Whether to clear previous cuts first (by default, do not clear).
         <verbose> How much to print to screen.  Level 1 (default) counts all pulses good/bad/total.
@@ -1199,7 +1201,7 @@ class MicrocalDataSet(object):
             return  # don't bother current if there are no pulses
         if not forceNew:
             if self.cuts.good().sum() != self.nPulses:
-                print("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses" %
+                LOG.info("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses" %
                       (self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
 
         if clear:
@@ -1226,13 +1228,11 @@ class MicrocalDataSet(object):
                                     c['timestamp_diff_sec'], 'timestamp_diff_sec')
         if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum() > 0:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
-            if verbose > 1:
-                print('applying cut on pretrigger mean around its median value of ', median)
+            LOG.debug('applying cut on pretrigger mean around its median value of ', median)
             self.cuts.cut_parameter(self.p_pretrig_mean-median,
                                     c['pretrigger_mean_departure_from_median'],
                                     'pretrigger_mean_departure_from_median')
-        if verbose > 0:
-            print("Chan %d after cuts, %d are good, %d are bad of %d total pulses" % (
+        LOG.info("Chan %d after cuts, %d are good, %d are bad of %d total pulses" % (
                 self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
 
     def clear_cuts(self):

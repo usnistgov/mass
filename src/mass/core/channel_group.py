@@ -40,9 +40,8 @@ from mass.core.cut import CutFieldMixin
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater, show_progress
 
-
-class FilterCanvas(object):
-    pass
+import logging
+LOG = logging.getLogger("mass")
 
 
 def _generate_hdf5_filename(rawname):
@@ -206,9 +205,9 @@ class TESGroup(CutFieldMixin):
         for i, fname in enumerate(self.filenames):
             # Create the pulse records file interface and the overall MicrocalDataSet
             pulse = PulseRecords(fname)
-            print("%s %i" % (fname, pulse.nPulses))
+            LOG.info("%s %i" % (fname, pulse.nPulses))
             if pulse.nPulses == 0:
-                print("TESGroup is skipping a file that has zero pulses: %s" % fname)
+                LOG.info("TESGroup is skipping a file that has zero pulses: %s" % fname)
                 continue  # don't load files with zero pulses
 
             hdf5_group = self.hdf5_file.require_group("chan%d" % pulse.channum)
