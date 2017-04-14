@@ -498,7 +498,7 @@ class MultiLorentzianComplexFitter(LineFitter):
         retval = _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
         if any(np.isnan(retval)) or any(retval<0):
             raise ValueError
-        return
+        return retval
 
     def stepsize(self, params):
         """Vector of the parameter step sizes for finding discrete gradient."""
