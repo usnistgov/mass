@@ -6,6 +6,7 @@ Created on Jun 9, 2014
 import functools
 import time
 import sys
+import logging
 
 
 class MouseClickReader(object):
@@ -47,8 +48,11 @@ class InlineUpdater(object):
         self.minElapseTimeForCalc = 1.0
         self.startTime = time.time()
         self.baseString = baseString
+        self.logger = logging.getLogger("mass")
 
     def update(self, fracDone):
+        if self.logger.getEffectiveLevel() >= logging.WARNING:
+            return
         self.fracDone = fracDone
         sys.stdout.write('\r' + self.baseString +
                          ' %.1f%% done, estimated %s left' % (self.fracDone * 100.0, self.timeRemainingStr))
