@@ -66,6 +66,12 @@ class LineFitter(object):
         self.tailtau = 25
         # Whether pulse heights are necessarily non-negative.
         self.phscale_positive = True
+        self.penalty_function = None
+
+    def set_penalty(self, penalty):
+        """Set a regularizer, or penalty function, for the fitter. For its requirements,
+        see MaximumLikelihoodHistogramFitter.set_penalty()."""
+        self.penalty_function = penalty
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None,
             color=None, label=True, vary_resolution=True, vary_bg=True,
@@ -141,6 +147,9 @@ class LineFitter(object):
 
         for h in self.hold:
             fitter.hold(h)
+
+        if self.penalty_function is not None:
+            fitter.set_penalty(self.penalty_function)
 
         fitparams, covariance = fitter.fit(verbose=verbose)
 
@@ -333,6 +342,9 @@ class NVoigtFitter(LineFitter):
         <x>       An array of pulse heights (params will scale them to energy).
         Returns:  The line complex intensity, including resolution smearing.
         """
+        x = np.asarray(x)
+        if len(x.shape) == 0:
+            x = x.reshape(1)
         P_gaussfwhm = params[0]
         P_amplitude = 1.0 # overall scale factor covered by the individual Lorentzians
         P_bg, P_bgslope, P_tailfrac, P_tailtau = params[-4:]
@@ -690,6 +702,12 @@ class CuKAlphaFitter(GenericKAlphaFitter):
         GenericKAlphaFitter.__init__(self, lines.CuKAlpha())
 
 
+class ZnKAlphaFitter(GenericKAlphaFitter):
+
+    def __init__(self):
+        GenericKAlphaFitter.__init__(self, lines.ZnKAlpha())
+
+
 class TiKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
@@ -736,3 +754,9 @@ class CuKBetaFitter(GenericKBetaFitter):
 
     def __init__(self):
         GenericKBetaFitter.__init__(self, lines.CuKBeta())
+
+
+class ZnKBetaFitter(GenericKBetaFitter):
+
+    def __init__(self):
+        GenericKBetaFitter.__init__(self, lines.ZnKBeta())

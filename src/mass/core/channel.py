@@ -4,7 +4,6 @@ Created on Feb 16, 2011
 @author: fowlerj
 """
 
-from os import path
 from functools import reduce
 
 try:
@@ -15,6 +14,7 @@ except ImportError:
 import h5py
 import numpy as np
 import scipy as sp
+import scipy.signal
 import matplotlib.pylab as plt
 
 # MASS modules
@@ -24,12 +24,11 @@ import mass.mathstat.robust
 import mass.core.analysis_algorithms
 
 from mass.core.cut import Cuts
-from mass.core.files import VirtualFile, LJHFile, LANLFile
-from mass.core.optimal_filtering import Filter
-from mass.core.utilities import InlineUpdater
+from mass.core.files import VirtualFile, LJHFile
+from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
+from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
-# from mass.calibration import young
 
 from mass.core import ljh_util
 
@@ -46,7 +45,7 @@ class NoiseRecords(object):
     """
     DEFAULT_MAXSEGMENTSIZE = 32000000
 
-    ALLOWED_TYPES = ("ljh", "root", "virtual")
+    ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, records_are_continuous=False, use_records=None,
                  maxsegmentsize=None, hdf5_group=None):
@@ -89,8 +88,6 @@ class NoiseRecords(object):
         if file_format is None:
             if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
-            elif filename.endswith("root"):
-                file_format = "root"
             elif filename.endswith("ljh"):
                 file_format = "ljh"
             else:
@@ -100,8 +97,6 @@ class NoiseRecords(object):
 
         if file_format == "ljh":
             self.datafile = LJHFile(filename, segmentsize=self.maxsegmentsize)
-        elif file_format == "root":
-            self.datafile = LANLFile(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
@@ -438,7 +433,7 @@ class PulseRecords(object):
     was not exactly the case).
     """
 
-    ALLOWED_TYPES = ("ljh", "root", "virtual")
+    ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, file_format=None):
         self.nSamples = 0
@@ -467,8 +462,6 @@ class PulseRecords(object):
         if file_format is None:
             if isinstance(filename, VirtualFile):
                 file_format = 'virtual'
-            elif filename.endswith("root"):
-                file_format = "root"
             elif filename.endswith("ljh"):
                 file_format = "ljh"
             else:
@@ -478,8 +471,6 @@ class PulseRecords(object):
 
         if file_format == "ljh":
             self.datafile = LJHFile(filename)
-        elif file_format == "root":
-            self.datafile = LANLFile(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
@@ -578,9 +569,8 @@ class MicrocalDataSet(object):
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename', 'virtual data set')
         self.gain = 1.0
-        self.pretrigger_ignore_microsec = None  # Cut this long before trigger in computing pretrig values
-        self.pretrigger_ignore_samples = 0
-        self.peak_time_microsec = None   # Look for retriggers only after this time.
+        self.pretrigger_ignore_samples = 0  # Cut this long before trigger in computing pretrig values
+        self.peak_samplenumber = None   # Look for retriggers only after this time.
         self.index = None   # Index in the larger TESGroup or CDMGroup object
         self.last_used_calibration = None
 
@@ -594,7 +584,7 @@ class MicrocalDataSet(object):
         self.column_number = None
 
         self._external_trigger_rowcount = None
-        self._use_new_filters = False
+        self._use_new_filters = True
 
         self.row_timebase = None
 
@@ -657,17 +647,32 @@ class MicrocalDataSet(object):
             fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
             f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
             shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
+            if "newfilter" in filter_group.attrs:
+                newfilter = filter_group.attrs["newfilter"]
+            else:
+                newfilter = "filt_aterms" in filter_group.keys()
+            self._use_new_filters = newfilter
 
-            self.filter = Filter(self.average_pulse[...],
-                                 self.tes_group.nPresamples - self.pretrigger_ignore_samples,
-                                 self.noise_psd[...],
-                                 self.noise_autocorr, sample_time=self.timebase,
-                                 fmax=fmax,
-                                 f_3db=f_3db,
-                                 shorten=shorten)
+            if newfilter:
+                aterms = filter_group["filt_aterms"][:]
+                model = np.vstack([self.average_pulse[1:], aterms]).T
+                modelpeak = np.max(self.average_pulse)
+                self.filter = ArrivalTimeSafeFilter(model,
+                                                    self.tes_group.nPresamples - self.pretrigger_ignore_samples,
+                                                    self.noise_autocorr,
+                                                    fmax=fmax, f_3db=f_3db,
+                                                    sample_time=self.timebase,
+                                                    peak=modelpeak)
+            else:
+                self.filter = Filter(self.average_pulse[...],
+                                     self.nPresamples - self.pretrigger_ignore_samples,
+                                     self.noise_psd[...],
+                                     self.noise_autocorr, sample_time=self.timebase,
+                                     fmax=fmax, f_3db=f_3db,
+                                     shorten=shorten)
 
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
-                      "filt_baseline", "filt_baseline_pretrig"]:
+                      "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
                 if k in filter_group:
                     filter_ds = filter_group[k]
                     setattr(self.filter, k, filter_ds[...])
@@ -731,6 +736,9 @@ class MicrocalDataSet(object):
     def __repr__(self):
         return "%s('%s')" % (self.__class__.__name__, self.filename)
 
+    def updater(self, name):
+        return self.tes_group.updater(name + " chan {0:d}".format(self.channum))
+
     def good(self, *args, **kwargs):
         """Return a boolean vector, one per pulse record, saying whether record is good"""
         return self.cuts.good(*args, **kwargs)
@@ -758,7 +766,13 @@ class MicrocalDataSet(object):
         c.cuts = self.cuts.copy()
         return c
 
-    def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
+    def _compute_peak_samplenumber(self):
+        peak_idx = self.data.argmax(axis=1)
+        self.peak_samplenumber = sp.stats.mode(peak_idx)[0][0]
+
+    @show_progress("channel.summarize_data_tdm")
+    def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
+                       forceNew=False, use_cython=True):
         """Summarize the complete data set one chunk at a time.
         """
         # Don't proceed if not necessary and not forced
@@ -774,34 +788,41 @@ class MicrocalDataSet(object):
 
         if len(self.p_timestamp) < self.pulse_records.nPulses:
             self.__setup_vectors(npulses=self.pulse_records.nPulses)  # make sure vectors are setup correctly
-        self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
-        self._peakidx = None
 
-        printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
-        for s in range(self.pulse_records.n_segments):
-            first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
-            self._summarize_data_segment(first, end, peak_time_microsec, pretrigger_ignore_microsec)
-            printUpdater.update((s+1)/float(self.pulse_records.n_segments))
+        if peak_time_microsec is None:
+            self.peak_samplenumber = None
+        else:
+            self.peak_samplenumber = 2+self.nPresamples+int(peak_time_microsec*1e-6/self.timebase)
+        if pretrigger_ignore_microsec is None:
+            self.pretrigger_ignore_samples = 3
+        else:
+            self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
+
+        for segnum in range(self.pulse_records.n_segments):
+            if use_cython:
+                self._summarize_data_segment(segnum)
+            else:
+                MicrocalDataSet._summarize_data_segment(self, segnum)
+            yield (segnum+1.0) / self.pulse_records.n_segments
         self.pulse_records.datafile.clear_cached_segment()
+        self.clear_cache()
         self.hdf5_group.file.flush()
 
-    def _summarize_data_segment(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0):
-        """Summarize the complete data file
-        summarize_data(self, first, end, peak_time_microsec=220.0, pretrigger_ignore_microsec = 20.0)
-        peak_time_microsec is used when calculating max dp/dt after trigger
-
-        """
-        self.peak_time_microsec = peak_time_microsec
-        self.pretrigger_ignore_microsec = pretrigger_ignore_microsec
+    def _summarize_data_segment(self, segnum):
+        """Summarize one segment of the data file, loading it into cache."""
+        first, end = self.read_segment(segnum)  # this reloads self.data to contain new pulses
         if first >= self.nPulses:
             return
         if end > self.nPulses:
             end = self.nPulses
+
         if len(self.p_timestamp) <= 0:
             self.__setup_vectors(npulses=self.nPulses)
 
-        maxderiv_holdoff = int(self.peak_time_microsec*1e-6/self.timebase)  # don't look for retriggers before this # of samples
-        self.pretrigger_ignore_samples = int(self.pretrigger_ignore_microsec*1e-6/self.timebase)
+        # Don't look for retriggers before this # of samples. Use the most common
+        # value of the peak index in the currently-loaded segment.
+        if self.peak_samplenumber is None:
+            self._compute_peak_samplenumber()
 
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
@@ -827,9 +848,7 @@ class MicrocalDataSet(object):
                   4.3*self.p_pretrig_rms[first:end])
         self.p_shift1[first:end] = shift1
 
-        if self._peakidx is None:
-            self._peakidx = np.median(self.p_peak_index[first:end])
-        halfidx = (self.nPresamples+5+self._peakidx)/2
+        halfidx = (self.nPresamples+5+self.peak_samplenumber)//2
         pkval = self.p_peak_value[first:end]
         prompt = (self.data[:seg_size, self.nPresamples+5:halfidx].mean(axis=1)
                   - ptm) / pkval
@@ -844,8 +863,9 @@ class MicrocalDataSet(object):
 
         self.p_postpeak_deriv[first:end] = \
             mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
-                                                            ignore_leading=self.nPresamples+maxderiv_holdoff)
+                                                            ignore_leading=self.peak_samplenumber)
 
+    @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
         """Compute the average pulse this channel.
 
@@ -877,12 +897,11 @@ class MicrocalDataSet(object):
             if mask[a:b].any():
                 segment_mask[i] = True
 
-        printUpdater = InlineUpdater('compute_average_pulse chan %d' % self.channum)
         for iseg in range(nseg):
             if not segment_mask[iseg]:
                 continue
             first, end = self.read_segment(iseg)
-            printUpdater.update(end / float(self.nPulses))
+            yield end / float(self.nPulses)
             valid = mask[first:end]
 
             if mask.shape != (self.nPulses,):
@@ -917,7 +936,11 @@ class MicrocalDataSet(object):
 
     def compute_newfilter(self, fmax=None, f_3db=None, transform=None, DEGREE = 1):
         data, pulsenums = self.first_n_good_pulses(1000)
-        end = len(pulsenums)
+
+        # The raw training data, which is shifted (trigger-aligned)
+        raw = data[:, 1:]
+        shift1 = self.p_shift1[:][pulsenums]
+        raw[shift1, :] = data[shift1, 0:-1]
 
         # Center promptness around 0, using a simple function of Prms
         prompt = self.p_promptness[:][pulsenums]
@@ -936,10 +959,6 @@ class MicrocalDataSet(object):
         ATime = np.poly1d(param)(prompt)
         use = np.logical_and(use, np.abs(ATime)<0.45)
 
-        # The raw training data
-        raw = data[:, 1:]
-        shift1 = self.p_shift1[:][pulsenums]
-        raw[shift1, :] = data[shift1, 0:-1]
         ptm = self.p_pretrig_mean[:][pulsenums]
         ptm.shape = (len(pulsenums), 1)
         raw = (raw-ptm)[use,:]
@@ -952,22 +971,37 @@ class MicrocalDataSet(object):
         NBINS = 9
         bins = np.digitize(ATime, np.linspace(ATime.min(), ATime.max(), NBINS+1))-1
 
+        # Are all bins populated with at least 5 pulses?
+        valid_bins = []
+        for i in range(NBINS):
+            if (bins==i).sum() >= 5:
+                valid_bins.append(i)
+        valid_bins = np.array(valid_bins)
+
+        # Are there enough populated bins to use DEGREE?
+        n_valid = len(valid_bins)
+        if n_valid < 2:
+            raise RuntimeError("Only %d valid arrival-time bins were found in compute_newfilter"%n_valid)
+        if n_valid <= DEGREE:
+            DEGREE = n_valid-1
+
         model = np.zeros((self.nSamples-1, 1+DEGREE), dtype=float)
         for s in range(self.nPresamples+2, self.nSamples-1):
-            y = raw[:,s]/rawscale
-            xmed = [np.median(ATime[bins==i]) for i in range(NBINS)]
-            ymed = [np.median(y[bins==i]) for i in range(NBINS)]
+            y = raw[:, s]/rawscale
+            xmed = [np.median(ATime[bins == i]) for i in valid_bins]
+            ymed = [np.median(y[bins == i]) for i in valid_bins]
             fit = np.polyfit(xmed, ymed, DEGREE)
-            model[s,:] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
+            model[s, :] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
 
+        modelpeak = np.median(rawscale)
         self.pulsemodel = model
-        ATSF = mass.optimal_filtering.ArrivalTimeSafeFilter
-        f = ATSF(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
-                 f_3db=f_3db, sample_time=self.timebase)
+        f = ArrivalTimeSafeFilter(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
+                                  f_3db=f_3db, sample_time=self.timebase, peak=modelpeak)
         f.compute(fmax=fmax, f_3db=f_3db)
         self.filter = f
         return f
 
+    @show_progress("channel.filter_data_tdm")
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
         """Filter the complete data file one chunk at a time.
         """
@@ -979,7 +1013,7 @@ class MicrocalDataSet(object):
             filter_values = self.filter.__dict__[filter_name]
         else:
             filter_values = self.hdf5_group['filters/%s' % filter_name].value
-        printUpdater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
+
         if self._use_new_filters:
             filterfunction = self._filter_data_segment_new
             filter_AT = self.filter.filt_aterms[0]
@@ -992,7 +1026,7 @@ class MicrocalDataSet(object):
             (self.p_filt_phase[first:end],
              self.p_filt_value[first:end]) = \
                 filterfunction(filter_values, filter_AT, first, end, transform)
-            printUpdater.update((end+1)/float(self.nPulses))
+            yield (end+1)/float(self.nPulses)
 
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
@@ -1110,11 +1144,16 @@ class MicrocalDataSet(object):
             (self.p_pulse_average, 'Pulse Avg', 'purple', None),
             (self.p_peak_value, 'Peak value', 'blue', None),
             (self.p_pretrig_rms, 'Pretrig RMS', 'green', [0, 4000]),
-            (self.p_pretrig_mean, 'Pretrig Mean', '#88cc00', None),
+            (self.p_pretrig_mean, 'Pretrig Mean', '#00ff26', None),
             (self.p_postpeak_deriv, 'Max PostPk deriv', 'gold', [0, 700]),
             (self.p_rise_time[:]*1e3, 'Rise time (ms)', 'orange', [0, 12]),
             (self.p_peak_time[:]*1e3, 'Peak time (ms)', 'red', [-3, 9])
         )
+
+        # Plot timeseries with 0 = the last 00 UT during or before the run.
+        last_record = np.max(self.p_timestamp)
+        last_midnight = last_record - (last_record%86400)
+        hour_offset = last_midnight/3600.
 
         plt.clf()
         for i, (vect, label, color, limits) in enumerate(plottables):
@@ -1124,7 +1163,9 @@ class MicrocalDataSet(object):
             plt.ylabel(label)
             if valid is not None:
                 vect = vect[valid]
-            plt.plot(hour, vect[::downsample], '.', ms=1, color=color)
+            plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
+            if i == len(plottables) - 1:
+                plt.xlabel("Time since last UT midnight (hours)")
 
             # Histogram (right-hand panels)
             plt.subplot(len(plottables), 2, 2+i*2)
@@ -1215,11 +1256,15 @@ class MicrocalDataSet(object):
         indicator = self.p_pretrig_mean[g]
         drift_corr_param, self.drift_correct_info = \
             mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
+        self.p_filt_value_dc.attrs.update(self.drift_correct_info) # Store in hdf5 file
         print('chan %d best drift correction parameter: %.6f' % (self.channum, drift_corr_param))
+        self._apply_drift_correction()
 
+    def _apply_drift_correction(self):
         # Apply correction
-        ptm_offset = self.drift_correct_info['median_pretrig_mean']
-        gain = 1+(self.p_pretrig_mean[:]-ptm_offset)*drift_corr_param
+        assert self.p_filt_value_dc.attrs["type"] == "ptmean_gain"
+        ptm_offset = self.p_filt_value_dc.attrs["median_pretrig_mean"]
+        gain = 1+(self.p_pretrig_mean[:]-ptm_offset)*self.p_filt_value_dc.attrs["slope"]
         self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
         self.hdf5_group.file.flush()
 
@@ -1285,7 +1330,7 @@ class MicrocalDataSet(object):
         # A peak must contain 0.5% of the data or 500 events, whichever is more,
         # but the requirement is not more than 5% of data (for meager data sets)
         Ntotal = len(phnorm)
-        MinCountsInPeak = min(max(500, Ntotal/200), Ntotal/20)
+        MinCountsInPeak = min(max(500, Ntotal//200), Ntotal//20)
         pk2 = pk1[hist[pk1]>MinCountsInPeak]
 
         # Now take peaks from highest to lowest, provided they are at least 40 bins from any neighbor
@@ -1299,42 +1344,14 @@ class MicrocalDataSet(object):
         peaks.sort()
         return np.array(binctr[peaks])
 
-    def _phasecorr_find_alignment(self, phase_indicator, pulse_heights, peak, delta_ph, nf=10):
-        phrange = np.array([-delta_ph,delta_ph])+peak
-        use = log_and(np.abs(pulse_heights[:]-peak)<delta_ph,
-            np.abs(phase_indicator)<1)
-        low_phase, median_phase, high_phase = \
-            sp.stats.scoreatpercentile(phase_indicator[use], [1,50,99])
 
-        Pedges = np.linspace(low_phase, high_phase, nf+1)
-        Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
-        dP = 2.0/nf
-        Pbin = np.digitize(phase_indicator, Pedges)-1
-
-        NBINS=200
-        hists=np.zeros((nf, NBINS), dtype=float)
-        for i,P in enumerate(Pctrs):
-            use = Pbin==i
-            c,b = np.histogram(pulse_heights[use], NBINS, phrange)
-            hists[i] = c
-
-        kernel = np.mean(hists, axis=0)[::-1]
-        peaks = np.zeros(nf, dtype=float)
-        for i in range(nf):
-            conv = sp.signal.fftconvolve(kernel, hists[i], 'same')
-            m = conv.argmax()
-            if conv[m] <= 0: continue
-            p = np.poly1d(np.polyfit(b[m-2:m+3], conv[m-2:m+3], 2))
-            peak = p.deriv(m=1).r[0]
-            peaks[i] = peak
-        curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, peaks)
-        return curve, median_phase
-
-    def phase_correct(self, forceNew=False, category=None, ph_peaks=None):
-        """2015 phase correction method. Arguments are:
-        forceNew  To repeat computation if it already exists.
-        category  From the new named/categorical cuts system.
-        ph_peaks  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
+    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=False,
+                      kernel_width=None):
+        """2017 or 2015 phase correction method. Arguments are:
+        `forceNew`  To repeat computation if it already exists.
+        `category`  From the new named/categorical cuts system.
+        `ph_peaks`  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
+        `kernel_width` Width (in PH units) of the kernel-smearing function. If None, use a heuristic.
         """
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
         if not (forceNew or doesnt_exist):
@@ -1356,22 +1373,36 @@ class MicrocalDataSet(object):
         # Compute a correction function at each line in ph_peaks
         corrections = []
         median_phase = []
+        if kernel_width is None:
+            kernel_width = np.max(ph_peaks)/1000.0
         for pk in ph_peaks:
-            c, mphase = self._phasecorr_find_alignment(self.p_filt_phase[good],
-                                self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks))
+            c, mphase = phasecorr_find_alignment(self.p_filt_phase[good],
+                                self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks),
+                                method2017=method2017, kernel_width=kernel_width)
             corrections.append(c)
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
+
+        # Store the info needed to reconstruct corrections
+        nc = np.hstack([len(c._x) for c in corrections])
+        cx = np.hstack([c._x for c in corrections])
+        cy = np.hstack([c._y for c in corrections])
+        for name,data in zip(("phase_corrector_x", "phase_corrector_y", "phase_corrector_n"),
+                             (cx, cy, nc)):
+            if name in self.hdf5_group:
+                del self.hdf5_group[name]
+            self.hdf5_group.create_dataset(name, data=data)
+
         NC = len(corrections)
         if NC > 3:
             phase_corrector = mass.mathstat.interpolate.CubicSpline(ph_peaks, median_phase)
         else:
             # Too few peaks to spline, so just bin and take the median per bin, then
             # interpolated (approximating) spline through/near these points.
-            NBINS=40
+            NBINS=10
             dc = self.p_filt_value_dc[good]
             ph = self.p_filt_phase[good]
-            top = min(dc.max(), 1.5*sp.stats.scoreatpercentile(dc, 95))
+            top = min(dc.max(), 1.2*sp.stats.scoreatpercentile(dc, 98))
             bin = np.digitize(dc, np.linspace(0, top, 1+NBINS))-1
             x = np.zeros(NBINS, dtype=float)
             y = np.zeros(NBINS, dtype=float)
@@ -1390,34 +1421,39 @@ class MicrocalDataSet(object):
             crazy_spline = sp.interpolate.UnivariateSpline(x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5))
             phase_corrector = mass.mathstat.interpolate.CubicSpline(crazy_spline._data[0], crazy_spline._data[1])
         self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
+        return self._apply_phase_correction(category=category)
+
+    def _apply_phase_correction(self, category=None):
+        if category is None:
+            category = {"calibration": "in"}
+        good = self.cuts.good(**category)
 
         # Compute a correction for each pulse for each correction-line energy
         # For the actual correction, don't let |ph| > 0.6 sample
         corrected_phase = self.p_filt_phase_corr[:]
         corrected_phase[corrected_phase>0.6] = 0.6
         corrected_phase[corrected_phase<-0.6] = -0.6
-        ph = np.hstack([0] + [c(0) for c in corrections])
-        assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
-        corr = np.zeros((NC+1, self.nPulses), dtype=float)
-        for i, c in enumerate(corrections):
-            corr[i+1] = c(0) - c(corrected_phase)
 
-        # Now apply the appropriate correction (a linear interp between 2 neighboring values)
-        filtval = self.p_filt_value_dc[:]
-        binnum = np.digitize(filtval, ph)
-        for b in range(NC):
-            # Don't correct binnum=0, which would be negative PH
-            use = (binnum == 1+b)
-            if b+1 == NC: # For the last bin, extrapolate
-                use = (binnum >= 1+b)
-            frac = (filtval[use]-ph[b])/(ph[b+1]-ph[b])
-            filtval[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
-        self.p_filt_value_phc[:] = filtval
-        print('Channel %3d phase corrected. MAD-based correction size: %.2f' % (
-            self.channum, mass.mathstat.robust.median_abs_dev(filtval[good] -
+        nc = self.hdf5_group["phase_corrector_n"][...]
+        cx = self.hdf5_group["phase_corrector_x"][...]
+        cy = self.hdf5_group["phase_corrector_y"][...]
+        corrections = []
+        idx=0
+        for n in nc:
+            x = cx[idx:idx+n]
+            y = cy[idx:idx+n]
+            idx += n
+            spl = mass.mathstat.interpolate.CubicSpline(x,y)
+            corrections.append(spl)
+
+        self.p_filt_value_phc[:] = _phase_corrected_filtvals(corrected_phase, self.p_filt_value_dc, corrections)
+
+        print('Channel %3d phase corrected. Correction size: %.2f' % (
+            self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good] -
                                                               self.p_filt_value_dc[good], True)))
         self.phase_corrections = corrections
         return corrections
+
 
     def first_n_good_pulses(self, n=50000, category=None):
         """
@@ -1428,18 +1464,20 @@ class MicrocalDataSet(object):
         if we  did load all of ds.data at once, this would be roughly equivalent to
         return ds.data[ds.cuts.good()][:n], np.nonzero(ds.cuts.good())[0][:n]
         """
-        first, end = self.read_segment(0)
         if category is None:
             category = {"calibration": "in"}
         g = self.cuts.good(**category)
+
+        first, end = self.read_segment(0)
         data = self.data[g[first:end]]
         for j in range(1, self.pulse_records.n_segments):
-            first, end = self.read_segment(j)
-            data = np.vstack((data, self.data[g[first:end], :]))
             if data.shape[0] > n:
                 break
+            first, end = self.read_segment(j)
+            data = np.vstack((data, self.data[g[first:end], :]))
         nrecords = np.amin([n, data.shape[0]])
         return data[:nrecords], np.nonzero(g)[0][:nrecords]
+
 
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha',
                           nbins=200, verbose=True, plot=True, **kwargs):
@@ -1504,38 +1542,41 @@ class MicrocalDataSet(object):
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3,
-                  param_adjust_closure=None):
-            calname = attr+name_ext
+                  param_adjust_closure=None, diagnose=False):
+        calname = attr+name_ext
 
-            if not forceNew and calname in self.calibration:
-                return self.calibration[calname]
+        if not forceNew and calname in self.calibration:
+            return self.calibration[calname]
 
-            print("Calibrating chan %d to create %s" % (self.channum, calname))
-            cal = EnergyCalibration()
-            cal.set_use_approximation(False)
+        print("Calibrating chan %d to create %s" % (self.channum, calname))
+        cal = EnergyCalibration()
+        cal.set_use_approximation(False)
 
-            if category is None:
-                category = {"calibration": "in"}
+        if category is None:
+            category = {"calibration": "in"}
 
-            # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
-            auto_cal = EnergyCalibrationAutocal(cal,
-                                                getattr(self, attr)[self.cuts.good(**category)],
-                                                line_names)
-            auto_cal.guess_fit_params(smoothing_res_ph=size_related_to_energy_resolution,
-                                      fit_range_ev=fit_range_ev,
-                                      binsize_ev=bin_size_ev,
-                                      nextra=nextra, maxacc=maxacc)
-            if param_adjust_closure:
-                param_adjust_closure(self, auto_cal)
-            auto_cal.fit_lines()
+        # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
+        auto_cal = EnergyCalibrationAutocal(cal,
+                                            getattr(self, attr)[self.cuts.good(**category)],
+                                            line_names)
+        auto_cal.guess_fit_params(smoothing_res_ph=size_related_to_energy_resolution,
+                                  fit_range_ev=fit_range_ev,
+                                  binsize_ev=bin_size_ev,
+                                  nextra=nextra, maxacc=maxacc)
+        if param_adjust_closure:
+            param_adjust_closure(self, auto_cal)
+        auto_cal.fit_lines()
 
-            if auto_cal.anyfailed:
-                print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
-                raise Exception()
+        if auto_cal.anyfailed:
+            print("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
+            raise Exception()
 
-            self.calibration[calname] = cal
-            hdf5_cal_group = self.hdf5_group.require_group('calibration')
-            cal.save_to_hdf5(hdf5_cal_group, calname)
+        self.calibration[calname] = cal
+        hdf5_cal_group = self.hdf5_group.require_group('calibration')
+        cal.save_to_hdf5(hdf5_cal_group, calname)
+
+        if diagnose:
+            auto_cal.diagnose()
 
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
@@ -1616,7 +1657,7 @@ class MicrocalDataSet(object):
                 data[0] = 0
             elif residual:
                 model = self.p_filt_value[pn] * self.average_pulse[:] / np.max(self.average_pulse)
-                data = data-model
+                data -= model
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
 
@@ -1625,10 +1666,10 @@ class MicrocalDataSet(object):
             # When plotting both cut and valid, mark the cut data with x and dashed lines
             if valid_status is None and not cuts_good[i]:
                 cutchar, alpha, linestyle, linewidth = 'X', 1.0, '--', 1
-            color=cm(pulses_plotted*1.0/len(cuts_good))
+            color = cm(pulses_plotted*1.0/len(cuts_good))
             axis.plot(dt, data, color=color,
                       linestyle=linestyle, alpha=alpha, linewidth=linewidth)
-            if pulse_summary and pulses_plotted<MAX_TO_SUMMARIZE and len(self.p_pretrig_mean) >= pn:
+            if pulse_summary and pulses_plotted < MAX_TO_SUMMARIZE and len(self.p_pretrig_mean) >= pn:
                 try:
                     summary = "%s%6d: %5.0f %7.2f %6.1f %5.0f %5.0f %7.1f" % (
                         cutchar, pn, self.p_pretrig_mean[pn], self.p_pretrig_rms[pn],
@@ -1642,12 +1683,8 @@ class MicrocalDataSet(object):
                           transform=axis.transAxes, ha='right')
 
     def read_trace(self, record_num):
-        """Read (from cache or disk) and return the pulse numbered <record_num> for
-        dataset number <dataset_num> or channel number <chan_num>.
-        If both are given, then <chan_num> will be used when valid.
-        If this is a CDMGroup, then the pulse is the demodulated
-        channel by that number."""
-        seg_num = record_num / self.pulse_records.pulses_per_seg
+        """Read (from cache or disk) and return the pulse numbered `record_num`."""
+        seg_num = record_num // self.pulse_records.pulses_per_seg
         self.read_segment(seg_num)
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
@@ -1774,3 +1811,143 @@ class MicrocalDataSet(object):
                                                                          self.nPulses))
         else:
             print("channel %g skipping smart cuts because it was already done" % self.channum)
+
+
+# Below here, these are functions that we might consider moving to Cython for speed.
+# But at any rate, they do not require any MicrocalDataSet attributes, so they are
+# pure functions, not methods.
+
+def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
+                             method2017=False, nf=10, kernel_width=2.0):
+    """Find the way to align (flatten) `pulse_heights` as a function of `phase_indicator`
+    working only within the range [peak-delta_ph, peak+delta_ph].
+
+    If `method2017`, then use a scipy LSQUnivariateSpline with a reasonable (?)
+    number of knots. Otherwise, use `nf` bins in `phase_indicator`, shifting each
+    such that its `pulse_heights` histogram best aligns with the overall histogram.
+    `method2017==False` (the 2015 way) is subject to particular problems when
+    there are not a lot of counts in the peak.
+    """
+    phrange = np.array([-delta_ph,delta_ph])+peak
+    use = np.logical_and(np.abs(pulse_heights[:]-peak)<delta_ph,
+        np.abs(phase_indicator)<2)
+    low_phase, median_phase, high_phase = \
+        sp.stats.scoreatpercentile(phase_indicator[use], [3,50,97])
+
+    if method2017:
+        x = phase_indicator[use]
+        y = pulse_heights[use]
+        NBINS = len(x) // 300
+        if NBINS<2: NBINS=2
+        if NBINS>12: NBINS=12
+
+        bin_edge = np.linspace(low_phase, high_phase, NBINS+1)
+        dx = high_phase-low_phase
+        bin_edge[0] -= dx
+        bin_edge[-1] += dx
+        bins = np.digitize(x, bin_edge)-1
+
+        knots = np.zeros(NBINS, dtype=float)
+        yknot = np.zeros(NBINS, dtype=float)
+        iter1 = 0
+        for i in range(NBINS):
+            yu = y[bins == i]
+            yo = y[bins != i]
+            knots[i] = np.median(x[bins==i])
+            f = lambda shift: mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
+            brack = 0.002*np.array([-1,1], dtype=float)
+            sbest, KLbest, niter, _ = sp.optimize.brent(f, (), brack=brack, full_output=True, tol=3e-4)
+            # print ("Best KL-div is %7.4f at s[%d]=%.4f after %2d iterations"%(KLbest, i, sbest, niter))
+            iter1 += niter
+            yknot[i] = sbest
+
+        yknot -= yknot.mean()
+        correction1 = mass.CubicSpline(knots, yknot)
+        ycorr = y + correction1(x)
+
+        iter2 = 0
+        yknot2 = np.zeros(NBINS, dtype=float)
+        for i in range(NBINS):
+            yu = ycorr[bins == i]
+            yo = ycorr[bins != i]
+            f = lambda shift: mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
+            brack = 0.002*np.array([-1,1], dtype=float)
+            sbest, KLbest, niter, _ = sp.optimize.brent(f, (), brack=brack, full_output=True, tol=1e-4)
+            iter2 += niter
+            yknot2[i] = sbest
+        correction = mass.CubicSpline(knots, yknot+yknot2)
+        H0 = mass.mathstat.entropy.laplace_entropy(y, kernel_width)
+        H1 = mass.mathstat.entropy.laplace_entropy(ycorr, kernel_width)
+        H2 = mass.mathstat.entropy.laplace_entropy(y+correction(x), kernel_width)
+        print("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)"%(H0, H1, H2, iter1, iter2, NBINS))
+
+        curve = mass.CubicSpline(knots-median_phase, peak-(yknot+yknot2))
+        return curve, median_phase
+
+    # Below here is "method2015", in which we perform correlations and fit to quadratics.
+    # It is basically unsuitable for small statistics, so it is no longer preferred.
+    Pedges = np.linspace(low_phase, high_phase, nf+1)
+    Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
+    dP = 2.0/nf
+    Pbin = np.digitize(phase_indicator, Pedges)-1
+
+    NBINS = 200
+    hists=np.zeros((nf, NBINS), dtype=float)
+    for i,P in enumerate(Pctrs):
+        use = (Pbin==i)
+        c,b = np.histogram(pulse_heights[use], NBINS, phrange)
+        hists[i] = c
+    bctr = 0.5*(b[1]-b[0])+b[:-1]
+
+    kernel = np.mean(hists, axis=0)[::-1]
+    peaks = np.zeros(nf, dtype=float)
+    for i in range(nf):
+        # Find the PH of this ridge by fitting quadratic to the correlation
+        # of histogram #i and the mean histogram, then finding its local max.
+        conv = sp.signal.fftconvolve(kernel, hists[i], 'same')
+        m = conv.argmax()
+        if conv[m] <= 0: continue
+        p = np.poly1d(np.polyfit(bctr[m-2:m+3], conv[m-2:m+3], 2))
+        # p = np.poly1d(np.polyfit(b[m-2:m+3], conv[m-2:m+3], 2))
+        peak = p.deriv(m=1).r[0]
+        # if peak < bctr[m-2]: peak = bctr[m]
+        # if peak > bctr[m+2]: peak = bctr[m]
+        peaks[i] = peak
+    # use = peaks>0
+    # if use.sum() >= 2:
+    #     curve = mass.mathstat.interpolate.CubicSpline(Pctrs[use]-median_phase, peaks[use])
+    # else:
+    #     curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, np.mean(phrange)+np.zeros_like(Pctrs))
+    curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, peaks)
+    return curve, median_phase
+
+
+
+def _phase_corrected_filtvals(phase, uncorrected, corrections):
+    """Apply phase correction to `uncorrected` and return the corrected
+    vector."""
+    NC = len(corrections)
+    NP = len(phase)
+    assert NP == len(uncorrected)
+    phase = np.asarray(phase)
+    uncorrected = np.asarray(uncorrected)
+
+    ph = np.hstack([0] + [c(0) for c in corrections])
+    assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
+    corr = np.zeros((NC+1, NP), dtype=float)
+    for i, c in enumerate(corrections):
+        corr[i+1] = c(0) - c(phase)
+
+    # Now apply the appropriate correction (a linear interp between 2 neighboring values)
+    corrected = uncorrected.copy()
+    binnum = np.digitize(uncorrected, ph)
+    for b in range(NC):
+        # Don't correct binnum=0, which would be negative PH
+        use = (binnum == 1+b)
+        if b+1 == NC: # For the last bin, extrapolate
+            use = (binnum >= 1+b)
+        if use.sum() == 0:
+            continue
+        frac = (uncorrected[use]-ph[b])/(ph[b+1]-ph[b])
+        corrected[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
+    return corrected

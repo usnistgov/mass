@@ -18,10 +18,10 @@ import operator
 
 
 def message(m):
-    """Print a usage message but only if environment "DEBUG"==1."""
-    if os.environ.get('DEBUG', '1') == '1':
+    """Print a usage message but only if environment "DEBUG" exists and ==1."""
+    if os.environ.get('DEBUG', '0') == '1':
         print(m)
-    
+
 
 class PrmDictBase(object):
     """
@@ -52,7 +52,7 @@ class PrmDictBase(object):
     value of prm, or any number (float, int, complex) if
     the previous value prm was any number.
     """
-    
+
     def __init__(self):
         # dicts whose keys are fixed (non-extensible):
         self._prm_list = []     # fill in subclass
@@ -69,7 +69,7 @@ class PrmDictBase(object):
         names = [attr for attr in self.__dict__ if \
                  re.search(r'^[^_].*_prm$', attr)]
         return names
-                
+
     def usage_set(self, verbose = 0):
         """Print the name of parameters that can be set."""
         prm_dict_names = self._prm_dict_names()
@@ -97,14 +97,14 @@ class PrmDictBase(object):
             keys.sort(lambda a, b: cmp(a.lower(), b.lower()))
             for prm in keys:
                 print('%s = %s' % (prm, d[prm]))
-        
+
     def set(self, **kwargs):
         """Set kwargs data in parameter dictionaries."""
         # print usage message if no arguments:
         if len(kwargs) == 0:
             self.usage_set()
             return
-        
+
         for prm in kwargs:
             set = False
             for d in self._prm_list:
@@ -170,7 +170,7 @@ class PrmDictBase(object):
             message('%s=%s is assigned' % (prm, value))
             return True
         return False
-        
+
     def _update(self):
         """Check data consistency and make updates."""
         # to be implemented in subclasses

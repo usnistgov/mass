@@ -115,6 +115,7 @@ class MaximumLikelihoodHistogramFitter(object):
 
         self.params = self.param_free = self.covar = self.chisq = None
         self.set_parameters(params)
+        self.penalty = None
 
         self.theory_function = theory_function
         if np.isscalar(epsilon):
@@ -195,6 +196,28 @@ class MaximumLikelihoodHistogramFitter(object):
             self.internal2bounded[pnum] = lambda x: lower + ((upper - lower) / 2.) * (np.sin(x) + 1.)
             self.bounded2internal[pnum] = lambda x: np.arcsin(2.*(x-lower)/(upper-lower) - 1.)
             self.boundedinternal_grad[pnum] = lambda x: ((upper - lower) / 2.) * np.cos(x)
+
+
+    def set_penalty(self, penalty=None):
+        """Set a penalty function, to be added to chisquared. This allows parameters to be
+        'nudged' without enforcing hard limits.  The function `penalty` must be of the form
+        P, gradP, hessianP = penalty(params).
+
+        P is the scalar value of the penalty;
+        gradP is its derivative w.r.t. each parameter;
+        hessianP is its matrix of second derivatives w.r.t. each parameter.
+
+        Or if no penalty is desired, `penalty=None` should be chosen (which is the default).
+        """
+        # Be sure the penalty returns something sensible
+        if penalty is not None:
+            example_params = self.params
+            npar = len(example_params)
+            pen, grad, hess = penalty(example_params)
+            assert np.isscalar(pen)
+            assert len(grad) == npar
+            assert hess.shape == (npar,npar)
+        self.penalty=penalty
 
 
     def __discrete_gradient(self, p, x):
@@ -373,10 +396,26 @@ class MaximumLikelihoodHistogramFitter(object):
 
         y_model[y_model<0]=1e-11
         nonzero_obs = nobs > 0
+        nobsNZ = nobs[nonzero_obs]
+        y_modelNZ = y_model[nonzero_obs]
         chisq = 2*(y_model.sum()-self.total_obs) + \
+<<<<<<< HEAD
                 2*(nobs[nonzero_obs]*np.log((nobs/y_model)[nonzero_obs])).sum()
         if np.isnan(chisq):
             raise ValueError
+=======
+                2*(nobsNZ*(np.log(nobsNZ)-np.log(y_modelNZ))).sum()
+
+        # If a penalty is being imposed on the parameters, change the return values
+        # of the Hessian, the gradient, and the function value accordingly.
+        if self.penalty is not None:
+            penalty,grad,hessian = self.penalty(params)
+            chisq += penalty
+            beta -= 0.5 * grad
+            for i,pnum in enumerate(pfnz):
+                alpha[i,:] += 0.5*hessian[pnum,pfnz]
+
+>>>>>>> develop
         return alpha, beta, chisq
 
     def __cov_sort_in_place(self, C):

@@ -266,20 +266,20 @@ def Qscale(x, sort_inplace=False):
         raise ValueError("sort_inplace cannot be True unless the data set x is a np.ndarray.")
     x.sort()
     n = len(x)
-    if n<2:
+    if n < 2:
         raise ValueError("Data set <x> must contain at least 2 values!")
-    h = n/2 + 1
-    target_k = h*(h-1)/2 -1 # -1 so that order count can start at 0 instead of conventional 1,2,3...
+    h = n // 2 + 1
+    target_k = h * (h-1) // 2 -1 # -1 so that order count can start at 0 instead of conventional 1,2,3...
 
     # Compute the n-dependent prefactor to make Q consistent with sigma of a Gaussian.
     prefactor = 2.2219
     if n <= 9:
         prefactor *= [0, 0, 0.399, 0.994, 0.512, 0.844, 0.611, 0.857, 0.669, 0.872][n]
     else:
-        if n%2 == 1:
-            prefactor *= n/(n+1.4)
+        if n % 2 == 1:
+            prefactor *= n / (n + 1.4)
         else:
-            prefactor *= n/(n+3.8)
+            prefactor *= n / (n + 3.8)
 
     # Now down to business finding the 25%ile of |xi - xj| for i<j (or equivalently, for i != j)
     # Imagine the upper triangle of the matrix Aij = xj - xi (upper means j>i).
@@ -288,13 +288,12 @@ def Qscale(x, sort_inplace=False):
 
     # For small lists, too many boundary problems arise.  Just do it the slow way:
     if n <= 5:
-        dist = np.hstack([x[j]-x[:j] for j in range(1,n)])
-        assert len(dist) == (n*(n-1))/2
+        dist = np.hstack([x[j] - x[:j] for j in range(1, n)])
+        assert len(dist) == (n * (n - 1)) // 2
         dist.sort()
         return dist[target_k] * prefactor
 
     q, npasses = _Qscale_subroutine(x, n, target_k)
-
 
     if npasses > n:
         raise RuntimeError("Qscale tried %d distances, which is too many"%npasses)
@@ -423,7 +422,7 @@ def _Qscale_subroutine_python(x, n, target_k):
 
 
 @cython.boundscheck(False)
-def _high_median(long[:] sort_idx, double[:] weights, int n):
+def _high_median(long long[:] sort_idx, double[:] weights, int n):
     """
     Compute the weighted high median of data set with weights <weights>.
     Instead of sending the data set x, send the order statistics <sort_idx> over
@@ -474,9 +473,8 @@ def _high_median(long[:] sort_idx, double[:] weights, int n):
     return sort_idx[itrial]
 
 
-
 @cython.boundscheck(False)
-def _choose_trial_val(long[:] left, long[:] right, double[:] x, int n):
+def _choose_trial_val(long long[:] left, long long[:] right, double[:] x, int n):
     """Choose a trial val as the weighted median of the medians of the remaining candidates in
     each row, where the weights are the number of candidates remaining in each row."""
 
@@ -499,7 +497,7 @@ def _choose_trial_val(long[:] left, long[:] right, double[:] x, int n):
             ctr_index = n-1
         row_median[i] = x[ctr_index]-x[i]
 
-    cdef long[:] row_sort_idx
+    cdef long long[:] row_sort_idx
     row_sort_idx = np.argsort(row_median)
 
     chosen_row =  _high_median(row_sort_idx, weights, n-1)
@@ -512,26 +510,26 @@ def _choose_trial_val(long[:] left, long[:] right, double[:] x, int n):
     return trial_val, chosen_row, chosen_col
 
 
-
 @cython.embedsignature(True)
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
     cdef unsigned int trial_q_row = 0, trial_q_col = 0
     cdef Py_ssize_t i, counter
     cdef double trial_distance = 0.0  #, trial_val=0.0
-    cdef long candidates_below_trial_dist
+    cdef long long candidates_below_trial_dist
 
     # Keep track of which candidates on each ROW are still in the running.
     # These limits are of length (n-1) because the lowest row has no upper-triangle elements.
     # These mean that element A_ij = xj-xi is in the running if and only if  left(i) <= j <= right(i).
-    cdef long[:] trial_column
-    cdef long[:] left
-    cdef long[:] right
+    cdef long long[:] trial_column
+    cdef long long[:] left
+    cdef long long[:] right
     cdef double[:] per_row_value
+    cdef long ia, ib, imiddle
 
-    trial_column = np.zeros(n-1, dtype=int)
-    left = np.zeros(n-1, dtype=int)
-    right = np.zeros(n-1, dtype=int)
+    trial_column = np.zeros(n-1, dtype=np.int64)
+    left = np.zeros(n-1, dtype=np.int64)
+    right = np.zeros(n-1, dtype=np.int64)
 
     for i in range(n-1):
         right[i] = n-1
@@ -574,13 +572,13 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
                 trial_column[i] = ib
                 continue
             while ib-ia>1:
-                imiddle = (ib+ia)/2
+                imiddle = (ib+ia) // 2
                 if x[imiddle] < trial_val:
                     ia = imiddle
                 elif x[imiddle] > trial_val:
                     ib = imiddle
                 else:
-                    ia = imiddle-1
+                    ia = imiddle - 1
                     ib = imiddle
                     break
             trial_column[i] = ia

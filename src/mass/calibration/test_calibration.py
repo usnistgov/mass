@@ -43,7 +43,7 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
                 cal1 = mass.calibration.energy_calibration.EnergyCalibration()
                 cal1.set_curvetype(curvetype)
                 cal1.set_use_approximation(use_approximation)
-                for energy in np.linspace(3000,6000,10):
+                for energy in np.linspace(3000, 6000, 10):
                     ph = energy**0.8
                     cal1.add_cal_point(ph, energy)
                 cal2 = cal1.copy()
@@ -53,10 +53,8 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
                                                   cal2.ph2energy(5000), cal2.drop_one_errors())
                 # self.assertEqual(e1,e2)
                 # self.assertEqual(ph1,ph2)
-                assert(e1==e2)
-                assert(ph1==ph2)
-
-
+                assert(e1 == e2)
+                assert(ph1 == ph2)
 
     def test_loglog_exact_diff(self):
         # loglog=True makes use_zerozero not matter
@@ -147,6 +145,15 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
             ph = energy**0.8
             self.assertAlmostEqual(energy, cal1.ph2energy(ph),places=-1)
 
+    def test_unordered_entries(self):
+        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
+        cal1.set_curvetype("gain")
+        cal1.set_use_approximation(True)
+        energies = np.array([6000,3000,4500,4000,5000,5500], dtype=float)
+        for energy in energies:
+            ph = energy**0.8 
+            cal1.add_cal_point(ph, energy)
+        cal1(np.array([2200,4200,4400], dtype=float))
 
 if __name__ == "__main__":
     unittest.main()

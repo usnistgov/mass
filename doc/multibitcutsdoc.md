@@ -35,7 +35,7 @@ Categorical cuts are used when you want to evaluate your pulses as different gro
 By default every pulse is in `in`. The functions `ds.drift_correct`, `ds.phase_correct_2014`, and `ds.calibrate` all use the category `in` by default. So if you want to use only some pulses for calibration, you can do this for each dataset.
 
 ```
-# Here, use_for_calibration is a 32 bit unsigned integer numpy array
+# Here, use_for_calibration is a boolean numpy array
 # of length ds.nPulses.
 ds.cuts.cut_categorical("calibration", {"in": use_for_calibration,
                                         "out": ~use_for_calibration})
@@ -49,7 +49,6 @@ it will raise an error. If any pulses have `False` in both, those pulses will be
 ```
 ds.good(pump="pumped")  # returns True for pulses that pass all boolean cut fields AND is in the category "pumped".
 data.drift_correct(forceNew=False,category={"pump":"pumped"})  # does drift correct with only "pump":"pumped" pulses instead of "calibration":"in"
-
 ```
 
 If you want to remove a categorical cut, or change the categories within the cut, you can use the following:
@@ -58,19 +57,16 @@ If you want to remove a categorical cut, or change the categories within the cut
 data.unregister_categorical_cut_field("pump")
 ```
 
-
 There is an alternate API that may be more convenient in some cases. Imagine we have an experiment with a delay stage that was in many positions throughout the experiment.
 
 ```
-data.register_categorical_cut_field("delay",["-150mm","-100mm","-50mm",...,"200mm"])  # Register a categorical cut field named "delay".
+data.register_categorical_cut_field("delay", ["-150mm", "-100mm", "-50mm",..., "200mm"])  # Register a categorical cut field named "delay".
 categories = data.cut_field_categories("delay")  # gets a dict of category label ("-150mm") to category code (1)
 category_codes = np.zeros(ds.nPulses, dtype=np.uint32)  # note 0 is always the default category, unless otherwise specified named "uncategorized"
 
 for i in range(ds.nPulses):
     delay_stage_pos = get_delay_stage_pos(i)
-    category_codes[i]=categories[delay_stage_pos] # category_codes is a one per pulse vector with integer valued codes, each integer corresponds to a category label in the dictionary categories
+    category_codes[i] = categories[delay_stage_pos]  # category_codes is a one per pulse vector with integer valued codes, each integer corresponds to a category label in the dictionary categories
+
 ds.cuts.cut("delay", category_codes)
 ```
-
-
-

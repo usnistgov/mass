@@ -62,8 +62,8 @@ class ToeplitzSolver(object):
         self.n = len(R)
         if not symmetric:
             # R needs to be of length 2n-1 for integer n
-            assert len(R) %2 == 1
-            self.n = (len(R)+1)/2
+            assert len(R) % 2 == 1
+            self.n = (len(R)+1) // 2
 
         # Be very careful with self.R, because it's stored as a copy of the input R.
         # For symmetric matrices, T_(0,0) and T_(1,0) are R[0] and R[1].
@@ -82,7 +82,7 @@ class ToeplitzSolver(object):
         """Return y=Tx"""
         assert self.symmetric
         N = len(x)
-        assert N==self.n
+        assert N == self.n
         y = np.zeros_like(x)
         y[0] = np.dot(self.R, x)
         for i in range(1, N):
@@ -95,7 +95,6 @@ class ToeplitzSolver(object):
         if self.symmetric:
             return self.__solve_symmetric(y)
         return self.__solve_asymmetric(y)
-
 
     def __solve_asymmetric(self, y):
         """Return the solution x when Tx=y for an asymmetric Toeplitz matrix T."""
@@ -113,12 +112,13 @@ class ToeplitzSolver(object):
         g[0] = self.R[n-2]/R0
         h[0] = self.R[n]/R0
 
-        for K in range(1, n): # i = m+1
+        for K in range(1, n):  # i = m+1
             # Steps b, c, and d (exit test)
             xh_denom[K] = (self.R[n:K+n]*g[:K]).sum() - R0
             x[K] = ((self.R[K+n-1:n-1:-1]*x[:K]).sum()-y[K])/xh_denom[K]
             x[:K] -= x[K]*g[K-1::-1]
-            if K==n-1:  return x
+            if K == n-1:
+                return x
 
             # Step e
             g_denom = (self.R[n-K-1:n-1]*h[K-1::-1]).sum() - R0
@@ -129,7 +129,6 @@ class ToeplitzSolver(object):
             gsave = g[:K].copy()
             g[:K] -= g[K]*h[K-1::-1]
             h[:K] -= h[K]*gsave[K-1::-1]
-
 
     def __precompute_symmetric(self):
         """Precompute some data so that the solve_symmetric method can be done in

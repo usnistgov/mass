@@ -22,6 +22,7 @@ Started March 2, 2011
 """
 from collections import Iterable
 from functools import reduce
+import glob
 import os
 
 import numpy as np
@@ -37,7 +38,7 @@ from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
 from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
 from mass.core.optimal_filtering import Filter
-from mass.core.utilities import InlineUpdater
+from mass.core.utilities import InlineUpdater, show_progress
 
 
 class FilterCanvas(object):
@@ -112,7 +113,8 @@ class TESGroup(CutFieldMixin):
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
-                 hdf5_filename=None, hdf5_noisefilename=None):
+                 hdf5_filename=None, hdf5_noisefilename=None,
+                 never_use=None, use_only=None):
 
         if noise_filenames is not None and len(noise_filenames) == 0:
             noise_filenames = None
@@ -122,6 +124,14 @@ class TESGroup(CutFieldMixin):
         self.noise_only = noise_only
         if noise_only and noise_filenames is None:
             filenames, noise_filenames = (), filenames
+
+        # Handle the case that either filename list is a glob pattern (e.g., "files_chan*.ljh")
+        filenames = _glob_expand(filenames)
+        noise_filenames = _glob_expand(noise_filenames)
+
+        # If using a glob pattern especially, we have to be careful to eliminate files that are
+        # missing a partner, either noise without pulse or pulse without noise.
+        _remove_unmatched_channums(filenames, noise_filenames, never_use=never_use, use_only=use_only)
 
         # Figure out where the 2 HDF5 files are to live, if the default argument
         # was given for their paths.
@@ -186,6 +196,8 @@ class TESGroup(CutFieldMixin):
             if max_cachesize < self.n_channels * self.channels[0].segmentsize:
                 self.set_segment_size(max_cachesize // self.n_channels)
 
+        self.updater = InlineUpdater
+
     def _setup_per_channel_objects(self, noise_is_continuous=True):
         pulse_list = []
         noise_list = []
@@ -199,22 +211,18 @@ class TESGroup(CutFieldMixin):
                 print("TESGroup is skipping a file that has zero pulses: %s" % fname)
                 continue  # don't load files with zero pulses
 
-            try:
-                hdf5_group = self.hdf5_file.require_group("chan%d" % pulse.channum)
-                hdf5_group.attrs['filename'] = fname
-            except:
-                hdf5_group = None
+            hdf5_group = self.hdf5_file.require_group("chan%d" % pulse.channum)
+            hdf5_group.attrs['filename'] = fname
 
             dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
-            if hdf5_group:
-                if 'calibration' in hdf5_group:
-                    hdf5_cal_grp = hdf5_group['calibration']
-                    for cal_name in hdf5_cal_grp:
-                        dset.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
+            if 'calibration' in hdf5_group:
+                hdf5_cal_grp = hdf5_group['calibration']
+                for cal_name in hdf5_cal_grp:
+                    dset.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
 
-                if 'why_bad' in hdf5_group.attrs:
-                    self._bad_channums[dset.channum] = [comment.decode() for comment in hdf5_group.attrs['why_bad']]
+            if 'why_bad' in hdf5_group.attrs:
+                self._bad_channums[dset.channum] = [comment.decode() for comment in hdf5_group.attrs['why_bad']]
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
@@ -341,13 +349,13 @@ class TESGroup(CutFieldMixin):
                integer is removed from the bad-channels list."""
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args])
 
-        for chan_num in added_to_list:
-            if chan_num in self._bad_channums:
-                comment = self._bad_channums.pop(chan_num)
-                del self.hdf5_file["chan{0:d}".format(chan_num)].attrs['why_bad']
-                print("chan %d set good, had previously been set bad for %s" % (chan_num, str(comment)))
+        for channum in added_to_list:
+            if channum in self._bad_channums:
+                comment = self._bad_channums.pop(channum)
+                del self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad']
+                print("chan %d set good, had previously been set bad for %s" % (channum, str(comment)))
             else:
-                print("chan %d not set good because it was not set bad" % chan_num)
+                print("chan %d not set good because it was not set bad" % channum)
 
     def set_chan_bad(self, *args):
         """Set one or more channels to be bad.  (No effect for channels already listed
@@ -359,11 +367,11 @@ class TESGroup(CutFieldMixin):
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args if not isinstance(x, str)])
         comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, str)], '')
 
-        for chan_num in added_to_list:
-            new_comment = self._bad_channums.get(chan_num, []) + [comment]
-            self._bad_channums[chan_num] = new_comment
-            print('chan %s flagged bad because %s' % (chan_num, comment))
-            self.hdf5_file["chan{0:d}".format(chan_num)].attrs['why_bad'] = np.asarray(new_comment, dtype=np.bytes_)
+        for channum in added_to_list:
+            new_comment = self._bad_channums.get(channum, []) + [comment]
+            self._bad_channums[channum] = new_comment
+            print('chan %s flagged bad because %s' % (channum, comment))
+            self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] = np.asarray(new_comment, dtype=np.bytes_)
 
     @property
     def timestamp_offset(self):
@@ -474,27 +482,21 @@ class TESGroup(CutFieldMixin):
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
 
-    def summarize_data(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0,
+    @show_progress("summarize_data")
+    def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        include_badchan=False, forceNew=False, use_cython=True):
-        """
-        Compute summary quantities for each pulse.
-        We are (July 2014) developing a Julia replacement for this, but you can use Python
-        if you wish.
-        """
-        printUpdater = InlineUpdater('summarize_data')
-        if include_badchan:
-            nchan = float(len(self.channel.keys()))
-        else:
-            nchan = float(self.num_good_channels)
+        """Compute summary quantities for each pulse."""
+        nchan = float(len(self.channel.keys())) if include_badchan else float(self.num_good_channels)
 
-        for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
+        for i, ds in enumerate(self.iter_channels(include_badchan)):
             try:
-                self.channel[chan].summarize_data(peak_time_microsec,
-                                                  pretrigger_ignore_microsec, forceNew, use_cython=use_cython)
-                printUpdater.update((i + 1) / nchan)
+                ds.summarize_data(peak_time_microsec=peak_time_microsec,
+                                  pretrigger_ignore_microsec=pretrigger_ignore_microsec,
+                                  forceNew=forceNew, use_cython=use_cython)
+                yield (i + 1.0) / nchan
                 self.hdf5_file.flush()
-            except:
-                self.set_chan_bad(chan, "summarize_data")
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "summarize_data failed with %s"%e)
 
     def calc_external_trigger_timing(self, after_last=False, until_next=False, from_nearest=False, forceNew=False):
         if not (after_last or until_next or from_nearest):
@@ -527,22 +529,22 @@ class TESGroup(CutFieldMixin):
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 
-    def read_trace(self, record_num, dataset_num=0, chan_num=None):
+    def read_trace(self, record_num, dataset_num=0, channum=None):
         """Read (from cache or disk) and return the pulse numbered <record_num> for
-        dataset number <dataset_num> or channel number <chan_num>.
-        If both are given, then <chan_num> will be used when valid.
+        dataset number <dataset_num> or channel number <channum>.
+        If both are given, then <channum> will be used when valid.
         If this is a CDMGroup, then the pulse is the demodulated
         channel by that number."""
-        ds = self.channel.get(chan_num, self.datasets[dataset_num])
+        ds = self.channel.get(channum, self.datasets[dataset_num])
         return ds.read_trace(record_num)
 
-    def plot_traces(self, pulsenums, dataset_num=0, chan_num=None, pulse_summary=True, axis=None,
-                    difference=False, residual=False, valid_status=None, channum=None, shift1=False):
+    def plot_traces(self, pulsenums, dataset_num=0, channum=None, pulse_summary=True, axis=None,
+                    difference=False, residual=False, valid_status=None, shift1=False):
         """Plot some example pulses, given by sample number.
         <pulsenums>   A sequence of sample numbers, or a single one.
         <dataset_num> Dataset index (0 to n_dets-1, inclusive).  Will be used only if
-                      <chan_num> is invalid.
-        <chan_num>    Dataset channel number.  If valid, it will be used instead of dataset_num.
+                      <channum> is invalid.
+        <channum>    Dataset channel number.  If valid, it will be used instead of dataset_num.
 
         <pulse_summary> Whether to put text about the first few pulses on the plot
         <axis>       A plt axis to plot on.
@@ -551,24 +553,21 @@ class TESGroup(CutFieldMixin):
                      or just raw data.
         <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                      that have been cut.  If "cut", show only those that have been cut.
-        <channum>    Synonym for chan_num (an unfortunate but old choice)
         <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
         """
 
-        if chan_num is None:
-            chan_num = channum
-        if chan_num in self.channel:
-            dataset = self.channel[chan_num]
+        if channum in self.channel:
+            dataset = self.channel[channum]
             dataset_num = dataset.index
         else:
             dataset = self.datasets[dataset_num]
-            if chan_num is not None:
-                print("Cannot find chan_num[%d], so using dataset #%d" % (chan_num, dataset_num))
+            if channum is not None:
+                print("Cannot find channum[%d], so using dataset #%d" % (channum, dataset_num))
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
                                    residual, valid_status, shift1)
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
-                       dataset_numbers=None):
+                       channel_numbers=None, dataset_numbers=None):
         """Plot a summary of one quantity from the data set, including time series and histograms of
         this quantity.  This method plots all channels in the group, but only one quantity.  If you
         would rather see all quantities for one channel, then use the group's
@@ -594,6 +593,7 @@ class TESGroup(CutFieldMixin):
 
         <log>              Use logarithmic y-axis on the histograms (right panels).
         <hist_limits>
+        <channel_numbers>  A sequence of channel numbers to plot. If None, then plot all.
         <dataset_numbers>  A sequence of the datasets [0...n_channels-1] to plot.  If None
                            (the default) then plot all datasets in numerical order.
         """
@@ -603,7 +603,7 @@ class TESGroup(CutFieldMixin):
             ("p_pulse_average", 'Pulse Avg', 'purple', [0,5000]),
             ("p_peak_value", 'Peak value', 'blue', None),
             ("p_pretrig_rms", 'Pretrig RMS', 'green', [0, 4000]),
-            ("p_pretrig_mean", 'Pretrig Mean', '#88cc00', None),
+            ("p_pretrig_mean", 'Pretrig Mean', '#00ff26', None),
             ("p_postpeak_deriv", 'Max PostPk deriv', 'gold', [0, 700]),
             ("p_rise_time[:]*1e3", 'Rise time (ms)', 'orange', [0, 12]),
             ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3, 9])
@@ -613,19 +613,29 @@ class TESGroup(CutFieldMixin):
         if quantity in range(len(quant_names)):
             plottable = plottables[quantity]
         else:
-            i = quant_names.index(quantity.lower().replace(" ", ""))
-            plottable = plottables[i]
+            quantity = quant_names.index(quantity.lower().replace(" ", ""))
+            plottable = plottables[quantity]
 
-        if dataset_numbers is None:
-            datasets = self.datasets
-            dataset_numbers = range(len(datasets))
+        MAX_TO_PLOT = 16
+        if channel_numbers is None:
+            if dataset_numbers is None:
+                datasets = [ds for ds in self]
+                if len(datasets) > MAX_TO_PLOT:
+                    datasets = datasets[:MAX_TO_PLOT]
+            else:
+                datasets = [self.datasets[i] for i in dataset_numbers]
+            channel_numbers = [ds.channum for ds in datasets]
         else:
-            datasets = [self.datasets[i] for i in dataset_numbers]
+            datasets = [self.channel[i] for i in channel_numbers]
+
+        # Plot timeseries with 0 = the last 00 UT during or before the run.
+        last_record = np.max([ds.p_timestamp[-1] for ds in self])
+        last_midnight = last_record - (last_record%86400)
+        hour_offset = last_midnight/3600.
 
         plt.clf()
         ny_plots = len(datasets)
-        for i, (channum, ds) in enumerate(zip(dataset_numbers, datasets)):
-            print('TES%2d ' % channum),
+        for i, (channum, ds) in enumerate(zip(channel_numbers, datasets)):
 
             # Convert "uncut" or "cut" to array of all good or all bad data
             if isinstance(valid, str):
@@ -655,7 +665,7 @@ class TESGroup(CutFieldMixin):
                     if downsample < 1:
                         downsample = 1
                 hour = ds.p_timestamp[::downsample] / 3600.0
-            print(" (%d records; %d in scatter plots)" % (nrecs, hour.shape[0]))
+            print("Chan %3d (%d records; %d in scatter plots)" % (channum, nrecs, hour.shape[0]))
 
             (vect, label, color, default_limits) = plottable
             if hist_limits is None:
@@ -673,15 +683,15 @@ class TESGroup(CutFieldMixin):
                 plt.subplot(ny_plots, 2, 1 + i * 2, sharex=ax_master)
 
             if len(vect) > 0:
-                plt.plot(hour, vect[::downsample], '.', ms=1, color=color)
+                plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
             else:
                 plt.text(.5, .5, 'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
             if i == 0:
                 plt.title(label)
-            plt.ylabel("TES %d" % channum)
+            plt.ylabel("Ch %d" % channum)
             if i == ny_plots - 1:
-                plt.xlabel("Time since server start (hours)")
+                plt.xlabel("Time since last UT midnight (hours)")
 
             # Histograms on right half of figure
             if i == 0:
@@ -706,6 +716,7 @@ class TESGroup(CutFieldMixin):
                 plt.xlabel(label)
             if log:
                 plt.ylim(ymin=contents.min())
+            plt.tight_layout()
 
     def make_masks(self, pulse_avg_range=None,
                    pulse_peak_range=None,
@@ -752,7 +763,7 @@ class TESGroup(CutFieldMixin):
             raise ValueError("Call make_masks with one of pulse_avg_range"
                              " pulse_rms_range, or pulse_peak_range specified.")
         elif nranges > 1:
-            print("Warning: make_masks uses only one range argument.  Checking only '%s'."%vectname)
+            print("Warning: make_masks uses only one range argument.  Checking only '%s'." % vectname)
 
         middle = 0.5 * (pmin + pmax)
         abs_lim = 0.5 * np.abs(pmax - pmin)
@@ -842,6 +853,7 @@ class TESGroup(CutFieldMixin):
         for g, d in zip(gains, self.datasets):
             d.gain = g
 
+    @show_progress("compute_filters")
     def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
 
         # Analyze the noise, if not already done
@@ -851,7 +863,6 @@ class TESGroup(CutFieldMixin):
             print("Computing noise autocorrelation and spectrum")
             self.compute_noise_spectra()
 
-        print_updater = InlineUpdater('compute_filters')
         for ds_num, ds in enumerate(self):
             if "filters" not in ds.hdf5_group or forceNew:
                 if ds.cuts.good().sum() < 10:
@@ -863,7 +874,7 @@ class TESGroup(CutFieldMixin):
                 else:
                     f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db)
                 ds.filter = f
-                print_updater.update((ds_num + 1) / float(self.n_channels))
+                yield (ds_num + 1) / float(self.n_channels)
 
                 # Store all filters created to a new HDF5 group
                 h5grp = ds.hdf5_group.require_group('filters')
@@ -873,6 +884,7 @@ class TESGroup(CutFieldMixin):
                     h5grp.attrs['fmax'] = f.fmax
                 h5grp.attrs['peak'] = f.peak_signal
                 h5grp.attrs['shorten'] = f.shorten
+                h5grp.attrs['newfilter'] = ds._use_new_filters
                 for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                           "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
                     if k in h5grp:
@@ -901,27 +913,24 @@ class TESGroup(CutFieldMixin):
                             ds.filter.predicted_v_over_dv[name] = \
                                 h5grp[name].attrs['predicted_v_over_dv']
 
-    def plot_filters(self, first=0, end=-1):
+    def plot_filters(self, first=0, end=-1, filtname="filt_noconst"):
         """Plot the filters from <first> through <end>-1.  By default, plots all filters,
-        except that the maximum number is 8.  Left panels are the Fourier and time-domain
-        X-ray energy filters.  Right panels are two different filters for estimating the
-        baseline level.
+        except that the maximum number is 16.  Panels show the Fourier and time-domain
+        X-ray energy filters.
         """
         plt.clf()
         if end <= first:
             end = self.n_channels
         if first >= self.n_channels:
             raise ValueError("First channel must be less than %d" % self.n_channels)
-        nplot = min(end - first, 8)
+        nplot = min(end - first, 16)
         for i, ds in enumerate(self.datasets[first:first + nplot]):
-            ax1 = plt.subplot(nplot, 2, 1 + 2 * i)
-            ax2 = plt.subplot(nplot, 2, 2 + 2 * i)
+            ax1 = plt.subplot(nplot//2, 2, 1 + i)
             ax1.set_title("chan %d signal" % ds.channum)
-            ax2.set_title("chan %d baseline" % ds.channum)
-            for ax in (ax1, ax2):
+            for ax in (ax1, ):
                 ax.set_xlim([0, self.nSamples])
                 if hasattr(ds, 'filter'):
-                    ds.filter.plot(axes=(ax1, ax2))
+                    ds.filter.plot(ax1, filtname=filtname)
         plt.show()
 
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
@@ -940,17 +949,13 @@ class TESGroup(CutFieldMixin):
                 print("Filter %d can't be used" % i)
                 print(e)
 
+    @show_progress("filter_data")
     def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False, use_cython=True):
-        printUpdater = InlineUpdater('filter_data')
-        if include_badchan:
-            nchan = float(len(self.channel.keys()))
-        else:
-            nchan = float(self.num_good_channels)
+        nchan = float(len(self.datasets)) if include_badchan else float(self.num_good_channels)
 
-        for i, chan in enumerate(self.iter_channel_numbers(include_badchan)):
-            self.channel[chan].filter_data(filter_name, transform, forceNew, use_cython=use_cython)
-
-            printUpdater.update((i + 1) / nchan)
+        for i, ds in enumerate(self.iter_channels(include_badchan)):
+            ds.filter_data(filter_name, transform, forceNew, use_cython=use_cython)
+            yield (i+1.0) / nchan
 
     def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=None, trange=None):
         """
@@ -1293,6 +1298,43 @@ class TESGroup(CutFieldMixin):
             ds.smart_cuts(threshold, n_trainings, forceNew)
 
 
+def _extract_channum(name):
+    return int(name.split('_chan')[1].split(".")[0])
+
+
+def _remove_unmatched_channums(filenames1, filenames2, never_use=None, use_only=None):
+    """Extract the channel number in the filenames appearing in both lists.
+    Remove from each list any file whose channel number doesn't appear on both lists.
+    Also remove any file whose channel number is in the `never_use` list.
+    If `use_only` is a sequence of channel numbers, use only the channels on that list.
+
+    If either `filenames1` or `filenames2` is empty, do nothing."""
+
+    # If one list is empty, then matching is not required or expected.
+    if filenames1 is None or len(filenames1) == 0 \
+        or filenames2 is None or len(filenames2) == 0:
+        return
+
+    # Now make a mapping of channel numbers to names.
+    names1 = {_extract_channum(f):f for f in filenames1}
+    names2 = {_extract_channum(f):f for f in filenames2}
+    cnum1 = set(names1.keys())
+    cnum2 = set(names2.keys())
+
+    # Find the set of valid channel numbers.
+    valid_cnum = cnum1.intersection(cnum2)
+    if never_use is not None:
+        valid_cnum -= set(never_use)
+    if use_only is not None:
+        valid_cnum = valid_cnum.intersection(set(use_only))
+
+    # Remove invalid channel numbers
+    for c in (cnum1-valid_cnum):
+        filenames1.remove(names1[c])
+    for c in (cnum2-valid_cnum):
+        filenames2.remove(names2[c])
+
+
 def _sort_filenames_numerically(fnames, inclusion_list=None):
     """Take a sequence of filenames of the form '*_chanXXX.*'
     and sort it according to the numerical value of channel number XXX.
@@ -1301,17 +1343,22 @@ def _sort_filenames_numerically(fnames, inclusion_list=None):
     """
     if fnames is None or len(fnames) == 0:
         return None
-    chan2fname = {}
-    for name in fnames:
-        channum = int(name.split('_chan')[1].split(".")[0])
-        if inclusion_list is not None and channum not in inclusion_list:
-            continue
-        print(channum, name)
-        chan2fname[channum] = name
-    sorted_chan = chan2fname.keys()
-    sorted_chan.sort()
-    sorted_fnames = [chan2fname[key] for key in sorted_chan]
-    return sorted_fnames
+
+    if inclusion_list is not None:
+        fnames = filter(lambda n: _extract_channum(n) in inclusion_list, fnames)
+
+    return sorted(fnames, key=_extract_channum)
+
+
+def _glob_expand(pattern):
+    """If `pattern` is a string, treat it as a glob pattern and return the glob-result
+    as a list. If it isn't a string, return it unchanged (presumably then it's already
+    a sequence)."""
+    if not isinstance(pattern, str):
+        return pattern
+
+    result = glob.glob(pattern)
+    return _sort_filenames_numerically(result)
 
 
 def _replace_path(fnames, newpath):
@@ -1343,7 +1390,7 @@ class CrosstalkVeto(object):
 
         ms0 = np.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min() * 1e3 + window_ms[0]
         ms9 = np.array([ds.p_timestamp[-1] for ds in datagroup.datasets]).max() * 1e3 + window_ms[1]
-        self.nhits = np.zeros(ms9 - ms0 + 1, dtype=np.int8)
+        self.nhits = np.zeros(int(ms9 - ms0 + 1), dtype=np.int8)
         self.time0 = ms0
 
         for ds in datagroup.datasets:

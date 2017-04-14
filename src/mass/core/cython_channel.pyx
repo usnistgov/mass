@@ -12,12 +12,11 @@ cimport libc.limits
 # MASS modules
 
 from mass.core.channel import MicrocalDataSet
-from mass.core.utilities import InlineUpdater
+from mass.core.utilities import show_progress
 
 
 class CythonMicrocalDataSet(MicrocalDataSet):
-    """
-    Represent a single microcalorimeter's PROCESSED data.
+    """Represent a single microcalorimeter's PROCESSED data.
     This channel can be directly from a TDM detector, or it
     can be the demodulated result of a CDM modulation.
     """
@@ -27,15 +26,15 @@ class CythonMicrocalDataSet(MicrocalDataSet):
     @cython.embedsignature(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def summarize_data(self, double peak_time_microsec=220.0, double pretrigger_ignore_microsec=20.0,
-                       forceNew=False, use_cython=True):
-        """Summarize the complete data set one chunk at a time.
-        """
+
+    def _summarize_data_segment(self, segnum):
+        """Summarize one segment of the data file, loading it into cache."""
         cdef:
             Py_ssize_t i, j, k
             unsigned short [:, :] pulse_data
             unsigned short [:] pulse
             long seg_size
+            long first, end, pulses_per_seg
 
             float[:] p_pretrig_mean_array,
             float[:] p_pretrig_rms_array,
@@ -49,8 +48,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             unsigned short[:] p_min_value_array,
             unsigned short[:] p_shift1_array,
 
-            unsigned short peak_time_samples,
-            unsigned short pretrigger_ignore_samples
+            unsigned short peak_samplenumber
 
             double pretrig_sum, pretrig_rms_sum
             double pulse_sum, pulse_rms_sum
@@ -71,209 +69,182 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             long s0, s1, s2, s3, s4
             long t0, t1, t2, t3, t_max_deriv
 
-        if not use_cython:
-            super(CythonMicrocalDataSet, self).summarize_data(peak_time_microsec=peak_time_microsec,
-                                                              pretrigger_ignore_microsec=pretrigger_ignore_microsec,
-                                                              forceNew=forceNew)
+        first, end = self.read_segment(segnum)
+        if end >= self.nPulses:
+            end = self.nPulses
+        if first >= self.nPulses or end <= first:
             return
-
-        # Don't proceed if not necessary and not forced
-        self.number_of_rows = self.pulse_records.datafile.number_of_rows
-        self.row_number = self.pulse_records.datafile.row_number
-        self.number_of_columns = self.pulse_records.datafile.number_of_columns
-        self.column_number = self.pulse_records.datafile.column_number
-
-        # don't look for retriggers before this # of samples
-        peak_time_samples = <unsigned short>(peak_time_microsec*1e-6 / self.timebase)
-        pretrigger_ignore_samples = <unsigned short>(pretrigger_ignore_microsec*1e-6 / self.timebase)
-
-        self.peak_time_microsec = peak_time_microsec
-        self.pretrigger_ignore_microsec = pretrigger_ignore_microsec
-        self.pretrigger_ignore_samples = pretrigger_ignore_samples
-
-        not_done = all(self.p_pretrig_mean[:] == 0)
-        if not (not_done or forceNew):
-            print('\nchan %d did not summarize because results were already preloaded' % self.channum)
-            return
-
-        if self.p_timestamp.shape[0] < self.pulse_records.nPulses:
-            self.__setup_vectors(npulses=self.pulse_records.nPulses)  # make sure vectors are setup correctly
-
-        pulses_per_seg = self.pulse_records.pulses_per_seg
+        seg_size = end-first
 
         # Buffers for a single segment calculation.
-        # These buffered are recycled so it doesn't need to allocate them for each segment.
-        p_pretrig_mean_array = np.zeros(pulses_per_seg, dtype=np.float32)
-        p_pretrig_rms_array = np.zeros(pulses_per_seg, dtype=np.float32)
-        p_pulse_average_array = np.zeros(pulses_per_seg, dtype=np.float32)
-        p_pulse_rms_array = np.zeros(pulses_per_seg, dtype=np.float32)
-        p_promptness_array = np.zeros(pulses_per_seg, dtype=np.float32)
-        p_rise_times_array = np.zeros(pulses_per_seg, dtype=np.float32)
-        p_postpeak_deriv_array = np.zeros(pulses_per_seg, dtype=np.float32)
-        p_peak_index_array = np.zeros(pulses_per_seg, dtype=np.uint16)
-        p_peak_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
-        p_min_value_array = np.zeros(pulses_per_seg, dtype=np.uint16)
-        p_shift1_array = np.zeros(pulses_per_seg, dtype=np.uint16)
+        p_pretrig_mean_array = np.zeros(seg_size, dtype=np.float32)
+        p_pretrig_rms_array = np.zeros(seg_size, dtype=np.float32)
+        p_pulse_average_array = np.zeros(seg_size, dtype=np.float32)
+        p_pulse_rms_array = np.zeros(seg_size, dtype=np.float32)
+        p_promptness_array = np.zeros(seg_size, dtype=np.float32)
+        p_rise_times_array = np.zeros(seg_size, dtype=np.float32)
+        p_postpeak_deriv_array = np.zeros(seg_size, dtype=np.float32)
+        p_peak_index_array = np.zeros(seg_size, dtype=np.uint16)
+        p_peak_value_array = np.zeros(seg_size, dtype=np.uint16)
+        p_min_value_array = np.zeros(seg_size, dtype=np.uint16)
+        p_shift1_array = np.zeros(seg_size, dtype=np.uint16)
+
+        # Don't look for retriggers before this # of samples. Use the most common
+        # value of the peak index in the currently-loaded segment.
+        if self.peak_samplenumber is None:
+            self._compute_peak_samplenumber()
 
         timebase = self.timebase
         nPresamples = self.nPresamples
         nSamples = self.nSamples
-        e_nPresamples = nPresamples - pretrigger_ignore_samples
-        peak_time = nPresamples + peak_time_samples
+        e_nPresamples = nPresamples - self.pretrigger_ignore_samples
+        peak_samplenumber = self.peak_samplenumber
 
-        print_updater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
-        for i in range(self.pulse_records.n_segments):
-            first, end = self.read_segment(i)
-            seg_size = end - first
+        pulse_data = self.data
 
-            pulse_data = self.data
-            seg_size = end - first
+        for j in range(seg_size):
+            pulse = pulse_data[j]
+            pretrig_sum = 0.0
+            pretrig_rms_sum = 0.0
+            pulse_sum = 0.0
+            pulse_rms_sum = 0.0
+            promptness_sum = 0.0
+            peak_value = 0
+            peak_index = 0
+            min_value = libc.limits.USHRT_MAX
+            # Reset s_ and e_prompt for each pulse, b/c they can be shifted
+            # for individual pulses
+            s_prompt = nPresamples + 5
+            e_prompt = nPresamples + 11
 
-            for j in range(seg_size):
-                pulse = pulse_data[j]
-                pretrig_sum = 0.0
-                pretrig_rms_sum = 0.0
-                pulse_sum = 0.0
-                pulse_rms_sum = 0.0
-                promptness_sum = 0.0
-                peak_value = 0
-                peak_index = 0
-                min_value = libc.limits.USHRT_MAX
-                # Reset s_ and e_prompt for each pulse, b/c they can be shifted
-                # for individual pulses
-                s_prompt = nPresamples + 5
-                e_prompt = nPresamples + 11
+            # Memory access (pulse[k]) is expensive.
+            # So calculate several quantities with a single memory access.
+            for k in range(0, nSamples):
+                signal = pulse[k]
 
-                # Memory access (pulse[k]) is expensive.
-                # So calculate several quantities with a single memory access.
-                for k in range(0, nSamples):
-                    signal = pulse[k]
+                if signal > peak_value:
+                    peak_value = signal
+                    peak_index = k
+                if signal < min_value:
+                    min_value = signal
 
-                    if signal > peak_value:
-                        peak_value = signal
-                        peak_index = k
-                    if signal < min_value:
-                        min_value = signal
+                if k < e_nPresamples:
+                    pretrig_sum += signal
+                    pretrig_rms_sum += signal**2
 
-                    if k < e_nPresamples:
-                        pretrig_sum += signal
-                        pretrig_rms_sum += signal**2
+                if s_prompt <= k < e_prompt:
+                    promptness_sum += signal
 
-                    if s_prompt <= k < e_prompt:
-                        promptness_sum += signal
+                if k == nPresamples + 2:
+                    ptm = pretrig_sum / e_nPresamples
+                    ptrms = sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
+                    if signal - ptm > 4.3 * ptrms:
+                        e_prompt -= 1
+                        s_prompt -= 1
+                        p_shift1_array[j] = True
+                    else:
+                        p_shift1_array[j] = False
 
-                    if k == nPresamples + 2:
-                        ptm = pretrig_sum / e_nPresamples
-                        ptrms = sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
-                        if signal - ptm > 4.3 * ptrms:
-                            e_prompt -= 1
-                            s_prompt -= 1
-                            p_shift1_array[j] = True
-                        else:
-                            p_shift1_array[j] = False
+                if k >= nPresamples + 2:
+                    pulse_sum += signal
+                    pulse_rms_sum += signal**2
 
-                    if k >= nPresamples + 2:
-                        pulse_sum += signal
-                        pulse_rms_sum += signal**2
-
-                p_pretrig_mean_array[j] = <float>ptm
-                p_pretrig_rms_array[j] = <float>ptrms
-                if ptm < peak_value:
-                    peak_value -= <unsigned short>(ptm+0.5)
-                    p_promptness_array[j] = (promptness_sum / 6.0 - ptm) / peak_value
-                    p_peak_value_array[j] = peak_value
-                    p_peak_index_array[j] = peak_index
-                else:
-                    # Basically a nonsense pulse: the pretrigger mean exceeds the highest post-trigger value.
-                    # This would normally happen only if the crate's re-lock mechanism fires during a record.
-                    p_promptness_array[j] = 0
-                    p_peak_value_array[j] = 0
-                    p_peak_index_array[j] = 0
-                p_min_value_array[j] = min_value
-                pulse_avg = pulse_sum / (nSamples - nPresamples - 2) - ptm
-                p_pulse_average_array[j] = <float>pulse_avg
-                p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples - 2)
-                                                   - ptm*pulse_avg*2 - ptm**2)
+            p_pretrig_mean_array[j] = <float>ptm
+            p_pretrig_rms_array[j] = <float>ptrms
+            if ptm < peak_value:
+                peak_value -= <unsigned short>(ptm+0.5)
+                p_promptness_array[j] = (promptness_sum / 6.0 - ptm) / peak_value
+                p_peak_value_array[j] = peak_value
+                p_peak_index_array[j] = peak_index
+            else:
+                # Basically a nonsense pulse: the pretrigger mean exceeds the highest post-trigger value.
+                # This would normally happen only if the crate's re-lock mechanism fires during a record.
+                p_promptness_array[j] = 0
+                p_peak_value_array[j] = 0
+                p_peak_index_array[j] = 0
+            p_min_value_array[j] = min_value
+            pulse_avg = pulse_sum / (nSamples - nPresamples - 2) - ptm
+            p_pulse_average_array[j] = <float>pulse_avg
+            p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples - 2)
+                                               - ptm*pulse_avg*2 - ptm**2)
 
 
-                # Estimating a rise time.
-                # Beware! peak_value here has already had the pretrigger mean (ptm) subtracted!
-                low_th = <unsigned short>(0.1 * peak_value + ptm)
-                high_th = <unsigned short>(0.9 * peak_value + ptm)
+            # Estimating a rise time.
+            # Beware! peak_value here has already had the pretrigger mean (ptm) subtracted!
+            low_th = <unsigned short>(0.1 * peak_value + ptm)
+            high_th = <unsigned short>(0.9 * peak_value + ptm)
 
-                k = nPresamples
-                low_value = high_value = pulse[k]
-                while k < nSamples:
-                    signal = pulse[k]
-                    if signal > low_th:
-                        low_idx = k
-                        low_value = signal
-                        break
-                    k += 1
+            k = nPresamples
+            low_value = high_value = pulse[k]
+            while k < nSamples:
+                signal = pulse[k]
+                if signal > low_th:
+                    low_idx = k
+                    low_value = signal
+                    break
+                k += 1
 
-                high_value = low_value
-                high_idx = low_idx
+            high_value = low_value
+            high_idx = low_idx
 
-                while k < nSamples:
-                    signal = pulse[k]
-                    if signal > high_th:
-                        high_idx = k - 1
-                        high_value = pulse[high_idx]
-                        break
-                    k += 1
+            while k < nSamples:
+                signal = pulse[k]
+                if signal > high_th:
+                    high_idx = k - 1
+                    high_value = pulse[high_idx]
+                    break
+                k += 1
 
-                if high_value > low_value:
-                    p_rise_times_array[j] = <float>(timebase * (high_idx - low_idx) * (<double>peak_value) / (high_value - low_value))
-                else:
-                    p_rise_times_array[j] = <float>timebase
+            if high_value > low_value:
+                p_rise_times_array[j] = <float>(timebase * (high_idx - low_idx) * (<double>peak_value) / (high_value - low_value))
+            else:
+                p_rise_times_array[j] = <float>timebase
 
-                # Calculating the postpeak_deriv with a simple kernel (f0, f1, f2 = 0, f3, f4) and spike_reject on.
-                s0 = pulse[peak_time]
-                s1 = pulse[peak_time + 1]
-                s2 = pulse[peak_time + 2]
-                s3 = pulse[peak_time + 3]
-                s4 = pulse[peak_time + 4]
-                t0 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
+            # Calculating the postpeak_deriv with a simple kernel (f0, f1, f2 = 0, f3, f4) and spike_reject on.
+            s0 = pulse[peak_samplenumber]
+            s1 = pulse[peak_samplenumber + 1]
+            s2 = pulse[peak_samplenumber + 2]
+            s3 = pulse[peak_samplenumber + 3]
+            s4 = pulse[peak_samplenumber + 4]
+            t0 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
+            s0, s1, s2, s3 = s1, s2, s3, s4
+            s4 = pulse[peak_samplenumber + 5]
+            t1 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
+            t_max_deriv = libc.limits.LONG_MIN
+
+            for k in range(peak_samplenumber + 6, nSamples):
                 s0, s1, s2, s3 = s1, s2, s3, s4
-                s4 = pulse[peak_time + 5]
-                t1 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
-                t_max_deriv = libc.limits.LONG_MIN
+                s4 = pulse[k]
+                t2 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
 
-                for k in range(peak_time + 6, nSamples):
-                    s0, s1, s2, s3 = s1, s2, s3, s4
-                    s4 = pulse[k]
-                    t2 = f4 * s0 + f3 * s1 + f1 * s3 + f0 * s4
+                t3 = t2 if t2 < t0 else t0
+                if t3 > t_max_deriv:
+                    t_max_deriv = t3
 
-                    t3 = t2 if t2 < t0 else t0
-                    if t3 > t_max_deriv:
-                        t_max_deriv = t3
+                t0, t1 = t1, t2
 
-                    t0, t1 = t1, t2
+            p_postpeak_deriv_array[j] = 0.1 * t_max_deriv
 
-                p_postpeak_deriv_array[j] = 0.1 * t_max_deriv
+        # Writes to the hdf5 file.
+        self.p_timestamp[first:end] = self.times[:seg_size]
+        self.p_rowcount[first:end] = self.rowcount[:seg_size]
+        self.p_pretrig_mean[first:end] = p_pretrig_mean_array[:seg_size]
+        self.p_pretrig_rms[first:end] = p_pretrig_rms_array[:seg_size]
+        self.p_pulse_average[first:end] = p_pulse_average_array[:seg_size]
+        self.p_pulse_rms[first:end] = p_pulse_rms_array[:seg_size]
+        self.p_promptness[first:end] = p_promptness_array[:seg_size]
+        self.p_postpeak_deriv[first:end] = p_postpeak_deriv_array[:seg_size]
+        self.p_peak_index[first:end] = p_peak_index_array[:seg_size]
+        self.p_peak_value[first:end] = p_peak_value_array[:seg_size]
+        self.p_min_value[first:end] = p_min_value_array[:seg_size]
+        self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
+        self.p_shift1[first:end] = p_shift1_array[:seg_size]
 
-            # Writes to the hdf5 file.
-            self.p_timestamp[first:end] = self.times[:seg_size]
-            self.p_rowcount[first:end] = self.rowcount[:seg_size]
-            self.p_pretrig_mean[first:end] = p_pretrig_mean_array[:seg_size]
-            self.p_pretrig_rms[first:end] = p_pretrig_rms_array[:seg_size]
-            self.p_pulse_average[first:end] = p_pulse_average_array[:seg_size]
-            self.p_pulse_rms[first:end] = p_pulse_rms_array[:seg_size]
-            self.p_promptness[first:end] = p_promptness_array[:seg_size]
-            self.p_postpeak_deriv[first:end] = p_postpeak_deriv_array[:seg_size]
-            self.p_peak_index[first:end] = p_peak_index_array[:seg_size]
-            self.p_peak_value[first:end] = p_peak_value_array[:seg_size]
-            self.p_min_value[first:end] = p_min_value_array[:seg_size]
-            self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
-            self.p_shift1[first:end] = p_shift1_array[:seg_size]
-
-            print_updater.update((i+1.0)/self.pulse_records.n_segments)
-
-        self.clear_cache()
 
     @cython.embedsignature(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
+    @show_progress("filter_data_tdm")
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=True):
         """Filter the complete data file one chunk at a time.
         """
@@ -314,8 +285,6 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
         filt_phase_array = np.zeros(pulses_per_seg, dtype=np.float64)
         filt_value_array = np.zeros(pulses_per_seg, dtype=np.float64)
-
-        print_updater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
 
         for i in range(n_segments):
             first, end = self.read_segment(i)  # this reloads self.data to contain new pulses
@@ -370,7 +339,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
             self.p_filt_value[first:end] = filt_value_array[:seg_size]
             self.p_filt_phase[first:end] = filt_phase_array[:seg_size]
-            print_updater.update((end+1)/float(self.nPulses))
+            yield (end+1) / float(self.nPulses)
 
         self.clear_cache()
         self.hdf5_group.file.flush()

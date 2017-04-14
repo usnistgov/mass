@@ -14,11 +14,33 @@ import mass
 import mass.mathstat.toeplitz
 
 
+
+def band_limit(modelmatrix, sample_time, fmax, f_3db):
+    """Band-limit the column-vectors in a model matrix with a hard and/or
+    1-pole low-pass filter."""
+    assert len(modelmatrix.shape) <= 2
+    if len(modelmatrix.shape) == 2:
+        for i in range(modelmatrix.shape[1]):
+            band_limit(modelmatrix[:, i], sample_time, fmax, f_3db)
+    else:
+        vector = modelmatrix
+        filt_length = len(vector)
+        sig_ft = np.fft.rfft(vector)
+        freq = np.fft.fftfreq(filt_length, d=sample_time)
+        freq = np.abs(freq[:len(sig_ft)])
+        if fmax is not None:
+            sig_ft[freq > fmax] = 0.0
+        if f_3db is not None:
+            sig_ft /= (1. + (1.0 * freq / f_3db)**2)
+        vector[:] = np.fft.irfft(sig_ft, n=filt_length)
+        # n=filt_length is needed when filt_length is ODD
+
+
 class Filter(object):
     """A set of optimal filters based on a single signal and noise set."""
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
-                 fmax=None, f_3db=None, sample_time=None, shorten=0):
+                 whitener=None, fmax=None, f_3db=None, sample_time=None, shorten=0):
         """
         Create a set of filters under various assumptions and for various purposes.
         Note that you now have to call Filter.compute() yourself to compute the filters.
@@ -38,7 +60,9 @@ class Filter(object):
         <noise_autocorr> The autocorrelation function of the noise, where the lag spacing is
                          assumed to be the same as the sample period of <avg_signal>.  If None,
                          then several filters won't be computed.  (One of <noise_psd> or
-                         <noise_autocorr> must be a valid array.)
+                         <noise_autocorr> must be a valid array, or <whitener> must be given.)
+        <whitener>       An optional function object which, when called, whitens a vector or the
+                         columns of a matrix. Supersedes <noise_autocorr> if both are given.
         <fmax>           The strict maximum frequency to be passed in all filters.
                          If supplied, then it is passed on to the compute() method for the *first*
                          filter calculation only.  (Future calls to compute() can override).
@@ -76,8 +100,9 @@ class Filter(object):
             self.noise_autocorr = None
         else:
             self.noise_autocorr = np.asarray(noise_autocorr)
-        if noise_psd is None and noise_autocorr is None:
-            raise ValueError("Filter must have noise_psd or noise_autocorr arguments (or both)")
+        self.whitener = whitener
+        if noise_psd is None and noise_autocorr is None and whitener is None:
+            raise ValueError("Filter must have noise_psd, noise_autocorr, or whitener arguments")
         if sample_time is None and not (fmax is None and f_3db is None):
             raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
 
@@ -178,60 +203,50 @@ class Filter(object):
         self._compute_fourier_filter()
 
         # Time domain filters
-        if self.noise_autocorr is not None:
-            n = len(self.avg_signal) - 2 * self.shorten
-            if len(self.noise_autocorr) < n:
-                raise ValueError("Noise autocorrelation is only %d samples long, but filter requires %d" %
-                                 (len(self.noise_autocorr), n))
-            if self.shorten > 0:
-                avg_signal = self.avg_signal[self.shorten:-self.shorten]
-            else:
-                avg_signal = self.avg_signal
+        assert self.noise_autocorr is not None
+        n = len(self.avg_signal) - 2 * self.shorten
+        assert len(self.noise_autocorr) >= n
+        if self.shorten > 0:
+            avg_signal = self.avg_signal[self.shorten:-self.shorten]
+        else:
+            avg_signal = self.avg_signal
 
-            noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
-            if use_toeplitz_solver:
-                ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
-                Rinv_sig = ts(avg_signal)
-                Rinv_1 = ts(np.ones(n))
-            else:
-                if n > 6000:
-                    raise ValueError("Not allowed to use generic solver for vectors longer than 6000, " +
-                                     "because it's slow-ass.")
-                R = sp.linalg.toeplitz(noise_corr)
-                Rinv_sig = np.linalg.solve(R, avg_signal)
-                Rinv_1 = np.linalg.solve(R, np.ones(n))
+        noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
+        if use_toeplitz_solver:
+            ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
+            Rinv_sig = ts(avg_signal)
+            Rinv_1 = ts(np.ones(n))
+        else:
+            if n > 6000:
+                raise ValueError("Not allowed to use generic solver for vectors longer than 6000, " +
+                                 "because it's slow-ass.")
+            R = sp.linalg.toeplitz(noise_corr)
+            Rinv_sig = np.linalg.solve(R, avg_signal)
+            Rinv_1 = np.linalg.solve(R, np.ones(n))
 
-            self.filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
+        self.filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
 
-            # Band-limit
-            if self.fmax is not None or self.f_3db is not None:
-                filt_length = len(self.filt_noconst)
-                sig_ft = np.fft.rfft(self.filt_noconst)
-                freq = np.fft.fftfreq(filt_length, d=self.sample_time)
-                freq = np.abs(freq[:len(sig_ft)])
-                if self.fmax is not None:
-                    sig_ft[freq > self.fmax] = 0.0
-                if self.f_3db is not None:
-                    sig_ft /= (1. + (1.0 * freq / self.f_3db)**2)
-                self.filt_noconst = np.fft.irfft(sig_ft, n=filt_length)  # n= is needed when filt_length is ODD
+        # Band-limit
+        if self.fmax is not None or self.f_3db is not None:
+            band_limit(self.filt_noconst, self.sample_time, self.fmax, self.f_3db)
 
-            self.normalize_filter(self.filt_noconst)
-            self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr)
+        self.normalize_filter(self.filt_noconst)
+        self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr)
 
-            self.filt_baseline = np.dot(avg_signal, Rinv_sig) * Rinv_1 - Rinv_sig.sum() * Rinv_sig
-            self.filt_baseline /= self.filt_baseline.sum()
-            self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
+        self.filt_baseline = np.dot(avg_signal, Rinv_sig) * Rinv_1 - Rinv_sig.sum() * Rinv_sig
+        self.filt_baseline /= self.filt_baseline.sum()
+        self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
 
-            try:
-                Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
-                self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
-                self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
-                self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0, :])
-            except sp.linalg.LinAlgError:
-                pass
+        try:
+            Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
+            self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
+            self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
+            self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0, :])
+        except sp.linalg.LinAlgError:
+            pass
 
-            for key in self.variances.keys():
-                self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
+        for key in self.variances.keys():
+            self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
     def bracketR(self, q, noise):
         """Return the dot product (q^T R q) for vector <q> and matrix R constructed from
@@ -251,21 +266,12 @@ class Filter(object):
             dot += q[i] * np.dot(r[n - i - 1:2 * n - i - 1], q)
         return dot
 
-    def plot(self, axes=None):
-        if axes is None:
+    def plot(self, axis=None, filtname="filt_noconst"):
+        if axis is None:
             plt.clf()
-            axis1 = plt.subplot(211)
-            axis2 = plt.subplot(212)
-        else:
-            axis1, axis2 = axes
+            axis = plt.subplot(111)
         try:
-            axis1.plot(self.filt_noconst, color='red')
-            axis2.plot(self.filt_baseline, color='purple')
-            axis2.plot(self.filt_baseline_pretrig, color='blue')
-        except AttributeError:
-            pass
-        try:
-            axis1.plot(self.filt_fourier, color='gold')
+            axis.plot(self.__dict__[filtname], color='red')
         except AttributeError:
             pass
 
@@ -304,16 +310,21 @@ class ArrivalTimeSafeFilter(Filter):
     polynomial in "arrival time". The filter will be insensitive to the
     linear (and any higher-order) terms."""
 
-    def __init__(self, pulsemodel, n_pretrigger, noise_autocorr,
-                 fmax=None, f_3db=None, sample_time=None):
+    def __init__(self, pulsemodel, n_pretrigger, noise_autocorr=None,
+                 whitener=None, fmax=None, f_3db=None, sample_time=None, peak=1.0):
+        if noise_autocorr is None and whitener is None:
+            raise ValueError("%s requires either noise_autocorr or whitener to be set"%
+                             (self.__class__.__name__))
         noise_psd = None
         sample_time = sample_time
 
         avg_signal = pulsemodel[:, 0]
         self.pulsemodel = pulsemodel
-        super(self.__class__, self).__init__(avg_signal, n_pretrigger, noise_psd,
-                                             noise_autocorr, fmax, f_3db, sample_time,
-                                             shorten=0)
+        self.peak = peak
+        super(self.__class__, self).__init__(
+            avg_signal, n_pretrigger, noise_psd, noise_autocorr=noise_autocorr,
+            whitener=whitener, fmax=fmax, f_3db=f_3db, sample_time=sample_time,
+            shorten=0)
 
     def compute(self, fmax=None, f_3db=None):
         """
@@ -328,47 +339,44 @@ class ArrivalTimeSafeFilter(Filter):
         self.f_3db = f_3db
         self.variances = {}
 
-        # Time domain filters
-        assert self.noise_autocorr is not None
         n = len(self.avg_signal) - 2 * self.shorten
-        assert len(self.noise_autocorr) >= n
-
-        R = self.noise_autocorr[:n] / self.peak_signal**2  # A *vector*, not a matrix
-        ts = mass.mathstat.toeplitz.ToeplitzSolver(R, symmetric=True)
-
         unit = np.ones(n)
         MT = np.vstack((self.pulsemodel.T, unit))
-        RinvM = np.vstack([ts(r) for r in MT]).T
+        if self.whitener is not None:
+            WM = self.whitener(MT.T)
+            if fmax is not None or f_3db is not None:
+                band_limit(WM, self.sample_time, fmax, f_3db)
+            A = np.dot(WM.T, WM)
+            Ainv = np.linalg.inv(A)
+            WtWM = self.whitener.applyWT(WM)
+            filt = np.dot(Ainv, WtWM.T)
 
-        # Band-limit the column-vectors in a model matrix with a hard and/or
-        # 1-pole low-pass filter.
-        def band_limit(modelmatrix, fmax, f_3db):
-            for i in range(modelmatrix.shape[1]):
-                vector = modelmatrix[:, i]
-                filt_length = len(vector)
-                sig_ft = np.fft.rfft(vector)
-                freq = np.fft.fftfreq(filt_length, d=self.sample_time)
-                freq = np.abs(freq[:len(sig_ft)])
-                if fmax is not None:
-                    sig_ft[freq > fmax] = 0.0
-                if f_3db is not None:
-                    sig_ft /= (1. + (1.0 * freq / f_3db)**2)
-                modelmatrix[:, i] = np.fft.irfft(sig_ft, n=filt_length)
-                # n= is needed when filt_length is ODD
+        else:
+            assert self.noise_autocorr is not None
+            assert len(self.noise_autocorr) >= n
+            noise_corr = self.noise_autocorr[:n] / self.peak_signal**2  # A *vector*, not a matrix
+            ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
 
-        if fmax is not None or f_3db is not None:
-            band_limit(RinvM, fmax, f_3db)
+            RinvM = np.vstack([ts(r) for r in MT]).T
+            if fmax is not None or f_3db is not None:
+                band_limit(RinvM, self.sample_time, fmax, f_3db)
+            A = np.dot(MT, RinvM)
+            Ainv = np.linalg.inv(A)
+            filt = np.dot(Ainv, RinvM.T)
 
-        A = np.dot(MT, RinvM)
-        Ainv = np.linalg.inv(A)
-        filt = np.dot(Ainv, RinvM.T)
         self.filt_noconst = filt[0]
         self.filt_aterms = filt[1:-1]
         self.filt_baseline = filt[-1]
         scale = np.max(self.avg_signal) / np.dot(filt[0], self.avg_signal)
         self.filt_noconst *= scale
         self.filt_aterms *= scale
-#         self.variances['noconst'] = self.bracketR(self.filt_noconst, noise_corr)
+        Ainv *= self.peak**-2
+
+        self.variances['noconst'] = Ainv[0,0]
+        self.variances['baseline'] = Ainv[-1,-1]
+
+        for key in self.variances.keys():
+            self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
 
 class ExperimentalFilter(Filter):
@@ -570,3 +578,128 @@ class ExperimentalFilter(Filter):
             axis1.plot(self.filt_fourier, color='gold')
         except AttributeError:
             pass
+
+
+class ToeplitzWhitener(object):
+    """An object that can perform approximate noise whitening.
+
+    For an ARMA(p,q) noise model, mutliply by (or solve) the matrix W (or its
+    transpose), where W is the Toeplitz approximation to the whitening matrix V.
+    A whitening matrix V means that if R is the ARMA noise covariance matrix,
+    then VRV' = I. While W is only approximately equal to V, it has some handy
+    properties that make it a useful replacement. (In particular, it has the
+    time-transpose property that if you zero-pad the beginning of vector v and
+    shift the remaining elements, then the same is doen to Wv.)
+
+    The callable function object returns Wv or WM if called with
+    vector v or matrix M. Other methods:
+
+    * `tw.whiten(v)` returns Wv, equivalent to `tw(v)`
+    * `tw.solveWT(v)` returns inv(W')*v
+    * `tw.applyWT(v)` returns W'*v
+    * `tw.solveW(v)` returns inv(W)*v (_not implemented yet_)"""
+
+    def __init__(self, thetacoef, phicoef):
+        """Initialize using the coefficients `thetacoef` of the MA process
+        and `phicoef` of the AR process."""
+        self.theta = np.array(thetacoef)
+        self.phi = np.array(phicoef)
+        self.p = len(phicoef)-1
+        self.q = len(thetacoef)-1
+
+    def whiten(self, v):
+        "Return whitened vector (or matrix of column vectors) Wv"
+        return self(v)
+
+    def __call__(self, v):
+        "Return whitened vector (or matrix of column vectors) Wv"
+        if v.ndim > 3:
+            raise ValueError("v must be dimension 1 or 2")
+        elif v.ndim == 2:
+            w = np.zeros_like(v)
+            for i in range(v.shape[1]):
+                w[:,i] = self(v[:,i])
+            return w
+
+        N = len(v)
+        # Multiply by the Toeplitz AR matrix to make the MA*w vector.
+        y = self.phi[0] * v
+        for i in range(1, 1+self.p):
+            y[i:] += self.phi[i]*v[:-i]
+        # Second, solve the MA matrix (also a banded Toeplitz matrix with
+        # q non-zero subdiagonals.)
+        y[0] /= self.theta[0]
+        if N==1:
+            return y
+        for i in range(1, min(self.q, N)):
+            for j in range(i):
+                y[i] -= y[j]*self.theta[i-j]
+            y[i] /= self.theta[0]
+        for i in range(self.q, N):
+            for j in range(i-self.q, i):
+                y[i] -= y[j]*self.theta[i-j]
+            y[i] /= self.theta[0]
+        return y
+
+    def solveW(self, v):
+        "Return unwhitened vector (or matrix of column vectors) inv(W)*v"
+        if v.ndim > 3:
+            raise ValueError("v must be dimension 1 or 2")
+        elif v.ndim == 2:
+            r = np.zeros_like(v)
+            for i in range(v.shape[1]):
+                r[:,i] = self.solveW(v[:,i])
+            return r
+        raise NotImplementedError("ToeplitzWhitener.solveW does not exist yet.")
+
+    def solveWT(self, v):
+        "Return vector (or matrix of column vectors) inv(W')*v"
+        if v.ndim > 3:
+            raise ValueError("v must be dimension 1 or 2")
+        elif v.ndim == 2:
+            r = np.zeros_like(v)
+            for i in range(v.shape[1]):
+                r[:,i] = self.solveWT(v[:,i])
+            return r
+
+        N = len(v)
+        y = np.array(v)
+        y[N-1] /= self.phi[0]
+        for i in range(N-2, -1, -1):
+            f = min(self.p+1, N-i)
+            y[i] -= np.dot(y[i+1:i+f], self.phi[1:f])
+            y[i] /= self.phi[0]
+        return np.correlate(y, self.theta, "full")[self.q:]
+
+    def applyWT(self, v):
+        "Return vector (or matrix of column vectors) W'*v"
+        if v.ndim > 3:
+            raise ValueError("v must be dimension 1 or 2")
+        elif v.ndim == 2:
+            r = np.zeros_like(v)
+            for i in range(v.shape[1]):
+                r[:,i] = self.applyWT(v[:,i])
+            return r
+
+        N = len(v)
+        y = np.array(v)
+        y[N-1] /= self.theta[0]
+        for i in range(N-2, -1, -1):
+            f = min(self.q+1, N-i)
+            y[i] -= np.dot(y[i+1:i+f], self.theta[1:f])
+            y[i] /= self.theta[0]
+        return np.correlate(y, self.phi, "full")[self.p:]
+
+    def W(self, N):
+        """Return the full whitening matrix.
+
+        Normally the full W is large and slow to use. But it's here so you can
+        easily test that W(len(v))*v == whiten(v), and similar."""
+        AR = np.zeros((N,N), dtype=float)
+        MA = np.zeros((N,N), dtype=float)
+        for i in range(N):
+            for j in range(max(0, i-self.p), i+1):
+                AR[i,j] = self.phi[i-j]
+            for j in range(max(0, i-self.q), i+1):
+                MA[i,j] = self.theta[i-j]
+        return np.linalg.solve(MA, AR)
