@@ -35,8 +35,11 @@ for module_path in module_paths:
     modules.append(imp.load_module(module_name, *imp.find_module(module_name)))
 # print out the modules found
 print(os.path.realpath(__file__))
-print("found the following modules to test:")
+print("found the following %g modules to test:"%(len(modules)))
 for module in modules: print(module)
+if len(modules)==0:
+    print("No modules found to test!")
+    sys.exit(1) # indicate test failure
 
 # load up all tests into a suite
 suite = unittest.TestSuite()
