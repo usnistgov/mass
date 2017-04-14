@@ -37,6 +37,8 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
     ft = np.fft.rfft(rawspectrum)
     ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
     smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
+    smoothspectrum[smoothspectrum<0]=0 # in pathalogical cases, the convolutuion can cause negative values
+    # this is a hacky way to protect against that
     return smoothspectrum[nlow:nlow + len(x)]
 
 
@@ -73,7 +75,7 @@ class LineFitter(object):
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None,
             color=None, label=True, vary_resolution=True, vary_bg=True,
-            vary_bg_slope=False, vary_tail=False, hold=None, verbose=False):
+            vary_bg_slope=False, vary_tail=False, hold=None, verbose=False, ph_units="arb"):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
 
@@ -86,7 +88,9 @@ class LineFitter(object):
         axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
                 current figure.
         color:  Color for drawing the histogram contents behind the fit.
-        label:  Label for the fit line to go into the plot (usually used for resolution and uncertainty)
+        label:  (True/False) Label for the fit line to go into the plot (usually used for resolution and uncertainty)
+                "full" labe with all fit params including reduced chi sqaured, followed by "H" if was held
+        ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
 
         vary_resolution Whether to let the Gaussian resolution vary in the fit
         vary_bg:       Whether to let a constant background level vary in the fit
@@ -111,35 +115,27 @@ class LineFitter(object):
         elif len(pulseheights) != len(data):
             pulseheights = np.arange(len(data), dtype=np.float)
 
-        if hold is None:
-            hold = set([])
+        self.hold=hold
+        if self.hold is None:
+            self.hold = set([])
         else:
-            hold = set(hold)
+            self.hold = set(self.hold)
         if not vary_resolution:
-            hold.add(self.param_meaning["resolution"])
+            self.hold.add(self.param_meaning["resolution"])
         if not vary_bg:
-            hold.add(self.param_meaning["background"])
+            self.hold.add(self.param_meaning["background"])
         if not vary_bg_slope:
-            hold.add(self.param_meaning["bg_slope"])
+            self.hold.add(self.param_meaning["bg_slope"])
         if not vary_tail:
-            hold.add(self.param_meaning["tail_frac"])
-            hold.add(self.param_meaning["tail_length"])
+            self.hold.add(self.param_meaning["tail_frac"])
+            self.hold.add(self.param_meaning["tail_length"])
 
         try:
             len(params) == self.nparam
         except:
             params = self.guess_starting_params(data, pulseheights)
 
-        if plot:
-            if color is None:
-                color = 'blue'
-            if axis is None:
-                plt.clf()
-                axis = plt.subplot(111)
 
-            plot_as_stepped_hist(axis, data, pulseheights, color=color)
-            ph_binsize = pulseheights[1] - pulseheights[0]
-            axis.set_xlim([pulseheights[0] - 0.5 * ph_binsize, pulseheights[-1] + 0.5 * ph_binsize])
 
         # Max-likelihood histogram fitter
         epsilon = self.stepsize(params)
@@ -149,7 +145,7 @@ class LineFitter(object):
         for i, b in enumerate(self.bounds):
             fitter.setbounds(i, b[0], b[1])
 
-        for h in hold:
+        for h in self.hold:
             fitter.hold(h)
 
         if self.penalty_function is not None:
@@ -164,22 +160,62 @@ class LineFitter(object):
         self.last_fit_bins = pulseheights.copy()
         self.last_fit_contents = data.copy()
 
-        if plot:
-            pnum_res = self.param_meaning["resolution"]
-            slabel = ""
-            if label and pnum_res not in hold:
-                pnum_tf = self.param_meaning["tail_frac"]
-                res = fitparams[pnum_res]
-                err = covariance[pnum_res,pnum_res]**0.5
-                tf = fitparams[pnum_tf]
-                slabel = "FWHM: %.2f +- %.2f" % (res, err)
-                if tf > 0.001:
-                    slabel += "\nf$_\\mathrm{tail}$: %.1f%%"%(tf*100)
-            axis.plot(pulseheights, self.last_fit_result, color='#666666',
-                      label=slabel)
-            if len(slabel) > 0:
-                axis.legend(loc='upper left', frameon=False)
+        if plot: self.plot(color, axis, label, ph_units)
+
         return fitparams, covariance
+
+    def plot(self, color=None, axis=None, label=True, ph_units="arb"):
+        if color is None:
+            color = 'blue'
+        if axis is None:
+            plt.clf()
+            axis = plt.subplot(111)
+
+        plot_as_stepped_hist(axis, self.last_fit_contents, self.last_fit_bins, color=color)
+        ph_binsize = self.last_fit_bins[1] - self.last_fit_bins[0]
+        axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize, self.last_fit_bins[-1] + 0.5 * ph_binsize])
+        pnum_res = self.param_meaning["resolution"]
+        slabel = ""
+
+        labeldict={meaning:meaning+" %4g +- %4g" for meaning in self.param_meaning.keys()}
+        labeldict["resolution"]="FWHM: %.3f +- %.3f"
+        labeldict["tail_frac"]="\nf$_\\mathrm{tail}$: %.1f +- %.1f"
+
+        if label=="full":
+            for (meaning, i) in self.param_meaning.iteritems():
+                val = self.last_fit_params[i]
+                err = self.last_fit_cov[i,i]**0.5
+                s = labeldict[meaning]%(val,err)
+                if i in self.hold:
+                    s+=" H"
+                s+="\n"
+                slabel+=s
+            slabel+="reduced chisq %4g"%self.last_fit_reduced_chisq
+
+        elif label and pnum_res not in self.hold:
+            pnum_tf = self.param_meaning["tail_frac"]
+            res = self.last_fit_params[pnum_res]
+            err = self.last_fit_cov[pnum_res,pnum_res]**0.5
+            tf = self.last_fit_params[pnum_tf]
+            slabel = "FWHM: %.2f +- %.2f" % (res, err)
+            if tf > 0.001:
+                slabel += "\nf$_\\mathrm{tail}$: %.1f%%"%(tf*100)
+        axis.plot(self.last_fit_bins, self.last_fit_result, color='#666666',
+                  label=slabel)
+        if len(slabel) > 0:
+            axis.legend(loc='best', frameon=False)
+
+        plt.xlabel("energy (%s)"%ph_units)
+        plt.ylabel("counts per %0.2f %s bin"%(ph_binsize,ph_units))
+
+    @property
+    def n_degree_of_freedom(self):
+        """return the number of degrees of freedom"""
+        return len(self.last_fit_bins)-self.nparam+len(self.hold)
+
+    @property
+    def last_fit_reduced_chisq(self):
+        return self.last_fit_chisq/self.n_degree_of_freedom
 
 
 class VoigtFitter(LineFitter):
@@ -347,7 +383,6 @@ class NVoigtFitter(LineFitter):
             epsilon[3+i*3] *= 1e-5
         return epsilon
 
-
 class GaussianFitter(LineFitter):
     """Fit a single Gaussian line, with a low-E tail.
 
@@ -460,7 +495,10 @@ class MultiLorentzianComplexFitter(LineFitter):
         self.spect.set_gauss_fwhm(P_gaussfwhm)
         cleanspectrum_fn = self.spect.pdf
         spectrum = _smear_lowEtail(cleanspectrum_fn, energy, P_gaussfwhm, P_tailfrac, P_tailtau)
-        return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
+        retval = _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
+        if any(np.isnan(retval)) or any(retval<0):
+            raise ValueError
+        return retval
 
     def stepsize(self, params):
         """Vector of the parameter step sizes for finding discrete gradient."""
