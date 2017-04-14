@@ -143,25 +143,25 @@ class TestTESHDF5Only(ut.TestCase):
 
         data2 = mass.TESGroupHDF5(h5filename)
 
-    def test_ordering_hdf5only(self):
-        src_name = "src/mass/regression_test/regress_chan1.ljh"
-        dir = tempfile.mkdtemp()
-        dest_name = "%s/temporary_chan%d.ljh"
-        cnums = (1,3,5,11,13,15)
-        for c in cnums:
-            os.link(src_name, dest_name%(dir,c))
-
-        data1 = mass.TESGroup("%s/temporary_chan*.ljh"%dir)
-        # Make sure the usual TESGroup is in the right order
-        for i,ds in enumerate(data1):
-            self.assertEqual(ds.channum, cnums[i])
-        fname = data1.hdf5_file.filename
-        del data1
-
-        # Make sure the usual TESGroup is in the right order
-        data = mass.TESGroupHDF5(fname)
-        for i,ds in enumerate(data):
-            self.assertEqual(ds.channum, cnums[i])
+    # def test_ordering_hdf5only(self):
+    #     src_name = "src/mass/regression_test/regress_chan1.ljh"
+    #     dir = tempfile.mkdtemp()
+    #     dest_name = "%s/temporary_chan%d.ljh"
+    #     cnums = (1,3,5,11,13,15)
+    #     for c in cnums:
+    #         os.link(src_name, dest_name%(dir,c))
+    #
+    #     data1 = mass.TESGroup("%s/temporary_chan*.ljh"%dir)
+    #     # Make sure the usual TESGroup is in the right order
+    #     for i,ds in enumerate(data1):
+    #         self.assertEqual(ds.channum, cnums[i])
+    #     fname = data1.hdf5_file.filename
+    #     del data1
+    #
+    #     # Make sure the usual TESGroup is in the right order
+    #     data = mass.TESGroupHDF5(fname)
+    #     for i,ds in enumerate(data):
+    #         self.assertEqual(ds.channum, cnums[i])
 
 
 
