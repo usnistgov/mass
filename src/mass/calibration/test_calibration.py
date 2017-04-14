@@ -11,6 +11,8 @@ import unittest
 import numpy as np
 import pylab as plt
 import mass
+import h5py
+import os
 
 
 def test_options(curvetype1, use_approximation1, curvetype2, use_approximation2, refenergy=5100):
@@ -151,9 +153,27 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
         cal1.set_use_approximation(True)
         energies = np.array([6000,3000,4500,4000,5000,5500], dtype=float)
         for energy in energies:
-            ph = energy**0.8 
+            ph = energy**0.8
             cal1.add_cal_point(ph, energy)
         cal1(np.array([2200,4200,4400], dtype=float))
+
+    def test_save_and_load_to_hdf5(self):
+        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
+        for energy in np.linspace(3000,6000,10):
+            ph = energy**0.8
+            cal1.add_cal_point(ph, energy)
+        with h5py.File(os.tmpnam(),"w") as h5:
+            grp = h5.require_group("calibration")
+            cal1.save_to_hdf5(grp,"cal1")
+            cal2 = mass.calibration.energy_calibration.EnergyCalibration.load_from_hdf5(grp,"cal1")
+            self.assertEqual(len(grp.keys()),1)
+        self.assertTrue(all(cal1._ph==cal2._ph))
+        self.assertTrue(all(cal2._energies==cal2._energies))
+        self.assertTrue(all(cal1._dph==cal2._dph))
+        self.assertTrue(all(cal1._de==cal2._de))
+        self.assertEqual(cal1.nonlinearity, cal2.nonlinearity)
+        self.assertEqual(cal1.CURVETYPE, cal2.CURVETYPE)
+        self.assertEqual(cal1._use_approximation, cal2._use_approximation)
 
 if __name__ == "__main__":
     unittest.main()

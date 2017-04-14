@@ -655,7 +655,7 @@ class EnergyCalibration(object):
             del hdf5_group[name]
 
         cal_data = np.zeros(self._ph.shape, dtype=self.CAL_POINT_DTYPE)
-        cal_data['name'] = [name.encode() for name in self._names]
+        cal_data['name'] = [_name.encode() for _name in self._names]
         cal_data['ph'] = self._ph
         cal_data['energy'] = self._energies
         cal_data['dph'] = self._dph
@@ -668,6 +668,7 @@ class EnergyCalibration(object):
 
     @classmethod
     def load_from_hdf5(cls, hdf5_group, name):
+        # cls is like self, but unused in a class method
         cal_dataset = hdf5_group[name]
         cal = EnergyCalibration(cal_dataset.attrs['nonlinearity'],
                                 cal_dataset.attrs['curvetype'],
