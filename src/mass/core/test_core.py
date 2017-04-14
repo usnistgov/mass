@@ -3,7 +3,7 @@ import os.path
 
 import numpy as np
 import pylab as pl
-import glob, os
+import glob, os, shutil
 import mass
 import unittest as ut
 import mass.core.channel_group as mcg
@@ -140,16 +140,17 @@ class TestTESHDF5Only(ut.TestCase):
         data.hdf5_noisefile.close()
         del data
 
-
         data2 = mass.TESGroupHDF5(h5filename)
 
     def test_ordering_hdf5only(self):
         src_name = "src/mass/regression_test/regress_chan1.ljh"
         dir = tempfile.mkdtemp()
         dest_name = "%s/temporary_chan%d.ljh"
+        chan1_dest = dest_name%(dir,1)
+        shutil.copy(src_name, chan1_dest)
         cnums = (1,3,5,11,13,15)
-        for c in cnums:
-            os.link(src_name, dest_name%(dir,c))
+        for c in cnums[1:]:
+            os.link(chan1_dest, dest_name%(dir,c))
 
         data1 = mass.TESGroup("%s/temporary_chan*.ljh"%dir)
         # Make sure the usual TESGroup is in the right order
