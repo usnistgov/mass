@@ -485,7 +485,11 @@ class TESGroup(CutFieldMixin):
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        include_badchan=False, forceNew=False, use_cython=True):
-        """Compute summary quantities for each pulse."""
+        """summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
+                           include_badchan=False, forceNew=False, use_cython=True)
+        peak_time will be determined automatically if None, and will be stored in channels as ds.peak_samplenumber
+        use_cython uses a cython (aka faster) implementation of summarize. 
+        Compute summary quantities for each pulse."""
         nchan = float(len(self.channel.keys())) if include_badchan else float(self.num_good_channels)
 
         for i, ds in enumerate(self.iter_channels(include_badchan)):
