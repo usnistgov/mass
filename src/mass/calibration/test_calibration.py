@@ -162,7 +162,8 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
         for energy in np.linspace(3000,6000,10):
             ph = energy**0.8
             cal1.add_cal_point(ph, energy)
-        with h5py.File(os.tmpnam(),"w") as h5:
+        fname = os.tmpnam()
+        with h5py.File(fname,"w") as h5:
             grp = h5.require_group("calibration")
             cal1.save_to_hdf5(grp,"cal1")
             cal2 = mass.calibration.energy_calibration.EnergyCalibration.load_from_hdf5(grp,"cal1")

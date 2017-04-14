@@ -133,12 +133,6 @@ class EnergyCalibration(object):
         "loggain",
         )
 
-    CAL_POINT_DTYPE = np.dtype([("name", np.bytes_, 64),
-                                ("ph", np.double),
-                                ("energy", np.double),
-                                ("dph", np.double),
-                                ("de", np.double)])
-
     def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=False):
         """Create an EnergyCalibration object for pulse-height-related field.
 
@@ -654,27 +648,32 @@ class EnergyCalibration(object):
         if name in hdf5_group:
             del hdf5_group[name]
 
-        cal_data = np.zeros(self._ph.shape, dtype=self.CAL_POINT_DTYPE)
-        cal_data['name'] = [_name.encode() for _name in self._names]
-        cal_data['ph'] = self._ph
-        cal_data['energy'] = self._energies
-        cal_data['dph'] = self._dph
-        cal_data['de'] = self._de
 
-        cal_dataset = hdf5_group.create_dataset(name, self._ph.shape, self.CAL_POINT_DTYPE, cal_data)
-        cal_dataset.attrs['nonlinearity'] = self.nonlinearity
-        cal_dataset.attrs['curvetype'] = self.CURVETYPE[self._curvetype]
-        cal_dataset.attrs['approximate'] = self._use_approximation
+        cal_group = hdf5_group.create_group(name)
+        cal_group["name"] = [_name.encode() for _name in self._names]
+        cal_group["ph"] = self._ph
+        cal_group["energy"] = self._energies
+        cal_group["dph"]  = self._dph
+        cal_group["de"] = self._de
+        cal_group.attrs['nonlinearity'] = self.nonlinearity
+        cal_group.attrs['curvetype'] = self.CURVETYPE[self._curvetype]
+        cal_group.attrs['approximate'] = self._use_approximation
 
     @classmethod
     def load_from_hdf5(cls, hdf5_group, name):
         # cls is like self, but unused in a class method
-        cal_dataset = hdf5_group[name]
-        cal = EnergyCalibration(cal_dataset.attrs['nonlinearity'],
-                                cal_dataset.attrs['curvetype'],
-                                cal_dataset.attrs['approximate'])
+        cal_group = hdf5_group[name]
+        cal = EnergyCalibration(cal_group.attrs['nonlinearity'],
+                                cal_group.attrs['curvetype'],
+                                cal_group.attrs['approximate'])
 
-        for name, ph, e, dph, de in cal_dataset:
+        _names = cal_group["name"].value
+        _ph = cal_group["ph"].value
+        _energies = cal_group["energy"].value
+        _dph = cal_group["dph"].value
+        _de = cal_group["de"].value
+
+        for name, ph, e, dph, de in zip(_names, _ph, _energies, _dph, _de):
             cal.add_cal_point(ph, e, name.decode(), dph, de)
 
         return cal
