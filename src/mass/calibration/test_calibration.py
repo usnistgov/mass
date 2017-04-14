@@ -162,7 +162,7 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
         for energy in np.linspace(3000,6000,10):
             ph = energy**0.8
             cal1.add_cal_point(ph, energy)
-        fname = os.tmpnam()
+        fname = "to_be_delete.hdf5"
         with h5py.File(fname,"w") as h5:
             grp = h5.require_group("calibration")
             cal1.save_to_hdf5(grp,"cal1")
@@ -175,7 +175,8 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
         self.assertEqual(cal1.nonlinearity, cal2.nonlinearity)
         self.assertEqual(cal1.CURVETYPE, cal2.CURVETYPE)
         self.assertEqual(cal1._use_approximation, cal2._use_approximation)
-
+        os.remove(fname)
+        
 if __name__ == "__main__":
     unittest.main()
 
