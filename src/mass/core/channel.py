@@ -6,11 +6,6 @@ Created on Feb 16, 2011
 
 from functools import reduce
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
 import h5py
 import numpy as np
 import scipy as sp
