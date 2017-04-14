@@ -7,15 +7,21 @@ import sys, imp
 import os
 import os.path as path
 import re
+import subprocess
 
+VERBOSE=False
 # search mass and all subdirs for files matching "test_*.py"
 module_dirs = set()
 module_paths = set()
 rootdir = os.path.dirname(os.path.realpath(__file__))
-print("rootdir", rootdir)
 for dirpath, dirnames, filenames in os.walk(path.expanduser(rootdir)):
+    if dirpath.startswith(path.join(rootdir,"build")):
+        if VERBOSE: print("EXCLUDING: %s"%dirpath)
+        continue
+    else:
+        if VERBOSE: print("SEARCHING: %s"%dirpath)
     for filename in filenames:
-        if re.match("test_.+\.py\Z", filename) and not "build" in dirpath:
+        if re.match("test_.+\.py\Z", filename):
             module_dirs.add(dirpath)
             filepath = path.join(dirpath, filename)
             module_paths.add(filepath)
@@ -30,7 +36,7 @@ for module_path in module_paths:
 # print out the modules found
 print(os.path.realpath(__file__))
 print("found the following modules to test:")
-print(modules)
+for module in modules: print(module)
 
 # load up all tests into a suite
 suite = unittest.TestSuite()
