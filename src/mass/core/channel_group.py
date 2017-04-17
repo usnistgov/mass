@@ -1316,12 +1316,12 @@ def _remove_unmatched_channums(filenames1, filenames2, never_use=None, use_only=
 
     # If one list is empty, then matching is not required or expected.
     if filenames1 is None or len(filenames1) == 0 \
-        or filenames2 is None or len(filenames2) == 0:
+            or filenames2 is None or len(filenames2) == 0:
         return
 
     # Now make a mapping of channel numbers to names.
-    names1 = {_extract_channum(f):f for f in filenames1}
-    names2 = {_extract_channum(f):f for f in filenames2}
+    names1 = {_extract_channum(f): f for f in filenames1}
+    names2 = {_extract_channum(f): f for f in filenames2}
     cnum1 = set(names1.keys())
     cnum2 = set(names2.keys())
 
