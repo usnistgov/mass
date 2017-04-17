@@ -125,6 +125,23 @@ class TestTESGroup(ut.TestCase):
             self.fail("Opening a file with all channels bad raises and Exception.")
         self.assertNotIn(1, data.good_channels)
 
+    def test_save_hdf5_calibration_storage(self):
+        "calibrate a dataset, make sure it saves to hdf5"
+        src_name = 'src/mass/regression_test/regress_chan1.ljh'
+        noi_name = 'src/mass/regression_test/regress_chan1.noi'
+        for name in ['src/mass/regression_test/regress_mass.hdf5', 'src/mass/regression_test/regress_noise_mass.hdf5']:
+            if os.path.isfile(name): os.remove(name)
+        data = mass.TESGroup([src_name], [noi_name])
+        data.summarize_data()
+        data.calibrate("p_pulse_rms",[10000.])
+        data.calibrate("p_pulse_rms",[10000.],name_ext="abc")
+        ds = data.first_good_dataset
+
+        data2 = mass.TESGroup([src_name], [noi_name])
+        ds2 = data2.first_good_dataset
+        self.assertTrue( all([k in ds.calibration.keys() for k in ds2.calibration.keys()]))
+        self.assertEqual(len(ds.calibration.keys()),2)
+
 
 class TestTESHDF5Only(ut.TestCase):
 

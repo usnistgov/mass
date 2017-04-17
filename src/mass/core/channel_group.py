@@ -484,7 +484,11 @@ class TESGroup(CutFieldMixin):
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        include_badchan=False, forceNew=False, use_cython=True):
-        """Compute summary quantities for each pulse."""
+        """summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
+                           include_badchan=False, forceNew=False, use_cython=True)
+        peak_time will be determined automatically if None, and will be stored in channels as ds.peak_samplenumber
+        use_cython uses a cython (aka faster) implementation of summarize. 
+        Compute summary quantities for each pulse."""
         nchan = float(len(self.channel.keys())) if include_badchan else float(self.num_good_channels)
 
         for i, ds in enumerate(self.iter_channels(include_badchan)):
@@ -1311,12 +1315,12 @@ def _remove_unmatched_channums(filenames1, filenames2, never_use=None, use_only=
 
     # If one list is empty, then matching is not required or expected.
     if filenames1 is None or len(filenames1) == 0 \
-        or filenames2 is None or len(filenames2) == 0:
+            or filenames2 is None or len(filenames2) == 0:
         return
 
     # Now make a mapping of channel numbers to names.
-    names1 = {_extract_channum(f):f for f in filenames1}
-    names2 = {_extract_channum(f):f for f in filenames2}
+    names1 = {_extract_channum(f): f for f in filenames1}
+    names2 = {_extract_channum(f): f for f in filenames2}
     cnum1 = set(names1.keys())
     cnum2 = set(names2.keys())
 

@@ -7,18 +7,18 @@ Created on May 16, 2011
 """
 
 import numpy as np
-import scipy as sp
+from scipy.optimize import brentq
 
 from mass.mathstat.interpolate import *
 from mass.mathstat.derivative import *
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = {
-   'Gd1' :  97431.0,
+   'Gd1':   97431.0,
    'Gd97':  97431.0,
-   'Gd2':  103180.0,
-   'Gd103':103180.0,
-   'zero': 0.0,
+   'Gd2':   103180.0,
+   'Gd103': 103180.0,
+   'zero':  0.0,
 
    # The following Kalpha (alpha 1) and Kbeta (beta 1,3) line positions were
    # cross-checked 4 Feb 2014 against Deslattes.
@@ -34,7 +34,7 @@ STANDARD_FEATURES = {
    'TiKBeta':  4931.83,  # http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
    'VKAlpha':  4952.22,
    'VKBeta':   5426.962,  # From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
-   'CrKAlpha' :5414.805,
+   'CrKAlpha': 5414.805,
    'CrKBeta':  5946.82,
    'MnKAlpha': 5898.801,
    'MnKBeta':  6490.59,
@@ -133,12 +133,6 @@ class EnergyCalibration(object):
         "loggain",
         )
 
-    CAL_POINT_DTYPE = np.dtype([("name", np.bytes_, 64),
-                                ("ph", np.double),
-                                ("energy", np.double),
-                                ("dph", np.double),
-                                ("de", np.double)])
-
     def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=False):
         """Create an EnergyCalibration object for pulse-height-related field.
 
@@ -209,7 +203,7 @@ class EnergyCalibration(object):
             return self._ph2energy_anon(ph) - etarget
 
         if np.isscalar(energy):
-            return sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(energy,))
+            return brentq(energy_residual, 1e-6, self._max_ph, args=(energy,))
         elif len(energy) > 10 and not self._e2phwarned:
             print("WARNING: EnergyCalibration.energy2ph can be slow for long inputs.")
             self._e2phwarned = True
@@ -222,7 +216,7 @@ class EnergyCalibration(object):
 
             return phs
 
-        result = [sp.optimize.brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
+        result = [brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
         return np.array(result)
 
     def energy2dedph(self, energy, denergy=1):
@@ -452,7 +446,7 @@ class EnergyCalibration(object):
             if underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
             else:
-                self._max_ph = scale*0.99*sp.optimize.brentq(underlying_spline, self._ph.max()/scale, trial_phmax/scale)
+                self._max_ph = scale*0.99*brentq(underlying_spline, self._ph.max()/scale, trial_phmax/scale)
 
         elif self.curvename() == "invgain":
             ig = e/ph
@@ -534,7 +528,7 @@ class EnergyCalibration(object):
             if underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
             else:
-                self._max_ph = 0.99*sp.optimize.brentq(underlying_spline, 0, trial_phmax)
+                self._max_ph = 0.99 * brentq(underlying_spline, 0, trial_phmax)
 
         elif self.curvename() == "invgain":
             x = self._ph
@@ -654,26 +648,30 @@ class EnergyCalibration(object):
         if name in hdf5_group:
             del hdf5_group[name]
 
-        cal_data = np.zeros(self._ph.shape, dtype=self.CAL_POINT_DTYPE)
-        cal_data['name'] = [name.encode() for name in self._names]
-        cal_data['ph'] = self._ph
-        cal_data['energy'] = self._energies
-        cal_data['dph'] = self._dph
-        cal_data['de'] = self._de
-
-        cal_dataset = hdf5_group.create_dataset(name, self._ph.shape, self.CAL_POINT_DTYPE, cal_data)
-        cal_dataset.attrs['nonlinearity'] = self.nonlinearity
-        cal_dataset.attrs['curvetype'] = self.CURVETYPE[self._curvetype]
-        cal_dataset.attrs['approximate'] = self._use_approximation
+        cal_group = hdf5_group.create_group(name)
+        cal_group["name"] = map(str.encode, self._names)
+        cal_group["ph"] = self._ph
+        cal_group["energy"] = self._energies
+        cal_group["dph"] = self._dph
+        cal_group["de"] = self._de
+        cal_group.attrs['nonlinearity'] = self.nonlinearity
+        cal_group.attrs['curvetype'] = self.CURVETYPE[self._curvetype]
+        cal_group.attrs['approximate'] = self._use_approximation
 
     @classmethod
     def load_from_hdf5(cls, hdf5_group, name):
-        cal_dataset = hdf5_group[name]
-        cal = EnergyCalibration(cal_dataset.attrs['nonlinearity'],
-                                cal_dataset.attrs['curvetype'],
-                                cal_dataset.attrs['approximate'])
+        cal_group = hdf5_group[name]
+        cal = cls(cal_group.attrs['nonlinearity'],
+                  cal_group.attrs['curvetype'],
+                  cal_group.attrs['approximate'])
 
-        for name, ph, e, dph, de in cal_dataset:
+        _names = cal_group["name"].value
+        _ph = cal_group["ph"].value
+        _energies = cal_group["energy"].value
+        _dph = cal_group["dph"].value
+        _de = cal_group["de"].value
+
+        for name, ph, e, dph, de in zip(_names, _ph, _energies, _dph, _de):
             cal.add_cal_point(ph, e, name.decode(), dph, de)
 
         return cal

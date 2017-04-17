@@ -186,7 +186,7 @@ class NoiseRecords(object):
         return spectrum
 
     def compute_fancy_power_spectra(self, window=mass.mathstat.power_spectrum.hann,
-                                     plot=True, seglength_choices=None):
+                                    plot=True, seglength_choices=None):
         assert self.continuous
 
         # Does it assume that all data fit into a single segment?
@@ -194,22 +194,22 @@ class NoiseRecords(object):
         n = np.prod(self.datafile.data.shape)
         if seglength_choices is None:
             longest_seg = 1
-            while longest_seg <= n//16:
+            while longest_seg <= n // 16:
                 longest_seg *= 2
             seglength_choices = [longest_seg]
             while seglength_choices[-1] > 256:
-                seglength_choices.append(seglength_choices[-1]//4)
+                seglength_choices.append(seglength_choices[-1] // 4)
             LOG.debug("Will use segments of length: %s"%seglength_choices)
 
         spectra = [self.compute_power_spectrum_reshape(window=window, seg_length=seglen)
                    for seglen in seglength_choices]
         if plot:
             plt.clf()
-            lowest_freq = np.array([1./(sp.dt*sp.m2) for sp in spectra])
+            lowest_freq = np.array([1./(s.dt * s.m2) for s in spectra])
 
             start_freq = 0.0
-            for i, sp in enumerate(spectra):
-                x, y = sp.frequencies(), sp.spectrum()
+            for i, s in enumerate(spectra):
+                x, y = s.frequencies(), s.spectrum()
                 if i == len(spectra)-1:
                     good = x >= start_freq
                 else:
@@ -593,6 +593,7 @@ class MicrocalDataSet(object):
             self.hdf5_group = None
 
         self.__setup_vectors(npulses=self.nPulses)
+        self.__load_cals_from_hdf5()
 
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
@@ -679,6 +680,17 @@ class MicrocalDataSet(object):
         grp = self.hdf5_group.require_group('cuts')
         self.cuts = Cuts(self.nPulses, self.tes_group, hdf5_group=grp)
 
+    def __load_cals_from_hdf5(self, overwrite=False):
+        """__load_cals_from_hdf5(self,overwrite=False)
+        Load all calibraitons in self.hdf5_group["calibration"] into the dictionary
+        self.calibration"""
+        hdf5_cal_group = self.hdf5_group.require_group('calibration')
+        for k in hdf5_cal_group.keys():
+            if not overwrite:
+                if k in self.calibration.keys():
+                    raise ValueError("trying to load over existing calibration, consider passing overwrite=True")
+            self.calibration[k] = EnergyCalibration.load_from_hdf5(hdf5_cal_group, k)
+
     @property
     def p_peak_time(self):
         # this is a property to reduce memory usage, I hope it works
@@ -688,7 +700,7 @@ class MicrocalDataSet(object):
     def external_trigger_rowcount(self):
         if not self._external_trigger_rowcount:
             filename = ljh_util.ljh_get_extern_trig_fname(self.filename)
-            h5 = h5py.File(filename,"r")
+            h5 = h5py.File(filename, "r")
             ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
             self._external_trigger_rowcount = h5[ds_name]
             self.row_timebase = self.timebase/float(self.number_of_rows)
@@ -1336,7 +1348,6 @@ class MicrocalDataSet(object):
         peaks.sort()
         return np.array(binctr[peaks])
 
-
     def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=False,
                       kernel_width=None):
         """2017 or 2015 phase correction method. Arguments are:
@@ -1357,7 +1368,7 @@ class MicrocalDataSet(object):
         if ph_peaks is None:
             ph_peaks = self._find_peaks_heuristic(self.p_filt_value_dc[good])
         if len(ph_peaks) <= 0:
-            LOG.info ("Could not phase_correct on chan %3d because no peaks"%self.channum)
+            LOG.info ("Could not phase_correct on chan %3d because no peaks" % self.channum)
             return
         ph_peaks = np.asarray(ph_peaks)
         ph_peaks.sort()
@@ -1369,8 +1380,8 @@ class MicrocalDataSet(object):
             kernel_width = np.max(ph_peaks)/1000.0
         for pk in ph_peaks:
             c, mphase = phasecorr_find_alignment(self.p_filt_phase[good],
-                                self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks),
-                                method2017=method2017, kernel_width=kernel_width)
+                                                 self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks),
+                                                 method2017=method2017, kernel_width=kernel_width)
             corrections.append(c)
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
@@ -1379,7 +1390,7 @@ class MicrocalDataSet(object):
         nc = np.hstack([len(c._x) for c in corrections])
         cx = np.hstack([c._x for c in corrections])
         cy = np.hstack([c._y for c in corrections])
-        for name,data in zip(("phase_corrector_x", "phase_corrector_y", "phase_corrector_n"),
+        for name, data in zip(("phase_corrector_x", "phase_corrector_y", "phase_corrector_n"),
                              (cx, cy, nc)):
             if name in self.hdf5_group:
                 del self.hdf5_group[name]
@@ -1400,12 +1411,13 @@ class MicrocalDataSet(object):
             y = np.zeros(NBINS, dtype=float)
             w = np.zeros(NBINS, dtype=float)
             for i in range(NBINS):
-                w[i] = (bin==i).sum()
-                if w[i] == 0: continue
-                x[i] = np.median(dc[bin==i])
-                y[i] = np.median(ph[bin==i])
+                w[i] = (bin == i).sum()
+                if w[i] == 0:
+                    continue
+                x[i] = np.median(dc[bin == i])
+                y[i] = np.median(ph[bin == i])
 
-            nonempty = w>0
+            nonempty = w > 0
             # Use sp.interpolate.UnivariateSpline because it can make an approximating
             # spline. But then use its x/y data and knots to create a Mass CubicSpline,
             # because that one can have natural boundary conditions instead of insane
@@ -1422,20 +1434,18 @@ class MicrocalDataSet(object):
 
         # Compute a correction for each pulse for each correction-line energy
         # For the actual correction, don't let |ph| > 0.6 sample
-        corrected_phase = self.p_filt_phase_corr[:]
-        corrected_phase[corrected_phase>0.6] = 0.6
-        corrected_phase[corrected_phase<-0.6] = -0.6
+        corrected_phase = np.clip(self.p_filt_phase_corr[:], -0.6, 0.6)
 
         nc = self.hdf5_group["phase_corrector_n"][...]
         cx = self.hdf5_group["phase_corrector_x"][...]
         cy = self.hdf5_group["phase_corrector_y"][...]
         corrections = []
-        idx=0
+        idx = 0
         for n in nc:
             x = cx[idx:idx+n]
             y = cy[idx:idx+n]
             idx += n
-            spl = mass.mathstat.interpolate.CubicSpline(x,y)
+            spl = mass.mathstat.interpolate.CubicSpline(x, y)
             corrections.append(spl)
 
         self.p_filt_value_phc[:] = _phase_corrected_filtvals(corrected_phase, self.p_filt_value_dc, corrections)
@@ -1445,7 +1455,6 @@ class MicrocalDataSet(object):
                                                               self.p_filt_value_dc[good], True)))
         self.phase_corrections = corrections
         return corrections
-
 
     def first_n_good_pulses(self, n=50000, category=None):
         """
@@ -1469,7 +1478,6 @@ class MicrocalDataSet(object):
             data = np.vstack((data, self.data[g[first:end], :]))
         nrecords = np.amin([n, data.shape[0]])
         return data[:nrecords], np.nonzero(g)[0][:nrecords]
-
 
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha',
                           nbins=200, plot=True, **kwargs):
@@ -1730,7 +1738,7 @@ class MicrocalDataSet(object):
             p_corrector = pfits_slope.copy()
             p_corrector[:-1] *= -1
             corrected = attr*np.polyval(p_corrector, self.p_timestamp-t0)
-            self.p_filt_value_tdc = corrected
+            self.p_filt_value_tdc[:] = corrected
 
             new_info = {'poly_gain': p_corrector, 't0': t0, 'type': 'time_gain_polynomial'}
         else:
@@ -1817,18 +1825,18 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
     `method2017==False` (the 2015 way) is subject to particular problems when
     there are not a lot of counts in the peak.
     """
-    phrange = np.array([-delta_ph,delta_ph])+peak
-    use = np.logical_and(np.abs(pulse_heights[:]-peak)<delta_ph,
-        np.abs(phase_indicator)<2)
+    phrange = np.array([-delta_ph, delta_ph])+peak
+    use = np.logical_and(np.abs(pulse_heights[:]-peak) < delta_ph,
+        np.abs(phase_indicator) < 2)
     low_phase, median_phase, high_phase = \
-        sp.stats.scoreatpercentile(phase_indicator[use], [3,50,97])
+        sp.stats.scoreatpercentile(phase_indicator[use], [3, 50, 97])
 
     if method2017:
         x = phase_indicator[use]
         y = pulse_heights[use]
         NBINS = len(x) // 300
-        if NBINS<2: NBINS=2
-        if NBINS>12: NBINS=12
+        if NBINS < 2: NBINS=2
+        if NBINS > 12: NBINS=12
 
         bin_edge = np.linspace(low_phase, high_phase, NBINS+1)
         dx = high_phase-low_phase
@@ -1842,9 +1850,9 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         for i in range(NBINS):
             yu = y[bins == i]
             yo = y[bins != i]
-            knots[i] = np.median(x[bins==i])
+            knots[i] = np.median(x[bins == i])
             f = lambda shift: mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
-            brack = 0.002*np.array([-1,1], dtype=float)
+            brack = 0.002*np.array([-1, 1], dtype=float)
             sbest, KLbest, niter, _ = sp.optimize.brent(f, (), brack=brack, full_output=True, tol=3e-4)
             # print ("Best KL-div is %7.4f at s[%d]=%.4f after %2d iterations"%(KLbest, i, sbest, niter))
             iter1 += niter
@@ -1860,7 +1868,7 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
             yu = ycorr[bins == i]
             yo = ycorr[bins != i]
             f = lambda shift: mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
-            brack = 0.002*np.array([-1,1], dtype=float)
+            brack = 0.002*np.array([-1, 1], dtype=float)
             sbest, KLbest, niter, _ = sp.optimize.brent(f, (), brack=brack, full_output=True, tol=1e-4)
             iter2 += niter
             yknot2[i] = sbest
@@ -1881,10 +1889,10 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
     Pbin = np.digitize(phase_indicator, Pedges)-1
 
     NBINS = 200
-    hists=np.zeros((nf, NBINS), dtype=float)
-    for i,P in enumerate(Pctrs):
-        use = (Pbin==i)
-        c,b = np.histogram(pulse_heights[use], NBINS, phrange)
+    hists = np.zeros((nf, NBINS), dtype=float)
+    for i, P in enumerate(Pctrs):
+        use = (Pbin == i)
+        c, b = np.histogram(pulse_heights[use], NBINS, phrange)
         hists[i] = c
     bctr = 0.5*(b[1]-b[0])+b[:-1]
 
@@ -1911,7 +1919,6 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
     return curve, median_phase
 
 
-
 def _phase_corrected_filtvals(phase, uncorrected, corrections):
     """Apply phase correction to `uncorrected` and return the corrected
     vector."""
@@ -1933,7 +1940,7 @@ def _phase_corrected_filtvals(phase, uncorrected, corrections):
     for b in range(NC):
         # Don't correct binnum=0, which would be negative PH
         use = (binnum == 1+b)
-        if b+1 == NC: # For the last bin, extrapolate
+        if b+1 == NC:  # For the last bin, extrapolate
             use = (binnum >= 1+b)
         if use.sum() == 0:
             continue
