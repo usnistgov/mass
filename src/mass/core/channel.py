@@ -275,12 +275,12 @@ class NoiseRecords(object):
         # it's hugely inefficient to compute the full autocorrelation, especially
         # in memory.  Instead, compute it on chunks several times the length of the desired
         # correlation, and average.
-        CHUNK_MULTIPLE=15
+        CHUNK_MULTIPLE = 15
         if n_data >= (1 + CHUNK_MULTIPLE) * n_lags:
             # Be sure to pad chunksize samples by AT LEAST n_lags zeros, to prevent
             # unwanted wraparound in the autocorrelation.
             # padded_data is what we do DFT/InvDFT on; ac is the unnormalized output.
-            chunksize=CHUNK_MULTIPLE * n_lags
+            chunksize = CHUNK_MULTIPLE * n_lags
             padsize = n_lags
             padded_data = np.zeros(padded_length(padsize+chunksize), dtype=np.float)
 
@@ -851,16 +851,16 @@ class MicrocalDataSet(object):
             (self.data[:seg_size, self.nPresamples:]**2.0).mean(axis=1) -
             ptm*(ptm + 2*self.p_pulse_average[first:end]))
 
-        shift1 = (self.data[:seg_size,self.nPresamples+2]-ptm >
+        shift1 = (self.data[:seg_size, self.nPresamples+2]-ptm >
                   4.3*self.p_pretrig_rms[first:end])
         self.p_shift1[first:end] = shift1
 
         halfidx = (self.nPresamples+5+self.peak_samplenumber)//2
         pkval = self.p_peak_value[first:end]
-        prompt = (self.data[:seg_size, self.nPresamples+5:halfidx].mean(axis=1)
-                  - ptm) / pkval
-        prompt[shift1] = (self.data[shift1, self.nPresamples+4:halfidx-1].mean(axis=1)
-                  - ptm[shift1]) / pkval[shift1]
+        prompt = (self.data[:seg_size, self.nPresamples+5:halfidx].mean(axis=1) -
+                  ptm) / pkval
+        prompt[shift1] = (self.data[shift1, self.nPresamples+4:halfidx-1].mean(axis=1) -
+                          ptm[shift1]) / pkval[shift1]
         self.p_promptness[first:end] = prompt
 
         self.p_rise_time[first:end] = \
@@ -1163,7 +1163,7 @@ class MicrocalDataSet(object):
 
         # Plot timeseries with 0 = the last 00 UT during or before the run.
         last_record = np.max(self.p_timestamp)
-        last_midnight = last_record - (last_record%86400)
+        last_midnight = last_record - (last_record % 86400)
         hour_offset = last_midnight/3600.
 
         plt.clf()
@@ -1267,7 +1267,7 @@ class MicrocalDataSet(object):
         indicator = self.p_pretrig_mean[g]
         drift_corr_param, self.drift_correct_info = \
             mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
-        self.p_filt_value_dc.attrs.update(self.drift_correct_info) # Store in hdf5 file
+        self.p_filt_value_dc.attrs.update(self.drift_correct_info)  # Store in hdf5 file
         print('chan %d best drift correction parameter: %.6f' % (self.channum, drift_corr_param))
         self._apply_drift_correction()
 
@@ -1336,13 +1336,13 @@ class MicrocalDataSet(object):
         binctr = bins[1:] - 0.5 * (bins[1] - bins[0])
 
         # Scipy continuous wavelet transform
-        pk1 = np.array(sp.signal.find_peaks_cwt(hist, np.array([2,4,8,12])))
+        pk1 = np.array(sp.signal.find_peaks_cwt(hist, np.array([2, 4, 8, 12])))
 
         # A peak must contain 0.5% of the data or 500 events, whichever is more,
         # but the requirement is not more than 5% of data (for meager data sets)
         Ntotal = len(phnorm)
         MinCountsInPeak = min(max(500, Ntotal//200), Ntotal//20)
-        pk2 = pk1[hist[pk1]>MinCountsInPeak]
+        pk2 = pk1[hist[pk1] > MinCountsInPeak]
 
         # Now take peaks from highest to lowest, provided they are at least 40 bins from any neighbor
         ordering = hist[pk2].argsort()
@@ -1398,7 +1398,7 @@ class MicrocalDataSet(object):
         cx = np.hstack([c._x for c in corrections])
         cy = np.hstack([c._y for c in corrections])
         for name, data in zip(("phase_corrector_x", "phase_corrector_y", "phase_corrector_n"),
-                             (cx, cy, nc)):
+                              (cx, cy, nc)):
             if name in self.hdf5_group:
                 del self.hdf5_group[name]
             self.hdf5_group.create_dataset(name, data=data)
@@ -1409,7 +1409,7 @@ class MicrocalDataSet(object):
         else:
             # Too few peaks to spline, so just bin and take the median per bin, then
             # interpolated (approximating) spline through/near these points.
-            NBINS=10
+            NBINS = 10
             dc = self.p_filt_value_dc[good]
             ph = self.p_filt_phase[good]
             top = min(dc.max(), 1.2*sp.stats.scoreatpercentile(dc, 98))
@@ -1589,7 +1589,7 @@ class MicrocalDataSet(object):
         if calname is None:
             calname = attr
         if calname not in self.calibration:
-            raise ValueError("For chan %d calibration %s does not exist"%(self.channum, calname))
+            raise ValueError("For chan %d calibration %s does not exist" % (self.channum, calname))
         cal = self.calibration[calname]
         self.p_energy[:] = cal.ph2energy(getattr(self, attr))
         self.last_used_calibration = cal
@@ -1837,7 +1837,7 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
     """
     phrange = np.array([-delta_ph, delta_ph])+peak
     use = np.logical_and(np.abs(pulse_heights[:]-peak) < delta_ph,
-        np.abs(phase_indicator) < 2)
+                         np.abs(phase_indicator) < 2)
     low_phase, median_phase, high_phase = \
         sp.stats.scoreatpercentile(phase_indicator[use], [3, 50, 97])
 
@@ -1845,8 +1845,8 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         x = phase_indicator[use]
         y = pulse_heights[use]
         NBINS = len(x) // 300
-        if NBINS < 2: NBINS=2
-        if NBINS > 12: NBINS=12
+        NBINS = max(2, NBINS)
+        NBINS = min(12, NBINS)
 
         bin_edge = np.linspace(low_phase, high_phase, NBINS+1)
         dx = high_phase-low_phase
@@ -1861,9 +1861,11 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
             yu = y[bins == i]
             yo = y[bins != i]
             knots[i] = np.median(x[bins == i])
-            f = lambda shift: mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
+
+            def target(shift):
+                return mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
             brack = 0.002*np.array([-1, 1], dtype=float)
-            sbest, KLbest, niter, _ = sp.optimize.brent(f, (), brack=brack, full_output=True, tol=3e-4)
+            sbest, KLbest, niter, _ = sp.optimize.brent(target, (), brack=brack, full_output=True, tol=3e-4)
             # print ("Best KL-div is %7.4f at s[%d]=%.4f after %2d iterations"%(KLbest, i, sbest, niter))
             iter1 += niter
             yknot[i] = sbest
@@ -1877,16 +1879,18 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         for i in range(NBINS):
             yu = ycorr[bins == i]
             yo = ycorr[bins != i]
-            f = lambda shift: mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
+
+            def target(shift):
+                return mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
             brack = 0.002*np.array([-1, 1], dtype=float)
-            sbest, KLbest, niter, _ = sp.optimize.brent(f, (), brack=brack, full_output=True, tol=1e-4)
+            sbest, KLbest, niter, _ = sp.optimize.brent(target, (), brack=brack, full_output=True, tol=1e-4)
             iter2 += niter
             yknot2[i] = sbest
         correction = mass.CubicSpline(knots, yknot+yknot2)
         H0 = mass.mathstat.entropy.laplace_entropy(y, kernel_width)
         H1 = mass.mathstat.entropy.laplace_entropy(ycorr, kernel_width)
         H2 = mass.mathstat.entropy.laplace_entropy(y+correction(x), kernel_width)
-        print("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)"%(H0, H1, H2, iter1, iter2, NBINS))
+        print("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)" % (H0, H1, H2, iter1, iter2, NBINS))
 
         curve = mass.CubicSpline(knots-median_phase, peak-(yknot+yknot2))
         return curve, median_phase
@@ -1913,7 +1917,8 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         # of histogram #i and the mean histogram, then finding its local max.
         conv = sp.signal.fftconvolve(kernel, hists[i], 'same')
         m = conv.argmax()
-        if conv[m] <= 0: continue
+        if conv[m] <= 0:
+            continue
         p = np.poly1d(np.polyfit(bctr[m-2:m+3], conv[m-2:m+3], 2))
         # p = np.poly1d(np.polyfit(b[m-2:m+3], conv[m-2:m+3], 2))
         peak = p.deriv(m=1).r[0]
