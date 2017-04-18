@@ -73,7 +73,7 @@ class TestFilters(ut.TestCase):
             self.assertIn("noconst", f.variances)
             self.assertIn("noconst", f.predicted_v_over_dv)
             self.assertAlmostEqual(f.variances["noconst"], 8.8e-7, delta=3e-8)
-            expected = 449.4 if newstyle else 456.7
+            expected = 449.53 if newstyle else 456.7
             self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], expected, delta=0.1)
 
     def test_vdv_oldfilters(self):
