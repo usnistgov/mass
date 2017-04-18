@@ -9,6 +9,38 @@ import operator
 import numpy as np
 
 
+def _get_max_width(a, min_width=0):
+    max_width = max(map(len, a))
+    max_width = max(max_width, min_width)
+
+    return max_width
+
+
+class CutDesc(np.ndarray):
+    def __repr__(self):
+        w = _get_max_width(self["name"], min_width=4) + 2
+
+        header = "{0:^{width}s}|{1:^34s}".format("name", "mask", width=w)
+        spacer = "-" * w + "+" + "-" * 34
+        rows = ["{0:^{width}s}| {1:032b} ".format(name.decode(), mask, width=w) for name, mask in self if mask != 0]
+
+        return "\n".join([header, spacer] + rows)
+
+
+class CategoryList(np.ndarray):
+    def __repr__(self):
+        fw = _get_max_width(self["field"], min_width=5) + 2
+        cw = _get_max_width(self["category"], min_width=8) + 2
+        w = _get_max_width(map(str, self["code"]), min_width=4) + 2
+
+        header = "{0:^{fw}s}|{1:^{cw}s}|{2:^{w}s}".format("field", "category", "code", fw=fw, cw=cw, w=w)
+        spacer = "-" * fw + "+" + "-" * cw + "+" + "-" * w
+        rows = ["{0:^{fw}s}|{1:^{cw}s}|{2:^{w}d} ".format(field.decode(), category.decode(), code, fw=fw, cw=cw, w=w)
+                for field, category, code in self]
+
+        return "\n".join([header, spacer] + rows)
+
+
 class CutFieldMixin(object):
     BUILTIN_BOOLEAN_CUT_FIELDS = ['pretrigger_rms',
                                   'pretrigger_mean',
@@ -83,7 +115,7 @@ class CutFieldMixin(object):
 
     @property
     def boolean_cut_desc(self):
-        return self.hdf5_file.attrs["cut_boolean_field_desc"]
+        return self.hdf5_file.attrs["cut_boolean_field_desc"].view(CutDesc)
 
     @boolean_cut_desc.setter
     def boolean_cut_desc(self, value):
@@ -91,7 +123,7 @@ class CutFieldMixin(object):
 
     @property
     def categorical_cut_desc(self):
-        return self.hdf5_file.attrs["cut_categorical_field_desc"]
+        return self.hdf5_file.attrs["cut_categorical_field_desc"].view(CutDesc)
 
     @categorical_cut_desc.setter
     def categorical_cut_desc(self, value):
@@ -99,7 +131,7 @@ class CutFieldMixin(object):
 
     @property
     def cut_category_list(self):
-        return self.hdf5_file.attrs["cut_category_list"]
+        return self.hdf5_file.attrs["cut_category_list"].view(CategoryList)
 
     @cut_category_list.setter
     def cut_category_list(self, value):
