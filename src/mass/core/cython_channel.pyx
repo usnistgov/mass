@@ -8,6 +8,8 @@ import numpy as np
 cimport cython
 from libc.math cimport sqrt
 cimport libc.limits
+import logging
+LOG = logging.getLogger("mass")
 
 # MASS modules
 
@@ -264,7 +266,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             return
 
         if not(forceNew or all(self.p_filt_value[:] == 0)):
-            print('\nchan %d did not filter because results were already loaded' % self.channum)
+            LOG.info('\nchan %d did not filter because results were already loaded' % self.channum)
             return
 
         if self.filter is not None:

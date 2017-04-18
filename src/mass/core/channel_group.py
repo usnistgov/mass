@@ -236,7 +236,7 @@ class TESGroup(CutFieldMixin):
                                      hdf5_group=hdf5_noisegroup)
 
                 if pulse.channum != noise.channum:
-                    print("TESGroup did not add data: channums don't match %s, %s" % (fname, nf))
+                    LOG.warn("WARNING: TESGroup did not add data: channums don't match %s, %s" % (fname, nf))
                     continue
                 dset.noise_records = noise
                 assert(dset.channum == dset.noise_records.channum)
@@ -361,9 +361,9 @@ class TESGroup(CutFieldMixin):
             if channum in self._bad_channums:
                 comment = self._bad_channums.pop(channum)
                 del self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad']
-                print("chan %d set good, had previously been set bad for %s" % (channum, str(comment)))
+                LOG.info("chan %d set good, had previously been set bad for %s" % (channum, str(comment)))
             else:
-                print("chan %d not set good because it was not set bad" % channum)
+                LOG.info("chan %d not set good because it was not set bad" % channum)
 
     def set_chan_bad(self, *args):
         """Set one or more channels to be bad.  (No effect for channels already listed
@@ -378,7 +378,7 @@ class TESGroup(CutFieldMixin):
         for channum in added_to_list:
             new_comment = self._bad_channums.get(channum, []) + [comment]
             self._bad_channums[channum] = new_comment
-            print('chan %s flagged bad because %s' % (channum, comment))
+            LOG.warn('WARNING: Chan %s flagged bad because %s' % (channum, comment))
             self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] = np.asarray(new_comment, dtype=np.bytes_)
 
     @property
@@ -462,10 +462,10 @@ class TESGroup(CutFieldMixin):
         self._allowed_segnums = allowed_segnums
 
         if ranges is not None:
-            print('Warning!  This feature is only half-complete.  Currently, granularity is limited.')
-            print('   Only full "segments" of size %d records can be ignored.' % self.pulses_per_seg)
-            print('   Will use %d segments and ignore %d.' % (self._allowed_segnums.sum(),
-                                                              self.n_segments - self._allowed_segnums.sum()))
+            LOG.warn("""Warning!  This feature is only half-complete.  Currently, granularity is limited.
+    Only full "segments" of size %d records can be ignored.
+    Will use %d segments and ignore %d.""" % (self.pulses_per_seg, self._allowed_segnums.sum(),
+                                              self.n_segments - self._allowed_segnums.sum()))
 
     def iter_segments(self, first_seg=0, end_seg=-1, sample_mask=None, segment_mask=None):
         if self._allowed_segnums is None:
@@ -481,11 +481,11 @@ class TESGroup(CutFieldMixin):
                 if b > len(sample_mask):
                     b = len(sample_mask)
                 if not sample_mask[a:b].any():
-                    print('We can skip segment %4d' % i)
+                    LOG.info('We can skip segment %4d' % i)
                     continue  # Don't need anything in this segment.  Sweet!
             if segment_mask is not None:
                 if not segment_mask[i]:
-                    print('We can skip segment %4d' % i)
+                    LOG.info('We can skip segment %4d' % i)
                     continue  # Don't need anything in this segment.  Sweet!
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
@@ -496,7 +496,7 @@ class TESGroup(CutFieldMixin):
         """summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                            include_badchan=False, forceNew=False, use_cython=True)
         peak_time will be determined automatically if None, and will be stored in channels as ds.peak_samplenumber
-        use_cython uses a cython (aka faster) implementation of summarize. 
+        use_cython uses a cython (aka faster) implementation of summarize.
         Compute summary quantities for each pulse."""
         nchan = float(len(self.channel.keys())) if include_badchan else float(self.num_good_channels)
 
@@ -574,7 +574,7 @@ class TESGroup(CutFieldMixin):
         else:
             dataset = self.datasets[dataset_num]
             if channum is not None:
-                print("Cannot find channum[%d], so using dataset #%d" % (channum, dataset_num))
+                LOG.info("Cannot find channum[%d], so using dataset #%d" % (channum, dataset_num))
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
                                    residual, valid_status, shift1)
 
@@ -653,13 +653,13 @@ class TESGroup(CutFieldMixin):
             if isinstance(valid, str):
                 if "uncut" in valid.lower():
                     valid_mask = ds.cuts.good()
-                    print("Plotting only uncut data"),
+                    LOG.info("Plotting only uncut data"),
                 elif "cut" in valid.lower():
                     valid_mask = ds.cuts.bad()
-                    print("Plotting only cut data"),
+                    LOG.info("Plotting only cut data"),
                 elif 'all' in valid.lower():
                     valid_mask = None
-                    print("Plotting all data, cut or uncut"),
+                    LOG.info("Plotting all data, cut or uncut"),
                 else:
                     raise ValueError("If valid is a string, it must contain 'all', 'uncut' or 'cut'.")
 
@@ -677,7 +677,7 @@ class TESGroup(CutFieldMixin):
                     if downsample < 1:
                         downsample = 1
                 hour = ds.p_timestamp[::downsample] / 3600.0
-            print("Chan %3d (%d records; %d in scatter plots)" % (channum, nrecs, hour.shape[0]))
+            LOG.info("Chan %3d (%d records; %d in scatter plots)" % (channum, nrecs, hour.shape[0]))
 
             (vect, label, color, default_limits) = plottable
             if hist_limits is None:
@@ -775,7 +775,7 @@ class TESGroup(CutFieldMixin):
             raise ValueError("Call make_masks with one of pulse_avg_range"
                              " pulse_rms_range, or pulse_peak_range specified.")
         elif nranges > 1:
-            print("Warning: make_masks uses only one range argument.  Checking only '%s'." % vectname)
+            LOG.warn("Warning: make_masks uses only one range argument.  Checking only '%s'." % vectname)
 
         middle = 0.5 * (pmin + pmax)
         abs_lim = 0.5 * np.abs(pmax - pmin)
@@ -852,7 +852,7 @@ class TESGroup(CutFieldMixin):
             gain = ds.gain
             _ = plt.hist(ds.p_pulse_average[ds.cuts.good()] / gain, 200,
                          [meangain * .8, meangain * 1.2], alpha=0.5)
-            print(ds.p_pulse_average[ds.cuts.good()].mean())
+            LOG.info(ds.p_pulse_average[ds.cuts.good()].mean())
         return meangain
 
     def set_gains(self, gains):
@@ -872,7 +872,7 @@ class TESGroup(CutFieldMixin):
         needs_noise = any([ds.noise_autocorr[0] == 0.0 or
                            ds.noise_psd[1] == 0 for ds in self])
         if needs_noise:
-            print("Computing noise autocorrelation and spectrum")
+            LOG.debug("Computing noise autocorrelation and spectrum")
             self.compute_noise_spectra()
 
         for ds_num, ds in enumerate(self):
@@ -906,7 +906,7 @@ class TESGroup(CutFieldMixin):
                         vec.attrs['variance'] = f.variances.get(k.split('filt_')[1], 0.0)
                         vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv.get(k.split('filt_')[1], 0.0)
             else:
-                print("chan %d skipping compute_filter because already done, and loading filter" % ds.channum)
+                LOG.info("chan %d skipping compute_filter because already done, and loading filter" % ds.channum)
                 h5grp = ds.hdf5_group['filters']
                 ds.filter = Filter(ds.average_pulse[...], self.nPresamples - ds.pretrigger_ignore_samples,
                                    ds.noise_psd[...], ds.noise_autocorr[...], sample_time=self.timebase,
@@ -947,7 +947,7 @@ class TESGroup(CutFieldMixin):
 
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
         rms_fwhm = np.sqrt(np.log(2) * 8)  # FWHM is this much times the RMS
-        print('V/dV for time, Fourier filters: ')
+        LOG.info('V/dV for time, Fourier filters: ')
         for i, ds in enumerate(self):
             try:
                 if ds.filter is not None:
@@ -955,11 +955,11 @@ class TESGroup(CutFieldMixin):
                 else:
                     rms = ds.hdf5_group['filters/filt_%s' % filter_name].attrs['variance']**0.5
                 v_dv = (1 / rms) / rms_fwhm
-                print("Chan %3d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" %
+                LOG.info("Chan %3d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" %
                       (ds.channum, filter_name, v_dv, std_energy, std_energy / v_dv))
             except Exception as e:
-                print("Filter %d can't be used" % i)
-                print(e)
+                LOG.warn("Filter %d can't be used" % i)
+                LOG.warn(e)
 
     @show_progress("filter_data")
     def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False, use_cython=True):
@@ -1088,7 +1088,7 @@ class TESGroup(CutFieldMixin):
 
     def join(self, *others):
         # Ensure they are compatible
-        print('join probably doesnt work since galen messed with it moving things inside datasets')
+        LOG.warn('WARNING: join probably doesnt work since galen messed with it moving things inside datasets')
         for g in others:
             for attr in ('nPresamples', 'nSamples', 'noise_only', 'timebase'):
                 if g.__dict__[attr] != self.__dict__[attr]:
@@ -1178,7 +1178,7 @@ class TESGroup(CutFieldMixin):
                 axis.plot(freq, yvalue, label='TES chan %d' % channum,
                           color=cmap(float(ds_num) / len(channels)))
             except:
-                print("Could not plot channel %4d." % channum)
+                LOG.warn("WARNING: Could not plot channel %4d." % channum)
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
@@ -1243,7 +1243,6 @@ class TESGroup(CutFieldMixin):
     def sanitize_p_filt_phase(self):
         ds = self.first_good_dataset
         self.register_boolean_cut_fields("filt_phase")
-        print("filt_phase cut")
         for ds in self:
             ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:])>2)
 
@@ -1264,7 +1263,7 @@ class TESGroup(CutFieldMixin):
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
             calname = attr
-        print("for all channels converting %s to energy with calibration %s" % (attr, calname))
+        LOG.info("for all channels converting %s to energy with calibration %s" % (attr, calname))
         for ds in self:
             ds.convert_to_energy(attr, calname)
 
@@ -1292,7 +1291,7 @@ class TESGroup(CutFieldMixin):
         plt.plot(bin_centers, rates_good.T)
         plt.ylabel("good by chan")
         plt.subplot(313)
-        print(rates_all.sum(axis=-1).shape)
+        LOG.info(rates_all.sum(axis=-1).shape)
         plt.plot(bin_centers, rates_all.sum(axis=0))
         plt.ylabel("all array")
         plt.grid("on")
@@ -1409,14 +1408,14 @@ class CrosstalkVeto(object):
             g = ds.cuts.good()
             vetotimes = np.asarray(ds.p_timestamp[g] * 1e3 - ms0, dtype=np.int64)
             vetotimes[vetotimes < 0] = 0
-            print(vetotimes, len(vetotimes), 1.0e3 * ds.nPulses / (ms9 - ms0)),
+            LOG.info(vetotimes, len(vetotimes), 1.0e3 * ds.nPulses / (ms9 - ms0)),
             a, b = window_ms
             b += 1
             for t in vetotimes:
                 self.nhits[t + a:t + b] += 1
 
             pileuptimes = vetotimes[ds.p_postpeak_deriv[g] > pileup_limit]
-            print(len(pileuptimes))
+            LOG.info(len(pileuptimes))
             for t in pileuptimes:
                 self.nhits[t + b:t + b + 8] += 1
 

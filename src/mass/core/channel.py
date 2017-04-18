@@ -1860,7 +1860,6 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
                 return mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
             brack = 0.002*np.array([-1, 1], dtype=float)
             sbest, KLbest, niter, _ = sp.optimize.brent(target, (), brack=brack, full_output=True, tol=3e-4)
-            # print ("Best KL-div is %7.4f at s[%d]=%.4f after %2d iterations"%(KLbest, i, sbest, niter))
             iter1 += niter
             yknot[i] = sbest
 
