@@ -941,10 +941,20 @@ class MicrocalDataSet(object):
         f.compute()
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, DEGREE = 1):
-        data, pulsenums = self.first_n_good_pulses(1000)
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=None):
+        """Compute a new-style filter to model the pulse and its time-derivative.
+
+        Modified in April 2017 to make the model for the rising edge and the rest of
+        the pulse differently. For the rising edge, we use entropy minimization to understand
+        the pulse shape dependence on arrival-time. For the rest of the pulse, it
+        is less noisy and in fact more robust to rely on the finite-difference of
+        the pulse average to get the arrival-time dependence."""
+
+        # At the moment, 1st-order model vs arrival-time is required.
+        DEGREE = 1
 
         # The raw training data, which is shifted (trigger-aligned)
+        data, pulsenums = self.first_n_good_pulses(3000)
         raw = data[:, 1:]
         shift1 = self.p_shift1[:][pulsenums]
         raw[shift1, :] = data[shift1, 0:-1]
@@ -953,52 +963,46 @@ class MicrocalDataSet(object):
         prompt = self.p_promptness[:][pulsenums]
         prms = self.p_pulse_rms[:][pulsenums]
         mprms = np.median(prms)
-        use = np.abs(prms/mprms-1.0) < 0.4
+        use = np.abs(prms/mprms-1.0) < 0.3
         promptshift = np.poly1d(np.polyfit(prms[use], prompt[use], 1))
         prompt -= promptshift(prms)
 
-        # Scale it quadratically to cover the range -0.5 to +0.5, approximately
+        # Scale promptness quadratically to cover the range -0.5 to +0.5, approximately
         x, y, z = sp.stats.scoreatpercentile(prompt[use], [10, 50, 90])
         A = np.array([[x*x, x, 1],
                       [y*y, y, 1],
                       [z*z, z, 1]])
         param = np.linalg.solve(A, [-.4, 0, +.4])
         ATime = np.poly1d(param)(prompt)
-        use = np.logical_and(use, np.abs(ATime)<0.45)
+        use = np.logical_and(use, np.abs(ATime) < 0.45)
+        ATime = ATime[use]
 
         ptm = self.p_pretrig_mean[:][pulsenums]
         ptm.shape = (len(pulsenums), 1)
-        raw = (raw-ptm)[use,:]
+        raw = (raw-ptm)[use, :]
         if transform is not None:
             raw = transform(raw)
         rawscale = raw.max(axis=1)
 
-        # Arrival time and a binned version of it
-        ATime = ATime[use]
-        NBINS = 9
-        bins = np.digitize(ATime, np.linspace(ATime.min(), ATime.max(), NBINS+1))-1
-
-        # Are all bins populated with at least 5 pulses?
-        valid_bins = []
-        for i in range(NBINS):
-            if (bins==i).sum() >= 5:
-                valid_bins.append(i)
-        valid_bins = np.array(valid_bins)
-
-        # Are there enough populated bins to use DEGREE?
-        n_valid = len(valid_bins)
-        if n_valid < 2:
-            raise RuntimeError("Only %d valid arrival-time bins were found in compute_newfilter"%n_valid)
-        if n_valid <= DEGREE:
-            DEGREE = n_valid-1
-
+        # The 0 component of the model is an average pulse, but do not use
+        # self.average_pulse, because it doesn't account for the shift1.
         model = np.zeros((self.nSamples-1, 1+DEGREE), dtype=float)
-        for s in range(self.nPresamples+2, self.nSamples-1):
-            y = raw[:, s]/rawscale
-            xmed = [np.median(ATime[bins == i]) for i in valid_bins]
-            ymed = [np.median(y[bins == i]) for i in valid_bins]
-            fit = np.polyfit(xmed, ymed, DEGREE)
-            model[s, :] = fit[::-1]  # Reverse so order is [const, lin, quad...] terms
+        ap = (raw.T/rawscale).mean(axis=1)
+        apmax = np.max(ap)
+        model[:, 0] = ap/apmax
+        model[1:-1, 1] = (ap[2:] - ap[:-2])*0.5/apmax
+        model[-1, 1] = (ap[-1]-ap[-2])/apmax
+        model[:self.nPresamples+2, :] = 0
+
+        # Now use min-entropy computation to model dp/dt on the rising edge
+        def cost(slope, x, y):
+            return mass.mathstat.entropy.laplace_entropy(y-x*slope, 0.002)
+
+        peak_sample = sp.stats.mode(self.p_peak_index).mode[0]
+        for samplenum in range(self.nPresamples+2, peak_sample):
+            y = raw[:, samplenum]/rawscale
+            bestslope = sp.optimize.brent(cost, (ATime, y), brack=[-.1, .25], tol=1e-7)
+            model[samplenum, 1] = bestslope
 
         modelpeak = np.median(rawscale)
         self.pulsemodel = model
