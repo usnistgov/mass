@@ -654,7 +654,7 @@ class MicrocalDataSet(object):
                 model = np.vstack([self.average_pulse[1:], aterms]).T
                 modelpeak = np.max(self.average_pulse)
                 self.filter = ArrivalTimeSafeFilter(model,
-                                                    self.tes_group.nPresamples - self.pretrigger_ignore_samples,
+                                                    self.nPresamples - self.pretrigger_ignore_samples,
                                                     self.noise_autocorr,
                                                     fmax=fmax, f_3db=f_3db,
                                                     sample_time=self.timebase,
@@ -683,7 +683,8 @@ class MicrocalDataSet(object):
     def __load_cals_from_hdf5(self, overwrite=False):
         """__load_cals_from_hdf5(self,overwrite=False)
         Load all calibraitons in self.hdf5_group["calibration"] into the dictionary
-        self.calibration"""
+        self.calibration
+        """
         hdf5_cal_group = self.hdf5_group.require_group('calibration')
         for k in hdf5_cal_group.keys():
             if not overwrite:
@@ -708,8 +709,7 @@ class MicrocalDataSet(object):
 
     @property
     def external_trigger_rowcount_as_seconds(self):
-        """
-        This is not a posix timestamp, it is just the external trigger rowcount converted to seconds
+        """This is not a posix timestamp, it is just the external trigger rowcount converted to seconds
         based on the nominal clock rate of the crate.
         """
         return self.external_trigger_rowcount[:]*self.timebase/float(self.number_of_rows)
