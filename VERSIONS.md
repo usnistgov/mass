@@ -1,7 +1,11 @@
 ## Note on version numbers of Mass
 * **0.6.0** April 2017
-Fixing a number of outstanding problems (issues 88-95 at least). Fixed problems
+Fixing a number of outstanding problems (issues 88-100 at least). Fixed problems
 in new-style filtering. Removed requirement that user specify a peak time.
+
+Lots of cleaning up: Remove code that is not still used or correct, or move it
+to nonstandard. Remove julia subdirectory and workarounds.py.
+
 
 * **0.5.3** March-April 2017
 Joe added entropy, cross-entropy, and Kullback-Leibler divergence computation
