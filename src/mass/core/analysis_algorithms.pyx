@@ -128,7 +128,7 @@ def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kern
 #     end[end>=NSamp] = NSamp
 #
 #     # Now trim the pulse_data, allowing us to filter only
-#     trimmed_data = np.zeros((NPulse, 2*HALFRANGE),dtype=float)
+#     trimmed_data = np.zeros((NPulse, 2*HALFRANGE), dtype=float)
 #     for r,data in enumerate(pulse_data):
 #         trimmed_data[r,:] = data[first[r]:end[r]]
 
@@ -164,9 +164,9 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
         double f0, f1, f2, f3, f4
         double t0, t1, t2, t3, t_max_deriv
         Py_ssize_t i, j
-        unsigned short [:, :] pulse_view
-        unsigned short [:] pulses
-        double [:] max_deriv
+        unsigned short[:, :] pulse_view
+        unsigned short[:] pulses
+        double[:] max_deriv
 
     # If pulse_data is a 1D array, turn it into 2
     pulse_data = np.asarray(pulse_data)
@@ -205,7 +205,8 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
             t_max_deriv = t2 if t2 < t0 else t0
 
             for j in range(7, NSamp):
-                t3 = f4 * pulses[j - 4] + f3 * pulses[j - 3] + f2 * pulses[j - 2] + f1 * pulses[j - 1] + f0 * pulses[j]
+                t3 = f4 * pulses[j - 4] + f3 * pulses[j - 3] + \
+                    f2 * pulses[j - 2] + f1 * pulses[j - 1] + f0 * pulses[j]
                 t4 = t3 if t3 < t1 else t1
                 if t4 > t_max_deriv:
                     t_max_deriv = t4
@@ -220,7 +221,8 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
             t_max_deriv = t0
 
             for j in range(5, NSamp):
-                t0 = f4 * pulses[j - 4] + f3 * pulses[j - 3] + f2 * pulses[j - 2] + f1 * pulses[j -1] + f0 * pulses[j]
+                t0 = f4 * pulses[j - 4] + f3 * pulses[j - 3] + \
+                    f2 * pulses[j - 2] + f1 * pulses[j - 1] + f0 * pulses[j]
                 if t0 > t_max_deriv:
                     t_max_deriv = t0
             max_deriv[i] = t_max_deriv
@@ -279,7 +281,7 @@ def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
     """
     if upper_limit is None:
         limit, upper_limit = 0, limit
-    return HistogramSmoother(smooth_sigma, [limit,upper_limit])(values)
+    return HistogramSmoother(smooth_sigma, [limit, upper_limit])(values)
 
 
 def drift_correct(indicator, uncorrected, limit=None):
@@ -375,14 +377,15 @@ class FilterTimeCorrection(object):
         self.filter = np.array(linearFilter)
         self.nPresamples = nPresamples
         self.verbose = verbose
-        if trainingPulses is  None: return  # used in self.copy() only
+        if trainingPulses is None:
+            return  # used in self.copy() only
 
         _, M = trainingPulses.shape
         F = len(linearFilter)
         if F > M or (M-F) % 2 != 0:
             raise RuntimeError(
-                "The filter (length %d) should be equal in length to training pulses (%d)\n" % (F ,M) +
-                "or shorter by an even number of samples")
+                """The filter (length %d) should be equal in length to training pulses (%d)
+                "or shorter by an even number of samples""" % (F, M))
 
         if labels is None:
             if typicalResolution is None:
@@ -560,10 +563,11 @@ class FilterTimeCorrection(object):
         """Compute and return a pulse height correction for a filtered pulse with
         promptness 'prompt' and pulse_rms 'pulse_rms'. Can be arrays."""
         if not isinstance(prompt, np.ndarray) or not isinstance(pulse_rms, np.ndarray):
-            return  self(np.asarray(prompt), np.asarray(pulse_rms))
-        if prompt.ndim==0: prompt = np.asarray([prompt])
-        if pulse_rms.ndim==0: pulse_rms = np.asarray([pulse_rms])
-        #@todo: handle case where one prompt or one pulse_rms is given, by broadcasting
+            return self(np.asarray(prompt), np.asarray(pulse_rms))
+        if prompt.ndim == 0:
+            prompt = np.asarray([prompt])
+        if pulse_rms.ndim == 0:
+            pulse_rms = np.asarray([pulse_rms])
         result = np.zeros_like(prompt)
 
         # If there are multiple pulse_rms each with their own curves in self.splines,
@@ -596,7 +600,7 @@ class FilterTimeCorrection(object):
         Nlabels = len(self.raw_fits)
         colors = [plt.cm.jet(float(i)/(Nlabels-1.)) for i in range(Nlabels)]
         for i in range(Nlabels):
-            xraw,y= self.parab_results[i]
+            xraw, y = self.parab_results[i]
             x = xraw.copy()
             y = y-y.mean()
 
@@ -619,11 +623,14 @@ def python_nearest_arrivals(reference_times, other_times):
     """nearest_arrivals(reference_times, other_times)
     reference_times - 1d array
     other_times - 1d array
-    returns: before_times, after_times
+    returns: (before_times, after_times)
+
     before_times - d array same size as reference_times, before_times[i] contains the difference between
     the closest lesser time contained in other_times and reference_times[i]  or inf
     if there was no earlier time in other_times
-    note that before_times is always a positive number even though the time difference it represents is negative
+    Note that before_times is always a positive number even though the time difference it
+    represents is negative.
+
     after_times - 1d array same size as reference_times, after_times[i] contains the difference between
     reference_times[i] and the closest greater time contained in other_times or a inf
     number if there was no later time in other_times
@@ -641,11 +648,12 @@ def python_nearest_arrivals(reference_times, other_times):
     before_times = reference_times-other_times[nearest_before_index]
     before_times[:first_index] = np.Inf
 
-    nearest_after_index[last_index:]=other_times.size-1
+    nearest_after_index[last_index:] = other_times.size-1
     after_times = other_times[nearest_after_index]-reference_times
     after_times[last_index:] = np.Inf
 
     return before_times, after_times
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -662,7 +670,7 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
     num_triggers = external_trigger_timestamps.shape[0]
 
     if num_pulses < 1:
-        return np.array([],dtype=np.int64)
+        return np.array([], dtype=np.int64)
 
     delay_from_last_trigger = np.zeros_like(pulse_timestamps, dtype=np.int64)
     delay_until_next_trigger = np.zeros_like(pulse_timestamps, dtype=np.int64)
@@ -682,12 +690,13 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
                 delay_until_next_trigger[i] = a - pt
                 i += 1
                 if i >= num_pulses:
-                    return np.asarray(delay_from_last_trigger,dtype=np.int64),\
+                    return np.asarray(delay_from_last_trigger, dtype=np.int64),\
                            np.asarray(delay_until_next_trigger, dtype=np.int64)
             else:
                 break
 
-        # at this point in the code a and b are values from external_trigger_timestamps that bracket pulse_timestamp[i]
+        # At this point in the code a and b are values from
+        # external_trigger_timestamps that bracket pulse_timestamp[i]
         while True:
             pt = pulse_timestamps[i]
             if pt < b:
@@ -723,4 +732,5 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
             delay_from_last_trigger[i] = max_value
             delay_until_next_trigger[i] = max_value
 
-    return np.asarray(delay_from_last_trigger,dtype=np.int64), np.asarray(delay_until_next_trigger, dtype=np.int64)
+    return (np.asarray(delay_from_last_trigger, dtype=np.int64),
+            np.asarray(delay_until_next_trigger, dtype=np.int64))

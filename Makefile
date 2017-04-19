@@ -5,8 +5,8 @@
 
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
-PYFILES = $(shell find src -name "*.py")
-CYFILES = $(shell find src -name "*.pyx")
+PYFILES = $(shell find src/mass -name "*.py")
+CYFILES = $(shell find src/mass -name "*.pyx")
 
 .PHONY: lint archive  build install clean test report_install_location pep8
 
@@ -29,9 +29,9 @@ $(TARGET_ZIP): $(PYFILES) $(CYFILES) Makefile
 	python setup.py sdist --format=gztar,zip
 
 pep8: pep8-report.txt
-pep8-report.txt: $(PYFILES)
-	pep8 --statistics --count --max-line-length=99 $(PYFILES) $(CYFILES) > $@
+pep8-report.txt: $(PYFILES) MAKEFILE
+	pep8 --statistics --max-line-length=110 $(PYFILES) $(CYFILES) > $@
 
 lint: lint-report.txt
-lint-report.txt: pylintrc $(PYFILES)
+lint-report.txt: pylintrc $(PYFILES) MAKEFILE
 	pylint-2.7 --rcfile=$< src/mass > $@

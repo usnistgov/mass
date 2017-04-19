@@ -4,17 +4,17 @@ Created on Feb 16, 2011
 @author: fowlerj
 """
 import numpy as np
+import logging
+
+# MASS modules
+from mass.core.channel import MicrocalDataSet
+from mass.core.utilities import show_progress
 
 cimport cython
 from libc.math cimport sqrt
 cimport libc.limits
-import logging
+
 LOG = logging.getLogger("mass")
-
-# MASS modules
-
-from mass.core.channel import MicrocalDataSet
-from mass.core.utilities import show_progress
 
 
 class CythonMicrocalDataSet(MicrocalDataSet):
@@ -28,13 +28,12 @@ class CythonMicrocalDataSet(MicrocalDataSet):
     @cython.embedsignature(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
-
     def _summarize_data_segment(self, segnum):
         """Summarize one segment of the data file, loading it into cache."""
         cdef:
             Py_ssize_t i, j, k
-            unsigned short [:, :] pulse_data
-            unsigned short [:] pulse
+            unsigned short[:, :] pulse_data
+            unsigned short[:] pulse
             long seg_size
             long first, end, pulses_per_seg
 
@@ -167,9 +166,8 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             p_min_value_array[j] = min_value
             pulse_avg = pulse_sum / (nSamples - nPresamples - 2) - ptm
             p_pulse_average_array[j] = <float>pulse_avg
-            p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples - 2)
-                                               - ptm*pulse_avg*2 - ptm**2)
-
+            p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples - 2) -
+                                               ptm*pulse_avg*2 - ptm**2)
 
             # Estimating a rise time.
             # Beware! peak_value here has already had the pretrigger mean (ptm) subtracted!
@@ -198,11 +196,13 @@ class CythonMicrocalDataSet(MicrocalDataSet):
                 k += 1
 
             if high_value > low_value:
-                p_rise_times_array[j] = <float>(timebase * (high_idx - low_idx) * (<double>peak_value) / (high_value - low_value))
+                p_rise_times_array[j] = <float>(timebase * (high_idx - low_idx) *
+                                                (<double>peak_value) / (high_value - low_value))
             else:
                 p_rise_times_array[j] = <float>timebase
 
-            # Calculating the postpeak_deriv with a simple kernel (f0, f1, f2 = 0, f3, f4) and spike_reject on.
+            # Calculating the postpeak_deriv with a simple kernel
+            # (f0, f1, f2 = 0, f3, f4) and spike_reject on.
             s0 = pulse[peak_samplenumber]
             s1 = pulse[peak_samplenumber + 1]
             s2 = pulse[peak_samplenumber + 2]
@@ -242,7 +242,6 @@ class CythonMicrocalDataSet(MicrocalDataSet):
         self.p_rise_time[first:end] = p_rise_times_array[:seg_size]
         self.p_shift1[first:end] = p_shift1_array[:seg_size]
 
-
     @cython.embedsignature(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -254,15 +253,16 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             Py_ssize_t i, j, k
             int n_segments, pulses_per_seg, seg_size, nSamples, filter_length
             double conv0, conv1, conv2, conv3, conv4
-            double [:] filt_phase_array, filt_value_array, filter_values
-            unsigned short [:, :] pulse_data
-            unsigned short [:] pulse
+            double[:] filt_phase_array, filt_value_array, filter_values
+            unsigned short[:, :] pulse_data
+            unsigned short[:] pulse
             unsigned short sample
             double f0, f1, f2, f3, f4
             double p0, p1, p2
 
         if not use_cython:
-            super(CythonMicrocalDataSet, self).filter_data(filter_name=filter_name, transform=transform, forceNew=forceNew)
+            super(CythonMicrocalDataSet, self).filter_data(filter_name=filter_name,
+                  transform=transform, forceNew=forceNew)
             return
 
         if not(forceNew or all(self.p_filt_value[:] == 0)):
@@ -279,7 +279,6 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             MicrocalDataSet.filter_data(self, filter_name=filter_name, transform=transform, forceNew=forceNew)
             return
 
-        #filter_data(self, filter_values, transform)
         n_segments = self.pulse_records.n_segments
         pulses_per_seg = self.pulse_records.pulses_per_seg
         nSamples = self.nSamples

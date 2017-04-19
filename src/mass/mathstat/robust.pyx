@@ -36,6 +36,7 @@ import scipy.stats
 
 cimport cython
 
+
 @cython.embedsignature(True)
 def bisquare_weighted_mean(x, k, center=None, tol=None):
     """Return the bisquare weighted mean of the data <x> with a k-value of <k>.
@@ -62,10 +63,10 @@ def bisquare_weighted_mean(x, k, center=None, tol=None):
         weights = (1-((x-center) / k)**2.0)**2.0
         weights[np.abs(x-center) > k] = 0.0
         newcenter = (weights*x).sum()/weights.sum()
-        if abs(newcenter - center)<tol:
+        if abs(newcenter - center) < tol:
             return newcenter
         center = newcenter
-    raise RuntimeError("bisquare_weighted_mean used too many iterations.\n"+
+    raise RuntimeError("bisquare_weighted_mean used too many iterations.\n" +
                        "Consider using higher <tol> or better <center>, or change to trimean(x).")
 
 
@@ -95,10 +96,10 @@ def huber_weighted_mean(x, k, center=None, tol=None):
         weights = np.asarray((1.0*k)/np.abs(x-center))
         weights[weights > 1.0] = 1.0
         newcenter = (weights*x).sum()/weights.sum()
-        if abs(newcenter - center)<tol:
+        if abs(newcenter - center) < tol:
             return newcenter
         center = newcenter
-    raise RuntimeError("huber_weighted_mean used too many iterations.\n"+
+    raise RuntimeError("huber_weighted_mean used too many iterations.\n" +
                        "Consider using higher <tol> or better <center>, or change to trimean(x).")
 
 
@@ -164,9 +165,9 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     just how useless they are.
     """
 
-    n = len(x)            # Number of data values
-    nhalves=int((n+1)/2)  # Number of minimal intervals containing at least half the data
-    nobs=1+int(n/2)       # Number of data values in each minimal interval
+    n = len(x)              # Number of data values
+    nhalves = int((n+1)/2)  # Number of minimal intervals containing at least half the data
+    nobs = 1 + int(n/2)     # Number of data values in each minimal interval
 
     if not sort_inplace:
         x = np.array(x)
@@ -180,7 +181,7 @@ def shorth_range(x, normalize=False, sort_inplace=False, location=False):
     shorth_range = b-a
 
     if normalize:
-        shorth_range = shorth_range/(2*.674480)   # The asymptotic expectation for normal data is sigma*2*0.674480
+        shorth_range = shorth_range/(2*.674480)  # Asymptotic expectation for normal data: sigma*2*0.674480
 
         # The small-n corrections depend on n mod 4.  See [citation]
         if n % 4 == 0:
@@ -269,7 +270,7 @@ def Qscale(x, sort_inplace=False):
     if n < 2:
         raise ValueError("Data set <x> must contain at least 2 values!")
     h = n // 2 + 1
-    target_k = h * (h-1) // 2 -1 # -1 so that order count can start at 0 instead of conventional 1,2,3...
+    target_k = h * (h-1) // 2 - 1  # -1 so that order count can start at 0 instead of conventional 1,2,3...
 
     # Compute the n-dependent prefactor to make Q consistent with sigma of a Gaussian.
     prefactor = 2.2219
@@ -296,7 +297,7 @@ def Qscale(x, sort_inplace=False):
     q, npasses = _Qscale_subroutine(x, n, target_k)
 
     if npasses > n:
-        raise RuntimeError("Qscale tried %d distances, which is too many"%npasses)
+        raise RuntimeError("Qscale tried %d distances, which is too many" % npasses)
     return q * prefactor
 
 ####################################################################################
@@ -318,19 +319,19 @@ def _high_median_python_subroutine(sort_idx, weights, n):
     total_weight = weights.sum()
 
     imin, imax = 0, n  # The possible range of j will always be the half-open interval [imin,imax)
-    left_weight = right_weight = 0 # Total weight in (...,imin) and in [imax,...)
+    left_weight = right_weight = 0  # Total weight in (...,imin) and in [imax,...)
     itrial = n/2
     while imax-imin > 1:
-        partial_left_weight = weights[sort_idx[imin:itrial]].sum() # from [imin,itrial)
+        partial_left_weight = weights[sort_idx[imin:itrial]].sum()  # from [imin,itrial)
         partial_right_weight = weights[sort_idx[itrial+1:imax]].sum()  # from (itrial,imax)
 
-        if left_weight + partial_left_weight > 0.5*total_weight: # j < itrial
+        if left_weight + partial_left_weight > 0.5*total_weight:  # j < itrial
             right_weight += partial_right_weight
             imax = itrial
-        elif right_weight + partial_right_weight >= 0.5*total_weight: # j > itrial
+        elif right_weight + partial_right_weight >= 0.5*total_weight:  # j > itrial
             left_weight += partial_left_weight
             imin = itrial
-        else: # j == itrial
+        else:  # j == itrial
             return sort_idx[itrial]
         itrial = (imin+imax)/2
 
@@ -446,13 +447,10 @@ def _high_median(long long[:] sort_idx, double[:] weights, int n):
     half_weight = 0.5*total_weight
 
     imin, imax = 0, n  # The possible range of j will always be the half-open interval [imin,imax)
-    left_weight = right_weight = 0 # Total weight in (...,imin) and in [imax,...)
+    left_weight = right_weight = 0  # Total weight in (...,imin) and in [imax,...)
     itrial = n/2
 
     while imax-imin > 1:
-#        trial_left_weight = weights[sort_idx[imin:itrial]].sum() # from [imin,itrial)
-#        trial_right_weight = weights[sort_idx[itrial+1:imax]].sum()  # from (itrial,imax)
-
         trial_left_weight = 0
         trial_right_weight = 0
         for i in range(imin, itrial):
@@ -460,13 +458,13 @@ def _high_median(long long[:] sort_idx, double[:] weights, int n):
         for i in range(itrial+1, imax):
             trial_right_weight += weights[sort_idx[i]]
 
-        if left_weight + trial_left_weight > half_weight: # j < itrial
+        if left_weight + trial_left_weight > half_weight:  # j < itrial
             right_weight += trial_right_weight
             imax = itrial
-        elif right_weight + trial_right_weight >= half_weight: # j > itrial
+        elif right_weight + trial_right_weight >= half_weight:  # j > itrial
             left_weight += trial_left_weight
             imin = itrial
-        else: # j == itrial
+        else:  # j == itrial
             break
         itrial = (imin+imax)/2
 
@@ -490,17 +488,17 @@ def _choose_trial_val(long long[:] left, long long[:] right, double[:] x, int n)
 
     for i in range(n-1):
         weights[i] = right[i]+1-left[i]
-        if left[i]>right[i]:
+        if left[i] > right[i]:
             weights[i] = 0
         ctr_index = (left[i]+right[i])/2
-        if ctr_index>=n:
+        if ctr_index >= n:
             ctr_index = n-1
         row_median[i] = x[ctr_index]-x[i]
 
     cdef long long[:] row_sort_idx
     row_sort_idx = np.argsort(row_median)
 
-    chosen_row =  _high_median(row_sort_idx, weights, n-1)
+    chosen_row = _high_median(row_sort_idx, weights, n-1)
     trial_val = row_median[chosen_row]
     chosen_col = (left[chosen_row]+right[chosen_row])/2
 
@@ -511,11 +509,11 @@ def _choose_trial_val(long long[:] left, long long[:] right, double[:] x, int n)
 
 
 @cython.embedsignature(True)
-@cython.boundscheck(False) # turn off bounds-checking for entire function
+@cython.boundscheck(False)  # turn off bounds-checking for entire function
 def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
     cdef unsigned int trial_q_row = 0, trial_q_col = 0
     cdef Py_ssize_t i, counter
-    cdef double trial_distance = 0.0  #, trial_val=0.0
+    cdef double trial_distance = 0.0
     cdef long long candidates_below_trial_dist
 
     # Keep track of which candidates on each ROW are still in the running.
@@ -542,7 +540,6 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
         trial_distance, trial_q_row, trial_q_col = _choose_trial_val(left, right, x, n)
         for i in range(n-1):
             per_row_value[i] = trial_distance + x[i]
-        #per_row_value = x[:n-1] + trial_distance
 
         # In each row i, find the highest index trial_column such that x[tc]-x[i] < trial_distance
         # If such an index is out of the candidate range, then let it be left-1 or right.
@@ -553,7 +550,6 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
 
         # trial_column tracks the column in each row which is the highest column strictly less than
         # the trial distance.
-        #for i, trial_val in enumerate(per_row_value):
         for i in range(per_row_value.shape[0]):
             trial_val = per_row_value[i]
 
@@ -565,13 +561,13 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
 
             ia = left[i]
             ib = right[i]
-            if ia>ib or x[ia] >= trial_val:
+            if ia > ib or x[ia] >= trial_val:
                 trial_column[i] = ia-1
                 continue
             if x[ib] <= trial_val:
                 trial_column[i] = ib
                 continue
-            while ib-ia>1:
+            while ib-ia > 1:
                 imiddle = (ib+ia) // 2
                 if x[imiddle] < trial_val:
                     ia = imiddle
@@ -585,9 +581,6 @@ def _Qscale_subroutine(double[:] x, unsigned int n, unsigned int target_k):
 
         candidates_below_trial_dist = np.sum(trial_column) - ((n-2)*(n-1))/2
 
-
-#        print 'Iter %3d: %2d cand < tri_dist %f (ij=%d,%d)'%(_counter, candidates_below_trial_dist, trial_distance, trial_q_row, trial_q_col
-#                                                                                ), trial_column, trial_column-numpy.arange(n-1)
         if candidates_below_trial_dist == target_k:
             return trial_distance, counter
         elif candidates_below_trial_dist > target_k:
