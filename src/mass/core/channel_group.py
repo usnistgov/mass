@@ -1086,21 +1086,6 @@ class TESGroup(CutFieldMixin):
         g.datasets = tuple([d.copy() for d in self.datasets])
         return g
 
-    def join(self, *others):
-        # Ensure they are compatible
-        LOG.warn('WARNING: join probably doesnt work since galen messed with it moving things inside datasets')
-        for g in others:
-            for attr in ('nPresamples', 'nSamples', 'noise_only', 'timebase'):
-                if g.__dict__[attr] != self.__dict__[attr]:
-                    raise RuntimeError("All objects must agree on group.%s" % attr)
-
-        for g in others:
-            self.datasets += g.datasets
-            self.n_channels += g.n_channels
-            self.n_segments = max(self.n_segments, g.n_segments)
-
-        self.clear_cache()
-
     def set_segment_size(self, seg_size):
         self.clear_cache()
         self.n_segments = 0
