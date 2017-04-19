@@ -12,8 +12,8 @@ profile=no
 
 # Add files or directories to the blacklist. They should be base names, not
 # paths.
-# Include code not written by NIST: [workarounds.py, param_dict_base.py]
-ignore=.svn deprecated.py *.so .git build workarounds.py param_dict_base.py
+# Include code not written by NIST: [param_dict_base.py]
+ignore=nonstandard param_dict_base.py *_form_ui.py
 
 # Pickle collected data for later comparisons.
 persistent=yes
@@ -52,7 +52,8 @@ load-plugins=
 # W0613: Unused argument ''
 # W6501: Specify string format arguments as logging function parameters
 #disable=C0103,C0111,C0302,R0902,R0903,R0911,R0912,R0913,R0914,R0915,W0122,W0141,W0511,W0603,W0613,W6501
-
+# C0325: superfluous-parens
+disable=C0103,C0325
 
 [REPORTS]
 

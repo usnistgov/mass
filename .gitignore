@@ -12,6 +12,7 @@ dist
 
 # General
 lint-report.txt
+pep8-report.txt
 *.pyc
 *~
 *.orig
