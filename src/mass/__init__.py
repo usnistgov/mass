@@ -34,6 +34,8 @@ For a demonstration of some capabilities:
 Joe Fowler, NIST Boulder Labs.  November 2010--
 """
 
+import os
+
 from ._version import __version__, __version_info__
 from .core import *
 from .calibration import *
@@ -50,7 +52,6 @@ def reload_all():
     print("We are reloading MASS.")
 
     import imp
-    import os
     import pkgutil
 
     # Use pkgutil to walk the package tree, but then reverse order to go depth-first.

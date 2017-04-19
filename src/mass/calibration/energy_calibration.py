@@ -14,86 +14,87 @@ from mass.mathstat.derivative import *
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = {
-   'Gd1':   97431.0,
-   'Gd97':  97431.0,
-   'Gd2':   103180.0,
-   'Gd103': 103180.0,
-   'zero':  0.0,
+    'Gd1':   97431.0,
+    'Gd97':  97431.0,
+    'Gd2':   103180.0,
+    'Gd103': 103180.0,
+    'zero':  0.0,
 
-   # The following Kalpha (alpha 1) and Kbeta (beta 1,3) line positions were
-   # cross-checked 4 Feb 2014 against Deslattes.
-   # Each is named to agree with the name in fluorescence_lines.
-   'AlKAlpha': 1486.71,  # __KAlpha refers to K Alpha 1
-   'AlKBeta':  1557.6,
-   'SiKAlpha': 1739.99,
-   'SiKBeta':  1836.0,
-   'CaKAlpha': 3691.72,
-   'CaKBeta':  4012.76,
-   'ScKAlpha': 4090.74,
-   'TiKAlpha': 4510.90,
-   'TiKBeta':  4931.83,  # http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
-   'VKAlpha':  4952.22,
-   'VKBeta':   5426.962,  # From L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
-   'CrKAlpha': 5414.805,
-   'CrKBeta':  5946.82,
-   'MnKAlpha': 5898.801,
-   'MnKBeta':  6490.59,
-   'FeKAlpha': 6404.01,
-   'FeKBeta':  7058.18,
-   'CoKAlpha': 6930.378,
-   'CoKBeta':  7649.45,
-   'NiKAlpha': 7478.252,
-   'NiKBeta':  8264.78,
-   'CuKAlpha': 8047.823,
-   'CuKBeta':  8905.41,
-   'ZnKAlpha': 8638.906,
-   'ZnKBeta':  9573.6,
+    # The following Kalpha (alpha 1) and Kbeta (beta 1,3) line positions were
+    # cross-checked 4 Feb 2014 against Deslattes.
+    # Each is named to agree with the name in fluorescence_lines.
+    'AlKAlpha': 1486.71,  # __KAlpha refers to K Alpha 1
+    'AlKBeta':  1557.6,
+    'SiKAlpha': 1739.99,
+    'SiKBeta':  1836.0,
+    'CaKAlpha': 3691.72,
+    'CaKBeta':  4012.76,
+    'ScKAlpha': 4090.74,
+    'TiKAlpha': 4510.90,
+    'TiKBeta':  4931.83,  # http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
+    'VKAlpha':  4952.22,
+    'VKBeta':   5426.962,  # From L Smale, C Chantler, M Kinnane, J Kimpton, et al.,
+    # Phys Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
+    'CrKAlpha': 5414.805,
+    'CrKBeta':  5946.82,
+    'MnKAlpha': 5898.801,
+    'MnKBeta':  6490.59,
+    'FeKAlpha': 6404.01,
+    'FeKBeta':  7058.18,
+    'CoKAlpha': 6930.378,
+    'CoKBeta':  7649.45,
+    'NiKAlpha': 7478.252,
+    'NiKBeta':  8264.78,
+    'CuKAlpha': 8047.823,
+    'CuKBeta':  8905.41,
+    'ZnKAlpha': 8638.906,
+    'ZnKBeta':  9573.6,
 
-   'TiKEdge':  4966.0,
-   'VKEdge':   5465.0,  # defined as peak of derivative from exafs materials.com
-   'CrKEdge':  5989.0,
-   'MnKEdge':  6539.0,
-   'FeKEdge':  7112.0,
-   'CoKEdge':  7709.0,
-   'NiKEdge':  8333.0,
-   'CuKEdge':  8979.0,
-   'ZnKEdge':  9659.0,
-   # Randy's rare earth metals from Deslattes (Rev Mod Phys vol 75, 2003)
-   'RhLl':     2376.55,
-   'RhLAlpha2':2692.08,
-   'RhLAlpha1':2696.76,
-   'RhLBeta1': 2834.44,
-   'RhLBeta3': 2915.7,
-   'RhLBeta2': 3001.27,
-   'RhLGamma1':3143.81,
-   'NdLl':     4631.85,
-   'NdLAlpha2':5207.7,
-   'NdLAlpha1':5230.24,
-   'NdLBeta1': 5721.45,
-   'NdLBeta3': 5827.80,
-   'NdLBeta2': 6091.25,
-   'NdLGamma1':6601.16,
-   'SmLl':     4990.43,
-   'SmLAlpha2':5609.05,
-   'SmLAlpha1':5635.97,
-   'SmLBeta1': 6204.07,
-   'SmLBeta3': 6316.36,
-   'SmLBeta2': 6587.17,
-   'SmLGamma1':7178.09,
-   'TbLl':     5546.81,
-   'TbLAlpha2':6238.10,
-   'TbLAlpha1':6272.82,
-   'TbLBeta1': 6977.80,
-   'TbLBeta3': 7096.10,
-   'TbLBeta2': 7366.70,
-   'TbLGamma1':8101.80,
-   'HoLl':     5939.96,
-   'HoLAlpha2':6678.48,
-   'HoLAlpha1':6719.68,
-   'HoLBeta1': 7525.67,
-   'HoLBeta3': 7651.8,
-   'HoLBeta2': 7911.35,
-   'HoLGamma1':8747.2,
+    'TiKEdge':  4966.0,
+    'VKEdge':   5465.0,  # defined as peak of derivative from exafs materials.com
+    'CrKEdge':  5989.0,
+    'MnKEdge':  6539.0,
+    'FeKEdge':  7112.0,
+    'CoKEdge':  7709.0,
+    'NiKEdge':  8333.0,
+    'CuKEdge':  8979.0,
+    'ZnKEdge':  9659.0,
+    # Randy's rare earth metals from Deslattes (Rev Mod Phys vol 75, 2003)
+    'RhLl':      2376.55,
+    'RhLAlpha2': 2692.08,
+    'RhLAlpha1': 2696.76,
+    'RhLBeta1':  2834.44,
+    'RhLBeta3':  2915.7,
+    'RhLBeta2':  3001.27,
+    'RhLGamma1': 3143.81,
+    'NdLl':      4631.85,
+    'NdLAlpha2': 5207.7,
+    'NdLAlpha1': 5230.24,
+    'NdLBeta1':  5721.45,
+    'NdLBeta3':  5827.80,
+    'NdLBeta2':  6091.25,
+    'NdLGamma1': 6601.16,
+    'SmLl':      4990.43,
+    'SmLAlpha2': 5609.05,
+    'SmLAlpha1': 5635.97,
+    'SmLBeta1':  6204.07,
+    'SmLBeta3':  6316.36,
+    'SmLBeta2':  6587.17,
+    'SmLGamma1': 7178.09,
+    'TbLl':      5546.81,
+    'TbLAlpha2': 6238.10,
+    'TbLAlpha1': 6272.82,
+    'TbLBeta1':  6977.80,
+    'TbLBeta3':  7096.10,
+    'TbLBeta2':  7366.70,
+    'TbLGamma1': 8101.80,
+    'HoLl':      5939.96,
+    'HoLAlpha2': 6678.48,
+    'HoLAlpha1': 6719.68,
+    'HoLBeta1':  7525.67,
+    'HoLBeta3':  7651.8,
+    'HoLBeta2':  7911.35,
+    'HoLGamma1': 8747.2,
 }
 
 
@@ -138,7 +139,7 @@ class EnergyCalibration(object):
 
         Args:
             nonlinearity (float): the exponent N in the default, low-energy limit of
-                E \propto (PH)^N.  Typically 1.0 to 1.3 are reasonable.
+                E propto (PH)^N.  Typically 1.0 to 1.3 are reasonable.
             curvetype (str or int): one of EnergyCalibration.CURVETYPE.
             approximate (boolean):  Whether to use approximate "smoothing splines". (If not, use splines
                 that go exactly through the data.) Default = False, because this works
@@ -161,6 +162,8 @@ class EnergyCalibration(object):
 
     @staticmethod
     def __default_ph2energy_anon(x, der=0):
+        if der > 0:
+            return np.zeros_like(x)
         return x
 
     def __call__(self, pulse_ht, der=0):
@@ -182,15 +185,7 @@ class EnergyCalibration(object):
                 return result
             else:
                 return np.asscalar(result)
-        else:
-            return np.array(result)
-
-    # def ph2energy(self, pulse_ht):
-    #     """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
-    #     This is a synonym for self.__call__(...). """
-    #     if self._model_is_stale:
-    #         self._update_converters()
-    #     return self._ph2energy_anon(pulse_ht)
+        return np.array(result)
 
     def energy2ph(self, energy):
         """Convert a single energy `energy` in eV to a pulse height.
@@ -211,7 +206,7 @@ class EnergyCalibration(object):
         if len(energy) > 1024:
             phs = np.array(energy)
             # Newton methods with a fixed number of iterations.
-            for i in range(5):
+            for _ in range(5):
                 phs -= (self(phs) - energy) / self(phs, der=1)
 
             return phs
@@ -219,12 +214,9 @@ class EnergyCalibration(object):
         result = [brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
         return np.array(result)
 
-    def energy2dedph(self, energy, denergy=1):
-        """Calculate the slope between <energy-denergy> and <energy>+<denergy> with two points.
+    def energy2dedph(self, energy):
+        """Calculate the slope at energy.
         """
-        # loe, hie = energy-denergy, energy+denergy
-        # loph, hiph = self.energy2ph(loe), self.energy2ph(hie)
-        # return (hie-loe)/(hiph-loph)
         ph = self.energy2ph(energy)
         return self(ph, der=1)
 
@@ -264,7 +256,7 @@ class EnergyCalibration(object):
     def curvename(self):
         return self.CURVETYPE[self._curvetype]
 
-    def copy(self, new_ph_field=None):
+    def copy(self):
         """Return a deep copy
         """
         ecal = EnergyCalibration()
@@ -354,7 +346,7 @@ class EnergyCalibration(object):
                 raise ValueError("Calibration point '%s' is already known and overwrite is False" % name)
             update_index = self._names.index(name)
 
-        elif self.npts > 0 and np.abs(energy-self._energies).min() <= e_error: # Update existing point by energy
+        elif self.npts > 0 and np.abs(energy-self._energies).min() <= e_error:  # Update existing point by energy
             if not overwrite:
                 raise ValueError("Calibration point at energy %.2f eV is already known and overwrite is False" % energy)
             update_index = np.abs(energy-self._energies).argmin()
@@ -425,9 +417,9 @@ class EnergyCalibration(object):
         elif self.curvename().startswith("linear"):
             if ("+0" in self.curvename()) and (0.0 not in ph):
                 ph = np.hstack([[0], ph])
-                e  = np.hstack([[0], e])
+                e = np.hstack([[0], e])
                 de = np.hstack([[de.min()*0.1], de])
-                dph= np.hstack([[dph.min()*0.1], dph])
+                dph = np.hstack([[dph.min()*0.1], dph])
             self._ph2energy_anon = SmoothingSplineFunction(ph, e, de, dph)
 
         elif self.curvename() == "gain":
@@ -671,7 +663,7 @@ class EnergyCalibration(object):
         _dph = cal_group["dph"].value
         _de = cal_group["de"].value
 
-        for name, ph, e, dph, de in zip(_names, _ph, _energies, _dph, _de):
-            cal.add_cal_point(ph, e, name.decode(), dph, de)
+        for thisname, ph, e, dph, de in zip(_names, _ph, _energies, _dph, _de):
+            cal.add_cal_point(ph, e, thisname.decode(), dph, de)
 
         return cal
