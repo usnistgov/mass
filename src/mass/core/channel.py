@@ -563,7 +563,6 @@ class MicrocalDataSet(object):
         for a in self.expected_attributes:
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename', 'virtual data set')
-        self.gain = 1.0
         self.pretrigger_ignore_samples = 0  # Cut this long before trigger in computing pretrig values
         self.peak_samplenumber = None   # Look for retriggers only after this time.
         self.index = None   # Index in the larger TESGroup or CDMGroup object

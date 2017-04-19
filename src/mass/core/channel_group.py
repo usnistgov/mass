@@ -732,18 +732,14 @@ class TESGroup(CutFieldMixin):
 
     def make_masks(self, pulse_avg_range=None,
                    pulse_peak_range=None,
-                   pulse_rms_range=None,
-                   use_gains=True, gains=None):
+                   pulse_rms_range=None, gains=None):
         """Generate a sequence of masks for use in compute_average_pulses().
 
         Arguments:
         pulse_avg_range -- A 2-sequence giving the (minimum,maximum) p_pulse_average
         pulse_peak_range -- A 2-sequence giving the (minimum,maximum) p_peak_value
         pulse_rms_range --  A 2-sequence giving the (minimum,maximum) p_pulse_rms
-        use_gains -- Whether to rescale the pulses by a set of "gains", either from
-                     `gains` or from the ds.gain parameter if `gains` is None.
-        gains -- The set of gains to use, overriding the self.datasets[*].gain, if
-                 `use_gains` is True.  (If False, this argument is ignored.)
+        gains -- The set of gains to use, if any.
         """
 
         for ds in self:
@@ -751,10 +747,7 @@ class TESGroup(CutFieldMixin):
                 self.set_chan_bad(ds.channum, "has 0 pulses")
 
         masks = []
-        if use_gains:
-            if gains is None:
-                gains = [d.gain for d in self.datasets]
-        else:
+        if gains is None:
             gains = np.ones(self.n_channels)
 
         nranges = 0
@@ -786,6 +779,7 @@ class TESGroup(CutFieldMixin):
             masks.append(m)
         return masks
 
+
     def compute_average_pulse(self, masks, subtract_mean=True, forceNew=False):
         """Compute an average pulse in each TES channel.
 
@@ -810,6 +804,7 @@ class TESGroup(CutFieldMixin):
             if ds.channum not in self.good_channels:
                 continue
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
+
 
     def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
         """Plot average pulse for cahannel number <channum> on matplotlib.Axes <axis>, or
@@ -836,34 +831,6 @@ class TESGroup(CutFieldMixin):
         if use_legend:
             plt.legend(loc='best')
 
-    def plot_raw_spectra(self):
-        """Plot distribution of raw pulse averages, with and without gain"""
-        ds = self.first_good_dataset
-        meangain = ds.p_pulse_average[ds.cuts.good()].mean() / ds.gain
-        plt.clf()
-        plt.subplot(211)
-        for ds in self.datasets:
-            gain = ds.gain
-            _ = plt.hist(ds.p_pulse_average[ds.cuts.good()], 200,
-                         [meangain * .8, meangain * 1.2], alpha=0.5)
-
-        plt.subplot(212)
-        for ds in self.datasets:
-            gain = ds.gain
-            _ = plt.hist(ds.p_pulse_average[ds.cuts.good()] / gain, 200,
-                         [meangain * .8, meangain * 1.2], alpha=0.5)
-            LOG.info(ds.p_pulse_average[ds.cuts.good()].mean())
-        return meangain
-
-    def set_gains(self, gains):
-        """Set the datasets to have the given gains.  These gains will be used when
-        averaging pulses in self.compute_average_pulse() and in ...***?"""
-        if len(gains) != self.n_channels:
-            raise ValueError("gains must have the same length as the number of datasets (%d)"
-                             % self.n_channels)
-
-        for g, d in zip(gains, self.datasets):
-            d.gain = g
 
     @show_progress("compute_filters")
     def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
@@ -1135,7 +1102,7 @@ class TESGroup(CutFieldMixin):
                 median_pulse_avg[i] = np.median(ds.p_pulse_average[ds.good()])
             else:
                 self.set_chan_bad(ds.channum, "No good pulses")
-        masks = self.make_masks([.95, 1.05], use_gains=True, gains=median_pulse_avg)
+        masks = self.make_masks([.95, 1.05], gains=median_pulse_avg)
         for m in masks:
             if np.sum(m) > max_pulses_to_use:
                 good_so_far = np.cumsum(m)
