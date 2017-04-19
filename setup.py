@@ -81,7 +81,7 @@ if __name__ == "__main__":
           url='https://bitbucket.org/joe_fowler/mass',
           description='Microcalorimeter Analysis Software Suite',
           packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
-                    'mass.demo', 'mass.gui', 'mass.nonstandard'],
+                    'mass.demo', 'mass.gui'],
           ext_modules=cythonize([Extension('mass.core.cython_channel',
                                            [os.path.join('src', 'mass', 'core', 'cython_channel.pyx')],
                                            include_dirs=[np.get_include()]),

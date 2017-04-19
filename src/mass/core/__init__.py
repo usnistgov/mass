@@ -24,4 +24,3 @@ from .channel_group_hdf5_only import *
 
 # Don't import the contents of these at the top level
 import mass.core.utilities
-import mass.core.workarounds
