@@ -1080,8 +1080,21 @@ class TESGroup(CutFieldMixin):
             ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
 
     def apply_cuts(self, cuts, forceNew=True):
+        """Apply the cuts `cuts` to each valid dataset."""
         for ds in self:
             ds.apply_cuts(cuts, forceNew)
+
+    def auto_cuts(self, forceNew=True, clearCuts=True):
+        """Automatically compute per-channel cuts and apply them to each valid dataset.
+        If `clearCuts`, then clear any existing cuts first."""
+        for ds in self:
+            if clearCuts:
+                ds.clear_cuts()
+            ds.auto_cuts(forceNew=forceNew)
+
+    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
+        for ds in self:
+            ds.smart_cuts(threshold, n_trainings, forceNew)
 
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
         """
@@ -1186,10 +1199,6 @@ class TESGroup(CutFieldMixin):
         plt.grid("on")
         plt.legend()
 
-    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
-        for ds in self:
-            ds.smart_cuts(threshold, n_trainings, forceNew)
-
 
 def _extract_channum(name):
     return int(name.split('_chan')[1].split(".")[0])
@@ -1290,14 +1299,13 @@ class CrosstalkVeto(object):
             g = ds.cuts.good()
             vetotimes = np.asarray(ds.p_timestamp[g] * 1e3 - ms0, dtype=np.int64)
             vetotimes[vetotimes < 0] = 0
-            LOG.info(vetotimes, len(vetotimes), 1.0e3 * ds.nPulses / (ms9 - ms0)),
             a, b = window_ms
             b += 1
             for t in vetotimes:
                 self.nhits[t + a:t + b] += 1
 
             pileuptimes = vetotimes[ds.p_postpeak_deriv[g] > pileup_limit]
-            LOG.info(len(pileuptimes))
+            LOG.info("%s %d %f %d" % (vetotimes, len(vetotimes), 1.0e3 * ds.nPulses / (ms9 - ms0), len(pileuptimes)))
             for t in pileuptimes:
                 self.nhits[t + b:t + b + 8] += 1
 

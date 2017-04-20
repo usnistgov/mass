@@ -108,44 +108,56 @@ class TestFiles(ut.TestCase):
 
 class TestTESGroup(ut.TestCase):
 
-    def test_all_channels_bad(self):
-        """Make sure it isn't an error to load a data set where all channels are marked bad"""
+    def load_data(self, clear_hdf5=True):
         src_name = 'src/mass/regression_test/regress_chan1.ljh'
         noi_name = 'src/mass/regression_test/regress_chan1.noi'
-        for name in ['src/mass/regression_test/regress_mass.hdf5',
-                     'src/mass/regression_test/regress_noise_mass.hdf5']:
-            if os.path.isfile(name):
-                os.remove(name)
-        data = mass.TESGroup([src_name], [noi_name])
+        if clear_hdf5:
+            for name in ['src/mass/regression_test/regress_mass.hdf5',
+                         'src/mass/regression_test/regress_noise_mass.hdf5']:
+                if os.path.isfile(name):
+                    os.remove(name)
+        return mass.TESGroup([src_name], [noi_name])
+
+    def test_all_channels_bad(self):
+        """Make sure it isn't an error to load a data set where all channels are marked bad"""
+        data = self.load_data()
         data.set_chan_bad(1, "testing all channels bad")
 
         data.hdf5_file.close()
         data.hdf5_noisefile.close()
         del data
         try:
-            data = mass.TESGroup([src_name], [noi_name])
+            data = self.load_data(clear_hdf5=False)
         except:
             self.fail("Opening a file with all channels bad raises and Exception.")
         self.assertNotIn(1, data.good_channels)
+        data.set_chan_good(1)
 
     def test_save_hdf5_calibration_storage(self):
         "calibrate a dataset, make sure it saves to hdf5"
-        src_name = 'src/mass/regression_test/regress_chan1.ljh'
-        noi_name = 'src/mass/regression_test/regress_chan1.noi'
-        for name in ['src/mass/regression_test/regress_mass.hdf5',
-                     'src/mass/regression_test/regress_noise_mass.hdf5']:
-            if os.path.isfile(name):
-                os.remove(name)
-        data = mass.TESGroup([src_name], [noi_name])
+        data = self.load_data()
         data.summarize_data()
         data.calibrate("p_pulse_rms", [10000.])
         data.calibrate("p_pulse_rms", [10000.], name_ext="abc")
         ds = data.first_good_dataset
 
-        data2 = mass.TESGroup([src_name], [noi_name])
+        data2 = self.load_data(clear_hdf5=False)
         ds2 = data2.first_good_dataset
         self.assertTrue(all([k in ds.calibration.keys() for k in ds2.calibration.keys()]))
         self.assertEqual(len(ds.calibration.keys()), 2)
+
+        # These 2 checks test issue #102.
+        self.assertIsNotNone(ds2.peak_samplenumber)
+        self.assertEqual(ds2.peak_samplenumber, ds.peak_samplenumber)
+
+    def test_make_auto_cuts(self):
+        """Make sure that non-trivial auto-cuts are generated."""
+        data = self.load_data()
+        data.summarize_data()
+        data.auto_cuts(forceNew=True, clearCuts=True)
+        ds = data.first_good_dataset
+        self.assertLess(ds.cuts.good().sum(), ds.nPulses)
+
 
 
 class TestTESHDF5Only(ut.TestCase):
