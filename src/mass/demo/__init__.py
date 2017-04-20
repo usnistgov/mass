@@ -8,6 +8,8 @@ Created on Nov 9, 2011
 @author: fowlerj
 """
 
+import os
+
 try:
     from IPython.lib.demo import Demo
 except ImportError:
@@ -15,16 +17,18 @@ except ImportError:
 
 __all__ = []
 
-import os
-this_dir, this_file= os.path.split(__file__)
+
+this_dir, this_file = os.path.split(__file__)
 
 demo_files = ['demo.py', 'fitting_demo.py']
 
-fullpath = lambda f: os.path.join(this_dir, f) 
+
+def fullpath(f):
+    os.path.join(this_dir, f)
 
 demos = {}
 for f in demo_files:
-    demos[f] = Demo(fullpath(f)) 
+    demos[f] = Demo(fullpath(f))
 
 helptxt = """
 This package (mass.demo) consist of several demonstration scripts.
