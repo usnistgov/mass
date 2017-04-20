@@ -7,6 +7,7 @@ TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
 PYFILES = $(shell find src/mass -name "*.py")
 CYFILES = $(shell find src/mass -name "*.pyx")
+FORMFILES := $(shell find src/mass -name "*_form_ui.py")
 
 .PHONY: lint archive  build install clean test report_install_location pep8
 
@@ -28,9 +29,12 @@ archive: $(TARGET_ZIP)
 $(TARGET_ZIP): $(PYFILES) $(CYFILES) Makefile
 	python setup.py sdist --format=gztar,zip
 
+PEPFILES := $(PYFILES) $(CYFILES)
+PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))
+
 pep8: pep8-report.txt
-pep8-report.txt: $(PYFILES) MAKEFILE
-	pep8 --statistics --max-line-length=120 $(PYFILES) $(CYFILES) > $@
+pep8-report.txt: $(PEPFILES) MAKEFILE
+	pep8 --statistics --max-line-length=120 $(PEPFILES) > $@
 
 lint: lint-report.txt
 lint-report.txt: pylintrc $(PYFILES) MAKEFILE
