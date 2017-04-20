@@ -1299,14 +1299,13 @@ class CrosstalkVeto(object):
             g = ds.cuts.good()
             vetotimes = np.asarray(ds.p_timestamp[g] * 1e3 - ms0, dtype=np.int64)
             vetotimes[vetotimes < 0] = 0
-            LOG.info(vetotimes, len(vetotimes), 1.0e3 * ds.nPulses / (ms9 - ms0)),
             a, b = window_ms
             b += 1
             for t in vetotimes:
                 self.nhits[t + a:t + b] += 1
 
             pileuptimes = vetotimes[ds.p_postpeak_deriv[g] > pileup_limit]
-            LOG.info(len(pileuptimes))
+            LOG.info("%s %d %f %d" % (vetotimes, len(vetotimes), 1.0e3 * ds.nPulses / (ms9 - ms0), len(pileuptimes)))
             for t in pileuptimes:
                 self.nhits[t + b:t + b + 8] += 1
 

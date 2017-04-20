@@ -1766,7 +1766,7 @@ class MicrocalDataSet(object):
 
         # Step 1: peak and rise times
         if self.peak_samplenumber is None:
-            ds._compute_peak_samplenumber()
+            self._compute_peak_samplenumber()
         MARGIN = 3  # step at least this many samples forward before cutting.
         peak_time_ms = (MARGIN + self.peak_samplenumber-self.nPresamples)*self.timebase*1000
 
