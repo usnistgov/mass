@@ -61,16 +61,11 @@ class PrmDictBase(object):
 
     def _prm_dict_names(self):
         """Return the name of all self.*_prm dictionaries."""
-        #names = []
-        #for attr in self.__dict__:
-        #    print attr
-        #    if re.search(r'^[^_].*_prm$', attr):
-        #        names.append(attr)
-        names = [attr for attr in self.__dict__ if \
+        names = [attr for attr in self.__dict__ if
                  re.search(r'^[^_].*_prm$', attr)]
         return names
 
-    def usage_set(self, verbose = 0):
+    def usage_set(self, verbose=0):
         """Print the name of parameters that can be set."""
         prm_dict_names = self._prm_dict_names()
         prm_names = []
@@ -116,14 +111,13 @@ class PrmDictBase(object):
                         break
                 except TypeError as msg:
                     print(msg)
-                    #break
                     sys.exit(1)  # type error is fatal
 
             if not set:   # maybe set prm as meta data?
                 if isinstance(self.user_prm, dict):
                     # not a registered parameter:
                     self.user_prm[prm] = kwargs[prm]
-                    message('%s=%s assigned in self.user_prm' % \
+                    message('%s=%s assigned in self.user_prm' %
                             (prm, kwargs[prm]))
                 else:
                     raise NameError('parameter "%s" not registered' % prm)
@@ -146,13 +140,11 @@ class PrmDictBase(object):
                         if isinstance(value, (type(d[prm]), None)):
                             can_set = True
                         # allow mixing int, float, complex:
-                        elif operator.isNumberType(value) and\
-                                 operator.isNumberType(d[prm]):
+                        elif operator.isNumberType(value) and operator.isNumberType(d[prm]):
                             can_set = True
-                elif isinstance(self._type_check[prm], (tuple,list,type)):
+                elif isinstance(self._type_check[prm], (tuple, list, type)):
                     # self._type_check[prm] holds tuple of
                     # legal types:
-                    #print 'testing %s=%s against type %s' % (prm,value,self._type_check[prm])
                     if isinstance(value, self._type_check[prm]):
                         can_set = True
                     else:

@@ -30,7 +30,7 @@ $(TARGET_ZIP): $(PYFILES) $(CYFILES) Makefile
 
 pep8: pep8-report.txt
 pep8-report.txt: $(PYFILES) MAKEFILE
-	pep8 --statistics --max-line-length=110 $(PYFILES) $(CYFILES) > $@
+	pep8 --statistics --max-line-length=120 $(PYFILES) $(CYFILES) > $@
 
 lint: lint-report.txt
 lint-report.txt: pylintrc $(PYFILES) MAKEFILE

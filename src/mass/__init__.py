@@ -1,26 +1,3 @@
-## \mainpage Overview of Mass
-#
-# \section summary Summary
-#
-# This summarizes some things.
-#
-# \section install Installation
-#
-# \section starting Getting started
-#
-# Here is how we get started.
-#
-# \section requirements Requirements
-#
-# There are some requirements.
-
-
-## \package  mass
-#
-# \brief Microcalorimeter Analysis Software Suite
-#
-# Python tools to analyze microcalorimeter data offline.
-
 """
 Mass: a Microcalorimeter Analysis Software Suite
 

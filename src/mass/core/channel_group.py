@@ -212,7 +212,8 @@ class TESGroup(CutFieldMixin):
                     dset.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
 
             if 'why_bad' in hdf5_group.attrs:
-                self._bad_channums[dset.channum] = [comment.decode() for comment in hdf5_group.attrs['why_bad']]
+                self._bad_channums[dset.channum] = [comment.decode() for comment in
+                                                    hdf5_group.attrs['why_bad']]
 
             # If appropriate, add to the MicrocalDataSet the NoiseRecords file interface
             if self.noise_filenames is not None:
@@ -363,14 +364,16 @@ class TESGroup(CutFieldMixin):
         Args:
             *args  Arguments to this function are integers or containers of integers.  Each
                 integer is added to the bad-channels list."""
-        added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args if not isinstance(x, str)])
+        added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args
+                                    if not isinstance(x, str)])
         comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, str)], '')
 
         for channum in added_to_list:
             new_comment = self._bad_channums.get(channum, []) + [comment]
             self._bad_channums[channum] = new_comment
             LOG.warn('WARNING: Chan %s flagged bad because %s' % (channum, comment))
-            self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] = np.asarray(new_comment, dtype=np.bytes_)
+            self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] =  \
+                np.asarray(new_comment, dtype=np.bytes_)
 
     @property
     def timestamp_offset(self):
@@ -486,7 +489,8 @@ class TESGroup(CutFieldMixin):
                        include_badchan=False, forceNew=False, use_cython=True):
         """summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                            include_badchan=False, forceNew=False, use_cython=True)
-        peak_time will be determined automatically if None, and will be stored in channels as ds.peak_samplenumber
+        peak_time will be determined automatically if None, and will be stored in channels as
+            ds.peak_samplenumber
         use_cython uses a cython (aka faster) implementation of summarize.
         Compute summary quantities for each pulse."""
         nchan = float(len(self.channel.keys())) if include_badchan else float(self.num_good_channels)
@@ -499,9 +503,10 @@ class TESGroup(CutFieldMixin):
                 yield (i + 1.0) / nchan
                 self.hdf5_file.flush()
             except Exception as e:
-                self.set_chan_bad(ds.channum, "summarize_data failed with %s"%e)
+                self.set_chan_bad(ds.channum, "summarize_data failed with %s" % e)
 
-    def calc_external_trigger_timing(self, after_last=False, until_next=False, from_nearest=False, forceNew=False):
+    def calc_external_trigger_timing(self, after_last=False, until_next=False,
+                                     from_nearest=False, forceNew=False):
         if not (after_last or until_next or from_nearest):
             raise ValueError("at least one of from_last, until_next, or from_nearest should be True")
         ds = self.first_good_dataset
@@ -516,7 +521,8 @@ class TESGroup(CutFieldMixin):
                         ("rows_until_next_external_trigger" not in ds.hdf5_group and until_next) or\
                         ("rows_from_nearest_external_trigger" not in ds.hdf5_group and from_nearest):
                     rows_after_last_external_trigger, rows_until_next_external_trigger = \
-                        mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:], external_trigger_rowcount)
+                        mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:],
+                                                                       external_trigger_rowcount)
                     if after_last:
                         g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
@@ -601,7 +607,7 @@ class TESGroup(CutFieldMixin):
 
         plottables = (
             ("p_pulse_rms", 'Pulse RMS', 'magenta', None),
-            ("p_pulse_average", 'Pulse Avg', 'purple', [0,5000]),
+            ("p_pulse_average", 'Pulse Avg', 'purple', [0, 5000]),
             ("p_peak_value", 'Peak value', 'blue', None),
             ("p_pretrig_rms", 'Pretrig RMS', 'green', [0, 4000]),
             ("p_pretrig_mean", 'Pretrig Mean', '#00ff26', None),
@@ -631,7 +637,7 @@ class TESGroup(CutFieldMixin):
 
         # Plot timeseries with 0 = the last 00 UT during or before the run.
         last_record = np.max([ds.p_timestamp[-1] for ds in self])
-        last_midnight = last_record - (last_record%86400)
+        last_midnight = last_record - (last_record % 86400)
         hour_offset = last_midnight/3600.
 
         plt.clf()
@@ -675,7 +681,7 @@ class TESGroup(CutFieldMixin):
                 limits = hist_limits
 
             # Vectors are being sampled and multiplied, so eval() is needed.
-            vect = eval("ds.%s"%vect)[valid_mask]
+            vect = eval("ds.%s" % vect)[valid_mask]
 
             # Scatter plots on left half of figure
             if i == 0:
@@ -768,7 +774,6 @@ class TESGroup(CutFieldMixin):
             masks.append(m)
         return masks
 
-
     def compute_average_pulse(self, masks, subtract_mean=True, forceNew=False):
         """Compute an average pulse in each TES channel.
 
@@ -794,7 +799,6 @@ class TESGroup(CutFieldMixin):
                 continue
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
-
     def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
         """Plot average pulse for cahannel number <channum> on matplotlib.Axes <axis>, or
         on a new Axes if <axis> is None.  If <channum> is not a valid channel
@@ -819,7 +823,6 @@ class TESGroup(CutFieldMixin):
         plt.xlim([dt[0], dt[-1]])
         if use_legend:
             plt.legend(loc='best')
-
 
     @show_progress("compute_filters")
     def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
@@ -862,7 +865,8 @@ class TESGroup(CutFieldMixin):
                         vec.attrs['variance'] = f.variances.get(k.split('filt_')[1], 0.0)
                         vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv.get(k.split('filt_')[1], 0.0)
             else:
-                LOG.info("chan %d skipping compute_filter because already done, and loading filter" % ds.channum)
+                LOG.info("chan %d skipping compute_filter because already done, and loading filter"
+                         % ds.channum)
                 h5grp = ds.hdf5_group['filters']
                 ds.filter = Filter(ds.average_pulse[...], self.nPresamples - ds.pretrigger_ignore_samples,
                                    ds.noise_psd[...], ds.noise_autocorr[...], sample_time=self.timebase,
@@ -912,19 +916,19 @@ class TESGroup(CutFieldMixin):
                     rms = ds.hdf5_group['filters/filt_%s' % filter_name].attrs['variance']**0.5
                 v_dv = (1 / rms) / rms_fwhm
                 LOG.info("Chan %3d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV" %
-                      (ds.channum, filter_name, v_dv, std_energy, std_energy / v_dv))
+                         (ds.channum, filter_name, v_dv, std_energy, std_energy / v_dv))
             except Exception as e:
                 LOG.warn("Filter %d can't be used" % i)
                 LOG.warn(e)
 
     @show_progress("filter_data")
-    def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False, use_cython=True):
+    def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False,
+                    forceNew=False, use_cython=True):
         nchan = float(len(self.datasets)) if include_badchan else float(self.num_good_channels)
 
         for i, ds in enumerate(self.iter_channels(include_badchan)):
             ds.filter_data(filter_name, transform, forceNew, use_cython=use_cython)
             yield (i+1.0) / nchan
-
 
     def report(self):
         """
@@ -938,7 +942,6 @@ class TESGroup(CutFieldMixin):
             rate = (npulse - 1.0) / dt
             print('chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' %
                   (ds.channum, npulse, rate, dt / 3600., 100.0 * ng / npulse))
-
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None,
                                    legend=True):
@@ -1049,7 +1052,8 @@ class TESGroup(CutFieldMixin):
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
         for ds_num, channum in enumerate(channels):
-            if channum not in self.channel: continue
+            if channum not in self.channel:
+                continue
             ds = self.channel[channum]
             yvalue = ds.noise_psd[:] * scale_factor**2
             if sqrt_psd:
@@ -1127,7 +1131,7 @@ class TESGroup(CutFieldMixin):
         ds = self.first_good_dataset
         self.register_boolean_cut_fields("filt_phase")
         for ds in self:
-            ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:])>2)
+            ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:]) > 2)
 
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,

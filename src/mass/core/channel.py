@@ -29,6 +29,7 @@ from mass.core import ljh_util
 import logging
 LOG = logging.getLogger("mass")
 
+
 def log_and(a, b, *args):
     """Generalize np.logical_and() to 2 OR MORE arguments."""
     return reduce(np.logical_and, args, np.logical_and(a, b))
@@ -199,7 +200,7 @@ class NoiseRecords(object):
             seglength_choices = [longest_seg]
             while seglength_choices[-1] > 256:
                 seglength_choices.append(seglength_choices[-1] // 4)
-            LOG.debug("Will use segments of length: %s"%seglength_choices)
+            LOG.debug("Will use segments of length: %s" % seglength_choices)
 
         spectra = [self.compute_power_spectrum_reshape(window=window, seg_length=seglen)
                    for seglen in seglength_choices]
@@ -254,7 +255,6 @@ class NoiseRecords(object):
             n_lags = samples_per_segment
         if n_lags > samples_per_segment:
             n_lags = samples_per_segment
-
 
         def padded_length(n):
             """Return a sensible number in the range [n, 2n] which is not too
@@ -926,7 +926,6 @@ class MicrocalDataSet(object):
             average_pulse -= np.mean(average_pulse[:self.nPresamples - self.pretrigger_ignore_samples])
         self.average_pulse[:] = average_pulse
 
-
     def compute_oldfilter(self, fmax=None, f_3db=None):
         try:
             spectrum = self.noise_spectrum.spectrum()
@@ -1204,7 +1203,6 @@ class MicrocalDataSet(object):
         else:
             LOG.info("chan %d skipping compute_noise_spectra because already done" % self.channum)
 
-
     def apply_cuts(self, controls=None, clear=False, forceNew=True):
         """
         <clear>  Whether to clear previous cuts first (by default, do not clear).
@@ -1214,7 +1212,7 @@ class MicrocalDataSet(object):
         if not forceNew:
             if self.cuts.good().sum() != self.nPulses:
                 LOG.info("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses" %
-                      (self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
+                         (self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
 
         if clear:
             self.clear_cuts()
@@ -1275,7 +1273,8 @@ class MicrocalDataSet(object):
         self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
         self.hdf5_group.file.flush()
 
-    def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False, forceNew=False, category=None):
+    def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False,
+                          forceNew=False, category=None):
         """Apply the phase correction that seems good for calibronium-like
         data as of June 2014. For more notes, do
         help(mass.core.analysis_algorithms.FilterTimeCorrection)
@@ -1371,7 +1370,7 @@ class MicrocalDataSet(object):
         if ph_peaks is None:
             ph_peaks = self._find_peaks_heuristic(self.p_filt_value_dc[good])
         if len(ph_peaks) <= 0:
-            LOG.info ("Could not phase_correct on chan %3d because no peaks" % self.channum)
+            LOG.info("Could not phase_correct on chan %3d because no peaks" % self.channum)
             return
         ph_peaks = np.asarray(ph_peaks)
         ph_peaks.sort()
@@ -1708,9 +1707,10 @@ class MicrocalDataSet(object):
         return corrected, new_info
 
     def time_drift_correct_polynomial(self, poly_order=2, attr='p_filt_value_phc', num_lines=None, forceNew=False):
-        """assumes the gain is a polynomial in time
-        estimates that polynomial by fitting a polynomial to each line in the calibration with the same name as the attribute
-         and taking an appropriate average of the polyonomials from each line weighted by the counts in each line
+        """Assumes the gain is a polynomial in time.
+        Estimates that polynomial by fitting a polynomial to each line in the calibration with
+        the same name as the attribute and taking an appropriate average of the polyonomials
+        from each line weighted by the counts in each line.
         """
         if not hasattr(self, 'p_filt_value_tdc') or forceNew:
             LOG.info("chan %d doing time_drift_correct_polynomail with order %d" % (self.channum, poly_order))
@@ -1807,8 +1807,8 @@ class MicrocalDataSet(object):
 
             self.cuts.cut("smart_cuts", flag)
             LOG.info("channel %g ran smart cuts, %g of %g pulses passed" % (self.channum,
-                                                                         self.cuts.good("smart_cuts").sum(),
-                                                                         self.nPulses))
+                                                                            self.cuts.good("smart_cuts").sum(),
+                                                                            self.nPulses))
         else:
             LOG.info("channel %g skipping smart cuts because it was already done" % self.channum)
 
@@ -1882,7 +1882,8 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         H0 = mass.mathstat.entropy.laplace_entropy(y, kernel_width)
         H1 = mass.mathstat.entropy.laplace_entropy(ycorr, kernel_width)
         H2 = mass.mathstat.entropy.laplace_entropy(y+correction(x), kernel_width)
-        LOG.info("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)" % (H0, H1, H2, iter1, iter2, NBINS))
+        LOG.info("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)" %
+                 (H0, H1, H2, iter1, iter2, NBINS))
 
         curve = mass.CubicSpline(knots-median_phase, peak-(yknot+yknot2))
         return curve, median_phase
