@@ -6,12 +6,10 @@ Created on Nov 7, 2011
 @author: fowlerj
 '''
 
-__all__ = ['ToeplitzSolver']
-
 import numpy as np
 
-## \file utilities.py
-# \brief Several utilities used by Mass, including math, plotting, and other functions.
+__all__ = ['ToeplitzSolver']
+
 
 class ToeplitzSolver(object):
     """
@@ -55,10 +53,10 @@ class ToeplitzSolver(object):
         and R[2*N-2] is the lower left value of T.
         """
 
-        ## Whether this Toeplitz matrix is symmetric.  Governs how we compute solutions.
-        self.symmetric=symmetric
+        # Whether this Toeplitz matrix is symmetric.  Governs how we compute solutions.
+        self.symmetric = symmetric
 
-        ## The dimension of the square matrix T.
+        # The dimension of the square matrix T.
         self.n = len(R)
         if not symmetric:
             # R needs to be of length 2n-1 for integer n
@@ -68,7 +66,7 @@ class ToeplitzSolver(object):
         # Be very careful with self.R, because it's stored as a copy of the input R.
         # For symmetric matrices, T_(0,0) and T_(1,0) are R[0] and R[1].
         # For non-symmetric, they are R[n-1] and R[n].
-        ## The non-redundant elements of the Toeplitz matrix.  This will be the top
+        # The non-redundant elements of the Toeplitz matrix.  This will be the top
         # row if symmetric, or otherwise the first column (bottom to top) appended to the rest of
         # the top row.
         self.R = np.array(R).astype(float)
@@ -101,11 +99,10 @@ class ToeplitzSolver(object):
         n = self.n
         assert len(y) == n
 
-        zeros = lambda n: np.zeros(n, dtype=np.float)
-        x = zeros(n)
-        g = zeros(n)
-        h = zeros(n)
-        xh_denom = zeros(n)
+        x = np.zeros(n, dtype=np.float)
+        g = np.zeros(n, dtype=np.float)
+        h = np.zeros(n, dtype=np.float)
+        xh_denom = np.zeros(n, dtype=np.float)
 
         R0 = self.R[n-1]
         x[0] = y[0]/R0
@@ -136,20 +133,20 @@ class ToeplitzSolver(object):
         n = self.n
         assert self.symmetric
 
-        zeros = lambda n: np.zeros(n, dtype=np.float)
-        g = zeros(n)
-        ## The constant denominator of the x_g computation
-        self.xg_denom = zeros(n)
-        ## The constant leading value g[K] for each iteration K
-        self.gK_leading = zeros(n)
+        g = np.zeros(n, dtype=np.float)
+        # The constant denominator of the x_g computation
+        self.xg_denom = np.zeros(n, dtype=np.float)
+        # The constant leading value g[K] for each iteration K
+        self.gK_leading = np.zeros(n, dtype=np.float)
 
         R = self.R.copy()
         R0 = R[0]
         g[0] = R[1]/R0
 
-        for K in range(1, n): # K = M+1
+        for K in range(1, n):  # K = M+1
             self.xg_denom[K] = (R[1:K+1]*g[:K]).sum() - R0
-            if K==n-1:  return
+            if K == n-1:
+                return
             g[K] = ((R[K:0:-1]*g[:K]).sum()-R[K+1])/self.xg_denom[K]
             self.gK_leading[K] = g[K]
             g[:K] -= g[K]*g[K-1::-1]
@@ -160,20 +157,20 @@ class ToeplitzSolver(object):
         assert len(y) == n
         assert self.symmetric
 
-        zeros = lambda n: np.zeros(n, dtype=np.float)
-        x = zeros(n)
-        g = zeros(n)
+        x = np.zeros(n, dtype=np.float)
+        g = np.zeros(n, dtype=np.float)
 
         R = self.R.copy()
         R0 = R[0]
         x[0] = y[0]/R0
         g[0] = R[1]/R0
 
-        for K in range(1, n): # K = M+1
+        for K in range(1, n):  # K = M+1
             # Steps b, c, and d (the exit test)
             x[K] = ((R[K:0:-1]*x[:K]).sum()-y[K])/self.xg_denom[K]
             x[:K] -= x[K]*g[K-1::-1]
-            if K==n-1:  return x
+            if K == n-1:
+                return x
 
             # Steps e and f
             g[K] = self.gK_leading[K]

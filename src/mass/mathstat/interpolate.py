@@ -163,7 +163,7 @@ class CubicSpline(object):
             elif der == 1:
                 result[interp] = -self._y[klo] / dx + self._y[khi] / dx \
                                                     + ((-a**2 + 1.0 / 3) * self._y2[klo] +
-                                                      (b**2 - 1.0 / 3) * self._y2[khi]) * dx / 2.0
+                                                       (b**2 - 1.0 / 3) * self._y2[khi]) * dx / 2.0
             elif der == 2:
                 result[interp] = a * self._y2[klo] + b * self._y2[khi]
             elif der == 3:
@@ -209,7 +209,9 @@ class LinterpCubicSpline(CubicSpline):
         if np.max(np.abs(s1._x - s2._x)) > 1e-3:
             raise ValueError("Splines must have same abscissa values to be interpolated")
 
-        wtsum = lambda a,b,frac: a*frac + b*(1-frac)
+        def wtsum(a, b, frac):
+            return a*frac + b*(1-frac)
+
         self._n = s1._n
         self._x = s1._x
         self._y = wtsum(s1._y, s2._y, fraction)
@@ -353,10 +355,10 @@ class SmoothingSpline(object):
         for i in range(Nk):
             for j in range(i+1):
                 for k in range(Nk-1):
-                    Omega[i,j] += (N2[k+1,i]*N2[k,j]+N2[k+1,j]*N2[k,i])*(knots[k+1]-knots[k])/6.0
+                    Omega[i, j] += (N2[k+1, i]*N2[k, j]+N2[k+1, j]*N2[k, i])*(knots[k+1]-knots[k])/6.0
                 for k in range(Nk):
-                    Omega[i,j] += N2[k,i]*N2[k,j]*(knots[min(k+1,Nk-1)]-knots[max(0,k-1)])/3.0
-                Omega[j,i] = Omega[i,j]
+                    Omega[i, j] += N2[k, i]*N2[k, j]*(knots[min(k+1, Nk-1)]-knots[max(0, k-1)])/3.0
+                Omega[j, i] = Omega[i, j]
         return Omega
 
     def smooth(self, chisq=None):

@@ -7,11 +7,11 @@ Model-fitting utilities, including only:
 Joe Fowler, NIST
 """
 
-__all__ = ['MaximumLikelihoodHistogramFitter',]
-
-
 import numpy as np
 import scipy as sp
+
+__all__ = ['MaximumLikelihoodHistogramFitter', ]
+
 
 class MaximumLikelihoodHistogramFitter(object):
     """
@@ -40,7 +40,7 @@ class MaximumLikelihoodHistogramFitter(object):
     MaximumLikelihoodHistogramFitter.NOTES
     """
 
-    ## Further algorithm notes beyond the docstring.
+    # Further algorithm notes beyond the docstring.
     NOTES = """
     The likelihood being maximized is converted to a "MLE Chi^2" by defining
     chi^2_MLE = -2 log(LR).  LR is here a likelihood RATIO, between the Poisson
@@ -66,10 +66,10 @@ class MaximumLikelihoodHistogramFitter(object):
     -2 times the log of the likelihood ratio, rather than a true chi-squared.
     """
 
-    ## This many steps with negligible "chisq" change cause normal exit
+    # This many steps with negligible "chisq" change cause normal exit
     DONE = 4
 
-    ## This many steps cause RuntimeError for excessive iterations
+    # This many steps cause RuntimeError for excessive iterations
     ITMAX = 1000
 
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None,
@@ -122,7 +122,7 @@ class MaximumLikelihoodHistogramFitter(object):
             self.epsilon = epsilon + np.zeros_like(params)
         else:
             if len(epsilon) != self.nparam:
-                msg = "epsilon must be a scalar or if a vector, "+\
+                msg = "epsilon must be a scalar or if a vector, " + \
                     "a vector of the same length as params"
                 raise ValueError(msg)
             self.epsilon = np.array(epsilon)
@@ -132,7 +132,6 @@ class MaximumLikelihoodHistogramFitter(object):
         self.TOL = TOL
         self.chisq = 0.0
         self.iterations = 0
-
 
     def set_parameters(self, params):
         """
@@ -148,14 +147,13 @@ class MaximumLikelihoodHistogramFitter(object):
         self.chisq = 1e99
         # Force parameters into bounded range
         for pnum in range(self.nparam):
-            a,b = self.lowerbound[pnum], self.upperbound[pnum]
+            a, b = self.lowerbound[pnum], self.upperbound[pnum]
             if a is not None and self.params[pnum] < a:
-                print("Warning: param[%d] = %f was forced to lower limit %f"%(pnum,params[pnum],a))
+                print("Warning: param[%d] = %f was forced to lower limit %f" % (pnum, params[pnum], a))
                 self.params[pnum] = a
             if self.upperbound[pnum] is not None:
-                print("Warning: param[%d] = %f was forced to upper limit %f"%(pnum,params[pnum],b))
+                print("Warning: param[%d] = %f was forced to upper limit %f" % (pnum, params[pnum], b))
                 self.params[pnum] = b
-
 
     def hold(self, i, val=None):
         """
@@ -166,24 +164,22 @@ class MaximumLikelihoodHistogramFitter(object):
         if val is not None:
             self.params[i] = val
 
-
     def free(self, i):
         """
         Release parameter <i> to float in the next fit.  If already free, then no effect.
         """
         self.param_free[i] = True
 
-
     def setbounds(self, pnum, lower=None, upper=None):
         """Set lower and/or upper limits on the value that parameter pnum can take"""
         if pnum < 0 or pnum >= self.nparam:
-            raise ValueError("pnum must be in range [0,%d]"%(self.nparam-1))
+            raise ValueError("pnum must be in range [0,%d]" % (self.nparam-1))
         self.lowerbound[pnum] = lower
         self.upperbound[pnum] = upper
         if lower is None and upper is None:  # no constraints
             self.internal2bounded[pnum] = lambda x: x
             self.bounded2internal[pnum] = lambda x: x
-            self.boundedinternal_grad[pnum] = lambda x:1.0
+            self.boundedinternal_grad[pnum] = lambda x: 1.0
         elif upper is None:     # only lower bound
             self.internal2bounded[pnum] = lambda x: lower - 1. + np.sqrt(x * x + 1.)
             self.bounded2internal[pnum] = lambda x: np.sqrt((1.0 + (x - lower))**2 - 1.)
@@ -196,7 +192,6 @@ class MaximumLikelihoodHistogramFitter(object):
             self.internal2bounded[pnum] = lambda x: lower + ((upper - lower) / 2.) * (np.sin(x) + 1.)
             self.bounded2internal[pnum] = lambda x: np.arcsin(2.*(x-lower)/(upper-lower) - 1.)
             self.boundedinternal_grad[pnum] = lambda x: ((upper - lower) / 2.) * np.cos(x)
-
 
     def set_penalty(self, penalty=None):
         """Set a penalty function, to be added to chisquared. This allows parameters to be
@@ -216,9 +211,8 @@ class MaximumLikelihoodHistogramFitter(object):
             pen, grad, hess = penalty(example_params)
             assert np.isscalar(pen)
             assert len(grad) == npar
-            assert hess.shape == (npar,npar)
-        self.penalty=penalty
-
+            assert hess.shape == (npar, npar)
+        self.penalty = penalty
 
     def __discrete_gradient(self, p, x):
         """
@@ -232,8 +226,8 @@ class MaximumLikelihoodHistogramFitter(object):
         """
         nx = len(x)
         npar = len(p)
-        dyda=np.zeros((npar, nx), dtype=np.float)
-        for i,dx in enumerate(self.epsilon):
+        dyda = np.zeros((npar, nx), dtype=np.float)
+        for i, dx in enumerate(self.epsilon):
             dxminus = dxplus = dx
             if self.upperbound[i] is not None and p[i] + dxplus >= self.upperbound[i]:
                 dxplus = .9*(self.upperbound[i]-p[i])
@@ -247,13 +241,12 @@ class MaximumLikelihoodHistogramFitter(object):
 
             p2 = p.copy()
             p2[i] = p[i] + dxplus
-            tf_plus = self.theory_function(p2,x)
+            tf_plus = self.theory_function(p2, x)
 
             p2[i] = p[i] - dxminus
-            tf_minus = self.theory_function(p2,x)
-            dyda[i,:] = (tf_plus - tf_minus)/(dxplus + dxminus)
+            tf_minus = self.theory_function(p2, x)
+            dyda[i, :] = (tf_plus - tf_minus)/(dxplus + dxminus)
         return dyda
-
 
     def fit(self, verbose=False):
         """
@@ -291,7 +284,7 @@ class MaximumLikelihoodHistogramFitter(object):
         no_change_counter = 0
         lambda_coef = 0.01
         self.mfit = self.param_free.sum()
-        self.internal = np.array([f(p) for f,p in zip(self.bounded2internal, self.params)])
+        self.internal = np.array([f(p) for f, p in zip(self.bounded2internal, self.params)])
         alpha, beta, prev_chisq = self._mrqcof(self.internal)
 
         atry = self.internal.copy()
@@ -299,14 +292,14 @@ class MaximumLikelihoodHistogramFitter(object):
 
             alpha_prime = np.array(alpha)
             for j in range(self.mfit):
-                alpha_prime[j,j] += lambda_coef*alpha_prime[j,j]
+                alpha_prime[j, j] += lambda_coef*alpha_prime[j, j]
 
             try:
                 delta_params = sp.linalg.solve(alpha_prime, beta[self.param_free],
                                                overwrite_a=False, overwrite_b=False)
             except (sp.linalg.LinAlgError, ValueError) as ex:
                 print('alpha (lambda=%f, iteration %d) is singular or has NaN:' % (lambda_coef, iter_number))
-                print('Internal: ',self.internal)
+                print('Internal: ', self.internal)
                 print('Params: ', self.params)
                 # print 'Limits up: ', self.upperbound
                 # print 'Limits dn: ', self.lowerbound
@@ -322,12 +315,12 @@ class MaximumLikelihoodHistogramFitter(object):
             # When the chisq hasn't changed appreciably in self.DONE iterations, we return with success.
             # All other exits from this method are exceptions.
             if abs(trial_chisq-prev_chisq) < max(self.TOL, self.TOL*self.chisq):
-                no_change_counter+=1
+                no_change_counter += 1
 
                 if no_change_counter >= self.DONE:
                     internal_covar = sp.linalg.inv(alpha)
-                    dpdi_grad = np.array([f(p) for f,p in zip(self.boundedinternal_grad,
-                                                              self.internal)])[self.param_free]
+                    dpdi_grad = np.array([f(p) for f, p in zip(self.boundedinternal_grad,
+                                                               self.internal)])[self.param_free]
                     external_covar = ((internal_covar*dpdi_grad).T*dpdi_grad).T
                     self.covar[:self.mfit, :self.mfit] = external_covar
                     self.__cov_sort_in_place(self.covar)
@@ -337,12 +330,12 @@ class MaximumLikelihoodHistogramFitter(object):
             else:
                 no_change_counter = 0
 
-            if (trial_chisq < prev_chisq ): # success: we've improved chisq
+            if (trial_chisq < prev_chisq):  # success: we've improved chisq
                 lambda_coef *= 0.1
                 alpha = trial_alpha
                 beta = trial_beta
                 self.internal = atry.copy()
-                self.params = np.array([f(p) for f,p in zip(self.internal2bounded,self.internal)])
+                self.params = np.array([f(p) for f, p in zip(self.internal2bounded, self.internal)])
                 if verbose:
                     print("Improved: chisq=%9.4e->%9.4e l=%.1e params=%s..." %
                           (trial_chisq, prev_chisq, lambda_coef, self.params[:2]))
@@ -367,13 +360,13 @@ class MaximumLikelihoodHistogramFitter(object):
 
         # Careful!  Do this smart, or this routine will bog down the entire
         # fit hugely.
-        params = np.array([f(p) for f,p in zip(self.internal2bounded, internal)])
-        dpdi_grad = np.array([f(p) for f,p in zip(self.boundedinternal_grad, internal)])
+        params = np.array([f(p) for f, p in zip(self.internal2bounded, internal)])
+        dpdi_grad = np.array([f(p) for f, p in zip(self.boundedinternal_grad, internal)])
 
         y_model = self.theory_function(params, self.x)
         dyda = (self.theory_gradient(params, self.x).T * dpdi_grad).T
         if y_model.min() <= 0:
-            y_model[ y_model <= 0] = 1e-10
+            y_model[y_model <= 0] = 1e-10
         if np.any(np.isnan(y_model)):
             y_model[np.isnan(y_model)] = 1e-10
         dyda_over_y = (dyda/y_model)
@@ -382,32 +375,32 @@ class MaximumLikelihoodHistogramFitter(object):
 
         beta = (y_resid*dyda_over_y).sum(axis=1)
 
-        alpha = np.zeros((self.mfit,self.mfit), dtype=np.float)
+        alpha = np.zeros((self.mfit, self.mfit), dtype=np.float)
         pfnz = self.param_free.nonzero()[0]
         for i in range(self.mfit):
             overallrow = pfnz[i]  # convert from the ith free row to the overall row #
-            alpha[i,i] = (nobs*(dyda_over_y[overallrow,:]**2)).sum()
+            alpha[i, i] = (nobs*(dyda_over_y[overallrow, :]**2)).sum()
             for j in range(i):
                 overallcol = pfnz[j]  # convert from the jth free col to the overall col #
-                alpha[i,j] = (nobs*dyda_over_y[overallrow,:]*dyda_over_y[overallcol,:]).sum()
-                alpha[j,i] = alpha[i,j]
-            if alpha[:,i].sum() == 0:
-                alpha[i,i] = 1.0 # This prevents a singular matrix error
+                alpha[i, j] = (nobs*dyda_over_y[overallrow, :]*dyda_over_y[overallcol, :]).sum()
+                alpha[j, i] = alpha[i, j]
+            if alpha[:, i].sum() == 0:
+                alpha[i, i] = 1.0  # This prevents a singular matrix error
 
         nonzero_obs = nobs > 0
         nobsNZ = nobs[nonzero_obs]
         y_modelNZ = y_model[nonzero_obs]
         chisq = 2*(y_model.sum()-self.total_obs) + \
-                2*(nobsNZ*(np.log(nobsNZ)-np.log(y_modelNZ))).sum()
+            2*(nobsNZ*(np.log(nobsNZ)-np.log(y_modelNZ))).sum()
 
         # If a penalty is being imposed on the parameters, change the return values
         # of the Hessian, the gradient, and the function value accordingly.
         if self.penalty is not None:
-            penalty,grad,hessian = self.penalty(params)
+            penalty, grad, hessian = self.penalty(params)
             chisq += penalty
             beta -= 0.5 * grad
-            for i,pnum in enumerate(pfnz):
-                alpha[i,:] += 0.5*hessian[pnum,pfnz]
+            for i, pnum in enumerate(pfnz):
+                alpha[i, :] += 0.5*hessian[pnum, pfnz]
 
         return alpha, beta, chisq
 
@@ -418,7 +411,8 @@ class MaximumLikelihoodHistogramFitter(object):
         C[:, self.mfit:] = 0.0
         k = self.mfit - 1
         for j in range(self.nparam-1, -1, -1):
-            if j==k: break
+            if j == k:
+                break
             if self.param_free[j]:
                 for m in range(self.nparam):
                     C[m, k], C[m, j] = C[m, j], C[m, k]

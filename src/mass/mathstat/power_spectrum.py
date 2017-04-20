@@ -5,7 +5,7 @@ overlapping data segments.
 
 Use the class PowerSpectrum in the case that you are compute-limited
 and PowerSpectrumOverlap in the case that you are data-limited.  The
-latter uses k segments of data two segments at a time to make (k-1) 
+latter uses k segments of data two segments at a time to make (k-1)
 estimates and makes fuller use of all data (except in the first and
 last segment).
 
@@ -54,20 +54,21 @@ in the callable function itself.  It is allowed to use different windows
 on different data segments, though honestly that would be really weird.
 """
 
+import numpy as np
+import matplotlib.pylab as pylab
+
 __all__ = ['PowerSpectrum', 'PowerSpectrumOverlap',
            'bartlett', 'welch', 'hann', 'hamming',
            'computeSpectrum']
-
-import numpy as np
 
 
 class PowerSpectrum(object):
     """Object for accumulating power spectrum estimates from one
     or more segments of data.  If you want to use multiple overlapping
-    segments, use class PowerSpectrumOvelap.  
+    segments, use class PowerSpectrumOvelap.
 
     Based on Num Rec 3rd Ed section 13.4"""
-    
+
     def __init__(self, m, dt=1.0):
         """Sets up to estimate PSD at m+1 frequencies (counting DC) given
         data segments of length 2m.  Optional dt is the time step Delta"""
@@ -78,10 +79,10 @@ class PowerSpectrum(object):
         self.dt = dt
         if dt is None:
             self.dt = 1.0
-    
+
     def copy(self):
         """Return a copy of the object.
-        
+
         Handy when coding and you don't want to recompute everything, but
         you do want to update the method definitions."""
         c = PowerSpectrum(self.m, dt=self.dt)
@@ -111,14 +112,14 @@ class PowerSpectrum(object):
         if True:  # we want real units
             scale_factor *= self.dt*self.m2
         wksp = np.fft.rfft(wksp)
-        
+
         # The first line adds 2x too much to the first/last bins.
         ps = np.abs(wksp)**2
 #        ps[0] *= 0.5
 #        ps[-1] *= 0.5
         self.specsum += scale_factor*ps
         self.nsegments += 1
-    
+
     def addLongData(self, data, window=None):
         """Process a long vector of data as non-overlapping segments of
         length 2m."""
@@ -131,22 +132,22 @@ class PowerSpectrum(object):
         for k in range(nk):
             noff = k*self.m2
             PowerSpectrum.addDataSegment(self,
-                                         data[noff:noff+self.m2], 
+                                         data[noff:noff+self.m2],
                                          window=window)
 
     def spectrum(self, nbins=None):
         """If <nbins> is given, the data are averaged into <nbins> bins."""
         if nbins is None:
             return self.specsum / self.nsegments
-        if nbins > self.m: 
+        if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
-    
+
         newbin = np.asarray(0.5+np.arange(self.m+1, dtype=np.float)/(self.m+1)*nbins, dtype=np.int)
         result = np.zeros(nbins+1, dtype=np.float)
         for i in range(nbins+1):
             result[i] = self.specsum[newbin == i].mean()
         return result/self.nsegments
-    
+
     def autocorrelation(self):
         """Return the autocorrelation (the DFT of this power spectrum)"""
         raise NotImplementedError("The autocorrelation method is not yet implemented.")
@@ -155,7 +156,7 @@ class PowerSpectrum(object):
         """If <nbins> is given, the data are averaged into <nbins> bins."""
         if nbins is None:
             nbins = self.m
-        if nbins > self.m: 
+        if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
         return np.arange(nbins+1, dtype=np.float)/(2*self.dt*nbins)
 
@@ -194,7 +195,7 @@ class PowerSpectrumOverlap(PowerSpectrum):
         for k in range(nk):
             noff = int(k*delta_el+0.5)
             PowerSpectrum.addDataSegment(self,
-                                         data[noff:noff+self.m2], 
+                                         data[noff:noff+self.m2],
                                          window=window)
 
 # Commonly used window functions
@@ -227,21 +228,21 @@ def hamming(n):
 
 def computeSpectrum(data, segfactor=1, dt=None, window=None):
     """Convenience function to compute the power spectrum of a single data array.
-    
+
     <data>  Data for finding the spectrum
     <segfactor>   How many segments to break up the data into.  The spectrum
                   will be found on each consecutive pair of segments and
                   will be averaged over all pairs.
     <dt>      The sample spacing, in time.
     <window>  The window function to apply.  Should be a function that accepts
-              a number of samples and returns an array of that length.  
+              a number of samples and returns an array of that length.
               Possible values are bartlett, welch,
               hann, and hamming in this module, or use a function of your choosing.
-              
-    Return: either the PSD estimate as an array (non-negative frequencies only), 
+
+    Return: either the PSD estimate as an array (non-negative frequencies only),
     *OR* the tuple (frequencies, PSD).  The latter returns when <dt> is not None.
     """
-    
+
     N = len(data)
     M = N/(2*segfactor)
     try:
@@ -261,9 +262,6 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
         return spec.spectrum()
     else:
         return spec.frequencies(), spec.spectrum()
-
-
-import matplotlib.pylab as pylab
 
 
 def demo(N=1024, window=np.hanning):

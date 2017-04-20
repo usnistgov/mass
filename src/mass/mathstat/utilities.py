@@ -8,28 +8,22 @@ Joe Fowler, NIST
 Started March 24, 2011
 """
 
-## \file utilities.py
-# \brief Several utilities used by Mass, including math, plotting, and other functions.
-#
-# Other utilities:
-# -# plot_as_stepped_hist, to draw an already computed histogram in the same way that
-#    pylab.hist() would do it.
+import numpy as np
 
 __all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky_golay']
 
-
-import numpy as np
 
 class CheckForMissingLibrary(object):
     """Class to raise ImportError only after python tries to use the import.
     Intended for use with shared objects built from Fortran or Cython source."""
     def __init__(self, libname):
         self.libname = libname
-        self.error = ImportError( """This copy of Mass could not import the compiled '%s'
+        self.error = ImportError("""This copy of Mass could not import the compiled '%s'
 This happens when you run from a source tree, among other possibilities.  You can
 either try using an installed version or do a 'python setup.py build' and copy
-the .so file from build/lib*/mass/mathstat/ to mass/mathstat/  Note that this is 
-a delayed error.  If it is raised, then you know that you needed the library!"""%self.libname)
+the .so file from build/lib*/mass/mathstat/ to mass/mathstat/  Note that this is
+a delayed error.  If it is raised, then you know that you needed the library!""" % self.libname)
+
     def __getattr__(self, attr):
         raise self.error
 
@@ -38,12 +32,12 @@ def plot_as_stepped_hist(axis, data, bins, **kwargs):
     """Plot onto <axis> the histogram <bin_ctrs>,<data> in stepped-histogram format.
     \param axis     The pylab Axes object to plot onto.
     \param data     Bin contents.
-    \param bins     An array of bin centers or of bin edges.  (Bin spacing will be 
-                    inferred from the first two elements).  If len(bin_ctrs)==len(data)+1, then
+    \param bins     An array of bin centers or of bin edges.  (Bin spacing will be
+                    inferred from the first two elements).  If len(bin_ctrs) == len(data)+1, then
                     bin_ctrs will be assumed to be bin edges; otherwise it will be assumed centers.
     \param kwargs   All other keyword arguments will be passed to axis.plot().
     """
-    if len(bins)==len(data)+1:
+    if len(bins) == len(data)+1:
         bin_edges = bins
         x = np.zeros(2*len(bin_edges), dtype=np.float)
         x[0::2] = bin_edges
@@ -59,8 +53,7 @@ def plot_as_stepped_hist(axis, data, bins, **kwargs):
     y[1:-1:2] = data
     y[2:-1:2] = data
     axis.plot(x, y, **kwargs)
-    axis.set_xlim([x[0],x[-1]])
-
+    axis.set_xlim([x[0], x[-1]])
 
 
 def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, offset=0.0, **kwargs):
@@ -68,14 +61,14 @@ def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, offset=0
     an error band is plotted, assuming <counts> are Poisson-distributed variates.
     \param axis     The pylab Axes object to plot onto.
     \param counts   Bin contents.
-    \param bin_ctrs An array of bin centers or of bin edges.  (Bin spacing will be 
-                    inferred from the first two elements).  If len(bin_ctrs)==len(data)+1, then
+    \param bin_ctrs An array of bin centers or of bin edges.  (Bin spacing will be
+                    inferred from the first two elements).  If len(bin_ctrs) == len(data)+1, then
                     bin_ctrs will be assumed to be bin edges; otherwise it will be assumed centers.
     \param scale    Plot counts*scale+offset if you need to convert counts to some physical units.
     \param offset   Plot counts*scale+offset if you need to convert counts to some physical units.
     \param kwargs   All other keyword arguments will be passed to axis.plot().
     """
-    if len(bin_ctrs)==len(counts)+1:
+    if len(bin_ctrs) == len(counts)+1:
         bin_ctrs = 0.5*(bin_ctrs[1:]+bin_ctrs[:-1])
     elif len(bin_ctrs) != len(counts):
         raise ValueError("bin_ctrs must be either the same length as counts, or 1 longer.")
@@ -83,11 +76,10 @@ def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, offset=0
     errors = np.sqrt(counts)*scale
     fill_lower = smooth_counts-errors
     fill_upper = smooth_counts+errors
-    fill_lower[fill_lower<0] = 0
-    fill_upper[fill_upper<0] = 0
+    fill_lower[fill_lower < 0] = 0
+    fill_upper[fill_upper < 0] = 0
     axis.fill_between(bin_ctrs, fill_lower+offset, fill_upper+offset, alpha=0.25, **kwargs)
     plot_as_stepped_hist(axis, counts*scale+offset, bin_ctrs, **kwargs)
-
 
 
 def savitzky_golay(y, window_size, order, deriv=0):
@@ -148,15 +140,13 @@ def savitzky_golay(y, window_size, order, deriv=0):
     if window_size < order + 2:
         raise TypeError("window_size is too small for the polynomials order")
     order_range = range(order+1)
-    half_window = (window_size -1) // 2
+    half_window = (window_size-1) // 2
     # precompute coefficients
     b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
     m = np.linalg.pinv(b).A[deriv]
     # pad the signal at the extremes with
     # values taken from the signal itself
-    firstvals = y[0] - np.abs( y[1:half_window+1][::-1] - y[0] )
+    firstvals = y[0] - np.abs(y[1:half_window+1][::-1] - y[0])
     lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
     y = np.concatenate((firstvals, y, lastvals))
-    return np.convolve( m, y, mode='valid')
-
-        
+    return np.convolve(m, y, mode='valid')

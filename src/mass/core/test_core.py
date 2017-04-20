@@ -3,9 +3,12 @@ import os.path
 
 import numpy as np
 import pylab as pl
-import glob, os, shutil
-import mass
+import glob
+import os
+import shutil
 import unittest as ut
+
+import mass
 import mass.core.channel_group as mcg
 from mass.core.files import *
 
@@ -28,47 +31,47 @@ class TestFilenameHandling(ut.TestCase):
         self.assertEqual(101, mcg._extract_channum("path/to/file/dummy_chan101.ljh.saved/pointless_subdir"))
 
     def test_remove_unmatched_channums(self):
-        fnames1 = ["dummy_chan%d.ljh"%d for d in (1,3,5,7,11,13)]
-        fnames2 = ["dummy_chan%d.ljh"%d for d in (1,3,5,7,9,15)]
-        validns = ["dummy_chan%d.ljh"%d for d in (1,3,5,7)]
+        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
+        fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
+        validns = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7)]
         mcg._remove_unmatched_channums(fnames1, fnames2)
         self.assertEqual(len(validns), len(fnames1))
         self.assertEqual(len(validns), len(fnames2))
-        for v,f1,f2 in zip(validns, fnames1, fnames2):
+        for v, f1, f2 in zip(validns, fnames1, fnames2):
             self.assertEqual(v, f1)
             self.assertEqual(v, f2)
 
     def test_remove_unmatched_channums_with_neveruse(self):
-        fnames1 = ["dummy_chan%d.ljh"%d for d in (1,3,5,7,11,13)]
-        fnames2 = ["dummy_chan%d.ljh"%d for d in (1,3,5,7,9,15)]
-        validns = ["dummy_chan%d.ljh"%d for d in (1,3)]
-        mcg._remove_unmatched_channums(fnames1, fnames2, never_use=(5,7))
+        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
+        fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
+        validns = ["dummy_chan%d.ljh" % d for d in (1, 3)]
+        mcg._remove_unmatched_channums(fnames1, fnames2, never_use=(5, 7))
         self.assertEqual(len(validns), len(fnames1))
         self.assertEqual(len(validns), len(fnames2))
-        for v,f1,f2 in zip(validns, fnames1, fnames2):
+        for v, f1, f2 in zip(validns, fnames1, fnames2):
             self.assertEqual(v, f1)
             self.assertEqual(v, f2)
 
     def test_remove_unmatched_channums_with_useonly(self):
-        fnames1 = ["dummy_chan%d.ljh"%d for d in (1,3,5,7,11,13)]
-        fnames2 = ["dummy_chan%d.ljh"%d for d in (1,3,5,7,9,15)]
-        validns = ["dummy_chan%d.ljh"%d for d in (1,3)]
-        mcg._remove_unmatched_channums(fnames1, fnames2, use_only=(1,3))
+        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
+        fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
+        validns = ["dummy_chan%d.ljh" % d for d in (1, 3)]
+        mcg._remove_unmatched_channums(fnames1, fnames2, use_only=(1, 3))
         self.assertEqual(len(validns), len(fnames1))
         self.assertEqual(len(validns), len(fnames2))
-        for v,f1,f2 in zip(validns, fnames1, fnames2):
+        for v, f1, f2 in zip(validns, fnames1, fnames2):
             self.assertEqual(v, f1)
             self.assertEqual(v, f2)
 
     def test_sort_filenames_numerically(self):
-        cnums = [1,11,13,3,5,7,9,99]
-        fnames = ["d_chan%d.ljh"%d for d in cnums]
+        cnums = [1, 11, 13, 3, 5, 7, 9, 99]
+        fnames = ["d_chan%d.ljh" % d for d in cnums]
         fnames.sort()
         sorted_names = mcg._sort_filenames_numerically(fnames)
         cnums.sort()
-        correct_order = ["d_chan%d.ljh"%d for d in cnums]
+        correct_order = ["d_chan%d.ljh" % d for d in cnums]
         self.assertEqual(len(sorted_names), len(correct_order))
-        for s,c in zip(sorted_names, correct_order):
+        for s, c in zip(sorted_names, correct_order):
             self.assertEqual(s, c)
 
 
@@ -111,8 +114,10 @@ class TestTESGroup(ut.TestCase):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
         src_name = 'src/mass/regression_test/regress_chan1.ljh'
         noi_name = 'src/mass/regression_test/regress_chan1.noi'
-        for name in ['src/mass/regression_test/regress_mass.hdf5', 'src/mass/regression_test/regress_noise_mass.hdf5']:
-            if os.path.isfile(name): os.remove(name)
+        for name in ['src/mass/regression_test/regress_mass.hdf5',
+                     'src/mass/regression_test/regress_noise_mass.hdf5']:
+            if os.path.isfile(name):
+                os.remove(name)
         data = mass.TESGroup([src_name], [noi_name])
         data.set_chan_bad(1, "testing all channels bad")
 
@@ -129,18 +134,20 @@ class TestTESGroup(ut.TestCase):
         "calibrate a dataset, make sure it saves to hdf5"
         src_name = 'src/mass/regression_test/regress_chan1.ljh'
         noi_name = 'src/mass/regression_test/regress_chan1.noi'
-        for name in ['src/mass/regression_test/regress_mass.hdf5', 'src/mass/regression_test/regress_noise_mass.hdf5']:
-            if os.path.isfile(name): os.remove(name)
+        for name in ['src/mass/regression_test/regress_mass.hdf5',
+                     'src/mass/regression_test/regress_noise_mass.hdf5']:
+            if os.path.isfile(name):
+                os.remove(name)
         data = mass.TESGroup([src_name], [noi_name])
         data.summarize_data()
-        data.calibrate("p_pulse_rms",[10000.])
-        data.calibrate("p_pulse_rms",[10000.],name_ext="abc")
+        data.calibrate("p_pulse_rms", [10000.])
+        data.calibrate("p_pulse_rms", [10000.], name_ext="abc")
         ds = data.first_good_dataset
 
         data2 = mass.TESGroup([src_name], [noi_name])
         ds2 = data2.first_good_dataset
-        self.assertTrue( all([k in ds.calibration.keys() for k in ds2.calibration.keys()]))
-        self.assertEqual(len(ds.calibration.keys()),2)
+        self.assertTrue(all([k in ds.calibration.keys() for k in ds2.calibration.keys()]))
+        self.assertEqual(len(ds.calibration.keys()), 2)
 
 
 class TestTESHDF5Only(ut.TestCase):
@@ -149,8 +156,10 @@ class TestTESHDF5Only(ut.TestCase):
         """Make sure it mass can open a mass generated file in HDF5 Only mode."""
         src_name = 'src/mass/regression_test/regress_chan1.ljh'
         noi_name = 'src/mass/regression_test/regress_chan1.noi'
-        for name in ['src/mass/regression_test/regress_mass.hdf5', 'src/mass/regression_test/regress_noise_mass.hdf5']:
-            if os.path.isfile(name): os.remove(name)
+        for name in ['src/mass/regression_test/regress_mass.hdf5',
+                     'src/mass/regression_test/regress_noise_mass.hdf5']:
+            if os.path.isfile(name):
+                os.remove(name)
         data = mass.TESGroup([src_name], [noi_name])
         h5filename = data.hdf5_file.filename
         data.hdf5_file.close()
@@ -163,24 +172,23 @@ class TestTESHDF5Only(ut.TestCase):
         src_name = "src/mass/regression_test/regress_chan1.ljh"
         dir = tempfile.mkdtemp()
         dest_name = "%s/temporary_chan%d.ljh"
-        chan1_dest = dest_name%(dir,1)
+        chan1_dest = dest_name % (dir, 1)
         shutil.copy(src_name, chan1_dest)
-        cnums = (1,3,5,11,13,15)
+        cnums = (1, 3, 5, 11, 13, 15)
         for c in cnums[1:]:
-            os.link(chan1_dest, dest_name%(dir,c))
+            os.link(chan1_dest, dest_name % (dir, c))
 
-        data1 = mass.TESGroup("%s/temporary_chan*.ljh"%dir)
+        data1 = mass.TESGroup("%s/temporary_chan*.ljh" % dir)
         # Make sure the usual TESGroup is in the right order
-        for i,ds in enumerate(data1):
+        for i, ds in enumerate(data1):
             self.assertEqual(ds.channum, cnums[i])
         fname = data1.hdf5_file.filename
         del data1
 
         # Make sure the usual TESGroup is in the right order
         data = mass.TESGroupHDF5(fname)
-        for i,ds in enumerate(data):
+        for i, ds in enumerate(data):
             self.assertEqual(ds.channum, cnums[i])
-
 
 
 if __name__ == '__main__':

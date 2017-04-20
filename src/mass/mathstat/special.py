@@ -13,10 +13,10 @@ Joe Fowler, NIST
 February 3, 2012
 """
 
-__all__ = ['voigt', 'voigt_approx_fwhm']
-
 import numpy as np
 import scipy.special
+
+__all__ = ['voigt', 'voigt_approx_fwhm']
 
 _sqrt2 = np.sqrt(2.0)
 _sqrt2pi = np.sqrt(2.0*np.pi)
@@ -28,10 +28,10 @@ def voigt(x, xctr, hwhm, sigma):
     V is the convolution of a Lorentzian centered at xctr with half-width at half-max of hwhm
     with a Gaussian having standard width sigma.
 
-    This is the lineshape of a Lorentzian (a.k.a. Breit-Wigner and Cauchy) distributed emission 
+    This is the lineshape of a Lorentzian (a.k.a. Breit-Wigner and Cauchy) distributed emission
     line with Gaussian broadening due either to finite measurement resolution or to physical
     effects like Doppler shifts in molecules having a Maxwellian velocity distribution.
-    
+
     Here are exact definitions of the Lorentzian L(x), the Gaussian G(x), and the convolution
     that results, the Voigt V(x) in terms of the parameters (hwhm, xctr, and sigma):
 
@@ -51,12 +51,12 @@ def voigt(x, xctr, hwhm, sigma):
     """
 
     if not isinstance(x, np.ndarray):
-        return voigt( np.array(x), xctr, hwhm, sigma)
+        return voigt(np.array(x), xctr, hwhm, sigma)
 
     # Handle the pure Gaussian limit by itself
     if hwhm == 0.0:
         return np.exp(-0.5*((x-xctr)/sigma)**2) / (sigma*_sqrt2pi)
-    
+
     # Handle the pure Lorentzian limit by itself
     if sigma == 0.0:
         return (hwhm/np.pi) / ((x-xctr)**2 + hwhm**2)
@@ -65,7 +65,6 @@ def voigt(x, xctr, hwhm, sigma):
     z = (x-xctr + 1j*hwhm)/(sigma * _sqrt2)
     w = scipy.special.wofz(z)
     return (w.real)/(sigma * _sqrt2pi)
-
 
 
 def voigt_approx_fwhm(fwhm_lorentzian, fwhm_gaussian):

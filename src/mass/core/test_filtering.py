@@ -1,28 +1,28 @@
 import numpy as np
-import pylab as pl
-import glob, os
+import glob
+import os
 import unittest as ut
-import numpy.testing as nt
 
 import mass
 import mass.core.channel_group as mcg
 from mass.core.files import *
 
 
-ljhdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),"..","regression_test")
+ljhdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "regression_test")
+
 
 def process_file(prefix, cuts, do_filter=True):
 
-    channels=(1,)
-    pulse_files=[os.path.join(ljhdir,"%s_chan%d.ljh"%(prefix, c)) for c in channels]
-    noise_files=[os.path.join(ljhdir,"%s_chan%d.noi"%(prefix, c)) for c in channels]
-    pulse_files = os.path.join(ljhdir,"%s_chan*.ljh"%prefix)
-    noise_files = os.path.join(ljhdir,"%s_chan*.noi"%prefix)
+    channels = (1,)
+    pulse_files = [os.path.join(ljhdir, "%s_chan%d.ljh" % (prefix, c)) for c in channels]
+    noise_files = [os.path.join(ljhdir, "%s_chan%d.noi" % (prefix, c)) for c in channels]
+    pulse_files = os.path.join(ljhdir, "%s_chan*.ljh" % prefix)
+    noise_files = os.path.join(ljhdir, "%s_chan*.noi" % prefix)
 
     # Start from clean slate by removing any hdf5 files
-    for fl in glob.glob(os.path.join(ljhdir,"%s_mass.hdf5" % prefix)):
+    for fl in glob.glob(os.path.join(ljhdir, "%s_mass.hdf5" % prefix)):
         os.remove(fl)
-    for fl in glob.glob(os.path.join(ljhdir,"%s_noise_mass.hdf5" % prefix)):
+    for fl in glob.glob(os.path.join(ljhdir, "%s_noise_mass.hdf5" % prefix)):
         os.remove(fl)
 
     data = mass.TESGroup(pulse_files, noise_files)
@@ -83,7 +83,6 @@ class TestFilters(ut.TestCase):
     def test_vdv_newfilters(self):
         """Make sure new filters have a v/dv"""
         self.filter_summaries(newstyle=True)
-
 
     def filter_reload(self, newstyle):
         self.filter_summaries(newstyle=newstyle)
