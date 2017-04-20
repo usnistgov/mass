@@ -626,6 +626,8 @@ class MicrocalDataSet(object):
             for field in fieldnames:
                 self.__dict__['p_%s' % field] = h5grp.require_dataset(field, shape=(npulses,),
                                                                       dtype=dtype)
+        if "peak_samplenumber" in self.p_peak_index.attrs:
+            self.peak_samplenumber = self.p_peak_index.attrs["peak_samplenumber"]
 
         # Other vectors needed per-channel
         self.average_pulse = h5grp.require_dataset('average_pulse', shape=(self.nSamples,),
@@ -777,6 +779,7 @@ class MicrocalDataSet(object):
             self.read_segment(0)
         peak_idx = self.data.argmax(axis=1)
         self.peak_samplenumber = sp.stats.mode(peak_idx)[0][0]
+        self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
 
     @show_progress("channel.summarize_data")
@@ -1784,6 +1787,7 @@ class MicrocalDataSet(object):
         md_max = md_med + md_madn*nsigma_max_deriv
         pt_max = max(0.0, pt_med + pt_madn*nsigma_pt_rms)
 
+        # Step 3: make the cuts
         cuts = mass.core.controller.AnalysisControl(
             peak_time_ms=(0, peak_time_ms*1.25),
             rise_time_ms=(0, peak_time_ms*1.10),

@@ -149,6 +149,10 @@ class TestTESGroup(ut.TestCase):
         self.assertTrue(all([k in ds.calibration.keys() for k in ds2.calibration.keys()]))
         self.assertEqual(len(ds.calibration.keys()), 2)
 
+        # These 2 checks test issue #102.
+        self.assertTrue(ds2.peak_samplenumber is not None)
+        self.assertTrue(ds2.peak_samplenumber == ds.peak_samplenumber)
+
 
 class TestTESHDF5Only(ut.TestCase):
 
