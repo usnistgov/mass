@@ -1,5 +1,5 @@
 """
-Offers the convenient GUI dialog that produces a mass.TESGroup with help from the 
+Offers the convenient GUI dialog that produces a mass.TESGroup with help from the
 filesystem's file-finding features.
 
 Usage:
@@ -10,9 +10,6 @@ Created on Apr 19, 2012
 
 @author: fowlerj
 """
-
-__all__ = ['create_dataset']
-
 
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import pyqtSlot
@@ -38,6 +35,9 @@ except ImportError:
     Ui_CreateDataset, _load_data_dialog_baseclass = PyQt4.uic.loadUiType(ui_filename)
 
 
+__all__ = ['create_dataset']
+
+
 class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
     """A Qt "QDialog" object for choosing a template filename for noise and/or pulse files,
     to select which channels to load, and to hold the results.
@@ -45,26 +45,25 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
     This class is meant to be used by factory function create_dataset, and not by the end
     user.  Jeez.  Why are you even reading this?
     """
-    def __init__(self, parent=None, directory="", disabled_channels=() ):
+    def __init__(self, parent=None, directory="", disabled_channels=()):
         QtGui.QDialog.__init__(self, parent)
         self.setupUi(self)
         self.choose_pulse_file.clicked.connect(self.choose_file)
         self.choose_noise_file.clicked.connect(self.choose_file)
-        self.nchannels=0
+        self.nchannels = 0
         self.channels_known = []
-        self.chan_check_boxes = []        
+        self.chan_check_boxes = []
         self.disabled_channels = disabled_channels
         self.default_directory = directory
-        self.pulse_files={}
-        self.noise_files={}
-        self.channel_check_status={} # Keep a record of whether channel is wanted!
+        self.pulse_files = {}
+        self.noise_files = {}
+        self.channel_check_status = {}  # Keep a record of whether channel is wanted!
 
     def choose_file(self, *args, **kwargs):
-        filename = QtGui.QFileDialog.getOpenFileName(self,
-                          QtCore.QString("pick a file"),
-                          self.default_directory,
-                          "LJH Files (*.ljh *.noi)")
-        if len(str(filename))>0:
+        filename = QtGui.QFileDialog.getOpenFileName(
+            self, QtCore.QString("pick a file"),
+            self.default_directory, "LJH Files (*.ljh *.noi)")
+        if len(str(filename)) > 0:
             if self.sender() == self.choose_pulse_file:
                 self.pulse_file_edit.setText(filename)
             elif self.sender() == self.choose_noise_file:
@@ -73,7 +72,7 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
     @pyqtSlot(QtCore.QString)
     def file_template_textEdited(self, file_string):
         filename = str(file_string)
-        if len(filename)>0 and not os.path.exists(filename):
+        if len(filename) > 0 and not os.path.exists(filename):
             return
 
         if self.sender() == self.pulse_file_edit:
@@ -87,7 +86,7 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
     def update_enable_error_channels(self):
         file_example = self.pulse_file_edit.text()
         self.update_known_channels(file_example, self.pulse_files)
-    
+
     def update_known_channels(self, file_example, file_dict):
         file_example = str(file_example)
         rexp = re.compile(r'chan[0-9]+')
@@ -97,13 +96,13 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         channels_found = []
         file_dict.clear()
         for f in all_files:
-            m=rexp.search(f)
+            m = rexp.search(f)
             if m is None:
                 continue
             chanstr = m.group()
             if chanstr.startswith("chan"):
                 channum = int(chanstr[4:])
-                if (channum%2==1) or self.enable_error_channels.isChecked():
+                if (channum % 2 == 1) or self.enable_error_channels.isChecked():
                     channels_found.append(channum)
                     file_dict[channum] = f
 
@@ -118,8 +117,8 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
 
     def update_channel_chooser_boxes(self):
 
-        # Remove all the chan_check_boxes, storing their check/unchecked status     
-        while len(self.chan_check_boxes)>0:
+        # Remove all the chan_check_boxes, storing their check/unchecked status
+        while len(self.chan_check_boxes) > 0:
             ccb = self.chan_check_boxes.pop()
             ccb.hide()
             self.channel_check_status[ccb.chan_number] = ccb.isChecked()
@@ -129,10 +128,10 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         np, nn = len(self.pulse_files), len(self.noise_files)
 
         ncol = 16
-        while self.nchannels/ncol < 8 and ncol>8:
-            ncol -=2
-        for i,cnum in enumerate(self.channels_known):
-            name = QtCore.QString("%3d"%cnum)
+        while self.nchannels/ncol < 8 and ncol > 8:
+            ncol -= 2
+        for i, cnum in enumerate(self.channels_known):
+            name = QtCore.QString("%3d" % cnum)
             box = QtGui.QCheckBox(name, None)
             box.chan_number = cnum
 
@@ -145,13 +144,13 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
                     box.setChecked(True)
 
             # For channels in one list but not the other, disable the box
-            if np>0 and nn>0:
-                if (cnum in self.noise_files and cnum not in self.pulse_files) or\
-                    (cnum not in self.noise_files and cnum  in self.pulse_files):
+            if np > 0 and nn > 0:
+                if (cnum in self.noise_files and cnum not in self.pulse_files) or \
+                        (cnum not in self.noise_files and cnum in self.pulse_files):
                     box.setChecked(False)
                     box.setEnabled(False)
 
-            col, row = i%ncol, i/ncol
+            col, row = i % ncol, i/ncol
             self.chan_selection_layout.addWidget(box, row, col)
             self.chan_check_boxes.append(box)
         self.chan_selection_label.setEnabled(True)
@@ -163,7 +162,7 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
         self.check_no_chan.clicked.connect(self.manipulate_chan_checker)
 
     def manipulate_chan_checker(self):
-        if self.nchannels<=0:
+        if self.nchannels <= 0:
             return
         if self.sender() == self.check_all_chan:
             for box in self.chan_check_boxes:
@@ -177,8 +176,10 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
 
     def get_pulse_files(self):
         return self._get_files(self.pulse_files)
+
     def get_noise_files(self):
         return self._get_files(self.noise_files)
+
     def _get_files(self, file_dict):
         chan = []
         file_list = []
@@ -200,41 +201,41 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
 def _dataset_command(pulse_files, noise_files):
     """Returns a string containing executable python code that user can save
     to re-generate this dataset in the future."""
-    
+
     np, nn = len(pulse_files), len(noise_files)
     pulse_only = (nn == 0)
     noise_only = (np == 0)
     if pulse_only and noise_only:
         return ""
     dir_p = dir_n = None
-    lines=[]
-    channels=[]
-    
-    # Find file conventions for the pulse and the noise files
-    if np>0:
-        dir_p, name = os.path.split(pulse_files[0])
-        lines.append('dir_p = "%s"'%dir_p)
-        prefix,after = name.split('_chan')
-        suffix = after.split(".")[1]
-        lines.append('prefix_p, suffix_p = "%s","%s"'%(prefix, suffix))
+    lines = []
+    channels = []
 
-    if nn>0:
-        dir_n, name = os.path.split(noise_files[0])
-        lines.append('dir_n = "%s"'%dir_n)
-        prefix,after = name.split('_chan')
+    # Find file conventions for the pulse and the noise files
+    if np > 0:
+        dir_p, name = os.path.split(pulse_files[0])
+        lines.append('dir_p = "%s"' % dir_p)
+        prefix, after = name.split('_chan')
         suffix = after.split(".")[1]
-        lines.append('prefix_n, suffix_n = "%s","%s"'%(prefix, suffix))
-    
+        lines.append('prefix_p, suffix_p = "%s","%s"' % (prefix, suffix))
+
+    if nn > 0:
+        dir_n, name = os.path.split(noise_files[0])
+        lines.append('dir_n = "%s"' % dir_n)
+        prefix, after = name.split('_chan')
+        suffix = after.split(".")[1]
+        lines.append('prefix_n, suffix_n = "%s","%s"' % (prefix, suffix))
+
     # Use the pulse or noise file list to find channel numbers
     file_list = pulse_files
     if noise_only:
         file_list = noise_files
-        
+
     for pf in file_list:
-        name=os.path.split(pf)[1]
+        name = os.path.split(pf)[1]
         cnum = name.split('_chan')[1].split(".")[0]
         channels.append(cnum)
-    lines.append('channels=(%s)'%(','.join(channels)))
+    lines.append('channels=(%s)' % (','.join(channels)))
 
     # Now construct the pulse_files and noise_files lists and generate the command
     args = []
@@ -251,11 +252,10 @@ def _dataset_command(pulse_files, noise_files):
             'noise_files=["%s/%s_chan%d.%s"%(dir_n, prefix_n, c, suffix_n) for c in channels]')
         args.append('noise_files')
     args.extend(extra)
-    command = 'data = mass.TESGroup(%s)'%(', '.join(args))
+    command = 'data = mass.TESGroup(%s)' % (', '.join(args))
     lines.append(command)
     lines.append('\n')
     return "\n".join(lines)
-
 
 
 def create_dataset(default_directory="", disabled_channels=()):
@@ -280,13 +280,13 @@ def create_dataset(default_directory="", disabled_channels=()):
     noise_files = dialog.get_noise_files()
 
     np, nn = len(pulse_files), len(noise_files)
-    if np>0:
-        if nn>0:
+    if np > 0:
+        if nn > 0:
             data = mass.TESGroup(pulse_files, noise_files)
         else:
-            data =  mass.TESGroup(pulse_files)
+            data = mass.TESGroup(pulse_files)
     else:
-        if nn>0:
+        if nn > 0:
             data = mass.TESGroup(noise_files, noise_only=True)
         else:
             return None
@@ -298,8 +298,7 @@ def create_dataset(default_directory="", disabled_channels=()):
     print(75*'#')
     print('# End of code')
     print(75*'#')
-    
+
     if dialog.summarize_on_load.isChecked():
         data.summarize_data()
     return data
-

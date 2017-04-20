@@ -10,13 +10,14 @@ Created on Apr 23, 2012
 @author: fowlerj
 '''
 
-__all__ = ['create_cuts']
-
-
-from PyQt4 import QtGui ,QtCore
+from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import pyqtSlot
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 import os
-import numpy, pylab
+
+import numpy as np
+import pylab as plt
 import mass
 import mass.mathstat.utilities
 
@@ -32,10 +33,11 @@ try:
 
 except ImportError:
     import PyQt4.uic
-    path,_ = os.path.split(__file__)
+    path, _ = os.path.split(__file__)
     ui_filename = os.path.join(path, "make_cuts_dialog_form.ui")
     Ui_Dialog, _load_data_dialog_baseclass = PyQt4.uic.loadUiType(ui_filename)
 
+__all__ = ['create_cuts']
 
 
 def create_cuts(datagroup, existing_cuts=None):
@@ -66,10 +68,6 @@ def create_cuts(datagroup, existing_cuts=None):
     print(code_text)
 
     return cuts
-
-
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
 
 
 class MyMplCanvas(FigureCanvas):
@@ -117,24 +115,23 @@ class CutVectorStatus(object):
     def save_actual_range(self, minmax):
         """Given a sequence of (minval, maxval) tuples (presumably one tuple per
         channel), compute and store the overall array-wide min and max."""
-        a,b = 9e99, -9e99
-        for x,y in minmax:
+        a, b = 9e99, -9e99
+        for x, y in minmax:
             a = min(a, x)
             b = max(b, y)
-        self.actual_min, self.actual_max = a,b
+        self.actual_min, self.actual_max = a, b
 
     def __repr__(self):
-        d = ",".join(["%s=%s"%(k,v) for (k,v) in self.__dict__.iteritems()])
-        return "CutVectorStatus(%s)"%d
+        d = ",".join(["%s=%s" % (k, v) for (k, v) in self.__dict__.iteritems()])
+        return "CutVectorStatus(%s)" % d
 
     def get_cut_tuple(self):
-        t=[None,None]
+        t = [None, None]
         if self.use_min:
             t[0] = self.cut_min
         if self.use_max:
             t[1] = self.cut_max
         return tuple(t)
-
 
 
 class _CutsCreator(QtGui.QDialog, Ui_Dialog):
@@ -144,19 +141,19 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
     This class is meant to be used by factory function make_cuts, and not by the end
     user.  Jeez.  Why are you even reading this?
     """
-    def __init__(self, datagroup, existing_cuts=None ):
+    def __init__(self, datagroup, existing_cuts=None):
         QtGui.QDialog.__init__(self, None)
         self.setupUi(self)
         frame_size = self.pylab_holder.frameSize()
-        h,w = frame_size.height(), frame_size.width()
+        h, w = frame_size.height(), frame_size.width()
         dpi = 100.0
         self.canvas = MyMplCanvas(self.pylab_holder, w/dpi, h/dpi, dpi)
         fig = self.canvas.figure
-        self.canvas.axes = [fig.add_subplot(3,1,1),
-                            fig.add_subplot(3,2,3),
-                            fig.add_subplot(3,2,4),
-                            fig.add_subplot(3,2,5),
-                            fig.add_subplot(3,2,6),
+        self.canvas.axes = [fig.add_subplot(3, 1, 1),
+                            fig.add_subplot(3, 2, 3),
+                            fig.add_subplot(3, 2, 4),
+                            fig.add_subplot(3, 2, 5),
+                            fig.add_subplot(3, 2, 6),
                             ]
 
         self.data = datagroup
@@ -168,7 +165,8 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                      CutVectorStatus("Pretrigger mean", use_hist_min=True, hist_min=-50,
                                      use_hist_max=True, hist_max=50, min_allowed=-9999., max_allowed=9999.),
                      CutVectorStatus("Peak Value", use_min=True, cut_min=0.0, min_allowed=0., max_allowed=99999.),
-                     CutVectorStatus("Max post-peak dp/dt", use_max=True, cut_max=30.0, min_allowed=0., max_allowed=999.),
+                     CutVectorStatus("Max post-peak dp/dt", use_max=True, cut_max=30.0, min_allowed=0.,
+                                     max_allowed=999.),
                      CutVectorStatus("Rise time (ms)", use_max=True, cut_max=0.7, min_allowed=0., max_allowed=25.,
                                      hist_max=1.0, use_hist_max=True),
                      CutVectorStatus("Peak time (ms)", use_max=True, cut_max=0.8, min_allowed=0., max_allowed=25.,
@@ -176,13 +174,13 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
 
         # If user constructed this with existing cuts, then include them here.
         if existing_cuts is not None:
-            cuts=existing_cuts.cuts_prm
-            for i,name in enumerate(("pulse_average", "pretrigger_rms",
-                                    "pretrigger_mean_departure_from_median",
-                                    "peak_value", "postpeak_deriv",
-                                    "rise_time_ms", "peak_time_ms")):
+            cuts = existing_cuts.cuts_prm
+            for i, name in enumerate(("pulse_average", "pretrigger_rms",
+                                      "pretrigger_mean_departure_from_median",
+                                      "peak_value", "postpeak_deriv",
+                                      "rise_time_ms", "peak_time_ms")):
                 if name in cuts:
-                    a,b = cuts[name]
+                    a, b = cuts[name]
                     if a is not None:
                         self.cuts[i].use_min = True
                         self.cuts[i].cut_min = a
@@ -190,17 +188,17 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                         self.cuts[i].use_max = True
                         self.cuts[i].cut_max = b
 
-        for i, vector_name in enumerate(("p_pulse_average","p_pretrig_rms",
+        for i, vector_name in enumerate(("p_pulse_average", "p_pretrig_rms",
                                          "p_pretrig_mean",
-                                        "p_peak_value","p_postpeak_deriv",
-                                        "p_rise_time","p_peak_time")):
+                                         "p_peak_value", "p_postpeak_deriv",
+                                         "p_rise_time", "p_peak_time")):
 
             # The following 3-line construction is smart enough to work with ds.vector_name
             # whether it's a true attribute or a @property.  Properties, it turns out,
             # do not appear in ds.__dict__.keys(), which was a problem, the old way. JWF
             minmax = []  # To avert Eclipse warnings
-            exec('import numpy as np; minmax = [(np.min(ds.%s), np.max(ds.%s)) for ds in self.data]'
-                 %(vector_name,vector_name))
+            exec('import numpy as np; minmax = [(np.min(ds.%s), np.max(ds.%s)) for ds in self.data]' %
+                 (vector_name, vector_name))
             self.cuts[i].save_actual_range(minmax)
 
         for button in (self.use_max_cut, self.use_min_cut,
@@ -211,7 +209,6 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
 
         self.changed_parameter_number(0)
         self.changed_dataset_count("4")
-
 
     def accept(self):
         if self.apply_cuts_check.isChecked():
@@ -232,10 +229,10 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
     @pyqtSlot(float)
     def changed_cut_parameter(self, paramval):
         sender = self.sender()
-        if sender==self.cuts_min_spin:
+        if sender == self.cuts_min_spin:
             self.cuts[self.current_param].cut_min = self.cuts_min_spin.value()
         else:
-            assert sender==self.cuts_max_spin
+            assert sender == self.cuts_max_spin
             self.cuts[self.current_param].cut_max = self.cuts_max_spin.value()
         self._update_gui_cuts_limits()
 #        self.update_plots()
@@ -243,7 +240,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
     def toggle_use_cut(self):
         sender = self.sender()
         state = sender.isChecked()
-        if sender==self.use_max_cut:
+        if sender == self.use_max_cut:
             self.cuts[self.current_param].use_max = state
             if state:
                 self.cuts[self.current_param].cut_max = self.cuts_max_spin.value()
@@ -263,16 +260,16 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
     @pyqtSlot(QtCore.QString)
     def changed_dataset_count(self, newval):
         nchan_plot = int(newval)
-        menu_choices = ["%d-%d"%(i, i+nchan_plot-1) for i in range(0,self.n_channels, nchan_plot)]
+        menu_choices = ["%d-%d" % (i, i+nchan_plot-1) for i in range(0, self.n_channels, nchan_plot)]
 
         # The last choice needs to be corrected if the n_channels isn't a multiple of nchan_plot
-        if (self.n_channels%nchan_plot)==1:
-            menu_choices[-1] = "%d"%(self.n_channels-1)
-        elif (self.n_channels%nchan_plot) > 1:
-            menu_choices[-1] = "%d-%d"%(nchan_plot*(len(menu_choices)-1), self.n_channels-1)
+        if (self.n_channels % nchan_plot) == 1:
+            menu_choices[-1] = "%d" % (self.n_channels-1)
+        elif (self.n_channels % nchan_plot) > 1:
+            menu_choices[-1] = "%d-%d" % (nchan_plot*(len(menu_choices)-1), self.n_channels-1)
 
         self.dataset_chooser.clear()
-        for i,m in enumerate(menu_choices):
+        for i, m in enumerate(menu_choices):
             self.dataset_chooser.addItem(QtCore.QString(m))
         self.update_plots()
 
@@ -286,7 +283,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
 
     def _update_gui_cuts_limits(self):
         cut = self.cuts[self.current_param]
-        step_power10 = int(numpy.log10((cut.hist_limits[1]-cut.hist_limits[0])/25.))
+        step_power10 = int(np.log10((cut.hist_limits[1]-cut.hist_limits[0])/25.))
         step_size = 10.0**step_power10
 
         for spinner in (self.cuts_max_spin, self.cuts_min_spin,
@@ -311,18 +308,18 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         self.hist_min_spin.setEnabled(cut.use_hist_min)
         self.hist_min_spin.setValue(cut.hist_min)
 
-
     def color_of_channel(self, ichan):
-        cm = pylab.cm.jet   #@UndefinedVariable
+        cm = plt.cm.jet
         return cm((0.5+float(ichan))/self.n_channels)
 
     @pyqtSlot()
     def update_plots(self):
-        for ax in self.canvas.axes: ax.clear()
+        for ax in self.canvas.axes:
+            ax.clear()
         axis = self.canvas.axes[0]
 
         cut = self.cuts[self.current_param]
-        limits=[0,0]
+        limits = [0, 0]
         if self.use_hist_min.isChecked():
             limits[0] = self.hist_min_spin.value()
             cut.hist_min = limits[0]
@@ -336,11 +333,10 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
             limits[1] = cut.actual_max
         cut.hist_limits = limits
 
-
-        hist_all=[]
-        hist_good=[]
-        dsnum2channum=numpy.zeros(self.data.n_channels, dtype=int)
-        for dsnum,ds in enumerate(self.data.datasets):
+        hist_all = []
+        hist_good = []
+        dsnum2channum = np.zeros(self.data.n_channels, dtype=int)
+        for dsnum, ds in enumerate(self.data.datasets):
             dsnum2channum[dsnum] = ds.channum
             raw = (ds.p_pulse_average,
                    ds.p_pretrig_rms,
@@ -349,20 +345,20 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                    ds.p_postpeak_deriv,
                    ds.p_rise_time,
                    ds.p_peak_time)[self.current_param][ds.cuts.good()]
-            if self.current_param in (5,6):
-                raw = raw*1000 # Convert seconds to ms
+            if self.current_param in (5, 6):
+                raw = raw*1000  # Convert seconds to ms
             if self.current_param == 2:
-                raw = raw-numpy.median(raw)
+                raw = raw-np.median(raw)
 
-            useable = numpy.ones(len(raw), dtype=numpy.bool)
+            useable = np.ones(len(raw), dtype=np.bool)
             if cut.use_max:
-                useable = raw<cut.cut_max
+                useable = raw < cut.cut_max
             if cut.use_min:
-                useable = numpy.logical_and(useable, raw>cut.cut_min)
+                useable = np.logical_and(useable, raw > cut.cut_min)
 
-            NBINS = 150 #@todo: Need to make this settable from GUI
-            h1, bins = numpy.histogram(raw, NBINS, limits)
-            h2, bins = numpy.histogram(raw[useable], NBINS, limits)
+            NBINS = 150  # todo: Need to make this settable from GUI
+            h1, bins = np.histogram(raw, NBINS, limits)
+            h2, bins = np.histogram(raw[useable], NBINS, limits)
             hist_all.append(h1)
             hist_good.append(h2)
 
@@ -370,7 +366,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         subaxis_number = {}
         n_per_sub = int(self.num_channel_chooser.currentText())/4
         chan_range_str = str(self.dataset_chooser.currentText())
-        if len(chan_range_str)==0:
+        if len(chan_range_str) == 0:
             self.canvas.draw()
             return
 
@@ -378,18 +374,17 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
             chan_range = [int(s) for s in chan_range_str.split("-")]
         else:
             chan_range = int(chan_range_str), int(chan_range_str)
-        assert n_per_sub*4 >=1+chan_range[1]-chan_range[0]
-
+        assert n_per_sub*4 >= 1+chan_range[1]-chan_range[0]
 
         for i in range(self.n_channels):
             sn = 1+(i-chan_range[0])/n_per_sub
-            if sn>0 and sn<5:
+            if sn > 0 and sn < 5:
                 subaxis_number[i] = sn
 
-        offset = .6*numpy.max([h.max() for h in hist_all])
-        n_offsets_per_sub = [0,0,0,0,0]
+        offset = .6*np.max([h.max() for h in hist_all])
+        n_offsets_per_sub = [0, 0, 0, 0, 0]
 
-        for dsnum, (h1,h2) in enumerate(zip(hist_all,hist_good)):
+        for dsnum, (h1, h2) in enumerate(zip(hist_all, hist_good)):
             color = self.color_of_channel(dsnum)
             if (h1 != h2).any():
                 mass.mathstat.utilities.plot_as_stepped_hist(axis, h1+dsnum*offset, bins, color='gray')
@@ -400,21 +395,20 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
                 if (h1 != h2).any():
                     mass.mathstat.utilities.plot_as_stepped_hist(subaxis, h1+this_offset, bins, color='gray')
                 mass.mathstat.utilities.plot_as_stepped_hist(subaxis, h2+this_offset, bins, color=color)
-                subaxis.text(bins[5], 0.2*offset+this_offset, "Channel %d"%dsnum2channum[dsnum], color=color)
+                subaxis.text(bins[5], 0.2*offset+this_offset, "Channel %d" % dsnum2channum[dsnum], color=color)
                 n_offsets_per_sub[subaxis_number[dsnum]] += 1
 
-        xlabel = ("Pulse average","Pretrigger RMS","Pretrigger mean (median subtracted)", "Peak Value",
+        xlabel = ("Pulse average", "Pretrigger RMS", "Pretrigger mean (median subtracted)", "Peak Value",
                   "Max post-peak dp/dt", "Rise time (ms)", "Peak time (ms)")[self.current_param]
         axis.set_title(xlabel)
-        x0,x1 = axis.get_xlim()
+        x0, x1 = axis.get_xlim()
         if cut.use_min and cut.cut_min > x0:
             x0 = cut.cut_min
-            axis.plot([x0,x0],axis.get_ylim(), color='gray')
+            axis.plot([x0, x0], axis.get_ylim(), color='gray')
         if cut.use_max and cut.cut_max < x1:
             x1 = cut.cut_max
-            axis.plot([x1,x1],axis.get_ylim(), color='gray')
+            axis.plot([x1, x1], axis.get_ylim(), color='gray')
         self.canvas.draw()
-
 
     def generate_mass_cuts(self):
         cuts_avg = self.cuts[0].get_cut_tuple()
@@ -442,6 +436,6 @@ cuts = mass.core.controller.AnalysisControl(
         postpeak_deriv=%s,
         rise_time_ms=%s,
         peak_time_ms=%s
-        )"""%(cuts_avg, cuts_rms, cuts_ptm, cuts_pkv,
-             cuts_ppd, cuts_rtm, cuts_pkt)
+        )""" % (cuts_avg, cuts_rms, cuts_ptm, cuts_pkv,
+                cuts_ppd, cuts_rtm, cuts_pkt)
         return cuts, code_text
