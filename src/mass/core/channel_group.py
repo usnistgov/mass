@@ -1154,15 +1154,10 @@ class TESGroup(CutFieldMixin):
         for ds in self:
             ds.convert_to_energy(attr, calname)
 
-    def time_drift_correct(self, poly_order=1, attr='p_filt_value_phc',
+    def time_drift_correct(self, attr='p_filt_value_phc',
                            num_lines=None, forceNew=False):
         for ds in self:
-            if poly_order == 1:
-                ds.time_drift_correct(attr, forceNew)
-            elif poly_order > 1:
-                ds.time_drift_correct_polynomial(poly_order, attr, num_lines, forceNew)
-            else:
-                raise ValueError('%g is invalid value of poly_order' % poly_order)
+            ds.time_drift_correct(attr, forceNew)
 
     def plot_count_rate(self, bin_s=60, title=""):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
