@@ -179,32 +179,3 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-curvetype1 = "linear+0"
-use_approximation1 = False,
-curvetype2 = "linear"
-use_approximation2 = False
-
-
-cal1 = mass.calibration.energy_calibration.EnergyCalibration()
-cal1.set_curvetype(curvetype1)
-cal1.set_use_approximation(use_approximation1)
-for energy in np.linspace(3000, 6000, 10):
-    ph = energy**0.8
-    cal1.add_cal_point(ph, energy)
-cal2 = cal1.copy()
-cal2.set_curvetype(curvetype2)
-cal2.set_use_approximation(use_approximation2)
-
-# Careful here: don't use a point in linspace(3000,6000,10),
-# or you'll get exact agreement when you don't expect/want it.
-ph1 = cal1.energy2ph(5100)
-ph2 = cal2.energy2ph(5100)
-e1 = cal1.ph2energy(5100**0.8)
-e2 = cal2.ph2energy(5100**0.8)
-doe1 = cal1.drop_one_errors()
-doe2 = cal2.drop_one_errors()
-
-ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err) = test_options(
-    curvetype1="linear+0", use_approximation1=False,
-    curvetype2="linear", use_approximation2=False, refenergy=10)
