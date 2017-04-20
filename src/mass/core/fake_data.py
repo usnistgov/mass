@@ -6,17 +6,13 @@ Joe Fowler, NIST
 November 7, 2011
 """
 
-## \file fake_data.py
-# \brief  Objects to make fake data for use, e.g., in demonstration scripts.
-#
-
-__all__ = ['FakeDataGenerator']
-
 import numpy as np
 
-from mass.core.files import  VirtualFile
+from mass.core.files import VirtualFile
 from mass.core.channel import PulseRecords
 from mass.core.channel_group import TESGroup
+
+__all__ = ['FakeDataGenerator']
 
 
 class FakeDataGenerator(object):
@@ -32,19 +28,18 @@ class FakeDataGenerator(object):
     def __init__(self, sample_time, n_samples, n_presamples=None, model_peak=None):
         # Some defaults that can be overridden before generating fake data
         self.pretrig_level = 1000
-        self.rise_speed_us = 200. # in us
-        self.fall_speed_us = 1200. # in us
+        self.rise_speed_us = 200.  # in us
+        self.fall_speed_us = 1200.  # in us
         self.white_noise = 30.0
         self.model = None
 
-        self.sample_time_us = sample_time # in us
+        self.sample_time_us = sample_time  # in us
         self.n_samples = n_samples
         if n_presamples is None:
             self.n_presamples = self.n_samples/4
         else:
             self.n_presamples = n_presamples
         self.compute_model(model_peak=model_peak)
-
 
     def compute_model(self, model_peak=None):
         """Compute the noise-free model pulse shape, given the 2 time constants."""
@@ -53,7 +48,6 @@ class FakeDataGenerator(object):
         self.model[dt_us <= 0] = 0
         if model_peak is not None:
             self.model = model_peak * self.model/self.model.max()
-
 
     def _generate_virtual_file(self, n_pulses, distributions=None,
                                distribution_weights=None, rate=1.0):
@@ -76,10 +70,8 @@ class FakeDataGenerator(object):
             weights = n_pulses * weights/weights.sum()
             weights = np.asarray(weights, dtype=np.int)
             weights[weights.argmax()] += n_pulses - weights.sum()
-#            print weights, weights.sum()
             scale = []
-            for  n, distrib in zip(weights, distributions):
-#                print n, distrib.rvs(size=4)
+            for n, distrib in zip(weights, distributions):
                 scale.append(distrib.rvs(size=n))
             scale = np.hstack(scale)
             np.random.shuffle(scale)
@@ -91,7 +83,6 @@ class FakeDataGenerator(object):
         vfile.timebase = self.sample_time_us/1e6
         vfile.nPresamples = self.n_presamples
         return vfile
-
 
     def _generate_virtual_noise_file(self, n_pulses, lowpass_kludge=0):
         """Return a VirtualFile object with random noise.
@@ -113,12 +104,10 @@ class FakeDataGenerator(object):
         vfile.nPresamples = self.n_presamples
         return vfile
 
-
     def generate_microcal_dataset(self, n_pulses, distributions=None):
         """Return a single mass.MicrocalDataset"""
         vfile = self._generate_virtual_file(n_pulses, distributions=distributions)
         return PulseRecords(vfile), None
-
 
     def generate_tesgroup(self, n_pulses, n_noise=1024, distributions=None,
                           distribution_weights=None, nchan=1):
@@ -131,7 +120,7 @@ class FakeDataGenerator(object):
         data = TESGroup(vfiles, nfiles)
 
         # Have to fake the channel numbers, b/c they aren't encoded in filename
-        for i,ds in enumerate(data.datasets):
+        for i, ds in enumerate(data.datasets):
             ds.channum = i*2+1
         data.channel = {}
         for ds in data.datasets:

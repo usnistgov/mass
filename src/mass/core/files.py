@@ -298,7 +298,7 @@ class LJHFile(MicrocalFile):
         Raises ValueError if segmentsize is smaller than a single pulse."""
         maxitems = segmentsize // self.pulse_size_bytes
         if maxitems < 1:
-            raise ValueError("segmentsize=%d is not permitted to be smaller than the pulse record (%d bytes)" %
+            raise ValueError("segmentsize=%d is not permitted to be smaller than pulse record (%d bytes)" %
                              (segmentsize, self.pulse_size_bytes))
         self.segmentsize = maxitems*self.pulse_size_bytes
         self.pulses_per_seg = self.segmentsize // self.pulse_size_bytes
@@ -431,7 +431,8 @@ class LJHFile(MicrocalFile):
         Version 2.2 and later include two pieces of time information for each pulse.
         8 bytes - Int64 row count number
         8 bytes - Int64 posix microsecond time
-        technically both could be read as uint64, but then you get overflows when differencing, so we'll give up a factor of 2 to avoid that
+        Technically both could be read as uint64, but then you get overflows when differencing, so
+        we'll give up a factor of 2 to avoid that.
         """
         if error_on_partial_pulse and (max_size > 0) and (max_size % self.pulse_size_bytes != 0):
             msg = "__read_binary(max_size=%d) requests a non-integer number of pulses" % max_size
@@ -443,7 +444,7 @@ class LJHFile(MicrocalFile):
             maxitems = max_size // self.pulse_size_bytes
             # should use a platform independent spec for the order of the bytes in the ints
             array = np.fromfile(fp, dtype=self.post22_data_dtype, sep="", count=maxitems)
-            #fromfile will read up to max items
+            # fromfile will read up to max items
 
         self.rowcount = array["rowcount"]
         self.datatimes_float = array["posix_usec"] * 1e-6  # convert to floating point with units of seconds
@@ -453,8 +454,9 @@ class LJHFile(MicrocalFile):
         """
         This is for version before version 2.2 of ljh files.
         The key distinction is how pulse arrival time data is encoded.
-        Pre 2.2 each pulse has a timestamp encoded in a weird way that contains arrival time at 4 usec resolution.
-        If the frame time is greater than or equal to 4 usec, the exact frame number can be recovered.
+        Pre 2.2 each pulse has a timestamp encoded in a weird way that contains arrival time at 4 usec
+        resolution.  If the frame time is greater than or equal to 4 usec, the exact frame number can
+        be recovered.
         """
         if max_size >= 0:
             maxitems = max_size // self.pulse_size_bytes
@@ -493,23 +495,18 @@ class LJHFile(MicrocalFile):
         # little-ending giving milliseconds.  The uu should always be in [0,999]
         # The uu was added on Sept 21, 2011, so it will be 0 on all earlier data files.
 
-        ##### The old way was to store the time as a 32-bit int.  New way: double float
-#        # Careful: converting 2 little-endian 16-bit words to a single 32-bit word is tricky!
-#        self.datatimes = np.array(self.data[:,2], dtype=np.uint32) * (1<<16)
-#        self.datatimes += (self.data[:,1])
-
+        # The old way was to store the time as a 32-bit int.  New way: double float
         # Store times as seconds in floating point.  Max value is 2^32 ms = 4.3x10^6
         datatime_4usec_tics = np.array(self.data[:, 0], dtype=np.uint64)
         datatime_4usec_tics += 250*(np.array(self.data[:, 1], dtype=np.uint64) +
                                     65536 * np.array(self.data[:, 2], dtype=np.uint64))
         NS_PER_4USEC_TICK = 4000
         NS_PER_FRAME = np.int64(self.timebase*1e9)
-        # since the timestamps is stored in 4 us units, which are not commensurate with the actual frame rate, we can be
-        # more precise if we convert to frame number, then back to time
+        # since the timestamps is stored in 4 us units, which are not commensurate with the actual frame rate,
+        # we can be more precise if we convert to frame number, then back to time
         # this should as long as the frame rate is greater than or equal to 4 us
 
         # this is integer division but rounding up
-        #frame_count = (datatime_4usec_tics*NS_PER_4USEC_TICK) // NS_PER_FRAME + np.sign((datatime_4usec_tics*NS_PER_4USEC_TICK) % NS_PER_FRAME)
         frame_count = (datatime_4usec_tics*NS_PER_4USEC_TICK - 1) // NS_PER_FRAME + 1
         frame_count += 3  # account for 4 point triggering algorithm
         # leave in the old calculation for comparison, later this should be removed

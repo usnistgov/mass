@@ -22,7 +22,8 @@ class CutDesc(np.ndarray):
 
         header = "{0:^{width}s}|{1:^34s}".format("name", "mask", width=w)
         spacer = "-" * w + "+" + "-" * 34
-        rows = ["{0:^{width}s}| {1:032b} ".format(name.decode(), mask, width=w) for name, mask in self if mask != 0]
+        rows = ["{0:^{width}s}| {1:032b} ".format(name.decode(), mask, width=w) for name, mask
+                in self if mask != 0]
 
         return "\n".join([header, spacer] + rows)
 
@@ -35,7 +36,8 @@ class CategoryList(np.ndarray):
 
         header = "{0:^{fw}s}|{1:^{cw}s}|{2:^{w}s}".format("field", "category", "code", fw=fw, cw=cw, w=w)
         spacer = "-" * fw + "+" + "-" * cw + "+" + "-" * w
-        rows = ["{0:^{fw}s}|{1:^{cw}s}|{2:^{w}d} ".format(field.decode(), category.decode(), code, fw=fw, cw=cw, w=w)
+        rows = ["{0:^{fw}s}|{1:^{cw}s}|{2:^{w}d} ".format(field.decode(), category.decode(), code,
+                                                          fw=fw, cw=cw, w=w)
                 for field, category, code in self]
 
         return "\n".join([header, spacer] + rows)
@@ -84,7 +86,8 @@ class CutFieldMixin(object):
 
                 # convert from version 1 to the verion 2
                 cut_num_used_bits = np.uint32(self.hdf5_file.attrs["cut_num_used_bits"])
-                self.hdf5_file.attrs['cut_used_bit_flags'] = np.uint32((np.uint64(1) << cut_num_used_bits) - 1)
+                self.hdf5_file.attrs['cut_used_bit_flags'] = \
+                    np.uint32((np.uint64(1) << cut_num_used_bits) - 1)
 
                 self.boolean_cut_desc = np.asarray(self.boolean_cut_desc,
                                                    dtype=self.CUT_BOOLEAN_FIELD_DESC_DTYPE)
@@ -148,7 +151,8 @@ class CutFieldMixin(object):
     def cut_field_categories(self, field_name):
         category_list = self.cut_category_list
 
-        return {category.decode(): code for field, category, code in category_list if field == field_name.encode()}
+        return {category.decode(): code for field, category, code in category_list
+                if field == field_name.encode()}
 
     @staticmethod
     def __lowest_available_cut_bit(cut_used_bit_flags):
@@ -398,8 +402,9 @@ class Cuts(object):
         <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b.
         Either a or b may be None, indicating no cut.
         OR
-        <allowed> is a sequence of 2-element sequences (a,b), then the cut cuts data that does not meet a <= data <=b
-        for any of the two element sequences, if any element in allowed is ''invert'' then it swaps cut and uncut
+        <allowed> is a sequence of 2-element sequences (a,b), then the cut cuts data that does not
+        meet a <= data <=b for any of the two element sequences, if any element in allowed is
+        ''invert'' then it swaps cut and uncut
         """
 
         if allowed is None:  # no cut here!
@@ -429,8 +434,9 @@ class Cuts(object):
                             index = data[:] <= b
                         cut_vec[index] = False
                     except:
-                        raise ValueError('%s was passed as a cut element, only two element lists or tuples are valid' %
-                                         str(element))
+                        raise ValueError(
+                            '%s passed as a cut element, only two element lists or tuples are valid' %
+                            str(element))
                 elif element == 'invert':
                     doInvert = True
             if doInvert:
@@ -529,7 +535,8 @@ class Cuts(object):
 
         if fields:
             boolean_field_names = [str(name.decode()) for name, _ in boolean_field if name.decode() in fields]
-            categorical_field_names = [str(name.decode()) for name, _ in categorical_field if name.decode() in fields]
+            categorical_field_names = [str(name.decode()) for name, _ in categorical_field
+                                       if name.decode() in fields]
 
             not_found = set(fields) - (set(boolean_field_names).union(set(categorical_field_names)))
             if not_found:

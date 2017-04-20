@@ -14,7 +14,6 @@ import mass
 import mass.mathstat.toeplitz
 
 
-
 def band_limit(modelmatrix, sample_time, fmax, f_3db):
     """Band-limit the column-vectors in a model matrix with a hard and/or
     1-pole low-pass filter."""
@@ -159,7 +158,8 @@ class Filter(object):
         # truncating the middle, and going back to Fourier space
         if self.shorten > 0:
             noise_autocorr = np.fft.irfft(self.noise_psd)
-            noise_autocorr = np.hstack((noise_autocorr[:n - self.shorten - 1], noise_autocorr[-n + self.shorten:]))
+            noise_autocorr = np.hstack((noise_autocorr[:n - self.shorten - 1],
+                                        noise_autocorr[-n + self.shorten:]))
             noise_psd = np.fft.rfft(noise_autocorr)
         else:
             noise_psd = self.noise_psd
@@ -313,7 +313,7 @@ class ArrivalTimeSafeFilter(Filter):
     def __init__(self, pulsemodel, n_pretrigger, noise_autocorr=None,
                  whitener=None, fmax=None, f_3db=None, sample_time=None, peak=1.0):
         if noise_autocorr is None and whitener is None:
-            raise ValueError("%s requires either noise_autocorr or whitener to be set"%
+            raise ValueError("%s requires either noise_autocorr or whitener to be set" %
                              (self.__class__.__name__))
         noise_psd = None
         sample_time = sample_time
@@ -372,8 +372,8 @@ class ArrivalTimeSafeFilter(Filter):
         self.filt_aterms *= scale
         Ainv *= self.peak**-2
 
-        self.variances['noconst'] = Ainv[0,0]
-        self.variances['baseline'] = Ainv[-1,-1]
+        self.variances['noconst'] = Ainv[0, 0]
+        self.variances['baseline'] = Ainv[-1, -1]
 
         for key in self.variances.keys():
             self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
@@ -545,7 +545,8 @@ class ExperimentalFilter(Filter):
                     print('%10.5f ' % np.dot(v, filt)),
 
                 self.variances[shortname] = self.bracketR(filt, R)
-                print('Res=%6.3f eV = %.5f' % (5898.801 * np.sqrt(8 * np.log(2)) * self.variances[shortname]**.5,
+                fw = np.sqrt(8 * np.log(2))
+                print('Res=%6.3f eV = %.5f' % (5898.801 * fw * self.variances[shortname]**.5,
                                                (self.variances[shortname] / self.variances['full'])**.5))
 
             self.filt_baseline = np.dot(avg_signal, Rinv_sig) * Rinv_unit - Rinv_sig.sum() * Rinv_sig
@@ -555,7 +556,8 @@ class ExperimentalFilter(Filter):
             Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
             self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
             self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
-            self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, R[:self.n_pretrigger])
+            self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig,
+                                                               R[:self.n_pretrigger])
 
             if self.noise_psd is not None:
                 r = self.noise_autocorr[:len(self.filt_fourier)] / self.peak_signal**2
@@ -618,7 +620,7 @@ class ToeplitzWhitener(object):
         elif v.ndim == 2:
             w = np.zeros_like(v)
             for i in range(v.shape[1]):
-                w[:,i] = self(v[:,i])
+                w[:, i] = self(v[:, i])
             return w
 
         N = len(v)
@@ -629,7 +631,7 @@ class ToeplitzWhitener(object):
         # Second, solve the MA matrix (also a banded Toeplitz matrix with
         # q non-zero subdiagonals.)
         y[0] /= self.theta[0]
-        if N==1:
+        if N == 1:
             return y
         for i in range(1, min(self.q, N)):
             for j in range(i):
@@ -648,7 +650,7 @@ class ToeplitzWhitener(object):
         elif v.ndim == 2:
             r = np.zeros_like(v)
             for i in range(v.shape[1]):
-                r[:,i] = self.solveW(v[:,i])
+                r[:, i] = self.solveW(v[:, i])
             return r
         raise NotImplementedError("ToeplitzWhitener.solveW does not exist yet.")
 
@@ -659,7 +661,7 @@ class ToeplitzWhitener(object):
         elif v.ndim == 2:
             r = np.zeros_like(v)
             for i in range(v.shape[1]):
-                r[:,i] = self.solveWT(v[:,i])
+                r[:, i] = self.solveWT(v[:, i])
             return r
 
         N = len(v)
@@ -678,7 +680,7 @@ class ToeplitzWhitener(object):
         elif v.ndim == 2:
             r = np.zeros_like(v)
             for i in range(v.shape[1]):
-                r[:,i] = self.applyWT(v[:,i])
+                r[:, i] = self.applyWT(v[:, i])
             return r
 
         N = len(v)
@@ -695,11 +697,11 @@ class ToeplitzWhitener(object):
 
         Normally the full W is large and slow to use. But it's here so you can
         easily test that W(len(v))*v == whiten(v), and similar."""
-        AR = np.zeros((N,N), dtype=float)
-        MA = np.zeros((N,N), dtype=float)
+        AR = np.zeros((N, N), dtype=float)
+        MA = np.zeros((N, N), dtype=float)
         for i in range(N):
             for j in range(max(0, i-self.p), i+1):
-                AR[i,j] = self.phi[i-j]
+                AR[i, j] = self.phi[i-j]
             for j in range(max(0, i-self.q), i+1):
-                MA[i,j] = self.theta[i-j]
+                MA[i, j] = self.theta[i-j]
         return np.linalg.solve(MA, AR)

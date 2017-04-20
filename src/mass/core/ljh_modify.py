@@ -4,6 +4,7 @@ import mass.core.files
 from mass.core.utilities import InlineUpdater
 from distutils.version import StrictVersion
 
+
 def LJHModify(input_filename, output_filename, callback, overwrite=False):
     """Copy an LJH file `input_filename` to a new LJH file `output_filename`
     with the identical header, but with the raw data records transformed by
@@ -30,12 +31,12 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
     if os.path.exists(output_filename):
         if os.path.samefile(input_filename, output_filename):
             raise ValueError("Input '%s' and output '%s' are the same file, which is not allowed." %
-                (input_filename, output_filename))
+                             (input_filename, output_filename))
         if overwrite:
-            print("WARNING: overwriting output file '%s'"%output_filename)
+            print("WARNING: overwriting output file '%s'" % output_filename)
         else:
             raise ValueError("Output file '%s' exists. Call with overwrite=True to proceed anyway."
-                %output_filename)
+                             % output_filename)
 
     infile = mass.core.files.LJHFile(input_filename)
     outfile = open(output_filename, "wb")
@@ -63,8 +64,8 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
             x.tofile(outfile)
         updater.update(float(segnum+1)/infile.n_segments)
 
-
     outfile.close()
+
 
 # A callback that does nothing
 def dummy_callback(segdata): pass
@@ -73,6 +74,7 @@ def dummy_callback(segdata): pass
 # This function will invert every data value. For an unsigned int, it might
 # not be clear what "invert" means. I mean that we replace every 0 with 0xffff,
 # ever 1 with 0xfffe, and so on.
+
 
 def callback_invert(segdata):
     assert segdata.dtype == np.uint16
@@ -85,6 +87,7 @@ def callback_invert(segdata):
 
 class callback_shift(object):
     def __init__(self, shiftby):
-        self.shift=shiftby
+        self.shift = shiftby
+
     def __call__(self, segdata):
         segdata += self.shift
