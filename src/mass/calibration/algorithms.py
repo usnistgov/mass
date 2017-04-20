@@ -29,7 +29,7 @@ def line_names_and_energies(line_names):
     can also accept energies in eV directly
     return names, energies
     """
-    if not len(line_names):
+    if len(line_names) <= 0:
         return [], []
 
     energies = [STANDARD_FEATURES.get(name_or_energy, name_or_energy) for name_or_energy in line_names]
@@ -145,15 +145,15 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
         approx_ecal: an EnergyCalibration object containing an approximate calibration
         fit_width_ev (float): full size in eV of fit ranges
     """
-    name_e, e_e = line_names_and_energies(line_names)
-    excl_name_e, excl_e_e = line_names_and_energies(excluded_line_names)
+    _names, e_e = line_names_and_energies(line_names)
+    _excl_names, excl_e_e = line_names_and_energies(excluded_line_names)
     half_width_ev = fit_width_ev/2.0
     all_e = np.sort(np.hstack((e_e, excl_e_e)))
     assert(len(all_e) == len(np.unique(all_e)))
     fit_lo_hi = []
     slopes_de_dph = []
 
-    for i, e in enumerate(e_e):
+    for e in e_e:
         slope_de_dph = approx_ecal.energy2dedph(e)
         half_width_ph = half_width_ev/slope_de_dph
         if any(all_e < e):
@@ -244,7 +244,7 @@ def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
     return fitter
 
 
-class EnergyCalibrationAutocal:
+class EnergyCalibrationAutocal(object):
     def __init__(self, calibration, ph=None, line_names=None):
         """
         Args:
@@ -365,7 +365,7 @@ class EnergyCalibrationAutocal:
             peak_name = 'Unknown'
             if isinstance(el, str):
                 peak_name = el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
-            elif isinstance(el, int) or isinstance(el, float):
+            elif isinstance(el, (int, float)):
                 peak_name = "{0:.1f} (eV)".format(energy)
             ax.text(pht, energy,
                     peak_name,

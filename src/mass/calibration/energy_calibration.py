@@ -183,8 +183,7 @@ class EnergyCalibration(object):
         if np.isscalar(pulse_ht):
             if np.isscalar(result):
                 return result
-            else:
-                return np.asscalar(result)
+            return np.asscalar(result)
         return np.array(result)
 
     def energy2ph(self, energy):
@@ -569,10 +568,6 @@ class EnergyCalibration(object):
             pylab.clf()
             axis = pylab.subplot(111)
             axis.set_xlim([0, self._ph.max()*1.1])
-            ymax = 0.0
-            ymin = 1e99
-        else:
-            ymin, ymax = axis.get_ylim()
 
         # Plot smooth curve
         pht = np.linspace(self._ph.max()*.001, self._ph.max()*1.1, 1000)

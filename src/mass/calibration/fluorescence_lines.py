@@ -28,8 +28,6 @@ import numpy as np
 import scipy as sp
 import pylab as plt
 
-from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
-from mass.mathstat.utilities import plot_as_stepped_hist
 from mass.mathstat.special import voigt
 
 
@@ -700,7 +698,8 @@ def plot_multiLorentzianLineComplex(spectrumDef=CrKAlpha, instrumentGaussianSigm
     result = np.zeros_like(plotEnergies)
     for energy, fwhm, ampl in zip(spectrumDef.energies, spectrumDef.fwhm, spectrumDef.integral_intensity):
         plt.plot(plotEnergies, ampl * voigt(plotEnergies, energy, hwhm=fwhm * 0.5,
-                 sigma=instrumentGaussianSigma), label='%.3f, %.3f, %.3f' % (energy, fwhm, ampl))
+                                            sigma=instrumentGaussianSigma),
+                 label='%.3f, %.3f, %.3f' % (energy, fwhm, ampl))
         result += ampl * voigt(plotEnergies, energy, hwhm=fwhm * 0.5, sigma=instrumentGaussianSigma)
     plt.plot(plotEnergies, result, label='combined', linewidth=2)
     plt.xlabel('Energy (eV)')
