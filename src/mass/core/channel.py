@@ -773,10 +773,13 @@ class MicrocalDataSet(object):
         return c
 
     def _compute_peak_samplenumber(self):
+        if self.data is None:
+            self.read_segment(0)
         peak_idx = self.data.argmax(axis=1)
         self.peak_samplenumber = sp.stats.mode(peak_idx)[0][0]
+        return self.peak_samplenumber
 
-    @show_progress("channel.summarize_data_tdm")
+    @show_progress("channel.summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        forceNew=False, use_cython=True):
         """Summarize the complete data set one chunk at a time.
@@ -810,6 +813,7 @@ class MicrocalDataSet(object):
             else:
                 MicrocalDataSet._summarize_data_segment(self, segnum)
             yield (segnum+1.0) / self.pulse_records.n_segments
+
         self.pulse_records.datafile.clear_cached_segment()
         self.clear_cache()
         self.hdf5_group.file.flush()
@@ -1203,7 +1207,7 @@ class MicrocalDataSet(object):
         else:
             LOG.info("chan %d skipping compute_noise_spectra because already done" % self.channum)
 
-    def apply_cuts(self, controls=None, clear=False, forceNew=True):
+    def apply_cuts(self, controls, clear=False, forceNew=True):
         """
         <clear>  Whether to clear previous cuts first (by default, do not clear).
         """
@@ -1744,6 +1748,49 @@ class MicrocalDataSet(object):
         for cut_name in boolean_fields:
             print("%d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
         print("%d pulses total" % self.nPulses)
+
+    def auto_cuts(self, forceNew=False):
+        """Compute and apply an appropriate set of automatically generated cuts.
+        The peak time and rise time come from the measured most-common peak time.
+        The pulse RMS and postpeak-derivative cuts are based on what's observed in
+        the (presumably) pulse-free noise file associated with this data file."""
+        # These are based on function calc_cuts_from_noise in make_preknowledge.py
+        # in Galen's project POPE.jl.
+
+        if not (all(self.cuts.good()) or forceNew):
+            LOG.info("channel %g skipping auto cuts because cuts exist" % self.channum)
+            return
+
+        # Step 1: peak and rise times
+        if self.peak_samplenumber is None:
+            ds._compute_peak_samplenumber()
+        MARGIN = 3  # step at least this many samples forward before cutting.
+        peak_time_ms = (MARGIN + self.peak_samplenumber-self.nPresamples)*self.timebase*1000
+
+        # Step 2: analyze noise so we know how to cut on pretrig rms postpeak_deriv
+        max_deriv = np.zeros(self.noise_records.nPulses)
+        pretrigger_rms = np.zeros(self.noise_records.nPulses)
+        for first_pnum, end_pnum, _seg_num, data_seg in self.noise_records.datafile.iter_segments():
+            max_deriv[first_pnum:end_pnum] = mass.analysis_algorithms.compute_max_deriv(
+                data_seg, ignore_leading=0)
+            pretrigger_rms[first_pnum:end_pnum] = data_seg[:, :self.nPresamples].std(axis=1)
+
+        # Multiply MAD by 1.4826 to get into terms of sigma, if distribution were Gaussian.
+        nsigma_max_deriv = nsigma_pt_rms = 8.0  # Subject to debate, but try 8 at first.
+        md_med = np.median(max_deriv)
+        pt_med = np.median(pretrigger_rms)
+        md_madn = np.median(np.abs(max_deriv-md_med))*1.4826
+        pt_madn = np.median(np.abs(pretrigger_rms-pt_med))*1.4826
+        md_max = md_med + md_madn*nsigma_max_deriv
+        pt_max = max(0.0, pt_med + pt_madn*nsigma_pt_rms)
+
+        cuts = mass.core.controller.AnalysisControl(
+            peak_time_ms=(0, peak_time_ms*1.25),
+            rise_time_ms=(0, peak_time_ms*1.10),
+            pretrigger_rms=(None, pt_max),
+            postpeak_deriv=(None, md_max),
+        )
+        self.apply_cuts(cuts, forceNew=True, clear=False)
 
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         # first check to see if this had already been done

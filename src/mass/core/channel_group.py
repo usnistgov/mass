@@ -1080,8 +1080,21 @@ class TESGroup(CutFieldMixin):
             ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
 
     def apply_cuts(self, cuts, forceNew=True):
+        """Apply the cuts `cuts` to each valid dataset."""
         for ds in self:
             ds.apply_cuts(cuts, forceNew)
+
+    def auto_cuts(self, forceNew=True, clearCuts=True):
+        """Automatically compute per-channel cuts and apply them to each valid dataset.
+        If `clearCuts`, then clear any existing cuts first."""
+        for ds in self:
+            if clearCuts:
+                ds.clear_cuts()
+            ds.auto_cuts(forceNew=forceNew)
+
+    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
+        for ds in self:
+            ds.smart_cuts(threshold, n_trainings, forceNew)
 
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
         """
@@ -1185,10 +1198,6 @@ class TESGroup(CutFieldMixin):
         plt.ylabel("average trigger/s")
         plt.grid("on")
         plt.legend()
-
-    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
-        for ds in self:
-            ds.smart_cuts(threshold, n_trainings, forceNew)
 
 
 def _extract_channum(name):
