@@ -19,8 +19,6 @@ LOG = logging.getLogger("mass")
 
 class CythonMicrocalDataSet(MicrocalDataSet):
     """Represent a single microcalorimeter's PROCESSED data.
-    This channel can be directly from a TDM detector, or it
-    can be the demodulated result of a CDM modulation.
     """
     def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None):
         super(CythonMicrocalDataSet, self).__init__(pulserec_dict, tes_group=tes_group, hdf5_group=hdf5_group)

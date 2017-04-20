@@ -118,7 +118,7 @@ class NoiseRecords(object):
         self.datafile.clear_cache()
 
     def set_fake_data(self):
-        """Use when this does not correspond to a real datafile (e.g., CDM data)"""
+        """Use when this does not correspond to a real datafile."""
         self.datafile = VirtualFile(np.zeros((0, 0)))
 
     def copy(self):
@@ -565,7 +565,7 @@ class MicrocalDataSet(object):
         self.filename = pulserec_dict.get('filename', 'virtual data set')
         self.pretrigger_ignore_samples = 0  # Cut this long before trigger in computing pretrig values
         self.peak_samplenumber = None   # Look for retriggers only after this time.
-        self.index = None   # Index in the larger TESGroup or CDMGroup object
+        self.index = None   # Index in the larger TESGroup object
         self.last_used_calibration = None
 
         self.data = None

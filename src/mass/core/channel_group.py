@@ -4,17 +4,9 @@ channel_group.py
 Part of the Microcalorimeter Analysis Software System (MASS).
 
 This module defines classes that handle one or more TES data streams
-together.  While these classes are indispensable for code-
-division multiplexed (CDM) systems, they are also useful for the
-simpler time-division multiplexed (TDM) systems in that they allow
-the same interface to handle both types of data.
+together.
 
 That's the goal, at least.
-
-Notice that no one has used CDM data from 2012 to present (June 2014),
-so I moved the CDMGroup class to mass.nonstandard.CDM module. Still, I
-am preserving the separation of BaseChannelGroup (methods common to TDM
-or CDM data) and TESGroup (for TDM data only).
 
 Author: Joe Fowler, NIST
 
@@ -31,7 +23,6 @@ import h5py
 
 import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
-import mass.nonstandard.CDM
 
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
@@ -544,9 +535,7 @@ class TESGroup(CutFieldMixin):
     def read_trace(self, record_num, dataset_num=0, channum=None):
         """Read (from cache or disk) and return the pulse numbered <record_num> for
         dataset number <dataset_num> or channel number <channum>.
-        If both are given, then <channum> will be used when valid.
-        If this is a CDMGroup, then the pulse is the demodulated
-        channel by that number."""
+        If both are given, then <channum> will be used when valid."""
         ds = self.channel.get(channum, self.datasets[dataset_num])
         return ds.read_trace(record_num)
 
