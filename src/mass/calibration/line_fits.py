@@ -202,7 +202,7 @@ class LineFitter(object):
                 slabel += "\nf$_\\mathrm{tail}$: %.1f%%" % (tf*100)
         axis.plot(self.last_fit_bins, self.last_fit_result, color='#666666',
                   label=slabel)
-        if len(slabel) > 0:
+        if slabel:
             axis.legend(loc='best', frameon=False)
 
         plt.xlabel("energy (%s)" % ph_units)
@@ -282,7 +282,7 @@ class VoigtFitter(LineFitter):
         lorentz_hwhm = P_lorenzfwhm*0.5
 
         def cleanspectrum_fn(x):
-            return voigt(x, params[1], lorentz_hwhm, sigma)
+            return voigt(x, P_phpeak, lorentz_hwhm, sigma)
 
         spectrum = _smear_lowEtail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
@@ -350,7 +350,7 @@ class NVoigtFitter(LineFitter):
         Returns:  The line complex intensity, including resolution smearing.
         """
         x = np.asarray(x)
-        if len(x.shape) == 0:
+        if not x.shape:
             x = x.reshape(1)
         P_gaussfwhm = params[0]
         P_amplitude = 1.0  # overall scale factor covered by the individual Lorentzians
@@ -445,10 +445,9 @@ class GaussianFitter(LineFitter):
         (P_gaussfwhm, P_phpeak, P_amplitude,
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
         sigma = P_gaussfwhm / (8 * np.log(2))**0.5
-        lorentz_hwhm = 0
 
         def cleanspectrum_fn(x):
-            return np.exp(-0.5*(x-params[1])**2/(sigma**2))
+            return np.exp(-0.5*(x-P_phpeak)**2/(sigma**2))
 
         spectrum = _smear_lowEtail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)

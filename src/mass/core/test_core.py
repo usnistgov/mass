@@ -2,8 +2,6 @@ import tempfile
 import os.path
 
 import numpy as np
-import pylab as pl
-import glob
 import os
 import shutil
 import unittest as ut

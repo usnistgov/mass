@@ -44,7 +44,7 @@ class NISTXrayDBFile(object):
         self.alllines = set()
 
         import os
-        if len(filenames) == 0:
+        if not filenames:
             path = os.path.split(__file__)[0]
             filenames = [os.path.join(path, df) for df in self.DEFAULT_FILENAMES]
 
@@ -167,7 +167,7 @@ def plot_line_uncertainties():
         'L2N4': 'K$\\gamma_1$: Weaker',
         'L1M3': 'L$\\beta_3$: Weaker',
         'L3N7': 'Lu: barely visible',
-        'L3M1': 'L$\ell$: very weak',
+        'L3M1': 'L$\\ell$: very weak',
     }
 
     axes = {}

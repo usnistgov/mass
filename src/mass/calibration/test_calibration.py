@@ -9,7 +9,6 @@ Galen O'Neil
 
 import unittest
 import numpy as np
-import pylab as plt
 import mass
 import h5py
 import os

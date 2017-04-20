@@ -1,6 +1,5 @@
 import unittest
 import numpy as np
-import pylab as plt
 import mass
 from mass.calibration.algorithms import *
 import itertools
@@ -18,7 +17,7 @@ class TestAlgorithms(unittest.TestCase):
         for combo in combos:
             tries += 1
             inds = np.array(combo)
-            name_e, energies_out, opt_assignments = find_opt_assignment(ph, known_energies[inds])
+            _name_e, energies_out, opt_assignments = find_opt_assignment(ph, known_energies[inds])
             if all(energies_out == known_energies[inds]) and all(opt_assignments == ph[inds]):
                 passes += 1
         self.assertTrue(passes > tries*0.9)
@@ -40,7 +39,7 @@ class TestAlgorithms(unittest.TestCase):
         for ke in known_energies:
             cal1.add_cal_point(ke, ke)
 
-        eout, fit_lo_hi, slopes_de_dph = build_fit_ranges(known_energies, [3050], cal1, 100)
+        eout, fit_lo_hi, _slopes_de_dph = build_fit_ranges(known_energies, [3050], cal1, 100)
         self.assertTrue(all(eout == known_energies))
         self.assertEqual(len(fit_lo_hi), len(known_energies))
         lo, hi = fit_lo_hi[0]
@@ -82,7 +81,7 @@ class TestAlgorithms(unittest.TestCase):
         dist[4].distribution.set_gauss_fwhm(3)
         dist[5].distribution.set_gauss_fwhm(4)
         e = []
-        for (k, v) in spect.items():
+        for k in spect:
             sampler = dist[k]
             e.extend(sampler.rvs(size=num_samples[k]))
         e = np.array(e)
@@ -92,19 +91,19 @@ class TestAlgorithms(unittest.TestCase):
         lm, _lm_heights = find_local_maxima(ph, smoothing_res_ph)
         line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
 
-        names_e, energies_opt, ph_opt = find_opt_assignment(lm, line_names)
+        _names_e, energies_opt, ph_opt = find_opt_assignment(lm, line_names)
 
         approxcal = mass.energy_calibration.EnergyCalibration(1, approximate=False)
         for (ee, phph) in zip(energies_opt, ph_opt):
             approxcal.add_cal_point(phph, ee)
 
-        energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt, [], approxcal, 100)
+        _energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt, [], approxcal, 100)
         binsize_ev = 1.0
         fitters = multifit(ph, line_names, fit_lo_hi, np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
 
         line_names_2 = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
-        fitters2 = multifit(ph, line_names_2, fit_lo_hi,
-                            np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
+        multifit(ph, line_names_2, fit_lo_hi,
+                 np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
 
     def test_autocal(self):
         # generate pulseheights from known spectrum
@@ -133,7 +132,7 @@ class TestAlgorithms(unittest.TestCase):
         dist[5].distribution.set_gauss_fwhm(4)
 
         e = []
-        for (k, v) in spect.items():
+        for k in spect:
             sampler = dist[k]
             e.extend(sampler.rvs(size=num_samples[k]))
         e = np.array(e)

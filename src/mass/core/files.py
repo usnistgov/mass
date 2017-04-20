@@ -24,7 +24,6 @@ Created on Feb 16, 2011
 import numpy as np
 import os
 import time
-import glob
 import struct
 from distutils.version import StrictVersion
 
@@ -424,7 +423,7 @@ class LJHFile(MicrocalFile):
         <error_on_partial_pulse> Whether to raise an error when caller requests non-integer
                                  number of pulses.
         """
-        raise NotImplemented("The method needs to be substituted by " + self.version_str)
+        raise NotImplementedError("The method needs to be substituted by " + self.version_str)
 
     def __read_binary_post22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
         """

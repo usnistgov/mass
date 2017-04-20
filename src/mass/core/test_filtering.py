@@ -4,7 +4,6 @@ import os
 import unittest as ut
 
 import mass
-import mass.core.channel_group as mcg
 from mass.core.files import *
 
 
