@@ -15,7 +15,7 @@ from mass.mathstat.special import voigt
 from . import fluorescence_lines as lines
 
 
-def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
+def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
     """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E tail."""
     if P_tailfrac <= 1e-5:
         return cleanspectrum_fn(x)
@@ -37,7 +37,7 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau ):
     ft = np.fft.rfft(rawspectrum)
     ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
     smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
-    smoothspectrum[smoothspectrum<0]=0 # in pathalogical cases, the convolutuion can cause negative values
+    smoothspectrum[smoothspectrum < 0] = 0  # in pathalogical cases, convolutuion can cause negative values
     # this is a hacky way to protect against that
     return smoothspectrum[nlow:nlow + len(x)]
 
@@ -47,8 +47,8 @@ def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
     bg = np.zeros_like(spectrum) + P_bg
     if P_bgslope != 0:
         bg += P_bgslope * np.arange(len(spectrum))
-    bg[bg<0] = 0
-    spectrum = spectrum * P_amplitude + bg # Change in place and return changed vector
+    bg[bg < 0] = 0
+    spectrum = spectrum * P_amplitude + bg  # Change in place and return changed vector
     return spectrum
 
 
@@ -88,8 +88,9 @@ class LineFitter(object):
         axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
                 current figure.
         color:  Color for drawing the histogram contents behind the fit.
-        label:  (True/False) Label for the fit line to go into the plot (usually used for resolution and uncertainty)
-                "full" labe with all fit params including reduced chi sqaured, followed by "H" if was held
+        label:  (True/False) Label for the fit line to go into the plot (usually used for
+                resolution and uncertainty)
+                "full" label with all fit params including reduced chi sqaured, followed by "H" if was held
         ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
 
         vary_resolution Whether to let the Gaussian resolution vary in the fit
@@ -115,7 +116,7 @@ class LineFitter(object):
         elif len(pulseheights) != len(data):
             pulseheights = np.arange(len(data), dtype=np.float)
 
-        self.hold=hold
+        self.hold = hold
         if self.hold is None:
             self.hold = set([])
         else:
@@ -134,8 +135,6 @@ class LineFitter(object):
             len(params) == self.nparam
         except:
             params = self.guess_starting_params(data, pulseheights)
-
-
 
         # Max-likelihood histogram fitter
         epsilon = self.stepsize(params)
@@ -160,7 +159,8 @@ class LineFitter(object):
         self.last_fit_bins = pulseheights.copy()
         self.last_fit_contents = data.copy()
 
-        if plot: self.plot(color, axis, label, ph_units)
+        if plot:
+            self.plot(color, axis, label, ph_units)
 
         return fitparams, covariance
 
@@ -177,36 +177,36 @@ class LineFitter(object):
         pnum_res = self.param_meaning["resolution"]
         slabel = ""
 
-        labeldict={meaning:meaning+" %4g +- %4g" for meaning in self.param_meaning.keys()}
-        labeldict["resolution"]="FWHM: %.3f +- %.3f"
-        labeldict["tail_frac"]="\nf$_\\mathrm{tail}$: %.1f +- %.1f"
+        labeldict = {meaning: meaning+" %4g +- %4g" for meaning in self.param_meaning.keys()}
+        labeldict["resolution"] = "FWHM: %.3f +- %.3f"
+        labeldict["tail_frac"] = "\nf$_\\mathrm{tail}$: %.1f +- %.1f"
 
-        if label=="full":
+        if label == "full":
             for (meaning, i) in self.param_meaning.iteritems():
                 val = self.last_fit_params[i]
-                err = self.last_fit_cov[i,i]**0.5
-                s = labeldict[meaning]%(val,err)
+                err = self.last_fit_cov[i, i]**0.5
+                s = labeldict[meaning] % (val, err)
                 if i in self.hold:
-                    s+=" H"
-                s+="\n"
-                slabel+=s
-            slabel+="reduced chisq %4g"%self.last_fit_reduced_chisq
+                    s += " H"
+                s += "\n"
+                slabel += s
+            slabel += "reduced chisq %4g" % self.last_fit_reduced_chisq
 
         elif label and pnum_res not in self.hold:
             pnum_tf = self.param_meaning["tail_frac"]
             res = self.last_fit_params[pnum_res]
-            err = self.last_fit_cov[pnum_res,pnum_res]**0.5
+            err = self.last_fit_cov[pnum_res, pnum_res]**0.5
             tf = self.last_fit_params[pnum_tf]
             slabel = "FWHM: %.2f +- %.2f" % (res, err)
             if tf > 0.001:
-                slabel += "\nf$_\\mathrm{tail}$: %.1f%%"%(tf*100)
+                slabel += "\nf$_\\mathrm{tail}$: %.1f%%" % (tf*100)
         axis.plot(self.last_fit_bins, self.last_fit_result, color='#666666',
                   label=slabel)
         if len(slabel) > 0:
             axis.legend(loc='best', frameon=False)
 
-        plt.xlabel("energy (%s)"%ph_units)
-        plt.ylabel("counts per %0.2f %s bin"%(ph_binsize,ph_units))
+        plt.xlabel("energy (%s)" % ph_units)
+        plt.ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
 
     @property
     def n_degree_of_freedom(self):
@@ -238,7 +238,7 @@ class VoigtFitter(LineFitter):
         "resolution": 0,
         "peak_ph": 1,
         "lorentz_fwhm": 2,
-        "amplitude":3,
+        "amplitude": 3,
         "background": 4,
         "bg_slope": 5,
         "tail_frac": 6,
@@ -251,7 +251,10 @@ class VoigtFitter(LineFitter):
 
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
-        percentiles = lambda p: binctrs[(order_stat > p).argmax()]
+
+        def percentiles(p):
+            return binctrs[(order_stat > p).argmax()]
+
         peak_loc = percentiles(0.5)
         iqr = (percentiles(0.75) - percentiles(0.25))
         res = iqr * 0.7
@@ -277,19 +280,22 @@ class VoigtFitter(LineFitter):
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
         sigma = P_gaussfwhm / (8 * np.log(2))**0.5
         lorentz_hwhm = P_lorenzfwhm*0.5
-        cleanspectrum_fn = lambda x: voigt(x, params[1], lorentz_hwhm, sigma)
+
+        def cleanspectrum_fn(x):
+            return voigt(x, params[1], lorentz_hwhm, sigma)
+
         spectrum = _smear_lowEtail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def setbounds(self, params, ph):
         self.bounds = []
         DE = 10*(np.max(ph)-np.min(ph))
-        self.bounds.append((0,10*DE))  # Gauss FWHM
+        self.bounds.append((0, 10*DE))  # Gauss FWHM
         if self.phscale_positive:
-            self.bounds.append((0, None)) # PH Center
+            self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
-        self.bounds.append((0, 10*DE)) # Lorentz FWHM
+        self.bounds.append((0, 10*DE))  # Lorentz FWHM
         self.bounds.append((0, None))   # Amplitude
         self.bounds.append((None, None))   # Background level (bin 0)
         self.bounds.append((None, None))   # Background slope (counts/bin)
@@ -312,7 +318,7 @@ class NVoigtFitter(LineFitter):
         """This fitter will have `Nlines` Lorentzian lines."""
         self.Nlines = Nlines
         assert Nlines >= 1
-        super( NVoigtFitter, self ).__init__()
+        super(NVoigtFitter, self).__init__()
         self.nparam = 5+3*Nlines
         self.param_meaning = {
             "resolution": 0,
@@ -323,12 +329,13 @@ class NVoigtFitter(LineFitter):
         }
         for i in range(Nlines):
             j = i+1
-            self.param_meaning["peak_ph%d"%j] = i*3+1
-            self.param_meaning["lorentz_fwhm%d"%j] = i*3+2
-            self.param_meaning["amplitude%d"%j] = i*3+3
+            self.param_meaning["peak_ph%d" % j] = i*3+1
+            self.param_meaning["lorentz_fwhm%d" % j] = i*3+2
+            self.param_meaning["amplitude%d" % j] = i*3+3
 
     def guess_starting_params(self, data, binctrs):
-        raise NotImplementedError("I don't know how to guess starting parameters for a %d-peak Voigt."%self.Nlines)
+        raise NotImplementedError(
+            "I don't know how to guess starting parameters for a %d-peak Voigt." % self.Nlines)
 
     # Compute the smeared line value.
     #
@@ -346,9 +353,10 @@ class NVoigtFitter(LineFitter):
         if len(x.shape) == 0:
             x = x.reshape(1)
         P_gaussfwhm = params[0]
-        P_amplitude = 1.0 # overall scale factor covered by the individual Lorentzians
+        P_amplitude = 1.0  # overall scale factor covered by the individual Lorentzians
         P_bg, P_bgslope, P_tailfrac, P_tailtau = params[-4:]
         sigma = params[0] / (8 * np.log(2))**0.5
+
         def cleanspectrum_fn(x):
             s = np.zeros_like(x)
             for i in range(self.Nlines):
@@ -360,10 +368,10 @@ class NVoigtFitter(LineFitter):
     def setbounds(self, params, ph):
         self.bounds = []
         DE = 10*(np.max(ph)-np.min(ph))
-        self.bounds.append((0,10*DE))  # Gauss FWHM
+        self.bounds.append((0, 10*DE))  # Gauss FWHM
         for _ in range(self.Nlines):
             self.bounds.append((np.min(ph), np.max(ph)))
-            self.bounds.append((0, 10*DE)) # Lorentz FWHM
+            self.bounds.append((0, 10*DE))  # Lorentz FWHM
             self.bounds.append((0, None))  # Amplitude
         self.bounds.append((None, None))   # Background level (bin 0)
         self.bounds.append((None, None))   # Background slope (counts/bin)
@@ -373,8 +381,8 @@ class NVoigtFitter(LineFitter):
     def stepsize(self, params):
         epsilon = np.copy(params)
         epsilon[0] = 1e-3
-        epsilon[-4] = 1e-3 # BG level
-        epsilon[-3] = 1e-3 # BG slope
+        epsilon[-4] = 1e-3  # BG level
+        epsilon[-3] = 1e-3  # BG slope
         epsilon[-2] = 1e-4
         epsilon[-1] = 1e-2
         for i in range(self.Nlines):
@@ -382,6 +390,7 @@ class NVoigtFitter(LineFitter):
             epsilon[2+i*3] = 1e-3
             epsilon[3+i*3] *= 1e-5
         return epsilon
+
 
 class GaussianFitter(LineFitter):
     """Fit a single Gaussian line, with a low-E tail.
@@ -401,7 +410,7 @@ class GaussianFitter(LineFitter):
     param_meaning = {
         "resolution": 0,
         "peak_ph": 1,
-        "amplitude":2,
+        "amplitude": 2,
         "background": 3,
         "bg_slope": 4,
         "tail_frac": 5,
@@ -410,11 +419,14 @@ class GaussianFitter(LineFitter):
     nparam = 7
 
     def __init__(self):
-        super( GaussianFitter, self ).__init__()
+        super(GaussianFitter, self).__init__()
 
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
-        percentiles = lambda p: binctrs[(order_stat > p).argmax()]
+
+        def percentiles(p):
+            return binctrs[(order_stat > p).argmax()]
+
         peak_loc = percentiles(0.5)
         iqr = (percentiles(0.75) - percentiles(0.25))
         res = iqr * 0.95
@@ -434,16 +446,19 @@ class GaussianFitter(LineFitter):
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
         sigma = P_gaussfwhm / (8 * np.log(2))**0.5
         lorentz_hwhm = 0
-        cleanspectrum_fn = lambda x: np.exp(-0.5*(x-params[1])**2/(sigma**2))
+
+        def cleanspectrum_fn(x):
+            return np.exp(-0.5*(x-params[1])**2/(sigma**2))
+
         spectrum = _smear_lowEtail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def setbounds(self, params, ph):
         self.bounds = []
         DE = 10*(np.max(ph)-np.min(ph))
-        self.bounds.append((0,10*DE))  # Gauss FWHM
+        self.bounds.append((0, 10*DE))  # Gauss FWHM
         if self.phscale_positive:
-            self.bounds.append((0, None)) # PH Center
+            self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
         self.bounds.append((0, None))   # Amplitude
@@ -469,8 +484,8 @@ class MultiLorentzianComplexFitter(LineFitter):
     param_meaning = {
         "resolution": 0,
         "peak_ph": 1,
-        "dP_dE":2,
-        "amplitude":3,
+        "dP_dE": 2,
+        "amplitude": 3,
         "background": 4,
         "bg_slope": 5,
         "tail_frac": 6,
@@ -496,7 +511,7 @@ class MultiLorentzianComplexFitter(LineFitter):
         cleanspectrum_fn = self.spect.pdf
         spectrum = _smear_lowEtail(cleanspectrum_fn, energy, P_gaussfwhm, P_tailfrac, P_tailtau)
         retval = _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
-        if any(np.isnan(retval)) or any(retval<0):
+        if any(np.isnan(retval)) or any(retval < 0):
             raise ValueError
         return retval
 
@@ -508,12 +523,12 @@ class MultiLorentzianComplexFitter(LineFitter):
     def setbounds(self, params, ph):
         self.bounds = []
         DE = 10*(np.max(ph)-np.min(ph))
-        self.bounds.append((0,10*DE))  # Gauss FWHM
+        self.bounds.append((0, 10*DE))  # Gauss FWHM
         if self.phscale_positive:
-            self.bounds.append((0, None)) # PH Center
+            self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
-        self.bounds.append((0, None)) # dPH/dE > 0
+        self.bounds.append((0, None))  # dPH/dE > 0
         self.bounds.append((0, None))   # Amplitude
         self.bounds.append((None, None))   # Background level (bin 0)
         self.bounds.append((None, None))   # Background slope (counts/bin)
@@ -560,7 +575,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
             subclasses of SpectralLine.
         """
         self.spect = spectrumDef
-        super( GenericKAlphaFitter, self ).__init__()
+        super(GenericKAlphaFitter, self).__init__()
 
     def guess_starting_params(self, data, binctrs):
         """

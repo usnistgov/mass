@@ -31,9 +31,9 @@ class Test_Gaussian(unittest.TestCase):
         self.fitter.phscale_positive = True
         param, covar = self.fitter.fit(self.obs, self.x, self.params, plot=True)
         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian1.pdf"))
-        self.assertAlmostEqual(param[0], self.params[0], 1) # FWHM
-        self.assertAlmostEqual(param[1], self.params[1], 1) # Center
-        self.assertAlmostEqual(param[2]/self.params[2], 1, 1) # Amplitude
+        self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
+        self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
+        self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
 
     def test_fit_offset(self):
         center = self.params[1]
@@ -41,22 +41,20 @@ class Test_Gaussian(unittest.TestCase):
         guess = np.array(self.params)
         guess[1] = 0
         param, covar = self.fitter.fit(self.obs, self.x-center, guess, plot=True)
-        # plt.clf()
-        # plt.plot(self.x-center, self.obs, "r")
         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian2.pdf"))
-        self.assertAlmostEqual(param[0], self.params[0], 1) # FWHM
-        self.assertAlmostEqual(param[1], 0, 1) # Center
-        self.assertAlmostEqual(param[2]/self.params[2], 1, 1) # Amplitude
+        self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
+        self.assertAlmostEqual(param[1], 0, 1)  # Center
+        self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
 
     def test_fit_zero_bg(self):
         param_guess = self.params[:]
-        param_guess[self.fitter.param_meaning["background"]]=0
+        param_guess[self.fitter.param_meaning["background"]] = 0
         self.fitter.phscale_positive = True
         param, covar = self.fitter.fit(self.obs, self.x, param_guess, plot=True)
         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian1.pdf"))
-        self.assertAlmostEqual(param[0], self.params[0], 1) # FWHM
-        self.assertAlmostEqual(param[1], self.params[1], 1) # Center
-        self.assertAlmostEqual(param[2]/self.params[2], 1, 1) # Amplitude
+        self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
+        self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
+        self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
 
 
 class Test_MnKA(unittest.TestCase):
@@ -65,9 +63,9 @@ class Test_MnKA(unittest.TestCase):
         self.distrib = mass.calibration.fluorescence_lines.MnKAlphaDistribution()
         np.random.seed(95)
 
-    def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
-              bg = 10, nbins=150, vary_tail=False):
-        bmin, bmax = 5875,5910
+    def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17, bg=10,
+                nbins=150, vary_tail=False):
+        bmin, bmax = 5875, 5910
 
         values = self.distrib.rvs(size=n)
         sigma = resolution/2.3548
@@ -112,8 +110,8 @@ class Test_MnKB(unittest.TestCase):
         np.random.seed(97)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
-              bg = 10, nbins=150, vary_tail=False):
-        bmin, bmax = 6460,6510
+                bg=10, nbins=150, vary_tail=False):
+        bmin, bmax = 6460, 6510
 
         values = self.distrib.rvs(size=n)
         sigma = resolution/2.3548
@@ -123,7 +121,7 @@ class Test_MnKB(unittest.TestCase):
         ntweak = tweak.sum()
         if ntweak > 0:
             values[tweak] -= np.random.standard_exponential(size=ntweak)*tailtau
-        obs,bins = np.histogram(values, nbins, [bmin, bmax])
+        obs, bins = np.histogram(values, nbins, [bmin, bmax])
         obs += np.random.poisson(size=nbins, lam=bg)
 
         params = np.array([resolution, 6490.5, 1.0, n, bg, 0, tailfrac, tailtau])
@@ -200,27 +198,27 @@ class Test_Voigt(unittest.TestCase):
     def test_fit(self):
         pfit, covar, params = self.singletest(ampl=20000, tailfrac=0)
         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_voigt1.pdf"))
-        self.assertAlmostEqual(pfit[0], params[0], 1) # Gauss FWHM
-        self.assertAlmostEqual(pfit[1], params[1], 1) # Center
-        self.assertAlmostEqual(pfit[2], params[2], 0) # Lorentz FWHM
+        self.assertAlmostEqual(pfit[0], params[0], 1)  # Gauss FWHM
+        self.assertAlmostEqual(pfit[1], params[1], 1)  # Center
+        self.assertAlmostEqual(pfit[2], params[2], 0)  # Lorentz FWHM
 
     def xxtest_fit_tail(self):
         pfit, covar, params = self.singletest(ampl=40000, tailfrac=0.20,
                                               tailtau=25, vary_tail=True)
         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_voigt2.pdf"))
-        self.assertAlmostEqual(pfit[0], params[0], 1) # Gauss FWHM
-        self.assertAlmostEqual(pfit[1], params[1], 1) # Center
-        self.assertAlmostEqual(pfit[2], params[2], 0) # Lorentz FWHM
-        self.assertAlmostEqual(pfit[6], params[6], 1) # Tail frac
-        self.assertAlmostEqual(pfit[7], params[7], -1) # Tail tau
+        self.assertAlmostEqual(pfit[0], params[0], 1)  # Gauss FWHM
+        self.assertAlmostEqual(pfit[1], params[1], 1)  # Center
+        self.assertAlmostEqual(pfit[2], params[2], 0)  # Lorentz FWHM
+        self.assertAlmostEqual(pfit[6], params[6], 1)  # Tail frac
+        self.assertAlmostEqual(pfit[7], params[7], -1)  # Tail tau
 
     def test_fit_vary_res(self):
         pfit, covar, params = self.singletest(ampl=100000, gauss_fwhm=2, fwhm=2.5,
                                               bg=100, tailfrac=0, vary_resolution=True)
         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_voigt3.pdf"))
-        self.assertAlmostEqual(pfit[0], params[0], 0) # Gauss FWHM
-        self.assertAlmostEqual(pfit[1], params[1], 1) # Center
-        self.assertAlmostEqual(pfit[2], params[2], 0) # Lorentz FWHM
+        self.assertAlmostEqual(pfit[0], params[0], 0)  # Gauss FWHM
+        self.assertAlmostEqual(pfit[1], params[1], 1)  # Center
+        self.assertAlmostEqual(pfit[2], params[2], 0)  # Lorentz FWHM
 
     def test_zero_bg(self):
         self.singletest(bg=0)

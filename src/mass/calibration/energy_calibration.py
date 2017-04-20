@@ -343,12 +343,14 @@ class EnergyCalibration(object):
         update_index = None
         if name != "" and name in self._names:  # Update an existing point by name
             if not overwrite:
-                raise ValueError("Calibration point '%s' is already known and overwrite is False" % name)
+                raise ValueError(
+                    "Calibration point '%s' is already known and overwrite is False" % name)
             update_index = self._names.index(name)
 
-        elif self.npts > 0 and np.abs(energy-self._energies).min() <= e_error:  # Update existing point by energy
+        elif self.npts > 0 and np.abs(energy-self._energies).min() <= e_error:  # Update existing point
             if not overwrite:
-                raise ValueError("Calibration point at energy %.2f eV is already known and overwrite is False" % energy)
+                raise ValueError(
+                    "Calibration point at energy %.2f eV is already known and overwrite is False" % energy)
             update_index = np.abs(energy-self._energies).argmin()
 
         if update_index is None:   # Add a new point
@@ -412,7 +414,8 @@ class EnergyCalibration(object):
 
         if self.curvename() == "loglog":
             cubic_spline = SmoothingSplineFunction(np.log(ph), np.log(e), de/e, dph/ph)
-            self._ph2energy_anon = Composition(ExponentialFunction(), Composition(cubic_spline, LogFunction()))
+            self._ph2energy_anon = Composition(
+                ExponentialFunction(), Composition(cubic_spline, LogFunction()))
 
         elif self.curvename().startswith("linear"):
             if ("+0" in self.curvename()) and (0.0 not in ph):
@@ -466,7 +469,8 @@ class EnergyCalibration(object):
         """Update the E(P) curve assume exact interpolation of calibration data."""
         # Choose proper curve/interpolating function object
         # For N=0 points, in the absence of any information at all, we just let E = PH.
-        # For N=1 points, use E proportional to PH (or if loglog curve, then a power law of the assumed nonlinearity).
+        # For N=1 points, use E proportional to PH (or if loglog curve, then a power law of
+        #    the assumed nonlinearity).
         # For N>1 points, use the chosen curve type (but for N=2, recall that the spline will be a line).
         if self.npts <= 0:
             # self._ph2energy_anon = lambda p: p
@@ -496,7 +500,8 @@ class EnergyCalibration(object):
             # self._x2yfun = CubicSpline(x, y)
             # self._ph2energy_anon = lambda p: np.exp(self._x2yfun(np.log(p)))
             underlying_spline = CubicSplineFunction(x, y)
-            self._ph2energy_anon = Composition(ExponentialFunction(), Composition(underlying_spline, LogFunction()))
+            self._ph2energy_anon = Composition(
+                ExponentialFunction(), Composition(underlying_spline, LogFunction()))
 
         elif self.curvename().startswith("linear"):
             x = self._ph
@@ -513,7 +518,8 @@ class EnergyCalibration(object):
             # self._underlying_spline = CubicSpline(x, y)
             # self._ph2energy_anon = lambda p: p/self._underlying_spline(p)
             underlying_spline = CubicSplineFunction(x, y)
-            self._ph2energy_anon = Multiplication(Identity(), Composition(PowerFunction(-1), underlying_spline))
+            self._ph2energy_anon = Multiplication(
+                Identity(), Composition(PowerFunction(-1), underlying_spline))
 
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
             trial_phmax = 10*self._ph.max()
@@ -537,7 +543,8 @@ class EnergyCalibration(object):
             # self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p))
             underlying_spline = CubicSplineFunction(x, y)
             minus_spline = Multiplication(ConstantFunction(-1), underlying_spline)
-            self._ph2energy_anon = Multiplication(Identity(), Composition(ExponentialFunction(), minus_spline))
+            self._ph2energy_anon = Multiplication(
+                Identity(), Composition(ExponentialFunction(), minus_spline))
 
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""

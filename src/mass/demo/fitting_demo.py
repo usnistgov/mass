@@ -1,7 +1,7 @@
 """
 Demonstrations of fitting within MASS.
 
-This is meant to be executed in ipython as a Demo (see 
+This is meant to be executed in ipython as a Demo (see
 demo.help for more information).
 
 Joe Fowler, NIST
@@ -45,9 +45,9 @@ mass.plot_as_stepped_hist(axis, hist, bin_ctr)
 guess_params = [fwhm, mu, hist.max(), 0]
 fitter = mass.fitting.MaximumLikelihoodGaussianFitter(bin_ctr, hist, guess_params)
 params, covariance = fitter.fit()
-for i in range(len(guess_params)):
+for i, gp in enumerate(guess_params):
     print("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, guess_params[i], params[i], covariance[i, i]**.5))
+          (i, gp, params[i], covariance[i, i]**.5))
 
 # Compute the model function and plot it in red.
 model = fitter.theory_function(params, bin_ctr)
@@ -61,7 +61,7 @@ pylab.plot(bin_ctr, model, 'r')
 # with a constant background, and finally (3) with a sloped linear background.
 # To make it interesting, let's add a Poisson background of 2 counts per bin.
 # Note that we get a poor fit when there IS a background but we don't let it be fit for,
-# as in fit (1) here. 
+# as in fit (1) here.
 
 hist += numpy.random.poisson(lam=2.0, size=len(hist))
 
@@ -79,11 +79,11 @@ for nbg in (0, 1, 2):
     fitter = mass.fitting.MaximumLikelihoodGaussianFitter(bin_ctr, hist, guess_params)
     params, covariance = fitter.fit()
     print("Model: %s" % title[nbg])
-    for i in range(len(guess_params)):
+    for i, gp in enumerate(guess_params):
         print("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
-              (i, guess_params[i], params[i], covariance[i,i]**.5))
+              (i, gp, params[i], covariance[i,i]**.5))
     print
-    
+
     # Compute the model function and plot it in red.
     model = fitter.theory_function(params, bin_ctr)
     pylab.plot(bin_ctr, model, color=color[nbg], label=title[nbg])
@@ -106,9 +106,9 @@ bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 fitter = mass.GaussianFitter()
 params, covariance = fitter.fit(hist, bin_ctr, plot=True)
 true_params = [FWHM_SIGMA_RATIO*sigma, mu, N*(bin_edges[1]-bin_edges[0])/sigma/(2*numpy.pi)**0.5, 0]
-for i in range(len(true_params)):
+for i, tp in enumerate(true_params):
     print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i,true_params[i], params[i], covariance[i,i]**.5))
+          (i, tp, params[i], covariance[i,i]**.5))
 # <demo> stop
 
 # Now let's generate data from a Lorentzian (Cauchy) distribution
@@ -121,9 +121,9 @@ bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 fitter = mass.calibration.fluorescence_lines.LorentzianFitter()
 params, covariance = fitter.fit(histc, bin_ctr, plot=True)
 true_params = [mu, 1.0, N*(bin_edges[1]-bin_edges[0])]
-for i in range(len(true_params)):
+for i, tp in enumerate(true_params):
     print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, true_params[i], params[i], covariance[i,i]**.5))
+          (i, tp, params[i], covariance[i,i]**.5))
 
 # Notice that we could have used the VoigtFitter, and it would probably work.
 # By choosing the Lorentzian fitter, we insist that the Gaussian smearing = 0.
@@ -135,9 +135,9 @@ for i in range(len(true_params)):
 fitter = mass.calibration.fluorescence_lines.VoigtFitter()
 params, covariance = fitter.fit(histc, bin_ctr, plot=True)
 true_params = [0, mu, 1.0, N*(bin_edges[1]-bin_edges[0])]
-for i in range(len(true_params)):
+for i, tp in enumerate(true_params):
     print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, true_params[i], params[i], covariance[i,i]**.5))
+          (i, tp, params[i], covariance[i,i]**.5))
 # <demo> stop
 
 # Finally, put real Gaussian smearing on the data and use the Voigt fitter again.
@@ -147,14 +147,14 @@ bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
 params, covariance = fitter.fit(histv, bin_ctr, plot=True)
 true_params = [FWHM_SIGMA_RATIO*sigma, mu, 1.0, N*(bin_edges[1]-bin_edges[0])/sigma/(2*numpy.pi)**0.5]
-for i in range(len(true_params)):
+for i, tp in enumerate(true_params):
     print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, true_params[i], params[i], covariance[i,i]**.5))
+          (i, tp, params[i], covariance[i,i]**.5))
 
 # <demo> stop
 
 # Now let's fit two Voigt functions.
-N1, N2, Nbg = 3000, 2000, 1000 
+N1, N2, Nbg = 3000, 2000, 1000
 mu1, mu2, sigma = 100.0, 105.0, 0.5
 dc1 = numpy.random.standard_cauchy(size=N1)+mu1
 dc2 = numpy.random.standard_cauchy(size=N2)+mu2

@@ -45,8 +45,8 @@ class SpectralLine(object):
     def __init__(self):
         """Set up a default Gaussian smearing of 0"""
         self.gauss_sigma = 0.0
-        neg_pdf = lambda x: -self.pdf(x)
-        self.peak_energy = sp.optimize.brent(neg_pdf, brack=np.array((0.5, 1, 1.5)) * self.nominal_peak_energy)
+        self.peak_energy = sp.optimize.brent(lambda x: -self.pdf(x),
+                                             brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
 
     def set_gauss_fwhm(self, fwhm):
         """Update the Gaussian smearing to have <fwhm> as the full-width at half-maximum"""
@@ -606,7 +606,6 @@ class ZnKBeta(SpectralLine):
     nominal_peak_energy = 9573.6  # eV
 
 
-
 # the API for this is terrible, you have to create a class, you cant just pass in a distirubtion
 # it should be changed, and the associated tests failures should be fixed
 class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
@@ -646,30 +645,35 @@ class MnKAlphaDistribution(MultiLorentzianDistribution_gen):
     name = "Mn KAlpha fluorescence"
     distribution = MnKAlpha()
 
+
 class MnKBetaDistribution(MultiLorentzianDistribution_gen):
     name = "Mn KBeta fluorescence"
     distribution = MnKBeta()
+
 
 class CuKAlphaDistribution(MultiLorentzianDistribution_gen):
     name = "Cu KAlpha fluorescence"
     distribution = CuKAlpha()
 
+
 class TiKAlphaDistribution(MultiLorentzianDistribution_gen):
     name = "Ti KAlpha fluorescence"
     distribution = TiKAlpha()
+
 
 class FeKAlphaDistribution(MultiLorentzianDistribution_gen):
     name = "Fe KAlpha fluorescence"
     distribution = FeKAlpha()
 
 
-
 def plot_allMultiLorentzianLineComplexes():
-    """ makes a bunch of plots showing the line shape and component parts for the KAlpha and KBeta complexes defined in here,
-    intended to nearly replicate plots in papers giving spectral lineshapes"""
+    """Makes a bunch of plots showing the line shape and component parts for the KAlpha
+    and KBeta complexes defined in here.
+    Intended to nearly replicate plots in papers giving spectral lineshapes"""
     plot_multiLorentzianLineComplex(ScKAlpha)
     plot_multiLorentzianLineComplex(TiKAlpha, instrumentGaussianSigma=0.68 / 2.354)
-    plot_multiLorentzianLineComplex(VKAlpha, instrumentGaussianSigma=1.99 / 2.354)  # must include instrument broadening from Table 1, Source to recreate plots
+    plot_multiLorentzianLineComplex(VKAlpha, instrumentGaussianSigma=1.99 / 2.354)
+    # must include instrument broadening from Table 1, Source to recreate plots
     plot_multiLorentzianLineComplex(CrKAlpha)
     plot_multiLorentzianLineComplex(MnKAlpha)
     plot_multiLorentzianLineComplex(FeKAlpha)
@@ -695,7 +699,8 @@ def plot_multiLorentzianLineComplex(spectrumDef=CrKAlpha, instrumentGaussianSigm
     plt.figure()
     result = np.zeros_like(plotEnergies)
     for energy, fwhm, ampl in zip(spectrumDef.energies, spectrumDef.fwhm, spectrumDef.integral_intensity):
-        plt.plot(plotEnergies, ampl * voigt(plotEnergies, energy, hwhm=fwhm * 0.5, sigma=instrumentGaussianSigma), label='%.3f, %.3f, %.3f' % (energy, fwhm, ampl))
+        plt.plot(plotEnergies, ampl * voigt(plotEnergies, energy, hwhm=fwhm * 0.5,
+                 sigma=instrumentGaussianSigma), label='%.3f, %.3f, %.3f' % (energy, fwhm, ampl))
         result += ampl * voigt(plotEnergies, energy, hwhm=fwhm * 0.5, sigma=instrumentGaussianSigma)
     plt.plot(plotEnergies, result, label='combined', linewidth=2)
     plt.xlabel('Energy (eV)')

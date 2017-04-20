@@ -78,12 +78,15 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
     """Tries to find an assignment of peaks to line names that is reasonably self consistent and smooth
 
     Args:
-        peak_positions (numpy.array(dtype=numpy.float)): a list of peak locations in arb units, eg p_filt_value units
-        line_names (list[str or float)]): a list of calibration lines either as number (, which is energies in eV,)
-            or name to be looked up in STANDARD_FEATURES
+        peak_positions (numpy.array(dtype=numpy.float)): a list of peak locations in arb units,
+            e.g. p_filt_value units
+        line_names (list[str or float)]): a list of calibration lines either as number (which is
+            energies in eV), or name to be looked up in STANDARD_FEATURES
         nextra (int): the algorithm starts with the first len(line_names) + nextra peak_positions
-        nincrement (int): each the algorithm fails to find a satisfactory peak assignment, it uses nincrement more lines
-        nextramax (int): the algorithm fails with an error if the algorithm tries to use more than this many lines
+        nincrement (int): each the algorithm fails to find a satisfactory peak assignment, it uses
+            nincrement more lines
+        nextramax (int): the algorithm fails with an error if the algorithm tries to use more than
+            this many lines
         maxacc (float): an empirical number that determines if an assignment is good enough.
             The default number works reasonably well for tupac data
     """
@@ -109,7 +112,7 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
         if acc > maxacc * np.sqrt(len(energies)):
             n_sel_pp += nincrement
             if n_sel_pp > nmax:
-                raise ValueError("no successful peak assignment found: acc %g, maxacc*sqrt(len(energies)) %g" %
+                raise ValueError("no peak assignment succeeded: acc %g, maxacc*sqrt(len(energies)) %g" %
                                  (acc, maxacc * np.sqrt(len(energies))))
             else:
                 continue
@@ -137,7 +140,8 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
 
     Args:
         line_names (list[str or float]): list or line names or energies
-        excluded_line_names (list[str or float]): list of line_names or energies to avoid when making fit ranges
+        excluded_line_names (list[str or float]): list of line_names or energies to
+            avoid when making fit ranges
         approx_ecal: an EnergyCalibration object containing an approximate calibration
         fit_width_ev (float): full size in eV of fit ranges
     """
@@ -149,8 +153,7 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     fit_lo_hi = []
     slopes_de_dph = []
 
-    for i in range(len(e_e)):
-        e = e_e[i]
+    for i, e in enumerate(e_e):
         slope_de_dph = approx_ecal.energy2dedph(e)
         half_width_ph = half_width_ev/slope_de_dph
         if any(all_e < e):
@@ -201,7 +204,8 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
     Args:
         ph (numpy.array(dtype=float)): list of pulse heights
         line_names: names of calibration  lines
-        fit_lo_hi (list[list[float]]): a list of (lo,hi) with units of ph, used as edges of histograms for fitting
+        fit_lo_hi (list[list[float]]): a list of (lo,hi) with units of ph, used as
+            edges of histograms for fitting
         binsize_ev (list[float]): list of binsizes in eV for calibration lines
         slopes_de_dph (list[float]): - list of slopes de_dph (e in eV)
     """
@@ -210,11 +214,11 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
     peak_ph = []
     eres = []
 
-    for i in range(len(name_e)):
+    for i, name in enumerate(name_e):
         lo, hi = fit_lo_hi[i]
         dP_dE = 1/slopes_de_dph[i]
         binsize_ph = binsize_ev[i]*dP_dE
-        fitter = singlefit(ph, name_e[i], lo, hi, binsize_ph, dP_dE)
+        fitter = singlefit(ph, name, lo, hi, binsize_ph, dP_dE)
         fitters.append(fitter)
         peak_ph.append(fitter.last_fit_params[fitter.param_meaning["peak_ph"]])
         if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
@@ -244,7 +248,8 @@ class EnergyCalibrationAutocal:
     def __init__(self, calibration, ph=None, line_names=None):
         """
         Args:
-            line_names (list[str]): names of calibration lines. Names doesn't need to be ordered in their energies.
+            line_names (list[str]): names of calibration lines. Names doesn't need to be
+            ordered in their energies.
         """
         if not isinstance(calibration, EnergyCalibration):
             raise ValueError("EnergyCalibrationAutocal requires an EnergyCalibration calibration.")
@@ -273,8 +278,8 @@ class EnergyCalibrationAutocal:
         lm, _ = find_local_maxima(self.ph, smoothing_res_ph)
 
         # Note that find_opt_assignment does not require line_names be sorted by energies.
-        self.line_names, self.energies_opt, self.ph_opt = find_opt_assignment(lm, self.line_names, nextra,
-                                                                              nincrement, nextramax, maxacc=maxacc)
+        self.line_names, self.energies_opt, self.ph_opt = find_opt_assignment(
+            lm, self.line_names, nextra, nincrement, nextramax, maxacc=maxacc)
 
         if isinstance(binsize_ev, collections.Iterable):
             self.binsize_ev = binsize_ev
@@ -289,7 +294,8 @@ class EnergyCalibrationAutocal:
         #  Default fit range width is 100 eV for each line.
         #  But you can customize these numbers after self.guess_fit_params is finished.
         #  New self.fit_lo_hi values will be in self.fit_lines in the next step.
-        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [], approx_cal, self.fit_range_ev)
+        _, self.fit_lo_hi, self.slopes_de_dph = build_fit_ranges_ph(self.energies_opt, [],
+                                                                    approx_cal, self.fit_range_ev)
 
     def fit_lines(self):
         """All calibration emission lines are fitted with ComplexFitter or GaussianFitter
@@ -308,7 +314,8 @@ class EnergyCalibrationAutocal:
 
     def autocal(self, smoothing_res_ph=20, fit_range_ev=200.0, binsize_ev=1.0,
                 nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
-        self.guess_fit_params(smoothing_res_ph, fit_range_ev, binsize_ev, nextra, nincrement, nextramax, maxacc)
+        self.guess_fit_params(smoothing_res_ph, fit_range_ev, binsize_ev, nextra, nincrement,
+                              nextramax, maxacc)
         self.fit_lines()
 
         return self.calibration
@@ -331,8 +338,8 @@ class EnergyCalibrationAutocal:
             ax.xaxis.set_major_locator(MaxNLocator(4, integer=True))
 
             binsize = fitter.last_fit_bins[1]-fitter.last_fit_bins[0]
-            bin_edges = np.linspace(fitter.last_fit_bins[0] - binsize/2.0, fitter.last_fit_bins[-1] + binsize/2.0,
-                                    len(fitter.last_fit_bins)+1)
+            bin_edges = np.linspace(fitter.last_fit_bins[0] - binsize/2.0,
+                                    fitter.last_fit_bins[-1] + binsize/2.0, len(fitter.last_fit_bins)+1)
             ax.fill(np.repeat(bin_edges, 2), np.hstack([[0], np.repeat(fitter.last_fit_contents, 2), [0]]),
                     lw=1, fc=(0.3, 0.3, 0.9), ec=(0.1, 0.1, 1.0), alpha=0.8)
 
@@ -363,7 +370,8 @@ class EnergyCalibrationAutocal:
             ax.text(pht, energy,
                     peak_name,
                     ha='left', va='top',
-                    transform=ax.transData + mtrans.ScaledTranslation(5.0 / 72, -12.0 / 72, fig.dpi_scale_trans))
+                    transform=ax.transData + mtrans.ScaledTranslation(5.0 / 72, -12.0 / 72,
+                                                                      fig.dpi_scale_trans))
 
         ax.scatter(self.calibration.cal_point_phs,
                    self.calibration.cal_point_energies, s=36, c=(0.2, 0.2, 0.8))

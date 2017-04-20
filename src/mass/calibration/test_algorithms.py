@@ -9,7 +9,8 @@ import itertools
 class TestAlgorithms(unittest.TestCase):
 
     def test_find_opt_assignment(self):
-        known_energies = np.array([3100,3200,3300,3600,4000,4500,5200,5800,6500,8300,9200,10200])
+        known_energies = np.array([3100, 3200, 3300, 3600, 4000, 4500, 5200, 5800,
+                                   6500, 8300, 9200, 10200])
         ph = known_energies**0.95
         combos = itertools.combinations(range(len(ph)), 8)
         tries = 0
@@ -28,7 +29,7 @@ class TestAlgorithms(unittest.TestCase):
         ph = np.hstack((ph, np.random.randn(5000)+4000))
         ph = np.hstack((ph, np.random.randn(1000)+1000))
         local_maxima, _ = find_local_maxima(ph, 10)
-        local_maxima, _peak_heights = find_local_maxima(ph,10)
+        local_maxima, _peak_heights = find_local_maxima(ph, 10)
         rounded = np.round(local_maxima)
         self.assertTrue(all(rounded[:3] == np.array([7000, 4000, 1000])))
 
@@ -59,7 +60,7 @@ class TestAlgorithms(unittest.TestCase):
         # generate pulseheights from known spectrum
         spect = {}
         dist = {}
-        num_samples = {k:1000*k for k in [1,2,3,4,5]}
+        num_samples = {k: 1000*k for k in [1, 2, 3, 4, 5]}
         spect[1] = mass.fluorescence_lines.MnKAlpha()
         spect[1].set_gauss_fwhm(2)
         spect[2] = mass.fluorescence_lines.MnKBeta()
@@ -70,24 +71,24 @@ class TestAlgorithms(unittest.TestCase):
         spect[4].set_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha()
         spect[5].set_gauss_fwhm(6)
-        dist[1]  = mass.fluorescence_lines.MnKAlphaDistribution()
-        dist[2]  = mass.fluorescence_lines.MnKBetaDistribution()
-        dist[3]  = mass.fluorescence_lines.CuKAlphaDistribution()
-        dist[4]  = mass.fluorescence_lines.TiKAlphaDistribution()
-        dist[5]  = mass.fluorescence_lines.FeKAlphaDistribution()
+        dist[1] = mass.fluorescence_lines.MnKAlphaDistribution()
+        dist[2] = mass.fluorescence_lines.MnKBetaDistribution()
+        dist[3] = mass.fluorescence_lines.CuKAlphaDistribution()
+        dist[4] = mass.fluorescence_lines.TiKAlphaDistribution()
+        dist[5] = mass.fluorescence_lines.FeKAlphaDistribution()
         dist[1].distribution.set_gauss_fwhm(4)
         dist[2].distribution.set_gauss_fwhm(4)
         dist[3].distribution.set_gauss_fwhm(5)
         dist[4].distribution.set_gauss_fwhm(3)
         dist[5].distribution.set_gauss_fwhm(4)
-        e =[]
+        e = []
         for (k, v) in spect.items():
             sampler = dist[k]
             e.extend(sampler.rvs(size=num_samples[k]))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
-        smoothing_res_ph=20
+        smoothing_res_ph = 20
         lm, _lm_heights = find_local_maxima(ph, smoothing_res_ph)
         line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
 
@@ -101,8 +102,9 @@ class TestAlgorithms(unittest.TestCase):
         binsize_ev = 1.0
         fitters = multifit(ph, line_names, fit_lo_hi, np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
 
-        line_names_2 = ["MnKAlpha", "MnKBeta", "CuKAlpha", mass.calibration.STANDARD_FEATURES["TiKAlpha"], "FeKAlpha"]
-        fitters2 = multifit(ph, line_names_2, fit_lo_hi, np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
+        line_names_2 = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
+        fitters2 = multifit(ph, line_names_2, fit_lo_hi,
+                            np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
 
     def test_autocal(self):
         # generate pulseheights from known spectrum
@@ -119,11 +121,11 @@ class TestAlgorithms(unittest.TestCase):
         spect[4].set_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha()
         spect[5].set_gauss_fwhm(6)
-        dist[1]  = mass.fluorescence_lines.MnKAlphaDistribution()
-        dist[2]  = mass.fluorescence_lines.MnKBetaDistribution()
-        dist[3]  = mass.fluorescence_lines.CuKAlphaDistribution()
-        dist[4]  = mass.fluorescence_lines.TiKAlphaDistribution()
-        dist[5]  = mass.fluorescence_lines.FeKAlphaDistribution()
+        dist[1] = mass.fluorescence_lines.MnKAlphaDistribution()
+        dist[2] = mass.fluorescence_lines.MnKBetaDistribution()
+        dist[3] = mass.fluorescence_lines.CuKAlphaDistribution()
+        dist[4] = mass.fluorescence_lines.TiKAlphaDistribution()
+        dist[5] = mass.fluorescence_lines.FeKAlphaDistribution()
         dist[1].distribution.set_gauss_fwhm(4)
         dist[2].distribution.set_gauss_fwhm(4)
         dist[3].distribution.set_gauss_fwhm(5)
