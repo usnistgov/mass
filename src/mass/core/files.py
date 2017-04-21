@@ -101,7 +101,7 @@ class VirtualFile(MicrocalFile):
         self.nSamples = data.shape[1]
         self.nPulses = data.shape[0]
         self.nPresamples = presamples
-        self.filename = "virtual file"
+        self.filename = "virtual_file_chan1.vtf"
         self.n_segments = 1
         self.pulses_per_seg = self.nPulses
         self.segmentsize = self.pulses_per_seg * self.nSamples * 2

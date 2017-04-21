@@ -50,7 +50,7 @@ class FakeDataGenerator(object):
             self.model = model_peak * self.model/self.model.max()
 
     def _generate_virtual_file(self, n_pulses, distributions=None,
-                               distribution_weights=None, rate=1.0):
+                               distribution_weights=None, rate=1.0, channum=1):
         """Return a VirtualFile object with random pulses.
 
         n_pulses      number of pulses to put in the "file"
@@ -80,6 +80,7 @@ class FakeDataGenerator(object):
             data[i, :] = self.model*scale[i] + self.pretrig_level + \
                         0.5+np.random.standard_normal(self.n_samples)*self.white_noise
         vfile = VirtualFile(data, times=pulse_times)
+        vfile.filename = "virtual_file_chan%d.vtf" % channum
         vfile.timebase = self.sample_time_us/1e6
         vfile.nPresamples = self.n_presamples
         return vfile

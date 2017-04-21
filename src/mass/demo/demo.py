@@ -16,6 +16,9 @@ import pylab as plt
 import mass
 import mass.calibration.fluorescence_lines
 
+wasinteractive = plt.isinteractive()  # So we can go back to initial state later
+plt.ion()
+
 
 def generate_mnkalphabeta_data(
           sample_time_us=10.24,
@@ -46,9 +49,6 @@ print("generating fake data.")
 # <demo> --- stop ---
 
 # A simple demonstration of how to use MASS
-
-wasinteractive = plt.isinteractive()  # So we can go back to initial state later
-plt.ion()
 
 sample_time_us = 10.24
 n_samples = 2048        # samples in each data record
