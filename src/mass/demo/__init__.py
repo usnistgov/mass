@@ -20,11 +20,11 @@ __all__ = []
 
 this_dir, this_file = os.path.split(__file__)
 
-demo_files = ['demo.py', 'fitting_demo.py']
+demo_files = ('demo.py', 'fitting_demo.py')
 
 
 def fullpath(f):
-    os.path.join(this_dir, f)
+    return os.path.join(this_dir, f)
 
 demos = {}
 for f in demo_files:
