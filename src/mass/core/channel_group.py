@@ -899,8 +899,12 @@ class TESGroup(CutFieldMixin):
         if first >= self.n_channels:
             raise ValueError("First channel must be less than %d" % self.n_channels)
         nplot = min(end - first, 16)
+        if nplot == 0:
+            return
+        nrow = int(0.5+(nplot/2.0)**0.5)
+        ncol = 1+((nplot-1)//nrow)
         for i, ds in enumerate(self.datasets[first:first + nplot]):
-            ax1 = plt.subplot(nplot//2, 2, 1 + i)
+            ax1 = plt.subplot(nrow, ncol, 1 + i)
             ax1.set_title("chan %d signal" % ds.channum)
             for ax in (ax1, ):
                 ax.set_xlim([0, self.nSamples])
