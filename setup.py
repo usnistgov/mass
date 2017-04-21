@@ -27,6 +27,25 @@ def parse_version_number(VERSIONFILE=None):
 MASS_VERSION = parse_version_number()
 
 
+def generate_sourceroot_file():
+    "We need a file to point back to the root of the source directory"
+
+    root = os.path.dirname(os.path.abspath(__file__))
+    code = """
+# An auto-generated file. DO NOT EDIT!
+
+import os.path
+
+sourceroot = '%s'
+
+def source_file(item=""):
+    '''A function to remember the directory from which mass was installed.'''
+    return os.path.join(sourceroot, item)
+""" % root
+    with open("src/mass/demo/sourceroot.py","w") as fp:
+        fp.write(code)
+
+
 class QtBuilder(basic_build):
     """Subclass the usual distutils builder so that it can convert Qt Designer files
     *.ui and *.rc to python files."""
@@ -73,6 +92,8 @@ if __name__ == "__main__":
 
     from setuptools import setup
     from setuptools.extension import Extension
+
+    generate_sourceroot_file()
 
     setup(name='mass',
           version=MASS_VERSION,

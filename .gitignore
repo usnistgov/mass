@@ -30,3 +30,4 @@ src/mass/core/*.c
 src/mass/core/*.html
 src/mass/mathstat/*.c
 src/mass/mathstat/*.html
+src/mass/demo/sourceroot.py
