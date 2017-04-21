@@ -79,8 +79,12 @@ class TESGroupHDF5(channel_group.TESGroup):
 
     def fix_timestamps(self):
         """Mass expects p_timestamp to have units of seconds and be a float, sometimes we save microsecond units ints.
-        This is a way to give matter what it expects."""
+        This is a way to give mass what it expects."""
         for ds in self:
             grp = ds.hdf5_group
             if "timestamp_posix_usec" in grp:
                 ds.p_timestamp = grp["timestamp_posix_usec"][:]*1e-6
+
+    def __repr__(self):
+        return "{0:s}(hdf5_file={1:s})".format(self.__class__.__name__,
+                                                            os.path.realpath(self.hdf5_file.filename))
