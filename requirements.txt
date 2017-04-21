@@ -3,6 +3,6 @@ scipy
 matplotlib
 Cython
 pandas
-statsmodels
+statsmodels>=0.8.0
 scikit-learn
-h5py
+h5py>=2.7
