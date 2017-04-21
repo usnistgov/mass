@@ -20,7 +20,8 @@ from . import sourceroot
 
 this_dir, this_file = os.path.split(__file__)
 
-demo_files = ('demo.py', 'fitting_demo.py')
+demo_files = ('intro.py', 'fitting_demo.py')
+# fake_data_demo exists but is broken
 
 
 def fullpath(f):

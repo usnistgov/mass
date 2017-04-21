@@ -49,6 +49,8 @@ print("generating fake data.")
 # <demo> --- stop ---
 
 # A simple demonstration of how to use MASS
+# WARNING: As of April 2017, THIS IS BROKEN!
+# Use intro.py instead.
 
 sample_time_us = 10.24
 n_samples = 2048        # samples in each data record
