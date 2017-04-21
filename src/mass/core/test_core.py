@@ -26,7 +26,7 @@ class TestFilenameHandling(ut.TestCase):
         self.assertEqual(1, mcg._extract_channum("dummy_chan1.ljh"))
         self.assertEqual(101, mcg._extract_channum("dummy_chan101.ljh"))
         self.assertEqual(101, mcg._extract_channum("path/to/file/dummy_chan101.ljh"))
-        self.assertEqual(101, mcg._extract_channum("path/to/file/dummy_chan101.ljh.saved/pointless_subdir"))
+        self.assertEqual(101, mcg._extract_channum("path/to/file/dummy_chan101.other_suffix"))
 
     def test_remove_unmatched_channums(self):
         fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
@@ -158,6 +158,14 @@ class TestTESGroup(ut.TestCase):
         ds = data.first_good_dataset
         self.assertLess(ds.cuts.good().sum(), ds.nPulses)
 
+    def test_plot_filters(self):
+        "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
+        data = self.load_data()
+        data.channel[1]._use_new_filters = False  # Not enough pulses for new filters.
+        data.avg_pulses_auto_masks()
+        data.compute_noise_spectra()
+        data.compute_filters()
+        data.plot_filters()
 
 
 class TestTESHDF5Only(ut.TestCase):
