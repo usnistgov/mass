@@ -1126,7 +1126,7 @@ class MicrocalDataSet(object):
         """
 
         # Convert "uncut" or "cut" to array of all good or all bad data
-        if isinstance(valid, str):
+        if isinstance(valid, basestring):
             if "uncut" in valid.lower():
                 valid = self.cuts.good()
                 status = "Plotting only uncut data"
