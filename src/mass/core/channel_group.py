@@ -16,6 +16,7 @@ from collections import Iterable
 from functools import reduce
 import glob
 import os
+import re
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -115,7 +116,9 @@ class TESGroup(CutFieldMixin):
         if noise_only and noise_filenames is None:
             filenames, noise_filenames = (), filenames
 
-        # Handle the case that either filename list is a glob pattern (e.g., "files_chan*.ljh")
+        # Handle the case that either filename list is a glob pattern (e.g.,
+        # "files_chan*.ljh"). Note that this will return a list, never a string,
+        # even if there is only one result from the pattern matching.
         filenames = _glob_expand(filenames)
         noise_filenames = _glob_expand(noise_filenames)
 
@@ -136,7 +139,7 @@ class TESGroup(CutFieldMixin):
             self.hdf5_file = None
         else:
             # Convert a single filename to a tuple of size one
-            if isinstance(filenames, str):
+            if isinstance(filenames, basestring):
                 filenames = (filenames,)
             self.filenames = tuple(filenames)
             self.n_channels = len(self.filenames)
@@ -149,7 +152,7 @@ class TESGroup(CutFieldMixin):
         self.noise_filenames = None
         self.hdf5_noisefile = None
         if noise_filenames is not None:
-            if isinstance(noise_filenames, str):
+            if isinstance(noise_filenames, basestring):
                 noise_filenames = (noise_filenames,)
             self.noise_filenames = noise_filenames
             self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'a')
@@ -365,8 +368,8 @@ class TESGroup(CutFieldMixin):
             *args  Arguments to this function are integers or containers of integers.  Each
                 integer is added to the bad-channels list."""
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args
-                                    if not isinstance(x, str)])
-        comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, str)], '')
+                                    if not isinstance(x, basestring)])
+        comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, basestring)], '')
 
         for channum in added_to_list:
             new_comment = self._bad_channums.get(channum, []) + [comment]
@@ -645,7 +648,7 @@ class TESGroup(CutFieldMixin):
         for i, (channum, ds) in enumerate(zip(channel_numbers, datasets)):
 
             # Convert "uncut" or "cut" to array of all good or all bad data
-            if isinstance(valid, str):
+            if isinstance(valid, basestring):
                 if "uncut" in valid.lower():
                     valid_mask = ds.cuts.good()
                     LOG.info("Plotting only uncut data"),
@@ -1201,7 +1204,15 @@ class TESGroup(CutFieldMixin):
 
 
 def _extract_channum(name):
-    return int(name.split('_chan')[1].split(".")[0])
+    """Return the channel number as an int. Find it by the pattern in the file's
+    base name of 'blahblah_chan15.suffix'."""
+    basename = os.path.basename(name)
+    rexp = r".*_chan(?P<channum>[0-9]+)\."
+    m = re.search(rexp, basename)
+    if m is None:
+        print "Could not parse %s" % basename
+        return 0
+    return int(m.group("channum"))
 
 
 def _remove_unmatched_channums(filenames1, filenames2, never_use=None, use_only=None):
@@ -1216,6 +1227,8 @@ def _remove_unmatched_channums(filenames1, filenames2, never_use=None, use_only=
     if filenames1 is None or len(filenames1) == 0 \
             or filenames2 is None or len(filenames2) == 0:
         return
+    assert isinstance(filenames1, list)
+    assert isinstance(filenames2, list)
 
     # Now make a mapping of channel numbers to names.
     names1 = {_extract_channum(f): f for f in filenames1}
@@ -1256,7 +1269,7 @@ def _glob_expand(pattern):
     """If `pattern` is a string, treat it as a glob pattern and return the glob-result
     as a list. If it isn't a string, return it unchanged (presumably then it's already
     a sequence)."""
-    if not isinstance(pattern, str):
+    if not isinstance(pattern, basestring):
         return pattern
 
     result = glob.glob(pattern)
