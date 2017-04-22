@@ -34,121 +34,101 @@ mass.plot_as_stepped_hist(axis, hist, bin_ctr)
 
 # <demo> stop
 
-# Now do a fit.  First we'll do it the most generic, powerful, and annoying way.
+# Now do a fit.  All fitters for spectral peaks in mass allow for a background having a
+# constant level plus a linear slope, and an energy-response function that is a Bortels
+# function. That is, a Gaussian convolved with the sum of a delta function and a one-sided
+# exponential tail to low energies. The parameters are:
+# 0 - Gaussian resolution (FWHM)
+# 1 - Pulse height (x-value) of the line peak
+# 2 - Amplitude (y-value) of the line peak
+# 3 - Mean background counts per bin
+# 4 - Background slope (counts per bin per bin)  FIXED
+# 5 - Low-energy tail fraction (0 <= f <= 1)     FIXED
+# 6 - Low-energy tail scale length               FIXED
+#
+# Notice that the x-units are whatever you find convenient and need not be energy units.
+# But of course the resolution (param 0) and the tail scale length (param 6) are in the
+# same units as the x-value of the peak (param 1).
+#
+# Parameters 4, 5, and 6 are marked FIXED, because they are fixed by default. Soon we'll
+# let them very.
 
-# I don't particularly recommend it, but if you require a SLOPED background,
-# it's the only way to go (for now).
-
-# It's not easy to plot the fitted model.  Also, notice that it requires you
-# to make initial guesses for the parameters.  Parameters are, in order:
-# [FWHM, Centroid, Peak Value, Const BG Level, BG slope]
-# The last is optional and can be left off
-
-guess_params = [fwhm, mu, hist.max(), 0]
-fitter = mass.fitting.MaximumLikelihoodGaussianFitter(bin_ctr, hist, guess_params)
-params, covariance = fitter.fit()
+fitter = mass.GaussianFitter()
+guess_params = [fwhm, mu, hist.max(), 0, 0, 0.0, 25]
+params, covariance = fitter.fit(hist, bin_ctr, guess_params)
 for i, gp in enumerate(guess_params):
     print("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
           (i, gp, params[i], covariance[i, i]**.5))
 
 # Compute the model function and plot it in red.
-model = fitter.theory_function(params, bin_ctr)
+model = fitter.last_fit_result
 plt.plot(bin_ctr, model, 'r')
 
 # <demo> stop
-# I said the mass.fitting.MaximumLikelihoodGaussianFitter method is annoying but
-# powerful.  Let's see the power.
-
-# We'll repeat that fit 3 ways: (1) with zero background, (2) just like before,
+# We'll repeat the fit 3 ways: (1) with zero background, (2) just like before,
 # with a constant background, and finally (3) with a sloped linear background.
-# To make it interesting, let's add a Poisson background of 2 counts per bin.
+# To make it interesting, let's add a Poisson background of 12 counts per bin.
 # Note that we get a poor fit when there IS a background but we don't let it be fit for,
 # as in fit (1) here.
 
-hist += np.random.poisson(lam=2.0, size=len(hist))
+hist += np.random.poisson(lam=12.0, size=len(hist))
 
 plt.clf()
 axis = plt.subplot(111)
 mass.plot_as_stepped_hist(axis, hist, bin_ctr, color='blue')
 
-guess_params = [fwhm, mu, hist.max()]
 color = 'red', 'gold', 'green'
 title = 'No BG', 'Constant BG', 'Sloped BG'
 print('True parameter values: FWHM=%.4f Ctr=%.4f' % (fwhm, mu))
 for nbg in (0, 1, 2):
-    if nbg == 1 or nbg == 2:
-        guess_params.append(0)
-    fitter = mass.fitting.MaximumLikelihoodGaussianFitter(bin_ctr, hist, guess_params)
-    params, covariance = fitter.fit()
+    vary_bg_slope = (nbg == 2)
+    hold = []
+    if nbg == 0:
+        hold.append(fitter.param_meaning["background"])
+    else:
+        guess_params[3] = 12.0
+    params, covariance = fitter.fit(hist, bin_ctr, guess_params, hold=hold,
+                                    plot=False, vary_bg_slope=vary_bg_slope)
     print("Model: %s" % title[nbg])
-    for i, gp in enumerate(guess_params):
+    for i, gp in enumerate(guess_params[:5]):
         print("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
               (i, gp, params[i], covariance[i, i]**.5))
     print
 
     # Compute the model function and plot it in red.
-    model = fitter.theory_function(params, bin_ctr)
-    plt.plot(bin_ctr, model, color=color[nbg], label=title[nbg])
+    plt.plot(bin_ctr, fitter.last_fit_result, color=color[nbg], label=title[nbg])
 plt.legend()
 
 # <demo> stop
-# Fine, that was the more powerful way, which you will probably never use.
-# (If you need to use it with the sloped background a lot, then talk to me,
-# and we will see if we can fit sloped BG into the simpler approach.)
 
-# Here's the simpler, more usual way.
-# We'll generate a new set of Gaussian random numbers, histogram them, and fit.
+# Now let's generate data from a Lorentzian (Cauchy) distribution and fit with a
+# VoigtFitter. (A Voigt function is the convolution of a Lorentzian and a Gaussian).
+# First, freeze the Gaussian component to a width of 1e-6 (0 causes errors), to get
+# a Lorentzian fit.
 
-# These three lines are a repeat of what you saw earlier in this demo.
-d = np.random.standard_normal(size=N)*sigma + mu
-hist, bin_edges = np.histogram(d, 100, [mu-4*sigma, mu+4*sigma])
+mu, fullwidth = 100.0, 6.0
+dc = np.random.standard_cauchy(size=N)*fullwidth*0.5 + mu
+histc, bin_edges = np.histogram(dc, 200, [mu-10-4*fullwidth, mu+10+4*fullwidth])
 bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
-# Now fit the smooth way.
-fitter = mass.GaussianFitter()
-params, covariance = fitter.fit(hist, bin_ctr, plot=True)
-true_params = [FWHM_SIGMA_RATIO*sigma, mu, N*(bin_edges[1]-bin_edges[0])/sigma/(2*np.pi)**0.5, 0]
-for i, tp in enumerate(true_params):
-    print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, tp, params[i], covariance[i, i]**.5))
-# <demo> stop
-
-# Now let's generate data from a Lorentzian (Cauchy) distribution
-mu, sigma = 100.0, 3.0
-dc = np.random.standard_cauchy(size=N)+mu
-histc, bin_edges = np.histogram(dc, 200, [mu-10-4*sigma, mu+10+4*sigma])
-bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
-
-# First, fit a Lorentzian to the Lorentzian data
-fitter = mass.calibration.fluorescence_lines.LorentzianFitter()
-params, covariance = fitter.fit(histc, bin_ctr, plot=True)
-true_params = [mu, 1.0, N*(bin_edges[1]-bin_edges[0])]
+# Fit a Lorentzian to the Lorentzian data
+fitter = mass.calibration.VoigtFitter()
+true_params = [1e-6, mu, fullwidth, histc.max(), 0.0, 0.0, 0.0, 25]
+params, covariance = fitter.fit(histc, bin_ctr, true_params, hold=(0,), plot=True)
 for i, tp in enumerate(true_params):
     print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
           (i, tp, params[i], covariance[i, i]**.5))
 
-# Notice that we could have used the VoigtFitter, and it would probably work.
-# By choosing the Lorentzian fitter, we insist that the Gaussian smearing = 0.
-# (You could use the VoigtFitter's hold=[0] or vary_resolution=False arguments
-# to accomplish the same thing, of course.)
-# <demo> stop
-
-# Now try the general Voigt fitter, even though the Gaussian smearing is zero.
-fitter = mass.calibration.fluorescence_lines.VoigtFitter()
-params, covariance = fitter.fit(histc, bin_ctr, plot=True)
-true_params = [0, mu, 1.0, N*(bin_edges[1]-bin_edges[0])]
-for i, tp in enumerate(true_params):
-    print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, tp, params[i], covariance[i, i]**.5))
 # <demo> stop
 
 # Finally, put real Gaussian smearing on the data and use the Voigt fitter again.
+sigma = 3.0
 dv = dc + np.random.standard_normal(size=N)*sigma
-histv, bin_edges = np.histogram(dv, 100, [mu-10-4*sigma, mu+10+4*sigma])
+histv, bin_edges = np.histogram(dv, 200, [mu-10-4*fullwidth, mu+10+4*fullwidth])
 bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
-params, covariance = fitter.fit(histv, bin_ctr, plot=True)
-true_params = [FWHM_SIGMA_RATIO*sigma, mu, 1.0, N*(bin_edges[1]-bin_edges[0])/sigma/(2*np.pi)**0.5]
+true_params[0] = sigma*2.3548
+params, covariance = fitter.fit(histv, bin_ctr, true_params, plot=True)
 for i, tp in enumerate(true_params):
     print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
           (i, tp, params[i], covariance[i, i]**.5))
@@ -157,7 +137,7 @@ for i, tp in enumerate(true_params):
 
 # Now let's fit two Voigt functions.
 N1, N2, Nbg = 3000, 2000, 1000
-mu1, mu2, sigma = 100.0, 105.0, 0.5
+mu1, mu2, sigma = 100.0, 105.0, 0.8
 dc1 = np.random.standard_cauchy(size=N1)+mu1
 dc2 = np.random.standard_cauchy(size=N2)+mu2
 dc = np.hstack([dc1, dc2])
@@ -166,11 +146,14 @@ dc += np.random.standard_normal(size=N1+N2)*sigma
 histc, bin_edges = np.histogram(dc, 200, [mu1-10-4*sigma, mu2+10+4*sigma])
 bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
-fitter = mass.calibration.fluorescence_lines.TwoVoigtFitter()
-param_guess = np.array([sigma*2.3548, mu1, 1, N1, mu2, 1, N2, .1])
+fitter = mass.calibration.NVoigtFitter(2)
+true_params = np.array([sigma*2.3548, mu1, 2, N1*.15, mu2, 2, N2*.15, .1, 0, 0, 25])
 # Those are the correct values.  Let's mess with them by 3% (more or less):
-param_guess *= 1+np.random.standard_normal(8)*0.03
+param_guess = true_params * 1+np.random.standard_normal(11)*0.03
 
-params, covar = fitter.fit(histc, bin_edges[:-1]+0.5*(bin_edges[1]-bin_edges[0]), params=param_guess)
-print(params)
-print(covar.diagonal()**0.5)
+params, covariance = fitter.fit(histc, bin_ctr, param_guess)
+for i, tp in enumerate(true_params):
+    print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
+          (i, tp, params[i], covariance[i, i]**.5))
+
+# See demo "fitting_fluorescence.py" for examples of fluorescence line shapes.
