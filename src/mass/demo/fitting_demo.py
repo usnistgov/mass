@@ -156,4 +156,7 @@ for i, tp in enumerate(true_params):
     print("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
           (i, tp, params[i], covariance[i, i]**.5))
 
+if not wasinteractive:
+    plt.ioff()
+
 # See demo "fitting_fluorescence.py" for examples of fluorescence line shapes.
