@@ -30,7 +30,8 @@ def ljh_basename(fname):
 
 def ljh_chan_names(fname, chans):
     basename, chan = ljh_basename(fname)
-    return [basename+"_chan%d.ljh" % chan for chan in chans]
+    ext = path.splitext(fname)[1]
+    return [basename+"_chan%d%s"%(chan,ext) for chan in chans]
 
 
 def ljh_get_aux_fname(fname):
