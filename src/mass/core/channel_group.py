@@ -826,9 +826,9 @@ class TESGroup(CutFieldMixin):
                 continue
             ds = self.channel[channum]
             plt.plot(dt, ds.average_pulse, label="Chan %d" % ds.channum,
-                     color=cmap(float(ds_num) / len(channels))
+                     color=cmap(float(ds_num) / len(channels)))
 
-        axis.set_title("Average pulse for each channel when it is hit")
+        plt.title("Average pulse for each channel when it is hit")
 
         plt.xlabel("Time past trigger (ms)")
         plt.ylabel("Raw counts")
@@ -900,25 +900,38 @@ class TESGroup(CutFieldMixin):
                             ds.filter.predicted_v_over_dv[name] = \
                                 h5grp[name].attrs['predicted_v_over_dv']
 
-    def plot_filters(self, first=0, end=-1, filtname="filt_noconst"):
-        """Plot the filters from <first> through <end>-1.  By default, plots all filters,
-        except that the maximum number is 16.  Panels show the Fourier and time-domain
-        X-ray energy filters.
+    def plot_filters(self, axis=None, channels=None, cmap=None,
+                     filtname="filt_noconst", legend=True):
+        """Compare the optimal filters.
+
+        <channels>    Sequence of channels to display.  If None, then show all.
         """
-        plt.clf()
-        if end <= first:
-            end = self.n_channels
-        if first >= self.n_channels:
-            raise ValueError("First channel must be less than %d" % self.n_channels)
-        nplot = min(end - first, 16)
-        for i, ds in enumerate(self.datasets[first:first + nplot]):
-            ax1 = plt.subplot(nplot//2, 2, 1 + i)
-            ax1.set_title("chan %d signal" % ds.channum)
-            for ax in (ax1, ):
-                ax.set_xlim([0, self.nSamples])
-                if hasattr(ds, 'filter'):
-                    ds.filter.plot(ax1, filtname=filtname)
-        plt.show()
+
+        if axis is None:
+            plt.clf()
+            axis = plt.subplot(111)
+
+        if channels is None:
+            channels = list(self.channel.keys())
+            channels.sort()
+
+        if cmap is None:
+            cmap = plt.cm.get_cmap("spectral")
+
+        axis.grid(True)
+        for ds_num, channum in enumerate(channels):
+            if channum not in self.channel:
+                continue
+            ds = self.channel[channum]
+            plt.plot(ds.filter.__dict__[filtname], label="Chan %d" % channum,
+                     color=cmap(float(ds_num) / len(channels)))
+
+        plt.xlabel("Sample number")
+        if legend:
+            plt.legend(loc='best')
+            if len(channels) > 12:
+                ltext = axis.get_legend().get_texts()
+                plt.setp(ltext, fontsize='small')
 
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
         rms_fwhm = np.sqrt(np.log(2) * 8)  # FWHM is this much times the RMS
@@ -983,8 +996,8 @@ class TESGroup(CutFieldMixin):
             ds = self.channel[channum]
             noise = ds.noise_records
             noise.plot_autocorrelation(axis=axis, label='Chan %d' % channum,
-                      color=cmap(float(ds_num) / len(channels))
-        axis.set_xlabel("Time lag (ms)")
+                      color=cmap(float(ds_num) / len(channels)))
+        plt.xlabel("Time lag (ms)")
         if legend:
             plt.legend(loc='best')
             if len(channels) > 12:
