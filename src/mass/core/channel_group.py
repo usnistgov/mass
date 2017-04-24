@@ -15,9 +15,11 @@ Started March 2, 2011
 from collections import Iterable
 from functools import reduce
 import os
+from cycler import cycler
 
 import numpy as np
 import matplotlib.pylab as plt
+import palettable
 import h5py
 
 import mass.core.analysis_algorithms
@@ -803,14 +805,15 @@ class TESGroup(CutFieldMixin):
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
     def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
-        """Plot average pulse for cahannel number <channum> on matplotlib.Axes <axis>, or
+        """Plot average pulse for channel number <channum> on matplotlib.Axes <axis>, or
         on a new Axes if <axis> is None.  If <channum> is not a valid channel
         number, then plot all average pulses."""
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
 
-        axis.set_color_cycle(self.colors)
+        cmap = palettable.colorbrewer.diverging.Spectral_10
+        axis.set_prop_cycle(cycler("color", cmap.hex_colors))
         dt = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e3
 
         if channum in self.channel:
