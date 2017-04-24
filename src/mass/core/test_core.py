@@ -9,6 +9,7 @@ import unittest as ut
 import mass
 import mass.core.channel_group as mcg
 from mass.core.files import *
+from mass.core.ljh_modify import *
 
 
 class TestFilenameHandling(ut.TestCase):
@@ -26,7 +27,7 @@ class TestFilenameHandling(ut.TestCase):
         self.assertEqual(1, mcg._extract_channum("dummy_chan1.ljh"))
         self.assertEqual(101, mcg._extract_channum("dummy_chan101.ljh"))
         self.assertEqual(101, mcg._extract_channum("path/to/file/dummy_chan101.ljh"))
-        self.assertEqual(101, mcg._extract_channum("path/to/file/dummy_chan101.ljh.saved/pointless_subdir"))
+        self.assertEqual(101, mcg._extract_channum("path/to/file/dummy_chan101.other_suffix"))
 
     def test_remove_unmatched_channums(self):
         fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]

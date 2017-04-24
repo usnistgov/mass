@@ -1,6 +1,14 @@
+"""
+Functions ljh_copy_traces and ljh_append_traces and class LJHModify, all of
+which can modify existing LJH files.
+"""
+
 import numpy as np
 import os
-import mass.core.files
+import struct
+import time
+
+from mass.core.files import LJHFile, make_ljh_header
 from mass.core.utilities import InlineUpdater
 from distutils.version import StrictVersion
 
@@ -38,7 +46,7 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
             raise ValueError("Output file '%s' exists. Call with overwrite=True to proceed anyway."
                              % output_filename)
 
-    infile = mass.core.files.LJHFile(input_filename)
+    infile = LJHFile(input_filename)
     outfile = open(output_filename, "wb")
 
     # Copy the header as a single string.
@@ -91,3 +99,62 @@ class callback_shift(object):
 
     def __call__(self, segdata):
         segdata += self.shift
+
+
+def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
+    """
+    Copy traces from one ljh file to another. The destination file is version 2.2.0.
+
+    Can be used to grab specific traces from some other ljh file, and put them into a new file
+
+    Parameters:
+    -------------
+    src_name  -- the name of the source file
+    dest_name -- the name of the destination file
+    pulses    -- indices of the pulses to copy
+    overwrite -- If the destination file exists and overwrite is not True, then the copy fails.
+    """
+
+    if os.path.exists(dest_name) and not overwrite:
+        raise IOError("The ljhfile '%s' exists and overwrite was not set to True" % dest_name)
+
+    src = LJHFile(src_name)
+
+    header_dict = src.__dict__.copy()
+    header_dict['asctime'] = time.asctime(time.gmtime())
+    header_dict['version_str'] = '2.2.0'
+    ljh_header = make_ljh_header(header_dict)
+
+    with open(dest_name, "wb") as dest_fp:
+        dest_fp.write(ljh_header)
+        for i in pulses:
+            trace = src.read_trace(i)
+            prefix = struct.pack('<Q', int(1))
+            dest_fp.write(prefix)
+            prefix = struct.pack('<Q', int(1244))
+            dest_fp.write(prefix)
+            trace.tofile(dest_fp, sep="")
+
+
+def ljh_append_traces(src_name, dest_name, pulses):
+    """
+    Append traces from one ljh file onto another. The destination file is assumed to be version 2.2.0.
+
+    Can be used to grab specific traces from some other ljh file, and append them onto an existing ljh file.
+
+    Parameters:
+    -------------
+    src_name  -- the name of the source file
+    dest_name -- the name of the destination file
+    pulses    -- indices of the pulses to copy
+    """
+
+    src = LJHFile(src_name)
+    with open(dest_name, "ab") as dest_fp:
+        for i in pulses:
+            trace = src.read_trace(i)
+            prefix = struct.pack('<Q', int(1))
+            dest_fp.write(prefix)
+            prefix = struct.pack('<Q', int(1244))
+            dest_fp.write(prefix)
+            trace.tofile(dest_fp, sep="")
