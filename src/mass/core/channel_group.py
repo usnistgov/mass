@@ -15,7 +15,6 @@ Started March 2, 2011
 from collections import Iterable
 from functools import reduce
 import os
-from cycler import cycler
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -804,31 +803,41 @@ class TESGroup(CutFieldMixin):
                 continue
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
-    def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
+    def plot_average_pulses(self, axis=None, channels=None, cmap=None, legend=True):
         """Plot average pulse for channel number <channum> on matplotlib.Axes <axis>, or
         on a new Axes if <axis> is None.  If <channum> is not a valid channel
         number, then plot all average pulses."""
+
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
 
-        cmap = palettable.colorbrewer.diverging.Spectral_10
-        axis.set_prop_cycle(cycler("color", cmap.hex_colors))
+        if channels is None:
+            channels = list(self.channel.keys())
+            channels.sort()
+
+        if cmap is None:
+            cmap = plt.cm.get_cmap("spectral")
+
         dt = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e3
 
-        if channum in self.channel:
-            plt.plot(dt, self.channel[channum].average_pulse, label='Chan %d' % channum)
-        else:
-            for ds in self:
-                plt.plot(dt, ds.average_pulse, label="Chan %d" % ds.channum)
+        for ds_num, channum in enumerate(channels):
+            if channum not in self.channel:
+                continue
+            ds = self.channel[channum]
+            plt.plot(dt, ds.average_pulse, label="Chan %d" % ds.channum,
+                     color=cmap(float(ds_num) / len(channels))
 
         axis.set_title("Average pulse for each channel when it is hit")
 
         plt.xlabel("Time past trigger (ms)")
         plt.ylabel("Raw counts")
         plt.xlim([dt[0], dt[-1]])
-        if use_legend:
+        if legend:
             plt.legend(loc='best')
+            if len(channels) > 12:
+                ltext = axis.get_legend().get_texts()
+                plt.setp(ltext, fontsize='small')
 
     @show_progress("compute_filters")
     def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
@@ -956,28 +965,31 @@ class TESGroup(CutFieldMixin):
         <channels>    Sequence of channels to display.  If None, then show all.
         """
 
-        if channels is None:
-            channels = np.arange(self.n_channels)
-
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
+
+        if channels is None:
+            channels = list(self.channel.keys())
+            channels.sort()
 
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
 
         axis.grid(True)
-        for i, ds in enumerate(self.datasets):
-            if i not in channels:
+        for ds_num, channum in enumerate(channels):
+            if channum not in self.channel:
                 continue
+            ds = self.channel[channum]
             noise = ds.noise_records
-            noise.plot_autocorrelation(axis=axis, label='TES %d' % i,
-                                       color=cmap(float(i) / self.n_channels))
+            noise.plot_autocorrelation(axis=axis, label='Chan %d' % channum,
+                      color=cmap(float(ds_num) / len(channels))
         axis.set_xlabel("Time lag (ms)")
         if legend:
             plt.legend(loc='best')
-            ltext = axis.get_legend().get_texts()
-            plt.setp(ltext, fontsize='small')
+            if len(channels) > 12:
+                ltext = axis.get_legend().get_texts()
+                plt.setp(ltext, fontsize='small')
 
     def save_pulse_energies_ascii(self, filename='all'):
         filename += '.energies'
@@ -1030,8 +1042,8 @@ class TESGroup(CutFieldMixin):
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
 
-    def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False,
-                   cmap=None, legend=True):
+    def plot_noise(self, axis=None, channels=None, cmap=None, scale_factor=1.0,
+                   sqrt_psd=False, legend=True):
         """Compare the noise power spectra.
 
         <channels>    Sequence of channels to display.  If None, then show all.
@@ -1041,13 +1053,16 @@ class TESGroup(CutFieldMixin):
         `legend` -- Whether to plot the legend
         """
 
+        if axis is None:
+            plt.clf()
+            axis = plt.subplot(111)
+
         if channels is None:
             channels = list(self.channel.keys())
             channels.sort()
 
-        if axis is None:
-            plt.clf()
-            axis = plt.subplot(111)
+        if cmap is None:
+            cmap = plt.cm.get_cmap("spectral")
 
         if scale_factor == 1.0:
             units = "Counts"
@@ -1055,8 +1070,6 @@ class TESGroup(CutFieldMixin):
             units = "Scaled counts"
 
         axis.grid(True)
-        if cmap is None:
-            cmap = plt.cm.get_cmap("spectral")
         for ds_num, channum in enumerate(channels):
             if channum not in self.channel:
                 continue
@@ -1068,7 +1081,7 @@ class TESGroup(CutFieldMixin):
             try:
                 df = ds.noise_psd.attrs['delta_f']
                 freq = np.arange(1, 1 + len(yvalue)) * df
-                axis.plot(freq, yvalue, label='TES chan %d' % channum,
+                axis.plot(freq, yvalue, label='Chan %d' % channum,
                           color=cmap(float(ds_num) / len(channels)))
             except:
                 LOG.warn("WARNING: Could not plot channel %4d." % channum)
@@ -1078,8 +1091,9 @@ class TESGroup(CutFieldMixin):
         axis.loglog()
         if legend:
             plt.legend(loc='best')
-            ltext = axis.get_legend().get_texts()
-            plt.setp(ltext, fontsize='small')
+            if len(channels) > 12:
+                ltext = axis.get_legend().get_texts()
+                plt.setp(ltext, fontsize='small')
 
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         for ds in self:
