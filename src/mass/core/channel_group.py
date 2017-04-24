@@ -14,9 +14,7 @@ Started March 2, 2011
 """
 from collections import Iterable
 from functools import reduce
-import glob
 import os
-import re
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -31,6 +29,8 @@ from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater, show_progress
+from mass.core.ljh_util import remove_unpaired_channel_files, \
+    filename_glob_expand
 
 import logging
 LOG = logging.getLogger("mass")
@@ -119,12 +119,12 @@ class TESGroup(CutFieldMixin):
         # Handle the case that either filename list is a glob pattern (e.g.,
         # "files_chan*.ljh"). Note that this will return a list, never a string,
         # even if there is only one result from the pattern matching.
-        filenames = _glob_expand(filenames)
-        noise_filenames = _glob_expand(noise_filenames)
+        filenames = filename_glob_expand(filenames)
+        noise_filenames = filename_glob_expand(noise_filenames)
 
         # If using a glob pattern especially, we have to be careful to eliminate files that are
         # missing a partner, either noise without pulse or pulse without noise.
-        _remove_unmatched_channums(filenames, noise_filenames, never_use=never_use, use_only=use_only)
+        remove_unpaired_channel_files(filenames, noise_filenames, never_use=never_use, use_only=use_only)
 
         # Figure out where the 2 HDF5 files are to live, if the default argument
         # was given for their paths.
@@ -1201,91 +1201,6 @@ class TESGroup(CutFieldMixin):
         plt.ylabel("average trigger/s")
         plt.grid("on")
         plt.legend()
-
-
-def _extract_channum(name):
-    """Return the channel number as an int. Find it by the pattern in the file's
-    base name of 'blahblah_chan15.suffix'."""
-    basename = os.path.basename(name)
-    rexp = r".*_chan(?P<channum>[0-9]+)\."
-    m = re.search(rexp, basename)
-    if m is None:
-        print "Could not parse %s" % basename
-        return 0
-    return int(m.group("channum"))
-
-
-def _remove_unmatched_channums(filenames1, filenames2, never_use=None, use_only=None):
-    """Extract the channel number in the filenames appearing in both lists.
-    Remove from each list any file whose channel number doesn't appear on both lists.
-    Also remove any file whose channel number is in the `never_use` list.
-    If `use_only` is a sequence of channel numbers, use only the channels on that list.
-
-    If either `filenames1` or `filenames2` is empty, do nothing."""
-
-    # If one list is empty, then matching is not required or expected.
-    if filenames1 is None or len(filenames1) == 0 \
-            or filenames2 is None or len(filenames2) == 0:
-        return
-    assert isinstance(filenames1, list)
-    assert isinstance(filenames2, list)
-
-    # Now make a mapping of channel numbers to names.
-    names1 = {_extract_channum(f): f for f in filenames1}
-    names2 = {_extract_channum(f): f for f in filenames2}
-    cnum1 = set(names1.keys())
-    cnum2 = set(names2.keys())
-
-    # Find the set of valid channel numbers.
-    valid_cnum = cnum1.intersection(cnum2)
-    if never_use is not None:
-        valid_cnum -= set(never_use)
-    if use_only is not None:
-        valid_cnum = valid_cnum.intersection(set(use_only))
-
-    # Remove invalid channel numbers
-    for c in (cnum1-valid_cnum):
-        filenames1.remove(names1[c])
-    for c in (cnum2-valid_cnum):
-        filenames2.remove(names2[c])
-
-
-def _sort_filenames_numerically(fnames, inclusion_list=None):
-    """Take a sequence of filenames of the form '*_chanXXX.*'
-    and sort it according to the numerical value of channel number XXX.
-    If inclusion_list is not None, then it must be a container with the
-    channel numbers to be included in the output.
-    """
-    if fnames is None or len(fnames) == 0:
-        return None
-
-    if inclusion_list is not None:
-        fnames = filter(lambda n: _extract_channum(n) in inclusion_list, fnames)
-
-    return sorted(fnames, key=_extract_channum)
-
-
-def _glob_expand(pattern):
-    """If `pattern` is a string, treat it as a glob pattern and return the glob-result
-    as a list. If it isn't a string, return it unchanged (presumably then it's already
-    a sequence)."""
-    if not isinstance(pattern, basestring):
-        return pattern
-
-    result = glob.glob(pattern)
-    return _sort_filenames_numerically(result)
-
-
-def _replace_path(fnames, newpath):
-    """Take a sequence of filenames <fnames> and replace the directories leading to each
-    with <newpath>"""
-    if fnames is None or len(fnames) == 0:
-        return None
-    result = []
-    for f in fnames:
-        _, name = os.path.split(f)
-        result.append(os.path.join(newpath, name))
-    return result
 
 
 class CrosstalkVeto(object):
