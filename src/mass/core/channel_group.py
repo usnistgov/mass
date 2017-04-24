@@ -1301,7 +1301,6 @@ class CrosstalkVeto(object):
         self.window_ms = window_ms
         self.n_channels = datagroup.n_channels
         self.n_pulses = datagroup.nPulses
-#        self.veto = np.zeros((self.n_channels, self.n_pulses), dtype=np.bool8)
 
         ms0 = np.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min() * 1e3 + window_ms[0]
         ms9 = np.array([ds.p_timestamp[-1] for ds in datagroup.datasets]).max() * 1e3 + window_ms[1]
