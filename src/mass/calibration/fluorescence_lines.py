@@ -27,6 +27,8 @@ November 24, 2010 : started as mn_kalpha.py
 import numpy as np
 import scipy as sp
 import pylab as plt
+import palettable
+from cycler import cycler
 
 from mass.mathstat.special import voigt
 
@@ -733,8 +735,11 @@ def plot_spectrum(spectrum=MnKAlpha(),
     yvalue = spectrum(e)
     yvalue /= yvalue.max()
     plt.plot(e, yvalue, color='black', lw=2, label=' 0 eV')
-    axis.set_color_cycle(('red', 'orange', '#bbbb00', 'green', 'cyan',
-                          'blue', 'indigo', 'purple', 'brown'))
+
+    ncolors = max(3,min(len(resolutions), 11))
+    cmap = palettable.colorbrewer.diverging.__dict__["Spectral_%d" % ncolors]
+    axis.set_prop_cycle(cycler("color", cmap.hex_colors))
+
     for res in resolutions:
         spectrum.set_gauss_fwhm(res)
         smeared_spectrum = spectrum(e)

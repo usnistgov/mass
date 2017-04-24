@@ -14,12 +14,12 @@ Started March 2, 2011
 """
 from collections import Iterable
 from functools import reduce
-import glob
 import os
 import re
 
 import numpy as np
 import matplotlib.pylab as plt
+import palettable
 import h5py
 
 import mass.core.analysis_algorithms
@@ -31,6 +31,8 @@ from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
 from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater, show_progress
+from mass.core.ljh_util import remove_unpaired_channel_files, \
+    filename_glob_expand
 
 import logging
 LOG = logging.getLogger("mass")
@@ -119,12 +121,12 @@ class TESGroup(CutFieldMixin):
         # Handle the case that either filename list is a glob pattern (e.g.,
         # "files_chan*.ljh"). Note that this will return a list, never a string,
         # even if there is only one result from the pattern matching.
-        filenames = _glob_expand(filenames)
-        noise_filenames = _glob_expand(noise_filenames)
+        filenames = filename_glob_expand(filenames)
+        noise_filenames = filename_glob_expand(noise_filenames)
 
         # If using a glob pattern especially, we have to be careful to eliminate files that are
         # missing a partner, either noise without pulse or pulse without noise.
-        _remove_unmatched_channums(filenames, noise_filenames, never_use=never_use, use_only=use_only)
+        remove_unpaired_channel_files(filenames, noise_filenames, never_use=never_use, use_only=use_only)
 
         # Figure out where the 2 HDF5 files are to live, if the default argument
         # was given for their paths.
@@ -802,30 +804,41 @@ class TESGroup(CutFieldMixin):
                 continue
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
-    def plot_average_pulses(self, channum=None, axis=None, use_legend=True):
-        """Plot average pulse for cahannel number <channum> on matplotlib.Axes <axis>, or
+    def plot_average_pulses(self, axis=None, channels=None, cmap=None, legend=True):
+        """Plot average pulse for channel number <channum> on matplotlib.Axes <axis>, or
         on a new Axes if <axis> is None.  If <channum> is not a valid channel
         number, then plot all average pulses."""
+
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
 
-        axis.set_color_cycle(self.colors)
+        if channels is None:
+            channels = list(self.channel.keys())
+            channels.sort()
+
+        if cmap is None:
+            cmap = plt.cm.get_cmap("spectral")
+
         dt = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e3
 
-        if channum in self.channel:
-            plt.plot(dt, self.channel[channum].average_pulse, label='Chan %d' % channum)
-        else:
-            for ds in self:
-                plt.plot(dt, ds.average_pulse, label="Chan %d" % ds.channum)
+        for ds_num, channum in enumerate(channels):
+            if channum not in self.channel:
+                continue
+            ds = self.channel[channum]
+            plt.plot(dt, ds.average_pulse, label="Chan %d" % ds.channum,
+                     color=cmap(float(ds_num) / len(channels)))
 
-        axis.set_title("Average pulse for each channel when it is hit")
+        plt.title("Average pulse for each channel when it is hit")
 
         plt.xlabel("Time past trigger (ms)")
         plt.ylabel("Raw counts")
         plt.xlim([dt[0], dt[-1]])
-        if use_legend:
+        if legend:
             plt.legend(loc='best')
+            if len(channels) > 12:
+                ltext = axis.get_legend().get_texts()
+                plt.setp(ltext, fontsize='small')
 
     @show_progress("compute_filters")
     def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
@@ -888,29 +901,38 @@ class TESGroup(CutFieldMixin):
                             ds.filter.predicted_v_over_dv[name] = \
                                 h5grp[name].attrs['predicted_v_over_dv']
 
-    def plot_filters(self, first=0, end=-1, filtname="filt_noconst"):
-        """Plot the filters from <first> through <end>-1.  By default, plots all filters,
-        except that the maximum number is 16.  Panels show the Fourier and time-domain
-        X-ray energy filters.
+    def plot_filters(self, axis=None, channels=None, cmap=None,
+                     filtname="filt_noconst", legend=True):
+        """Compare the optimal filters.
+
+        <channels>    Sequence of channels to display.  If None, then show all.
         """
-        plt.clf()
-        if end <= first:
-            end = self.n_channels
-        if first >= self.n_channels:
-            raise ValueError("First channel must be less than %d" % self.n_channels)
-        nplot = min(end - first, 16)
-        if nplot == 0:
-            return
-        nrow = int(0.5+(nplot/2.0)**0.5)
-        ncol = 1+((nplot-1)//nrow)
-        for i, ds in enumerate(self.datasets[first:first + nplot]):
-            ax1 = plt.subplot(nrow, ncol, 1 + i)
-            ax1.set_title("chan %d signal" % ds.channum)
-            for ax in (ax1, ):
-                ax.set_xlim([0, self.nSamples])
-                if hasattr(ds, 'filter'):
-                    ds.filter.plot(ax1, filtname=filtname)
-        plt.show()
+
+        if axis is None:
+            plt.clf()
+            axis = plt.subplot(111)
+
+        if channels is None:
+            channels = list(self.channel.keys())
+            channels.sort()
+
+        if cmap is None:
+            cmap = plt.cm.get_cmap("spectral")
+
+        axis.grid(True)
+        for ds_num, channum in enumerate(channels):
+            if channum not in self.channel:
+                continue
+            ds = self.channel[channum]
+            plt.plot(ds.filter.__dict__[filtname], label="Chan %d" % channum,
+                     color=cmap(float(ds_num) / len(channels)))
+
+        plt.xlabel("Sample number")
+        if legend:
+            plt.legend(loc='best')
+            if len(channels) > 12:
+                ltext = axis.get_legend().get_texts()
+                plt.setp(ltext, fontsize='small')
 
     def summarize_filters(self, filter_name='noconst', std_energy=5898.8):
         rms_fwhm = np.sqrt(np.log(2) * 8)  # FWHM is this much times the RMS
@@ -957,28 +979,31 @@ class TESGroup(CutFieldMixin):
         <channels>    Sequence of channels to display.  If None, then show all.
         """
 
-        if channels is None:
-            channels = np.arange(self.n_channels)
-
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
+
+        if channels is None:
+            channels = list(self.channel.keys())
+            channels.sort()
 
         if cmap is None:
             cmap = plt.cm.get_cmap("spectral")
 
         axis.grid(True)
-        for i, ds in enumerate(self.datasets):
-            if i not in channels:
+        for ds_num, channum in enumerate(channels):
+            if channum not in self.channel:
                 continue
+            ds = self.channel[channum]
             noise = ds.noise_records
-            noise.plot_autocorrelation(axis=axis, label='TES %d' % i,
-                                       color=cmap(float(i) / self.n_channels))
-        axis.set_xlabel("Time lag (ms)")
+            noise.plot_autocorrelation(axis=axis, label='Chan %d' % channum,
+                      color=cmap(float(ds_num) / len(channels)))
+        plt.xlabel("Time lag (ms)")
         if legend:
             plt.legend(loc='best')
-            ltext = axis.get_legend().get_texts()
-            plt.setp(ltext, fontsize='small')
+            if len(channels) > 12:
+                ltext = axis.get_legend().get_texts()
+                plt.setp(ltext, fontsize='small')
 
     def save_pulse_energies_ascii(self, filename='all'):
         filename += '.energies'
@@ -1031,8 +1056,8 @@ class TESGroup(CutFieldMixin):
         self._cached_pnum_range = first_pnum, end_pnum
         return first_pnum, end_pnum
 
-    def plot_noise(self, axis=None, channels=None, scale_factor=1.0, sqrt_psd=False,
-                   cmap=None, legend=True):
+    def plot_noise(self, axis=None, channels=None, cmap=None, scale_factor=1.0,
+                   sqrt_psd=False, legend=True):
         """Compare the noise power spectra.
 
         <channels>    Sequence of channels to display.  If None, then show all.
@@ -1042,13 +1067,16 @@ class TESGroup(CutFieldMixin):
         `legend` -- Whether to plot the legend
         """
 
+        if axis is None:
+            plt.clf()
+            axis = plt.subplot(111)
+
         if channels is None:
             channels = list(self.channel.keys())
             channels.sort()
 
-        if axis is None:
-            plt.clf()
-            axis = plt.subplot(111)
+        if cmap is None:
+            cmap = plt.cm.get_cmap("spectral")
 
         if scale_factor == 1.0:
             units = "Counts"
@@ -1056,8 +1084,6 @@ class TESGroup(CutFieldMixin):
             units = "Scaled counts"
 
         axis.grid(True)
-        if cmap is None:
-            cmap = plt.cm.get_cmap("spectral")
         for ds_num, channum in enumerate(channels):
             if channum not in self.channel:
                 continue
@@ -1069,7 +1095,7 @@ class TESGroup(CutFieldMixin):
             try:
                 df = ds.noise_psd.attrs['delta_f']
                 freq = np.arange(1, 1 + len(yvalue)) * df
-                axis.plot(freq, yvalue, label='TES chan %d' % channum,
+                axis.plot(freq, yvalue, label='Chan %d' % channum,
                           color=cmap(float(ds_num) / len(channels)))
             except:
                 LOG.warn("WARNING: Could not plot channel %4d." % channum)
@@ -1079,8 +1105,9 @@ class TESGroup(CutFieldMixin):
         axis.loglog()
         if legend:
             plt.legend(loc='best')
-            ltext = axis.get_legend().get_texts()
-            plt.setp(ltext, fontsize='small')
+            if len(channels) > 12:
+                ltext = axis.get_legend().get_texts()
+                plt.setp(ltext, fontsize='small')
 
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         for ds in self:
@@ -1207,91 +1234,6 @@ class TESGroup(CutFieldMixin):
         plt.legend()
 
 
-def _extract_channum(name):
-    """Return the channel number as an int. Find it by the pattern in the file's
-    base name of 'blahblah_chan15.suffix'."""
-    basename = os.path.basename(name)
-    rexp = r".*_chan(?P<channum>[0-9]+)\."
-    m = re.search(rexp, basename)
-    if m is None:
-        print "Could not parse %s" % basename
-        return 0
-    return int(m.group("channum"))
-
-
-def _remove_unmatched_channums(filenames1, filenames2, never_use=None, use_only=None):
-    """Extract the channel number in the filenames appearing in both lists.
-    Remove from each list any file whose channel number doesn't appear on both lists.
-    Also remove any file whose channel number is in the `never_use` list.
-    If `use_only` is a sequence of channel numbers, use only the channels on that list.
-
-    If either `filenames1` or `filenames2` is empty, do nothing."""
-
-    # If one list is empty, then matching is not required or expected.
-    if filenames1 is None or len(filenames1) == 0 \
-            or filenames2 is None or len(filenames2) == 0:
-        return
-    assert isinstance(filenames1, list)
-    assert isinstance(filenames2, list)
-
-    # Now make a mapping of channel numbers to names.
-    names1 = {_extract_channum(f): f for f in filenames1}
-    names2 = {_extract_channum(f): f for f in filenames2}
-    cnum1 = set(names1.keys())
-    cnum2 = set(names2.keys())
-
-    # Find the set of valid channel numbers.
-    valid_cnum = cnum1.intersection(cnum2)
-    if never_use is not None:
-        valid_cnum -= set(never_use)
-    if use_only is not None:
-        valid_cnum = valid_cnum.intersection(set(use_only))
-
-    # Remove invalid channel numbers
-    for c in (cnum1-valid_cnum):
-        filenames1.remove(names1[c])
-    for c in (cnum2-valid_cnum):
-        filenames2.remove(names2[c])
-
-
-def _sort_filenames_numerically(fnames, inclusion_list=None):
-    """Take a sequence of filenames of the form '*_chanXXX.*'
-    and sort it according to the numerical value of channel number XXX.
-    If inclusion_list is not None, then it must be a container with the
-    channel numbers to be included in the output.
-    """
-    if fnames is None or len(fnames) == 0:
-        return None
-
-    if inclusion_list is not None:
-        fnames = filter(lambda n: _extract_channum(n) in inclusion_list, fnames)
-
-    return sorted(fnames, key=_extract_channum)
-
-
-def _glob_expand(pattern):
-    """If `pattern` is a string, treat it as a glob pattern and return the glob-result
-    as a list. If it isn't a string, return it unchanged (presumably then it's already
-    a sequence)."""
-    if not isinstance(pattern, basestring):
-        return pattern
-
-    result = glob.glob(pattern)
-    return _sort_filenames_numerically(result)
-
-
-def _replace_path(fnames, newpath):
-    """Take a sequence of filenames <fnames> and replace the directories leading to each
-    with <newpath>"""
-    if fnames is None or len(fnames) == 0:
-        return None
-    result = []
-    for f in fnames:
-        _, name = os.path.split(f)
-        result.append(os.path.join(newpath, name))
-    return result
-
-
 class CrosstalkVeto(object):
     """
     An object to allow vetoing of data in 1 channel when another is hit
@@ -1305,7 +1247,6 @@ class CrosstalkVeto(object):
         self.window_ms = window_ms
         self.n_channels = datagroup.n_channels
         self.n_pulses = datagroup.nPulses
-#        self.veto = np.zeros((self.n_channels, self.n_pulses), dtype=np.bool8)
 
         ms0 = np.array([ds.p_timestamp[0] for ds in datagroup.datasets]).min() * 1e3 + window_ms[0]
         ms9 = np.array([ds.p_timestamp[-1] for ds in datagroup.datasets]).max() * 1e3 + window_ms[1]
