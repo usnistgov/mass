@@ -928,7 +928,10 @@ class MicrocalDataSet(object):
             pulse_sum[:] += good_pulses.sum(axis=0)
 
         # Rescale and store result to each MicrocalDataSet
-        average_pulse = pulse_sum / pulse_count
+
+        average_pulse = pulse_sum
+        if pulse_count > 0:
+            average_pulse /= pulse_count
         if subtract_mean:
             average_pulse -= np.mean(average_pulse[:self.nPresamples - self.pretrigger_ignore_samples])
         self.average_pulse[:] = average_pulse

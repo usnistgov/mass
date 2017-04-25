@@ -122,10 +122,10 @@ class TestTESGroup(ut.TestCase):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
         data = self.load_data()
         data.set_chan_bad(1, "testing all channels bad")
-
         data.hdf5_file.close()
         data.hdf5_noisefile.close()
         del data
+
         try:
             data = self.load_data(clear_hdf5=False)
         except:
@@ -163,6 +163,8 @@ class TestTESGroup(ut.TestCase):
     def test_plot_filters(self):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
         data = self.load_data()
+        data.set_chan_good(1)
+        data.summarize_data()
         data.channel[1]._use_new_filters = False  # Not enough pulses for new filters.
         data.avg_pulses_auto_masks()
         data.compute_noise_spectra()
