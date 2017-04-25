@@ -285,7 +285,7 @@ class Filter(object):
         """
 
         # Handle <filters> is a single string --> convert to tuple of 1 string
-        if isinstance(filters, str):
+        if isinstance(filters, basestring):
             filters = (filters,)
 
         # Handle default <filters> not given.

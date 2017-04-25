@@ -344,7 +344,7 @@ class Cuts(object):
         boolean_field = self.tes_group.boolean_cut_desc
         categorical_field = self.tes_group.categorical_cut_desc
 
-        if isinstance(cut_num, int) or isinstance(cut_num, np.uint) or isinstance(cut_num, np.int):
+        if isinstance(cut_num, (int, np.uint, np.int)):
             cut_num = int(cut_num)
             if (cut_num < 0) or (cut_num > 31):
                 raise ValueError(str(cut_num) + " is out of range.")
@@ -352,8 +352,7 @@ class Cuts(object):
                 raise ValueError(str(cut_num) + " is not a registered boolean cut.")
             _, bit_mask = boolean_field[cut_num]
             self._mask[mask] |= bit_mask
-        elif isinstance(cut_num, bytes) or isinstance(cut_num, str):
-            # This condition will work because we don't expect Python 2.7 users to pass an unicode cut_num.
+        elif isinstance(cut_num, (bytes, basestring)):
             boolean_g = (boolean_field["name"] == cut_num.encode())
             if np.any(boolean_g):
                 _, bit_mask = boolean_field[boolean_g][0]
@@ -373,6 +372,8 @@ class Cuts(object):
                     self._mask[...] = temp | (category_values & bit_mask)
                 else:
                     raise ValueError(cut_num + " field is not found.")
+        else:
+            raise ValueError("cut_num should be a number or a string but is '%s'" % type(cut_num))
 
     def cut_categorical(self, field, booldict):
         """Args:
@@ -412,7 +413,7 @@ class Cuts(object):
         if isinstance(cut_id, int):
             if cut_id < 0 or cut_id >= 32:
                 raise ValueError("cut_id must be in the range [0,31]")
-        elif isinstance(cut_id, bytes) or isinstance(cut_id, str):
+        elif isinstance(cut_id, (bytes, basestring)):
             boolean_cut_fields = self.tes_group.boolean_cut_desc
             g = boolean_cut_fields["name"] == cut_id.encode()
             if not np.any(g):

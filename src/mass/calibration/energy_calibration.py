@@ -241,7 +241,7 @@ class EnergyCalibration(object):
             self._model_is_stale = True
 
     def set_curvetype(self, curvetype):
-        if isinstance(curvetype, str):
+        if isinstance(curvetype, basestring):
             try:
                 curvetype = self.CURVETYPE.index(curvetype.lower())
             except ValueError:

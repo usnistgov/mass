@@ -444,9 +444,6 @@ class PulseRecords(object):
         self.datafile = None
         self.__open_file(filename, file_format=file_format)
 
-        self.cuts = None
-        self.bad = None
-        self.good = None
         self.data = np.array([], ndmin=2)
         self.times = np.array([], ndmin=2)
         self.rowcount = None
