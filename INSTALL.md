@@ -147,6 +147,8 @@ your `~/.matplotlibrc` file (or create one) for further information on that.
 
 ## Package Dependencies
 
+Most dependencies can be installed by `pip install -r requirements.txt` in the mass directory. May require `sudo`.
+
 Mass has a few required packages, though I expect they are mostly things
 that any physicist would already have when using Python for scientific
 work:
