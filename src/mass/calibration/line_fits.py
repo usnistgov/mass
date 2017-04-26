@@ -172,7 +172,7 @@ class LineFitter(object):
         """
         labeldict = {meaning: meaning+" %4g +- %4g" for meaning in self.param_meaning.keys()}
         labeldict["resolution"] = "FWHM: %.3f +- %.3f"
-        labeldict["tail_frac"] = "\nf$_\\mathrm{tail}$: %.1f +- %.1f"
+        labeldict["tail_frac"] = "f$_\\mathrm{tail}$: %.1f +- %.1f"
         slabel=""
         for (meaning, i) in self.param_meaning.iteritems():
             val = self.last_fit_params[i]
