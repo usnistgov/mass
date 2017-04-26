@@ -1,3 +1,8 @@
+"""
+Various functions for manipulating LJH files' filenames (extracting the channel
+number from the name, sorting names by channel number, and so on).
+"""
+
 import glob
 from os import path
 import os
@@ -6,12 +11,21 @@ import re
 import numpy as np
 
 __all__ = ['ljh_basename_channum', 'ljh_chan_names', 'ljh_get_channels',
-           "ljh_get_channels_both", "output_basename_from_ljh_fname",
+           "output_basename_from_ljh_fname",
            "ljh_channum", "filename_glob_expand", "remove_unpaired_channel_files",
            "ljh_sort_filenames_numerically"]
 
 
 def ljh_basename_channum(fname):
+    """Returns the base LJH file name and the channel number parsed from the name.
+
+    Finds the channel number by the pattern in the file's base name, such as
+    'blahblah_chan15.suffix'
+
+    Returns:
+        (basename, channum) where basename is the full file path, up to the last
+        occurance of '_chan', and channum is an int (or None, if not found).
+    """
     if path.isdir(fname):
         # assume it is a directory containing ljh files of the same name as the directory
         while fname[-1] == '/':
@@ -32,8 +46,7 @@ def ljh_basename_channum(fname):
 
 
 def ljh_channum(name):
-    """Return the channel number as an int. Find it by the pattern in the file's
-    base name of 'blahblah_chan15.suffix'."""
+    """Return the channel number found in the filename, as an int."""
     return ljh_basename_channum(name)[1]
 
 
@@ -57,10 +70,6 @@ def ljh_get_channels(fname):
         if bname == ljhname and isinstance(chan, int):
             chans.append(chan)
     return sorted(chans)
-
-
-def ljh_get_channels_both(fname, nfname):
-    return sorted(set(ljh_get_channels(fname)).intersection(ljh_get_channels(nfname)))
 
 
 def output_basename_from_ljh_fname(ljh):
@@ -88,12 +97,20 @@ def mass_folder_from_ljh_fname(ljh, filename=""):
 
 def remove_unpaired_channel_files(filenames1, filenames2, never_use=None, use_only=None):
     """Extract the channel number in the filenames appearing in both lists.
+
     Remove from each list any file whose channel number doesn't appear on both lists.
     Also remove any file whose channel number is in the `never_use` list.
-    If `use_only` is a sequence of channel numbers, use only the channels on that list.
 
-    If either `filenames1` or `filenames2` is empty, do nothing."""
+    If either `filenames1` or `filenames2` is empty, do nothing.
 
+    Args:
+        filenames1: a list of filenames containing channel #s in the form "blah_chan15".
+            Will be modified.
+        filenames2: a list of filenames containing channel #s in the form "blah_chan15".
+            Will be modified.
+        never_use: a sequence of channel numbers to exclude even if found in both lists (default None)
+        use_only: if a sequence of channel numbers, exclude any channels not in it (default None)
+    """
     # If one list is empty, then matching is not required or expected.
     if filenames1 is None or len(filenames1) == 0 \
             or filenames2 is None or len(filenames2) == 0:
@@ -122,10 +139,18 @@ def remove_unpaired_channel_files(filenames1, filenames2, never_use=None, use_on
 
 
 def ljh_sort_filenames_numerically(fnames, inclusion_list=None):
-    """Take a sequence of filenames of the form '*_chanXXX.*'
-    and sort it according to the numerical value of channel number XXX.
-    If inclusion_list is not None, then it must be a container with the
-    channel numbers to be included in the output.
+    """Return a sorted sequence of filenames of the form '*_chanXXX.*',
+    sorted according to the numerical value of channel number XXX.
+
+    Args:
+        fnames: A sequence of filenames of the form '*_chan*.*'
+        inclusion_list: If not None, a container with channel numbers. All files
+            whose channel numbers are not on this list will be omitted from the
+            output (default None).
+
+    Returns:
+        A list containg the same filenames, sorted
+        according to the numerical value of channel number.
     """
     if fnames is None or len(fnames) == 0:
         return None
@@ -137,9 +162,17 @@ def ljh_sort_filenames_numerically(fnames, inclusion_list=None):
 
 
 def filename_glob_expand(pattern):
-    """If `pattern` is a string, treat it as a glob pattern and return the glob-result
-    as a list. If it isn't a string, return it unchanged (presumably then it's already
-    a sequence)."""
+    """Return the result of glob-expansion on the input pattern.
+
+    Args:
+        pattern: If a string, treat it as a glob pattern and return the glob-result
+            as a list. If it isn't a string, return it unchanged (presumably then
+            it's already a sequence).
+
+    Returns:
+        A list of 0 or more filenames. The result is sorted by
+        ljh_sort_filenames_numerically().
+    """
     if not isinstance(pattern, basestring):
         return pattern
 
