@@ -102,6 +102,11 @@ class Test_MnKA(unittest.TestCase):
     def test_zero_bg(self):
         self.do_test(bg=0)
 
+    def test_plot_and_result_string(self):
+        self.do_test()
+        self.fitter.plot(label="full",ph_units="arb",color="r")
+        s=self.fitter.result_string
+
 
 class Test_MnKB(unittest.TestCase):
     def setUp(self):
@@ -148,6 +153,10 @@ class Test_MnKB(unittest.TestCase):
     def test_zero_bg(self):
         self.do_test(bg=0)
 
+    def test_plot_and_result_string(self):
+        self.do_test()
+        self.fitter.plot(label="full",ph_units="arb",color="r")
+        s=self.fitter.result_string
 
 class Test_Voigt(unittest.TestCase):
 
@@ -222,6 +231,7 @@ class Test_Voigt(unittest.TestCase):
 
     def test_zero_bg(self):
         self.singletest(bg=0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,10 +37,12 @@ file and noise file to the temporary directory:
 # A simple demonstration of how to use MASS
 
 
-# You create a TESGroup object "data" by giving as a 1st argument *either* a file
-# "glob pattern" (e.g., "/path/to/files/blahblah_chan*.ljh") or a Python sequence
-# containing 1 or more actual paths to existing pulse data files. A second argument
-# is the pattern or sequence of names corresponding to the noise data files.
+# You create a TESGroup object "data" by giving as a 1st argument *either*
+# 1) a filename
+# 2) "glob pattern" (e.g., "/path/to/files/blahblah_chan*.ljh") or
+# 3) a Python sequence (eg a list) containing 1 or more filenames.
+# A second argument is the pattern or sequence of names corresponding to the
+# noise data files.
 #
 # Here is a typical use that would work with lots of LJH and noise files, though
 # in this case we have only one of each.
@@ -60,7 +62,7 @@ data.plot_traces(np.arange(15), channum=1, pulse_summary=False)
 # <demo> --- stop ---
 
 # Now let's compute summary information for each pulse and make a few plots.
-# In real data, this will be one of only 3 passes through every byte of data,
+# This will be one of up to 3 passes through every byte of data,
 # which is normally stored on disk and loaded only one chunk at time.
 data.summarize_data()            # In real data, this requires a pass through every byte of data.
 ds = data.channel[1]             # We'll consider only channel 1.
@@ -118,8 +120,7 @@ ALL_CHANS = -1
 data.plot_average_pulses(ALL_CHANS)
 # <demo> --- stop ---
 
-# Now we handle the noise.  The fake data generator made a noise "file" for each
-# channel of pure white noise.  Let's compute the power spectrum and the autocorrelation.
+# Now we handle the noise.  Let's compute the power spectrum and the autocorrelation.
 data.compute_noise_spectra()
 # We'll plot them on 2 panels of the same figure
 plt.clf()
@@ -175,9 +176,9 @@ plt.title("After phase correction")
 plt.clf()
 for name,v in zip(["filtered value", "drift corrected", "phase_corrected"],
                   [ds.p_filt_value, ds.p_filt_value_dc, ds.p_filt_value_phc]):
-    plt.hist(v[g], 35, [13400, 13500], histtype="step")
+    plt.hist(v[g], 35, [13400, 13500], histtype="step",label=name)
     print("Robust width estimator of %17s: %5.2f" % (name,mass.robust.shorth_range(v[g])))
-
+plt.legend(loc="best")
 if not wasinteractive:
     plt.ioff()
 # <demo> --- stop ---

@@ -7,6 +7,16 @@ Joe Fowler, NIST Boulder Labs
 
 import os.path
 from distutils.command.build import build as basic_build
+from pip.req import parse_requirements
+# parse_requirements() returns generator of pip.req.InstallRequirement objects
+reqs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),"requirements.txt")
+# apparently parsing the requirements.txt file is not advised see:
+# http://stackoverflow.com/questions/14399534/reference-requirements-txt-for-the-install-requires-kwarg-in-setuptools-setup-py
+install_reqs = parse_requirements(reqs_path,session="hack")
+
+# reqs is a list of requirement
+# e.g. ['django==1.5.1', 'mezzanine==1.4.6']
+reqs = [str(ir.req) for ir in install_reqs]
 
 
 def parse_version_number(VERSIONFILE=None):
@@ -120,5 +130,6 @@ if __name__ == "__main__":
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
                         },
           cmdclass={'build': QtBuilder},
-          package_dir={'':'src'}
+          package_dir={'':'src'},
+          install_requires=reqs
           )

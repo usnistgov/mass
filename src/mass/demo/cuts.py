@@ -39,8 +39,8 @@ file and noise file to the temporary directory:
 # Here is a typical use that would work with lots of LJH and noise files, though
 # in this case we have only one of each.
 
-pulse_pattern = os.path.join(DIR, "regress_chan1.ljh")
-noise_pattern = os.path.join(DIR, "regress_chan1.noi")
+pulse_pattern = os.path.join(DIR, "regress_chan*.ljh")
+noise_pattern = os.path.join(DIR, "regress_chan*.noi")
 print(pulse_pattern)
 print(noise_pattern)
 
@@ -80,6 +80,12 @@ print("Why are records cut?")
 print("\nBad for any reason:\n%s" % b_all)
 print("\nBad because of pretrigger rms:\n%s" % b_rms)
 print("\nBad because of post-peak derivative\n%s" % b_ppd)
+
+# <demo> --- stop ---
+
+# You can also try ds.cut_summary. This is mostly useful if lots of your data is
+# cut and you want to know why.
+ds.cut_summary()
 
 # <demo> --- stop ---
 
