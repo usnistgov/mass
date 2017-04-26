@@ -7,75 +7,12 @@ import shutil
 import unittest as ut
 
 import mass
-from mass.core.ljh_util import *
 from mass.core.ljh_modify import *
-
-
-class TestFilenameHandling(ut.TestCase):
-    # @classmethod
-    # def setUpClass(cls):
-    #     pass
-
-    def test_glob(self):
-        self.assertIn(os.path.join("src", "mass", "regression_test", "regress_chan1.ljh"),
-                      filename_glob_expand(os.path.join("src", "mass", "regression_test", "regress_chan*.ljh")))
-        self.assertIn(os.path.join("src", "mass", "regression_test", "regress_chan1.noi"),
-                      filename_glob_expand(os.path.join("src", "mass", "regression_test", "regress_chan*.noi")))
-
-    def test_extract_channum(self):
-        self.assertEqual(1, ljh_channum("dummy_chan1.ljh"))
-        self.assertEqual(101, ljh_channum("dummy_chan101.ljh"))
-        self.assertEqual(101, ljh_channum("path/to/file/dummy_chan101.ljh"))
-        self.assertEqual(101, ljh_channum("path/to/file/dummy_chan101.other_suffix"))
-
-    def test_remove_unmatched_channums(self):
-        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
-        fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
-        validns = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7)]
-        remove_unpaired_channel_files(fnames1, fnames2)
-        self.assertEqual(len(validns), len(fnames1))
-        self.assertEqual(len(validns), len(fnames2))
-        for v, f1, f2 in zip(validns, fnames1, fnames2):
-            self.assertEqual(v, f1)
-            self.assertEqual(v, f2)
-
-    def test_remove_unmatched_channums_with_neveruse(self):
-        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
-        fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
-        validns = ["dummy_chan%d.ljh" % d for d in (1, 3)]
-        remove_unpaired_channel_files(fnames1, fnames2, never_use=(5, 7))
-        self.assertEqual(len(validns), len(fnames1))
-        self.assertEqual(len(validns), len(fnames2))
-        for v, f1, f2 in zip(validns, fnames1, fnames2):
-            self.assertEqual(v, f1)
-            self.assertEqual(v, f2)
-
-    def test_remove_unmatched_channums_with_useonly(self):
-        fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
-        fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
-        validns = ["dummy_chan%d.ljh" % d for d in (1, 3)]
-        remove_unpaired_channel_files(fnames1, fnames2, use_only=(1, 3))
-        self.assertEqual(len(validns), len(fnames1))
-        self.assertEqual(len(validns), len(fnames2))
-        for v, f1, f2 in zip(validns, fnames1, fnames2):
-            self.assertEqual(v, f1)
-            self.assertEqual(v, f2)
-
-    def test_sort_filenames_numerically(self):
-        cnums = [1, 11, 13, 3, 5, 7, 9, 99]
-        fnames = ["d_chan%d.ljh" % d for d in cnums]
-        fnames.sort()
-        sorted_names = ljh_sort_filenames_numerically(fnames)
-        cnums.sort()
-        correct_order = ["d_chan%d.ljh" % d for d in cnums]
-        self.assertEqual(len(sorted_names), len(correct_order))
-        for s, c in zip(sorted_names, correct_order):
-            self.assertEqual(s, c)
-
 
 class TestFiles(ut.TestCase):
 
     def test_ljh_copy_and_append_traces(self):
+        """Test copying and appending traces to LJH files."""
         src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan1.ljh')
         dest_name = os.path.join(tempfile.gettempdir(), 'foo_chan1.ljh')
         src = LJHFile(src_name)
@@ -107,6 +44,7 @@ class TestFiles(ut.TestCase):
 
 
 class TestTESGroup(ut.TestCase):
+    """Basic tests of the TESGroup object."""
 
     def load_data(self, clear_hdf5=True):
         src_name = 'src/mass/regression_test/regress_chan1.ljh'
@@ -173,6 +111,7 @@ class TestTESGroup(ut.TestCase):
 
 
 class TestTESHDF5Only(ut.TestCase):
+    """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 
     def test_all_channels_bad(self):
         """Make sure it mass can open a mass generated file in HDF5 Only mode."""
@@ -213,7 +152,6 @@ class TestTESHDF5Only(ut.TestCase):
         data = mass.TESGroupHDF5(fname)
         for i, ds in enumerate(data):
             self.assertEqual(ds.channum, cnums[i])
-
 
 
 if __name__ == '__main__':

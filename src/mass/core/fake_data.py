@@ -23,7 +23,8 @@ class FakeDataGenerator(object):
     Only basic functionality is here so far.
 
     Many interesting randomizations could be added in the future, such as
-    gain variation, baseline drift.  Pulse pileup should definitely be added."""
+    gain variation, baseline drift.  Pulse pileup should definitely be added.
+    """
 
     def __init__(self, sample_time, n_samples, n_presamples=None, model_peak=None):
         # Some defaults that can be overridden before generating fake data
@@ -53,11 +54,12 @@ class FakeDataGenerator(object):
                                distribution_weights=None, rate=1.0, channum=1):
         """Return a VirtualFile object with random pulses.
 
-        n_pulses      number of pulses to put in the "file"
-        distributions random distribution of scale factors.  If none, all pulses are of unit height
-        distribution_weights  relative contribution from each distribution in <distributions>.
-                      if None, then all will be weighted equally
-        rate          expected number of pulses per second.
+        Args:
+            n_pulses      number of pulses to put in the "file"
+            distributions random distribution of scale factors.  If none, all pulses are of unit height
+            distribution_weights  relative contribution from each distribution in <distributions>.
+                          if None, then all will be weighted equally
+            rate          expected number of pulses per second.
         """
 
         data = np.zeros((n_pulses, self.n_samples), dtype=np.uint16)
@@ -88,7 +90,8 @@ class FakeDataGenerator(object):
     def _generate_virtual_noise_file(self, n_pulses, lowpass_kludge=0):
         """Return a VirtualFile object with random noise.
 
-        n_pulses      number of pulses to put in the "file"
+        Args:
+            n_pulses: number of pulses to put in the "file"
         """
 
         print('Making fake noise')
@@ -112,7 +115,15 @@ class FakeDataGenerator(object):
 
     def generate_tesgroup(self, n_pulses, n_noise=1024, distributions=None,
                           distribution_weights=None, nchan=1):
-        """Return a mass.TESGroup with <nchan> channels in it."""
+        """Return a mass.TESGroup with multiple channels in it.
+
+        Args:
+            n_pulses (int): the number of pulses per channel
+            n_noise (int): the number of noise records per channel
+            distributions: ??
+            distribution_weights: ??
+            nchan (int): how many channels to generate (default 1).
+        """
         vfiles = [self._generate_virtual_file(n_pulses, distributions=distributions,
                                               distribution_weights=distribution_weights)
                   for _i in range(nchan)]

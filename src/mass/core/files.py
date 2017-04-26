@@ -5,10 +5,10 @@ of pulse data files.  In principle, there are several data file types:
 * PLS files
 * LANL files
 
-...but in practice, we are not ever using PLS files, and LANLFile is deprecated.  Therefore, this
-module contains only three concrete classes, the VirtualFile, LJHFile, and the LANLFile (along with
-the abstract base class MicrocalFile).  VirtualFile is for treating an array of data as if it were a
-file.
+...but in practice, we are not ever using PLS files, and LANLFile is deprecated.
+Therefore, this module contains only three concrete classes, the VirtualFile,
+LJHFile, and the LANLFile (along with the abstract base class MicrocalFile).
+VirtualFile is for treating an array of data as if it were a file.
 
 If you find yourself wanting to read PLS (or other?) file types,
 then make a new class that inherits from MicrocalFile and calls
@@ -27,15 +27,15 @@ from distutils.version import StrictVersion
 
 
 class MicrocalFile(object):
-    """Encapsulate a set of data containing multiple triggered traces from
-    a microcalorimeter.  The pulses can be noise or X-rays.  This is meant
-    to be an abstract class.  Use files.LJHFile() or VirtualFile().
-    In the future, other derived classes could implement
-    read_segment, copy, and read_trace to process other file types.
+    """A set of data on disk containing triggered records from a microcalorimeter.
+
+    The pulses can be noise or X-rays.  This is meant to be
+    an abstract class.  Use files.LJHFile() or VirtualFile(). In the future,
+    other derived classes could implement read_segment, copy, and read_trace to
+    process other file types.
     """
 
     def __init__(self):
-        """"""
         # Filename of the data file
         self.filename = None
         self.channum = 99999
@@ -93,7 +93,14 @@ class VirtualFile(MicrocalFile):
     """Object to act like a single microcalorimeter data file on disk, though the data are all
     held only in memory.
     """
-    def __init__(self, data, times=None, presamples=None):
+    def __init__(self, data, times=None, presamples=0):
+        """Initilize with in-memory data.
+
+        Args:
+            data: a 2d ndarray of pulse records, each row being one pulse.
+            times: a 1d array of pulse times (or default None)
+            presamples: number samples considered presamples (default 0)
+        """
         super(VirtualFile, self).__init__()
         self.data = np.asarray(data, dtype=np.int16)
         self.nSamples = data.shape[1]
@@ -111,9 +118,6 @@ class VirtualFile(MicrocalFile):
         else:
             self.datatimes_float = np.asarray(times, dtype=np.float)
 
-        if presamples is None:
-            self.nPresamples = 0
-
     def copy(self):
         """Return a copy of the object.  Handy for updating method definitions."""
         c = VirtualFile(self.data)
@@ -127,28 +131,36 @@ class VirtualFile(MicrocalFile):
         return self.data[trace_num]
 
     def read_segment(self, segment_num=0):
-        """Return <first>,<end>,<data> for segment number <segment_num>, where
-        <first> is the first pulse number in that segment, <end>-1 is the last,
-        and <data> is a 2-d array of shape [pulses_this_segment, self.nSamples]."""
+        """
+        Returns:
+            (first, end, data) for segment number <segment_num>, where
+            <first> is the first pulse number in that segment, <end>-1 is the last,
+            and <data> is a 2-d array of shape [pulses_this_segment, self.nSamples].
+        """
         if segment_num > 0:
             raise ValueError("VirtualFile objects have only one segment")
         return 0, self.nPulses, self.data
 
 
 class LJHFile(MicrocalFile):
-    """Process a single LJH-format file.  All non-LJH-specific data and methods
-    appear in the parent pulseRecords class"""
+    """A single LJH-format file.
+
+    All non-LJH-specific data and methods appear in the parent MicrocalFile class.
+    """
 
     TOO_LONG_HEADER = 100  # headers can't contain this many lines, or they are insane!
 
     def __init__(self, filename, segmentsize=(2**23)):
-        """Open an LJH file for reading.  Read its header.  Set the standard segment
-        size **in bytes** so that read_segment() will always return segments of a
-        fixed size.
-        <filename>   Path to the file to be read.
-        <segmentsize>  Size of each segment **in bytes** that will be returned in read_segment()
-                     The actual segmentsize will be rounded down to be an integer number of
-                     pulses.
+        """Open an LJH file for reading.
+
+        Read its header.  Set the standard segment size **in bytes** so that
+        read_segment() will always return segments of a fixed size.
+
+        Args:
+            <filename>   Path to the file to be read.
+            <segmentsize>  Size of each segment **in bytes** that will be returned in read_segment()
+                 The actual segmentsize will be rounded down to be an integer number of
+                 pulses.
         """
         super(LJHFile, self).__init__()
         self.filename = filename
@@ -186,23 +198,20 @@ class LJHFile(MicrocalFile):
             self.__read_binary = self.__read_binary_pre22
 
     def copy(self):
-        """Return a copy of the object.
-
-        Handy when coding and you don't want to read the whole data set back in, but
-        you do want to update the method definitions.
-        """
+        """Return a deep copy of the object."""
         self.clear_cache()
         c = LJHFile(self.filename, self.segmentsize)
         c.__dict__.update(self.__dict__)
         return c
 
     def __read_header(self, filename):
-        """
-        Read in the text header of an LJH file.
+        """Read in the text header of an LJH file.
+
         On success, several attributes will be set: self.timebase, .nSamples,
         and .nPresamples
 
-        <filename>: path to the file to be opened.
+        Args:
+            filename: path to the file to be opened.
         """
 
         fp = open(filename, "rb")
@@ -290,9 +299,12 @@ class LJHFile(MicrocalFile):
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
     def set_segment_size(self, segmentsize):
-        """Set the standard segmentsize used in the read_segment() method.  This number will
+        """Set the standard segmentsize used in the read_segment() method.
+
+        This number will
         be rounded down to equal an integer number of pulses.
-        Raises ValueError if segmentsize is smaller than a single pulse."""
+        Raises ValueError if segmentsize is smaller than a single pulse.
+        """
         maxitems = segmentsize // self.pulse_size_bytes
         if maxitems < 1:
             raise ValueError("segmentsize=%d is not permitted to be smaller than pulse record (%d bytes)" %
@@ -360,8 +372,9 @@ class LJHFile(MicrocalFile):
         return traces
 
     def read_trace(self, trace_num):
-        """Return a single data trace (number <trace_num>),
-        either from cache or by reading off disk, if needed.
+        """Return a single data trace (number <trace_num>).
+
+        This comes either from cache or by reading off disk, if needed.
         """
         if trace_num >= self.nPulses:
             raise ValueError("This VirtualFile has only %d pulses" % self.nPulses)
@@ -379,9 +392,8 @@ class LJHFile(MicrocalFile):
         Return (first, end, data) where first is the pulse number of the first pulse read,
         end is 1+the number of the last one read, and data is the full array.
 
-        Params:
-        -------
-        <segment_num> Number of the segment to read.
+        Args:
+            <segment_num> Number of the segment to read.
         """
         # Use cached data, if possible
         if segment_num != self.__cached_segment or self.data is None:
@@ -403,23 +415,25 @@ class LJHFile(MicrocalFile):
         self.rowcount = None
 
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
-        """Read the binary section of an LJH file, interpret it, and store the results in
-        self.data and self.datatimes_float.  This can potentially be less than the full file
-        if <max_size> is non-negative and smaller than (binary section of) the file.
+        """Read the binary section of an LJH file.
+
+        Also, interpret it, and store the results in self.data and
+        self.datatimes_float.  This can potentially be less than the full file
+        if <max_size> is non-negative and smaller than (binary section of) the
+        file.
 
         The binary section consists of an unspecified number of records,
         each with the same size: 6 bytes plus 2 bytes per sample.  The six contain two null bytes
         and a 4-byte (little endian) timestamp in milliseconds since the timebase (which is
         given in the text header).
 
-        Params:
-        -------
-        <skip>      Leading bytes to seek past.  Normally this should be the header length, but it
-                    can be greater.
-        <max_size>  Maximum section size to read (in bytes).  If negative, then the entire file
-                    will be read.  (Beware: memory filling danger if <max_size> is negative!)
-        <error_on_partial_pulse> Whether to raise an error when caller requests non-integer
-                                 number of pulses.
+        Args:
+            skip: Leading bytes to seek past.  Normally this should be the header length, but it
+                can be greater.
+            max_size: Maximum section size to read (in bytes).  If negative, then the entire file
+                will be read.  (Beware: memory filling danger if <max_size> is negative!)
+            error_on_partial_pulse: Whether to raise an error when caller requests non-integer
+                number of pulses.
         """
         raise NotImplementedError("The method needs to be substituted by " + self.version_str)
 
@@ -448,12 +462,12 @@ class LJHFile(MicrocalFile):
         self.data = array["data"]
 
     def __read_binary_pre22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
-        """
-        This is for version before version 2.2 of ljh files.
-        The key distinction is how pulse arrival time data is encoded.
-        Pre 2.2 each pulse has a timestamp encoded in a weird way that contains arrival time at 4 usec
-        resolution.  If the frame time is greater than or equal to 4 usec, the exact frame number can
-        be recovered.
+        """This is for LJH file versions 2.1 and earlier.
+
+        The key distinction is how pulse arrival time data is encoded. Pre 2.2
+        each pulse has a timestamp encoded in a weird way that contains arrival
+        time at 4 usec resolution.  If the frame time is greater than or equal
+        to 4 usec, the exact frame number can be recovered.
         """
         if max_size >= 0:
             maxitems = max_size // self.pulse_size_bytes
@@ -521,10 +535,11 @@ class LJHFile(MicrocalFile):
 
 
 def make_ljh_header(header_dict):
-    """
-    Returns a string containing an LJH header (version 2.2.0).
+    """Returns a string containing an LJH header (version 2.2.0).
 
-    header_dict should contain the following keys: asctime, timebase, nPresamples, nSamples
+    Args:
+        header_dict (dict): should contain the following keys: asctime, timebase,
+            nPresamples, nSamples
     """
 
     ljh_header = """#LJH Memorial File Format

@@ -11,7 +11,7 @@ ljhdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "regres
 
 
 def process_file(prefix, cuts, do_filter=True):
-
+    """Returns a TESGroup given the file prefix; preloads a set of cuts."""
     channels = (1,)
     pulse_files = [os.path.join(ljhdir, "%s_chan%d.ljh" % (prefix, c)) for c in channels]
     noise_files = [os.path.join(ljhdir, "%s_chan%d.noi" % (prefix, c)) for c in channels]
@@ -45,6 +45,8 @@ def process_file(prefix, cuts, do_filter=True):
 
 
 class TestFilters(ut.TestCase):
+    """Test optimal filtering."""
+
     def setUp(self):
         cuts = mass.core.controller.AnalysisControl(
             pulse_average=(0.0, None),
@@ -84,6 +86,7 @@ class TestFilters(ut.TestCase):
         self.filter_summaries(newstyle=True)
 
     def filter_reload(self, newstyle):
+        """Make sure filters can be reloaded, whether new or old-style."""
         self.filter_summaries(newstyle=newstyle)
         ds = self.data.channel[1]
         self.assertEqual(newstyle, ds._use_new_filters)

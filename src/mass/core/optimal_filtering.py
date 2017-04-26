@@ -1,9 +1,5 @@
 """
-Contains classes to do classic (Fourier) and time-domain optimal filtering
-
-Created on Nov 11, 2011 from code that was in channel.py
-
-@author: fowlerj
+Contains classes to do time-domain optimal filtering.
 """
 
 import numpy as np
@@ -40,40 +36,41 @@ class Filter(object):
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
                  whitener=None, fmax=None, f_3db=None, sample_time=None, shorten=0):
-        """
-        Create a set of filters under various assumptions and for various purposes.
+        """Create a set of filters under various assumptions and for various purposes.
+
         Note that you now have to call Filter.compute() yourself to compute the filters.
 
-        <avg_signal>     The average signal shape.  Filters will be rescaled so that the output
-                         upon putting this signal into the filter equals the *peak value* of this
-                         filter (that is, peak value relative to the baseline level).
-        <n_pretrigger>   The number of leading samples in the average signal that are considered
-                         to be pre-trigger samples.  The avg_signal in this section is replaced by
-                         its constant averaged value before creating filters.  Also, one filter
-                         (filt_baseline_pretrig) is designed to infer the baseline using only
-                         <n_pretrigger> samples at the start of a record.
-        <noise_psd>      The noise power spectral density.  If None, then filt_fourier won't be
-                         computed.  If not None, then it must be of length (2N+1), where N is the
-                         length of <avg_signal>, and its values are assumed to cover the non-negative
-                         frequencies from 0, 1/Delta, 2/Delta,.... up to the Nyquist frequency.
-        <noise_autocorr> The autocorrelation function of the noise, where the lag spacing is
-                         assumed to be the same as the sample period of <avg_signal>.  If None,
-                         then several filters won't be computed.  (One of <noise_psd> or
-                         <noise_autocorr> must be a valid array, or <whitener> must be given.)
-        <whitener>       An optional function object which, when called, whitens a vector or the
-                         columns of a matrix. Supersedes <noise_autocorr> if both are given.
-        <fmax>           The strict maximum frequency to be passed in all filters.
-                         If supplied, then it is passed on to the compute() method for the *first*
-                         filter calculation only.  (Future calls to compute() can override).
-        <f_3db>          The 3 dB point for a one-pole low-pass filter to be applied to all filters.
-                         If supplied, then it is passed on to the compute() method for the *first*
-                         filter calculation only.  (Future calls to compute() can override).
-                         Either or both of <fmax> and <f_3db> are allowed.
-        <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
-                         This must be given if <fmax> or <f_3db> are ever to be used.
-        <shorten>        The time-domain filters should be shortened by removing this many
-                         samples from each end.  (Do this for convenience of convolution over
-                         multiple lags.)
+        Args:
+            <avg_signal>     The average signal shape.  Filters will be rescaled so that the output
+                 upon putting this signal into the filter equals the *peak value* of this
+                 filter (that is, peak value relative to the baseline level).
+            <n_pretrigger>   The number of leading samples in the average signal that are considered
+                 to be pre-trigger samples.  The avg_signal in this section is replaced by
+                 its constant averaged value before creating filters.  Also, one filter
+                 (filt_baseline_pretrig) is designed to infer the baseline using only
+                 <n_pretrigger> samples at the start of a record.
+            <noise_psd>      The noise power spectral density.  If None, then filt_fourier won't be
+                 computed.  If not None, then it must be of length (2N+1), where N is the
+                 length of <avg_signal>, and its values are assumed to cover the non-negative
+                 frequencies from 0, 1/Delta, 2/Delta,.... up to the Nyquist frequency.
+            <noise_autocorr> The autocorrelation function of the noise, where the lag spacing is
+                 assumed to be the same as the sample period of <avg_signal>.  If None,
+                 then several filters won't be computed.  (One of <noise_psd> or
+                 <noise_autocorr> must be a valid array, or <whitener> must be given.)
+            <whitener>       An optional function object which, when called, whitens a vector or the
+                 columns of a matrix. Supersedes <noise_autocorr> if both are given.
+            <fmax>           The strict maximum frequency to be passed in all filters.
+                 If supplied, then it is passed on to the compute() method for the *first*
+                 filter calculation only.  (Future calls to compute() can override).
+            <f_3db>          The 3 dB point for a one-pole low-pass filter to be applied to all filters.
+                 If supplied, then it is passed on to the compute() method for the *first*
+                 filter calculation only.  (Future calls to compute() can override).
+                 Either or both of <fmax> and <f_3db> are allowed.
+            <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
+                 This must be given if <fmax> or <f_3db> are ever to be used.
+            <shorten>        The time-domain filters should be shortened by removing this many
+                 samples from each end.  (Do this for convenience of convolution over
+                 multiple lags.)
         """
         self.sample_time = sample_time
         self.shorten = shorten
@@ -118,7 +115,7 @@ class Filter(object):
         self.predicted_v_over_dv = {}
 
     def normalize_filter(self, q):
-        """Rescale filter <q> so that it gives unit response to self.avg_signal"""
+        """Rescale filter <q> in-place so that it gives unit response to self.avg_signal"""
         if len(q) == len(self.avg_signal):
             q *= 1 / np.dot(q, self.avg_signal)
         elif self.shorten >= 2:
@@ -134,7 +131,7 @@ class Filter(object):
             q *= 1.0 / np.dot(q, self.avg_signal[self.shorten:-self.shorten])
 
     def _compute_fourier_filter(self):
-        """Compute the Fourier-domain filter"""
+        """Compute the Fourier-domain filter."""
         if self.noise_psd is None:
             return
 
@@ -196,8 +193,9 @@ class Filter(object):
             # 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
 
     def compute(self, use_toeplitz_solver=True):
-        """
-        Compute a set of filters.  This is called once on construction, but you can call it
+        """Compute a set of filters.
+
+        This is called once automatically on construction, but you can call it
         again if you want to change the frequency cutoff or f_3db rolloff point.
         """
         self._compute_fourier_filter()
@@ -278,10 +276,11 @@ class Filter(object):
     def report(self, filters=None, std_energy=5898.8):
         """Report on V/dV for all filters
 
-        <filters>   Either the name of one filter or a sequence of names.  If not given, then all filters
-                    not starting with "baseline" will be reported.
-        <std_energy> Energy (in eV) of a "standard" pulse.  Resolution will be given in eV at this energy,
-                    assuming linear devices.
+        Args:
+            <filters>   Either the name of one filter or a sequence of names.  If not given, then all filters
+                not starting with "baseline" will be reported.
+            <std_energy> Energy (in eV) of a "standard" pulse.  Resolution will be given in eV at this energy,
+                assuming linear devices.
         """
 
         # Handle <filters> is a single string --> convert to tuple of 1 string
@@ -327,12 +326,10 @@ class ArrivalTimeSafeFilter(Filter):
             shorten=0)
 
     def compute(self, fmax=None, f_3db=None):
-        """
-        Compute a single filter.  This is called once on construction, but you can call it
-        again if you want to change the frequency cutoff or rolloff points.
+        """Compute a single filter.
 
-        Set is:
-        filt_noconst    Alpert filter insensitive to constants (and polynomials in AT).
+        This is called once automatically on construction, but you can call it
+        again if you want to change the frequency cutoff or f_3db rolloff point.
         """
 
         self.fmax = fmax

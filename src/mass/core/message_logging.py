@@ -1,3 +1,8 @@
+"""
+Simple logging functions, to help us control how verbose MASS is at a terminal
+or when being tested.
+"""
+
 import logging
 
 mylogger = logging.getLogger("mass")
