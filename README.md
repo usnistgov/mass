@@ -55,6 +55,8 @@ Docstrings are really easy to add, they're a great way to contribute to mass.
 
 If you look for files named `test_*.py` they will have examples of how the tested functions are called. You can learn a fair amount from looking at them.
 
+Run all the tests on your systemto make sure they pass!. Do `python runtests.py` in the `mass` directory.
+
 ## Doxygen site
 
 The subdirectory doc contains configuration and a Makefile to generate a local copy of a doxygen website.  For a mac:
