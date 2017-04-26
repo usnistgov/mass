@@ -17,16 +17,7 @@ import mass
 wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
 
-
-def report(param, covar):
-    labels = ("E res (FWHM)","Peak energy","dPH/dE","Amplitude",
-              "Const BG","BG slope","Tail fraction","Tail length")
-    for i,p in enumerate(param):
-        txt = ""
-        if covar[i,i] == 0.0:
-            txt = "HELD"
-        print("%-14s %8.3f +- %7.3f   %s" % (labels[i], p, covar[i,i]**0.5, txt))
-
+# <demo> stop
 print("For fun, here is the Mn K-alpha complex at various resolutions.")
 mass.calibration.fluorescence_lines.plot_spectrum()
 
@@ -48,8 +39,11 @@ bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 # <demo> stop
 # Now fit to find the resolution, line center, and "stretch factor".
 fitter = mass.MnKAlphaFitter()
-param, covar = fitter.fit(hist, bin_ctr)
-report(param, covar)
+param, covar = fitter.fit(hist, bin_ctr, plot=True, label="full")
+# Here we're using the "full" label option to get more info on the plot.
+# "H" after a parmater indicates when it was held.
+# You can get the same info with:
+print(fitter.result_string())
 
 # <demo> stop
 # Notice that the "stretch factor" (param 2) probably shouldn't be allowed to vary: this is a fit in
@@ -60,16 +54,14 @@ param_guess[2] = 1.0
 param_guess[5] = 0.5
 hold = []
 hold.append(fitter.param_meaning["dP_dE"])
-param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold)
-report(param, covar)
+param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, label="full")
 
 # <demo> stop
 # Now let's add a sloped background
 expected_bg = (bin_ctr-5860)*0.4
 hist += np.random.poisson(lam=expected_bg, size=len(hist))
 
-param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, vary_bg_slope=True)
-report(param, covar)
+param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, vary_bg_slope=True, label="full")
 
 # <demo> stop
 # Now let there be a 20% low-energy tail.
@@ -79,8 +71,7 @@ energies[:Naffected] -= np.random.exponential(tail_len, size=Naffected)
 hist, _ = np.histogram(energies, 200, [5865,5915])
 param_guess = [res_fwhm, 5898.9, 1.0, param_guess[3], 0, 0, 0.2, tail_len]
 
-param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, vary_tail=True)
-report(param, covar)
+param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, vary_tail=True, label="full")
 
 if not wasinteractive:
     plt.ioff()
