@@ -20,7 +20,8 @@ from . import sourceroot
 
 this_dir, this_file = os.path.split(__file__)
 
-demo_files = ('intro.py', 'fitting_demo.py', 'fitting_fluorescence.py', 'cuts.py')
+demo_files = ('intro.py', 'fitting_demo.py', 'fitting_fluorescence.py',
+              'cuts.py', 'full_analysis_example.py')
 # fake_data_demo exists but is broken
 
 
@@ -38,7 +39,7 @@ To run one as an IPython demo, you say:
 massdemo = mass.demo.demos['%s']
 massdemo()
 massdemo() # Each call to the Demo object moves forward 1 more block in the demo.
-#      The basic demo.py has close to a dozen blocks to step through.
+#      The basic intro.py has close to a dozen blocks to step through.
 #      If you want to start over, in the middle or after completing the demo:
 massdemo.reset()
 
