@@ -1,3 +1,8 @@
+"""
+Functions related to using a group of data sets where the raw (LJH) files are
+not used, but the HDF5 files created from them are available.
+"""
+
 import os
 import h5py
 from . import channel_group
@@ -45,6 +50,8 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
 
 
 class TESGroupHDF5(channel_group.TESGroup):
+    """Represent a TESGroup, except where the raw LJH files are not available."""
+
     def __init__(self, h5master_fname):
         self.hdf5_file = h5py.File(h5master_fname, "a")
         self.nPresamples = self.hdf5_file.attrs["npresamples"]
@@ -72,14 +79,11 @@ class TESGroupHDF5(channel_group.TESGroup):
         self._bad_channums = {}
         self.fix_timestamps()
         self.n_channels = len(dset_list)
-        if self.n_channels <= 4:
-            self.colors = ("blue", "#aaaa00", "green", "red")
-        else:
-            self.colors = ('purple', "blue", "cyan", "green", "gold", self.BRIGHT_ORANGE, "red", "brown")
 
     def fix_timestamps(self):
-        """Mass expects p_timestamp to have units of seconds and be a float, sometimes we save microsecond units ints.
-        This is a way to give mass what it expects."""
+        """Mass expects p_timestamp to have units of seconds and be a float,
+        sometimes we save microsecond units as ints. This is a way to give mass
+        what it expects."""
         for ds in self:
             grp = ds.hdf5_group
             if "timestamp_posix_usec" in grp:

@@ -44,6 +44,9 @@ class CategoryList(np.ndarray):
 
 
 class CutFieldMixin(object):
+    """A mixin object that gives a class access to lots of features involving
+    boolean per-pulse cuts and per-pulse categorization.
+    """
     BUILTIN_BOOLEAN_CUT_FIELDS = ['pretrigger_rms',
                                   'pretrigger_mean',
                                   'pretrigger_mean_departure_from_median',
@@ -78,7 +81,7 @@ class CutFieldMixin(object):
 
     def cut_field_desc_init(self):
         """Initialize the cut field descriptions.
-            This methods expects the hdf5_file attribute.
+            This methods expects self to have the hdf5_file attribute.
         """
         if self.hdf5_file:
             if 'cut_num_used_bits' in self.hdf5_file.attrs:
@@ -180,7 +183,7 @@ class CutFieldMixin(object):
         If any of given boolean cut fields already exist, it silently ignore.
 
          Args:
-             names (list[str]): name(s) of one or more cut fields(s).
+             names (sequence of str): name(s) of one or more cut fields(s).
         """
         boolean_fields = self.boolean_cut_desc
         cut_used_bit_flags = self.cut_used_bit_flags
@@ -200,9 +203,9 @@ class CutFieldMixin(object):
         """Unregister one or more boolean cut fields.
 
         Args:
-            names (list[str]): one or more name(s) of boolean cut fields.
+             names (sequence of str): name(s) of one or more boolean cut fields(s).
 
-        Raise:
+        Raises:
             KeyError: when any of cut fields don't exist.
         """
         boolean_fields = self.boolean_cut_desc
@@ -291,12 +294,15 @@ class CutFieldMixin(object):
 
         Args:
             name (str): the name of a categorical cut field to be unregistered.
+
+        Raises:
+            KeyError: when any of cut fields don't exist.
         """
         categorical_fields = self.categorical_cut_desc
         category_list = self.cut_category_list
 
         if not np.any(categorical_fields['name'] == name.encode()):
-            raise ValueError("{0:s} field is not a registered categorical field.".format(name))
+            raise KeyError("{0:s} field is not a registered categorical field.".format(name))
 
         new_categorical_fields = categorical_fields[categorical_fields['name'] != name.encode()]
         new_category_list = category_list[category_list['field'] != name.encode()]
@@ -308,11 +314,10 @@ class CutFieldMixin(object):
 
 
 class Cuts(object):
-    """Object to hold a 32-bit cut mask for each triggered record.
-    """
+    """Object to hold a 32-bit cut mask for each triggered record."""
 
     def __init__(self, n, tes_group, hdf5_group=None):
-        """Create an object to hold n masks of 32 bits each
+        """Create an object to hold n masks of 32 bits each.
 
         Args:
             n (int): the number of pulses
@@ -336,8 +341,11 @@ class Cuts(object):
         """Set the mask of a single field. It could be a boolean or categorical field.
 
         Args:
-            cut_num (str or int): the name of a cut field.
+            cut_num (basestring or int): the name of a cut field.
             mask (np.array(dtype=bool) or np.array(dtype=np.uint32): a cut mask for the cut field.
+
+        Raises:
+            ValueError: if cut_num or mask don't make sense.
         """
         assert(mask.size == self._mask.size)
 
@@ -376,10 +384,15 @@ class Cuts(object):
             raise ValueError("cut_num should be a number or a string but is '%s'" % type(cut_num))
 
     def cut_categorical(self, field, booldict):
-        """Args:
+        """Set the value of one categorical cut.
+
+        Args:
             field (str): the name of category
             booldict (dict{str: np.array(dtype=bool)}): Keys are categories of the field and
-                entries are bool vectors of length equal to mask indicating belongingness
+                entries are bool vectors of length equal to mask indicating belongingness.
+
+        Raises:
+            ValueError: if any pulse is assigned to more than one category.
         """
         category_names = self.tes_group.cut_field_categories(field)
         labels = np.zeros(len(self._mask), dtype=np.uint32)
@@ -395,17 +408,17 @@ class Cuts(object):
 
         Args:
             <data>    The per-pulse parameter to cut on.  It can be an attribute of self, or it
-                      can be computed from one (or more),
+                      can be computed from one or more arrays,
                       but it must be an array of length self.nPulses
             <allowed> The cut to apply (see below).
-            <cut_id>  The bit number (range [0,31]) to identify this cut or the name of the cut.
+            <cut_id>  The bit number (range [0,31]) to identify this cut or (as a
+                basestring) the name of the cut.
 
         <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b.
         Either a or b may be None, indicating no cut.
         OR
         <allowed> is a sequence of 2-element sequences (a,b), then the cut cuts data that does not
-        meet a <= data <=b for any of the two element sequences, if any element in allowed is
-        ''invert'' then it swaps cut and uncut
+        meet a <= data <=b for any of the two element sequences.
         """
 
         if allowed is None:  # no cut here!
@@ -459,7 +472,7 @@ class Cuts(object):
                                  % str(allowed))
 
     def select_category(self, **kwargs):
-        """ Select pulses belongs to all of specified categories.
+        """Select pulses belongs to all of specified categories.
 
         Returns:
             A numpy array of booleans.
@@ -496,8 +509,7 @@ class Cuts(object):
         return (self._mask[...] & category_field_bit_mask) == category_field_target_bits
 
     def category_codes(self, name):
-        """
-        Returns the category codes of a single categorical cut field.
+        """Returns the category codes of a single categorical cut field.
 
         Args:
             name (str): the name of a categorical cut field.
@@ -560,18 +572,18 @@ class Cuts(object):
         return cut_mask
 
     def clear_cut(self, *args):
-        """
-        Clear one or more boolean fields.
-        If no name is given, it will clear all boolean fields.
+        """Clear one or more boolean fields.
+
+        Args:
+            *args: one or more args giving the names to clear. If no name is
+                given, clear all boolean fields.
         """
         bit_mask = self._boolean_fields_bit_mask(args)
 
         self._mask[:] &= ~bit_mask
 
     def _boolean_fields_bit_mask(self, names):
-        """
-        Calculate the bit mask for any combination of boolean cut fields.
-        """
+        """Calculate the bit mask for any combination of boolean cut fields."""
         boolean_fields = self.tes_group.boolean_cut_desc
 
         if names:
@@ -591,9 +603,10 @@ class Cuts(object):
         return bit_mask
 
     def good(self, *args, **kwargs):
-        """
-        Select pulses which are good for all of specified boolean cut fields.
-        If any categorical cut fields are given, only pulses in the combination of categories are considered.
+        """Select pulses which are good for all of specified boolean cut fields.
+
+        If any categorical cut fields are given, only pulses in the combination
+        of categories are considered.
         """
         bit_mask = self._boolean_fields_bit_mask(args)
         g = ((self._mask[...] & bit_mask) == 0)
@@ -604,9 +617,10 @@ class Cuts(object):
         return g
 
     def bad(self, *args, **kwargs):
-        """
-        Select pulses which are bad for at least one of specified boolean cut fields.
-        If any categorical cut fields are given, only pulses in the combination of categories are considered.
+        """Select pulses which are bad for at least one of specified boolean cut fields.
+
+        If any categorical cut fields are given, only pulses in the combination
+        of categories are considered.
         """
         bit_mask = self._boolean_fields_bit_mask(args)
         g = (self._mask[...] & bit_mask != 0)
@@ -621,10 +635,3 @@ class Cuts(object):
 
     def __str__(self):
         return "Cuts(%d) with %d cut and %d uncut" % (len(self._mask), self.bad().sum(), self.good().sum())
-
-    def copy(self):
-        """
-        I don't see the point of this shallow copy.
-        """
-        c = Cuts(len(self._mask), tes_group=self.tes_group, hdf5_group=self.hdf5_group)
-        return c

@@ -1,10 +1,10 @@
 """
-Created on Feb 16, 2011
+Single-channel classes:
 
-@author: fowlerj
+* NoiseRecords: encapsulate a file with noise records
+* PulseRecords: encapsulate a file with pulse records
+* MicrocalDataSet: encapsulate basically everything about 1 channel's pulses and noise
 """
-
-from functools import reduce
 
 import h5py
 import numpy as np
@@ -30,27 +30,29 @@ import logging
 LOG = logging.getLogger("mass")
 
 
-def log_and(a, b, *args):
-    """Generalize np.logical_and() to 2 OR MORE arguments."""
-    return reduce(np.logical_and, args, np.logical_and(a, b))
-
-
 class NoiseRecords(object):
-    """
-    Encapsulate a set of noise records, which can either be
-    assumed continuous or arbitrarily separated in time.
-    """
-    DEFAULT_MAXSEGMENTSIZE = 32000000
+    """Encapsulate a set of noise records.
 
+    The noise records can either be assumed continuous or arbitrarily separated in time.
+    """
+
+    DEFAULT_MAXSEGMENTSIZE = 32000000
     ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, records_are_continuous=False, use_records=None,
                  maxsegmentsize=None, hdf5_group=None):
-        """
-        Load a noise records file.
+        """Contain and analyze a noise records file.
 
-        If <records_are_continuous> is True, then treat all pulses as a continuous timestream.
-        <use_records>  can be a sequence (first,end) to use only a limited section of the file.
+        Args:
+            filename: name of the noise data file
+            records_are_continuous: whether to treat all pulses as a continuous
+                timestream (default False)
+            use_records: (default None), or can be a sequence (first,end) to use
+                only a limited section of the file from record first to the one
+                before end.
+            maxsegmentsize: the number of bytes to be read at once in a segment
+                (default self.DEFAULT_MAXSEGMENTSIZE)
+            hdf5_group: the HDF5 group to be associated with this noise (default None)
         """
         self.hdf5_group = hdf5_group
 
@@ -142,9 +144,16 @@ class NoiseRecords(object):
     def compute_power_spectrum_reshape(self, window=mass.mathstat.power_spectrum.hann,
                                        seg_length=None, max_excursion=1000):
         """Compute the noise power spectrum with noise "records" reparsed into
-        separate records of <seg_length> length.  (If None, then self.data.shape[0] which is
-        self.data.nPulses, will be used as the number of segments, each having length
-        self.data.nSamples.)
+        separate records of a given length.
+
+        Args:
+            window (ndarray): a window function weighting, or a function that will
+                return a weighting.
+            seg_length (int): length of the noise segments (default None). If None,
+                then use self.data.shape[0], which is self.data.nPulses, will be
+                used as the number of segments, each having length self.data.nSamples.
+            max_excursion (number): the biggest excursion from the median allowed
+                in each data segment, or else it will be ignored (default 1000).
 
         By making <seg_length> small, you improve the noise on the PSD estimates at the price of poor
         frequency resolution.  By making it large, you get good frequency resolution with worse
@@ -188,6 +197,9 @@ class NoiseRecords(object):
 
     def compute_fancy_power_spectra(self, window=mass.mathstat.power_spectrum.hann,
                                     plot=True, seglength_choices=None):
+        """Compute a power spectrum using a few long segments for the low freq.
+        and many short ones for the higher frequencies.
+        """
         assert self.continuous
 
         # Does it assume that all data fit into a single segment?
@@ -220,12 +232,12 @@ class NoiseRecords(object):
         return spectra
 
     def plot_power_spectrum(self, axis=None, scale=1.0, sqrt_psd=False, **kwarg):
-        """
-        Plot the power spectrum of this noise record.
+        """Plot the power spectrum of this noise record.
 
-        <axis>     Which plt.Axes object to plot on.  If none, clear the figure and plot there.
-        <scale>    Scale all raw units by this number to convert counts to physical
-        <sqrt_psd> Whether to take the sqrt(PSD) for plotting.  Default is no sqrt
+        Args:
+            <axis>     Which plt.Axes object to plot on.  If none, clear the figure and plot there.
+            <scale>    Scale all raw units by this number to convert counts to physical
+            <sqrt_psd> Whether to take the sqrt(PSD) for plotting.  Default is no sqrt
         """
         if all(self.noise_psd[:] == 0):
             self.compute_power_spectrum(plot=False)
@@ -259,7 +271,9 @@ class NoiseRecords(object):
         def padded_length(n):
             """Return a sensible number in the range [n, 2n] which is not too
             much larger than n, yet is good for FFTs.
-            That is, choose (1, 3, or 5)*(a power of two), whichever is smallest
+
+            Returns:
+                A number: (1, 3, or 5)*(a power of two), whichever is smallest.
             """
             pow2 = np.round(2**np.ceil(np.log2(n)))
             if n == pow2:
@@ -323,27 +337,15 @@ class NoiseRecords(object):
         else:
             raise NotImplementedError("Now that Joe has chunkified the noise, we can "
                                       "no longer compute full continuous autocorrelations")
-#             padded_data = np.zeros(padded_length(n_lags+n_data), dtype=np.float)
-#             padded_data[:n_data] = np.array(self.data.ravel())[:n_data] - self.data.mean()
-#             padded_data[n_data:] = 0.0
-#
-#             ft = np.fft.rfft(padded_data)
-#             del padded_data
-#             ft[0] = 0  # this redundantly removes the mean of the data set
-#             ft *= ft.conj()
-#             ft = ft.real
-#             acsum = np.fft.irfft(ft)
-#             del ft
-#             ac = acsum[:n_lags+1] / (n_data-np.arange(n_lags + 1.0))
-#             del acsum
 
         self.autocorrelation[:] = ac
 
     def compute_autocorrelation(self, n_lags=None, data_samples=None, plot=True, max_excursion=1000):
-        """
-        Compute the autocorrelation averaged across all "pulses" in the file.
-        <n_lags>
-        <data_samples> If not None, then a range [a,b] to use.
+        """Compute the autocorrelation averaged across all "pulses" in the file.
+
+        Args:
+            <n_lags>
+            <data_samples> If not None, then a range [a,b] to use.
         """
 
         if self.continuous:
@@ -405,6 +407,7 @@ class NoiseRecords(object):
             self.plot_autocorrelation()
 
     def plot_autocorrelation(self, axis=None, color='blue', label=None):
+        """Plot the autocorrelation function."""
         if all(self.autocorrelation[:] == 0):
             LOG.info("Autocorrelation must be computed before it can be plotted")
             self.compute_autocorrelation(plot=False)
@@ -424,13 +427,17 @@ class PulseRecords(object):
     The pulses should not be noise records.
 
     This object will not contain derived facts such as pulse summaries, filtered values,
-    and so forth. It is meant to be only a file interface (though until July 2014, this
-    was not exactly the case).
+    and so forth. It is meant to be only a file interface.
     """
 
     ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, file_format=None):
+        """Contain and analyze a noise records file.
+
+        Args:
+            filename: name of the pulse data file
+        """
         self.nSamples = 0
         self.nPresamples = 0
         self.nPulses = 0
@@ -485,7 +492,7 @@ class PulseRecords(object):
         return "%s('%s')" % (self.__class__.__name__, self.filename)
 
     def set_segment_size(self, seg_size):
-        """Update the underlying file's segment (read chunk) size in bytes."""
+        """Update the underlying file's segment size in bytes."""
         self.datafile.set_segment_size(seg_size)
         self.n_segments = self.datafile.n_segments
         self.pulses_per_seg = self.datafile.pulses_per_seg
@@ -524,23 +531,24 @@ class PulseRecords(object):
 
 
 class MicrocalDataSet(object):
-    """
-    Represent a single microcalorimeter's PROCESSED data.
-    This channel can be directly from a TDM detector, or it
-    can be the demodulated result of a CDM modulation.
-    """
+    """Represent a single microcalorimeter's PROCESSED data."""
 
     # Attributes that all such objects must have.
     expected_attributes = ("nSamples", "nPresamples", "nPulses", "timebase", "channum",
                            "timestamp_offset")
-
     HDF5_CHUNK_SIZE = 256
 
     def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None):
         """
-        Pass in a dictionary (presumably that of a PulseRecords object)
-        containing the expected attributes that must be copied to this
-        MicrocalDataSet.
+        Args:
+            pulserec_dict: a dictionary (presumably that of a PulseRecords object)
+                containing the expected attributes that must be copied to this
+                MicrocalDataSet.
+            tes_group: the parent TESGroup object of which this is a member
+                (default None).
+            hdf5_group: the HDF5 group in which the relevant per-pulse data are
+                cached. You really want this to exist, for reasons of both performance
+                and data backup. (default None)
         """
         self.nSamples = 0
         self.nPresamples = 0
@@ -594,10 +602,15 @@ class MicrocalDataSet(object):
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
         about each pulse in memory.
-        p_filt_value = pulse height after running through filter
-        P_filt_value_phc = phase corrected
-        p_fil_value_dc = pulse height after running through filter and applying drift correction
-        p_energy = pulse energy determined from applying a calibration to one of the p_filt_value??? variables"""
+
+        These will include:
+        * p_filt_value = pulse height after running through filter
+        * p_fil_value_dc = pulse height after running through filter and applying drift correction
+        * p_filt_value_phc = phase corrected pulse height
+        * p_energy = pulse energy determined from applying a calibration to one of the p_filt_value??? variables
+        * ...and many others.
+        """
+
 
         if npulses is None:
             assert self.nPulses > 0
@@ -679,9 +692,8 @@ class MicrocalDataSet(object):
         self.cuts = Cuts(self.nPulses, self.tes_group, hdf5_group=grp)
 
     def __load_cals_from_hdf5(self, overwrite=False):
-        """__load_cals_from_hdf5(self,overwrite=False)
-        Load all calibraitons in self.hdf5_group["calibration"] into the dictionary
-        self.calibration
+        """Load all calibrations in self.hdf5_group["calibration"] into the dict
+        self.calibration.
         """
         hdf5_cal_group = self.hdf5_group.require_group('calibration')
         for k in hdf5_cal_group.keys():
@@ -745,11 +757,11 @@ class MicrocalDataSet(object):
         return self.tes_group.updater(name + " chan {0:d}".format(self.channum))
 
     def good(self, *args, **kwargs):
-        """Return a boolean vector, one per pulse record, saying whether record is good"""
+        """Returns a boolean vector, one per pulse record, saying whether record is good"""
         return self.cuts.good(*args, **kwargs)
 
     def bad(self, *args, **kwargs):
-        """Return a boolean vector, one per pulse record, saying whether record is bad"""
+        """Returns a boolean vector, one per pulse record, saying whether record is bad"""
         return self.cuts.bad(*args, **kwargs)
 
     def resize(self, nPulses):
@@ -760,10 +772,7 @@ class MicrocalDataSet(object):
         self.__setup_vectors()
 
     def copy(self):
-        """Return a copy of the object.
-
-        Handy when coding and you don't want to read the whole data set back in, but
-        you do want to update the method definitions."""
+        """Return a deep copy of the object."""
         c = MicrocalDataSet(self.__dict__)
         c.__dict__.update(self.__dict__)
         for k in self.calibration.keys():
@@ -783,6 +792,20 @@ class MicrocalDataSet(object):
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        forceNew=False, use_cython=True):
         """Summarize the complete data set one chunk at a time.
+
+        Store results in the HDF5 datasets p_pretrig_mean and similar.
+
+        Args:
+            peak_time_microsec: the time in microseconds at which this channel's
+                pulses typically peak (default None). You should leave this as None,
+                and let the value be estimated from the data.
+            pretrigger_ignore_microsec: how much time before the trigger to ignore
+                when computing pretrigger mean (default None). If None, it will
+                be chosen sensibly.
+            forceNew: whether to re-compute summaries if they exist (default False)
+            use_cython: whether to use cython for summarizing the data (default True).
+                If this object is not a CythonMicrocalDataSet, then Cython cannot
+                be used, and this value is ignored.
         """
         # Don't proceed if not necessary and not forced
         self.number_of_rows = self.pulse_records.datafile.number_of_rows
@@ -879,10 +902,13 @@ class MicrocalDataSet(object):
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
         """Compute the average pulse this channel.
 
-        mask -- A boolean array saying which records to average.
-        subtract_mean -- Whether to subtract the pretrigger mean and set the
-            pretrigger period to strictly zero.
-        forceNew -- Whether to recompute when already exists
+        Store as self.average_pulse
+
+        Args:
+            mask -- A boolean array saying which records to average.
+            subtract_mean -- Whether to subtract the pretrigger mean and set the
+                pretrigger period to strictly zero (default True).
+            forceNew -- Whether to recompute when already exists (default False)
         """
         # Don't proceed if not necessary and not forced
         already_done = self.average_pulse[-1] != 0
@@ -949,11 +975,24 @@ class MicrocalDataSet(object):
     def compute_newfilter(self, fmax=None, f_3db=None, transform=None):
         """Compute a new-style filter to model the pulse and its time-derivative.
 
+        Args:
+            fmax: if not None, the hard cutoff in frequency space, above which
+                the DFT of the filter will be set to zero (default None)
+            f_3db: if not None, the 3 dB rolloff point in frequency space, above which
+                the DFT of the filter will rolled off with a 1-pole filter
+                (default None)
+            transform: a callable object that will be called on all data records
+                before filtering (default None)
+
+        Returns:
+            the filter (an ndarray)
+
         Modified in April 2017 to make the model for the rising edge and the rest of
         the pulse differently. For the rising edge, we use entropy minimization to understand
         the pulse shape dependence on arrival-time. For the rest of the pulse, it
         is less noisy and in fact more robust to rely on the finite-difference of
-        the pulse average to get the arrival-time dependence."""
+        the pulse average to get the arrival-time dependence.
+        """
 
         # At the moment, 1st-order model vs arrival-time is required.
         DEGREE = 1
@@ -1020,6 +1059,13 @@ class MicrocalDataSet(object):
     @show_progress("channel.filter_data_tdm")
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
         """Filter the complete data file one chunk at a time.
+
+        Args:
+            filter_name: the object under self.filter to use for filtering the
+                data records (default 'filt_noconst')
+            transform: a callable object that will be called on all data records
+                before filtering (default None)
+            forceNew: Whether to recompute when already exists (default False)
         """
         if not(forceNew or all(self.p_filt_value[:] == 0)):
             LOG.info('\nchan %d did not filter because results were already loaded' % self.channum)
@@ -1048,7 +1094,7 @@ class MicrocalDataSet(object):
         self.hdf5_group.file.flush()
 
     def _filter_data_segment_old(self, filter_values, _filter_AT, first, end, transform=None):
-        """Traditional 5-lag filter used by default until 2015"""
+        """Traditional 5-lag filter used by default until 2015."""
         if first >= self.nPulses:
             return None, None
 
@@ -1079,12 +1125,6 @@ class MicrocalDataSet(object):
         peak_y = param[0, :] - 0.25 * param[1, :]**2 / param[2, :]
         return peak_x, peak_y
 
-    def clear_cache(self):
-        self.data = None
-        self.rowcount = None
-        self.times = None
-        self.pulse_records.clear_cache()
-
     def _filter_data_segment_new(self, filter_values, filter_AT, first, end, transform=None):
         """single-lag filter developed in 2015"""
         if first >= self.nPulses:
@@ -1114,15 +1154,16 @@ class MicrocalDataSet(object):
         """Plot a summary of the data set, including time series and histograms of
         key pulse properties.
 
-        <valid> An array of booleans self.nPulses long saying which pulses are to be plotted
+        Args:
+            valid: An array of booleans self.nPulses long saying which pulses are to be plotted
                 *OR* 'uncut' or 'cut', meaning that only uncut or cut data are to be plotted
                 *OR* None, meaning that all pulses should be plotted.
 
-        <downsample> To prevent the scatter plots (left panels) from getting too crowded,
+            downsample: To prevent the scatter plots (left panels) from getting too crowded,
                      plot only one out of this many samples.  If None, then plot will be
-                     downsampled to 10,000 total points.
+                     downsampled to 10,000 total points (default None).
 
-        <log>  Use logarithmic y-axis on the histograms (right panels).
+            log (bool):  Use logarithmic y-axis on the histograms (right panels). (Default False)
         """
 
         # Convert "uncut" or "cut" to array of all good or all bad data
@@ -1195,8 +1236,16 @@ class MicrocalDataSet(object):
                 plt.ylim(ymin=contents.min())
 
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
-        """<n_lags>, if not None, is the number of lags in each noise spectrum and the max lag
-        for the autocorrelation.  If None, the record length is used."""
+        """Compute the noise power spectrum of this channel.
+
+        Args:
+            max_excursion (number): the biggest excursion from the median allowed
+                in each data segment, or else it will be ignored (default 1000).
+            n_lags: if not None, the number of lags in each noise spectrum and the max lag
+                for the autocorrelation.  If None, the record length is used
+                (default None).
+            forceNew (bool): whether to recompute if it already exists (default False).
+        """
         if n_lags is None:
             n_lags = self.nSamples
         if forceNew or all(self.noise_autocorr[:] == 0):
@@ -1211,8 +1260,12 @@ class MicrocalDataSet(object):
             LOG.info("chan %d skipping compute_noise_spectra because already done" % self.channum)
 
     def apply_cuts(self, controls, clear=False, forceNew=True):
-        """
-        <clear>  Whether to clear previous cuts first (by default, do not clear).
+        """Apply the cuts.
+
+        Args:
+            controls (AnalysisControl): contains the cuts to apply.
+            clear (bool):  Whether to clear previous cuts first (default False).
+            forceNew (bool): whether to recompute if it already exists (default False).
         """
         if self.nPulses == 0:
             return  # don't bother current if there are no pulses
@@ -1253,6 +1306,7 @@ class MicrocalDataSet(object):
                 self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
 
     def clear_cuts(self):
+        """Clear all cuts."""
         self.cuts.clear_cut()
 
     def drift_correct(self, forceNew=False, category=None):
@@ -1282,14 +1336,21 @@ class MicrocalDataSet(object):
 
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False,
                           forceNew=False, category=None):
-        """Apply the phase correction that seems good for calibronium-like
-        data as of June 2014. For more notes, do
-        help(mass.core.analysis_algorithms.FilterTimeCorrection)
+        """Apply the phase correction that worked for calibronium-like data as of June 2014.
 
-        <typical_resolution> should be an estimated energy resolution in UNITS OF
-        self.p_pulse_rms. This helps the peak-finding (clustering) algorithm decide
-        which pulses go together into a single peak.  Be careful to use a semi-reasonable
-        quantity here.
+        For more notes, do help(mass.core.analysis_algorithms.FilterTimeCorrection)
+
+        Args:
+            typical_resolution (number): should be an estimated energy resolution in UNITS OF
+                self.p_pulse_rms. This helps the peak-finding (clustering) algorithm decide
+                which pulses go together into a single peak.  Be careful to use a semi-reasonable
+                quantity here.
+            maximum_num_records (int): don't use more than this many records to learn
+                the correction (default 50000).
+            plot (bool): whether to make a relevant plot
+            forceNew (bool): whether to recompute if it already exists (default False).
+            category (dict): if not None, then a dict giving a category name and the
+                required category label.
         """
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
         if not (forceNew or doesnt_exist):
@@ -1323,13 +1384,19 @@ class MicrocalDataSet(object):
             plt.figure(fnum)
 
     def _find_peaks_heuristic(self, phnorm):
-        """A heuristic method to identify the peaks in a spectrum that can be used to
-        design the arrival-time-bias correction. Of course, you might have better luck
-        finding peaks by an experiment-specific method, but this will stand in if you
-        cannot or do not want to find peaks another way.
+        """A heuristic method to identify the peaks in a spectrum.
 
-        phnorm should be a vector of pulse heights, found by whatever means you like.
-        Normally it will be the self.p_filt_value_dc AFTER CUTS.
+        This can be used to design the arrival-time-bias correction. Of course,
+        you might have better luck finding peaks by an experiment-specific
+        method, but this will stand in if you cannot or do not want to find
+        peaks another way.
+
+        Args:
+            phnorm: a vector of pulse heights, found by whatever means you like.
+                Normally it will be the self.p_filt_value_dc AFTER CUTS.
+
+        Returns:
+            ndarray of the various peaks found in the input vector.
         """
         median_scale = np.median(phnorm)
 
@@ -1359,12 +1426,16 @@ class MicrocalDataSet(object):
 
     def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=False,
                       kernel_width=None):
-        """2017 or 2015 phase correction method. Arguments are:
-        `forceNew`  To repeat computation if it already exists.
-        `category`  From the new named/categorical cuts system.
-        `ph_peaks`  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
-        `kernel_width` Width (in PH units) of the kernel-smearing function. If None, use a heuristic.
+        """Apply the 2017 or 2015 phase correction method.
+
+        Args:
+            forceNew (bool): whether to recompute if it already exists (default False).
+            category (dict): if not None, then a dict giving a category name and the
+                required category label.
+            ph_peaks:  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
+            kernel_width: Width (in PH units) of the kernel-smearing function. If None, use a heuristic.
         """
+
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
         if not (forceNew or doesnt_exist):
             LOG.info("channel %d skipping phase_correct" % self.channum)
@@ -1388,7 +1459,7 @@ class MicrocalDataSet(object):
         if kernel_width is None:
             kernel_width = np.max(ph_peaks)/1000.0
         for pk in ph_peaks:
-            c, mphase = phasecorr_find_alignment(self.p_filt_phase[good],
+            c, mphase = _phasecorr_find_alignment(self.p_filt_phase[good],
                                                  self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks),
                                                  method2017=method2017, kernel_width=kernel_width)
             corrections.append(c)
@@ -1466,12 +1537,17 @@ class MicrocalDataSet(object):
         return corrections
 
     def first_n_good_pulses(self, n=50000, category=None):
-        """
-        :param n: maximum number of good pulses to include
-        :return: data, g
-        data is a (X,Y) array where X is number of records, and Y is number of samples per record
-        g is a 1d array of of pulse record numbers of the pulses in data
-        if we  did load all of ds.data at once, this would be roughly equivalent to
+        """Return the first good pulse records.
+
+        Args:
+            n: maximum number of good pulses to include (default 50000).
+
+        Returns:
+            (data, g)
+            data is a (X,Y) array where X is number of records, and Y is number of samples per record
+            g is a 1d array of of pulse record numbers of the pulses in data.
+
+        If we did load all of ds.data at once, this would be roughly equivalent to
         return ds.data[ds.cuts.good()][:n], np.nonzero(ds.cuts.good())[0][:n]
         """
         if category is None:
@@ -1490,11 +1566,6 @@ class MicrocalDataSet(object):
 
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha',
                           nbins=200, plot=True, **kwargs):
-        """
-        <line> can be one of the fitters in mass.calibration.fluorescence_lines (e.g. 'MnKAlpha', 'CuKBeta') or
-        in mass.calibration.gaussian_lines (e.g. 'Gd97'), or a number.  In this last case, it is assumed to
-        be a single Gaussian line.
-        """
         all_values = {'filt': self.p_filt_value,
                       'phc': self.p_filt_value_phc,
                       'dc': self.p_filt_value_dc,
@@ -1601,17 +1672,25 @@ class MicrocalDataSet(object):
         self.rowcount = self.pulse_records.rowcount
         return first, end
 
+    def clear_cache(self):
+        self.data = None
+        self.rowcount = None
+        self.times = None
+        self.pulse_records.clear_cache()
+
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None, shift1=False):
         """Plot some example pulses, given by sample number.
-        <pulsenums>   A sequence of sample numbers, or a single one.
-        <pulse_summary> Whether to put text about the first few pulses on the plot
-        <axis>       A plt axis to plot on.
-        <difference> Whether to show successive differences (that is, d(pulse)/dt) or the raw data
-        <residual>   Whether to show the residual between data and opt filtered model, or just raw data.
-        <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
-                     that have been cut.  If "cut", show only those that have been cut.
-        <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
+
+        Args:
+            <pulsenums>   A sequence of sample numbers, or a single one.
+            <pulse_summary> Whether to put text about the first few pulses on the plot
+            <axis>       A plt axis to plot on.
+            <difference> Whether to show successive differences (that is, d(pulse)/dt) or the raw data
+            <residual>   Whether to show the residual between data and opt filtered model, or just raw data.
+            <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
+                         that have been cut.  If "cut", show only those that have been cut.
+            <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
         """
 
         if isinstance(pulsenums, int):
@@ -1754,6 +1833,7 @@ class MicrocalDataSet(object):
 
     def auto_cuts(self, forceNew=False):
         """Compute and apply an appropriate set of automatically generated cuts.
+
         The peak time and rise time come from the measured most-common peak time.
         The pulse RMS and postpeak-derivative cuts are based on what's observed in
         the (presumably) pulse-free noise file associated with this data file."""
@@ -1825,7 +1905,7 @@ class MicrocalDataSet(object):
 # But at any rate, they do not require any MicrocalDataSet attributes, so they are
 # pure functions, not methods.
 
-def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
+def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
                              method2017=False, nf=10, kernel_width=2.0):
     """Find the way to align (flatten) `pulse_heights` as a function of `phase_indicator`
     working only within the range [peak-delta_ph, peak+delta_ph].
@@ -1936,8 +2016,11 @@ def phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
 
 
 def _phase_corrected_filtvals(phase, uncorrected, corrections):
-    """Apply phase correction to `uncorrected` and return the corrected
-    vector."""
+    """Apply phase correction to `uncorrected`.
+    
+    Returns:
+        the corrected vector.
+    """
     NC = len(corrections)
     NP = len(phase)
     assert NP == len(uncorrected)

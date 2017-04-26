@@ -1,12 +1,11 @@
 """
-Created on Feb 16, 2011
-
-@author: fowlerj
+Contains the class CythonMicrocalDataSet, which subclasses MicrocalDataSet to
+add a much faster, Cython version of .summarize_data_segment().
 """
+
 import numpy as np
 import logging
 
-# MASS modules
 from mass.core.channel import MicrocalDataSet
 from mass.core.utilities import show_progress
 
@@ -18,8 +17,7 @@ LOG = logging.getLogger("mass")
 
 
 class CythonMicrocalDataSet(MicrocalDataSet):
-    """Represent a single microcalorimeter's PROCESSED data.
-    """
+    """Represent a single microcalorimeter's PROCESSED data."""
     def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None):
         super(CythonMicrocalDataSet, self).__init__(pulserec_dict, tes_group=tes_group, hdf5_group=hdf5_group)
 
@@ -245,8 +243,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
     @cython.wraparound(False)
     @show_progress("filter_data_tdm")
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=True):
-        """Filter the complete data file one chunk at a time.
-        """
+        """Filter the complete data file one chunk at a time."""
         cdef:
             Py_ssize_t i, j, k
             int n_segments, pulses_per_seg, seg_size, nSamples, filter_length

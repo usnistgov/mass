@@ -1,7 +1,7 @@
 """
-Created on Feb 16, 2011
-
-@author: fowlerj
+Contains the class AnalysisControl. It was once intended to control the full
+behavior of a lot of analysis operations. In reality, we only use it to specify
+the pulse quality cuts.
 """
 
 from .param_dict_base import PrmDictBase
@@ -14,7 +14,8 @@ class AnalysisControl(PrmDictBase):
 
     def __init__(self, **kwargs):
         """Build a set of cuts, plans, and analysis dictionaries with default
-        values."""
+        values.
+        """
         super(AnalysisControl, self).__init__()
 
         # Not clear what we'll use this for (placeholder).
@@ -51,8 +52,9 @@ class AnalysisControl(PrmDictBase):
 
 
 def standardControl():
-    """Create a standard set of cuts.  (Not all that useful, since cuts can very so
-    hugely!)"""
+    """Create a standard set of cuts.  Honestly, the is not all that useful, since
+    cuts can very so hugely!)
+    """
     ac = AnalysisControl()
     ac.set(peak_time_ms=(-0.5, 0.5),
            rise_time_ms=(0, 0.2),

@@ -3,15 +3,9 @@ channel_group.py
 
 Part of the Microcalorimeter Analysis Software System (MASS).
 
-This module defines classes that handle one or more TES data streams
-together.
-
-That's the goal, at least.
-
-Author: Joe Fowler, NIST
-
-Started March 2, 2011
+This module defines classes that handle one or more TES data streams together.
 """
+
 from collections import Iterable
 from functools import reduce
 import os
@@ -40,7 +34,9 @@ LOG = logging.getLogger("mass")
 
 def _generate_hdf5_filename(rawname):
     """Generate the appropriate HDF5 filename based on a file's LJH name.
-    Takes /path/to/data_chan33.ljh --> /path/to/data_mass.hdf5"""
+
+    Takes /path/to/data_chan33.ljh --> /path/to/data_mass.hdf5
+    """
     import re
     fparts = re.split(r"_chan\d+", rawname)
     prefix_path = fparts[0]
@@ -50,45 +46,45 @@ def _generate_hdf5_filename(rawname):
 
 
 def RestoreTESGroup(hdf5filename, hdf5noisename=None):
-    """Generate a TESGroup object from a data summary HDF5 filename 'hdf5filename'
-    and optionally an 'hdf5noisename', though the latter can often be inferred from
-    the noise raw filenames, which are stored in the pulse HDF5 file (assuming you
-    aren't doing something weird).
+    """Generate a TESGroup object from a data summary HDF5 file.
 
-    TODO: make this function accept a sequence of channel numbers and load only those
-    channels into the TESGroup.
+    Args:
+        hdf5filename (string): the data summary file
+        hdf5noisename (string): the noise summary file; this can often be inferred from
+            the noise raw filenames, which are stored in the pulse HDF5 file (assuming you
+            aren't doing something weird). (default None)
     """
     pulsefiles = []
     channum = []
     noisefiles = []
     generated_noise_hdf5_name = None
 
-    h5file = h5py.File(hdf5filename, "r")
-    for name, group in h5file.iteritems():
-        if not name.startswith("chan"):
-            continue
-        pulsefiles.append(group.attrs['filename'])
-        channum.append(group.attrs['channum'])
+    with h5py.File(hdf5filename, "r") as h5file:
+        for name, group in h5file.iteritems():
+            if not name.startswith("chan"):
+                continue
+            pulsefiles.append(group.attrs['filename'])
+            channum.append(group.attrs['channum'])
 
-        if hdf5noisename is None:
-            fname = group.attrs['noise_filename']
-            if generated_noise_hdf5_name is None:
-                generated_noise_hdf5_name = _generate_hdf5_filename(fname)
-            elif generated_noise_hdf5_name != _generate_hdf5_filename(fname):
-                raise RuntimeError("""The implied HDF5 noise files names are not the same for all channels.
-                The first channel implies '%s'
-                and another implies '%s'.
-                Instead, you should run RestoreTESGroup with an explicit hdf5noisename argument.""" %
-                                   (generated_noise_hdf5_name, _generate_hdf5_filename(fname)))
-            noisefiles.append(fname)
-    h5file.close()
+            if hdf5noisename is None:
+                fname = group.attrs['noise_filename']
+                if generated_noise_hdf5_name is None:
+                    generated_noise_hdf5_name = _generate_hdf5_filename(fname)
+                elif generated_noise_hdf5_name != _generate_hdf5_filename(fname):
+                    raise RuntimeError("""The implied HDF5 noise files names are not the same for all channels.
+                    The first channel implies '%s'
+                    and another implies '%s'.
+                    Instead, you should run RestoreTESGroup with an explicit hdf5noisename argument.""" %
+                                       (generated_noise_hdf5_name, _generate_hdf5_filename(fname)))
+                noisefiles.append(fname)
+        h5file.close()
 
     if hdf5noisename is not None:
-        h5file = h5py.File(hdf5noisename, "r")
-        for ch in channum:
-            group = h5file['chan%d' % ch]
-            noisefiles.append(group.attrs['filename'])
-        h5file.close()
+        with h5py.File(hdf5noisename, "r") as h5file:
+            for ch in channum:
+                group = h5file['chan%d' % ch]
+                noisefiles.append(group.attrs['filename'])
+            h5file.close()
     else:
         hdf5noisename = generated_noise_hdf5_name
 
@@ -97,17 +93,37 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
 
 
 class TESGroup(CutFieldMixin):
-    """
-    Provides the interface for a group of one or more microcalorimeters,
-    multiplexed by TDM.
-    """
-
-    BRIGHT_ORANGE = '#ff7700'
+    """The interface for a group of one or more microcalorimeters."""
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
                  hdf5_filename=None, hdf5_noisefilename=None,
                  never_use=None, use_only=None):
+        """Set up a group of related data sets by their filenames.
+
+        Args:
+            filenames: either a sequence of pulse filenames, or a shell "glob pattern"
+                that can be expanded to a list of filenames
+            noise_filenames: either a sequence of noise filenames, or a shell
+                "glob pattern" that can be expanded to a list of filenames, or
+                None (if there are to be no noise data). (default None)
+            noise_only (bool): if True, then treat this as a pulse-free analysis
+                and take filenames to be a list of noise files (default False)
+            noise_is_continuous (bool): whether to treat sequential noise records
+                as continuous in time (default True)
+            max_cachesize: the maximum number of bytes to read when reading and
+                caching raw data. If None, use the default of ??.
+            hdf5_filename: if not None, the filename to use for backing the
+                analyzed data in HDF5 (default None). If None, choose a sensible
+                filename based on the input data filenames.
+            hdf5_noisefilename: if not None, the filename to use for backing the
+                analyzed noise data in HDF5 (default None). If None, choose a sensible
+                filename based on the input data filenames.
+            never_use: if not None, a sequence of channel numbers to ignore
+                (default None).
+            use_only:  if not None, a sequence of channel numbers to use, i.e.
+                ignore all channels not on this list (default None).
+        """
 
         if noise_filenames is not None and len(noise_filenames) == 0:
             noise_filenames = None
@@ -176,11 +192,6 @@ class TESGroup(CutFieldMixin):
         self._allowed_segnums = None
         self.pulses_per_seg = None
         self._bad_channums = dict()
-
-        if self.n_channels <= 4:
-            self.colors = ("blue", "#aaaa00", "green", "red")
-        else:
-            self.colors = ('purple', "blue", "cyan", "green", "gold", self.BRIGHT_ORANGE, "red", "brown")
 
         if self.noise_only:
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
@@ -332,7 +343,10 @@ class TESGroup(CutFieldMixin):
 
     def iter_channels(self, include_badchan=False):
         """Iterator over the self.datasets in channel number order
-        include_badchan : whether to include officially bad channels in the result.
+
+        Args:
+            include_badchan (bool): whether to include officially bad channels
+                in the result (default False).
         """
         for ds in self.datasets:
             if not include_badchan:
@@ -341,17 +355,24 @@ class TESGroup(CutFieldMixin):
             yield ds
 
     def iter_channel_numbers(self, include_badchan=False):
-        """Iterator over the channel numbers in numerical order
-        include_badchan : whether to include officially bad channels in the result.
+        """Iterator over  the channel numbers in channel number order
+
+        Args:
+            include_badchan (bool): whether to include officially bad channels
+                in the result (default False).
         """
         for ds in self.iter_channels(include_badchan=include_badchan):
             yield ds.channum
 
     def set_chan_good(self, *args):
-        """Set one or more channels to be good.  (No effect for channels already listed
-        as good.)
-        *args  Arguments to this function are integers or containers of integers.  Each
-               integer is removed from the bad-channels list."""
+        """Set one or more channels to be good.
+
+        (No effect for channels already listed as good.)
+
+        Args:
+            *args  Arguments to this function are integers or containers of integers.  Each
+                integer is removed from the bad-channels list.
+        """
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args])
 
         for channum in added_to_list:
@@ -363,12 +384,14 @@ class TESGroup(CutFieldMixin):
                 LOG.info("chan %d not set good because it was not set bad" % channum)
 
     def set_chan_bad(self, *args):
-        """Set one or more channels to be bad.  (No effect for channels already listed
-        as bad.)
+        """Set one or more channels to be bad.
+
+        (No effect for channels already listed as bad.)
 
         Args:
             *args  Arguments to this function are integers or containers of integers.  Each
-                integer is added to the bad-channels list."""
+                integer is added to the bad-channels list.
+        """
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args
                                     if not isinstance(x, basestring)])
         comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, basestring)], '')
@@ -492,12 +515,14 @@ class TESGroup(CutFieldMixin):
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        include_badchan=False, forceNew=False, use_cython=True):
-        """summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
-                           include_badchan=False, forceNew=False, use_cython=True)
-        peak_time will be determined automatically if None, and will be stored in channels as
-            ds.peak_samplenumber
-        use_cython uses a cython (aka faster) implementation of summarize.
-        Compute summary quantities for each pulse."""
+        """Summarize the data with per-pulse summary quantities for each channel.
+
+        peak_time_microsec will be determined automatically if None, and will be
+        stored in channels as ds.peak_samplenumber.
+
+        Args:
+            use_cython uses a cython (aka faster) implementation of summarize.
+        """
         nchan = float(len(self.channel.keys())) if include_badchan else float(self.num_good_channels)
 
         for i, ds in enumerate(self.iter_channels(include_badchan)):
@@ -544,28 +569,41 @@ class TESGroup(CutFieldMixin):
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 
     def read_trace(self, record_num, dataset_num=0, channum=None):
-        """Read (from cache or disk) and return the pulse numbered <record_num> for
-        dataset number <dataset_num> or channel number <channum>.
-        If both are given, then <channum> will be used when valid."""
+        """Read one trace from cache or disk.
+
+        Args:
+            record_num (int): the pulse record number to read.
+            dataset_num (int): the dataset number to use
+            channum (int): the channel number to use (if both this and dataset_num
+                are given, use channum in preference).
+
+        Returns:
+            an ndarray: the pulse numbered <record_num>
+        """
         ds = self.channel.get(channum, self.datasets[dataset_num])
         return ds.read_trace(record_num)
 
     def plot_traces(self, pulsenums, dataset_num=0, channum=None, pulse_summary=True, axis=None,
                     difference=False, residual=False, valid_status=None, shift1=False):
-        """Plot some example pulses, given by sample number.
-        <pulsenums>   A sequence of sample numbers, or a single one.
-        <dataset_num> Dataset index (0 to n_dets-1, inclusive).  Will be used only if
-                      <channum> is invalid.
-        <channum>    Dataset channel number.  If valid, it will be used instead of dataset_num.
+        """Plot some example pulses, given by record number.
 
-        <pulse_summary> Whether to put text about the first few pulses on the plot
-        <axis>       A plt axis to plot on.
-        <difference> Whether to show successive differences (that is, d(pulse)/dt) or the raw data
-        <residual>   Whether to show the residual between data and opt filtered model,
-                     or just raw data.
-        <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
-                     that have been cut.  If "cut", show only those that have been cut.
-        <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
+        Args:
+            <pulsenums>   A sequence of record numbers, or a single number.
+            <dataset_num> Dataset index (0 to n_dets-1, inclusive).  Will be used only if
+                          <channum> is invalid.
+            <channum>    Channel number.  If valid, it will be used instead of dataset_num.
+            <pulse_summary> Whether to put text about the first few pulses on the plot
+                (default True)
+            <axis>       A plt axis to plot on (default None, i.e., create a new axis)
+            <difference> Whether to show successive differences (that is, d(pulse)/dt) or the raw data
+                (default False).
+            <residual>   Whether to show the residual between data and opt filtered model,
+                 or just raw data (default False).
+            <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
+                that have been cut.  If "cut", show only those that have been cut.
+                (default None).
+            <shift1>     Whether to take pulses with p_shift1==True and delay them by
+                1 sample (default False, i.e., show the pure raw data w/o shifting).
         """
 
         if channum in self.channel:
@@ -580,34 +618,37 @@ class TESGroup(CutFieldMixin):
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
                        channel_numbers=None, dataset_numbers=None):
-        """Plot a summary of one quantity from the data set, including time series and histograms of
-        this quantity.  This method plots all channels in the group, but only one quantity.  If you
+        """Plot a summary of one quantity from the data set.
+
+        This plot includes time series and histograms of this quantity.  This
+        method plots all channels in the group, but only one quantity.  If you
         would rather see all quantities for one channel, then use the group's
-        group.dataset[i].plot_summaries() method.
+        group.channel[i].plot_summaries() method.
 
-        <quantity> A case-insensitive whitespace-ignored one of the following list, or the numbers
-                   that go with it:
-                   "Pulse RMS" (0)
-                   "Pulse Avg" (1)
-                   "Peak Value" (2)
-                   "Pretrig RMS" (3)
-                   "Pretrig Mean" (4)
-                   "Max PT Deriv" (5)
-                   "Rise Time" (6)
-                   "Peak Time" (7)
+        Args:
+            quantity: A case-insensitive whitespace-ignored one of the following list, or the numbers
+               that go with it:
+               "Pulse RMS" (0)
+               "Pulse Avg" (1)
+               "Peak Value" (2)
+               "Pretrig RMS" (3)
+               "Pretrig Mean" (4)
+               "Max PT Deriv" (5)
+               "Rise Time" (6)
+               "Peak Time" (7)
 
-        <valid> The words 'uncut' or 'cut', meaning that only uncut or cut data are to be plotted
-                *OR* None, meaning that all pulses should be plotted.
+            valid: The words 'uncut' or 'cut', meaning that only uncut or cut data
+                are to be plotted *OR* None, meaning that all pulses should be plotted.
 
-        <downsample> To prevent the scatter plots (left panels) from getting too crowded,
-                     plot only one out of this many samples.  If None, then plot will be
-                     downsampled to 10,000 total points.
-
-        <log>              Use logarithmic y-axis on the histograms (right panels).
-        <hist_limits>
-        <channel_numbers>  A sequence of channel numbers to plot. If None, then plot all.
-        <dataset_numbers>  A sequence of the datasets [0...n_channels-1] to plot.  If None
-                           (the default) then plot all datasets in numerical order.
+            downsample (int): To prevent the scatter plots (left panels) from getting too crowded,
+                 plot only one out of this many samples.  If None, then plot will be
+                 downsampled to 10,000 total points.
+            log (bool): Use logarithmic y-axis on the histograms (right panels).
+            hist_limits: if not None, limit the right-panel histograms to this range.
+            channel_numbers: A sequence of channel numbers to plot. If None, then plot all.
+            dataset_numbers: A sequence of the datasets [0...n_channels-1] to plot.  If None
+                (the default) then plot all datasets in numerical order. But ignored
+                if channel_numbers is not None.
         """
 
         plottables = (
@@ -735,11 +776,16 @@ class TESGroup(CutFieldMixin):
                    pulse_rms_range=None, gains=None):
         """Generate a sequence of masks for use in compute_average_pulses().
 
-        Arguments:
-        pulse_avg_range -- A 2-sequence giving the (minimum,maximum) p_pulse_average
-        pulse_peak_range -- A 2-sequence giving the (minimum,maximum) p_peak_value
-        pulse_rms_range --  A 2-sequence giving the (minimum,maximum) p_pulse_rms
-        gains -- The set of gains to use, if any.
+        Args:
+            pulse_avg_range -- A 2-sequence giving the (minimum,maximum) p_pulse_average
+            pulse_peak_range -- A 2-sequence giving the (minimum,maximum) p_peak_value
+            pulse_rms_range --  A 2-sequence giving the (minimum,maximum) p_pulse_rms
+            gains -- The set of gains to use, if any.
+
+        Returns:
+            a list of ndvectors of boolean dtype, one list per channel.
+            Each vector says whether each pulse in that channel is in the given
+            range of allowed pulse sizes.
         """
 
         for ds in self:
@@ -785,11 +831,12 @@ class TESGroup(CutFieldMixin):
         Store the averages in self.datasets.average_pulse, a length nSamp vector.
         Note that this method replaces any previously computed self.datasets.average_pulse
 
-        `masks` -- a sequence of length self.n_channels, one sequence per channel.
-        The elements of `masks` should be booleans or interpretable as booleans.
+        Args:
+            masks: A sequence of length self.n_channels, one sequence per channel.
+                The elements of `masks` should be booleans or interpretable as booleans.
 
-        `subtract_mean` -- whether each average pulse will subtract a constant
-        to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
+            subtract_mean (bool): whether each average pulse will subtract a constant
+                to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
         """
         if len(masks) != len(self.datasets):
             raise ValueError("masks must include exactly one mask per data channel")
@@ -807,7 +854,8 @@ class TESGroup(CutFieldMixin):
     def plot_average_pulses(self, axis=None, channels=None, cmap=None, legend=True):
         """Plot average pulse for channel number <channum> on matplotlib.Axes <axis>, or
         on a new Axes if <axis> is None.  If <channum> is not a valid channel
-        number, then plot all average pulses."""
+        number, then plot all average pulses.
+        """
 
         if axis is None:
             plt.clf()
@@ -903,9 +951,10 @@ class TESGroup(CutFieldMixin):
 
     def plot_filters(self, axis=None, channels=None, cmap=None,
                      filtname="filt_noconst", legend=True):
-        """Compare the optimal filters.
+        """Plot the optimal filters.
 
-        <channels>    Sequence of channels to display.  If None, then show all.
+        Args:
+            channels: Sequence of channel numbers to display.  If None, then show all.
         """
 
         if axis is None:
@@ -960,9 +1009,7 @@ class TESGroup(CutFieldMixin):
             yield (i+1.0) / nchan
 
     def report(self):
-        """
-        Report on the number of data points and similar
-        """
+        """Report on the number of data points and similar."""
         for ds in self.datasets:
             good = ds.cuts.good()
             ng = ds.cuts.good().sum()
@@ -974,9 +1021,10 @@ class TESGroup(CutFieldMixin):
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None,
                                    legend=True):
-        """Compare the noise autocorrelation functions.
+        """Plot the noise autocorrelation functions.
 
-        <channels>    Sequence of channels to display.  If None, then show all.
+        Args:
+            channels: Sequence of channel numbers to display.  If None, then show all.
         """
 
         if axis is None:
@@ -1031,11 +1079,14 @@ class TESGroup(CutFieldMixin):
 
     def read_segment(self, segnum, use_cache=True):
         """Read segment number <segnum> into memory for each of the
-        channels in the group.  Return (first,end) where these are the
-        number of the first record in that segment and 1 more than the
-        number of the last record.
+        channels in the group.
 
-        When <use_cache> is true, we use cached value when possible.
+        Args:
+            use_cache (bool): if True, use the cached value when possible.
+
+        Returns:
+            (first,end) where these are the number of the first record in
+                that segment and 1 more than the number of the last record.
         """
         if segnum == self._cached_segment and use_cache:
             return self._cached_pnum_range
@@ -1058,13 +1109,14 @@ class TESGroup(CutFieldMixin):
 
     def plot_noise(self, axis=None, channels=None, cmap=None, scale_factor=1.0,
                    sqrt_psd=False, legend=True):
-        """Compare the noise power spectra.
+        """Plot the noise power spectra.
 
-        <channels>    Sequence of channels to display.  If None, then show all.
-        <scale_factor> Multiply counts by this number to get physical units.
-        <sqrt_psd>     Whether to show the sqrt(PSD) or (by default) the PSD itself.
-        <cmap>         A matplotlib color map.  Defaults to something.
-        `legend` -- Whether to plot the legend
+        Args:
+            channels:    Sequence of channels to display.  If None, then show all.
+            scale_factor: Multiply counts by this number to get physical units.
+            sqrt_psd:     Whether to show the sqrt(PSD) or (by default) the PSD itself.
+            cmap:         A matplotlib color map.  Defaults to something.
+            legend (bool): Whether to plot the legend (default True)
         """
 
         if axis is None:
@@ -1131,10 +1183,15 @@ class TESGroup(CutFieldMixin):
             ds.smart_cuts(threshold, n_trainings, forceNew)
 
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
-        """
+        """Compute an average pulse.
+
         Compute average pulse using an automatically generated mask of
-        +- 5%% around the median pulse_average value. Use no more than
-        the first `max_pulses_to_use` good pulses.
+        +- 5%% around the median pulse_average value.
+
+        Args:
+            max_pulses_to_use (int): Use no more than
+                the first this many good pulses (default 7000).
+            forceNew (bool): whether to re-compute if results already exist (default False)
         """
         median_pulse_avg = np.ones(self.n_channels, dtype=np.float)
         for i, ds in enumerate(self.datasets):
@@ -1235,9 +1292,7 @@ class TESGroup(CutFieldMixin):
 
 
 class CrosstalkVeto(object):
-    """
-    An object to allow vetoing of data in 1 channel when another is hit
-    """
+    """An object to allow vetoing of data in 1 channel when another is hit."""
 
     def __init__(self, datagroup=None, window_ms=(-10, 3), pileup_limit=100):
         if datagroup is None:
@@ -1268,6 +1323,7 @@ class CrosstalkVeto(object):
                 self.nhits[t + b:t + b + 8] += 1
 
     def copy(self):
+        """Deep copy."""
         v = CrosstalkVeto()
         v.__dict__ = self.__dict__.copy()
         return v
