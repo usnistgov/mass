@@ -164,7 +164,36 @@ class LineFitter(object):
 
         return fitparams, covariance
 
+    def result_string(self):
+        """
+        Return a string describing the fit result, including
+        the value and uncertainty for each parameter.
+        An "H" after the parameter indicates it was held.
+        """
+        labeldict = {meaning: meaning+" %4g +- %4g" for meaning in self.param_meaning.keys()}
+        labeldict["resolution"] = "FWHM: %.3f +- %.3f"
+        labeldict["tail_frac"] = "\nf$_\\mathrm{tail}$: %.1f +- %.1f"
+        slabel=""
+        for (meaning, i) in self.param_meaning.iteritems():
+            val = self.last_fit_params[i]
+            err = self.last_fit_cov[i, i]**0.5
+            s = labeldict[meaning] % (val, err)
+            if i in self.hold:
+                s += " H"
+            s += "\n"
+            slabel += s
+        slabel += "reduced chisq %4g" % self.last_fit_reduced_chisq
+        return slabel
+
     def plot(self, color=None, axis=None, label=True, ph_units="arb"):
+        """
+        plot(self, color=None, axis=None, label=True, ph_units="arb")
+        color = color of the data
+        axis = axis on which to plot, if it is None, the current figure is cleared
+        label = True, False or "full"
+            "full" includes more info than True
+        ph_units = used for the ylabel
+        """
         if color is None:
             color = 'blue'
         if axis is None:
@@ -177,20 +206,9 @@ class LineFitter(object):
         pnum_res = self.param_meaning["resolution"]
         slabel = ""
 
-        labeldict = {meaning: meaning+" %4g +- %4g" for meaning in self.param_meaning.keys()}
-        labeldict["resolution"] = "FWHM: %.3f +- %.3f"
-        labeldict["tail_frac"] = "\nf$_\\mathrm{tail}$: %.1f +- %.1f"
 
         if label == "full":
-            for (meaning, i) in self.param_meaning.iteritems():
-                val = self.last_fit_params[i]
-                err = self.last_fit_cov[i, i]**0.5
-                s = labeldict[meaning] % (val, err)
-                if i in self.hold:
-                    s += " H"
-                s += "\n"
-                slabel += s
-            slabel += "reduced chisq %4g" % self.last_fit_reduced_chisq
+            slabel = self.result_string()
 
         elif label and pnum_res not in self.hold:
             pnum_tf = self.param_meaning["tail_frac"]
