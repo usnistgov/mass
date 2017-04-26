@@ -16,6 +16,7 @@ import mass
 
 wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
+np.random.seed(2384792) # avoid NaN errors on galen's computer
 # <demo> stop
 
 # First, let's work with a simple Gaussian fit. We'll make some data to fit
