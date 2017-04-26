@@ -16,8 +16,9 @@ import mass
 
 wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
+# <demo> stop
 
-# First, let's work with a simple Gaussian fit
+# First, let's work with a simple Gaussian fit. We'll make some data to fit
 FWHM_SIGMA_RATIO = (8*np.log(2))**0.5
 N, mu, sigma = 4000, 400.0, 20.0
 fwhm = FWHM_SIGMA_RATIO*sigma
@@ -63,6 +64,11 @@ for i, gp in enumerate(guess_params):
 # Compute the model function and plot it in red.
 model = fitter.last_fit_result
 plt.plot(bin_ctr, model, 'r')
+
+# <demo> stop
+# Alternativley use the fitter's plot command. The legend here shows all fit parameters,
+# the fit uncertainty, and a trailing H indicates the paramter was held (aka FIXED).
+fitter.plot(color="r",label="full", ph_units="arb in this demo")
 
 # <demo> stop
 # We'll repeat the fit 3 ways: (1) with zero background, (2) just like before,
