@@ -15,8 +15,8 @@ from distutils.version import StrictVersion
 
 def LJHModify(input_filename, output_filename, callback, overwrite=False):
     """Copy an LJH file `input_filename` to a new LJH file `output_filename`
-    with the identical header, but with the raw data records transformed by
-    the function (or other callable object) `callback`.
+    with the identical header, but with the raw data records transformed in-place
+    by the function (or other callable object) `callback`.
 
     The function `callback` should be of the form `callback(pulsearray)`, where
     `pulsearray` is an array of raw data records of shape (Nrecords, Nsamples).
@@ -26,13 +26,14 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
         for record in pulsearray:
              record[:] = 1000 + (record/2)   # or whatever operations you need.
 
-    In the above example, the index `[:]` is required. It instructs the array `record`
-    to change the values it contains *in place*. If you omit the `[:]`, then you'd be
-    asking the name `record` to be re-used for some other purpose, and thus `pulsearray`
-    would not be changed.
+    In the above example, the index `[:]` is required. It instructs the array
+    `record` to change the values it contains *in place*. If you omit the `[:]`,
+    then you'd be asking the name `record` to be re-used for some other purpose,
+    and thus `pulsearray` would not be changed.
 
-    NOT IMPLEMENTED: this version of LJHModify does *not* allow the caller to modify the
-    per-pulse row counter or posix time. Please file an issue if this becomes a problem.
+    NOT IMPLEMENTED: this version of LJHModify does *not* allow the caller to
+    modify the per-pulse row counter or posix time. Please file an issue if this
+    becomes a problem.
     """
 
     # Check for file problems, then open the input and output LJH files.
@@ -76,7 +77,8 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
 
 
 # A callback that does nothing
-def dummy_callback(segdata): pass
+def dummy_callback(segdata):
+    pass
 
 # Here's how you supply a simple callback without any free parameters.
 # This function will invert every data value. For an unsigned int, it might
@@ -103,16 +105,17 @@ class callback_shift(object):
 
 def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
     """
-    Copy traces from one ljh file to another. The destination file is version 2.2.0.
+    Copy traces from one ljh file to another. The destination file will be of
+    LJH version 2.2.0.
 
     Can be used to grab specific traces from some other ljh file, and put them into a new file
 
-    Parameters:
-    -------------
-    src_name  -- the name of the source file
-    dest_name -- the name of the destination file
-    pulses    -- indices of the pulses to copy
-    overwrite -- If the destination file exists and overwrite is not True, then the copy fails.
+    Args:
+        src_name: the name of the source file
+        dest_name: the name of the destination file
+        pulses: indices of the pulses to copy
+        overwrite: If the destination file exists and overwrite is not True,
+            then the copy fails (default False).
     """
 
     if os.path.exists(dest_name) and not overwrite:
@@ -137,16 +140,15 @@ def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
 
 
 def ljh_append_traces(src_name, dest_name, pulses):
-    """
-    Append traces from one ljh file onto another. The destination file is assumed to be version 2.2.0.
+    """Append traces from one LJH file onto another. The destination file is
+    assumed to be version 2.2.0.
 
     Can be used to grab specific traces from some other ljh file, and append them onto an existing ljh file.
 
-    Parameters:
-    -------------
-    src_name  -- the name of the source file
-    dest_name -- the name of the destination file
-    pulses    -- indices of the pulses to copy
+    Args:
+        src_name: the name of the source file
+        dest_name: the name of the destination file
+        pulses: indices of the pulses to copy
     """
 
     src = LJHFile(src_name)

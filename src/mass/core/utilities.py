@@ -1,7 +1,10 @@
 """
-Created on Jun 9, 2014
+Various utility functions and classes:
 
-@author: fowlerj
+* MouseClickReader: a class to use as a callback for reading mouse click
+    locations in matplotlib plots.
+* InlineUpdater: a class that loops over a generator and prints a message to
+    the terminal each time it yields.
 """
 import functools
 import time
@@ -10,16 +13,18 @@ import logging
 
 
 class MouseClickReader(object):
-    """Object to serve as a callback for reading mouse clicks in data coordinates
-    in pylab plots.  Will store self.b, .x, .y giving the button pressed,
-    and the x,y data coordinates of the pointer when clicked.
+    """A callback for reading mouse clicks in data coordinates in pylab plots.
 
-    Usage example (ought to be here...):
+    Stores self.b, .x, .y giving the button pressed, and the x,y data
+    coordinates of the pointer when clicked.
     """
 
     def __init__(self, figure):
         """Connect to button press events on a pylab figure.
-        \param figure The matplotlib.figure.Figure from which to capture mouse click events."""
+
+        Args:
+            figure: The matplotlib.figure.Figure from which to capture mouse click events.
+        """
         # The button number of the last mouse click inside a plot.
         self.b = 0
         # The x location of the last mouse click inside a plot.
@@ -33,7 +38,8 @@ class MouseClickReader(object):
 
     def __call__(self, event):
         """When called, capture the latest button number and the x,y location in
-        plot units.  Store in self.b, .x, and .y."""
+        plot units.  Store in self.b, .x, and .y.
+        """
         self.b, self.x, self.y = event.button, event.xdata, event.ydata
 
     def __del__(self):

@@ -1,7 +1,8 @@
 """
 mass.core.analysis_algorithms - main algorithms used in data analysis
 
-Designed to ... ?
+Designed to abstract certain key algorithms out of the MicrocalDataSet class
+and be able to run them fast.
 
 Created on Jun 9, 2014
 
@@ -19,12 +20,14 @@ from libc.math cimport sqrt
 
 ########################################################################################
 # Pulse summary quantities
+
+@cython.embedsignature(True)
 def estimateRiseTime(pulse_data, timebase, nPretrig):
-    """Compute the rise time of timeseries <pulse_data>, where the time steps are <timebase>.
+    """Computes the rise time of timeseries <pulse_data>, where the time steps are <timebase>.
     <pulse_data> can be a 2D array where each row is a different pulse record, in which case
     the return value will be an array last long as the number of rows in <pulse_data>.
 
-    If <nPretrig> >= 4, then the samples pulse_data[:nPretrig] are averaged to estimate
+    If nPretrig >= 4, then the samples pulse_data[:nPretrig] are averaged to estimate
     the baseline.  Otherwise, the minimum of pulse_data is assumed to be the baseline.
 
     Specifically, take the first and last of the rising points in the range of
@@ -33,6 +36,15 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
 
     See also mass.nonstandard.deprecated.fitExponentialRiseTime for a more traditional
     (and computationally expensive) definition.
+
+    Args:
+        pulse_data: An np.ndarray of dimension 1 (a single pulse record) or 2 (an
+            array with each row being a pulse record).
+        timebase: The sampling time.
+        nPretrig: The number of samples that are recorded before the trigger.
+
+    Returns:
+        An ndarray of dimension 1, giving the rise times.
     """
     MINTHRESH, MAXTHRESH = 0.1, 0.9
 
@@ -77,26 +89,9 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
         return -9.9e-6+np.zeros(npulses, dtype=float)
 
 
+@cython.embedsignature(True)
 def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
-    """Compute the maximum derivative in timeseries <pulse_data>.
-    <pulse_data> can be a 2D array where each row is a different pulse record, in which case
-    the return value will be an array last long as the number of rows in <pulse_data>.
-
-    Return the value of the maximum derivative (units of <pulse_data units> per sample).
-
-    If <spike_reject>, then
-
-    <kernel> is the linear filter against which the signals will be convolved
-    (CONVOLED, no correlated, so reverse the filter as needed). If None, then the
-    default kernel of [+.2 +.1 0 -.1 -.2] will be used. If "SG", then the cubic 5-point
-    Savitzky-Golay filter will be used (see below). Otherwise, <kernel> needs to be a
-    (short) array which will be converted to a 1xN 2-dimensional np.ndarray.
-
-    When kernel=="SG", then we estimate the derivative by Savitzky-Golay filtering
-    (with 1 point before/3 points after the point in question and fitting polynomial
-    of order 3).  Find the right general area by first doing a simple difference.
-    """
-
+    """Equivalent to compute_max_deriv(...)"""
     # If pulse_data is a 1D array, turn it into 2
     pulse_data = np.asarray(pulse_data)
     ndim = len(pulse_data.shape)
@@ -106,31 +101,6 @@ def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kern
         pulse_data.shape = (1, pulse_data.shape[0])
     pulse_data = np.array(pulse_data[:, ignore_leading:], dtype=float)
     NPulse, NSamp = pulse_data.shape
-
-#     # Get a rough estimate of the place where pulse derivative is largest
-#     # by taking difference between samples i+1 and i-1.
-#     rough_imax = 1 + (pulse_data[:,2:]-pulse_data[:,:-2]).argmax(axis=1)
-#     HALFRANGE=12
-#
-#     # If samples are too few, then rough is all we get.
-#     if NSamp < 2*HALFRANGE:
-#         approx_deriv = (pulse_data[:,2:]-pulse_data[:,:-2]).max(axis=1)
-#         if return_index_too:
-#             return approx_deriv, rough_imax
-#         return approx_deriv
-#
-#     # Go +- 12 around that rough estimate, but bring into allowed
-#     # range [0,NSamp)
-#     first,end = rough_imax-HALFRANGE, rough_imax+HALFRANGE
-#     end[first<0] = 2*HALFRANGE
-#     first[first<0] = 0
-#     first[end>=NSamp] = NSamp-2*HALFRANGE
-#     end[end>=NSamp] = NSamp
-#
-#     # Now trim the pulse_data, allowing us to filter only
-#     trimmed_data = np.zeros((NPulse, 2*HALFRANGE), dtype=float)
-#     for r,data in enumerate(pulse_data):
-#         trimmed_data[r,:] = data[first[r]:end[r]]
 
     # The default filter:
     filter_coef = np.array([+.2, +.1, 0, -.1, -.2])
@@ -160,6 +130,28 @@ def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kern
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
+    """Computes the maximum derivative in timeseries <pulse_data>.
+    <pulse_data> can be a 2D array where each row is a different pulse record, in which case
+    the return value will be an array last long as the number of rows in <pulse_data>.
+
+    Args:
+        pulse_data:
+        ignore_leading:
+        spike_reject: (default True)
+        kernel: the linear filter against which the signals will be convolved
+            (CONVOLED, not correlated, so reverse the filter as needed). If None,
+            then the default kernel of [+.2 +.1 0 -.1 -.2] will be used. If
+            "SG", then the cubic 5-point Savitzky-Golay filter will be used (see
+            below). Otherwise, kernel needs to be a (short) array which will
+            be converted to a 1xN 2-dimensional np.ndarray. (default None)
+
+    Returns:
+        An np.ndarray, dimension 1: the value of the maximum derivative (units of <pulse_data units> per sample).
+
+    When kernel=="SG", then we estimate the derivative by Savitzky-Golay filtering
+    (with 1 point before/3 points after the point in question and fitting polynomial
+    of order 3).  Find the right general area by first doing a simple difference.
+    """
     cdef:
         double f0, f1, f2, f3, f4
         double t0, t1, t2, t3, t_max_deriv
@@ -232,11 +224,12 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
 
 ########################################################################################
 # Drift correction and related algorithms
+
 class HistogramSmoother(object):
-    """Object that can repeatedly smooth histograms with the same bin
-    count and width to the same Gaussian width.  By pre-computing the
-    smoothing kernel for that histogram, we can smooth multiple histograms
-    with the same geometry."""
+    """Object that can repeatedly smooth histograms with the same bin count and
+    width to the same Gaussian width.  By pre-computing the smoothing kernel for
+    that histogram, we can smooth multiple histograms with the same geometry.
+    """
 
     def __init__(self, smooth_sigma, limits):
         """Give the smoothing Gaussian's width as <smooth_sigma> and the
@@ -271,13 +264,19 @@ class HistogramSmoother(object):
 
 
 def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
-    """
-    Convert a vector of arbitrary <values> info a smoothed histogram by
-    histogramming it and smoothing. The smoothing Gaussian's width is
-    <smooth_sigma> and the histogram limits are [limit,upper_limit] or
-    [0,limit] if upper_limit is None.
+    """Convert a vector of arbitrary <values> info a smoothed histogram by
+    histogramming it and smoothing.
 
     This is a convenience function using the HistogramSmoother class.
+
+    Args:
+        values: The vector of data to be histogrammed.
+        smooth_sigma: The smoothing Gaussian's width (FWHM)
+        limit, upper_limit: The histogram limits are [limit,upper_limit] or
+            [0,limit] if upper_limit is None.
+
+    Returns:
+        The smoothed histogram as an array.
     """
     if upper_limit is None:
         limit, upper_limit = 0, limit
@@ -285,23 +284,28 @@ def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
 
 
 def drift_correct(indicator, uncorrected, limit=None):
-    """Compute a drift correction that minimizes the spectral entropy of
-    <uncorrected> (a filtered pulse height vector) after correction.
-    The <indicator> vector should be of equal length and should have some
-    linear correlation with the pulse gain. Generally it will be the
-    pretrigger mean of the pulses, but you can experiment with other choices.
+    """Compute a drift correction that minimizes the spectral entropy.
+
+    Args:
+        indicator: The "x-axis", which indicates the size of the correction.
+        uncorrected: A filtered pulse height vector. Same length as indicator.
+            Assumed to have some gain that is linearly related to indicator.
+        limit: The upper limit of uncorrected values over which entropy is
+            computed (default None).
+
+    Generally indicator will be the pretrigger mean of the pulses, but you can
+    experiment with other choices.
 
     The entropy will be computed on corrected values only in the range
-    [0, <limit>], so <limit> should be set to a characteristic large
-    value of <uncorrected>. If <limit> is None (the default), then
-    in will be compute as 25% larger than the 99%ile point of
-    <uncorrected>
+    [0, limit], so limit should be set to a characteristic large value of
+    uncorrected. If limit is None (the default), then in will be compute as
+    25% larger than the 99%ile point of uncorrected.
 
-    The model is that the filtered pulse height PH should be scaled by
-    (1 + a*PTM) where a is an arbitrary parameter computed here, and
-    PTM is the difference between each record's pretrigger mean and the
-    median value of all pretrigger means. (Or replace "pretrigger mean"
-    with whatever quantity you passed in as <indicator>.)
+    The model is that the filtered pulse height PH should be scaled by (1 +
+    a*PTM) where a is an arbitrary parameter computed here, and PTM is the
+    difference between each record's pretrigger mean and the median value of all
+    pretrigger means. (Or replace "pretrigger mean" with whatever quantity you
+    passed in as <indicator>.)
     """
     ptm_offset = np.median(indicator)
     indicator = np.array(indicator) - ptm_offset
@@ -328,6 +332,7 @@ def drift_correct(indicator, uncorrected, limit=None):
 
 ########################################################################################
 # Arrival-time correction
+
 class FilterTimeCorrection(object):
     """Represent the phase-dependent correction to a filter, based on
     running model pulses through the filter.  Developed November 2013 to
@@ -620,21 +625,7 @@ class FilterTimeCorrection(object):
 
 
 def python_nearest_arrivals(reference_times, other_times):
-    """nearest_arrivals(reference_times, other_times)
-    reference_times - 1d array
-    other_times - 1d array
-    returns: (before_times, after_times)
-
-    before_times - d array same size as reference_times, before_times[i] contains the difference between
-    the closest lesser time contained in other_times and reference_times[i]  or inf
-    if there was no earlier time in other_times
-    Note that before_times is always a positive number even though the time difference it
-    represents is negative.
-
-    after_times - 1d array same size as reference_times, after_times[i] contains the difference between
-    reference_times[i] and the closest greater time contained in other_times or a inf
-    number if there was no later time in other_times
-    """
+    """Identical to nearest_arrivals(...)."""
     nearest_after_index = np.searchsorted(other_times, reference_times)
     # because both sets of arrival times should be sorted, there are faster algorithms than searchsorted
     # for example: https://github.com/kwgoodman/bottleneck/issues/47
@@ -658,6 +649,27 @@ def python_nearest_arrivals(reference_times, other_times):
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigger_timestamps):
+    """Find the external trigger time immediately before and after each pulse timestamp
+
+    Args:
+        pulse_timestamps - 1d array of pulse timestamps whose nearest neighbors
+            need to be found.
+        external_trigger_timestamps - 1d array of possible nearest neighbors.
+
+    Returns:
+        (before_times, after_times)
+
+    before_times is an ndarray of the same size as pulse_timestamps.
+    before_times[i] contains the difference between the closest lesser time
+    contained in external_trigger_timestamps and pulse_timestamps[i]  or inf if there was no
+    earlier time in other_times Note that before_times is always a positive
+    number even though the time difference it represents is negative.
+
+    after_times is an ndarray of the same size as pulse_timestamps.
+    after_times[i] contains the difference between pulse_timestamps[i] and the
+    closest greater time contained in other_times or a inf number if there was
+    no later time in external_trigger_timestamps.
+    """
     cdef:
         Py_ssize_t num_pulses, num_triggers
         Py_ssize_t i = 0, j = 0, t
