@@ -2,8 +2,6 @@
 Objects to assist with calibration from pulse heights to absolute energies.
 
 Created on May 16, 2011
-
-@author: fowlerj
 """
 
 import numpy as np
@@ -108,12 +106,12 @@ class EnergyCalibration(object):
     EnergyCalibration.set_curvetype().
 
     curvetype -- Either a code number in the range [0,len(self.CURVETYPE)) or a
-                string from the tuple self.CURVETYPE.
+        string from the tuple self.CURVETYPE.
 
     approximate -- Whether to construct a smoothing spline (minimal curvature
-            subject to a condition that chi-squared not be too large). If not,
-            curve will be an exact spline in E vs PH, in log(E) vs log(PH), or
-            as appropriate to the curvetype.
+        subject to a condition that chi-squared not be too large). If not,
+        curve will be an exact spline in E vs PH, in log(E) vs log(PH), or
+        as appropriate to the curvetype.
 
     The forward conversion from PH to E uses the callable __call__ method or its synonym,
     the method ph2energy.
@@ -189,7 +187,8 @@ class EnergyCalibration(object):
     def energy2ph(self, energy):
         """Convert a single energy `energy` in eV to a pulse height.
         Inverts the _ph2energy_anon function by Brent's method for root finding.
-        Shoulds return a scalar if passed a scalar, and a numpy array if passed a list or array"""
+        Shoulds return a scalar if passed a scalar, and a numpy array if passed a list or array.
+        """
         if self._model_is_stale:
             self._update_converters()
 
@@ -214,8 +213,7 @@ class EnergyCalibration(object):
         return np.array(result)
 
     def energy2dedph(self, energy):
-        """Calculate the slope at energy.
-        """
+        """Calculate the slope at energy."""
         ph = self.energy2ph(energy)
         return self(ph, der=1)
 
@@ -256,8 +254,7 @@ class EnergyCalibration(object):
         return self.CURVETYPE[self._curvetype]
 
     def copy(self):
-        """Return a deep copy
-        """
+        """Return a deep copy."""
         ecal = EnergyCalibration()
         ecal.__dict__.update(self.__dict__)
         ecal._names = list(self._names)
@@ -271,8 +268,7 @@ class EnergyCalibration(object):
         return ecal
 
     def _remove_cal_point_idx(self, idx):
-        """Remove calibration point number `idx` from the calibration.
-        """
+        """Remove calibration point number `idx` from the calibration."""
         self._names.pop(idx)
         self._ph = np.hstack((self._ph[:idx], self._ph[idx+1:]))
         self._energies = np.hstack((self._energies[:idx], self._energies[idx+1:]))
@@ -282,8 +278,7 @@ class EnergyCalibration(object):
         self._model_is_stale = True
 
     def remove_cal_point_name(self, name):
-        """If you don't like calibration point named <name>, this removes it
-        """
+        """If you don't like calibration point named <name>, this removes it."""
         idx = self._names.index(name)
         self._remove_cal_point_idx(idx)
 
@@ -294,31 +289,33 @@ class EnergyCalibration(object):
                 self.remove_cal_point_name(name)
 
     def remove_cal_point_energy(self, energy, de):
-        """Remove cal points at energies with <de> of <energy>
-        """
+        """Remove cal points at energies with <de> of <energy>"""
         idxs = np.nonzero(np.abs(self._energies-energy) < de)[0]
 
         for idx in idxs:
             self._remove_cal_point_idx(idx)
 
     def add_cal_point(self, pht, energy, name="", pht_error=None, e_error=None, overwrite=True):
-        """Add a single energy calibration point <pht>, <energy>, where <pht> must be in units
-        of the self.ph_field and <energy> is in eV.  <pht_error> is the 1-sigma uncertainty
-        on the pulse height.  If None (the default), then assign pht_error = <pht>/1000.
-        <e_error> is the 1-sigma uncertainty on the energy itself. If None (the default),
-        then assign e_error=<energy>/10^5 (typically 0.05 eV).
+        """Add a single energy calibration point <pht>, <energy>,
 
-        Also, you can call it with <energy> as a string, provided it's the name of a known
-        feature appearing in the dictionary mass.energy_calibration.STANDARD_FEATURES.  Thus
-        the following are equivalent:
+        <pht> must be in units of the self.ph_field and <energy> is in eV.
+        <pht_error> is the 1-sigma uncertainty on the pulse height.  If None
+        (the default), then assign pht_error = <pht>/1000. <e_error> is the
+        1-sigma uncertainty on the energy itself. If None (the default), then
+        assign e_error=<energy>/10^5 (typically 0.05 eV).
+
+        Also, you can call it with <energy> as a string, provided it's the name
+        of a known feature appearing in the dictionary
+        mass.energy_calibration.STANDARD_FEATURES.  Thus the following are
+        equivalent:
 
         cal.add_cal_point(12345.6, 5898.801, "Mn Ka1")
         cal.add_cal_point(12456.6, "Mn Ka1")
 
-        Careful!  If you give a name that's already in the list, then this value replaces
-        the previous one.  If you do NOT give a name, though, then this will NOT replace
-        but will add to any existing points at the same energy.  You can prevent overwriting
-        by setting <overwrite>=False.
+        Careful!  If you give a name that's already in the list, then this value
+        replaces the previous one.  If you do NOT give a name, though, then this
+        will NOT replace but will add to any existing points at the same energy.
+        You can prevent overwriting by setting <overwrite>=False.
         """
         self._model_is_stale = True
 

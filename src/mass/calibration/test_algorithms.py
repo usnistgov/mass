@@ -1,3 +1,7 @@
+"""
+Test code for mass.calibration.algorithms.
+"""
+
 import unittest
 import numpy as np
 import mass

@@ -70,6 +70,7 @@ class SpectralLine(object):
 
 class MgKAlpha(SpectralLine):
     """This is the fluorescence line complex of **metallic** magnesium.
+
     Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.
     "Magnesium Kalpha X-ray line structure revisited".  Also discussed in more
     detail in C. Klauber, Surface & Interface Analysis 20 (1993), 703-715.
@@ -97,6 +98,7 @@ class MgKAlpha(SpectralLine):
 
 class AlKAlpha(SpectralLine):
     """This is the fluorescence line complex of **metallic** aluminum.
+
     Data are from Joel Ullom, based on email to him from Caroline Kilbourne (NASA
     GSFC) dated 28 Sept 2010.
     """
@@ -120,6 +122,7 @@ class AlKAlpha(SpectralLine):
 
 class AlOxKAlpha(SpectralLine):
     """The K-alpha complex of aluminum **when in oxide form**.
+
     Data are from Wollman, Nam, Newbury, Hilton, Irwin, Berfren, Deiker, Rudman,
     and Martinis, NIM A 444 (2000) page 145. They come from combining 8 earlier
     references dated 1965 - 1993.
@@ -143,6 +146,7 @@ class AlOxKAlpha(SpectralLine):
 
 class ScKAlpha(SpectralLine):
     """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
+
     "Characterization of K spectral profiles for vanadium, component redetermination for
     scandium, titanium, chromium, and manganese, and development of satellite structure
     for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
@@ -170,15 +174,17 @@ class ScKAlpha(SpectralLine):
 
 class TiKAlpha(SpectralLine):
     """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
-    "Characterization of K spectral profiles for vanadium, component redetermination for
-    scandium, titanium, chromium, and manganese, and development of satellite structure
-    for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
-    url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
-    Note that the subclass holds all the data (as class attributes), while
-    the parent class SpectralLine holds all the code.
-    Note that to reproduce the plots in the reference paper, you must include the Gaussian
-    broadening of their instrument, which was 0.082eV FWHM
-    The underlying line profile has zero fundamental broadening.
+
+    "Characterization of K spectral profiles for vanadium, component
+    redetermination for scandium, titanium, chromium, and manganese, and
+    development of satellite structure for Z=21 to Z=25." Physical Review A,
+    73(1), 012508. doi:10.1103/PhysRevA.73.012508 url:
+    http://link.aps.org/doi/10.1103/PhysRevA.73.012508 Note that the subclass
+    holds all the data (as class attributes), while the parent class
+    SpectralLine holds all the code. Note that to reproduce the plots in the
+    reference paper, you must include the Gaussian broadening of their
+    instrument, which was 0.082eV FWHM The underlying line profile has zero
+    fundamental broadening.
     """
     # Spectral complex name.
     name = 'Titanium K-alpha'
@@ -244,12 +250,13 @@ class VKAlpha(SpectralLine):
 
 
 class VKBeta(SpectralLine):
-    """We were using L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys Rev A 87 022512 (2013).
-    http://pra.aps.org/abstract/PRA/v87/i2/e022512
+    """We were using L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys
+    Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
 
-    BUT these were adjusted in C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
-    http://iopscience.iop.org/0953-4075/46/14/145601  (see Section 5 "Redefinition of
-    vanadium K-beta standard")  Both papers are by the same group, of course.
+    BUT these were adjusted in C Chantler, L Smale, J Kimpton, et al., J Phys B
+    46, 145601 (2013).  http://iopscience.iop.org/0953-4075/46/14/145601
+    (see Section 5 "Redefinition of vanadium K-beta standard")  Both papers are
+    by the same group, of course.
     """
     name = 'Vanadium K-beta'
     energies = np.array((18.19, 24.50, 26.992)) + 5400
@@ -342,7 +349,7 @@ class MnKAlpha(SpectralLine):
 
 
 class MnKBeta(SpectralLine):
-    """Function object to approximate the manganese K-alpha complex
+    """Function object to approximate the manganese K-beta complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
 
@@ -368,7 +375,7 @@ class MnKBeta(SpectralLine):
 
 
 class FeKAlpha(SpectralLine):
-    """Function object to approximate the manganese K-alpha complex
+    """Function object to approximate the iron K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
     by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code).
@@ -393,7 +400,7 @@ class FeKAlpha(SpectralLine):
 
 
 class FeKBeta(SpectralLine):
-    """Function object to approximate the manganese K-alpha complex
+    """Function object to approximate the iron K-beta complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
     Note that the subclass holds all the data (as class attributes), while
@@ -416,7 +423,7 @@ class FeKBeta(SpectralLine):
 
 
 class CoKAlpha(SpectralLine):
-    """Function object to approximate the manganese K-alpha complex
+    """Function object to approximate the cobalt K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
     by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code).
@@ -445,7 +452,7 @@ class CoKAlpha(SpectralLine):
 
 
 class CoKBeta(SpectralLine):
-    """Function object to approximate the manganese K-alpha complex
+    """Function object to approximate the cobalt K-beta complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
     Note that the subclass holds all the data (as class attributes), while
@@ -468,7 +475,7 @@ class CoKBeta(SpectralLine):
 
 
 class NiKAlpha(SpectralLine):
-    """Function object to approximate the manganese K-alpha complex
+    """Function object to approximate the nickel K-alpha complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
     by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code).
@@ -493,7 +500,7 @@ class NiKAlpha(SpectralLine):
 
 
 class NiKBeta(SpectralLine):
-    """Function object to approximate the manganese K-alpha complex
+    """Function object to approximate the nickel K-beta complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December).
     """
@@ -563,7 +570,7 @@ class ZnKAlpha(SpectralLine):
     This is a hack, a copy of the Hoelzer, Fritsch, Deutsch, Haertwig, Foerster
     Phys Rev A56 (#6) pages 4554ff (1997 December) model, with the numbers
     adjusted to get line energies of 8615.823, 8638.91 eV and widths 10% wider
-    than for Cu. Those are based on Zschornack's book.
+    than for Cu. Those widths are based on Zschornack's book.
     """
     # Spectral complex name.
     name = 'Zinc K-alpha'
@@ -585,7 +592,7 @@ class ZnKAlpha(SpectralLine):
 
 
 class ZnKBeta(SpectralLine):
-    """Function object to approximate the Zinc K-beta complex
+    """Function object to approximate the zinc K-beta complex
     Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December) for copper, and
     adjusted to give 9573.6 eV peak and 6% wider spread.
@@ -727,11 +734,12 @@ def plot_spectrum(spectrum=MnKAlpha(),
                   energy_range=(5870, 5920), stepsize=0.05):
     """Plot a spectrum at several different resolutions.
 
-    <spectrum>    A callable that accepts a vector of energies and returns
-                  the matching probability distribution function.
-    <resolutions> A sequence of energy resolution (FWHM) to be stepped through.
-    <energy_range> The (min,max) energy to be plotted.
-    <stepsize>    The plotting step size in energy units.
+    Args:
+        <spectrum>    A callable that accepts a vector of energies and returns
+            the matching probability distribution function.
+        <resolutions> A sequence of energy resolution (FWHM) to be stepped through.
+        <energy_range> The (min,max) energy to be plotted.
+        <stepsize>    The plotting step size in energy units.
     """
     if resolutions is None:
         resolutions = (2, 3, 4, 5, 6, 7, 8, 10, 12)
@@ -745,7 +753,7 @@ def plot_spectrum(spectrum=MnKAlpha(),
     yvalue /= yvalue.max()
     plt.plot(e, yvalue, color='black', lw=2, label=' 0 eV')
 
-    ncolors = max(3,min(len(resolutions), 11))
+    ncolors = max(3, min(len(resolutions), 11))
     cmap = palettable.colorbrewer.diverging.__dict__["Spectral_%d" % ncolors]
     axis.set_prop_cycle(cycler("color", cmap.hex_colors))
 
@@ -785,12 +793,3 @@ def plot_spectrum(spectrum=MnKAlpha(),
     plt.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrum.name)
     plt.xlabel("Energy (eV)")
     plt.ylabel("Intensity (arb.)")
-
-
-# code for exporting lineshapes
-# for key in mass.fluorescence_lines.__dict__:
-#     try:
-#         obj = mass.fluorescence_lines.__dict__[key]
-#         print(key+'=MultiLorentzianComplex('+str(obj.energies)+','+str(obj.fwhm)+','+str(obj.integral_intensity)+','+str(obj.nominal_peak_energy)+')')
-#     except:
-#         pass

@@ -1,3 +1,9 @@
+"""
+This file is intended to include algorithms that could be generally useful
+for calibration. Mostly they are pulled out of the former
+mass.calibration.young module.
+"""
+
 import collections
 import itertools
 import operator
@@ -8,26 +14,15 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 from matplotlib.ticker import MaxNLocator
 
-# try:
-#     import statsmodels.api as sm
-# except ImportError:  # On linux the name was as follows: (I guess the name is different in Anaconda python.)
-#     import scikits.statsmodels.api as sm
-#     sm.nonparametric.KDEUnivariate = sm.nonparametric.KDE
-
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration
 from .energy_calibration import EnergyCalibration
 
-# this file is intended to include algorithms that could be generally useful
-# for calibration
-# mostly they are pulled out of mass.calibration.young module
-
 
 def line_names_and_energies(line_names):
-    """
-    takes a list of line_names, return name, energy in eV
-    can also accept energies in eV directly
-    return names, energies
+    """Given a list of line_names, return (names, energies) in eV.
+
+    Can also accept energies in eV directly and return (names, energies).
     """
     if len(line_names) <= 0:
         return [], []
@@ -38,23 +33,14 @@ def line_names_and_energies(line_names):
 
 
 def find_local_maxima(pulse_heights, gaussian_fwhm):
-    """Smears each pulse by a gaussian of gaussian_fhwm and finds local maxima, returns a list of
-    their locations in pulse_height units (sorted by number of pulses in peak) AND their peak values as:
-    (peak_locations, peak_intensities)
+    """Smears each pulse by a gaussian of gaussian_fhwm and finds local maxima,
+    returns a list of their locations in pulse_height units (sorted by number of
+    pulses in peak) AND their peak values as: (peak_locations, peak_intensities)
 
     Args:
         pulse_heights (numpy.array(dtype=np.float)): a list of pulse heights (eg p_filt_value)
         gaussian_fwhm = fwhm of a gaussian that each pulse is smeared with, in same units as pulse heights
-
     """
-    # kde = sm.nonparametric.KDEUnivariate(np.array(pulse_heights, dtype="double"))
-    # kde.fit(bw=gaussian_fwhm)
-    # x = kde.support
-    # y = kde.density
-    # flag = (y[1:-1] > y[:-2]) & (y[1:-1] > y[2:])
-    # lm = np.arange(1, len(x)-1)[flag]
-    # lm = lm[np.argsort(-y[lm])]
-
     # kernel density estimation (with a gaussian kernel)
     n = 128 * 1024
     sigma = gaussian_fwhm / (np.sqrt(np.log(2) * 2) * 2)
@@ -121,8 +107,7 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
 
 
 def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_ev):
-    """call build_fit_ranges then convert to ph using approx_ecal
-    """
+    """Call build_fit_ranges() then convert to ph using approx_ecal"""
     e_e, fit_lo_hi, slopes_de_dph = build_fit_ranges(line_names, excluded_line_names,
                                                      approx_ecal, fit_width_ev)
     fit_lo_hi_ph = []
@@ -135,8 +120,8 @@ def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_
 
 
 def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev):
-    """Returns a list of (lo,hi) where lo and hi have units of pulseheights of ranges to fit in
-        for each energy in line_names
+    """Returns a list of (lo,hi) where lo and hi have units of pulseheights of
+    ranges to fit in for each energy in line_names.
 
     Args:
         line_names (list[str or float]): list or line names or energies
@@ -184,10 +169,12 @@ class FailedFitter(object):
 
 
 def getfitter(name):
-    """
-    name - a name like "MnKAlpha" or "1150"
-    "MnKAlpha" will return a MnKAlphaFitter
-    "1150" will return a GaussianFitter
+    """Return a histogram model fitter by line name.
+
+    Args:
+        name - a name like "MnKAlpha" or "1150"
+        "MnKAlpha" will return a MnKAlphaFitter
+        "1150" will return a GaussianFitter
     """
     try:
         class_name = name+"Fitter"

@@ -1,7 +1,5 @@
 """
 mass.calibration - Collection of tools related to energy calibration.
-
-Joe Fowler, NIST
 """
 
 from . import energy_calibration

@@ -1,4 +1,4 @@
-'''
+"""
 nist_xray_database
 
 Download the NIST x-ray line database from the website, and parse the
@@ -18,7 +18,7 @@ ${MASS_HOME}/mass/calibration/nist_xray_data.dat):
 
 J. Fowler, NIST
 February 2014
-'''
+"""
 
 ELEMENTS = ('', 'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg',
             'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr',

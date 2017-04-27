@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-
 """
-test_calibration.py
+Test code for mass.calibration.
 
 18 May 2016
 Galen O'Neil
@@ -39,6 +37,7 @@ def test_options(curvetype1, use_approximation1, curvetype2, use_approximation2,
 class TestJoeStyleEnegyCalibration(unittest.TestCase):
 
     def test_copy_equality(self):
+        """Test that any deep-copied calibration object is equivalent."""
         for curvetype in ['loglog', 'linear', 'linear+0', 'gain', 'invgain', 'loggain']:
             for use_approximation in [True, False]:
                 cal1 = mass.calibration.energy_calibration.EnergyCalibration()
@@ -175,6 +174,7 @@ class TestJoeStyleEnegyCalibration(unittest.TestCase):
         self.assertEqual(cal1.CURVETYPE, cal2.CURVETYPE)
         self.assertEqual(cal1._use_approximation, cal2._use_approximation)
         os.remove(fname)
+
 
 if __name__ == "__main__":
     unittest.main()

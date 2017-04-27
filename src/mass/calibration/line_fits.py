@@ -43,7 +43,7 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
 
 
 def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
-    "Scale a spectrum and add a sloped background. BG<0 is replaced with BG->0."
+    """Scale a spectrum and add a sloped background. BG<0 is replaced with BG->0."""
     bg = np.zeros_like(spectrum) + P_bg
     if P_bgslope != 0:
         bg += P_bgslope * np.arange(len(spectrum))
@@ -53,10 +53,9 @@ def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
 
 
 class LineFitter(object):
-    """Abstract base class for line fitting objects.
-    """
+    """Abstract base class for line fitting objects."""
+
     def __init__(self):
-        """ """
         # Parameters+covariance from last successful fit
         self.last_fit_params = None
         self.last_fit_cov = None
@@ -79,30 +78,32 @@ class LineFitter(object):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
 
-        pulseheights -- the histogram bin centers or bin edges.
+        Args:
+            pulseheights -- the histogram bin centers or bin edges.
 
-        params: see self.__doc__, because the group of parameters and their numbering
-                depends on the exact line shape being fit.
+            params: see self.__doc__, because the group of parameters and their numbering
+                    depends on the exact line shape being fit.
 
-        plot:   Whether to make a plot.  If not, then the next few args are ignored
-        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
-                current figure.
-        color:  Color for drawing the histogram contents behind the fit.
-        label:  (True/False) Label for the fit line to go into the plot (usually used for
-                resolution and uncertainty)
-                "full" label with all fit params including reduced chi sqaured, followed by "H" if was held
-        ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
+            plot:   Whether to make a plot.  If not, then the next few args are ignored
+            axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
+                    current figure.
+            color:  Color for drawing the histogram contents behind the fit.
+            label:  (True/False) Label for the fit line to go into the plot (usually used for
+                    resolution and uncertainty)
+                    "full" label with all fit params including reduced chi sqaured, followed by "H" if was held
+            ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
 
-        vary_resolution Whether to let the Gaussian resolution vary in the fit
-        vary_bg:       Whether to let a constant background level vary in the fit
-        vary_bg_slope: Whether to let a slope on the background level vary in the fit
-        vary_tail --   Whether to let a low-energy exponential tail to vary.
-        hold:          A sequence of parameter numbers to keep fixed.  Resolution, BG
+            vary_resolution Whether to let the Gaussian resolution vary in the fit
+            vary_bg:       Whether to let a constant background level vary in the fit
+            vary_bg_slope: Whether to let a slope on the background level vary in the fit
+            vary_tail:     Whether to let a low-energy exponential tail to vary.
+            hold:      A sequence of parameter numbers to keep fixed.  Resolution, BG
                        BG slope, or tail will be held if relevant parameter number
                        appears in the hold sequence OR if relevant boolean vary_* tests False.
 
-        returns (fitparams, covariance)
-        fitparams has same format as input variable params
+        Returns:
+            (fitparams, covariance)
+            fitparams has same format as input variable params.
         """
 
         # Convert bin edges to centers
@@ -165,8 +166,7 @@ class LineFitter(object):
         return fitparams, covariance
 
     def result_string(self):
-        """
-        Return a string describing the fit result, including
+        """Return a string describing the fit result, including
         the value and uncertainty for each parameter.
         An "H" after the parameter indicates it was held.
         """
@@ -186,13 +186,14 @@ class LineFitter(object):
         return slabel
 
     def plot(self, color=None, axis=None, label=True, ph_units="arb"):
-        """
-        plot(self, color=None, axis=None, label=True, ph_units="arb")
-        color = color of the data
-        axis = axis on which to plot, if it is None, the current figure is cleared
-        label = True, False or "full"
-            "full" includes more info than True
-        ph_units = used for the ylabel
+        """Plot the fit.
+
+        Args:
+            color = color of the data
+            axis = axis on which to plot, if it is None, the current figure is cleared
+            label = True, False or "full"
+                "full" includes more info than True
+            ph_units = used for the ylabel
         """
         if color is None:
             color = 'blue'
@@ -291,7 +292,8 @@ class VoigtFitter(LineFitter):
 
         <params>  The 8 parameters of the fit (see self.__doc__ for details).
         <x>       An array of pulse heights (params will scale them to energy).
-        Returns:  The line complex intensity, including resolution smearing.
+        Returns:
+            The line complex intensity, including resolution smearing.
         """
         (P_gaussfwhm, P_phpeak, P_lorenzfwhm, P_amplitude,
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
@@ -455,9 +457,11 @@ class GaussianFitter(LineFitter):
     def fitfunc(self, params, x):
         """Return the smeared line complex.
 
-        <params>  The 7 parameters of the fit (see self.__doc__ for details).
-        <x>       An array of pulse heights (params will scale them to energy).
-        Returns:  The line complex intensity, including resolution smearing.
+        Args:
+            <params>  The 7 parameters of the fit (see self.__doc__ for details).
+            <x>       An array of pulse heights (params will scale them to energy).
+        Returns:
+            The line complex intensity, including resolution smearing.
         """
         (P_gaussfwhm, P_phpeak, P_amplitude,
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
@@ -515,9 +519,11 @@ class MultiLorentzianComplexFitter(LineFitter):
     def fitfunc(self, params, x):
         """Return the smeared line complex.
 
-        <params>  The 8 parameters of the fit (see self.fit for details).
-        <x>       An array of pulse heights (params will scale them to energy).
-        Returns:  The line complex intensity, including resolution smearing.
+        Args:
+            <params>  The 8 parameters of the fit (see self.fit for details).
+            <x>       An array of pulse heights (params will scale them to energy).
+        Returns:
+            The line complex intensity, including resolution smearing.
         """
         (P_gaussfwhm, P_phpeak, P_dphde, P_amplitude,
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
@@ -575,8 +581,7 @@ class MultiLorentzianComplexFitter(LineFitter):
 
 
 class GenericKAlphaFitter(MultiLorentzianComplexFitter):
-    """
-    Fits a generic K alpha spectrum for energy shift and scale, amplitude, and resolution.
+    """Fits a generic K alpha spectrum for energy shift and scale, amplitude, and resolution.
     Background level (including a fixed slope) and low-E tailing are also included.
 
     Note that self.tailfrac and self.tailtau are attributes that determine the starting
@@ -594,8 +599,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         super(GenericKAlphaFitter, self).__init__()
 
     def guess_starting_params(self, data, binctrs):
-        """
-        A decent heuristic for guessing the inital values, though your informed
+        """A decent heuristic for guessing the inital values, though your informed
         starting point is likely to be better than this.
         """
         if data.sum() <= 0:
@@ -627,9 +631,8 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
 class GenericKBetaFitter(MultiLorentzianComplexFitter):
 
     def __init__(self, spectrumDef):
-        """
-        Constructor argument spectrumDef should be mass.fluorescence_lines.MnKBeta, or similar
-        subclasses of SpectralLine.
+        """Constructor argument spectrumDef should be
+        mass.fluorescence_lines.MnKBeta, or similar subclasses of SpectralLine.
         """
         self.spect = spectrumDef
         super(GenericKBetaFitter, self).__init__()

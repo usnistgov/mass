@@ -6,6 +6,7 @@ Test that Maximum Likelihood Fits work
 5 May 2016
 Joe Fowler
 """
+
 import tempfile
 import os.path
 import unittest
