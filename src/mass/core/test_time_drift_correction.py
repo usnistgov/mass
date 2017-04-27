@@ -55,15 +55,17 @@ class TestTimeDriftCorrection(ut.TestCase):
                 Nexpected = cps*duration_s
                 self.assertTrue(np.abs(len(t)-Nexpected) < 10*np.sqrt(Nexpected))
 
+    def gain_of_t(self, t):
+        return 1+0.005*np.sin(2*np.pi*t/10000.)
+
     def test_make_drifting_data(self):
         distrib = mass.calibration.MnKAlphaDistribution()
         res_fwhm_ev = 3.0
         cps = 1
         duration_s = 10000
 
-        def gain_of_t(t):
-            1+0.005*np.sin(2*np.pi*t/10000.)
-        t, energy = make_drifting_data(distrib, res_fwhm_ev, cps, duration_s, gain_of_t)
+        t, energy = make_drifting_data(distrib, res_fwhm_ev, cps, duration_s,
+                                       self.gain_of_t)
 
 
 if __name__ == '__main__':

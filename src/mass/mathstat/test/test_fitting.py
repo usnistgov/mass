@@ -170,7 +170,7 @@ class Test_gaussian(unittest.TestCase):
         fwhm = 1.0
         ctr = 0.0
         nbins = 100
-        nfits = 50
+        nfits = 40
         N_bg = 0
         penalty = SimplePenalty(-1, 0.3, 30)
         params = self.run_several_fits(1000, nfits, fwhm, ctr, nbins, N_bg, penalty=penalty)
