@@ -6,6 +6,8 @@ import os
 import shutil
 import unittest as ut
 
+import scipy.stats
+
 import mass
 import logging
 LOG = logging.getLogger("mass")
@@ -17,19 +19,22 @@ def make_arrival_times(cps, duration_s):
     """
     Return a distribution of arrival times where time differences are drawn from
     from an exponential distribution to reflect real x-ray arrival times. The last time
-    will be less than duration_s, the first time will be after zero.
+    will be less than duration_s, the first time will be zero.
     """
     nmult=2
     while True:
         tdiffs = np.random.exponential(1/float(cps), int(np.ceil(nmult*cps*duration_s)))
-        t=np.cumsum(tdiffs)
-        if t[-1] < duration_s:
-            nmult*=2
-            continue
-        t=t[t<duration_s]
-        return t
+        t=np.cumsum(np.hstack((0,tdiffs)))
+        if t[-1] > duration_s:
+            return t[t<duration_s]
 
 def make_drifting_data(distrib, res_fwhm_ev, cps, duration_s, gain_of_t):
+    """
+    Return a tuple (t, energies) where t is an array of arrival times with realistic
+    distribution with counts per second cps and duration duration_s, and energies
+    is drawn from distribution, has added detector energy resoltion res_fwhm_ev,
+    and the energies are warped by a gain equal to gain_of_t(t).
+    """
     res_sigma = res_fwhm_ev / 2.3548
     t = make_arrival_times(cps, duration_s)
     energies0 = distrib.rvs(size=len(t))
