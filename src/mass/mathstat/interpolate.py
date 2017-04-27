@@ -1,31 +1,29 @@
 """
-Created on Feb 20, 2014
-
-@author: fowlerj
 interpolate.py
 
 Module mass.mathstat.interpolate
 
 Contains interpolations functions not readily available elsewhere.
 
-CubicSpline   - Perform an exact cubic spline through the data, with
-                either specified slope at the end of the interval or
-                'natural boundary conditions' (y''=0 at ends).
+CubicSpline - Perform an exact cubic spline through the data, with either
+    specified slope at the end of the interval or 'natural boundary conditions'
+    (y''=0 at ends).
 
 LinterpCubicSpline - Create a new CubicSpline that's the linear interpolation
-                of two existing ones.
+    of two existing ones.
 
 SmoothingSpline - Create a smoothing spline that does not exactly interpolate
-                  the data, but finds the cubic spline with lowest "curvature
-                  energy" among all splines that meet the maximum allowed value
-                  of chi-squared.
+    the data, but finds the cubic spline with lowest "curvature
+    energy" among all splines that meet the maximum allowed value
+    of chi-squared.
 
 SmoothingSplineLog - Create a SmoothingSpline using the log of the x,y points.
 
 NaturalBsplineBasis - A tool for expressing a spline basis using B-splines but
-                  also enforcing 'natural boundary conditions'.
+    also enforcing 'natural boundary conditions'.
 
 Joe Fowler, NIST
+Created Feb 2014
 """
 import numpy as np
 import scipy as sp
@@ -38,12 +36,12 @@ class CubicSpline(object):
     """An exact cubic spline, with either a specified slope or 'natural boundary
     conditions' (y''=0) at ends of interval.
 
-    Note that the interface is similar
-    to scipy.interpolate.InterpolatedUnivariateSpline, but the behavior is different.
-    The scipy version will remove the 2nd and 2nd-to-last data points from the
-    set of knots as a way of using the 2 extra degrees of freedom. This class
-    instead sets the 1st or 2nd derivatives at the end of the interval to use
-    the extra degrees of freedom.
+    Note that the interface is similar to
+    scipy.interpolate.InterpolatedUnivariateSpline, but the behavior is
+    different. The scipy version will remove the 2nd and 2nd-to-last data points
+    from the set of knots as a way of using the 2 extra degrees of freedom. This
+    class instead sets the 1st or 2nd derivatives at the end of the interval to
+    use the extra degrees of freedom.
 
     This code is inspired by section 3.3. of Numerical Recipes, 3rd Edition.
 
@@ -58,8 +56,8 @@ class CubicSpline(object):
     """
 
     def __init__(self, x, y, yprime1=None, yprimeN=None):
-        """
-        Create an exact cubic spline representation for the function y(x).
+        """Create an exact cubic spline representation for the function y(x).
+
         'Exact' means that the spline will strictly pass through the given points.
 
         The user can give specific values for the slope at either boundary through
@@ -177,6 +175,8 @@ class CubicSpline(object):
 
 
 class CubicSplineFunction(CubicSpline):
+    """A dubious class which lets you take derivatives of a cubic spline."""
+
     def __init__(self, x, y, yprime1=None, yprimeN=None, der=0):
         super(CubicSplineFunction, self).__init__(x, y, yprime1=yprime1, yprimeN=yprimeN)
         self.der = der
@@ -200,7 +200,7 @@ class CubicSplineFunction(CubicSpline):
 
 class LinterpCubicSpline(CubicSpline):
     """A CubicSpline object which is a linear combination of CubicSpline objects
-    s1 and s2, effectively fraction*s1 + (1-fraction)*s2
+    s1 and s2, effectively fraction*s1 + (1-fraction)*s2.
     """
 
     def __init__(self, s1, s2, fraction):
@@ -224,6 +224,7 @@ class LinterpCubicSpline(CubicSpline):
 
 class NaturalBsplineBasis(object):
     """Represent a cubic B-spline basis in 1D with natural boundary conditions.
+
     That is, f''(x)=0 at the first and last knots. This constraint reduces the
     effective number of basis functions from (2+Nknots) to Nknots.
 
@@ -237,8 +238,7 @@ class NaturalBsplineBasis(object):
     """
 
     def __init__(self, knots):
-        """Initialization requires only the list of knots.
-        """
+        """Initialization requires only the list of knots."""
         Nk = len(knots)
         b, e = knots[0], knots[-1]
         padknots = np.hstack([[b, b, b], knots, [e, e, e]])

@@ -41,10 +41,15 @@ ctypedef np.float64_t DTYPE_t
 
 @cython.embedsignature(True)
 cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -9999:
-    """`laplace_entropy(x, w=1.0, approx_mode="size")`
-
-    Compute the entropy of data set `x` where the
+    """Compute the entropy of data set `x` where the
     kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+
+    Args:
+        x_in (array): The vector of data of which we want the entropy.
+        w (double): The width (exponential scale length) of the Laplace distribution
+            to be used in kernel-density estimation.
+        approx_mode (string): How to balance execution speed and accuracy
+            (default "size").
 
     The `approx_mode` can be one of:
     ``exact``  The exact integral is computed (can take ~0.25 sec per 10^6 values).
@@ -139,7 +144,8 @@ cpdef _merge_orderedlists(x1_in, x2_in):
     whose values are True if and only if the corresponding value of `x` was
     found in the `x1` input.
 
-    Behavior is undefined if either `x1` or `x2` is not sorted."""
+    Behavior is undefined if either `x1` or `x2` is not sorted.
+    """
 
     x1 = np.asarray(x1_in, dtype=DTYPE)
     x2 = np.asarray(x2_in, dtype=DTYPE)
@@ -190,10 +196,10 @@ cdef _merge_orderedlists_arrays(np.ndarray[DTYPE_t, ndim=1] out,
 
 @cython.embedsignature(True)
 cpdef double laplace_KL_divergence(x, y, double w=1.0, approx_mode="size") except? -9999:
-    """`laplace_KL_divergence(x, y, w=1.0, approx_mode="size")`
+    """Compute the Kullback-Leibler divergence of data set `y` from data set `x`.
 
-    Compute the Kullback-Leibler divergence of data set `y` from data set `x`, where the
-    kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+    Use kernel-density estimation, where the kernel is the Laplace kernel
+    k(x) \propto exp(-abs(x-x0)/w).
 
     The `approx_mode` can be one of:
     ``exact``  The exact integral is computed (can take ~0.25 sec per 10^6 values).
@@ -211,6 +217,14 @@ cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") excep
 
     Compute the cross-entropy of data set `y` from data set `x`, where the
     kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+
+    Args:
+        x (array): One vector of data.
+        y (array): The other vector of data.
+        w (double): The width (exponential scale length) of the Laplace distribution
+            to be used in kernel-density estimation.
+        approx_mode (string): How to balance execution speed and accuracy
+            (default "size").
 
     The `approx_mode` can be one of:
     ``exact``  The exact integral is computed (can take ~0.25 sec per 10^6 values).
@@ -306,8 +320,9 @@ cdef double _antideriv_F(double A, double B, double C, double D) except -9999:
 
 cdef laplace_cross_entropy_approx(np.ndarray[DTYPE_t, ndim=1] x,
                                   np.ndarray[DTYPE_t, ndim=1] y, double w=1.0):
-    """Approximate the cross-entropy with a binned histogram and the Laplace-distribution
-    kernel-density estimator of the probability distribtion."""
+    """Approximate the cross-entropy with a binned histogram and the
+    Laplace-distribution kernel-density estimator of the probability distribtion.
+    """
     cdef double EXTEND_DATA = 5*w
     cdef double BINS_PER_W = 20
     cdef double KERNEL_WIDTH_IN_WS = 15.0

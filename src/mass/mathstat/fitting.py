@@ -1,8 +1,9 @@
 """
 mass.mathstat.fitting
 
-Model-fitting utilities, including only:
-* A histogram fitter that uses a full maximum likelihood fit.
+Model-fitting utilities, including at this point only:
+* MaximumLikelihoodHistogramFitter: a histogram fitter that performs a full
+    maximum-likelihood fit.
 
 Joe Fowler, NIST
 """
@@ -14,10 +15,10 @@ __all__ = ['MaximumLikelihoodHistogramFitter', ]
 
 
 class MaximumLikelihoodHistogramFitter(object):
-    """
-    Object to fit a theory having 1 or more free parameters to a histogram, using the
-    proper likelihood.  That is, assume that events in each bin are independent
-    and are Poisson-distributed with an expectation equal to the theory.
+    """Object to fit a theory having 1 or more free parameters to a histogram,
+    using the proper likelihood.  That is, assume that events in each bin are
+    independent and are Poisson-distributed with an expectation equal to the
+    theory.
 
     This implementation is fast (only requires 2x as long as the chisquared
     minimizer sp.optimize.leastsq, which assumes Gaussian-distributed data),
@@ -74,23 +75,22 @@ class MaximumLikelihoodHistogramFitter(object):
 
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None,
                  epsilon=1e-5, TOL=1e-5):
-        """
-        Initialize the fitter, making copies of the input data.
+        """Initialize the fitter, making copies of the input data.
 
-        Inputs:
-        <x>          The histogram bin centers (used in computing model values)
-        <nobs>       The histogram bin contents (must be same length as <x>)
-        <params>     The theory's vector of parameter starting guesses
-        <theory_function>   (callable) A function of (params, x) returning the modeled bin contents as
-                            a vector of the same length as x
-        <theory_gradient>   (callable) A function of (params, x) returning the gradient of the modeled
-                            bin contents as a 2D vector of shape (len(params), len(x)).  If None (the
-                            default), then the gradient is computed by one-sided finite differences.
-        <epsilon>    (float or ndarray).  If theory_gradient is to be approximated,
-                    use this value for the step size.
-        <TOL>       The fractional or absolute tolerance on the minimum "MLE Chi^2".
-                    When self.DONE successive iterations fail to improve the MLE Chi^2 by this
-                    much (absolutely or fractionally), then fitting will return successfully.
+        Args:
+            x: The histogram bin centers (used in computing model values)
+            nobs: The histogram bin contents (must be same length as <x>)
+            params: The theory's vector of parameter starting guesses
+            theory_function (callable): A function of (params, x) returning the modeled bin contents as
+                a vector of the same length as x
+            theory_gradient (callable): A function of (params, x) returning the gradient of the modeled
+                bin contents as a 2D vector of shape (len(params), len(x)).  If None (the
+                default), then the gradient is computed by one-sided finite differences.
+            epsilon (float or ndarray):  If theory_gradient is to be approximated,
+                use this value for the step size.
+            TOL: The fractional or absolute tolerance on the minimum "MLE Chi^2".
+                When self.DONE successive iterations fail to improve the MLE Chi^2 by this
+                much (absolutely or fractionally), then fitting will return successfully.
         """
         self.x = np.array(x)
         self.ndat = len(x)
@@ -134,11 +134,14 @@ class MaximumLikelihoodHistogramFitter(object):
         self.iterations = 0
 
     def set_parameters(self, params):
-        """
-        Set the initial guess at the parameters.  This call will clear
-        the "hold state" of any parameters that used to be held.  This
-        call also erases the self.covar matrix and sets the
-        current chisq.
+        """Set the initial guess at the parameters.
+
+        Args:
+            params (ndarray): a vector containing the parameter initial guess.
+
+        This call will clear the "hold state" of any parameters that used to be
+        held.  This call also erases the self.covar matrix and sets the current
+        chisq.
         """
         self.mfit = self.nparam = len(params)
         self.params = np.array(params)
@@ -156,22 +159,31 @@ class MaximumLikelihoodHistogramFitter(object):
                 self.params[pnum] = b
 
     def hold(self, i, val=None):
-        """
-        Hold parameter number <i> fixed either at value <val> or (by default) at its present
-        value.  Parameter is fixed until method free(i) is called.
+        """Force one parameter to be held.
+
+        Args:
+            i (int): The parameter number to be held.
+            val (float): The value to hold it at, or if None, then do not change
+                the current value (default None)
+
+        Parameter number i is fixed until method free(i) is called.
         """
         self.param_free[i] = False
         if val is not None:
             self.params[i] = val
 
     def free(self, i):
-        """
-        Release parameter <i> to float in the next fit.  If already free, then no effect.
+        """Allow one held parameter to be very freely.
+
+        Args:
+            i (int): The parameter number to be freed.
+
+        Parameter number i is freed to vary in the next fit. If already free, then no effect.
         """
         self.param_free[i] = True
 
     def setbounds(self, pnum, lower=None, upper=None):
-        """Set lower and/or upper limits on the value that parameter pnum can take"""
+        """Set lower and/or upper limits on the value that parameter pnum can take."""
         if pnum < 0 or pnum >= self.nparam:
             raise ValueError("pnum must be in range [0,%d]" % (self.nparam-1))
         self.lowerbound[pnum] = lower
@@ -194,9 +206,12 @@ class MaximumLikelihoodHistogramFitter(object):
             self.boundedinternal_grad[pnum] = lambda x: ((upper - lower) / 2.) * np.cos(x)
 
     def set_penalty(self, penalty=None):
-        """Set a penalty function, to be added to chisquared. This allows parameters to be
-        'nudged' without enforcing hard limits.  The function `penalty` must be of the form
-        P, gradP, hessianP = penalty(params).
+        """Set a penalty function, to be added to chisquared.
+
+        This allows parameters to be 'nudged' without enforcing hard limits.
+        The function `penalty` must be of the form
+
+        (P, gradP, hessianP) = penalty(params).
 
         P is the scalar value of the penalty;
         gradP is its derivative w.r.t. each parameter;
@@ -220,6 +235,10 @@ class MaximumLikelihoodHistogramFitter(object):
         with respect to each of the parameters when we don't have an exact expression for it.
         Use 2-sided differences with steps of size self.epsilon away
         from the test point <p> at an array of points <x>.
+
+        Args:
+            p (array): the parameters at which to find the gradient.
+            x (array): the measured data values.
 
         If you have a way to return the true gradient dy/dp_i | p,x, then you
         should use that instead as function self.theory_gradient.
@@ -254,10 +273,11 @@ class MaximumLikelihoodHistogramFitter(object):
         of data points self.x, self.nobs and a nonlinear function that depends on the
         coefficients self.param.
 
-        When chisq is no longer decreasing for self.DONE iterations, return (params, covariance)
-        where <params> is the best-fit value of each parameter (recall that some can optionally
-        be held out of the fit by calling self.free and self.hold), and where <covariance> is the
-        square matrix of estimated covariances between the parameters.
+        When chisq is no longer decreasing for self.DONE iterations, return
+        (params, covariance) where <params> is the best-fit value of each
+        parameter (recall that some can optionally be held out of the fit by
+        calling self.free and self.hold), and where <covariance> is the square
+        matrix of estimated covariances between the parameters.
 
         When self.ITMAX iterations are reached, this method raises a RuntimeError.
         """
@@ -353,9 +373,10 @@ class MaximumLikelihoodHistogramFitter(object):
         """Used by fit to evaluate the linearized fitting matrix alpha and vector beta,
         and to calculate chisq.  Returns (alpha,beta,chisq).  Does NOT update self.chisq
 
-        Careful! When any number of parameters are 'held', then the returned Hessian
-        alpha has size NxN, while the gradient beta is of size M>=N.  (That is, there are M total
-        parameters and only N of them are variable parameters.)
+        Careful! When any number of the M parameters are 'held', then the
+        returned Hessian alpha has size NxN, while the gradient beta is of size
+        M>=N.  (That is, there are M total parameters and only N of them are
+        variable parameters.)
         """
 
         # Careful!  Do this smart, or this routine will bog down the entire

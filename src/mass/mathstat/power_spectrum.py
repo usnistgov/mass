@@ -63,9 +63,10 @@ __all__ = ['PowerSpectrum', 'PowerSpectrumOverlap',
 
 
 class PowerSpectrum(object):
-    """Object for accumulating power spectrum estimates from one
-    or more segments of data.  If you want to use multiple overlapping
-    segments, use class PowerSpectrumOvelap.
+    """Object for accumulating power spectrum estimates from one or more data segments.
+
+    If you want to use multiple overlapping segments, use class
+    PowerSpectrumOvelap.
 
     Based on Num Rec 3rd Ed section 13.4"""
 
@@ -94,7 +95,8 @@ class PowerSpectrum(object):
         given.  window can be None (square window), a callable taking the
         length and returning a sequence, or a sequence."""
         if len(data) != self.m2:
-            raise ValueError("wrong size data segment.  len(data)=%d but require %d" % (len(data), self.m2))
+            raise ValueError("wrong size data segment.  len(data)=%d but require %d" %
+                             (len(data), self.m2))
         if np.isnan(data).any():
             raise ValueError("data contains NaN")
         if window is None:
@@ -115,20 +117,13 @@ class PowerSpectrum(object):
 
         # The first line adds 2x too much to the first/last bins.
         ps = np.abs(wksp)**2
-#        ps[0] *= 0.5
-#        ps[-1] *= 0.5
         self.specsum += scale_factor*ps
         self.nsegments += 1
 
     def addLongData(self, data, window=None):
-        """Process a long vector of data as non-overlapping segments of
-        length 2m."""
+        """Process a long vector of data as non-overlapping segments of length 2m."""
         nt = len(data)
         nk = nt/self.m2
-#        if nk>1:
-#            delta_el = (nt-self.m2)/(nk-1.0)
-#        else:
-#            delta_el = 0.0
         for k in range(nk):
             noff = k*self.m2
             PowerSpectrum.addDataSegment(self,
@@ -162,10 +157,12 @@ class PowerSpectrum(object):
 
 
 class PowerSpectrumOverlap(PowerSpectrum):
-    """Object for power spectral estimation using overlapping
-    data segments.  User sends non-overlapping segments of length m,
+    """Object for power spectral estimation using overlapping data segments.
+
+    User sends non-overlapping segments of length m,
     and they are processed in pairs of length 2m with overlap (except
-    on the first and last segment)."""
+    on the first and last segment).
+    """
 
     def __init__(self, m, dt=1.0):
         PowerSpectrum.__init__(self, m, dt=dt)
@@ -229,18 +226,20 @@ def hamming(n):
 def computeSpectrum(data, segfactor=1, dt=None, window=None):
     """Convenience function to compute the power spectrum of a single data array.
 
-    <data>  Data for finding the spectrum
-    <segfactor>   How many segments to break up the data into.  The spectrum
-                  will be found on each consecutive pair of segments and
-                  will be averaged over all pairs.
-    <dt>      The sample spacing, in time.
-    <window>  The window function to apply.  Should be a function that accepts
-              a number of samples and returns an array of that length.
-              Possible values are bartlett, welch,
-              hann, and hamming in this module, or use a function of your choosing.
+    Args:
+        <data>  Data for finding the spectrum
+        <segfactor>   How many segments to break up the data into.  The spectrum
+            will be found on each consecutive pair of segments and
+            will be averaged over all pairs.
+        <dt>      The sample spacing, in time.
+        <window>  The window function to apply.  Should be a function that accepts
+            a number of samples and returns an array of that length. Possible
+            values are bartlett, welch, hann, and hamming in this module, or use
+            a function of your choosing.
 
-    Return: either the PSD estimate as an array (non-negative frequencies only),
-    *OR* the tuple (frequencies, PSD).  The latter returns when <dt> is not None.
+    Returns:
+        Either the PSD estimate as an array (non-negative frequencies only),
+        *OR* the tuple (frequencies, PSD).  The latter returns when <dt> is not None.
     """
 
     N = len(data)

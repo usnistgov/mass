@@ -1,6 +1,12 @@
+"""
+Some classes to represent mathematical functions and operations.
+
+Young-Il Joe
+February 2017
+"""
+
 import math
 import six
-
 import numpy as np
 
 
