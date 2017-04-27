@@ -21,3 +21,6 @@ class TestFilenameHandling(ut.TestCase):
         outnoi = ljh_util.ljh_chan_names(bnamenoi,[3])
         self.assertTrue("/a/b/c/d_chan3.ljh" in out)
         self.assertTrue("/a/b/c/d_chan3.noi" in outnoi)
+
+if __name__ == '__main__':
+    ut.main()

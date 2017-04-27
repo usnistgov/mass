@@ -14,11 +14,14 @@ import numpy as np
 import pylab as plt
 import mass
 
+import logging
+LOG = logging.getLogger("mass")
+
 wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
 
 # <demo> stop
-print("For fun, here is the Mn K-alpha complex at various resolutions.")
+LOG.info("For fun, here is the Mn K-alpha complex at various resolutions.")
 mass.calibration.fluorescence_lines.plot_spectrum()
 
 # <demo> stop
@@ -43,7 +46,7 @@ param, covar = fitter.fit(hist, bin_ctr, plot=True, label="full")
 # Here we're using the "full" label option to get more info on the plot.
 # "H" after a parmater indicates when it was held.
 # You can get the same info with:
-print(fitter.result_string())
+LOG.info(fitter.result_string())
 
 # <demo> stop
 # Notice that the "stretch factor" (param 2) probably shouldn't be allowed to vary: this is a fit in
