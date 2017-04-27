@@ -7,7 +7,11 @@ import shutil
 import unittest as ut
 
 import mass
-import ljh_util
+
+
+import logging
+LOG = logging.getLogger("mass")
+LOG.setLevel(logging.NOTSET)
 
 class TestDemos(ut.TestCase):
     # @classmethod
@@ -33,3 +37,6 @@ class TestDemos(ut.TestCase):
     # def test_full_analysis_example(self):
     #     make_reference_microcal_files_available()
     #     import full_analysis_example
+
+if __name__ == '__main__':
+    ut.main()

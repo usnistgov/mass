@@ -101,5 +101,6 @@ class TestFilenameHandling(ut.TestCase):
         for x,y in zip(rnames, snames):
             self.assertEqual(x,y)
 
+
 if __name__ == '__main__':
     ut.main()
