@@ -15,6 +15,7 @@ from mass.mathstat.entropy import laplace_entropy, _merge_orderedlists,  \
 
 
 class Test_LaplaceEntropy(unittest.TestCase):
+    """Test the entropy of the Laplace kernel-density estimator."""
 
     def test_entropy1(self):
         """Entropy on a distribution with 1 value."""
@@ -118,18 +119,21 @@ class Test_LaplaceEntropy(unittest.TestCase):
         self.assertAlmostEqual(e, 0.8189547106424491)
 
     def test_empty(self):
+        """Make sure entropy raises ValueError when either input is empty."""
         self.assertRaises(ValueError, laplace_entropy, [], 1.0)
         self.assertRaises(ValueError, laplace_KL_divergence, [], [], 1.0)
         self.assertRaises(ValueError, laplace_KL_divergence, [], [0.0], 1.0)
         self.assertRaises(ValueError, laplace_KL_divergence, [0.0], [], 1.0)
 
-    def test_negative_widths(self):
+    def test_non_positive_widths(self):
+        """Make sure entropy raises ValueError when width is not positive."""
         self.assertRaises(ValueError, laplace_entropy, [1, 2], 0.0)
         self.assertRaises(ValueError, laplace_entropy, [1, 2], -1.0)
         self.assertRaises(ValueError, laplace_KL_divergence, [1, 2], [1, 2], 0.0)
         self.assertRaises(ValueError, laplace_KL_divergence, [1, 2], [1, 2], -1.0)
 
     def test_types(self):
+        """Make sure entropy works when inputs are not float64."""
         for t2 in (np.int, np.float, np.float32):
             e = laplace_entropy(np.array([1, 2, 3], dtype=t2), 1.0)
             self.assertAlmostEqual(e, 1.8865648057292637)

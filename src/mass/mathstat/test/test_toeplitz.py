@@ -17,7 +17,8 @@ import unittest
 
 
 class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
-    """Test ToeplitzSolver on a 5x5 symmetric matrix"""
+    """Test ToeplitzSolver on a 5x5 symmetric matrix."""
+
     def setUp(self):
         self.autocorr = numpy.array((6., 4., 2., 1., 0.))
         self.n = len(self.autocorr)
@@ -43,7 +44,8 @@ class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
 
 
 class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
-    """Test ToeplitzSolver on a 5x5 non-symmetric matrix"""
+    """Test ToeplitzSolver on a 5x5 non-symmetric matrix."""
+
     def setUp(self):
         self.autocorr = numpy.asarray((-1, -2, 0, 3, 6., 4., 2., 1., 0.))
         self.n = (len(self.autocorr) + 1) // 2
@@ -69,7 +71,8 @@ class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
 
 
 class TestToeplitzSolver_32(unittest.TestCase):
-    """Test ToeplitzSolver on a 32x32 symmetric matrix"""
+    """Test ToeplitzSolver on a 32x32 symmetric matrix."""
+
     def setUp(self):
         self.n = 32
         t = numpy.arange(self.n)
@@ -92,10 +95,11 @@ class TestToeplitzSolver_32(unittest.TestCase):
             self.assertAlmostEqual(0, big_dif, 10, msg='Unit vector trial i=%2d gives x_out=%s' % (i, x_out))
 
 
-class TestToeplitzSolver_3072(unittest.TestCase):
-    """Test ToeplitzSolver on a 3072x3072 symmetric matrix"""
+class TestToeplitzSolver_512(unittest.TestCase):
+    """Test ToeplitzSolver on a 512x512 symmetric matrix."""
+
     def setUp(self):
-        self.n = 3072
+        self.n = 512
         t = numpy.arange(self.n)
         self.autocorr = 1.0+3.2*numpy.exp(-t/100.)
         self.autocorr[0] = 9
@@ -103,7 +107,7 @@ class TestToeplitzSolver_3072(unittest.TestCase):
         self.R = scipy.linalg.toeplitz(self.autocorr)
 
     def test_some_unit_vectors(self):
-        for i in (0, 1024, 2048, 2500, 3072-1):
+        for i in (0, 20, 128, 256, 500, 512-1):
             x_in = numpy.zeros(self.n, dtype=numpy.float)
             x_in[i] = 1.0
             y = numpy.dot(self.R, x_in)
@@ -151,11 +155,9 @@ class TestToeplitzSpeed(object):
 
         ac = self.autocorr[:size]
         v = numpy.random.standard_normal(size)
-#        nv=-v
 
         t0 = time.time()
         solver = ToeplitzSolver(ac, symmetric=True)
-#        x = solver(nv)  # If you want to solve two...
         x = solver(v)
         dt = [time.time()-t0]
 

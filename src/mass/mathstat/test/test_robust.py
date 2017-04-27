@@ -1,19 +1,20 @@
 '''
 test_robust.py
 
-Test any functions in mass.mathstat.robust
+Test functions in mass.mathstat.robust
 
 Created on Feb 9, 2012
 
 @author: fowlerj
 '''
+
 import unittest
 import numpy
 from mass.mathstat.robust import shorth_range, high_median, Qscale
 
 
 class Test_Shorth(unittest.TestCase):
-    """Test the function shorth_range, which computes the range of the shortest half"""
+    """Test the function shorth_range, which computes the range of the shortest half."""
 
     def testUnnormalized(self):
         """Verify that you get actual shorth when normalize=False for odd and even size lists."""
@@ -23,8 +24,10 @@ class Test_Shorth(unittest.TestCase):
         x = numpy.array([1, 4.6, 6, 8, 11])
         r, shr_mean, shr_ctr = shorth_range(x, normalize=False, location=True)
         self.assertEqual(r, x[3]-x[1], msg="Did not find shortest half range in length-5 list")
-        self.assertEqual(shr_mean, x[1:4].mean(), msg="Did not find shortest half mean in length-5 list")
-        self.assertEqual(shr_ctr, 0.5*(x[1]+x[3]), msg="Did not find shortest half center in length-5 list")
+        self.assertEqual(shr_mean, x[1:4].mean(),
+            msg="Did not find shortest half mean in length-5 list")
+        self.assertEqual(shr_ctr, 0.5*(x[1]+x[3]),
+            msg="Did not find shortest half center in length-5 list")
 
         r = shorth_range([2, 4, 6, 8, 11, 15], normalize=False)
         self.assertEqual(r, 6, msg="Did not find shortest half range in length-6 list")
@@ -32,11 +35,13 @@ class Test_Shorth(unittest.TestCase):
         x = numpy.array([1, 4.6, 6, 8, 11, 100])
         r, shr_mean, shr_ctr = shorth_range(x, normalize=False, location=True)
         self.assertEqual(r, x[4]-x[1], msg="Did not find shortest half range in length-6 list")
-        self.assertEqual(shr_mean, x[1:5].mean(), msg="Did not find shortest half mean in length-6 list")
-        self.assertEqual(shr_ctr, 0.5*(x[1]+x[4]), msg="Did not find shortest half center in length-6 list")
+        self.assertEqual(shr_mean, x[1:5].mean(),
+            msg="Did not find shortest half mean in length-6 list")
+        self.assertEqual(shr_ctr, 0.5*(x[1]+x[4]),
+            msg="Did not find shortest half center in length-6 list")
 
     def testSortInplace(self):
-        """Verify behavior of the sort_inplace argument"""
+        """Verify behavior of the sort_inplace argument."""
         x = [7, 1, 2, 3, 4, 5, 6]
         y = numpy.array(x)
         _ignore = shorth_range(x, sort_inplace=False)
@@ -67,31 +72,39 @@ class Test_High_Median(unittest.TestCase):
         self.assertEqual(high_median(x), 4, msg="Did not get HM([4]) = 4.")
 
     def testWeighted(self):
-        """Verify simple cases of high_median"""
+        """Verify simple cases of high_median."""
         new_order = [3, 0, 1, 4, 2]
 
         def scramble(x, w):
             return [x[i] for i in new_order], [w[i] for i in new_order]
 
         x, w = [1, 2, 3, 4, 5], [3, 1, 1, 1, 3]
-        self.assertEqual(high_median(x, w), 3, msg="Failed high_median on balanced, odd-summed weights.")
+        self.assertEqual(high_median(x, w), 3,
+            msg="Failed high_median on balanced, odd-summed weights.")
         x, w = scramble(x, w)
-        self.assertEqual(high_median(x, w), 3, msg="Failed high_median on balanced, odd-summed weights.")
+        self.assertEqual(high_median(x, w), 3,
+            msg="Failed high_median on balanced, odd-summed weights.")
 
         x, w = [1, 2, 3, 4, 5], [3, 1, 2, 1, 3]
-        self.assertEqual(high_median(x, w), 3, msg="Failed high_median on balanced, even-summed weights.")
+        self.assertEqual(high_median(x, w), 3,
+            msg="Failed high_median on balanced, even-summed weights.")
         x, w = scramble(x, w)
-        self.assertEqual(high_median(x, w), 3, msg="Failed high_median on balanced, even-summed weights.")
+        self.assertEqual(high_median(x, w), 3,
+            msg="Failed high_median on balanced, even-summed weights.")
 
         x, w = [1, 2, 3, 4, 5], [3, 1, 1, 1, 1]
-        self.assertEqual(high_median(x, w), 2, msg="Failed high_median on unbalanced odd-summed weights.")
+        self.assertEqual(high_median(x, w), 2,
+            msg="Failed high_median on unbalanced odd-summed weights.")
         x, w = scramble(x, w)
-        self.assertEqual(high_median(x, w), 2, msg="Failed high_median on unbalanced odd-summed weights.")
+        self.assertEqual(high_median(x, w), 2,
+            msg="Failed high_median on unbalanced odd-summed weights.")
 
         x, w = [1, 2, 3, 4, 5], [4, 1, 1, 1, 1]
-        self.assertEqual(high_median(x, w), 2, msg="Failed high_median on even-summed weights.")
+        self.assertEqual(high_median(x, w), 2,
+            msg="Failed high_median on even-summed weights.")
         x, w = scramble(x, w)
-        self.assertEqual(high_median(x, w), 2, msg="Failed high_median on even-summed weights.")
+        self.assertEqual(high_median(x, w), 2,
+            msg="Failed high_median on even-summed weights.")
 
         x, w = [1, 2, 3, 4, 5], [5, 1, 1, 1, 1]
         self.assertEqual(high_median(x, w), 1, msg="Failed high_median on answer=lowest.")
@@ -115,6 +128,7 @@ class Test_High_Median(unittest.TestCase):
 
 
 class Test_Qscale(unittest.TestCase):
+    """Test the Qscale() statistic."""
 
     def testSimple(self):
         x = numpy.array([1, 4, 5, 6, 8], dtype=numpy.float)
@@ -131,7 +145,7 @@ class Test_Qscale(unittest.TestCase):
         self.assertEquals(x[3], 4, msg="Qscale did not sort data when asked to sort.")
 
     def Qslow(self, x):
-        """Compute Q the simple, slow way, as O(n^2)."""
+        """Compute Q the simple, slow way, an O(n^2) calculation to verify the fast one."""
         x = numpy.array(x)
         x.sort()
         n = len(x)
@@ -149,11 +163,13 @@ class Test_Qscale(unittest.TestCase):
         dist.sort()
         h = n // 2 + 1
         k = h*(h-1) // 2 - 1
-#        print n, k, dist, dist[k], prefactor
         return prefactor * dist[k]
 
     def testRandom(self):
-        for size in (3, 6, 9, 15, 20, 25, 30, 40, 45, 50, 75, 100, 200):
+        """Test some random (normal) data to be sure that the fast and Qslow
+        operations give the same result.
+        """
+        for size in (3, 6, 9, 15, 20, 25, 30, 40, 45, 50, 75, 100, 140):
             data = numpy.random.standard_normal(size=size)
             qs = self.Qslow(data)
             qf = Qscale(data)

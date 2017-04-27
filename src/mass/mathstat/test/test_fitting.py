@@ -15,7 +15,7 @@ def weightavg(a, w):
 
 
 class Test_ratio_weighted_averages(unittest.TestCase):
-    """Run a test with a known, constant histogram"""
+    """Run test with a known, constant histogram"""
 
     def setUp(self):
         self.nobs = np.array([
@@ -31,8 +31,9 @@ class Test_ratio_weighted_averages(unittest.TestCase):
         self.guess = np.array([1.09, 0, 17.7, 0.0, 0.0, 0, 25])
 
     def test_weighted_averages_nobg(self):
-        """Wt avg (data/model)=1 for weight = model when the model has no background.
-        This property should be guaranteed when using a Maximum Likelihood fitter."""
+        """Check that wt avg (data/model)==1 for weight = model when the model has no
+        background. This property should be guaranteed when using a Maximum-Likelihood fitter.
+        """
         self.guess[3:] = 0
         params, _ = self.fitter.fit(self.nobs, self.x, self.guess, hold=(3, 4, 5, 6), plot=False)
 
@@ -45,9 +46,10 @@ class Test_ratio_weighted_averages(unittest.TestCase):
         self.assertAlmostEqual(weightavg(ratio, y), 1.0, 1)
 
     def test_weighted_averages_constbg(self):
-        """Wt avg (data/model)=1 for weight = either one of {constant, model}
+        """Check that wt avg (data/model)=1 for weight = either one of {constant, model}
         when the model has a constant background.
-        This property should be guaranteed when using a Maximum Likelihood fitter."""
+        This property should be guaranteed when using a Maximum Likelihood fitter.
+        """
         self.guess[3:] = 0
         self.fitter.fit(self.nobs, self.x, self.guess, hold=(4, 5, 6), plot=False)
         y = self.fitter.last_fit_result
@@ -55,9 +57,10 @@ class Test_ratio_weighted_averages(unittest.TestCase):
         self.assertAlmostEqual(weightavg(ratio, y), 1.0, 1)
 
     def test_weighted_averages_slopedbg(self):
-        """Wt avg (data/model)=1 for weight = any one of {constant, model, x}
+        """Check that wt avg (data/model)=1 for weight = any one of {constant, model, x}
         when the model has a linear background.
-        This property should be guaranteed when using a Maximum Likelihood fitter."""
+        This property should be guaranteed when using a Maximum Likelihood fitter.
+        """
         self.guess[3:] = 0
         params, _ = self.fitter.fit(self.nobs, self.x, self.guess, hold=(5, 6), plot=False)
         params[3] = 0
@@ -69,7 +72,8 @@ class Test_ratio_weighted_averages(unittest.TestCase):
 
 class Test_gaussian(unittest.TestCase):
     """Simulate some Gaussian data, fit the histograms, and make sure that the results are
-    consistent with the expectation at the 2-sigma level."""
+    consistent with the expectation at the 2-sigma level.
+    """
 
     def generate_data(self, N, fwhm=1.0, ctr=0.0, nbins=100, N_bg=0):
         self.x = x = np.arange(.5, nbins)*4.0/nbins-2.0
@@ -198,7 +202,8 @@ class SimplePenalty(object):
 
 class Test_fluorescence(unittest.TestCase):
     """Simulate some fluorescence data, fit the histograms, and make sure that the results are
-    consistent with the expectation at the 2-sigma level."""
+    consistent with the expectation at the 2-sigma level.
+    """
 
     def setUp(self):
         self.fitter = mass.MnKAlphaFitter()

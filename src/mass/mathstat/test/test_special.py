@@ -15,7 +15,7 @@ class TestVoigtWidth(unittest.TestCase):
     """Test the Voigt width approximation."""
 
     def test_voigt_gaussian_limit(self):
-        """Verify Voigt function in Gaussian limit for a range of x and sigma"""
+        """Verify Voigt function in Gaussian limit for a range of x and sigma."""
 
         def gaussian(x, sigma):
             return numpy.exp(-0.5*(x/sigma)**2)/(sigma*numpy.sqrt(2*numpy.pi))
@@ -28,7 +28,7 @@ class TestVoigtWidth(unittest.TestCase):
                 self.assertAlmostEqual(vi, gaussian(xi, sigma=sigma), 7)
 
     def test_voigt_lorentzian_limit(self):
-        """Verify Voigt function in Lorentzian limit for a range of x and FWHM"""
+        """Verify Voigt function in Lorentzian limit for a range of x and FWHM."""
 
         def lorentzian(x, hwhm):
             return (hwhm/numpy.pi)/(x*x+hwhm*hwhm)
@@ -39,9 +39,9 @@ class TestVoigtWidth(unittest.TestCase):
             for vi, xi in zip(v, x):
                 self.assertAlmostEqual(vi, lorentzian(xi, hwhm=hwhm), 7)
 
-    def test_general_voigt(self):
-        """I'd love to test the Voigt profile at a generic point, but I don't know how! """
-        pass
+    # def test_general_voigt(self):
+    #     """I'd love to test the Voigt profile at a generic point, but I don't know how! """
+    #     pass
 
     def test_voigt_width_limits(self):
         """Verify FWHM calculation of Voigt in all-Gaussian and all-Lorentz limits."""
