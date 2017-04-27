@@ -611,7 +611,6 @@ class MicrocalDataSet(object):
         * ...and many others.
         """
 
-
         if npulses is None:
             assert self.nPulses > 0
             npulses = self.nPulses
@@ -1460,8 +1459,10 @@ class MicrocalDataSet(object):
             kernel_width = np.max(ph_peaks)/1000.0
         for pk in ph_peaks:
             c, mphase = _phasecorr_find_alignment(self.p_filt_phase[good],
-                                                 self.p_filt_value_dc[good], pk, .012*np.mean(ph_peaks),
-                                                 method2017=method2017, kernel_width=kernel_width)
+                                                  self.p_filt_value_dc[good], pk,
+                                                  .012*np.mean(ph_peaks),
+                                                  method2017=method2017,
+                                                  kernel_width=kernel_width)
             corrections.append(c)
             median_phase.append(mphase)
         median_phase = np.array(median_phase)
@@ -1906,7 +1907,7 @@ class MicrocalDataSet(object):
 # pure functions, not methods.
 
 def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
-                             method2017=False, nf=10, kernel_width=2.0):
+                              method2017=False, nf=10, kernel_width=2.0):
     """Find the way to align (flatten) `pulse_heights` as a function of `phase_indicator`
     working only within the range [peak-delta_ph, peak+delta_ph].
 
@@ -2017,7 +2018,7 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
 
 def _phase_corrected_filtvals(phase, uncorrected, corrections):
     """Apply phase correction to `uncorrected`.
-    
+
     Returns:
         the corrected vector.
     """

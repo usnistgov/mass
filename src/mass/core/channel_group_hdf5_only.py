@@ -91,4 +91,4 @@ class TESGroupHDF5(channel_group.TESGroup):
 
     def __repr__(self):
         return "{0:s}(hdf5_file={1:s})".format(self.__class__.__name__,
-                                                            os.path.realpath(self.hdf5_file.filename))
+                                               os.path.realpath(self.hdf5_file.filename))

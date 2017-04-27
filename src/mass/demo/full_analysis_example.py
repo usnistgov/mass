@@ -20,14 +20,16 @@ import mass
 
 wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
+
+
 def report(param, covar):
-    labels = ("E res (FWHM)","Peak energy","dPH/dE","Amplitude",
-              "Const BG","BG slope","Tail fraction","Tail length")
-    for i,p in enumerate(param):
+    labels = ("E res (FWHM)", "Peak energy", "dPH/dE", "Amplitude",
+              "Const BG", "BG slope", "Tail fraction", "Tail length")
+    for i, p in enumerate(param):
         txt = ""
-        if covar[i,i] == 0.0:
+        if covar[i, i] == 0.0:
             txt = "HELD"
-        print("%-14s %8.3f +- %7.3f   %s" % (labels[i], p, covar[i,i]**0.5, txt))
+        print("%-14s %8.3f +- %7.3f   %s" % (labels[i], p, covar[i, i]**0.5, txt))
 print("""To run this demo, you need to have the ReferenceMicrocalFiles.jl package.
 Installed.
 
@@ -91,27 +93,35 @@ KA_peak = np.median(ds.p_filt_value_dc[g])
 
 plt.clf()
 ax1 = plt.subplot(221)
-plt.title("Before Drift Correction"); plt.xlabel("Pretrig mean"); plt.ylabel("Filt value")
+plt.title("Before Drift Correction")
+plt.xlabel("Pretrig mean")
+plt.ylabel("Filt value")
 plt.plot(ds.p_pretrig_mean[g], ds.p_filt_value[g], ".r")
 
 ax2 = plt.subplot(222, sharey=ax1)
 plt.plot(ds.p_pretrig_mean[g], ds.p_filt_value_dc[g], ".g")
-plt.title("After Drift Correction"); plt.xlabel("Pretrig mean"); plt.ylabel("Filt value")
+plt.title("After Drift Correction")
+plt.xlabel("Pretrig mean")
+plt.ylabel("Filt value")
 
 ax3 = plt.subplot(223, sharey=ax1)
-plt.title("Before Phase Correction"); plt.xlabel("Phase"); plt.ylabel("Filt value")
+plt.title("Before Phase Correction")
+plt.xlabel("Phase")
+plt.ylabel("Filt value")
 plt.plot(ds.p_filt_phase[g], ds.p_filt_value_dc[g], ".g")
 
 ax4 = plt.subplot(224, sharex=ax3, sharey=ax1)
 plt.plot(ds.p_filt_phase[g], ds.p_filt_value_phc[g], ".b")
-plt.xlim([-.65,.5])
-plt.ylim(np.array([.996,1.0025])*KA_peak)
-plt.title("After Phase Correction"); plt.xlabel("Phase"); plt.ylabel("Filt value")
+plt.xlim([-.65, .5])
+plt.ylim(np.array([.996, 1.0025])*KA_peak)
+plt.title("After Phase Correction")
+plt.xlabel("Phase")
+plt.ylabel("Filt value")
 
 # <demo> --- stop ---
 
 # Now fit for the resolution, using the Mn KAlpha data
-c,b = np.histogram(ds.p_filt_value_phc[g], 120, np.array([.993,1.003])*KA_peak)
+c, b = np.histogram(ds.p_filt_value_phc[g], 120, np.array([.993, 1.003])*KA_peak)
 fitter = mass.MnKAlphaFitter()
 param_guess = [2.6, b[c.argmax()], 3, 10*c.max(), c.min(), 0, 0, 25]
 param, covar = fitter.fit(c, b, param_guess, label="full")

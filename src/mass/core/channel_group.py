@@ -1045,7 +1045,7 @@ class TESGroup(CutFieldMixin):
             ds = self.channel[channum]
             noise = ds.noise_records
             noise.plot_autocorrelation(axis=axis, label='Chan %d' % channum,
-                      color=cmap(float(ds_num) / len(channels)))
+                                       color=cmap(float(ds_num) / len(channels)))
         plt.xlabel("Time lag (ms)")
         if legend:
             plt.legend(loc='best')

@@ -173,7 +173,7 @@ class LineFitter(object):
         labeldict = {meaning: meaning+" %4g +- %4g" for meaning in self.param_meaning.keys()}
         labeldict["resolution"] = "FWHM: %.3f +- %.3f"
         labeldict["tail_frac"] = "f$_\\mathrm{tail}$: %.1f +- %.1f"
-        slabel=""
+        slabel = ""
         for (meaning, i) in self.param_meaning.iteritems():
             val = self.last_fit_params[i]
             err = self.last_fit_cov[i, i]**0.5
@@ -205,7 +205,6 @@ class LineFitter(object):
         axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize, self.last_fit_bins[-1] + 0.5 * ph_binsize])
         pnum_res = self.param_meaning["resolution"]
         slabel = ""
-
 
         if label == "full":
             slabel = self.result_string()

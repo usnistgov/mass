@@ -18,7 +18,7 @@ LOG = logging.getLogger("mass")
 
 wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
-np.random.seed(2384792) # avoid NaN errors on galen's computer
+np.random.seed(2384792)  # avoid NaN errors on galen's computer
 # <demo> stop
 
 # First, let's work with a simple Gaussian fit. We'll make some data to fit
@@ -62,7 +62,7 @@ guess_params = [fwhm, mu, hist.max(), 0, 0, 0.0, 25]
 params, covariance = fitter.fit(hist, bin_ctr, guess_params)
 for i, gp in enumerate(guess_params):
     LOG.info("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, gp, params[i], covariance[i, i]**.5))
+             (i, gp, params[i], covariance[i, i]**.5))
 
 # Compute the model function and plot it in red.
 model = fitter.last_fit_result
@@ -71,7 +71,7 @@ plt.plot(bin_ctr, model, 'r')
 # <demo> stop
 # Alternativley use the fitter's plot command. The legend here shows all fit parameters,
 # the fit uncertainty, and a trailing H indicates the paramter was held (aka FIXED).
-fitter.plot(color="r",label="full", ph_units="arb in this demo")
+fitter.plot(color="r", label="full", ph_units="arb in this demo")
 
 # <demo> stop
 # We'll repeat the fit 3 ways: (1) with zero background, (2) just like before,
@@ -101,7 +101,7 @@ for nbg in (0, 1, 2):
     LOG.info("Model: %s" % title[nbg])
     for i, gp in enumerate(guess_params[:5]):
         LOG.info("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
-              (i, gp, params[i], covariance[i, i]**.5))
+                 (i, gp, params[i], covariance[i, i]**.5))
     LOG.info("")
 
     # Compute the model function and plot it in red.
@@ -126,7 +126,7 @@ true_params = [1e-6, mu, fullwidth, histc.max(), 0.0, 0.0, 0.0, 25]
 params, covariance = fitter.fit(histc, bin_ctr, true_params, hold=(0,), plot=True)
 for i, tp in enumerate(true_params):
     LOG.info("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, tp, params[i], covariance[i, i]**.5))
+             (i, tp, params[i], covariance[i, i]**.5))
 
 # <demo> stop
 
@@ -140,7 +140,7 @@ true_params[0] = sigma*2.3548
 params, covariance = fitter.fit(histv, bin_ctr, true_params, plot=True)
 for i, tp in enumerate(true_params):
     LOG.info("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, tp, params[i], covariance[i, i]**.5))
+             (i, tp, params[i], covariance[i, i]**.5))
 
 # <demo> stop
 
@@ -163,7 +163,7 @@ param_guess = true_params * 1+np.random.standard_normal(11)*0.03
 params, covariance = fitter.fit(histc, bin_ctr, param_guess)
 for i, tp in enumerate(true_params):
     LOG.info("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-          (i, tp, params[i], covariance[i, i]**.5))
+             (i, tp, params[i], covariance[i, i]**.5))
 
 if not wasinteractive:
     plt.ioff()

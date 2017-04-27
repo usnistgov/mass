@@ -36,7 +36,7 @@ energies = distrib.rvs(size=N)
 energies += np.random.standard_normal(N)*res_sigma
 
 plt.clf()
-hist, bin_edges, _ = plt.hist(energies, 200, [5865,5915], histtype="step", color="g")
+hist, bin_edges, _ = plt.hist(energies, 200, [5865, 5915], histtype="step", color="g")
 bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
 # <demo> stop
@@ -71,7 +71,7 @@ param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, vary_bg_slope=T
 Naffected = N//5
 tail_len = 10.0
 energies[:Naffected] -= np.random.exponential(tail_len, size=Naffected)
-hist, _ = np.histogram(energies, 200, [5865,5915])
+hist, _ = np.histogram(energies, 200, [5865, 5915])
 param_guess = [res_fwhm, 5898.9, 1.0, param_guess[3], 0, 0, 0.2, tail_len]
 
 param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, vary_tail=True, label="full")

@@ -48,6 +48,7 @@ import os.path
 
 sourceroot = '%s'
 
+
 def source_file(item=""):
     '''A function to remember the directory from which mass was installed.'''
     return os.path.join(sourceroot, item)

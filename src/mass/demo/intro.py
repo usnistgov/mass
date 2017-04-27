@@ -174,10 +174,10 @@ plt.title("After phase correction")
 
 # Here are histograms of the values
 plt.clf()
-for name,v in zip(["filtered value", "drift corrected", "phase_corrected"],
-                  [ds.p_filt_value, ds.p_filt_value_dc, ds.p_filt_value_phc]):
-    plt.hist(v[g], 35, [13400, 13500], histtype="step",label=name)
-    print("Robust width estimator of %17s: %5.2f" % (name,mass.robust.shorth_range(v[g])))
+for name, v in zip(["filtered value", "drift corrected", "phase_corrected"],
+                   [ds.p_filt_value, ds.p_filt_value_dc, ds.p_filt_value_phc]):
+    plt.hist(v[g], 35, [13400, 13500], histtype="step", label=name)
+    print("Robust width estimator of %17s: %5.2f" % (name, mass.robust.shorth_range(v[g])))
 plt.legend(loc="best")
 if not wasinteractive:
     plt.ioff()

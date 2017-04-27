@@ -9,6 +9,7 @@ import unittest as ut
 import mass
 from mass.core.ljh_modify import *
 
+
 class TestFiles(ut.TestCase):
 
     def test_ljh_copy_and_append_traces(self):

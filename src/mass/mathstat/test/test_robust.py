@@ -23,11 +23,12 @@ class Test_Shorth(unittest.TestCase):
 
         x = numpy.array([1, 4.6, 6, 8, 11])
         r, shr_mean, shr_ctr = shorth_range(x, normalize=False, location=True)
-        self.assertEqual(r, x[3]-x[1], msg="Did not find shortest half range in length-5 list")
+        self.assertEqual(r, x[3]-x[1],
+                         msg="Did not find shortest half range in length-5 list")
         self.assertEqual(shr_mean, x[1:4].mean(),
-            msg="Did not find shortest half mean in length-5 list")
+                         msg="Did not find shortest half mean in length-5 list")
         self.assertEqual(shr_ctr, 0.5*(x[1]+x[3]),
-            msg="Did not find shortest half center in length-5 list")
+                         msg="Did not find shortest half center in length-5 list")
 
         r = shorth_range([2, 4, 6, 8, 11, 15], normalize=False)
         self.assertEqual(r, 6, msg="Did not find shortest half range in length-6 list")
@@ -36,9 +37,9 @@ class Test_Shorth(unittest.TestCase):
         r, shr_mean, shr_ctr = shorth_range(x, normalize=False, location=True)
         self.assertEqual(r, x[4]-x[1], msg="Did not find shortest half range in length-6 list")
         self.assertEqual(shr_mean, x[1:5].mean(),
-            msg="Did not find shortest half mean in length-6 list")
+                         msg="Did not find shortest half mean in length-6 list")
         self.assertEqual(shr_ctr, 0.5*(x[1]+x[4]),
-            msg="Did not find shortest half center in length-6 list")
+                         msg="Did not find shortest half center in length-6 list")
 
     def testSortInplace(self):
         """Verify behavior of the sort_inplace argument."""
@@ -80,31 +81,31 @@ class Test_High_Median(unittest.TestCase):
 
         x, w = [1, 2, 3, 4, 5], [3, 1, 1, 1, 3]
         self.assertEqual(high_median(x, w), 3,
-            msg="Failed high_median on balanced, odd-summed weights.")
+                         msg="Failed high_median on balanced, odd-summed weights.")
         x, w = scramble(x, w)
         self.assertEqual(high_median(x, w), 3,
-            msg="Failed high_median on balanced, odd-summed weights.")
+                         msg="Failed high_median on balanced, odd-summed weights.")
 
         x, w = [1, 2, 3, 4, 5], [3, 1, 2, 1, 3]
         self.assertEqual(high_median(x, w), 3,
-            msg="Failed high_median on balanced, even-summed weights.")
+                         msg="Failed high_median on balanced, even-summed weights.")
         x, w = scramble(x, w)
         self.assertEqual(high_median(x, w), 3,
-            msg="Failed high_median on balanced, even-summed weights.")
+                         msg="Failed high_median on balanced, even-summed weights.")
 
         x, w = [1, 2, 3, 4, 5], [3, 1, 1, 1, 1]
         self.assertEqual(high_median(x, w), 2,
-            msg="Failed high_median on unbalanced odd-summed weights.")
+                         msg="Failed high_median on unbalanced odd-summed weights.")
         x, w = scramble(x, w)
         self.assertEqual(high_median(x, w), 2,
-            msg="Failed high_median on unbalanced odd-summed weights.")
+                         msg="Failed high_median on unbalanced odd-summed weights.")
 
         x, w = [1, 2, 3, 4, 5], [4, 1, 1, 1, 1]
         self.assertEqual(high_median(x, w), 2,
-            msg="Failed high_median on even-summed weights.")
+                         msg="Failed high_median on even-summed weights.")
         x, w = scramble(x, w)
         self.assertEqual(high_median(x, w), 2,
-            msg="Failed high_median on even-summed weights.")
+                         msg="Failed high_median on even-summed weights.")
 
         x, w = [1, 2, 3, 4, 5], [5, 1, 1, 1, 1]
         self.assertEqual(high_median(x, w), 1, msg="Failed high_median on answer=lowest.")

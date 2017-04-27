@@ -319,7 +319,6 @@ def Qscale(x, sort_inplace=False):
     return q * prefactor
 
 
-
 @cython.boundscheck(False)
 def _high_median(long long[:] sort_idx, double[:] weights, int n):
     """Compute the weighted high median of data set with weights <weights>.
