@@ -638,7 +638,14 @@ class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
         if self.distribution.gauss_sigma > 0.0:
             lor += np.random.standard_normal(size=self._size) * self.distribution.gauss_sigma
         # Finally, add the line centers.
-        return lor + self.distribution.energies[iline]
+        results = lor + self.distribution.energies[iline]
+        # We must check for non-positive results and replace them by recursive call
+        # to self.rvs().
+        not_positive = results <= 0.0
+        if np.any(not_positive):
+            Nbad = not_positive.sum()
+            results[not_positive] = self.rvs(size=Nbad)
+        return results
 
 
 # Some specific fluorescence lines
