@@ -1,7 +1,11 @@
 """
 mass.mathstat.utilities
 
-Several math utilities.
+Several math and plotting utilities:
+* plot_as_stepped_hist
+* plot_stepped_hist_poisson_errors
+* savitzky_golay
+* CheckForMissingLibrary class
 
 Joe Fowler, NIST
 
@@ -15,7 +19,9 @@ __all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky
 
 class CheckForMissingLibrary(object):
     """Class to raise ImportError only after python tries to use the import.
-    Intended for use with shared objects built from Fortran or Cython source."""
+
+    Intended for use with shared objects built from Fortran or Cython source.
+    """
     def __init__(self, libname):
         self.libname = libname
         self.error = ImportError("""This copy of Mass could not import the compiled '%s'
@@ -29,13 +35,16 @@ a delayed error.  If it is raised, then you know that you needed the library!"""
 
 
 def plot_as_stepped_hist(axis, data, bins, **kwargs):
-    """Plot onto <axis> the histogram <bin_ctrs>,<data> in stepped-histogram format.
-    \param axis     The pylab Axes object to plot onto.
-    \param data     Bin contents.
-    \param bins     An array of bin centers or of bin edges.  (Bin spacing will be
-                    inferred from the first two elements).  If len(bin_ctrs) == len(data)+1, then
-                    bin_ctrs will be assumed to be bin edges; otherwise it will be assumed centers.
-    \param kwargs   All other keyword arguments will be passed to axis.plot().
+    """Plot data in stepped-histogram format.
+
+    Args:
+        axis: The pylab Axes object to plot onto.
+        data: Bin contents.
+        bins: An array of bin centers or of bin edges.  (Bin spacing will be
+            inferred from the first two elements).  If len(bin_ctrs) == len(data)+1, then
+            bin_ctrs will be assumed to be bin edges; otherwise it will be assumed to be
+            the bin centers.
+        **kwargs: All other keyword arguments will be passed to axis.plot().
     """
     if len(bins) == len(data)+1:
         bin_edges = bins
@@ -57,16 +66,19 @@ def plot_as_stepped_hist(axis, data, bins, **kwargs):
 
 
 def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, offset=0.0, **kwargs):
-    """Use plot_as_stepped_hist to plot a histogram of <counts>*<scale>, where also
-    an error band is plotted, assuming <counts> are Poisson-distributed variates.
-    \param axis     The pylab Axes object to plot onto.
-    \param counts   Bin contents.
-    \param bin_ctrs An array of bin centers or of bin edges.  (Bin spacing will be
-                    inferred from the first two elements).  If len(bin_ctrs) == len(data)+1, then
-                    bin_ctrs will be assumed to be bin edges; otherwise it will be assumed centers.
-    \param scale    Plot counts*scale+offset if you need to convert counts to some physical units.
-    \param offset   Plot counts*scale+offset if you need to convert counts to some physical units.
-    \param kwargs   All other keyword arguments will be passed to axis.plot().
+    """Use plot_as_stepped_hist to plot a histogram, where also
+    an error band is plotted, assuming data are Poisson-distributed.
+
+    Args:
+        axis: The pylab Axes object to plot onto.
+        data: Bin contents.
+        bin_ctrs: An array of bin centers or of bin edges.  (Bin spacing will be
+            inferred from the first two elements).  If len(bin_ctrs) == len(data)+1, then
+            bin_ctrs will be assumed to be bin edges; otherwise it will be assumed to be
+            the bin centers.
+        scale: Plot counts*scale+offset if you need to convert counts to some physical units.
+        offset: Plot counts*scale+offset if you need to convert counts to some physical units.
+        **kwargs: All other keyword arguments will be passed to axis.plot().
     """
     if len(bin_ctrs) == len(counts)+1:
         bin_ctrs = 0.5*(bin_ctrs[1:]+bin_ctrs[:-1])
@@ -84,6 +96,7 @@ def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, offset=0
 
 def savitzky_golay(y, window_size, order, deriv=0):
     r"""Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
+    
     The Savitzky-Golay filter removes high frequency noise from data.
     It has the advantage of preserving the original shape and
     features of the signal better than other types of filtering

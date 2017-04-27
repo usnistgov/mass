@@ -23,7 +23,8 @@ _sqrt2pi = np.sqrt(2.0*np.pi)
 
 
 def voigt(x, xctr, hwhm, sigma):
-    """
+    """Voigt function (a Gaussian convolved with a Lorentzian).
+
     Compute and return the Voigt function V(x; xctr,hwhm,sigma) for a sequence of points <x>.
     V is the convolution of a Lorentzian centered at xctr with half-width at half-max of hwhm
     with a Gaussian having standard width sigma.
@@ -39,15 +40,19 @@ def voigt(x, xctr, hwhm, sigma):
     2.   G(x) = 1/(sigma sqrt(2pi)) * exp(-0.5*(x/sigma)**2
     3.   V(x) = integral (-inf to +inf) G(x') L(x-x') dx'
 
-    Scalar parameters are:
-    xctr    Center of Lorentzian line
-    hwhm    Half-width at half-maximum of the Lorentzian line
-    sigma   Square root of the Gaussian variance
-
     The construction uses:
     V(x) = Re[w(z)]/(sigma * sqrt(2pi)), where
     w(z) = exp(-z*z) * erfc(-iz) is the Faddeeva or complex error function, and
     z = (x+i*fwhm)/(sigma sqrt(2))
+
+    Args:
+        x (1d array): points at which to compute the Voigt function.
+        xctr (number): Center of Lorentzian line
+        hwhm (number): Half-width at half-maximum of the Lorentzian line
+        sigma (number): Square root of the Gaussian variance
+
+    Returns:
+        Voigt function values, as 1d array of same size as x.
     """
 
     if not isinstance(x, np.ndarray):
@@ -68,11 +73,20 @@ def voigt(x, xctr, hwhm, sigma):
 
 
 def voigt_approx_fwhm(fwhm_lorentzian, fwhm_gaussian):
-    """Return the Olivero & Longbothum 1977 approximation to the Voigt full-width at half-maximum,
-    found in doi:10.1016/0022-4073(77)90161-3 and also in Wikipedia.
+    """The Olivero & Longbothum 1977 approximation to the Voigt full-width at half-maximum.
+
+    See doi:10.1016/0022-4073(77)90161-3, and also Wikipedia.
 
     This ought to be accurate to 0.02% at typical values up to 0.033% for a nearly pure
-    Lorentzian."""
+    Lorentzian.
+
+    Args:
+        fwhm_lorentzian: The FWHM of the Lorentzian before convolution with Gaussian.
+        fwhm_gaussian: The FWHM of the Gaussian before convolution with Lorentzian.
+
+    Returns:
+        The approximate FWHM of this Voigt function.
+    """
     if fwhm_lorentzian == 0.0:
         return fwhm_gaussian
     if fwhm_gaussian == 0.0:

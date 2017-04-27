@@ -12,8 +12,7 @@ __all__ = ['ToeplitzSolver']
 
 
 class ToeplitzSolver(object):
-    """
-    Solve a Toeplitz matrix for one or more vectors.
+    """Solve a Toeplitz matrix for one or more vectors.
 
     A Toeplitz matrix is an NxN square matrix where T_ij = R_(i-j) for some
     vector R_k  with k=-(N-1),-(N-2),...-1,0,1,2,...(N-1).
@@ -24,7 +23,7 @@ class ToeplitzSolver(object):
 
     Typical usage for a symmetric Toeplitz matrix:
     ac = compute_autocorrelation(...) # ac[0] is 0-lag, ac[1] is lag-1, etc..
-    rhs_vect = compute_rhs_vector(...)  # v and ac should have same length
+    rhs_vect = compute_rhs_vector(...)  # rhs_vect and ac should have same length
     ts = ToeplitzSolver(ac, symmetric=True)
     solution_vect = ts(rhs_vect)
 
@@ -37,13 +36,15 @@ class ToeplitzSolver(object):
     N=3000 system once in 0.25 seconds, N=5000 in 0.50 seconds, N=8192 in 1.0 seconds,
     N=10k in 1.4 seconds, and N=20k in 4.6 seconds.  Additional solutions to the same
     matrix should take between 0.5 and 0.6 times as long, since the one-time precomputation
-    step is nearly as long as the per-solution computations.
+    step is approximately as long as the per-solution computations.
     """
 
     def __init__(self, R, symmetric=True):
-        """
-        The meaning of <R> depends on <symmetric>.  In both cases, it represents
-        the values in an NxN Toeplitz matrix.
+        """Initialize a Toeplitz matrix solver.
+
+        Args:
+            R: The values in an NxN Toeplitz matrix. The meaning of depends on symmetric.
+            symmetric (bool): How to interpret R.
 
         When <symmetric> is True, <R> is of length N and gives both the 0-row and
         the 0-column of the matrix.
