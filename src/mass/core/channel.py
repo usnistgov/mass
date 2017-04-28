@@ -1876,6 +1876,8 @@ class MicrocalDataSet(object):
             postpeak_deriv=(None, md_max),
         )
         self.apply_cuts(cuts, forceNew=True, clear=False)
+        self.saved_auto_cuts = cuts
+        return cuts
 
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         # first check to see if this had already been done
