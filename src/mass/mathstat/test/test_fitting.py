@@ -74,6 +74,8 @@ class Test_gaussian(unittest.TestCase):
     """Simulate some Gaussian data, fit the histograms, and make sure that the results are
     consistent with the expectation at the 2-sigma level.
     """
+    def setUp(self):
+        np.random.seed(12348)
 
     def generate_data(self, N, fwhm=1.0, ctr=0.0, nbins=100, N_bg=0):
         self.x = x = np.arange(.5, nbins)*4.0/nbins-2.0
@@ -206,6 +208,7 @@ class Test_fluorescence(unittest.TestCase):
     """
 
     def setUp(self):
+        np.random.seed(12349)
         self.fitter = mass.MnKAlphaFitter()
 
     def generate_and_fit_data(self, N, fwhm=1.0, nbins=100, N_bg=0):
