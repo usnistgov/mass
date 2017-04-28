@@ -598,6 +598,7 @@ class MicrocalDataSet(object):
 
         self.__setup_vectors(npulses=self.nPulses)
         self.__load_cals_from_hdf5()
+        self.__load_auto_cuts()
 
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
@@ -1890,8 +1891,28 @@ class MicrocalDataSet(object):
             postpeak_deriv=(None, md_max),
         )
         self.apply_cuts(cuts, forceNew=True, clear=False)
-        self.saved_auto_cuts = cuts
+        self.__save_auto_cuts(cuts)
         return cuts
+
+    def __save_auto_cuts(self, cuts):
+        """Store the results of auto-cuts internally and in HDF5."""
+        self.saved_auto_cuts = cuts
+        g = self.hdf5_group["cuts"].require_group("auto_cuts")
+        for attrname in ("peak_time_ms", "rise_time_ms", "pretrigger_rms",
+                         "postpeak_deriv"):
+            g.attrs[attrname] = cuts.cuts_prm[attrname][1]
+
+    def __load_auto_cuts(self):
+        """Load the results of auto-cuts, if any, from HDF5."""
+        try:
+            g = self.hdf5_group["cuts/auto_cuts"]
+        except KeyError:
+            return
+        cuts = mass.AnalysisControl()
+        for attrname in ("peak_time_ms", "rise_time_ms", "pretrigger_rms",
+                         "postpeak_deriv"):
+            cuts.cuts_prm[attrname] = (None, g.attrs[attrname])
+        self.saved_auto_cuts = cuts
 
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         # first check to see if this had already been done

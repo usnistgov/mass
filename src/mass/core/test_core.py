@@ -92,12 +92,17 @@ class TestTESGroup(ut.TestCase):
         self.assertEqual(ds2.peak_samplenumber, ds.peak_samplenumber)
 
     def test_make_auto_cuts(self):
-        """Make sure that non-trivial auto-cuts are generated."""
+        """Make sure that non-trivial auto-cuts are generated and reloadable from file."""
         data = self.load_data()
         data.summarize_data()
         data.auto_cuts(forceNew=True, clearCuts=True)
         ds = data.first_good_dataset
         self.assertLess(ds.cuts.good().sum(), ds.nPulses)
+
+        data2 = self.load_data(clear_hdf5=False)
+        for ds in data:
+            self.assertGreater(ds.saved_auto_cuts.cuts_prm["postpeak_deriv"], 0)
+            self.assertGreater(ds.saved_auto_cuts.cuts_prm["pretrigger_rms"], 0)
 
     def test_plot_filters(self):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
