@@ -1832,12 +1832,27 @@ class MicrocalDataSet(object):
             print("%d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
         print("%d pulses total" % self.nPulses)
 
-    def auto_cuts(self, forceNew=False):
+    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, forceNew=False):
         """Compute and apply an appropriate set of automatically generated cuts.
 
         The peak time and rise time come from the measured most-common peak time.
         The pulse RMS and postpeak-derivative cuts are based on what's observed in
-        the (presumably) pulse-free noise file associated with this data file."""
+        the (presumably) pulse-free noise file associated with this data file.
+
+        Args:
+            nsigma_pt_rms (float):  How big an excursion is allowed in pretrig RMS
+                (default 8.0).
+            nsigma_max_deriv (float): How big an excursion is allowed in max
+                post-peak derivative (default 8.0).
+            forceNew (bool): Whether to perform auto-cuts even if cuts already exist.
+
+        The two excursion limits are given in units of equivalent sigma from the
+        noise file. "Equivalent" meaning that the noise file was assessed not for
+        RMS but for median absolute deviation, normalized to Gaussian distributions.
+
+        Returns:
+            The cut object that was applied.
+        """
         # These are based on function calc_cuts_from_noise in make_preknowledge.py
         # in Galen's project POPE.jl.
 
@@ -1851,7 +1866,7 @@ class MicrocalDataSet(object):
         MARGIN = 3  # step at least this many samples forward before cutting.
         peak_time_ms = (MARGIN + self.peak_samplenumber-self.nPresamples)*self.timebase*1000
 
-        # Step 2: analyze noise so we know how to cut on pretrig rms postpeak_deriv
+        # Step 2: analyze *noise* so we know how to cut on pretrig rms postpeak_deriv
         max_deriv = np.zeros(self.noise_records.nPulses)
         pretrigger_rms = np.zeros(self.noise_records.nPulses)
         for first_pnum, end_pnum, _seg_num, data_seg in self.noise_records.datafile.iter_segments():
@@ -1860,7 +1875,6 @@ class MicrocalDataSet(object):
             pretrigger_rms[first_pnum:end_pnum] = data_seg[:, :self.nPresamples].std(axis=1)
 
         # Multiply MAD by 1.4826 to get into terms of sigma, if distribution were Gaussian.
-        nsigma_max_deriv = nsigma_pt_rms = 8.0  # Subject to debate, but try 8 at first.
         md_med = np.median(max_deriv)
         pt_med = np.median(pretrigger_rms)
         md_madn = np.median(np.abs(max_deriv-md_med))*1.4826

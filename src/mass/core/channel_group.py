@@ -1170,13 +1170,30 @@ class TESGroup(CutFieldMixin):
         for ds in self:
             ds.apply_cuts(cuts, forceNew)
 
-    def auto_cuts(self, forceNew=True, clearCuts=True):
+    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, forceNew=True, clearCuts=True):
         """Automatically compute per-channel cuts and apply them to each valid dataset.
-        If `clearCuts`, then clear any existing cuts first."""
+
+        See MicrocalDataSet.auto_cuts for further information.
+
+        Args:
+            nsigma_pt_rms (float):  How big an excursion is allowed in pretrig RMS
+                (default 8.0).
+            nsigma_max_deriv (float): How big an excursion is allowed in max
+                post-peak derivative (default 8.0).
+            forceNew (bool): Whether to perform auto-cuts even if cuts already
+                exist (default Faulse).
+            clearCuts (bool): Whether to clear any existing cuts first (default
+                True).
+
+        The two excursion limits are given in units of equivalent sigma from the
+        noise file. "Equivalent" meaning that the noise file was assessed not for
+        RMS but for median absolute deviation, normalized to Gaussian distributions.
+        """
         for ds in self:
             if clearCuts:
                 ds.clear_cuts()
-            ds.auto_cuts(forceNew=forceNew)
+            ds.auto_cuts(nsigma_pt_rms=nsigma_pt_rms,
+                         nsigma_max_deriv=nsigma_max_deriv, forceNew=forceNew)
 
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         for ds in self:
