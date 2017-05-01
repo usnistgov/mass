@@ -158,7 +158,7 @@ cpdef _merge_orderedlists(x1_in, x2_in):
     elif N1 == 0:
         return x2, np.ones(N2, dtype=np.bool)
 
-    out = np.zeros(N1+N2, dtype=float)
+    out = np.zeros(N1+N2, dtype=DTYPE)
     wasfirst = np.zeros(N1+N2, dtype=np.bool)
     _merge_orderedlists_arrays(out, wasfirst, x1, x2)
     return out, wasfirst
@@ -311,9 +311,9 @@ cdef double _antideriv_F(double A, double B, double C, double D) except -9999:
     if A < 0 or B < 0 or C < 0 or D < 0:
         raise ValueError
     r = (D-C)*(log(A+B)-1.0)
-    if A == 0:
+    if A == 0 or abs(B) > abs(1e30*A):
         return r-2*C
-    elif B == 0:
+    elif B == 0 or abs(A) > abs(1e30*B):
         return r+2*D
     return r - 2*(A*D+B*C)/sqrt(A*B) * atan(sqrt(A/B))
 
