@@ -3,6 +3,7 @@ Objects to assist with calibration from pulse heights to absolute energies.
 
 Created on May 16, 2011
 """
+import six
 
 import numpy as np
 from scipy.optimize import brentq
@@ -239,7 +240,7 @@ class EnergyCalibration(object):
             self._model_is_stale = True
 
     def set_curvetype(self, curvetype):
-        if isinstance(curvetype, basestring):
+        if isinstance(curvetype, six.string_types):
             try:
                 curvetype = self.CURVETYPE.index(curvetype.lower())
             except ValueError:

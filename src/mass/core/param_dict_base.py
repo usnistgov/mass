@@ -72,8 +72,7 @@ class PrmDictBase(object):
         for name in prm_dict_names:
             d = self.__dict__[name]
             if isinstance(d, dict):
-                k = d.keys()
-                k.sort(lambda a, b: cmp(a.lower(), b.lower()))
+                k = sorted(d.keys(), key=lambda x: x.lower())
                 prm_names += k
         if verbose > 0:
             print('registered parameters:\n')
@@ -88,8 +87,7 @@ class PrmDictBase(object):
 
     def dump_set(self):
         for d in self._prm_list:
-            keys = d.keys()
-            keys.sort(lambda a, b: cmp(a.lower(), b.lower()))
+            keys = sorted(d.keys(), key=lambda x: x.lower())
             for prm in keys:
                 print('%s = %s' % (prm, d[prm]))
 
