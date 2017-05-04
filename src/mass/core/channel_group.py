@@ -11,6 +11,8 @@ from functools import reduce
 import os
 import re
 
+import six
+
 import numpy as np
 import matplotlib.pylab as plt
 import palettable
@@ -60,7 +62,7 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
     generated_noise_hdf5_name = None
 
     with h5py.File(hdf5filename, "r") as h5file:
-        for name, group in h5file.iteritems():
+        for name, group in h5file.items():
             if not name.startswith("chan"):
                 continue
             pulsefiles.append(group.attrs['filename'])
@@ -157,7 +159,7 @@ class TESGroup(CutFieldMixin):
             self.hdf5_file = None
         else:
             # Convert a single filename to a tuple of size one
-            if isinstance(filenames, basestring):
+            if isinstance(filenames, six.string_types):
                 filenames = (filenames,)
             self.filenames = tuple(filenames)
             self.n_channels = len(self.filenames)
@@ -170,7 +172,7 @@ class TESGroup(CutFieldMixin):
         self.noise_filenames = None
         self.hdf5_noisefile = None
         if noise_filenames is not None:
-            if isinstance(noise_filenames, basestring):
+            if isinstance(noise_filenames, six.string_types):
                 noise_filenames = (noise_filenames,)
             self.noise_filenames = noise_filenames
             self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'a')
@@ -393,8 +395,8 @@ class TESGroup(CutFieldMixin):
                 integer is added to the bad-channels list.
         """
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args
-                                    if not isinstance(x, basestring)])
-        comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, basestring)], '')
+                                    if not isinstance(x, six.string_types)])
+        comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, six.string_types)], '')
 
         for channum in added_to_list:
             new_comment = self._bad_channums.get(channum, []) + [comment]
@@ -691,7 +693,7 @@ class TESGroup(CutFieldMixin):
         for i, (channum, ds) in enumerate(zip(channel_numbers, datasets)):
 
             # Convert "uncut" or "cut" to array of all good or all bad data
-            if isinstance(valid, basestring):
+            if isinstance(valid, six.string_types):
                 if "uncut" in valid.lower():
                     valid_mask = ds.cuts.good()
                     LOG.info("Plotting only uncut data"),

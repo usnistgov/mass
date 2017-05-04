@@ -8,6 +8,8 @@ from os import path
 import os
 import re
 
+import six
+
 import numpy as np
 
 __all__ = ['ljh_basename_channum', 'ljh_chan_names', 'ljh_get_channels',
@@ -173,7 +175,7 @@ def filename_glob_expand(pattern):
         A list of 0 or more filenames. The result is sorted by
         ljh_sort_filenames_numerically().
     """
-    if not isinstance(pattern, basestring):
+    if not isinstance(pattern, six.string_types):
         return pattern
 
     result = glob.glob(pattern)

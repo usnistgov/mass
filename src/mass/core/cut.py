@@ -6,6 +6,8 @@ Created on Apr 22, 2016
 import functools
 import operator
 
+import six
+
 import numpy as np
 
 
@@ -360,7 +362,7 @@ class Cuts(object):
                 raise ValueError(str(cut_num) + " is not a registered boolean cut.")
             _, bit_mask = boolean_field[cut_num]
             self._mask[mask] |= bit_mask
-        elif isinstance(cut_num, (bytes, basestring)):
+        elif isinstance(cut_num, (bytes, six.string_types)):
             boolean_g = (boolean_field["name"] == cut_num.encode())
             if np.any(boolean_g):
                 _, bit_mask = boolean_field[boolean_g][0]
@@ -426,7 +428,7 @@ class Cuts(object):
         if isinstance(cut_id, int):
             if cut_id < 0 or cut_id >= 32:
                 raise ValueError("cut_id must be in the range [0,31]")
-        elif isinstance(cut_id, (bytes, basestring)):
+        elif isinstance(cut_id, (bytes, six.string_types)):
             boolean_cut_fields = self.tes_group.boolean_cut_desc
             g = boolean_cut_fields["name"] == cut_id.encode()
             if not np.any(g):
