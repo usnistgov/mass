@@ -68,7 +68,7 @@ class TESGroupHDF5(channel_group.TESGroup):
             pulserec_dict = {"nSamples": self.nSamples,
                              "nPresamples": self.nPresamples,
                              "timebase": self.timebase,
-                             "nPulses": grp.attrs["npulses"],
+                             "nPulses": len(grp["filt_value"]),
                              "channum": grp.attrs["channum"],
                              "timestamp_offset": 0,
                              "filename": "from HDF5 file: "+self.hdf5_file.filename}
