@@ -154,6 +154,16 @@ class Test_LaplaceEntropy(unittest.TestCase):
             D = mass.mathstat.entropy.laplace_cross_entropy(xg, x, w=3.0, approx_mode="exact")
             self.assertLess(abs(D), 20)
 
+    def test_bug116(self):
+        """See MASS issue #116: nonsense values are STILL appearing in KL divergence."""
+        np.random.seed(100)
+        x = mass.MnKAlphaDistribution().rvs(size=1000)
+        gain = np.linspace(-.005, .005, 11)
+        for p in gain:
+            xg = np.exp(p)*x
+            D = mass.mathstat.entropy.laplace_cross_entropy(xg, x, w=1.0, approx_mode="exact")
+            self.assertLess(abs(D), 20)
+
 
 if __name__ == "__main__":
     unittest.main()
