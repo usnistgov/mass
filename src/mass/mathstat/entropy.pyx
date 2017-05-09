@@ -215,8 +215,9 @@ cpdef double laplace_KL_divergence(x, y, double w=1.0, approx_mode="size") excep
 cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") except? -9999:
     """`laplace_cross_entropy(x, y, w=1.0, approx_mode="size")`
 
-    Compute the cross-entropy of data set `y` from data set `x`, where the
-    kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+    Compute the cross-entropy of data set `x` from data set `y`, where the
+    kernel for x is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
+    The kernel for the y data is the piecewise-constant kernel
 
     Args:
         x (array): One vector of data.
@@ -254,16 +255,19 @@ cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") excep
 
 
 cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] y):
-    nodes, isx = _merge_orderedlists(x, y)
+    ynodes, isup = _merge_orderedlists(y-sqrt(6), y+sqrt(6))
+    nodes, isx = _merge_orderedlists(x, ynodes)
 
     cdef int Nx = len(x)
     cdef int Ny = len(y)
-    cdef int N = Nx+Ny
+    cdef int N = Nx+Ny*2
     cdef int i
     cdef double factor
+    cdef double Qmin = (Ny**-0.5)/(nodes[-1]+10 - (nodes[0]-10)) # Pretend q(x) is never lower than this
+    cdef double Qstepwidth = 2*sqrt(6)
+    cdef double Qstep = 1/(Ny+sqrt(Ny)) / Qstepwidth
 
-    cdef np.ndarray[DTYPE_t, ndim = 1] a = np.zeros(N, dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t, ndim = 1] b = np.zeros(N, dtype=DTYPE)
+    cdef int Nactive = 0
     cdef np.ndarray[DTYPE_t, ndim = 1] c = np.zeros(N, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t, ndim = 1] d = np.zeros(N, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t, ndim = 1] decayfactor = np.zeros(N, dtype=DTYPE)
@@ -271,51 +275,41 @@ cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarr
         decayfactor[i] = exp(nodes[i-1]-nodes[i])
 
     cdef double stepX = 1.0/(2*Nx)
-    cdef double stepY = 1.0/(2*Ny)
+    cdef int j = 0
     if isx[0]:
         c[0] = stepX
     else:
-        a[0] = stepY
+        Nactive = 1
+        j = 1
     for i in range(1, N):
         factor = decayfactor[i]
-        a[i] = factor*a[i-1]
         c[i] = factor*c[i-1]
         if isx[i]:
             c[i] += stepX
-        else:
-            a[i] += stepY
+
     if isx[N-1]:
         d[N-1] = stepX
-    else:
-        b[N-1] = stepY
     for i in range(N-2, -1, -1):
         factor = decayfactor[i+1]
-        b[i] = factor*b[i+1]
         d[i] = factor*d[i+1]
         if isx[i]:
             d[i] += stepX
-        else:
-            b[i] += stepY
 
-    cdef double H = 0.0
-    H -= _antideriv_F(0.0, b[0], 0.0, d[0])
-    H += _antideriv_F(a[-1], 0.0, c[-1], 0.0)
+    cdef double H = -c[0] * log(Qmin)  # First and last intervals
+    cdef double q
     for i in range(1, N):
         factor = decayfactor[i]
-        H += _antideriv_F(a[i-1], b[i]*factor, c[i-1], d[i]*factor)
-        H -= _antideriv_F(a[i-1]*factor, b[i], c[i-1]*factor, d[i])
+        q = Qmin + Qstep*Nactive
+        H -= (c[i-1]+d[i])*(1-factor)*log(q)
+
+        if not isx[i]:
+            if isup[j]:
+                Nactive += 1
+            else:
+                Nactive -= 1
+            j += 1
+    H -= d[-1] * log(Qmin)
     return H
-
-
-cdef double _antideriv_F(double A, double B, double C, double D) except -9999:
-    if A < 0 or B < 0 or C < 0 or D < 0:
-        raise ValueError
-    r = (D-C)*(log(A+B)-1.0)
-    if A == 0 or abs(B) > abs(1e30*A):
-        return r-2*C
-    elif B == 0 or abs(A) > abs(1e30*B):
-        return r+2*D
-    return r - 2*(A*D+B*C)/sqrt(A*B) * atan(sqrt(A/B))
 
 
 cdef laplace_cross_entropy_approx(np.ndarray[DTYPE_t, ndim=1] x,
