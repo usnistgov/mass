@@ -12,64 +12,44 @@ from mass.mathstat.interpolate import *
 from mass.mathstat.derivative import *
 from mass.calibration.nist_xray_database import NISTXrayDBFile
 
-class LineEnergies(object):
+def LineEnergies():
     """
-    An object to know a lot of x-ray fluorescence line energies, based on Deslattes' database.
+    A dictionary to know a lot of x-ray fluorescence line energies, based on Deslattes' database.
 
-    A wrapper around mass.calibration.nist_xray_database.
+    It is built on facts from mass.calibration.nist_xray_database module.
 
-    Basic use, as a dictionary from peak name to energy:
+    It is a dictionary from peak name to energy, with several alternate names
+    for the lines:
 
     >>> E = Energies()
     >>> print E["MnKAlpha"]
-
-    You can use several alternate names for the lines:
     >>> print E["MnKAlpha"], E["MnKA"], E["MnKA1"], E["MnKL3"]
-
-    Spaces are ignored:
-    >>> print E["Mn KAlpha"], E["Mn K A"], E["Mn K A    1"], E["MnKL   3"]
-
-    And you can ask for the uncertainty on a line energy:
-    >>> print E.peak_unc("MnKAlpha")
     """
-    def __init__(self):
-        self.db = NISTXrayDBFile()
+    db = NISTXrayDBFile()
+    alternate_line_names = {v:k for (k,v) in db.LINE_NICKNAMES.items()}
+    data = {}
 
-    def _standardize_name(self, name):
-        # Remove spaces, then split before the 2nd capital letter
-        name = "".join(name.split(" "))
-        c2 = 1
-        while c2 < len(name):
-            if name[c2].isupper():
-                break
-            c2 += 1
-        element, linename = name[:c2], name[c2:]
-        if len(linename) == 0:
-            raise KeyError("No line name in '%s'." % name)
+    for fullname, L in db.lines.items():
+        element, linename = fullname.split(" ", 1)
+        allnames = [linename]
+        if linename in alternate_line_names:
+            siegbahn_linename = alternate_line_names[linename]
+            long_linename = siegbahn_linename.replace("A", "Alpha"). \
+                replace("B", "Beta").replace("G", "Gamma")
 
-        for long,short in zip(("Alpha","Beta","Gamma"),("A","B","G")):
-            if long in linename:
-                linename = linename.replace(long, short)
-        if linename[-1] not in ("1","2","3","l","5"):
-            linename = linename+"1"
-        linename = self.db.LINE_NICKNAMES.get(linename, linename)
-        return " ".join((element, linename))
+            allnames.append(siegbahn_linename)
+            allnames.append(long_linename)
 
-    def _getline(self, name):
-        sname = self._standardize_name(name)
-        try:
-            return self.db.lines[sname]
-        except KeyError:
-            raise KeyError("Could find line '%s' => '%s' in database." % (name,sname))
+            if siegbahn_linename.endswith("1"):
+                allnames.append(siegbahn_linename[:-1])
+                allnames.append(long_linename[:-1])
 
-    def __getitem__(self, name):
-        return self.peak(name)
+        for name in allnames:
+            key = "".join((element, name))
+            data[key] = L.peak
 
-    def peak(self, name):
-        return self._getline(name).peak
+    return data
 
-    def peak_unc(self, name):
-        return self._getline(name).peak_unc
 
 # Some commonly-used standard energy features.
 STANDARD_FEATURES = LineEnergies()

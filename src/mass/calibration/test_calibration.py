@@ -40,7 +40,7 @@ class TestLineDatabase(unittest.TestCase):
         """Test that there are multiple equivalent synonyms for the K-alpha1 line."""
         E = mass.STANDARD_FEATURES
         e = E["MnKAlpha"]
-        for name in ("MnKA", "MnKA1", "Mn KA", "Mn KAlpha1", "MnKL3", "Mn KL3"):
+        for name in ("MnKA", "MnKA1", "MnKL3", "MnKAlpha1"):
             self.assertEqual(e, E[name])
 
     def check_elements(self):
@@ -49,13 +49,6 @@ class TestLineDatabase(unittest.TestCase):
         for element in ("U", "Pr", "Ar", "Pt", "Au", "Hg"):
             self.assertGreater(E["%sKAlpha" % element], 0.0)
         self.assertGreater(E["MnKAlpha1"], E["MnKAlpha2"])
-
-    def check_standardize_name(self):
-        sn = mass.STANDARD_FEATURES._standardize_name
-        self.assertEquals(sn("MnKAlpha"), sn("Mn KAlpha"))
-        self.assertEquals(sn("MnKAlpha"), sn("Mn KA"))
-        self.assertEquals(sn("MnKAlpha"), sn("Mn KAlpha1"))
-        self.assertEquals(sn("MnKAlpha"), sn("Mn KL3"))
 
 
 class TestJoeStyleEnegyCalibration(unittest.TestCase):
