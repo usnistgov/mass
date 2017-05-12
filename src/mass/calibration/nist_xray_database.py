@@ -198,7 +198,7 @@ def plot_line_energies():
     db = NISTXrayDBFile()
     import pylab as plt
     plt.clf()
-    cm = plt.cm.spectral
+    cm = plt.cm.nipy_spectral
     transitions = ('KL2', 'KL3', 'KM5', 'KM3', 'KM2', 'L3M5', 'L3M4', 'L3M1', 'L2M4', 'L2N4', 'L3N5',
                    'L1M3', 'L3N7', 'M5N7', 'M5N6', 'M4N6', 'M3N5', 'M3N4')
     for i, linetype in enumerate(transitions):

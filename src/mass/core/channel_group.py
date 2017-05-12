@@ -868,7 +868,7 @@ class TESGroup(CutFieldMixin):
             channels.sort()
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("spectral")
+            cmap = plt.cm.get_cmap("nipy_spectral")
 
         dt = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e3
 
@@ -968,7 +968,7 @@ class TESGroup(CutFieldMixin):
             channels.sort()
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("spectral")
+            cmap = plt.cm.get_cmap("nipy_spectral")
 
         axis.grid(True)
         for ds_num, channum in enumerate(channels):
@@ -1038,7 +1038,7 @@ class TESGroup(CutFieldMixin):
             channels.sort()
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("spectral")
+            cmap = plt.cm.get_cmap("nipy_spectral")
 
         axis.grid(True)
         for ds_num, channum in enumerate(channels):
@@ -1130,7 +1130,7 @@ class TESGroup(CutFieldMixin):
             channels.sort()
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("spectral")
+            cmap = plt.cm.get_cmap("nipy_spectral")
 
         if scale_factor == 1.0:
             units = "Counts"
