@@ -101,8 +101,8 @@ class TestTESGroup(ut.TestCase):
 
         data2 = self.load_data(clear_hdf5=False)
         for ds in data:
-            self.assertGreater(ds.saved_auto_cuts.cuts_prm["postpeak_deriv"], 0)
-            self.assertGreater(ds.saved_auto_cuts.cuts_prm["pretrigger_rms"], 0)
+            self.assertGreater(ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1], 0.)
+            self.assertGreater(ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1], 0.)
 
     def test_plot_filters(self):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
