@@ -133,7 +133,7 @@ class NISTXrayLine(object):
     def __init__(self, textline, column_defs=None):
         if column_defs is None:
             column_defs = self.DEFAULT_COLUMN_DEFS
-        for name, colrange in column_defs.iteritems():
+        for name, colrange in column_defs.items():
             a = colrange[0]-1
             b = colrange[1]
             self.__dict__[name] = textline[a:b].rstrip()
@@ -209,7 +209,7 @@ def plot_line_energies():
     plt.legend(loc='upper left')
     plt.xlim([6, 100])
     plt.grid()
-    r = range(6, 22)+range(22, 43, 2)+range(45, 75, 3)+range(75, 100, 5)
+    r = list(range(6, 22)) + list(range(22, 43, 2)) + list(range(45, 75, 3)) + list(range(75, 100, 5))
     plt.xticks(r, ['\n'.join([ELEMENTS[i], str(i)]) for i in r])
 
 
@@ -229,7 +229,7 @@ def _NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
             'units': 'eV',
             'lower': str(min_E),
             'upper': str(max_E)}
-    joined_args = '&'.join(['%s=%s' % (k, v) for (k, v) in args.iteritems()])
+    joined_args = '&'.join(['%s=%s' % (k, v) for (k, v) in args.items()])
     joined_lines = '&'.join(['trans=%s' % name for name in line_names])
     get = '%s%s&%s' % (form, joined_args, joined_lines)
     print('Grabbing %s' % get)

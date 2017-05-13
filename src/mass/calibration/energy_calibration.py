@@ -12,6 +12,7 @@ from mass.mathstat.interpolate import *
 from mass.mathstat.derivative import *
 from mass.calibration.nist_xray_database import NISTXrayDBFile
 
+
 def LineEnergies():
     """
     A dictionary to know a lot of x-ray fluorescence line energies, based on Deslattes' database.
@@ -26,7 +27,7 @@ def LineEnergies():
     >>> print E["MnKAlpha"], E["MnKA"], E["MnKA1"], E["MnKL3"]
     """
     db = NISTXrayDBFile()
-    alternate_line_names = {v:k for (k,v) in db.LINE_NICKNAMES.items()}
+    alternate_line_names = {v: k for (k, v) in db.LINE_NICKNAMES.items()}
     data = {}
 
     for fullname, L in db.lines.items():
