@@ -51,7 +51,7 @@ class TestLineDatabase(unittest.TestCase):
         self.assertGreater(E["MnKAlpha1"], E["MnKAlpha2"])
 
 
-class TestJoeStyleEnegyCalibration(unittest.TestCase):
+class TestJoeStyleEnergyCalibration(unittest.TestCase):
 
     def test_copy_equality(self):
         """Test that any deep-copied calibration object is equivalent."""
