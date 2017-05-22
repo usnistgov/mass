@@ -10,7 +10,50 @@ import six
 import numpy as np
 
 
-class ConstantFunction(object):
+class Function(object):
+    def __neg__(self):
+        return -1 * self
+
+    def __lshift__(self, other):
+        return Composition(self, other)
+
+    def __rshift__(self, other):
+        return Composition(other, self)
+
+    def __add__(self, other):
+        return Summation(self, other)
+
+    def __sub__(self, other):
+        return Summation(self, Multiplication(ConstantFunction(-1), other))
+
+    def __mul__(self, other):
+        return Multiplication(self, other)
+
+    def __rmul__(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return Multiplication(ConstantFunction(other), self)
+        raise NotImplemented("* is not implemented.")
+
+    def truediv(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            other = ConstantFunction(other)
+        return Multiplication(self, PowerFunction(-1) << other)
+
+    __truediv__ = truediv
+    __div__ = truediv
+
+    def rtruediv(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return ConstantFunction(other) / self
+
+    __rtruediv__ = rtruediv
+    __rdiv__ = rtruediv
+
+    def __pow__(self, y):
+        return Composition(PowerFunction(y), self)
+
+
+class ConstantFunction(Function):
     def __init__(self, v):
         self.v = v
 
@@ -28,7 +71,7 @@ class ConstantFunction(object):
         return str(self.v)
 
 
-class PowerFunction(object):
+class PowerFunction(Function):
     def __init__(self, n):
         self.n = n
 
@@ -60,7 +103,7 @@ class Identity(PowerFunction):
         return "x"
 
 
-class LogFunction(object):
+class LogFunction(Function):
     def derivative(self, der=1):
         if der == 0:
             return self
@@ -77,7 +120,7 @@ class LogFunction(object):
         return "log(x)"
 
 
-class ExponentialFunction(object):
+class ExponentialFunction(Function):
     def derivative(self, der=1):
         return self
 
@@ -104,10 +147,18 @@ class ExprMeta(type):
                 return a
             elif isinstance(a, Identity):
                 return b
+            elif isinstance(a, Multiplication) and isinstance(a.g, ConstantFunction):
+                return Multiplication(a.g, Composition(a.h, b))
             elif isinstance(b, ConstantFunction):
                 return ConstantFunction(a(b.v))
             elif isinstance(b, Identity):
                 return a
+            elif isinstance(a, PowerFunction) and isinstance(b, PowerFunction):
+                return PowerFunction(a.n * b.n)
+            elif isinstance(a, ExponentialFunction) and isinstance(b, LogFunction):
+                return Identity()
+            elif isinstance(a, LogFunction) and isinstance(b, ExponentialFunction):
+                return Identity()
         elif cls is Multiplication:
             a, b = args[:2]
             if isinstance(a, ConstantFunction) and isinstance(b, ConstantFunction):
@@ -147,11 +198,12 @@ class ExprMeta(type):
 
 class BinaryOperation(six.with_metaclass(ExprMeta)):
     def __init__(self, g, h):
+        super(BinaryOperation, self).__init__()
         self.g = g
         self.h = h
 
 
-class Composition(BinaryOperation):
+class Composition(BinaryOperation, Function):
     def derivative(self, der=1):
         if der == 0:
             return self
@@ -171,7 +223,7 @@ class Composition(BinaryOperation):
             return "(" + str(self.g) + " \u2022 " + str(self.h) + ")"
 
 
-class Multiplication(BinaryOperation):
+class Multiplication(BinaryOperation, Function):
     def derivative(self, der=1):
         if der == 0:
             return self
@@ -191,7 +243,7 @@ class Multiplication(BinaryOperation):
         return "(" + str(self.g) + " * " + str(self.h) + ")"
 
 
-class Summation(BinaryOperation):
+class Summation(BinaryOperation, Function):
     def derivative(self, der=1):
         if der == 0:
             return self

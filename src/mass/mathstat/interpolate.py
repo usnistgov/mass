@@ -174,7 +174,7 @@ class CubicSpline(object):
         return result
 
 
-class CubicSplineFunction(CubicSpline):
+class CubicSplineFunction(CubicSpline, Function):
     """A dubious class which lets you take derivatives of a cubic spline."""
 
     def __init__(self, x, y, yprime1=None, yprimeN=None, der=0):
@@ -431,7 +431,7 @@ class SmoothingSpline(object):
         return self.__eval(x, der=der)
 
 
-class SmoothingSplineFunction(SmoothingSpline):
+class SmoothingSplineFunction(SmoothingSpline, Function):
     def __init__(self, x, y, dy, dx=None, maxchisq=None, der=0):
         super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
         self.x = x

@@ -129,10 +129,11 @@ class EnergyCalibration(object):
 
     def ph2energy(self, pulse_ht, der=0):
         """Convert pulse height (or array of pulse heights) <pulse_ht> to energy (in eV).
-        Shoulds return a scalar if passed a scalar, and a numpy array if passed a list or array
+        Should return a scalar if passed a scalar, and a numpy array if passed a list or array
 
         Args:
             pulse_ht (float or numpy.array(dtype=numpy.float)): pulse heights in an arbitrary unit.
+            der (int): the order of derivative. `der` should be >= 0.
         """
         if self._model_is_stale:
             self._update_converters()
@@ -147,7 +148,7 @@ class EnergyCalibration(object):
     def energy2ph(self, energy):
         """Convert a single energy `energy` in eV to a pulse height.
         Inverts the _ph2energy_anon function by Brent's method for root finding.
-        Shoulds return a scalar if passed a scalar, and a numpy array if passed a list or array.
+        Should return a scalar if passed a scalar, and a numpy array if passed a list or array.
         """
         if self._model_is_stale:
             self._update_converters()
@@ -374,8 +375,7 @@ class EnergyCalibration(object):
 
         if self.curvename() == "loglog":
             cubic_spline = SmoothingSplineFunction(np.log(ph), np.log(e), de/e, dph/ph)
-            self._ph2energy_anon = Composition(
-                ExponentialFunction(), Composition(cubic_spline, LogFunction()))
+            self._ph2energy_anon = ExponentialFunction() << cubic_spline << LogFunction()
 
         elif self.curvename().startswith("linear"):
             if ("+0" in self.curvename()) and (0.0 not in ph):
@@ -391,10 +391,9 @@ class EnergyCalibration(object):
             dg = g * ((dph/ph)**2+(de/e)**2)**0.5
             # self._underlying_spline = SmoothingSpline(ph/scale, g, dg, dph/scale)
             # self._ph2energy_anon = lambda p: p/self._underlying_spline(p/scale)
+            p = Identity()
             underlying_spline = SmoothingSplineFunction(ph / scale, g, dg, dph / scale)
-            p_over_scale = Multiplication(ConstantFunction(1.0 / scale), Identity())
-            over_spline = Composition(PowerFunction(-1), Composition(underlying_spline, p_over_scale))
-            self._ph2energy_anon = Multiplication(Identity(), over_spline)
+            self._ph2energy_anon = p / (underlying_spline << (p / scale))
 
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
             trial_phmax = 10 * self._ph.max()
@@ -409,9 +408,9 @@ class EnergyCalibration(object):
             dg = ig * ((dph/ph)**2+(de/e)**2)**0.5
             # self._underlying_spline = SmoothingSpline(ph/scale, ig, dg, dph/scale)
             # self._ph2energy_anon = lambda p: p*self._underlying_spline(p/scale)
+            p = Identity()
             underlying_spline = SmoothingSplineFunction(ph / scale, ig, dg, dph / scale)
-            p_over_scale = Multiplication(ConstantFunction(1.0 / scale), Identity())
-            self._ph2energy_anon = Multiplication(Identity(), Composition(underlying_spline, p_over_scale))
+            self._ph2energy_anon = p * (underlying_spline << (p / scale))
 
         elif self.curvename() == "loggain":
             lg = np.log(ph/e)
@@ -419,11 +418,9 @@ class EnergyCalibration(object):
             scale = ph.mean()
             # self._underlying_spline = SmoothingSpline(ph/scale, lg, dlg, dph/scale)
             # self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p/scale))
+            p = Identity()
             underlying_spline = SmoothingSplineFunction(ph / scale, lg, dlg, dph / scale)
-            p_over_scale = Multiplication(ConstantFunction(1.0 / scale), Identity())
-            minus_spline = Multiplication(ConstantFunction(-1), Composition(underlying_spline, p_over_scale))
-            exp_minus_spline = Composition(ExponentialFunction(), minus_spline)
-            self._ph2energy_anon = Multiplication(Identity(), exp_minus_spline)
+            self._ph2energy_anon = p * (ExponentialFunction() << (-underlying_spline << (p / scale)))
 
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
@@ -440,9 +437,9 @@ class EnergyCalibration(object):
             p1 = self._ph[0]
             e1 = self._energies[0]
             # self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
-            p_over_scale = Multiplication(ConstantFunction(1.0 / p1), Identity())
-            power_p = Composition(PowerFunction(self.nonlinearity), p_over_scale)
-            self._ph2energy_anon = Multiplication(ConstantFunction(e1), power_p)
+            # p_over_scale = Multiplication(ConstantFunction(1.0 / p1), Identity())
+            # power_p = Composition(PowerFunction(self.nonlinearity), p_over_scale)
+            self._ph2energy_anon = e1 * (Identity() / p1)**self.nonlinearity
 
         elif self.npts == 2:
             p1, p2 = self._ph
@@ -450,9 +447,9 @@ class EnergyCalibration(object):
             self.nonlinearity = np.log(e2/e1) / np.log(p2/p1)
 
             # self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
-            p_over_scale = Multiplication(ConstantFunction(1.0 / p1), Identity())
-            power_p = Composition(PowerFunction(self.nonlinearity), p_over_scale)
-            self._ph2energy_anon = Multiplication(ConstantFunction(e1), power_p)
+            # p_over_scale = Multiplication(ConstantFunction(1.0 / p1), Identity())
+            # power_p = Composition(PowerFunction(self.nonlinearity), p_over_scale)
+            self._ph2energy_anon = e1 * (Identity() / p1)**self.nonlinearity
 
         elif self.curvename() == "loglog":
             x = np.log(self._ph)
@@ -460,8 +457,7 @@ class EnergyCalibration(object):
             # self._x2yfun = CubicSpline(x, y)
             # self._ph2energy_anon = lambda p: np.exp(self._x2yfun(np.log(p)))
             underlying_spline = CubicSplineFunction(x, y)
-            self._ph2energy_anon = Composition(
-                ExponentialFunction(), Composition(underlying_spline, LogFunction()))
+            self._ph2energy_anon = ExponentialFunction() << underlying_spline << LogFunction()
 
         elif self.curvename().startswith("linear"):
             x = self._ph
@@ -478,8 +474,7 @@ class EnergyCalibration(object):
             # self._underlying_spline = CubicSpline(x, y)
             # self._ph2energy_anon = lambda p: p/self._underlying_spline(p)
             underlying_spline = CubicSplineFunction(x, y)
-            self._ph2energy_anon = Multiplication(
-                Identity(), Composition(PowerFunction(-1), underlying_spline))
+            self._ph2energy_anon = Identity() / underlying_spline
 
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
             trial_phmax = 10*self._ph.max()
@@ -494,7 +489,7 @@ class EnergyCalibration(object):
             # self._underlying_spline = CubicSpline(x, y)
             # self._ph2energy_anon = lambda p: p*self._underlying_spline(p)
             underlying_spline = CubicSplineFunction(x, y)
-            self._ph2energy_anon = Multiplication(Identity(), underlying_spline)
+            self._ph2energy_anon = Identity() * underlying_spline
 
         elif self.curvename() == "loggain":
             x = self._ph
@@ -502,9 +497,7 @@ class EnergyCalibration(object):
             # self._underlying_spline = CubicSpline(x, y)
             # self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p))
             underlying_spline = CubicSplineFunction(x, y)
-            minus_spline = Multiplication(ConstantFunction(-1), underlying_spline)
-            self._ph2energy_anon = Multiplication(
-                Identity(), Composition(ExponentialFunction(), minus_spline))
+            self._ph2energy_anon = Identity() * (ExponentialFunction() << -underlying_spline)
 
     def name2ph(self, name):
         """Convert a named energy feature to pulse height"""
