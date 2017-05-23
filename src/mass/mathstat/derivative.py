@@ -15,10 +15,17 @@ class Function(object):
         return -1 * self
 
     def __lshift__(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return self(other)
         return Composition(self, other)
 
     def __rshift__(self, other):
         return Composition(other, self)
+
+    def __rrshift__(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return self(other)
+        return NotImplemented(">> is not implemented.")
 
     def __add__(self, other):
         return Summation(self, other)
@@ -31,12 +38,12 @@ class Function(object):
 
     def __rmul__(self, other):
         if isinstance(other, int) or isinstance(other, float):
-            return Multiplication(ConstantFunction(other), self)
+            return ConstantFunction(other) * self
         raise NotImplemented("* is not implemented.")
 
     def truediv(self, other):
         if isinstance(other, int) or isinstance(other, float):
-            other = ConstantFunction(other)
+            return ConstantFunction(1/other) * self
         return Multiplication(self, PowerFunction(-1) << other)
 
     __truediv__ = truediv
@@ -45,6 +52,7 @@ class Function(object):
     def rtruediv(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return ConstantFunction(other) / self
+        raise NotImplemented("/ is not implemented")
 
     __rtruediv__ = rtruediv
     __rdiv__ = rtruediv
