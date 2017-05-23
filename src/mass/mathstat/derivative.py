@@ -20,7 +20,7 @@ class Function(object):
         return Composition(self, other)
 
     def __rshift__(self, other):
-        return Composition(other, self)
+        return other << self
 
     def __rrshift__(self, other):
         if isinstance(other, int) or isinstance(other, float):
@@ -31,7 +31,7 @@ class Function(object):
         return Summation(self, other)
 
     def __sub__(self, other):
-        return Summation(self, Multiplication(ConstantFunction(-1), other))
+        return self + (-other)
 
     def __mul__(self, other):
         return Multiplication(self, other)
@@ -43,8 +43,8 @@ class Function(object):
 
     def truediv(self, other):
         if isinstance(other, int) or isinstance(other, float):
-            return ConstantFunction(1/other) * self
-        return Multiplication(self, PowerFunction(-1) << other)
+            other = ConstantFunction(other)
+        return self * (PowerFunction(-1) << other)
 
     __truediv__ = truediv
     __div__ = truediv
@@ -58,7 +58,7 @@ class Function(object):
     __rdiv__ = rtruediv
 
     def __pow__(self, y):
-        return Composition(PowerFunction(y), self)
+        return PowerFunction(y) << self
 
 
 class ConstantFunction(Function):
@@ -140,9 +140,8 @@ class ExponentialFunction(Function):
 
 
 class ExprMeta(type):
-    def __call__(cls, *args, **kwarg):
+    def __call__(cls, a, b, *args, **kwarg):
         if cls is Summation:
-            a, b = args[:2]
             if isinstance(a, ConstantFunction) and isinstance(b, ConstantFunction):
                 return ConstantFunction(a.v + b.v)
             if isinstance(a, ConstantFunction) and a.v == 0:
@@ -150,7 +149,6 @@ class ExprMeta(type):
             if isinstance(b, ConstantFunction) and b.v == 0:
                 return a
         elif cls is Composition:
-            a, b = args[:2]
             if isinstance(a, ConstantFunction):
                 return a
             elif isinstance(a, Identity):
@@ -168,7 +166,6 @@ class ExprMeta(type):
             elif isinstance(a, LogFunction) and isinstance(b, ExponentialFunction):
                 return Identity()
         elif cls is Multiplication:
-            a, b = args[:2]
             if isinstance(a, ConstantFunction) and isinstance(b, ConstantFunction):
                 return ConstantFunction(a.v * b.v)
 
@@ -201,7 +198,7 @@ class ExprMeta(type):
                 elif isinstance(b, Multiplication) and isinstance(b.h, PowerFunction):
                     return Multiplication(Multiplication(a.g, b.g), PowerFunction(a.h.n + b.h.n))
 
-        return type.__call__(cls, *args, **kwarg)
+        return type.__call__(cls, a, b, *args, **kwarg)
 
 
 class BinaryOperation(six.with_metaclass(ExprMeta)):
@@ -248,6 +245,8 @@ class Multiplication(BinaryOperation, Function):
                        for n in range(der + 1)], axis=0)
 
     def __repr__(self):
+        if isinstance(self.g, ConstantFunction) and self.g.v == -1:
+            return "(-" + str(self.h) + ")"
         return "(" + str(self.g) + " * " + str(self.h) + ")"
 
 
