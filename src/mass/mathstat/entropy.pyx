@@ -217,7 +217,12 @@ cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") excep
 
     Compute the cross-entropy of data set `x` from data set `y`, where the
     kernel for x is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
-    The kernel for the y data is the piecewise-constant kernel
+
+    The kernel for the y data is the piecewise-constant (top-hat) kernel. We choose this
+    because a Laplace kernel for y led to possible divergences when the y-distribtion q
+    is exceedingly small, but the x-distribution p nevertheless is non-zero because of a
+    random x-value lying far from any random y-values. The constant kernel is given a
+    non-zero floor value, so that q is never so small as to make any x-value impossible.
 
     Args:
         x (array): One vector of data.
@@ -254,8 +259,14 @@ cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") excep
                                             np.asarray(y, dtype=DTYPE), w)
 
 
-cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] y):
-    ynodes, isup = _merge_orderedlists(y-sqrt(6), y+sqrt(6))
+cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x,
+    np.ndarray[DTYPE_t, ndim=1] y):
+
+    # List of all places where q(u) increases or decreases because of a y-point.
+    cdef double Qstepwidth = 2*sqrt(6)
+    ynodes, qstep_is_up = _merge_orderedlists(y-0.5*Qstepwidth, y+0.5*Qstepwidth)
+
+    # List of all places where p(u) or q(u) changes because of an x- a y-point.
     nodes, isx = _merge_orderedlists(x, ynodes)
 
     cdef int Nx = len(x)
@@ -263,23 +274,25 @@ cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarr
     cdef int N = Nx+Ny*2
     cdef int i
     cdef double factor
-    cdef double Qmin = (Ny**-0.5)/(nodes[-1]+10 - (nodes[0]-10)) # Pretend q(x) is never lower than this
-    cdef double Qstepwidth = 2*sqrt(6)
-    cdef double Qstep = 1/(Ny+sqrt(Ny)) / Qstepwidth
 
-    cdef int Nactive = 0
-    cdef np.ndarray[DTYPE_t, ndim = 1] c = np.zeros(N, dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t, ndim = 1] d = np.zeros(N, dtype=DTYPE)
+    # Pretend q(u) is never lower than this value, and spread this probability across
+    # the range 10 less than the lowest to 10 more than the highest node.
+    cdef double Qmin_sum = 1.0/sqrt(Ny+3)
+    cdef double Qmin = Qmin_sum / (nodes[-1]+10 - (nodes[0]-10))
+    cdef double Qstep = (1.0-Qmin_sum) / (Ny * Qstepwidth)
+
+    # Initialize the vectors decayfactor, c, and d.
     cdef np.ndarray[DTYPE_t, ndim = 1] decayfactor = np.zeros(N, dtype=DTYPE)
     for i in range(1, N):
         decayfactor[i] = exp(nodes[i-1]-nodes[i])
 
+    # c requires a left-right pass over all nodes.
+    cdef np.ndarray[DTYPE_t, ndim = 1] c = np.zeros(N, dtype=DTYPE)
     cdef double stepX = 1.0/(2*Nx)
     cdef int j = 0
     if isx[0]:
         c[0] = stepX
     else:
-        Nactive = 1
         j = 1
     for i in range(1, N):
         factor = decayfactor[i]
@@ -287,6 +300,8 @@ cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarr
         if isx[i]:
             c[i] += stepX
 
+    # d requires a right-left pass over all nodes.
+    cdef np.ndarray[DTYPE_t, ndim = 1] d = np.zeros(N, dtype=DTYPE)
     if isx[N-1]:
         d[N-1] = stepX
     for i in range(N-2, -1, -1):
@@ -295,20 +310,25 @@ cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x, np.ndarr
         if isx[i]:
             d[i] += stepX
 
-    cdef double H = -c[0] * log(Qmin)  # First and last intervals
+    # Now a left-right pass over all nodes to compute the H integral.
+    cdef int net_up_qsteps = 0
+    if not isx[0]:
+        net_up_qsteps = 1
+
+    cdef double H = -d[0] * log(Qmin)  # H due to the open first interval [-inf, nodes[0]]
     cdef double q
     for i in range(1, N):
         factor = decayfactor[i]
-        q = Qmin + Qstep*Nactive
+        q = Qmin + Qstep*net_up_qsteps
         H -= (c[i-1]+d[i])*(1-factor)*log(q)
 
         if not isx[i]:
-            if isup[j]:
-                Nactive += 1
+            if qstep_is_up[j]:
+                net_up_qsteps += 1
             else:
-                Nactive -= 1
+                net_up_qsteps -= 1
             j += 1
-    H -= d[-1] * log(Qmin)
+    H -= c[-1] * log(Qmin)  # H due to the open last interval [nodes[-1], +inf]
     return H
 
 
