@@ -10,91 +10,50 @@ from scipy.optimize import brentq
 
 from mass.mathstat.interpolate import *
 from mass.mathstat.derivative import *
+from mass.calibration.nist_xray_database import NISTXrayDBFile
+
+
+def LineEnergies():
+    """
+    A dictionary to know a lot of x-ray fluorescence line energies, based on Deslattes' database.
+
+    It is built on facts from mass.calibration.nist_xray_database module.
+
+    It is a dictionary from peak name to energy, with several alternate names
+    for the lines:
+
+    >>> E = Energies()
+    >>> print E["MnKAlpha"]
+    >>> print E["MnKAlpha"], E["MnKA"], E["MnKA1"], E["MnKL3"]
+    """
+    db = NISTXrayDBFile()
+    alternate_line_names = {v: k for (k, v) in db.LINE_NICKNAMES.items()}
+    data = {}
+
+    for fullname, L in db.lines.items():
+        element, linename = fullname.split(" ", 1)
+        allnames = [linename]
+        if linename in alternate_line_names:
+            siegbahn_linename = alternate_line_names[linename]
+            long_linename = siegbahn_linename.replace("A", "Alpha"). \
+                replace("B", "Beta").replace("G", "Gamma")
+
+            allnames.append(siegbahn_linename)
+            allnames.append(long_linename)
+
+            if siegbahn_linename.endswith("1"):
+                allnames.append(siegbahn_linename[:-1])
+                allnames.append(long_linename[:-1])
+
+        for name in allnames:
+            key = "".join((element, name))
+            data[key] = L.peak
+
+    return data
+
 
 # Some commonly-used standard energy features.
-STANDARD_FEATURES = {
-    'Gd1':   97431.0,
-    'Gd97':  97431.0,
-    'Gd2':   103180.0,
-    'Gd103': 103180.0,
-    'zero':  0.0,
-
-    # The following Kalpha (alpha 1) and Kbeta (beta 1,3) line positions were
-    # cross-checked 4 Feb 2014 against Deslattes.
-    # Each is named to agree with the name in fluorescence_lines.
-    'AlKAlpha': 1486.71,  # __KAlpha refers to K Alpha 1
-    'AlKBeta':  1557.6,
-    'SiKAlpha': 1739.99,
-    'SiKBeta':  1836.0,
-    'CaKAlpha': 3691.72,
-    'CaKBeta':  4012.76,
-    'ScKAlpha': 4090.74,
-    'TiKAlpha': 4510.90,
-    'TiKBeta':  4931.83,  # http://www.orau.org/ptp/PTP%20Library/library/ptp/x.pdf
-    'VKAlpha':  4952.22,
-    'VKBeta':   5426.962,  # From L Smale, C Chantler, M Kinnane, J Kimpton, et al.,
-    # Phys Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
-    'CrKAlpha': 5414.805,
-    'CrKBeta':  5946.82,
-    'MnKAlpha': 5898.801,
-    'MnKBeta':  6490.59,
-    'FeKAlpha': 6404.01,
-    'FeKBeta':  7058.18,
-    'CoKAlpha': 6930.378,
-    'CoKBeta':  7649.45,
-    'NiKAlpha': 7478.252,
-    'NiKBeta':  8264.78,
-    'CuKAlpha': 8047.823,
-    'CuKBeta':  8905.41,
-    'ZnKAlpha': 8638.906,
-    'ZnKBeta':  9573.6,
-
-    'TiKEdge':  4966.0,
-    'VKEdge':   5465.0,  # defined as peak of derivative from exafs materials.com
-    'CrKEdge':  5989.0,
-    'MnKEdge':  6539.0,
-    'FeKEdge':  7112.0,
-    'CoKEdge':  7709.0,
-    'NiKEdge':  8333.0,
-    'CuKEdge':  8979.0,
-    'ZnKEdge':  9659.0,
-    # Randy's rare earth metals from Deslattes (Rev Mod Phys vol 75, 2003)
-    'RhLl':      2376.55,
-    'RhLAlpha2': 2692.08,
-    'RhLAlpha1': 2696.76,
-    'RhLBeta1':  2834.44,
-    'RhLBeta3':  2915.7,
-    'RhLBeta2':  3001.27,
-    'RhLGamma1': 3143.81,
-    'NdLl':      4631.85,
-    'NdLAlpha2': 5207.7,
-    'NdLAlpha1': 5230.24,
-    'NdLBeta1':  5721.45,
-    'NdLBeta3':  5827.80,
-    'NdLBeta2':  6091.25,
-    'NdLGamma1': 6601.16,
-    'SmLl':      4990.43,
-    'SmLAlpha2': 5609.05,
-    'SmLAlpha1': 5635.97,
-    'SmLBeta1':  6204.07,
-    'SmLBeta3':  6316.36,
-    'SmLBeta2':  6587.17,
-    'SmLGamma1': 7178.09,
-    'TbLl':      5546.81,
-    'TbLAlpha2': 6238.10,
-    'TbLAlpha1': 6272.82,
-    'TbLBeta1':  6977.80,
-    'TbLBeta3':  7096.10,
-    'TbLBeta2':  7366.70,
-    'TbLGamma1': 8101.80,
-    'HoLl':      5939.96,
-    'HoLAlpha2': 6678.48,
-    'HoLAlpha1': 6719.68,
-    'HoLBeta1':  7525.67,
-    'HoLBeta3':  7651.8,
-    'HoLBeta2':  7911.35,
-    'HoLGamma1': 8747.2,
-}
+STANDARD_FEATURES = LineEnergies()
 
 
 class EnergyCalibration(object):
@@ -322,13 +281,17 @@ class EnergyCalibration(object):
 
         # If <energy> is a string and a known spectral feature's name, use it as the name instead
         # Otherwise, it needs to be a numeric type convertible to float.
-        if energy in STANDARD_FEATURES:
-            name = energy
-            energy = STANDARD_FEATURES[name]
-        else:
+        # if energy in STANDARD_FEATURES:
+        #     name = energy
+        #     energy = STANDARD_FEATURES[name]
+        # else:
+        try:
+            energy = float(energy)
+        except ValueError:
             try:
-                energy = float(energy)
-            except ValueError:
+                name = energy
+                energy = STANDARD_FEATURES[name]
+            except:
                 raise ValueError("2nd argument must be an energy or a known name" +
                                  " from mass.energy_calibration.STANDARD_FEATURES")
 

@@ -34,7 +34,24 @@ def test_options(curvetype1, use_approximation1, curvetype2, use_approximation2,
     return ph1, e1, doe1, ph2, e2, doe2
 
 
-class TestJoeStyleEnegyCalibration(unittest.TestCase):
+class TestLineDatabase(unittest.TestCase):
+
+    def test_synonyms(self):
+        """Test that there are multiple equivalent synonyms for the K-alpha1 line."""
+        E = mass.STANDARD_FEATURES
+        e = E["MnKAlpha"]
+        for name in ("MnKA", "MnKA1", "MnKL3", "MnKAlpha1"):
+            self.assertEqual(e, E[name])
+
+    def check_elements(self):
+        """Check that elements appear in the list that were absent before 2017."""
+        E = mass.STANDARD_FEATURES
+        for element in ("U", "Pr", "Ar", "Pt", "Au", "Hg"):
+            self.assertGreater(E["%sKAlpha" % element], 0.0)
+        self.assertGreater(E["MnKAlpha1"], E["MnKAlpha2"])
+
+
+class TestJoeStyleEnergyCalibration(unittest.TestCase):
 
     def test_copy_equality(self):
         """Test that any deep-copied calibration object is equivalent."""
