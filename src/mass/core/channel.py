@@ -1812,7 +1812,7 @@ class MicrocalDataSet(object):
         g = self.cuts.good()
         if not goodonly:
             g[:] = True
-        if isinstance(bin_s, float) or isinstance(bin_s, int):
+        if isinstance(bin_s, (int, float)):
             bin_edge = np.arange(self.p_timestamp[g][0], self.p_timestamp[g][-1], bin_s)
         else:
             bin_edge = bin_s

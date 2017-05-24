@@ -13,13 +13,13 @@ import numpy as np
 class Function(object):
     """Base class for classes representing a mathematical function.
     This class provides some basic algebraic operations between Functions.
-    
+
     Subclasses are supposed to implement derivative and __call__ methods.
     Though the Function is not defined explicitly as an abstract base class.
-    
+
     lshift and rshift operators with another Function means a function composition.
     lshift and rshift operators with a number means a function evaluations.
-    
+
     Examples
     --------
     PowerFunction(2) << ExponentialFunction()  # represents exp(x)**2
@@ -34,7 +34,7 @@ class Function(object):
         return -1 * self
 
     def __lshift__(self, other):
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             return self(other)
         return Composition(self, other)
 
@@ -42,7 +42,7 @@ class Function(object):
         return other << self
 
     def __rrshift__(self, other):
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             return self(other)
         return NotImplemented(">> is not implemented.")
 
@@ -50,7 +50,7 @@ class Function(object):
         return Summation(self, other)
 
     def __radd__(self, other):
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             return ConstantFunction(other) + self
         raise NotImplemented("+ is not implemented.")
 
@@ -58,7 +58,7 @@ class Function(object):
         return self + (-other)
 
     def __rsub__(self, other):
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             return ConstantFunction(other) - self
         raise NotImplemented("- is not implemented.")
 
@@ -66,12 +66,12 @@ class Function(object):
         return Multiplication(self, other)
 
     def __rmul__(self, other):
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             return ConstantFunction(other) * self
         raise NotImplemented("* is not implemented.")
 
     def truediv(self, other):
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             other = ConstantFunction(other)
         return self * (PowerFunction(-1) << other)
 
@@ -79,7 +79,7 @@ class Function(object):
     __div__ = truediv
 
     def rtruediv(self, other):
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             return ConstantFunction(other) / self
         raise NotImplemented("/ is not implemented")
 
