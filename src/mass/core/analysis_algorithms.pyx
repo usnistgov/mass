@@ -127,6 +127,7 @@ def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kern
     return max_deriv
 
 
+@cython.embedsignature(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
@@ -263,6 +264,7 @@ class HistogramSmoother(object):
         return csmooth
 
 
+@cython.embedsignature(True)
 def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
     """Convert a vector of arbitrary <values> info a smoothed histogram by
     histogramming it and smoothing.
@@ -283,6 +285,7 @@ def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
     return HistogramSmoother(smooth_sigma, [limit, upper_limit])(values)
 
 
+@cython.embedsignature(True)
 def drift_correct(indicator, uncorrected, limit=None):
     """Compute a drift correction that minimizes the spectral entropy.
 
@@ -624,6 +627,7 @@ class FilterTimeCorrection(object):
             plt.ylabel("Correction, in raw (filtered) units")
 
 
+@cython.embedsignature(True)
 def python_nearest_arrivals(reference_times, other_times):
     """Identical to nearest_arrivals(...)."""
     nearest_after_index = np.searchsorted(other_times, reference_times)
@@ -646,6 +650,7 @@ def python_nearest_arrivals(reference_times, other_times):
     return before_times, after_times
 
 
+@cython.embedsignature(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigger_timestamps):
