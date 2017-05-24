@@ -11,6 +11,25 @@ import numpy as np
 
 
 class Function(object):
+    """Base class for classes representing a mathematical function.
+    This class provides some basic algebraic operations between Functions.
+    
+    Subclasses are supposed to implement derivative and __call__ methods.
+    Though the Function is not defined explicitly as an abstract base class.
+    
+    lshift and rshift operators with another Function means a function composition.
+    lshift and rshift operators with a number means a function evaluations.
+    
+    Examples
+    --------
+    PowerFunction(2) << ExponentialFunction()  # represents exp(x)**2
+    x = Identity()
+    (1 / (1 + x)) << ExponentialFunction() << -x  # represents a sigmoid function.
+    1 / (1 + (ExponentialFunction() << -x))  # It's also a sigmoid function.
+    2.0 >> PowerFunction(2)  # Its value is 4.0.
+    PowerFunction(2) << 2.0  # Its value is also 4.0.
+    """
+
     def __neg__(self):
         return -1 * self
 
@@ -30,8 +49,18 @@ class Function(object):
     def __add__(self, other):
         return Summation(self, other)
 
+    def __radd__(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return ConstantFunction(other) + self
+        raise NotImplemented("+ is not implemented.")
+
     def __sub__(self, other):
         return self + (-other)
+
+    def __rsub__(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return ConstantFunction(other) - self
+        raise NotImplemented("- is not implemented.")
 
     def __mul__(self, other):
         return Multiplication(self, other)
