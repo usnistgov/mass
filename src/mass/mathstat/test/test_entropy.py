@@ -54,19 +54,25 @@ class Test_LaplaceEntropy(unittest.TestCase):
             self.assertEquals(a, b)
 
     def test_specific_values_crossH(self):
-        """Cross-entropy on some specific values tested in Julia already."""
+        """Cross-entropy on some specific values."""
+        e = laplace_cross_entropy([1.0], [0.0], 1)
+        self.assertAlmostEqual(e, 2.34308882742)
+        e = laplace_cross_entropy([0.0], [1.0], 1)
+        self.assertAlmostEqual(e, 2.34308882742)
+        e = laplace_cross_entropy([0.0], [5.0], 5)
+        self.assertAlmostEqual(e, 2.34308882742+np.log(5))
         e = laplace_cross_entropy(np.linspace(1, 3, 30), [1, 2, 3.], .2)
-        self.assertAlmostEqual(e, 1.2816928551002664)
+        self.assertAlmostEqual(e, 1.39061512214)
         e = laplace_cross_entropy(np.linspace(1, 3, 30), [1, 2, 3.], 1)
-        self.assertAlmostEqual(e, 1.8227097220918833)
+        self.assertAlmostEqual(e, 2.19810978807)
         e = laplace_cross_entropy(np.linspace(1, 3, 30), [1, 2, 3.], 5)
-        self.assertAlmostEqual(e, 3.3092540270152693)
+        self.assertAlmostEqual(e, 3.77065709074)
         e = laplace_cross_entropy(np.linspace(1, 3, 30), np.linspace(1, 3, 30), .2)
-        self.assertAlmostEqual(e, 0.9729324634882015)
+        self.assertAlmostEqual(e, 1.07166443142)
         e = laplace_cross_entropy(np.linspace(1, 3, 30), np.linspace(1, 3, 30), 1)
-        self.assertAlmostEqual(e, 1.8125913537170846)
+        self.assertAlmostEqual(e, 1.99188741398)
         e = laplace_cross_entropy(np.linspace(1, 3, 30), np.linspace(1, 3, 30), 5)
-        self.assertAlmostEqual(e, 3.309148952389859)
+        self.assertAlmostEqual(e, 3.60725329485)
 
     def test_exact_approx_entropy(self):
         """Test the exact vs approximated modes of laplace_entropy."""
@@ -93,26 +99,26 @@ class Test_LaplaceEntropy(unittest.TestCase):
         z = np.hstack([x-.001, x-.0005, x-.0001, x+.0002, x+.0008])
         # Because these are size 5005 vectors, they should default to "exact" mode.
         e = laplace_cross_entropy(z, x, 1, "exact")
-        self.assertAlmostEqual(e, 1.8064846732634803)
-        e = laplace_cross_entropy(x, z, 1, "exact")
-        self.assertAlmostEqual(e, 1.8064845715698967)
+        self.assertAlmostEqual(e, 1.94136653687)
         e = laplace_cross_entropy(z, x, 1)
-        self.assertAlmostEqual(e, 1.8064846732634803)
+        self.assertAlmostEqual(e, 1.94136653687)
+        e = laplace_cross_entropy(x, z, 1, "exact")
+        self.assertAlmostEqual(e, 1.95882859388)
         e = laplace_cross_entropy(x, z, 1)
-        self.assertAlmostEqual(e, 1.8064845715698967)
+        self.assertAlmostEqual(e, 1.95882859388)
         e = laplace_cross_entropy(z, x, 1, "approx")
         self.assertAlmostEqual(e, 1.786246409970764)
         e = laplace_cross_entropy(x, z, 1, "approx")
         self.assertAlmostEqual(e, 1.7861438931128626)
         #
         e = laplace_cross_entropy(z, x, .1, "exact")
-        self.assertAlmostEqual(e, 0.821558228945916)
-        e = laplace_cross_entropy(x, z, .1, "exact")
-        self.assertAlmostEqual(e, 0.821556935306746)
+        self.assertAlmostEqual(e, 0.8366756130721216)
         e = laplace_cross_entropy(z, x, .1)
-        self.assertAlmostEqual(e, 0.821558228945916)
+        self.assertAlmostEqual(e, 0.8366756130721216)
+        e = laplace_cross_entropy(x, z, .1, "exact")
+        self.assertAlmostEqual(e, 0.8321207511380377)
         e = laplace_cross_entropy(x, z, .1)
-        self.assertAlmostEqual(e, 0.821556935306746)
+        self.assertAlmostEqual(e, 0.8321207511380377)
         e = laplace_cross_entropy(z, x, .1, "approx")
         self.assertAlmostEqual(e, 0.8189687816571245)
         e = laplace_cross_entropy(x, z, .1, "approx")
@@ -140,9 +146,9 @@ class Test_LaplaceEntropy(unittest.TestCase):
 
             for t1 in (np.float, np.float32):
                 e = laplace_cross_entropy(np.linspace(1, 3, 30, dtype=t1), np.array([1, 2, 3], dtype=t2), .2)
-                self.assertAlmostEqual(e, 1.2816928551002664)
+                self.assertAlmostEqual(e, 1.39061512214)
                 e = laplace_KL_divergence(np.linspace(1, 3, 30, dtype=t1), np.array([1, 2, 3], dtype=t2), .2)
-                self.assertAlmostEqual(e, 0.30876039161206514)
+                self.assertAlmostEqual(e, 0.41768265864979814)
 
     def test_bug115(self):
         """See MASS issue #115: nonsense values are appearing in KL divergence."""
@@ -152,6 +158,16 @@ class Test_LaplaceEntropy(unittest.TestCase):
         for p in gain:
             xg = np.exp(p)*x
             D = mass.mathstat.entropy.laplace_cross_entropy(xg, x, w=3.0, approx_mode="exact")
+            self.assertLess(abs(D), 20)
+
+    def test_bug116(self):
+        """See MASS issue #116: nonsense values are STILL appearing in KL divergence."""
+        np.random.seed(100)
+        x = mass.MnKAlphaDistribution().rvs(size=1000)
+        gain = np.linspace(-.005, .005, 11)
+        for p in gain:
+            xg = np.exp(p)*x
+            D = mass.mathstat.entropy.laplace_cross_entropy(xg, x, w=1.0, approx_mode="exact")
             self.assertLess(abs(D), 20)
 
 
