@@ -260,7 +260,7 @@ cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") excep
 
 
 cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x,
-    np.ndarray[DTYPE_t, ndim=1] y):
+                                         np.ndarray[DTYPE_t, ndim=1] y):
 
     # List of all places where q(u) increases or decreases because of a y-point.
     cdef double Qstepwidth = 2*sqrt(6)

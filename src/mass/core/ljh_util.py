@@ -12,22 +12,26 @@ import six
 
 import numpy as np
 
-__all__ = ['ljh_basename_channum', 'ljh_chan_names', 'ljh_get_channels',
+__all__ = ["ljh_basename_channum", "ljh_chan_names", "ljh_get_channels",
            "output_basename_from_ljh_fname",
            "ljh_channum", "filename_glob_expand", "remove_unpaired_channel_files",
-           "ljh_sort_filenames_numerically","ljh_get_channels_both"]
+           "ljh_sort_filenames_numerically", "ljh_get_channels_both"]
+
 
 def ljh_get_channels(fname):
     basename, chan = ljh_basename(fname)
     dir, ljhname = path.split(basename)
-    chans=[]
+    chans = []
     for f in os.listdir(dir):
         bname, chan = ljh_basename(f)
-        if bname==ljhname and isinstance(chan,int): chans.append(chan)
+        if bname == ljhname and isinstance(chan, int):
+            chans.append(chan)
     return sorted(chans)
+
 
 def ljh_get_channels_both(fname, nfname):
     return sorted(set(ljh_get_channels(fname)).intersection(ljh_get_channels(nfname)))
+
 
 def ljh_basename_channum(fname):
     """Returns the base LJH file name and the channel number parsed from the name.

@@ -9,8 +9,8 @@ import logging
 from mass.core.channel import MicrocalDataSet
 from mass.core.utilities import show_progress
 
-cimport cython
 from libc.math cimport sqrt
+cimport cython
 cimport libc.limits
 
 LOG = logging.getLogger("mass")
@@ -257,7 +257,8 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
         if not use_cython:
             super(CythonMicrocalDataSet, self).filter_data(filter_name=filter_name,
-                  transform=transform, forceNew=forceNew)
+                                                           transform=transform,
+                                                           forceNew=forceNew)
             return
 
         if not(forceNew or all(self.p_filt_value[:] == 0)):
@@ -293,15 +294,9 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
                 f0, f1, f2, f3 = filter_values[0], filter_values[1], filter_values[2], filter_values[3]
 
-                conv0 = pulse[0] * f0 +\
-                        pulse[1] * f1 +\
-                        pulse[2] * f2 +\
-                        pulse[3] * f3
-                conv1 = pulse[1] * f0 +\
-                        pulse[2] * f1 +\
-                        pulse[3] * f2
-                conv2 = pulse[2] * f0 +\
-                        pulse[3] * f1
+                conv0 = pulse[0] * f0 + pulse[1] * f1 + pulse[2] * f2 + pulse[3] * f3
+                conv1 = pulse[1] * f0 + pulse[2] * f1 + pulse[3] * f2
+                conv2 = pulse[2] * f0 + pulse[3] * f1
                 conv3 = pulse[3] * f0
                 conv4 = 0.0
 
@@ -315,16 +310,11 @@ class CythonMicrocalDataSet(MicrocalDataSet):
                     conv4 += sample * f0
                     f0, f1, f2, f3 = f1, f2, f3, f4
 
-                conv4 += pulse[nSamples - 4] * f0 +\
-                         pulse[nSamples - 3] * f1 +\
-                         pulse[nSamples - 2] * f2 +\
-                         pulse[nSamples - 1] * f3
-                conv3 += pulse[nSamples - 4] * f1 +\
-                         pulse[nSamples - 3] * f2 +\
-                         pulse[nSamples - 2] * f3
-                conv2 += pulse[nSamples - 4] * f2 +\
-                         pulse[nSamples - 3] * f3
-                conv1 += pulse[nSamples - 4] * f3
+                conv4 += pulse[nSamples-4] * f0 + pulse[nSamples-3] * f1 +\
+                    pulse[nSamples-2] * f2 + pulse[nSamples-1] * f3
+                conv3 += pulse[nSamples-4] * f1 + pulse[nSamples-3] * f2 + pulse[nSamples-2] * f3
+                conv2 += pulse[nSamples-4] * f2 + pulse[nSamples-3] * f3
+                conv1 += pulse[nSamples-4] * f3
 
                 p0 = conv0*(-6.0/70) + conv1*(24.0/70) + conv2*(34.0/70) + conv3*(24.0/70) + conv4*(-6.0/70)
                 p1 = conv0*(-14.0/70) + conv1*(-7.0/70) + conv3*(7.0/70) + conv4*(14.0/70)
