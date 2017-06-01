@@ -127,7 +127,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
                 if k < e_nPresamples:
                     pretrig_sum += signal
-                    pretrig_rms_sum += signal**2
+                    pretrig_rms_sum += (<double>signal)**2
 
                 if s_prompt <= k < e_prompt:
                     promptness_sum += signal
@@ -144,7 +144,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
 
                 if k >= nPresamples + 2:
                     pulse_sum += signal
-                    pulse_rms_sum += signal**2
+                    pulse_rms_sum += (<double>signal)**2
 
             p_pretrig_mean_array[j] = <float>ptm
             p_pretrig_rms_array[j] = <float>ptrms
