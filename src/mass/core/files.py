@@ -328,11 +328,13 @@ class LJHFile(MicrocalFile):
 
         if isinstance(item, np.ndarray):
             if item.ndim == 1 and item.dtype == np.bool:
-                trace_range = np.arange(self.nPulses, dtype=np.int32)[item]
+                if item.shape[0] != self.nPulses:
+                    raise ValueError("Shape doesn't match.")
+                trace_range = np.arange(self.nPulses, dtype=np.int64)[item]
                 num_samples = self.nSamples
         elif isinstance(item, list):
             try:
-                trace_range = np.array(item, dtype=np.uint32)
+                trace_range = np.array(item, dtype=np.uint64)
 
                 if trace_range.ndim != 1:
                     raise ValueError("Unsupported list type.")
