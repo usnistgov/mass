@@ -13,13 +13,13 @@ import numpy as np
 class Function(object):
     """Base class for classes representing a mathematical function.
     This class provides some basic algebraic operations between Functions.
-    
+
     Subclasses are supposed to implement derivative and __call__ methods.
     Though the Function is not defined explicitly as an abstract base class.
-    
+
     lshift and rshift operators with another Function means a function composition.
     lshift and rshift operators with a number means a function evaluations.
-    
+
     Examples
     --------
     PowerFunction(2) << ExponentialFunction()  # represents exp(x)**2
