@@ -24,6 +24,7 @@ from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
 from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
+from mass.mathstat.entropy import laplace_entropy
 
 from mass.core import ljh_util
 import logging
@@ -1779,20 +1780,18 @@ class MicrocalDataSet(object):
         if all(self.p_filt_value_tdc[:] == 0.0) or forceNew:
             LOG.info("chan %d doing time_drift_correct" % self.channum)
             attr = getattr(self, attr)
-            _, info = mass.analysis_algorithms.drift_correct(self.p_timestamp[self.cuts.good()], attr[self.cuts.good()])
-            median_timestamp = info['median_pretrig_mean']
-            slope = info['slope']
-
-            new_info = {'type': 'time_gain',
-                        'slope': slope,
-                        'median_timestamp': median_timestamp}
-
-            corrected = attr*(1+slope*(self.p_timestamp[:]-median_timestamp))
-            self.p_filt_value_tdc[:] = corrected
+            g = self.cuts.good()
+            pk = np.median(attr[g])
+            g = np.logical_and(g, np.abs(attr[:]/pk-1) < 0.5)
+            w = max(pk/3000., 1.0)
+            # corrected, info = mass.analysis_algorithms.time_drift_correct(
+            corrected, info = time_drift_correct(
+                self.p_timestamp[g], attr[g], w, limit=[0.5*pk, 2*pk])
+            # self.p_filt_value_tdc[:] = corrected
         else:
             LOG.info("chan %d skipping time_drift_correct" % self.channum)
-            corrected, new_info = self.p_filt_value_tdc[:], {}
-        return corrected, new_info
+            corrected, info = self.p_filt_value_tdc[:], {}
+        return corrected, info
 
     def compare_calibrations(self):
         plt.figure()
@@ -2084,3 +2083,105 @@ def _phase_corrected_filtvals(phase, uncorrected, corrections):
         frac = (uncorrected[use]-ph[b])/(ph[b+1]-ph[b])
         corrected[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
     return corrected
+
+
+def time_drift_correct(time, uncorrected, w, limit=None):
+    """Compute a time-based drift correction that minimizes the spectral entropy.
+
+    Args:
+        time: The "time-axis". Correction will be a low-order polynomial in this.
+        uncorrected: A filtered pulse height vector. Same length as indicator.
+            Assumed to have some gain that is linearly related to indicator.
+        w: the kernel width for the Laplace KDE density estimator
+        limit: The [lower,upper] limit of uncorrected values over which entropy is
+            computed (default None).
+
+    The entropy will be computed on corrected values only in the range
+    [limit[0], limit[1]], so limit should be set to a characteristic large value
+    of uncorrected. If limit is None (the default), then in will be compute as
+    25% larger than the 99%ile point of uncorrected.
+    """
+    if limit is None:
+        pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
+        limit = [0,1.25 * pct99]
+
+    use = np.logical_and(uncorrected>limit[0], uncorrected<limit[1])
+    tmin, tmax = np.min(time), np.max(time)
+    def normalize(t):
+        return (t-tmin)/(tmax-tmin)*2-1
+
+    info = {
+        "tmin": tmin,
+        "tmax": tmax,
+        "normalize": normalize,
+        }
+
+    SEC_PER_KNOT = 4000
+    PHOTONS_PER_KNOT = 2000
+    dtime = tmax-tmin
+    N = len(time)
+    nk = int(np.minimum(dtime/SEC_PER_KNOT, N/PHOTONS_PER_KNOT))
+    if nk < 1:
+        nk = 1
+    phot_per_knot = N/float(nk)
+
+    if phot_per_knot >= 2*PHOTONS_PER_KNOT:
+        downsample = int(phot_per_knot/PHOTONS_PER_KNOT)
+        time = time[::downsample]
+        uncorrected = uncorrected[::downsample]
+        N = len(time)
+    else:
+        downsample = 1
+
+    print "Using %2d knots for %6d photons (after %d downsample)" % (nk, N, downsample)
+    print "That's %6.1f photons per knot, and %6.1f seconds per knot." % (N/float(nk), dtime/nk)
+
+    def model1(pi, i, param, basis):
+        pcopy = np.array(param)
+        pcopy[i] = pi
+        return 1 + np.dot(basis.T, pcopy)
+
+    def cost1(pi, i, param, y, w, basis):
+        return laplace_entropy(y*model1(pi, i, param, basis), w=w)
+
+    param = np.zeros(nk, dtype=float)
+    xnorm = np.asarray(normalize(time), dtype=float)
+    basis = np.vstack([sp.special.legendre(i+1)(xnorm) for i in range(nk)])
+
+    fc = 0
+    model = np.poly1d([0])
+    info["coefficients"] = np.zeros(nk, dtype=float)
+    for i in range(nk):
+        result,fval,iter,funcalls = sp.optimize.brent(cost1, (i, param, uncorrected, w, basis),
+            [-.001, .001], tol=1e-5, full_output=True)
+        param[i] = result
+        fc += funcalls
+        model += sp.special.legendre(i+1) * result
+        info["coefficients"][i] = result
+    info["funccalls"] = fc
+
+    xk = np.linspace(-1, 1, 1+2*nk)
+    model2 = mass.mathstat.interpolate.CubicSpline(xk, model(xk))
+    #
+    # plt.clf()
+    # plt.plot(xnorm, y, ".", ms=1, color="gray")
+    # xpl = np.linspace(-1, 1, 201)
+    # ypk = np.median(y)
+    # plt.plot(xpl, ypk/(1+model(xpl)), "r")
+    # plt.plot(xpl, ypk/(1+model2(xpl)), "b")
+    #
+    H1 = laplace_entropy(uncorrected, w=w)
+    H2 = laplace_entropy(uncorrected*(1+model(xnorm)), w=w)
+    H3 = laplace_entropy(uncorrected*(1+model2(xnorm)), w=w)
+    # print "Entropy before   correction: %7.5f" % H1
+    # print "Entropy Legendre correction: %7.5f" % H2
+    # print "Entropy Spline   correction: %7.5f" % H3
+    if H2 <= 0 or H2-H1 > 0.0:
+        model = np.poly1d([0])
+    elif H3 <= 0 or H3-H2 > .00001:
+        model2 = model
+
+    info["entropies"] = (H1, H2, H3)
+    info["model"] = model
+    corrected = uncorrected*(1+model(xnorm))
+    return corrected, info

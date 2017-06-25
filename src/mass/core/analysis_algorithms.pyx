@@ -16,6 +16,7 @@ import sklearn.cluster
 import mass.mathstat
 
 from libc.math cimport sqrt
+from mass.mathstat.entropy import laplace_entropy
 
 
 ########################################################################################
@@ -333,6 +334,9 @@ def drift_correct(indicator, uncorrected, limit=None):
     return drift_corr_param, drift_correct_info
 
 
+# @cython.embedsignature(True)
+
+
 ########################################################################################
 # Arrival-time correction
 
@@ -468,7 +472,6 @@ class FilterTimeCorrection(object):
                 print('Using %4d pulses for cluster %d' % (use.sum(), i))
 
             prompt = promptness[use]
-#             pulse_rms = energy[use]
             ptmean = trainingPulses[use, :self.nPresamples].mean(axis=1)
             med = np.median(prompt)
             self.prompt_range[i] = np.array((sp.stats.scoreatpercentile(prompt, 1),
@@ -595,7 +598,7 @@ class FilterTimeCorrection(object):
             if use.sum() <= 0:
                 continue
             fraction = (pulse_rms[use]-a)/(b-a)
-#             # Limit extrapolation
+            # Limit extrapolation
             fraction[fraction < -0.5] = -0.5
             fraction[fraction > 1.5] = 1.5
             f_a = self.splines[interval](prompt[use])
