@@ -1277,8 +1277,7 @@ class TESGroup(CutFieldMixin):
         for ds in self:
             ds.convert_to_energy(attr, calname)
 
-    def time_drift_correct(self, attr='p_filt_value_phc',
-                           num_lines=None, forceNew=False):
+    def time_drift_correct(self, attr='p_filt_value_phc', forceNew=False):
         for ds in self:
             ds.time_drift_correct(attr, forceNew)
 

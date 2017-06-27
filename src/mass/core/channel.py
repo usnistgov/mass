@@ -1778,6 +1778,14 @@ class MicrocalDataSet(object):
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
     def time_drift_correct(self, attr="p_filt_value_phc", forceNew=False):
+        """Drift correct over long times with an entropy-minimizing algorithm.
+        Here we correct as a low-ish-order Legendre polynomial in time.
+
+        attr names the attribute of self that is to be corrected. (The result
+        will be stored in self.p_filt_value_tdc[:]).
+
+        forceNew: whether to do this step, if it appears already to have been done.
+        """
         if all(self.p_filt_value_tdc[:] == 0.0) or forceNew:
             LOG.info("chan %d doing time_drift_correct" % self.channum)
             attr = getattr(self, attr)
@@ -2103,6 +2111,13 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     [limit[0], limit[1]], so limit should be set to a characteristic large value
     of uncorrected. If limit is None (the default), then in will be compute as
     25% larger than the 99%ile point of uncorrected.
+
+    Possible improvements in the future:
+    * Move this routine to Cython
+    * Allow the parameters to be function arguments with defaults: photons per
+      degree of freedom, seconds per degree of freedom, and max degrees of freedom.
+    * Figure out how to span the available time with more than one set of legendre
+      polynomials, so that we can have more than 20 d.o.f. eventually, for long runs.
     """
     if limit is None:
         pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
