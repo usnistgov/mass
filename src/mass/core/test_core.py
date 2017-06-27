@@ -115,6 +115,18 @@ class TestTESGroup(ut.TestCase):
         data.compute_filters()
         data.plot_filters()
 
+    def test_time_drift_correct(self):
+        "Check that time_drift_correct at least runs w/o error"
+        data = self.load_data()
+        data.summarize_data()
+        data.auto_cuts(forceNew=True, clearCuts=True)
+        data.avg_pulses_auto_masks()
+        data.compute_noise_spectra()
+        data.compute_filters()
+        data.filter_data()
+        data.drift_correct()
+        data.phase_correct()
+        data.time_drift_correct()
 
 class TestTESHDF5Only(ut.TestCase):
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
