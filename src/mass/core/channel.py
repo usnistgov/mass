@@ -562,6 +562,7 @@ class MicrocalDataSet(object):
         self.lastUsedFilterHash = -1
         self.drift_correct_info = {}
         self.phase_correct_info = {}
+        self.time_drift_correct_info = {}
         self.noise_autocorr = None
         self.noise_demodulated = None
         self.calibration = {}
@@ -1784,10 +1785,12 @@ class MicrocalDataSet(object):
             pk = np.median(attr[g])
             g = np.logical_and(g, np.abs(attr[:]/pk-1) < 0.5)
             w = max(pk/3000., 1.0)
-            # corrected, info = mass.analysis_algorithms.time_drift_correct(
-            corrected, info = time_drift_correct(
-                self.p_timestamp[g], attr[g], w, limit=[0.5*pk, 2*pk])
-            # self.p_filt_value_tdc[:] = corrected
+            info = time_drift_correct(self.p_timestamp[g], attr[g], w,
+                                      limit=[0.5*pk, 2*pk])
+            tnorm = info["normalize"](self.p_timestamp[:])
+            corrected = self.p_filt_value_phc[:]*(1+info["model"](tnorm))
+            self.p_filt_value_tdc[:] = corrected
+            self.time_drift_correct_info = info
         else:
             LOG.info("chan %d skipping time_drift_correct" % self.channum)
             corrected, info = self.p_filt_value_tdc[:], {}
@@ -2116,25 +2119,26 @@ def time_drift_correct(time, uncorrected, w, limit=None):
         "normalize": normalize,
         }
 
-    SEC_PER_KNOT = 4000
-    PHOTONS_PER_KNOT = 2000
+    SEC_PER_DEGREE = 2000
+    PHOTONS_PER_DEGREE = 2000
+    MAX_DEGREES = 20
     dtime = tmax-tmin
     N = len(time)
-    nk = int(np.minimum(dtime/SEC_PER_KNOT, N/PHOTONS_PER_KNOT))
-    if nk < 1:
-        nk = 1
-    phot_per_knot = N/float(nk)
+    ndeg = int(np.minimum(dtime/SEC_PER_DEGREE, N/PHOTONS_PER_DEGREE))
+    ndeg = min(ndeg, MAX_DEGREES)
+    ndeg = max(ndeg, 1)
+    phot_per_degree = N/float(ndeg)
 
-    if phot_per_knot >= 2*PHOTONS_PER_KNOT:
-        downsample = int(phot_per_knot/PHOTONS_PER_KNOT)
+    if phot_per_degree >= 2*PHOTONS_PER_DEGREE:
+        downsample = int(phot_per_degree/PHOTONS_PER_DEGREE)
         time = time[::downsample]
         uncorrected = uncorrected[::downsample]
         N = len(time)
     else:
         downsample = 1
 
-    print "Using %2d knots for %6d photons (after %d downsample)" % (nk, N, downsample)
-    print "That's %6.1f photons per knot, and %6.1f seconds per knot." % (N/float(nk), dtime/nk)
+    print "Using %2d degrees for %6d photons (after %d downsample)" % (ndeg, N, downsample)
+    print "That's %6.1f photons per degree, and %6.1f seconds per degree." % (N/float(ndeg), dtime/ndeg)
 
     def model1(pi, i, param, basis):
         pcopy = np.array(param)
@@ -2144,14 +2148,14 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     def cost1(pi, i, param, y, w, basis):
         return laplace_entropy(y*model1(pi, i, param, basis), w=w)
 
-    param = np.zeros(nk, dtype=float)
+    param = np.zeros(ndeg, dtype=float)
     xnorm = np.asarray(normalize(time), dtype=float)
-    basis = np.vstack([sp.special.legendre(i+1)(xnorm) for i in range(nk)])
+    basis = np.vstack([sp.special.legendre(i+1)(xnorm) for i in range(ndeg)])
 
     fc = 0
     model = np.poly1d([0])
-    info["coefficients"] = np.zeros(nk, dtype=float)
-    for i in range(nk):
+    info["coefficients"] = np.zeros(ndeg, dtype=float)
+    for i in range(ndeg):
         result,fval,iter,funcalls = sp.optimize.brent(cost1, (i, param, uncorrected, w, basis),
             [-.001, .001], tol=1e-5, full_output=True)
         param[i] = result
@@ -2160,22 +2164,11 @@ def time_drift_correct(time, uncorrected, w, limit=None):
         info["coefficients"][i] = result
     info["funccalls"] = fc
 
-    xk = np.linspace(-1, 1, 1+2*nk)
+    xk = np.linspace(-1, 1, 1+2*ndeg)
     model2 = mass.mathstat.interpolate.CubicSpline(xk, model(xk))
-    #
-    # plt.clf()
-    # plt.plot(xnorm, y, ".", ms=1, color="gray")
-    # xpl = np.linspace(-1, 1, 201)
-    # ypk = np.median(y)
-    # plt.plot(xpl, ypk/(1+model(xpl)), "r")
-    # plt.plot(xpl, ypk/(1+model2(xpl)), "b")
-    #
     H1 = laplace_entropy(uncorrected, w=w)
     H2 = laplace_entropy(uncorrected*(1+model(xnorm)), w=w)
     H3 = laplace_entropy(uncorrected*(1+model2(xnorm)), w=w)
-    # print "Entropy before   correction: %7.5f" % H1
-    # print "Entropy Legendre correction: %7.5f" % H2
-    # print "Entropy Spline   correction: %7.5f" % H3
     if H2 <= 0 or H2-H1 > 0.0:
         model = np.poly1d([0])
     elif H3 <= 0 or H3-H2 > .00001:
@@ -2183,5 +2176,4 @@ def time_drift_correct(time, uncorrected, w, limit=None):
 
     info["entropies"] = (H1, H2, H3)
     info["model"] = model
-    corrected = uncorrected*(1+model(xnorm))
-    return corrected, info
+    return info
