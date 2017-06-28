@@ -24,6 +24,7 @@ from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
 from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
+from mass.mathstat.entropy import laplace_entropy
 
 from mass.core import ljh_util
 import logging
@@ -561,6 +562,7 @@ class MicrocalDataSet(object):
         self.lastUsedFilterHash = -1
         self.drift_correct_info = {}
         self.phase_correct_info = {}
+        self.time_drift_correct_info = {}
         self.noise_autocorr = None
         self.noise_demodulated = None
         self.calibration = {}
@@ -1776,23 +1778,31 @@ class MicrocalDataSet(object):
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
     def time_drift_correct(self, attr="p_filt_value_phc", forceNew=False):
+        """Drift correct over long times with an entropy-minimizing algorithm.
+        Here we correct as a low-ish-order Legendre polynomial in time.
+
+        attr names the attribute of self that is to be corrected. (The result
+        will be stored in self.p_filt_value_tdc[:]).
+
+        forceNew: whether to do this step, if it appears already to have been done.
+        """
         if all(self.p_filt_value_tdc[:] == 0.0) or forceNew:
             LOG.info("chan %d doing time_drift_correct" % self.channum)
             attr = getattr(self, attr)
-            _, info = mass.analysis_algorithms.drift_correct(self.p_timestamp[self.cuts.good()], attr[self.cuts.good()])
-            median_timestamp = info['median_pretrig_mean']
-            slope = info['slope']
-
-            new_info = {'type': 'time_gain',
-                        'slope': slope,
-                        'median_timestamp': median_timestamp}
-
-            corrected = attr*(1+slope*(self.p_timestamp[:]-median_timestamp))
+            g = self.cuts.good()
+            pk = np.median(attr[g])
+            g = np.logical_and(g, np.abs(attr[:]/pk-1) < 0.5)
+            w = max(pk/3000., 1.0)
+            info = time_drift_correct(self.p_timestamp[g], attr[g], w,
+                                      limit=[0.5*pk, 2*pk])
+            tnorm = info["normalize"](self.p_timestamp[:])
+            corrected = self.p_filt_value_phc[:]*(1+info["model"](tnorm))
             self.p_filt_value_tdc[:] = corrected
+            self.time_drift_correct_info = info
         else:
             LOG.info("chan %d skipping time_drift_correct" % self.channum)
-            corrected, new_info = self.p_filt_value_tdc[:], {}
-        return corrected, new_info
+            corrected, info = self.p_filt_value_tdc[:], {}
+        return corrected, info
 
     def compare_calibrations(self):
         plt.figure()
@@ -2084,3 +2094,101 @@ def _phase_corrected_filtvals(phase, uncorrected, corrections):
         frac = (uncorrected[use]-ph[b])/(ph[b+1]-ph[b])
         corrected[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
     return corrected
+
+
+def time_drift_correct(time, uncorrected, w, limit=None):
+    """Compute a time-based drift correction that minimizes the spectral entropy.
+
+    Args:
+        time: The "time-axis". Correction will be a low-order polynomial in this.
+        uncorrected: A filtered pulse height vector. Same length as indicator.
+            Assumed to have some gain that is linearly related to indicator.
+        w: the kernel width for the Laplace KDE density estimator
+        limit: The [lower,upper] limit of uncorrected values over which entropy is
+            computed (default None).
+
+    The entropy will be computed on corrected values only in the range
+    [limit[0], limit[1]], so limit should be set to a characteristic large value
+    of uncorrected. If limit is None (the default), then in will be compute as
+    25% larger than the 99%ile point of uncorrected.
+
+    Possible improvements in the future:
+    * Move this routine to Cython
+    * Allow the parameters to be function arguments with defaults: photons per
+      degree of freedom, seconds per degree of freedom, and max degrees of freedom.
+    * Figure out how to span the available time with more than one set of legendre
+      polynomials, so that we can have more than 20 d.o.f. eventually, for long runs.
+    """
+    if limit is None:
+        pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
+        limit = [0,1.25 * pct99]
+
+    use = np.logical_and(uncorrected>limit[0], uncorrected<limit[1])
+    tmin, tmax = np.min(time), np.max(time)
+    def normalize(t):
+        return (t-tmin)/(tmax-tmin)*2-1
+
+    info = {
+        "tmin": tmin,
+        "tmax": tmax,
+        "normalize": normalize,
+        }
+
+    SEC_PER_DEGREE = 2000
+    PHOTONS_PER_DEGREE = 2000
+    MAX_DEGREES = 20
+    dtime = tmax-tmin
+    N = len(time)
+    ndeg = int(np.minimum(dtime/SEC_PER_DEGREE, N/PHOTONS_PER_DEGREE))
+    ndeg = min(ndeg, MAX_DEGREES)
+    ndeg = max(ndeg, 1)
+    phot_per_degree = N/float(ndeg)
+
+    if phot_per_degree >= 2*PHOTONS_PER_DEGREE:
+        downsample = int(phot_per_degree/PHOTONS_PER_DEGREE)
+        time = time[::downsample]
+        uncorrected = uncorrected[::downsample]
+        N = len(time)
+    else:
+        downsample = 1
+
+    print ("Using %2d degrees for %6d photons (after %d downsample)" % (ndeg, N, downsample))
+    print ("That's %6.1f photons per degree, and %6.1f seconds per degree." % (N/float(ndeg), dtime/ndeg))
+
+    def model1(pi, i, param, basis):
+        pcopy = np.array(param)
+        pcopy[i] = pi
+        return 1 + np.dot(basis.T, pcopy)
+
+    def cost1(pi, i, param, y, w, basis):
+        return laplace_entropy(y*model1(pi, i, param, basis), w=w)
+
+    param = np.zeros(ndeg, dtype=float)
+    xnorm = np.asarray(normalize(time), dtype=float)
+    basis = np.vstack([sp.special.legendre(i+1)(xnorm) for i in range(ndeg)])
+
+    fc = 0
+    model = np.poly1d([0])
+    info["coefficients"] = np.zeros(ndeg, dtype=float)
+    for i in range(ndeg):
+        result,fval,iter,funcalls = sp.optimize.brent(cost1, (i, param, uncorrected, w, basis),
+            [-.001, .001], tol=1e-5, full_output=True)
+        param[i] = result
+        fc += funcalls
+        model += sp.special.legendre(i+1) * result
+        info["coefficients"][i] = result
+    info["funccalls"] = fc
+
+    xk = np.linspace(-1, 1, 1+2*ndeg)
+    model2 = mass.mathstat.interpolate.CubicSpline(xk, model(xk))
+    H1 = laplace_entropy(uncorrected, w=w)
+    H2 = laplace_entropy(uncorrected*(1+model(xnorm)), w=w)
+    H3 = laplace_entropy(uncorrected*(1+model2(xnorm)), w=w)
+    if H2 <= 0 or H2-H1 > 0.0:
+        model = np.poly1d([0])
+    elif H3 <= 0 or H3-H2 > .00001:
+        model2 = model
+
+    info["entropies"] = (H1, H2, H3)
+    info["model"] = model
+    return info
