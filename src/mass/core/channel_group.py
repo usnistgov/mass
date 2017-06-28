@@ -892,7 +892,11 @@ class TESGroup(CutFieldMixin):
 
     @show_progress("compute_filters")
     def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
+        """
+        compute_filters(self, fmax=None, f_3db=None, forceNew=False)
 
+        Looks at ds._use_new_filters to decide which type of filter to use.
+        """
         # Analyze the noise, if not already done
         needs_noise = any([ds.noise_autocorr[0] == 0.0 or
                            ds.noise_psd[1] == 0 for ds in self])
