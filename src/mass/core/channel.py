@@ -1683,7 +1683,7 @@ class MicrocalDataSet(object):
         self.pulse_records.clear_cache()
 
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
-                    residual=False, valid_status=None, shift1=False):
+                    residual=False, valid_status=None, shift1=False, baseline_subtract=False, fcut=None):
         """Plot some example pulses, given by sample number.
 
         Args:
@@ -1749,6 +1749,10 @@ class MicrocalDataSet(object):
                 data -= model
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
+            if baseline_subtract:
+                data = data - np.mean(data[:500])
+            if fcut != None:
+                data = filter(data, 62.5e3, fcut)
 
             cutchar, alpha, linestyle, linewidth = ' ', 1.0, '-', 1
 
@@ -2192,3 +2196,13 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     info["entropies"] = (H1, H2, H3)
     info["model"] = model
     return info
+
+def filter(sig_ddc, fs, fcut):
+    # simple filter in frequency domain
+    N = sig_ddc.shape[0]
+    SIG_DDC = np.fft.fft(sig_ddc)
+    freqs = (fs/N) * np.concatenate((np.arange(0,N/2+1), np.arange(N/2-1,0,-1)))
+    filt = np.zeros_like(SIG_DDC)
+    filt[freqs < fcut] = 1.0
+    sig_ddc_filt = np.fft.ifft(SIG_DDC * filt)
+    return sig_ddc_filt
