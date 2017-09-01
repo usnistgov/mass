@@ -262,5 +262,48 @@ class Test_fluorescence(unittest.TestCase):
             self.generate_and_fit_data(3000, fwhm, nbins, N_bg)
 
 
+class Test_fit_kink(unittest.TestCase):
+    """Test the mass.mathstat.fitting.fit_kink_model() function."""
+
+    def setUp(self):
+        x = np.arange(10, dtype=float)
+        y = np.array(x)
+        truek = 4.6
+        y[x>truek] = truek
+        self.x = x
+        self.y = y
+        self.truek = truek
+
+    def test_noisless_fit(self):
+        """Make sure fit_kink_model gets very close to exact answer without noise."""
+        model, (kbest,a,b,c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, self.y, kbounds=(3,6))
+        self.assertLessEqual(X2, 1e-8)
+        self.assertLessEqual(abs(kbest-self.truek), 1e-5)
+        self.assertLessEqual(abs(a-self.truek), 1e-5)
+        self.assertLessEqual(abs(b-1), 1e-5)
+        self.assertLessEqual(abs(c), 1e-5)
+
+    def test_noisless_fit_no_bounds(self):
+        """Make sure fit_kink_model gets very close to exact answer without noise and
+        using maximal bounds."""
+        model, (kbest,a,b,c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, self.y, kbounds=None)
+        self.assertLessEqual(X2, 1e-8)
+        self.assertLessEqual(abs(kbest-self.truek), 1e-5)
+        self.assertLessEqual(abs(a-self.truek), 1e-5)
+        self.assertLessEqual(abs(b-1), 1e-5)
+        self.assertLessEqual(abs(c), 1e-5)
+
+    def test_noisy_fit(self):
+        """Make sure fit_kink_model gets close enough to exact answer with noise."""
+        np.random.seed(7474)
+        noisy_y = self.y + np.random.standard_normal(len(self.x))*.2
+        model, (kbest,a,b,c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, noisy_y, kbounds=(3,6))
+        self.assertLessEqual(X2, 1.0)
+        self.assertLessEqual(abs(kbest-self.truek), 0.3)
+        self.assertLessEqual(abs(a-self.truek), 0.3)
+        self.assertLessEqual(abs(b-1), 0.1)
+        self.assertLessEqual(abs(c), 0.1)
+
+
 if __name__ == "__main__":
     unittest.main()
