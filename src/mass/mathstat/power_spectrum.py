@@ -133,7 +133,7 @@ class PowerSpectrum(object):
     def spectrum(self, nbins=None):
         """If <nbins> is given, the data are averaged into <nbins> bins."""
         if nbins is None:
-            return self.specsum // self.nsegments
+            return self.specsum / self.nsegments
         if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
 
