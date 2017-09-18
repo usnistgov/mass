@@ -109,11 +109,12 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
 
 
 def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_ev):
-    """Call build_fit_ranges() then convert to ph using approx_ecal"""
-    e_e, fit_lo_hi, slopes_de_dph = build_fit_ranges(line_names, excluded_line_names,
+    """Call build_fit_ranges() to get (lo,hi) for fitranges in energy units,
+    then convert to ph using approx_ecal"""
+    e_e, fit_lo_hi_energy, slopes_de_dph = build_fit_ranges(line_names, excluded_line_names,
                                                      approx_ecal, fit_width_ev)
     fit_lo_hi_ph = []
-    for lo, hi in fit_lo_hi:
+    for lo, hi in fit_lo_hi_energy:
         lo_ph = approx_ecal.energy2ph(lo)
         hi_ph = approx_ecal.energy2ph(hi)
         fit_lo_hi_ph.append((lo_ph, hi_ph))
@@ -122,7 +123,7 @@ def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_
 
 
 def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev):
-    """Returns a list of (lo,hi) where lo and hi have units of pulseheights of
+    """Returns a list of (lo,hi) where lo and hi have units of energy of
     ranges to fit in for each energy in line_names.
 
     Args:
@@ -137,12 +138,11 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     half_width_ev = fit_width_ev/2.0
     all_e = np.sort(np.hstack((e_e, excl_e_e)))
     assert(len(all_e) == len(np.unique(all_e)))
-    fit_lo_hi = []
+    fit_lo_hi_energy = []
     slopes_de_dph = []
 
     for e in e_e:
         slope_de_dph = approx_ecal.energy2dedph(e)
-        half_width_ph = half_width_ev/slope_de_dph
         if any(all_e < e):
             nearest_below = all_e[all_e < e][-1]
         else:
@@ -151,12 +151,12 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
             nearest_above = all_e[all_e > e][0]
         else:
             nearest_above = np.inf
-        lo = max(e - half_width_ph, (e + nearest_below) / 2.0)
-        hi = min(e + half_width_ph, (e + nearest_above) / 2.0)
-        fit_lo_hi.append((lo, hi))
+        lo = max(e - half_width_ev, (e + nearest_below) / 2.0)
+        hi = min(e + half_width_ev, (e + nearest_above) / 2.0)
+        fit_lo_hi_energy.append((lo, hi))
         slopes_de_dph.append(slope_de_dph)
 
-    return e_e, fit_lo_hi, slopes_de_dph
+    return e_e, fit_lo_hi_energy, slopes_de_dph
 
 
 class FailedFitter(object):
