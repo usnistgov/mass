@@ -7,3 +7,4 @@ statsmodels>=0.8.0
 scikit-learn
 h5py>=2.7
 palettable
+cycler

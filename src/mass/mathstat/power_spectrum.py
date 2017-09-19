@@ -123,7 +123,7 @@ class PowerSpectrum(object):
     def addLongData(self, data, window=None):
         """Process a long vector of data as non-overlapping segments of length 2m."""
         nt = len(data)
-        nk = nt/self.m2
+        nk = nt//self.m2
         for k in range(nk):
             noff = k*self.m2
             PowerSpectrum.addDataSegment(self,
@@ -184,7 +184,7 @@ class PowerSpectrumOverlap(PowerSpectrum):
         """Process a long vector of data as overlapping segments of
         length 2m."""
         nt = len(data)
-        nk = (nt-1)/self.m
+        nk = (nt-1)//self.m
         if nk > 1:
             delta_el = (nt-self.m2)/(nk-1.0)
         else:
@@ -243,7 +243,7 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
     """
 
     N = len(data)
-    M = N/(2*segfactor)
+    M = N//(2*segfactor)
     try:
         window = window(2*M)  # precompute
     except TypeError:
@@ -251,7 +251,8 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
 
     if segfactor == 1:
         spec = PowerSpectrum(M, dt=dt)
-        spec.addDataSegment(data, window=window)
+        #make sure the datasegment has even length
+        spec.addDataSegment(data[:2*(len(data)//2)], window=window)
     else:
         spec = PowerSpectrumOverlap(M, dt=dt)
         for i in range(2*segfactor-1):
