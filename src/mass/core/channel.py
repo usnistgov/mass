@@ -2157,8 +2157,8 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     else:
         downsample = 1
 
-    print ("Using %2d degrees for %6d photons (after %d downsample)" % (ndeg, N, downsample))
-    print ("That's %6.1f photons per degree, and %6.1f seconds per degree." % (N/float(ndeg), dtime/ndeg))
+    LOG.info("Using %2d degrees for %6d photons (after %d downsample)" % (ndeg, N, downsample))
+    LOG.info("That's %6.1f photons per degree, and %6.1f seconds per degree." % (N/float(ndeg), dtime/ndeg))
 
     def model1(pi, i, param, basis):
         pcopy = np.array(param)
