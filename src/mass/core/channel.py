@@ -506,6 +506,7 @@ class PulseRecords(object):
         if segment_num >= self.n_segments:
             return -1, -1
         first_pnum, end_pnum, data = self.datafile.read_segment(segment_num)
+
         self.data = data
         self.rowcount = self.datafile.rowcount
         try:
@@ -1674,6 +1675,10 @@ class MicrocalDataSet(object):
         self.data = self.pulse_records.data
         self.times = self.pulse_records.times
         self.rowcount = self.pulse_records.rowcount
+
+        # If you want to invert all data on read, then set self.invert_data=True.
+        if self.__dict__.get("invert_data", False):
+            self.data = ~self.data
         return first, end
 
     def clear_cache(self):

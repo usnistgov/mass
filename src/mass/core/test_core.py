@@ -128,6 +128,19 @@ class TestTESGroup(ut.TestCase):
         data.phase_correct()
         data.time_drift_correct()
 
+    def test_invert_data(self):
+        data = self.load_data()
+        ds = data.channel[1]
+        _ = ds.read_segment(0)
+        raw = ds.data
+        rawinv = 0xffff - raw
+
+        ds.clear_cache()
+        ds.invert_data = True
+        _ = ds.read_segment(0)
+        raw2 = ds.data
+        self.assertTrue(np.all(rawinv == raw2))
+
 class TestTESHDF5Only(ut.TestCase):
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 
