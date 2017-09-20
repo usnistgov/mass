@@ -165,6 +165,23 @@ class LineFitter(object):
 
         return fitparams, covariance
 
+    def setbounds(self, *args, **kwargs):
+        raise NotImplementedError("%s is an abstract base class; cannot be used without implementing setbounds"%type(self))
+
+    def _minBG0(self, params, ph):
+        """Lower bound for the bin-0 background.
+        It should be bounded IF the BG slope is held, but not otherwise."""
+        minBG0 = None
+        bg_slope_param = self.param_meaning["bg_slope"]
+        if bg_slope_param in self.hold:
+            bg_slope = params[bg_slope_param]
+            if bg_slope >= 0:
+                minBG0 = 0.0
+            else:
+                nbins = len(ph)
+                minBG0 = -bg_slope * (nbins-1)
+        return minBG0
+
     def result_string(self):
         """Return a string describing the fit result, including
         the value and uncertainty for each parameter.
@@ -307,6 +324,9 @@ class VoigtFitter(LineFitter):
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def setbounds(self, params, ph):
+        # bin-0 background should be bounded IF the BG slope is held
+        minBG0 = self._minBG0(params, ph)
+
         self.bounds = []
         DE = 10*(np.max(ph)-np.min(ph))
         self.bounds.append((0, 10*DE))  # Gauss FWHM
@@ -314,9 +334,9 @@ class VoigtFitter(LineFitter):
             self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
-        self.bounds.append((0, 10*DE))  # Lorentz FWHM
-        self.bounds.append((0, None))   # Amplitude
-        self.bounds.append((None, None))   # Background level (bin 0)
+        self.bounds.append((0, 10*DE))     # Lorentz FWHM
+        self.bounds.append((0, None))      # Amplitude
+        self.bounds.append((minBG0, None)) # Background level (bin 0)
         self.bounds.append((None, None))   # Background slope (counts/bin)
         self.bounds.append((0, 1))         # Tail fraction
         self.bounds.append((0, None))      # Tail scale length
@@ -385,6 +405,9 @@ class NVoigtFitter(LineFitter):
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def setbounds(self, params, ph):
+        # bin-0 background should be bounded IF the BG slope is held
+        minBG0 = self._minBG0(params, ph)
+
         self.bounds = []
         DE = 10*(np.max(ph)-np.min(ph))
         self.bounds.append((0, 10*DE))  # Gauss FWHM
@@ -392,7 +415,7 @@ class NVoigtFitter(LineFitter):
             self.bounds.append((np.min(ph), np.max(ph)))
             self.bounds.append((0, 10*DE))  # Lorentz FWHM
             self.bounds.append((0, None))  # Amplitude
-        self.bounds.append((None, None))   # Background level (bin 0)
+        self.bounds.append((minBG0, None)) # Background level (bin 0)
         self.bounds.append((None, None))   # Background slope (counts/bin)
         self.bounds.append((0, 1))         # Tail fraction
         self.bounds.append((0, None))      # Tail scale length
@@ -474,6 +497,9 @@ class GaussianFitter(LineFitter):
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def setbounds(self, params, ph):
+        # bin-0 background should be bounded IF the BG slope is held
+        minBG0 = self._minBG0(params, ph)
+
         self.bounds = []
         DE = 10*(np.max(ph)-np.min(ph))
         self.bounds.append((0, 10*DE))  # Gauss FWHM
@@ -481,8 +507,8 @@ class GaussianFitter(LineFitter):
             self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
-        self.bounds.append((0, None))   # Amplitude
-        self.bounds.append((None, None))   # Background level (bin 0)
+        self.bounds.append((0, None))      # Amplitude
+        self.bounds.append((minBG0, None)) # Background level (bin 0)
         self.bounds.append((None, None))   # Background slope (counts/bin)
         self.bounds.append((0, 1))         # Tail fraction
         self.bounds.append((0, None))      # Tail scale length
@@ -543,6 +569,9 @@ class MultiLorentzianComplexFitter(LineFitter):
         return eps
 
     def setbounds(self, params, ph):
+        # bin-0 background should be bounded IF the BG slope is held
+        minBG0 = self._minBG0(params, ph)
+
         self.bounds = []
         DE = 10*(np.max(ph)-np.min(ph))
         self.bounds.append((0, 10*DE))  # Gauss FWHM
@@ -550,9 +579,9 @@ class MultiLorentzianComplexFitter(LineFitter):
             self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
-        self.bounds.append((0, None))  # dPH/dE > 0
-        self.bounds.append((0, None))   # Amplitude
-        self.bounds.append((None, None))   # Background level (bin 0)
+        self.bounds.append((0, None))      # dPH/dE > 0
+        self.bounds.append((0, None))      # Amplitude
+        self.bounds.append((minBG0, None)) # Background level (bin 0)
         self.bounds.append((None, None))   # Background slope (counts/bin)
         self.bounds.append((0, 1))         # Tail fraction
         self.bounds.append((0, None))      # Tail scale length
