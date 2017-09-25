@@ -311,11 +311,50 @@ class NoiseRecords(object):
                     data_consumed = data_samples[0]-self.nSamples*first_pnum
                 if data_samples[1] < self.nSamples*end_pnum:
                     samples_this_segment = data_samples[1]-self.nSamples*first_pnum
-                data_mean = data[data_consumed:samples_this_segment].mean()
+
+                #
+                # umux data will "slip" flux quanta when pulses with a very
+                # fast leading edge occur. When this happens the baseline level
+                # that is returned to after a pulse may be an integer number of
+                # flux quanta different from the baseline level before the
+                # pulse. If this happens to noise data within a segment, the
+                # excursions algorithm will needlessly reject the entire segment.
+                #
+                # A naive thing is to simple replace each value with its value
+                # mod the flux quantum. But of the baseline value turns out to
+                # fluctuate about an integer number of flux quanta, this will
+                # introduce new jumps. The following commented code is one
+                # approach to solving this, but I've also found cases where it
+                # doesn't work.
+
+                '''
+                if flux_quantum != None:
+                    #import pylab as pl
+                    #pl.clf()
+                    #pl.plot(data)
+                    if np.amax(data) - np.amin(data) > flux_quantum / 2:
+                        corrected = data % (flux_quantum)
+                        if (np.amax(corrected) - np.amin(corrected)) > flux_quantum/2:
+                            corrected = (data + flux_quantum/4) % (flux_quantum)
+                            corrected = corrected - flux_quantum/4 + flux_quantum
+                        #data = corrected
+                    #pl.plot(data)
+                    #print 1/0
+                '''
+                
+                #
+                # A simpler way to solve the flux_jump problem is to calculate
+                # the data_mean at the chunk level instead of the segment
+                # level. This means that a jump will cause data for just that
+                # chunk to be thrown away, instead of for the entire segment
+                # containing the chunk.
+                # 
+                #data_mean = data[data_consumed:samples_this_segment].mean()
 
                 # Notice that the following loop might ignore the last data values, up to as many
                 # as (chunksize-1) values, unless the data are an exact multiple of chunksize.
                 while data_consumed+chunksize <= samples_this_segment:
+                    data_mean = data[data_consumed:data_consumed+chunksize].mean()
                     padded_data[:chunksize] = data[data_consumed:data_consumed+chunksize] - data_mean
                     data_consumed += chunksize
                     padded_data[chunksize:] = 0.0
@@ -330,6 +369,9 @@ class NoiseRecords(object):
                     entries += 1.0
                     if entries*chunksize > n_data:
                         break
+
+            if entries == 0:
+                raise Exception("Apparently all chunks had excusions, so no autocorrelation was computed")
 
             ac /= entries
             ac /= (np.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=np.float))
