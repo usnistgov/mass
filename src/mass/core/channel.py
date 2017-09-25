@@ -548,6 +548,7 @@ class PulseRecords(object):
         if segment_num >= self.n_segments:
             return -1, -1
         first_pnum, end_pnum, data = self.datafile.read_segment(segment_num)
+
         self.data = data
         self.rowcount = self.datafile.rowcount
         try:
@@ -1716,6 +1717,10 @@ class MicrocalDataSet(object):
         self.data = self.pulse_records.data
         self.times = self.pulse_records.times
         self.rowcount = self.pulse_records.rowcount
+
+        # If you want to invert all data on read, then set self.invert_data=True.
+        if self.__dict__.get("invert_data", False):
+            self.data = ~self.data
         return first, end
 
     def clear_cache(self):
@@ -2211,8 +2216,8 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     else:
         downsample = 1
 
-    print ("Using %2d degrees for %6d photons (after %d downsample)" % (ndeg, N, downsample))
-    print ("That's %6.1f photons per degree, and %6.1f seconds per degree." % (N/float(ndeg), dtime/ndeg))
+    LOG.info("Using %2d degrees for %6d photons (after %d downsample)" % (ndeg, N, downsample))
+    LOG.info("That's %6.1f photons per degree, and %6.1f seconds per degree." % (N/float(ndeg), dtime/ndeg))
 
     def model1(pi, i, param, basis):
         pcopy = np.array(param)

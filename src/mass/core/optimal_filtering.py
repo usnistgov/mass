@@ -446,7 +446,7 @@ class ExperimentalFilter(Filter):
         self.f_3db = f_3db
         self.variances = {}
 
-        self._compute_fourier_filter(fmax=fmax, f_3db=f_3db)
+        self._compute_fourier_filter()
 
         # Time domain filters
         if self.noise_autocorr is not None:

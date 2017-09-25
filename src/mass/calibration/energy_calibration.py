@@ -143,6 +143,12 @@ class EnergyCalibration(object):
             if np.isscalar(result):
                 return result
             return np.asscalar(result)
+
+        # Change any inf or NaN results to 0.0 energy.
+        if any(np.isnan(result)):
+            result[np.isnan(result)] = 0.0
+        if any(np.isinf(result)):
+            result[np.isinf(result)] = 0.0
         return np.array(result)
 
     def energy2ph(self, energy):

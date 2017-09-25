@@ -192,6 +192,21 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
         self.assertEqual(cal1._use_approximation, cal2._use_approximation)
         os.remove(fname)
 
+    def test_negative_inputs(self):
+        """Negative or zero pulse-heights shouldn't produce NaN or Inf energies."""
+        cal = mass.calibration.energy_calibration.EnergyCalibration()
+        for energy in np.linspace(3000, 6000, 10):
+            ph = energy**0.9
+            cal.add_cal_point(ph, energy)
+        cal.set_use_approximation(True)
+
+        ph = np.arange(-10, 10, dtype=float)*1000.
+        for ct in cal.CURVETYPE:
+            cal.set_curvetype(ct)
+            e = cal(ph)
+            self.assertFalse(any(np.isnan(e)))
+            self.assertFalse(any(np.isinf(e)))
+
 
 if __name__ == "__main__":
     unittest.main()
