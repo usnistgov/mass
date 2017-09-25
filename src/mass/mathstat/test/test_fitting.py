@@ -304,6 +304,23 @@ class Test_fit_kink(unittest.TestCase):
         self.assertLessEqual(abs(b-1), 0.1)
         self.assertLessEqual(abs(c), 0.1)
 
+class Test_Issue_125(unittest.TestCase):
+    """Test that issue 125 is fixed. The following fit used to take infinte time/memory.
+    If this returns, then consider that a passing test."""
+
+    def test_slowfit(self):
+        fitter = mass.MnKAlphaFitter()
+        x = np.linspace(5870.25, 5909.25, 80)
+        contents = np.array([36,  49,  39,  41,  46,  46,  42,  42,  46,  52,  51,  53,  54,  48,  58,  46,  57,  51,
+             61,   68,  63,  68,  73,  79,  66,  84,  78,  94,  84,  84,  74,  85,  76,  81,  83,  84,
+             100,  95,  93,  82,  74,  83,  93, 102,  98,  79, 100, 113,  95,  88, 104,  94,  95, 110,
+             112,  81, 106, 104, 110,  97, 105,  95, 103,  97,  95, 103,  84,  97,  79,  85,  84,  87,
+             80,   71,  77,  89,  83,  81,  59])
+        guess = [20, 5898, 1.0, 100, 20, 0, 0, 25]
+        _ = fitter.fit(contents, x, guess)
+
+        guess = [20, 5898, 1.0, 100, 20, 0, 0.1, .25]
+        _ = fitter.fit(contents, x, guess, vary_tail=True)
 
 if __name__ == "__main__":
     unittest.main()
