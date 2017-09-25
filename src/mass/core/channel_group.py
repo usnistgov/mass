@@ -1179,7 +1179,7 @@ class TESGroup(CutFieldMixin):
         for ds in self:
             ds.apply_cuts(cuts, forceNew)
 
-    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, forceNew=True, clearCuts=True):
+    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=True, clearCuts=True):
         """Automatically compute per-channel cuts and apply them to each valid dataset.
 
         See MicrocalDataSet.auto_cuts for further information.
@@ -1189,6 +1189,11 @@ class TESGroup(CutFieldMixin):
                 (default 8.0).
             nsigma_max_deriv (float): How big an excursion is allowed in max
                 post-peak derivative (default 8.0).
+            pretrig_rms_percentile (float): Make upper limit for
+                pretrig_rms at least as large as this percentile of the data. I.e.,
+                if you pass in 99, then the upper limit for pretrig_rms will exclude
+                no more than the 1 % largest values. This number is a percentage, *not*
+                a fraction.
             forceNew (bool): Whether to perform auto-cuts even if cuts already
                 exist (default Faulse).
             clearCuts (bool): Whether to clear any existing cuts first (default
@@ -1202,7 +1207,9 @@ class TESGroup(CutFieldMixin):
             if clearCuts:
                 ds.clear_cuts()
             ds.auto_cuts(nsigma_pt_rms=nsigma_pt_rms,
-                         nsigma_max_deriv=nsigma_max_deriv, forceNew=forceNew)
+                         nsigma_max_deriv=nsigma_max_deriv,
+                         pretrig_rms_percentile=pretrig_rms_percentile,
+                         forceNew=forceNew)
 
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         for ds in self:

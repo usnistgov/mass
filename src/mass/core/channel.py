@@ -1847,7 +1847,7 @@ class MicrocalDataSet(object):
             print("%d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
         print("%d pulses total" % self.nPulses)
 
-    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, forceNew=False):
+    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=False):
         """Compute and apply an appropriate set of automatically generated cuts.
 
         The peak time and rise time come from the measured most-common peak time.
@@ -1859,6 +1859,11 @@ class MicrocalDataSet(object):
                 (default 8.0).
             nsigma_max_deriv (float): How big an excursion is allowed in max
                 post-peak derivative (default 8.0).
+            pretrig_rms_percentile (float): Make upper limit for
+                pretrig_rms at least as large as this percentile of the data. I.e.,
+                if you pass in 99, then the upper limit for pretrig_rms will exclude
+                no more than the 1 % largest values. This number is a percentage, *not*
+                a fraction.
             forceNew (bool): Whether to perform auto-cuts even if cuts already exist.
 
         The two excursion limits are given in units of equivalent sigma from the
@@ -1896,6 +1901,14 @@ class MicrocalDataSet(object):
         pt_madn = np.median(np.abs(pretrigger_rms-pt_med))*1.4826
         md_max = md_med + md_madn*nsigma_max_deriv
         pt_max = max(0.0, pt_med + pt_madn*nsigma_pt_rms)
+
+        # Step 2.5: In the case of pretrig_rms, cut no more than pretrig_rms_percentile percent
+        # of the pulses on the upper end. This appears to be appropriate for
+        # SLEDGEHAMMER gamma devices, but may not be appropriate in cases where
+        # there are many pulses riding on tails, so by default we don't do
+        # this.
+        if pretrig_rms_percentile != None:
+            pt_max = max(pt_max, np.percentile(self.p_pretrig_rms, pretrig_rms_percentile))
 
         # Step 3: make the cuts
         cuts = mass.core.controller.AnalysisControl(
