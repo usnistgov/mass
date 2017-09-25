@@ -239,6 +239,8 @@ class MaximumLikelihoodHistogramFitter(object):
         Use 2-sided differences with steps of size self.epsilon away
         from the test point <p> at an array of points <x>.
 
+        The gradient will be zero for any parameters held (self.param_free[i] == False)
+
         Args:
             p (array): the parameters at which to find the gradient.
             x (array): the measured data values.
@@ -250,6 +252,9 @@ class MaximumLikelihoodHistogramFitter(object):
         npar = len(p)
         dyda = np.zeros((npar, nx), dtype=np.float)
         for i, dx in enumerate(self.epsilon):
+            # Don't compute gradient on parameters being held fixed
+            if not self.param_free[i]:
+                continue
             dxminus = dxplus = dx
             if self.upperbound[i] is not None and p[i] + dxplus >= self.upperbound[i]:
                 dxplus = .9*(self.upperbound[i]-p[i])
