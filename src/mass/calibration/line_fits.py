@@ -494,7 +494,7 @@ class GaussianFitter(LineFitter):
         def cleanspectrum_fn(x):
             return np.exp(-0.5*(x-P_phpeak)**2/(sigma**2))
 
-        spectrum = _smear_lowEtail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
+        spectrum = _smear_lowEtail(cleanspectrum_fn, x, 0, P_tailfrac, P_tailtau)
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def setbounds(self, params, ph):
