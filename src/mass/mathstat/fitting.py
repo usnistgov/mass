@@ -10,6 +10,7 @@ Joe Fowler, NIST
 
 import numpy as np
 import scipy as sp
+import time
 
 __all__ = ['MaximumLikelihoodHistogramFitter', 'kink_model', 'fit_kink_model']
 
@@ -74,7 +75,7 @@ class MaximumLikelihoodHistogramFitter(object):
     ITMAX = 1000
 
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None,
-                 epsilon=1e-5, TOL=1e-5):
+                 epsilon=1e-5, TOL=1e-5, timeout=30.0):
         """Initialize the fitter, making copies of the input data.
 
         Args:
@@ -91,6 +92,7 @@ class MaximumLikelihoodHistogramFitter(object):
             TOL: The fractional or absolute tolerance on the minimum "MLE Chi^2".
                 When self.DONE successive iterations fail to improve the MLE Chi^2 by this
                 much (absolutely or fractionally), then fitting will return successfully.
+            timeout: Fail if the fitting takes more than this many seconds.
         """
         self.x = np.array(x)
         self.ndat = len(x)
@@ -101,6 +103,7 @@ class MaximumLikelihoodHistogramFitter(object):
 
         self.mfit = 0
         self.nparam = len(params)
+        self.timeout = timeout
 
         # Handle bounded parameters with translations between internal (-inf,+inf) and bounded
         # parameters. Until and unless self.setbounds is called, we'll assume that no
@@ -308,6 +311,7 @@ class MaximumLikelihoodHistogramFitter(object):
         alpha, beta, prev_chisq = self._mrqcof(self.internal)
 
         atry = self.internal.copy()
+        t_start = time.time()
         for iter_number in range(self.ITMAX):
 
             alpha_prime = np.array(alpha)
@@ -366,6 +370,11 @@ class MaximumLikelihoodHistogramFitter(object):
                     print("No imprv: chisq=%9.4e >= %9.4e l=%.1e params=%s..." %
                           (trial_chisq, prev_chisq, lambda_coef, self.params[:2]))
                 self.chisq = prev_chisq
+
+            dt = time.time()-t_start
+            if dt > self.timeout:
+                raise RuntimeError("MaximumLikelihoodHistogramFitter.fit() timed out after %.2f sec (%d iterations)" %
+                                   (dt, iter_number))
 
         raise RuntimeError("MaximumLikelihoodHistogramFitter.fit() reached ITMAX=%d iterations" % self.ITMAX)
 
