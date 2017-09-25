@@ -1730,7 +1730,8 @@ class MicrocalDataSet(object):
         self.pulse_records.clear_cache()
 
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
-                    residual=False, valid_status=None, shift1=False, baseline_subtract=False, fcut=None):
+                    residual=False, valid_status=None, shift1=False,
+                    subtract_baseline=False, fcut=None):
         """Plot some example pulses, given by sample number.
 
         Args:
@@ -1742,6 +1743,8 @@ class MicrocalDataSet(object):
             <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                          that have been cut.  If "cut", show only those that have been cut.
             <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
+            <subtract_baseline>  Whether to subtract pretrigger mean prior to plotting the pulse
+            <fcut>  If not none, apply a lowpass filter with this cutoff frequency prior to plotting
         """
 
         if isinstance(pulsenums, int):
@@ -1796,10 +1799,12 @@ class MicrocalDataSet(object):
                 data -= model
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
-            if baseline_subtract:
-                data = data - np.mean(data[:500])
             if fcut != None:
-                data = filter(data, 62.5e3, fcut)
+                data = mass.core.analysis_algorithms.filter(data, 1./self.timebase, fcut)
+            if subtract_baseline:
+                # Recalculate the pretrigger mean here, to avoid issues due to flux slipping when
+                # plotting umux data
+                data = data - np.mean(data[:self.nPresamples - self.pretrigger_ignore_samples])
 
             cutchar, alpha, linestyle, linewidth = ' ', 1.0, '-', 1
 
@@ -2256,13 +2261,3 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     info["entropies"] = (H1, H2, H3)
     info["model"] = model
     return info
-
-def filter(sig_ddc, fs, fcut):
-    # simple filter in frequency domain
-    N = sig_ddc.shape[0]
-    SIG_DDC = np.fft.fft(sig_ddc)
-    freqs = (fs/N) * np.concatenate((np.arange(0,N/2+1), np.arange(N/2-1,0,-1)))
-    filt = np.zeros_like(SIG_DDC)
-    filt[freqs < fcut] = 1.0
-    sig_ddc_filt = np.fft.ifft(SIG_DDC * filt)
-    return sig_ddc_filt

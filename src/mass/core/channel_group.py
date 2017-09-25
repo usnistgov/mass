@@ -854,9 +854,11 @@ class TESGroup(CutFieldMixin):
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
     def plot_average_pulses(self, axis=None, channels=None, cmap=None, legend=True, fcut=None):
-        """Plot average pulse for channel number <channum> on matplotlib.Axes <axis>, or
-        on a new Axes if <axis> is None.  If <channum> is not a valid channel
-        number, then plot all average pulses.
+        """Plot average pulse for channel number <channum> on matplotlib.Axes
+        <axis>, or on a new Axes if <axis> is None. If <channum> is not a valid
+        channel number, then plot all average pulses. If <fcut> is not None,
+        then lowpass filter the traces with this cutoff frequency prior to
+        plotting.
         """
 
         if axis is None:
@@ -878,7 +880,7 @@ class TESGroup(CutFieldMixin):
             ds = self.channel[channum]
             avg_pulse = ds.average_pulse[:].copy()
             if fcut != None:
-                avg_pulse = filter(avg_pulse, 62.5e3, fcut)
+                avg_pulse = mass.core.analysis_algorithms.filter(avg_pulse, 1./self.timebase, fcut)
             plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
                      color=cmap(float(ds_num) / len(channels)))
 
@@ -1365,13 +1367,3 @@ class CrosstalkVeto(object):
         seconds.  Resolution is 1 ms for the veto."""
         index = np.asarray(times_sec * 1e3 - self.time0 + 0.5, dtype=np.int)
         return self.nhits[index] > 1
-
-def filter(sig_ddc, fs, fcut):
-    # simple filter in frequency domain
-    N = sig_ddc.shape[0]
-    SIG_DDC = np.fft.fft(sig_ddc)
-    freqs = (fs/N) * np.concatenate((np.arange(0,N/2+1), np.arange(N/2-1,0,-1)))
-    filt = np.zeros_like(SIG_DDC)
-    filt[freqs < fcut] = 1.0
-    sig_ddc_filt = np.fft.ifft(SIG_DDC * filt)
-    return sig_ddc_filt
