@@ -24,26 +24,27 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
     # convolution, which is computed using DFT methods.
     # A wider energy range must be used, or wrap-around effects of
     # tails will corrupt the model.
+    # Go 6*tau or up to 500 eV low; go res + tail (up to 50 eV) high, up to 1000 bins
     dx = x[1] - x[0]
-    nlow = int(min(P_tailtau, 100) * 6 / dx + 0.5)
+    nlow = int(min(P_tailtau*6, 500) / dx + 0.5)
     nhi = int((P_resolution + min(P_tailtau, 50)) / dx + 0.5)
-    nhi = min(3000, nhi)  # A practical limit
+    nhi = min(1000, nhi)  # A practical limit
     nlow = max(nlow, nhi)
-    lowx = np.arange(-nlow, 0) * dx + x[0]
-    highx = np.arange(1, nhi + 1) * dx + x[-1]
-    x_wide = np.hstack([lowx, x, highx])
+    x_wide = np.arange(-nlow, nhi+len(x)) * dx + x[0]
+
     freq = np.fft.rfftfreq(len(x_wide), d=dx)
     rawspectrum = cleanspectrum_fn(x_wide)
     ft = np.fft.rfft(rawspectrum)
     ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
     smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
-    smoothspectrum[smoothspectrum < 0] = 0  # in pathalogical cases, convolutuion can cause negative values
+    # in pathalogical cases, convolutuion can cause negative values
     # this is a hacky way to protect against that
+    smoothspectrum[smoothspectrum < 0] = 0
     return smoothspectrum[nlow:nlow + len(x)]
 
 
 def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
-    """Scale a spectrum and add a sloped background. BG<0 is replaced with BG->0."""
+    """Scale a spectrum and add a sloped background. BG<0 is replaced with BG=0."""
     bg = np.zeros_like(spectrum) + P_bg
     if P_bgslope != 0:
         bg += P_bgslope * np.arange(len(spectrum))
