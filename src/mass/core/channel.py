@@ -2126,10 +2126,11 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     """
     if limit is None:
         pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
-        limit = [0,1.25 * pct99]
+        limit = [0, 1.25 * pct99]
 
-    use = np.logical_and(uncorrected>limit[0], uncorrected<limit[1])
+    use = np.logical_and(uncorrected > limit[0], uncorrected < limit[1])
     tmin, tmax = np.min(time), np.max(time)
+
     def normalize(t):
         return (t-tmin)/(tmax-tmin)*2-1
 
@@ -2176,8 +2177,8 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     model = np.poly1d([0])
     info["coefficients"] = np.zeros(ndeg, dtype=float)
     for i in range(ndeg):
-        result,fval,iter,funcalls = sp.optimize.brent(cost1, (i, param, uncorrected, w, basis),
-            [-.001, .001], tol=1e-5, full_output=True)
+        result, fval, iter, funcalls = sp.optimize.brent(
+            cost1, (i, param, uncorrected, w, basis), [-.001, .001], tol=1e-5, full_output=True)
         param[i] = result
         fc += funcalls
         model += sp.special.legendre(i+1) * result

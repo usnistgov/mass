@@ -144,6 +144,7 @@ class TestTESGroup(ut.TestCase):
         raw2 = ds.data
         self.assertTrue(np.all(rawinv == raw2))
 
+
 class TestTESHDF5Only(ut.TestCase):
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 

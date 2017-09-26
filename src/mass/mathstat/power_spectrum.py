@@ -251,7 +251,7 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
 
     if segfactor == 1:
         spec = PowerSpectrum(M, dt=dt)
-        #make sure the datasegment has even length
+        # Ensure that the datasegment has even length
         spec.addDataSegment(data[:2*(len(data)//2)], window=window)
     else:
         spec = PowerSpectrumOverlap(M, dt=dt)

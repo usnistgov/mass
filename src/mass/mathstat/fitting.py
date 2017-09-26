@@ -473,15 +473,15 @@ def kink_model(k, x, y):
 
     Fails (raising ValueError) if k doesn't satisfy x.min() < k < x.max().
     """
-    xi = x[x<k]
-    yi = y[x<k]
-    xj = x[x>=k]
-    yj = y[x>=k]
+    xi = x[x < k]
+    yi = y[x < k]
+    xj = x[x >= k]
+    yj = y[x >= k]
     N = len(x)
     if len(xi) == 0 or len(xj) == 0:
         xmin = x.min()
         xmax = x.max()
-        raise ValueError("k=%g should be in range [xmin,xmax], or [%g,%g]."%(k, xmin, xmax))
+        raise ValueError("k=%g should be in range [xmin,xmax], or [%g,%g]." % (k, xmin, xmax))
 
     dxi = xi-k
     dxj = xj-k
@@ -493,7 +493,7 @@ def kink_model(k, x, y):
                   [si, si2, 0],
                   [sj, 0, sj2]])
     v = np.array([y.sum(), (yi*dxi).sum(), (yj*dxj).sum()])
-    a,b,c = abc = np.linalg.solve(A, v)
+    a, b, c = abc = np.linalg.solve(A, v)
     model = np.hstack([a+b*dxi, a+c*dxj])
     X2 = ((model-y)**2).sum()
     return model, abc, X2
@@ -541,9 +541,9 @@ def fit_kink_model(x, y, kbounds=None):
         kbounds = (x.min(), x.max())
     else:
         if kbounds[0] < x.min() or kbounds[1] > x.max():
-            raise ValueError("kbounds (%s) must be within the range of x data"%kbounds)
-    optimum = sp.optimize.minimize_scalar(penalty, args=(x,y), method="Bounded",
+            raise ValueError("kbounds (%s) must be within the range of x data" % kbounds)
+    optimum = sp.optimize.minimize_scalar(penalty, args=(x, y), method="Bounded",
                                           bounds=kbounds)
     kbest = optimum.x
     model, abc, X2 = kink_model(kbest, x, y)
-    return model, np.hstack([[kbest],abc]), X2
+    return model, np.hstack([[kbest], abc]), X2

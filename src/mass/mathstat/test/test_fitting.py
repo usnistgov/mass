@@ -269,14 +269,14 @@ class Test_fit_kink(unittest.TestCase):
         x = np.arange(10, dtype=float)
         y = np.array(x)
         truek = 4.6
-        y[x>truek] = truek
+        y[x > truek] = truek
         self.x = x
         self.y = y
         self.truek = truek
 
     def test_noisless_fit(self):
         """Make sure fit_kink_model gets very close to exact answer without noise."""
-        model, (kbest,a,b,c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, self.y, kbounds=(3,6))
+        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, self.y, kbounds=(3, 6))
         self.assertLessEqual(X2, 1e-8)
         self.assertLessEqual(abs(kbest-self.truek), 1e-5)
         self.assertLessEqual(abs(a-self.truek), 1e-5)
@@ -286,7 +286,7 @@ class Test_fit_kink(unittest.TestCase):
     def test_noisless_fit_no_bounds(self):
         """Make sure fit_kink_model gets very close to exact answer without noise and
         using maximal bounds."""
-        model, (kbest,a,b,c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, self.y, kbounds=None)
+        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, self.y, kbounds=None)
         self.assertLessEqual(X2, 1e-8)
         self.assertLessEqual(abs(kbest-self.truek), 1e-5)
         self.assertLessEqual(abs(a-self.truek), 1e-5)
@@ -297,12 +297,13 @@ class Test_fit_kink(unittest.TestCase):
         """Make sure fit_kink_model gets close enough to exact answer with noise."""
         np.random.seed(7474)
         noisy_y = self.y + np.random.standard_normal(len(self.x))*.2
-        model, (kbest,a,b,c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, noisy_y, kbounds=(3,6))
+        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, noisy_y, kbounds=(3, 6))
         self.assertLessEqual(X2, 1.0)
         self.assertLessEqual(abs(kbest-self.truek), 0.3)
         self.assertLessEqual(abs(a-self.truek), 0.3)
         self.assertLessEqual(abs(b-1), 0.1)
         self.assertLessEqual(abs(c), 0.1)
+
 
 class Test_Issue_125(unittest.TestCase):
     """Test that issue 125 is fixed. The following fit used to take infinte time/memory.
@@ -311,11 +312,12 @@ class Test_Issue_125(unittest.TestCase):
     def test_slowfit(self):
         fitter = mass.MnKAlphaFitter()
         x = np.linspace(5870.25, 5909.25, 80)
-        contents = np.array([36,  49,  39,  41,  46,  46,  42,  42,  46,  52,  51,  53,  54,  48,  58,  46,  57,  51,
-             61,   68,  63,  68,  73,  79,  66,  84,  78,  94,  84,  84,  74,  85,  76,  81,  83,  84,
-             100,  95,  93,  82,  74,  83,  93, 102,  98,  79, 100, 113,  95,  88, 104,  94,  95, 110,
-             112,  81, 106, 104, 110,  97, 105,  95, 103,  97,  95, 103,  84,  97,  79,  85,  84,  87,
-             80,   71,  77,  89,  83,  81,  59])
+        contents = np.array([
+            36,  49,  39,  41,  46,  46,  42,  42,  46,  52,  51,  53,  54,  48,  58,  46,  57,  51,
+            61,   68,  63,  68,  73,  79,  66,  84,  78,  94,  84,  84,  74,  85,  76,  81,  83,  84,
+            100,  95,  93,  82,  74,  83,  93, 102,  98,  79, 100, 113,  95,  88, 104,  94,  95, 110,
+            112,  81, 106, 104, 110,  97, 105,  95, 103,  97,  95, 103,  84,  97,  79,  85,  84,  87,
+            80,   71,  77,  89,  83,  81,  59])
         guess = [20, 5898, 1.0, 100, 20, 0, 0, 25]
         _ = fitter.fit(contents, x, guess)
 

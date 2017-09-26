@@ -167,7 +167,8 @@ class LineFitter(object):
         return fitparams, covariance
 
     def setbounds(self, *args, **kwargs):
-        raise NotImplementedError("%s is an abstract base class; cannot be used without implementing setbounds"%type(self))
+        msg = "%s is an abstract base class; cannot be used without implementing setbounds" % type(self)
+        raise NotImplementedError(msg)
 
     def _minBG0(self, params, ph):
         """Lower bound for the bin-0 background.
@@ -335,12 +336,12 @@ class VoigtFitter(LineFitter):
             self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
-        self.bounds.append((0, 10*DE))     # Lorentz FWHM
-        self.bounds.append((0, None))      # Amplitude
-        self.bounds.append((minBG0, None)) # Background level (bin 0)
-        self.bounds.append((None, None))   # Background slope (counts/bin)
-        self.bounds.append((0, 1))         # Tail fraction
-        self.bounds.append((0, None))      # Tail scale length
+        self.bounds.append((0, 10*DE))      # Lorentz FWHM
+        self.bounds.append((0, None))       # Amplitude
+        self.bounds.append((minBG0, None))  # Background level (bin 0)
+        self.bounds.append((None, None))    # Background slope (counts/bin)
+        self.bounds.append((0, 1))          # Tail fraction
+        self.bounds.append((0, None))       # Tail scale length
 
     def stepsize(self, params):
         eps = np.array((1e-3, params[0]/1e5, 1e-3, params[3]/1e5, 1e-3, 1e-3, 1e-4, 1e-2))
@@ -415,11 +416,11 @@ class NVoigtFitter(LineFitter):
         for _ in range(self.Nlines):
             self.bounds.append((np.min(ph), np.max(ph)))
             self.bounds.append((0, 10*DE))  # Lorentz FWHM
-            self.bounds.append((0, None))  # Amplitude
-        self.bounds.append((minBG0, None)) # Background level (bin 0)
-        self.bounds.append((None, None))   # Background slope (counts/bin)
-        self.bounds.append((0, 1))         # Tail fraction
-        self.bounds.append((0, None))      # Tail scale length
+            self.bounds.append((0, None))   # Amplitude
+        self.bounds.append((minBG0, None))  # Background level (bin 0)
+        self.bounds.append((None, None))    # Background slope (counts/bin)
+        self.bounds.append((0, 1))          # Tail fraction
+        self.bounds.append((0, None))       # Tail scale length
 
     def stepsize(self, params):
         epsilon = np.copy(params)
@@ -508,11 +509,11 @@ class GaussianFitter(LineFitter):
             self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
-        self.bounds.append((0, None))      # Amplitude
-        self.bounds.append((minBG0, None)) # Background level (bin 0)
-        self.bounds.append((None, None))   # Background slope (counts/bin)
-        self.bounds.append((0, 1))         # Tail fraction
-        self.bounds.append((0, None))      # Tail scale length
+        self.bounds.append((0, None))       # Amplitude
+        self.bounds.append((minBG0, None))  # Background level (bin 0)
+        self.bounds.append((None, None))    # Background slope (counts/bin)
+        self.bounds.append((0, 1))          # Tail fraction
+        self.bounds.append((0, None))       # Tail scale length
 
     def stepsize(self, params):
         eps = np.ones(self.nparam, dtype=float)
@@ -580,12 +581,12 @@ class MultiLorentzianComplexFitter(LineFitter):
             self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
-        self.bounds.append((0, None))      # dPH/dE > 0
-        self.bounds.append((0, None))      # Amplitude
-        self.bounds.append((minBG0, None)) # Background level (bin 0)
-        self.bounds.append((None, None))   # Background slope (counts/bin)
-        self.bounds.append((0, 1))         # Tail fraction
-        self.bounds.append((0, None))      # Tail scale length
+        self.bounds.append((0, None))       # dPH/dE > 0
+        self.bounds.append((0, None))       # Amplitude
+        self.bounds.append((minBG0, None))  # Background level (bin 0)
+        self.bounds.append((None, None))    # Background slope (counts/bin)
+        self.bounds.append((0, 1))          # Tail fraction
+        self.bounds.append((0, None))       # Tail scale length
 
     def plotFit(self, color=None, axis=None, label=""):
         """Plot the last fit and the data to which it was fit."""

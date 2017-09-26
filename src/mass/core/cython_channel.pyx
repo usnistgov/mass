@@ -195,7 +195,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
                 p_rise_times_array[j] = <float>(timebase * (high_idx - low_idx) *
                                                 (<double>peak_value) / (high_value - low_value))
             else:
-                p_rise_times_array[j] = <float>timebase
+                p_rise_times_array[j] = <float> timebase
 
             # Calculating the postpeak_deriv with a simple kernel
             # (f0, f1, f2 = 0, f3, f4) and spike_reject on.
