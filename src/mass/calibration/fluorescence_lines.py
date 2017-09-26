@@ -784,7 +784,7 @@ def plot_spectrum(spectrum=MnKAlpha(),
         if res < 8.12:
             pk2 = smeared_spectrum[np.abs(e - epk2) < 2].max()
             pval = smeared_spectrum[np.abs(e - evalley) < 3].min()
-            LOG.info("Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f" % (res, pk2 / p1, pval / pk2))
+            LOG.info("Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f", res, pk2 / p1, pval / pk2)
 
     plt.xlim(energy_range)
     plt.ylim([0, 1.13])
