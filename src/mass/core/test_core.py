@@ -9,6 +9,9 @@ import unittest as ut
 import mass
 from mass.core.ljh_modify import *
 
+import logging
+LOG = logging.getLogger("mass")
+
 
 class TestFiles(ut.TestCase):
 
@@ -71,8 +74,8 @@ class TestTESGroup(ut.TestCase):
             self.fail("Opening a file with all channels bad raises and Exception.")
         self.assertNotIn(1, data.good_channels)
         data.set_chan_good(1)
-        print("Testing printing of a TESGroup")
-        print(data)
+        LOG.info("Testing printing of a TESGroup")
+        LOG.info(data)
 
     def test_save_hdf5_calibration_storage(self):
         "calibrate a dataset, make sure it saves to hdf5"
@@ -128,6 +131,20 @@ class TestTESGroup(ut.TestCase):
         data.phase_correct()
         data.time_drift_correct()
 
+    def test_invert_data(self):
+        data = self.load_data()
+        ds = data.channel[1]
+        _ = ds.read_segment(0)
+        raw = ds.data
+        rawinv = 0xffff - raw
+
+        ds.clear_cache()
+        ds.invert_data = True
+        _ = ds.read_segment(0)
+        raw2 = ds.data
+        self.assertTrue(np.all(rawinv == raw2))
+
+
 class TestTESHDF5Only(ut.TestCase):
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 
@@ -146,8 +163,8 @@ class TestTESHDF5Only(ut.TestCase):
         del data
 
         data2 = mass.TESGroupHDF5(h5filename)
-        print("Testing printing of a TESGroupHDF5")
-        print(data2)
+        LOG.info("Testing printing of a TESGroupHDF5")
+        LOG.info(data2)
 
     def test_ordering_hdf5only(self):
         src_name = "src/mass/regression_test/regress_chan1.ljh"

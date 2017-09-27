@@ -57,15 +57,26 @@ class Test_Gaussian(unittest.TestCase):
         self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
 
+    def test_negative_background_issue126(self):
+        """This fit gives negative BG in all bins before the fix of issue #126."""
+        obs = np.exp(-0.5*(self.x-self.params[1])**2/(self.params[0]/2.3548)**2) + 0
+        param, covar = self.fitter.fit(obs, self.x, self.params, plot=True)
+        bg_bin0 = self.fitter.last_fit_params[-4]
+        bg_binEnd = bg_bin0 + (len(self.x)-1)*self.fitter.last_fit_params[-3]
+        self.assertTrue(bg_bin0 >= 0)
+        self.assertTrue(bg_binEnd >= 0)
+
 
 class Test_MnKA(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.line_fits.MnKAlphaFitter()
         self.distrib = mass.calibration.fluorescence_lines.MnKAlphaDistribution()
+        self.tempdir = tempfile.gettempdir()
+        mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
         np.random.seed(95)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17, bg=10,
-                nbins=150, vary_tail=False):
+                nbins=150, vary_bg_slope=False, vary_tail=False):
         bmin, bmax = 5875, 5910
 
         values = self.distrib.rvs(size=n)
@@ -82,13 +93,16 @@ class Test_MnKA(unittest.TestCase):
         params = np.array([resolution, 5898.8, 1.0, n, bg, 0, tailfrac, tailtau])
         twiddle = np.random.standard_normal(len(params))*[.05, .2, .001, n/1e3, 1,
                                                           0.001, .001, 0.1]
+        if not vary_bg_slope:
+            twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
+            twiddle[-3] = 0.0
         if not vary_tail:
-            twiddle[6:8] = 0.0
+            twiddle[-2:] = 0.0
         guess = params + twiddle
         plt.clf()
         ax = plt.subplot(111)
         pfit, covar = self.fitter.fit(obs, bins, guess, plot=True, axis=ax,
-                                      vary_tail=vary_tail)
+                                      vary_bg_slope=vary_bg_slope, vary_tail=vary_tail)
         plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
         plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
 
@@ -99,6 +113,10 @@ class Test_MnKA(unittest.TestCase):
     def test_tail(self):
         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=1)
         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_mnka2.pdf"))
+
+    def test_bg_slope(self):
+        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=False, vary_bg_slope=True)
+        plt.savefig(os.path.join(self.tempdir, "testfit_mnkb3.pdf"))
 
     def test_zero_bg(self):
         self.do_test(bg=0)
@@ -114,9 +132,11 @@ class Test_MnKB(unittest.TestCase):
         self.fitter = mass.calibration.line_fits.MnKBetaFitter()
         self.distrib = mass.calibration.fluorescence_lines.MnKBetaDistribution()
         np.random.seed(97)
+        self.tempdir = tempfile.gettempdir()
+        mass.logging.log(mass.logging.INFO, "K-beta fits stored to %s" % self.tempdir)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
-                bg=10, nbins=150, vary_tail=False):
+                bg=10, nbins=150, vary_bg_slope=False, vary_tail=False):
         bmin, bmax = 6460, 6510
 
         values = self.distrib.rvs(size=n)
@@ -133,23 +153,31 @@ class Test_MnKB(unittest.TestCase):
         params = np.array([resolution, 6490.5, 1.0, n, bg, 0, tailfrac, tailtau])
         twiddle = np.random.standard_normal(len(params))*[.0, .2, 0, n/1e3, 1,
                                                           0.001, .001, 0.1]
+        if not vary_bg_slope:
+            twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
+            twiddle[-3] = 0.0
         if not vary_tail:
-            twiddle[6:8] = 0.0
+            twiddle[-2:] = 0.0
         guess = params + twiddle
         plt.clf()
         ax = plt.subplot(111)
         pfit, covar = self.fitter.fit(obs, bins, guess, plot=True, axis=ax,
-                                      hold=(0, 2,), vary_tail=vary_tail)
+                                      hold=(0, 2,), vary_tail=vary_tail,
+                                      vary_bg_slope=vary_bg_slope)
         plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
         plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
 
     def test_basic(self):
         self.do_test()
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_mnkb1.pdf"))
+        plt.savefig(os.path.join(self.tempdir, "testfit_mnkb1.pdf"))
 
     def test_tail(self):
-        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=1)
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_mnkb2.pdf"))
+        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=True)
+        plt.savefig(os.path.join(self.tempdir, "testfit_mnkb2.pdf"))
+
+    def test_bg_slope(self):
+        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=False, vary_bg_slope=True)
+        plt.savefig(os.path.join(self.tempdir, "testfit_mnkb3.pdf"))
 
     def test_zero_bg(self):
         self.do_test(bg=0)
