@@ -6,7 +6,7 @@ There are two types of cut fields, _boolean_ and _categorical_.
 ```python
 # The following return boolean vectors, with one value per pulse:
 ds.good()  # works as normal; returns True is good by *all* boolean crieteria.
-ds.good("pretrigger_rms")  # returns True for pulses that are good by the "pretrigger_rms" critera.
+ds.good("pretrigger_rms")  # returns True for pulses that are good by the "pretrigger_rms" criterion.
             # Other boolean criteria are ignored
 
 # Change the contents of the "pretrigger_rms" cut field to match the values in boolvec
@@ -57,7 +57,7 @@ a pulse assigned to no category does actually have a category.
 
 Suppose you want to register a new categorical cut field. For example, in a pump-probe
 experiment you may want to cut based on optical pump status. First, you would register
-the name of the cut and the allowed values:
+the name of the cut and the allowed category values:
 
 ```python
 data.register_categorical_cut_field("pump",["pumped","unpumped"])
@@ -72,8 +72,8 @@ To assign categories, we do
 ds.cuts.cut_categorical("pump",{"pumped":pumped_bool,
                                 "unpumped":unpumped_bool})
 ```
-Here, `pumped_bool` is a 1 per pulse vector of bools,
-`True` for the pulse records that are pumped. If any pulses have `True` in both
+Here, `pumped_bool` and `unpumped_bool` are 1 per pulse vectors of booleans,
+`True` in `pumped_bool` for the pulse records that are pumped. `True` in `unpumped_bool` for the pulse records that are not pumped. If any pulses have `True` in both
 `pumped_bool` and `unpumped_bool`, the function will raise an error. If any pulses have
 `False` in both vectors, those pulses will be assigned to "uncategorized".
 
