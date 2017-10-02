@@ -10,8 +10,10 @@ This file last updated: April 10, 2017
 
 * How to download Mass
 * How to install Mass
+  * Installation on Ubuntu
+  * Installation on Windows for Python 3.5 or 3.6
   * Possible installation problems
-* How to import Mass within Python/Ipython
+* How to import Mass within Python/IPython
 * Package dependencies
 * Matplotlib preferences
 
@@ -154,7 +156,7 @@ ln -s ${TMPROOTDIR}/lib/python2.7/site-packages/numpy/core/include/numpy/ \
 Frank Schima believes this is a bug in the Cython project.
 
 
-## How to import MASS within Python or Ipython
+## How to import MASS within Python or IPython
 
 ```python
 >>> import mass
