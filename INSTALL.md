@@ -40,13 +40,13 @@ sudo python setup.py install
 ## How to Install MASS
 
 Mass is a  mostly Python system for analyzing microcalorimeter data.
-A small amount of code has been written in Cythonfor the
+A small amount of code has been written in Cython for the
 execution speed advantages of compiled code.
 
 The preferred approach is simply to use python setuptools to
 copy the Mass code to the known, standard install location.  You will
 probably need sudo power to do this, but the process is otherwise
-very simple.  From the top-level Mass directory (where you find this
+very simple. From the top-level Mass directory (where you find this
 file), you need only two commands:
 
 ```bash
@@ -92,6 +92,28 @@ sudo apt-get install python-qt4 ipython python-numpy python-matplotlib \
 ```
 
 
+### Installation on Windows for Python 3.5 or 3.6
+ Assuming that  you are using official CPython, you need a matching Visual Studio that is used to compile CPython against (,which is Visual Studio 2015. Community Edition works fine. And it's only tested with the community edition.) in order to build from the source.
+ I also assume that you are using a virtual environment.
+ You can download all necessary whl files from [here](http://www.lfd.uci.edu/~gohlke/pythonlibs/).
+ 
+ ```bash
+ # It will make a new foler and create new virtual environment in it.
+ {Python directory}\Scripts\virtualenv {your virtual environment folder}
+ # It enables the virtual environment that is just created.
+ {your virtual environment folder}\Scripts\activate 
+ # Install all dependencies into this virtual environment.
+ pip install numpy‑1.13.3+mkl‑cp36‑cp36m‑win_amd64.whl
+ 
+ ```
+ Start a Visual Studio Developer Prompt and enable the virtual environment having all dependencies and execute the `setup.py` file.
+ ```bash
+ {your virtual environment folder}\Scripts\activate
+ cd {Mass repo folder}
+ python setup.py install
+ ```
+ 
+ 
 ### Possible Installation Problems
 
 There is no limit to the possibilities.  One I have found, which seems like
