@@ -787,7 +787,7 @@ class MicrocalDataSet(object):
         if self.data is None:
             self.read_segment(0)
         peak_idx = self.data.argmax(axis=1)
-        self.peak_samplenumber = sp.stats.mode(peak_idx)[0][0]
+        self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
 
@@ -1045,8 +1045,9 @@ class MicrocalDataSet(object):
         def cost(slope, x, y):
             return mass.mathstat.entropy.laplace_entropy(y-x*slope, 0.002)
 
-        peak_sample = sp.stats.mode(self.p_peak_index).mode[0]
-        for samplenum in range(self.nPresamples+2, peak_sample):
+        if self.peak_samplenumber is None:
+            self._compute_peak_samplenumber()
+        for samplenum in range(self.nPresamples+2, self.peak_samplenumber):
             y = raw[:, samplenum]/rawscale
             bestslope = sp.optimize.brent(cost, (ATime, y), brack=[-.1, .25], tol=1e-7)
             model[samplenum, 1] = bestslope
