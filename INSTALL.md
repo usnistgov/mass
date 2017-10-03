@@ -87,26 +87,29 @@ Let me know what works for you!
 ### Installation on Ubuntu
 The following should get you the required packages:
 
+WARNING this it out of date. Ubuntu 14 can install older versions of key libraries like numpy. Use pip instead, and use
+Synaptics to uninstall python-numpy.
 ```
 sudo apt-get install python-qt4 ipython python-numpy python-matplotlib \
     python-scipy pyqt4-dev-tools cython gfortran python-sklearn python-h5py \
     python-statsmodels
 ```
+Also be aware that sometimes permissions can be messed up in /usr/lib/python2.7/dist-packages/
 
 
 ### Installation on Windows for Python 3.5 or 3.6
  Assuming that  you are using official CPython, you need a matching Visual Studio that is used to compile CPython against (,which is Visual Studio 2015. Community Edition works fine. And it's only tested with the community edition.) in order to build from the source.
  I also assume that you are using a virtual environment.
  You can download all necessary whl files from [here](http://www.lfd.uci.edu/~gohlke/pythonlibs/).
- 
+
  ```bash
  # It will make a new foler and create new virtual environment in it.
  {Python directory}\Scripts\virtualenv {your virtual environment folder}
  # It enables the virtual environment that is just created.
- {your virtual environment folder}\Scripts\activate 
+ {your virtual environment folder}\Scripts\activate
  # Install all dependencies into this virtual environment.
  pip install numpy‑1.13.3+mkl‑cp36‑cp36m‑win_amd64.whl
- 
+
  ```
  Start a Visual Studio Developer Prompt and enable the virtual environment having all dependencies and execute the `setup.py` file.
  ```bash
@@ -114,8 +117,8 @@ sudo apt-get install python-qt4 ipython python-numpy python-matplotlib \
  cd {Mass repo folder}
  python setup.py install
  ```
- 
- 
+
+
 ### Possible Installation Problems
 
 There is no limit to the possibilities.  One I have found, which seems like
