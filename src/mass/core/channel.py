@@ -2204,8 +2204,8 @@ def time_drift_correct(time, uncorrected, w, limit=None):
         "normalize": normalize,
         }
 
-    SEC_PER_DEGREE = 2000
-    PHOTONS_PER_DEGREE = 2000
+    SEC_PER_DEGREE = 100
+    PHOTONS_PER_DEGREE = 100
     MAX_DEGREES = 20
     dtime = tmax-tmin
     N = len(time)
