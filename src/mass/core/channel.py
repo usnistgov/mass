@@ -1852,7 +1852,8 @@ class MicrocalDataSet(object):
             info = time_drift_correct(self.p_timestamp[g], attr[g], w,
                                       limit=[0.5*pk, 2*pk])
             tnorm = info["normalize"](self.p_timestamp[:])
-            corrected = self.p_filt_value_phc[:]*(1+info["model"](tnorm))
+            #corrected = self.p_filt_value_phc[:]*(1+info["model"](tnorm))
+            corrected = attr[:]*(1+info["model"](tnorm))
             self.p_filt_value_tdc[:] = corrected
             self.time_drift_correct_info = info
         else:
