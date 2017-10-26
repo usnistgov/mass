@@ -661,7 +661,8 @@ class TESGroup(CutFieldMixin):
             ("p_pretrig_mean", 'Pretrig Mean', '#00ff26', None),
             ("p_postpeak_deriv", 'Max PostPk deriv', 'gold', [0, 700]),
             ("p_rise_time[:]*1e3", 'Rise time (ms)', 'orange', [0, 12]),
-            ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3, 9])
+            ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3, 9]),
+            ("p_peak_index[:]", 'Peak index', 'red', [600, 800])
         )
 
         quant_names = [p[1].lower().replace(" ", "") for p in plottables]
