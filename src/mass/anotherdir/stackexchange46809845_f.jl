@@ -1,0 +1,1 @@
+stackexchange46809845_f() = rand(1)
