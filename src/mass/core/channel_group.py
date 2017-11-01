@@ -1175,7 +1175,10 @@ class TESGroup(CutFieldMixin):
 
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         for ds in self:
-            ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
+            try:
+                ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "Failed to compute noise spectrum: %s" % e)
 
     def apply_cuts(self, cuts, forceNew=True):
         """Apply the cuts `cuts` to each valid dataset."""
