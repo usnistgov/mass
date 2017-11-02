@@ -254,6 +254,10 @@ class LineFitter(object):
     def last_fit_reduced_chisq(self):
         return self.last_fit_chisq/self.n_degree_of_freedom
 
+    @property
+    def last_fit_params_dict(self):
+        """return a dictionary mapping a param meaning (like "resolution") to a tuple of value and uncertainty"""
+        return {k:(self.last_fit_params[i], np.sqrt(self.last_fit_cov[i][i])) for (k,i) in self.param_meaning.items()}
 
 class VoigtFitter(LineFitter):
     """Fit a single Lorentzian line, with Gaussian smearing and potentially a low-E tail.

@@ -35,6 +35,9 @@ class Test_Gaussian(unittest.TestCase):
         self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
         self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
+        self.assertAlmostEqual(param[0], self.fitter.last_fit_params_dict["resolution"][0], 1)
+        self.assertAlmostEqual(param[1], self.fitter.last_fit_params_dict["peak_ph"][0], 1)
+        self.assertAlmostEqual(param[2], self.fitter.last_fit_params_dict["amplitude"][0], 1)
 
     def test_fit_offset(self):
         center = self.params[1]
