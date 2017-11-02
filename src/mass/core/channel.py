@@ -1783,12 +1783,16 @@ class MicrocalDataSet(object):
         self.read_segment(seg_num)
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
-    def time_drift_correct(self, attr="p_filt_value_phc", forceNew=False):
+    def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree = 2000,
+                           pulses_per_degree = 2000, max_degrees = 20, forceNew=False):
         """Drift correct over long times with an entropy-minimizing algorithm.
         Here we correct as a low-ish-order Legendre polynomial in time.
 
-        attr names the attribute of self that is to be corrected. (The result
-        will be stored in self.p_filt_value_tdc[:]).
+        attr: the attribute of self that is to be corrected. (The result
+                will be stored in self.p_filt_value_tdc[:]).
+        sec_per_degree: assign as many as one polynomial degree per this many seconds
+        pulses_per_degree: assign as many as one polynomial degree per this many pulses
+        max_degrees: never use more than this many degrees of Legendre polynomial.
 
         forceNew: whether to do this step, if it appears already to have been done.
         """
@@ -1802,7 +1806,7 @@ class MicrocalDataSet(object):
             info = time_drift_correct(self.p_timestamp[g], attr[g], w,
                                       limit=[0.5*pk, 2*pk])
             tnorm = info["normalize"](self.p_timestamp[:])
-            corrected = self.p_filt_value_phc[:]*(1+info["model"](tnorm))
+            corrected = attr[:]*(1+info["model"](tnorm))
             self.p_filt_value_tdc[:] = corrected
             self.time_drift_correct_info = info
         else:
@@ -2101,7 +2105,8 @@ def _phase_corrected_filtvals(phase, uncorrected, corrections):
     return corrected
 
 
-def time_drift_correct(time, uncorrected, w, limit=None):
+def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
+                       pulses_per_degree = 2000, max_degrees = 20, limit=None):
     """Compute a time-based drift correction that minimizes the spectral entropy.
 
     Args:
@@ -2109,16 +2114,19 @@ def time_drift_correct(time, uncorrected, w, limit=None):
         uncorrected: A filtered pulse height vector. Same length as indicator.
             Assumed to have some gain that is linearly related to indicator.
         w: the kernel width for the Laplace KDE density estimator
+        sec_per_degree: assign as many as one polynomial degree per this many seconds
+        pulses_per_degree: assign as many as one polynomial degree per this many pulses
+        max_degrees: never use more than this many degrees of Legendre polynomial.
         limit: The [lower,upper] limit of uncorrected values over which entropy is
             computed (default None).
 
     The entropy will be computed on corrected values only in the range
     [limit[0], limit[1]], so limit should be set to a characteristic large value
-    of uncorrected. If limit is None (the default), then in will be compute as
-    25% larger than the 99%ile point of uncorrected.
+    of uncorrected. If limit is None (the default), then it will be computed as
+    25%% larger than the 99%%ile point of uncorrected.
 
     Possible improvements in the future:
-    * Move this routine to Cython
+    * Move this routine to Cython.
     * Allow the parameters to be function arguments with defaults: photons per
       degree of freedom, seconds per degree of freedom, and max degrees of freedom.
     * Figure out how to span the available time with more than one set of legendre
@@ -2140,18 +2148,15 @@ def time_drift_correct(time, uncorrected, w, limit=None):
         "normalize": normalize,
         }
 
-    SEC_PER_DEGREE = 2000
-    PHOTONS_PER_DEGREE = 2000
-    MAX_DEGREES = 20
     dtime = tmax-tmin
     N = len(time)
-    ndeg = int(np.minimum(dtime/SEC_PER_DEGREE, N/PHOTONS_PER_DEGREE))
-    ndeg = min(ndeg, MAX_DEGREES)
+    ndeg = int(np.minimum(dtime/sec_per_degree, N/pulses_per_degree))
+    ndeg = min(ndeg, max_degrees)
     ndeg = max(ndeg, 1)
     phot_per_degree = N/float(ndeg)
 
-    if phot_per_degree >= 2*PHOTONS_PER_DEGREE:
-        downsample = int(phot_per_degree/PHOTONS_PER_DEGREE)
+    if phot_per_degree >= 2*pulses_per_degree:
+        downsample = int(phot_per_degree/pulses_per_degree)
         time = time[::downsample]
         uncorrected = uncorrected[::downsample]
         N = len(time)
