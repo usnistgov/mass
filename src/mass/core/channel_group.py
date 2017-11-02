@@ -405,6 +405,9 @@ class TESGroup(CutFieldMixin):
             self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] =  \
                 np.asarray(new_comment, dtype=np.bytes_)
 
+    def n_good_channels(self):
+        return self.n_channels - len(self._bad_channums.keys())
+
     @property
     def timestamp_offset(self):
         ts = set([ds.timestamp_offset for ds in self if ds.channum not in self._bad_channums])
