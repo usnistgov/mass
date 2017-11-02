@@ -1,3 +1,5 @@
+# example of how to use fisx to estimate the spectrum from a target
+
 from fisx import Elements
 from fisx import Material
 from fisx import Detector
