@@ -11,7 +11,6 @@ Joe Fowler, NIST
 import numpy as np
 import scipy as sp
 import time
-import sys
 
 __all__ = ['MaximumLikelihoodHistogramFitter', 'kink_model', 'fit_kink_model']
 
@@ -327,20 +326,16 @@ class MaximumLikelihoodHistogramFitter(object):
             try:
                 delta_params = sp.linalg.solve(alpha_prime, beta[self.param_free],
                                                overwrite_a=False, overwrite_b=False)
-            except (sp.linalg.LinAlgError, ValueError) as e:
-                # instead of printing, lets annotate the error message
-                # following https://stackoverflow.com/questions/6062576/adding-information-to-an-exception
-                s=""
-                s+= '\nalpha (lambda=%f, iteration %d) is singular or has NaN:' % (lambda_coef, iter_number)
-                s+= '\nInternal: ' + repr(self.internal)
-                s+= '\nParams: ' + repr(self.params)
-                s+= '\nLimits up: ' + repr(self.upperbound)
-                s+= '\nLimits dn: ' + repr(self.lowerbound)
-                s+= '\nFree: ' + repr(self.param_free)
-                s+= '\nAlpha-prime: ' + repr(alpha_prime)
-                s+= '\nBeta: ' + repr(beta)
-                raise type(e), type(e)(e.message + s), sys.exc_info()[2]
-                raise e
+            except (sp.linalg.LinAlgError, ValueError) as ex:
+                print('alpha (lambda=%f, iteration %d) is singular or has NaN:' % (lambda_coef, iter_number))
+                print('Internal: ', self.internal)
+                print('Params: ', self.params)
+                # print 'Limits up: ', self.upperbound
+                # print 'Limits dn: ', self.lowerbound
+                # print 'Free: ', self.param_free
+                # print 'Alpha-prime: ',alpha_prime
+                # print 'Beta: ', beta
+                raise ex
 
             # Did the trial succeed?
             atry[self.param_free] = self.internal[self.param_free] + delta_params

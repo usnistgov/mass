@@ -117,9 +117,6 @@ class LineFitter(object):
         # So just use the integers starting at zero.
         elif len(pulseheights) != len(data):
             pulseheights = np.arange(len(data), dtype=np.float)
-        #make sure these are available if the fit fails
-        self.last_fit_bins = pulseheights.copy()
-        self.last_fit_contents = data.copy()
 
         self.hold = hold
         if self.hold is None:
@@ -161,7 +158,8 @@ class LineFitter(object):
         self.last_fit_cov = covariance
         self.last_fit_chisq = fitter.chisq
         self.last_fit_result = self.fitfunc(fitparams, pulseheights)
-
+        self.last_fit_bins = pulseheights.copy()
+        self.last_fit_contents = data.copy()
 
         if plot:
             self.plot(color, axis, label, ph_units)
