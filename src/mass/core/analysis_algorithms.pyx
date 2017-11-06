@@ -774,29 +774,27 @@ def filter(sig, fs, fcut):
     sig_filt = np.fft.ifft(SIG * filt)
     return sig_filt
 
-def correct_flux_jumps(data, flux_quant=2**12):
-    '''Remove 'flux' jumps' from pretrigger mean. When a pulse is recorded that
-    has a very fast rising edge (e.g. a cosmic ray), the readout system will
-    "slip" an integer number of flux quanta. This means that the baseline level
-    returned to after the pulse will different from the pretrigger value by an
-    integer number of flux quanta. This causes that pretrigger mean summary
-    quantity to jump around in a way that causes trouble for the rest of MASS.
-    This function attempts to correct these jumps.
-    '''
-    for ds in data:
-        # remember original value, just in case we need it
-        ds.p_pretrig_mean_orig = ds.p_pretrig_mean[:]
+def correct_flux_jumps(vals, flux_quant):
+    '''Remove 'flux' jumps' from pretrigger mean.
 
-        # The naive thing is to simply replace each value with its value mod
-        # the flux quantum. But of the baseline value turns out to fluctuate
-        # about an integer number of flux quanta, this will introduce new
-        # jumps. I don't know the best way to handle this in general. For now,
-        # if there are still jumps after the mod, I add 1/4 of a flux quanta
-        # before modding, then mod, then subtract the 1/4 flux quantum and then
-        # *add* a single flux quantum so that the values never go negative.
-        if (np.amax(ds.p_pretrig_mean) - np.amin(ds.p_pretrig_mean)) > flux_quant/2:
-            corrected = ds.p_pretrig_mean[:] % (flux_quant)
-            if (np.amax(corrected) - np.amin(corrected)) > flux_quant/2:
-                corrected = (ds.p_pretrig_mean[:] + flux_quant/4) % (flux_quant)
-                corrected = corrected - flux_quant/4 + flux_quant
-            ds.p_pretrig_mean[:] = corrected
+    When using umux readout, if a pulse is recorded that has a very fast rising
+    edge (e.g. a cosmic ray), the readout system will "slip" an integer number
+    of flux quanta. This means that the baseline level returned to after the
+    pulse will different from the pretrigger value by an integer number of flux
+    quanta. This causes that pretrigger mean summary quantity to jump around in
+    a way that causes trouble for the rest of MASS. This function attempts to
+    correct these jumps.
+
+    Arguments:
+    vals -- array of values to correct
+    flux_quant -- size of 1 flux quanta
+
+    Returns:
+    Array with values corrected
+    '''
+    # The naive thing is to simply replace each value with its value mod the
+    # flux quantum. But if the baseline value turns out to fluctuate about an
+    # integer number of flux quanta, this will introduce new jumps. I don't
+    # know the best way to handle this in general, but so far I've found that
+    # using np.unwrap() is the the most reliable way to do this correction.
+    return np.unwrap(vals/2.**12 * (2*np.pi))/(2*np.pi)*2.**12
