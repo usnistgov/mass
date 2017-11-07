@@ -75,9 +75,17 @@ class LineFitter(object):
 
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None,
             color=None, label=True, vary_resolution=True, vary_bg=True,
-            vary_bg_slope=False, vary_tail=False, hold=None, verbose=False, ph_units="arb"):
+            vary_bg_slope=False, vary_tail=False, hold=None, verbose=False, ph_units="arb",
+            rethrow=False):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
+
+        On a succesful fit self.fit_success is set to True. You can use self.plot() after the fact
+        to make the same plot as if you passed plot=True.
+
+        On a failed fit, self.fit_success is set to False. self.failed_fit_exception contains the exception thrown.
+        self.plot will still work, and will indicate a failed fit. You can disable this behavior, and just have it throw an exception
+        if you pass rethrow=True.
 
         Args:
             pulseheights -- the histogram bin centers or bin edges.
@@ -101,6 +109,7 @@ class LineFitter(object):
             hold:      A sequence of parameter numbers to keep fixed.  Resolution, BG
                        BG slope, or tail will be held if relevant parameter number
                        appears in the hold sequence OR if relevant boolean vary_* tests False.
+            rethrow: Throw any generated exceptions instead of catching them and setting fit_success=False.
 
         Returns:
             (fitparams, covariance)
@@ -133,38 +142,55 @@ class LineFitter(object):
             self.hold.add(self.param_meaning["tail_frac"])
             self.hold.add(self.param_meaning["tail_length"])
 
-        try:
-            len(params) == self.nparam
-        except:
-            params = self.guess_starting_params(data, pulseheights)
+        if (params is not None) and (not len(params) == self.nparam):
+            raise ValueError("params has wrong length")
 
-        # Max-likelihood histogram fitter
-        epsilon = self.stepsize(params)
-        fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
-                                                  self.fitfunc, TOL=1e-4, epsilon=epsilon)
-        self.setbounds(params, pulseheights)
-        for i, b in enumerate(self.bounds):
-            fitter.setbounds(i, b[0], b[1])
-
-        for h in self.hold:
-            fitter.hold(h)
-
-        if self.penalty_function is not None:
-            fitter.set_penalty(self.penalty_function)
-
-        fitparams, covariance = fitter.fit(verbose=verbose)
-
-        self.last_fit_params = fitparams
-        self.last_fit_cov = covariance
-        self.last_fit_chisq = fitter.chisq
-        self.last_fit_result = self.fitfunc(fitparams, pulseheights)
         self.last_fit_bins = pulseheights.copy()
         self.last_fit_contents = data.copy()
+        try:
+            if params is None:
+                params = self.guess_starting_params(data, pulseheights)
+
+            # Max-likelihood histogram fitter
+            epsilon = self.stepsize(params)
+            fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
+                                                      self.fitfunc, TOL=1e-4, epsilon=epsilon)
+            self.setbounds(params, pulseheights)
+            for i, b in enumerate(self.bounds):
+                fitter.setbounds(i, b[0], b[1])
+
+            for h in self.hold:
+                fitter.hold(h)
+
+            if self.penalty_function is not None:
+                fitter.set_penalty(self.penalty_function)
+
+            self.last_fit_params, self.last_fit_cov = fitter.fit(verbose=verbose)
+            self.fit_success = True
+            self.last_fit_chisq = fitter.chisq
+            self.last_fit_result = self.fitfunc(self.last_fit_params, self.last_fit_bins)
+        except Exception as e:
+            if rethrow:
+                raise e
+            self.fit_success = False
+            self.last_fit_params = np.ones(self.nparam)*np.nan
+            self.last_fit_cov = np.ones((self.nparam,self.nparam))*np.nan
+            self.last_fit_chisq = np.nan
+            self.last_fit_result = np.ones(self.nparam)*np.nan
+
+            self.failed_fit_exception = e
+            self.failed_fit_params = params
+            if params is None:
+                self.failed_fit_starting_fitfunc = np.ones(len(self.last_fit_contents))*np.nan
+            else:
+                self.failed_fit_starting_fitfunc = self.fitfunc(self.failed_fit_params, self.last_fit_bins)
+
+
 
         if plot:
             self.plot(color, axis, label, ph_units)
 
-        return fitparams, covariance
+        return self.last_fit_params, self.last_fit_cov
 
     def setbounds(self, *args, **kwargs):
         msg = "%s is an abstract base class; cannot be used without implementing setbounds" % type(self)
@@ -204,6 +230,17 @@ class LineFitter(object):
         slabel += "reduced chisq %4g" % self.last_fit_reduced_chisq
         return slabel
 
+    def _plot_failed_fit(self, color, axis, label, ph_units):
+        """ Overrides part of self.plot if self.fit_success==False """
+        plot_as_stepped_hist(axis, self.last_fit_contents, self.last_fit_bins, color=color)
+        axis.plot(self.last_fit_bins, self.failed_fit_starting_fitfunc, color='m',
+                  label="failed fit\nguess params shown")
+        ph_binsize = self.last_fit_bins[1] - self.last_fit_bins[0]
+        axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize, self.last_fit_bins[-1] + 0.5 * ph_binsize])
+        axis.set_xlabel("energy (%s)" % ph_units)
+        axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
+        axis.legend(loc="best",frameon=False)
+
     def plot(self, color=None, axis=None, label=True, ph_units="arb"):
         """Plot the fit.
 
@@ -214,21 +251,24 @@ class LineFitter(object):
                 "full" includes more info than True
             ph_units = used for the ylabel
         """
+
         if color is None:
             color = 'blue'
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
+        if not self.fit_success: return self._plot_failed_fit(color,axis,label,ph_units)
 
         plot_as_stepped_hist(axis, self.last_fit_contents, self.last_fit_bins, color=color)
         ph_binsize = self.last_fit_bins[1] - self.last_fit_bins[0]
         axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize, self.last_fit_bins[-1] + 0.5 * ph_binsize])
+        axis.set_xlabel("energy (%s)" % ph_units)
+        axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
+
         pnum_res = self.param_meaning["resolution"]
         slabel = ""
-
         if label == "full":
             slabel = self.result_string()
-
         elif label and pnum_res not in self.hold:
             pnum_tf = self.param_meaning["tail_frac"]
             res = self.last_fit_params[pnum_res]
@@ -241,9 +281,6 @@ class LineFitter(object):
                   label=slabel)
         if slabel:
             axis.legend(loc='best', frameon=False)
-
-        plt.xlabel("energy (%s)" % ph_units)
-        plt.ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
 
     @property
     def n_degree_of_freedom(self):
