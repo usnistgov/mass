@@ -774,7 +774,7 @@ def filter(sig, fs, fcut):
     sig_filt = np.fft.ifft(SIG * filt)
     return sig_filt
 
-def correct_flux_jumps(vals, flux_quant):
+def correct_flux_jumps(vals, g, flux_quant):
     '''Remove 'flux' jumps' from pretrigger mean.
 
     When using umux readout, if a pulse is recorded that has a very fast rising
@@ -787,14 +787,29 @@ def correct_flux_jumps(vals, flux_quant):
 
     Arguments:
     vals -- array of values to correct
+    g -- mask indentifying "good" pulses
     flux_quant -- size of 1 flux quanta
 
     Returns:
     Array with values corrected
     '''
-    # The naive thing is to simply replace each value with its value mod the
-    # flux quantum. But if the baseline value turns out to fluctuate about an
-    # integer number of flux quanta, this will introduce new jumps. I don't
-    # know the best way to handle this in general, but so far I've found that
-    # using np.unwrap() is the the most reliable way to do this correction.
-    return np.unwrap(vals/2.**12 * (2*np.pi))/(2*np.pi)*2.**12
+    # The naive thing is to simply replace each value with its value mod
+    # the flux quantum. But of the baseline value turns out to fluctuate
+    # about an integer number of flux quanta, this will introduce new
+    # jumps. I don't know the best way to handle this in general. For now,
+    # if there are still jumps after the mod, I add 1/4 of a flux quanta
+    # before modding, then mod, then subtract the 1/4 flux quantum and then
+    # *add* a single flux quantum so that the values never go negative.
+    #
+    # To determine whether there are "still jumps after the mod" I look at the
+    # difference between the largest and smallest values for "good" pulses. If
+    # you don't exclude "bad" pulses, this check can be tricked in cases where
+    # the pretrigger section contains a (sufficiently large) tail.
+    if (np.amax(vals) - np.amin(vals)) >= flux_quant:
+        corrected = vals % (flux_quant)
+        if (np.amax(corrected[g]) - np.amin(corrected[g])) > 0.75*flux_quant:
+            corrected = (vals + flux_quant/4) % (flux_quant)
+            corrected = corrected - flux_quant/4 + flux_quant
+        return corrected
+    else:
+        return vals

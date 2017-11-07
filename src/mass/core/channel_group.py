@@ -1249,7 +1249,7 @@ class TESGroup(CutFieldMixin):
                 m[stop_at+1:] = False
         self.compute_average_pulse(masks, forceNew=forceNew)
 
-    def correct_flux_jumps(self, flux_quant=2**12):
+    def correct_flux_jumps(self, flux_quant):
         '''Remove 'flux' jumps' from pretrigger mean.
     
         When using umux readout, if a pulse is recorded that has a very fast
@@ -1261,12 +1261,12 @@ class TESGroup(CutFieldMixin):
         rest of MASS. This function attempts to correct these jumps.
     
         Arguments:
-        flux_quant -- size of 1 flux quanta (defaults to 2**12)
+        flux_quant -- size of 1 flux quantum
         '''
         for ds in self:
             # remember original value, just in case we need it
             ds.p_pretrig_mean_orig = ds.p_pretrig_mean[:]
-            corrected = mass.core.analysis_algorithms.correct_flux_jumps(ds.p_pretrig_mean[:], flux_quant)
+            corrected = mass.core.analysis_algorithms.correct_flux_jumps(ds.p_pretrig_mean[:], ds.good(), flux_quant)
             ds.p_pretrig_mean[:] = corrected
 
     def drift_correct(self, forceNew=False, category=None):
