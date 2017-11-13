@@ -19,6 +19,11 @@ The documentation of mass is a work in progress, it is worth reviewing. It is ea
 2. [Add to (or write a new) .md file.](http://commonmark.org/help/)
   * put a header (line starting with pound) as the first line
   * again, poorly formatted markdown is better than no markdown  
+  * [link to WYSIWIG online markdown editor/viewer.](https://dillinger.io/) Just copy and paste once it looks like you want it to.
+  * look in mass/doc for .md files
+3. Submit a pull request with your changes (or just copy and paste it into an issue with a description of where it goes, and I'll do the git work)
+
+After that I (Galen) will update the docs page with your changes.
 
 # Intro
 
