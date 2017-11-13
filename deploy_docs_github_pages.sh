@@ -17,6 +17,6 @@ mv ./docs/build/html/* ./
 rm -rf ./docs
 git add -A
 git commit -m "publishing updated docs..."
-git push github gh-pages
+git push -u github gh-pages
 # switch back
 git checkout docs
