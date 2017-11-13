@@ -12,8 +12,8 @@ git push github docs
 git checkout gh-pages
 rm -rf .
 touch .nojekyll
-git checkout docs docs/build/html
-mv ./docs/build/html/* ./
+git checkout docs docs/_build/html
+mv ./docs/_build/html/* ./
 rm -rf ./docs
 git add -A
 git commit -m "publishing updated docs..."
