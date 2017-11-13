@@ -1,5 +1,4 @@
 test:
   script:
-  - apt-get install -y python-pip
   - pip install -r requirements.txt
   - python manage.py test
