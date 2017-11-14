@@ -242,8 +242,10 @@ class LineFitter(object):
         if slabel:
             axis.legend(loc='best', frameon=False)
 
-        plt.xlabel("energy (%s)" % ph_units)
-        plt.ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
+        # plt.xlabel("energy (%s)" % ph_units)
+        # plt.ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
+        axis.set_xlabel("energy (%s)" % ph_units)
+        axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
 
     @property
     def n_degree_of_freedom(self):
