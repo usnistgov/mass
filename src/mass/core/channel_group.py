@@ -393,6 +393,10 @@ class TESGroup(CutFieldMixin):
         Args:
             *args  Arguments to this function are integers or containers of integers.  Each
                 integer is added to the bad-channels list.
+
+        Examples:
+            data.set_chan_bad(1, "too few good pulses")
+            data.set_chan_bad(103, [1, 3, 5], "detector unstable")
         """
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args
                                     if not isinstance(x, six.string_types)])
