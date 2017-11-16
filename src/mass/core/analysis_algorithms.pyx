@@ -810,6 +810,7 @@ def correct_flux_jumps(vals, g, flux_quant):
         if (np.amax(corrected[g]) - np.amin(corrected[g])) > 0.75*flux_quant:
             corrected = (vals + flux_quant/4) % (flux_quant)
             corrected = corrected - flux_quant/4 + flux_quant
+        corrected = corrected - (corrected[0] - vals[0])
         return corrected
     else:
         return vals
