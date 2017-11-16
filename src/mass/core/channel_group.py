@@ -1324,9 +1324,12 @@ class TESGroup(CutFieldMixin):
         for ds in self:
             ds.convert_to_energy(attr, calname)
 
-    def time_drift_correct(self, attr='p_filt_value_phc', forceNew=False):
+    def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree = 2000,
+                           pulses_per_degree = 2000, max_degrees = 20, forceNew=False):
         for ds in self:
-            ds.time_drift_correct(attr, forceNew)
+            ds.time_drift_correct(attr=attr, sec_per_degree=sec_per_degree,
+                                  pulses_per_degree=pulses_per_degree,
+                                  max_degrees=max_degrees, forceNew=forceNew)
 
     def plot_count_rate(self, bin_s=60, title=""):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
