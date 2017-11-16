@@ -320,36 +320,12 @@ class NoiseRecords(object):
                 # pulse. If this happens to noise data within a segment, the
                 # excursions algorithm will needlessly reject the entire segment.
                 #
-                # A naive thing is to simple replace each value with its value
-                # mod the flux quantum. But of the baseline value turns out to
-                # fluctuate about an integer number of flux quanta, this will
-                # introduce new jumps. The following commented code is one
-                # approach to solving this, but I've also found cases where it
-                # doesn't work.
-
-                '''
-                if flux_quantum != None:
-                    #import pylab as pl
-                    #pl.clf()
-                    #pl.plot(data)
-                    if np.amax(data) - np.amin(data) > flux_quantum / 2:
-                        corrected = data % (flux_quantum)
-                        if (np.amax(corrected) - np.amin(corrected)) > flux_quantum/2:
-                            corrected = (data + flux_quantum/4) % (flux_quantum)
-                            corrected = corrected - flux_quantum/4 + flux_quantum
-                        #data = corrected
-                    #pl.plot(data)
-                    #print 1/0
-                '''
-                
-                #
-                # A simpler way to solve the flux_jump problem is to calculate
-                # the data_mean at the chunk level instead of the segment
-                # level. This means that a jump will cause data for just that
-                # chunk to be thrown away, instead of for the entire segment
-                # containing the chunk.
+                # Ideally we would recognize and "correct" these flux jumps.
+                # But for now, I am calculating `data_mean` at the chunk level
+                # instead of the segment level. This means that a jump will
+                # cause data for just that chunk to be thrown away, instead of
+                # for the entire segment containing the chunk.
                 # 
-                #data_mean = data[data_consumed:samples_this_segment].mean()
 
                 # Notice that the following loop might ignore the last data values, up to as many
                 # as (chunksize-1) values, unless the data are an exact multiple of chunksize.
