@@ -111,8 +111,8 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
 def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_ev):
     """Call build_fit_ranges() to get (lo,hi) for fitranges in energy units,
     then convert to ph using approx_ecal"""
-    e_e, fit_lo_hi_energy, slopes_de_dph = build_fit_ranges(line_names, excluded_line_names,
-                                                     approx_ecal, fit_width_ev)
+    e_e, fit_lo_hi_energy, slopes_de_dph = build_fit_ranges(
+        line_names, excluded_line_names,  approx_ecal, fit_width_ev)
     fit_lo_hi_ph = []
     for lo, hi in fit_lo_hi_energy:
         lo_ph = approx_ecal.energy2ph(lo)

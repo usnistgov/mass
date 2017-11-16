@@ -61,8 +61,8 @@ fitter = mass.GaussianFitter()
 guess_params = [fwhm, mu, hist.max(), 0, 0, 0.0, 25]
 params, covariance = fitter.fit(hist, bin_ctr, guess_params)
 for i, gp in enumerate(guess_params):
-    LOG.info("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
-             (i, gp, params[i], covariance[i, i]**.5))
+    LOG.info("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f",
+             i, gp, params[i], covariance[i, i]**.5)
 
 # Compute the model function and plot it in red.
 model = fitter.last_fit_result
@@ -88,7 +88,7 @@ mass.plot_as_stepped_hist(axis, hist, bin_ctr, color='blue')
 
 color = 'red', 'gold', 'green'
 title = 'No BG', 'Constant BG', 'Sloped BG'
-LOG.info('True parameter values: FWHM=%.4f Ctr=%.4f' % (fwhm, mu))
+LOG.info('True parameter values: FWHM=%.4f Ctr=%.4f', fwhm, mu)
 for nbg in (0, 1, 2):
     vary_bg_slope = (nbg == 2)
     hold = []
@@ -98,10 +98,10 @@ for nbg in (0, 1, 2):
         guess_params[3] = 12.0
     params, covariance = fitter.fit(hist, bin_ctr, guess_params, hold=hold,
                                     plot=False, vary_bg_slope=vary_bg_slope)
-    LOG.info("Model: %s" % title[nbg])
+    LOG.info("Model: %s", title[nbg])
     for i, gp in enumerate(guess_params[:5]):
-        LOG.info("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f" %
-                 (i, gp, params[i], covariance[i, i]**.5))
+        LOG.info("Param %d: initial guess %8.4f estimate %8.4f  uncertainty %8.4f",
+                 i, gp, params[i], covariance[i, i]**.5)
     LOG.info("")
 
     # Compute the model function and plot it in red.
@@ -125,8 +125,8 @@ fitter = mass.calibration.VoigtFitter()
 true_params = [1e-6, mu, fullwidth, histc.max(), 0.0, 0.0, 0.0, 25]
 params, covariance = fitter.fit(histc, bin_ctr, true_params, hold=(0,), plot=True)
 for i, tp in enumerate(true_params):
-    LOG.info("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-             (i, tp, params[i], covariance[i, i]**.5))
+    LOG.info("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f",
+             i, tp, params[i], covariance[i, i]**.5)
 
 # <demo> stop
 
@@ -139,8 +139,8 @@ bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 true_params[0] = sigma*2.3548
 params, covariance = fitter.fit(histv, bin_ctr, true_params, plot=True)
 for i, tp in enumerate(true_params):
-    LOG.info("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-             (i, tp, params[i], covariance[i, i]**.5))
+    LOG.info("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f",
+             i, tp, params[i], covariance[i, i]**.5)
 
 # <demo> stop
 
@@ -162,8 +162,8 @@ param_guess = true_params * 1+np.random.standard_normal(11)*0.03
 
 params, covariance = fitter.fit(histc, bin_ctr, param_guess)
 for i, tp in enumerate(true_params):
-    LOG.info("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f" %
-             (i, tp, params[i], covariance[i, i]**.5))
+    LOG.info("Param %d: true value %8.4f estimate %8.4f  uncertainty %8.4f",
+             i, tp, params[i], covariance[i, i]**.5)
 
 if not wasinteractive:
     plt.ioff()

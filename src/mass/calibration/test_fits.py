@@ -60,12 +60,11 @@ class Test_Gaussian(unittest.TestCase):
     def test_negative_background_issue126(self):
         """This fit gives negative BG in all bins before the fix of issue #126."""
         obs = np.exp(-0.5*(self.x-self.params[1])**2/(self.params[0]/2.3548)**2) + 0
-        param,covar = self.fitter.fit(obs, self.x, self.params, plot=True)
+        param, covar = self.fitter.fit(obs, self.x, self.params, plot=True)
         bg_bin0 = self.fitter.last_fit_params[-4]
         bg_binEnd = bg_bin0 + (len(self.x)-1)*self.fitter.last_fit_params[-3]
         self.assertTrue(bg_bin0 >= 0)
         self.assertTrue(bg_binEnd >= 0)
-
 
 
 class Test_MnKA(unittest.TestCase):
@@ -73,7 +72,7 @@ class Test_MnKA(unittest.TestCase):
         self.fitter = mass.calibration.line_fits.MnKAlphaFitter()
         self.distrib = mass.calibration.fluorescence_lines.MnKAlphaDistribution()
         self.tempdir = tempfile.gettempdir()
-        mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s"%self.tempdir)
+        mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
         np.random.seed(95)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17, bg=10,
@@ -95,7 +94,7 @@ class Test_MnKA(unittest.TestCase):
         twiddle = np.random.standard_normal(len(params))*[.05, .2, .001, n/1e3, 1,
                                                           0.001, .001, 0.1]
         if not vary_bg_slope:
-            twiddle[-4] = abs(twiddle[-4]) # non-negative BG guess
+            twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
             twiddle[-3] = 0.0
         if not vary_tail:
             twiddle[-2:] = 0.0
@@ -134,7 +133,7 @@ class Test_MnKB(unittest.TestCase):
         self.distrib = mass.calibration.fluorescence_lines.MnKBetaDistribution()
         np.random.seed(97)
         self.tempdir = tempfile.gettempdir()
-        mass.logging.log(mass.logging.INFO, "K-beta fits stored to %s"%self.tempdir)
+        mass.logging.log(mass.logging.INFO, "K-beta fits stored to %s" % self.tempdir)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
                 bg=10, nbins=150, vary_bg_slope=False, vary_tail=False):
@@ -155,7 +154,7 @@ class Test_MnKB(unittest.TestCase):
         twiddle = np.random.standard_normal(len(params))*[.0, .2, 0, n/1e3, 1,
                                                           0.001, .001, 0.1]
         if not vary_bg_slope:
-            twiddle[-4] = abs(twiddle[-4]) # non-negative BG guess
+            twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
             twiddle[-3] = 0.0
         if not vary_tail:
             twiddle[-2:] = 0.0

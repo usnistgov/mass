@@ -14,7 +14,8 @@ Started March 24, 2011
 
 import numpy as np
 
-__all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky_golay']
+__all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky_golay',
+           'find_svd_randomly', 'find_range_randomly']
 
 
 class CheckForMissingLibrary(object):
@@ -163,3 +164,43 @@ def savitzky_golay(y, window_size, order, deriv=0):
     lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
     y = np.concatenate((firstvals, y, lastvals))
     return np.convolve(m, y, mode='valid')
+
+
+def find_range_randomly(A, nl, q=1):
+    """Find approximate range of matrix A using nl random vectors and
+    with q power iterations (q>=0). Based on Halko Martinsson & Tropp Algorithm 4.3
+
+    Suggest q=1 or larger particularly when the singular values of A decay slowly
+    enough that the singular vectors associated with the smaller singular values
+    are interfering with the computation.
+
+    See "Finding structure with randomness: Probabilistic algorithms for constructing
+    approximate matrix decompositions." by N Halko, P Martinsson, and J Tropp. *SIAM
+    Review* v53 #2 (2011) pp217-288. http://epubs.siam.org/doi/abs/10.1137/090771806
+    """
+    if q < 0:
+        msg = "The number of power iterations q=%d needs to be at least 0"%q
+        raise ValueError(msg)
+    A = np.asarray(A)
+    m,n = A.shape
+    Omega = np.random.standard_normal((n,nl))
+    Y = np.dot(A, Omega)
+    for _ in range(q):
+        Y = np.dot(A.T, Y)
+        Y = np.dot(A, Y)
+    Q,R = np.linalg.qr(Y)
+    return Q
+
+def find_svd_randomly(A, nl, q=2):
+    """Find approximate SVD of matrix A using nl random vectors and
+    with q power iterations. Based on Halko Martinsson & Tropp Algorithm 5.1
+
+    See "Finding structure with randomness: Probabilistic algorithms for constructing
+    approximate matrix decompositions." by N Halko, P Martinsson, and J Tropp. *SIAM
+    Review* v53 #2 (2011) pp217-288. http://epubs.siam.org/doi/abs/10.1137/090771806
+    """
+    Q = find_range_randomly(A, nl, q=q)
+    B = np.dot(Q.T, A)
+    u_b,w,v = np.linalg.svd(B, 0)
+    u = np.dot(Q, u_b)
+    return u,w,v

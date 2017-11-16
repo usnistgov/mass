@@ -213,7 +213,7 @@ class NoiseRecords(object):
             seglength_choices = [longest_seg]
             while seglength_choices[-1] > 256:
                 seglength_choices.append(seglength_choices[-1] // 4)
-            LOG.debug("Will use segments of length: %s" % seglength_choices)
+            LOG.debug("Will use segments of length: %s", seglength_choices)
 
         spectra = [self.compute_power_spectrum_reshape(window=window, seg_length=seglen)
                    for seglen in seglength_choices]
@@ -829,7 +829,7 @@ class MicrocalDataSet(object):
         if self.data is None:
             self.read_segment(0)
         peak_idx = self.data.argmax(axis=1)
-        self.peak_samplenumber = sp.stats.mode(peak_idx)[0][0]
+        self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
 
@@ -860,7 +860,7 @@ class MicrocalDataSet(object):
 
         not_done = all(self.p_pretrig_mean[:] == 0)
         if not (not_done or forceNew):
-            LOG.info('\nchan %d did not summarize because results were already preloaded' % self.channum)
+            LOG.info('\nchan %d did not summarize because results were already preloaded', self.channum)
             return
 
         if len(self.p_timestamp) < self.pulse_records.nPulses:
@@ -958,7 +958,7 @@ class MicrocalDataSet(object):
         # Don't proceed if not necessary and not forced
         already_done = self.average_pulse[-1] != 0
         if already_done and not forceNew:
-            LOG.info("skipping compute average pulse on chan %d" % self.channum)
+            LOG.info("skipping compute average pulse on chan %d", self.channum)
             return
 
         pulse_count = 0
@@ -1087,8 +1087,9 @@ class MicrocalDataSet(object):
         def cost(slope, x, y):
             return mass.mathstat.entropy.laplace_entropy(y-x*slope, 0.002)
 
-        peak_sample = sp.stats.mode(self.p_peak_index).mode[0]
-        for samplenum in range(self.nPresamples+2, peak_sample):
+        if self.peak_samplenumber is None:
+            self._compute_peak_samplenumber()
+        for samplenum in range(self.nPresamples+2, self.peak_samplenumber):
             y = raw[:, samplenum]/rawscale
             bestslope = sp.optimize.brent(cost, (ATime, y), brack=[-.1, .25], tol=1e-7)
             model[samplenum, 1] = bestslope
@@ -1113,7 +1114,7 @@ class MicrocalDataSet(object):
             forceNew: Whether to recompute when already exists (default False)
         """
         if not(forceNew or all(self.p_filt_value[:] == 0)):
-            LOG.info('\nchan %d did not filter because results were already loaded' % self.channum)
+            LOG.info('\nchan %d did not filter because results were already loaded', self.channum)
             return
 
         if self.filter is not None:
@@ -1239,7 +1240,7 @@ class MicrocalDataSet(object):
                 if downsample < 1:
                     downsample = 1
             hour = self.p_timestamp[::downsample] / 3600.0
-        LOG.info("%s (%d records; %d in scatter plots)" % (status, nrecs, len(hour)))
+        LOG.info("%s (%d records; %d in scatter plots)", status, nrecs, len(hour))
 
         plottables = (
             (self.p_pulse_rms, 'Pulse RMS', 'magenta', None),
@@ -1302,7 +1303,7 @@ class MicrocalDataSet(object):
             self.noise_psd[:] = self.noise_records.noise_psd[:]
             self.noise_psd.attrs['delta_f'] = self.noise_records.noise_psd.attrs['delta_f']
         else:
-            LOG.info("chan %d skipping compute_noise_spectra because already done" % self.channum)
+            LOG.info("chan %d skipping compute_noise_spectra because already done", self.channum)
 
     def apply_cuts(self, controls, clear=False, forceNew=True):
         """Apply the cuts.
@@ -1316,8 +1317,8 @@ class MicrocalDataSet(object):
             return  # don't bother current if there are no pulses
         if not forceNew:
             if self.cuts.good().sum() != self.nPulses:
-                LOG.info("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses" %
-                         (self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
+                LOG.info("Chan %d skipped cuts: after %d are good, %d are bad of %d total pulses",
+                         self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses)
 
         if clear:
             self.clear_cuts()
@@ -1343,12 +1344,12 @@ class MicrocalDataSet(object):
                                     c['timestamp_diff_sec'], 'timestamp_diff_sec')
         if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum() > 0:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
-            LOG.debug('applying cut on pretrigger mean around its median value of ', median)
+            LOG.debug('applying cut on pretrigger mean around its median value of %f', median)
             self.cuts.cut_parameter(self.p_pretrig_mean-median,
                                     c['pretrigger_mean_departure_from_median'],
                                     'pretrigger_mean_departure_from_median')
-        LOG.info("Chan %d after cuts, %d are good, %d are bad of %d total pulses" % (
-                self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses))
+        LOG.info("Chan %d after cuts, %d are good, %d are bad of %d total pulses",
+                 self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses)
 
     def clear_cuts(self):
         """Clear all cuts."""
@@ -1358,7 +1359,7 @@ class MicrocalDataSet(object):
         """Drift correct using the standard entropy-minimizing algorithm"""
         doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(self.p_filt_value_dc[:] == self.p_filt_value[:])
         if not (forceNew or doesnt_exist):
-            LOG.info("chan %d drift correction skipped, because p_filt_value_dc already populated" % self.channum)
+            LOG.info("chan %d drift correction skipped, because p_filt_value_dc already populated", self.channum)
             return
         if category is None:
             category = {"calibration": "in"}
@@ -1368,7 +1369,7 @@ class MicrocalDataSet(object):
         drift_corr_param, self.drift_correct_info = \
             mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
         self.p_filt_value_dc.attrs.update(self.drift_correct_info)  # Store in hdf5 file
-        LOG.info('chan %d best drift correction parameter: %.6f' % (self.channum, drift_corr_param))
+        LOG.info('chan %d best drift correction parameter: %.6f', self.channum, drift_corr_param)
         self._apply_drift_correction()
 
     def _apply_drift_correction(self):
@@ -1399,13 +1400,13 @@ class MicrocalDataSet(object):
         """
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
         if not (forceNew or doesnt_exist):
-            LOG.info("channel %d skipping phase_correct2014" % self.channum)
+            LOG.info("channel %d skipping phase_correct2014", self.channum)
             return
 
         if category is None:
             category = {"calibration": "in"}
         data, g = self.first_n_good_pulses(maximum_num_records, category)
-        LOG.info("channel %d doing phase_correct2014 with %d good pulses" % (self.channum, data.shape[0]))
+        LOG.info("channel %d doing phase_correct2014 with %d good pulses", self.channum, data.shape[0])
         prompt = self.p_promptness[:]
         prms = self.p_pulse_rms[:]
 
@@ -1483,7 +1484,7 @@ class MicrocalDataSet(object):
 
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
         if not (forceNew or doesnt_exist):
-            LOG.info("channel %d skipping phase_correct" % self.channum)
+            LOG.info("channel %d skipping phase_correct", self.channum)
             return
 
         if category is None:
@@ -1493,7 +1494,7 @@ class MicrocalDataSet(object):
         if ph_peaks is None:
             ph_peaks = self._find_peaks_heuristic(self.p_filt_value_dc[good])
         if len(ph_peaks) <= 0:
-            LOG.info("Could not phase_correct on chan %3d because no peaks" % self.channum)
+            LOG.info("Could not phase_correct on chan %3d because no peaks", self.channum)
             return
         ph_peaks = np.asarray(ph_peaks)
         ph_peaks.sort()
@@ -1577,9 +1578,9 @@ class MicrocalDataSet(object):
 
         self.p_filt_value_phc[:] = _phase_corrected_filtvals(corrected_phase, self.p_filt_value_dc, corrections)
 
-        LOG.info('Channel %3d phase corrected. Correction size: %.2f' % (
-            self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good] -
-                                                              self.p_filt_value_dc[good], True)))
+        LOG.info('Channel %3d phase corrected. Correction size: %.2f',
+                 self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good] -
+                                                                   self.p_filt_value_dc[good], True))
         self.phase_corrections = corrections
         return corrections
 
@@ -1627,7 +1628,7 @@ class MicrocalDataSet(object):
             valid = np.logical_and(valid, self.p_timestamp > times[0])
         good_values = all_values[valid]
         contents, bin_edges = np.histogram(good_values, nbins, prange)
-        LOG.info("%d events pass cuts; %d are in histogram range" % (len(good_values), contents.sum()))
+        LOG.info("%d events pass cuts; %d are in histogram range", len(good_values), contents.sum())
         bin_ctrs = 0.5*(bin_edges[1:]+bin_edges[:-1])
 
         # Try line first as a number, then as a fluorescence line, then as a Gaussian
@@ -1657,7 +1658,7 @@ class MicrocalDataSet(object):
             scale = energy/params[1]
         else:
             scale = 1.0
-        LOG.info('Resolution: %5.2f +- %5.2f eV' % (params[0]*scale, np.sqrt(covar[0, 0])*scale))
+        LOG.info('Resolution: %5.2f +- %5.2f eV', params[0]*scale, np.sqrt(covar[0, 0])*scale)
         return params, covar, fitter
 
     @property
@@ -1673,7 +1674,7 @@ class MicrocalDataSet(object):
         if not forceNew and calname in self.calibration:
             return self.calibration[calname]
 
-        LOG.info("Calibrating chan %d to create %s" % (self.channum, calname))
+        LOG.info("Calibrating chan %d to create %s", self.channum, calname)
         cal = EnergyCalibration()
         cal.set_use_approximation(False)
 
@@ -1693,7 +1694,7 @@ class MicrocalDataSet(object):
         auto_cal.fit_lines()
 
         if auto_cal.anyfailed:
-            LOG.warning("chan %d failed calibration because on of the fitter was a FailedFitter" % self.channum)
+            LOG.warning("chan %d failed calibration because on of the fitter was a FailedFitter", self.channum)
             raise Exception()
 
         self.calibration[calname] = cal
@@ -1833,17 +1834,21 @@ class MicrocalDataSet(object):
         self.read_segment(seg_num)
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
-    def time_drift_correct(self, attr="p_filt_value_phc", forceNew=False):
+    def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree = 2000,
+                           pulses_per_degree = 2000, max_degrees = 20, forceNew=False):
         """Drift correct over long times with an entropy-minimizing algorithm.
         Here we correct as a low-ish-order Legendre polynomial in time.
 
-        attr names the attribute of self that is to be corrected. (The result
-        will be stored in self.p_filt_value_tdc[:]).
+        attr: the attribute of self that is to be corrected. (The result
+                will be stored in self.p_filt_value_tdc[:]).
+        sec_per_degree: assign as many as one polynomial degree per this many seconds
+        pulses_per_degree: assign as many as one polynomial degree per this many pulses
+        max_degrees: never use more than this many degrees of Legendre polynomial.
 
         forceNew: whether to do this step, if it appears already to have been done.
         """
         if all(self.p_filt_value_tdc[:] == 0.0) or forceNew:
-            LOG.info("chan %d doing time_drift_correct" % self.channum)
+            LOG.info("chan %d doing time_drift_correct", self.channum)
             attr = getattr(self, attr)
             g = self.cuts.good()
             pk = np.median(attr[g])
@@ -1852,12 +1857,11 @@ class MicrocalDataSet(object):
             info = time_drift_correct(self.p_timestamp[g], attr[g], w,
                                       limit=[0.5*pk, 2*pk])
             tnorm = info["normalize"](self.p_timestamp[:])
-            #corrected = self.p_filt_value_phc[:]*(1+info["model"](tnorm))
             corrected = attr[:]*(1+info["model"](tnorm))
             self.p_filt_value_tdc[:] = corrected
             self.time_drift_correct_info = info
         else:
-            LOG.info("chan %d skipping time_drift_correct" % self.channum)
+            LOG.info("chan %d skipping time_drift_correct", self.channum)
             corrected, info = self.p_filt_value_tdc[:], {}
         return corrected, info
 
@@ -1930,7 +1934,7 @@ class MicrocalDataSet(object):
         # in Galen's project POPE.jl.
 
         if not (all(self.cuts.good()) or forceNew):
-            LOG.info("channel %g skipping auto cuts because cuts exist" % self.channum)
+            LOG.info("channel %g skipping auto cuts because cuts exist", self.channum)
             return
 
         # Step 1: peak and rise times
@@ -2012,11 +2016,10 @@ class MicrocalDataSet(object):
             flag = robust.mahalanobis(mdata) > threshold**2
 
             self.cuts.cut("smart_cuts", flag)
-            LOG.info("channel %g ran smart cuts, %g of %g pulses passed" % (self.channum,
-                                                                            self.cuts.good("smart_cuts").sum(),
-                                                                            self.nPulses))
+            LOG.info("channel %g ran smart cuts, %g of %g pulses passed",
+                     self.channum, self.cuts.good("smart_cuts").sum(), self.nPulses)
         else:
-            LOG.info("channel %g skipping smart cuts because it was already done" % self.channum)
+            LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
 
 
 # Below here, these are functions that we might consider moving to Cython for speed.
@@ -2088,8 +2091,8 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         H0 = mass.mathstat.entropy.laplace_entropy(y, kernel_width)
         H1 = mass.mathstat.entropy.laplace_entropy(ycorr, kernel_width)
         H2 = mass.mathstat.entropy.laplace_entropy(y+correction(x), kernel_width)
-        LOG.info("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)" %
-                 (H0, H1, H2, iter1, iter2, NBINS))
+        LOG.info("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)",
+                 H0, H1, H2, iter1, iter2, NBINS)
 
         curve = mass.CubicSpline(knots-median_phase, peak-(yknot+yknot2))
         return curve, median_phase
@@ -2166,7 +2169,8 @@ def _phase_corrected_filtvals(phase, uncorrected, corrections):
     return corrected
 
 
-def time_drift_correct(time, uncorrected, w, limit=None):
+def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
+                       pulses_per_degree = 2000, max_degrees = 20, limit=None):
     """Compute a time-based drift correction that minimizes the spectral entropy.
 
     Args:
@@ -2174,16 +2178,19 @@ def time_drift_correct(time, uncorrected, w, limit=None):
         uncorrected: A filtered pulse height vector. Same length as indicator.
             Assumed to have some gain that is linearly related to indicator.
         w: the kernel width for the Laplace KDE density estimator
+        sec_per_degree: assign as many as one polynomial degree per this many seconds
+        pulses_per_degree: assign as many as one polynomial degree per this many pulses
+        max_degrees: never use more than this many degrees of Legendre polynomial.
         limit: The [lower,upper] limit of uncorrected values over which entropy is
             computed (default None).
 
     The entropy will be computed on corrected values only in the range
     [limit[0], limit[1]], so limit should be set to a characteristic large value
-    of uncorrected. If limit is None (the default), then in will be compute as
-    25% larger than the 99%ile point of uncorrected.
+    of uncorrected. If limit is None (the default), then it will be computed as
+    25%% larger than the 99%%ile point of uncorrected.
 
     Possible improvements in the future:
-    * Move this routine to Cython
+    * Move this routine to Cython.
     * Allow the parameters to be function arguments with defaults: photons per
       degree of freedom, seconds per degree of freedom, and max degrees of freedom.
     * Figure out how to span the available time with more than one set of legendre
@@ -2191,10 +2198,11 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     """
     if limit is None:
         pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
-        limit = [0,1.25 * pct99]
+        limit = [0, 1.25 * pct99]
 
-    use = np.logical_and(uncorrected>limit[0], uncorrected<limit[1])
+    use = np.logical_and(uncorrected > limit[0], uncorrected < limit[1])
     tmin, tmax = np.min(time), np.max(time)
+
     def normalize(t):
         return (t-tmin)/(tmax-tmin)*2-1
 
@@ -2204,26 +2212,23 @@ def time_drift_correct(time, uncorrected, w, limit=None):
         "normalize": normalize,
         }
 
-    SEC_PER_DEGREE = 100
-    PHOTONS_PER_DEGREE = 100
-    MAX_DEGREES = 20
     dtime = tmax-tmin
     N = len(time)
-    ndeg = int(np.minimum(dtime/SEC_PER_DEGREE, N/PHOTONS_PER_DEGREE))
-    ndeg = min(ndeg, MAX_DEGREES)
+    ndeg = int(np.minimum(dtime/sec_per_degree, N/pulses_per_degree))
+    ndeg = min(ndeg, max_degrees)
     ndeg = max(ndeg, 1)
     phot_per_degree = N/float(ndeg)
 
-    if phot_per_degree >= 2*PHOTONS_PER_DEGREE:
-        downsample = int(phot_per_degree/PHOTONS_PER_DEGREE)
+    if phot_per_degree >= 2*pulses_per_degree:
+        downsample = int(phot_per_degree/pulses_per_degree)
         time = time[::downsample]
         uncorrected = uncorrected[::downsample]
         N = len(time)
     else:
         downsample = 1
 
-    LOG.info("Using %2d degrees for %6d photons (after %d downsample)" % (ndeg, N, downsample))
-    LOG.info("That's %6.1f photons per degree, and %6.1f seconds per degree." % (N/float(ndeg), dtime/ndeg))
+    LOG.info("Using %2d degrees for %6d photons (after %d downsample)", ndeg, N, downsample)
+    LOG.info("That's %6.1f photons per degree, and %6.1f seconds per degree.", N/float(ndeg), dtime/ndeg)
 
     def model1(pi, i, param, basis):
         pcopy = np.array(param)
@@ -2241,8 +2246,8 @@ def time_drift_correct(time, uncorrected, w, limit=None):
     model = np.poly1d([0])
     info["coefficients"] = np.zeros(ndeg, dtype=float)
     for i in range(ndeg):
-        result,fval,iter,funcalls = sp.optimize.brent(cost1, (i, param, uncorrected, w, basis),
-            [-.001, .001], tol=1e-5, full_output=True)
+        result, fval, iter, funcalls = sp.optimize.brent(
+            cost1, (i, param, uncorrected, w, basis), [-.001, .001], tol=1e-5, full_output=True)
         param[i] = result
         fc += funcalls
         model += sp.special.legendre(i+1) * result

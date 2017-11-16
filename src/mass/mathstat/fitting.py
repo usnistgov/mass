@@ -10,6 +10,7 @@ Joe Fowler, NIST
 
 import numpy as np
 import scipy as sp
+import time
 
 __all__ = ['MaximumLikelihoodHistogramFitter', 'kink_model', 'fit_kink_model']
 
@@ -74,7 +75,7 @@ class MaximumLikelihoodHistogramFitter(object):
     ITMAX = 1000
 
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None,
-                 epsilon=1e-5, TOL=1e-5):
+                 epsilon=1e-5, TOL=1e-5, timeout=30.0):
         """Initialize the fitter, making copies of the input data.
 
         Args:
@@ -91,6 +92,7 @@ class MaximumLikelihoodHistogramFitter(object):
             TOL: The fractional or absolute tolerance on the minimum "MLE Chi^2".
                 When self.DONE successive iterations fail to improve the MLE Chi^2 by this
                 much (absolutely or fractionally), then fitting will return successfully.
+            timeout: Fail if the fitting takes more than this many seconds.
         """
         self.x = np.array(x)
         self.ndat = len(x)
@@ -101,6 +103,7 @@ class MaximumLikelihoodHistogramFitter(object):
 
         self.mfit = 0
         self.nparam = len(params)
+        self.timeout = timeout
 
         # Handle bounded parameters with translations between internal (-inf,+inf) and bounded
         # parameters. Until and unless self.setbounds is called, we'll assume that no
@@ -236,6 +239,8 @@ class MaximumLikelihoodHistogramFitter(object):
         Use 2-sided differences with steps of size self.epsilon away
         from the test point <p> at an array of points <x>.
 
+        The gradient will be zero for any parameters held (self.param_free[i] == False)
+
         Args:
             p (array): the parameters at which to find the gradient.
             x (array): the measured data values.
@@ -247,6 +252,9 @@ class MaximumLikelihoodHistogramFitter(object):
         npar = len(p)
         dyda = np.zeros((npar, nx), dtype=np.float)
         for i, dx in enumerate(self.epsilon):
+            # Don't compute gradient on parameters being held fixed
+            if not self.param_free[i]:
+                continue
             dxminus = dxplus = dx
             if self.upperbound[i] is not None and p[i] + dxplus >= self.upperbound[i]:
                 dxplus = .9*(self.upperbound[i]-p[i])
@@ -308,6 +316,7 @@ class MaximumLikelihoodHistogramFitter(object):
         alpha, beta, prev_chisq = self._mrqcof(self.internal)
 
         atry = self.internal.copy()
+        t_start = time.time()
         for iter_number in range(self.ITMAX):
 
             alpha_prime = np.array(alpha)
@@ -366,6 +375,11 @@ class MaximumLikelihoodHistogramFitter(object):
                     print("No imprv: chisq=%9.4e >= %9.4e l=%.1e params=%s..." %
                           (trial_chisq, prev_chisq, lambda_coef, self.params[:2]))
                 self.chisq = prev_chisq
+
+            dt = time.time()-t_start
+            if dt > self.timeout:
+                raise RuntimeError("MaximumLikelihoodHistogramFitter.fit() timed out after %.2f sec (%d iterations)" %
+                                   (dt, iter_number))
 
         raise RuntimeError("MaximumLikelihoodHistogramFitter.fit() reached ITMAX=%d iterations" % self.ITMAX)
 
@@ -459,15 +473,15 @@ def kink_model(k, x, y):
 
     Fails (raising ValueError) if k doesn't satisfy x.min() < k < x.max().
     """
-    xi = x[x<k]
-    yi = y[x<k]
-    xj = x[x>=k]
-    yj = y[x>=k]
+    xi = x[x < k]
+    yi = y[x < k]
+    xj = x[x >= k]
+    yj = y[x >= k]
     N = len(x)
     if len(xi) == 0 or len(xj) == 0:
         xmin = x.min()
         xmax = x.max()
-        raise ValueError("k=%g should be in range [xmin,xmax], or [%g,%g]."%(k, xmin, xmax))
+        raise ValueError("k=%g should be in range [xmin,xmax], or [%g,%g]." % (k, xmin, xmax))
 
     dxi = xi-k
     dxj = xj-k
@@ -479,7 +493,7 @@ def kink_model(k, x, y):
                   [si, si2, 0],
                   [sj, 0, sj2]])
     v = np.array([y.sum(), (yi*dxi).sum(), (yj*dxj).sum()])
-    a,b,c = abc = np.linalg.solve(A, v)
+    a, b, c = abc = np.linalg.solve(A, v)
     model = np.hstack([a+b*dxi, a+c*dxj])
     X2 = ((model-y)**2).sum()
     return model, abc, X2
@@ -527,9 +541,9 @@ def fit_kink_model(x, y, kbounds=None):
         kbounds = (x.min(), x.max())
     else:
         if kbounds[0] < x.min() or kbounds[1] > x.max():
-            raise ValueError("kbounds (%s) must be within the range of x data"%kbounds)
-    optimum = sp.optimize.minimize_scalar(penalty, args=(x,y), method="Bounded",
+            raise ValueError("kbounds (%s) must be within the range of x data" % kbounds)
+    optimum = sp.optimize.minimize_scalar(penalty, args=(x, y), method="Bounded",
                                           bounds=kbounds)
     kbest = optimum.x
     model, abc, X2 = kink_model(kbest, x, y)
-    return model, np.hstack([[kbest],abc]), X2
+    return model, np.hstack([[kbest], abc]), X2
