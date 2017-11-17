@@ -312,11 +312,26 @@ class NoiseRecords(object):
                     data_consumed = data_samples[0]-self.nSamples*first_pnum
                 if data_samples[1] < self.nSamples*end_pnum:
                     samples_this_segment = data_samples[1]-self.nSamples*first_pnum
-                data_mean = data[data_consumed:samples_this_segment].mean()
+
+                #
+                # umux data will "slip" flux quanta when pulses with a very
+                # fast leading edge occur. When this happens the baseline level
+                # that is returned to after a pulse may be an integer number of
+                # flux quanta different from the baseline level before the
+                # pulse. If this happens to noise data within a segment, the
+                # excursions algorithm will needlessly reject the entire segment.
+                #
+                # Ideally we would recognize and "correct" these flux jumps.
+                # But for now, I am calculating `data_mean` at the chunk level
+                # instead of the segment level. This means that a jump will
+                # cause data for just that chunk to be thrown away, instead of
+                # for the entire segment containing the chunk.
+                #
 
                 # Notice that the following loop might ignore the last data values, up to as many
                 # as (chunksize-1) values, unless the data are an exact multiple of chunksize.
                 while data_consumed+chunksize <= samples_this_segment:
+                    data_mean = data[data_consumed:data_consumed+chunksize].mean()
                     padded_data[:chunksize] = data[data_consumed:data_consumed+chunksize] - data_mean
                     data_consumed += chunksize
                     padded_data[chunksize:] = 0.0
@@ -331,6 +346,9 @@ class NoiseRecords(object):
                     entries += 1.0
                     if entries*chunksize > n_data:
                         break
+
+            if entries == 0:
+                raise Exception("Apparently all chunks had excusions, so no autocorrelation was computed")
 
             ac /= entries
             ac /= (np.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=np.float))
@@ -1363,6 +1381,26 @@ class MicrocalDataSet(object):
         """Clear all cuts."""
         self.cuts.clear_cut()
 
+    def correct_flux_jumps(self, flux_quant):
+        '''Remove 'flux' jumps' from pretrigger mean.
+
+        When using umux readout, if a pulse is recorded that has a very fast
+        rising edge (e.g. a cosmic ray), the readout system will "slip" an
+        integer number of flux quanta. This means that the baseline level
+        returned to after the pulse will different from the pretrigger value by
+        an integer number of flux quanta. This causes that pretrigger mean
+        summary quantity to jump around in a way that causes trouble for the
+        rest of MASS. This function attempts to correct these jumps.
+
+        Arguments:
+        flux_quant -- size of 1 flux quantum
+        '''
+        # remember original value, just in case we need it
+        self.p_pretrig_mean_orig = self.p_pretrig_mean[:]
+        corrected = mass.core.analysis_algorithms.correct_flux_jumps(self.p_pretrig_mean[:], self.good(), flux_quant)
+        self.p_pretrig_mean[:] = corrected
+
+
     @_add_group_loop
     def drift_correct(self, forceNew=False, category=None):
         """Drift correct using the standard entropy-minimizing algorithm"""
@@ -1740,7 +1778,8 @@ class MicrocalDataSet(object):
         self.pulse_records.clear_cache()
 
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
-                    residual=False, valid_status=None, shift1=False):
+                    residual=False, valid_status=None, shift1=False,
+                    subtract_baseline=False, fcut=None):
         """Plot some example pulses, given by sample number.
 
         Args:
@@ -1752,6 +1791,8 @@ class MicrocalDataSet(object):
             <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
                          that have been cut.  If "cut", show only those that have been cut.
             <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
+            <subtract_baseline>  Whether to subtract pretrigger mean prior to plotting the pulse
+            <fcut>  If not none, apply a lowpass filter with this cutoff frequency prior to plotting
         """
 
         if isinstance(pulsenums, int):
@@ -1806,6 +1847,12 @@ class MicrocalDataSet(object):
                 data -= model
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
+            if fcut != None:
+                data = mass.core.analysis_algorithms.filter_signal_lowpass(data, 1./self.timebase, fcut)
+            if subtract_baseline:
+                # Recalculate the pretrigger mean here, to avoid issues due to flux slipping when
+                # plotting umux data
+                data = data - np.mean(data[:self.nPresamples - self.pretrigger_ignore_samples])
 
             cutchar, alpha, linestyle, linewidth = ' ', 1.0, '-', 1
 
@@ -1904,7 +1951,7 @@ class MicrocalDataSet(object):
             print("%d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
         print("%d pulses total" % self.nPulses)
 
-    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, forceNew=False):
+    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=False):
         """Compute and apply an appropriate set of automatically generated cuts.
 
         The peak time and rise time come from the measured most-common peak time.
@@ -1916,6 +1963,14 @@ class MicrocalDataSet(object):
                 (default 8.0).
             nsigma_max_deriv (float): How big an excursion is allowed in max
                 post-peak derivative (default 8.0).
+            pretrig_rms_percentile (float): Make upper limit for pretrig_rms at
+                least as large as this percentile of the data. I.e., if you
+                pass in 99, then the upper limit for pretrig_rms will exclude
+                no more than the 1 % largest values. This number is a
+                percentage, *not* a fraction. This should not be routinely used
+                - it is intended to help auto_cuts work even if there is a
+                problem during a data acquisition that causes large drifts in
+                noise properties.
             forceNew (bool): Whether to perform auto-cuts even if cuts already exist.
 
         The two excursion limits are given in units of equivalent sigma from the
@@ -1953,6 +2008,14 @@ class MicrocalDataSet(object):
         pt_madn = np.median(np.abs(pretrigger_rms-pt_med))*1.4826
         md_max = md_med + md_madn*nsigma_max_deriv
         pt_max = max(0.0, pt_med + pt_madn*nsigma_pt_rms)
+
+        # Step 2.5: In the case of pretrig_rms, cut no more than pretrig_rms_percentile percent
+        # of the pulses on the upper end. This appears to be appropriate for
+        # SLEDGEHAMMER gamma devices, but may not be appropriate in cases where
+        # there are many pulses riding on tails, so by default we don't do
+        # this.
+        if pretrig_rms_percentile != None:
+            pt_max = max(pt_max, np.percentile(self.p_pretrig_rms, pretrig_rms_percentile))
 
         # Step 3: make the cuts
         cuts = mass.core.controller.AnalysisControl(
