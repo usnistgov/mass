@@ -1181,57 +1181,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
-    def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
-        for ds in self:
-            try:
-                ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
-            except Exception as e:
-                self.set_chan_bad(ds.channum, "Failed to compute noise spectrum: %s" % e)
-
-    def apply_cuts(self, cuts, forceNew=True):
-        """Apply the cuts `cuts` to each valid dataset."""
-        for ds in self:
-            ds.apply_cuts(cuts, forceNew)
-
-    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=True, clearCuts=True):
-        """Automatically compute per-channel cuts and apply them to each valid dataset.
-
-        See MicrocalDataSet.auto_cuts for further information.
-
-        Args:
-            nsigma_pt_rms (float):  How big an excursion is allowed in pretrig RMS
-                (default 8.0).
-            nsigma_max_deriv (float): How big an excursion is allowed in max
-                post-peak derivative (default 8.0).
-            pretrig_rms_percentile (float): Make upper limit for pretrig_rms at
-                least as large as this percentile of the data. I.e., if you
-                pass in 99, then the upper limit for pretrig_rms will exclude
-                no more than the 1 % largest values. This number is a
-                percentage, *not* a fraction. This should not be routinely used
-                - it is intended to help auto_cuts work even if there is a
-                problem during a data acquisition that causes large drifts in
-                noise properties.
-            forceNew (bool): Whether to perform auto-cuts even if cuts already
-                exist (default Faulse).
-            clearCuts (bool): Whether to clear any existing cuts first (default
-                True).
-
-        The two excursion limits are given in units of equivalent sigma from the
-        noise file. "Equivalent" meaning that the noise file was assessed not for
-        RMS but for median absolute deviation, normalized to Gaussian distributions.
-        """
-        for ds in self:
-            if clearCuts:
-                ds.clear_cuts()
-            ds.auto_cuts(nsigma_pt_rms=nsigma_pt_rms,
-                         nsigma_max_deriv=nsigma_max_deriv,
-                         pretrig_rms_percentile=pretrig_rms_percentile,
-                         forceNew=forceNew)
-
-    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
-        for ds in self:
-            ds.smart_cuts(threshold, n_trainings, forceNew)
-
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
         """Compute an average pulse.
 
@@ -1277,13 +1226,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
             except Exception as e:
                 self.set_chan_bad(ds.channum, "failed to correct flux jumps")
 
-    def phase_correct(self, plot=False, forceNew=False, category=None):
-        for ds in self:
-            try:
-                ds.phase_correct(forceNew=forceNew, category=category)
-            except Exception as e:
-                self.set_chan_bad(ds.channum, "failed phase_correct with %s" % e)
-
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
                           plot=False, forceNew=False, pre_sanitize_p_filt_phase=True, category=None):
         if pre_sanitize_p_filt_phase:
@@ -1295,7 +1237,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 self.set_chan_bad(ds.channum, "failed phase_correct2014")
 
     def sanitize_p_filt_phase(self):
-        ds = self.first_good_dataset
         self.register_boolean_cut_fields("filt_phase")
         for ds in self:
             ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:]) > 2)
@@ -1320,13 +1261,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
         LOG.info("for all channels converting %s to energy with calibration %s", attr, calname)
         for ds in self:
             ds.convert_to_energy(attr, calname)
-
-    def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree = 2000,
-                           pulses_per_degree = 2000, max_degrees = 20, forceNew=False):
-        for ds in self:
-            ds.time_drift_correct(attr=attr, sec_per_degree=sec_per_degree,
-                                  pulses_per_degree=pulses_per_degree,
-                                  max_degrees=max_degrees, forceNew=forceNew)
 
     def plot_count_rate(self, bin_s=60, title=""):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
