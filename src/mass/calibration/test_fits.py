@@ -28,6 +28,17 @@ class Test_Gaussian(unittest.TestCase):
         self.obs = np.array([np.random.poisson(lam=y0) for y0 in self.y])
         self.fitter = mass.calibration.line_fits.GaussianFitter()
 
+    def test_failed_fit(self):
+        # pass nans
+        param,covar = self.fitter.fit(np.array([np.nan]*len(self.obs)), self.x, self.params, plot=True)
+        self.assertFalse(self.fitter.fit_success)
+        self.assertTrue(np.isnan(self.fitter.last_fit_params[0]))
+        self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][0]))
+        self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][1]))
+        self.assertTrue(isinstance(self.fitter.failed_fit_exception, Exception))
+        self.assertTrue(all([self.params[i]==self.fitter.failed_fit_params[i] for i in range(len(self.params))]))
+
+
     def test_fit(self):
         self.fitter.phscale_positive = True
         param, covar = self.fitter.fit(self.obs, self.x, self.params, plot=True)
@@ -35,6 +46,10 @@ class Test_Gaussian(unittest.TestCase):
         self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
         self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
+        self.assertAlmostEqual(param[0], self.fitter.last_fit_params_dict["resolution"][0], 1)
+        self.assertAlmostEqual(param[1], self.fitter.last_fit_params_dict["peak_ph"][0], 1)
+        self.assertAlmostEqual(param[2], self.fitter.last_fit_params_dict["amplitude"][0], 1)
+        self.assertTrue(self.fitter.fit_success)
 
     def test_fit_offset(self):
         center = self.params[1]
@@ -46,6 +61,7 @@ class Test_Gaussian(unittest.TestCase):
         self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
         self.assertAlmostEqual(param[1], 0, 1)  # Center
         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
+        self.assertTrue(self.fitter.fit_success)
 
     def test_fit_zero_bg(self):
         param_guess = self.params[:]
@@ -105,6 +121,8 @@ class Test_MnKA(unittest.TestCase):
                                       vary_bg_slope=vary_bg_slope, vary_tail=vary_tail)
         plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
         plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
+        self.assertTrue(self.fitter.fit_success)
+
 
     def test_basic(self):
         self.do_test()
