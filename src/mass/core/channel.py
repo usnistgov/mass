@@ -1777,7 +1777,7 @@ class MicrocalDataSet(object):
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
             if fcut != None:
-                data = mass.core.analysis_algorithms.filter(data, 1./self.timebase, fcut)
+                data = mass.core.analysis_algorithms.filter_signal_lowpass(data, 1./self.timebase, fcut)
             if subtract_baseline:
                 # Recalculate the pretrigger mean here, to avoid issues due to flux slipping when
                 # plotting umux data

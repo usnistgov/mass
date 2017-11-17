@@ -755,7 +755,7 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
     return (np.asarray(delay_from_last_trigger, dtype=np.int64),
             np.asarray(delay_until_next_trigger, dtype=np.int64))
 
-def filter(sig, fs, fcut):
+def filter_signal_lowpass(sig, fs, fcut):
     """Tophat lowpass filter using an FFT
 
     Args:
@@ -764,7 +764,7 @@ def filter(sig, fs, fcut):
         fcut - the frequency at which to cutoff the signal
 
     Returns:
-        the filtered signale
+        the filtered signal
     """
     N = sig.shape[0]
     SIG = np.fft.fft(sig)

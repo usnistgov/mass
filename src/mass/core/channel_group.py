@@ -888,7 +888,7 @@ class TESGroup(CutFieldMixin):
             ds = self.channel[channum]
             avg_pulse = ds.average_pulse[:].copy()
             if fcut != None:
-                avg_pulse = mass.core.analysis_algorithms.filter(avg_pulse, 1./self.timebase, fcut)
+                avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(avg_pulse, 1./self.timebase, fcut)
             plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
                      color=cmap(float(ds_num) / len(channels)))
 
