@@ -1203,11 +1203,14 @@ class TESGroup(CutFieldMixin):
                 (default 8.0).
             nsigma_max_deriv (float): How big an excursion is allowed in max
                 post-peak derivative (default 8.0).
-            pretrig_rms_percentile (float): Make upper limit for
-                pretrig_rms at least as large as this percentile of the data. I.e.,
-                if you pass in 99, then the upper limit for pretrig_rms will exclude
-                no more than the 1 % largest values. This number is a percentage, *not*
-                a fraction.
+            pretrig_rms_percentile (float): Make upper limit for pretrig_rms at
+                least as large as this percentile of the data. I.e., if you
+                pass in 99, then the upper limit for pretrig_rms will exclude
+                no more than the 1 % largest values. This number is a
+                percentage, *not* a fraction. This should not be routinely used
+                - it is intended to help auto_cuts work even if there is a
+                problem during a data acquisition that causes large drifts in
+                noise properties.
             forceNew (bool): Whether to perform auto-cuts even if cuts already
                 exist (default Faulse).
             clearCuts (bool): Whether to clear any existing cuts first (default
