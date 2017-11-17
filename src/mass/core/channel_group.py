@@ -1268,11 +1268,11 @@ class TESGroup(CutFieldMixin):
         flux_quant -- size of 1 flux quantum
         '''
         for ds in self:
-            # remember original value, just in case we need it
-            ds.p_pretrig_mean_orig = ds.p_pretrig_mean[:]
-            corrected = mass.core.analysis_algorithms.correct_flux_jumps(ds.p_pretrig_mean[:], ds.good(), flux_quant)
-            ds.p_pretrig_mean[:] = corrected
-
+            try:
+                ds.correct_flux_jumps(flux_quant)
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "failed to correct flux jumps")
+    
     def drift_correct(self, forceNew=False, category=None):
         for ds in self:
             try:

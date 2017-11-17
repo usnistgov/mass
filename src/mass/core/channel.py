@@ -1331,6 +1331,25 @@ class MicrocalDataSet(object):
         """Clear all cuts."""
         self.cuts.clear_cut()
 
+    def correct_flux_jumps(self, flux_quant):
+        '''Remove 'flux' jumps' from pretrigger mean.
+    
+        When using umux readout, if a pulse is recorded that has a very fast
+        rising edge (e.g. a cosmic ray), the readout system will "slip" an
+        integer number of flux quanta. This means that the baseline level
+        returned to after the pulse will different from the pretrigger value by
+        an integer number of flux quanta. This causes that pretrigger mean
+        summary quantity to jump around in a way that causes trouble for the
+        rest of MASS. This function attempts to correct these jumps.
+
+        Arguments:
+        flux_quant -- size of 1 flux quantum
+        '''
+        # remember original value, just in case we need it
+        self.p_pretrig_mean_orig = self.p_pretrig_mean[:]
+        corrected = mass.core.analysis_algorithms.correct_flux_jumps(self.p_pretrig_mean[:], self.good(), flux_quant)
+        self.p_pretrig_mean[:] = corrected
+
     def drift_correct(self, forceNew=False, category=None):
         """Drift correct using the standard entropy-minimizing algorithm"""
         doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(self.p_filt_value_dc[:] == self.p_filt_value[:])
