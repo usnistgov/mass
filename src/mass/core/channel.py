@@ -11,6 +11,7 @@ import numpy as np
 import scipy as sp
 import scipy.signal
 import matplotlib.pylab as plt
+import inspect
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -565,9 +566,18 @@ def _add_group_loop(method):
                 self.set_chan_bad(ds.channum, "failed %s with %s" % (method_name, e))
 
     wrapper.__name__ = method_name
-    wrapper.__doc__ = "Loop over self, calling the %s(...) method for each channel."%method_name
-    if method.__doc__ is not None:
-        wrapper.__doc__ += "\n\n%s(...) docstring reads:\n%s"""%(method_name, method.__doc__)
+
+    # Generate a good doc-string.
+    lines = ["Loop over self, calling the %s(...) method for each channel."%method_name]
+    arginfo = inspect.getargspec(method)
+    argtext = inspect.formatargspec(*arginfo)
+    if method.__doc__ is None:
+        lines.append("\n%s%s has no docstring"%(method_name, argtext))
+    else:
+        lines.append("\n%s%s docstring reads:"%(method_name, argtext))
+        lines.append( method.__doc__)
+    wrapper.__doc__ = "\n".join(lines)
+
     setattr(GroupLooper, method_name, wrapper)
     return method
 
