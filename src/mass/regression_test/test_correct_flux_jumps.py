@@ -15,7 +15,7 @@ good_outputs = []
 
 def verify(in_vals, orig_vals, corrected):
     if not np.all(np.abs(orig_vals - corrected) < 1e-6):
-        print 'FAILED'
+        print('FAILED')
         failed_origs.append(orig_vals)
         failed_inputs.append(in_vals)
         failed_outputs.append(corrected)
