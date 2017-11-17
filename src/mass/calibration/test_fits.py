@@ -73,7 +73,7 @@ class Test_MnKA(unittest.TestCase):
         self.distrib = mass.calibration.fluorescence_lines.MnKAlphaDistribution()
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
-        np.random.seed(95)
+        np.random.seed(96)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17, bg=10,
                 nbins=150, vary_bg_slope=False, vary_tail=False):
