@@ -9,6 +9,22 @@
 # Test Status
 * Develop, Python 2.7 [![Build Status](https://semaphoreci.com/api/v1/projects/682fce58-5d81-4d08-bb85-78a6edd0a4c2/946875/badge.svg)](https://semaphoreci.com/drjoefowler/mass)
 
+# Documentation
+[Online documentation](https://oneilg.bitbucket.io/mass/)
+
+The documentation of mass is a work in progress, it is worth reviewing. It is easy to help with the documentation. There are two ways to help.
+
+1. [Write a docstring.](https://www.python.org/dev/peps/pep-0257/#multi-line-docstrings) (or update an old docstring and fix the formatting while you're at it)
+  * A poorly formatted docstring is better than no docstring, don't be shy.
+2. [Add to (or write a new) .md file.](http://commonmark.org/help/)
+  * put a header (line starting with pound) as the first line
+  * again, poorly formatted markdown is better than no markdown  
+  * [link to WYSIWIG online markdown editor/viewer.](https://dillinger.io/) Just copy and paste once it looks like you want it to.
+  * look in mass/doc for .md files
+3. Submit a pull request with your changes (or just copy and paste it into an issue with a description of where it goes, and I'll do the git work)
+
+After that I (Galen) will update the docs page with your changes.
+
 # Intro
 
 
@@ -28,51 +44,12 @@ single extension module in Cython that I wrote to execute some calculations from
 Mass is being shifted from a personal project to a system that can be shared by microcalorimeters users at NIST and elsewhere.  This step is only a year old, so please be patient!  Let the author know what's missing or wrong or useful.
 
 
-# Documentation
-
-## Doc md files
-
-Look in `mass/doc` for `*.md` files. These will look nice if viewed on bitbucket or with a markdown viewer. They contain example code for many of the features of mass. As of August 2016 they are the main way we are tying to add documentation.
-
-## Docstrings
-
-
-The most complete documentation (though certainly not complete) can be found in the docstrings that accompany every (well, almost every) module, class, function, and method in the system.  Thus:
-```
-import mass
-help mass.TESGroup
-help data.datasets[0].obscure_method_name
-```
-(Notice that help is a built-in function, and if you don't run in ipython, then you'll have to surround the argument with parentheses. Ipython, being totally sweet, will do this for you.) In iipython you can also do
-```
-data.datasets[0].obscure_method_name?
-```
-
-Docstrings are really easy to add, they're a great way to contribute to mass.
-
 
 ## Tests
 
 If you look for files named `test_*.py` they will have examples of how the tested functions are called. You can learn a fair amount from looking at them.
 
 Run all the tests on your systemto make sure they pass!. Do `python runtests.py` in the `mass` directory.
-
-## Doxygen site
-
-The subdirectory doc contains configuration and a Makefile to generate a local copy of a doxygen website.  For a mac:
-```
-$ cd ~/trunk/python/mass/doc
-$ make doc
-$ open -n html/index.html
-```
-
-For linux, I think you can replace the last with
-`firefox html/index.html`, but I can't say for sure.
-
-This is probably more useful to someone planning to add code to Mass than to the casual user.  Still, it's kind of fun to see what doxygen can do more or less by magic.
-
-I will try to copy the doxygen site to the group webserver someday, and to keep it updated.  More on that later.
-
 
 ## Tutorials and demos
 
