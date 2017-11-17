@@ -22,7 +22,7 @@ import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
 
 from mass.calibration.energy_calibration import EnergyCalibration
-from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
+from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper
 from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
 from mass.core.optimal_filtering import Filter
@@ -94,7 +94,7 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
                     hdf5_noisefilename=hdf5noisename)
 
 
-class TESGroup(CutFieldMixin):
+class TESGroup(CutFieldMixin, GroupLooper):
     """The interface for a group of one or more microcalorimeters."""
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
@@ -1233,13 +1233,6 @@ class TESGroup(CutFieldMixin):
                 stop_at = (good_so_far == max_pulses_to_use).argmax()
                 m[stop_at+1:] = False
         self.compute_average_pulse(masks, forceNew=forceNew)
-
-    def drift_correct(self, forceNew=False, category=None):
-        for ds in self:
-            try:
-                ds.drift_correct(forceNew, category)
-            except:
-                self.set_chan_bad(ds.channum, "failed drift correct")
 
     def phase_correct(self, plot=False, forceNew=False, category=None):
         for ds in self:

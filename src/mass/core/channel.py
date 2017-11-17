@@ -532,6 +532,46 @@ class PulseRecords(object):
         return c
 
 
+class GroupLooper(object):
+    """A mixin class to allow TESGroup objects to hold methods that loop over
+    their constituent channels. (Has to be a mixin, in order to break the import
+    cycle that would otherwise occur.)"""
+    pass
+
+def _add_group_loop(method):
+    """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
+
+    This is a decorator to add before method definitions inside class MicrocalDataSet.
+    Usage is:
+
+    class MicrocalDataSet(...):
+        ...
+
+        @_add_group_loop
+        def awesome_fuction(self, ...):
+            ...
+    """
+
+    method_name = method.__name__
+    print "Adding method named '%s'"%method_name
+
+    def wrapper(self, *args, **kwargs):
+        for ds in self:
+            try:
+                method(ds, *args, **kwargs)
+            except KeyboardInterrupt as e:
+                raise e
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "failed %s with %s" % (method_name, e))
+
+    wrapper.__name__ = method_name
+    wrapper.__doc__ = "Loop over self, calling the %s(...) method for each channel."%method_name
+    if method.__doc__ is not None:
+        wrapper.__doc__ += "\n\n%s(...) docstring reads:\n%s"""%(method_name, method.__doc__)
+    setattr(GroupLooper, method_name, wrapper)
+    return method
+
+
 class MicrocalDataSet(object):
     """Represent a single microcalorimeter's PROCESSED data."""
 
@@ -1313,6 +1353,7 @@ class MicrocalDataSet(object):
         """Clear all cuts."""
         self.cuts.clear_cut()
 
+    @_add_group_loop
     def drift_correct(self, forceNew=False, category=None):
         """Drift correct using the standard entropy-minimizing algorithm"""
         doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(self.p_filt_value_dc[:] == self.p_filt_value[:])

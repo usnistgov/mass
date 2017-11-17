@@ -2,7 +2,8 @@
 
 * **0.6.1** September- 2017
 Added some features to support analysis of microwave MUX data.
-Added some random matrix techniques to `mass.mathstat.utilities`.
+Added some random-matrix techniques to `mass.mathstat.utilities`.
+Used a decorator to add methods to TESGroup that loop over channel objects.
 
 * **0.6.0** September 2017
 Fixing a number of outstanding problems (issues 88-100 at least). Fixed problems
