@@ -1019,15 +1019,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 LOG.warn("Filter %d can't be used", i)
                 LOG.warn(e)
 
-    @show_progress("filter_data")
-    def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False,
-                    forceNew=False, use_cython=True):
-        nchan = float(len(self.datasets)) if include_badchan else float(self.num_good_channels)
-
-        for i, ds in enumerate(self.iter_channels(include_badchan)):
-            ds.filter_data(filter_name, transform, forceNew, use_cython=use_cython)
-            yield (i+1.0) / nchan
-
     def report(self):
         """Report on the number of data points and similar."""
         for ds in self.datasets:

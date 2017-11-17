@@ -572,7 +572,7 @@ def _add_group_loop(method):
     """
 
     method_name = method.__name__
-    print "Adding method named '%s'"%method_name
+    # print "Adding method named '%s'"%method_name
 
     def wrapper(self, *args, **kwargs):
         for ds in self:
@@ -1156,6 +1156,7 @@ class MicrocalDataSet(object):
         self.filter = f
         return f
 
+    @_add_group_loop
     @show_progress("channel.filter_data_tdm")
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
         """Filter the complete data file one chunk at a time.
