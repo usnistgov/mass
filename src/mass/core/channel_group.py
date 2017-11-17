@@ -645,6 +645,7 @@ class TESGroup(CutFieldMixin):
                "Max PT Deriv" (5)
                "Rise Time" (6)
                "Peak Time" (7)
+               "Peak Index" (8)
 
             valid: The words 'uncut' or 'cut', meaning that only uncut or cut data
                 are to be plotted *OR* None, meaning that all pulses should be plotted.
