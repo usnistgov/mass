@@ -22,7 +22,7 @@ class RawSpectrum(object):
     Object to contain a single detector's voltage spectrum and its calibration
     to energy units.
     """
-    
+
     def __init__(self, pulses):
         """
         <pulses> a sequence of the pulse sizes (volts or similar instrument-referenced quantity).
@@ -35,8 +35,8 @@ class RawSpectrum(object):
         self.brightest_lines = []
         self.calibration = mass.calibration.energy_calibration.EnergyCalibration('volts')
         self.calibration_valid = True
-    
-    
+
+
     def copy(self):
         rs = RawSpectrum(self.pulses)
         rs.brightest_lines = self.brightest_lines.copy()
@@ -44,7 +44,7 @@ class RawSpectrum(object):
         rs.calibration = self.calibration.copy()
         rs.calibration_valid = self.calibration_valid
         return rs
-    
+
 
     def max(self): #@ReservedAssignment
         return self.pulses.max()
@@ -60,44 +60,44 @@ class RawSpectrum(object):
         if len(lines)==0:
             self.calibration_valid = False
             return
-        
+
         # So far, line_energies and lines are both sorted by peak contents.
         # But we need to match up these lines by energy order, even if contents happen to be out of order
         volts = lines[:,1]
         volts.sort()
         line_energies = line_energies[:len(volts)]
         line_energies.sort()
-        
+
         for (result, energy, name) in zip(volts, line_energies, line_names):
             self.calibration.add_cal_point(result, energy, name)
         self.recompute_energies()
-        
+
 
     def recompute_energies(self):
         self.energies = self.calibration(self.pulses)
 
-        
+
     def find_brightest_lines(self, nbins, vmax, dv_smear,
                              min_bin_sep=8, max_lines=None):
-        
+
         if max_lines is None:
             max_lines = 999999999
-        
+
         # Step 1: find lines by histogramming the data and smearing.
         cont, bins = np.histogram(self.pulses, nbins, [0,vmax])
         bin_ctr = 0.5*(bins[1:]+bins[:-1])
 
         # Assume 40 counts = 1000 eV and smear by resolution (typically 60 eV FWHM, or 25 eV rms)
         cont_smear = mass.calibration.fluorescence_lines.smear(cont, fwhm=dv_smear, stepsize=1.0)
-    
+
         smallest_peak = 0.02*cont_smear.max()
         if smallest_peak < 40:
             smallest_peak = 40.
-    
+
         # Find peaks.  First, sort all bins by their contents:
         c_order = np.argsort(cont_smear)[::-1]
         peak_bins = []
-    
+
         for c in c_order:
             if cont_smear[c] < smallest_peak:
                 break
@@ -108,10 +108,10 @@ class RawSpectrum(object):
                     break
             if not nearby_peak:
                 peak_bins.append(c)
-    
+
         spectral_line = mass.calibration.GaussianLine()
         fitter = mass.calibration.GaussianFitter(spectral_line)
-    
+
         lines=[]
         for peak in peak_bins:
             spectral_line.energy = peak
@@ -123,16 +123,16 @@ class RawSpectrum(object):
                     plot=False)
                 fwhm, centroid, peak, _bg = result
                 area = fwhm/2.35482*np.sqrt(2*np.pi)*peak
-    
+
                 lines.append((area, centroid))
                 if len(lines) >= max_lines:
                     break
-                
+
             except RuntimeError as e:
                 print(e)
             except ValueError as e:
                 print(e)
-    
+
         if len(lines) == 0:
             return []
         lines = np.array(lines)
@@ -150,7 +150,7 @@ class SpectrumGroup(object):
     def __init__(self, spectrum_iter=None):
         '''
         Construct a SpectrumGroup, optionally with initial voltage (uncalibrated) spectra.
-        
+
         <spectrum_iter> is an iterator that yields one or more np.ndarray objects.  Each
                         is assumed to be an unsorted array of pulse sizes (presumably you want
                         them to be optimally filtered pulse heights).
@@ -159,19 +159,19 @@ class SpectrumGroup(object):
         self.plot_ordering = []
         self.nchan = 0
         self.npulses = 0
-        
+
         if spectrum_iter is not None:
             for sp in spectrum_iter:
                 self.add_spectrum(sp)
-        
-    
+
+
     def copy(self):
         """Return a deep copy of self (useful when code changes)"""
         sg = SpectrumGroup(self.raw_spectra)
         sg.plot_ordering = self.plot_ordering
         return sg
-        
-    
+
+
     def add_spectrum(self, sp):
         """Add <sp> to the list of spectra, where <sp> is an ndarray containing uncalibrated pulse sizes
         or an instance of RawSpectrum."""
@@ -183,8 +183,8 @@ class SpectrumGroup(object):
         self.plot_ordering.append(self.nchan)
         self.nchan += 1
         self.npulses += sp.npulses
-    
-    
+
+
     def store(self, filename):
         """Store the complete data state in file named <filename>.
         Use mass.calibration.energy_calibration.load_spectrum_group() to restore."""
@@ -194,8 +194,8 @@ class SpectrumGroup(object):
         for sp in self.raw_spectra:
             pickler.dump(sp)
         fp.close()
-    
-    
+
+
     def plot_all(self, nbins=2000, binrange=None, yoffset=50, axis=None, color=None, raw=False):
         if binrange is None:
             m = max((rs.max() for rs in self.raw_spectra))
@@ -204,10 +204,10 @@ class SpectrumGroup(object):
             plt.clf()
             axis = plt.subplot(111)
         if color is None:
-            color = plt.cm.get_cmap('spectral')
-        
+            color = plt.cm.get_cmap('nipy_spectral')
+
         bin_centers = np.arange(0.5, nbins)*(binrange[1]-binrange[0])/nbins + binrange[0]
-        
+
         for i,spect_number in enumerate(self.plot_ordering):
             rs = self.raw_spectra[spect_number]
             if raw:
@@ -244,19 +244,19 @@ def load_spectrum_group(filename):
 def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=False):
     """Given two RawSpectrum objects <s1> and <s2>, as well as a "calibration energy" <ex>,
     Find the calibration voltages to energy ex such that the spectra match best from energy
-    <ex> to <ey>  (ex may be greater or less than ey).  
-    
+    <ex> to <ey>  (ex may be greater or less than ey).
+
     Specifically, find the voltages v1 and v2 such that cal1(v1) = cal2(v2) = ex, and then find
     the scale factor G such that setting cal1(v1*G) = cal2(v2/G) = ex gives the best improvement
     in the matching of the spectra from energy in [ex, ey] as measured by the
     Kolmagorov-Smirnov test for comparing two sampled distributions.  (See sp.stats.ks_2samp).
-    
+
     Returns: the best scale factor G as defined above.  If G>1, it means that spectrum s2 converts
     a higher voltage to e than s1 does."""
-    
-    if search_range is None:    
+
+    if search_range is None:
         search_range = [0.92, 1.08]
-    
+
     def ks_statistic(scale, s1, s2, ex, ey):
         c1 = s1.calibration
         c2 = s2.calibration
@@ -275,14 +275,14 @@ def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=F
         if (use1).sum() == 0 or (use2).sum() == 0:
             return 1.0, v1, v2
         return sp.stats.ks_2samp(e1[use1], e2[use2])[0]
-    
+
     ex = float(ex)
     ey = float(ey)
 #    a = ks_statistic(search_range[0], s1, s2, ex, ey)
 #    b = ks_statistic(1.0, s1, s2, ex, ey)
 #    c = ks_statistic(search_range[1], s1, s2, ex, ey)
 #    print 'a,b,c=', a, b, c
-    
+
     best_scale, best_ks_stat, _iter, funcalls = \
         sp.optimize.brent(ks_statistic, args=(s1, s2, ex, ey),
                           brack=search_range, tol=tol, full_output=True)
