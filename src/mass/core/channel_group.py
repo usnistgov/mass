@@ -393,6 +393,10 @@ class TESGroup(CutFieldMixin):
         Args:
             *args  Arguments to this function are integers or containers of integers.  Each
                 integer is added to the bad-channels list.
+
+        Examples:
+            data.set_chan_bad(1, "too few good pulses")
+            data.set_chan_bad(103, [1, 3, 5], "detector unstable")
         """
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args
                                     if not isinstance(x, six.string_types)])
@@ -404,6 +408,9 @@ class TESGroup(CutFieldMixin):
             LOG.warn('WARNING: Chan %s flagged bad because %s', channum, comment)
             self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] =  \
                 np.asarray(new_comment, dtype=np.bytes_)
+
+    def n_good_channels(self):
+        return self.n_channels - len(self._bad_channums.keys())
 
     @property
     def timestamp_offset(self):
@@ -638,6 +645,7 @@ class TESGroup(CutFieldMixin):
                "Max PT Deriv" (5)
                "Rise Time" (6)
                "Peak Time" (7)
+               "Peak Index" (8)
 
             valid: The words 'uncut' or 'cut', meaning that only uncut or cut data
                 are to be plotted *OR* None, meaning that all pulses should be plotted.
@@ -661,7 +669,8 @@ class TESGroup(CutFieldMixin):
             ("p_pretrig_mean", 'Pretrig Mean', '#00ff26', None),
             ("p_postpeak_deriv", 'Max PostPk deriv', 'gold', [0, 700]),
             ("p_rise_time[:]*1e3", 'Rise time (ms)', 'orange', [0, 12]),
-            ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3, 9])
+            ("p_peak_time[:]*1e3", 'Peak time (ms)', 'red', [-3, 9]),
+            ("p_peak_index[:]", 'Peak index', 'red', [600, 800])
         )
 
         quant_names = [p[1].lower().replace(" ", "") for p in plottables]
@@ -853,10 +862,12 @@ class TESGroup(CutFieldMixin):
                 continue
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
-    def plot_average_pulses(self, axis=None, channels=None, cmap=None, legend=True):
-        """Plot average pulse for channel number <channum> on matplotlib.Axes <axis>, or
-        on a new Axes if <axis> is None.  If <channum> is not a valid channel
-        number, then plot all average pulses.
+    def plot_average_pulses(self, axis=None, channels=None, cmap=None, legend=True, fcut=None):
+        """Plot average pulse for channel number <channum> on matplotlib.Axes
+        <axis>, or on a new Axes if <axis> is None. If <channum> is not a valid
+        channel number, then plot all average pulses. If <fcut> is not None,
+        then lowpass filter the traces with this cutoff frequency prior to
+        plotting.
         """
 
         if axis is None:
@@ -876,7 +887,10 @@ class TESGroup(CutFieldMixin):
             if channum not in self.channel:
                 continue
             ds = self.channel[channum]
-            plt.plot(dt, ds.average_pulse, label="Chan %d" % ds.channum,
+            avg_pulse = ds.average_pulse[:].copy()
+            if fcut != None:
+                avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(avg_pulse, 1./self.timebase, fcut)
+            plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
                      color=cmap(float(ds_num) / len(channels)))
 
         plt.title("Average pulse for each channel when it is hit")
@@ -1169,14 +1183,17 @@ class TESGroup(CutFieldMixin):
 
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         for ds in self:
-            ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
+            try:
+                ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "Failed to compute noise spectrum: %s" % e)
 
     def apply_cuts(self, cuts, forceNew=True):
         """Apply the cuts `cuts` to each valid dataset."""
         for ds in self:
             ds.apply_cuts(cuts, forceNew)
 
-    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, forceNew=True, clearCuts=True):
+    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=True, clearCuts=True):
         """Automatically compute per-channel cuts and apply them to each valid dataset.
 
         See MicrocalDataSet.auto_cuts for further information.
@@ -1186,6 +1203,14 @@ class TESGroup(CutFieldMixin):
                 (default 8.0).
             nsigma_max_deriv (float): How big an excursion is allowed in max
                 post-peak derivative (default 8.0).
+            pretrig_rms_percentile (float): Make upper limit for pretrig_rms at
+                least as large as this percentile of the data. I.e., if you
+                pass in 99, then the upper limit for pretrig_rms will exclude
+                no more than the 1 % largest values. This number is a
+                percentage, *not* a fraction. This should not be routinely used
+                - it is intended to help auto_cuts work even if there is a
+                problem during a data acquisition that causes large drifts in
+                noise properties.
             forceNew (bool): Whether to perform auto-cuts even if cuts already
                 exist (default Faulse).
             clearCuts (bool): Whether to clear any existing cuts first (default
@@ -1199,7 +1224,9 @@ class TESGroup(CutFieldMixin):
             if clearCuts:
                 ds.clear_cuts()
             ds.auto_cuts(nsigma_pt_rms=nsigma_pt_rms,
-                         nsigma_max_deriv=nsigma_max_deriv, forceNew=forceNew)
+                         nsigma_max_deriv=nsigma_max_deriv,
+                         pretrig_rms_percentile=pretrig_rms_percentile,
+                         forceNew=forceNew)
 
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         for ds in self:
@@ -1230,6 +1257,26 @@ class TESGroup(CutFieldMixin):
                 m[stop_at+1:] = False
         self.compute_average_pulse(masks, forceNew=forceNew)
 
+    def correct_flux_jumps(self, flux_quant):
+        '''Remove 'flux' jumps' from pretrigger mean.
+    
+        When using umux readout, if a pulse is recorded that has a very fast
+        rising edge (e.g. a cosmic ray), the readout system will "slip" an
+        integer number of flux quanta. This means that the baseline level
+        returned to after the pulse will different from the pretrigger value by
+        an integer number of flux quanta. This causes that pretrigger mean
+        summary quantity to jump around in a way that causes trouble for the
+        rest of MASS. This function attempts to correct these jumps.
+    
+        Arguments:
+        flux_quant -- size of 1 flux quantum
+        '''
+        for ds in self:
+            try:
+                ds.correct_flux_jumps(flux_quant)
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "failed to correct flux jumps")
+    
     def drift_correct(self, forceNew=False, category=None):
         for ds in self:
             try:
@@ -1281,9 +1328,12 @@ class TESGroup(CutFieldMixin):
         for ds in self:
             ds.convert_to_energy(attr, calname)
 
-    def time_drift_correct(self, attr='p_filt_value_phc', forceNew=False):
+    def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree = 2000,
+                           pulses_per_degree = 2000, max_degrees = 20, forceNew=False):
         for ds in self:
-            ds.time_drift_correct(attr, forceNew)
+            ds.time_drift_correct(attr=attr, sec_per_degree=sec_per_degree,
+                                  pulses_per_degree=pulses_per_degree,
+                                  max_degrees=max_degrees, forceNew=forceNew)
 
     def plot_count_rate(self, bin_s=60, title=""):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
