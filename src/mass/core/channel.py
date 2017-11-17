@@ -1457,6 +1457,7 @@ class MicrocalDataSet(object):
         self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
         self.hdf5_group.file.flush()
 
+    @_add_group_loop
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False,
                           forceNew=False, category=None):
         """Apply the phase correction that worked for calibronium-like data as of June 2014.
@@ -1743,6 +1744,7 @@ class MicrocalDataSet(object):
     def pkl_fname(self):
         return ljh_util.mass_folder_from_ljh_fname(self.filename, filename="ch%d_calibration.pkl" % self.channum)
 
+    @_add_group_loop
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3,
@@ -1781,7 +1783,9 @@ class MicrocalDataSet(object):
 
         if diagnose:
             auto_cal.diagnose()
+        self.convert_to_energy(attr, attr + name_ext)
 
+    @_add_group_loop
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
             calname = attr

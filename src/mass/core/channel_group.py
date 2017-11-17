@@ -1201,41 +1201,10 @@ class TESGroup(CutFieldMixin, GroupLooper):
             except Exception as e:
                 self.set_chan_bad(ds.channum, "failed to correct flux jumps")
 
-    def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
-                          plot=False, forceNew=False, pre_sanitize_p_filt_phase=True, category=None):
-        if pre_sanitize_p_filt_phase:
-            self.sanitize_p_filt_phase()
-        for ds in self:
-            try:
-                ds.phase_correct2014(typical_resolution, maximum_num_records, plot, forceNew, category)
-            except:
-                self.set_chan_bad(ds.channum, "failed phase_correct2014")
-
     def sanitize_p_filt_phase(self):
         self.register_boolean_cut_fields("filt_phase")
         for ds in self:
             ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:]) > 2)
-
-    def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
-                  fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2, category=None, forceNew=False, maxacc=0.015, nextra=3,
-                  param_adjust_closure=None):
-        for ds in self:
-            try:
-                ds.calibrate(attr, line_names, name_ext, size_related_to_energy_resolution,
-                             fit_range_ev, excl, plot_on_fail,
-                             bin_size_ev, category, forceNew, maxacc, nextra,
-                             param_adjust_closure=param_adjust_closure)
-            except:
-                self.set_chan_bad(ds.channum, "failed calibration %s" % attr + name_ext)
-        self.convert_to_energy(attr, attr + name_ext)
-
-    def convert_to_energy(self, attr, calname=None):
-        if calname is None:
-            calname = attr
-        LOG.info("for all channels converting %s to energy with calibration %s", attr, calname)
-        for ds in self:
-            ds.convert_to_energy(attr, calname)
 
     def plot_count_rate(self, bin_s=60, title=""):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
