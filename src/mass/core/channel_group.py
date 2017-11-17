@@ -1181,31 +1181,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
-    def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
-        """Compute an average pulse.
-
-        Compute average pulse using an automatically generated mask of
-        +- 5%% around the median pulse_average value.
-
-        Args:
-            max_pulses_to_use (int): Use no more than
-                the first this many good pulses (default 7000).
-            forceNew (bool): whether to re-compute if results already exist (default False)
-        """
-        median_pulse_avg = np.ones(self.n_channels, dtype=np.float)
-        for i, ds in enumerate(self.datasets):
-            if ds.good().sum() > 0:
-                median_pulse_avg[i] = np.median(ds.p_pulse_average[ds.good()])
-            else:
-                self.set_chan_bad(ds.channum, "No good pulses")
-        masks = self.make_masks([.95, 1.05], gains=median_pulse_avg)
-        for m in masks:
-            if np.sum(m) > max_pulses_to_use:
-                good_so_far = np.cumsum(m)
-                stop_at = (good_so_far == max_pulses_to_use).argmax()
-                m[stop_at+1:] = False
-        self.compute_average_pulse(masks, forceNew=forceNew)
-
     def correct_flux_jumps(self, flux_quant):
         '''Remove 'flux' jumps' from pretrigger mean.
 

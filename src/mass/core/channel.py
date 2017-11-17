@@ -1030,6 +1030,34 @@ class MicrocalDataSet(object):
             average_pulse -= np.mean(average_pulse[:self.nPresamples - self.pretrigger_ignore_samples])
         self.average_pulse[:] = average_pulse
 
+    @_add_group_loop
+    def avg_pulses_auto_masks(self, max_pulses_to_use=7000, subtract_mean=True, forceNew=False):
+        """Compute an average pulse.
+
+        Compute average pulse using an automatically generated mask of
+        +- 5%% around the median pulse_average value.
+
+        Args:
+            max_pulses_to_use (int): Use no more than
+                the first this many good pulses (default 7000).
+            forceNew (bool): whether to re-compute if results already exist (default False)
+        """
+        use = self.good()
+        if use.sum() <= 0:
+            raise ValueError("No good pulses")
+        median_pulse_avg = np.median(self.p_pulse_average[use])
+        mask = np.abs(self.p_pulse_average[:]/median_pulse_avg-1) < 0.05
+        mask = np.logical_and(mask, use)
+        if mask.sum() <= 0:
+            raise ValueError("No good pulses within 5%% of median size.")
+
+        if np.sum(mask) > max_pulses_to_use:
+            good_so_far = np.cumsum(mask)
+            stop_at = (good_so_far == max_pulses_to_use).argmax()
+            mask[stop_at+1:] = False
+        self.compute_average_pulse(mask, subtract_mean=subtract_mean,
+                                   forceNew=forceNew)
+
     def compute_oldfilter(self, fmax=None, f_3db=None):
         try:
             spectrum = self.noise_spectrum.spectrum()
