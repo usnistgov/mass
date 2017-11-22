@@ -1158,7 +1158,8 @@ class MicrocalDataSet(object):
 
     @_add_group_loop
     @show_progress("channel.filter_data_tdm")
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False,
+                    use_cython=False):
         """Filter the complete data file one chunk at a time.
 
         Args:
