@@ -754,3 +754,63 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
 
     return (np.asarray(delay_from_last_trigger, dtype=np.int64),
             np.asarray(delay_until_next_trigger, dtype=np.int64))
+
+def filter_signal_lowpass(sig, fs, fcut):
+    """Tophat lowpass filter using an FFT
+
+    Args:
+        sig - the signal to be filtered
+        fs - the sampling frequency of the signal
+        fcut - the frequency at which to cutoff the signal
+
+    Returns:
+        the filtered signal
+    """
+    N = sig.shape[0]
+    SIG = np.fft.fft(sig)
+    freqs = (fs/N) * np.concatenate((np.arange(0,N/2+1), np.arange(N/2-1,0,-1)))
+    filt = np.zeros_like(SIG)
+    filt[freqs < fcut] = 1.0
+    sig_filt = np.fft.ifft(SIG * filt)
+    return sig_filt
+
+def correct_flux_jumps(vals, g, flux_quant):
+    '''Remove 'flux' jumps' from pretrigger mean.
+
+    When using umux readout, if a pulse is recorded that has a very fast rising
+    edge (e.g. a cosmic ray), the readout system will "slip" an integer number
+    of flux quanta. This means that the baseline level returned to after the
+    pulse will different from the pretrigger value by an integer number of flux
+    quanta. This causes that pretrigger mean summary quantity to jump around in
+    a way that causes trouble for the rest of MASS. This function attempts to
+    correct these jumps.
+
+    Arguments:
+    vals -- array of values to correct
+    g -- mask indentifying "good" pulses
+    flux_quant -- size of 1 flux quanta
+
+    Returns:
+    Array with values corrected
+    '''
+    # The naive thing is to simply replace each value with its value mod
+    # the flux quantum. But of the baseline value turns out to fluctuate
+    # about an integer number of flux quanta, this will introduce new
+    # jumps. I don't know the best way to handle this in general. For now,
+    # if there are still jumps after the mod, I add 1/4 of a flux quanta
+    # before modding, then mod, then subtract the 1/4 flux quantum and then
+    # *add* a single flux quantum so that the values never go negative.
+    #
+    # To determine whether there are "still jumps after the mod" I look at the
+    # difference between the largest and smallest values for "good" pulses. If
+    # you don't exclude "bad" pulses, this check can be tricked in cases where
+    # the pretrigger section contains a (sufficiently large) tail.
+    if (np.amax(vals) - np.amin(vals)) >= flux_quant:
+        corrected = vals % (flux_quant)
+        if (np.amax(corrected[g]) - np.amin(corrected[g])) > 0.75*flux_quant:
+            corrected = (vals + flux_quant/4) % (flux_quant)
+            corrected = corrected - flux_quant/4 + flux_quant
+        corrected = corrected - (corrected[0] - vals[0])
+        return corrected
+    else:
+        return vals

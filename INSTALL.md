@@ -10,8 +10,10 @@ This file last updated: April 10, 2017
 
 * How to download Mass
 * How to install Mass
+  * Installation on Ubuntu
+  * Installation on Windows for Python 3.5 or 3.6
   * Possible installation problems
-* How to import Mass within Python/Ipython
+* How to import Mass within Python/IPython
 * Package dependencies
 * Matplotlib preferences
 
@@ -40,13 +42,13 @@ sudo python setup.py install
 ## How to Install MASS
 
 Mass is a  mostly Python system for analyzing microcalorimeter data.
-A small amount of code has been written in Cythonfor the
+A small amount of code has been written in Cython for the
 execution speed advantages of compiled code.
 
 The preferred approach is simply to use python setuptools to
 copy the Mass code to the known, standard install location.  You will
 probably need sudo power to do this, but the process is otherwise
-very simple.  From the top-level Mass directory (where you find this
+very simple. From the top-level Mass directory (where you find this
 file), you need only two commands:
 
 ```bash
@@ -85,11 +87,36 @@ Let me know what works for you!
 ### Installation on Ubuntu
 The following should get you the required packages:
 
+WARNING this it out of date. Ubuntu 14 can install older versions of key libraries like numpy. Use pip instead, and use
+Synaptics to uninstall python-numpy.
 ```
 sudo apt-get install python-qt4 ipython python-numpy python-matplotlib \
     python-scipy pyqt4-dev-tools cython gfortran python-sklearn python-h5py \
     python-statsmodels
 ```
+Also be aware that sometimes permissions can be messed up in /usr/lib/python2.7/dist-packages/
+
+
+### Installation on Windows for Python 3.5 or 3.6
+ Assuming that  you are using official CPython, you need a matching Visual Studio that is used to compile CPython against (,which is Visual Studio 2015. Community Edition works fine. And it's only tested with the community edition.) in order to build from the source.
+ I also assume that you are using a virtual environment.
+ You can download all necessary whl files from [here](http://www.lfd.uci.edu/~gohlke/pythonlibs/).
+
+ ```bash
+ # It will make a new foler and create new virtual environment in it.
+ {Python directory}\Scripts\virtualenv {your virtual environment folder}
+ # It enables the virtual environment that is just created.
+ {your virtual environment folder}\Scripts\activate
+ # Install all dependencies into this virtual environment.
+ pip install numpy‑1.13.3+mkl‑cp36‑cp36m‑win_amd64.whl
+
+ ```
+ Start a Visual Studio Developer Prompt and enable the virtual environment having all dependencies and execute the `setup.py` file.
+ ```bash
+ {your virtual environment folder}\Scripts\activate
+ cd {Mass repo folder}
+ python setup.py install
+ ```
 
 
 ### Possible Installation Problems
@@ -132,7 +159,7 @@ ln -s ${TMPROOTDIR}/lib/python2.7/site-packages/numpy/core/include/numpy/ \
 Frank Schima believes this is a bug in the Cython project.
 
 
-## How to import MASS within Python or Ipython
+## How to import MASS within Python or IPython
 
 ```python
 >>> import mass
