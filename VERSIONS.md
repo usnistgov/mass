@@ -1,10 +1,10 @@
 ## Note on version numbers of Mass
 
-* **0.6.1** September-November 2017
-  * Added some features to support analysis of microwave MUX data.
-  * Added some random-matrix techniques to `mass.mathstat.utilities`.
-  * Used a decorator to add methods to TESGroup that loop over channel objects.
-  * Galen added configuration of Sphinx to auto-generate HTML documentation from the docstrings.
+* **0.6.1** September-November 2017  
+  ** Added some features to support analysis of microwave MUX data.
+  ** Added some random-matrix techniques to `mass.mathstat.utilities`.
+  ** Used a decorator to add methods to TESGroup that loop over channel objects.
+  ** Galen added configuration of Sphinx to auto-generate HTML documentation from the docstrings.
 
 * **0.6.0** September 2017
   * Fixing a number of outstanding problems (issues 88-100 at least). 
