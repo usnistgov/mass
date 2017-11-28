@@ -1,6 +1,7 @@
 ## Note on version numbers of Mass
 
-* **0.6.2** November- 2017    
+* **0.6.2** November- 2017  
+Added ToeplitzWhitener.solveW method and tests for ToeplitzWhitener.  
 
 * **0.6.1** September-November 2017    
 Added some features to support analysis of microwave MUX data.  
