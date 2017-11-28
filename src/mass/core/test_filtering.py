@@ -132,5 +132,65 @@ class TestFilters(ut.TestCase):
         ds.compute_newfilter(f_3db=5000)
         self.assertFalse(np.any(np.isnan(f)))
 
+class TestWhitener(ut.TestCase):
+    """Test ToeplitzWhitener."""
+
+    def test_trivial(self):
+        """Be sure that the trivial whitener does nothing."""
+        w = mass.ToeplitzWhitener([1.0], [1.0]) # the trivial whitener
+        r = np.random.standard_normal(100)
+        self.assertTrue(np.allclose(r, w(r)))
+        self.assertTrue(np.allclose(r, w.solveW(r)))
+        self.assertTrue(np.allclose(r, w.applyWT(r)))
+        self.assertTrue(np.allclose(r, w.solveWT(r)))
+
+    def test_reversible(self):
+        """Use a nontrivial whitener, and make sure that inverse operations are inverses."""
+        w = mass.ToeplitzWhitener([1.0, -1.7,0.72], [1.0, .95])
+        r = np.random.standard_normal(100)
+        self.assertTrue(np.allclose(r, w.solveW(w(r))))
+        self.assertTrue(np.allclose(r, w(w.solveW(r))))
+        self.assertTrue(np.allclose(r, w.solveWT(w.applyWT(r))))
+        self.assertTrue(np.allclose(r, w.applyWT(w.solveWT(r))))
+
+        # Also check that w isn't trivial
+        self.assertFalse(np.allclose(r, w(r)))
+        self.assertFalse(np.allclose(r, w.solveW(r)))
+        self.assertFalse(np.allclose(r, w.applyWT(r)))
+        self.assertFalse(np.allclose(r, w.solveWT(r)))
+
+        # Check that no operations applied twice cancel out.
+        self.assertFalse(np.allclose(r, w(w(r))))
+        self.assertFalse(np.allclose(r, w.solveW(w.solveW(r))))
+        self.assertFalse(np.allclose(r, w.applyWT(w.applyWT(r))))
+        self.assertFalse(np.allclose(r, w.solveWT(w.solveWT(r))))
+
+    def test_causal(self):
+        """Make sure that the whitener and its inverse are causal,
+        and that WT and its inverse anti-causal."""
+        w = mass.ToeplitzWhitener([1.0, -1.7,0.72], [1.0, .95])
+        Nzero = 100
+        z = np.zeros(Nzero, dtype=float)
+        r = np.hstack([z, np.random.standard_normal(100), z])
+
+        # Applying and solving W are causal operations.
+        wr = w(r)
+        wir = w.solveW(r)
+        self.assertTrue(np.all(r[:Nzero] == 0))
+        self.assertTrue(np.all(wr[:Nzero] == 0))
+        self.assertTrue(np.all(wir[:Nzero] == 0))
+        self.assertFalse(np.all(wr[Nzero:] == 0))
+        self.assertFalse(np.all(wir[Nzero:] == 0))
+
+        # Applying and solving WT are anti-causal operations.
+        wtr = w.applyWT(r)
+        wtir = w.solveWT(r)
+        self.assertTrue(np.all(r[-Nzero:] == 0))
+        self.assertTrue(np.all(wtr[-Nzero:] == 0))
+        self.assertTrue(np.all(wtir[-Nzero:] == 0))
+        self.assertFalse(np.all(wtr[:-Nzero] == 0))
+        self.assertFalse(np.all(wtir[:-Nzero] == 0))
+
+
 if __name__ == '__main__':
     ut.main()

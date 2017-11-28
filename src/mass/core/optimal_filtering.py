@@ -649,7 +649,26 @@ class ToeplitzWhitener(object):
             for i in range(v.shape[1]):
                 r[:, i] = self.solveW(v[:, i])
             return r
-        raise NotImplementedError("ToeplitzWhitener.solveW does not exist yet.")
+
+        N = len(v)
+        # Multiply by the Toeplitz MA matrix to make the AR*w vector.
+        y = self.theta[0] * v
+        for i in range(1, 1+self.q):
+            y[i:] += self.theta[i]*v[:-i]
+        # Second, solve the AR matrix (also a banded Toeplitz matrix with
+        # q non-zero subdiagonals.)
+        y[0] /= self.phi[0]
+        if N == 1:
+            return y
+        for i in range(1, min(self.p, N)):
+            for j in range(i):
+                y[i] -= y[j]*self.phi[i-j]
+            y[i] /= self.phi[0]
+        for i in range(self.p, N):
+            for j in range(i-self.p, i):
+                y[i] -= y[j]*self.phi[i-j]
+            y[i] /= self.phi[0]
+        return y
 
     def solveWT(self, v):
         "Return vector (or matrix of column vectors) inv(W')*v"
