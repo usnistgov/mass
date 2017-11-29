@@ -132,6 +132,55 @@ class TestFilters(ut.TestCase):
         ds.compute_newfilter(f_3db=5000)
         self.assertFalse(np.any(np.isnan(f)))
 
+    def test_masked_filter(self):
+        """Test that zero-weighting samples from the beginning and end works."""
+        ds = self.data.channel[1]
+        ds.compute_newfilter(f_3db=5000)
+        ds.read_segment(0)
+        NP = 50
+        d = np.array(ds.data[:NP, 1:]) # NP pulses, cutting first sample
+        filt_ref = ds.filter.filt_noconst
+
+        # Test that filters actually have zero weight where they are supposed to.
+        filters = []
+        PREMAX, POSTMAX = 50, 200
+        for pre in [0, PREMAX//2, PREMAX]:
+            for post in [0, POSTMAX//2, POSTMAX]:
+                ds.filter.compute(f_3db=5000, cut_pre=pre, cut_post=post)
+                f = ds.filter.filt_noconst
+                resultsA = np.dot(d, f)
+
+                d2 = np.array(d)
+                if pre>0:
+                    d2[:, :pre] = np.random.standard_normal((NP, pre))
+                if post>0:
+                    d2[:, -post:] = np.random.standard_normal((NP, post))
+                resultsB = np.dot(d2, f)
+                self.assertTrue(np.allclose(resultsA, resultsB))
+
+        # Test that filters are the same whether made from short or long pulse models,
+        # at least after they are forced to be the same size.
+        N, n_pre = ds.nSamples, ds.nPresamples
+        dt = ds.timebase
+
+        pulse = np.zeros((N,1), dtype=float)
+        pulse[:,0] = ds.average_pulse[:]
+        noise = np.exp(-np.arange(N)*.01)
+        filterL = mass.ArrivalTimeSafeFilter(pulse, n_pre, noise_autocorr=noise, sample_time=dt)
+
+        for cut_pre in (0, n_pre//10, n_pre//4):
+            for cut_post in (0, (N-n_pre)//10, (N-n_pre)//4):
+                thispulse = pulse[cut_pre:N-cut_post]
+                filterS = mass.ArrivalTimeSafeFilter(thispulse, n_pre-cut_pre,
+                                                     noise_autocorr=noise, sample_time=dt)
+                filterS.compute()
+                fS = filterS.filt_noconst
+
+                filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
+                fL = filterL.filt_noconst[cut_pre:N-cut_post]
+                self.assertTrue(np.allclose(fS, fL))
+
+
 class TestWhitener(ut.TestCase):
     """Test ToeplitzWhitener."""
 
