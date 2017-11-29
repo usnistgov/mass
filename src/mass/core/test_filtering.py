@@ -132,6 +132,33 @@ class TestFilters(ut.TestCase):
         ds.compute_newfilter(f_3db=5000)
         self.assertFalse(np.any(np.isnan(f)))
 
+    def test_masked_filter(self):
+        """Test that zero-weighting samples from the beginning and end of the
+        data records does indeed lead to zero weight."""
+        ds = self.data.channel[1]
+        ds.compute_newfilter(f_3db=5000)
+        ds.read_segment(0)
+        NP = 50
+        d = np.array(ds.data[:NP, 1:]) # NP pulses, cutting first sample
+        filt_ref = ds.filter.filt_noconst
+
+        filters = []
+        PREMAX, POSTMAX = 50, 200
+        for pre in [0, PREMAX//2, PREMAX]:
+            for post in [0, POSTMAX//2, POSTMAX]:
+                ds.filter.compute(f_3db=5000, cut_pre=pre, cut_post=post)
+                f = ds.filter.filt_noconst
+                resultsA = np.dot(d, f)
+
+                d2 = np.array(d)
+                if pre>0:
+                    d2[:, :pre] = np.random.standard_normal((NP, pre))
+                if post>0:
+                    d2[:, -post:] = np.random.standard_normal((NP, post))
+                resultsB = np.dot(d2, f)
+                self.assertTrue(np.allclose(resultsA, resultsB))
+
+
 class TestWhitener(ut.TestCase):
     """Test ToeplitzWhitener."""
 

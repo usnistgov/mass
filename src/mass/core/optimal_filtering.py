@@ -310,15 +310,24 @@ class ArrivalTimeSafeFilter(Filter):
             avg_signal, n_pretrigger, noise_psd, noise_autocorr=noise_autocorr,
             whitener=whitener, sample_time=sample_time, shorten=0)
 
-    def compute(self, fmax=None, f_3db=None):
+    def compute(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
         """Compute a single filter.
 
         <fmax>   The strict maximum frequency to be passed in all filters.
         <f_3db>  The 3 dB point for a one-pole low-pass filter to be applied to all filters.
              Either or both of <fmax> and <f_3db> are allowed.
+        <cut_pre> Cut this many samples from the start of the filter, giving them 0 weight.
+        <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
         """
         if self.sample_time is None and not (fmax is None and f_3db is None):
             raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
+        if cut_pre < 0 or cut_post < 0:
+            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative"%
+                             (cut_pre,cut_post))
+        ns = self.pulsemodel.shape[0]
+        if cut_pre+cut_post >= ns:
+            raise ValueError("cut_pre+cut_post = %d but should be < %d"%(
+                             cut_pre+cut_post, ns))
 
         self.fmax = fmax
         self.f_3db = f_3db
@@ -327,6 +336,10 @@ class ArrivalTimeSafeFilter(Filter):
         n = len(self.avg_signal) - 2 * self.shorten
         unit = np.ones(n)
         MT = np.vstack((self.pulsemodel.T, unit))
+        if cut_pre > 0:
+            MT[:,:cut_pre] = 0
+        if cut_post > 0:
+            MT[:,-cut_post:] = 0
         if self.whitener is not None:
             WM = self.whitener(MT.T)
             if fmax is not None or f_3db is not None:
@@ -340,14 +353,19 @@ class ArrivalTimeSafeFilter(Filter):
             assert self.noise_autocorr is not None
             assert len(self.noise_autocorr) >= n
             noise_corr = self.noise_autocorr[:n] / self.peak_signal**2  # A *vector*, not a matrix
-            ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
+            TS = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
 
-            RinvM = np.vstack([ts(r) for r in MT]).T
+            RinvM = np.vstack([TS(r) for r in MT]).T
             if fmax is not None or f_3db is not None:
                 band_limit(RinvM, self.sample_time, fmax, f_3db)
             A = np.dot(MT, RinvM)
             Ainv = np.linalg.inv(A)
             filt = np.dot(Ainv, RinvM.T)
+
+        if cut_pre > 0:
+            filt[:,:cut_pre] = 0
+        if cut_post > 0:
+            filt[:,-cut_post:] = 0
 
         self.filt_noconst = filt[0]
         self.filt_aterms = filt[1:-1]
