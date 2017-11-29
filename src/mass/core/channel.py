@@ -738,7 +738,6 @@ class MicrocalDataSet(object):
                 self.filter = ArrivalTimeSafeFilter(model,
                                                     self.nPresamples - self.pretrigger_ignore_samples,
                                                     self.noise_autocorr,
-                                                    fmax=fmax, f_3db=f_3db,
                                                     sample_time=self.timebase,
                                                     peak=modelpeak)
             else:
@@ -746,8 +745,9 @@ class MicrocalDataSet(object):
                                      self.nPresamples - self.pretrigger_ignore_samples,
                                      self.noise_psd[...],
                                      self.noise_autocorr, sample_time=self.timebase,
-                                     fmax=fmax, f_3db=f_3db,
                                      shorten=shorten)
+            self.filter.fmax = fmax
+            self.filter.f_3db = f_3db
 
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                       "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:

@@ -35,7 +35,7 @@ class Filter(object):
     """A set of optimal filters based on a single signal and noise set."""
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
-                 whitener=None, fmax=None, f_3db=None, sample_time=None, shorten=0):
+                 whitener=None, sample_time=None, shorten=0):
         """Create a set of filters under various assumptions and for various purposes.
 
         Note that you now have to call Filter.compute() yourself to compute the filters.
@@ -59,13 +59,6 @@ class Filter(object):
                  <noise_autocorr> must be a valid array, or <whitener> must be given.)
             <whitener>       An optional function object which, when called, whitens a vector or the
                  columns of a matrix. Supersedes <noise_autocorr> if both are given.
-            <fmax>           The strict maximum frequency to be passed in all filters.
-                 If supplied, then it is passed on to the compute() method for the *first*
-                 filter calculation only.  (Future calls to compute() can override).
-            <f_3db>          The 3 dB point for a one-pole low-pass filter to be applied to all filters.
-                 If supplied, then it is passed on to the compute() method for the *first*
-                 filter calculation only.  (Future calls to compute() can override).
-                 Either or both of <fmax> and <f_3db> are allowed.
             <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
                  This must be given if <fmax> or <f_3db> are ever to be used.
             <shorten>        The time-domain filters should be shortened by removing this many
@@ -99,11 +92,6 @@ class Filter(object):
         self.whitener = whitener
         if noise_psd is None and noise_autocorr is None and whitener is None:
             raise ValueError("Filter must have noise_psd, noise_autocorr, or whitener arguments")
-        if sample_time is None and not (fmax is None and f_3db is None):
-            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
-
-        self.fmax = fmax
-        self.f_3db = f_3db
 
         self.filt_fourier = None
         self.filt_fourierfull = None
@@ -193,7 +181,14 @@ class Filter(object):
             # 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
 
     def compute(self, fmax=None, f_3db=None):
-        """Compute a single filter."""
+        """Compute a single filter.
+
+        <fmax>   The strict maximum frequency to be passed in all filters.
+        <f_3db>  The 3 dB point for a one-pole low-pass filter to be applied to all filters.
+             Either or both of <fmax> and <f_3db> are allowed.
+        """
+        if self.sample_time is None and not (fmax is None and f_3db is None):
+            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
         self.fmax = fmax
         self.f_3db = f_3db
         self.variances = {}
@@ -301,7 +296,7 @@ class ArrivalTimeSafeFilter(Filter):
     linear (and any higher-order) terms."""
 
     def __init__(self, pulsemodel, n_pretrigger, noise_autocorr=None,
-                 whitener=None, fmax=None, f_3db=None, sample_time=None, peak=1.0):
+                 whitener=None, sample_time=None, peak=1.0):
         if noise_autocorr is None and whitener is None:
             raise ValueError("%s requires either noise_autocorr or whitener to be set" %
                              (self.__class__.__name__))
@@ -313,11 +308,17 @@ class ArrivalTimeSafeFilter(Filter):
         self.peak = peak
         super(self.__class__, self).__init__(
             avg_signal, n_pretrigger, noise_psd, noise_autocorr=noise_autocorr,
-            whitener=whitener, fmax=fmax, f_3db=f_3db, sample_time=sample_time,
-            shorten=0)
+            whitener=whitener, sample_time=sample_time, shorten=0)
 
     def compute(self, fmax=None, f_3db=None):
-        """Compute a single filter."""
+        """Compute a single filter.
+
+        <fmax>   The strict maximum frequency to be passed in all filters.
+        <f_3db>  The 3 dB point for a one-pole low-pass filter to be applied to all filters.
+             Either or both of <fmax> and <f_3db> are allowed.
+        """
+        if self.sample_time is None and not (fmax is None and f_3db is None):
+            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
 
         self.fmax = fmax
         self.f_3db = f_3db
@@ -371,7 +372,7 @@ class ExperimentalFilter(Filter):
     CAUTION: THESE ARE EXPERIMENTAL!  Don't use yet if you don't know what you're doing!"""
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
-                 fmax=None, f_3db=None, sample_time=None, shorten=0, tau=2.0):
+                 sample_time=None, shorten=0, tau=2.0):
         """
         Create a set of filters under various assumptions and for various purposes.
 
@@ -391,13 +392,6 @@ class ExperimentalFilter(Filter):
                          assumed to be the same as the sample period of <avg_signal>.  If None,
                          then several filters won't be computed.  (One of <noise_psd> or
                          <noise_autocorr> must be a valid array.)
-        <fmax>           The strict maximum frequency to be passed in all filters.
-                         If supplied, then it is passed on to the compute() method for the *first*
-                         filter calculation only.  (Future calls to compute() can override).
-        <f_3db>          The 3 dB point for a one-pole low-pass filter to be applied to all filters.
-                         If supplied, then it is passed on to the compute() method for the *first*
-                         filter calculation only.  (Future calls to compute() can override).
-                         Either or both of <fmax> and <f_3db> are allowed.
         <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
                          This must be given if <fmax> or <f_3db> are ever to be used.
         <shorten>        The time-domain filters should be shortened by removing this many
@@ -428,6 +422,9 @@ class ExperimentalFilter(Filter):
         filt_nopoly2    Alpert filter insensitive to Chebyshev polynomials order 0 to 2
         filt_nopoly3    Alpert filter insensitive to Chebyshev polynomials order 0 to 3
         """
+
+        if self.sample_time is None and not (fmax is None and f_3db is None):
+            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
 
         self.fmax = fmax
         self.f_3db = f_3db
