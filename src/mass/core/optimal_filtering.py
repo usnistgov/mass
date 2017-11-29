@@ -336,12 +336,9 @@ class ArrivalTimeSafeFilter(Filter):
         n = len(self.avg_signal) - 2 * self.shorten
         unit = np.ones(n)
         MT = np.vstack((self.pulsemodel.T, unit))
-        if cut_pre > 0:
-            MT = MT[:,cut_pre:]
-            n -= cut_pre
-        if cut_post > 0:
-            MT = MT[:,:-cut_post]
-            n -= cut_post
+        MT = MT[:, cut_pre:n-cut_post]
+        n = n - (cut_pre + cut_post)
+
         if self.whitener is not None:
             WM = self.whitener(MT.T)
             if fmax is not None or f_3db is not None:

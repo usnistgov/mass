@@ -158,7 +158,8 @@ class TestFilters(ut.TestCase):
                 resultsB = np.dot(d2, f)
                 self.assertTrue(np.allclose(resultsA, resultsB))
 
-        # Test that filters are the same whether short, or long but cut-to-short.
+        # Test that filters are the same whether made from short or long pulse models,
+        # at least after they are forced to be the same size.
         N, n_pre = ds.nSamples, ds.nPresamples
         dt = ds.timebase
 
