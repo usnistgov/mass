@@ -192,12 +192,12 @@ class Filter(object):
             # print 'Fourier filter done.  Variance: ',self.variances['fourier'],
             # 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
 
-    def compute(self, use_toeplitz_solver=True):
-        """Compute a set of filters.
+    def compute(self, fmax=None, f_3db=None):
+        """Compute a single filter."""
+        self.fmax = fmax
+        self.f_3db = f_3db
+        self.variances = {}
 
-        This is called once automatically on construction, but you can call it
-        again if you want to change the frequency cutoff or f_3db rolloff point.
-        """
         self._compute_fourier_filter()
 
         # Time domain filters
@@ -210,18 +210,9 @@ class Filter(object):
             avg_signal = self.avg_signal
 
         noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
-        if use_toeplitz_solver:
-            ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
-            Rinv_sig = ts(avg_signal)
-            Rinv_1 = ts(np.ones(n))
-        else:
-            if n > 6000:
-                raise ValueError("Not allowed to use generic solver for vectors longer than 6000, " +
-                                 "because it's slow-ass.")
-            R = sp.linalg.toeplitz(noise_corr)
-            Rinv_sig = np.linalg.solve(R, avg_signal)
-            Rinv_1 = np.linalg.solve(R, np.ones(n))
-
+        TS = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
+        Rinv_sig = TS(avg_signal)
+        Rinv_1 = TS(np.ones(n))
         self.filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
 
         # Band-limit
@@ -326,11 +317,7 @@ class ArrivalTimeSafeFilter(Filter):
             shorten=0)
 
     def compute(self, fmax=None, f_3db=None):
-        """Compute a single filter.
-
-        This is called once automatically on construction, but you can call it
-        again if you want to change the frequency cutoff or f_3db rolloff point.
-        """
+        """Compute a single filter."""
 
         self.fmax = fmax
         self.f_3db = f_3db
