@@ -883,6 +883,9 @@ class MicrocalDataSet(object):
         self.row_number = self.pulse_records.datafile.row_number
         self.number_of_columns = self.pulse_records.datafile.number_of_columns
         self.column_number = self.pulse_records.datafile.column_number
+        
+        if self.number_of_rows is not None and self.timebase is not None:
+            self.row_timebase = self.timebase / float(self.number_of_rows)
 
         not_done = all(self.p_pretrig_mean[:] == 0)
         if not (not_done or forceNew):
@@ -1398,8 +1401,11 @@ class MicrocalDataSet(object):
         self.cuts.cut_parameter(self.p_timestamp[:], c['timestamp_sec'], 'timestamp_sec')
 
         if c['timestamp_diff_sec'] is not None:
-            self.cuts.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
+            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_timestamp))),
                                     c['timestamp_diff_sec'], 'timestamp_diff_sec')
+        if c['rowcount_diff_sec'] is not None:
+            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_rowcount[:] * self.row_timebase))),
+                                    c['rowcount_diff_sec'], 'rowcount_diff_sec')
         if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum() > 0:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
             LOG.debug('applying cut on pretrigger mean around its median value of %f', median)
