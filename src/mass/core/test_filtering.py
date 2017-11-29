@@ -161,18 +161,23 @@ class TestFilters(ut.TestCase):
         # Test that filters are the same whether short, or long but cut-to-short.
         N, n_pre = ds.nSamples, ds.nPresamples
         dt = ds.timebase
-        cut_pre, cut_post = n_pre//4, (N-n_pre)//4
 
         pulse = np.zeros((N,1), dtype=float)
         pulse[:,0] = ds.average_pulse[:]
         noise = np.exp(-np.arange(N)*.01)
         filterL = mass.ArrivalTimeSafeFilter(pulse, n_pre, noise_autocorr=noise, sample_time=dt)
-        filterS = mass.ArrivalTimeSafeFilter(pulse[cut_pre:-cut_post], n_pre-cut_pre,
-                                             noise_autocorr=noise, sample_time=dt)
-        filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
-        filterS.compute()
-        fL, fS = filterL.filt_noconst[cut_pre:-cut_post], filterS.filt_noconst
-        self.assertTrue(np.allclose(fL, fS))
+
+        for cut_pre in (0, n_pre//10, n_pre//4):
+            for cut_post in (0, (N-n_pre)//10, (N-n_pre)//4):
+                thispulse = pulse[cut_pre:N-cut_post]
+                filterS = mass.ArrivalTimeSafeFilter(thispulse, n_pre-cut_pre,
+                                                     noise_autocorr=noise, sample_time=dt)
+                filterS.compute()
+                fS = filterS.filt_noconst
+
+                filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
+                fL = filterL.filt_noconst[cut_pre:N-cut_post]
+                self.assertTrue(np.allclose(fS, fL))
 
 
 class TestWhitener(ut.TestCase):

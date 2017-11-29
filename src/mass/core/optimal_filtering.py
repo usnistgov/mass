@@ -337,9 +337,11 @@ class ArrivalTimeSafeFilter(Filter):
         unit = np.ones(n)
         MT = np.vstack((self.pulsemodel.T, unit))
         if cut_pre > 0:
-            MT[:,:cut_pre] = 0
+            MT = MT[:,cut_pre:]
+            n -= cut_pre
         if cut_post > 0:
-            MT[:,-cut_post:] = 0
+            MT = MT[:,:-cut_post]
+            n -= cut_post
         if self.whitener is not None:
             WM = self.whitener(MT.T)
             if fmax is not None or f_3db is not None:
@@ -352,7 +354,7 @@ class ArrivalTimeSafeFilter(Filter):
         else:
             assert self.noise_autocorr is not None
             assert len(self.noise_autocorr) >= n
-            noise_corr = self.noise_autocorr[:n] / self.peak_signal**2  # A *vector*, not a matrix
+            noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
             TS = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
 
             RinvM = np.vstack([TS(r) for r in MT]).T
@@ -362,10 +364,12 @@ class ArrivalTimeSafeFilter(Filter):
             Ainv = np.linalg.inv(A)
             filt = np.dot(Ainv, RinvM.T)
 
-        if cut_pre > 0:
-            filt[:,:cut_pre] = 0
-        if cut_post > 0:
-            filt[:,-cut_post:] = 0
+
+        if cut_pre > 0 or cut_post > 0:
+            nfilt = filt.shape[0]
+            filt = np.hstack([np.zeros((nfilt, cut_pre), dtype=float),
+                              filt,
+                              np.zeros((nfilt, cut_post), dtype=float)])
 
         self.filt_noconst = filt[0]
         self.filt_aterms = filt[1:-1]
