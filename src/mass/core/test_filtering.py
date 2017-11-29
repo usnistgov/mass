@@ -133,8 +133,7 @@ class TestFilters(ut.TestCase):
         self.assertFalse(np.any(np.isnan(f)))
 
     def test_masked_filter(self):
-        """Test that zero-weighting samples from the beginning and end of the
-        data records does indeed lead to zero weight."""
+        """Test that zero-weighting samples from the beginning and end works."""
         ds = self.data.channel[1]
         ds.compute_newfilter(f_3db=5000)
         ds.read_segment(0)
@@ -142,6 +141,7 @@ class TestFilters(ut.TestCase):
         d = np.array(ds.data[:NP, 1:]) # NP pulses, cutting first sample
         filt_ref = ds.filter.filt_noconst
 
+        # Test that filters actually have zero weight where they are supposed to.
         filters = []
         PREMAX, POSTMAX = 50, 200
         for pre in [0, PREMAX//2, PREMAX]:
@@ -157,6 +157,22 @@ class TestFilters(ut.TestCase):
                     d2[:, -post:] = np.random.standard_normal((NP, post))
                 resultsB = np.dot(d2, f)
                 self.assertTrue(np.allclose(resultsA, resultsB))
+
+        # Test that filters are the same whether short, or long but cut-to-short.
+        N, n_pre = ds.nSamples, ds.nPresamples
+        dt = ds.timebase
+        cut_pre, cut_post = n_pre//4, (N-n_pre)//4
+
+        pulse = np.zeros((N,1), dtype=float)
+        pulse[:,0] = ds.average_pulse[:]
+        noise = np.exp(-np.arange(N)*.01)
+        filterL = mass.ArrivalTimeSafeFilter(pulse, n_pre, noise_autocorr=noise, sample_time=dt)
+        filterS = mass.ArrivalTimeSafeFilter(pulse[cut_pre:-cut_post], n_pre-cut_pre,
+                                             noise_autocorr=noise, sample_time=dt)
+        filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
+        filterS.compute()
+        fL, fS = filterL.filt_noconst[cut_pre:-cut_post], filterS.filt_noconst
+        self.assertTrue(np.allclose(fL, fS))
 
 
 class TestWhitener(ut.TestCase):
