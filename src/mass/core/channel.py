@@ -657,6 +657,9 @@ class MicrocalDataSet(object):
         self._use_new_filters = True
 
         self.row_timebase = None
+        
+        self.nearest_spatial_neighbors = None
+        self.nearest_frequency_neighbors = None
 
         self.tes_group = tes_group
 
@@ -2122,6 +2125,35 @@ class MicrocalDataSet(object):
                      self.channum, self.cuts.good("smart_cuts").sum(), self.nPulses)
         else:
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
+            
+    @_add_group_loop        
+    def set_frequency_nearest_neighbors_list(self, frequencyMapFilename):
+        ''' Finds the nearest neighbors in frequency space for all channels in a data set
+
+        Args:
+        frequencyMapFilename (str): Location of frequency map file with the first column
+            containing channel numbers and the second column containing frequency positions.
+        '''
+        channelNumbers, frequencyValues = np.loadtxt(frequencyMapFilename, unpack= True, dtype=int) 
+                  
+        channum = self.channum
+        fPos = int(frequencyValues[np.where(channum == channelNumbers)])
+        channelsList = np.array([]).astype(int)
+
+        # Check lower frequency
+        lowerFrequency = fPos-1
+        lowerChannum = channelNumbers[np.where(lowerFrequency == frequencyValues)[0]]
+        if (lowerFrequency in frequencyValues) & (lowerChannum in self.tes_group.good_channels):               
+            channelsList = np.append(channelsList, lowerChannum)
+            
+        # Check higher frequency
+        higherFrequency = fPos+1
+        higherChannum = channelNumbers[np.where(higherFrequency == frequencyValues)[0]]
+        if (higherFrequency in frequencyValues) & (higherChannum in self.tes_group.good_channels):
+            channelsList = np.append(channelsList, higherChannum)
+        
+        # Set nearest_frequency_neighbors attribute to array of channel numbers
+        self.nearest_frequency_neighbors = channelsList
 
 
 # Below here, these are functions that we might consider moving to Cython for speed.
