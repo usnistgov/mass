@@ -1,6 +1,6 @@
-numpy>=1.13
+numpy>=1.11
 scipy>=0.19
-matplotlib>=2.0
+matplotlib>=1.5
 Cython
 pandas
 statsmodels>=0.8.0
