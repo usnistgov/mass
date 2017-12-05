@@ -11,6 +11,7 @@ import numpy as np
 import scipy as sp
 import scipy.signal
 import matplotlib.pylab as plt
+import inspect
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -325,7 +326,7 @@ class NoiseRecords(object):
                 # instead of the segment level. This means that a jump will
                 # cause data for just that chunk to be thrown away, instead of
                 # for the entire segment containing the chunk.
-                # 
+                #
 
                 # Notice that the following loop might ignore the last data values, up to as many
                 # as (chunksize-1) values, unless the data are an exact multiple of chunksize.
@@ -550,6 +551,55 @@ class PulseRecords(object):
         return c
 
 
+class GroupLooper(object):
+    """A mixin class to allow TESGroup objects to hold methods that loop over
+    their constituent channels. (Has to be a mixin, in order to break the import
+    cycle that would otherwise occur.)"""
+    pass
+
+def _add_group_loop(method):
+    """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
+
+    This is a decorator to add before method definitions inside class MicrocalDataSet.
+    Usage is:
+
+    class MicrocalDataSet(...):
+        ...
+
+        @_add_group_loop
+        def awesome_fuction(self, ...):
+            ...
+    """
+
+    method_name = method.__name__
+    # print "Adding method named '%s'"%method_name
+
+    def wrapper(self, *args, **kwargs):
+        for ds in self:
+            try:
+                method(ds, *args, **kwargs)
+            except KeyboardInterrupt as e:
+                raise e
+            except Exception as e:
+                self.set_chan_bad(ds.channum, "failed %s with %s" % (method_name, e))
+
+    wrapper.__name__ = method_name
+
+    # Generate a good doc-string.
+    lines = ["Loop over self, calling the %s(...) method for each channel."%method_name]
+    arginfo = inspect.getargspec(method)
+    argtext = inspect.formatargspec(*arginfo)
+    if method.__doc__ is None:
+        lines.append("\n%s%s has no docstring"%(method_name, argtext))
+    else:
+        lines.append("\n%s%s docstring reads:"%(method_name, argtext))
+        lines.append( method.__doc__)
+    wrapper.__doc__ = "\n".join(lines)
+
+    setattr(GroupLooper, method_name, wrapper)
+    return method
+
+
 class MicrocalDataSet(object):
     """Represent a single microcalorimeter's PROCESSED data."""
 
@@ -688,7 +738,6 @@ class MicrocalDataSet(object):
                 self.filter = ArrivalTimeSafeFilter(model,
                                                     self.nPresamples - self.pretrigger_ignore_samples,
                                                     self.noise_autocorr,
-                                                    fmax=fmax, f_3db=f_3db,
                                                     sample_time=self.timebase,
                                                     peak=modelpeak)
             else:
@@ -696,8 +745,9 @@ class MicrocalDataSet(object):
                                      self.nPresamples - self.pretrigger_ignore_samples,
                                      self.noise_psd[...],
                                      self.noise_autocorr, sample_time=self.timebase,
-                                     fmax=fmax, f_3db=f_3db,
                                      shorten=shorten)
+            self.filter.fmax = fmax
+            self.filter.f_3db = f_3db
 
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                       "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
@@ -833,6 +883,9 @@ class MicrocalDataSet(object):
         self.row_number = self.pulse_records.datafile.row_number
         self.number_of_columns = self.pulse_records.datafile.number_of_columns
         self.column_number = self.pulse_records.datafile.column_number
+        
+        if self.number_of_rows is not None and self.timebase is not None:
+            self.row_timebase = self.timebase / float(self.number_of_rows)
 
         not_done = all(self.p_pretrig_mean[:] == 0)
         if not (not_done or forceNew):
@@ -980,6 +1033,34 @@ class MicrocalDataSet(object):
             average_pulse -= np.mean(average_pulse[:self.nPresamples - self.pretrigger_ignore_samples])
         self.average_pulse[:] = average_pulse
 
+    @_add_group_loop
+    def avg_pulses_auto_masks(self, max_pulses_to_use=7000, subtract_mean=True, forceNew=False):
+        """Compute an average pulse.
+
+        Compute average pulse using an automatically generated mask of
+        +- 5%% around the median pulse_average value.
+
+        Args:
+            max_pulses_to_use (int): Use no more than
+                the first this many good pulses (default 7000).
+            forceNew (bool): whether to re-compute if results already exist (default False)
+        """
+        use = self.good()
+        if use.sum() <= 0:
+            raise ValueError("No good pulses")
+        median_pulse_avg = np.median(self.p_pulse_average[use])
+        mask = np.abs(self.p_pulse_average[:]/median_pulse_avg-1) < 0.05
+        mask = np.logical_and(mask, use)
+        if mask.sum() <= 0:
+            raise ValueError("No good pulses within 5%% of median size.")
+
+        if np.sum(mask) > max_pulses_to_use:
+            good_so_far = np.cumsum(mask)
+            stop_at = (good_so_far == max_pulses_to_use).argmax()
+            mask[stop_at+1:] = False
+        self.compute_average_pulse(mask, subtract_mean=subtract_mean,
+                                   forceNew=forceNew)
+
     def compute_oldfilter(self, fmax=None, f_3db=None):
         try:
             spectrum = self.noise_spectrum.spectrum()
@@ -989,8 +1070,8 @@ class MicrocalDataSet(object):
         avg_signal = np.array(self.average_pulse)
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
-                             fmax=fmax, f_3db=f_3db, shorten=2)
-        f.compute()
+                             shorten=2)
+        f.compute(fmax=fmax, f_3db=f_3db)
         return f
 
     def compute_newfilter(self, fmax=None, f_3db=None, transform=None):
@@ -1072,14 +1153,16 @@ class MicrocalDataSet(object):
 
         modelpeak = np.median(rawscale)
         self.pulsemodel = model
-        f = ArrivalTimeSafeFilter(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
-                                  f_3db=f_3db, sample_time=self.timebase, peak=modelpeak)
+        f = ArrivalTimeSafeFilter(model, self.nPresamples, self.noise_autocorr,
+                                  sample_time=self.timebase, peak=modelpeak)
         f.compute(fmax=fmax, f_3db=f_3db)
         self.filter = f
         return f
 
+    @_add_group_loop
     @show_progress("channel.filter_data_tdm")
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False,
+                    use_cython=False):
         """Filter the complete data file one chunk at a time.
 
         Args:
@@ -1257,6 +1340,7 @@ class MicrocalDataSet(object):
             if log:
                 plt.ylim(ymin=contents.min())
 
+    @_add_group_loop
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """Compute the noise power spectrum of this channel.
 
@@ -1281,6 +1365,7 @@ class MicrocalDataSet(object):
         else:
             LOG.info("chan %d skipping compute_noise_spectra because already done", self.channum)
 
+    @_add_group_loop
     def apply_cuts(self, controls, clear=False, forceNew=True):
         """Apply the cuts.
 
@@ -1316,8 +1401,11 @@ class MicrocalDataSet(object):
         self.cuts.cut_parameter(self.p_timestamp[:], c['timestamp_sec'], 'timestamp_sec')
 
         if c['timestamp_diff_sec'] is not None:
-            self.cuts.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
+            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_timestamp))),
                                     c['timestamp_diff_sec'], 'timestamp_diff_sec')
+        if c['rowcount_diff_sec'] is not None:
+            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_rowcount[:] * self.row_timebase))),
+                                    c['rowcount_diff_sec'], 'rowcount_diff_sec')
         if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum() > 0:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
             LOG.debug('applying cut on pretrigger mean around its median value of %f', median)
@@ -1327,13 +1415,14 @@ class MicrocalDataSet(object):
         LOG.info("Chan %d after cuts, %d are good, %d are bad of %d total pulses",
                  self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses)
 
+    @_add_group_loop
     def clear_cuts(self):
         """Clear all cuts."""
         self.cuts.clear_cut()
 
     def correct_flux_jumps(self, flux_quant):
         '''Remove 'flux' jumps' from pretrigger mean.
-    
+
         When using umux readout, if a pulse is recorded that has a very fast
         rising edge (e.g. a cosmic ray), the readout system will "slip" an
         integer number of flux quanta. This means that the baseline level
@@ -1350,6 +1439,7 @@ class MicrocalDataSet(object):
         corrected = mass.core.analysis_algorithms.correct_flux_jumps(self.p_pretrig_mean[:], self.good(), flux_quant)
         self.p_pretrig_mean[:] = corrected
 
+    @_add_group_loop
     def drift_correct(self, forceNew=False, category=None):
         """Drift correct using the standard entropy-minimizing algorithm"""
         doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(self.p_filt_value_dc[:] == self.p_filt_value[:])
@@ -1375,6 +1465,7 @@ class MicrocalDataSet(object):
         self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
         self.hdf5_group.file.flush()
 
+    @_add_group_loop
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False,
                           forceNew=False, category=None):
         """Apply the phase correction that worked for calibronium-like data as of June 2014.
@@ -1465,6 +1556,7 @@ class MicrocalDataSet(object):
         peaks.sort()
         return np.array(binctr[peaks])
 
+    @_add_group_loop
     def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=False,
                       kernel_width=None):
         """Apply the 2017 or 2015 phase correction method.
@@ -1660,6 +1752,7 @@ class MicrocalDataSet(object):
     def pkl_fname(self):
         return ljh_util.mass_folder_from_ljh_fname(self.filename, filename="ch%d_calibration.pkl" % self.channum)
 
+    @_add_group_loop
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3,
@@ -1698,7 +1791,9 @@ class MicrocalDataSet(object):
 
         if diagnose:
             auto_cal.diagnose()
+        self.convert_to_energy(attr, attr + name_ext)
 
+    @_add_group_loop
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
             calname = attr
@@ -1829,6 +1924,7 @@ class MicrocalDataSet(object):
         self.read_segment(seg_num)
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
+    @_add_group_loop
     def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree = 2000,
                            pulses_per_degree = 2000, max_degrees = 20, forceNew=False):
         """Drift correct over long times with an entropy-minimizing algorithm.
@@ -1899,7 +1995,8 @@ class MicrocalDataSet(object):
             print("%d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
         print("%d pulses total" % self.nPulses)
 
-    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=False):
+    @_add_group_loop
+    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=False, clearCuts=True):
         """Compute and apply an appropriate set of automatically generated cuts.
 
         The peak time and rise time come from the measured most-common peak time.
@@ -1920,6 +2017,8 @@ class MicrocalDataSet(object):
                 problem during a data acquisition that causes large drifts in
                 noise properties.
             forceNew (bool): Whether to perform auto-cuts even if cuts already exist.
+            clearCuts (bool): Whether to clear any existing cuts first (default
+                True).
 
         The two excursion limits are given in units of equivalent sigma from the
         noise file. "Equivalent" meaning that the noise file was assessed not for
@@ -1934,6 +2033,9 @@ class MicrocalDataSet(object):
         if not (all(self.cuts.good()) or forceNew):
             LOG.info("channel %g skipping auto cuts because cuts exist", self.channum)
             return
+
+        if clearCuts:
+            self.clear_cuts()
 
         # Step 1: peak and rise times
         if self.peak_samplenumber is None:
@@ -1996,7 +2098,9 @@ class MicrocalDataSet(object):
             cuts.cuts_prm[attrname] = (None, g.attrs[attrname])
         self.saved_auto_cuts = cuts
 
+    @_add_group_loop
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
+        """Young! Why is there no doc string here??"""
         # first check to see if this had already been done
         if all(self.cuts.good("smart_cuts")) or forceNew:
             from sklearn.covariance import MinCovDet

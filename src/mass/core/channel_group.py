@@ -22,7 +22,7 @@ import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
 
 from mass.calibration.energy_calibration import EnergyCalibration
-from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords
+from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper
 from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
 from mass.core.optimal_filtering import Filter
@@ -94,7 +94,7 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
                     hdf5_noisefilename=hdf5noisename)
 
 
-class TESGroup(CutFieldMixin):
+class TESGroup(CutFieldMixin, GroupLooper):
     """The interface for a group of one or more microcalorimeters."""
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
@@ -953,8 +953,7 @@ class TESGroup(CutFieldMixin):
                          ds.channum)
                 h5grp = ds.hdf5_group['filters']
                 ds.filter = Filter(ds.average_pulse[...], self.nPresamples - ds.pretrigger_ignore_samples,
-                                   ds.noise_psd[...], ds.noise_autocorr[...], sample_time=self.timebase,
-                                   fmax=fmax, f_3db=f_3db, shorten=2)
+                                   ds.noise_psd[...], ds.noise_autocorr[...], sample_time=self.timebase, shorten=2)
                 ds.filter.peak_signal = h5grp.attrs['peak']
                 ds.filter.shorten = h5grp.attrs['shorten']
                 ds.filter.f_3db = h5grp.attrs['f_3db'] if 'f_3db' in h5grp.attrs else None
@@ -1018,15 +1017,6 @@ class TESGroup(CutFieldMixin):
             except Exception as e:
                 LOG.warn("Filter %d can't be used", i)
                 LOG.warn(e)
-
-    @show_progress("filter_data")
-    def filter_data(self, filter_name='filt_noconst', transform=None, include_badchan=False,
-                    forceNew=False, use_cython=True):
-        nchan = float(len(self.datasets)) if include_badchan else float(self.num_good_channels)
-
-        for i, ds in enumerate(self.iter_channels(include_badchan)):
-            ds.filter_data(filter_name, transform, forceNew, use_cython=use_cython)
-            yield (i+1.0) / nchan
 
     def report(self):
         """Report on the number of data points and similar."""
@@ -1181,85 +1171,9 @@ class TESGroup(CutFieldMixin):
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
-    def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
-        for ds in self:
-            try:
-                ds.compute_noise_spectra(max_excursion, n_lags, forceNew)
-            except Exception as e:
-                self.set_chan_bad(ds.channum, "Failed to compute noise spectrum: %s" % e)
-
-    def apply_cuts(self, cuts, forceNew=True):
-        """Apply the cuts `cuts` to each valid dataset."""
-        for ds in self:
-            ds.apply_cuts(cuts, forceNew)
-
-    def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=True, clearCuts=True):
-        """Automatically compute per-channel cuts and apply them to each valid dataset.
-
-        See MicrocalDataSet.auto_cuts for further information.
-
-        Args:
-            nsigma_pt_rms (float):  How big an excursion is allowed in pretrig RMS
-                (default 8.0).
-            nsigma_max_deriv (float): How big an excursion is allowed in max
-                post-peak derivative (default 8.0).
-            pretrig_rms_percentile (float): Make upper limit for pretrig_rms at
-                least as large as this percentile of the data. I.e., if you
-                pass in 99, then the upper limit for pretrig_rms will exclude
-                no more than the 1 % largest values. This number is a
-                percentage, *not* a fraction. This should not be routinely used
-                - it is intended to help auto_cuts work even if there is a
-                problem during a data acquisition that causes large drifts in
-                noise properties.
-            forceNew (bool): Whether to perform auto-cuts even if cuts already
-                exist (default Faulse).
-            clearCuts (bool): Whether to clear any existing cuts first (default
-                True).
-
-        The two excursion limits are given in units of equivalent sigma from the
-        noise file. "Equivalent" meaning that the noise file was assessed not for
-        RMS but for median absolute deviation, normalized to Gaussian distributions.
-        """
-        for ds in self:
-            if clearCuts:
-                ds.clear_cuts()
-            ds.auto_cuts(nsigma_pt_rms=nsigma_pt_rms,
-                         nsigma_max_deriv=nsigma_max_deriv,
-                         pretrig_rms_percentile=pretrig_rms_percentile,
-                         forceNew=forceNew)
-
-    def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
-        for ds in self:
-            ds.smart_cuts(threshold, n_trainings, forceNew)
-
-    def avg_pulses_auto_masks(self, max_pulses_to_use=7000, forceNew=False):
-        """Compute an average pulse.
-
-        Compute average pulse using an automatically generated mask of
-        +- 5%% around the median pulse_average value.
-
-        Args:
-            max_pulses_to_use (int): Use no more than
-                the first this many good pulses (default 7000).
-            forceNew (bool): whether to re-compute if results already exist (default False)
-        """
-        median_pulse_avg = np.ones(self.n_channels, dtype=np.float)
-        for i, ds in enumerate(self.datasets):
-            if ds.good().sum() > 0:
-                median_pulse_avg[i] = np.median(ds.p_pulse_average[ds.good()])
-            else:
-                self.set_chan_bad(ds.channum, "No good pulses")
-        masks = self.make_masks([.95, 1.05], gains=median_pulse_avg)
-        for m in masks:
-            if np.sum(m) > max_pulses_to_use:
-                good_so_far = np.cumsum(m)
-                stop_at = (good_so_far == max_pulses_to_use).argmax()
-                m[stop_at+1:] = False
-        self.compute_average_pulse(masks, forceNew=forceNew)
-
     def correct_flux_jumps(self, flux_quant):
         '''Remove 'flux' jumps' from pretrigger mean.
-    
+
         When using umux readout, if a pulse is recorded that has a very fast
         rising edge (e.g. a cosmic ray), the readout system will "slip" an
         integer number of flux quanta. This means that the baseline level
@@ -1267,7 +1181,7 @@ class TESGroup(CutFieldMixin):
         an integer number of flux quanta. This causes that pretrigger mean
         summary quantity to jump around in a way that causes trouble for the
         rest of MASS. This function attempts to correct these jumps.
-    
+
         Arguments:
         flux_quant -- size of 1 flux quantum
         '''
@@ -1276,64 +1190,11 @@ class TESGroup(CutFieldMixin):
                 ds.correct_flux_jumps(flux_quant)
             except Exception as e:
                 self.set_chan_bad(ds.channum, "failed to correct flux jumps")
-    
-    def drift_correct(self, forceNew=False, category=None):
-        for ds in self:
-            try:
-                ds.drift_correct(forceNew, category)
-            except:
-                self.set_chan_bad(ds.channum, "failed drift correct")
-
-    def phase_correct(self, plot=False, forceNew=False, category=None):
-        for ds in self:
-            try:
-                ds.phase_correct(forceNew=forceNew, category=category)
-            except Exception as e:
-                self.set_chan_bad(ds.channum, "failed phase_correct with %s" % e)
-
-    def phase_correct2014(self, typical_resolution, maximum_num_records=50000,
-                          plot=False, forceNew=False, pre_sanitize_p_filt_phase=True, category=None):
-        if pre_sanitize_p_filt_phase:
-            self.sanitize_p_filt_phase()
-        for ds in self:
-            try:
-                ds.phase_correct2014(typical_resolution, maximum_num_records, plot, forceNew, category)
-            except:
-                self.set_chan_bad(ds.channum, "failed phase_correct2014")
 
     def sanitize_p_filt_phase(self):
-        ds = self.first_good_dataset
         self.register_boolean_cut_fields("filt_phase")
         for ds in self:
             ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:]) > 2)
-
-    def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
-                  fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2, category=None, forceNew=False, maxacc=0.015, nextra=3,
-                  param_adjust_closure=None):
-        for ds in self:
-            try:
-                ds.calibrate(attr, line_names, name_ext, size_related_to_energy_resolution,
-                             fit_range_ev, excl, plot_on_fail,
-                             bin_size_ev, category, forceNew, maxacc, nextra,
-                             param_adjust_closure=param_adjust_closure)
-            except:
-                self.set_chan_bad(ds.channum, "failed calibration %s" % attr + name_ext)
-        self.convert_to_energy(attr, attr + name_ext)
-
-    def convert_to_energy(self, attr, calname=None):
-        if calname is None:
-            calname = attr
-        LOG.info("for all channels converting %s to energy with calibration %s", attr, calname)
-        for ds in self:
-            ds.convert_to_energy(attr, calname)
-
-    def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree = 2000,
-                           pulses_per_degree = 2000, max_degrees = 20, forceNew=False):
-        for ds in self:
-            ds.time_drift_correct(attr=attr, sec_per_degree=sec_per_degree,
-                                  pulses_per_degree=pulses_per_degree,
-                                  max_degrees=max_degrees, forceNew=forceNew)
 
     def plot_count_rate(self, bin_s=60, title=""):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
