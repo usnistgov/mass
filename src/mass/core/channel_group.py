@@ -26,7 +26,7 @@ from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, Group
 from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
 from mass.core.optimal_filtering import Filter
-from mass.core.utilities import InlineUpdater, show_progress
+from mass.core.utilities import InlineUpdater, show_progress, plot_multipage
 from mass.core.ljh_util import remove_unpaired_channel_files, \
     filename_glob_expand
 
@@ -1222,6 +1222,153 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plt.ylabel("average trigger/s")
         plt.grid("on")
         plt.legend()
+
+    def plot_summary_pages(self, x_attr, y_attr, x_range=None, y_range=None, subplot_shape=(3,4), suffix=None, lines=None, down=10, format='png', one_file=False):
+        '''Make scatter plots of summary quantities for all channels.
+    
+        This creates the plots for each good channel, placing multiple plots on
+        each page, and saves each page to its own file. Pulses that pass cuts are
+        plotted in blue, and cut pulses are plotted in gray. The file names have
+        the form "<x_attr>.vs.<y-attr>-<suffix>-<page number>.png". The default
+        value for the suffix is that pulsefile's base name.
+    
+        Arguments:
+          x_attr -- string containing name of X value attribute
+          y_attr -- string containing name of Y value attribute
+          x_range -- if not None, values to use for x limits. Defaults to None.
+          y_range -- if not None, values to use for y limits. Defaults to None.
+          subplot_shape -- tuple indicating shape of subplots. First element is
+                           number of rows, second is number of columns. 
+          suffix -- suffix to use for filenames. Defaults to None, which causes the
+                    function to use the first 15 characters of the pulse filename
+                    for the first data set (which typically will have a value
+                    like '20171017_103454')
+          lines -- if not None, must contain a hashtable, keyed off of channel
+                   number. The value for each channel is a list of numbers. A
+                   dashed horizontal line is plotted for each value in this list.
+                   Defaults to None.
+          down -- downsample by this factor. Defaults to 10
+          format -- output format ('png', 'pdf', etc). Must be a value supported by
+                    your installation of matplotlib.
+          one_file -- If True, combine all pages to one pdf file. If False, use
+                      separate files for all pages. Defaults to False. If format is
+                      something other than 'pdf', this uses the ImageMagick program
+                      `convert` to combine the files. You can install it on ubuntu
+                      via `apt-get install imagemagick`.
+        '''
+        if suffix == None:
+            suffix = os.path.basename(self.channels[0].datafile.filename)[:15]
+    
+        filename_template_per_file = '%s.vs.%s-%s-%%03d.%s' % (y_attr, x_attr, suffix, format)
+        filename_template_glob = '%s.vs.%s-%s-[0-9][0-9][0-9].%s' % (y_attr, x_attr, suffix, format)
+        filename_one_file = '%s.vs.%s-%s.pdf' % (y_attr, x_attr, suffix)
+    
+        def helper(ds, ax):
+            ch = ds.channum
+            g = ds.good()
+            b = np.logical_not(g)
+            
+            x_g = getattr(ds, x_attr)[g][::down]
+            x_b = getattr(ds, x_attr)[b][::down]
+            y_g = getattr(ds, y_attr)[g][::down]
+            y_b = getattr(ds, y_attr)[b][::down]
+    
+            if x_attr == 'p_timestamp':
+                x_g = (x_g - getattr(ds, x_attr)[0]) / (60*60)
+                x_b = (x_b - getattr(ds, x_attr)[0]) / (60*60)
+        
+            plt.plot(x_b, y_b, '.', markersize=2.5, color='gray')
+            plt.plot(x_g, y_g, '.', markersize=2.5, color='blue')
+    
+            if lines != None:
+                x_lo = min(np.amin(x_g), np.amin(x_b))
+                x_hi = max(np.amax(x_g), np.amax(x_b))
+                for line in lines[ch]:
+                    plt.plot([x_lo, x_hi], [line, line], '--k')
+    
+            if x_range != None:
+                plt.xlim(x_range)
+            if y_range != None:
+                plt.ylim(y_range)
+    
+            if x_attr == 'p_timestamp':
+                plt.xlabel('Time (hours)')
+            else:
+                plt.xlabel(x_attr, fontsize=8)
+            plt.ylabel(y_attr, fontsize=8)
+            ax.tick_params(axis='both', labelsize=8)
+            plt.title('MATTER Ch%d' % ch, fontsize=10)
+    
+        plot_multipage(self, subplot_shape, helper, filename_template_per_file,
+                       filename_template_glob, filename_one_file, format, one_file)
+    
+    def plot_histogram_pages(self, attr, range, bins, y_range=None, subplot_shape=(3,4), suffix=None, lines=None, format='png', one_file=False):
+        '''Make plots of histograms for all channels.
+    
+        This creates the plots for each good channel, placing multiple plots on
+        each page, and saves each page to its own file. Only pulses that pass cuts
+        are included. The file names have the form "<attr>-hist-<suffix>-<page
+        number>.png". The default value for the suffix is that pulsefile's base
+        name.
+        
+        Arguments:
+          attr -- string containing name of attribute to plot
+          range -- range of value over which to histogram (passed into histogram function)
+          bins -- number of bins (passed into histogram function)
+          y_range -- if not None, values to use for y limits. Defaults to None.
+          subplot_shape -- tuple indicating shape of subplots. First element is
+                           number of rows, second is number of columns. 
+          suffix -- suffix to use for filenames. Defaults to None, which causes the
+                    function to use the first 15 characters of the pulse filename
+                    for the first data set (which typically will have a value
+                    like '20171017_103454')
+          lines -- if not None, must contain a hashtable, keyed off of channel
+                   number. The value for each channel is a list of numbers. A
+                   dashed horizontal line is plotted for each value in this list.
+                   Defaults to None.
+          format -- output format ('png', 'pdf', etc). Must be a value supported by
+                    your installation of matplotlib.
+          one_file -- If True, combine all pages to one pdf file. If False, use
+                      separate files for all pages. Defaults to False. If format is
+                      something other than 'pdf', this uses the ImageMagick program
+                      `convert` to combine the files. You can install it on ubuntu
+                      via `apt-get install imagemagick`.
+        '''
+        if suffix == None:
+            suffix = os.path.basename(self.channels[0].datafile.filename)[:15]
+    
+        filename_template_per_file = '%s-hist-%s-%%03d.%s' % (attr, suffix, format)
+        filename_template_glob = '%s-hist-%s-[0-9][0-9][0-9].%s' % (attr, suffix, format)
+        filename_one_file = '%s-hist-%s.pdf' % (attr, suffix)
+    
+        def helper(ds, ax):
+            ch = ds.channum
+            g = ds.good()
+            
+            x_g = getattr(ds, attr)[g]
+    
+            # I generally prefer the "stepped" histtype, but that seems to interact
+            # poorly with log scale - the automatic choice of axus limites gets
+            # screwed up.
+            plt.hist(x_g, range=range, bins=bins, histtype='bar')
+            plt.yscale('log')
+    
+            if lines != None:
+                x_lo = min(np.amin(x_g), np.amin(x_b))
+                x_hi = max(np.amax(x_g), np.amax(x_b))
+                for line in lines[k]:
+                    plt.plot([x_lo, x_hi], [line, line], '-k')
+    
+            if y_range != None:
+                plt.ylim(y_range)
+    
+            plt.xlabel(attr, fontsize=8)
+            plt.ylabel('Counts / bin', fontsize=8)
+            ax.tick_params(axis='both', labelsize=8)
+            plt.title('MATTER Ch%d' % ch, fontsize=10)
+    
+        plot_multipage(self, subplot_shape, helper, filename_template_per_file,
+                       filename_template_glob, filename_one_file, format, one_file)
 
 
 class CrosstalkVeto(object):
