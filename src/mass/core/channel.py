@@ -2127,33 +2127,42 @@ class MicrocalDataSet(object):
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
             
     @_add_group_loop        
-    def set_frequency_nearest_neighbors_list(self, frequencyMapFilename):
+    def set_frequency_nearest_neighbors_list(self, frequencyMapFilename, forceNew=False):
         ''' Finds the nearest neighbors in frequency space for all channels in a data set
 
         Args:
         frequencyMapFilename (str): Location of frequency map file with the first column
             containing channel numbers and the second column containing frequency positions.
         '''
-        channelNumbers, frequencyValues = np.loadtxt(frequencyMapFilename, unpack= True, dtype=int) 
-                  
-        channum = self.channum
-        fPos = int(frequencyValues[np.where(channum == channelNumbers)])
-        channelsList = np.array([]).astype(int)
-
-        # Check lower frequency
-        lowerFrequency = fPos-1
-        lowerChannum = channelNumbers[np.where(lowerFrequency == frequencyValues)[0]]
-        if (lowerFrequency in frequencyValues) & (lowerChannum in self.tes_group.good_channels):               
-            channelsList = np.append(channelsList, lowerChannum)
+        
+        # Create hdf5 group for nearest neighbors
+        h5grp = self.hdf5_group.require_group('nearest_neighbors')
+        if 'nearest_neighbors/frequency_neighbors' not in self.hdf5_group or forceNew:
+            channelNumbers, frequencyValues = np.loadtxt(frequencyMapFilename, unpack= True, dtype=int) 
+                      
+            channum = self.channum
+            fPos = int(frequencyValues[np.where(channum == channelNumbers)])
+            channelsList = np.array([]).astype(int)
+    
+            # Check lower frequency
+            lowerFrequency = fPos-1
+            lowerChannum = channelNumbers[np.where(lowerFrequency == frequencyValues)[0]]
+            if (lowerFrequency in frequencyValues) & (lowerChannum in self.tes_group.good_channels):               
+                channelsList = np.append(channelsList, lowerChannum)
+                
+            # Check higher frequency
+            higherFrequency = fPos+1
+            higherChannum = channelNumbers[np.where(higherFrequency == frequencyValues)[0]]
+            if (higherFrequency in frequencyValues) & (higherChannum in self.tes_group.good_channels):
+                channelsList = np.append(channelsList, higherChannum)
             
-        # Check higher frequency
-        higherFrequency = fPos+1
-        higherChannum = channelNumbers[np.where(higherFrequency == frequencyValues)[0]]
-        if (higherFrequency in frequencyValues) & (higherChannum in self.tes_group.good_channels):
-            channelsList = np.append(channelsList, higherChannum)
+            # Save nearest neighbor data into hdf5 file in frequency neighbor subgroup        
+            if 'frequency_neighbors' in h5grp:
+                del h5grp['frequency_neighbors']             
+            h5grp.create_dataset('frequency_neighbors', data = channelsList)
         
         # Set nearest_frequency_neighbors attribute to array of channel numbers
-        self.nearest_frequency_neighbors = channelsList
+        self.nearest_frequency_neighbors = h5grp['frequency_neighbors'].value        
 
 
 # Below here, these are functions that we might consider moving to Cython for speed.
