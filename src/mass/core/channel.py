@@ -1993,10 +1993,10 @@ class MicrocalDataSet(object):
                 if c1 is c2:
                     continue
                 bad2 = self.cuts.bad(c2)
-                Nand = np.logical_and(bad1, bad2).sum()
-                Nor = np.logical_or(bad1, bad2).sum()
-                print("%6d (and) %6d (or) pulses cut by %s and/or %s" %
-                      (Nand, Nor, c1.upper(), c2.upper()))
+                n_and = np.logical_and(bad1, bad2).sum()
+                n_or = np.logical_or(bad1, bad2).sum()
+                print("%6d (and) %6d (or) pulses cut by [%s and/or %s]" %
+                      (n_and, n_or, c1.upper(), c2.upper()))
         print()
         for cut_name in boolean_fields:
             print("%6d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
