@@ -883,7 +883,7 @@ class MicrocalDataSet(object):
         self.row_number = self.pulse_records.datafile.row_number
         self.number_of_columns = self.pulse_records.datafile.number_of_columns
         self.column_number = self.pulse_records.datafile.column_number
-        
+
         if self.number_of_rows is not None and self.timebase is not None:
             self.row_timebase = self.timebase / float(self.number_of_rows)
 
@@ -1985,15 +1985,22 @@ class MicrocalDataSet(object):
         return bin_centers, rate
 
     def cut_summary(self):
-        boolean_fields = [name.decode() for name, _ in self.tes_group.boolean_cut_desc if name]
+        boolean_fields = [name.decode() for (name, _) in self.tes_group.boolean_cut_desc if name]
 
         for c1 in boolean_fields:
+            bad1 = self.cuts.bad(c1)
             for c2 in boolean_fields:
-                print("%d pulses cut by both %s and %s" % (
-                    self.cuts.bad(c1, c2).sum(), c1.upper(), c2.upper()))
+                if c1 is c2:
+                    continue
+                bad2 = self.cuts.bad(c2)
+                n_and = np.logical_and(bad1, bad2).sum()
+                n_or = np.logical_or(bad1, bad2).sum()
+                print("%6d (and) %6d (or) pulses cut by [%s and/or %s]" %
+                      (n_and, n_or, c1.upper(), c2.upper()))
+        print()
         for cut_name in boolean_fields:
-            print("%d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
-        print("%d pulses total" % self.nPulses)
+            print("%6d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
+        print("%6d pulses total" % self.nPulses)
 
     @_add_group_loop
     def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=False, clearCuts=True):
