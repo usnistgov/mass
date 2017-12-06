@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QLabel, QDoubleSpinBox, QPlainTextEdit, QPushButton
 from PyQt5.QtCore import QTimer, QThread, QObject, pyqtSignal, pyqtSlot, QAbstractTableModel, QSettings
 from PyQt5.QtCore import QDate, QTime, QDateTime, Qt
 
-import pulse_picker_ui
+import pulse_explorer_ui
 import plot_ui
 
 import numpy as np
@@ -67,7 +67,7 @@ class PulseGUI(QWidget):
     def __init__(self, ds):
         QWidget.__init__(self)
 
-        self.ui = pulse_picker_ui.Ui_Form()
+        self.ui = pulse_explorer_ui.Ui_Form()
         self.ui.setupUi(self)
 
         self.ds = ds
