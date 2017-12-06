@@ -2153,16 +2153,13 @@ class MicrocalDataSet(object):
         
         # Check to see if if data set already exists or if forceNew is set to True
         if 'nearest_neighbors/' + nearestNeighborCategory not in self.hdf5_group or forceNew:
-            
-            # Calculate number of dimensions in the given space using number of columns in map file                       
-            with open(mapFilename) as f:
-                fileCols = len(f.readline().split('\t'))
-            nDims = int(fileCols-1)
-            
-            # Load channel numbers and positions from map file 
-            channelNumbers = np.loadtxt(mapFilename, dtype=int, usecols = 0) 
-            positionValues = np.loadtxt(mapFilename, dtype=int, usecols = np.arange(1, fileCols))            
-            
+                       
+            # Load channel numbers and positions from map file, define number of dimensions
+            mapData = np.loadtxt(mapFilename, dtype=int)
+            channelNumbers = mapData[:,0]
+            positionValues = mapData[:,1:]
+            nDims = positionValues.shape[1]
+                       
             # Extract channel number and position of current channel
             channum = self.channum
             channelPos = np.array(positionValues[channum == channelNumbers][0],ndmin=1)
@@ -2170,7 +2167,6 @@ class MicrocalDataSet(object):
             # Initialize array for storing nearest neighbors of current channel
             channelsList = np.array([]).astype(int)
             
-
             '''
             Returns the channel number of a neighboring position after checking for goodness
             
@@ -2178,11 +2174,8 @@ class MicrocalDataSet(object):
             positionToCompare (int array) - position to check for nearest neighbor match
             '''                                
             def process_matching_channel(positionToCompare):
-                # Check for number of dimensions to avoid errors with np.all not working on 
-                if nDims == 1:
-                    channelToCompare = channelNumbers[np.where(positionToCompare == positionValues)[0]]
-                else:
-                    channelToCompare = channelNumbers[np.where(np.all(positionToCompare == positionValues, axis=1))[0]]
+                # Find the channel number corresponding to the compare position
+                channelToCompare = channelNumbers[np.all(positionToCompare == positionValues, axis=1)]
                 # If the new position exists in map file and the channel to compare to is good, return the channel number
                 if (positionToCompare in positionValues) & (channelToCompare in self.tes_group.good_channels):               
                     return channelToCompare
