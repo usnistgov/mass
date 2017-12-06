@@ -657,6 +657,8 @@ class MicrocalDataSet(object):
         self._use_new_filters = True
 
         self.row_timebase = None
+        
+        self.nearest_neighbors_dictionary = {}
 
         self.tes_group = tes_group
 
@@ -2129,7 +2131,84 @@ class MicrocalDataSet(object):
                      self.channum, self.cuts.good("smart_cuts").sum(), self.nPulses)
         else:
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
+            
+    @_add_group_loop        
+    def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory = 'physical', forceNew=False):
+        ''' Finds the nearest neighbors in a given space for all channels in a data set
 
+        Args:
+        mapFilename (str): Location of map file in the following format
+            Column 0 - list of channel numbers.
+            Remaining column(s) - coordinates that define a particular column in a given space.
+                For example, can be the row and column number in a physical space
+                or the frequency order number in a frequency space (umux readout).
+        nearestNeighborCategory (str): name used to categorize the type of nearest neighbor.
+            This will be the name given to the subgroup of the hdf5 file under the nearest_neighbor group.
+            This will also be a key for dictionary nearest_neighbors_dictionary
+        forceNew (bool): whether to re-compute nearest neighbors list if it exists (default False)
+        '''
+        
+        # Create hdf5 group for nearest neighbors
+        h5grp = self.hdf5_group.require_group('nearest_neighbors')
+        
+        # Check to see if if data set already exists or if forceNew is set to True
+        if 'nearest_neighbors/' + nearestNeighborCategory not in self.hdf5_group or forceNew:
+            
+            # Calculate number of dimensions in the given space using number of columns in map file                       
+            with open(mapFilename) as f:
+                fileCols = len(f.readline().split('\t'))
+            nDims = int(fileCols-1)
+            
+            # Load channel numbers and positions from map file 
+            channelNumbers = np.loadtxt(mapFilename, dtype=int, usecols = 0) 
+            positionValues = np.loadtxt(mapFilename, dtype=int, usecols = np.arange(1, fileCols))            
+            
+            # Extract channel number and position of current channel
+            channum = self.channum
+            channelPos = np.array(positionValues[channum == channelNumbers][0],ndmin=1)
+            
+            # Initialize array for storing nearest neighbors of current channel
+            channelsList = np.array([]).astype(int)
+            
+
+            '''
+            Returns the channel number of a neighboring position after checking for goodness
+            
+            Args: 
+            positionToCompare (int array) - position to check for nearest neighbor match
+            '''                                
+            def process_matching_channel(positionToCompare):
+                # Check for number of dimensions to avoid errors with np.all not working on 
+                if nDims == 1:
+                    channelToCompare = channelNumbers[np.where(positionToCompare == positionValues)[0]]
+                else:
+                    channelToCompare = channelNumbers[np.where(np.all(positionToCompare == positionValues, axis=1))[0]]
+                # If the new position exists in map file and the channel to compare to is good, return the channel number
+                if (positionToCompare in positionValues) & (channelToCompare in self.tes_group.good_channels):               
+                    return channelToCompare
+                # Return an empty array if not actually a good nearest neighbor
+                else:
+                    return np.array([], dtype=int)
+            
+            # Check the lower and upper position for each dimension in the given space
+            for iDim in range(nDims):
+                lowerPosition = np.array(channelPos)
+                lowerPosition[iDim] -= 1
+                channelsList = np.append(channelsList, process_matching_channel(lowerPosition))
+                upperPosition = np.array(channelPos)
+                upperPosition[iDim] += 1
+                channelsList = np.append(channelsList, process_matching_channel(upperPosition))
+                        
+            # Save nearest neighbor data into hdf5 file in nearestNeighborCategory subgroup        
+            if nearestNeighborCategory in h5grp:
+                del h5grp[nearestNeighborCategory]             
+            h5grp.create_dataset(nearestNeighborCategory, data = channelsList)
+        
+        # Also save the data into a dictionary with nearestNeighborCategory as the key
+        self.nearest_neighbors_dictionary[nearestNeighborCategory] = h5grp[nearestNeighborCategory].value
+              
+        
+        
 
 # Below here, these are functions that we might consider moving to Cython for speed.
 # But at any rate, they do not require any MicrocalDataSet attributes, so they are
