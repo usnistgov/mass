@@ -6,6 +6,7 @@ Joe Fowler, NIST Boulder Labs
 Contains various objects to simplify life with a (Qt4) GUI.
 """
 
+'''
 import pylab
 import matplotlib.backends
 
@@ -25,3 +26,4 @@ __all__ = ['load_data_dialog', 'make_cuts_dialog']
 
 __all__.extend(load_data_dialog.__all__)
 __all__.extend(make_cuts_dialog.__all__)
+'''
