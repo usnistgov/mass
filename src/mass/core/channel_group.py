@@ -139,8 +139,14 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # Handle the case that either filename list is a glob pattern (e.g.,
         # "files_chan*.ljh"). Note that this will return a list, never a string,
         # even if there is only one result from the pattern matching.
+        pattern = filenames
         filenames = filename_glob_expand(filenames)
+        if filenames is not None and len(filenames) == 0:
+            raise ValueError("Filename pattern '%s' expanded to no files"%pattern)
+        pattern = noise_filenames
         noise_filenames = filename_glob_expand(noise_filenames)
+        if noise_filenames is not None and len(noise_filenames) == 0:
+            raise ValueError("Noise filename pattern '%s' expanded to no files"%pattern)
 
         # If using a glob pattern especially, we have to be careful to eliminate files that are
         # missing a partner, either noise without pulse or pulse without noise.
@@ -862,7 +868,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 continue
             ds.compute_average_pulse(mask, subtract_mean=subtract_mean, forceNew=forceNew)
 
-    def plot_average_pulses(self, axis=None, channels=None, cmap=None, legend=True, fcut=None):
+    def plot_average_pulses(self, axis=None, channels=None, cmap=None, legend=True,
+                            fcut=None, include_badchan=False):
         """Plot average pulse for channel number <channum> on matplotlib.Axes
         <axis>, or on a new Axes if <axis> is None. If <channum> is not a valid
         channel number, then plot all average pulses. If <fcut> is not None,
@@ -874,24 +881,23 @@ class TESGroup(CutFieldMixin, GroupLooper):
             plt.clf()
             axis = plt.subplot(111)
 
-        if channels is None:
-            channels = list(self.channel.keys())
-            channels.sort()
-
         if cmap is None:
             cmap = plt.cm.get_cmap("nipy_spectral")
 
         dt = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e3
 
-        for ds_num, channum in enumerate(channels):
-            if channum not in self.channel:
-                continue
-            ds = self.channel[channum]
+        if channels is None:
+            dsets = [ds for ds in self.iter_channels(include_badchan=include_badchan)]
+        else:
+            dsets = [data.channel[c] for c in channels]
+        nplot = len(dsets)
+
+        for i,ds in enumerate(dsets):
             avg_pulse = ds.average_pulse[:].copy()
             if fcut != None:
                 avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(avg_pulse, 1./self.timebase, fcut)
             plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
-                     color=cmap(float(ds_num) / len(channels)))
+                     color=cmap(float(i) / nplot))
 
         plt.title("Average pulse for each channel when it is hit")
 
@@ -900,7 +906,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plt.xlim([dt[0], dt[-1]])
         if legend:
             plt.legend(loc='best')
-            if len(channels) > 12:
+            if nplot > 12:
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
@@ -1118,7 +1124,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         return first_pnum, end_pnum
 
     def plot_noise(self, axis=None, channels=None, cmap=None, scale_factor=1.0,
-                   sqrt_psd=False, legend=True):
+                   sqrt_psd=False, legend=True, include_badchan=False):
         """Plot the noise power spectra.
 
         Args:
@@ -1134,8 +1140,10 @@ class TESGroup(CutFieldMixin, GroupLooper):
             axis = plt.subplot(111)
 
         if channels is None:
-            channels = list(self.channel.keys())
-            channels.sort()
+            dsets = [ds for ds in self.iter_channels(include_badchan=include_badchan)]
+        else:
+            dsets = [data.channel[c] for c in channels]
+        nplot = len(dsets)
 
         if cmap is None:
             cmap = plt.cm.get_cmap("nipy_spectral")
@@ -1146,10 +1154,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             units = "Scaled counts"
 
         axis.grid(True)
-        for ds_num, channum in enumerate(channels):
-            if channum not in self.channel:
-                continue
-            ds = self.channel[channum]
+        for i,ds in enumerate(dsets):
+            channum = ds.channum
             yvalue = ds.noise_psd[:] * scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
@@ -1158,7 +1164,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 df = ds.noise_psd.attrs['delta_f']
                 freq = np.arange(1, 1 + len(yvalue)) * df
                 axis.plot(freq, yvalue, label='Chan %d' % channum,
-                          color=cmap(float(ds_num) / len(channels)))
+                          color=cmap(float(i) / nplot))
             except:
                 LOG.warn("WARNING: Could not plot channel %4d.", channum)
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
@@ -1167,7 +1173,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         axis.loglog()
         if legend:
             plt.legend(loc='best')
-            if len(channels) > 12:
+            if nplot > 12:
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
