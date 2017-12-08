@@ -2168,17 +2168,8 @@ class MicrocalDataSet(object):
             # Create start and stop edges around pulses corresponding to veto times
             startEdges = pulseTimes - priorVetoTime        
             stopEdges = pulseTimes + postVetoTime
-                        
-            numberOfPulsesToCheck = len(pulseTimes)
-            # Create bins to check for neighboring pulses prior to this channel
-            negativeEdges = np.empty(2*numberOfPulsesToCheck)
-            negativeEdges[::2] = startEdges
-            negativeEdges[1::2] = pulseTimes
-            # Create bins to check for neighboring pulses after this channel
-            positiveEdges = np.empty(2*numberOfPulsesToCheck)
-            positiveEdges[::2] = pulseTimes
-            positiveEdges[1::2] = stopEdges
-                    
+            combinedEdges = np.sort(np.append(startEdges, stopEdges))
+                                
             # Initialize array that will include the pulses from all neighboring channels
             neighboringChannelsPulsesList = np.array([])
             # Iterate through all neighboring channels that you will veto against
@@ -2188,12 +2179,8 @@ class MicrocalDataSet(object):
                 neighboringChannelsPulsesList = np.append(neighboringChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
             
             # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
-            histNegative, bin_edges = np.histogram(neighboringChannelsPulsesList, bins=negativeEdges)
-            histPositive, bin_edges = np.histogram(neighboringChannelsPulsesList, bins=positiveEdges)
-                       
-            # Combine counts in histogram, index common to a pulse
-            hist = histNegative+histPositive
-            
+            hist, bin_edges = np.histogram(neighboringChannelsPulsesList, bins=combinedEdges)
+                                   
             # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
             badCountsHist = hist[::2]
             
