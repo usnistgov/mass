@@ -60,6 +60,7 @@ class CutFieldMixin(object):
                                   'timestamp_sec',
                                   'timestamp_diff_sec',
                                   'rowcount_diff_sec',
+                                  'crosstalk',
                                   'peak_value',
                                   'energy',
                                   'timing',

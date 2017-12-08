@@ -2132,6 +2132,80 @@ class MicrocalDataSet(object):
         else:
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
             
+    @_add_group_loop
+    def nearest_neighbor_crosstalk_cuts(self, priorVetoTime, postVetoTime, forceNew=False):
+        ''' Uses a list of nearest neighbor channels to cut pulses in current channel based
+            on arrival times of pulses in neighboring channels
+            
+            Args:
+            priorVetoTime (float): amount of time to check for before the pulse arrival time
+            postVetoTime (float): amount of time to check for after the pulse arrival time
+            forceNew (bool): whether to re-compute the crosstalk cuts (default False)        
+        '''
+        
+        groupName = 'nearest_neighbors'
+        if groupName in self.hdf5_group.keys() and (all(self.cuts.good("crosstalk")) or forceNew):
+            # Combine all nearest neighbor pairs for this channel into a single list
+            combinedNearestNeighbors = np.array([])
+            # Loop through nearest neighbor categories
+            for neighborCategory in self.hdf5_group['nearest_neighbors']:
+                subgroupName = groupName + '/' + neighborCategory
+                tempNeighbors = self.hdf5_group[subgroupName].value
+                # Remove duplicates, sort
+                combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, tempNeighbors).astype(int))
+                
+            # Convert from ms input to s used in rest of MASS
+            priorVetoTime /= 1000.0
+            postVetoTime /= 1000.0
+            
+            # Cuts pulses in current channels by comparing to pulse times in neighboring channels
+            channum1 = self.channum
+            print 'Checking crosstalk between channel ' + str(channum1) + ' and neighbors...'
+    
+            # Create uneven histogram edges, with a specified amount of time before and after a photon event
+            pulseTimes = self.p_rowcount[:] * self.row_timebase
+    
+            # Create start and stop edges around pulses corresponding to veto times
+            startEdges = pulseTimes - priorVetoTime        
+            stopEdges = pulseTimes + postVetoTime
+                        
+            numberOfPulsesToCheck = len(pulseTimes)
+            # Create bins to check for neighboring pulses prior to this channel
+            negativeEdges = np.empty(2*numberOfPulsesToCheck)
+            negativeEdges[::2] = startEdges
+            negativeEdges[1::2] = pulseTimes
+            # Create bins to check for neighboring pulses after this channel
+            positiveEdges = np.empty(2*numberOfPulsesToCheck)
+            positiveEdges[::2] = pulseTimes
+            positiveEdges[1::2] = stopEdges
+                    
+            # Initialize array that will include the pulses from all neighboring channels
+            neighboringChannelsPulsesList = np.array([])
+            # Iterate through all neighboring channels that you will veto against
+            for channum2 in combinedNearestNeighbors:
+                dsToCompare = self.tes_group.channel[channum2]
+                # Combine the pulses from all neighboring channels into a single array
+                neighboringChannelsPulsesList = np.append(neighboringChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
+            
+            # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
+            histNegative, bin_edges = np.histogram(neighboringChannelsPulsesList, bins=negativeEdges)
+            histPositive, bin_edges = np.histogram(neighboringChannelsPulsesList, bins=positiveEdges)
+                       
+            # Combine counts in histogram, index common to a pulse
+            hist = histNegative+histPositive
+            
+            # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
+            badCountsHist = hist[::2]
+            
+            # Even only histogram indices map directly to previously good flagged pulse indices for channel 1
+            isCrosstalking = badCountsHist > 0.0      
+            
+            # Apply crosstalk cuts
+            self.cuts.cut("crosstalk", isCrosstalking)
+            
+        else:
+            LOG.info("channel %g skipping crosstalk cuts because it was already done", self.channum)
+            
     @_add_group_loop        
     def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory = 'physical', forceNew=False):
         ''' Finds the nearest neighbors in a given space for all channels in a data set
