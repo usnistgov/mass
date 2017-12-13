@@ -160,3 +160,60 @@ def ljh_append_traces(src_name, dest_name, pulses):
             prefix = struct.pack('<Q', int(1244))
             dest_fp.write(prefix)
             trace.tofile(dest_fp, sep="")
+
+def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None, segmentsize=None):
+    """Truncate an LJH file.
+
+    Writes a new copy of an LJH file, with
+    with the identical header, but with a smaller number of raw data pulses.
+
+    Arguments:
+    input_filename  -- name of file to truncate
+    output_filename -- filename for truncated file
+    n_pulses        -- truncate to include only this many pulses (default None)
+    timestamp       -- truncate to include only pulses with timestamp earlier
+                       than this number (default None)
+    segmentsize     -- number of bytes per segment; this is primarily here to
+                       facilitate testing (defaults to same value as in LJHFile)
+
+    Exactly one of n_pulses and timestamp must be specified.
+    """
+    
+    if (n_pulses == None and timestamp == None) or (n_pulses != None and timestamp != None):
+        raise Exception("Must specify exactly one of n_pulses, timestamp. Values were %s and %s" % (str(n_pulses), str(timestamp)))
+
+    # Check for file problems, then open the input and output LJH files.
+    if os.path.exists(output_filename):
+        if os.path.samefile(input_filename, output_filename):
+            raise ValueError("Input '%s' and output '%s' are the same file, which is not allowed." %
+                             (input_filename, output_filename))
+        
+    if segmentsize == None:
+        infile = LJHFile(input_filename)
+    else:
+        infile = LJHFile(input_filename, segmentsize)
+
+    if StrictVersion(infile.version_str.decode()) < StrictVersion("2.2.0"):
+        raise Exception("Don't know how to truncate this LJH version: %s" % (infile.version_str))
+
+    with open(output_filename, "wb") as outfile:
+        # write the header as a single string.
+        outfile.write("".join(infile.header_lines))
+        
+        # Write pulses. Stop reading segments from the original file as soon as possible.
+        finished = False
+        for (start, end, segnum, segdata) in infile.iter_segments():
+            for i in range(start, end):
+                if (n_pulses != None and i < n_pulses) or (timestamp != None and infile.datatimes_float[i-start] <= timestamp):
+                    prefix = struct.pack('<Q', np.uint64(infile.rowcount[i-start]))
+                    outfile.write(prefix)
+                    prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i-start]))
+                    outfile.write(prefix)
+                    trace = infile.data[i-start,:]
+                    trace.tofile(outfile, sep="")
+                else:
+                    finished = True
+                    break
+            if finished:
+                break
+
