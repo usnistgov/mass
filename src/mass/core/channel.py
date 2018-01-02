@@ -2132,6 +2132,67 @@ class MicrocalDataSet(object):
         else:
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
             
+    @_add_group_loop
+    def nearest_neighbor_crosstalk_cuts(self, priorVetoTime, postVetoTime, forceNew=False):
+        ''' Uses a list of nearest neighbor channels to cut pulses in current channel based
+            on arrival times of pulses in neighboring channels
+            
+            Args:
+            priorVetoTime (float): amount of time to check for before the pulse arrival time
+            postVetoTime (float): amount of time to check for after the pulse arrival time
+            forceNew (bool): whether to re-compute the crosstalk cuts (default False)        
+        '''
+        
+        groupName = 'nearest_neighbors'
+        if groupName in self.hdf5_group.keys() and (all(self.cuts.good("crosstalk")) or forceNew):
+            # Combine all nearest neighbor pairs for this channel into a single list
+            combinedNearestNeighbors = np.array([])
+            # Loop through nearest neighbor categories
+            for neighborCategory in self.hdf5_group['nearest_neighbors']:
+                subgroupName = groupName + '/' + neighborCategory
+                tempNeighbors = self.hdf5_group[subgroupName].value
+                # Remove duplicates, sort
+                combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, tempNeighbors).astype(int))
+                
+            # Convert from ms input to s used in rest of MASS
+            priorVetoTime /= 1000.0
+            postVetoTime /= 1000.0
+            
+            # Cuts pulses in current channels by comparing to pulse times in neighboring channels
+            channum1 = self.channum
+            print 'Checking crosstalk between channel ' + str(channum1) + ' and neighbors...'
+    
+            # Create uneven histogram edges, with a specified amount of time before and after a photon event
+            pulseTimes = self.p_rowcount[:] * self.row_timebase
+    
+            # Create start and stop edges around pulses corresponding to veto times
+            startEdges = pulseTimes - priorVetoTime        
+            stopEdges = pulseTimes + postVetoTime
+            combinedEdges = np.sort(np.append(startEdges, stopEdges))
+                                
+            # Initialize array that will include the pulses from all neighboring channels
+            neighboringChannelsPulsesList = np.array([])
+            # Iterate through all neighboring channels that you will veto against
+            for channum2 in combinedNearestNeighbors:
+                dsToCompare = self.tes_group.channel[channum2]
+                # Combine the pulses from all neighboring channels into a single array
+                neighboringChannelsPulsesList = np.append(neighboringChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
+            
+            # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
+            hist, bin_edges = np.histogram(neighboringChannelsPulsesList, bins=combinedEdges)
+                                   
+            # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
+            badCountsHist = hist[::2]
+            
+            # Even only histogram indices map directly to previously good flagged pulse indices for channel 1
+            isCrosstalking = badCountsHist > 0.0      
+            
+            # Apply crosstalk cuts
+            self.cuts.cut("crosstalk", isCrosstalking)
+            
+        else:
+            LOG.info("channel %g skipping crosstalk cuts because it was already done", self.channum)
+            
     @_add_group_loop        
     def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory = 'physical', forceNew=False):
         ''' Finds the nearest neighbors in a given space for all channels in a data set
@@ -2153,16 +2214,13 @@ class MicrocalDataSet(object):
         
         # Check to see if if data set already exists or if forceNew is set to True
         if 'nearest_neighbors/' + nearestNeighborCategory not in self.hdf5_group or forceNew:
-            
-            # Calculate number of dimensions in the given space using number of columns in map file                       
-            with open(mapFilename) as f:
-                fileCols = len(f.readline().split('\t'))
-            nDims = int(fileCols-1)
-            
-            # Load channel numbers and positions from map file 
-            channelNumbers = np.loadtxt(mapFilename, dtype=int, usecols = 0) 
-            positionValues = np.loadtxt(mapFilename, dtype=int, usecols = np.arange(1, fileCols))            
-            
+                       
+            # Load channel numbers and positions from map file, define number of dimensions
+            mapData = np.loadtxt(mapFilename, dtype=int)
+            channelNumbers = mapData[:,0]
+            positionValues = mapData[:,1:]
+            nDims = positionValues.shape[1]
+                       
             # Extract channel number and position of current channel
             channum = self.channum
             channelPos = np.array(positionValues[channum == channelNumbers][0],ndmin=1)
@@ -2170,7 +2228,6 @@ class MicrocalDataSet(object):
             # Initialize array for storing nearest neighbors of current channel
             channelsList = np.array([]).astype(int)
             
-
             '''
             Returns the channel number of a neighboring position after checking for goodness
             
@@ -2178,11 +2235,8 @@ class MicrocalDataSet(object):
             positionToCompare (int array) - position to check for nearest neighbor match
             '''                                
             def process_matching_channel(positionToCompare):
-                # Check for number of dimensions to avoid errors with np.all not working on 
-                if nDims == 1:
-                    channelToCompare = channelNumbers[np.where(positionToCompare == positionValues)[0]]
-                else:
-                    channelToCompare = channelNumbers[np.where(np.all(positionToCompare == positionValues, axis=1))[0]]
+                # Find the channel number corresponding to the compare position
+                channelToCompare = channelNumbers[np.all(positionToCompare == positionValues, axis=1)]
                 # If the new position exists in map file and the channel to compare to is good, return the channel number
                 if (positionToCompare in positionValues) & (channelToCompare in self.tes_group.good_channels):               
                     return channelToCompare
