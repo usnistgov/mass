@@ -33,7 +33,7 @@ def histogram(a, bins=10, range=None, normed=False, weights=None,
     """
     a_corrected = np.asarray(a)
     if a_corrected.dtype in (np.float32, np.float16):
-        if isinstance(bins, basestring) or range is None:
+        if isinstance(bins, str) or range is None:
             # For automatic bin computation, convert all values to float
             a_corrected = a_corrected.astype(np.float)
         else:
