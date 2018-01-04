@@ -194,7 +194,7 @@ class Filter(object):
         if cut_pre < 0 or cut_post < 0:
             raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative"%
                              (cut_pre,cut_post))
-        ns = self.pulsemodel.shape[0]
+        ns = len(self.avg_signal)-2*self.shorten
         if cut_pre+cut_post >= ns:
             raise ValueError("cut_pre+cut_post = %d but should be < %d"%(
                              cut_pre+cut_post, ns))
