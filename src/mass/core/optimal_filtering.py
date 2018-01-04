@@ -180,15 +180,25 @@ class Filter(object):
             # print 'Fourier filter done.  Variance: ',self.variances['fourier'],
             # 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
 
-    def compute(self, fmax=None, f_3db=None):
+    def compute(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
         """Compute a single filter.
 
         <fmax>   The strict maximum frequency to be passed in all filters.
         <f_3db>  The 3 dB point for a one-pole low-pass filter to be applied to all filters.
              Either or both of <fmax> and <f_3db> are allowed.
+        <cut_pre> Cut this many samples from the start of the filter, giving them 0 weight.
+        <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
         """
         if self.sample_time is None and not (fmax is None and f_3db is None):
-            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
+            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")            
+        if cut_pre < 0 or cut_post < 0:
+            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative"%
+                             (cut_pre,cut_post))
+        ns = self.pulsemodel.shape[0]
+        if cut_pre+cut_post >= ns:
+            raise ValueError("cut_pre+cut_post = %d but should be < %d"%(
+                             cut_pre+cut_post, ns))
+            
         self.fmax = fmax
         self.f_3db = f_3db
         self.variances = {}
