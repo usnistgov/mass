@@ -79,6 +79,8 @@ class Filter(object):
         # self.avg_signal is normalized to have unit peak
         self.avg_signal = (avg_signal - pre_avg) / self.peak_signal
         self.avg_signal[:n_pretrigger] = 0.0
+        
+        self.ns = len(self.avg_signal)
 
         self.n_pretrigger = n_pretrigger
         if noise_psd is None:
@@ -130,10 +132,11 @@ class Filter(object):
         # window = power_spectrum.hamming(2*(n-1-self.shorten))
         window = 1.0
 
-        if self.shorten > 0:
-            sig_ft = np.fft.rfft(self.avg_signal[self.shorten:-self.shorten] * window)
-        else:
-            sig_ft = np.fft.rfft(self.avg_signal * window)
+        sig_ft = np.fft.rfft(self.avg_signal[self.shorten:self.ns-self.shorten] * window)
+        #if self.shorten > 0:
+            #sig_ft = np.fft.rfft(self.avg_signal[self.shorten:-self.shorten] * window)
+        #else:
+            #sig_ft = np.fft.rfft(self.avg_signal * window)
 
         if len(sig_ft) != n - self.shorten:
             raise ValueError("signal real DFT and noise PSD are not the same length (%d and %d)" %
@@ -194,10 +197,9 @@ class Filter(object):
         if cut_pre < 0 or cut_post < 0:
             raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative"%
                              (cut_pre,cut_post))
-        ns = len(self.avg_signal)-2*self.shorten
-        if cut_pre+cut_post >= ns:
+        if cut_pre+cut_post >= self.ns-2*self.shorten:
             raise ValueError("cut_pre+cut_post = %d but should be < %d"%(
-                             cut_pre+cut_post, ns))
+                             cut_pre+cut_post, self.ns-2*self.shorten))
             
         self.fmax = fmax
         self.f_3db = f_3db
@@ -209,15 +211,13 @@ class Filter(object):
         assert self.noise_autocorr is not None
         n = len(self.avg_signal) - 2 * self.shorten
         assert len(self.noise_autocorr) >= n
-        if self.shorten > 0:
-            avg_signal = self.avg_signal[self.shorten:-self.shorten]
-        else:
-            avg_signal = self.avg_signal
+        
+        avg_signal = self.avg_signal[self.shorten+cut_pre:self.ns-(self.shorten+cut_post)]
 
-        noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
+        noise_corr = self.noise_autocorr[:n-(cut_pre+cut_post)] / self.peak_signal**2
         TS = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
         Rinv_sig = TS(avg_signal)
-        Rinv_1 = TS(np.ones(n))
+        Rinv_1 = TS(np.ones(n-(cut_pre+cut_post)))
         self.filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
 
         # Band-limit
@@ -232,12 +232,17 @@ class Filter(object):
         self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
 
         try:
-            Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
-            self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
+            Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger-cut_pre] / self.peak_signal**2)
+            self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger-cut_pre))
             self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
             self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0, :])
         except sp.linalg.LinAlgError:
             pass
+
+        # Set weights in the pre_cut and post_cut windows to 0
+        self.filt_noconst = np.hstack([np.zeros(cut_pre), self.filt_noconst, np.zeros(cut_post)])
+        self.filt_baseline = np.hstack([np.zeros(cut_pre), self.filt_baseline, np.zeros(cut_post)])
+        self.filt_baseline_pretrig = np.hstack([np.zeros(cut_pre), self.filt_baseline_pretrig])
 
         for key in self.variances.keys():
             self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
