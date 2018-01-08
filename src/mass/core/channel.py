@@ -1082,8 +1082,8 @@ class MicrocalDataSet(object):
         avg_signal = np.array(self.average_pulse)
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
-                             shorten=2)
-        f.compute(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
+                             shorten=2, cut_pre=cut_pre, cut_post=cut_post)
+        f.compute(fmax=fmax, f_3db=f_3db)
         return f
 
     def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0):
