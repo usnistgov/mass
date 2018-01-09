@@ -215,9 +215,10 @@ class LineFitter(object):
         the value and uncertainty for each parameter.
         An "H" after the parameter indicates it was held.
         """
-        labeldict = {meaning: meaning+" %4g +- %4g" for meaning in self.param_meaning.keys()}
-        labeldict["resolution"] = "FWHM: %.3f +- %.3f"
+        labeldict = {meaning: meaning+" %.3g +- %.3g" for meaning in self.param_meaning.keys()}
+        labeldict["resolution"] = "FWHM: %.3g +- %.3g"
         labeldict["tail_frac"] = "f$_\\mathrm{tail}$: %.1f +- %.1f"
+        labeldict["peak_ph"] = "peak_ph: %.7g +- %.3g"
         slabel = ""
         for (meaning, i) in self.param_meaning.items():
             val = self.last_fit_params[i]
