@@ -697,6 +697,7 @@ class MicrocalDataSet(object):
         float64_fields = ('timestamp',)
         float32_fields = ('pretrig_mean', 'pretrig_rms', 'pulse_average', 'pulse_rms',
                           'promptness', 'rise_time', 'postpeak_deriv',
+                          'pretrig_deriv', 'pretrig_offset',
                           'filt_phase', 'filt_phase_corr', 'filt_value', 'filt_value_dc',
                           'filt_value_phc', 'filt_value_tdc',
                           'energy')
@@ -944,6 +945,12 @@ class MicrocalDataSet(object):
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
         self.p_rowcount[first:end] = self.rowcount[:seg_size]
+        
+        # Fit line to pretrigger and save the derivative and offset
+        presampleNumbers = np.arange(self.cut_pre,self.nPresamples-self.pretrigger_ignore_samples)
+        self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
+            np.polyfit(presampleNumbers, self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T, deg=1)  
+            
         self.p_pretrig_mean[first:end] = \
             self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
         self.p_pretrig_rms[first:end] = \
