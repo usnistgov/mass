@@ -530,7 +530,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        cut_pre = 0, cut_post = 0,
-                       include_badchan=False, forceNew=False, use_cython=True):
+                       include_badchan=False, forceNew=False, use_cython=True, doPretrigFit = False):
         """Summarize the data with per-pulse summary quantities for each channel.
 
         peak_time_microsec will be determined automatically if None, and will be
@@ -547,7 +547,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                                   pretrigger_ignore_microsec=pretrigger_ignore_microsec,
                                   cut_pre = cut_pre,
                                   cut_post = cut_post,
-                                  forceNew=forceNew, use_cython=use_cython)
+                                  forceNew=forceNew, use_cython=use_cython,
+                                  doPretrigFit=doPretrigFit)
                 yield (i + 1.0) / nchan
                 self.hdf5_file.flush()
             except Exception as e:
