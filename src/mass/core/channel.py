@@ -867,7 +867,8 @@ class MicrocalDataSet(object):
     @show_progress("channel.summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        cut_pre = 0, cut_post = 0,
-                       forceNew=False, use_cython=True):
+                       forceNew=False, use_cython=True,
+                       doPretrigFit = False):
         """Summarize the complete data set one chunk at a time.
 
         Store results in the HDF5 datasets p_pretrig_mean and similar.
@@ -885,6 +886,7 @@ class MicrocalDataSet(object):
             use_cython: whether to use cython for summarizing the data (default True).
                 If this object is not a CythonMicrocalDataSet, then Cython cannot
                 be used, and this value is ignored.
+            doPretrigFit: whether to do a linear fit of the pretrigger data
         """
         # Don't proceed if not necessary and not forced
         self.number_of_rows = self.pulse_records.datafile.number_of_rows
@@ -919,14 +921,14 @@ class MicrocalDataSet(object):
             if use_cython:
                 self._summarize_data_segment(segnum)
             else:
-                MicrocalDataSet._summarize_data_segment(self, segnum)
+                MicrocalDataSet._summarize_data_segment(self, segnum, doPretrigFit=doPretrigFit)
             yield (segnum+1.0) / self.pulse_records.n_segments
 
         self.pulse_records.datafile.clear_cached_segment()
         self.clear_cache()
         self.hdf5_group.file.flush()
 
-    def _summarize_data_segment(self, segnum):
+    def _summarize_data_segment(self, segnum, doPretrigFit=False):
         """Summarize one segment of the data file, loading it into cache."""
         first, end = self.read_segment(segnum)  # this reloads self.data to contain new pulses
         if first >= self.nPulses:
@@ -947,9 +949,10 @@ class MicrocalDataSet(object):
         self.p_rowcount[first:end] = self.rowcount[:seg_size]
         
         # Fit line to pretrigger and save the derivative and offset
-        presampleNumbers = np.arange(self.cut_pre,self.nPresamples-self.pretrigger_ignore_samples)
-        self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
-            np.polyfit(presampleNumbers, self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T, deg=1)  
+        if doPretrigFit:
+            presampleNumbers = np.arange(self.cut_pre,self.nPresamples-self.pretrigger_ignore_samples)
+            self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
+                np.polyfit(presampleNumbers, self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T, deg=1)  
             
         self.p_pretrig_mean[first:end] = \
             self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
