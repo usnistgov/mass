@@ -2412,7 +2412,7 @@ def _phase_corrected_filtvals(phase, uncorrected, corrections):
 
 
 def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
-                       pulses_per_degree = 2000, max_degrees = 20, limit=None):
+                       pulses_per_degree = 2000, max_degrees = 20, ndeg = None, limit = None):
     """Compute a time-based drift correction that minimizes the spectral entropy.
 
     Args:
@@ -2423,6 +2423,8 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
         sec_per_degree: assign as many as one polynomial degree per this many seconds
         pulses_per_degree: assign as many as one polynomial degree per this many pulses
         max_degrees: never use more than this many degrees of Legendre polynomial.
+        n_deg: If not None, use this many degrees, regardless of the values of
+               sec_per_degree, pulses_per_degree, and max_degress. In this case, never downsample.
         limit: The [lower,upper] limit of uncorrected values over which entropy is
             computed (default None).
 
@@ -2459,16 +2461,18 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
 
     dtime = tmax-tmin
     N = len(time)
-    ndeg = int(np.minimum(dtime/sec_per_degree, N/pulses_per_degree))
-    ndeg = min(ndeg, max_degrees)
-    ndeg = max(ndeg, 1)
-    phot_per_degree = N/float(ndeg)
-
-    if phot_per_degree >= 2*pulses_per_degree:
-        downsample = int(phot_per_degree/pulses_per_degree)
-        time = time[::downsample]
-        uncorrected = uncorrected[::downsample]
-        N = len(time)
+    if ndeg == None:
+        ndeg = int(np.minimum(dtime/sec_per_degree, N/pulses_per_degree))
+        ndeg = min(ndeg, max_degrees)
+        ndeg = max(ndeg, 1)
+        phot_per_degree = N/float(ndeg)
+        if phot_per_degree >= 2*pulses_per_degree:
+            downsample = int(phot_per_degree/pulses_per_degree)
+            time = time[::downsample]
+            uncorrected = uncorrected[::downsample]
+            N = len(time)
+        else:
+            downsample = 1
     else:
         downsample = 1
 
