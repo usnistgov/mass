@@ -94,5 +94,6 @@ class TestSummaries(ut.TestCase):
         ds.summarize_data(forceNew=True, peak_time_microsec=None)
         nt.assert_allclose(ppd1, ppd2)
 
+
 if __name__ == '__main__':
     ut.main()
