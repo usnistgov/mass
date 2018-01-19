@@ -198,7 +198,7 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
 
     with open(output_filename, "wb") as outfile:
         # write the header as a single string.
-        outfile.write("".join(infile.header_lines))
+        outfile.write(b"".join(infile.header_lines))
         
         # Write pulses. Stop reading segments from the original file as soon as possible.
         finished = False
