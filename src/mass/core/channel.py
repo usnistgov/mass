@@ -2443,6 +2443,9 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
         limit = [0, 1.25 * pct99]
 
     use = np.logical_and(uncorrected > limit[0], uncorrected < limit[1])
+    time = time[use]
+    uncorrected = uncorrected[use]
+
     tmin, tmax = np.min(time), np.max(time)
 
     def normalize(t):
