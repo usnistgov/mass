@@ -46,6 +46,66 @@ class TestFiles(ut.TestCase):
         for i, st in enumerate(source_traces):
             self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
+    def test_ljh_truncate_wrong_format(self):
+        # First a file using LJH format 2.1.0 - should raise an exception
+        src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan1.ljh')
+        dest_name = os.path.join(tempfile.mkdtemp(), 'foo_chan1.ljh')
+        def func():
+            ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054*500)
+        self.assertRaises(Exception, func)
+
+    def run_test_ljh_truncate_timestamp(self,src_name, n_pulses_expected, timestamp, segmentsize):
+        dest_name = os.path.join(tempfile.mkdtemp(), 'foo_chan3.ljh')
+        ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
+
+        src = LJHFile(src_name)
+        dest = LJHFile(dest_name)
+        self.assertEquals(n_pulses_expected, dest.nPulses)
+        for k in range(n_pulses_expected):
+            self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
+            self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
+            self.assertEqual(src.rowcount[k], dest.rowcount[k])
+
+    def run_test_ljh_truncate_n_pulses(self, src_name, n_pulses, segmentsize):
+        # Tests with a file with 1230 pulses, each 1016 bytes long
+        dest_name = os.path.join(tempfile.mkdtemp(), 'foo_chan3.ljh')
+        ljh_truncate(src_name, dest_name, n_pulses=n_pulses, segmentsize=segmentsize)
+
+        src = LJHFile(src_name)
+        dest = LJHFile(dest_name)
+        self.assertEqual(n_pulses, dest.nPulses)
+        for k in range(n_pulses):
+            self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
+            self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
+            self.assertEqual(src.rowcount[k], dest.rowcount[k])
+
+    def test_ljh_truncate_n_pulses(self):
+        # Want to make sure that we didn't screw something up with the
+        # segmentation, so try various lengths
+        # Tests with a file with 1230 pulses, each 1016 bytes long
+        src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan3.ljh')
+        self.run_test_ljh_truncate_n_pulses(src_name, 1000, None)
+        self.run_test_ljh_truncate_n_pulses(src_name, 0, None)
+        self.run_test_ljh_truncate_n_pulses(src_name, 1, None)
+        self.run_test_ljh_truncate_n_pulses(src_name, 100, 1016*2000)
+        self.run_test_ljh_truncate_n_pulses(src_name, 49, 1016*50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 50, 1016*50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 51, 1016*50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 75, 1016*50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 334, 1016*50)
+
+    def test_ljh_truncate_timestamp(self):
+        # Want to make sure that we didn't screw something up with the
+        # segmentation, so try various lengths
+        # Tests with a file with 1230 pulses, each 1016 bytes long
+        src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan3.ljh')
+        self.run_test_ljh_truncate_timestamp(src_name, 1000, 1510871067891481/1e6, None)
+        self.run_test_ljh_truncate_timestamp(src_name,  100, 1510871020202899/1e6, 1016*2000)
+        self.run_test_ljh_truncate_timestamp(src_name,   49, 1510871016889751/1e6, 1016*50)
+        self.run_test_ljh_truncate_timestamp(src_name,   50, 1510871016919543/1e6, 1016*50)
+        self.run_test_ljh_truncate_timestamp(src_name,   51, 1510871017096192/1e6, 1016*50)
+        self.run_test_ljh_truncate_timestamp(src_name,   75, 1510871018591985/1e6, 1016*50)
+        self.run_test_ljh_truncate_timestamp(src_name,  334, 1510871031629499/1e6, 1016*50)
 
 class TestTESGroup(ut.TestCase):
     """Basic tests of the TESGroup object."""

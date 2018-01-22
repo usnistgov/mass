@@ -461,6 +461,7 @@ class LJHFile(MicrocalFile):
 
         self.rowcount = array["rowcount"]
         self.datatimes_float = array["posix_usec"] * 1e-6  # convert to floating point with units of seconds
+        self.datatimes_raw = np.uint64(array["posix_usec"].copy())
         self.data = array["data"]
 
     def __read_binary_pre22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
