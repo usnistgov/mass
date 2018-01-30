@@ -132,5 +132,114 @@ class TestFilters(ut.TestCase):
         ds.compute_newfilter(f_3db=5000)
         self.assertFalse(np.any(np.isnan(f)))
 
+    def test_masked_filter(self):
+        """Test that zero-weighting samples from the beginning and end works."""
+        ds = self.data.channel[1]
+        ds.compute_newfilter(f_3db=5000)
+        ds.read_segment(0)
+        NP = 50
+        d = np.array(ds.data[:NP, 1:]) # NP pulses, cutting first sample
+        filt_ref = ds.filter.filt_noconst
+
+        # Test that filters actually have zero weight where they are supposed to.
+        filters = []
+        PREMAX, POSTMAX = 50, 200
+        for pre in [0, PREMAX//2, PREMAX]:
+            for post in [0, POSTMAX//2, POSTMAX]:
+                ds.filter.compute(f_3db=5000, cut_pre=pre, cut_post=post)
+                f = ds.filter.filt_noconst
+                resultsA = np.dot(d, f)
+
+                d2 = np.array(d)
+                if pre>0:
+                    d2[:, :pre] = np.random.standard_normal((NP, pre))
+                if post>0:
+                    d2[:, -post:] = np.random.standard_normal((NP, post))
+                resultsB = np.dot(d2, f)
+                self.assertTrue(np.allclose(resultsA, resultsB))
+
+        # Test that filters are the same whether made from short or long pulse models,
+        # at least after they are forced to be the same size.
+        N, n_pre = ds.nSamples, ds.nPresamples
+        dt = ds.timebase
+
+        pulse = np.zeros((N,1), dtype=float)
+        pulse[:,0] = ds.average_pulse[:]
+        noise = np.exp(-np.arange(N)*.01)
+        filterL = mass.ArrivalTimeSafeFilter(pulse, n_pre, noise_autocorr=noise, sample_time=dt)
+
+        for cut_pre in (0, n_pre//10, n_pre//4):
+            for cut_post in (0, (N-n_pre)//10, (N-n_pre)//4):
+                thispulse = pulse[cut_pre:N-cut_post]
+                filterS = mass.ArrivalTimeSafeFilter(thispulse, n_pre-cut_pre,
+                                                     noise_autocorr=noise, sample_time=dt)
+                filterS.compute()
+                fS = filterS.filt_noconst
+
+                filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
+                fL = filterL.filt_noconst[cut_pre:N-cut_post]
+                self.assertTrue(np.allclose(fS, fL))
+
+
+class TestWhitener(ut.TestCase):
+    """Test ToeplitzWhitener."""
+
+    def test_trivial(self):
+        """Be sure that the trivial whitener does nothing."""
+        w = mass.ToeplitzWhitener([1.0], [1.0]) # the trivial whitener
+        r = np.random.standard_normal(100)
+        self.assertTrue(np.allclose(r, w(r)))
+        self.assertTrue(np.allclose(r, w.solveW(r)))
+        self.assertTrue(np.allclose(r, w.applyWT(r)))
+        self.assertTrue(np.allclose(r, w.solveWT(r)))
+
+    def test_reversible(self):
+        """Use a nontrivial whitener, and make sure that inverse operations are inverses."""
+        w = mass.ToeplitzWhitener([1.0, -1.7,0.72], [1.0, .95])
+        r = np.random.standard_normal(100)
+        self.assertTrue(np.allclose(r, w.solveW(w(r))))
+        self.assertTrue(np.allclose(r, w(w.solveW(r))))
+        self.assertTrue(np.allclose(r, w.solveWT(w.applyWT(r))))
+        self.assertTrue(np.allclose(r, w.applyWT(w.solveWT(r))))
+
+        # Also check that w isn't trivial
+        self.assertFalse(np.allclose(r, w(r)))
+        self.assertFalse(np.allclose(r, w.solveW(r)))
+        self.assertFalse(np.allclose(r, w.applyWT(r)))
+        self.assertFalse(np.allclose(r, w.solveWT(r)))
+
+        # Check that no operations applied twice cancel out.
+        self.assertFalse(np.allclose(r, w(w(r))))
+        self.assertFalse(np.allclose(r, w.solveW(w.solveW(r))))
+        self.assertFalse(np.allclose(r, w.applyWT(w.applyWT(r))))
+        self.assertFalse(np.allclose(r, w.solveWT(w.solveWT(r))))
+
+    def test_causal(self):
+        """Make sure that the whitener and its inverse are causal,
+        and that WT and its inverse anti-causal."""
+        w = mass.ToeplitzWhitener([1.0, -1.7,0.72], [1.0, .95])
+        Nzero = 100
+        z = np.zeros(Nzero, dtype=float)
+        r = np.hstack([z, np.random.standard_normal(100), z])
+
+        # Applying and solving W are causal operations.
+        wr = w(r)
+        wir = w.solveW(r)
+        self.assertTrue(np.all(r[:Nzero] == 0))
+        self.assertTrue(np.all(wr[:Nzero] == 0))
+        self.assertTrue(np.all(wir[:Nzero] == 0))
+        self.assertFalse(np.all(wr[Nzero:] == 0))
+        self.assertFalse(np.all(wir[Nzero:] == 0))
+
+        # Applying and solving WT are anti-causal operations.
+        wtr = w.applyWT(r)
+        wtir = w.solveWT(r)
+        self.assertTrue(np.all(r[-Nzero:] == 0))
+        self.assertTrue(np.all(wtr[-Nzero:] == 0))
+        self.assertTrue(np.all(wtir[-Nzero:] == 0))
+        self.assertFalse(np.all(wtr[:-Nzero] == 0))
+        self.assertFalse(np.all(wtir[:-Nzero] == 0))
+
+
 if __name__ == '__main__':
     ut.main()

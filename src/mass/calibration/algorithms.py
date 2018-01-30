@@ -45,6 +45,7 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
     """
     # kernel density estimation (with a gaussian kernel)
     n = 128 * 1024
+    gaussian_fwhm = 1.0*gaussian_fwhm # this ensures that lo & hi are floats, so that (lo-hi)/n is always a float in python2
     sigma = gaussian_fwhm / (np.sqrt(np.log(2) * 2) * 2)
     tbw = 1.0 / sigma / (np.pi * 2)
     lo = np.min(pulse_heights) - 3 * gaussian_fwhm

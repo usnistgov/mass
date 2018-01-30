@@ -1,5 +1,11 @@
 ## Note on version numbers of Mass
 
+* **0.6.2** November- 2017  
+Added ToeplitzWhitener.solveW method and tests for ToeplitzWhitener.  
+New filtering API: f_3db and fmax are set only at filter.compute() time.  
+Added arguments to ArrivalTimeSafeFilter.compute() so you can emulate shorter records.  
+Change plot_average_pulses and plot_noise to leave out bad channels by default.  
+
 * **0.6.1** September-November 2017    
 Added some features to support analysis of microwave MUX data.  
 Added some random-matrix techniques to `mass.mathstat.utilities`.  
