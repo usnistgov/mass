@@ -7,8 +7,8 @@ from PyQt5.QtWidgets import QLabel, QDoubleSpinBox, QPlainTextEdit, QPushButton
 from PyQt5.QtCore import QTimer, QThread, QObject, pyqtSignal, pyqtSlot, QAbstractTableModel, QSettings
 from PyQt5.QtCore import QDate, QTime, QDateTime, Qt
 
-import pulse_explorer_ui
-import plot_ui
+import mass.gui.pulse_explorer_ui as pulse_explorer_ui
+import mass.gui.plot_ui as plot_ui
 
 import numpy as np
 from math import pi
@@ -120,9 +120,9 @@ class PulseGUI(QWidget):
             cb_x_parm.currentIndexChanged.disconnect()
             cb_y_parm.currentIndexChanged.disconnect()
 
-            for k in xrange(cb_x_parm.count()):
+            for k in range(cb_x_parm.count()):
                 cb_x_parm.removeItem(0)
-            for k in xrange(cb_y_parm.count()):
+            for k in range(cb_y_parm.count()):
                 cb_y_parm.removeItem(0)
 
             for key in attrs:
@@ -156,7 +156,7 @@ class PulseGUI(QWidget):
                 range_lo = float(plot_ui.le_range_lo.text())
                 range_hi = float(plot_ui.le_range_hi.text())
                 nbins = plot_ui.sb_n_bins.value()
-                print 'hist', range_lo, range_hi, nbins
+                print('hist', range_lo, range_hi, nbins)
                 ax.hist(x_vals, range=[range_lo, range_hi], bins=nbins, histtype='step')
             else:
                 y_vals = self.ds.__dict__[str(plot_ui.cb_y_parm.currentText())]
