@@ -63,8 +63,6 @@ class LineFitter(object):
         self.last_fit_cov = None
         # Fit function samples from last successful fit
         self.last_fit_result = None
-        self.tailfrac = 0.0
-        self.tailtau = 25
         # Whether pulse heights are necessarily non-negative.
         self.phscale_positive = True
         self.penalty_function = None
@@ -257,18 +255,20 @@ class LineFitter(object):
         axis.set_xlabel("energy (%s)" % ph_units)
         axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
 
-        pnum_res = self.param_meaning["resolution"]
         slabel = ""
         if label == "full":
             slabel = self.result_string()
-        elif label and pnum_res not in self.hold:
-            pnum_tf = self.param_meaning["tail_frac"]
-            res = self.last_fit_params[pnum_res]
-            err = self.last_fit_cov[pnum_res, pnum_res]**0.5
-            tf = self.last_fit_params[pnum_tf]
-            slabel = "FWHM: %.2f +- %.2f" % (res, err)
-            if tf > 0.001:
-                slabel += "\nf$_\\mathrm{tail}$: %.1f%%" % (tf*100)
+        if "resolution" in self.param_meaning:
+            pnum_res = self.param_meaning["resolution"]
+            if label and pnum_res not in self.hold:
+                res = self.last_fit_params[pnum_res]
+                err = self.last_fit_cov[pnum_res, pnum_res]**0.5
+                slabel = "FWHM: %.2f +- %.2f" % (res, err)
+                if "tail_frac" in self.param_meaning:
+                    pnum_tf = self.param_meaning["tail_frac"]
+                    tf = self.last_fit_params[pnum_tf]
+                    if tf > 0.001:
+                        slabel += "\nf$_\\mathrm{tail}$: %.1f%%" % (tf*100)
         axis.plot(self.last_fit_bins, self.last_fit_result, color='#666666',
                   label=slabel)
         if slabel:
@@ -688,7 +688,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         self.spect = spectrumDef
         super(GenericKAlphaFitter, self).__init__()
 
-    def guess_starting_params(self, data, binctrs):
+    def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         """A decent heuristic for guessing the inital values, though your informed
         starting point is likely to be better than this.
         """
@@ -715,7 +715,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
             baseline = 0.1
         baseline_slope = 0.0
         return [res, ph_ka1, dph / dE, ampl, baseline, baseline_slope,
-                self.tailfrac, self.tailtau]
+                tailf, tailt]
 
 
 class GenericKBetaFitter(MultiLorentzianComplexFitter):
@@ -727,7 +727,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         self.spect = spectrumDef
         super(GenericKBetaFitter, self).__init__()
 
-    def guess_starting_params(self, data, binctrs):
+    def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         """Hard to estimate dph/de from a K-beta line. Have to guess scale=1 and
         hope it's close enough to get convergence. Ugh!"""
         peak_ph = binctrs[data.argmax()]
@@ -739,7 +739,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
             baseline = 0.1
         baseline_slope = 0.0
         return [res, peak_ph, 1.0, ampl, baseline, baseline_slope,
-                self.tailfrac, self.tailtau]
+                tailf, tailt]
 
 
 # create specific KAlpha Fitters
