@@ -7,6 +7,7 @@ Separated line fits (here) from the line shapes (still in fluorescence_lines.py)
 """
 
 import numpy as np
+import scipy.special
 import pylab as plt
 
 from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
@@ -116,16 +117,7 @@ class LineFitter(object):
             fitparams has same format as input variable params.
         """
 
-        # Convert bin edges to centers
-        pulseheights = np.asarray(pulseheights)
-        if len(pulseheights) == len(data) + 1:
-            dp = pulseheights[1] - pulseheights[0]
-            pulseheights = 0.5 * dp + pulseheights[:-1]
-
-        # Pulseheights doesn't make sense as bin centers, either.
-        # So just use the integers starting at zero.
-        elif len(pulseheights) != len(data):
-            pulseheights = np.arange(len(data), dtype=np.float)
+        pulseheights = self._convert_to_bin_centers(data, pulseheights)
 
         self.hold = hold
         if self.hold is None:
@@ -282,6 +274,31 @@ class LineFitter(object):
         if slabel:
             axis.legend(loc='best', frameon=False)
 
+    def _convert_to_bin_centers(self, data, pulseheights):
+        # Convert bin edges to centers
+        out = np.asarray(pulseheights)
+        if len(out) == len(data) + 1:
+            dp = out[1] - out[0]
+            out = 0.5 * dp + out[:-1]
+
+        # Out doesn't make sense as bin centers, either.
+        # So just use the integers starting at zero.
+        elif len(out) != len(data):
+            out = np.arange(len(data), dtype=np.float)
+
+        return out
+
+    def log10_likelihood(self, data, pulseheights, params):
+        '''Return the log10 of the likelihood (probability of data given model and parameters)'''
+        pulseheights = self._convert_to_bin_centers(data, pulseheights)
+
+        model = self.fitfunc(params, pulseheights)
+
+        probs = np.zeros_like(model)
+        for k in range(len(probs)):
+            probs[k] = scipy.stats.poisson(model[k]).pmf(data[k])
+            
+        return np.sum(np.log10(probs))
 
     @property
     def n_degree_of_freedom(self):
