@@ -131,5 +131,6 @@ if __name__ == "__main__":
                         },
           cmdclass={'build': QtBuilder},
           package_dir={'': 'src'},
+          scripts=['bin/ljh_truncate'],
           install_requires=reqs
           )
