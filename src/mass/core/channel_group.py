@@ -529,7 +529,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
-                       include_badchan=False, forceNew=False, use_cython=True):
+                       cut_pre = 0, cut_post = 0,
+                       include_badchan=False, forceNew=False, use_cython=True, doPretrigFit = False):
         """Summarize the data with per-pulse summary quantities for each channel.
 
         peak_time_microsec will be determined automatically if None, and will be
@@ -544,7 +545,10 @@ class TESGroup(CutFieldMixin, GroupLooper):
             try:
                 ds.summarize_data(peak_time_microsec=peak_time_microsec,
                                   pretrigger_ignore_microsec=pretrigger_ignore_microsec,
-                                  forceNew=forceNew, use_cython=use_cython)
+                                  cut_pre = cut_pre,
+                                  cut_post = cut_post,
+                                  forceNew=forceNew, use_cython=use_cython,
+                                  doPretrigFit=doPretrigFit)
                 yield (i + 1.0) / nchan
                 self.hdf5_file.flush()
             except Exception as e:
@@ -911,11 +915,14 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 plt.setp(ltext, fontsize='small')
 
     @show_progress("compute_filters")
-    def compute_filters(self, fmax=None, f_3db=None, forceNew=False):
+    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False):
         """
         compute_filters(self, fmax=None, f_3db=None, forceNew=False)
 
         Looks at ds._use_new_filters to decide which type of filter to use.
+        
+        cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
+        cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
         """
         # Analyze the noise, if not already done
         needs_noise = any([ds.noise_autocorr[0] == 0.0 or
@@ -931,9 +938,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
                 if ds._use_new_filters:
-                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db)
+                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
                 else:
-                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db)
+                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
                 ds.filter = f
                 yield (ds_num + 1) / float(self.n_channels)
 

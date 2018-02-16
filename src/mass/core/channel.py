@@ -640,6 +640,8 @@ class MicrocalDataSet(object):
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename', 'virtual data set')
         self.pretrigger_ignore_samples = 0  # Cut this long before trigger in computing pretrig values
+        self.cut_pre = 0 # Number of presamples to ignore at start of pulse
+        self.cut_post = 0  # Number of samples to ignore at end of pulse
         self.peak_samplenumber = None   # Look for retriggers only after this time.
         self.index = None   # Index in the larger TESGroup object
         self.last_used_calibration = None
@@ -695,6 +697,7 @@ class MicrocalDataSet(object):
         float64_fields = ('timestamp',)
         float32_fields = ('pretrig_mean', 'pretrig_rms', 'pulse_average', 'pulse_rms',
                           'promptness', 'rise_time', 'postpeak_deriv',
+                          'pretrig_deriv', 'pretrig_offset',
                           'filt_phase', 'filt_phase_corr', 'filt_value', 'filt_value_dc',
                           'filt_value_phc', 'filt_value_tdc',
                           'energy')
@@ -856,14 +859,16 @@ class MicrocalDataSet(object):
     def _compute_peak_samplenumber(self):
         if self.data is None:
             self.read_segment(0)
-        peak_idx = self.data.argmax(axis=1)
+        peak_idx = self.data[:,self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
         self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
-
+    
     @show_progress("channel.summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
-                       forceNew=False, use_cython=True):
+                       cut_pre = 0, cut_post = 0,
+                       forceNew=False, use_cython=True,
+                       doPretrigFit = False):
         """Summarize the complete data set one chunk at a time.
 
         Store results in the HDF5 datasets p_pretrig_mean and similar.
@@ -875,10 +880,13 @@ class MicrocalDataSet(object):
             pretrigger_ignore_microsec: how much time before the trigger to ignore
                 when computing pretrigger mean (default None). If None, it will
                 be chosen sensibly.
+            cut_pre: Cut this many samples from the start of a pulse record when calculating summary values
+            cut_post: Cut this many samples from the end of the a record when calculating summary values              
             forceNew: whether to re-compute summaries if they exist (default False)
             use_cython: whether to use cython for summarizing the data (default True).
                 If this object is not a CythonMicrocalDataSet, then Cython cannot
                 be used, and this value is ignored.
+            doPretrigFit: whether to do a linear fit of the pretrigger data
         """
         # Don't proceed if not necessary and not forced
         self.number_of_rows = self.pulse_records.datafile.number_of_rows
@@ -905,19 +913,22 @@ class MicrocalDataSet(object):
             self.pretrigger_ignore_samples = 3
         else:
             self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
+            
+        self.cut_pre = cut_pre
+        self.cut_post = cut_post
 
         for segnum in range(self.pulse_records.n_segments):
             if use_cython:
                 self._summarize_data_segment(segnum)
             else:
-                MicrocalDataSet._summarize_data_segment(self, segnum)
+                MicrocalDataSet._summarize_data_segment(self, segnum, doPretrigFit=doPretrigFit)
             yield (segnum+1.0) / self.pulse_records.n_segments
 
         self.pulse_records.datafile.clear_cached_segment()
         self.clear_cache()
         self.hdf5_group.file.flush()
 
-    def _summarize_data_segment(self, segnum):
+    def _summarize_data_segment(self, segnum, doPretrigFit=False):
         """Summarize one segment of the data file, loading it into cache."""
         first, end = self.read_segment(segnum)  # this reloads self.data to contain new pulses
         if first >= self.nPulses:
@@ -936,21 +947,29 @@ class MicrocalDataSet(object):
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
         self.p_rowcount[first:end] = self.rowcount[:seg_size]
+        
+        # Fit line to pretrigger and save the derivative and offset
+        if doPretrigFit:
+            presampleNumbers = np.arange(self.cut_pre,self.nPresamples-self.pretrigger_ignore_samples)
+            self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
+                np.polyfit(presampleNumbers, self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T, deg=1)  
+            
         self.p_pretrig_mean[first:end] = \
-            self.data[:seg_size, :self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
+            self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
         self.p_pretrig_rms[first:end] = \
-            self.data[:seg_size, :self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
-        self.p_peak_index[first:end] = self.data[:seg_size, :].argmax(axis=1)
-        self.p_peak_value[first:end] = self.data[:seg_size, :].max(axis=1)
-        self.p_min_value[first:end] = self.data[:seg_size, :].min(axis=1)
-        self.p_pulse_average[first:end] = self.data[:seg_size, self.nPresamples:].mean(axis=1)
+            self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
+        self.p_peak_index[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
+        self.p_peak_value[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].max(axis=1)
+        self.p_min_value[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].min(axis=1)
+        self.p_pulse_average[first:end] = self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post].mean(axis=1)
+
 
         # Remove the pretrigger mean from the peak value and the pulse average figures.
         ptm = self.p_pretrig_mean[first:end]
         self.p_pulse_average[first:end] -= ptm
         self.p_peak_value[first:end] -= np.asarray(ptm, dtype=self.p_peak_value.dtype)
         self.p_pulse_rms[first:end] = np.sqrt(
-            (self.data[:seg_size, self.nPresamples:]**2.0).mean(axis=1) -
+            (self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post]**2.0).mean(axis=1) -
             ptm*(ptm + 2*self.p_pulse_average[first:end]))
 
         shift1 = (self.data[:seg_size, self.nPresamples+2]-ptm >
@@ -966,14 +985,15 @@ class MicrocalDataSet(object):
         self.p_promptness[first:end] = prompt
 
         self.p_rise_time[first:end] = \
-            mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size],
+            mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post],
                                                            timebase=self.timebase,
-                                                           nPretrig=self.nPresamples)
+                                                           nPretrig=self.nPresamples-self.cut_pre)
 
         self.p_postpeak_deriv[first:end] = \
-            mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
-                                                            ignore_leading=self.peak_samplenumber)
-
+            mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post],
+                                                            ignore_leading=self.peak_samplenumber-self.cut_pre)
+    
+    
     @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
         """Compute the average pulse this channel.
@@ -1063,7 +1083,7 @@ class MicrocalDataSet(object):
         self.compute_average_pulse(mask, subtract_mean=subtract_mean,
                                    forceNew=forceNew)
 
-    def compute_oldfilter(self, fmax=None, f_3db=None):
+    def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
         try:
             spectrum = self.noise_spectrum.spectrum()
         except:
@@ -1072,11 +1092,11 @@ class MicrocalDataSet(object):
         avg_signal = np.array(self.average_pulse)
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
-                             shorten=2)
+                             shorten=2, cut_pre=cut_pre, cut_post=cut_post)
         f.compute(fmax=fmax, f_3db=f_3db)
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None, transform=None):
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0):
         """Compute a new-style filter to model the pulse and its time-derivative.
 
         Args:
@@ -1087,6 +1107,8 @@ class MicrocalDataSet(object):
                 (default None)
             transform: a callable object that will be called on all data records
                 before filtering (default None)
+            cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
+            cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
 
         Returns:
             the filter (an ndarray)
@@ -1157,7 +1179,7 @@ class MicrocalDataSet(object):
         self.pulsemodel = model
         f = ArrivalTimeSafeFilter(model, self.nPresamples, self.noise_autocorr,
                                   sample_time=self.timebase, peak=modelpeak)
-        f.compute(fmax=fmax, f_3db=f_3db)
+        f.compute(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         self.filter = f
         return f
 
