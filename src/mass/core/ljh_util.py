@@ -23,6 +23,7 @@ def ljh_get_channels(fname):
     dir, ljhname = path.split(basename)
     chans = []
     for f in os.listdir(dir):
+        if not os.path.isfile(f): continue
         bname, chan = ljh_basename(f)
         if bname == ljhname and isinstance(chan, int):
             chans.append(chan)
