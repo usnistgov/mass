@@ -893,12 +893,12 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if channels is None:
             dsets = [ds for ds in self.iter_channels(include_badchan=include_badchan)]
         else:
-            dsets = [data.channel[c] for c in channels]
+            dsets = [self.channel[c] for c in channels]
         nplot = len(dsets)
 
-        for i,ds in enumerate(dsets):
+        for i, ds in enumerate(dsets):
             avg_pulse = ds.average_pulse[:].copy()
-            if fcut != None:
+            if fcut is not None:
                 avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(avg_pulse, 1./self.timebase, fcut)
             plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
                      color=cmap(float(i) / nplot))
