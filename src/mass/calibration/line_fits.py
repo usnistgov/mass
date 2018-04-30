@@ -339,7 +339,7 @@ class VoigtFitter(LineFitter):
         iqr = (percentiles(0.75) - percentiles(0.25))
         res = iqr * 0.7
         lor_fwhm = res
-        baseline = data[0:10].mean()
+        baseline = max(data[0:10].mean(), 0.5/sum(data))
         baseline_slope = (data[-10:].mean() - baseline) / len(data)
         ampl = (data.max() - baseline) * np.pi
         return [res, peak_loc, lor_fwhm, ampl, baseline, baseline_slope, tailf, tailt]
@@ -517,7 +517,7 @@ class GaussianFitter(LineFitter):
         peak_loc = percentiles(0.5)
         iqr = (percentiles(0.75) - percentiles(0.25))
         res = iqr * 0.95
-        baseline = data[0:10].mean()
+        baseline = max(data[0:10].mean(), 0.5/sum(data))
         baseline_slope = (data[-10:].mean() - baseline) / len(data)
         ampl = (data.max() - baseline) * np.pi
         return [res, peak_loc, ampl, baseline, baseline_slope, tailf, tailt]
@@ -694,7 +694,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         ampl = data.max() * 9.4
         res = 4.0
         if len(data) > 20:
-            baseline = data[0:10].mean() + 1e-6
+            baseline = max(data[0:10].mean(), 0.5/sum(data))
         else:
             baseline = 0.1
         baseline_slope = 0.0
@@ -718,7 +718,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         ampl = data.max() * 9.4
         res = 4.0
         if len(data) > 20:
-            baseline = data[0:10].mean()
+            baseline = max(data[0:10].mean(), 0.5/sum(data))
         else:
             baseline = 0.1
         baseline_slope = 0.0
