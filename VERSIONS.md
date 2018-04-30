@@ -1,6 +1,8 @@
 ## Note on version numbers of Mass
 
-* **0.6.2** November- 2017  
+* **0.6.2** November 2017 - April 2018
+Fixed setup.py to be compatible with Pip 10.0.0+.
+Fixed some minor bugs and redundancies.
 Added ToeplitzWhitener.solveW method and tests for ToeplitzWhitener.  
 New filtering API: f_3db and fmax are set only at filter.compute() time.  
 Added arguments to ArrivalTimeSafeFilter.compute() so you can emulate shorter records.  
