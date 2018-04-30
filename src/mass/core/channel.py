@@ -2196,6 +2196,7 @@ class MicrocalDataSet(object):
             neighboringChannelsPulsesList = np.array([])
             # Iterate through all neighboring channels that you will veto against
             for channum2 in combinedNearestNeighbors:
+                if not self.tes_group.channel.has_key(channum2): continue
                 dsToCompare = self.tes_group.channel[channum2]
                 # Combine the pulses from all neighboring channels into a single array
                 neighboringChannelsPulsesList = np.append(neighboringChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
