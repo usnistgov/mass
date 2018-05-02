@@ -10,6 +10,9 @@ dist
 # PyCharm
 .idea
 
+# Spyder
+.spyproject
+
 # General
 lint-report.txt
 pep8-report.txt

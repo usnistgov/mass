@@ -35,7 +35,7 @@ class Filter(object):
     """A set of optimal filters based on a single signal and noise set."""
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
-                 whitener=None, fmax=None, f_3db=None, sample_time=None, shorten=0):
+                 whitener=None, sample_time=None, shorten=0, cut_pre=0, cut_post=0):
         """Create a set of filters under various assumptions and for various purposes.
 
         Note that you now have to call Filter.compute() yourself to compute the filters.
@@ -59,13 +59,6 @@ class Filter(object):
                  <noise_autocorr> must be a valid array, or <whitener> must be given.)
             <whitener>       An optional function object which, when called, whitens a vector or the
                  columns of a matrix. Supersedes <noise_autocorr> if both are given.
-            <fmax>           The strict maximum frequency to be passed in all filters.
-                 If supplied, then it is passed on to the compute() method for the *first*
-                 filter calculation only.  (Future calls to compute() can override).
-            <f_3db>          The 3 dB point for a one-pole low-pass filter to be applied to all filters.
-                 If supplied, then it is passed on to the compute() method for the *first*
-                 filter calculation only.  (Future calls to compute() can override).
-                 Either or both of <fmax> and <f_3db> are allowed.
             <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
                  This must be given if <fmax> or <f_3db> are ever to be used.
             <shorten>        The time-domain filters should be shortened by removing this many
@@ -74,19 +67,31 @@ class Filter(object):
         """
         self.sample_time = sample_time
         self.shorten = shorten
-        pre_avg = avg_signal[:n_pretrigger].mean()
+        self.cut_pre = cut_pre
+        self.cut_post = cut_post
+        self.ns = len(avg_signal)
+        
+        if self.cut_pre < 0 or self.cut_post < 0:
+            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative"%
+                             (self.cut_pre,self.cut_post))
+        if self.cut_pre+self.cut_post >= self.ns-2*self.shorten:
+            raise ValueError("cut_pre+cut_post = %d but should be < %d"%(
+                             self.cut_pre+self.cut_post, self.ns-2*self.shorten))
+        
+        pre_avg = avg_signal[self.cut_pre:n_pretrigger].mean()
 
         # If signal is negative-going,
-        is_negative = (avg_signal.min() - pre_avg) / (avg_signal.max() - pre_avg) < -1
+        is_negative = (avg_signal[self.cut_pre:self.ns-self.cut_post].min() - pre_avg) / (avg_signal[self.cut_pre:self.ns-self.cut_post].max() - pre_avg) < -1
         if is_negative:
-            self.peak_signal = avg_signal.min() - pre_avg
+            self.peak_signal = avg_signal[self.cut_pre:self.ns-self.cut_post].min() - pre_avg
         else:
-            self.peak_signal = avg_signal.max() - pre_avg
+            self.peak_signal = avg_signal[self.cut_pre:self.ns-self.cut_post].max() - pre_avg
 
         # self.avg_signal is normalized to have unit peak
         self.avg_signal = (avg_signal - pre_avg) / self.peak_signal
         self.avg_signal[:n_pretrigger] = 0.0
-
+        self.avg_signal = self.avg_signal[self.cut_pre:self.ns-self.cut_post]        
+        
         self.n_pretrigger = n_pretrigger
         if noise_psd is None:
             self.noise_psd = None
@@ -95,15 +100,10 @@ class Filter(object):
         if noise_autocorr is None:
             self.noise_autocorr = None
         else:
-            self.noise_autocorr = np.asarray(noise_autocorr)
+            self.noise_autocorr = np.asarray(noise_autocorr[:self.ns-(self.cut_pre+self.cut_post)])
         self.whitener = whitener
         if noise_psd is None and noise_autocorr is None and whitener is None:
             raise ValueError("Filter must have noise_psd, noise_autocorr, or whitener arguments")
-        if sample_time is None and not (fmax is None and f_3db is None):
-            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
-
-        self.fmax = fmax
-        self.f_3db = f_3db
 
         self.filt_fourier = None
         self.filt_fourierfull = None
@@ -192,36 +192,40 @@ class Filter(object):
             # print 'Fourier filter done.  Variance: ',self.variances['fourier'],
             # 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
 
-    def compute(self, use_toeplitz_solver=True):
-        """Compute a set of filters.
+    def compute(self, fmax=None, f_3db=None):
+        """Compute a single filter.
 
-        This is called once automatically on construction, but you can call it
-        again if you want to change the frequency cutoff or f_3db rolloff point.
+        <fmax>   The strict maximum frequency to be passed in all filters.
+        <f_3db>  The 3 dB point for a one-pole low-pass filter to be applied to all filters.
+             Either or both of <fmax> and <f_3db> are allowed.
+        <cut_pre> Cut this many samples from the start of the filter, giving them 0 weight.
+        <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
         """
-        self._compute_fourier_filter()
+        if self.sample_time is None and not (fmax is None and f_3db is None):
+            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")            
+                   
+        self.fmax = fmax
+        self.f_3db = f_3db
+        self.variances = {}
+
+        # Have not implemented cut_pre and cut_post for old fourier filtering routine.
+        if self.cut_pre == 0 and self.cut_post == 0:
+            self._compute_fourier_filter()
 
         # Time domain filters
         assert self.noise_autocorr is not None
         n = len(self.avg_signal) - 2 * self.shorten
         assert len(self.noise_autocorr) >= n
+        
         if self.shorten > 0:
             avg_signal = self.avg_signal[self.shorten:-self.shorten]
         else:
             avg_signal = self.avg_signal
 
         noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
-        if use_toeplitz_solver:
-            ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
-            Rinv_sig = ts(avg_signal)
-            Rinv_1 = ts(np.ones(n))
-        else:
-            if n > 6000:
-                raise ValueError("Not allowed to use generic solver for vectors longer than 6000, " +
-                                 "because it's slow-ass.")
-            R = sp.linalg.toeplitz(noise_corr)
-            Rinv_sig = np.linalg.solve(R, avg_signal)
-            Rinv_1 = np.linalg.solve(R, np.ones(n))
-
+        TS = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
+        Rinv_sig = TS(avg_signal)
+        Rinv_1 = TS(np.ones(n))
         self.filt_noconst = Rinv_1.sum() * Rinv_sig - Rinv_sig.sum() * Rinv_1
 
         # Band-limit
@@ -236,12 +240,18 @@ class Filter(object):
         self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
 
         try:
-            Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
-            self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
+            Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger-self.cut_pre] / self.peak_signal**2)
+            self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger-self.cut_pre))
             self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
             self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0, :])
         except sp.linalg.LinAlgError:
             pass
+
+        # Set weights in the cut_pre and cut_post windows to 0
+        if self.cut_pre >0 or self.cut_post > 0:
+            self.filt_noconst = np.hstack([np.zeros(self.cut_pre), self.filt_noconst, np.zeros(self.cut_post)])
+            self.filt_baseline = np.hstack([np.zeros(self.cut_pre), self.filt_baseline, np.zeros(self.cut_post)])
+            self.filt_baseline_pretrig = np.hstack([np.zeros(self.cut_pre), self.filt_baseline_pretrig])
 
         for key in self.variances.keys():
             self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
@@ -310,7 +320,7 @@ class ArrivalTimeSafeFilter(Filter):
     linear (and any higher-order) terms."""
 
     def __init__(self, pulsemodel, n_pretrigger, noise_autocorr=None,
-                 whitener=None, fmax=None, f_3db=None, sample_time=None, peak=1.0):
+                 whitener=None, sample_time=None, peak=1.0):
         if noise_autocorr is None and whitener is None:
             raise ValueError("%s requires either noise_autocorr or whitener to be set" %
                              (self.__class__.__name__))
@@ -322,15 +332,26 @@ class ArrivalTimeSafeFilter(Filter):
         self.peak = peak
         super(self.__class__, self).__init__(
             avg_signal, n_pretrigger, noise_psd, noise_autocorr=noise_autocorr,
-            whitener=whitener, fmax=fmax, f_3db=f_3db, sample_time=sample_time,
-            shorten=0)
+            whitener=whitener, sample_time=sample_time, shorten=0)
 
-    def compute(self, fmax=None, f_3db=None):
+    def compute(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
         """Compute a single filter.
 
-        This is called once automatically on construction, but you can call it
-        again if you want to change the frequency cutoff or f_3db rolloff point.
+        <fmax>   The strict maximum frequency to be passed in all filters.
+        <f_3db>  The 3 dB point for a one-pole low-pass filter to be applied to all filters.
+             Either or both of <fmax> and <f_3db> are allowed.
+        <cut_pre> Cut this many samples from the start of the filter, giving them 0 weight.
+        <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
         """
+        if self.sample_time is None and not (fmax is None and f_3db is None):
+            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
+        if cut_pre < 0 or cut_post < 0:
+            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative"%
+                             (cut_pre,cut_post))
+        ns = self.pulsemodel.shape[0]
+        if cut_pre+cut_post >= ns:
+            raise ValueError("cut_pre+cut_post = %d but should be < %d"%(
+                             cut_pre+cut_post, ns))
 
         self.fmax = fmax
         self.f_3db = f_3db
@@ -339,6 +360,9 @@ class ArrivalTimeSafeFilter(Filter):
         n = len(self.avg_signal) - 2 * self.shorten
         unit = np.ones(n)
         MT = np.vstack((self.pulsemodel.T, unit))
+        MT = MT[:, cut_pre:n-cut_post]
+        n = n - (cut_pre + cut_post)
+
         if self.whitener is not None:
             WM = self.whitener(MT.T)
             if fmax is not None or f_3db is not None:
@@ -351,15 +375,22 @@ class ArrivalTimeSafeFilter(Filter):
         else:
             assert self.noise_autocorr is not None
             assert len(self.noise_autocorr) >= n
-            noise_corr = self.noise_autocorr[:n] / self.peak_signal**2  # A *vector*, not a matrix
-            ts = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
+            noise_corr = self.noise_autocorr[:n] / self.peak_signal**2
+            TS = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
 
-            RinvM = np.vstack([ts(r) for r in MT]).T
+            RinvM = np.vstack([TS(r) for r in MT]).T
             if fmax is not None or f_3db is not None:
                 band_limit(RinvM, self.sample_time, fmax, f_3db)
             A = np.dot(MT, RinvM)
             Ainv = np.linalg.inv(A)
             filt = np.dot(Ainv, RinvM.T)
+
+
+        if cut_pre > 0 or cut_post > 0:
+            nfilt = filt.shape[0]
+            filt = np.hstack([np.zeros((nfilt, cut_pre), dtype=float),
+                              filt,
+                              np.zeros((nfilt, cut_post), dtype=float)])
 
         self.filt_noconst = filt[0]
         self.filt_aterms = filt[1:-1]
@@ -384,7 +415,7 @@ class ExperimentalFilter(Filter):
     CAUTION: THESE ARE EXPERIMENTAL!  Don't use yet if you don't know what you're doing!"""
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
-                 fmax=None, f_3db=None, sample_time=None, shorten=0, tau=2.0):
+                 sample_time=None, shorten=0, tau=2.0):
         """
         Create a set of filters under various assumptions and for various purposes.
 
@@ -404,13 +435,6 @@ class ExperimentalFilter(Filter):
                          assumed to be the same as the sample period of <avg_signal>.  If None,
                          then several filters won't be computed.  (One of <noise_psd> or
                          <noise_autocorr> must be a valid array.)
-        <fmax>           The strict maximum frequency to be passed in all filters.
-                         If supplied, then it is passed on to the compute() method for the *first*
-                         filter calculation only.  (Future calls to compute() can override).
-        <f_3db>          The 3 dB point for a one-pole low-pass filter to be applied to all filters.
-                         If supplied, then it is passed on to the compute() method for the *first*
-                         filter calculation only.  (Future calls to compute() can override).
-                         Either or both of <fmax> and <f_3db> are allowed.
         <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
                          This must be given if <fmax> or <f_3db> are ever to be used.
         <shorten>        The time-domain filters should be shortened by removing this many
@@ -441,6 +465,9 @@ class ExperimentalFilter(Filter):
         filt_nopoly2    Alpert filter insensitive to Chebyshev polynomials order 0 to 2
         filt_nopoly3    Alpert filter insensitive to Chebyshev polynomials order 0 to 3
         """
+
+        if self.sample_time is None and not (fmax is None and f_3db is None):
+            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
 
         self.fmax = fmax
         self.f_3db = f_3db
@@ -649,7 +676,26 @@ class ToeplitzWhitener(object):
             for i in range(v.shape[1]):
                 r[:, i] = self.solveW(v[:, i])
             return r
-        raise NotImplementedError("ToeplitzWhitener.solveW does not exist yet.")
+
+        N = len(v)
+        # Multiply by the Toeplitz MA matrix to make the AR*w vector.
+        y = self.theta[0] * v
+        for i in range(1, 1+self.q):
+            y[i:] += self.theta[i]*v[:-i]
+        # Second, solve the AR matrix (also a banded Toeplitz matrix with
+        # q non-zero subdiagonals.)
+        y[0] /= self.phi[0]
+        if N == 1:
+            return y
+        for i in range(1, min(self.p, N)):
+            for j in range(i):
+                y[i] -= y[j]*self.phi[i-j]
+            y[i] /= self.phi[0]
+        for i in range(self.p, N):
+            for j in range(i-self.p, i):
+                y[i] -= y[j]*self.phi[i-j]
+            y[i] /= self.phi[0]
+        return y
 
     def solveWT(self, v):
         "Return vector (or matrix of column vectors) inv(W')*v"

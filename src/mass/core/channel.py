@@ -640,6 +640,8 @@ class MicrocalDataSet(object):
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename', 'virtual data set')
         self.pretrigger_ignore_samples = 0  # Cut this long before trigger in computing pretrig values
+        self.cut_pre = 0 # Number of presamples to ignore at start of pulse
+        self.cut_post = 0  # Number of samples to ignore at end of pulse
         self.peak_samplenumber = None   # Look for retriggers only after this time.
         self.index = None   # Index in the larger TESGroup object
         self.last_used_calibration = None
@@ -657,6 +659,8 @@ class MicrocalDataSet(object):
         self._use_new_filters = True
 
         self.row_timebase = None
+
+        self.nearest_neighbors_dictionary = {}
 
         self.tes_group = tes_group
 
@@ -693,6 +697,7 @@ class MicrocalDataSet(object):
         float64_fields = ('timestamp',)
         float32_fields = ('pretrig_mean', 'pretrig_rms', 'pulse_average', 'pulse_rms',
                           'promptness', 'rise_time', 'postpeak_deriv',
+                          'pretrig_deriv', 'pretrig_offset',
                           'filt_phase', 'filt_phase_corr', 'filt_value', 'filt_value_dc',
                           'filt_value_phc', 'filt_value_tdc',
                           'energy')
@@ -738,7 +743,6 @@ class MicrocalDataSet(object):
                 self.filter = ArrivalTimeSafeFilter(model,
                                                     self.nPresamples - self.pretrigger_ignore_samples,
                                                     self.noise_autocorr,
-                                                    fmax=fmax, f_3db=f_3db,
                                                     sample_time=self.timebase,
                                                     peak=modelpeak)
             else:
@@ -746,8 +750,9 @@ class MicrocalDataSet(object):
                                      self.nPresamples - self.pretrigger_ignore_samples,
                                      self.noise_psd[...],
                                      self.noise_autocorr, sample_time=self.timebase,
-                                     fmax=fmax, f_3db=f_3db,
                                      shorten=shorten)
+            self.filter.fmax = fmax
+            self.filter.f_3db = f_3db
 
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                       "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
@@ -854,14 +859,16 @@ class MicrocalDataSet(object):
     def _compute_peak_samplenumber(self):
         if self.data is None:
             self.read_segment(0)
-        peak_idx = self.data.argmax(axis=1)
+        peak_idx = self.data[:,self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
         self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
-
+    
     @show_progress("channel.summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
-                       forceNew=False, use_cython=True):
+                       cut_pre = 0, cut_post = 0,
+                       forceNew=False, use_cython=True,
+                       doPretrigFit = False):
         """Summarize the complete data set one chunk at a time.
 
         Store results in the HDF5 datasets p_pretrig_mean and similar.
@@ -873,16 +880,22 @@ class MicrocalDataSet(object):
             pretrigger_ignore_microsec: how much time before the trigger to ignore
                 when computing pretrigger mean (default None). If None, it will
                 be chosen sensibly.
+            cut_pre: Cut this many samples from the start of a pulse record when calculating summary values
+            cut_post: Cut this many samples from the end of the a record when calculating summary values              
             forceNew: whether to re-compute summaries if they exist (default False)
             use_cython: whether to use cython for summarizing the data (default True).
                 If this object is not a CythonMicrocalDataSet, then Cython cannot
                 be used, and this value is ignored.
+            doPretrigFit: whether to do a linear fit of the pretrigger data
         """
         # Don't proceed if not necessary and not forced
         self.number_of_rows = self.pulse_records.datafile.number_of_rows
         self.row_number = self.pulse_records.datafile.row_number
         self.number_of_columns = self.pulse_records.datafile.number_of_columns
         self.column_number = self.pulse_records.datafile.column_number
+
+        if self.number_of_rows is not None and self.timebase is not None:
+            self.row_timebase = self.timebase / float(self.number_of_rows)
 
         not_done = all(self.p_pretrig_mean[:] == 0)
         if not (not_done or forceNew):
@@ -900,19 +913,22 @@ class MicrocalDataSet(object):
             self.pretrigger_ignore_samples = 3
         else:
             self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
+            
+        self.cut_pre = cut_pre
+        self.cut_post = cut_post
 
         for segnum in range(self.pulse_records.n_segments):
             if use_cython:
                 self._summarize_data_segment(segnum)
             else:
-                MicrocalDataSet._summarize_data_segment(self, segnum)
+                MicrocalDataSet._summarize_data_segment(self, segnum, doPretrigFit=doPretrigFit)
             yield (segnum+1.0) / self.pulse_records.n_segments
 
         self.pulse_records.datafile.clear_cached_segment()
         self.clear_cache()
         self.hdf5_group.file.flush()
 
-    def _summarize_data_segment(self, segnum):
+    def _summarize_data_segment(self, segnum, doPretrigFit=False):
         """Summarize one segment of the data file, loading it into cache."""
         first, end = self.read_segment(segnum)  # this reloads self.data to contain new pulses
         if first >= self.nPulses:
@@ -931,21 +947,29 @@ class MicrocalDataSet(object):
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
         self.p_rowcount[first:end] = self.rowcount[:seg_size]
+        
+        # Fit line to pretrigger and save the derivative and offset
+        if doPretrigFit:
+            presampleNumbers = np.arange(self.cut_pre,self.nPresamples-self.pretrigger_ignore_samples)
+            self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
+                np.polyfit(presampleNumbers, self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T, deg=1)  
+            
         self.p_pretrig_mean[first:end] = \
-            self.data[:seg_size, :self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
+            self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
         self.p_pretrig_rms[first:end] = \
-            self.data[:seg_size, :self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
-        self.p_peak_index[first:end] = self.data[:seg_size, :].argmax(axis=1)
-        self.p_peak_value[first:end] = self.data[:seg_size, :].max(axis=1)
-        self.p_min_value[first:end] = self.data[:seg_size, :].min(axis=1)
-        self.p_pulse_average[first:end] = self.data[:seg_size, self.nPresamples:].mean(axis=1)
+            self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
+        self.p_peak_index[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
+        self.p_peak_value[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].max(axis=1)
+        self.p_min_value[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].min(axis=1)
+        self.p_pulse_average[first:end] = self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post].mean(axis=1)
+
 
         # Remove the pretrigger mean from the peak value and the pulse average figures.
         ptm = self.p_pretrig_mean[first:end]
         self.p_pulse_average[first:end] -= ptm
         self.p_peak_value[first:end] -= np.asarray(ptm, dtype=self.p_peak_value.dtype)
         self.p_pulse_rms[first:end] = np.sqrt(
-            (self.data[:seg_size, self.nPresamples:]**2.0).mean(axis=1) -
+            (self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post]**2.0).mean(axis=1) -
             ptm*(ptm + 2*self.p_pulse_average[first:end]))
 
         shift1 = (self.data[:seg_size, self.nPresamples+2]-ptm >
@@ -961,14 +985,15 @@ class MicrocalDataSet(object):
         self.p_promptness[first:end] = prompt
 
         self.p_rise_time[first:end] = \
-            mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size],
+            mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post],
                                                            timebase=self.timebase,
-                                                           nPretrig=self.nPresamples)
+                                                           nPretrig=self.nPresamples-self.cut_pre)
 
         self.p_postpeak_deriv[first:end] = \
-            mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size],
-                                                            ignore_leading=self.peak_samplenumber)
-
+            mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post],
+                                                            ignore_leading=self.peak_samplenumber-self.cut_pre)
+    
+    
     @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
         """Compute the average pulse this channel.
@@ -1058,7 +1083,7 @@ class MicrocalDataSet(object):
         self.compute_average_pulse(mask, subtract_mean=subtract_mean,
                                    forceNew=forceNew)
 
-    def compute_oldfilter(self, fmax=None, f_3db=None):
+    def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
         try:
             spectrum = self.noise_spectrum.spectrum()
         except:
@@ -1067,11 +1092,11 @@ class MicrocalDataSet(object):
         avg_signal = np.array(self.average_pulse)
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
-                             fmax=fmax, f_3db=f_3db, shorten=2)
-        f.compute()
+                             shorten=2, cut_pre=cut_pre, cut_post=cut_post)
+        f.compute(fmax=fmax, f_3db=f_3db)
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None, transform=None):
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0):
         """Compute a new-style filter to model the pulse and its time-derivative.
 
         Args:
@@ -1082,6 +1107,8 @@ class MicrocalDataSet(object):
                 (default None)
             transform: a callable object that will be called on all data records
                 before filtering (default None)
+            cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
+            cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
 
         Returns:
             the filter (an ndarray)
@@ -1150,15 +1177,16 @@ class MicrocalDataSet(object):
 
         modelpeak = np.median(rawscale)
         self.pulsemodel = model
-        f = ArrivalTimeSafeFilter(model, self.nPresamples, self.noise_autocorr, fmax=fmax,
-                                  f_3db=f_3db, sample_time=self.timebase, peak=modelpeak)
-        f.compute(fmax=fmax, f_3db=f_3db)
+        f = ArrivalTimeSafeFilter(model, self.nPresamples, self.noise_autocorr,
+                                  sample_time=self.timebase, peak=modelpeak)
+        f.compute(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         self.filter = f
         return f
 
     @_add_group_loop
     @show_progress("channel.filter_data_tdm")
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False,
+                    use_cython=False):
         """Filter the complete data file one chunk at a time.
 
         Args:
@@ -1397,8 +1425,11 @@ class MicrocalDataSet(object):
         self.cuts.cut_parameter(self.p_timestamp[:], c['timestamp_sec'], 'timestamp_sec')
 
         if c['timestamp_diff_sec'] is not None:
-            self.cuts.cut_parameter(np.hstack((0.0, np.diff(self.p_timestamp))),
+            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_timestamp))),
                                     c['timestamp_diff_sec'], 'timestamp_diff_sec')
+        if c['rowcount_diff_sec'] is not None:
+            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_rowcount[:] * self.row_timebase))),
+                                    c['rowcount_diff_sec'], 'rowcount_diff_sec')
         if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum() > 0:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
             LOG.debug('applying cut on pretrigger mean around its median value of %f', median)
@@ -1978,15 +2009,22 @@ class MicrocalDataSet(object):
         return bin_centers, rate
 
     def cut_summary(self):
-        boolean_fields = [name.decode() for name, _ in self.tes_group.boolean_cut_desc if name]
+        boolean_fields = [name.decode() for (name, _) in self.tes_group.boolean_cut_desc if name]
 
         for c1 in boolean_fields:
+            bad1 = self.cuts.bad(c1)
             for c2 in boolean_fields:
-                print("%d pulses cut by both %s and %s" % (
-                    self.cuts.bad(c1, c2).sum(), c1.upper(), c2.upper()))
+                if c1 is c2:
+                    continue
+                bad2 = self.cuts.bad(c2)
+                n_and = np.logical_and(bad1, bad2).sum()
+                n_or = np.logical_or(bad1, bad2).sum()
+                print("%6d (and) %6d (or) pulses cut by [%s and/or %s]" %
+                      (n_and, n_or, c1.upper(), c2.upper()))
+        print()
         for cut_name in boolean_fields:
-            print("%d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
-        print("%d pulses total" % self.nPulses)
+            print("%6d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
+        print("%6d pulses total" % self.nPulses)
 
     @_add_group_loop
     def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=False, clearCuts=True):
@@ -2115,6 +2153,138 @@ class MicrocalDataSet(object):
                      self.channum, self.cuts.good("smart_cuts").sum(), self.nPulses)
         else:
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
+
+    @_add_group_loop
+    def nearest_neighbor_crosstalk_cuts(self, priorVetoTime, postVetoTime, forceNew=False):
+        ''' Uses a list of nearest neighbor channels to cut pulses in current channel based
+            on arrival times of pulses in neighboring channels
+
+            Args:
+            priorVetoTime (float): amount of time to check for before the pulse arrival time
+            postVetoTime (float): amount of time to check for after the pulse arrival time
+            forceNew (bool): whether to re-compute the crosstalk cuts (default False)
+        '''
+
+        groupName = 'nearest_neighbors'
+        if groupName in self.hdf5_group.keys() and (all(self.cuts.good("crosstalk")) or forceNew):
+            # Combine all nearest neighbor pairs for this channel into a single list
+            combinedNearestNeighbors = np.array([])
+            # Loop through nearest neighbor categories
+            for neighborCategory in self.hdf5_group['nearest_neighbors']:
+                subgroupName = groupName + '/' + neighborCategory
+                tempNeighbors = self.hdf5_group[subgroupName].value
+                # Remove duplicates, sort
+                combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, tempNeighbors).astype(int))
+
+            # Convert from ms input to s used in rest of MASS
+            priorVetoTime /= 1000.0
+            postVetoTime /= 1000.0
+
+            # Cuts pulses in current channels by comparing to pulse times in neighboring channels
+            channum1 = self.channum
+            LOG.info('Checking crosstalk between channel %d and neighbors...', channum1)
+
+            # Create uneven histogram edges, with a specified amount of time before and after a photon event
+            pulseTimes = self.p_rowcount[:] * self.row_timebase
+
+            # Create start and stop edges around pulses corresponding to veto times
+            startEdges = pulseTimes - priorVetoTime
+            stopEdges = pulseTimes + postVetoTime
+            combinedEdges = np.sort(np.append(startEdges, stopEdges))
+
+            # Initialize array that will include the pulses from all neighboring channels
+            neighboringChannelsPulsesList = np.array([])
+            # Iterate through all neighboring channels that you will veto against
+            for channum2 in combinedNearestNeighbors:
+                if not self.tes_group.channel.has_key(channum2): continue
+                dsToCompare = self.tes_group.channel[channum2]
+                # Combine the pulses from all neighboring channels into a single array
+                neighboringChannelsPulsesList = np.append(neighboringChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
+
+            # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
+            hist, bin_edges = np.histogram(neighboringChannelsPulsesList, bins=combinedEdges)
+
+            # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
+            badCountsHist = hist[::2]
+
+            # Even only histogram indices map directly to previously good flagged pulse indices for channel 1
+            isCrosstalking = badCountsHist > 0.0
+
+            # Apply crosstalk cuts
+            self.cuts.cut("crosstalk", isCrosstalking)
+
+        else:
+            LOG.info("channel %d skipping crosstalk cuts because it was already done", self.channum)
+
+    @_add_group_loop
+    def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory = 'physical', forceNew=False):
+        ''' Finds the nearest neighbors in a given space for all channels in a data set
+
+        Args:
+        mapFilename (str): Location of map file in the following format
+            Column 0 - list of channel numbers.
+            Remaining column(s) - coordinates that define a particular column in a given space.
+                For example, can be the row and column number in a physical space
+                or the frequency order number in a frequency space (umux readout).
+        nearestNeighborCategory (str): name used to categorize the type of nearest neighbor.
+            This will be the name given to the subgroup of the hdf5 file under the nearest_neighbor group.
+            This will also be a key for dictionary nearest_neighbors_dictionary
+        forceNew (bool): whether to re-compute nearest neighbors list if it exists (default False)
+        '''
+
+        # Create hdf5 group for nearest neighbors
+        h5grp = self.hdf5_group.require_group('nearest_neighbors')
+
+        # Check to see if if data set already exists or if forceNew is set to True
+        if 'nearest_neighbors/' + nearestNeighborCategory not in self.hdf5_group or forceNew:
+
+            # Load channel numbers and positions from map file, define number of dimensions
+            mapData = np.loadtxt(mapFilename, dtype=int)
+            channelNumbers = mapData[:,0]
+            positionValues = mapData[:,1:]
+            nDims = positionValues.shape[1]
+
+            # Extract channel number and position of current channel
+            channum = self.channum
+            channelPos = np.array(positionValues[channum == channelNumbers][0],ndmin=1)
+
+            # Initialize array for storing nearest neighbors of current channel
+            channelsList = np.array([]).astype(int)
+
+            '''
+            Returns the channel number of a neighboring position after checking for goodness
+
+            Args:
+            positionToCompare (int array) - position to check for nearest neighbor match
+            '''
+            def process_matching_channel(positionToCompare):
+                # Find the channel number corresponding to the compare position
+                channelToCompare = channelNumbers[np.all(positionToCompare == positionValues, axis=1)]
+                # If the new position exists in map file and the channel to compare to is good, return the channel number
+                if (positionToCompare in positionValues) & (channelToCompare in self.tes_group.good_channels):
+                    return channelToCompare
+                # Return an empty array if not actually a good nearest neighbor
+                else:
+                    return np.array([], dtype=int)
+
+            # Check the lower and upper position for each dimension in the given space
+            for iDim in range(nDims):
+                lowerPosition = np.array(channelPos)
+                lowerPosition[iDim] -= 1
+                channelsList = np.append(channelsList, process_matching_channel(lowerPosition))
+                upperPosition = np.array(channelPos)
+                upperPosition[iDim] += 1
+                channelsList = np.append(channelsList, process_matching_channel(upperPosition))
+
+            # Save nearest neighbor data into hdf5 file in nearestNeighborCategory subgroup
+            if nearestNeighborCategory in h5grp:
+                del h5grp[nearestNeighborCategory]
+            h5grp.create_dataset(nearestNeighborCategory, data = channelsList)
+
+        # Also save the data into a dictionary with nearestNeighborCategory as the key
+        self.nearest_neighbors_dictionary[nearestNeighborCategory] = h5grp[nearestNeighborCategory].value
+
+
 
 
 # Below here, these are functions that we might consider moving to Cython for speed.
@@ -2265,7 +2435,7 @@ def _phase_corrected_filtvals(phase, uncorrected, corrections):
 
 
 def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
-                       pulses_per_degree = 2000, max_degrees = 20, limit=None):
+                       pulses_per_degree = 2000, max_degrees = 20, ndeg = None, limit = None):
     """Compute a time-based drift correction that minimizes the spectral entropy.
 
     Args:
@@ -2276,6 +2446,8 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
         sec_per_degree: assign as many as one polynomial degree per this many seconds
         pulses_per_degree: assign as many as one polynomial degree per this many pulses
         max_degrees: never use more than this many degrees of Legendre polynomial.
+        n_deg: If not None, use this many degrees, regardless of the values of
+               sec_per_degree, pulses_per_degree, and max_degress. In this case, never downsample.
         limit: The [lower,upper] limit of uncorrected values over which entropy is
             computed (default None).
 
@@ -2296,6 +2468,9 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
         limit = [0, 1.25 * pct99]
 
     use = np.logical_and(uncorrected > limit[0], uncorrected < limit[1])
+    time = time[use]
+    uncorrected = uncorrected[use]
+
     tmin, tmax = np.min(time), np.max(time)
 
     def normalize(t):
@@ -2309,16 +2484,18 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
 
     dtime = tmax-tmin
     N = len(time)
-    ndeg = int(np.minimum(dtime/sec_per_degree, N/pulses_per_degree))
-    ndeg = min(ndeg, max_degrees)
-    ndeg = max(ndeg, 1)
-    phot_per_degree = N/float(ndeg)
-
-    if phot_per_degree >= 2*pulses_per_degree:
-        downsample = int(phot_per_degree/pulses_per_degree)
-        time = time[::downsample]
-        uncorrected = uncorrected[::downsample]
-        N = len(time)
+    if ndeg == None:
+        ndeg = int(np.minimum(dtime/sec_per_degree, N/pulses_per_degree))
+        ndeg = min(ndeg, max_degrees)
+        ndeg = max(ndeg, 1)
+        phot_per_degree = N/float(ndeg)
+        if phot_per_degree >= 2*pulses_per_degree:
+            downsample = int(phot_per_degree/pulses_per_degree)
+            time = time[::downsample]
+            uncorrected = uncorrected[::downsample]
+            N = len(time)
+        else:
+            downsample = 1
     else:
         downsample = 1
 

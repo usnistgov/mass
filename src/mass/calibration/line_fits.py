@@ -215,9 +215,10 @@ class LineFitter(object):
         the value and uncertainty for each parameter.
         An "H" after the parameter indicates it was held.
         """
-        labeldict = {meaning: meaning+" %4g +- %4g" for meaning in self.param_meaning.keys()}
-        labeldict["resolution"] = "FWHM: %.3f +- %.3f"
+        labeldict = {meaning: meaning+" %.3g +- %.3g" for meaning in self.param_meaning.keys()}
+        labeldict["resolution"] = "FWHM: %.3g +- %.3g"
         labeldict["tail_frac"] = "f$_\\mathrm{tail}$: %.1f +- %.1f"
+        labeldict["peak_ph"] = "peak_ph: %.7g +- %.3g"
         slabel = ""
         for (meaning, i) in self.param_meaning.items():
             val = self.last_fit_params[i]
@@ -338,7 +339,8 @@ class VoigtFitter(LineFitter):
         iqr = (percentiles(0.75) - percentiles(0.25))
         res = iqr * 0.7
         lor_fwhm = res
-        baseline = data[0:10].mean()
+        # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
+        baseline = max(data[0:10].mean(), 1.0/len(data))
         baseline_slope = (data[-10:].mean() - baseline) / len(data)
         ampl = (data.max() - baseline) * np.pi
         return [res, peak_loc, lor_fwhm, ampl, baseline, baseline_slope, tailf, tailt]
@@ -516,7 +518,8 @@ class GaussianFitter(LineFitter):
         peak_loc = percentiles(0.5)
         iqr = (percentiles(0.75) - percentiles(0.25))
         res = iqr * 0.95
-        baseline = data[0:10].mean()
+        # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
+        baseline = max(data[0:10].mean(), 1.0/len(data))
         baseline_slope = (data[-10:].mean() - baseline) / len(data)
         ampl = (data.max() - baseline) * np.pi
         return [res, peak_loc, ampl, baseline, baseline_slope, tailf, tailt]
@@ -692,8 +695,9 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         dE = self.spect.ka12_energy_diff  # eV difference between KAlpha peaks
         ampl = data.max() * 9.4
         res = 4.0
+        # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
         if len(data) > 20:
-            baseline = data[0:10].mean() + 1e-6
+            baseline = max(data[0:10].mean(), 1.0/len(data))
         else:
             baseline = 0.1
         baseline_slope = 0.0
@@ -716,8 +720,9 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         peak_ph = binctrs[data.argmax()]
         ampl = data.max() * 9.4
         res = 4.0
+        # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
         if len(data) > 20:
-            baseline = data[0:10].mean()
+            baseline = max(data[0:10].mean(), 1.0/len(data))
         else:
             baseline = 0.1
         baseline_slope = 0.0
