@@ -18,6 +18,7 @@ import numpy as np
 import scipy as sp
 import pylab as plt
 import palettable
+import line_fits
 from cycler import cycler
 from collections import OrderedDict
 
@@ -71,7 +72,7 @@ class SpectralLine(sp.stats.rv_continuous):
             components.append(ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=self.gaussian_sigma))
         return components
 
-    def plot(self,x=None,axis=None,components=True,label=None):
+    def plot(self,x=None,axis=None,components=True,label=None,setylim=True):
         """Plot the spectrum.
         x - np array of energy in eV to plot at (sensible default)
         axis - axis to plot on (default creates new figure)
@@ -93,7 +94,8 @@ class SpectralLine(sp.stats.rv_continuous):
         axis.set_xlabel("energy (eV)")
         axis.set_ylabel("counts (arb)")
         axis.set_xlim(x[0],x[-1])
-        axis.set_ylim(np.amin(pdf)*0.1,np.amax(pdf))
+        if setylim:
+            axis.set_ylim(np.amin(pdf)*0.1,np.amax(pdf))
         axis.set_title("{} with resolution {:.2f} eV FWHM".format(self.shortname,self.pdf_gaussian_fwhm))
         return axis
 
@@ -185,6 +187,7 @@ lineshape_references["Zn Hack"]="""This is a hack, a copy of the Hoelzer, Fritsc
     The KBeta also appears to be a hack with scaled values."""
 
 spectrum_classes = OrderedDict()
+fitter_classes = OrderedDict()
 
 LORENTZIAN_PEAK_HEIGHT = 999
 LORENTZIAN_INTEGRAL_INTENSITY = 9999
@@ -253,7 +256,20 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     spectrum_classes[cls.__name__]=cls
     # make the fitter be a variable in the module
     globals()[cls.__name__]=cls
-    # can also create fitter here
+    # create fitter as well
+    spectrum = cls()
+    if spectrum.element in ["Al","Mg"]:
+        superclass = line_fits._lowZ_KAlphaFitter
+    elif spectrum.linetype == "KAlpha":
+        superclass = line_fits.GenericKAlphaFitter
+    elif spectrum.linetype == "KBeta":
+        superclass = line_fits.GenericKBetaFitter
+    else:
+        raise ValueError("no generic fitter for {}".format(spectrum))
+    dict = {"spect":spectrum}
+    fitter_class = type(cls.__name__+"Fitter",(superclass,),dict)
+    globals()[cls.__name__+"Fitter"] = fitter_class
+    fitter_classes[cls.__name__] = fitter_class
 
     return cls
 

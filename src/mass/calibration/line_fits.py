@@ -12,7 +12,6 @@ import pylab as plt
 from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
 from mass.mathstat.utilities import plot_as_stepped_hist
 from mass.mathstat.special import voigt
-from . import fluorescence_lines as lines
 
 
 def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
@@ -339,8 +338,7 @@ class VoigtFitter(LineFitter):
         iqr = (percentiles(0.75) - percentiles(0.25))
         res = iqr * 0.7
         lor_fwhm = res
-        # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
-        baseline = max(data[0:10].mean(), 1.0/len(data))
+        baseline = data[0:10].mean()
         baseline_slope = (data[-10:].mean() - baseline) / len(data)
         ampl = (data.max() - baseline) * np.pi
         return [res, peak_loc, lor_fwhm, ampl, baseline, baseline_slope, tailf, tailt]
@@ -518,8 +516,7 @@ class GaussianFitter(LineFitter):
         peak_loc = percentiles(0.5)
         iqr = (percentiles(0.75) - percentiles(0.25))
         res = iqr * 0.95
-        # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
-        baseline = max(data[0:10].mean(), 1.0/len(data))
+        baseline = data[0:10].mean()
         baseline_slope = (data[-10:].mean() - baseline) / len(data)
         ampl = (data.max() - baseline) * np.pi
         return [res, peak_loc, ampl, baseline, baseline_slope, tailf, tailt]
@@ -663,15 +660,16 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
     Note that self.tailfrac and self.tailtau are attributes that determine the starting
     guess for the fraction of events in an exponential low-energy tail and for that tail's
     exponential scale length (in eV). Change if desired.
+
+    Need to add the self.spect instance to subclasses before initializing.
     """
 
-    def __init__(self, spectrumDef):
+    def __init__(self):
         """Set up a fitter for a K-alpha line complex
 
         spectrumDef -- should be mass.fluorescence_lines.MnKAlpha, or similar
             subclasses of SpectralLine.
         """
-        self.spect = spectrumDef
         super(GenericKAlphaFitter, self).__init__()
 
     def guess_starting_params(self, data, binctrs):
@@ -695,9 +693,8 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         dE = self.spect.ka12_energy_diff  # eV difference between KAlpha peaks
         ampl = data.max() * 9.4
         res = 4.0
-        # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
         if len(data) > 20:
-            baseline = max(data[0:10].mean(), 1.0/len(data))
+            baseline = data[0:10].mean() + 1e-6
         else:
             baseline = 0.1
         baseline_slope = 0.0
@@ -707,11 +704,9 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
 
 class GenericKBetaFitter(MultiLorentzianComplexFitter):
 
-    def __init__(self, spectrumDef):
-        """Constructor argument spectrumDef should be
-        mass.fluorescence_lines.MnKBeta, or similar subclasses of SpectralLine.
+    def __init__(self):
+        """Subclasses must define a SpectralLine in self.spect
         """
-        self.spect = spectrumDef
         super(GenericKBetaFitter, self).__init__()
 
     def guess_starting_params(self, data, binctrs):
@@ -720,17 +715,14 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         peak_ph = binctrs[data.argmax()]
         ampl = data.max() * 9.4
         res = 4.0
-        # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
         if len(data) > 20:
-            baseline = max(data[0:10].mean(), 1.0/len(data))
+            baseline = data[0:10].mean()
         else:
             baseline = 0.1
         baseline_slope = 0.0
         return [res, peak_ph, 1.0, ampl, baseline, baseline_slope,
                 self.tailfrac, self.tailtau]
 
-
-# create specific KAlpha Fitters
 class _lowZ_KAlphaFitter(GenericKAlphaFitter):
     """Overrides the starting parameter guesses, more appropriate
     for low Z where the Ka1,2 peaks can't be resolved."""
@@ -746,129 +738,3 @@ class _lowZ_KAlphaFitter(GenericKAlphaFitter):
         baseline, baseline_slope = 1.0, 0.0
         ampl = 4 * np.max(data)
         return [res, ph_ka1, dph_de, ampl, baseline, baseline_slope, 0.1, 25]
-
-
-class AlKAlphaFitter(_lowZ_KAlphaFitter):
-
-    def __init__(self):
-        _lowZ_KAlphaFitter.__init__(self, lines.AlKAlpha())
-
-
-class MgKAlphaFitter(_lowZ_KAlphaFitter):
-
-    def __init__(self):
-        _lowZ_KAlphaFitter.__init__(self, lines.MgKAlpha())
-
-
-class ScKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.ScKAlpha())
-
-
-class TiKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.TiKAlpha())
-
-
-class VKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.VKAlpha())
-
-
-class CrKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.CrKAlpha())
-
-
-class MnKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.MnKAlpha())
-
-
-class FeKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.FeKAlpha())
-
-
-class CoKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.CoKAlpha())
-
-
-class NiKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.NiKAlpha())
-
-
-class CuKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.CuKAlpha())
-
-
-class ZnKAlphaFitter(GenericKAlphaFitter):
-
-    def __init__(self):
-        GenericKAlphaFitter.__init__(self, lines.ZnKAlpha())
-
-
-class TiKBetaFitter(GenericKBetaFitter):
-
-    def __init__(self):
-        GenericKBetaFitter.__init__(self, lines.TiKBeta())
-
-
-class VKBetaFitter(GenericKBetaFitter):
-
-    def __init__(self):
-        GenericKBetaFitter.__init__(self, lines.VKBeta())
-
-
-class CrKBetaFitter(GenericKBetaFitter):
-
-    def __init__(self):
-        GenericKBetaFitter.__init__(self, lines.CrKBeta())
-
-
-class MnKBetaFitter(GenericKBetaFitter):
-
-    def __init__(self):
-        GenericKBetaFitter.__init__(self, lines.MnKBeta())
-
-
-class FeKBetaFitter(GenericKBetaFitter):
-
-    def __init__(self):
-        GenericKBetaFitter.__init__(self, lines.FeKBeta())
-
-
-class CoKBetaFitter(GenericKBetaFitter):
-
-    def __init__(self):
-        GenericKBetaFitter.__init__(self, lines.CoKBeta())
-
-
-class NiKBetaFitter(GenericKBetaFitter):
-
-    def __init__(self):
-        GenericKBetaFitter.__init__(self, lines.NiKBeta())
-
-
-class CuKBetaFitter(GenericKBetaFitter):
-
-    def __init__(self):
-        GenericKBetaFitter.__init__(self, lines.CuKBeta())
-
-
-class ZnKBetaFitter(GenericKBetaFitter):
-
-    def __init__(self):
-        GenericKBetaFitter.__init__(self, lines.ZnKBeta())
