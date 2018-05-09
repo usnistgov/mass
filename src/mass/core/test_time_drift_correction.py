@@ -59,7 +59,7 @@ class TestTimeDriftCorrection(ut.TestCase):
         return 1+0.005*np.sin(2*np.pi*t/10000.)
 
     def test_make_drifting_data(self):
-        distrib = mass.calibration.MnKAlphaDistribution()
+        distrib = mass.calibration.MnKAlpha()
         res_fwhm_ev = 3.0
         cps = 1
         duration_s = 10000

@@ -215,8 +215,8 @@ class Test_fluorescence(unittest.TestCase):
         n_signal = np.random.poisson(N)
         n_bg = np.random.poisson(N_bg)
 
-        distrib = mass.calibration.fluorescence_lines.MnKAlphaDistribution()
-        distrib.distribution.set_gauss_fwhm(fwhm)
+        distrib = mass.calibration.fluorescence_lines.MnKAlpha()
+        distrib.pdf_gaussian_fwhm = fwhm
         data = distrib.rvs(size=n_signal)
         if N_bg > 0:
             data = np.hstack((data, np.random.uniform(size=n_bg)*4.0-2.0))

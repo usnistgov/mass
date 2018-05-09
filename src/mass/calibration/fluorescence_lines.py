@@ -71,7 +71,12 @@ class SpectralLine(sp.stats.rv_continuous):
             components.append(ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=self.gaussian_sigma))
         return components
 
-    def plot(self,x=None,axis=None,components=True):
+    def plot(self,x=None,axis=None,components=True,label=None):
+        """Plot the spectrum.
+        x - np array of energy in eV to plot at (sensible default)
+        axis - axis to plot on (default creates new figure)
+        components - True plots each voigt component in addition to the spectrum
+        label - a string to label the plot with (optional)"""
         if x is None:
             width = 3*np.amax(self.lorentzian_fwhm)
             lo = np.amin(self.energies)-width
@@ -84,7 +89,7 @@ class SpectralLine(sp.stats.rv_continuous):
             for component in self.components(x):
                 axis.plot(x,component,"--")
         pdf = self.pdf(x)
-        axis.plot(x, self.pdf(x),"k",lw=2)
+        axis.plot(x, self.pdf(x),"k",lw=2, label=label)
         axis.set_xlabel("energy (eV)")
         axis.set_ylabel("counts (arb)")
         axis.set_xlim(x[0],x[-1])
@@ -130,6 +135,9 @@ class SpectralLine(sp.stats.rv_continuous):
     @property
     def shortname(self):
         return self.element+self.linetype
+
+    def set_gauss_fwhm(self,fwhm):
+        self.pdf_gaussian_fwhm = fwhm
 
 lineshape_references = OrderedDict()
 lineshape_references["Klauber 1993"] = """Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.
@@ -223,7 +231,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     "nominal_peak_energy":float(nominal_peak_energy)
     }
     if linetype == "KAlpha":
-        dict["ka12ka12_energy_diff"] = ka12_energy_diff
+        dict["ka12_energy_diff"] = ka12_energy_diff
     classname = element+linetype
     cls = type(classname, (SpectralLine,), dict)
 
