@@ -46,9 +46,11 @@ class SpectralLine(object):
 
     def __init__(self):
         """Set up a default Gaussian smearing of 0"""
-        self.gauss_sigma = 0.0
+        self.gauss_sigma = 0
         self.peak_energy = sp.optimize.brent(lambda x: -self.pdf(x),
                                              brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
+
+
 
     def set_gauss_fwhm(self, fwhm):
         """Update the Gaussian smearing to have <fwhm> as the full-width at half-maximum"""
@@ -67,11 +69,8 @@ class SpectralLine(object):
             # Note that voigt is normalized to have unit integrated intensity
         return result
 
-
-class MgKAlpha(SpectralLine):
-    """This is the fluorescence line complex of **metallic** magnesium.
-
-    Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.
+lineshape_references = {}
+lineshape_references["Klauber 1993"] = """Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.
     "Magnesium Kalpha X-ray line structure revisited".  Also discussed in more
     detail in C. Klauber, Surface & Interface Analysis 20 (1993), 703-715.
 
@@ -82,18 +81,106 @@ class MgKAlpha(SpectralLine):
     of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5 "Average" column.
     """
 
-    # Spectral complex name.
-    name = 'Magnesium K-alpha'
-    # The approximation is as a series of 7 Lorentzians
-    energies = np.array((-.265, 0, 4.740, 8.210, 8.487, 10.095, 17.404, 20.430)) + 1253.687
-    # The Lorentzian widths (FWHM)
-    fwhm = np.array((.541, .541, 1.1056, .6264, .7349, 1.0007, 1.4311, .8656))
-    # The Lorentzian amplitude, in relative integrated intensity
-    integral_intensity = np.array((0.5, 1, .02099, .07868, .04712, .09071, .01129, .00538))
-    integral_intensity /= integral_intensity.sum()
-    # The energy at the main peak
-    nominal_peak_energy = 1253.687
-    ka12_energy_diff = 2.2  # eV (not real, but scales the parameter initial guesses)
+spectra = {}
+
+def addfitter(element, linetype, reference_short, instrument_gaussian_fwhm,
+    nominal_peak_energy, energies, lorentzian_fwhm,
+    lorentzian_peak_height=None, voigt_peak_height=None, lorentzian_integral_intensity=None,
+    ka12_energy_diff=None):
+
+    # require exactly one method of specifying the amplitude of each component
+    assert np.sum([v is not None for v in [lorentzian_peak_height, voigt_peak_height, lorentzian_integral_intensity]])
+    # require the reference exists in lineshape_references
+    assert lineshape_references.has_key(reference_short)
+    # require that linetype is supported
+    assert linetype in ["KBeta","KAlpha"]
+    # require kalpha lines to have ka12_energy_diff
+    if linetype == "KAlpha":
+        ka12_energy_diff = float(ka12_energy_diff)
+
+    instument_gaussian_sigma = instrument_gaussian_fwhm/(8 * np.log(2))**0.5
+    # calculate normalized lorentzian_integral_intensity
+    if lorentzian_integral_intensity is not None:
+        normalized_lorentzian_integral_intensity = lorentzian_integral_intensity/np.sum(lorentzian_integral_intensity)
+    elif lorentzian_peak_heights is not None:
+        lorentzian_integral_intensity = (0.5 * np.pi * lorentzian_fwhm) * lorentzian_peak_heights
+        normalized_lorentzian_integral_intensity = lorentzian_integral_intensity/np.sum(lorentzian_integral_intensity)
+    elif voigt_peak_height is not None:
+        lorentzian_integral_intensity = [ph/voigt(0,0,lw/2.0,instument_gaussian_sigma)
+                                         for ph,lw in zip(voigt_peak_height,lorentzian_fwhm)]
+        normalized_lorentzian_integral_intensity = lorentzian_integral_intensity/np.sum(lorentzian_integral_intensity)
+
+    dict = {
+    "element":element,
+    "linetype":linetype,
+    "energies":np.array(energies),
+    "lorentzian_fwhm":np.array(lorentzian_fwhm),
+    "instument_gaussian_sigma":float(instrument_gaussian_fwhm),
+    "reference_short":reference_short,
+    "normalized_lorentzian_integral_intensity":np.array(normalized_lorentzian_integral_intensity),
+    "nominal_peak_energy":float(nominal_peak_energy)
+    }
+    if linetype == "KAlpha":
+        dict["ka12ka12_energy_diff"] = ka12_energy_diff
+    classname = element+linetype
+    cls = type(classname, (SpectralLine,), dict)
+
+    # class cls(SpectralLine):
+    #     __name__ = element+linetype
+    #     energies = np.array(energies)
+    #     lorentzian_fwhm = np.array(lorentzian_fwhm)
+    #     instrument_gaussian_fwhm = float(instrument_gaussian_fwhm)
+    #     reference_short = reference_short
+    #     normalized_lorentzian_integral_intensity = np.array(normalized_lorentzian_integral_intensity)
+    #     nominal_peak_energy = float(nominal_peak_energy)
+
+
+    # add fitter to spectra dict
+    spectra[cls.__name__]=cls
+    # make the fitter be a variable in the module
+    globals()[cls.__name__]=cls
+
+    return cls
+
+addfitter(
+element="Mg",
+linetype="KAlpha",
+reference_short = "Klauber 1993",
+instrument_gaussian_fwhm=-1,
+nominal_peak_energy=1253.687,
+energies = np.array((-.265, 0, 4.740, 8.210, 8.487, 10.095, 17.404, 20.430)) + 1253.687,
+lorentzian_fwhm = np.array((.541, .541, 1.1056, .6264, .7349, 1.0007, 1.4311, .8656)),
+lorentzian_integral_intensity=np.array((0.5, 1, .02099, .07868, .04712, .09071, .01129, .00538)),
+ka12_energy_diff = 2.2,
+)
+
+
+# class MgKAlpha(SpectralLine):
+#     """This is the fluorescence line complex of **metallic** magnesium.
+#
+#     Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.
+#     "Magnesium Kalpha X-ray line structure revisited".  Also discussed in more
+#     detail in C. Klauber, Surface & Interface Analysis 20 (1993), 703-715.
+#
+#     Klauber offers only an energy shift relative to some absolute standard. For
+#     an absolute standard, we use the value 1253.687 as the Ka1 peak as found by
+#     J. Schweppe, R. D. Deslattes, T. Mooney, and C. J. Powell in J. Electron
+#     Spectroscopy and Related Phenomena 67 (1994) 463-478 titled "Accurate measurement
+#     of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5 "Average" column.
+#     """
+#
+#     # Spectral complex name.
+#     name = 'Magnesium K-alpha'
+#     # The approximation is as a series of 7 Lorentzians
+#     energies = np.array((-.265, 0, 4.740, 8.210, 8.487, 10.095, 17.404, 20.430)) + 1253.687
+#     # The Lorentzian widths (FWHM)
+#     fwhm = np.array((.541, .541, 1.1056, .6264, .7349, 1.0007, 1.4311, .8656))
+#     # The Lorentzian amplitude, in relative integrated intensity
+#     integral_intensity = np.array((0.5, 1, .02099, .07868, .04712, .09071, .01129, .00538))
+#     integral_intensity /= integral_intensity.sum()
+#     # The energy at the main peak
+#     nominal_peak_energy = 1253.687
+#     ka12_energy_diff = 2.2  # eV (not real, but scales the parameter initial guesses)
 
 
 class AlKAlpha(SpectralLine):
@@ -183,7 +270,7 @@ class TiKAlpha(SpectralLine):
     holds all the data (as class attributes), while the parent class
     SpectralLine holds all the code. Note that to reproduce the plots in the
     reference paper, you must include the Gaussian broadening of their
-    instrument, which was 0.082eV FWHM The underlying line profile has zero
+    instrument, which was 0.11eV FWHM The underlying line profile has zero
     fundamental broadening.
     """
     # Spectral complex name.
@@ -220,33 +307,35 @@ class TiKBeta(SpectralLine):
     nominal_peak_energy = 4931.966  # eV
 
 
-class VKAlpha(SpectralLine):
-    """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
-    "Characterization of K spectral profiles for vanadium, component redetermination for
-    scandium, titanium, chromium, and manganese, and development of satellite structure
-    for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
-    url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
-    Note that the subclass holds all the data (as class attributes), while
-    the parent class SpectralLine holds all the code.
-    Note that to reproduce the plots in the reference paper, you must include the Gaussian
-    broadening of their instrument, which was 1.99eV FWHM
-    The underlying line profile has zero fundamental broadening.
-    """
-    # Spectral complex name.
-    name = 'Vanadium K-alpha'
-    # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
-    # The Lorentzian energies (Table I C_i)
-    energies = np.array((4952.237, 4950.656, 4948.266, 4955.269, 4944.672, 4943.014))
-    # The Lorentzian widths (Table I W_i)
-    fwhm = np.array((1.45, 2.00, 1.81, 1.76, 2.94, 3.09))
-    # The Lorentzian peak height (Table I A_i)
-    peak_heights = np.array((25832, 5410, 1536, 956, 12971, 603), dtype=np.float)
-    # Amplitude of the Lorentzians
-    integral_intensity = (0.5 * np.pi * fwhm) * peak_heights
-    integral_intensity /= integral_intensity.sum()
-    # The energy at the main peak (from table III Kalpha_1^0)
-    nominal_peak_energy = 4952.216  # eV
-    ka12_energy_diff = 7.5  # eV
+# class VKAlpha(SpectralLine):
+#     """Data are from Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
+#     "Characterization of K spectral profiles for vanadium, component redetermination for
+#     scandium, titanium, chromium, and manganese, and development of satellite structure
+#     for Z=21 to Z=25." Physical Review A, 73(1), 012508. doi:10.1103/PhysRevA.73.012508
+#     url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
+#     Note that the subclass holds all the data (as class attributes), while
+#     the parent class SpectralLine holds all the code.
+#     Note that to reproduce the plots in the reference paper, you must include the Gaussian
+#     broadening of their instrument, which was 1.99eV FWHM
+#     The underlying line profile has zero fundamental broadening.
+#     """
+#     # Spectral complex name.
+#     name = 'Vanadium K-alpha'
+#     # The approximation is as a series of 6 Lorentzians (4 for KA1,2 for KA2)
+#     # The Lorentzian energies (Table I C_i)
+#     energies = np.array((4952.237, 4950.656, 4948.266, 4955.269, 4944.672, 4943.014))
+#     # The Lorentzian widths (Table I W_i)
+#     fwhm = np.array((1.45, 2.00, 1.81, 1.76, 2.94, 3.09))
+#     # The Voigt peak height (Table I A_i)
+#     peak_heights = np.array((25832, 5410, 1536, 956, 12971, 603), dtype=np.float)
+#     # Amplitude of the Lorentzians
+#     instrument_gaussian_fwhm = 1.99 # Table I, other parameters
+#     instrument_gaussian_sigma = instrument_gaussian_fwhm/(8 * np.log(2))**0.5
+#     integral_intensity = [ph/mass.voigt(0,0,lw,instrument_gaussian_sigma) for (lw,ph) in zip(fwhm/2.0,peak_heights)]
+#     integral_intensity /= integral_intensity.sum()
+#     # The energy at the main peak (from table III Kalpha_1^0)
+#     nominal_peak_energy = 4952.216  # eV
+#     ka12_energy_diff = 7.5  # eV
 
 
 class VKBeta(SpectralLine):
