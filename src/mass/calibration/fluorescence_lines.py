@@ -139,6 +139,7 @@ def addfitter(element, linetype, reference_short, instrument_gaussian_fwhm,
     spectra[cls.__name__]=cls
     # make the fitter be a variable in the module
     globals()[cls.__name__]=cls
+    # can also create fitter here
 
     return cls
 
