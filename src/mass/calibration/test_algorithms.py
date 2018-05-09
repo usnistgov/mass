@@ -8,6 +8,7 @@ import mass
 from mass.calibration.algorithms import *
 import itertools
 
+np.random.seed(2)
 
 class TestAlgorithms(unittest.TestCase):
 
@@ -103,20 +104,9 @@ class TestAlgorithms(unittest.TestCase):
         spect[4].set_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha()
         spect[5].set_gauss_fwhm(6)
-        dist[1] = mass.fluorescence_lines.MnKAlpha()
-        dist[2] = mass.fluorescence_lines.MnKBeta()
-        dist[3] = mass.fluorescence_lines.CuKAlpha()
-        dist[4] = mass.fluorescence_lines.TiKAlpha()
-        dist[5] = mass.fluorescence_lines.FeKAlpha()
-        dist[1].set_gauss_fwhm(4)
-        dist[2].set_gauss_fwhm(4)
-        dist[3].set_gauss_fwhm(5)
-        dist[4].set_gauss_fwhm(3)
-        dist[5].set_gauss_fwhm(4)
         e = []
-        for k in spect:
-            sampler = dist[k]
-            e.extend(sampler.rvs(size=num_samples[k]))
+        for k,s in spect.items():
+            e.extend(s.rvs(size=num_samples[k]))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
@@ -134,9 +124,6 @@ class TestAlgorithms(unittest.TestCase):
         binsize_ev = 1.0
         fitters = multifit(ph, line_names, fit_lo_hi, np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
 
-        line_names_2 = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
-        multifit(ph, line_names_2, fit_lo_hi,
-                 np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
 
     def test_autocal(self):
         # generate pulseheights from known spectrum
@@ -153,21 +140,9 @@ class TestAlgorithms(unittest.TestCase):
         spect[4].set_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha()
         spect[5].set_gauss_fwhm(6)
-        dist[1] = mass.fluorescence_lines.MnKAlpha()
-        dist[2] = mass.fluorescence_lines.MnKBeta()
-        dist[3] = mass.fluorescence_lines.CuKAlpha()
-        dist[4] = mass.fluorescence_lines.TiKAlpha()
-        dist[5] = mass.fluorescence_lines.FeKAlpha()
-        dist[1].set_gauss_fwhm(4)
-        dist[2].set_gauss_fwhm(4)
-        dist[3].set_gauss_fwhm(5)
-        dist[4].set_gauss_fwhm(3)
-        dist[5].set_gauss_fwhm(4)
-
         e = []
-        for k in spect:
-            sampler = dist[k]
-            e.extend(sampler.rvs(size=num_samples[k]))
+        for k,s in spect.items():
+            e.extend(s.rvs(size=num_samples[k]))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
