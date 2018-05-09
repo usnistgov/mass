@@ -451,7 +451,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
 addfitter(
-element="Fe",
+element="Co",
 linetype="KAlpha",
 reference_short = "Hoelzer 1997, NISTfits.ipf",
 reference_plot_gaussian_fwhm=None,
