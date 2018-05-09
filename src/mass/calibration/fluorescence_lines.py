@@ -34,8 +34,9 @@ from mass.mathstat.special import voigt
 import logging
 LOG = logging.getLogger("mass")
 
+FWHM_OVER_SIGMA = (8 * np.log(2))**0.5
 
-class SpectralLine(object):
+class SpectralLine(sp.stats.rv_continuous):
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 
@@ -44,17 +45,15 @@ class SpectralLine(object):
     of the same length.
     """
 
-    def __init__(self):
+    def __init__(self, gaussian_fwhm=0.0):
         """Set up a default Gaussian smearing of 0"""
-        self.gauss_sigma = 0
+        self.gaussian_fwhm = gaussian_fwhm
         self.peak_energy = sp.optimize.brent(lambda x: -self.pdf(x),
                                              brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
-
-
-
-    def set_gauss_fwhm(self, fwhm):
-        """Update the Gaussian smearing to have <fwhm> as the full-width at half-maximum"""
-        self.gauss_sigma = fwhm / (8 * np.log(2))**0.5
+        # make it a subclassing of rv_continuous work
+        sp.stats.rv_continuous.__init__(self)
+        self.cumulative_amplitudes = self.normalized_lorentzian_integral_intensity.cumsum()
+        self._pdf = self.pdf
 
     def __call__(self, x):
         """Make the class callable, returning the same value as the self.pdf method."""
@@ -64,10 +63,38 @@ class SpectralLine(object):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
         x = np.asarray(x, dtype=np.float)
         result = np.zeros_like(x)
-        for energy, fwhm, ampl in zip(self.energies, self.fwhm, self.integral_intensity):
-            result += ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=self.gauss_sigma)
+        for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
+                                      self.normalized_lorentzian_integral_intensity):
+            result += ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=self.gaussian_sigma)
             # Note that voigt is normalized to have unit integrated intensity
         return result
+
+    def _rvs(self, *args, **kwargs):
+        """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
+        compute.  But it's easy enough to generate the random variates themselves, so we
+        override that method.  Don't call this directly!  Instead call .rvs(), which wraps this.
+        Takes gaussian_fwhm as a keyword argument."""
+        # Choose from among the N Lorentzian lines in proportion to the line amplitudes
+        iline = self.cumulative_amplitudes.searchsorted(
+            np.random.uniform(0, self.cumulative_amplitudes[-1], size=self._size))
+        # Choose Lorentzian variates of the appropriate width (but centered on 0)
+        lor = np.random.standard_cauchy(size=self._size) * self.lorentzian_fwhm[iline] * 0.5
+        # If necessary, add a Gaussian variate to mimic finite resolution
+        if self.gaussian_sigma> 0.0:
+            lor += np.random.standard_normal(size=self._size) * self.gaussian_sigma
+        # Finally, add the line centers.
+        results = lor + self.energies[iline]
+        # We must check for non-positive results and replace them by recursive call
+        # to self.rvs().
+        not_positive = results <= 0.0
+        if np.any(not_positive):
+            Nbad = not_positive.sum()
+            results[not_positive] = self.rvs(size=Nbad)
+        return results
+
+    @property
+    def gaussian_sigma(self):
+        return self.gaussian_fwhm/FWHM_OVER_SIGMA
 
 lineshape_references = {}
 lineshape_references["Klauber 1993"] = """Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.
@@ -98,7 +125,7 @@ def addfitter(element, linetype, reference_short, instrument_gaussian_fwhm,
     if linetype == "KAlpha":
         ka12_energy_diff = float(ka12_energy_diff)
 
-    instument_gaussian_sigma = instrument_gaussian_fwhm/(8 * np.log(2))**0.5
+    instument_gaussian_sigma = instrument_gaussian_fwhm/FWHM_OVER_SIGMA
     # calculate normalized lorentzian_integral_intensity
     if lorentzian_integral_intensity is not None:
         normalized_lorentzian_integral_intensity = lorentzian_integral_intensity/np.sum(lorentzian_integral_intensity)
@@ -125,6 +152,10 @@ def addfitter(element, linetype, reference_short, instrument_gaussian_fwhm,
     classname = element+linetype
     cls = type(classname, (SpectralLine,), dict)
 
+    ### The above is nearly equivalent to the below
+    ### but the below doesn't errors because it doesn't like the use of the same
+    ### name in both the class and the function arguments
+    ### eg energies and energies
     # class cls(SpectralLine):
     #     __name__ = element+linetype
     #     energies = np.array(energies)
@@ -704,74 +735,6 @@ class ZnKBeta(SpectralLine):
     # The energy at the main peak (from table IV beta1,3)
     nominal_peak_energy = 9573.6  # eV
 
-
-# the API for this is terrible, you have to create a class, you cant just pass in a distirubtion
-# it should be changed, and the associated tests failures should be fixed
-class MultiLorentzianDistribution_gen(sp.stats.rv_continuous):
-    """For producing random variates of the an energy distribution having the form
-    of several Lorentzians summed together."""
-
-    # Approximates the random variate defined by multiple Lorentzian components.
-    #  @param args  Pass all other parameters to parent class.
-    #  @param kwargs  Pass all other parameters to parent class.
-    def __init__(self, *args, **kwargs):
-        """<args> and <kwargs> are passed on to sp.stats.rv_continuous"""
-        sp.stats.rv_continuous.__init__(self, *args, **kwargs)
-        self.cumulative_amplitudes = self.distribution.integral_intensity.cumsum()
-        self.set_gauss_fwhm = self.distribution.set_gauss_fwhm
-        # Reimplements probability distribution function.
-        self._pdf = self.distribution.pdf
-
-    def _rvs(self, *args):
-        """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
-        compute.  But it's easy enough to generate the random variates themselves, so we
-        override that method.  Don't call this directly!  Instead call .rvs(), which wraps this."""
-        # Choose from among the N Lorentzian lines in proportion to the line amplitudes
-        iline = self.cumulative_amplitudes.searchsorted(
-            np.random.uniform(0, self.cumulative_amplitudes[-1], size=self._size))
-        # Choose Lorentzian variates of the appropriate width (but centered on 0)
-        lor = np.random.standard_cauchy(size=self._size) * self.distribution.fwhm[iline] * 0.5
-        # If necessary, add a Gaussian variate to mimic finite resolution
-        if self.distribution.gauss_sigma > 0.0:
-            lor += np.random.standard_normal(size=self._size) * self.distribution.gauss_sigma
-        # Finally, add the line centers.
-        results = lor + self.distribution.energies[iline]
-        # We must check for non-positive results and replace them by recursive call
-        # to self.rvs().
-        not_positive = results <= 0.0
-        if np.any(not_positive):
-            Nbad = not_positive.sum()
-            results[not_positive] = self.rvs(size=Nbad)
-        return results
-
-
-# Some specific fluorescence lines
-# You can see how to make more if you like.
-class MnKAlphaDistribution(MultiLorentzianDistribution_gen):
-    name = "Mn KAlpha fluorescence"
-    distribution = MnKAlpha()
-
-
-class MnKBetaDistribution(MultiLorentzianDistribution_gen):
-    name = "Mn KBeta fluorescence"
-    distribution = MnKBeta()
-
-
-class CuKAlphaDistribution(MultiLorentzianDistribution_gen):
-    name = "Cu KAlpha fluorescence"
-    distribution = CuKAlpha()
-
-
-class TiKAlphaDistribution(MultiLorentzianDistribution_gen):
-    name = "Ti KAlpha fluorescence"
-    distribution = TiKAlpha()
-
-
-class FeKAlphaDistribution(MultiLorentzianDistribution_gen):
-    name = "Fe KAlpha fluorescence"
-    distribution = FeKAlpha()
-
-
 def plot_allMultiLorentzianLineComplexes():
     """Makes a bunch of plots showing the line shape and component parts for the KAlpha
     and KBeta complexes defined in here.
@@ -819,67 +782,73 @@ def plot_multiLorentzianLineComplex(spectrumDef=CrKAlpha, instrumentGaussianSigm
     plt.show()
 
 
-def plot_spectrum(spectrum=MnKAlpha(),
-                  resolutions=(2, 3, 4, 5, 6, 7, 8, 10, 12),
-                  energy_range=(5870, 5920), stepsize=0.05):
-    """Plot a spectrum at several different resolutions.
+# def plot_spectrum(spectrum=MnKAlpha(),
+#                   resolutions=(2, 3, 4, 5, 6, 7, 8, 10, 12),
+#                   energy_range=(5870, 5920), stepsize=0.05):
+#     """Plot a spectrum at several different resolutions.
+#
+#     Args:
+#         <spectrum>    A callable that accepts a vector of energies and returns
+#             the matching probability distribution function.
+#         <resolutions> A sequence of energy resolution (FWHM) to be stepped through.
+#         <energy_range> The (min,max) energy to be plotted.
+#         <stepsize>    The plotting step size in energy units.
+#     """
+#     if resolutions is None:
+#         resolutions = (2, 3, 4, 5, 6, 7, 8, 10, 12)
+#     e = np.arange(energy_range[0] - 2.5 * resolutions[-1],
+#                   energy_range[1] + 2.5 * resolutions[-1], stepsize)
+#
+#     plt.clf()
+#     axis = plt.subplot(111)
+#     spectrum.set_gauss_fwhm(0.0)
+#     yvalue = spectrum(e)
+#     yvalue /= yvalue.max()
+#     plt.plot(e, yvalue, color='black', lw=2, label=' 0 eV')
+#
+#     ncolors = max(3, min(len(resolutions), 11))
+#     cmap = palettable.colorbrewer.diverging.__dict__["Spectral_%d" % ncolors]
+#     axis.set_prop_cycle(cycler("color", cmap.hex_colors))
+#
+#     for res in resolutions:
+#         spectrum.set_gauss_fwhm(res)
+#         smeared_spectrum = spectrum(e)
+#         smeared_spectrum /= smeared_spectrum.max()
+#         smeared_spectrum *= (1 + res * .01)
+#         plt.plot(e, smeared_spectrum, label="%2d eV" % res, lw=2)
+#
+#         # Find the peak, valley, peak
+#         if spectrum.name == 'Titanium K-alpha':
+#             epk2, evalley, epk1 = 4504.91, 4507.32, 4510.90
+#         elif spectrum.name == 'Chromium K-alpha':
+#             epk2, evalley, epk1 = 5405.55, 5408.87, 5414.81
+#         elif spectrum.name == 'Manganese K-alpha':
+#             epk2, evalley, epk1 = 5887.70, 5892.0, 5898.801
+#         elif spectrum.name == 'Iron K-alpha':
+#             epk2, evalley, epk1 = 6391.06, 6396.13, 6404.01
+#         elif spectrum.name == 'Cobalt K-alpha':
+#             epk2, evalley, epk1 = 6915.55, 6921.40, 6930.39
+#         elif spectrum.name == 'Copper K-alpha':
+#             epk2, evalley, epk1 = 8027.89, 8036.6, 8047.83
+#         else:
+#             continue
+#
+#         p1 = smeared_spectrum[np.abs(e - epk1) < 2].max()
+#         if res < 8.12:
+#             pk2 = smeared_spectrum[np.abs(e - epk2) < 2].max()
+#             pval = smeared_spectrum[np.abs(e - evalley) < 3].min()
+#             LOG.info("Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f", res, pk2 / p1, pval / pk2)
+#
+#     plt.xlim(energy_range)
+#     plt.ylim([0, 1.13])
+#     plt.legend(loc='upper left')
+#
+#     plt.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrum.name)
+#     plt.xlabel("Energy (eV)")
+#     plt.ylabel("Intensity (arb.)")
 
-    Args:
-        <spectrum>    A callable that accepts a vector of energies and returns
-            the matching probability distribution function.
-        <resolutions> A sequence of energy resolution (FWHM) to be stepped through.
-        <energy_range> The (min,max) energy to be plotted.
-        <stepsize>    The plotting step size in energy units.
-    """
-    if resolutions is None:
-        resolutions = (2, 3, 4, 5, 6, 7, 8, 10, 12)
-    e = np.arange(energy_range[0] - 2.5 * resolutions[-1],
-                  energy_range[1] + 2.5 * resolutions[-1], stepsize)
-
-    plt.clf()
-    axis = plt.subplot(111)
-    spectrum.set_gauss_fwhm(0.0)
-    yvalue = spectrum(e)
-    yvalue /= yvalue.max()
-    plt.plot(e, yvalue, color='black', lw=2, label=' 0 eV')
-
-    ncolors = max(3, min(len(resolutions), 11))
-    cmap = palettable.colorbrewer.diverging.__dict__["Spectral_%d" % ncolors]
-    axis.set_prop_cycle(cycler("color", cmap.hex_colors))
-
-    for res in resolutions:
-        spectrum.set_gauss_fwhm(res)
-        smeared_spectrum = spectrum(e)
-        smeared_spectrum /= smeared_spectrum.max()
-        smeared_spectrum *= (1 + res * .01)
-        plt.plot(e, smeared_spectrum, label="%2d eV" % res, lw=2)
-
-        # Find the peak, valley, peak
-        if spectrum.name == 'Titanium K-alpha':
-            epk2, evalley, epk1 = 4504.91, 4507.32, 4510.90
-        elif spectrum.name == 'Chromium K-alpha':
-            epk2, evalley, epk1 = 5405.55, 5408.87, 5414.81
-        elif spectrum.name == 'Manganese K-alpha':
-            epk2, evalley, epk1 = 5887.70, 5892.0, 5898.801
-        elif spectrum.name == 'Iron K-alpha':
-            epk2, evalley, epk1 = 6391.06, 6396.13, 6404.01
-        elif spectrum.name == 'Cobalt K-alpha':
-            epk2, evalley, epk1 = 6915.55, 6921.40, 6930.39
-        elif spectrum.name == 'Copper K-alpha':
-            epk2, evalley, epk1 = 8027.89, 8036.6, 8047.83
-        else:
-            continue
-
-        p1 = smeared_spectrum[np.abs(e - epk1) < 2].max()
-        if res < 8.12:
-            pk2 = smeared_spectrum[np.abs(e - epk2) < 2].max()
-            pval = smeared_spectrum[np.abs(e - evalley) < 3].min()
-            LOG.info("Resolution: %5.2f pk ratio: %.6f   PV ratio: %.6f", res, pk2 / p1, pval / pk2)
-
-    plt.xlim(energy_range)
-    plt.ylim([0, 1.13])
-    plt.legend(loc='upper left')
-
-    plt.title("%s lines at various resolutions (FWHM of Gaussian)" % spectrum.name)
-    plt.xlabel("Energy (eV)")
-    plt.ylabel("Intensity (arb.)")
+if __name__ == "__main__":
+    spectrum = MgKAlpha()
+    spectrum.rvs(100)
+    spectrum.gaussian_fwhm=1
+    spectrum.rvs(100)
