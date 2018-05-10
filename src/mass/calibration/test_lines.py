@@ -37,6 +37,17 @@ class Test_MnKA_distribution(unittest.TestCase):
         self.assertAlmostEqual(quartiles[1] / 1000, 5896.9 / 1000, 2)
         self.assertAlmostEqual(quartiles[2], 5899.0, 0)
 
+    def test_location_against_STANDARD_FEATUES(self):
+        for (name,spectrum_class) in mass.spectrum_classes.items():
+            if spectrum_class.element == "AlOx":
+                continue
+            result = np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name])<0.5
+            if not result:
+                print("{} spectrum_class.nominal_peak_energy={}, mass.STANDARD_FEATURES={}, abs diff={}".format(name,spectrum_class.nominal_peak_energy,mass.STANDARD_FEATURES[name],
+                np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name])))
+            self.assertTrue(result)
+
+
 
 if __name__ == "__main__":
     unittest.main()
