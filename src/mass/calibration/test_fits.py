@@ -26,7 +26,7 @@ class Test_Gaussian(unittest.TestCase):
         self.y = ampl * np.exp(-0.5*(self.x-center)**2/(sigma**2))
         np.random.seed(94)
         self.obs = np.array([np.random.poisson(lam=y0) for y0 in self.y])
-        self.fitter = mass.calibration.line_fits.GaussianFitter()
+        self.fitter = mass.calibration.GaussianFitter()
 
     def test_failed_fit(self):
         # pass nans
@@ -85,8 +85,8 @@ class Test_Gaussian(unittest.TestCase):
 
 class Test_MnKA(unittest.TestCase):
     def setUp(self):
-        self.fitter = mass.calibration.line_fits.MnKAlphaFitter()
-        self.distrib = mass.calibration.fluorescence_lines.MnKAlphaDistribution()
+        self.fitter = mass.calibration.MnKAlphaFitter()
+        self.distrib = mass.calibration.fluorescence_lines.MnKAlpha()
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
         np.random.seed(96)
@@ -147,8 +147,8 @@ class Test_MnKA(unittest.TestCase):
 
 class Test_MnKB(unittest.TestCase):
     def setUp(self):
-        self.fitter = mass.calibration.line_fits.MnKBetaFitter()
-        self.distrib = mass.calibration.fluorescence_lines.MnKBetaDistribution()
+        self.fitter = mass.calibration.MnKBetaFitter()
+        self.distrib = mass.calibration.fluorescence_lines.MnKBeta()
         np.random.seed(97)
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-beta fits stored to %s" % self.tempdir)
@@ -209,7 +209,7 @@ class Test_MnKB(unittest.TestCase):
 class Test_Voigt(unittest.TestCase):
 
     def setUp(self):
-        self.fitter = mass.calibration.line_fits.VoigtFitter()
+        self.fitter = mass.calibration.VoigtFitter()
 
     def singletest(self, gauss_fwhm=0.1, fwhm=5, center=100, ampl=5000,
                    bg=200, nbins=200, tailfrac=1e-9, tailtau=3,

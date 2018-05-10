@@ -21,8 +21,8 @@ wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
 
 # <demo> stop
-LOG.info("For fun, here is the Mn K-alpha complex at various resolutions.")
-mass.calibration.fluorescence_lines.plot_spectrum()
+LOG.info("For fun, here is the Mn K-alpha complex.")
+mass.MnKAlpha().plot()
 
 # <demo> stop
 # Let's generate some data distributed as if from the Mn K-alpha complex, with
@@ -30,7 +30,7 @@ mass.calibration.fluorescence_lines.plot_spectrum()
 
 res_fwhm = 3.0
 res_sigma = res_fwhm / 2.3548
-distrib = mass.calibration.MnKAlphaDistribution()
+distrib = mass.calibration.MnKAlpha()
 N = 10000
 energies = distrib.rvs(size=N)
 energies += np.random.standard_normal(N)*res_sigma
