@@ -18,7 +18,7 @@ import numpy as np
 import scipy as sp
 import pylab as plt
 import palettable
-import line_fits
+from . import line_fits
 from cycler import cycler
 from collections import OrderedDict
 
