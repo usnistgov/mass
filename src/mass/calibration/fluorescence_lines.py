@@ -138,6 +138,10 @@ class SpectralLine(sp.stats.rv_continuous):
     def shortname(self):
         return self.element+self.linetype
 
+    @property
+    def reference(self):
+        return lineshape_references[self.reference_short]
+
     def set_gauss_fwhm(self,fwhm):
         self.pdf_gaussian_fwhm = fwhm
 

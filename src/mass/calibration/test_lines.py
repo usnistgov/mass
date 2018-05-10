@@ -50,6 +50,7 @@ class Test_MnKA_distribution(unittest.TestCase):
             spectrum = spectrum_class()
             v = spectrum.rvs(1)
             v = spectrum(spectrum.peak_energy)
+            s = spectrum.reference
             # check that normalize intensities sum to 1
             self.assertAlmostEqual(1,spectrum.normalized_lorentzian_integral_intensity.sum())
 
