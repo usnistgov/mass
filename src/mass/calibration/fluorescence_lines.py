@@ -200,7 +200,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     # require exactly one method of specifying the amplitude of each component
     assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT, LORENTZIAN_INTEGRAL_INTENSITY, VOIGT_PEAK_HEIGHT]
     # require the reference exists in lineshape_references
-    assert reference_shot in lineshape_references
+    assert reference_short in lineshape_references
     # require that linetype is supported
     assert linetype in ["KBeta","KAlpha"]
     # require kalpha lines to have ka12_energy_diff
