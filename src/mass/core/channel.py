@@ -2162,54 +2162,56 @@ class MicrocalDataSet(object):
             Args:
             priorTime (float): amount of time to check, in ms, before the pulse arrival time
             postTime (float): amount of time to check, in ms, after the pulse arrival time
+            combineChannels(bool): whether to combine all neighboring channel pulses for flagging crosstalk
             forceNew (bool): whether to re-compute the crosstalk cuts (default False)
         '''
-        h5grp = self.hdf5_group
+                
+        def crosstalk_flagging_loop(channelsToCompare):
+            ''' Main algorithm for flagging crosstalking pulses in current victim channel,
+                given a list of perpetrator channels
+                
+                Args:
+                channelsToCompare: (int array): list of perpetrator channel numbers to compare against
+            '''
+            # Initialize array that will include the pulses from all neighboring channels
+            compareChannelsPulsesList = np.array([])
+            # Iterate through all neighboring channels and put pulse timestamps into combined list
+            for compare_channum in channelsToCompare:
+                if not self.tes_group.channel.has_key(compare_channum): continue
+                dsToCompare = self.tes_group.channel[compare_channum]
+                # Combine the pulses from all neighboring channels into a single array
+                compareChannelsPulsesList = np.append(compareChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
+            # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
+            hist, bin_edges = np.histogram(compareChannelsPulsesList, bins=combinedEdges)
+            # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
+            badCountsHist = hist[::2]
+            # Even only histogram indices map directly to previously good flagged pulse indices for victim channel
+            crosstalking_pulses = badCountsHist > 0.0
+            return crosstalking_pulses
         
+        
+        h5grp = self.hdf5_group        
         # Check to see if nearest neighbors list has already been set, otherwise skip
         nn_channel_key = 'nearest_neighbors'
+        crosstalk_key = 'is_crosstalking'
         if nn_channel_key in h5grp.keys():
             
-            # Check to see if crosstalk list has already been written and skip, unless forceNew
-            crosstalk_key = 'is_crosstalking'
+            # Set up combined crosstalk flag array in hdf5 file
+            crosstalk_array_dtype = np.bool
+            self.__dict__['p_%s' % crosstalk_key] = h5grp.require_dataset(crosstalk_key, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
+            
+            if not combineChannels:
+                for neighborCategory in self.hdf5_group[nn_channel_key]:
+                    categoryField = str(crosstalk_key + '_' + neighborCategory)
+                    self.__dict__['p_%s' % categoryField] = h5grp.require_dataset(categoryField, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
+            
+            # Check to see if crosstalk list has already been written and skip, unless forceNew            
             if ((crosstalk_key not in h5grp.keys()) or forceNew):
-                # Combine all nearest neighbor pairs for this channel into a single list
-                combinedNearestNeighbors = np.array([])
-                # Loop through nearest neighbor categories
-                for neighborCategory in self.hdf5_group['nearest_neighbors']:
-                    subgroupName = nn_channel_key + '/' + neighborCategory
-                    tempNeighbors = self.hdf5_group[subgroupName].value
-                    # Remove duplicates, sort
-                    combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, tempNeighbors).astype(int))
-                
-                crosstalk_array_dtype = np.bool
-                if combineChannels:
-                    self.__dict__['p_is_crosstalking'] = h5grp.require_dataset('is_crosstalking', shape=(self.nPulses,),
-                                                                              dtype=crosstalk_array_dtype)
-                '''
-                float32_fields = ('pretrig_mean', 'pretrig_rms', 'pulse_average', 'pulse_rms',
-                                  'promptness', 'rise_time', 'postpeak_deriv',
-                                  'pretrig_deriv', 'pretrig_offset',
-                                  'filt_phase', 'filt_phase_corr', 'filt_value', 'filt_value_dc',
-                                  'filt_value_phc', 'filt_value_tdc',
-                                  'energy')
-                for dtype, fieldnames in (
-                                          (np.float32, float32_fields)
-    ):
-                    for field in fieldnames:
-                        self.__dict__['p_%s' % field] = h5grp.require_dataset(field, shape=(self.npulses,),
-                                                                              dtype=dtype)
-                
-                '''
-                
+                                
                 # Convert from ms input to s used in rest of MASS
                 priorTime /= 1000.0
                 postTime /= 1000.0
-    
-                # Cuts pulses in current channels by comparing to pulse times in neighboring channels
-                channum1 = self.channum
-                LOG.info('Checking crosstalk between channel %d and neighbors...', channum1)
-    
+                    
                 # Create uneven histogram edges, with a specified amount of time before and after a photon event
                 pulseTimes = self.p_rowcount[:] * self.row_timebase
     
@@ -2217,28 +2219,28 @@ class MicrocalDataSet(object):
                 startEdges = pulseTimes - priorTime
                 stopEdges = pulseTimes + postTime
                 combinedEdges = np.sort(np.append(startEdges, stopEdges))
-    
-                # Initialize array that will include the pulses from all neighboring channels
-                neighboringChannelsPulsesList = np.array([])
-                # Iterate through all neighboring channels that you will veto against
-                for channum2 in combinedNearestNeighbors:
-                    if not self.tes_group.channel.has_key(channum2): continue
-                    dsToCompare = self.tes_group.channel[channum2]
-                    # Combine the pulses from all neighboring channels into a single array
-                    neighboringChannelsPulsesList = np.append(neighboringChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
-    
-                # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
-                hist, bin_edges = np.histogram(neighboringChannelsPulsesList, bins=combinedEdges)
-    
-                # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
-                badCountsHist = hist[::2]
-    
-                # Even only histogram indices map directly to previously good flagged pulse indices for channel 1
-                self.p_is_crosstalking[:] = badCountsHist > 0.0
                 
-                ## Apply crosstalk cuts
-                #self.cuts.cut("crosstalk", isCrosstalking)
-            
+                if combineChannels:
+                    LOG.info('Checking crosstalk between channel %d and combined neighbors...', self.channum)
+                    # Combine all nearest neighbor pairs for this channel into a single list
+                    combinedNearestNeighbors = np.array([])
+                    # Loop through nearest neighbor categories
+                    for neighborCategory in self.hdf5_group[nn_channel_key]:
+                        subgroupName = nn_channel_key + '/' + neighborCategory
+                        subgroupNeighbors = self.hdf5_group[subgroupName].value
+                        # Remove duplicates, sort
+                        combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, subgroupNeighbors).astype(int))        
+                    self.p_is_crosstalking[:] = crosstalk_flagging_loop(combinedNearestNeighbors)
+                    
+                else:
+                    for neighborCategory in self.hdf5_group[nn_channel_key]:
+                        LOG.info('Checking crosstalk between channel %d and %s neighbors...'  % (self.channum, neighborCategory))
+                        categoryField = str(crosstalk_key + '_' + neighborCategory)
+                        subgroupName = nn_channel_key + '/' + neighborCategory
+                        subgroupNeighbors = self.hdf5_group[subgroupName].value
+                        h5grp[categoryField][:] = crosstalk_flagging_loop(subgroupNeighbors)
+                        self.p_is_crosstalking[:] = np.logical_or(self.p_is_crosstalking, h5grp[categoryField])
+                            
             else:
                 LOG.info("channel %d skipping crosstalk cuts because it was already done", self.channum)
                 
