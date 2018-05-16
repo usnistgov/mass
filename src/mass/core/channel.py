@@ -2153,14 +2153,18 @@ class MicrocalDataSet(object):
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
 
     @_add_group_loop
-    def flag_crosstalking_pulses(self, priorTime, postTime, combineCategories=True, forceNew=False):
+    def flag_crosstalking_pulses(self, priorTime, postTime, combineCategories=True, 
+                                 nearestNeighborsDistances = 1, crosstalk_key = 'is_crosstalking',
+                                 forceNew=False):
         ''' Uses a list of nearest neighbor channels to flag pulses in current channel based
             on arrival times of pulses in neighboring channels
 
             Args:
             priorTime (float): amount of time to check, in ms, before the pulse arrival time
             postTime (float): amount of time to check, in ms, after the pulse arrival time
-            combineChannels(bool): whether to combine all neighboring channel pulses for flagging crosstalk
+            combineChannels (bool): whether to combine all neighboring channel pulses for flagging crosstalk
+            nearestNeighborDistances (int or int array): nearest neighbor distances to use for flagging,
+                i.e. 1 = 1st nearest neighbors, 2 = 2nd nearest neighbors, etc.
             forceNew (bool): whether to re-compute the crosstalk cuts (default False)
         '''
                 
@@ -2191,7 +2195,6 @@ class MicrocalDataSet(object):
         h5grp = self.hdf5_group        
         # Check to see if nearest neighbors list has already been set, otherwise skip
         nn_channel_key = 'nearest_neighbors'
-        crosstalk_key = 'is_crosstalking'
         if nn_channel_key in h5grp.keys():
             
             # Set up combined crosstalk flag array in hdf5 file
@@ -2204,8 +2207,7 @@ class MicrocalDataSet(object):
                     self.__dict__['p_%s' % categoryField] = h5grp.require_dataset(categoryField, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
             
             # Check to see if crosstalk list has already been written and skip, unless forceNew
-            #if ((crosstalk_key not in h5grp.keys()) or forceNew):            
-            if (not np.any(self.p_is_crosstalking) or forceNew):
+            if (not np.any(h5grp[crosstalk_key][:]) or forceNew):
                                 
                 # Convert from ms input to s used in rest of MASS
                 priorTime /= 1000.0
@@ -2226,19 +2228,21 @@ class MicrocalDataSet(object):
                     # Loop through nearest neighbor categories
                     for neighborCategory in self.hdf5_group[nn_channel_key]:
                         subgroupName = nn_channel_key + '/' + neighborCategory
-                        subgroupNeighbors = self.hdf5_group[subgroupName].value
+                        subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
                         # Remove duplicates, sort
-                        combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, subgroupNeighbors).astype(int))        
-                    self.p_is_crosstalking[:] = crosstalk_flagging_loop(combinedNearestNeighbors)
+                        selectNeighbors = subgroupNeighbors[:,0][np.isin(subgroupNeighbors[:,2], nearestNeighborsDistances)]
+                        combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, selectNeighbors).astype(int))        
+                    h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
                     
                 else:
                     for neighborCategory in self.hdf5_group[nn_channel_key]:
                         LOG.info('Checking crosstalk between channel %d and %s neighbors...'  % (self.channum, neighborCategory))
                         categoryField = str(crosstalk_key + '_' + neighborCategory)
                         subgroupName = nn_channel_key + '/' + neighborCategory
-                        subgroupNeighbors = self.hdf5_group[subgroupName].value
-                        h5grp[categoryField][:] = crosstalk_flagging_loop(subgroupNeighbors)
-                        self.p_is_crosstalking[:] = np.logical_or(self.p_is_crosstalking, h5grp[categoryField])
+                        subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
+                        selectNeighbors = subgroupNeighbors[:,0][np.isin(subgroupNeighbors[:,2], nearestNeighborsDistances)]
+                        h5grp[categoryField][:] = crosstalk_flagging_loop(selectNeighbors)
+                        h5grp[crosstalk_key][:] = np.logical_or(h5grp[crosstalk_key], h5grp[categoryField])
                             
             else:
                 LOG.info("channel %d skipping crosstalk cuts because it was already done", self.channum)
@@ -2260,6 +2264,7 @@ class MicrocalDataSet(object):
         nearestNeighborCategory (str): name used to categorize the type of nearest neighbor.
             This will be the name given to the subgroup of the hdf5 file under the nearest_neighbor group.
             This will also be a key for dictionary nearest_neighbors_dictionary
+        distanceType (str): Type of distance to measure between nearest neighbors, i.e. cartesian
         forceNew (bool): whether to re-compute nearest neighbors list if it exists (default False)
         '''
                         
@@ -2305,6 +2310,9 @@ class MicrocalDataSet(object):
                 h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,1] = squaredDistance
                 h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,2] = squaredDistanceDictionary[squaredDistance]
                                         
+        def calculate_manhattan_distances():
+            print 'Placeholder function for calculating manhattan distances between detectors'
+        
         def process_matching_channel(positionToCompare):
             '''
             Returns the channel number of a neighboring position after checking for goodness
@@ -2352,7 +2360,10 @@ class MicrocalDataSet(object):
             # Calculate distances and store in hdf5 file
             if distanceType == 'cartesian':
                 calculate_cartesian_squared_distances()
-            
+            elif distanceType == 'manhattan':
+                calculate_manhattan_distances()
+            else:
+                print 'Distance type ' + distanceType + ' not recognized.'
 
 # Below here, these are functions that we might consider moving to Cython for speed.
 # But at any rate, they do not require any MicrocalDataSet attributes, so they are
