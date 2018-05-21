@@ -2190,14 +2190,15 @@ class MicrocalDataSet(object):
             # Even only histogram indices map directly to previously good flagged pulse indices for victim channel
             crosstalking_pulses = badCountsHist > 0.0
             return crosstalking_pulses
-        
-        
-        h5grp = self.hdf5_group        
+                
+        #h5grp = self.hdf5_group        
         # Check to see if nearest neighbors list has already been set, otherwise skip
         nn_channel_key = 'nearest_neighbors'
-        if nn_channel_key in h5grp.keys():
-            
+        if nn_channel_key in self.hdf5_group.keys():
+                                         
             # Set up combined crosstalk flag array in hdf5 file
+            h5grp = self.hdf5_group.require_group('crosstalk_flags')   
+            
             crosstalk_array_dtype = np.bool
             self.__dict__['p_%s' % crosstalk_key] = h5grp.require_dataset(crosstalk_key, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
             
@@ -2231,18 +2232,25 @@ class MicrocalDataSet(object):
                         subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
                         # Remove duplicates, sort
                         selectNeighbors = subgroupNeighbors[:,0][np.isin(subgroupNeighbors[:,2], nearestNeighborsDistances)]
-                        combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, selectNeighbors).astype(int))        
-                    h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
+                        combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, selectNeighbors).astype(int))
+                    if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
+                        h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
+                    else:
+                        LOG.info("channel %d skipping crosstalk cuts because no nearest neighbors matching criteria", self.channum)
                     
                 else:
                     for neighborCategory in self.hdf5_group[nn_channel_key]:
-                        LOG.info('Checking crosstalk between channel %d and %s neighbors...'  % (self.channum, neighborCategory))
                         categoryField = str(crosstalk_key + '_' + neighborCategory)
                         subgroupName = nn_channel_key + '/' + neighborCategory
                         subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
                         selectNeighbors = subgroupNeighbors[:,0][np.isin(subgroupNeighbors[:,2], nearestNeighborsDistances)]
-                        h5grp[categoryField][:] = crosstalk_flagging_loop(selectNeighbors)
-                        h5grp[crosstalk_key][:] = np.logical_or(h5grp[crosstalk_key], h5grp[categoryField])
+                        if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
+                            LOG.info('Checking crosstalk between channel %d and %s neighbors...'  % (self.channum, neighborCategory))
+                            h5grp[categoryField][:] = crosstalk_flagging_loop(selectNeighbors)
+                            h5grp[crosstalk_key][:] = np.logical_or(h5grp[crosstalk_key], h5grp[categoryField])
+                        else:
+                            LOG.info("channel %d skipping %s crosstalk cuts because no nearest neighbors matching criteria in category" % (self.channum, neighborCategory))
+
                             
             else:
                 LOG.info("channel %d skipping crosstalk cuts because it was already done", self.channum)
@@ -2337,8 +2345,6 @@ class MicrocalDataSet(object):
 
         # Set up hdf5 group and repopulate arrays, if already calculated earlier
         h5grp = self.hdf5_group.require_group('nearest_neighbors')        
-        if nearestNeighborCategory in h5grp:
-            del h5grp[nearestNeighborCategory]
         h5grp.require_group(nearestNeighborCategory)     
         
         # Victim channel position dataset
