@@ -660,8 +660,6 @@ class MicrocalDataSet(object):
 
         self.row_timebase = None
 
-        self.nearest_neighbors_dictionary = {}
-
         self.tes_group = tes_group
 
         try:
@@ -2155,69 +2153,114 @@ class MicrocalDataSet(object):
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
 
     @_add_group_loop
-    def nearest_neighbor_crosstalk_cuts(self, priorVetoTime, postVetoTime, forceNew=False):
-        ''' Uses a list of nearest neighbor channels to cut pulses in current channel based
+    def flag_crosstalking_pulses(self, priorTime, postTime, combineCategories=True, 
+                                 nearestNeighborsDistances = 1, crosstalk_key = 'is_crosstalking',
+                                 forceNew=False):
+        ''' Uses a list of nearest neighbor channels to flag pulses in current channel based
             on arrival times of pulses in neighboring channels
 
             Args:
-            priorVetoTime (float): amount of time to check for before the pulse arrival time
-            postVetoTime (float): amount of time to check for after the pulse arrival time
+            priorTime (float): amount of time to check, in ms, before the pulse arrival time
+            postTime (float): amount of time to check, in ms, after the pulse arrival time
+            combineChannels (bool): whether to combine all neighboring channel pulses for flagging crosstalk
+            nearestNeighborDistances (int or int array): nearest neighbor distances to use for flagging,
+                i.e. 1 = 1st nearest neighbors, 2 = 2nd nearest neighbors, etc.
             forceNew (bool): whether to re-compute the crosstalk cuts (default False)
         '''
-
-        groupName = 'nearest_neighbors'
-        if groupName in self.hdf5_group.keys() and (all(self.cuts.good("crosstalk")) or forceNew):
-            # Combine all nearest neighbor pairs for this channel into a single list
-            combinedNearestNeighbors = np.array([])
-            # Loop through nearest neighbor categories
-            for neighborCategory in self.hdf5_group['nearest_neighbors']:
-                subgroupName = groupName + '/' + neighborCategory
-                tempNeighbors = self.hdf5_group[subgroupName].value
-                # Remove duplicates, sort
-                combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, tempNeighbors).astype(int))
-
-            # Convert from ms input to s used in rest of MASS
-            priorVetoTime /= 1000.0
-            postVetoTime /= 1000.0
-
-            # Cuts pulses in current channels by comparing to pulse times in neighboring channels
-            channum1 = self.channum
-            LOG.info('Checking crosstalk between channel %d and neighbors...', channum1)
-
-            # Create uneven histogram edges, with a specified amount of time before and after a photon event
-            pulseTimes = self.p_rowcount[:] * self.row_timebase
-
-            # Create start and stop edges around pulses corresponding to veto times
-            startEdges = pulseTimes - priorVetoTime
-            stopEdges = pulseTimes + postVetoTime
-            combinedEdges = np.sort(np.append(startEdges, stopEdges))
-
+                
+        def crosstalk_flagging_loop(channelsToCompare):
+            ''' Main algorithm for flagging crosstalking pulses in current victim channel,
+                given a list of perpetrator channels
+                
+                Args:
+                channelsToCompare: (int array): list of perpetrator channel numbers to compare against
+            '''
             # Initialize array that will include the pulses from all neighboring channels
-            neighboringChannelsPulsesList = np.array([])
-            # Iterate through all neighboring channels that you will veto against
-            for channum2 in combinedNearestNeighbors:
-                if not self.tes_group.channel.has_key(channum2): continue
-                dsToCompare = self.tes_group.channel[channum2]
+            compareChannelsPulsesList = np.array([])
+            # Iterate through all neighboring channels and put pulse timestamps into combined list
+            for compare_channum in channelsToCompare:
+                if not self.tes_group.channel.has_key(compare_channum): continue
+                dsToCompare = self.tes_group.channel[compare_channum]
                 # Combine the pulses from all neighboring channels into a single array
-                neighboringChannelsPulsesList = np.append(neighboringChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
-
+                compareChannelsPulsesList = np.append(compareChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
             # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
-            hist, bin_edges = np.histogram(neighboringChannelsPulsesList, bins=combinedEdges)
-
+            hist, bin_edges = np.histogram(compareChannelsPulsesList, bins=combinedEdges)
             # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
             badCountsHist = hist[::2]
+            # Even only histogram indices map directly to previously good flagged pulse indices for victim channel
+            crosstalking_pulses = badCountsHist > 0.0
+            return crosstalking_pulses
+                
+        #h5grp = self.hdf5_group        
+        # Check to see if nearest neighbors list has already been set, otherwise skip
+        nn_channel_key = 'nearest_neighbors'
+        if nn_channel_key in self.hdf5_group.keys():
+                                         
+            # Set up combined crosstalk flag array in hdf5 file
+            h5grp = self.hdf5_group.require_group('crosstalk_flags')   
+            
+            crosstalk_array_dtype = np.bool
+            self.__dict__['p_%s' % crosstalk_key] = h5grp.require_dataset(crosstalk_key, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
+            
+            if not combineCategories:
+                for neighborCategory in self.hdf5_group[nn_channel_key]:
+                    categoryField = str(crosstalk_key + '_' + neighborCategory)
+                    self.__dict__['p_%s' % categoryField] = h5grp.require_dataset(categoryField, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
+            
+            # Check to see if crosstalk list has already been written and skip, unless forceNew
+            if (not np.any(h5grp[crosstalk_key][:]) or forceNew):
+                                
+                # Convert from ms input to s used in rest of MASS
+                priorTime /= 1000.0
+                postTime /= 1000.0
+                    
+                # Create uneven histogram edges, with a specified amount of time before and after a photon event
+                pulseTimes = self.p_rowcount[:] * self.row_timebase
+    
+                # Create start and stop edges around pulses corresponding to veto times
+                startEdges = pulseTimes - priorTime
+                stopEdges = pulseTimes + postTime
+                combinedEdges = np.sort(np.append(startEdges, stopEdges))
+                
+                if combineCategories:
+                    LOG.info('Checking crosstalk between channel %d and combined neighbors...', self.channum)
+                    # Combine all nearest neighbor pairs for this channel into a single list
+                    combinedNearestNeighbors = np.array([])
+                    # Loop through nearest neighbor categories
+                    for neighborCategory in self.hdf5_group[nn_channel_key]:
+                        subgroupName = nn_channel_key + '/' + neighborCategory
+                        subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
+                        # Remove duplicates, sort
+                        selectNeighbors = subgroupNeighbors[:,0][np.isin(subgroupNeighbors[:,2], nearestNeighborsDistances)]
+                        combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, selectNeighbors).astype(int))
+                    if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
+                        h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
+                    else:
+                        LOG.info("channel %d skipping crosstalk cuts because no nearest neighbors matching criteria", self.channum)
+                    
+                else:
+                    for neighborCategory in self.hdf5_group[nn_channel_key]:
+                        categoryField = str(crosstalk_key + '_' + neighborCategory)
+                        subgroupName = nn_channel_key + '/' + neighborCategory
+                        subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
+                        selectNeighbors = subgroupNeighbors[:,0][np.isin(subgroupNeighbors[:,2], nearestNeighborsDistances)]
+                        if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
+                            LOG.info('Checking crosstalk between channel %d and %s neighbors...'  % (self.channum, neighborCategory))
+                            h5grp[categoryField][:] = crosstalk_flagging_loop(selectNeighbors)
+                            h5grp[crosstalk_key][:] = np.logical_or(h5grp[crosstalk_key], h5grp[categoryField])
+                        else:
+                            LOG.info("channel %d skipping %s crosstalk cuts because no nearest neighbors matching criteria in category" % (self.channum, neighborCategory))
 
-            # Even only histogram indices map directly to previously good flagged pulse indices for channel 1
-            isCrosstalking = badCountsHist > 0.0
-
-            # Apply crosstalk cuts
-            self.cuts.cut("crosstalk", isCrosstalking)
-
+                            
+            else:
+                LOG.info("channel %d skipping crosstalk cuts because it was already done", self.channum)
+                
         else:
-            LOG.info("channel %d skipping crosstalk cuts because it was already done", self.channum)
+            LOG.info("channel %d skipping crosstalk cuts because nearest neighbors not set", self.channum)
 
     @_add_group_loop
-    def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory = 'physical', forceNew=False):
+    def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory = 'physical',
+                                   distanceType = 'cartesian', forceNew=False):
         ''' Finds the nearest neighbors in a given space for all channels in a data set
 
         Args:
@@ -2229,63 +2272,104 @@ class MicrocalDataSet(object):
         nearestNeighborCategory (str): name used to categorize the type of nearest neighbor.
             This will be the name given to the subgroup of the hdf5 file under the nearest_neighbor group.
             This will also be a key for dictionary nearest_neighbors_dictionary
+        distanceType (str): Type of distance to measure between nearest neighbors, i.e. cartesian
         forceNew (bool): whether to re-compute nearest neighbors list if it exists (default False)
         '''
-
-        # Create hdf5 group for nearest neighbors
-        h5grp = self.hdf5_group.require_group('nearest_neighbors')
-
-        # Check to see if if data set already exists or if forceNew is set to True
-        if 'nearest_neighbors/' + nearestNeighborCategory not in self.hdf5_group or forceNew:
-
-            # Load channel numbers and positions from map file, define number of dimensions
-            mapData = np.loadtxt(mapFilename, dtype=int)
-            channelNumbers = mapData[:,0]
-            positionValues = mapData[:,1:]
-            nDims = positionValues.shape[1]
-
-            # Extract channel number and position of current channel
-            channum = self.channum
-            channelPos = np.array(positionValues[channum == channelNumbers][0],ndmin=1)
-
-            # Initialize array for storing nearest neighbors of current channel
-            channelsList = np.array([]).astype(int)
-
+                        
+        def calculate_cartesian_squared_distances():
+            '''
+            Stores the cartesian distance from the current channel to all other channels
+            on the array within nearest_neighbors_dictionary.
+            '''
+            
+            # Create a dictionary to link all squared distances in the given space
+            # to n for the n-th nearest neighbor.
+            # Find the maximum distance in each dimension
+            maxDistances = np.amax(positionValues,axis=0) - np.amin(positionValues, axis=0)
+            # Create a list of possible squared distances for each dimension              
+            singleDimensionalSquaredDistances = []
+            for iDim in range(nDims):
+                tempSquaredDistances = []
+                for iLength in range(maxDistances[iDim]+1):
+                    tempSquaredDistances.append(iLength**2)
+                singleDimensionalSquaredDistances.append(tempSquaredDistances)
+            # Use np.meshgrid to make an array of all possible combinations of the arrays in each dimension
+            possibleSquaredCombinations = np.meshgrid(*[iArray for iArray in singleDimensionalSquaredDistances])            
+            # Sum the squared distances along the corresponding axis to get squared distance at each point
+            allSquaredDistances = possibleSquaredCombinations[0]
+            for iDim in range(1,nDims):
+                allSquaredDistances += possibleSquaredCombinations[iDim]
+            # Make a sorted list of the unique squared values
+            uniqueSquaredDistances = np.unique(allSquaredDistances)   
+            # Create a dictionary with squared distance keys and the index of the squared distance array
+            # as the n value for n-th nearest neighbor
+            squaredDistanceDictionary = {}
+            for nthNeighbor, nthNeighborSquaredDistance in enumerate(uniqueSquaredDistances):
+                squaredDistanceDictionary[nthNeighborSquaredDistance] = nthNeighbor
+            
+            # Loop through channel map and save an hdf5 dataset including the
+            # channum, cartesian squared distance, and nearest neighbor n
+            for channelIndex, distant_channum in enumerate(channelNumbers):
+                distantPos = np.array(positionValues[distant_channum == channelNumbers][0],ndmin=1)
+                squaredDistance = 0.0
+                for iDim in range(nDims):
+                    squaredDistance += (channelPos[iDim] - distantPos[iDim])**2.0
+                h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,0] = distant_channum
+                h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,1] = squaredDistance
+                h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,2] = squaredDistanceDictionary[squaredDistance]
+                                        
+        def calculate_manhattan_distances():
+            print 'Placeholder function for calculating manhattan distances between detectors'
+        
+        def process_matching_channel(positionToCompare):
             '''
             Returns the channel number of a neighboring position after checking for goodness
-
+    
             Args:
             positionToCompare (int array) - position to check for nearest neighbor match
             '''
-            def process_matching_channel(positionToCompare):
-                # Find the channel number corresponding to the compare position
-                channelToCompare = channelNumbers[np.all(positionToCompare == positionValues, axis=1)]
-                # If the new position exists in map file and the channel to compare to is good, return the channel number
-                if (positionToCompare in positionValues) & (channelToCompare in self.tes_group.good_channels):
-                    return channelToCompare
-                # Return an empty array if not actually a good nearest neighbor
-                else:
-                    return np.array([], dtype=int)
+            # Find the channel number corresponding to the compare position
+            channelToCompare = channelNumbers[np.all(positionToCompare == positionValues, axis=1)]
+            # If the new position exists in map file and the channel to compare to is good, return the channel number
+            if (positionToCompare in positionValues) & (channelToCompare in self.tes_group.good_channels):
+                return channelToCompare
+            # Return an empty array if not actually a good nearest neighbor
+            else:
+                return np.array([], dtype=int)
+        
+        # Load channel numbers and positions from map file, define number of dimensions
+        mapData = np.loadtxt(mapFilename, dtype=int)
+        channelNumbers = np.array(mapData[:,0], dtype=int)
+        positionValues = mapData[:,1:]
+        nDims = positionValues.shape[1]
 
-            # Check the lower and upper position for each dimension in the given space
-            for iDim in range(nDims):
-                lowerPosition = np.array(channelPos)
-                lowerPosition[iDim] -= 1
-                channelsList = np.append(channelsList, process_matching_channel(lowerPosition))
-                upperPosition = np.array(channelPos)
-                upperPosition[iDim] += 1
-                channelsList = np.append(channelsList, process_matching_channel(upperPosition))
+        # Set up hdf5 group and repopulate arrays, if already calculated earlier
+        h5grp = self.hdf5_group.require_group('nearest_neighbors')        
+        h5grp.require_group(nearestNeighborCategory)     
+        
+        # Victim channel position dataset
+        self.__dict__['position_%s' % nearestNeighborCategory] = \
+            h5grp[nearestNeighborCategory].require_dataset('position', shape=(nDims,), dtype=np.int64) 
+        
+        # Perpetrator channels dataset       
+        self.__dict__['neighbors_list_%s' % nearestNeighborCategory] = \
+            h5grp[nearestNeighborCategory].require_dataset('neighbors_list', shape=((len(channelNumbers),3)), dtype=np.int64)  
 
-            # Save nearest neighbor data into hdf5 file in nearestNeighborCategory subgroup
-            if nearestNeighborCategory in h5grp:
-                del h5grp[nearestNeighborCategory]
-            h5grp.create_dataset(nearestNeighborCategory, data = channelsList)
-
-        # Also save the data into a dictionary with nearestNeighborCategory as the key
-        self.nearest_neighbors_dictionary[nearestNeighborCategory] = h5grp[nearestNeighborCategory].value
-
-
-
+        # Check to see if if data set already exists or if forceNew is set to True
+        if not np.any(h5grp[nearestNeighborCategory]['neighbors_list'][:]) or forceNew:
+            
+            # Extract channel number and position of current channel, store in hdf5 file
+            channum = self.channum
+            channelPos = np.array(positionValues[channum == channelNumbers][0],ndmin=1)                       
+            h5grp[nearestNeighborCategory]['position'][:] = channelPos                                  
+                        
+            # Calculate distances and store in hdf5 file
+            if distanceType == 'cartesian':
+                calculate_cartesian_squared_distances()
+            elif distanceType == 'manhattan':
+                calculate_manhattan_distances()
+            else:
+                print 'Distance type ' + distanceType + ' not recognized.'
 
 # Below here, these are functions that we might consider moving to Cython for speed.
 # But at any rate, they do not require any MicrocalDataSet attributes, so they are

@@ -1,4 +1,8 @@
 ## Note on version numbers of Mass
+* **0.6.3** May 2018
+Refactor Fluorescence Line and Fitter Code
+Fix incorrect fitters where Chantler reported voigt peak height, such as VKalpha
+Add fluorescence.md doc file
 
 * **0.6.2** November 2017 - April 2018
 Fixed setup.py to be compatible with Pip 10.0.0+.

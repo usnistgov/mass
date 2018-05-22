@@ -74,8 +74,8 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
         nextra (int): the algorithm starts with the first len(line_names) + nextra peak_positions
         nincrement (int): each the algorithm fails to find a satisfactory peak assignment, it uses
             nincrement more lines
-        nextramax (int): the algorithm fails with an error if the algorithm tries to use more than
-            this many lines
+        nextramax (int): the algorithm stops incrementint nextra past this value, instead
+            failing with a ValueError saying "no peak assignment succeeded"
         maxacc (float): an empirical number that determines if an assignment is good enough.
             The default number works reasonably well for tupac data
     """
