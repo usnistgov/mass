@@ -191,8 +191,6 @@ class Filter(object):
             ac = self.noise_autocorr[:len(self.filt_fourier)].copy()
             self.variances['fourier'] = self.bracketR(self.filt_fourier, ac) / self.peak_signal**2
             self.variances['fourierfull'] = self.bracketR(self.filt_fourierfull, ac) / self.peak_signal**2
-            # print 'Fourier filter done.  Variance: ',self.variances['fourier'],
-            # 'V/dV: ',self.variances['fourier']**(-0.5)/2.35482
 
     def compute(self, fmax=None, f_3db=None):
         """Compute a single filter.

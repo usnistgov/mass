@@ -573,7 +573,6 @@ def _add_group_loop(method):
     """
 
     method_name = method.__name__
-    # print "Adding method named '%s'"%method_name
 
     def wrapper(self, *args, **kwargs):
         for ds in self:
@@ -2384,7 +2383,7 @@ class MicrocalDataSet(object):
             elif distanceType == 'manhattan':
                 calculate_manhattan_distances()
             else:
-                print 'Distance type ' + distanceType + ' not recognized.'
+                print('Distance type ' + distanceType + ' not recognized.')
 
 
 # Below here, these are functions that we might consider moving to Cython for speed.
