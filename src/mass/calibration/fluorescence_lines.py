@@ -159,8 +159,9 @@ lineshape_references["Klauber 1993"] = """Data are from C. Klauber, Applied Surf
     Spectroscopy and Related Phenomena 67 (1994) 463-478 titled "Accurate measurement
     of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5 "Average" column.
     """
-lineshape_references["Ullom Email 2010"] = """Data are from Joel Ullom, based on email to him from Caroline Kilbourne (NASA
-    GSFC) dated 28 Sept 2010."""
+lineshape_references["Ullom Email 2010"] = """
+Data are from Joel Ullom, based on email to him from Caroline Kilbourne (NASA
+GSFC) dated 28 Sept 2010."""
 lineshape_references["Wollman 2000"] = """Data are from Wollman, Nam, Newbury, Hilton, Irwin, Berfren, Deiker, Rudman,
     and Martinis, NIM A 444 (2000) page 145. They come from combining 8 earlier
     references dated 1965 - 1993."""
@@ -173,14 +174,15 @@ lineshape_references["Chantler 2006"] = """Chantler, C., Kinnane, M., Su, C.-H.,
     Be sure to look at Table I, not the very similar Table II which lists parameters in different parameterization."""
 lineshape_references["Chantler 2013"] = """C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
 http://iopscience.iop.org/0953-4075/46/14/145601"""
-lineshape_references["Chantler 2013, Section 5"] = """We were using L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys
-    Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
+lineshape_references["Chantler 2013, Section 5"] = """
+We were using L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys
+Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
 
-    BUT these were adjusted in C Chantler, L Smale, J Kimpton, et al., J Phys B
-    46, 145601 (2013).  http://iopscience.iop.org/0953-4075/46/14/145601
-    (see Section 5 "Redefinition of vanadium K-beta standard")  Both papers are
-    by the same group, of course.
-    """
+BUT these were adjusted in C Chantler, L Smale, J Kimpton, et al., J Phys B
+46, 145601 (2013).  http://iopscience.iop.org/0953-4075/46/14/145601
+(see Section 5 "Redefinition of vanadium K-beta standard")  Both papers are
+by the same group, of course.
+"""
 lineshape_references["Hoelzer 1997, NISTfits.ipf"] = """Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
     by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code)."""
@@ -226,7 +228,8 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         lorentzian_integral_intensity = (0.5 * np.pi * lorentzian_fwhm) * np.array(reference_amplitude)
     elif reference_amplitude_type == LORENTZIAN_INTEGRAL_INTENSITY is not None:
         lorentzian_integral_intensity = reference_amplitude
-    normalized_lorentzian_integral_intensity = np.array(lorentzian_integral_intensity)/float(np.sum(lorentzian_integral_intensity))
+    normalized_lorentzian_integral_intensity = np.array(lorentzian_integral_intensity)
+    normalized_lorentzian_integral_intensity /= float(np.sum(lorentzian_integral_intensity))
 
     dict = {
         "element": element,
