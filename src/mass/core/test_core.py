@@ -2,6 +2,7 @@ import tempfile
 import os.path
 
 import numpy as np
+import scipy as sp
 import os
 import shutil
 import unittest as ut
@@ -204,6 +205,27 @@ class TestTESGroup(ut.TestCase):
         raw2 = ds.data
         self.assertTrue(np.all(rawinv == raw2))
 
+    def test_issue156(self):
+        "Make sure phase_correct works when there are too few valid bins of pulse height"
+        data = self.load_data()
+        ds = data.channel[1]
+        ds.clear_cuts()
+        g = ds.good()
+        ds.p_filt_value_dc[:150] = np.linspace(1, 6000.0, 150)
+        ds.p_filt_value_dc[150:] = 5898.8
+        ds.p_filt_phase[:] = np.random.standard_normal(ds.nPulses)
+        print ds.p_filt_value_dc[g]
+        NBINS = 10
+        for lowestbin in range(5,10):
+            data.set_chan_good(1)
+            dc = ds.p_filt_value_dc[g]
+            top = 6000.0
+            bin = np.digitize(ds.p_filt_value_dc, np.linspace(0, top, 1+NBINS))-1
+            ds.p_filt_value_dc[np.logical_or(bin>=NBINS, bin<lowestbin)] = 5898.8
+            data.phase_correct(forceNew=True)
+            if ds.channum not in data.good_channels:
+                raise ValueError("Failed issue156 test with %d valid bins (lowestbin=%d)"%
+                                 (NBINS-lowestbin, lowestbin))
 
 class TestTESHDF5Only(ut.TestCase):
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""

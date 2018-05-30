@@ -1,4 +1,7 @@
 ## Note on version numbers of Mass
+* **0.6.4** May- 2018
+Fix issue 156 (phase correction with low statistics)
+
 * **0.6.3** May 2018
 Refactor Fluorescence Line and Fitter Code
 Fix incorrect fitters where Chantler reported voigt peak height, such as VKalpha

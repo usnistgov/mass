@@ -861,7 +861,7 @@ class MicrocalDataSet(object):
         self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
-    
+
     @show_progress("channel.summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
                        cut_pre = 0, cut_post = 0,
@@ -879,7 +879,7 @@ class MicrocalDataSet(object):
                 when computing pretrigger mean (default None). If None, it will
                 be chosen sensibly.
             cut_pre: Cut this many samples from the start of a pulse record when calculating summary values
-            cut_post: Cut this many samples from the end of the a record when calculating summary values              
+            cut_post: Cut this many samples from the end of the a record when calculating summary values
             forceNew: whether to re-compute summaries if they exist (default False)
             use_cython: whether to use cython for summarizing the data (default True).
                 If this object is not a CythonMicrocalDataSet, then Cython cannot
@@ -911,7 +911,7 @@ class MicrocalDataSet(object):
             self.pretrigger_ignore_samples = 3
         else:
             self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
-            
+
         self.cut_pre = cut_pre
         self.cut_post = cut_post
 
@@ -945,13 +945,13 @@ class MicrocalDataSet(object):
         seg_size = end-first
         self.p_timestamp[first:end] = self.times[:seg_size]
         self.p_rowcount[first:end] = self.rowcount[:seg_size]
-        
+
         # Fit line to pretrigger and save the derivative and offset
         if doPretrigFit:
             presampleNumbers = np.arange(self.cut_pre,self.nPresamples-self.pretrigger_ignore_samples)
             self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
-                np.polyfit(presampleNumbers, self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T, deg=1)  
-            
+                np.polyfit(presampleNumbers, self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T, deg=1)
+
         self.p_pretrig_mean[first:end] = \
             self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
         self.p_pretrig_rms[first:end] = \
@@ -990,8 +990,8 @@ class MicrocalDataSet(object):
         self.p_postpeak_deriv[first:end] = \
             mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post],
                                                             ignore_leading=self.peak_samplenumber-self.cut_pre)
-    
-    
+
+
     @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
         """Compute the average pulse this channel.
@@ -1659,8 +1659,14 @@ class MicrocalDataSet(object):
             # spline. But then use its x/y data and knots to create a Mass CubicSpline,
             # because that one can have natural boundary conditions instead of insane
             # cubic functions in the extrapolation.
-            crazy_spline = sp.interpolate.UnivariateSpline(x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5))
-            phase_corrector = mass.mathstat.interpolate.CubicSpline(crazy_spline._data[0], crazy_spline._data[1])
+            if nonempty.sum() > 1:
+                spline_order = min(3, nonempty.sum()-1)
+                crazy_spline = sp.interpolate.UnivariateSpline(
+                    x[nonempty], y[nonempty], w = w[nonempty]*(12**-0.5),
+                    k = spline_order)
+                phase_corrector = mass.mathstat.interpolate.CubicSpline(crazy_spline._data[0], crazy_spline._data[1])
+            else:
+                phase_corrector = lambda x: 0.0
         self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
         return self._apply_phase_correction(category=category)
 
@@ -2153,7 +2159,7 @@ class MicrocalDataSet(object):
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
 
     @_add_group_loop
-    def flag_crosstalking_pulses(self, priorTime, postTime, combineCategories=True, 
+    def flag_crosstalking_pulses(self, priorTime, postTime, combineCategories=True,
                                  nearestNeighborsDistances = 1, crosstalk_key = 'is_crosstalking',
                                  forceNew=False):
         ''' Uses a list of nearest neighbor channels to flag pulses in current channel based
@@ -2167,11 +2173,11 @@ class MicrocalDataSet(object):
                 i.e. 1 = 1st nearest neighbors, 2 = 2nd nearest neighbors, etc.
             forceNew (bool): whether to re-compute the crosstalk cuts (default False)
         '''
-                
+
         def crosstalk_flagging_loop(channelsToCompare):
             ''' Main algorithm for flagging crosstalking pulses in current victim channel,
                 given a list of perpetrator channels
-                
+
                 Args:
                 channelsToCompare: (int array): list of perpetrator channel numbers to compare against
             '''
@@ -2190,38 +2196,38 @@ class MicrocalDataSet(object):
             # Even only histogram indices map directly to previously good flagged pulse indices for victim channel
             crosstalking_pulses = badCountsHist > 0.0
             return crosstalking_pulses
-                
-        #h5grp = self.hdf5_group        
+
+        #h5grp = self.hdf5_group
         # Check to see if nearest neighbors list has already been set, otherwise skip
         nn_channel_key = 'nearest_neighbors'
         if nn_channel_key in self.hdf5_group.keys():
-                                         
+
             # Set up combined crosstalk flag array in hdf5 file
-            h5grp = self.hdf5_group.require_group('crosstalk_flags')   
-            
+            h5grp = self.hdf5_group.require_group('crosstalk_flags')
+
             crosstalk_array_dtype = np.bool
             self.__dict__['p_%s' % crosstalk_key] = h5grp.require_dataset(crosstalk_key, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
-            
+
             if not combineCategories:
                 for neighborCategory in self.hdf5_group[nn_channel_key]:
                     categoryField = str(crosstalk_key + '_' + neighborCategory)
                     self.__dict__['p_%s' % categoryField] = h5grp.require_dataset(categoryField, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
-            
+
             # Check to see if crosstalk list has already been written and skip, unless forceNew
             if (not np.any(h5grp[crosstalk_key][:]) or forceNew):
-                                
+
                 # Convert from ms input to s used in rest of MASS
                 priorTime /= 1000.0
                 postTime /= 1000.0
-                    
+
                 # Create uneven histogram edges, with a specified amount of time before and after a photon event
                 pulseTimes = self.p_rowcount[:] * self.row_timebase
-    
+
                 # Create start and stop edges around pulses corresponding to veto times
                 startEdges = pulseTimes - priorTime
                 stopEdges = pulseTimes + postTime
                 combinedEdges = np.sort(np.append(startEdges, stopEdges))
-                
+
                 if combineCategories:
                     LOG.info('Checking crosstalk between channel %d and combined neighbors...', self.channum)
                     # Combine all nearest neighbor pairs for this channel into a single list
@@ -2237,7 +2243,7 @@ class MicrocalDataSet(object):
                         h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
                     else:
                         LOG.info("channel %d skipping crosstalk cuts because no nearest neighbors matching criteria", self.channum)
-                    
+
                 else:
                     for neighborCategory in self.hdf5_group[nn_channel_key]:
                         categoryField = str(crosstalk_key + '_' + neighborCategory)
@@ -2251,10 +2257,10 @@ class MicrocalDataSet(object):
                         else:
                             LOG.info("channel %d skipping %s crosstalk cuts because no nearest neighbors matching criteria in category" % (self.channum, neighborCategory))
 
-                            
+
             else:
                 LOG.info("channel %d skipping crosstalk cuts because it was already done", self.channum)
-                
+
         else:
             LOG.info("channel %d skipping crosstalk cuts because nearest neighbors not set", self.channum)
 
@@ -2275,18 +2281,18 @@ class MicrocalDataSet(object):
         distanceType (str): Type of distance to measure between nearest neighbors, i.e. cartesian
         forceNew (bool): whether to re-compute nearest neighbors list if it exists (default False)
         '''
-                        
+
         def calculate_cartesian_squared_distances():
             '''
             Stores the cartesian distance from the current channel to all other channels
             on the array within nearest_neighbors_dictionary.
             '''
-            
+
             # Create a dictionary to link all squared distances in the given space
             # to n for the n-th nearest neighbor.
             # Find the maximum distance in each dimension
             maxDistances = np.amax(positionValues,axis=0) - np.amin(positionValues, axis=0)
-            # Create a list of possible squared distances for each dimension              
+            # Create a list of possible squared distances for each dimension
             singleDimensionalSquaredDistances = []
             for iDim in range(nDims):
                 tempSquaredDistances = []
@@ -2294,19 +2300,19 @@ class MicrocalDataSet(object):
                     tempSquaredDistances.append(iLength**2)
                 singleDimensionalSquaredDistances.append(tempSquaredDistances)
             # Use np.meshgrid to make an array of all possible combinations of the arrays in each dimension
-            possibleSquaredCombinations = np.meshgrid(*[iArray for iArray in singleDimensionalSquaredDistances])            
+            possibleSquaredCombinations = np.meshgrid(*[iArray for iArray in singleDimensionalSquaredDistances])
             # Sum the squared distances along the corresponding axis to get squared distance at each point
             allSquaredDistances = possibleSquaredCombinations[0]
             for iDim in range(1,nDims):
                 allSquaredDistances += possibleSquaredCombinations[iDim]
             # Make a sorted list of the unique squared values
-            uniqueSquaredDistances = np.unique(allSquaredDistances)   
+            uniqueSquaredDistances = np.unique(allSquaredDistances)
             # Create a dictionary with squared distance keys and the index of the squared distance array
             # as the n value for n-th nearest neighbor
             squaredDistanceDictionary = {}
             for nthNeighbor, nthNeighborSquaredDistance in enumerate(uniqueSquaredDistances):
                 squaredDistanceDictionary[nthNeighborSquaredDistance] = nthNeighbor
-            
+
             # Loop through channel map and save an hdf5 dataset including the
             # channum, cartesian squared distance, and nearest neighbor n
             for channelIndex, distant_channum in enumerate(channelNumbers):
@@ -2317,14 +2323,14 @@ class MicrocalDataSet(object):
                 h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,0] = distant_channum
                 h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,1] = squaredDistance
                 h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,2] = squaredDistanceDictionary[squaredDistance]
-                                        
+
         def calculate_manhattan_distances():
             print 'Placeholder function for calculating manhattan distances between detectors'
-        
+
         def process_matching_channel(positionToCompare):
             '''
             Returns the channel number of a neighboring position after checking for goodness
-    
+
             Args:
             positionToCompare (int array) - position to check for nearest neighbor match
             '''
@@ -2336,7 +2342,7 @@ class MicrocalDataSet(object):
             # Return an empty array if not actually a good nearest neighbor
             else:
                 return np.array([], dtype=int)
-        
+
         # Load channel numbers and positions from map file, define number of dimensions
         mapData = np.loadtxt(mapFilename, dtype=int)
         channelNumbers = np.array(mapData[:,0], dtype=int)
@@ -2344,25 +2350,25 @@ class MicrocalDataSet(object):
         nDims = positionValues.shape[1]
 
         # Set up hdf5 group and repopulate arrays, if already calculated earlier
-        h5grp = self.hdf5_group.require_group('nearest_neighbors')        
-        h5grp.require_group(nearestNeighborCategory)     
-        
+        h5grp = self.hdf5_group.require_group('nearest_neighbors')
+        h5grp.require_group(nearestNeighborCategory)
+
         # Victim channel position dataset
         self.__dict__['position_%s' % nearestNeighborCategory] = \
-            h5grp[nearestNeighborCategory].require_dataset('position', shape=(nDims,), dtype=np.int64) 
-        
-        # Perpetrator channels dataset       
+            h5grp[nearestNeighborCategory].require_dataset('position', shape=(nDims,), dtype=np.int64)
+
+        # Perpetrator channels dataset
         self.__dict__['neighbors_list_%s' % nearestNeighborCategory] = \
-            h5grp[nearestNeighborCategory].require_dataset('neighbors_list', shape=((len(channelNumbers),3)), dtype=np.int64)  
+            h5grp[nearestNeighborCategory].require_dataset('neighbors_list', shape=((len(channelNumbers),3)), dtype=np.int64)
 
         # Check to see if if data set already exists or if forceNew is set to True
         if not np.any(h5grp[nearestNeighborCategory]['neighbors_list'][:]) or forceNew:
-            
+
             # Extract channel number and position of current channel, store in hdf5 file
             channum = self.channum
-            channelPos = np.array(positionValues[channum == channelNumbers][0],ndmin=1)                       
-            h5grp[nearestNeighborCategory]['position'][:] = channelPos                                  
-                        
+            channelPos = np.array(positionValues[channum == channelNumbers][0],ndmin=1)
+            h5grp[nearestNeighborCategory]['position'][:] = channelPos
+
             # Calculate distances and store in hdf5 file
             if distanceType == 'cartesian':
                 calculate_cartesian_squared_distances()
