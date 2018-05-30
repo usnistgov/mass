@@ -557,6 +557,7 @@ class GroupLooper(object):
     cycle that would otherwise occur.)"""
     pass
 
+
 def _add_group_loop(method):
     """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
 
@@ -586,14 +587,14 @@ def _add_group_loop(method):
     wrapper.__name__ = method_name
 
     # Generate a good doc-string.
-    lines = ["Loop over self, calling the %s(...) method for each channel."%method_name]
+    lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
     arginfo = inspect.getargspec(method)
     argtext = inspect.formatargspec(*arginfo)
     if method.__doc__ is None:
-        lines.append("\n%s%s has no docstring"%(method_name, argtext))
+        lines.append("\n%s%s has no docstring" % (method_name, argtext))
     else:
-        lines.append("\n%s%s docstring reads:"%(method_name, argtext))
-        lines.append( method.__doc__)
+        lines.append("\n%s%s docstring reads:" % (method_name, argtext))
+        lines.append(method.__doc__)
     wrapper.__doc__ = "\n".join(lines)
 
     setattr(GroupLooper, method_name, wrapper)
@@ -640,7 +641,7 @@ class MicrocalDataSet(object):
             self.__dict__[a] = pulserec_dict[a]
         self.filename = pulserec_dict.get('filename', 'virtual data set')
         self.pretrigger_ignore_samples = 0  # Cut this long before trigger in computing pretrig values
-        self.cut_pre = 0 # Number of presamples to ignore at start of pulse
+        self.cut_pre = 0  # Number of presamples to ignore at start of pulse
         self.cut_post = 0  # Number of samples to ignore at end of pulse
         self.peak_samplenumber = None   # Look for retriggers only after this time.
         self.index = None   # Index in the larger TESGroup object
@@ -857,16 +858,16 @@ class MicrocalDataSet(object):
     def _compute_peak_samplenumber(self):
         if self.data is None:
             self.read_segment(0)
-        peak_idx = self.data[:,self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
+        peak_idx = self.data[:, self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
         self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
 
     @show_progress("channel.summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
-                       cut_pre = 0, cut_post = 0,
+                       cut_pre=0, cut_post=0,
                        forceNew=False, use_cython=True,
-                       doPretrigFit = False):
+                       doPretrigFit=False):
         """Summarize the complete data set one chunk at a time.
 
         Store results in the HDF5 datasets p_pretrig_mean and similar.
@@ -948,7 +949,7 @@ class MicrocalDataSet(object):
 
         # Fit line to pretrigger and save the derivative and offset
         if doPretrigFit:
-            presampleNumbers = np.arange(self.cut_pre,self.nPresamples-self.pretrigger_ignore_samples)
+            presampleNumbers = np.arange(self.cut_pre, self.nPresamples-self.pretrigger_ignore_samples)
             self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
                 np.polyfit(presampleNumbers, self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T, deg=1)
 
@@ -960,7 +961,6 @@ class MicrocalDataSet(object):
         self.p_peak_value[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].max(axis=1)
         self.p_min_value[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].min(axis=1)
         self.p_pulse_average[first:end] = self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post].mean(axis=1)
-
 
         # Remove the pretrigger mean from the peak value and the pulse average figures.
         ptm = self.p_pretrig_mean[first:end]
@@ -990,7 +990,6 @@ class MicrocalDataSet(object):
         self.p_postpeak_deriv[first:end] = \
             mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post],
                                                             ignore_leading=self.peak_samplenumber-self.cut_pre)
-
 
     @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
@@ -1084,7 +1083,7 @@ class MicrocalDataSet(object):
     def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
         try:
             spectrum = self.noise_spectrum.spectrum()
-        except:
+        except Exception:
             spectrum = self.noise_psd[:]
 
         avg_signal = np.array(self.average_pulse)
@@ -1662,11 +1661,11 @@ class MicrocalDataSet(object):
             if nonempty.sum() > 1:
                 spline_order = min(3, nonempty.sum()-1)
                 crazy_spline = sp.interpolate.UnivariateSpline(
-                    x[nonempty], y[nonempty], w = w[nonempty]*(12**-0.5),
-                    k = spline_order)
+                    x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5),
+                    k=spline_order)
                 phase_corrector = mass.mathstat.interpolate.CubicSpline(crazy_spline._data[0], crazy_spline._data[1])
             else:
-                phase_corrector = lambda x: 0.0
+                def phase_corrector(x): return 0.0*x
         self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
         return self._apply_phase_correction(category=category)
 
@@ -1918,7 +1917,7 @@ class MicrocalDataSet(object):
                 data -= model
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
-            if fcut != None:
+            if fcut is not None:
                 data = mass.core.analysis_algorithms.filter_signal_lowpass(data, 1./self.timebase, fcut)
             if subtract_baseline:
                 # Recalculate the pretrigger mean here, to avoid issues due to flux slipping when
@@ -1953,8 +1952,8 @@ class MicrocalDataSet(object):
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
     @_add_group_loop
-    def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree = 2000,
-                           pulses_per_degree = 2000, max_degrees = 20, forceNew=False):
+    def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree=2000,
+                           pulses_per_degree=2000, max_degrees=20, forceNew=False):
         """Drift correct over long times with an entropy-minimizing algorithm.
         Here we correct as a low-ish-order Legendre polynomial in time.
 
@@ -1990,7 +1989,7 @@ class MicrocalDataSet(object):
             cal = self.calibration[key]
             try:
                 plt.plot(cal.peak_energies, cal.energy_resolutions, 'o', label=key)
-            except:
+            except Exception:
                 pass
         plt.legend()
         plt.xlabel("energy (eV)")
@@ -2099,7 +2098,7 @@ class MicrocalDataSet(object):
         # SLEDGEHAMMER gamma devices, but may not be appropriate in cases where
         # there are many pulses riding on tails, so by default we don't do
         # this.
-        if pretrig_rms_percentile != None:
+        if pretrig_rms_percentile is not None:
             pt_max = max(pt_max, np.percentile(self.p_pretrig_rms, pretrig_rms_percentile))
 
         # Step 3: make the cuts
@@ -2160,7 +2159,7 @@ class MicrocalDataSet(object):
 
     @_add_group_loop
     def flag_crosstalking_pulses(self, priorTime, postTime, combineCategories=True,
-                                 nearestNeighborsDistances = 1, crosstalk_key = 'is_crosstalking',
+                                 nearestNeighborsDistances=1, crosstalk_key='is_crosstalking',
                                  forceNew=False):
         ''' Uses a list of nearest neighbor channels to flag pulses in current channel based
             on arrival times of pulses in neighboring channels
@@ -2185,7 +2184,8 @@ class MicrocalDataSet(object):
             compareChannelsPulsesList = np.array([])
             # Iterate through all neighboring channels and put pulse timestamps into combined list
             for compare_channum in channelsToCompare:
-                if not self.tes_group.channel.has_key(compare_channum): continue
+                if compare_channum not in self.tes_group.channel:
+                    continue
                 dsToCompare = self.tes_group.channel[compare_channum]
                 # Combine the pulses from all neighboring channels into a single array
                 compareChannelsPulsesList = np.append(compareChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
@@ -2197,7 +2197,6 @@ class MicrocalDataSet(object):
             crosstalking_pulses = badCountsHist > 0.0
             return crosstalking_pulses
 
-        #h5grp = self.hdf5_group
         # Check to see if nearest neighbors list has already been set, otherwise skip
         nn_channel_key = 'nearest_neighbors'
         if nn_channel_key in self.hdf5_group.keys():
@@ -2237,7 +2236,7 @@ class MicrocalDataSet(object):
                         subgroupName = nn_channel_key + '/' + neighborCategory
                         subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
                         # Remove duplicates, sort
-                        selectNeighbors = subgroupNeighbors[:,0][np.isin(subgroupNeighbors[:,2], nearestNeighborsDistances)]
+                        selectNeighbors = subgroupNeighbors[:, 0][np.isin(subgroupNeighbors[:, 2], nearestNeighborsDistances)]
                         combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, selectNeighbors).astype(int))
                     if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
                         h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
@@ -2249,14 +2248,16 @@ class MicrocalDataSet(object):
                         categoryField = str(crosstalk_key + '_' + neighborCategory)
                         subgroupName = nn_channel_key + '/' + neighborCategory
                         subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
-                        selectNeighbors = subgroupNeighbors[:,0][np.isin(subgroupNeighbors[:,2], nearestNeighborsDistances)]
+                        selectNeighbors = subgroupNeighbors[:, 0][np.isin(subgroupNeighbors[:, 2], nearestNeighborsDistances)]
                         if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
-                            LOG.info('Checking crosstalk between channel %d and %s neighbors...'  % (self.channum, neighborCategory))
+                            LOG.info('Checking crosstalk between channel %d and %s neighbors...' % (
+                                self.channum, neighborCategory))
                             h5grp[categoryField][:] = crosstalk_flagging_loop(selectNeighbors)
                             h5grp[crosstalk_key][:] = np.logical_or(h5grp[crosstalk_key], h5grp[categoryField])
                         else:
-                            LOG.info("channel %d skipping %s crosstalk cuts because no nearest neighbors matching criteria in category" % (self.channum, neighborCategory))
-
+                            msg = "channel %d skipping %s crosstalk cuts because" % (self.channum, neighborCategory)
+                            msg = msg * " no nearest neighbors matching criteria in category"
+                            LOG.info(msg)
 
             else:
                 LOG.info("channel %d skipping crosstalk cuts because it was already done", self.channum)
@@ -2265,8 +2266,8 @@ class MicrocalDataSet(object):
             LOG.info("channel %d skipping crosstalk cuts because nearest neighbors not set", self.channum)
 
     @_add_group_loop
-    def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory = 'physical',
-                                   distanceType = 'cartesian', forceNew=False):
+    def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory='physical',
+                                   distanceType='cartesian', forceNew=False):
         ''' Finds the nearest neighbors in a given space for all channels in a data set
 
         Args:
@@ -2291,7 +2292,7 @@ class MicrocalDataSet(object):
             # Create a dictionary to link all squared distances in the given space
             # to n for the n-th nearest neighbor.
             # Find the maximum distance in each dimension
-            maxDistances = np.amax(positionValues,axis=0) - np.amin(positionValues, axis=0)
+            maxDistances = np.amax(positionValues, axis=0) - np.amin(positionValues, axis=0)
             # Create a list of possible squared distances for each dimension
             singleDimensionalSquaredDistances = []
             for iDim in range(nDims):
@@ -2303,7 +2304,7 @@ class MicrocalDataSet(object):
             possibleSquaredCombinations = np.meshgrid(*[iArray for iArray in singleDimensionalSquaredDistances])
             # Sum the squared distances along the corresponding axis to get squared distance at each point
             allSquaredDistances = possibleSquaredCombinations[0]
-            for iDim in range(1,nDims):
+            for iDim in range(1, nDims):
                 allSquaredDistances += possibleSquaredCombinations[iDim]
             # Make a sorted list of the unique squared values
             uniqueSquaredDistances = np.unique(allSquaredDistances)
@@ -2316,16 +2317,17 @@ class MicrocalDataSet(object):
             # Loop through channel map and save an hdf5 dataset including the
             # channum, cartesian squared distance, and nearest neighbor n
             for channelIndex, distant_channum in enumerate(channelNumbers):
-                distantPos = np.array(positionValues[distant_channum == channelNumbers][0],ndmin=1)
+                distantPos = np.array(positionValues[distant_channum == channelNumbers][0], ndmin=1)
                 squaredDistance = 0.0
                 for iDim in range(nDims):
                     squaredDistance += (channelPos[iDim] - distantPos[iDim])**2.0
-                h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,0] = distant_channum
-                h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,1] = squaredDistance
-                h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex,2] = squaredDistanceDictionary[squaredDistance]
+                h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex, 0] = distant_channum
+                h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex, 1] = squaredDistance
+                h5grp[nearestNeighborCategory]['neighbors_list'][channelIndex, 2] = \
+                    squaredDistanceDictionary[squaredDistance]
 
         def calculate_manhattan_distances():
-            print 'Placeholder function for calculating manhattan distances between detectors'
+            print('Placeholder function for calculating manhattan distances between detectors')
 
         def process_matching_channel(positionToCompare):
             '''
@@ -2345,8 +2347,8 @@ class MicrocalDataSet(object):
 
         # Load channel numbers and positions from map file, define number of dimensions
         mapData = np.loadtxt(mapFilename, dtype=int)
-        channelNumbers = np.array(mapData[:,0], dtype=int)
-        positionValues = mapData[:,1:]
+        channelNumbers = np.array(mapData[:, 0], dtype=int)
+        positionValues = mapData[:, 1:]
         nDims = positionValues.shape[1]
 
         # Set up hdf5 group and repopulate arrays, if already calculated earlier
@@ -2358,15 +2360,17 @@ class MicrocalDataSet(object):
             h5grp[nearestNeighborCategory].require_dataset('position', shape=(nDims,), dtype=np.int64)
 
         # Perpetrator channels dataset
+        hnnc = h5grp[nearestNeighborCategory]
         self.__dict__['neighbors_list_%s' % nearestNeighborCategory] = \
-            h5grp[nearestNeighborCategory].require_dataset('neighbors_list', shape=((len(channelNumbers),3)), dtype=np.int64)
+            hnnc.require_dataset('neighbors_list', shape=((len(channelNumbers), 3)),
+                                 dtype=np.int64)
 
         # Check to see if if data set already exists or if forceNew is set to True
         if not np.any(h5grp[nearestNeighborCategory]['neighbors_list'][:]) or forceNew:
 
             # Extract channel number and position of current channel, store in hdf5 file
             channum = self.channum
-            channelPos = np.array(positionValues[channum == channelNumbers][0],ndmin=1)
+            channelPos = np.array(positionValues[channum == channelNumbers][0], ndmin=1)
             h5grp[nearestNeighborCategory]['position'][:] = channelPos
 
             # Calculate distances and store in hdf5 file
@@ -2377,9 +2381,11 @@ class MicrocalDataSet(object):
             else:
                 print 'Distance type ' + distanceType + ' not recognized.'
 
+
 # Below here, these are functions that we might consider moving to Cython for speed.
 # But at any rate, they do not require any MicrocalDataSet attributes, so they are
 # pure functions, not methods.
+
 
 def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
                               method2017=False, nf=10, kernel_width=2.0):
@@ -2524,8 +2530,8 @@ def _phase_corrected_filtvals(phase, uncorrected, corrections):
     return corrected
 
 
-def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
-                       pulses_per_degree = 2000, max_degrees = 20, ndeg = None, limit = None):
+def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
+                       pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
     """Compute a time-based drift correction that minimizes the spectral entropy.
 
     Args:
@@ -2574,7 +2580,7 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree = 2000,
 
     dtime = tmax-tmin
     N = len(time)
-    if ndeg == None:
+    if ndeg is None:
         ndeg = int(np.minimum(dtime/sec_per_degree, N/pulses_per_degree))
         ndeg = min(ndeg, max_degrees)
         ndeg = max(ndeg, 1)
