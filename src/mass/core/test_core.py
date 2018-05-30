@@ -210,15 +210,13 @@ class TestTESGroup(ut.TestCase):
         data = self.load_data()
         ds = data.channel[1]
         ds.clear_cuts()
-        g = ds.good()
         ds.p_filt_value_dc[:150] = np.linspace(1, 6000.0, 150)
         ds.p_filt_value_dc[150:] = 5898.8
         ds.p_filt_phase[:] = np.random.standard_normal(ds.nPulses)
-        print ds.p_filt_value_dc[g]
         NBINS = 10
         for lowestbin in range(5,10):
             data.set_chan_good(1)
-            dc = ds.p_filt_value_dc[g]
+            dc = ds.p_filt_value_dc[:]
             top = 6000.0
             bin = np.digitize(ds.p_filt_value_dc, np.linspace(0, top, 1+NBINS))-1
             ds.p_filt_value_dc[np.logical_or(bin>=NBINS, bin<lowestbin)] = 5898.8
