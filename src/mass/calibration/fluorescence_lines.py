@@ -228,8 +228,8 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         lorentzian_integral_intensity = (0.5 * np.pi * lorentzian_fwhm) * np.array(reference_amplitude)
     elif reference_amplitude_type == LORENTZIAN_INTEGRAL_INTENSITY is not None:
         lorentzian_integral_intensity = reference_amplitude
-    normalized_lorentzian_integral_intensity = np.array(lorentzian_integral_intensity)
-    normalized_lorentzian_integral_intensity /= float(np.sum(lorentzian_integral_intensity))
+    normalized_lorentzian_integral_intensity = np.array(lorentzian_integral_intensity) / \
+        float(np.sum(lorentzian_integral_intensity))
 
     dict = {
         "element": element,
