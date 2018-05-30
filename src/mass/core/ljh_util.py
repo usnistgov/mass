@@ -18,20 +18,17 @@ __all__ = ["ljh_basename_channum", "ljh_chan_names", "ljh_get_channels",
            "ljh_sort_filenames_numerically", "ljh_get_channels_both"]
 
 
-
-
 def ljh_get_channels(fname):
     basename, chan = ljh_basename_channum(fname)
     dir, ljhname = path.split(basename)
     chans = []
     for f in os.listdir(dir):
-        if not os.path.isfile(os.path.join(dir,f)):
+        if not os.path.isfile(os.path.join(dir, f)):
             continue
         bname, chan = ljh_basename_channum(f)
         if bname == ljhname and isinstance(chan, int):
             chans.append(chan)
     return sorted(chans)
-
 
 
 def ljh_get_channels_both(fname, nfname):
@@ -54,7 +51,7 @@ def ljh_basename_channum(fname):
             fname = fname[:-1]
         base_dir, ljh_dir = path.split(fname)
         fname = path.join(base_dir, ljh_dir, ljh_dir)
-    chanmatches = re.finditer("_chan\d+", fname)
+    chanmatches = re.finditer(r"_chan\d+", fname)
     last_chan_match = None
     for last_chan_match in chanmatches:
         pass
@@ -81,6 +78,7 @@ def ljh_chan_names(fname, chans):
 def ljh_get_extern_trig_fname(fname):
     basename, chan = ljh_basename_channum(fname)
     return basename+"_extern_trig.hdf5"
+
 
 def output_basename_from_ljh_fname(ljh):
     basename, chan = ljh_basename_channum(ljh)

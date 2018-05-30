@@ -34,7 +34,7 @@ PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))
 
 pep8: pep8-report.txt
 pep8-report.txt: $(PEPFILES) MAKEFILE
-	pycodestyle --statistics --max-line-length=120 $(PEPFILES) > $@
+	pycodestyle --statistics --max-line-length=130 $(PEPFILES) > $@
 
 lint: lint-report.txt
 lint-report.txt: pylintrc $(PYFILES) MAKEFILE

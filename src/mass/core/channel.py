@@ -950,8 +950,9 @@ class MicrocalDataSet(object):
         # Fit line to pretrigger and save the derivative and offset
         if doPretrigFit:
             presampleNumbers = np.arange(self.cut_pre, self.nPresamples-self.pretrigger_ignore_samples)
+            ydata = self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T
             self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
-                np.polyfit(presampleNumbers, self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T, deg=1)
+                np.polyfit(presampleNumbers, ydata, deg=1)
 
         self.p_pretrig_mean[first:end] = \
             self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
@@ -2188,7 +2189,8 @@ class MicrocalDataSet(object):
                     continue
                 dsToCompare = self.tes_group.channel[compare_channum]
                 # Combine the pulses from all neighboring channels into a single array
-                compareChannelsPulsesList = np.append(compareChannelsPulsesList, dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
+                compareChannelsPulsesList = np.append(compareChannelsPulsesList,
+                                                      dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
             # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
             hist, bin_edges = np.histogram(compareChannelsPulsesList, bins=combinedEdges)
             # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
@@ -2205,12 +2207,14 @@ class MicrocalDataSet(object):
             h5grp = self.hdf5_group.require_group('crosstalk_flags')
 
             crosstalk_array_dtype = np.bool
-            self.__dict__['p_%s' % crosstalk_key] = h5grp.require_dataset(crosstalk_key, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
+            self.__dict__['p_%s' % crosstalk_key] = h5grp.require_dataset(
+                crosstalk_key, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
 
             if not combineCategories:
                 for neighborCategory in self.hdf5_group[nn_channel_key]:
                     categoryField = str(crosstalk_key + '_' + neighborCategory)
-                    self.__dict__['p_%s' % categoryField] = h5grp.require_dataset(categoryField, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
+                    self.__dict__['p_%s' % categoryField] = h5grp.require_dataset(
+                        categoryField, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
 
             # Check to see if crosstalk list has already been written and skip, unless forceNew
             if (not np.any(h5grp[crosstalk_key][:]) or forceNew):
@@ -2241,7 +2245,8 @@ class MicrocalDataSet(object):
                     if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
                         h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
                     else:
-                        LOG.info("channel %d skipping crosstalk cuts because no nearest neighbors matching criteria", self.channum)
+                        msg = "Channel %d skipping crosstalk cuts: no nearest neighbors matching criteria" % self.channum
+                        LOG.info(msg)
 
                 else:
                     for neighborCategory in self.hdf5_group[nn_channel_key]:

@@ -251,7 +251,7 @@ class LJHFile(MicrocalFile):
                 words = line.split()
                 try:
                     self.timestamp_offset = float(words[-1])
-                except:
+                except Exception:
                     self.timestamp_offset = 0.0
             elif line.startswith(b"Save File Format Version:"):
                 words = line.split()

@@ -70,18 +70,20 @@ class Filter(object):
         self.cut_pre = cut_pre
         self.cut_post = cut_post
         self.ns = len(avg_signal)
-        
+
         if self.cut_pre < 0 or self.cut_post < 0:
-            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative"%
-                             (self.cut_pre,self.cut_post))
+            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative" %
+                             (self.cut_pre, self.cut_post))
         if self.cut_pre+self.cut_post >= self.ns-2*self.shorten:
-            raise ValueError("cut_pre+cut_post = %d but should be < %d"%(
+            raise ValueError("cut_pre+cut_post = %d but should be < %d" % (
                              self.cut_pre+self.cut_post, self.ns-2*self.shorten))
-        
+
         pre_avg = avg_signal[self.cut_pre:n_pretrigger].mean()
 
         # If signal is negative-going,
-        is_negative = (avg_signal[self.cut_pre:self.ns-self.cut_post].min() - pre_avg) / (avg_signal[self.cut_pre:self.ns-self.cut_post].max() - pre_avg) < -1
+        a = avg_signal[self.cut_pre:self.ns-self.cut_post].min()
+        b = avg_signal[self.cut_pre:self.ns-self.cut_post].max()
+        is_negative = (a - pre_avg) / (b - pre_avg) < -1
         if is_negative:
             self.peak_signal = avg_signal[self.cut_pre:self.ns-self.cut_post].min() - pre_avg
         else:
@@ -90,8 +92,8 @@ class Filter(object):
         # self.avg_signal is normalized to have unit peak
         self.avg_signal = (avg_signal - pre_avg) / self.peak_signal
         self.avg_signal[:n_pretrigger] = 0.0
-        self.avg_signal = self.avg_signal[self.cut_pre:self.ns-self.cut_post]        
-        
+        self.avg_signal = self.avg_signal[self.cut_pre:self.ns-self.cut_post]
+
         self.n_pretrigger = n_pretrigger
         if noise_psd is None:
             self.noise_psd = None
@@ -202,8 +204,8 @@ class Filter(object):
         <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
         """
         if self.sample_time is None and not (fmax is None and f_3db is None):
-            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")            
-                   
+            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
+
         self.fmax = fmax
         self.f_3db = f_3db
         self.variances = {}
@@ -216,7 +218,7 @@ class Filter(object):
         assert self.noise_autocorr is not None
         n = len(self.avg_signal) - 2 * self.shorten
         assert len(self.noise_autocorr) >= n
-        
+
         if self.shorten > 0:
             avg_signal = self.avg_signal[self.shorten:-self.shorten]
         else:
@@ -248,7 +250,7 @@ class Filter(object):
             pass
 
         # Set weights in the cut_pre and cut_post windows to 0
-        if self.cut_pre >0 or self.cut_post > 0:
+        if self.cut_pre > 0 or self.cut_post > 0:
             self.filt_noconst = np.hstack([np.zeros(self.cut_pre), self.filt_noconst, np.zeros(self.cut_post)])
             self.filt_baseline = np.hstack([np.zeros(self.cut_pre), self.filt_baseline, np.zeros(self.cut_post)])
             self.filt_baseline_pretrig = np.hstack([np.zeros(self.cut_pre), self.filt_baseline_pretrig])
@@ -346,11 +348,11 @@ class ArrivalTimeSafeFilter(Filter):
         if self.sample_time is None and not (fmax is None and f_3db is None):
             raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
         if cut_pre < 0 or cut_post < 0:
-            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative"%
-                             (cut_pre,cut_post))
+            raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative" %
+                             (cut_pre, cut_post))
         ns = self.pulsemodel.shape[0]
         if cut_pre+cut_post >= ns:
-            raise ValueError("cut_pre+cut_post = %d but should be < %d"%(
+            raise ValueError("cut_pre+cut_post = %d but should be < %d" % (
                              cut_pre+cut_post, ns))
 
         self.fmax = fmax
@@ -384,7 +386,6 @@ class ArrivalTimeSafeFilter(Filter):
             A = np.dot(MT, RinvM)
             Ainv = np.linalg.inv(A)
             filt = np.dot(Ainv, RinvM.T)
-
 
         if cut_pre > 0 or cut_post > 0:
             nfilt = filt.shape[0]
