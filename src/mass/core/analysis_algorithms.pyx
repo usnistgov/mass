@@ -755,6 +755,7 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
     return (np.asarray(delay_from_last_trigger, dtype=np.int64),
             np.asarray(delay_until_next_trigger, dtype=np.int64))
 
+
 def filter_signal_lowpass(sig, fs, fcut):
     """Tophat lowpass filter using an FFT
 
@@ -768,11 +769,12 @@ def filter_signal_lowpass(sig, fs, fcut):
     """
     N = sig.shape[0]
     SIG = np.fft.fft(sig)
-    freqs = (fs/N) * np.concatenate((np.arange(0,N/2+1), np.arange(N/2-1,0,-1)))
+    freqs = (fs/N) * np.concatenate((np.arange(0, N/2+1), np.arange(N/2-1, 0, -1)))
     filt = np.zeros_like(SIG)
     filt[freqs < fcut] = 1.0
     sig_filt = np.fft.ifft(SIG * filt)
     return sig_filt
+
 
 def correct_flux_jumps(vals, g, flux_quant):
     '''Remove 'flux' jumps' from pretrigger mean.

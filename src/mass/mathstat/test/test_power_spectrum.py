@@ -25,5 +25,6 @@ class Test_PowerSpectrum(unittest.TestCase):
         for a, b in zip(f, expected):
             self.assertAlmostEqual(a, b)
 
+
 if __name__ == "__main__":
     unittest.main()
