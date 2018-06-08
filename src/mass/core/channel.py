@@ -778,7 +778,7 @@ class MicrocalDataSet(object):
     @property
     def p_peak_time(self):
         # this is a property to reduce memory usage, I hope it works
-        return (self.p_peak_index[:] - self.nPresamples) * self.timebase
+        return (self.p_peak_index[:].astype('float') - self.nPresamples) * self.timebase
 
     @property
     def external_trigger_rowcount(self):

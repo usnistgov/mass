@@ -391,6 +391,15 @@ class TESGroup(CutFieldMixin, GroupLooper):
             else:
                 LOG.info("chan %d not set good because it was not set bad", channum)
 
+
+    def set_all_chan_good(self):
+        """Set all channels to be good."""
+        # Must do is this way so that you aren't iterating over a list while
+        # also changing that list
+        bad_chan_list = [ch for ch in self._bad_channums]
+        for channum in bad_chan_list: 
+            self.set_chan_good(channum)
+
     def set_chan_bad(self, *args):
         """Set one or more channels to be bad.
 
