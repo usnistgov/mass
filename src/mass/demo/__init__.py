@@ -28,6 +28,7 @@ demo_files = ('intro.py', 'fitting_demo.py', 'fitting_fluorescence.py',
 def fullpath(f):
     return os.path.join(this_dir, f)
 
+
 demos = {}
 for f in demo_files:
     demos[f] = Demo(fullpath(f))

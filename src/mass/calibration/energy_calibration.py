@@ -298,7 +298,7 @@ class EnergyCalibration(object):
             try:
                 name = energy
                 energy = STANDARD_FEATURES[name]
-            except:
+            except Exception:
                 raise ValueError("2nd argument must be an energy or a known name" +
                                  " from mass.energy_calibration.STANDARD_FEATURES")
 

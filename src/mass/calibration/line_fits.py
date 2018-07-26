@@ -83,8 +83,8 @@ class LineFitter(object):
         to make the same plot as if you passed plot=True.
 
         On a failed fit, self.fit_success is set to False. self.failed_fit_exception contains the exception thrown.
-        self.plot will still work, and will indicate a failed fit. You can disable this behavior, and just have it throw an exception
-        if you pass rethrow=True.
+        self.plot will still work, and will indicate a failed fit. You can disable this behavior, and just have it
+        throw an exception if you pass rethrow=True.
 
         Args:
             pulseheights -- the histogram bin centers or bin edges.
@@ -173,7 +173,7 @@ class LineFitter(object):
                 raise e
             self.fit_success = False
             self.last_fit_params = np.ones(self.nparam)*np.nan
-            self.last_fit_cov = np.ones((self.nparam,self.nparam))*np.nan
+            self.last_fit_cov = np.ones((self.nparam, self.nparam))*np.nan
             self.last_fit_chisq = np.nan
             self.last_fit_result = np.ones(self.nparam)*np.nan
 
@@ -183,8 +183,6 @@ class LineFitter(object):
                 self.failed_fit_starting_fitfunc = np.ones(len(self.last_fit_contents))*np.nan
             else:
                 self.failed_fit_starting_fitfunc = self.fitfunc(self.failed_fit_params, self.last_fit_bins)
-
-
 
         if plot:
             self.plot(color, axis, label, ph_units)
@@ -239,7 +237,7 @@ class LineFitter(object):
         axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize, self.last_fit_bins[-1] + 0.5 * ph_binsize])
         axis.set_xlabel("energy (%s)" % ph_units)
         axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
-        axis.legend(loc="best",frameon=False)
+        axis.legend(loc="best", frameon=False)
 
     def plot(self, color=None, axis=None, label=True, ph_units="arb"):
         """Plot the fit.
@@ -257,7 +255,8 @@ class LineFitter(object):
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
-        if not self.fit_success: return self._plot_failed_fit(color,axis,label,ph_units)
+        if not self.fit_success:
+            return self._plot_failed_fit(color, axis, label, ph_units)
 
         plot_as_stepped_hist(axis, self.last_fit_contents, self.last_fit_bins, color=color)
         ph_binsize = self.last_fit_bins[1] - self.last_fit_bins[0]
@@ -282,7 +281,6 @@ class LineFitter(object):
         if slabel:
             axis.legend(loc='best', frameon=False)
 
-
     @property
     def n_degree_of_freedom(self):
         """return the number of degrees of freedom"""
@@ -295,7 +293,8 @@ class LineFitter(object):
     @property
     def last_fit_params_dict(self):
         """return a dictionary mapping a param meaning (like "resolution") to a tuple of value and uncertainty"""
-        return {k:(self.last_fit_params[i], np.sqrt(self.last_fit_cov[i][i])) for (k,i) in self.param_meaning.items()}
+        return {k: (self.last_fit_params[i], np.sqrt(self.last_fit_cov[i][i])) for (k, i) in self.param_meaning.items()}
+
 
 class VoigtFitter(LineFitter):
     """Fit a single Lorentzian line, with Gaussian smearing and potentially a low-E tail.
@@ -726,6 +725,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
         baseline_slope = 0.0
         return [res, peak_ph, 1.0, ampl, baseline, baseline_slope,
                 self.tailfrac, self.tailtau]
+
 
 class _lowZ_KAlphaFitter(GenericKAlphaFitter):
     """Overrides the starting parameter guesses, more appropriate

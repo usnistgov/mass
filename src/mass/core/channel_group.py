@@ -142,11 +142,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
         pattern = filenames
         filenames = filename_glob_expand(filenames)
         if filenames is not None and len(filenames) == 0:
-            raise ValueError("Filename pattern '%s' expanded to no files"%pattern)
+            raise ValueError("Filename pattern '%s' expanded to no files" % pattern)
         pattern = noise_filenames
         noise_filenames = filename_glob_expand(noise_filenames)
         if noise_filenames is not None and len(noise_filenames) == 0:
-            raise ValueError("Noise filename pattern '%s' expanded to no files"%pattern)
+            raise ValueError("Noise filename pattern '%s' expanded to no files" % pattern)
 
         # If using a glob pattern especially, we have to be careful to eliminate files that are
         # missing a partner, either noise without pulse or pulse without noise.
@@ -246,7 +246,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 try:
                     hdf5_noisegroup = self.hdf5_noisefile.require_group("chan%d" % pulse.channum)
                     hdf5_noisegroup.attrs['filename'] = nf
-                except:
+                except Exception:
                     hdf5_noisegroup = None
                 noise = NoiseRecords(nf, records_are_continuous=noise_is_continuous,
                                      hdf5_group=hdf5_noisegroup)
@@ -300,7 +300,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 hdf5_group = self.hdf5_noisefile.require_group("chan%d" % noise.channum)
                 hdf5_group.attrs['filename'] = fname
                 noise.hdf5_group = hdf5_group
-            except:
+            except Exception:
                 hdf5_group = None
 
             dset = MicrocalDataSet(noise.__dict__, hdf5_group=hdf5_group)
@@ -529,8 +529,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
-                       cut_pre = 0, cut_post = 0,
-                       include_badchan=False, forceNew=False, use_cython=True, doPretrigFit = False):
+                       cut_pre=0, cut_post=0,
+                       include_badchan=False, forceNew=False, use_cython=True, doPretrigFit=False):
         """Summarize the data with per-pulse summary quantities for each channel.
 
         peak_time_microsec will be determined automatically if None, and will be
@@ -545,8 +545,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             try:
                 ds.summarize_data(peak_time_microsec=peak_time_microsec,
                                   pretrigger_ignore_microsec=pretrigger_ignore_microsec,
-                                  cut_pre = cut_pre,
-                                  cut_post = cut_post,
+                                  cut_pre=cut_pre,
+                                  cut_post=cut_post,
                                   forceNew=forceNew, use_cython=use_cython,
                                   doPretrigFit=doPretrigFit)
                 yield (i + 1.0) / nchan
@@ -920,7 +920,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         compute_filters(self, fmax=None, f_3db=None, forceNew=False)
 
         Looks at ds._use_new_filters to decide which type of filter to use.
-        
+
         cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
         cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
         """
@@ -1161,7 +1161,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             units = "Scaled counts"
 
         axis.grid(True)
-        for i,ds in enumerate(dsets):
+        for i, ds in enumerate(dsets):
             channum = ds.channum
             yvalue = ds.noise_psd[:] * scale_factor**2
             if sqrt_psd:
@@ -1172,7 +1172,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 freq = np.arange(1, 1 + len(yvalue)) * df
                 axis.plot(freq, yvalue, label='Chan %d' % channum,
                           color=cmap(float(i) / nplot))
-            except:
+            except Exception:
                 LOG.warn("WARNING: Could not plot channel %4d.", channum)
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
@@ -1236,22 +1236,23 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plt.grid("on")
         plt.legend()
 
-    def plot_summary_pages(self, x_attr, y_attr, x_range=None, y_range=None, subplot_shape=(3,4), suffix=None, lines=None, down=10, format='png', one_file=False):
+    def plot_summary_pages(self, x_attr, y_attr, x_range=None, y_range=None, subplot_shape=(3, 4),
+                           suffix=None, lines=None, down=10, format='png', one_file=False):
         '''Make scatter plots of summary quantities for all channels.
-    
+
         This creates the plots for each good channel, placing multiple plots on
         each page, and saves each page to its own file. Pulses that pass cuts are
         plotted in blue, and cut pulses are plotted in gray. The file names have
         the form "<x_attr>.vs.<y-attr>-<suffix>-<page number>.png". The default
         value for the suffix is that pulsefile's base name.
-    
+
         Arguments:
           x_attr -- string containing name of X value attribute
           y_attr -- string containing name of Y value attribute
           x_range -- if not None, values to use for x limits. Defaults to None.
           y_range -- if not None, values to use for y limits. Defaults to None.
           subplot_shape -- tuple indicating shape of subplots. First element is
-                           number of rows, second is number of columns. 
+                           number of rows, second is number of columns.
           suffix -- suffix to use for filenames. Defaults to None, which causes the
                     function to use the first 15 characters of the pulse filename
                     for the first data set (which typically will have a value
@@ -1269,41 +1270,41 @@ class TESGroup(CutFieldMixin, GroupLooper):
                       `convert` to combine the files. You can install it on ubuntu
                       via `apt-get install imagemagick`.
         '''
-        if suffix == None:
+        if suffix is None:
             suffix = os.path.basename(self.channels[0].datafile.filename)[:15]
-    
+
         filename_template_per_file = '%s.vs.%s-%s-%%03d.%s' % (y_attr, x_attr, suffix, format)
         filename_template_glob = '%s.vs.%s-%s-[0-9][0-9][0-9].%s' % (y_attr, x_attr, suffix, format)
         filename_one_file = '%s.vs.%s-%s.pdf' % (y_attr, x_attr, suffix)
-    
+
         def helper(ds, ax):
             ch = ds.channum
             g = ds.good()
             b = np.logical_not(g)
-            
+
             x_g = getattr(ds, x_attr)[g][::down]
             x_b = getattr(ds, x_attr)[b][::down]
             y_g = getattr(ds, y_attr)[g][::down]
             y_b = getattr(ds, y_attr)[b][::down]
-    
+
             if x_attr == 'p_timestamp':
                 x_g = (x_g - getattr(ds, x_attr)[0]) / (60*60)
                 x_b = (x_b - getattr(ds, x_attr)[0]) / (60*60)
-        
+
             plt.plot(x_b, y_b, '.', markersize=2.5, color='gray')
             plt.plot(x_g, y_g, '.', markersize=2.5, color='blue')
-    
-            if lines != None:
+
+            if lines is not None:
                 x_lo = min(np.amin(x_g), np.amin(x_b))
                 x_hi = max(np.amax(x_g), np.amax(x_b))
                 for line in lines[ch]:
                     plt.plot([x_lo, x_hi], [line, line], '--k')
-    
-            if x_range != None:
+
+            if x_range is not None:
                 plt.xlim(x_range)
-            if y_range != None:
+            if y_range is not None:
                 plt.ylim(y_range)
-    
+
             if x_attr == 'p_timestamp':
                 plt.xlabel('Time (hours)')
             else:
@@ -1311,26 +1312,27 @@ class TESGroup(CutFieldMixin, GroupLooper):
             plt.ylabel(y_attr, fontsize=8)
             ax.tick_params(axis='both', labelsize=8)
             plt.title('MATTER Ch%d' % ch, fontsize=10)
-    
+
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)
-    
-    def plot_histogram_pages(self, attr, range, bins, y_range=None, subplot_shape=(3,4), suffix=None, lines=None, format='png', one_file=False):
+
+    def plot_histogram_pages(self, attr, range, bins, y_range=None, subplot_shape=(3, 4),
+                             suffix=None, lines=None, format='png', one_file=False):
         '''Make plots of histograms for all channels.
-    
+
         This creates the plots for each good channel, placing multiple plots on
         each page, and saves each page to its own file. Only pulses that pass cuts
         are included. The file names have the form "<attr>-hist-<suffix>-<page
         number>.png". The default value for the suffix is that pulsefile's base
         name.
-        
+
         Arguments:
           attr -- string containing name of attribute to plot
           range -- range of value over which to histogram (passed into histogram function)
           bins -- number of bins (passed into histogram function)
           y_range -- if not None, values to use for y limits. Defaults to None.
           subplot_shape -- tuple indicating shape of subplots. First element is
-                           number of rows, second is number of columns. 
+                           number of rows, second is number of columns.
           suffix -- suffix to use for filenames. Defaults to None, which causes the
                     function to use the first 15 characters of the pulse filename
                     for the first data set (which typically will have a value
@@ -1347,39 +1349,39 @@ class TESGroup(CutFieldMixin, GroupLooper):
                       `convert` to combine the files. You can install it on ubuntu
                       via `apt-get install imagemagick`.
         '''
-        if suffix == None:
+        if suffix is None:
             suffix = os.path.basename(self.channels[0].datafile.filename)[:15]
-    
+
         filename_template_per_file = '%s-hist-%s-%%03d.%s' % (attr, suffix, format)
         filename_template_glob = '%s-hist-%s-[0-9][0-9][0-9].%s' % (attr, suffix, format)
         filename_one_file = '%s-hist-%s.pdf' % (attr, suffix)
-    
+
         def helper(ds, ax):
             ch = ds.channum
             g = ds.good()
-            
+
             x_g = getattr(ds, attr)[g]
-    
+
             # I generally prefer the "stepped" histtype, but that seems to interact
             # poorly with log scale - the automatic choice of axus limites gets
             # screwed up.
             plt.hist(x_g, range=range, bins=bins, histtype='bar')
             plt.yscale('log')
-    
-            if lines != None:
+
+            if lines is not None:
                 x_lo = min(np.amin(x_g), np.amin(x_b))
                 x_hi = max(np.amax(x_g), np.amax(x_b))
                 for line in lines[k]:
                     plt.plot([x_lo, x_hi], [line, line], '-k')
-    
-            if y_range != None:
+
+            if y_range is not None:
                 plt.ylim(y_range)
-    
+
             plt.xlabel(attr, fontsize=8)
             plt.ylabel('Counts / bin', fontsize=8)
             ax.tick_params(axis='both', labelsize=8)
             plt.title('MATTER Ch%d' % ch, fontsize=10)
-    
+
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)
 

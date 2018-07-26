@@ -38,13 +38,14 @@ class Test_MnKA_distribution(unittest.TestCase):
         self.assertAlmostEqual(quartiles[2], 5899.0, 0)
 
     def test_location_against_STANDARD_FEATUES(self):
-        for (name,spectrum_class) in mass.spectrum_classes.items():
+        for (name, spectrum_class) in mass.spectrum_classes.items():
             if spectrum_class.element == "AlOx":
                 continue
-            result = np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name])<0.5
+            result = np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name]) < 0.5
             if not result:
-                print("{} spectrum_class.nominal_peak_energy={}, mass.STANDARD_FEATURES={}, abs diff={}".format(name,spectrum_class.nominal_peak_energy,mass.STANDARD_FEATURES[name],
-                np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name])))
+                print("{} spectrum_class.nominal_peak_energy={}, mass.STANDARD_FEATURES={}, abs diff={}".format(
+                    name, spectrum_class.nominal_peak_energy, mass.STANDARD_FEATURES[name],
+                    np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name])))
             self.assertTrue(result)
             # test that basic funtionatiliy works for all instances
             spectrum = spectrum_class()
@@ -52,8 +53,7 @@ class Test_MnKA_distribution(unittest.TestCase):
             v = spectrum(spectrum.peak_energy)
             s = spectrum.reference
             # check that normalize intensities sum to 1
-            self.assertAlmostEqual(1,spectrum.normalized_lorentzian_integral_intensity.sum())
-
+            self.assertAlmostEqual(1, spectrum.normalized_lorentzian_integral_intensity.sum())
 
 
 if __name__ == "__main__":
