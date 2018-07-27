@@ -278,10 +278,6 @@ def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=F
 
     ex = float(ex)
     ey = float(ey)
-#    a = ks_statistic(search_range[0], s1, s2, ex, ey)
-#    b = ks_statistic(1.0, s1, s2, ex, ey)
-#    c = ks_statistic(search_range[1], s1, s2, ex, ey)
-#    print 'a,b,c=', a, b, c
 
     best_scale, best_ks_stat, _iter, funcalls = \
         sp.optimize.brent(ks_statistic, args=(s1, s2, ex, ey),

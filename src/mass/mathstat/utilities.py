@@ -179,17 +179,18 @@ def find_range_randomly(A, nl, q=1):
     Review* v53 #2 (2011) pp217-288. http://epubs.siam.org/doi/abs/10.1137/090771806
     """
     if q < 0:
-        msg = "The number of power iterations q=%d needs to be at least 0"%q
+        msg = "The number of power iterations q=%d needs to be at least 0" % q
         raise ValueError(msg)
     A = np.asarray(A)
-    m,n = A.shape
-    Omega = np.random.standard_normal((n,nl))
+    m, n = A.shape
+    Omega = np.random.standard_normal((n, nl))
     Y = np.dot(A, Omega)
     for _ in range(q):
         Y = np.dot(A.T, Y)
         Y = np.dot(A, Y)
-    Q,R = np.linalg.qr(Y)
+    Q, R = np.linalg.qr(Y)
     return Q
+
 
 def find_svd_randomly(A, nl, q=2):
     """Find approximate SVD of matrix A using nl random vectors and
@@ -201,6 +202,6 @@ def find_svd_randomly(A, nl, q=2):
     """
     Q = find_range_randomly(A, nl, q=q)
     B = np.dot(Q.T, A)
-    u_b,w,v = np.linalg.svd(B, 0)
+    u_b, w, v = np.linalg.svd(B, 0)
     u = np.dot(Q, u_b)
-    return u,w,v
+    return u, w, v

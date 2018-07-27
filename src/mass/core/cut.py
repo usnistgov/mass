@@ -450,7 +450,7 @@ class Cuts(object):
                         elif b is not None:
                             index = data[:] <= b
                         cut_vec[index] = False
-                    except:
+                    except Exception:
                         raise ValueError(
                             '%s passed as a cut element, only two element lists or tuples are valid' %
                             str(element))

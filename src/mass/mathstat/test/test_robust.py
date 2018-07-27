@@ -178,5 +178,6 @@ class Test_Qscale(unittest.TestCase):
             self.assertIsNotNone(qf)
             self.assertAlmostEqual(qs, qf, 5)
 
+
 if __name__ == "__main__":
     unittest.main()

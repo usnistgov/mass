@@ -324,5 +324,6 @@ class Test_Issue_125(unittest.TestCase):
         guess = [20, 5898, 1.0, 100, 20, 0, 0.1, .25]
         _ = fitter.fit(contents, x, guess, vary_tail=True)
 
+
 if __name__ == "__main__":
     unittest.main()

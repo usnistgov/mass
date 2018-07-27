@@ -138,7 +138,7 @@ class TestFilters(ut.TestCase):
         ds.compute_newfilter(f_3db=5000)
         ds.read_segment(0)
         NP = 50
-        d = np.array(ds.data[:NP, 1:]) # NP pulses, cutting first sample
+        d = np.array(ds.data[:NP, 1:])  # NP pulses, cutting first sample
         filt_ref = ds.filter.filt_noconst
 
         # Test that filters actually have zero weight where they are supposed to.
@@ -151,9 +151,9 @@ class TestFilters(ut.TestCase):
                 resultsA = np.dot(d, f)
 
                 d2 = np.array(d)
-                if pre>0:
+                if pre > 0:
                     d2[:, :pre] = np.random.standard_normal((NP, pre))
-                if post>0:
+                if post > 0:
                     d2[:, -post:] = np.random.standard_normal((NP, post))
                 resultsB = np.dot(d2, f)
                 self.assertTrue(np.allclose(resultsA, resultsB))
@@ -163,8 +163,8 @@ class TestFilters(ut.TestCase):
         N, n_pre = ds.nSamples, ds.nPresamples
         dt = ds.timebase
 
-        pulse = np.zeros((N,1), dtype=float)
-        pulse[:,0] = ds.average_pulse[:]
+        pulse = np.zeros((N, 1), dtype=float)
+        pulse[:, 0] = ds.average_pulse[:]
         noise = np.exp(-np.arange(N)*.01)
         filterL = mass.ArrivalTimeSafeFilter(pulse, n_pre, noise_autocorr=noise, sample_time=dt)
 
@@ -186,7 +186,7 @@ class TestWhitener(ut.TestCase):
 
     def test_trivial(self):
         """Be sure that the trivial whitener does nothing."""
-        w = mass.ToeplitzWhitener([1.0], [1.0]) # the trivial whitener
+        w = mass.ToeplitzWhitener([1.0], [1.0])  # the trivial whitener
         r = np.random.standard_normal(100)
         self.assertTrue(np.allclose(r, w(r)))
         self.assertTrue(np.allclose(r, w.solveW(r)))
@@ -195,7 +195,7 @@ class TestWhitener(ut.TestCase):
 
     def test_reversible(self):
         """Use a nontrivial whitener, and make sure that inverse operations are inverses."""
-        w = mass.ToeplitzWhitener([1.0, -1.7,0.72], [1.0, .95])
+        w = mass.ToeplitzWhitener([1.0, -1.7, 0.72], [1.0, .95])
         r = np.random.standard_normal(100)
         self.assertTrue(np.allclose(r, w.solveW(w(r))))
         self.assertTrue(np.allclose(r, w(w.solveW(r))))
@@ -217,7 +217,7 @@ class TestWhitener(ut.TestCase):
     def test_causal(self):
         """Make sure that the whitener and its inverse are causal,
         and that WT and its inverse anti-causal."""
-        w = mass.ToeplitzWhitener([1.0, -1.7,0.72], [1.0, .95])
+        w = mass.ToeplitzWhitener([1.0, -1.7, 0.72], [1.0, .95])
         Nzero = 100
         z = np.zeros(Nzero, dtype=float)
         r = np.hstack([z, np.random.standard_normal(100), z])

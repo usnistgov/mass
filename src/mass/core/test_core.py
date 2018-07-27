@@ -2,6 +2,7 @@ import tempfile
 import os.path
 
 import numpy as np
+import scipy as sp
 import os
 import shutil
 import unittest as ut
@@ -50,11 +51,12 @@ class TestFiles(ut.TestCase):
         # First a file using LJH format 2.1.0 - should raise an exception
         src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan1.ljh')
         dest_name = os.path.join(tempfile.mkdtemp(), 'foo_chan1.ljh')
+
         def func():
             ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054*500)
         self.assertRaises(Exception, func)
 
-    def run_test_ljh_truncate_timestamp(self,src_name, n_pulses_expected, timestamp, segmentsize):
+    def run_test_ljh_truncate_timestamp(self, src_name, n_pulses_expected, timestamp, segmentsize):
         dest_name = os.path.join(tempfile.mkdtemp(), 'foo_chan3.ljh')
         ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
 
@@ -107,6 +109,7 @@ class TestFiles(ut.TestCase):
         self.run_test_ljh_truncate_timestamp(src_name,   75, 1510871018591985/1e6, 1016*50)
         self.run_test_ljh_truncate_timestamp(src_name,  334, 1510871031629499/1e6, 1016*50)
 
+
 class TestTESGroup(ut.TestCase):
     """Basic tests of the TESGroup object."""
 
@@ -130,7 +133,7 @@ class TestTESGroup(ut.TestCase):
 
         try:
             data = self.load_data(clear_hdf5=False)
-        except:
+        except Exception:
             self.fail("Opening a file with all channels bad raises and Exception.")
         self.assertNotIn(1, data.good_channels)
         data.set_chan_good(1)
@@ -203,6 +206,26 @@ class TestTESGroup(ut.TestCase):
         _ = ds.read_segment(0)
         raw2 = ds.data
         self.assertTrue(np.all(rawinv == raw2))
+
+    def test_issue156(self):
+        "Make sure phase_correct works when there are too few valid bins of pulse height"
+        data = self.load_data()
+        ds = data.channel[1]
+        ds.clear_cuts()
+        ds.p_filt_value_dc[:150] = np.linspace(1, 6000.0, 150)
+        ds.p_filt_value_dc[150:] = 5898.8
+        ds.p_filt_phase[:] = np.random.standard_normal(ds.nPulses)
+        NBINS = 10
+        for lowestbin in range(5, 10):
+            data.set_chan_good(1)
+            dc = ds.p_filt_value_dc[:]
+            top = 6000.0
+            bin = np.digitize(ds.p_filt_value_dc, np.linspace(0, top, 1+NBINS))-1
+            ds.p_filt_value_dc[np.logical_or(bin >= NBINS, bin < lowestbin)] = 5898.8
+            data.phase_correct(forceNew=True)
+            if ds.channum not in data.good_channels:
+                raise ValueError("Failed issue156 test with %d valid bins (lowestbin=%d)" %
+                                 (NBINS-lowestbin, lowestbin))
 
     def test_noncontinuous_noise(self):
         "Test for issue 157: failure when noise_is_continuous=False"

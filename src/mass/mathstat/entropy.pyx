@@ -1,4 +1,4 @@
-"""
+r"""
 entropy.py
 
 Estimates of the distribution entropy computed using kernel-density estimates
@@ -41,7 +41,7 @@ ctypedef np.float64_t DTYPE_t
 
 @cython.embedsignature(True)
 cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -9999:
-    """Compute the entropy of data set `x` where the
+    r"""Compute the entropy of data set `x` where the
     kernel is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
 
     Args:
@@ -62,7 +62,7 @@ cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -99
         raise ValueError("laplace_entropy(x) needs at least 1 element in `x`.")
     if w <= 0.0:
         raise ValueError("laplace_entropy(x, w) needs `w>0`.")
-    cdef np.ndarray[DTYPE_t, ndim = 1] x = np.asarray(x_in, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] x = np.asarray(x_in, dtype=DTYPE)
 
     if approx_mode == "size":
         if N <= 200000:
@@ -78,11 +78,11 @@ cpdef double laplace_entropy(x_in, double w=1.0, approx_mode="size") except? -99
 cdef double laplace_entropy_array(np.ndarray[DTYPE_t, ndim=1] x, double w=1.0):
     cdef int i
     cdef int N = len(x)
-    cdef np.ndarray[DTYPE_t, ndim = 1] c = np.zeros(N, dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t, ndim = 1] d = np.zeros(N, dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t, ndim = 1] y = np.sort(x)/w
+    cdef np.ndarray[DTYPE_t, ndim=1] c = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] y = np.sort(x)/w
 
-    cdef np.ndarray[DTYPE_t, ndim = 1] e = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] e = np.zeros(N, dtype=DTYPE)
     cdef double stepsize = 1.0/(2*w*N)
     c[0] = stepsize
     for i in range(1, N):
@@ -120,7 +120,7 @@ cdef laplace_entropy_approx(x, w=1.0):
     cdef double db = b[1]-b[0]
     cdef int nx = int(0.5+KERNEL_WIDTH_IN_WS*w/db)
 
-    cdef np.ndarray[DTYPE_t, ndim = 1] kernel = np.zeros(2*nx+1)
+    cdef np.ndarray[DTYPE_t, ndim=1] kernel = np.zeros(2*nx+1)
     cdef double kx
     for i in range(2*nx+1):
         kx = (i-nx)*db
@@ -196,7 +196,7 @@ cdef _merge_orderedlists_arrays(np.ndarray[DTYPE_t, ndim=1] out,
 
 @cython.embedsignature(True)
 cpdef double laplace_KL_divergence(x, y, double w=1.0, approx_mode="size") except? -9999:
-    """Compute the Kullback-Leibler divergence of data set `y` from data set `x`.
+    r"""Compute the Kullback-Leibler divergence of data set `y` from data set `x`.
 
     Use kernel-density estimation, where the kernel is the Laplace kernel
     k(x) \propto exp(-abs(x-x0)/w).
@@ -213,7 +213,7 @@ cpdef double laplace_KL_divergence(x, y, double w=1.0, approx_mode="size") excep
 
 @cython.embedsignature(True)
 cpdef double laplace_cross_entropy(x, y, double w=1.0, approx_mode="size") except? -9999:
-    """`laplace_cross_entropy(x, y, w=1.0, approx_mode="size")`
+    r"""`laplace_cross_entropy(x, y, w=1.0, approx_mode="size")`
 
     Compute the cross-entropy of data set `x` from data set `y`, where the
     kernel for x is the Laplace kernel k(x) \propto exp(-abs(x-x0)/w).
@@ -282,12 +282,12 @@ cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x,
     cdef double Qstep = (1.0-Qmin_sum) / (Ny * Qstepwidth)
 
     # Initialize the vectors decayfactor, c, and d.
-    cdef np.ndarray[DTYPE_t, ndim = 1] decayfactor = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] decayfactor = np.zeros(N, dtype=DTYPE)
     for i in range(1, N):
         decayfactor[i] = exp(nodes[i-1]-nodes[i])
 
     # c requires a left-right pass over all nodes.
-    cdef np.ndarray[DTYPE_t, ndim = 1] c = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] c = np.zeros(N, dtype=DTYPE)
     cdef double stepX = 1.0/(2*Nx)
     cdef int j = 0
     if isx[0]:
@@ -301,7 +301,7 @@ cdef double laplace_cross_entropy_arrays(np.ndarray[DTYPE_t, ndim=1] x,
             c[i] += stepX
 
     # d requires a right-left pass over all nodes.
-    cdef np.ndarray[DTYPE_t, ndim = 1] d = np.zeros(N, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] d = np.zeros(N, dtype=DTYPE)
     if isx[N-1]:
         d[N-1] = stepX
     for i in range(N-2, -1, -1):
@@ -349,7 +349,7 @@ cdef laplace_cross_entropy_approx(np.ndarray[DTYPE_t, ndim=1] x,
     cdef double db = b[1]-b[0]
     cdef int nx = int(0.5+KERNEL_WIDTH_IN_WS*w/db)
 
-    cdef np.ndarray[DTYPE_t, ndim = 1] kernel = np.zeros(2*nx+1)
+    cdef np.ndarray[DTYPE_t, ndim=1] kernel = np.zeros(2*nx+1)
     cdef double kx
     for i in range(2*nx+1):
         kx = (i-nx)*db
