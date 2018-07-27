@@ -1580,7 +1580,7 @@ class MicrocalDataSet(object):
         return np.array(binctr[peaks])
 
     @_add_group_loop
-    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=False,
+    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=True,
                       kernel_width=None):
         """Apply the 2017 or 2015 phase correction method.
 

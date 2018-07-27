@@ -222,7 +222,7 @@ class TestTESGroup(ut.TestCase):
             top = 6000.0
             bin = np.digitize(ds.p_filt_value_dc, np.linspace(0, top, 1+NBINS))-1
             ds.p_filt_value_dc[np.logical_or(bin >= NBINS, bin < lowestbin)] = 5898.8
-            data.phase_correct(forceNew=True)
+            data.phase_correct(method2017=True, forceNew=True)
             if ds.channum not in data.good_channels:
                 raise ValueError("Failed issue156 test with %d valid bins (lowestbin=%d)" %
                                  (NBINS-lowestbin, lowestbin))
