@@ -204,6 +204,14 @@ class TestTESGroup(ut.TestCase):
         raw2 = ds.data
         self.assertTrue(np.all(rawinv == raw2))
 
+    def test_noncontinuous_noise(self):
+        "Test for issue 157: failure when noise_is_continuous=False"
+        src_name = 'src/mass/regression_test/regress_chan1.ljh'
+        noi_name = 'src/mass/regression_test/regress_chan1.noi'
+        data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
+        ds = data.channel[1]
+        ds.compute_noise_spectra()
+
 
 class TestTESHDF5Only(ut.TestCase):
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
