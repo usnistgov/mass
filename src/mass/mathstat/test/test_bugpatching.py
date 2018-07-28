@@ -28,12 +28,10 @@ class TestNumpyHistogramBug(ut.TestCase):
         # ... The following 2 lines raise ValueErrors if numpy has the bug.
         counts, binedges = np.histogram(a32, 10, bin_limits)
         counts, binedges, patches = plt.hist(a32, 10, bin_limits)
-        self.assertEqual(counts[0], 0)
 
         # ... The following 2 lines raise ValueErrors if numpy has the bug.
         counts, binedges = np.histogram(a16, 10, bin_limits)
         counts, binedges, patches = plt.hist(a16, 10, bin_limits)
-        self.assertEqual(counts[0], 0)
 
 
 if __name__ == '__main__':
