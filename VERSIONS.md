@@ -1,7 +1,7 @@
 ## Note on version numbers of Mass
 * **0.6.4** May-July 2018
 Fix issue 156 (phase correction with low statistics) and 157 (noise fails if
-noise records aren't continuous).
+noise records aren't continuous) and 158 (certain test failures).
 Make phase_correct method2017=True the default
 Pep-8 fixes
 
