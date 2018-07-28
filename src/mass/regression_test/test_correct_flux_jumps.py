@@ -13,6 +13,7 @@ failed_outputs = []
 good_inputs = []
 good_outputs = []
 
+
 def verify(in_vals, orig_vals, corrected):
     if not np.all(np.abs(orig_vals - corrected) < 1e-6):
         print('FAILED')
@@ -24,7 +25,6 @@ def verify(in_vals, orig_vals, corrected):
         pl.plot(corrected, '.')
         pl.plot(orig_vals, '.')
         pl.title("FAILED!!!!")
-        #raise Exception()
     else:
         good_inputs.append(in_vals)
         good_outputs.append(corrected)
@@ -36,18 +36,20 @@ def make_trend_linear(sz):
     trend = b + m*(sz/2.**12)*np.arange(sz)
     return trend
 
+
 def make_trend_poly(sz, deg):
     max_phi0 = 2
     p = np.zeros(deg+1)
-    p[:-1] = (2*max_phi0*np.random.rand(deg) - max_phi0) * 2.**12 * (1./sz)**(np.arange(deg,0,-1))
+    p[:-1] = (2*max_phi0*np.random.rand(deg) - max_phi0) * 2.**12 * (1./sz)**(np.arange(deg, 0, -1))
     p[-1] = 2**14 + np.random.randint(0, 2*2**14)
     trend = np.polyval(p, np.arange(sz))
     return trend
 
+
 def make_trend_poly_plus_sine(sz, deg):
     max_phi0 = 2
     p = np.zeros(deg+1)
-    p[:-1] = (0.1*max_phi0*np.random.rand(deg) - 0.05*max_phi0) * 2.**12 * (1./sz)**(np.arange(deg,0,-1))
+    p[:-1] = (0.1*max_phi0*np.random.rand(deg) - 0.05*max_phi0) * 2.**12 * (1./sz)**(np.arange(deg, 0, -1))
     p[-1] = 2**14 + np.random.randint(0, 2*2**14)
     trend = np.polyval(p, np.arange(sz))
 
@@ -59,6 +61,7 @@ def make_trend_poly_plus_sine(sz, deg):
 
     return trend
 
+
 def add_jumps(vals):
     njumps = 30
     for k in range(njumps):
@@ -66,16 +69,17 @@ def add_jumps(vals):
         vals[start:] += 2**12 * np.random.randint(-4, 5)
     return vals
 
+
 def run_tests(N):
     sz = 10000
     g = np.full(sz, True, dtype=bool)
     for k in xrange(N):
         noise = np.abs(100*np.random.randn(sz))
-        #noise += 1*np.random.standard_cauchy(sz)
         vals_orig = make_trend_poly_plus_sine(sz, 2) + noise
         vals = add_jumps(vals_orig.copy())
         new_vals = correct_flux_jumps(vals, g, 2**12)
         verify(vals, vals_orig, new_vals)
+
 
 '''
 run_tests(100)
@@ -85,5 +89,3 @@ if len(failed_inputs) == 0:
     pl.plot(good_inputs[0], '.')
     pl.plot(good_outputs[0], '.')
 '''
-
-

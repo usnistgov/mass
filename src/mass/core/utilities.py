@@ -121,17 +121,19 @@ def show_progress(name):
 
     return decorator
 
-def plot_multipage(data, subplot_shape, helper, filename_template_per_file, filename_template_glob, filename_one_file, format, one_file):
+
+def plot_multipage(data, subplot_shape, helper, filename_template_per_file,
+                   filename_template_glob, filename_one_file, format, one_file):
     '''Helper function for multipage printing. See plot_summary_pages() for an example of how to use it. '''
 
     if format == 'pdf' and one_file:
         from matplotlib.backends.backend_pdf import PdfPages
         pdf = PdfPages(filename_one_file)
-    
-    (m,n) = subplot_shape
+
+    (m, n) = subplot_shape
     plt.clf()
     for (k, ds) in enumerate(data.iter_channels()):
-        ax = plt.subplot(m,n,k%(m*n) + 1)
+        ax = plt.subplot(m, n, k % (m*n) + 1)
         helper(ds, ax)
 
         if ((k+1) % (m*n)) == 0:
@@ -139,7 +141,7 @@ def plot_multipage(data, subplot_shape, helper, filename_template_per_file, file
             if format == 'pdf' and one_file:
                 pdf.savefig()
             else:
-                plt.savefig(filename_template_per_file  % ((k+1)//(m*n)))
+                plt.savefig(filename_template_per_file % ((k+1)//(m*n)))
             plt.clf()
 
     # If final page is not full of plots, it hasn't yet been saved, so need to save it.
@@ -148,7 +150,7 @@ def plot_multipage(data, subplot_shape, helper, filename_template_per_file, file
         if format == 'pdf' and one_file:
             pdf.savefig()
         else:
-            plt.savefig(filename_template_per_file  % ((k+1)//(m*n) + 1))
+            plt.savefig(filename_template_per_file % ((k+1)//(m*n) + 1))
 
     if format == 'pdf' and one_file:
         pdf.close()

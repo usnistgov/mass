@@ -1,4 +1,10 @@
 ## Note on version numbers of Mass
+* **0.6.4** May-July 2018
+Fix issue 156 (phase correction with low statistics) and 157 (noise fails if
+noise records aren't continuous).
+Make phase_correct method2017=True the default
+Pep-8 fixes
+
 * **0.6.3** May 2018
 Refactor Fluorescence Line and Fitter Code
 Fix incorrect fitters where Chantler reported voigt peak height, such as VKalpha

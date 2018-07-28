@@ -66,7 +66,7 @@ class NISTXrayDBFile(object):
                     xrayline = NISTXrayLine(textline)
                     self.lines[xrayline.name] = xrayline
                     self.alllines.add(xrayline)
-                except:
+                except Exception:
                     continue
 
             self.loaded_filenames.append(filename)

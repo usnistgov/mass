@@ -30,14 +30,14 @@ class Test_Gaussian(unittest.TestCase):
 
     def test_failed_fit(self):
         # pass nans
-        param,covar = self.fitter.fit(np.array([np.nan]*len(self.obs)), self.x, self.params, plot=True)
+        param, covar = self.fitter.fit(np.array([np.nan]*len(self.obs)), self.x, self.params, plot=True)
         self.assertFalse(self.fitter.fit_success)
         self.assertTrue(np.isnan(self.fitter.last_fit_params[0]))
         self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][0]))
         self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][1]))
         self.assertTrue(isinstance(self.fitter.failed_fit_exception, Exception))
-        self.assertTrue(all([self.params[i]==self.fitter.failed_fit_params[i] for i in range(len(self.params))]))
-
+        self.assertTrue(all([self.params[i] == self.fitter.failed_fit_params[i]
+                             for i in range(len(self.params))]))
 
     def test_fit(self):
         self.fitter.phscale_positive = True
@@ -122,7 +122,6 @@ class Test_MnKA(unittest.TestCase):
         plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
         plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
         self.assertTrue(self.fitter.fit_success)
-
 
     def test_basic(self):
         self.do_test()

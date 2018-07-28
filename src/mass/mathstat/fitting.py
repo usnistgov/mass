@@ -330,11 +330,6 @@ class MaximumLikelihoodHistogramFitter(object):
                 print('alpha (lambda=%f, iteration %d) is singular or has NaN:' % (lambda_coef, iter_number))
                 print('Internal: ', self.internal)
                 print('Params: ', self.params)
-                # print 'Limits up: ', self.upperbound
-                # print 'Limits dn: ', self.lowerbound
-                # print 'Free: ', self.param_free
-                # print 'Alpha-prime: ',alpha_prime
-                # print 'Beta: ', beta
                 raise ex
 
             # Did the trial succeed?

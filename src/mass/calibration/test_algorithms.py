@@ -10,6 +10,7 @@ import itertools
 
 np.random.seed(2)
 
+
 class TestAlgorithms(unittest.TestCase):
 
     def test_find_opt_assignment(self):
@@ -105,7 +106,7 @@ class TestAlgorithms(unittest.TestCase):
         spect[5] = mass.fluorescence_lines.FeKAlpha()
         spect[5].set_gauss_fwhm(6)
         e = []
-        for k,s in spect.items():
+        for k, s in spect.items():
             e.extend(s.rvs(size=num_samples[k]))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
@@ -124,7 +125,6 @@ class TestAlgorithms(unittest.TestCase):
         binsize_ev = 1.0
         fitters = multifit(ph, line_names, fit_lo_hi, np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
 
-
     def test_autocal(self):
         # generate pulseheights from known spectrum
         spect = {}
@@ -141,7 +141,7 @@ class TestAlgorithms(unittest.TestCase):
         spect[5] = mass.fluorescence_lines.FeKAlpha()
         spect[5].set_gauss_fwhm(6)
         e = []
-        for k,s in spect.items():
+        for k, s in spect.items():
             e.extend(s.rvs(size=num_samples[k]))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!

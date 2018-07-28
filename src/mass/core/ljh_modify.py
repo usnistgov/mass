@@ -161,6 +161,7 @@ def ljh_append_traces(src_name, dest_name, pulses):
             dest_fp.write(prefix)
             trace.tofile(dest_fp, sep="")
 
+
 def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None, segmentsize=None):
     """Truncate an LJH file.
 
@@ -178,17 +179,19 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
 
     Exactly one of n_pulses and timestamp must be specified.
     """
-    
-    if (n_pulses == None and timestamp == None) or (n_pulses != None and timestamp != None):
-        raise Exception("Must specify exactly one of n_pulses, timestamp. Values were %s and %s" % (str(n_pulses), str(timestamp)))
+
+    if (n_pulses is None and timestamp is None) or (n_pulses is not None and timestamp is not None):
+        msg = "Must specify exactly one of n_pulses, timestamp. Values were %s and %s" % (
+            str(n_pulses), str(timestamp))
+        raise Exception(msg)
 
     # Check for file problems, then open the input and output LJH files.
     if os.path.exists(output_filename):
         if os.path.samefile(input_filename, output_filename):
             raise ValueError("Input '%s' and output '%s' are the same file, which is not allowed." %
                              (input_filename, output_filename))
-        
-    if segmentsize == None:
+
+    if segmentsize is None:
         infile = LJHFile(input_filename)
     else:
         infile = LJHFile(input_filename, segmentsize)
@@ -199,21 +202,21 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
     with open(output_filename, "wb") as outfile:
         # write the header as a single string.
         outfile.write(b"".join(infile.header_lines))
-        
+
         # Write pulses. Stop reading segments from the original file as soon as possible.
         finished = False
         for (start, end, segnum, segdata) in infile.iter_segments():
             for i in range(start, end):
-                if (n_pulses != None and i < n_pulses) or (timestamp != None and infile.datatimes_float[i-start] <= timestamp):
+                if (n_pulses is not None and i < n_pulses) or \
+                        (timestamp is not None and infile.datatimes_float[i-start] <= timestamp):
                     prefix = struct.pack('<Q', np.uint64(infile.rowcount[i-start]))
                     outfile.write(prefix)
                     prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i-start]))
                     outfile.write(prefix)
-                    trace = infile.data[i-start,:]
+                    trace = infile.data[i-start, :]
                     trace.tofile(outfile, sep="")
                 else:
                     finished = True
                     break
             if finished:
                 break
-

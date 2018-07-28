@@ -30,6 +30,8 @@ def report(param, covar):
         if covar[i, i] == 0.0:
             txt = "HELD"
         print("%-14s %8.3f +- %7.3f   %s" % (labels[i], p, covar[i, i]**0.5, txt))
+
+
 print("""To run this demo, you need to have the ReferenceMicrocalFiles.jl package.
 Installed.
 
