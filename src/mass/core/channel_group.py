@@ -1149,7 +1149,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if channels is None:
             dsets = [ds for ds in self.iter_channels(include_badchan=include_badchan)]
         else:
-            dsets = [data.channel[c] for c in channels]
+            dsets = [self.channel[c] for c in channels]
         nplot = len(dsets)
 
         if cmap is None:
