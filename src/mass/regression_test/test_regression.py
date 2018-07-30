@@ -77,15 +77,15 @@ class TestSummaries(ut.TestCase):
         nt.assert_allclose(self.data.datasets[0].p_pulse_rms, self.d['p_pulse_rms'])
         nt.assert_allclose(self.data.datasets[0].p_rise_time, self.d['p_rise_time'])
 
-    def test_cuts(self):
+        # test_cuts
         nt.assert_equal(self.data.datasets[0].good(), self.d['good'])
         nt.assert_equal(self.data.datasets[0].bad(), self.d['bad'])
 
-    def test_post_filter(self):
-        nt.assert_allclose(self.data.datasets[0].p_filt_value, self.d['p_filt_value'])
-        nt.assert_allclose(self.data.datasets[0].p_filt_value_dc, self.d['p_filt_value_dc'])
+        # test_post_filter
+        nt.assert_allclose(self.data.datasets[0].p_filt_value, self.d['p_filt_value'], rtol=1e-6)
+        nt.assert_allclose(self.data.datasets[0].p_filt_value_dc, self.d['p_filt_value_dc'], rtol=1e-6)
 
-    def test_peak_time(self):
+        # test_peak_time:
         """Be sure that peak_time_microsec=89.0 comes out to the same answers"""
         ds = self.data.datasets[0]
         ppd1 = ds.p_postpeak_deriv[:]

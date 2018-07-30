@@ -222,10 +222,18 @@ class TestTESGroup(ut.TestCase):
             top = 6000.0
             bin = np.digitize(ds.p_filt_value_dc, np.linspace(0, top, 1+NBINS))-1
             ds.p_filt_value_dc[np.logical_or(bin >= NBINS, bin < lowestbin)] = 5898.8
-            data.phase_correct(forceNew=True)
+            data.phase_correct(method2017=True, forceNew=True)
             if ds.channum not in data.good_channels:
                 raise ValueError("Failed issue156 test with %d valid bins (lowestbin=%d)" %
                                  (NBINS-lowestbin, lowestbin))
+
+    def test_noncontinuous_noise(self):
+        "Test for issue 157: failure when noise_is_continuous=False"
+        src_name = 'src/mass/regression_test/regress_chan1.ljh'
+        noi_name = 'src/mass/regression_test/regress_chan1.noi'
+        data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
+        ds = data.channel[1]
+        ds.compute_noise_spectra()
 
 
 class TestTESHDF5Only(ut.TestCase):

@@ -23,17 +23,11 @@ class TestNumpyHistogramBug(ut.TestCase):
 
         # That worked, but histogram again with the data converted to lower precision.
         a32 = a64.astype(np.float32)
-        a16 = a64.astype(np.float16)
 
-        # ... The following 2 lines raise ValueErrors if numpy has the bug.
+        # ... The following 2 lines raise ValueErrors if numpy has the bug and
+        # the mass patch fails to fix it.
         counts, binedges = np.histogram(a32, 10, bin_limits)
         counts, binedges, patches = plt.hist(a32, 10, bin_limits)
-        self.assertEqual(counts[0], 0)
-
-        # ... The following 2 lines raise ValueErrors if numpy has the bug.
-        counts, binedges = np.histogram(a16, 10, bin_limits)
-        counts, binedges, patches = plt.hist(a16, 10, bin_limits)
-        self.assertEqual(counts[0], 0)
 
 
 if __name__ == '__main__':

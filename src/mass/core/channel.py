@@ -373,7 +373,9 @@ class NoiseRecords(object):
                                                      max_excursion=max_excursion)
 
         else:
-            if n_lags is not None and n_lags > self.nSamples:
+            if n_lags is None:
+                n_lags = self.nSamples
+            if n_lags > self.nSamples:
                 raise ValueError("The autocorrelation requires "
                                  "n_lags<=%d when data are not continuous" % self.nSamples)
 
@@ -414,7 +416,7 @@ class NoiseRecords(object):
 
             ac /= records_used
             ac /= self.nSamples - np.arange(self.nSamples, dtype=np.float)
-            if n_lags is not None and n_lags < self.nSamples:
+            if n_lags < self.nSamples:
                 ac = ac[:n_lags]
             self.autocorrelation[:] = ac
 
@@ -1373,7 +1375,7 @@ class MicrocalDataSet(object):
                 (default None).
             forceNew (bool): whether to recompute if it already exists (default False).
         """
-        if n_lags is None:
+        if n_lags is None and self.noise_records.continuous:
             n_lags = self.nSamples
         if forceNew or all(self.noise_autocorr[:] == 0):
             self.noise_records.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
@@ -1578,7 +1580,7 @@ class MicrocalDataSet(object):
         return np.array(binctr[peaks])
 
     @_add_group_loop
-    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=False,
+    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=True,
                       kernel_width=None):
         """Apply the 2017 or 2015 phase correction method.
 
