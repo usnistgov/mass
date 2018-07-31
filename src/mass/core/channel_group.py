@@ -415,6 +415,14 @@ class TESGroup(CutFieldMixin, GroupLooper):
             self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] =  \
                 np.asarray(new_comment, dtype=np.bytes_)
 
+    def set_all_chan_good(self):
+        """Set all channels to be good."""
+        # Must do it this way so that you aren't iterating over a list while
+        # also changing that list
+        bad_chan_list = [ch for ch in self._bad_channums]
+        for channum in bad_chan_list: 
+            self.set_chan_good(channum)
+
     def n_good_channels(self):
         return self.n_channels - len(self._bad_channums.keys())
 
