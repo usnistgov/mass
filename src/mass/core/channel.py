@@ -697,6 +697,7 @@ class MicrocalDataSet(object):
                           'promptness', 'rise_time', 'postpeak_deriv',
                           'filt_phase', 'filt_phase_corr', 'filt_value', 'filt_value_dc',
                           'filt_value_phc', 'filt_value_tdc',
+                          'xtalk_overlap_mean', 'xtalk_overlap_rms', 'xtalk_overlap_peak', 
                           'energy')
         uint16_fields = ('peak_index', 'peak_value', 'min_value')
         int64_fields = ('rowcount',)
