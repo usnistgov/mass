@@ -154,6 +154,12 @@ class TestAlgorithms(unittest.TestCase):
         auto_cal.autocal()
         auto_cal.diagnose()
 
+    def test_fitter_classes(self):
+        self.assertEqual(mass.calibration.MnKAlphaFitter,
+                         mass.calibration.fitter_classes.get("MnKAlpha",mass.calibration.GaussianFitter))
+        self.assertEqual(mass.calibration.GaussianFitter,
+                         mass.calibration.fitter_classes.get(1100,mass.calibration.GaussianFitter))
+
 
 if __name__ == "__main__":
     unittest.main()
