@@ -172,6 +172,18 @@ class FailedFitter(object):
         return np.zeros_like(x)
 
 
+def getfitter(name):
+    """Return a histogram model fitter by line name.
+
+    Args:
+        name - a name like "MnKAlpha" or "1150"
+        "MnKAlpha" will return a MnKAlphaFitter
+        "1150" will return a GaussianFitter
+    """
+    return mass.calibration.fitter_classes.get(name,mass.calibration.GaussianFitter)()
+
+
+
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
     """
     Args:
@@ -205,8 +217,7 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
 
 def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
     counts, bin_edges = np.histogram(ph, np.arange(lo, hi, binsize_ph))
-    # get fitter from fitter_classes dictionary with fallback to GaussianFitter
-    fitter = mass.calibration.fitter_classes.get(name,mass.calibration.GaussianFitter)
+    fitter = getfitter(name)
     guess_params = fitter.guess_starting_params(counts, bin_edges)
     if not isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
         guess_params[fitter.param_meaning["dP_dE"]] = approx_dP_dE
