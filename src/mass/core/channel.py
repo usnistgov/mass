@@ -1376,14 +1376,14 @@ class MicrocalDataSet(object):
             forceNew (bool): whether to recompute if it already exists (default False).
         """
         if n_lags is None and self.noise_records.continuous:
-            n_lags = self.nSamples
+            n_lags = self.noise_records.nSamples
         if forceNew or all(self.noise_autocorr[:] == 0):
             self.noise_records.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
             self.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
             self.noise_records.clear_cache()
 
-            self.noise_autocorr[:] = self.noise_records.autocorrelation[:]
-            self.noise_psd[:] = self.noise_records.noise_psd[:]
+            self.noise_autocorr[:] = self.noise_records.autocorrelation[:len(self.noise_autocorr[:])]            
+            self.noise_psd[:] = self.noise_records.noise_psd[:len(self.noise_psd[:])]
             self.noise_psd.attrs['delta_f'] = self.noise_records.noise_psd.attrs['delta_f']
         else:
             LOG.info("chan %d skipping compute_noise_spectra because already done", self.channum)
