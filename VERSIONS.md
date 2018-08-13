@@ -1,20 +1,23 @@
 ## Note on version numbers of Mass
-* **0.6.4** May-July 2018
+
+* **0.6.5** July- 2018
+
+* **0.6.4** May-July 2018  
 Fix issue 156 (phase correction with low statistics) and 157 (noise fails if
-noise records aren't continuous) and 158 (certain test failures).
-Make phase_correct method2017=True the default
-Pep-8 fixes
+noise records aren't continuous) and 158 (certain test failures).  
+Make phase_correct method2017=True the default.  
+Pep-8 fixes.
 
-* **0.6.3** May 2018
-Refactor Fluorescence Line and Fitter Code
-Fix incorrect fitters where Chantler reported voigt peak height, such as VKalpha
-Add fluorescence.md doc file
+* **0.6.3** May 2018  
+Refactor Fluorescence Line and Fitter Code.  
+Fix incorrect fitters where Chantler reported voigt peak height, such as VKalpha.  
+Add fluorescence.md doc file.
 
-* **0.6.2** November 2017 - April 2018
-Fixed setup.py to be compatible with Pip 10.0.0+.
-Fixed some minor bugs and redundancies.
-Added ToeplitzWhitener.solveW method and tests for ToeplitzWhitener.  
-New filtering API: f_3db and fmax are set only at filter.compute() time.  
+* **0.6.2** November 2017 - April 2018  
+Fixed setup.py to be compatible with Pip 10.0.0+.  
+Fixed some minor bugs and redundancies.  
+Added ToeplitzWhitener.solveW method and tests for ToeplitzWhitener.    
+New filtering API: f_3db and fmax are set only at filter.compute() time.    
 Added arguments to ArrivalTimeSafeFilter.compute() so you can emulate shorter records.  
 Change plot_average_pulses and plot_noise to leave out bad channels by default.  
 
