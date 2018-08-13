@@ -180,14 +180,8 @@ def getfitter(name):
         "MnKAlpha" will return a MnKAlphaFitter
         "1150" will return a GaussianFitter
     """
-    try:
-        class_name = name+"Fitter"
-        fitter = getattr(mass.calibration.line_fits, class_name)()
-    except AttributeError:
-        fitter = mass.calibration.line_fits.GaussianFitter()
-    except TypeError:
-        fitter = mass.calibration.line_fits.GaussianFitter()
-    return fitter
+    return mass.calibration.fitter_classes.get(name,mass.calibration.GaussianFitter)()
+
 
 
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
