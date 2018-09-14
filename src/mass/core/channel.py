@@ -31,6 +31,82 @@ from mass.core import ljh_util
 import logging
 LOG = logging.getLogger("mass")
 
+def isin(element, test_elements, assume_unique=False, invert=False):
+    """
+    Calculates `element in test_elements`, broadcasting over `element` only.
+    Returns a boolean array of the same shape as `element` that is True
+    where an element of `element` is in `test_elements` and False otherwise.
+    Parameters
+    ----------
+    element : array_like
+        Input array.
+    test_elements : array_like
+        The values against which to test each value of `element`.
+        This argument is flattened if it is an array or array_like.
+        See notes for behavior with non-array-like parameters.
+    assume_unique : bool, optional
+        If True, the input arrays are both assumed to be unique, which
+        can speed up the calculation.  Default is False.
+    invert : bool, optional
+        If True, the values in the returned array are inverted, as if
+        calculating `element not in test_elements`. Default is False.
+        ``np.isin(a, b, invert=True)`` is equivalent to (but faster
+        than) ``np.invert(np.isin(a, b))``.
+    Returns
+    -------
+    isin : ndarray, bool
+        Has the same shape as `element`. The values `element[isin]`
+        are in `test_elements`.
+    See Also
+    --------
+    in1d                  : Flattened version of this function.
+    numpy.lib.arraysetops : Module with a number of other functions for
+                            performing set operations on arrays.
+    Notes
+    -----
+    `isin` is an element-wise function version of the python keyword `in`.
+    ``isin(a, b)`` is roughly equivalent to
+    ``np.array([item in b for item in a])`` if `a` and `b` are 1-D sequences.
+    `element` and `test_elements` are converted to arrays if they are not
+    already. If `test_elements` is a set (or other non-sequence collection)
+    it will be converted to an object array with one element, rather than an
+    array of the values contained in `test_elements`. This is a consequence
+    of the `array` constructor's way of handling non-sequence collections.
+    Converting the set to a list usually gives the desired behavior.
+    .. versionadded:: 1.13.0
+    Examples
+    --------
+    >>> element = 2*np.arange(4).reshape((2, 2))
+    >>> element
+    array([[0, 2],
+           [4, 6]])
+    >>> test_elements = [1, 2, 4, 8]
+    >>> mask = np.isin(element, test_elements)
+    >>> mask
+    array([[ False,  True],
+           [ True,  False]])
+    >>> element[mask]
+    array([2, 4])
+    >>> mask = np.isin(element, test_elements, invert=True)
+    >>> mask
+    array([[ True, False],
+           [ False, True]])
+    >>> element[mask]
+    array([0, 6])
+    Because of how `array` handles sets, the following does not
+    work as expected:
+    >>> test_set = {1, 2, 4, 8}
+    >>> np.isin(element, test_set)
+    array([[ False, False],
+           [ False, False]])
+    Casting the set to a list gives the expected result:
+    >>> np.isin(element, list(test_set))
+    array([[ False,  True],
+           [ True,  False]])
+    """
+    element = np.asarray([e for e in element])
+    return np.in1d(element, test_elements, assume_unique=assume_unique, invert=invert).reshape(element.shape)
+
 
 class NoiseRecords(object):
     """Encapsulate a set of noise records.
@@ -2241,28 +2317,36 @@ class MicrocalDataSet(object):
                         subgroupName = nn_channel_key + '/' + neighborCategory
                         subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
                         # Remove duplicates, sort
-                        selectNeighbors = subgroupNeighbors[:, 0][np.isin(subgroupNeighbors[:, 2], nearestNeighborsDistances)]
+                        selectNeighbors = subgroupNeighbors[:, 0][isin(subgroupNeighbors[:, 2], nearestNeighborsDistances)]
                         combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, selectNeighbors).astype(int))
-                    if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
+                    combinedNearestNeighbors = combinedNearestNeighbors[combinedNearestNeighbors != self.channum]
+                    if np.sum(isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
+                        # LOG.info('Ch %d Found %d neighbors', self.channum, np.sum(isin(self.tes_group.channel.keys(), selectNeighbors)))
+                        print('combinedNearestNeighbors', combinedNearestNeighbors)
                         h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
                     else:
+                        h5grp[crosstalk_key][:] = np.zeros(self.nPulses, dtype=bool)
                         msg = "Channel %d skipping crosstalk cuts: no nearest neighbors matching criteria" % self.channum
                         LOG.info(msg)
 
                 else:
+                    h5grp[crosstalk_key][:] = np.zeros(self.nPulses, dtype=bool)
                     for neighborCategory in self.hdf5_group[nn_channel_key]:
                         categoryField = str(crosstalk_key + '_' + neighborCategory)
                         subgroupName = nn_channel_key + '/' + neighborCategory
                         subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
-                        selectNeighbors = subgroupNeighbors[:, 0][np.isin(subgroupNeighbors[:, 2], nearestNeighborsDistances)]
-                        if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
-                            LOG.info('Checking crosstalk between channel %d and %s neighbors...' % (
-                                self.channum, neighborCategory))
+                        selectNeighbors = subgroupNeighbors[:, 0][isin(subgroupNeighbors[:, 2], nearestNeighborsDistances)]
+                        selectNeighbors = selectNeighbors[selectNeighbors != self.channum]
+                        if np.sum(isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
+                            LOG.info('Checking crosstalk between channel %d and %s neighbors %s field %s ...' %
+                                     (self.channum, neighborCategory, selectNeighbors, categoryField))
                             h5grp[categoryField][:] = crosstalk_flagging_loop(selectNeighbors)
                             h5grp[crosstalk_key][:] = np.logical_or(h5grp[crosstalk_key], h5grp[categoryField])
                         else:
+                            h5grp[categoryField][:] = np.zeros(self.nPulses, dtype=bool)
+                            h5grp[crosstalk_key][:] = np.logical_or(h5grp[crosstalk_key], h5grp[categoryField])
                             msg = "channel %d skipping %s crosstalk cuts because" % (self.channum, neighborCategory)
-                            msg = msg * " no nearest neighbors matching criteria in category"
+                            msg = msg + " no nearest neighbors matching criteria in category"
                             LOG.info(msg)
 
             else:
