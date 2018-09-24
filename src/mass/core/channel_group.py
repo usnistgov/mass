@@ -420,7 +420,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # Must do it this way so that you aren't iterating over a list while
         # also changing that list
         bad_chan_list = [ch for ch in self._bad_channums]
-        for channum in bad_chan_list: 
+        for channum in bad_chan_list:
             self.set_chan_good(channum)
 
     def n_good_channels(self):
@@ -950,7 +950,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 else:
                     f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
                 ds.filter = f
-                yield (ds_num + 1) / float(self.n_channels)
 
                 # Store all filters created to a new HDF5 group
                 h5grp = ds.hdf5_group.require_group('filters')
@@ -967,27 +966,10 @@ class TESGroup(CutFieldMixin, GroupLooper):
                         del h5grp[k]
                     if getattr(f, k, None) is not None:
                         vec = h5grp.create_dataset(k, data=getattr(f, k))
-                        vec.attrs['variance'] = f.variances.get(k.split('filt_')[1], 0.0)
-                        vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv.get(k.split('filt_')[1], 0.0)
-            else:
-                LOG.info("chan %d skipping compute_filter because already done, and loading filter",
-                         ds.channum)
-                h5grp = ds.hdf5_group['filters']
-                ds.filter = Filter(ds.average_pulse[...], self.nPresamples - ds.pretrigger_ignore_samples,
-                                   ds.noise_psd[...], ds.noise_autocorr[...], sample_time=self.timebase, shorten=2)
-                ds.filter.peak_signal = h5grp.attrs['peak']
-                ds.filter.shorten = h5grp.attrs['shorten']
-                ds.filter.f_3db = h5grp.attrs['f_3db'] if 'f_3db' in h5grp.attrs else None
-                ds.filter.fmax = h5grp.attrs['fmax'] if 'fmax' in h5grp.attrs else None
-                ds.filter.variances = {}
-                for name in h5grp:
-                    if name.startswith("filt_"):
-                        setattr(ds.filter, name, h5grp[name][:])
-                        if 'variance' in h5grp[name].attrs:
-                            ds.filter.variances[name] = h5grp[name].attrs['variance']
-                        if 'predicted_v_over_dv' in h5grp[name].attrs:
-                            ds.filter.predicted_v_over_dv[name] = \
-                                h5grp[name].attrs['predicted_v_over_dv']
+                        shortname = k.split('filt_')[1]
+                        vec.attrs['variance'] = f.variances.get(shortname, 0.0)
+                        vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv.get(shortname, 0.0)
+                yield (ds_num + 1) / float(self.n_channels)
 
     def plot_filters(self, axis=None, channels=None, cmap=None,
                      filtname="filt_noconst", legend=True):

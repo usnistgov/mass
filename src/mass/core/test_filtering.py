@@ -104,8 +104,8 @@ class TestFilters(ut.TestCase):
         self.verify_filters(data2, newstyle)
         ds = data2.channel[1]
         filter2 = ds.filter
-        self.assertEqual(type(filter1), type(filter2))
         self.assertEqual(newstyle, ds._use_new_filters)
+        self.assertEqual(type(filter1), type(filter2))
         if newstyle:
             for ds in self.data:
                 self.assertIsNotNone(ds.filter.filt_aterms)
