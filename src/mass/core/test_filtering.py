@@ -69,7 +69,11 @@ class TestFilters(ut.TestCase):
         for ds in self.data:
             ds._use_new_filters = newstyle
         self.data.compute_filters(f_3db=10000, forceNew=True)
-        for ds in self.data:
+        self.verify_filters(self.data, newstyle)
+
+    def verify_filters(self, data, newstyle):
+        "Check that the filters contain what we expect"
+        for ds in data:
             f = ds.filter
             self.assertIn("noconst", f.variances)
             self.assertIn("noconst", f.predicted_v_over_dv)
@@ -95,6 +99,9 @@ class TestFilters(ut.TestCase):
         pf = ds.filename
         nf = ds.noise_records.filename
         data2 = mass.TESGroup(pf, nf)
+        self.verify_filters(data2, newstyle)
+        data2.compute_filters()
+        self.verify_filters(data2, newstyle)
         ds = data2.channel[1]
         filter2 = ds.filter
         self.assertEqual(type(filter1), type(filter2))
