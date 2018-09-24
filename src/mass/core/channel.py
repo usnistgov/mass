@@ -1382,7 +1382,7 @@ class MicrocalDataSet(object):
             self.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
             self.noise_records.clear_cache()
 
-            self.noise_autocorr[:] = self.noise_records.autocorrelation[:len(self.noise_autocorr[:])]            
+            self.noise_autocorr[:] = self.noise_records.autocorrelation[:len(self.noise_autocorr[:])]
             self.noise_psd[:] = self.noise_records.noise_psd[:len(self.noise_psd[:])]
             self.noise_psd.attrs['delta_f'] = self.noise_records.noise_psd.attrs['delta_f']
         else:
@@ -2414,7 +2414,7 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         x = phase_indicator[use]
         y = pulse_heights[use]
         NBINS = len(x) // 300
-        NBINS = max(2, NBINS)
+        NBINS = max(3, NBINS)
         NBINS = min(12, NBINS)
 
         bin_edge = np.linspace(low_phase, high_phase, NBINS+1)
@@ -2427,13 +2427,13 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         yknot = np.zeros(NBINS, dtype=float)
         iter1 = 0
         for i in range(NBINS):
-            yu = y[bins == i]
-            yo = y[bins != i]
             knots[i] = np.median(x[bins == i])
 
             def target(shift):
-                return mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
-            brack = 0.002*np.array([-1, 1], dtype=float)
+                yadj = y.copy()
+                yadj[bins == i] += shift
+                return mass.mathstat.entropy.laplace_entropy(yadj, kernel_width)
+            brack = 0.003*np.array([-1, 1], dtype=float)
             sbest, KLbest, niter, _ = sp.optimize.brent(target, (), brack=brack, full_output=True, tol=3e-4)
             iter1 += niter
             yknot[i] = sbest
@@ -2445,11 +2445,10 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         iter2 = 0
         yknot2 = np.zeros(NBINS, dtype=float)
         for i in range(NBINS):
-            yu = ycorr[bins == i]
-            yo = ycorr[bins != i]
-
             def target(shift):
-                return mass.mathstat.entropy.laplace_cross_entropy(yo, yu+shift, kernel_width)
+                yadj = ycorr.copy()
+                yadj[bins == i] += shift
+                return mass.mathstat.entropy.laplace_entropy(yadj, kernel_width)
             brack = 0.002*np.array([-1, 1], dtype=float)
             sbest, KLbest, niter, _ = sp.optimize.brent(target, (), brack=brack, full_output=True, tol=1e-4)
             iter2 += niter
@@ -2460,6 +2459,8 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         H2 = mass.mathstat.entropy.laplace_entropy(y+correction(x), kernel_width)
         LOG.info("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)",
                  H0, H1, H2, iter1, iter2, NBINS)
+        print yknot, yknot2
+        print yknot+yknot2
 
         curve = mass.CubicSpline(knots-median_phase, peak-(yknot+yknot2))
         return curve, median_phase
