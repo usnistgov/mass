@@ -1538,47 +1538,6 @@ class MicrocalDataSet(object):
             plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
             plt.figure(fnum)
 
-    def _find_peaks_heuristic(self, phnorm):
-        """A heuristic method to identify the peaks in a spectrum.
-
-        This can be used to design the arrival-time-bias correction. Of course,
-        you might have better luck finding peaks by an experiment-specific
-        method, but this will stand in if you cannot or do not want to find
-        peaks another way.
-
-        Args:
-            phnorm: a vector of pulse heights, found by whatever means you like.
-                Normally it will be the self.p_filt_value_dc AFTER CUTS.
-
-        Returns:
-            ndarray of the various peaks found in the input vector.
-        """
-        median_scale = np.median(phnorm)
-
-        # First make histogram with bins = 0.2% of median PH
-        hist, bins = np.histogram(phnorm, 1000, [0, 2*median_scale])
-        binctr = bins[1:] - 0.5 * (bins[1] - bins[0])
-
-        # Scipy continuous wavelet transform
-        pk1 = np.array(sp.signal.find_peaks_cwt(hist, np.array([2, 4, 8, 12])))
-
-        # A peak must contain 0.5% of the data or 500 events, whichever is more,
-        # but the requirement is not more than 5% of data (for meager data sets)
-        Ntotal = len(phnorm)
-        MinCountsInPeak = min(max(500, Ntotal//200), Ntotal//20)
-        pk2 = pk1[hist[pk1] > MinCountsInPeak]
-
-        # Now take peaks from highest to lowest, provided they are at least 40 bins from any neighbor
-        ordering = hist[pk2].argsort()
-        pk2 = pk2[ordering]
-        peaks = [pk2[0]]
-
-        for pk in pk2[1:]:
-            if (np.abs(peaks-pk) > 10).all():
-                peaks.append(pk)
-        peaks.sort()
-        return np.array(binctr[peaks])
-
     @_add_group_loop
     def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=True,
                       kernel_width=None):
@@ -1588,7 +1547,7 @@ class MicrocalDataSet(object):
             forceNew (bool): whether to recompute if it already exists (default False).
             category (dict): if not None, then a dict giving a category name and the
                 required category label.
-            ph_peaks:  Peaks to use for alignment. If None, then use self._find_peaks_heuristic()
+            ph_peaks:  Peaks to use for alignment. If None, then use _find_peaks_heuristic()
             kernel_width: Width (in PH units) of the kernel-smearing function. If None, use a heuristic.
         """
 
@@ -1602,7 +1561,7 @@ class MicrocalDataSet(object):
         good = self.cuts.good(**category)
 
         if ph_peaks is None:
-            ph_peaks = self._find_peaks_heuristic(self.p_filt_value_dc[good])
+            ph_peaks = _find_peaks_heuristic(self.p_filt_value_dc[good])
         if len(ph_peaks) <= 0:
             LOG.info("Could not phase_correct on chan %3d because no peaks", self.channum)
             return
@@ -1669,12 +1628,6 @@ class MicrocalDataSet(object):
             else:
                 def phase_corrector(x): return 0.0*x
         self.p_filt_phase_corr[:] = self.p_filt_phase[:] - phase_corrector(self.p_filt_value_dc[:])
-        return self._apply_phase_correction(category=category)
-
-    def _apply_phase_correction(self, category=None):
-        if category is None:
-            category = {"calibration": "in"}
-        good = self.cuts.good(**category)
 
         # Compute a correction for each pulse for each correction-line energy
         # For the actual correction, don't let |ph| > 0.6 sample
@@ -2391,6 +2344,48 @@ class MicrocalDataSet(object):
 # Below here, these are functions that we might consider moving to Cython for speed.
 # But at any rate, they do not require any MicrocalDataSet attributes, so they are
 # pure functions, not methods.
+
+
+def _find_peaks_heuristic(phnorm):
+    """A heuristic method to identify the peaks in a spectrum.
+
+    This can be used to design the arrival-time-bias correction. Of course,
+    you might have better luck finding peaks by an experiment-specific
+    method, but this will stand in if you cannot or do not want to find
+    peaks another way.
+
+    Args:
+        phnorm: a vector of pulse heights, found by whatever means you like.
+            Normally it will be the self.p_filt_value_dc AFTER CUTS.
+
+    Returns:
+        ndarray of the various peaks found in the input vector.
+    """
+    median_scale = np.median(phnorm)
+
+    # First make histogram with bins = 0.2% of median PH
+    hist, bins = np.histogram(phnorm, 1000, [0, 2*median_scale])
+    binctr = bins[1:] - 0.5 * (bins[1] - bins[0])
+
+    # Scipy continuous wavelet transform
+    pk1 = np.array(sp.signal.find_peaks_cwt(hist, np.array([2, 4, 8, 12])))
+
+    # A peak must contain 0.5% of the data or 500 events, whichever is more,
+    # but the requirement is not more than 5% of data (for meager data sets)
+    Ntotal = len(phnorm)
+    MinCountsInPeak = min(max(500, Ntotal//200), Ntotal//20)
+    pk2 = pk1[hist[pk1] > MinCountsInPeak]
+
+    # Now take peaks from highest to lowest, provided they are at least 40 bins from any neighbor
+    ordering = hist[pk2].argsort()
+    pk2 = pk2[ordering]
+    peaks = [pk2[0]]
+
+    for pk in pk2[1:]:
+        if (np.abs(peaks-pk) > 10).all():
+            peaks.append(pk)
+    peaks.sort()
+    return np.array(binctr[peaks])
 
 
 def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
