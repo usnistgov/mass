@@ -239,6 +239,12 @@ class EnergyCalibrationAutocal(object):
         if not isinstance(calibration, EnergyCalibration):
             raise ValueError("EnergyCalibrationAutocal requires an EnergyCalibration calibration.")
         self.calibration = calibration
+        # store a reference to EnergyCalibrationAutocal in self.calibration
+        # because we want to be able to run diagnose, and examine fits later, even though
+        # normally only self.calibration is stored later in mass
+        # this isn't the best API, but I was able to add it without changing any APIs so nothing breaks
+        self.calibration.autocal = self
+        self.calibration.diagnose = self.diagnose
         self.fitters = None
         self.energy_resolutions = None
         self.line_names = line_names
