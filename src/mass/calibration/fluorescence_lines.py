@@ -80,7 +80,7 @@ class SpectralLine(sp.stats.rv_continuous):
         components - True plots each voigt component in addition to the spectrum
         label - a string to label the plot with (optional)"""
         if x is None:
-            width = 3*np.amax(self.lorentzian_fwhm)
+            width = max(2*self.pdf_gaussian_fwhm,3*np.amax(self.lorentzian_fwhm))
             lo = np.amin(self.energies)-width
             hi = np.amax(self.energies)+width
             x = np.arange(lo, hi, 0.1)
@@ -273,7 +273,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         superclass = line_fits.GenericKAlphaFitter
     elif spectrum.linetype == "KBeta":
         superclass = line_fits.GenericKBetaFitter
-    elif "like" in spectrum.linetype:
+    elif "like" in spectrum.linetype.lower():
         #fall back to GenericKBetaFitter for Highly Charge Ions (eg O H-Like) for now
         superclass = line_fits.GenericKBetaFitter
     else:
