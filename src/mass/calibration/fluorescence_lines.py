@@ -194,6 +194,8 @@ lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Frit
     than for Cu. Those widths are based on Zschornack's book.
 
     The KBeta also appears to be a hack with scaled values."""
+lineshape_references["NIST ASD"]="""NIST Atomic Spectra Database
+Kramida, A., Ralchenko, Yu., Reader, J., and NIST ASD Team (2018). NIST Atomic Spectra Database (ver. 5.6.1), [Online]. Available: https://physics.nist.gov/asd [2018, December 12]. National Institute of Standards and Technology, Gaithersburg, MD. DOI: https://doi.org/10.18434/T4W30F """
 
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
@@ -211,8 +213,6 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT, LORENTZIAN_INTEGRAL_INTENSITY, VOIGT_PEAK_HEIGHT]
     # require the reference exists in lineshape_references
     assert reference_short in lineshape_references
-    # require that linetype is supported
-    assert linetype in ["KBeta", "KAlpha"]
     # require kalpha lines to have ka12_energy_diff
     if linetype == "KAlpha":
         ka12_energy_diff = float(ka12_energy_diff)
