@@ -273,6 +273,9 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         superclass = line_fits.GenericKAlphaFitter
     elif spectrum.linetype == "KBeta":
         superclass = line_fits.GenericKBetaFitter
+    elif "like" in spectrum.linetype:
+        #fall back to GenericKBetaFitter for Highly Charge Ions (eg O H-Like) for now
+        superclass = line_fits.GenericKBetaFitter
     else:
         raise ValueError("no generic fitter for {}".format(spectrum))
     dict = {"spect": spectrum}
