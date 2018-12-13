@@ -54,7 +54,7 @@ class TESGroupHDF5(channel_group.TESGroup):
 
     def __init__(self, h5master_fname, read_only = False):
         if not os.path.isfile(h5master_fname):
-            raise Exception("file %s does not exist",h5h5master_fname)
+            raise Exception("file %s does not exist",h5master_fname)
         elif read_only:
             self.hdf5_file = h5py.File(h5master_fname, "r")
         elif not read_only:
