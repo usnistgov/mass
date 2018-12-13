@@ -83,7 +83,7 @@ class SpectralLine(sp.stats.rv_continuous):
             width = max(2*self.pdf_gaussian_fwhm,3*np.amax(self.lorentzian_fwhm))
             lo = np.amin(self.energies)-width
             hi = np.amax(self.energies)+width
-            x = np.arange(lo, hi, 0.1)
+            x = np.linspace(lo, hi, 500)
         if axis is None:
             plt.figure()
             axis = plt.gca()
