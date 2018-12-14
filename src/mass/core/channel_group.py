@@ -339,10 +339,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if self.noise_only:
             return "{0:s}(noise={1:s}, noise_only=True)".format(self.__class__.__name__,
                                                                 os.path.dirname(self.noise_filenames[0]))
-        else:
+        elif self.noise_filenames is not None:
             return "{0:s}(pulse={1:s}, noise={2:s})".format(self.__class__.__name__,
                                                             os.path.dirname(self.filenames[0]),
                                                             os.path.dirname(self.noise_filenames[0]))
+        else:
+            return "{0:s}(pulse={1:s}, noise=None)".format(self.__class__.__name__,
+                                                            os.path.dirname(self.filenames[0]))
 
     def __iter__(self):
         """Iterator over the self.datasets in channel number order"""
