@@ -666,8 +666,14 @@ class MicrocalDataSet(object):
 
         try:
             self.hdf5_group = hdf5_group
-            self.hdf5_group.attrs['npulses'] = self.nPulses
-            self.hdf5_group.attrs['channum'] = self.channum
+            if "npulses" not in self.hdf5_group.attrs: # to allow TESGroupHDF5 with in read only mode
+                self.hdf5_group.attrs['npulses'] = self.nPulses
+            else:
+                assert self.hdf5_group.attrs['npulses'] == self.nPulses
+            if "channum" not in self.hdf5_group.attrs: # to allow TESGroupHDF5 with in read only mode
+                self.hdf5_group.attrs['channum'] = self.channum
+            else:
+                assert self.hdf5_group.attrs['channum'] == self.channum
         except KeyError:
             self.hdf5_group = None
 

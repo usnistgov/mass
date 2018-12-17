@@ -30,6 +30,8 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
     nhi = min(1000, nhi)  # A practical limit
     nlow = max(nlow, nhi)
     x_wide = np.arange(-nlow, nhi+len(x)) * dx + x[0]
+    if len(x_wide)>100000:
+        raise Exception("one of your fit parameters is probably crazy, so you're trying to fft data of length %i"%len(x_wide))
 
     freq = np.fft.rfftfreq(len(x_wide), d=dx)
     rawspectrum = cleanspectrum_fn(x_wide)
@@ -372,13 +374,12 @@ class VoigtFitter(LineFitter):
         minBG0 = self._minBG0(params, ph)
 
         self.bounds = []
-        DE = 10*(np.max(ph)-np.min(ph))
-        self.bounds.append((0, 10*DE))  # Gauss FWHM
+        self.bounds.append((0, 5*(np.max(ph)-np.min(ph))))  # Gauss FWHM
         if self.phscale_positive:
             self.bounds.append((0, None))  # PH Center
         else:
             self.bounds.append((None, None))
-        self.bounds.append((0, 10*DE))      # Lorentz FWHM
+        self.bounds.append((0, 5*(np.max(ph)-np.min(ph))))      # Lorentz FWHM
         self.bounds.append((0, None))       # Amplitude
         self.bounds.append((minBG0, None))  # Background level (bin 0)
         self.bounds.append((None, None))    # Background slope (counts/bin)
@@ -453,11 +454,10 @@ class NVoigtFitter(LineFitter):
         minBG0 = self._minBG0(params, ph)
 
         self.bounds = []
-        DE = 10*(np.max(ph)-np.min(ph))
-        self.bounds.append((0, 10*DE))  # Gauss FWHM
+        self.bounds.append((0, 5*(np.max(ph)-np.min(ph))))  # Gauss FWHM
         for _ in range(self.Nlines):
             self.bounds.append((np.min(ph), np.max(ph)))
-            self.bounds.append((0, 10*DE))  # Lorentz FWHM
+            self.bounds.append((0, 5*(np.max(ph)-np.min(ph))))  # Lorentz FWHM
             self.bounds.append((0, None))   # Amplitude
         self.bounds.append((minBG0, None))  # Background level (bin 0)
         self.bounds.append((None, None))    # Background slope (counts/bin)
@@ -546,8 +546,7 @@ class GaussianFitter(LineFitter):
         minBG0 = self._minBG0(params, ph)
 
         self.bounds = []
-        DE = 10*(np.max(ph)-np.min(ph))
-        self.bounds.append((0, 10*DE))  # Gauss FWHM
+        self.bounds.append((0, 5*(np.max(ph)-np.min(ph))))  # Gauss FWHM
         if self.phscale_positive:
             self.bounds.append((0, None))  # PH Center
         else:
@@ -618,8 +617,7 @@ class MultiLorentzianComplexFitter(LineFitter):
         minBG0 = self._minBG0(params, ph)
 
         self.bounds = []
-        DE = 10*(np.max(ph)-np.min(ph))
-        self.bounds.append((0, 10*DE))  # Gauss FWHM
+        self.bounds.append((0, 5*(np.max(ph)-np.min(ph))))  # Gauss FWHM
         if self.phscale_positive:
             self.bounds.append((0, None))  # PH Center
         else:

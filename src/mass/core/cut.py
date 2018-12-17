@@ -120,7 +120,8 @@ class CutFieldMixin(object):
                 for categorical_desc in self.BUILTIN_CATEGORICAL_CUT_FIELDS:
                     self.register_categorical_cut_field(*categorical_desc)
 
-            self.hdf5_file.attrs['cut_format_ver'] = b'2'
+            if not "cut_format_ver" in self.hdf5_file.attrs: # to allow TESGroupHDF5 with in read only mode
+                self.hdf5_file.attrs['cut_format_ver'] = b'2'
 
     @property
     def boolean_cut_desc(self):
