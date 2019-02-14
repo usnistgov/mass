@@ -212,7 +212,7 @@ VOIGT_PEAK_HEIGHT = 99999
 def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
               nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,              
               reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
-              uncertainties=None, reference_measurement_type=None):
+              position_uncertainty=0.0, reference_measurement_type=None):
 
     # require exactly one method of specifying the amplitude of each component
     assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT, LORENTZIAN_INTEGRAL_INTENSITY, VOIGT_PEAK_HEIGHT]
@@ -248,7 +248,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         "normalized_lorentzian_integral_intensity": np.array(normalized_lorentzian_integral_intensity),
         "nominal_peak_energy": float(nominal_peak_energy),
         "fitter_type": fitter_type,
-        "uncertainties": np.array(uncertainties),
+        "position_uncertainty": float(position_uncertainty),
         "reference_measurement_type": reference_measurement_type
     }
     if linetype == "KAlpha":
