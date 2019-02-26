@@ -239,6 +239,7 @@ class LineFitter(object):
         axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize, self.last_fit_bins[-1] + 0.5 * ph_binsize])
         axis.set_xlabel("energy (%s)" % ph_units)
         axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
+        axis.set_title("failed fit")
         axis.legend(loc="best", frameon=False)
 
     def plot(self, color=None, axis=None, label=True, ph_units="arb"):
