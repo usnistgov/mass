@@ -366,6 +366,15 @@ class Channel(CorG):
     def unixnano(self):
         return self.offFile["unixnano"]
 
+
+    @property
+    def pulseMean(self):
+        return self.offFile["coefs"][:,0]
+
+    @property
+    def derivativeLike(self):
+        return self.offFile["coefs"][:,1]
+
     @property
     def filtValue(self):
         return self.offFile["coefs"][:,2]
@@ -893,7 +902,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         return "ChannelGroup with {} channels".format(len(self))
 
     def firstGoodChannel(self):
-        return self[1]
+        return self[self.keys()[0]]
 
     def hist(self, binEdges, attr, states=None, g_func=None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
