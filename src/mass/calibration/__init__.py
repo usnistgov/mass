@@ -11,3 +11,5 @@ from .energy_calibration import *
 from .fluorescence_lines import *
 from .line_fits import *
 from .algorithms import *
+
+from . import _highly_charged_ion_lines

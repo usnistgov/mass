@@ -210,7 +210,7 @@ VOIGT_PEAK_HEIGHT = 99999
 
 
 def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
-              nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,              
+              nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
               reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
               position_uncertainty=0.0, reference_measurement_type=None):
 
@@ -583,7 +583,6 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-
 def plot_all_spectra():
     """Makes a bunch of plots showing the line shape and component parts for the KAlpha
     and KBeta complexes defined in here.
@@ -591,7 +590,6 @@ def plot_all_spectra():
     for name, spectrum_class in spectrum_classes.items():
         spectrum = spectrum_class()
         spectrum.plot_like_reference()
-
 
 if __name__ == "__main__":
     spectrum = MgKAlpha()

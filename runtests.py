@@ -10,6 +10,10 @@ import re
 import subprocess
 import logging
 
+
+import warnings
+warnings.filterwarnings("ignore")
+
 # Raise the logging threshold, to reduce extraneous output during tests
 LOG = logging.getLogger("mass")
 LOG.setLevel(logging.WARNING)
