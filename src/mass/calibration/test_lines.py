@@ -39,7 +39,7 @@ class Test_MnKA_distribution(unittest.TestCase):
 
     def test_location_against_STANDARD_FEATUES(self):
         for (name, spectrum_class) in mass.spectrum_classes.items():
-            if spectrum_class.element == "AlOx":
+            if spectrum_class.element == "AlOx" or spectrum_class.reference_short == "NIST ASD" or spectrum_class.reference_short == "Clementson 2010" :
                 continue
             result = np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name]) < 0.5
             if not result:
