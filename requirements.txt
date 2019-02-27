@@ -10,3 +10,4 @@ h5py>=2.7
 palettable
 cycler
 fastdtw
+progress
