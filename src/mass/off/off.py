@@ -51,6 +51,10 @@ class OffFile():
         self._decodeModelInfo()
 
     def validateHeader(self):
+        with open(self.filename,"r") as f:
+            f.seek(self.afterHeaderPos-2)
+            if not f.readline() == "}\n":
+                raise Exception("failed to find end of header")
         if self.header["FileFormat"] != "OFF":
             raise Exception("FileFormatVersion is {}, want OFF".format(self.header["FileFormatVersion"] ))
 
