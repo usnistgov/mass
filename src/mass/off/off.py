@@ -40,9 +40,9 @@ class OffFile():
     def __init__(self,filename):
         self.filename = filename
         with open(self.filename,"r") as f:
-            f = open(self.filename,"r")
             self.headerString=readJsonString(f)
-            self.afterHeaderPos = f.tell()
+            # self.afterHeaderPos = f.tell() # doesn't work on windows because readline uses a readahead buffer
+            self.afterHeaderPos = len(self.headerString)
         self.header = json.loads(self.headerString)
         self.dtype = recordDtype(self.header["FileFormatVersion"], self.header["NumberOfBases"])
         self.framePeriodSeconds = float(self.header["FramePeriodSeconds"])
