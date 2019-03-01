@@ -542,7 +542,7 @@ class Channel(CorG):
         axis.set_xlabel("residualStdDev/noiseStdDev")
         axis.set_ylabel("fraction of pulses with equal or lower residualStdDev")
         axis.set_title("{}, {} total pulses, {:0.3f} cut".format(
-            self.shortName, len(self), inds.sum()/float(len(self)) ))
+            self.shortName, len(self), float(inds.sum()/float(len(self))) )) #somehow the extra float() is required on windows?
         axis.legend()
         axis.set_xlim(max(0,x[0]), 3)
         axis.set_ylim(0,1)
