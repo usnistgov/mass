@@ -445,12 +445,12 @@ class Channel(CorG):
         return binCenters, counts
 
     @_add_group_loop
-    def learnDriftCorrection(self, states = None):
+    def learnDriftCorrection(self, states = None, indicatorName = "pretriggerMean", uncorrectedName = "filtValue"):
         g = self.choose(states)
-        indicator = self.pretriggerMean[g]
-        uncorrected = self.filtValue[g]
+        indicator = getattr(self, indicatorName)[g]
+        uncorrected = getattr(self, uncorrectedName)[g]
         slope, info = mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
-        self.driftCorrection = DriftCorrection("pretriggerMean", "filtValue", info["median_pretrig_mean"], slope)
+        self.driftCorrection = DriftCorrection(indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
         # we dont want to storeFiltValueDC in memory, we simply store a DriftCorrection object
         return self.driftCorrection
 
