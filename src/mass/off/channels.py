@@ -149,7 +149,7 @@ class GroupLooper(object):
     pass
 
 
-def _add_group_loop(method):
+def add_group_loop(method):
     """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
 
     This is a decorator to add before method definitions inside class MicrocalDataSet.
@@ -158,7 +158,7 @@ def _add_group_loop(method):
     class MicrocalDataSet(...):
         ...
 
-        @_add_group_loop
+        @add_group_loop
         def awesome_fuction(self, ...):
             ...
     """
@@ -306,7 +306,7 @@ class Channel(CorG):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFile.filename)
         self.shortName = os.path.split(basename)[-1] + " chan%g"%self.channum
 
-    @_add_group_loop
+    @add_group_loop
     def learnStdDevResThresholdUsingMedianAbsoluteDeviation(self, nSigma = 7):
         median = np.median(self.residualStdDev)
         mad = np.median(np.abs(self.residualStdDev-median))
@@ -314,7 +314,7 @@ class Channel(CorG):
         sigma = mad*k
         self.stdDevResThreshold = median+nSigma*sigma
 
-    @_add_group_loop
+    @add_group_loop
     def learnStdDevResThresholdUsingRatioToNoiseStd(self, ratioToNoiseStd=1.5):
         self.stdDevResThreshold = self.offFile.header["ModelInfo"]["NoiseStandardDeviation"]*ratioToNoiseStd
 
@@ -444,7 +444,7 @@ class Channel(CorG):
         counts, _ = np.histogram(vals[g],binEdges)
         return binCenters, counts
 
-    @_add_group_loop
+    @add_group_loop
     def learnDriftCorrection(self, states = None, indicatorName = "pretriggerMean", uncorrectedName = "filtValue"):
         g = self.choose(states)
         indicator = getattr(self, indicatorName)[g]
@@ -492,7 +492,7 @@ class Channel(CorG):
         self.calibrationRough = self.calibrationPlan.getRoughCalibration()
         self.calibrationRough.uncalibratedName = self.calibrationPlanAttr
 
-    @_add_group_loop
+    @add_group_loop
     def calibrateFollowingPlan(self, attr, curvetype = "gain", dlo=50,dhi=50, binsize=1):
         self.calibration = mass.EnergyCalibration(curvetype=curvetype)
         self.calibration.uncalibratedName = attr
@@ -550,7 +550,7 @@ class Channel(CorG):
     def __len__(self):
         return len(self.offFile)
 
-    @_add_group_loop
+    @add_group_loop
     def alignToReferenceChannel(self, referenceChannel, attr, binEdges, _peakLocs=None):
         if _peakLocs is None:
             assert(len(referenceChannel.calibrationPlan.uncalibratedVals)>0)
@@ -569,7 +569,7 @@ class Channel(CorG):
                                              name, states, energy)
         return self.aligner
 
-    @_add_group_loop
+    @add_group_loop
     def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None,
                           positionToleranceAbsolute=None, attr="energy", states=None,
                           dlo=50, dhi=50, binsize=1, binEdges=None, guessParams=None,
@@ -609,7 +609,7 @@ class Channel(CorG):
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
 
-    @_add_group_loop
+    @add_group_loop
     def recipeToHDF5(self,h5File):
         grp = h5File.require_group(str(self.channum))
         self.driftCorrection.toHDF5(grp)
@@ -630,7 +630,7 @@ class Channel(CorG):
         self.calibrationArbsInRefChannelUnits =  mass.EnergyCalibration.load_from_hdf5(grp,"calibrationArbsInRefChannelUnits")
         self.calibrationArbsInRefChannelUnits.uncalibratedName = grp["calibrationArbsInRefChannelUnits/uncalibratedName"].value
 
-    @_add_group_loop
+    @add_group_loop
     def energyTimestampLabelToHDF5(self, h5File):
         grp = h5File.require_group(str(self.channum))
         energy = self.energy
@@ -645,7 +645,7 @@ class Channel(CorG):
             grp["{}/energy".format(state)]=energy[g]
             grp["{}/unixnano".format(state)]=unixnano[g]
 
-    @_add_group_loop
+    @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute = None, thresholdSigmaFromMedianAbsoluteValue = None):
         energies, errors = self.calibration.drop_one_errors()
         maxAbsError = np.amax(np.abs(errors))
