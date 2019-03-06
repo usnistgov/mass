@@ -875,7 +875,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-mass.addfitter(
+addfitter(
 element="W",
 linetype=" Ni-Like 3s^2,3p^6,3s^3_3/2,3d^6_5/2,4p_1/2",
 reference_short='Nilsen 1995',
