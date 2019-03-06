@@ -202,7 +202,7 @@ lineshape_references["Clementson 2010"] = """J. Clementson, P. Beiersdorfer, G. 
     "Spectroscopy of M-shell x-ray transitions in Zn-like through Co-like W,"
     Physica Scripta 81, 015301 (2010). https://iopscience.iop.org/article/10.1088/0031-8949/81/01/015301/meta"""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
-
+lineshape_references["Nilsen 1995"] = "Elliott, S. R., Beiersdorfer, P., Macgowan, B. J., & Nilsen, J. (1995). Measurements of line overlap for resonant spoiling of x-ray lasing transitions in nickle-like tungsten, 52(4), 2689–2692. https://doi.org/10.1103/PhysRevA.52.2689"
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
 
