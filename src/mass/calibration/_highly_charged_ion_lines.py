@@ -879,13 +879,13 @@ addfitter(
 element="W",
 linetype=" Ni-Like 3s^2,3p^6,3s^3_3/2,3d^6_5/2,4p_1/2",
 reference_short='Nilsen 1995',
-fitter_type = mass.line_fits.GenericKBetaFitter,
+fitter_type = line_fits.GenericKBetaFitter,
 reference_plot_gaussian_fwhm=0.5,
 nominal_peak_energy=1728.41,
 energies=np.array([1725.04, 1728.41]), lorentzian_fwhm=np.array([0.1, 0.1]),
 position_uncertainty=0.11,
 reference_amplitude=np.array([1,20]),
-reference_amplitude_type=mass.calibration.LORENTZIAN_PEAK_HEIGHT,
+reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
