@@ -30,8 +30,9 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
     nhi = min(1000, nhi)  # A practical limit
     nlow = max(nlow, nhi)
     x_wide = np.arange(-nlow, nhi+len(x)) * dx + x[0]
-    if len(x_wide)>100000:
-        raise Exception("one of your fit parameters is probably crazy, so you're trying to fft data of length %i"%len(x_wide))
+    if len(x_wide) > 100000:
+        msg = "you're trying to fft data of length %i (bad fit param?)" % len(x_wide)
+        raise ValueError(msg)
 
     freq = np.fft.rfftfreq(len(x_wide), d=dx)
     rawspectrum = cleanspectrum_fn(x_wide)
@@ -68,6 +69,14 @@ class LineFitter(object):
         # Whether pulse heights are necessarily non-negative.
         self.phscale_positive = True
         self.penalty_function = None
+        self.hold = set([])
+        self.last_fit_bins = None
+        self.last_fit_contents = None
+        self.fit_success = False
+        self.last_fit_chisq = np.inf
+        self.failed_fit_exception = None
+        self.failed_fit_params = None
+        self.failed_fit_starting_fitfunc = None
 
     def set_penalty(self, penalty):
         """Set a regularizer, or penalty function, for the fitter. For its requirements,
@@ -84,9 +93,9 @@ class LineFitter(object):
         On a succesful fit self.fit_success is set to True. You can use self.plot() after the fact
         to make the same plot as if you passed plot=True.
 
-        On a failed fit, self.fit_success is set to False. self.failed_fit_exception contains the exception thrown.
-        self.plot will still work, and will indicate a failed fit. You can disable this behavior, and just have it
-        throw an exception if you pass rethrow=True.
+        On a failed fit, self.fit_success is set to False. self.failed_fit_exception contains the
+        exception thrown. self.plot will still work, and will indicate a failed fit. You can disable
+        this behavior, and just have it throw an exception if you pass rethrow=True.
 
         Args:
             pulseheights -- the histogram bin centers or bin edges.
@@ -95,12 +104,12 @@ class LineFitter(object):
                     depends on the exact line shape being fit.
 
             plot:   Whether to make a plot.  If not, then the next few args are ignored
-            axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
-                    current figure.
+            axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather
+                    than on the current figure.
             color:  Color for drawing the histogram contents behind the fit.
             label:  (True/False) Label for the fit line to go into the plot (usually used for
                     resolution and uncertainty)
-                    "full" label with all fit params including reduced chi sqaured, followed by "H" if was held
+                    "full" label with all fit params including chi sqaured (w/ an "H" if it was held)
             ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
 
             vary_resolution Whether to let the Gaussian resolution vary in the fit
@@ -191,7 +200,7 @@ class LineFitter(object):
 
         return self.last_fit_params, self.last_fit_cov
 
-    def setbounds(self, *args, **kwargs):
+    def setbounds(self, params, ph):
         msg = "%s is an abstract base class; cannot be used without implementing setbounds" % type(self)
         raise NotImplementedError(msg)
 
