@@ -86,7 +86,7 @@ class LineFitter(object):
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None,
             color=None, label=True, vary_resolution=True, vary_bg=True,
             vary_bg_slope=False, vary_tail=False, hold=None, verbose=False, ph_units="arb",
-            rethrow=False):
+            integrate_n_points=None, rethrow=False):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
 
@@ -119,6 +119,10 @@ class LineFitter(object):
             hold:      A sequence of parameter numbers to keep fixed.  Resolution, BG
                        BG slope, or tail will be held if relevant parameter number
                        appears in the hold sequence OR if relevant boolean vary_* tests False.
+            integrate_n_points: Perform numerical integration across each bin with this many points
+                        per bin. Default: None means use a heuristic to decide. For narrow bins,
+                        generally this will choose 1, i.e., the midpoint method. For wide ones,
+                        Simpson's method for 3, 5, or more will be appropriate
             rethrow: Throw any generated exceptions instead of catching them and setting fit_success=False.
 
         Returns:
@@ -157,6 +161,18 @@ class LineFitter(object):
 
         self.last_fit_bins = pulseheights.copy()
         self.last_fit_contents = data.copy()
+
+        if integrate_n_points is None:
+            heuristic_goes_here()
+            integrate_n_points = 1  # ??
+        if integrate_n_points % 2 != 1 or integrate_n_points < 1:
+            raise ValueError("integrate_n_points=%d, want an odd, positive number" % integrate_n_points)
+        fitfunc = self.fitfunc
+        if integrate_n_points > 1:
+            def integrated_model():
+                return blah()
+            fitfunc = integrated_model
+
         try:
             if params is None:
                 params = self.guess_starting_params(data, pulseheights)
@@ -164,7 +180,7 @@ class LineFitter(object):
             # Max-likelihood histogram fitter
             epsilon = self.stepsize(params)
             fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
-                                                      self.fitfunc, TOL=1e-4, epsilon=epsilon)
+                                                      fitfunc, TOL=1e-4, epsilon=epsilon)
             self.setbounds(params, pulseheights)
             for i, b in enumerate(self.bounds):
                 fitter.setbounds(i, b[0], b[1])
@@ -179,6 +195,7 @@ class LineFitter(object):
             self.fit_success = True
             self.last_fit_chisq = fitter.chisq
             self.last_fit_result = self.fitfunc(self.last_fit_params, self.last_fit_bins)
+
         except Exception as e:
             if rethrow:
                 raise e
