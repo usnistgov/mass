@@ -261,10 +261,10 @@ class CorG():
             fitter = mass.GaussianFitter()
             nominal_peak_energy = float(lineNameOrEnergy)
         if binEdges is None:
-            if attr == "energy" or attr == "energyRough":
+            if attr.startswith("energy"):
                 binEdges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
             else:
-                raise Exception("must pass binEdges if attr is other than energy or energyRough")
+                raise Exception("must pass binEdges if attr does not start with energy")
         if axis is None and plot:
             plt.figure()
             axis = plt.gca()
@@ -273,7 +273,7 @@ class CorG():
             guessParams = fitter.guess_starting_params(counts,bin_centers)
         if holdvals is None:
             holdvals = {}
-        if (attr == "energy" or attr == "energyRough") and "dP_dE" in fitter.param_meaning:
+        if attr.startswith("energy") and "dP_dE" in fitter.param_meaning:
             holdvals["dP_dE"]=1.0
         hold = []
         for (k,v) in holdvals.items():
@@ -284,7 +284,7 @@ class CorG():
         params, covar = fitter.fit(counts, bin_centers,params=guessParams,axis=axis,label=label,plot=plot, hold=hold)
         if plot:
             axis.set_title(self.shortName+", {}, states = {}".format(lineNameOrEnergy,states))
-            if attr == "energy" or attr == "energyRough":
+            if attr.startswith("energy"):
                 plt.xlabel(attr+" (eV)")
             else:
                 plt.xlabel(attr+ "(arbs)")
@@ -493,8 +493,8 @@ class Channel(CorG):
         self.calibrationRough.uncalibratedName = self.calibrationPlanAttr
 
     @add_group_loop
-    def calibrateFollowingPlan(self, attr, curvetype = "gain", dlo=50,dhi=50, binsize=1):
-        self.calibration = mass.EnergyCalibration(curvetype=curvetype)
+    def calibrateFollowingPlan(self, attr, curvetype = "gain", approximate=True, dlo=50,dhi=50, binsize=1):
+        self.calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
         self.calibration.uncalibratedName = attr
         fitters = []
         for (ph, energy, name, states) in zip(self.calibrationPlan.uncalibratedVals, self.calibrationPlan.energies,
