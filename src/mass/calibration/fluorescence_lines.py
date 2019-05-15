@@ -222,7 +222,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     assert reference_short in lineshape_references
 
     # require kalpha lines to have ka12_energy_diff
-    if linetype == "KAlpha":
+    if linetype.startswith("KAlpha"):
         ka12_energy_diff = float(ka12_energy_diff)
     # require reference_plot_gaussian_fwhm to be a float or None
     assert reference_plot_gaussian_fwhm is None or isinstance(reference_plot_gaussian_fwhm, float)
@@ -254,7 +254,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         "position_uncertainty": float(position_uncertainty),
         "reference_measurement_type": reference_measurement_type
     }
-    if linetype == "KAlpha":
+    if linetype.startswith("KAlpha"):
         dict["ka12_energy_diff"] = ka12_energy_diff
     classname = element+linetype
     cls = type(classname, (SpectralLine,), dict)
