@@ -50,7 +50,7 @@ ds.calibrationPlanAddPoint(11125, "Ar He-Like 1s2s+1s2p", states="Ar")
 ds.calibrationPlanAddPoint(11728, "Ar H-Like 2p", states="Ar")
 # at this point energyRough should work
 ds.plotHist(np.arange(0,4000,1),"energyRough", coAddStates=False)
-fitters = ds.calibrateFollowingPlan("filtValueDC")
+fitters = ds.calibrateFollowingPlan("filtValueDC", approximate=False)
 ds.linefit("Ne H-Like 2p",attr="energy",states="Ne")
 ds.linefit("Ne He-Like 1s2p",attr="energy",states="Ne")
 ds.linefit("W Ni-7",attr="energy",states=["W 1","W 2"])
@@ -66,7 +66,7 @@ aligner = ds3.aligner
 aligner.samePeaksPlot()
 aligner.samePeaksPlotWithAlignmentCal()
 
-fitters = data.calibrateFollowingPlan("filtValueDC", _rethrow=False, dlo=10,dhi=10)
+fitters = data.calibrateFollowingPlan("filtValueDC", _rethrow=False, dlo=10,dhi=10, approximate=False)
 data.qualityCheckDropOneErrors(thresholdAbsolute=2.5, thresholdSigmaFromMedianAbsoluteValue=6)
 
 
