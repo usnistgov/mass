@@ -7,11 +7,11 @@ import base64
 
 def recordDtype(offVersion,nBasis):
     """ return a np.dtype matching the record datatype for the given offVersion and nBasis"""
-    if offVersion == "0.1.0":
+    if offVersion == "0.1.0" or offVersion == "0.2.0":
         return np.dtype([("recordSamples",np.int32),("recordPreSamples",np.int32), ("framecount", np.int64),
          ("unixnano",np.int64),("pretriggerMean",np.float32),("residualStdDev",np.float32),("coefs",np.float32,(nBasis))])
     else:
-        raise Exception("dtype for OFF version {} not implemented".format(version))
+        raise Exception("dtype for OFF version {} not implemented".format(offVersion))
 
 def readJsonString(f):
     """look in file f for a line "}\\n" and return all contents up to that point
@@ -41,18 +41,18 @@ class OffFile():
         self.filename = filename
         with open(self.filename,"r") as f:
             self.headerString=readJsonString(f)
-            # self.afterHeaderPos = f.tell() # doesn't work on windows because readline uses a readahead buffer
-            self.afterHeaderPos = len(self.headerString)
+            # self.headerStringLength = f.tell() # doesn't work on windows because readline uses a readahead buffer
+            self.headerStringLength = len(self.headerString)
         self.header = json.loads(self.headerString)
         self.dtype = recordDtype(self.header["FileFormatVersion"], self.header["NumberOfBases"])
         self.framePeriodSeconds = float(self.header["FramePeriodSeconds"])
         self.validateHeader()
+        self._decodeModelInfo() # calculates afterHeaderPos used by _updateMmap
         self._updateMmap()
-        self._decodeModelInfo()
 
     def validateHeader(self):
         with open(self.filename,"r") as f:
-            f.seek(self.afterHeaderPos-2)
+            f.seek(self.headerStringLength-2)
             if not f.readline() == "}\n":
                 raise Exception("failed to find end of header")
         if self.header["FileFormat"] != "OFF":
@@ -70,6 +70,13 @@ class OffFile():
         self.shape = self._mmap.shape
 
     def _decodeModelInfo(self):
+        if "RowMajorFloat64ValuesBase64" in self.header["ModelInfo"]["Projectors"] and "RowMajorFloat64ValuesBase64" in self.header["ModelInfo"]["Basis"]:
+            # should only be in version 0.1.0 files
+            self._decodeModelInfoBase64()
+        else:
+            self._decodeModelInfoMmap()
+
+    def _decodeModelInfoBase64(self):
         projectorsData = base64.decodestring(self.header["ModelInfo"]["Projectors"]["RowMajorFloat64ValuesBase64"])
         projectorsRows = int(self.header["ModelInfo"]["Projectors"]["Rows"])
         projectorsCols = int(self.header["ModelInfo"]["Projectors"]["Cols"])
@@ -80,6 +87,24 @@ class OffFile():
         basisCols = int(self.header["ModelInfo"]["Basis"]["Cols"])
         self.basis = np.frombuffer(basisData,np.float64)
         self.basis = self.basis.reshape((basisRows,basisCols))
+        if basisRows != projectorsCols or basisCols != projectorsRows or self.header["NumberOfBases"] != projectorsRows:
+            raise Exception("basis shape should be transpose of projectors shape. have basis ({},{}), projectors ({},{}), NumberOfBases {}".format(
+                basisCols,basisRows,projectorsCols,projectorsRows,NumberOfBases))
+        self.afterHeaderPos = self.headerStringLength
+
+    def _decodeModelInfoMmap(self):
+        projectorsRows = int(self.header["ModelInfo"]["Projectors"]["Rows"])
+        projectorsCols = int(self.header["ModelInfo"]["Projectors"]["Cols"])
+        basisRows = int(self.header["ModelInfo"]["Basis"]["Rows"])
+        basisCols = int(self.header["ModelInfo"]["Basis"]["Cols"])
+        nBytes = basisCols*basisRows*8 # 8 for float64, basis and projectors have the same number of elements and therefore of bytes
+        projectorsPos = self.headerStringLength
+        basisPos = projectorsPos + nBytes
+        self.afterHeaderPos = basisPos + nBytes
+        self.projectors = np.memmap(self.filename, np.float64, mode="r", 
+            offset=projectorsPos, shape=(projectorsRows, projectorsCols))
+        self.basis = np.memmap(self.filename, np.float64, mode="r", 
+            offset=basisPos, shape=(basisRows, basisCols))
         if basisRows != projectorsCols or basisCols != projectorsRows or self.header["NumberOfBases"] != projectorsRows:
             raise Exception("basis shape should be transpose of projectors shape. have basis ({},{}), projectors ({},{}), NumberOfBases {}".format(
                 basisCols,basisRows,projectorsCols,projectorsRows,NumberOfBases))
