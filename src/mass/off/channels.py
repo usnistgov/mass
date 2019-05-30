@@ -12,15 +12,15 @@ import h5py
 import shutil
 
 class ExperimentStateFile():
-    def __init__(self, filename=None, offFilename=None, excludeStart = True, excludeEnd = True):
+    def __init__(self, filename=None, offFilename=None, excludeStartIfAble = True, excludeEndIfAble = True):
         if filename is not None:
             self.filename = filename
         elif offFilename is not None:
             self.filename = self.experimentStateFilenameFromOffFilename(offFilename)
         else:
             raise Exception("provide filename or offFilename")
-        self.excludeStart = excludeStart
-        self.excludeEnd = excludeEnd
+        self.excludeStartIfAble = excludeStartIfAble
+        self.excludeEndIfAble = excludeEndIfAble
         self.parse()
 
 
@@ -48,10 +48,13 @@ class ExperimentStateFile():
         self.allLabels = labels
         self.unixnanos = np.array(unixnanos)
         self.labels = self.applyExcludesToLabels(self.allLabels)
-        self._labels = self.labels[:]
+        self.unaliasedLabels = self.labels[:]
 
     def applyExcludesToLabels(self, allLabels):
-        return [l for l in self.allLabels if (not self.excludeEnd or l!="END") and (not self.excludeStart or l!="START")]
+        # if there are no other states so don't exclude START and END, 
+        if self.allLabels == ["START"] or self.allLabels == ["START","END"]:
+            return self.allLabels[:]
+        return [l for l in self.allLabels if not ((self.excludeEndIfAble and l=="END") or ( self.excludeStartIfAble and l=="START"))]
 
 
     # this needs to be able to refresh with length changes
@@ -63,7 +66,7 @@ class ExperimentStateFile():
         statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos)
         for i, label in enumerate(self.allLabels):
-            if label not in self._labels:
+            if label not in self.unaliasedLabels:
                 continue
             if not label in statesDict:
                 statesDict[label] = np.zeros(len(unixnanos),dtype="bool")
@@ -72,7 +75,7 @@ class ExperimentStateFile():
             else:
                 statesDict[label][inds[i]:inds[i+1]]=True
             # add aliases
-            j = self._labels.index(label)
+            j = self.unaliasedLabels.index(label)
             statesDict[self.labels[j]]=statesDict[label] # add aliases
         return statesDict
 
