@@ -12,15 +12,15 @@ import h5py
 import shutil
 
 class ExperimentStateFile():
-    def __init__(self, filename=None, offFilename=None, excludeStartIfAble = True, excludeEndIfAble = True):
+    def __init__(self, filename=None, offFilename=None, excludeStart = False, excludeEnd = False):
         if filename is not None:
             self.filename = filename
         elif offFilename is not None:
             self.filename = self.experimentStateFilenameFromOffFilename(offFilename)
         else:
             raise Exception("provide filename or offFilename")
-        self.excludeStartIfAble = excludeStartIfAble
-        self.excludeEndIfAble = excludeEndIfAble
+        self.excludeStart = excludeStart
+        self.excludeEnd = excludeEnd
         self.parse()
 
 
@@ -52,9 +52,7 @@ class ExperimentStateFile():
 
     def applyExcludesToLabels(self, allLabels):
         # if there are no other states so don't exclude START and END, 
-        if self.allLabels == ["START"] or self.allLabels == ["START","END"]:
-            return self.allLabels[:]
-        return [l for l in self.allLabels if not ((self.excludeEndIfAble and l=="END") or ( self.excludeStartIfAble and l=="START"))]
+        return [l for l in self.allLabels if not ((self.excludeEnd and l=="END") or ( self.excludeStart and l=="START"))]
 
 
     # this needs to be able to refresh with length changes
@@ -877,11 +875,15 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             print(channum) # will include bad channels
     3. data.whyChanBad returns an OrderedDict of bad channel numbers and reason
     """
-    def __init__(self, offFileNames, verbose=True, channelClass = Channel):
+    def __init__(self, offFileNames, verbose=True, channelClass = Channel, experimentStateFile=None, excludeStartAndEndInExperimentStateFile=False):
         collections.OrderedDict.__init__(self)
         self.verbose = verbose
         self.offFileNames = offFileNames
-        self.experimentStateFile = ExperimentStateFile(offFilename=self.offFileNames[0])
+        if experimentStateFile is None:
+            self.experimentStateFile = ExperimentStateFile(offFilename=self.offFileNames[0], excludeStart=excludeStartAndEndInExperimentStateFile,
+            excludeEnd=excludeStartAndEndInExperimentStateFile)
+        else:
+            self.experimentStateFile = experimentStateFile
         self._includeBad=False
         self._channelClass = channelClass
         self.loadChannels()
