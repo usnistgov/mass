@@ -124,7 +124,7 @@ class TestSummaries(ut.TestCase):
         self.assertTrue(newds.driftCorrection==ds.driftCorrection)
 
     def test_fixedBehaviors(self):
-        self.assertEqual(ds.stateLabels,["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
+        self.assertEqual(ds.stateLabels,["START","Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir","END"])
 
 
 
