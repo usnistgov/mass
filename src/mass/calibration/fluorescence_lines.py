@@ -19,6 +19,7 @@ import scipy as sp
 import pylab as plt
 import palettable
 from . import line_fits
+from . import line_models
 from cycler import cycler
 from collections import OrderedDict
 
@@ -203,6 +204,7 @@ lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC u
 lineshape_references["Nilsen 1995"] = "Elliott, S. R., Beiersdorfer, P., Macgowan, B. J., & Nilsen, J. (1995). Measurements of line overlap for resonant spoiling of x-ray lasing transitions in nickle-like tungsten, 52(4), 2689–2692. https://doi.org/10.1103/PhysRevA.52.2689"
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
+model_classes = OrderedDict()
 
 LORENTZIAN_PEAK_HEIGHT = 999
 LORENTZIAN_INTEGRAL_INTENSITY = 9999
@@ -254,13 +256,13 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     if linetype.startswith("KAlpha"):
         dict["ka12_energy_diff"] = ka12_energy_diff
     classname = element+linetype
-    cls = type(classname, (SpectralLine,), dict)
+    spectrum_class = type(classname, (SpectralLine,), dict)
 
     # The above is nearly equivalent to the below
     # but the below doesn't errors because it doesn't like the use of the same
     # name in both the class and the function arguments
     # e.g., energies and energies
-    # class cls(SpectralLine):
+    # class spectrum_class(SpectralLine):
     #     __name__ = element+linetype
     #     energies = np.array(energies)
     #     lorentzian_fwhm = np.array(lorentzian_fwhm)
@@ -270,27 +272,33 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     #     nominal_peak_energy = float(nominal_peak_energy)
 
     # add fitter to spectrum_classes dict
-    spectrum_classes[cls.__name__] = cls
+    spectrum_classes[spectrum_class.__name__] = spectrum_class
     # make the fitter be a variable in the module
-    globals()[cls.__name__] = cls
+    globals()[spectrum_class.__name__] = spectrum_class
     # create fitter as well
-    spectrum = cls()
+    spectrum = spectrum_class()
     if fitter_type is not None:
-        superclass = fitter_type
+        fitter_superclass = fitter_type
     elif spectrum.element in ["Al", "Mg"]:
-        superclass = line_fits._lowZ_KAlphaFitter
+        fitter_superclass = line_fits._lowZ_KAlphaFitter
     elif spectrum.linetype == "KAlpha":
-        superclass = line_fits.GenericKAlphaFitter
+        fitter_superclass = line_fits.GenericKAlphaFitter
     elif spectrum.linetype == "KBeta":
-        superclass = line_fits.GenericKBetaFitter
+        fitter_superclass = line_fits.GenericKBetaFitter
     else:
         raise ValueError("no generic fitter for {}".format(spectrum))
     dict = {"spect": spectrum}
-    fitter_class = type(cls.__name__+"Fitter", (superclass,), dict)
-    globals()[cls.__name__+"Fitter"] = fitter_class
-    fitter_classes[cls.__name__] = fitter_class
+    fitter_class = type(spectrum_class.__name__+"Fitter", (fitter_superclass,), dict)
+    globals()[spectrum_class.__name__+"Fitter"] = fitter_class
+    fitter_classes[spectrum_class.__name__] = fitter_class
+    if fitter_superclass == line_fits.GenericKAlphaFitter:
+        model_superclass = line_models.GenericKAlphaModel
+    else:
+        model_superclass = line_models.GenericLineModel
+    model_class = type(spectrum_class.__name__+"Model", (model_superclass,), dict)
+    model_classes[spectrum_class.__name__] = model_class
 
-    return cls
+    return spectrum_class
 
 
 addfitter(
