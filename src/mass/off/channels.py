@@ -552,14 +552,14 @@ class Channel(CorG):
         return len(self.offFile)
 
     @add_group_loop
-    def alignToReferenceChannel(self, referenceChannel, attr, binEdges, _peakLocs=None):
+    def alignToReferenceChannel(self, referenceChannel, attr, binEdges, _peakLocs=None, states=None):
         if _peakLocs is None:
             assert(len(referenceChannel.calibrationPlan.uncalibratedVals)>0)
             peakLocs = referenceChannel.calibrationPlan.uncalibratedVals
         else:
             peakLocs = _peakLocs
         self.aligner = AlignBToA(ds_a=referenceChannel, ds_b=self,
-                            peak_xs_a=peakLocs, bin_edges=binEdges, attr=attr)
+                            peak_xs_a=peakLocs, bin_edges=binEdges, attr=attr, states=states)
         self.calibrationArbsInRefChannelUnits=self.aligner.getCalBtoA()
         if _peakLocs is None and not (self is referenceChannel):
             self.calibrationPlanInit(referenceChannel.calibrationPlanAttr)
