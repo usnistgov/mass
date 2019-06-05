@@ -144,6 +144,34 @@ class Test_MnKA(unittest.TestCase):
         s = self.fitter.result_string
 
 
+class Test_MnKA_lmfit(unittest.TestCase):
+    def test_lmfit(self):
+        n=10000
+        resolution = 2.5
+        bin_edges = np.arange(5850, 5950, 1.0)
+        # generate random x-ray pulse energies following MnKAlpha distribution
+        distrib = mass.calibration.fluorescence_lines.MnKAlpha()
+        values = distrib.rvs(size=n)
+        # add gaussian oise to each x-ray energy
+        sigma = resolution/2.3548
+        values += sigma*np.random.standard_normal(size=n)
+        # histogram 
+        counts, _ = np.histogram(values, bin_edges)
+        model = mass.MnKAlphaModel()
+        bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+        params = model.guess(counts, bin_centers=bin_centers)
+        params.pretty_print()
+        result = model.fit(counts, bin_centers=bin_centers, params=params)
+        fitter = mass.MnKAlphaFitter()
+        fitter.fit(counts, bin_centers ,plot=False)
+        self.assertAlmostEqual(fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value,delta=2*result.params["fwhm"].stderr)
+        self.assertAlmostEqual(fitter.last_fit_params_dict["resolution"][1], result.params["fwhm"].stderr,places=1)
+        self.assertAlmostEqual(fitter.last_fit_params_dict["amplitude"][0], result.params["amplitude"].value,delta=2*result.params["amplitude"].stderr)
+        self.assertAlmostEqual(fitter.last_fit_params_dict["amplitude"][1], result.params["amplitude"].stderr,places=-3)
+        self.assertAlmostEqual(fitter.last_fit_params_dict["bg_slope"][0], result.params["bg_slope"].value,delta=2*result.params["bg_slope"].stderr)
+        self.assertAlmostEqual(fitter.last_fit_params_dict["bg_slope"][1], result.params["bg_slope"].stderr,places=1)
+
+
 class Test_MnKB(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.MnKBetaFitter()
