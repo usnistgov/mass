@@ -11,3 +11,4 @@ palettable
 cycler
 fastdtw
 progress
+lmfit>=0.9.11
