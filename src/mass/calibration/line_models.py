@@ -4,6 +4,7 @@ import numpy as np
 from . import line_fits
 
 class MLEModel(lmfit.Model):
+    require_errorbars=True
     """ A version of lmfit.Model that uses Maximum Likeliehood Estimates weights in place of chisq
     following:
     doi:10.1007/s10909-014-1098-4 Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"""
@@ -59,8 +60,8 @@ class MLEModel(lmfit.Model):
 
     def fit(self, *args, **kwargs):
         result = lmfit.Model.fit(self, *args, **kwargs)
-        if not result.errorbars:
-            raise(Exception("error bars not computed, are some of your guess values equal to max or min?"))
+        if self.require_errorbars and (not result.errorbars):
+            raise(Exception("error bars not computed, are some of your guess values equal to max or min? you can set .require_errorbars=False to not error here"))
         return result
 
 class CompositeMLEModel(lmfit.CompositeModel):
@@ -146,7 +147,7 @@ class GenericLineModel(MLEModel):
             baseline = max(data[0:10].mean(), 1.0/len(data))
         else:
             baseline = 0.1
-        pars = self.make_params(peak_ph=ph_ka1, background=baseline, amplitude=ampl)
+        pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)        
 
 class GenericKAlphaModel(GenericLineModel):
