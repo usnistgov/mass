@@ -194,6 +194,7 @@ lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Frit
     than for Cu. Those widths are based on Zschornack's book.
 
     The KBeta also appears to be a hack with scaled values."""
+lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
@@ -557,6 +558,19 @@ addfitter(
     energies=np.array((8905.532, 8903.109, 8908.462, 8897.387, 8911.393))*1.06 + 133.85,
     lorentzian_fwhm=np.array((3.52, 3.52, 3.55, 8.08, 5.31))*1.06,
     reference_amplitude=np.array((757, 388, 171, 68, 55)),  # Table III I_I
+    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+)
+
+addfitter(
+    element="Br",
+    linetype="KAlpha",
+    reference_short="Steve Smith",
+    reference_plot_gaussian_fwhm=None,
+    nominal_peak_energy=11924.36,
+    energies=np.array((11924.2, 11877.6)),
+    lorentzian_fwhm=np.array((3.60, 3.73)),
+    reference_amplitude=np.array((2, 1)),
+    ka12_energy_diff=46.6,
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 

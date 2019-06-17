@@ -7,7 +7,7 @@ import os
 import pylab as plt
 
 
-# # make an ljh file with length 4000 
+# # make an ljh file with length 4000
 # # so that I can make a channel with nPulses = 4000
 # # so I can test phase correction with fake data
 # src_name = 'src/mass/regression_test/regress_chan1.ljh'
@@ -111,7 +111,7 @@ class TestPhaseCorrect(ut.TestCase):
             resolutions.append(fitter.last_fit_params_dict["resolution"][0])
         print("achieved resolutions in phase corecct test", resolutions)
         self.assertLessEqual(resolutions[0], 4.3)
-        self.assertLessEqual(resolutions[1], 4.4) 
+        self.assertLessEqual(resolutions[1], 4.4)
         self.assertLessEqual(resolutions[2], 5.0)
         self.assertLessEqual(resolutions[3], 4.1)
 
