@@ -395,6 +395,12 @@ class Channel(CorG):
         return self.driftCorrection.apply(indicator, uncorrected)
 
     @property
+    def filtValuePC(self):
+        indicator = getattr(self, self.phaseCorrection.indicatorName)
+        uncorrected = getattr(self, self.phaseCorrection.uncorrectedName)
+        return self.phaseCorrection(indicator, uncorrected)
+
+    @property
     def energy(self):
         uncalibrated = getattr(self, self.calibration.uncalibratedName)
         return self.calibration(uncalibrated)
@@ -454,6 +460,12 @@ class Channel(CorG):
         self.driftCorrection = DriftCorrection(indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
         # we dont want to storeFiltValueDC in memory, we simply store a DriftCorrection object
         return self.driftCorrection
+
+    def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions):
+        g = self.choose(states)
+        indicator = getattr(self, indicatorName)[g]
+        uncorrected = getattr(self, uncorrectedName)[g]
+        self.phaseCorrection = mass.core.phase_correct.phase_correct(indicator, uncorrected, linePositions)       
 
     def loadDriftCorrection(self):
         pass
@@ -613,23 +625,36 @@ class Channel(CorG):
     @add_group_loop
     def recipeToHDF5(self,h5File):
         grp = h5File.require_group(str(self.channum))
-        self.driftCorrection.toHDF5(grp)
-        self.calibration.save_to_hdf5(grp,"calibration")
-        grp["calibration/uncalibratedName"] = self.calibration.uncalibratedName
-        self.calibrationRough.save_to_hdf5(grp,"calibrationRough")
-        grp["calibrationRough/uncalibratedName"] = self.calibrationRough.uncalibratedName
-        self.calibrationArbsInRefChannelUnits.save_to_hdf5(grp,"calibrationArbsInRefChannelUnits")
-        grp["calibrationArbsInRefChannelUnits/uncalibratedName"] = self.calibrationArbsInRefChannelUnits.uncalibratedName
+        if hasattr(self, "driftCorrection"):
+            self.driftCorrection.toHDF5(grp)
+        if hasattr(self, "calibration"):
+            self.calibration.save_to_hdf5(grp,"calibration")
+            grp["calibration/uncalibratedName"] = self.calibration.uncalibratedName
+        if hasattr(self, "calibrationRough"):
+            self.calibrationRough.save_to_hdf5(grp,"calibrationRough")
+            grp["calibrationRough/uncalibratedName"] = self.calibrationRough.uncalibratedName
+        if hasattr(self, calibrationArbsInRefChannelUnits):
+            self.calibrationArbsInRefChannelUnits.save_to_hdf5(grp,"calibrationArbsInRefChannelUnits")
+            grp["calibrationArbsInRefChannelUnits/uncalibratedName"] = self.calibrationArbsInRefChannelUnits.uncalibratedName
+        if hasattr(self, "phaseCorrection"):
+            self.phaseCorrection.toHDF5(grp)
 
     def recipeFromHDF5(self, h5File):
         grp = h5File.require_group(str(self.channum))
-        self.driftCorrection = DriftCorrection.fromHDF5(grp)
-        self.calibration = mass.EnergyCalibration.load_from_hdf5(grp,"calibration")
-        self.calibration.uncalibratedName = grp["calibration/uncalibratedName"].value
-        self.calibrationRough = mass.EnergyCalibration.load_from_hdf5(grp,"calibrationRough")
-        self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"].value
-        self.calibrationArbsInRefChannelUnits =  mass.EnergyCalibration.load_from_hdf5(grp,"calibrationArbsInRefChannelUnits")
-        self.calibrationArbsInRefChannelUnits.uncalibratedName = grp["calibrationArbsInRefChannelUnits/uncalibratedName"].value
+        if "driftCorrection" in grp:
+            self.driftCorrection = DriftCorrection.fromHDF5(grp)
+        if "calibration" in grp:
+            self.calibration = mass.EnergyCalibration.load_from_hdf5(grp,"calibration")
+            self.calibration.uncalibratedName = grp["calibration/uncalibratedName"].value
+        if "calibrationRough" in grp:
+            self.calibrationRough = mass.EnergyCalibration.load_from_hdf5(grp,"calibrationRough")
+            self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"].value
+        if "calibrationArbsInRefChannelUnits" in grp:
+            self.calibrationArbsInRefChannelUnits =  mass.EnergyCalibration.load_from_hdf5(grp,"calibrationArbsInRefChannelUnits")
+            self.calibrationArbsInRefChannelUnits.uncalibratedName = grp["calibrationArbsInRefChannelUnits/uncalibratedName"].value
+        if "phase_correction" in grp:
+            self.phaseCorrection = mass.core.phase_correct.PhaseCorrector.fromHDF5(grp)
+
 
     @add_group_loop
     def energyTimestampLabelToHDF5(self, h5File):
