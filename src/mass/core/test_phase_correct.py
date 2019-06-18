@@ -34,10 +34,15 @@ class TestPhaseCorrect(ut.TestCase):
 
         ds = self.load_data()
         self.assertEqual(ds.nPulses, len(energies))
-        ds.p_filt_value_dc = ph[:]
-        ds.p_filt_value = ph[:]
-        ds.p_filt_phase = phase[:]
+        ds.p_filt_value_dc[:] = ph[:]
+        ds.p_filt_value[:] = ph[:]
+        ds.p_filt_phase[:] = phase[:]
         ds.phase_correct(ph_peaks=ph_peaks)
+        # there seems to be some sort of rounding issue of numpy.float32 vs hdf5 storage as float32
+        # such that I don't get exactly the same value for this case, so loop with approximat comparison
+        # I'm a bit disturbed and confused here, but just going with it for now
+        for (a,b) in zip(ds.phaseCorrector(phase, ph), ds.p_filt_value_phc[:]):
+            self.assertAlmostEqual(a,b,3)
 
         if plot:
             plt.figure()
@@ -63,6 +68,10 @@ class TestPhaseCorrect(ut.TestCase):
         self.assertLessEqual(resolutions[2], 5.0)
         self.assertLessEqual(resolutions[3], 4.1)
 
+        # load from hdf5
+        phaseCorrectorLoaded = mass.core.phase_correct.PhaseCorrector.fromHDF5(ds.hdf5_group)
+        self.assertTrue(all(ds.phaseCorrector(phase, ph) == phaseCorrectorLoaded(phase, ph)))
+
     def test_phase_correct(self, plot=False):
         np.random.seed(1231) # the final fit resolutions are quite sensitive to this, easily varying from 3 to 5 eV
         energies = np.arange(4000)
@@ -78,7 +87,7 @@ class TestPhaseCorrect(ut.TestCase):
         np.random.shuffle(phase)
         ph = energies+phase*10 # this pushes the resolution up to roughly 10 eV
 
-        phaseCorrector = mass.core.phase_correct.phase_correct(phase, ph, use=None, ph_peaks = ph_peaks)
+        phaseCorrector = mass.core.phase_correct.phase_correct(phase, ph, ph_peaks = ph_peaks)
         corrected = phaseCorrector(phase, ph)
 
         resolutions = []
