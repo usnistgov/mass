@@ -52,8 +52,13 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
 class TESGroupHDF5(channel_group.TESGroup):
     """Represent a TESGroup, except where the raw LJH files are not available."""
 
-    def __init__(self, h5master_fname):
-        self.hdf5_file = h5py.File(h5master_fname, "a")
+    def __init__(self, h5master_fname, read_only = False):
+        if not os.path.isfile(h5master_fname):
+            raise Exception("file %s does not exist",h5h5master_fname)
+        elif read_only:
+            self.hdf5_file = h5py.File(h5master_fname, "r")
+        elif not read_only:
+            self.hdf5_file = h5py.File(h5master_fname, "a")
         self.nPresamples = self.hdf5_file.attrs["npresamples"]
         self.nSamples = self.hdf5_file.attrs["nsamples"]
         self.timebase = self.hdf5_file.attrs["frametime"]
