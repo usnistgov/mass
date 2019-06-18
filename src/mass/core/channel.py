@@ -18,6 +18,7 @@ import mass.mathstat.power_spectrum
 import mass.mathstat.interpolate
 import mass.mathstat.robust
 import mass.core.analysis_algorithms
+from . import phase_correct
 
 from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile
@@ -680,6 +681,7 @@ class MicrocalDataSet(object):
         self.__setup_vectors(npulses=self.nPulses)
         self.__load_cals_from_hdf5()
         self.__load_auto_cuts()
+        self.__load_corrections()
 
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
@@ -783,6 +785,12 @@ class MicrocalDataSet(object):
                 if k in self.calibration.keys():
                     raise ValueError("trying to load over existing calibration, consider passing overwrite=True")
             self.calibration[k] = EnergyCalibration.load_from_hdf5(hdf5_cal_group, k)
+
+
+    def __load_corrections(self):
+        # drift correction should be loaded here, but currently I don't htink it is loaded at all
+        if "phase_correction" in self.hdf5_group:
+            self.phaseCorrector = phase_correct.phaseCorrector.from_hdf5(self.hdf5_group, name="phase_correction")
 
     @property
     def p_peak_time(self):
@@ -1557,7 +1565,7 @@ class MicrocalDataSet(object):
             kernel_width: Width (in PH units) of the kernel-smearing function. If None, use a heuristic.
         """
 
-        doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
+        doesnt_exist = not hasattr(self, "phaseCorrector")
         if not (forceNew or doesnt_exist):
             LOG.info("channel %d skipping phase_correct", self.channum)
             return
@@ -1566,34 +1574,20 @@ class MicrocalDataSet(object):
             category = {"calibration": "in"}
         good = self.cuts.good(**category)
 
-        phase = self.p_filt_phase[:]
-        ph = self.p_filt_value_dc[:]
-        result = phase_correct(phase, ph, good, ph_peaks=ph_peaks,
-                               method2017=method2017, kernel_width=kernel_width)
-        phase_corrected, ph_corrected, info = result
-        self.p_filt_phase_corr[:] = phase_corrected
-        self.p_filt_value_phc[:] = ph_corrected
+        self.phaseCorrector = phase_correct.phase_correct(self.p_filt_phase[good], self.p_filt_value_dc[good],
+             ph_peaks=ph_peaks, method2017=method2017, kernel_width=kernel_width,
+             uncorrectedName = "p_filt_value_dc")
 
-        for name in ("phase_corrector_x", "phase_corrector_y", "phase_corrector_n"):
-            if name in self.hdf5_group:
-                del self.hdf5_group[name]
-            self.hdf5_group.create_dataset(name, data=info[name])
+        self.p_filt_phase_corr[:] = self.phaseCorrector.phase_uniformifier(self.p_filt_phase[:])
+        self.p_filt_value_phc[:] = self.phaseCorrector(self.p_filt_phase[:], self.p_filt_value_dc[:])
+
+        self.phaseCorrector.toHDF5(self.hdf5_group, overwrite=True)
 
         LOG.info('Channel %3d phase corrected. Correction size: %.2f',
                  self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good] -
                                                                    self.p_filt_value_dc[good], True))
-        nc = info["phase_corrector_n"]
-        cx = info["phase_corrector_x"]
-        cy = info["phase_corrector_y"]
-        self.phase_corrections = []
-        idx = 0
-        for n in nc:
-            x = cx[idx:idx+n]
-            y = cy[idx:idx+n]
-            idx += n
-            spl = mass.mathstat.interpolate.CubicSpline(x, y)
-            self.phase_corrections.append(spl)
-        return self.phase_corrections
+  
+        return self.phaseCorrector
 
     def first_n_good_pulses(self, n=50000, category=None):
         """Return the first good pulse records.
@@ -2281,272 +2275,6 @@ class MicrocalDataSet(object):
                 calculate_manhattan_distances()
             else:
                 print('Distance type ' + distanceType + ' not recognized.')
-
-
-# Below here, these are functions that we might consider moving to Cython for speed.
-# But at any rate, they do not require any MicrocalDataSet attributes, so they are
-# pure functions, not methods.
-
-
-def _find_peaks_heuristic(phnorm):
-    """A heuristic method to identify the peaks in a spectrum.
-
-    This can be used to design the arrival-time-bias correction. Of course,
-    you might have better luck finding peaks by an experiment-specific
-    method, but this will stand in if you cannot or do not want to find
-    peaks another way.
-
-    Args:
-        phnorm: a vector of pulse heights, found by whatever means you like.
-            Normally it will be the self.p_filt_value_dc AFTER CUTS.
-
-    Returns:
-        ndarray of the various peaks found in the input vector.
-    """
-    median_scale = np.median(phnorm)
-
-    # First make histogram with bins = 0.2% of median PH
-    hist, bins = np.histogram(phnorm, 1000, [0, 2*median_scale])
-    binctr = bins[1:] - 0.5 * (bins[1] - bins[0])
-
-    # Scipy continuous wavelet transform
-    pk1 = np.array(sp.signal.find_peaks_cwt(hist, np.array([2, 4, 8, 12])))
-
-    # A peak must contain 0.5% of the data or 500 events, whichever is more,
-    # but the requirement is not more than 5% of data (for meager data sets)
-    Ntotal = len(phnorm)
-    MinCountsInPeak = min(max(500, Ntotal//200), Ntotal//20)
-    pk2 = pk1[hist[pk1] > MinCountsInPeak]
-
-    # Now take peaks from highest to lowest, provided they are at least 40 bins from any neighbor
-    ordering = hist[pk2].argsort()
-    pk2 = pk2[ordering]
-    peaks = [pk2[0]]
-
-    for pk in pk2[1:]:
-        if (np.abs(peaks-pk) > 10).all():
-            peaks.append(pk)
-    peaks.sort()
-    return np.array(binctr[peaks])
-
-
-def phase_correct(phase, pheight, use, ph_peaks=None, method2017=True, kernel_width=None):
-    if use is None:
-        phase_good = phase
-        pheight_good = pheight
-    else:
-        phase_good = phase[use]
-        pheight_good = pheight[use]
-    if ph_peaks is None:
-        ph_peaks = _find_peaks_heuristic(pheight_good)
-    if len(ph_peaks) <= 0:
-        raise ValueError("Could not phase_correct because no peaks found")
-    ph_peaks = np.asarray(ph_peaks)
-    ph_peaks.sort()
-
-    # Compute a correction function at each line in ph_peaks
-    corrections = []
-    median_phase = []
-    if kernel_width is None:
-        kernel_width = np.max(ph_peaks)/1000.0
-    for pk in ph_peaks:
-        c, mphase = _phasecorr_find_alignment(
-            phase_good, pheight_good, pk, .012*np.mean(ph_peaks),
-            method2017=method2017, kernel_width=kernel_width)
-        corrections.append(c)
-        median_phase.append(mphase)
-    median_phase = np.array(median_phase)
-
-    # Store the info needed to reconstruct corrections
-    nc = np.hstack([len(c._x) for c in corrections])
-    cx = np.hstack([c._x for c in corrections])
-    cy = np.hstack([c._y for c in corrections])
-    info = {"phase_corrector_n": nc,
-            "phase_corrector_x": cx,
-            "phase_corrector_y": cy}
-
-    NC = len(corrections)
-    if NC > 3:
-        phase_corrector = mass.mathstat.interpolate.CubicSpline(ph_peaks, median_phase)
-    else:
-        # Too few peaks to spline, so just bin and take the median per bin, then
-        # interpolated (approximating) spline through/near these points.
-        NBINS = 10
-        top = min(pheight_good.max(), 1.2*sp.stats.scoreatpercentile(pheight_good, 98))
-        bin = np.digitize(pheight_good, np.linspace(0, top, 1+NBINS))-1
-        x = np.zeros(NBINS, dtype=float)
-        y = np.zeros(NBINS, dtype=float)
-        w = np.zeros(NBINS, dtype=float)
-        for i in range(NBINS):
-            w[i] = (bin == i).sum()
-            if w[i] == 0:
-                continue
-            x[i] = np.median(pheight_good[bin == i])
-            y[i] = np.median(phase_good[bin == i])
-
-        nonempty = (w > 0)
-        # Use sp.interpolate.UnivariateSpline because it can make an approximating
-        # spline. But then use its x/y data and knots to create a Mass CubicSpline,
-        # because that one can have natural boundary conditions instead of insane
-        # cubic functions in the extrapolation.
-        if nonempty.sum() > 1:
-            spline_order = min(3, nonempty.sum()-1)
-            crazy_spline = sp.interpolate.UnivariateSpline(
-                x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5),
-                k=spline_order)
-            phase_corrector = mass.mathstat.interpolate.CubicSpline(crazy_spline._data[0], crazy_spline._data[1])
-        else:
-            def phase_corrector(x):
-                return 0.0*x
-    phase -= phase_corrector(pheight)
-
-    # Compute a correction for each pulse for each correction-line energy
-    # For the actual correction, don't let |ph| > 0.6 sample
-    clipped_phase = np.clip(phase, -0.6, 0.6)
-    pheight_corrected = _phase_corrected_filtvals(clipped_phase, pheight, corrections)
-    return phase, pheight_corrected, info
-
-
-def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
-                              method2017=False, nf=10, kernel_width=2.0):
-    """Find the way to align (flatten) `pulse_heights` as a function of `phase_indicator`
-    working only within the range [peak-delta_ph, peak+delta_ph].
-
-    If `method2017`, then use a scipy LSQUnivariateSpline with a reasonable (?)
-    number of knots. Otherwise, use `nf` bins in `phase_indicator`, shifting each
-    such that its `pulse_heights` histogram best aligns with the overall histogram.
-    `method2017==False` (the 2015 way) is subject to particular problems when
-    there are not a lot of counts in the peak.
-    """
-    phrange = np.array([-delta_ph, delta_ph])+peak
-    use = np.logical_and(np.abs(pulse_heights[:]-peak) < delta_ph,
-                         np.abs(phase_indicator) < 2)
-    low_phase, median_phase, high_phase = \
-        sp.stats.scoreatpercentile(phase_indicator[use], [3, 50, 97])
-
-    if method2017:
-        x = phase_indicator[use]
-        y = pulse_heights[use]
-        NBINS = len(x) // 300
-        NBINS = max(3, NBINS)
-        NBINS = min(12, NBINS)
-
-        bin_edge = np.linspace(low_phase, high_phase, NBINS+1)
-        dx = high_phase-low_phase
-        bin_edge[0] -= dx
-        bin_edge[-1] += dx
-        bins = np.digitize(x, bin_edge)-1
-
-        knots = np.zeros(NBINS, dtype=float)
-        yknot = np.zeros(NBINS, dtype=float)
-        iter1 = 0
-        for i in range(NBINS):
-            knots[i] = np.median(x[bins == i])
-
-            def target(shift):
-                yadj = y.copy()
-                yadj[bins == i] += shift
-                return mass.mathstat.entropy.laplace_entropy(yadj, kernel_width)
-            brack = 0.003*np.array([-1, 1], dtype=float)
-            sbest, KLbest, niter, _ = sp.optimize.brent(target, (), brack=brack, full_output=True, tol=3e-4)
-            iter1 += niter
-            yknot[i] = sbest
-
-        yknot -= yknot.mean()
-        correction1 = mass.CubicSpline(knots, yknot)
-        ycorr = y + correction1(x)
-
-        iter2 = 0
-        yknot2 = np.zeros(NBINS, dtype=float)
-        for i in range(NBINS):
-            def target(shift):
-                yadj = ycorr.copy()
-                yadj[bins == i] += shift
-                return mass.mathstat.entropy.laplace_entropy(yadj, kernel_width)
-            brack = 0.002*np.array([-1, 1], dtype=float)
-            sbest, KLbest, niter, _ = sp.optimize.brent(target, (), brack=brack, full_output=True, tol=1e-4)
-            iter2 += niter
-            yknot2[i] = sbest
-        correction = mass.CubicSpline(knots, yknot+yknot2)
-        H0 = mass.mathstat.entropy.laplace_entropy(y, kernel_width)
-        H1 = mass.mathstat.entropy.laplace_entropy(ycorr, kernel_width)
-        H2 = mass.mathstat.entropy.laplace_entropy(y+correction(x), kernel_width)
-        LOG.info("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)",
-                 H0, H1, H2, iter1, iter2, NBINS)
-
-        curve = mass.CubicSpline(knots-median_phase, peak-(yknot+yknot2))
-        return curve, median_phase
-
-    # Below here is "method2015", in which we perform correlations and fit to quadratics.
-    # It is basically unsuitable for small statistics, so it is no longer preferred.
-    Pedges = np.linspace(low_phase, high_phase, nf+1)
-    Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
-    dP = 2.0/nf
-    Pbin = np.digitize(phase_indicator, Pedges)-1
-
-    NBINS = 200
-    hists = np.zeros((nf, NBINS), dtype=float)
-    for i, P in enumerate(Pctrs):
-        use = (Pbin == i)
-        c, b = np.histogram(pulse_heights[use], NBINS, phrange)
-        hists[i] = c
-    bctr = 0.5*(b[1]-b[0])+b[:-1]
-
-    kernel = np.mean(hists, axis=0)[::-1]
-    peaks = np.zeros(nf, dtype=float)
-    for i in range(nf):
-        # Find the PH of this ridge by fitting quadratic to the correlation
-        # of histogram #i and the mean histogram, then finding its local max.
-        conv = sp.signal.fftconvolve(kernel, hists[i], 'same')
-        m = conv.argmax()
-        if conv[m] <= 0:
-            continue
-        p = np.poly1d(np.polyfit(bctr[m-2:m+3], conv[m-2:m+3], 2))
-        # p = np.poly1d(np.polyfit(b[m-2:m+3], conv[m-2:m+3], 2))
-        peak = p.deriv(m=1).r[0]
-        # if peak < bctr[m-2]: peak = bctr[m]
-        # if peak > bctr[m+2]: peak = bctr[m]
-        peaks[i] = peak
-    # use = peaks>0
-    # if use.sum() >= 2:
-    #     curve = mass.mathstat.interpolate.CubicSpline(Pctrs[use]-median_phase, peaks[use])
-    # else:
-    #     curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, np.mean(phrange)+np.zeros_like(Pctrs))
-    curve = mass.mathstat.interpolate.CubicSpline(Pctrs-median_phase, peaks)
-    return curve, median_phase
-
-
-def _phase_corrected_filtvals(phase, uncorrected, corrections):
-    """Apply phase correction to `uncorrected`.
-
-    Returns:
-        the corrected vector.
-    """
-    NC = len(corrections)
-    NP = len(phase)
-    assert NP == len(uncorrected)
-    phase = np.asarray(phase)
-    uncorrected = np.asarray(uncorrected)
-
-    ph = np.hstack([0] + [c(0) for c in corrections])
-    assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
-    corr = np.zeros((NC+1, NP), dtype=float)
-    for i, c in enumerate(corrections):
-        corr[i+1] = c(0) - c(phase)
-
-    # Now apply the appropriate correction (a linear interp between 2 neighboring values)
-    corrected = uncorrected.copy()
-    binnum = np.digitize(uncorrected, ph)
-    for b in range(NC):
-        # Don't correct binnum=0, which would be negative PH
-        use = (binnum == 1+b)
-        if b+1 == NC:  # For the last bin, extrapolate
-            use = (binnum >= 1+b)
-        if use.sum() == 0:
-            continue
-        frac = (uncorrected[use]-ph[b])/(ph[b+1]-ph[b])
-        corrected[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
-    return corrected
 
 
 def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
