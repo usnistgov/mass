@@ -1554,7 +1554,7 @@ class MicrocalDataSet(object):
 
     @_add_group_loop
     def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=True,
-                      kernel_width=None):
+                      kernel_width=None, save_to_hdf5=True):
         """Apply the 2017 or 2015 phase correction method.
 
         Args:
@@ -1581,7 +1581,8 @@ class MicrocalDataSet(object):
         self.p_filt_phase_corr[:] = self.phaseCorrector.phase_uniformifier(self.p_filt_phase[:])
         self.p_filt_value_phc[:] = self.phaseCorrector(self.p_filt_phase[:], self.p_filt_value_dc[:])
 
-        self.phaseCorrector.toHDF5(self.hdf5_group, overwrite=True)
+        if save_to_hdf5:
+            self.phaseCorrector.toHDF5(self.hdf5_group, overwrite=True)
 
         LOG.info('Channel %3d phase corrected. Correction size: %.2f',
                  self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good] -
