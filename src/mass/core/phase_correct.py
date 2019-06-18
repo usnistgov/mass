@@ -3,23 +3,29 @@ import scipy as sp
 
 # things that I'd rather not import, but haven't factored out
 import mass.mathstat.entropy
+import mass.mathstat.interpolate
 import logging
 LOG = logging.getLogger("mass")
 
 
 class PhaseCorrector():
-    def __init__(self,phase_uniformifier_x, phase_uniformifier_y,corrections):
+    version = 1
+    def __init__(self,phase_uniformifier_x, phase_uniformifier_y, corrections, uncorrectedName):
         self.corrections = corrections
-        self.phase_uniformifier_x = phase_uniformifier_x
-        self.phase_uniformifier_y = phase_uniformifier_y
+        self.phase_uniformifier_x = np.array(phase_uniformifier_x)
+        self.phase_uniformifier_y = np.array(phase_uniformifier_y)
+        self.uncorrectedName = uncorrectedName
         self.phase_uniformifier = mass.mathstat.interpolate.CubicSpline(self.phase_uniformifier_x, self.phase_uniformifier_y)
 
+    def toHDF5(self, hdf5_group, name="phase_correction", overwrite=False):
+        hdf5_group["{}/phase_uniformifier_x".format(name)] = self.phase_uniformifier_x
+        hdf5_group["{}/phase_uniformifier_y".format(name)] = self.phase_uniformifier_y
+        hdf5_group["{}/uncorrected_name".format(name)] = self.uncorrectedName
+        hdf5_group["{}/version".format(name)] = self.version
+        for (i,correction) in enumerate(self.corrections):
+            hdf5_group["{}/correction_{}_x".format(name,i)] = correction._x
+            hdf5_group["{}/correction_{}_y".format(name,i)] = correction._y
 
-    def to_hdf5(self,g):
-        for name in ("phase_corrector_x", "phase_corrector_y", "phase_corrector_n"):
-            if name in self.hdf5_group:
-                del self.hdf5_group[name]
-            self.hdf5_group.create_dataset(name, data=info[name])
 
     def correct(self, phase, ph):
         phase_uniformified = phase - self.phase_uniformifier(ph) # attempt to force phases to fall between X and X
@@ -32,24 +38,36 @@ class PhaseCorrector():
     def __call__(self,phase_indicator, ph):
         return self.correct(phase_indicator, ph)
 
+    @classmethod
+    def fromHDF5(self, hdf5_group, name="phase_correction"):
+        x = hdf5_group["{}/phase_uniformifier_x".format(name)][()]
+        y = hdf5_group["{}/phase_uniformifier_y".format(name)][()]
+        uncorrectedName = hdf5_group["{}/uncorrected_name".format(name)][()]
+        version = hdf5_group["{}/version".format(name)][()]
+        i = 0
+        corrections = []
+        while "{}/correction_{}_x".format(name,i) in hdf5_group:
+            _x = hdf5_group["{}/correction_{}_x".format(name,i)][()]
+            _y = hdf5_group["{}/correction_{}_y".format(name,i)][()]
+            corrections.append(mass.mathstat.interpolate.CubicSpline(_x,_y))
+            i+=1
+        assert(version==self.version)
+        return PhaseCorrector(x, y, corrections, uncorrectedName)
+
+    def __repr__(self):
+        s = """PhaseCorrector with
+        splines at this many levels: {}
+        phase_uniformifier_x: {}
+        phase_uniformifier_y: {}
+        uncorrectedName: {}
+        """.format(len(self.corrections), self.corrections,self.phase_uniformifier_x, 
+            self.phase_uniformifier_y, self.uncorrectedName)
+        return s
 
 
-
-def from_hdf5(g):
-    x = g["phase_corrector_x"][:]
-    y = g["phase_corrector_y"][:]
-    n = g["phase_corrector_n"][:]
-    return PhaseCorrector(x,y,n)
-
-def phase_correct(phase, pheight, use=None, ph_peaks=None, method2017=True, kernel_width=None):
-    if use is None:
-        phase_good = phase
-        pheight_good = pheight
-    else:
-        phase_good = phase[use]
-        pheight_good = pheight[use]
+def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=None, uncorrectedName = ""):
     if ph_peaks is None:
-        ph_peaks = _find_peaks_heuristic(pheight_good)
+        ph_peaks = _find_peaks_heuristic(pheight)
     if len(ph_peaks) <= 0:
         raise ValueError("Could not phase_correct because no peaks found")
     ph_peaks = np.asarray(ph_peaks)
@@ -62,7 +80,7 @@ def phase_correct(phase, pheight, use=None, ph_peaks=None, method2017=True, kern
         kernel_width = np.max(ph_peaks)/1000.0
     for pk in ph_peaks:
         c, mphase = _phasecorr_find_alignment(
-            phase_good, pheight_good, pk, .012*np.mean(ph_peaks),
+            phase, pheight, pk, .012*np.mean(ph_peaks),
             method2017=method2017, kernel_width=kernel_width)
         corrections.append(c)
         median_phase.append(mphase)
@@ -85,8 +103,8 @@ def phase_correct(phase, pheight, use=None, ph_peaks=None, method2017=True, kern
         # Too few peaks to spline, so just bin and take the median per bin, then
         # interpolated (approximating) spline through/near these points.
         NBINS = 10
-        top = min(pheight_good.max(), 1.2*sp.stats.scoreatpercentile(pheight_good, 98))
-        bin = np.digitize(pheight_good, np.linspace(0, top, 1+NBINS))-1
+        top = min(pheight.max(), 1.2*sp.stats.scoreatpercentile(pheight, 98))
+        bin = np.digitize(pheight, np.linspace(0, top, 1+NBINS))-1
         x = np.zeros(NBINS, dtype=float)
         y = np.zeros(NBINS, dtype=float)
         w = np.zeros(NBINS, dtype=float)
@@ -94,8 +112,8 @@ def phase_correct(phase, pheight, use=None, ph_peaks=None, method2017=True, kern
             w[i] = (bin == i).sum()
             if w[i] == 0:
                 continue
-            x[i] = np.median(pheight_good[bin == i])
-            y[i] = np.median(phase_good[bin == i])
+            x[i] = np.median(pheight[bin == i])
+            y[i] = np.median(phase[bin == i])
 
         nonempty = (w > 0)
         # Use sp.interpolate.UnivariateSpline because it can make an approximating
@@ -114,7 +132,7 @@ def phase_correct(phase, pheight, use=None, ph_peaks=None, method2017=True, kern
             phase_uniformifier_x = np.array([0,0,0,0])
             phase_uniformifier_y = np.array([0,0,0,0])
 
-    return PhaseCorrector(phase_uniformifier_x, phase_uniformifier_y, corrections)
+    return PhaseCorrector(phase_uniformifier_x, phase_uniformifier_y, corrections, uncorrectedName)
 
 
 def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
