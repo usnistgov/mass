@@ -195,6 +195,7 @@ lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Frit
 
     The KBeta also appears to be a hack with scaled values."""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
+lineshape_references["Joe Fowler"] = """This is what Joe Fowler measured for tungsten L-lines in 2018."""
 
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
@@ -213,7 +214,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     # require the reference exists in lineshape_references
     assert reference_short in lineshape_references
     # require that linetype is supported
-    assert linetype in ["KBeta", "KAlpha"]
+    # assert linetype in ["KBeta", "KAlpha", "LAlpha"]
     # require kalpha lines to have ka12_energy_diff
     if linetype == "KAlpha":
         ka12_energy_diff = float(ka12_energy_diff)
@@ -270,9 +271,9 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     spectrum = cls()
     if spectrum.element in ["Al", "Mg"]:
         superclass = line_fits._lowZ_KAlphaFitter
-    elif spectrum.linetype == "KAlpha":
+    elif spectrum.linetype == "KAlpha" or spectrum.linetype == "LAlpha":
         superclass = line_fits.GenericKAlphaFitter
-    elif spectrum.linetype == "KBeta":
+    elif spectrum.linetype == "KBeta" or "LBeta" in spectrum.linetype:
         superclass = line_fits.GenericKBetaFitter
     else:
         raise ValueError("no generic fitter for {}".format(spectrum))
@@ -571,6 +572,45 @@ addfitter(
     lorentzian_fwhm=np.array((3.60, 3.73)),
     reference_amplitude=np.array((2, 1)),
     ka12_energy_diff=46.6,
+    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+)
+
+
+addfitter(
+    element="W",
+    linetype="LAlpha",
+    reference_short="Joe Fowler",
+    reference_plot_gaussian_fwhm=None,
+    nominal_peak_energy=8398.24,
+    energies=np.array((8335.69, 8397.89)),
+    lorentzian_fwhm=np.array((6.31, 6.48)),
+    reference_amplitude=np.array((1, 8.973)),
+    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+)
+
+
+addfitter(
+    element="W",
+    linetype="LBeta1",
+    reference_short="Joe Fowler",
+    reference_plot_gaussian_fwhm=None,
+    nominal_peak_energy=9672.58,
+    energies=np.array((9672.58,)),
+    lorentzian_fwhm=np.array((7.34,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+)
+
+
+addfitter(
+    element="W",
+    linetype="LBeta2",
+    reference_short="Joe Fowler",
+    reference_plot_gaussian_fwhm=None,
+    nominal_peak_energy=9964.19,
+    energies=np.array((9964.21, 9951.04)),
+    lorentzian_fwhm=np.array((11.0, 8.61)),
+    reference_amplitude=np.array((14.828, 1)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
