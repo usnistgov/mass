@@ -58,6 +58,7 @@ ds.plotHist(np.arange(0,4000,4),"energy", coAddStates=False)
 
 
 ds.diagnoseCalibration()
+ds.learnPhaseCorrection("Ne", "derivativeLike", "filtValue", [3768])
 
 ds3 = data[3]
 data.alignToReferenceChannel(referenceChannel=ds,

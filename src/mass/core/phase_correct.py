@@ -10,10 +10,11 @@ LOG = logging.getLogger("mass")
 
 class PhaseCorrector():
     version = 1
-    def __init__(self,phase_uniformifier_x, phase_uniformifier_y, corrections, uncorrectedName):
+    def __init__(self,phase_uniformifier_x, phase_uniformifier_y, corrections, indicatorName, uncorrectedName):
         self.corrections = corrections
         self.phase_uniformifier_x = np.array(phase_uniformifier_x)
         self.phase_uniformifier_y = np.array(phase_uniformifier_y)
+        self.indicatorName = indicatorName
         self.uncorrectedName = uncorrectedName
         self.phase_uniformifier = mass.mathstat.interpolate.CubicSpline(self.phase_uniformifier_x, self.phase_uniformifier_y)
 
@@ -21,6 +22,7 @@ class PhaseCorrector():
         hdf5_group["{}/phase_uniformifier_x".format(name)] = self.phase_uniformifier_x
         hdf5_group["{}/phase_uniformifier_y".format(name)] = self.phase_uniformifier_y
         hdf5_group["{}/uncorrected_name".format(name)] = self.uncorrectedName
+        hdf5_group["{}/indicator_name".format(name)] = self.indicatorName
         hdf5_group["{}/version".format(name)] = self.version
         for (i,correction) in enumerate(self.corrections):
             hdf5_group["{}/correction_{}_x".format(name,i)] = correction._x
@@ -43,6 +45,7 @@ class PhaseCorrector():
         x = hdf5_group["{}/phase_uniformifier_x".format(name)][()]
         y = hdf5_group["{}/phase_uniformifier_y".format(name)][()]
         uncorrectedName = hdf5_group["{}/uncorrected_name".format(name)][()]
+        indicatorName = hdf5_group["{}/indicator_name".format(name)][()]
         version = hdf5_group["{}/version".format(name)][()]
         i = 0
         corrections = []
@@ -52,7 +55,7 @@ class PhaseCorrector():
             corrections.append(mass.mathstat.interpolate.CubicSpline(_x,_y))
             i+=1
         assert(version==self.version)
-        return PhaseCorrector(x, y, corrections, uncorrectedName)
+        return PhaseCorrector(x, y, corrections, indicatorName, uncorrectedName)
 
     def __repr__(self):
         s = """PhaseCorrector with
@@ -65,7 +68,8 @@ class PhaseCorrector():
         return s
 
 
-def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=None, uncorrectedName = ""):
+def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=None, 
+indicatorName = "", uncorrectedName = ""):
     if ph_peaks is None:
         ph_peaks = _find_peaks_heuristic(pheight)
     if len(ph_peaks) <= 0:
@@ -132,7 +136,8 @@ def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=N
             phase_uniformifier_x = np.array([0,0,0,0])
             phase_uniformifier_y = np.array([0,0,0,0])
 
-    return PhaseCorrector(phase_uniformifier_x, phase_uniformifier_y, corrections, uncorrectedName)
+    return PhaseCorrector(phase_uniformifier_x, phase_uniformifier_y, corrections, 
+    indicatorName, uncorrectedName)
 
 
 def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,

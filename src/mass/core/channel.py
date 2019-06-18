@@ -1576,7 +1576,7 @@ class MicrocalDataSet(object):
 
         self.phaseCorrector = phase_correct.phase_correct(self.p_filt_phase[good], self.p_filt_value_dc[good],
              ph_peaks=ph_peaks, method2017=method2017, kernel_width=kernel_width,
-             uncorrectedName = "p_filt_value_dc")
+             indicatorName = "p_filt_phase", uncorrectedName = "p_filt_value_dc")
 
         self.p_filt_phase_corr[:] = self.phaseCorrector.phase_uniformifier(self.p_filt_phase[:])
         self.p_filt_value_phc[:] = self.phaseCorrector(self.p_filt_phase[:], self.p_filt_value_dc[:])
