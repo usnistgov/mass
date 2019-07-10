@@ -633,7 +633,7 @@ class Channel(CorG):
         if hasattr(self, "calibrationRough"):
             self.calibrationRough.save_to_hdf5(grp,"calibrationRough")
             grp["calibrationRough/uncalibratedName"] = self.calibrationRough.uncalibratedName
-        if hasattr(self, calibrationArbsInRefChannelUnits):
+        if hasattr(self, "calibrationArbsInRefChannelUnits"):
             self.calibrationArbsInRefChannelUnits.save_to_hdf5(grp,"calibrationArbsInRefChannelUnits")
             grp["calibrationArbsInRefChannelUnits/uncalibratedName"] = self.calibrationArbsInRefChannelUnits.uncalibratedName
         if hasattr(self, "phaseCorrection"):
