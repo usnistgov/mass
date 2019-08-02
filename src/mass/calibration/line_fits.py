@@ -7,11 +7,12 @@ Separated line fits (here) from the line shapes (still in fluorescence_lines.py)
 """
 
 import numpy as np
+import scipy as sp
 import pylab as plt
 
 from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
 from mass.mathstat.utilities import plot_as_stepped_hist
-from mass.mathstat.special import voigt
+from mass.mathstat.special import voigt, voigt_approx_fwhm
 
 
 def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
@@ -162,20 +163,53 @@ class LineFitter(object):
         self.last_fit_bins = pulseheights.copy()
         self.last_fit_contents = data.copy()
 
-        if integrate_n_points is None:
-            heuristic_goes_here()
-            integrate_n_points = 1  # ??
-        if integrate_n_points % 2 != 1 or integrate_n_points < 1:
-            raise ValueError("integrate_n_points=%d, want an odd, positive number" % integrate_n_points)
-        fitfunc = self.fitfunc
-        if integrate_n_points > 1:
-            def integrated_model():
-                return blah()
-            fitfunc = integrated_model
-
         try:
             if params is None:
                 params = self.guess_starting_params(data, pulseheights)
+
+            if integrate_n_points is None:
+                integrate_n_points = 1
+                # Given no direction, we have to use a heuristic here to decide how densely
+                # to perform numerical integration within each bin.
+                w = self.feature_scale(params)
+                binwidth = pulseheights[1] - pulseheights[0]
+                if w/binwidth < 6.5:
+                    integrate_n_points = 3
+                if w/binwidth < 1.5:
+                    integrate_n_points = 5
+                if w/binwidth < 0.9:
+                    integrate_n_points = 7
+
+            if integrate_n_points % 2 != 1 or integrate_n_points < 1:
+                raise ValueError("integrate_n_points=%d, want an odd, positive number" % integrate_n_points)
+
+            # In this block, replace fitfunc with the version that integrates numerically across bins
+            fitfunc = self.fitfunc
+            if integrate_n_points > 1:
+                dx = pulseheights[1] - pulseheights[0]
+                x0 = pulseheights[0] - 0.5*dx
+                x1 = pulseheights[-1] + 0.5*dx
+                x_values = np.linspace(x0, x1, 1+(integrate_n_points-1)*len(pulseheights))
+                if integrate_n_points == 3:
+                    def integrated_model(params, _x):
+                        y = self.fitfunc(params, x_values)
+                        return (y[0:-1:2] + 4.0*y[1::2] + y[2::2])/6.0
+                elif integrate_n_points == 5:
+                    def integrated_model(params, _x):
+                        y = self.fitfunc(params, x_values)
+                        return (y[0:-1:4] + 4.0*y[1::4] + 2.0*y[2::4] + 4.0*y[3::4] + y[4::4])/12.0
+                else:
+                    def integrated_model(params, _x):
+                        y = self.fitfunc(params, x_values)
+                        ninterv = integrate_n_points-1
+                        dx = 1.0/ninterv
+                        z = y[0:-1:ninterv] + y[ninterv::ninterv]
+                        for i in range(1, ninterv, 2):
+                            z += 4.0*y[i::ninterv]
+                        for i in range(2, ninterv-1, 2):
+                            z += 2.0*y[i::ninterv]
+                        return z / (3.0*ninterv)
+                fitfunc = integrated_model
 
             # Max-likelihood histogram fitter
             epsilon = self.stepsize(params)
@@ -355,6 +389,11 @@ class VoigtFitter(LineFitter):
     def __init__(self):
         super(VoigtFitter, self).__init__()
 
+    def feature_scale(self, params):
+        res = params[self.param_meaning["resolution"]]
+        lw = params[self.param_meaning["lorentz_fwhm"]]
+        return voigt_approx_fwhm(lw, res)
+
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
 
@@ -442,6 +481,13 @@ class NVoigtFitter(LineFitter):
             self.param_meaning["peak_ph%d" % j] = i*3+1
             self.param_meaning["lorentz_fwhm%d" % j] = i*3+2
             self.param_meaning["amplitude%d" % j] = i*3+3
+
+    def feature_scale(self, params):
+        res = params[self.param_meaning["resolution"]]
+        lw = params[self.param_meaning["lorentz_fwhm0"]]
+        for i in range(1, self.Nlines):
+            lw = min(lw, params[self.param_meaning["lorentz_fwhm%d" % i]])
+        return voigt_approx_fwhm(lw, res)
 
     def guess_starting_params(self, data, binctrs):
         raise NotImplementedError(
@@ -533,6 +579,9 @@ class GaussianFitter(LineFitter):
     def __init__(self):
         super(GaussianFitter, self).__init__()
 
+    def feature_scale(self, params):
+        return params[self.param_meaning["resolution"]]
+
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
 
@@ -611,6 +660,9 @@ class MultiLorentzianComplexFitter(LineFitter):
 
     def __init__(self):
         super(MultiLorentzianComplexFitter, self).__init__()
+
+    def feature_scale(self, params):
+        return params[self.param_meaning["resolution"]]
 
     def fitfunc(self, params, x):
         """Return the smeared line complex.
