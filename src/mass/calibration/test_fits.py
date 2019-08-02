@@ -82,6 +82,26 @@ class Test_Gaussian(unittest.TestCase):
         self.assertTrue(bg_bin0 >= 0)
         self.assertTrue(bg_binEnd >= 0)
 
+    def test_wide_bins_issue162(self):
+        """Does Gaussian fit give unbiased width when bin width = Gaussian width?
+
+        Fit where bins and Gaussian have approximately equal width is biased. It
+        used to overestimate the Gaussian's width, as shown in issue 162.
+        Test that it's been fixed."""
+        fwhm = 1.0
+        sigma = fwhm/2.3548
+        nsim = 10
+        N = 10000
+        w = np.zeros(nsim, dtype=float)
+        for i in range(nsim):
+            x = np.random.standard_normal(N)*sigma
+            c, b = np.histogram(x, 100, [-50, 50])
+            param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
+                            plot=False, hold=(3, 4, 5, 6))
+            w[i] = param[0]
+        typical_width = mass.robust.trimean(w)
+        self.assertLess(typical_width, 1.05)  # was typically ~1.18 before fix
+
 
 class Test_MnKA(unittest.TestCase):
     def setUp(self):
