@@ -1,5 +1,8 @@
 ## Note on version numbers of Mass
 
+**0.6.6** August 2019
+* Fix issue 162: overcome biased fits when bins are too wide by allowing numerical integration in bin. How densely to sample can be chosen by user or a heuristic.
+
 **0.6.5** July 2018-June 2019
 * Factor phase correction into its own class and source file.
 * Add lineshape models for bromine K and tungsten L lines.
