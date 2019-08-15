@@ -465,7 +465,7 @@ class Channel(CorG):
         g = self.choose(states)
         indicator = getattr(self, indicatorName)[g]
         uncorrected = getattr(self, uncorrectedName)[g]
-        self.phaseCorrection = mass.core.phase_correct.phase_correct(indicator, uncorrected, linePositions)       
+        self.phaseCorrection = mass.core.phase_correct.phase_correct(indicator, uncorrected, linePositions, indicatorName = indicatorName, uncorrectedName = uncorrectedName)       
 
     def loadDriftCorrection(self):
         pass
