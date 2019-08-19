@@ -183,6 +183,7 @@ class LJHFile(MicrocalFile):
         self.__cached_segment = None
         self.__read_header(filename)
         self.set_segment_size(segmentsize)
+        self.software_type = ''
 
         self.datatimes_float = None
         self.datatimes_float_old = None
@@ -226,6 +227,12 @@ class LJHFile(MicrocalFile):
             lines.append(line)
             if line.startswith(b"#End of Header"):
                 break
+            elif line.startswith(b"Software Version"):
+                words = line.split()
+                if 'DASTARD' in words:
+                    self.software_type = 'DASTARD'
+                else:
+                    self.software_type = 'MATTER'
             elif line.startswith(b"Timebase"):
                 words = line.split()
                 self.timebase = float(words[-1])
@@ -260,6 +267,12 @@ class LJHFile(MicrocalFile):
             if len(lines) > self.TOO_LONG_HEADER:
                 raise IOError("header is too long--seems not to contain '#End of Header'\n" +
                               "in file %s" % filename)
+        
+        # Checks to see if data was taken with DASTARD. If it was, subtract 3 from nPresamples.
+        # This is necessary to go around a bug in how mass was originally designed which assumed
+        # a 3 sample delay to when the trigger was actually recorded.
+        if self.software_type == 'DASTARD':
+            self.nPresamples -= 3
 
         self.header_lines = lines
         self.header_size = fp.tell()
