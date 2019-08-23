@@ -455,7 +455,7 @@ class FilterTimeCorrection(object):
         """Fit the data samples."""
 
         _nPulses, nSamp = trainingPulses.shape
-        self.num_zeros = self.nPresamples+2
+        self.num_zeros = self.nPresamples-1
         self.nSamp = nSamp
 
         self.raw_fits = {}
@@ -472,7 +472,7 @@ class FilterTimeCorrection(object):
                 print('Using %4d pulses for cluster %d' % (use.sum(), i))
 
             prompt = promptness[use]
-            ptmean = trainingPulses[use, :self.nPresamples].mean(axis=1)
+            ptmean = trainingPulses[use, :self.nPresamples-1].mean(axis=1)
             med = np.median(prompt)
             self.prompt_range[i] = np.array((sp.stats.scoreatpercentile(prompt, 1),
                                              med, sp.stats.scoreatpercentile(prompt, 99)))

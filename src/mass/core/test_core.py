@@ -130,6 +130,7 @@ class TestFiles(ut.TestCase):
         v2 = ds2.data[0]
         self.assertTrue((v1 == v2).all())
         self.assertEqual(ds1.p_pretrig_mean[0], ds2.p_pretrig_mean[0])
+        self.assertEqual(ds1.p_pretrig_rms[0], ds2.p_pretrig_rms[0])
         self.assertEqual(ds1.p_pulse_average[0], ds2.p_pulse_average[0])
 
 
