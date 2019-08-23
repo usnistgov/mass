@@ -109,6 +109,27 @@ class TestFiles(ut.TestCase):
         self.run_test_ljh_truncate_timestamp(src_name,   75, 1510871018591985/1e6, 1016*50)
         self.run_test_ljh_truncate_timestamp(src_name,  334, 1510871031629499/1e6, 1016*50)
 
+    def test_ljh_dastard_other_reading(self):
+        "Make sure we read DASTARD vs non-DASTARD LJH files correctly"
+        src_name1 = os.path.join('src', 'mass', 'regression_test', 'regress_chan1.ljh')
+        src_name2 = os.path.join('src', 'mass', 'regression_test', 'regress_dastard_chan1.ljh')
+        data1 = mass.TESGroup(src_name1)
+        data2 = mass.TESGroup(src_name2)
+        for d in (data1, data2):
+            d.summarize_data()
+            d.read_segment(0)
+        ds1 = data1.channel[1]
+        ds2 = data2.channel[1]
+        self.assertTrue("Presamples: 512\r\n" in ds1.pulse_records.datafile.header_lines)
+        self.assertTrue("Presamples: 515\n" in ds2.pulse_records.datafile.header_lines)
+        self.assertEqual(515, ds1.nPresamples)
+        self.assertEqual(515, ds2.nPresamples)
+        v1 = ds1.data[0]
+        v2 = ds2.data[0]
+        self.assertTrue((v1 == v2).all())
+        self.assertEqual(ds1.p_pretrig_mean[0], ds2.p_pretrig_mean[0])
+        self.assertEqual(ds1.p_pulse_average[0], ds2.p_pulse_average[0])
+
 
 class TestTESGroup(ut.TestCase):
     """Basic tests of the TESGroup object."""
