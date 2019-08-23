@@ -120,6 +120,8 @@ class TestFiles(ut.TestCase):
             d.read_segment(0)
         ds1 = data1.channel[1]
         ds2 = data2.channel[1]
+        self.assertTrue("MATTER" in ds1.pulse_records.datafile.client)
+        self.assertTrue("DASTARD" in ds2.pulse_records.datafile.client)
         self.assertTrue("Presamples: 512\r\n" in ds1.pulse_records.datafile.header_lines)
         self.assertTrue("Presamples: 515\n" in ds2.pulse_records.datafile.header_lines)
         self.assertEqual(515, ds1.nPresamples)
