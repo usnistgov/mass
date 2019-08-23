@@ -8,5 +8,5 @@ http://stackoverflow.com/questions/458550/standard-way-to-embed-version-into-pyt
 Joe Fowler, NIST
 """
 
-__version__ = '0.6.5'
+__version__ = '0.6.6'
 __version_info__ = tuple([int(num) for num in __version__.split('.')])
