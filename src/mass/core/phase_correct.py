@@ -63,7 +63,7 @@ class PhaseCorrector():
         phase_uniformifier_x: {}
         phase_uniformifier_y: {}
         uncorrectedName: {}
-        """.format(len(self.corrections), self.corrections,self.phase_uniformifier_x, 
+        """.format(len(self.corrections), self.phase_uniformifier_x, 
             self.phase_uniformifier_y, self.uncorrectedName)
         return s
 

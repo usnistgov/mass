@@ -377,6 +377,11 @@ class Channel(CorG):
         return self.offFile["coefs"][:,1]
 
     @property
+    def filtPhase(self):
+        """ used as input for phase correction """
+        return self.derivativeLike/self.filtValue
+
+    @property
     def filtValue(self):
         return self.offFile["coefs"][:,2]
 
@@ -409,6 +414,16 @@ class Channel(CorG):
     def energyRough(self):
         uncalibrated = getattr(self, self.calibrationRough.uncalibratedName)
         return self.calibrationRough(uncalibrated)
+
+    @property
+    def energyDC(self):
+        """ apply calibration to filtValueDC, ignore calibration.uncalibratedName """
+        return self.calibration(self.filtValueDC)
+
+    @property
+    def energyPC(self):
+        """ apply calibration to filtValuePC, ignore calibration.uncalibratedName """
+        return self.calibration(self.filtValuePC)
 
     @property
     def arbsInRefChannelUnits(self):
