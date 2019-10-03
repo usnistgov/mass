@@ -100,7 +100,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
                  hdf5_filename=None, hdf5_noisefilename=None,
-                 never_use=None, use_only=None):
+                 never_use=None, use_only=None, max_chans=None):
         """Set up a group of related data sets by their filenames.
 
         Args:
@@ -125,6 +125,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 (default None).
             use_only:  if not None, a sequence of channel numbers to use, i.e.
                 ignore all channels not on this list (default None).
+            max_chans: open at most this many ljh files
         """
 
         if noise_filenames is not None and len(noise_filenames) == 0:
@@ -151,6 +152,12 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # If using a glob pattern especially, we have to be careful to eliminate files that are
         # missing a partner, either noise without pulse or pulse without noise.
         remove_unpaired_channel_files(filenames, noise_filenames, never_use=never_use, use_only=use_only)
+
+        # enforce max_chans
+        if max_chans is not None:
+            n = min(max_chans, len(filenames))
+            filenames = filenames[:n]
+            noise_filenames = noise_filenames[:n]
 
         # Figure out where the 2 HDF5 files are to live, if the default argument
         # was given for their paths.

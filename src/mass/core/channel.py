@@ -12,6 +12,7 @@ import scipy as sp
 import scipy.signal
 import matplotlib.pylab as plt
 import inspect
+import os
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -790,7 +791,7 @@ class MicrocalDataSet(object):
     def __load_corrections(self):
         # drift correction should be loaded here, but currently I don't htink it is loaded at all
         if "phase_correction" in self.hdf5_group:
-            self.phaseCorrector = phase_correct.phaseCorrector.from_hdf5(self.hdf5_group, name="phase_correction")
+            self.phaseCorrector = phase_correct.PhaseCorrector.fromHDF5(self.hdf5_group, name="phase_correction")
 
     @property
     def p_peak_time(self):
@@ -799,11 +800,18 @@ class MicrocalDataSet(object):
 
     @property
     def external_trigger_rowcount(self):
-        if not self._external_trigger_rowcount:
+        if self._external_trigger_rowcount is None:
             filename = ljh_util.ljh_get_extern_trig_fname(self.filename)
-            h5 = h5py.File(filename, "r")
-            ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
-            self._external_trigger_rowcount = h5[ds_name]
+            if os.path.isfile(filename):
+                h5 = h5py.File(filename, "r")
+                ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
+                self._external_trigger_rowcount = h5[ds_name]
+            else:
+                basename, _ = ljh_util.ljh_basename_channum(self.filename)
+                filename = "{}_external_trigger.bin".format(basename)
+                with open(filename,"r") as f:
+                    f.readline() # read the header comments line
+                    self._external_trigger_rowcount = np.fromfile(f,dtype="int64")
             self.row_timebase = self.timebase/float(self.number_of_rows)
         return self._external_trigger_rowcount
 
@@ -1845,7 +1853,8 @@ class MicrocalDataSet(object):
 
     @_add_group_loop
     def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree=2000,
-                           pulses_per_degree=2000, max_degrees=20, forceNew=False):
+                           pulses_per_degree=2000, max_degrees=20, forceNew=False,
+                           category=None):
         """Drift correct over long times with an entropy-minimizing algorithm.
         Here we correct as a low-ish-order Legendre polynomial in time.
 
@@ -1856,11 +1865,12 @@ class MicrocalDataSet(object):
         max_degrees: never use more than this many degrees of Legendre polynomial.
 
         forceNew: whether to do this step, if it appears already to have been done.
+        category: choices for categorical cuts
         """
         if all(self.p_filt_value_tdc[:] == 0.0) or forceNew:
             LOG.info("chan %d doing time_drift_correct", self.channum)
             attr = getattr(self, attr)
-            g = self.cuts.good()
+            g = self.cuts.good(**category)
             pk = np.median(attr[g])
             g = np.logical_and(g, np.abs(attr[:]/pk-1) < 0.5)
             w = max(pk/3000., 1.0)
