@@ -933,7 +933,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 plt.setp(ltext, fontsize='small')
 
     @show_progress("compute_filters")
-    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False):
+    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category=None):
         """
         compute_filters(self, fmax=None, f_3db=None, forceNew=False)
 
@@ -956,9 +956,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
                 if ds._use_new_filters:
-                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
+                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db, 
+                    cut_pre=cut_pre, cut_post=cut_post, category=category)
                 else:
-                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
+                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db, 
+                    cut_pre=cut_pre, cut_post=cut_post, category=category)
                 ds.filter = f
 
                 # Store all filters created to a new HDF5 group
