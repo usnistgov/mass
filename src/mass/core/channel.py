@@ -1104,12 +1104,13 @@ class MicrocalDataSet(object):
         self.compute_average_pulse(mask, subtract_mean=subtract_mean,
                                    forceNew=forceNew)
 
-    def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
+    def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category=None):
         try:
             spectrum = self.noise_spectrum.spectrum()
         except Exception:
             spectrum = self.noise_psd[:]
-
+        if category is not None:
+            raise Exception("category argument has no effect on compute_oldfilter, pass None. compute_oldfilter uses self.average_pulse")
         avg_signal = np.array(self.average_pulse)
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
@@ -1117,7 +1118,7 @@ class MicrocalDataSet(object):
         f.compute(fmax=fmax, f_3db=f_3db)
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0):
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0, category=None):
         """Compute a new-style filter to model the pulse and its time-derivative.
 
         Args:
@@ -1145,7 +1146,7 @@ class MicrocalDataSet(object):
         DEGREE = 1
 
         # The raw training data, which is shifted (trigger-aligned)
-        data, pulsenums = self.first_n_good_pulses(3000)
+        data, pulsenums = self.first_n_good_pulses(4000, category=category)
         raw = data[:, 1:]
         shift1 = self.p_shift1[:][pulsenums]
         raw[shift1, :] = data[shift1, 0:-1]
@@ -1485,7 +1486,7 @@ class MicrocalDataSet(object):
         self.p_pretrig_mean[:] = corrected
 
     @_add_group_loop
-    def drift_correct(self, forceNew=False, category=None):
+    def drift_correct(self, attr="p_filt_value", forceNew=False, category=None):
         """Drift correct using the standard entropy-minimizing algorithm"""
         doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(self.p_filt_value_dc[:] == self.p_filt_value[:])
         if not (forceNew or doesnt_exist):
@@ -1494,20 +1495,21 @@ class MicrocalDataSet(object):
         if category is None:
             category = {"calibration": "in"}
         g = self.cuts.good(**category)
-        uncorrected = self.p_filt_value[g]
+        uncorrected = getattr(self, attr)[g]
         indicator = self.p_pretrig_mean[g]
         drift_corr_param, self.drift_correct_info = \
             mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
         self.p_filt_value_dc.attrs.update(self.drift_correct_info)  # Store in hdf5 file
         LOG.info('chan %d best drift correction parameter: %.6f', self.channum, drift_corr_param)
-        self._apply_drift_correction()
+        self._apply_drift_correction(attr=attr)
 
-    def _apply_drift_correction(self):
+    def _apply_drift_correction(self, attr):
         # Apply correction
         assert self.p_filt_value_dc.attrs["type"] == "ptmean_gain"
         ptm_offset = self.p_filt_value_dc.attrs["median_pretrig_mean"]
+        uncorrected = getattr(self, attr)[:]
         gain = 1+(self.p_pretrig_mean[:]-ptm_offset)*self.p_filt_value_dc.attrs["slope"]
-        self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
+        self.p_filt_value_dc[:] = uncorrected*gain
         self.hdf5_group.file.flush()
 
     @_add_group_loop
@@ -1561,8 +1563,8 @@ class MicrocalDataSet(object):
             plt.figure(fnum)
 
     @_add_group_loop
-    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=True,
-                      kernel_width=None, save_to_hdf5=True):
+    def phase_correct(self, attr="p_filt_value_dc", forceNew=False, category=None, ph_peaks=None, 
+        method2017=True, kernel_width=None, save_to_hdf5=True):
         """Apply the 2017 or 2015 phase correction method.
 
         Args:
@@ -1582,19 +1584,20 @@ class MicrocalDataSet(object):
             category = {"calibration": "in"}
         good = self.cuts.good(**category)
 
-        self.phaseCorrector = phase_correct.phase_correct(self.p_filt_phase[good], self.p_filt_value_dc[good],
-             ph_peaks=ph_peaks, method2017=method2017, kernel_width=kernel_width,
-             indicatorName = "p_filt_phase", uncorrectedName = "p_filt_value_dc")
+        self.phaseCorrector = phase_correct.phase_correct(self.p_filt_phase[good], 
+            getattr(self,attr)[good],
+            ph_peaks=ph_peaks, method2017=method2017, kernel_width=kernel_width,
+            indicatorName = "p_filt_phase", uncorrectedName = "p_filt_value_dc")
 
         self.p_filt_phase_corr[:] = self.phaseCorrector.phase_uniformifier(self.p_filt_phase[:])
-        self.p_filt_value_phc[:] = self.phaseCorrector(self.p_filt_phase[:], self.p_filt_value_dc[:])
+        self.p_filt_value_phc[:] = self.phaseCorrector(self.p_filt_phase[:], getattr(self,attr)[:])
 
         if save_to_hdf5:
             self.phaseCorrector.toHDF5(self.hdf5_group, overwrite=True)
 
         LOG.info('Channel %3d phase corrected. Correction size: %.2f',
                  self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good] -
-                                                                   self.p_filt_value_dc[good], True))
+                                                                   getattr(self,attr)[good], True))
   
         return self.phaseCorrector
 
@@ -1612,8 +1615,6 @@ class MicrocalDataSet(object):
         If we did load all of ds.data at once, this would be roughly equivalent to
         return ds.data[ds.cuts.good()][:n], np.nonzero(ds.cuts.good())[0][:n]
         """
-        if category is None:
-            category = {"calibration": "in"}
         g = self.cuts.good(**category)
 
         first, end = self.read_segment(0)
@@ -1683,15 +1684,16 @@ class MicrocalDataSet(object):
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3,
-                  param_adjust_closure=None, diagnose=False):
+                  param_adjust_closure=None, curvetype="gain", approximate=False,
+                  diagnose=False):
         calname = attr+name_ext
 
         if not forceNew and calname in self.calibration:
             return self.calibration[calname]
 
         LOG.info("Calibrating chan %d to create %s", self.channum, calname)
-        cal = EnergyCalibration()
-        cal.set_use_approximation(False)
+        cal = EnergyCalibration(curvetype=curvetype)
+        cal.set_use_approximation(approximate)
 
         if category is None:
             category = {"calibration": "in"}
