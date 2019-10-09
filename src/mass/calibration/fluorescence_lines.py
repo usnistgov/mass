@@ -160,9 +160,6 @@ lineshape_references["Klauber 1993"] = """Data are from C. Klauber, Applied Surf
     Spectroscopy and Related Phenomena 67 (1994) 463-478 titled "Accurate measurement
     of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5 "Average" column.
     """
-lineshape_references["Ullom Email 2010"] = """
-Data are from Joel Ullom, based on email to him from Caroline Kilbourne (NASA
-GSFC) dated 28 Sept 2010."""
 lineshape_references["Wollman 2000"] = """Data are from Wollman, Nam, Newbury, Hilton, Irwin, Berfren, Deiker, Rudman,
     and Martinis, NIM A 444 (2000) page 145. They come from combining 8 earlier
     references dated 1965 - 1993."""
@@ -204,6 +201,20 @@ lineshape_references["Clementson 2010"] = """J. Clementson, P. Beiersdorfer, G. 
     Physica Scripta 81, 015301 (2010). https://iopscience.iop.org/article/10.1088/0031-8949/81/01/015301/meta"""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 lineshape_references["Nilsen 1995"] = "Elliott, S. R., Beiersdorfer, P., Macgowan, B. J., & Nilsen, J. (1995). Measurements of line overlap for resonant spoiling of x-ray lasing transitions in nickle-like tungsten, 52(4), 2689–2692. https://doi.org/10.1103/PhysRevA.52.2689"
+lineshape_references["Deslattes Notebook Si"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster. 
+Added by GCO Oct 7 2019. Used the postion and width values from the from the lowest listed fit, the one in energy units.
+Used the intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile).
+Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at higher energy"""
+lineshape_references["Schweppe 1992 Al"] = """J. Schweppe, R. D. Deslattes, T. Mooney, and C. J. Powell in J. Electron
+    Spectroscopy and Related Phenomena 67 (1994) 463-478 titled "Accurate measurement
+    of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5 "Average" column.
+    They do not provide a full lineshape, GCO interperpreted the paper as follows:
+    Ka1 and Ka2 positions are taken from Table 6 "This work" column
+    Ka1 and Ka2 widths were fixed as equal, and we taken the value 0.43 eV from the 2nd to last paragraph
+    The higher energy satellite features are not measured by Schweppe, and instead taken from an email from Caroline Kilbourne to Joel Ullom dated 28 Sept 2010
+    We expect these higher energy satellites do not affect the fitting of the peak location very much.
+"""
+
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
 model_classes = OrderedDict()
@@ -320,14 +331,29 @@ addfitter(
 addfitter(
     element="Al",
     linetype="KAlpha",
-    reference_short="Ullom Email 2010",
+    reference_short="Schweppe 1992 Al",
     reference_plot_gaussian_fwhm=None,
     nominal_peak_energy=1486.88931733,
-    energies=np.array((1486.9, 1486.5, 1492.3, 1496.4, 1498.4)),
+    energies=np.array((1486.706, 1486.293, 1492.3, 1496.4, 1498.4)),
     lorentzian_fwhm=np.array((0.43, 0.43, 1.34, 0.96, 1.255)),
     reference_amplitude=np.array((1, .5, .02, .12, .06)),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=3.0,
+    position_uncertainty=0.010,
+)
+
+addfitter(
+    element="Si",
+    linetype="KAlpha",
+    reference_short="Deslattes Notebook Si",
+    reference_plot_gaussian_fwhm=0.245,
+    nominal_peak_energy=1739.986,
+    energies=np.array((1739.39, 1739.986, 1752.0)),
+    lorentzian_fwhm=np.array((0.539, 0.524, 5)),
+    reference_amplitude=np.array((3.134e2, 6.121e3, 8e2)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=.6,
+    position_uncertainty=0.040
 )
 
 addfitter(
