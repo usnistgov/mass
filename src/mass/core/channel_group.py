@@ -951,7 +951,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         for ds_num, ds in enumerate(self):
             if "filters" not in ds.hdf5_group or forceNew:
-                if ds.cuts.good().sum() < 10:
+                if len(ds.first_n_good_pulses(10, category=category)[0]) < 10:
                     ds.filter = None
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
