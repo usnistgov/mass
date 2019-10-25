@@ -960,7 +960,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     cut_pre=cut_pre, cut_post=cut_post, category=category)
                 else:
                     f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db, 
-                    cut_pre=cut_pre, cut_post=cut_post, category=category)
+                    cut_pre=cut_pre, cut_post=cut_post, category=None) # uses average pulse, not category
                 ds.filter = f
 
                 # Store all filters created to a new HDF5 group
