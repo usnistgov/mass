@@ -933,7 +933,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 plt.setp(ltext, fontsize='small')
 
     @show_progress("compute_filters")
-    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category=None):
+    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}):
         """
         compute_filters(self, fmax=None, f_3db=None, forceNew=False)
 
