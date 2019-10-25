@@ -1109,8 +1109,8 @@ class MicrocalDataSet(object):
             spectrum = self.noise_spectrum.spectrum()
         except Exception:
             spectrum = self.noise_psd[:]
-        if category is not None:
-            raise Exception("category argument has no effect on compute_oldfilter, pass None. compute_oldfilter uses self.average_pulse")
+        if not (category is None or category == {}):
+            raise Exception("category argument has no effect on compute_oldfilter, pass None or {}. compute_oldfilter uses self.average_pulse")
         avg_signal = np.array(self.average_pulse)
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
