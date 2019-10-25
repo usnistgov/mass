@@ -1104,7 +1104,7 @@ class MicrocalDataSet(object):
         self.compute_average_pulse(mask, subtract_mean=subtract_mean,
                                    forceNew=forceNew)
 
-    def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category=None):
+    def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}):
         try:
             spectrum = self.noise_spectrum.spectrum()
         except Exception:
