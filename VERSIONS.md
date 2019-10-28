@@ -2,6 +2,7 @@
 
 **0.6.6** August 2019
 * Fix issue 162: overcome biased fits when bins are too wide by allowing numerical integration in bin. How densely to sample can be chosen by user or a heuristic.
+* Fix issue 164: silently "correct" the off-by-3 error on `nPresamples` in MATTER-produced LJH files
 
 **0.6.5** July 2018-June 2019
 * Factor phase correction into its own class and source file.

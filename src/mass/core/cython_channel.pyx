@@ -111,8 +111,8 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             min_value = libc.limits.USHRT_MAX
             # Reset s_ and e_prompt for each pulse, b/c they can be shifted
             # for individual pulses
-            s_prompt = nPresamples + 5
-            e_prompt = nPresamples + 11
+            s_prompt = nPresamples + 2
+            e_prompt = nPresamples + 8
 
             # Memory access (pulse[k]) is expensive.
             # So calculate several quantities with a single memory access.
@@ -129,10 +129,10 @@ class CythonMicrocalDataSet(MicrocalDataSet):
                     pretrig_sum += signal
                     pretrig_rms_sum += (<double>signal)**2
 
-                if s_prompt <= k < e_prompt:
+                if s_prompt <= k and k < e_prompt:
                     promptness_sum += signal
 
-                if k == nPresamples + 2:
+                if k == nPresamples - 1:
                     ptm = pretrig_sum / e_nPresamples
                     ptrms = sqrt(pretrig_rms_sum / e_nPresamples - ptm**2)
                     if signal - ptm > 4.3 * ptrms:
@@ -142,7 +142,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
                     else:
                         p_shift1_array[j] = False
 
-                if k >= nPresamples + 2:
+                if k >= nPresamples - 1:
                     pulse_sum += signal
                     pulse_rms_sum += (<double>signal)**2
 
@@ -160,9 +160,9 @@ class CythonMicrocalDataSet(MicrocalDataSet):
                 p_peak_value_array[j] = 0
                 p_peak_index_array[j] = 0
             p_min_value_array[j] = min_value
-            pulse_avg = pulse_sum / (nSamples - nPresamples - 2) - ptm
+            pulse_avg = pulse_sum / (nSamples - nPresamples + 1) - ptm
             p_pulse_average_array[j] = <float>pulse_avg
-            p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples - 2) -
+            p_pulse_rms_array[j] = <float>sqrt(pulse_rms_sum / (nSamples - nPresamples + 1) -
                                                ptm*pulse_avg*2 - ptm**2)
 
             # Estimating a rise time.

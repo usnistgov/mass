@@ -164,6 +164,7 @@ class LJHFile(MicrocalFile):
         """
         super(LJHFile, self).__init__()
         self.filename = filename
+        self.client = "unknown"
         self.channum = int(filename.split("_chan")[1].split(".")[0])
         self.header_lines = []
         self.sample_usec = None
@@ -241,6 +242,9 @@ class LJHFile(MicrocalFile):
             elif line.startswith(b"Column number"):
                 words = line.split()
                 self.column_number = int(words[-1])
+            elif line.startswith(b"Software Version"):
+                words = line.split()
+                self.client = " ".join(words[2:])
             elif line.startswith(b"Number of rows"):
                 words = line.split()
                 self.number_of_rows = int(words[-1])
@@ -287,8 +291,14 @@ class LJHFile(MicrocalFile):
         if self.nPulses < 1:
             print("Warning: no pulses found.\n   File: %s" % filename)
 
-        # This used to be fatal, but it prevented opening files cut short by
-        # a crash of the DAQ software.
+        # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
+        # It adds 3 to the "true value" of nPresamples. For now, assume that only
+        # DASTARD clients have this figure correct.
+        if "DASTARD" not in self.client:
+            self.nPresamples += 3
+
+        # This used to be fatal. It prevented opening files cut short by
+        # a crash of the DAQ software, so we made it just a warning.
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
             print("Warning: The binary size " +
                   "(%d) is not an integer multiple of the pulse size %d bytes" %
