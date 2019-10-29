@@ -29,7 +29,7 @@ import numpy as np
 import scipy as sp
 from scipy.interpolate import splev
 
-from mass.mathstat.derivative import *
+from mass.mathstat.derivative import Function, ConstantFunction
 
 
 class CubicSpline(object):
@@ -156,12 +156,12 @@ class CubicSpline(object):
 
             if der == 0:
                 result[interp] = a * self._y[klo] + b * self._y[khi] \
-                                                  + ((a**3 - a) * self._y2[klo] +
-                                                     (b**3 - b)*self._y2[khi]) * dx * dx / 6.0
+                                                  + ((a**3 - a) * self._y2[klo]
+                                                     + (b**3 - b)*self._y2[khi]) * dx * dx / 6.0
             elif der == 1:
                 result[interp] = -self._y[klo] / dx + self._y[khi] / dx \
-                                                    + ((-a**2 + 1.0 / 3) * self._y2[klo] +
-                                                       (b**2 - 1.0 / 3) * self._y2[khi]) * dx / 2.0
+                                                    + ((-a**2 + 1.0 / 3) * self._y2[klo]
+                                                       + (b**2 - 1.0 / 3) * self._y2[khi]) * dx / 2.0
             elif der == 2:
                 result[interp] = a * self._y2[klo] + b * self._y2[khi]
             elif der == 3:
@@ -355,7 +355,8 @@ class SmoothingSpline(object):
         for i in range(Nk):
             for j in range(i+1):
                 for k in range(Nk-1):
-                    Omega[i, j] += (N2[k+1, i]*N2[k, j]+N2[k+1, j]*N2[k, i])*(knots[k+1]-knots[k])/6.0
+                    Omega[i, j] += (N2[k+1, i]*N2[k, j]+N2[k+1, j]*N2[k, i]) * \
+                        (knots[k+1]-knots[k])/6.0
                 for k in range(Nk):
                     Omega[i, j] += N2[k, i]*N2[k, j]*(knots[min(k+1, Nk-1)]-knots[max(0, k-1)])/3.0
                 Omega[j, i] = Omega[i, j]
