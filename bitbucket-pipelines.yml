@@ -16,8 +16,10 @@ pipelines:
             - python setup.py install
             - python runtests.py
       - step: 
+          caches:
+            - pip
           name: python 3
-          image: python:3.8.0
+          image: python:3.7.2
           script: # Modify the commands below to build your repository.
             - pip install -r requirements.txt
             - python setup.py install
