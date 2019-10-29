@@ -7,6 +7,12 @@ import logging
 LOG = logging.getLogger("mass")
 
 
+def h5group_update(g, name, vector):
+    if name in g:
+        del g[name]
+    g[name] = vector
+
+
 class PhaseCorrector():
     version = 1
 
@@ -19,13 +25,14 @@ class PhaseCorrector():
             self.phase_uniformifier_x, self.phase_uniformifier_y)
 
     def toHDF5(self, hdf5_group, name="phase_correction", overwrite=False):
-        hdf5_group["{}/phase_uniformifier_x".format(name)] = self.phase_uniformifier_x
-        hdf5_group["{}/phase_uniformifier_y".format(name)] = self.phase_uniformifier_y
-        hdf5_group["{}/uncorrected_name".format(name)] = self.uncorrectedName
-        hdf5_group["{}/version".format(name)] = self.version
+        group = hdf5_group.require_group(name)
+        h5group_update(group, "phase_uniformifier_x", self.phase_uniformifier_x)
+        h5group_update(group, "phase_uniformifier_y", self.phase_uniformifier_y)
+        h5group_update(group, "uncorrected_name", self.uncorrectedName)
+        h5group_update(group, "version", self.version)
         for (i, correction) in enumerate(self.corrections):
-            hdf5_group["{}/correction_{}_x".format(name, i)] = correction._x
-            hdf5_group["{}/correction_{}_y".format(name, i)] = correction._y
+            h5group_update(group, "correction_{}_x".format(i), correction._x)
+            h5group_update(group, "correction_{}_y".format(i), correction._y)
 
     def correct(self, phase, ph):
         # attempt to force phases to fall between X and X
