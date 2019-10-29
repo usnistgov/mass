@@ -78,7 +78,7 @@ class Filter(object):
             raise ValueError("cut_pre+cut_post = %d but should be < %d" % (
                              self.cut_pre+self.cut_post, self.ns-2*self.shorten))
 
-        pre_avg = avg_signal[self.cut_pre:n_pretrigger].mean()
+        pre_avg = avg_signal[self.cut_pre:n_pretrigger-1].mean()
 
         # If signal is negative-going,
         a = avg_signal[self.cut_pre:self.ns-self.cut_post].min()
@@ -271,7 +271,7 @@ class Filter(object):
         r[n - 1::-1] = noise[:n]
         dot = 0.0
         for i in range(n):
-            dot += q[i] * np.dot(r[n - i - 1:2 * n - i - 1], q)
+            dot += q[i] * r[n - i - 1:2 * n - i - 1].dot(q)
         return dot
 
     def plot(self, axis=None, filtname="filt_noconst"):

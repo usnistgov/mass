@@ -277,7 +277,7 @@ class NaturalBsplineBasis(object):
         """Return matrix M where M_ij = value at knot i for basis function j.
         If der>0, then return the derivative of that order instead of the value."""
         # Note the array is naturally built by vstack as the Transpose of what we want.
-        return np.vstack([self(self.knots, id, der=der)] for id in range(self.Nk)).T
+        return np.vstack([self(self.knots, id, der=der) for id in range(self.Nk)]).T
 
     def expand_coeff(self, beta):
         """Given coefficients of this length-Nk basis, return the coefficients

@@ -142,12 +142,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # even if there is only one result from the pattern matching.
         pattern = filenames
         filenames = filename_glob_expand(filenames)
-        if filenames is not None and len(filenames) == 0:
-            raise ValueError("Filename pattern '%s' expanded to no files" % pattern)
-        pattern = noise_filenames
-        noise_filenames = filename_glob_expand(noise_filenames)
-        if noise_filenames is not None and len(noise_filenames) == 0:
-            raise ValueError("Noise filename pattern '%s' expanded to no files" % pattern)
+        if filenames is None or len(filenames) == 0:
+            raise ValueError("Pulse filename pattern '%s' expanded to no files" % pattern)
+        if noise_filenames is not None:
+            pattern = noise_filenames
+            noise_filenames = filename_glob_expand(noise_filenames)
+            if noise_filenames is None or len(noise_filenames) == 0:
+                raise ValueError("Noise filename pattern '%s' expanded to no files" % pattern)
 
         # If using a glob pattern especially, we have to be careful to eliminate files that are
         # missing a partner, either noise without pulse or pulse without noise.
