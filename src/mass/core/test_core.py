@@ -193,6 +193,19 @@ class TestTESGroup(ut.TestCase):
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1], 0.)
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1], 0.)
 
+    def test_auto_cuts_after_others(self):
+        """Make sure that non-trivial auto-cuts are generated even if other cuts are made first.
+        Tests for issue 147 being fixed."""
+        data = self.load_data()
+        ds = data.first_good_dataset
+        data.summarize_data()
+        ds.clear_cuts()
+        arbcut = np.zeros(ds.nPulses, dtype=np.bool)
+        arbcut[::30] = True
+        ds.cuts.cut("postpeak_deriv", arbcut)
+        cuts = data.auto_cuts(forceNew=False, clearCuts=False)
+        self.assertIsNotNone(cuts, msg="auto_cuts not run after other cuts (issue 147)")
+
     def test_plot_filters(self):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
         data = self.load_data()
