@@ -1,5 +1,5 @@
 '''
-Test framework for MaximumLikelihoodGaussianFitter and MaximumLikelihoodHistogramFitter
+Test framework for MaximumLikelihoodHistogramFitter
 
 Created on Jan 13, 2012
 
