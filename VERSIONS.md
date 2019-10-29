@@ -1,10 +1,12 @@
 ## Note on version numbers of Mass
 
-**0.6.6** August 2019
+**0.6.6** August-November 2019  
 * Fix issue 162: overcome biased fits when bins are too wide by allowing numerical integration in bin. How densely to sample can be chosen by user or a heuristic.
-* Fix issue 164: silently "correct" the off-by-3 error on `nPresamples` in MATTER-produced LJH files
+* Fix issue 164: silently "correct" the off-by-3 error on `nPresamples` in MATTER-produced LJH files.
+* Fix issue 167: add molybdenum L line data from Mendenhall 2019.
+* Fix issue 147: auto_cuts fails if other cuts already exists.
 
-**0.6.5** July 2018-June 2019
+**0.6.5** July 2018-June 2019  
 * Factor phase correction into its own class and source file.
 * Add lineshape models for bromine K and tungsten L lines.
 * Allow read-only opening of HDF5 files (don't try to update attributes in that case).
@@ -28,7 +30,7 @@
 * Added arguments to `ArrivalTimeSafeFilter.compute()` so you can emulate shorter records.  
 * Change `plot_average_pulses` and `plot_noise` to leave out bad channels by default.  
 
-**0.6.1** September-November 2017    
+**0.6.1** September-November 2017  
 * Added some features to support analysis of microwave MUX data.  
 * Added some random-matrix techniques to `mass.mathstat.utilities`.  
 * Used a decorator to add methods to `TESGroup` that loop over channel objects.  

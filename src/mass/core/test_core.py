@@ -2,13 +2,12 @@ import tempfile
 import os.path
 
 import numpy as np
-import scipy as sp
 import os
 import shutil
 import unittest as ut
 
 import mass
-from mass.core.ljh_modify import *
+from mass.core.ljh_modify import LJHFile, ljh_copy_traces, ljh_append_traces, ljh_truncate
 
 import logging
 LOG = logging.getLogger("mass")
@@ -184,15 +183,33 @@ class TestTESGroup(ut.TestCase):
     def test_make_auto_cuts(self):
         """Make sure that non-trivial auto-cuts are generated and reloadable from file."""
         data = self.load_data()
+        ds = data.first_good_dataset
         data.summarize_data()
         data.auto_cuts(forceNew=True, clearCuts=True)
-        ds = data.first_good_dataset
-        self.assertLess(ds.cuts.good().sum(), ds.nPulses)
+        ngood = ds.cuts.good().sum()
+        self.assertLess(ngood, ds.nPulses)
+        self.assertGreater(ngood, 0)
 
         data2 = self.load_data(clear_hdf5=False)
-        for ds in data:
+        for ds in data2:
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1], 0.)
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1], 0.)
+
+    def test_auto_cuts_after_others(self):
+        """Make sure that non-trivial auto-cuts are generated even if other cuts are made first.
+        Tests for issue 147 being fixed."""
+        data = self.load_data()
+        ds = data.first_good_dataset
+        data.summarize_data()
+        ds.clear_cuts()
+        arbcut = np.zeros(ds.nPulses, dtype=np.bool)
+        arbcut[::30] = True
+        ds.cuts.cut("postpeak_deriv", arbcut)
+        cuts = ds.auto_cuts(forceNew=False, clearCuts=False)
+        self.assertIsNotNone(cuts, msg="auto_cuts not run after other cuts (issue 147)")
+        ngood = ds.good().sum()
+        self.assertLess(ngood, ds.nPulses-arbcut.sum())
+        self.assertGreater(ngood, 0)
 
     def test_plot_filters(self):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
@@ -244,7 +261,7 @@ class TestTESGroup(ut.TestCase):
             data.set_chan_good(1)
             dc = ds.p_filt_value_dc[:]
             top = 6000.0
-            bin = np.digitize(ds.p_filt_value_dc, np.linspace(0, top, 1+NBINS))-1
+            bin = np.digitize(dc, np.linspace(0, top, 1+NBINS))-1
             ds.p_filt_value_dc[np.logical_or(bin >= NBINS, bin < lowestbin)] = 5898.8
             data.phase_correct(method2017=True, forceNew=True, save_to_hdf5=False)
             if ds.channum not in data.good_channels:

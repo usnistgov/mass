@@ -166,7 +166,8 @@ class Filter(object):
 
         # Band-limit
         if self.fmax is not None or self.f_3db is not None:
-            freq = np.arange(0, n - self.shorten, dtype=np.float) * 0.5 / ((n - 1) * self.sample_time)
+            freq = np.arange(0, n - self.shorten, dtype=np.float) * \
+                0.5 / ((n - 1) * self.sample_time)
             if self.fmax is not None:
                 sig_ft_weighted[freq > self.fmax] = 0.0
             if self.f_3db is not None:
@@ -190,7 +191,8 @@ class Filter(object):
         else:
             ac = self.noise_autocorr[:len(self.filt_fourier)].copy()
             self.variances['fourier'] = self.bracketR(self.filt_fourier, ac) / self.peak_signal**2
-            self.variances['fourierfull'] = self.bracketR(self.filt_fourierfull, ac) / self.peak_signal**2
+            self.variances['fourierfull'] = self.bracketR(
+                self.filt_fourierfull, ac) / self.peak_signal**2
 
     def compute(self, fmax=None, f_3db=None):
         """Compute a single filter.
@@ -202,7 +204,8 @@ class Filter(object):
         <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
         """
         if self.sample_time is None and not (fmax is None and f_3db is None):
-            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
+            raise ValueError(
+                "Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
 
         self.fmax = fmax
         self.f_3db = f_3db
@@ -240,18 +243,24 @@ class Filter(object):
         self.variances['baseline'] = self.bracketR(self.filt_baseline, noise_corr)
 
         try:
-            Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger-self.cut_pre] / self.peak_signal**2)
-            self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger-self.cut_pre))
+            Rpretrig = sp.linalg.toeplitz(
+                self.noise_autocorr[:self.n_pretrigger-self.cut_pre] / self.peak_signal**2)
+            self.filt_baseline_pretrig = np.linalg.solve(
+                Rpretrig, np.ones(self.n_pretrigger-self.cut_pre))
             self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
-            self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig, Rpretrig[0, :])
+            self.variances['baseline_pretrig'] = self.bracketR(
+                self.filt_baseline_pretrig, Rpretrig[0, :])
         except sp.linalg.LinAlgError:
             pass
 
         # Set weights in the cut_pre and cut_post windows to 0
         if self.cut_pre > 0 or self.cut_post > 0:
-            self.filt_noconst = np.hstack([np.zeros(self.cut_pre), self.filt_noconst, np.zeros(self.cut_post)])
-            self.filt_baseline = np.hstack([np.zeros(self.cut_pre), self.filt_baseline, np.zeros(self.cut_post)])
-            self.filt_baseline_pretrig = np.hstack([np.zeros(self.cut_pre), self.filt_baseline_pretrig])
+            self.filt_noconst = np.hstack(
+                [np.zeros(self.cut_pre), self.filt_noconst, np.zeros(self.cut_post)])
+            self.filt_baseline = np.hstack(
+                [np.zeros(self.cut_pre), self.filt_baseline, np.zeros(self.cut_post)])
+            self.filt_baseline_pretrig = np.hstack(
+                [np.zeros(self.cut_pre), self.filt_baseline_pretrig])
 
         for key in self.variances.keys():
             self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
@@ -344,7 +353,8 @@ class ArrivalTimeSafeFilter(Filter):
         <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
         """
         if self.sample_time is None and not (fmax is None and f_3db is None):
-            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
+            raise ValueError(
+                "Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
         if cut_pre < 0 or cut_post < 0:
             raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative" %
                              (cut_pre, cut_post))
@@ -446,7 +456,7 @@ class ExperimentalFilter(Filter):
             tau = [tau]
         self.tau = tau  # in milliseconds; can be a sequence of taus
         super(self.__class__, self).__init__(avg_signal, n_pretrigger, noise_psd,
-                                             noise_autocorr, fmax, f_3db, sample_time, shorten)
+                                             noise_autocorr, sample_time=sample_time, shorten=shorten)
 
     def compute(self, fmax=None, f_3db=None):
         """
@@ -466,7 +476,8 @@ class ExperimentalFilter(Filter):
         """
 
         if self.sample_time is None and not (fmax is None and f_3db is None):
-            raise ValueError("Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
+            raise ValueError(
+                "Filter must have a sample_time if it's to be smoothed with fmax or f_3db")
 
         self.fmax = fmax
         self.f_3db = f_3db
@@ -515,7 +526,8 @@ class ExperimentalFilter(Filter):
                     sig_ft[freq > fmax] = 0.0
                 if f_3db is not None:
                     sig_ft /= (1. + (1.0 * freq / f_3db)**2)
-                vector[:] = np.fft.irfft(sig_ft, n=filt_length)  # n= is needed when filt_length is ODD
+                # n= is needed when filt_length is ODD
+                vector[:] = np.fft.irfft(sig_ft, n=filt_length)
 
             if fmax is not None or f_3db is not None:
                 for vector in Rinv_sig, Rinv_unit, Rinv_cht1, Rinv_cht2, Rinv_cht3, Rinv_deriv:
@@ -572,11 +584,13 @@ class ExperimentalFilter(Filter):
                 print('Res=%6.3f eV = %.5f' % (5898.801 * fw * self.variances[shortname]**.5,
                                                (self.variances[shortname] / self.variances['full'])**.5))
 
-            self.filt_baseline = np.dot(avg_signal, Rinv_sig) * Rinv_unit - Rinv_sig.sum() * Rinv_sig
+            self.filt_baseline = np.dot(avg_signal, Rinv_sig) * \
+                Rinv_unit - Rinv_sig.sum() * Rinv_sig
             self.filt_baseline /= self.filt_baseline.sum()
             self.variances['baseline'] = self.bracketR(self.filt_baseline, R)
 
-            Rpretrig = sp.linalg.toeplitz(self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
+            Rpretrig = sp.linalg.toeplitz(
+                self.noise_autocorr[:self.n_pretrigger] / self.peak_signal**2)
             self.filt_baseline_pretrig = np.linalg.solve(Rpretrig, np.ones(self.n_pretrigger))
             self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
             self.variances['baseline_pretrig'] = self.bracketR(self.filt_baseline_pretrig,
