@@ -880,8 +880,8 @@ class MicrocalDataSet(object):
     def _compute_peak_samplenumber(self):
         if self.data is None:
             self.read_segment(0)
-        peak_idx = self.data[:, self.cut_pre:self.nSamples -
-                             self.cut_post].argmax(axis=1)+self.cut_pre
+        peak_idx = self.data[:, self.cut_pre:self.nSamples
+                             - self.cut_post].argmax(axis=1)+self.cut_pre
         self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
@@ -973,19 +973,19 @@ class MicrocalDataSet(object):
 
         # Fit line to pretrigger and save the derivative and offset
         if doPretrigFit:
-            presampleNumbers = np.arange(self.cut_pre, self.nPresamples -
-                                         self.pretrigger_ignore_samples)
-            ydata = self.data[:seg_size, self.cut_pre:self.nPresamples -
-                              self.pretrigger_ignore_samples].T
+            presampleNumbers = np.arange(self.cut_pre, self.nPresamples
+                                         - self.pretrigger_ignore_samples)
+            ydata = self.data[:seg_size, self.cut_pre:self.nPresamples
+                              - self.pretrigger_ignore_samples].T
             self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
                 np.polyfit(presampleNumbers, ydata, deg=1)
 
         self.p_pretrig_mean[first:end] = \
-            self.data[:seg_size, self.cut_pre:self.nPresamples -
-                      self.pretrigger_ignore_samples].mean(axis=1)
+            self.data[:seg_size, self.cut_pre:self.nPresamples
+                      - self.pretrigger_ignore_samples].mean(axis=1)
         self.p_pretrig_rms[first:end] = \
-            self.data[:seg_size, self.cut_pre:self.nPresamples -
-                      self.pretrigger_ignore_samples].std(axis=1)
+            self.data[:seg_size, self.cut_pre:self.nPresamples
+                      - self.pretrigger_ignore_samples].std(axis=1)
         self.p_peak_index[first:end] = self.data[:seg_size,
                                                  self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
         self.p_peak_value[first:end] = self.data[:seg_size,
@@ -1082,8 +1082,8 @@ class MicrocalDataSet(object):
         if pulse_count > 0:
             average_pulse /= pulse_count
         if subtract_mean:
-            average_pulse -= np.mean(average_pulse[:self.nPresamples -
-                                                   self.pretrigger_ignore_samples])
+            average_pulse -= np.mean(average_pulse[:self.nPresamples
+                                                   - self.pretrigger_ignore_samples])
         self.average_pulse[:] = average_pulse
 
     @_add_group_loop
