@@ -183,10 +183,12 @@ class TestTESGroup(ut.TestCase):
     def test_make_auto_cuts(self):
         """Make sure that non-trivial auto-cuts are generated and reloadable from file."""
         data = self.load_data()
+        ds = data.first_good_dataset
         data.summarize_data()
         data.auto_cuts(forceNew=True, clearCuts=True)
-        ds = data.first_good_dataset
-        self.assertLess(ds.cuts.good().sum(), ds.nPulses)
+        ngood = ds.cuts.good().sum()
+        self.assertLess(ngood, ds.nPulses)
+        self.assertGreater(ngood, 0)
 
         data2 = self.load_data(clear_hdf5=False)
         for ds in data2:
@@ -203,8 +205,11 @@ class TestTESGroup(ut.TestCase):
         arbcut = np.zeros(ds.nPulses, dtype=np.bool)
         arbcut[::30] = True
         ds.cuts.cut("postpeak_deriv", arbcut)
-        cuts = data.auto_cuts(forceNew=False, clearCuts=False)
+        cuts = ds.auto_cuts(forceNew=False, clearCuts=False)
         self.assertIsNotNone(cuts, msg="auto_cuts not run after other cuts (issue 147)")
+        ngood = ds.good().sum()
+        self.assertLess(ngood, ds.nPulses-arbcut.sum())
+        self.assertGreater(ngood, 0)
 
     def test_plot_filters(self):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."

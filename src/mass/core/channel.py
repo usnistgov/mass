@@ -71,6 +71,7 @@ class NoiseRecords(object):
 
         self.datafile = None
         self.data = None
+        self.saved_auto_cuts = None
 
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
@@ -1478,6 +1479,7 @@ class MicrocalDataSet(object):
     def clear_cuts(self):
         """Clear all cuts."""
         self.cuts.clear_cut()
+        self.saved_auto_cuts = None
 
     def correct_flux_jumps(self, flux_quant):
         '''Remove 'flux' jumps' from pretrigger mean.
@@ -1987,7 +1989,9 @@ class MicrocalDataSet(object):
         # These are based on function calc_cuts_from_noise in make_preknowledge.py
         # in Galen's project POPE.jl.
 
-        if not (all(self.cuts.good()) or forceNew):
+        if self.saved_auto_cuts is None:
+            forceNew = True
+        if not forceNew:
             LOG.info("channel %g skipping auto cuts because cuts exist", self.channum)
             return
 
@@ -2048,6 +2052,7 @@ class MicrocalDataSet(object):
         try:
             g = self.hdf5_group["cuts/auto_cuts"]
         except KeyError:
+            self.saved_auto_cuts = None
             return
         cuts = mass.AnalysisControl()
         for attrname in ("peak_time_ms", "rise_time_ms", "pretrigger_rms",
