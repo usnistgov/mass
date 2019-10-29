@@ -36,7 +36,8 @@ class CategoryList(np.ndarray):
         cw = _get_max_width(self["category"], min_width=8) + 2
         w = _get_max_width(map(str, self["code"]), min_width=4) + 2
 
-        header = "{0:^{fw}s}|{1:^{cw}s}|{2:^{w}s}".format("field", "category", "code", fw=fw, cw=cw, w=w)
+        header = "{0:^{fw}s}|{1:^{cw}s}|{2:^{w}s}".format(
+            "field", "category", "code", fw=fw, cw=cw, w=w)
         spacer = "-" * fw + "+" + "-" * cw + "+" + "-" * w
         rows = ["{0:^{fw}s}|{1:^{cw}s}|{2:^{w}d} ".format(field.decode(), category.decode(), code,
                                                           fw=fw, cw=cw, w=w)
@@ -120,7 +121,7 @@ class CutFieldMixin(object):
                 for categorical_desc in self.BUILTIN_CATEGORICAL_CUT_FIELDS:
                     self.register_categorical_cut_field(*categorical_desc)
 
-            if not "cut_format_ver" in self.hdf5_file.attrs: # to allow TESGroupHDF5 with in read only mode
+            if "cut_format_ver" not in self.hdf5_file.attrs:  # to allow TESGroupHDF5 with in read only mode
                 self.hdf5_file.attrs['cut_format_ver'] = b'2'
 
     @property
@@ -551,7 +552,8 @@ class Cuts(object):
         categorical_field = self.tes_group.categorical_cut_desc
 
         if fields:
-            boolean_field_names = [str(name.decode()) for name, _ in boolean_field if name.decode() in fields]
+            boolean_field_names = [str(name.decode())
+                                   for name, _ in boolean_field if name.decode() in fields]
             categorical_field_names = [str(name.decode()) for name, _ in categorical_field
                                        if name.decode() in fields]
 
@@ -562,8 +564,8 @@ class Cuts(object):
             boolean_field_names = [str(name.decode()) for name, _ in boolean_field if name]
             categorical_field_names = [str(name.decode()) for name, _, in categorical_field]
 
-        mask_dtype = np.dtype([(name, np.bool) for name in boolean_field_names] +
-                              [(name, np.uint32) for name in categorical_field_names])
+        mask_dtype = np.dtype([(name, np.bool) for name in boolean_field_names]
+                              + [(name, np.uint32) for name in categorical_field_names])
 
         cut_mask = np.zeros(self._mask.shape[0], dtype=mask_dtype)
 

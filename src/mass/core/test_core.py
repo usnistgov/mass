@@ -2,13 +2,12 @@ import tempfile
 import os.path
 
 import numpy as np
-import scipy as sp
 import os
 import shutil
 import unittest as ut
 
 import mass
-from mass.core.ljh_modify import *
+from mass.core.ljh_modify import LJHFile, ljh_copy_traces, ljh_append_traces, ljh_truncate
 
 import logging
 LOG = logging.getLogger("mass")
@@ -190,7 +189,7 @@ class TestTESGroup(ut.TestCase):
         self.assertLess(ds.cuts.good().sum(), ds.nPulses)
 
         data2 = self.load_data(clear_hdf5=False)
-        for ds in data:
+        for ds in data2:
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1], 0.)
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1], 0.)
 
@@ -244,7 +243,7 @@ class TestTESGroup(ut.TestCase):
             data.set_chan_good(1)
             dc = ds.p_filt_value_dc[:]
             top = 6000.0
-            bin = np.digitize(ds.p_filt_value_dc, np.linspace(0, top, 1+NBINS))-1
+            bin = np.digitize(dc, np.linspace(0, top, 1+NBINS))-1
             ds.p_filt_value_dc[np.logical_or(bin >= NBINS, bin < lowestbin)] = 5898.8
             data.phase_correct(method2017=True, forceNew=True, save_to_hdf5=False)
             if ds.channum not in data.good_channels:
