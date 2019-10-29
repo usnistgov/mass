@@ -7,12 +7,6 @@ import logging
 LOG = logging.getLogger("mass")
 
 
-def h5group_update(g, name, vector):
-    if name in g:
-        del g[name]
-    g[name] = vector
-
-
 class PhaseCorrector():
     version = 1
 
@@ -25,14 +19,23 @@ class PhaseCorrector():
             self.phase_uniformifier_x, self.phase_uniformifier_y)
 
     def toHDF5(self, hdf5_group, name="phase_correction", overwrite=False):
+        """Write to the given HDF5 group for later recovery from disk (by fromHDF5 class method)."""
         group = hdf5_group.require_group(name)
-        h5group_update(group, "phase_uniformifier_x", self.phase_uniformifier_x)
-        h5group_update(group, "phase_uniformifier_y", self.phase_uniformifier_y)
-        h5group_update(group, "uncorrected_name", self.uncorrectedName)
-        h5group_update(group, "version", self.version)
+
+        def h5group_update(name, vector):
+            if name in group:
+                if overwrite:
+                    del group[name]
+                else:
+                    raise AttributeError("Cannot overwrite phase correction dataset '%s'" % name)
+            group[name] = vector
+        h5group_update("phase_uniformifier_x", self.phase_uniformifier_x)
+        h5group_update("phase_uniformifier_y", self.phase_uniformifier_y)
+        h5group_update("uncorrected_name", self.uncorrectedName)
+        h5group_update("version", self.version)
         for (i, correction) in enumerate(self.corrections):
-            h5group_update(group, "correction_{}_x".format(i), correction._x)
-            h5group_update(group, "correction_{}_y".format(i), correction._y)
+            h5group_update("correction_{}_x".format(i), correction._x)
+            h5group_update("correction_{}_y".format(i), correction._y)
 
     def correct(self, phase, ph):
         # attempt to force phases to fall between X and X
