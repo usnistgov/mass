@@ -40,7 +40,7 @@ class PhaseCorrector():
         return self.correct(phase_indicator, ph)
 
     @classmethod
-    def fromHDF5(self, hdf5_group, name="phase_correction"):
+    def fromHDF5(cls, hdf5_group, name="phase_correction"):
         x = hdf5_group["{}/phase_uniformifier_x".format(name)][()]
         y = hdf5_group["{}/phase_uniformifier_y".format(name)][()]
         uncorrectedName = hdf5_group["{}/uncorrected_name".format(name)][()]
@@ -52,7 +52,7 @@ class PhaseCorrector():
             _y = hdf5_group["{}/correction_{}_y".format(name, i)][()]
             corrections.append(CubicSpline(_x, _y))
             i += 1
-        assert(version == self.version)
+        assert(version == cls.version)
         return PhaseCorrector(x, y, corrections, uncorrectedName)
 
     def __repr__(self):
