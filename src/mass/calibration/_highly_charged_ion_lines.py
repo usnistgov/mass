@@ -1,10 +1,9 @@
 from . import fluorescence_lines
-from fluorescence_lines import addfitter
 from . import line_fits
 from . import LORENTZIAN_PEAK_HEIGHT
 import numpy as np
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" He-Like 1s2p + 1s2s",
 reference_short='NIST ASD',
@@ -17,7 +16,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" H-Like 2p",
 reference_short='NIST ASD',
@@ -30,7 +29,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" H-Like 3p",
 reference_short='NIST ASD',
@@ -43,7 +42,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" He-Like 1s3p",
 reference_short='NIST ASD',
@@ -56,7 +55,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" He-Like 1s4p",
 reference_short='NIST ASD',
@@ -69,7 +68,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" H-Like 2p",
 reference_short='NIST ASD',
@@ -82,7 +81,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" H-Like 3p",
 reference_short='NIST ASD',
@@ -95,7 +94,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" H-Like 4p",
 reference_short='NIST ASD',
@@ -108,7 +107,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" He-Like 1s2s",
 reference_short='NIST ASD',
@@ -121,7 +120,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" He-Like 1s2p",
 reference_short='NIST ASD',
@@ -134,7 +133,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 ,ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" He-Like 1s3p",
 reference_short='NIST ASD',
@@ -151,7 +150,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
 O LINES
 '''
 # H-like
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" H-Like 2p",
 reference_short='NIST ASD',
@@ -164,7 +163,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" H-Like 3p",
 reference_short='NIST ASD',
@@ -177,7 +176,7 @@ reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 ka12_energy_diff=None
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" H-Like 4p",
 reference_short='NIST ASD',
@@ -191,7 +190,7 @@ ka12_energy_diff=None
 )
 
 # He-like
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" He-Like 1s2s+1s2p",
 reference_short='NIST ASD',
@@ -205,7 +204,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" He-Like 1s2s 3S1",
 reference_short='NIST ASD',
@@ -219,7 +218,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" He-Like 1s2p 1P1",
 reference_short='NIST ASD',
@@ -233,7 +232,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" He-Like 1s3p 1P1",
 reference_short='NIST ASD',
@@ -247,7 +246,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="O",
 linetype=" He-Like 1s4p 1P1",
 reference_short='NIST ASD',
@@ -265,7 +264,7 @@ reference_measurement_type = "Experiment"
 Ne LINES
 '''
 # H-like
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" H-Like 2p",
 reference_short='NIST ASD',
@@ -279,7 +278,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Theory"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" H-Like 3p",
 reference_short='NIST ASD',
@@ -293,7 +292,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Theory"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" H-Like 4p",
 reference_short='NIST ASD',
@@ -308,7 +307,7 @@ reference_measurement_type = "Theory"
 )
 
 # He-like
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" He-Like 1s2s+1s2p",
 reference_short='NIST ASD',
@@ -322,7 +321,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" He-Like 1s2s 3S1",
 reference_short='NIST ASD',
@@ -336,7 +335,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" He-Like 1s2p 1P1",
 reference_short='NIST ASD',
@@ -350,7 +349,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ne",
 linetype=" He-Like 1s3p 1P1",
 reference_short='NIST ASD',
@@ -368,7 +367,7 @@ reference_measurement_type = "Experiment"
 Ar LINES
 '''
 # H-like
-addfitter(
+fluorescence_lines.addfitter(
 element="Ar",
 linetype=" H-Like 2p",
 reference_short='NIST ASD',
@@ -382,7 +381,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Theory"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ar",
 linetype=" H-Like 3p",
 reference_short='NIST ASD',
@@ -396,7 +395,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Theory"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ar",
 linetype=" H-Like 4p",
 reference_short='NIST ASD',
@@ -411,7 +410,7 @@ reference_measurement_type = "Theory"
 )
 
 # He-like
-addfitter(
+fluorescence_lines.addfitter(
 element="Ar",
 linetype=" He-Like 1s2s+1s2p",
 reference_short='NIST ASD',
@@ -425,7 +424,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Theory"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ar",
 linetype=" He-Like 1s2s 3S1",
 reference_short='NIST ASD',
@@ -439,7 +438,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Theory"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ar",
 linetype=" He-Like 1s2p 1P1",
 reference_short='NIST ASD',
@@ -453,7 +452,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Theory"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ar",
 linetype=" He-Like 1s3p 1P1",
 reference_short='NIST ASD',
@@ -467,7 +466,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Theory"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="Ar",
 linetype=" He-Like 1s4p 1P1",
 reference_short='NIST ASD',
@@ -485,7 +484,7 @@ reference_measurement_type = "Theory"
 W Lines
 '''
 # Ni-like
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-1",
 reference_short='Clementson 2010',
@@ -500,7 +499,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-2",
 reference_short='Clementson 2010',
@@ -515,7 +514,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-3",
 reference_short='Clementson 2010',
@@ -530,7 +529,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-4",
 reference_short='Clementson 2010',
@@ -545,7 +544,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-5",
 reference_short='Clementson 2010',
@@ -560,7 +559,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-6",
 reference_short='Clementson 2010',
@@ -575,7 +574,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-7",
 reference_short='Clementson 2010',
@@ -590,7 +589,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-8",
 reference_short='Clementson 2010',
@@ -605,7 +604,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-9",
 reference_short='Clementson 2010',
@@ -620,7 +619,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-10",
 reference_short='Clementson 2010',
@@ -635,7 +634,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-11",
 reference_short='Clementson 2010',
@@ -650,7 +649,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-12",
 reference_short='Clementson 2010',
@@ -665,7 +664,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-13",
 reference_short='Clementson 2010',
@@ -680,7 +679,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-14",
 reference_short='Clementson 2010',
@@ -695,7 +694,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-15",
 reference_short='Clementson 2010',
@@ -710,7 +709,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-16",
 reference_short='Clementson 2010',
@@ -725,7 +724,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-17",
 reference_short='Clementson 2010',
@@ -740,7 +739,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-18",
 reference_short='Clementson 2010',
@@ -755,7 +754,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-19",
 reference_short='Clementson 2010',
@@ -770,7 +769,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-20",
 reference_short='Clementson 2010',
@@ -785,7 +784,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-21",
 reference_short='Clementson 2010',
@@ -800,7 +799,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-22",
 reference_short='Clementson 2010',
@@ -815,7 +814,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-23",
 reference_short='Clementson 2010',
@@ -830,7 +829,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-24",
 reference_short='Clementson 2010',
@@ -845,7 +844,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-25",
 reference_short='Clementson 2010',
@@ -860,7 +859,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-26",
 reference_short='Clementson 2010',
@@ -875,7 +874,7 @@ ka12_energy_diff=None,
 reference_measurement_type = "Experiment"
 )
 
-addfitter(
+fluorescence_lines.addfitter(
 element="W",
 linetype=" Ni-Like 3s^2,3p^6,3s^3_3/2,3d^6_5/2,4p_1/2",
 reference_short='Nilsen 1995',
