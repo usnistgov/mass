@@ -626,5 +626,5 @@ class EnergyCalibration(object):
         _energies: {}
         _names: {}
         _curvetype: {}
-        _use_approximation: {}""".format(len(self._names),self._ph, self._energies, self._names, self._curvetype, self._use_approximation)
+        _use_approximation: {}""".format(len(self._names), self._ph, self._energies, self._names, self._curvetype, self._use_approximation)
         return s

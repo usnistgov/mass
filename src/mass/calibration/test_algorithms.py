@@ -5,7 +5,8 @@ Test code for mass.calibration.algorithms.
 import unittest
 import numpy as np
 import mass
-from mass.calibration.algorithms import *
+from mass.calibration.algorithms import find_opt_assignment, find_local_maxima, build_fit_ranges, \
+    build_fit_ranges_ph, multifit, EnergyCalibration, EnergyCalibrationAutocal
 import itertools
 
 np.random.seed(2)
@@ -93,7 +94,6 @@ class TestAlgorithms(unittest.TestCase):
     def test_complete(self):
         # generate pulseheights from known spectrum
         spect = {}
-        dist = {}
         num_samples = {k: 1000*k for k in [1, 2, 3, 4, 5]}
         spect[1] = mass.fluorescence_lines.MnKAlpha()
         spect[1].set_gauss_fwhm(2)
@@ -123,12 +123,13 @@ class TestAlgorithms(unittest.TestCase):
 
         _energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt, [], approxcal, 100)
         binsize_ev = 1.0
-        fitters = multifit(ph, line_names, fit_lo_hi, np.ones_like(slopes_de_dph)*binsize_ev, slopes_de_dph)
+        fitters = multifit(ph, line_names, fit_lo_hi, np.ones_like(
+            slopes_de_dph)*binsize_ev, slopes_de_dph)
+        self.assertIsNotNone(fitters)
 
     def test_autocal(self):
         # generate pulseheights from known spectrum
         spect = {}
-        dist = {}
         num_samples = {k: 1000*k for k in [1, 2, 3, 4, 5]}
         spect[1] = mass.fluorescence_lines.MnKAlpha()
         spect[1].set_gauss_fwhm(2)
@@ -154,19 +155,19 @@ class TestAlgorithms(unittest.TestCase):
         auto_cal.autocal()
         auto_cal.diagnose()
         cal.diagnose()
-        self.assertTrue(hasattr(cal,"autocal"))
+        self.assertTrue(hasattr(cal, "autocal"))
         # test fitters are correct type, and ordered by line energy
-        self.assertEqual(type(auto_cal.fitters[0]),mass.TiKAlphaFitter)
-        self.assertEqual(type(auto_cal.fitters[1]),mass.MnKAlphaFitter)
-        self.assertEqual(type(auto_cal.fitters[2]),mass.FeKAlphaFitter)
-        self.assertEqual(type(auto_cal.fitters[3]),mass.MnKBetaFitter)
-        self.assertEqual(type(auto_cal.fitters[4]),mass.CuKAlphaFitter)
+        self.assertEqual(type(auto_cal.fitters[0]), mass.TiKAlphaFitter)
+        self.assertEqual(type(auto_cal.fitters[1]), mass.MnKAlphaFitter)
+        self.assertEqual(type(auto_cal.fitters[2]), mass.FeKAlphaFitter)
+        self.assertEqual(type(auto_cal.fitters[3]), mass.MnKBetaFitter)
+        self.assertEqual(type(auto_cal.fitters[4]), mass.CuKAlphaFitter)
 
     def test_fitter_classes(self):
         self.assertEqual(mass.calibration.MnKAlphaFitter,
-                         mass.calibration.fitter_classes.get("MnKAlpha",mass.calibration.GaussianFitter))
+                         mass.calibration.fitter_classes.get("MnKAlpha", mass.calibration.GaussianFitter))
         self.assertEqual(mass.calibration.GaussianFitter,
-                         mass.calibration.fitter_classes.get(1100,mass.calibration.GaussianFitter))
+                         mass.calibration.fitter_classes.get(1100, mass.calibration.GaussianFitter))
 
     def test_getfitter(self):
         self.assertEqual(mass.calibration.MnKAlphaFitter,

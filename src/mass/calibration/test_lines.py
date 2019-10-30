@@ -47,11 +47,13 @@ class Test_MnKA_distribution(unittest.TestCase):
                     name, spectrum_class.nominal_peak_energy, mass.STANDARD_FEATURES[name],
                     np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name])))
             self.assertTrue(result)
-            # test that basic funtionatiliy works for all instances
+            # test that basic funtionality works for all instances
             spectrum = spectrum_class()
             v = spectrum.rvs(1)
             v = spectrum(spectrum.peak_energy)
+            self.assertIsNotNone(v)
             s = spectrum.reference
+            self.assertIsNot(s, "")
             # check that normalize intensities sum to 1
             self.assertAlmostEqual(1, spectrum.normalized_lorentzian_integral_intensity.sum())
 

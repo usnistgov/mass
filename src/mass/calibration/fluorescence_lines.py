@@ -79,7 +79,7 @@ class SpectralLine(sp.stats.rv_continuous):
         components - True plots each voigt component in addition to the spectrum
         label - a string to label the plot with (optional)"""
         if x is None:
-            width = max(2*self.pdf_gaussian_fwhm,3*np.amax(self.lorentzian_fwhm))
+            width = max(2*self.pdf_gaussian_fwhm, 3*np.amax(self.lorentzian_fwhm))
             lo = np.amin(self.energies)-width
             hi = np.amax(self.energies)+width
             x = np.linspace(lo, hi, 500)
@@ -192,14 +192,14 @@ lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Frit
     The KBeta also appears to be a hack with scaled values."""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 lineshape_references["Joe Fowler"] = """This is what Joe Fowler measured for tungsten L-lines in 2018."""
-lineshape_references["NIST ASD"]="""NIST Atomic Spectra Database
+lineshape_references["NIST ASD"] = """NIST Atomic Spectra Database
 Kramida, A., Ralchenko, Yu., Reader, J., and NIST ASD Team (2018). NIST Atomic Spectra Database (ver. 5.6.1), [Online]. Available: https://physics.nist.gov/asd [2018, December 12]. National Institute of Standards and Technology, Gaithersburg, MD. DOI: https://doi.org/10.18434/T4W30F """
 lineshape_references["Clementson 2010"] = """J. Clementson, P. Beiersdorfer, G. V. Brown, and M. F. Gu,
     "Spectroscopy of M-shell x-ray transitions in Zn-like through Co-like W,"
     Physica Scripta 81, 015301 (2010). https://iopscience.iop.org/article/10.1088/0031-8949/81/01/015301/meta"""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 lineshape_references["Nilsen 1995"] = "Elliott, S. R., Beiersdorfer, P., Macgowan, B. J., & Nilsen, J. (1995). Measurements of line overlap for resonant spoiling of x-ray lasing transitions in nickle-like tungsten, 52(4), 2689–2692. https://doi.org/10.1103/PhysRevA.52.2689"
-lineshape_references["Deslattes Notebook Si"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster. 
+lineshape_references["Deslattes Notebook Si"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster.
 Added by GCO Oct 7 2019. Used the postion and width values from the from the lowest listed fit, the one in energy units.
 Used the intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile).
 Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at higher energy"""
@@ -697,6 +697,7 @@ def plot_all_spectra():
     for name, spectrum_class in spectrum_classes.items():
         spectrum = spectrum_class()
         spectrum.plot_like_reference()
+
 
 if __name__ == "__main__":
     spectrum = fitter_classes["MgKAlpha"]()
