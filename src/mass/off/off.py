@@ -141,7 +141,7 @@ class OffFile():
 if __name__ == "__main__":
     off = OffFile("off_test.off")
     assert off.nRecords == 1
-    print off
+    print(off)
     x = off.sampleTimes(0)
     y = off.modeledPulse(0)
     assert len(x) == len(y)

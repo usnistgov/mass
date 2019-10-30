@@ -102,8 +102,8 @@ labelPeaks(ax, names=nos.keys(), energies=nos.values(), line=ax.lines[1])
 
 data.fitterPlot("W Ni-20", states=["W 1"])
 
-print data.outputHDF5
-print os.path.abspath(data.outputDir)
+print(data.outputHDF5)
+print(os.path.abspath(data.outputDir))
 
 
 with data.outputHDF5 as h5:
