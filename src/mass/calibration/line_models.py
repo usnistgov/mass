@@ -2,7 +2,6 @@ import lmfit
 import pylab as plt
 import numpy as np
 from . import line_fits
-from . import fluorescence_lines
 
 class MLEModel(lmfit.Model):
     """ A version of lmfit.Model that uses Maximum Likeliehood Estimates weights in place of chisq
@@ -107,7 +106,7 @@ class CompositeMLEModel(lmfit.CompositeModel):
         return CompositeMLEModel(self, other, lmfit.model.operator.truediv)
 
 
-class GenericKAlphaModel(MLEModel):
+class GenericLineModel(MLEModel):
     def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise',
                  **kwargs):
         # spect must be defined by inheriting classes
@@ -123,7 +122,7 @@ class GenericKAlphaModel(MLEModel):
             return retval
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
                        'independent_vars': independent_vars, 'name': "MnKAlpha"})
-        super(GenericKAlphaModel, self).__init__(modelfunc, **kwargs)
+        super(GenericLineModel, self).__init__(modelfunc, **kwargs)
         self._set_paramhints_prefix()
 
     def _set_paramhints_prefix(self):
@@ -132,11 +131,27 @@ class GenericKAlphaModel(MLEModel):
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
         self.set_param_hint("amplitude", value=100, min=0)
         self.set_param_hint('background', value=1, min=0)
-        self.set_param_hint('bg_slope', value=0, min=0, vary=False)
+        self.set_param_hint('bg_slope', value=0, vary=False)
         self.set_param_hint('tail_frac', value=0, min=0, vary=False)
-        self.set_param_hint('tail_tau', value=0, min=0, vary=False)
+        self.set_param_hint('tail_tau', value=0, min=0, max=100, vary=False)
 
     def guess(self, data, bin_centers=None, **kwargs):
+        "guess values for the peak_ph, amplitude, and background"
+        if data.sum() <= 0:
+            raise ValueError("This histogram has no contents")
+        peak_ph = bin_centers[data.argmax()]
+        ampl = data.max() * 9.4 # this number is taken from the GenericKBetaFitter
+        if len(data) > 20:
+            # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
+            baseline = max(data[0:10].mean(), 1.0/len(data))
+        else:
+            baseline = 0.1
+        pars = self.make_params(peak_ph=ph_ka1, background=baseline, amplitude=ampl)
+        return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)        
+
+class GenericKAlphaModel(GenericLineModel):
+    def guess(self, data, bin_centers=None, **kwargs):
+        "guess values for the peak_ph, amplitude, and background, and dph_de"
         if data.sum() <= 0:
             raise ValueError("This histogram has no contents")
         # Heuristic: find the Ka1 line as the peak bin, and then make
@@ -152,15 +167,12 @@ class GenericKAlphaModel(MLEModel):
         dph = 0.66 * (topqtr - lowqtr)
         dE = self.spect.ka12_energy_diff  # eV difference between KAlpha peaks
         ampl = data.max() * 9.4
-        res = 4.0
         if len(data) > 20:
             # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
             baseline = max(data[0:10].mean(), 1.0/len(data))
         else:
             baseline = 0.1
-        baseline_slope = 0.0
-        pars = self.make_params(fwhm=res, peak_ph=ph_ka1, dph_de= dph/dE, bg=baseline, bgslope=baseline_slope)
+        pars = self.make_params(peak_ph=ph_ka1, dph_de= dph/dE, background=baseline, amplitude=ampl)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
-class MnKAlphaModel(GenericKAlphaModel):
-    spect = fluorescence_lines.spectrum_classes["MnKAlpha"]()
+
