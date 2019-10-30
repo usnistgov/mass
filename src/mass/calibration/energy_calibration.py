@@ -8,8 +8,8 @@ import six
 import numpy as np
 from scipy.optimize import brentq
 
-from mass.mathstat.interpolate import *
-from mass.mathstat.derivative import *
+from mass.mathstat.interpolate import CubicSplineFunction, SmoothingSplineFunction
+from mass.mathstat.derivative import ExponentialFunction, Identity, LogFunction
 from mass.calibration.nist_xray_database import NISTXrayDBFile
 
 
@@ -90,7 +90,7 @@ class EnergyCalibration(object):
         "gain",
         "invgain",
         "loggain",
-        )
+    )
 
     def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=False):
         """Create an EnergyCalibration object for pulse-height-related field.
@@ -299,8 +299,8 @@ class EnergyCalibration(object):
                 name = energy
                 energy = STANDARD_FEATURES[name]
             except Exception:
-                raise ValueError("2nd argument must be an energy or a known name" +
-                                 " from mass.energy_calibration.STANDARD_FEATURES")
+                raise ValueError("2nd argument must be an energy or a known name"
+                                 + " from mass.energy_calibration.STANDARD_FEATURES")
 
         if pht_error is None:
             pht_error = pht*0.001
@@ -406,7 +406,8 @@ class EnergyCalibration(object):
             if underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
             else:
-                self._max_ph = scale*0.99*brentq(underlying_spline, self._ph.max()/scale, trial_phmax/scale)
+                self._max_ph = scale*0.99*brentq(underlying_spline,
+                                                 self._ph.max()/scale, trial_phmax/scale)
 
         elif self.curvename() == "invgain":
             ig = e/ph
@@ -426,7 +427,8 @@ class EnergyCalibration(object):
             # self._ph2energy_anon = lambda p: p*np.exp(-self._underlying_spline(p/scale))
             p = Identity()
             underlying_spline = SmoothingSplineFunction(ph / scale, lg, dlg, dph / scale)
-            self._ph2energy_anon = p * (ExponentialFunction() << (-underlying_spline << (p / scale)))
+            self._ph2energy_anon = p * (ExponentialFunction()
+                                        << (-underlying_spline << (p / scale)))
 
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
@@ -543,7 +545,8 @@ class EnergyCalibration(object):
                 axis.plot(pht, self(pht) / (pht**ph_rescale_power), color=color)
                 y = self._energies / (self._ph**ph_rescale_power)
                 axis.set_ylabel("Energy (eV) / PH^%.4f" % ph_rescale_power)
-                axis.set_title("Energy calibration curve, scaled by %.4f power of PH" % ph_rescale_power)
+                axis.set_title("Energy calibration curve, scaled by %.4f power of PH" %
+                               ph_rescale_power)
         elif plottype == "gain":
             axis.plot(pht, smoothgain, color=color)
             y = gains
@@ -570,7 +573,6 @@ class EnergyCalibration(object):
         axis.set_xlabel("Pulse height")
         for pht, name, yval in zip(self._ph, self._names, y):
             axis.text(pht, yval, name+'  ', ha='right')
-
 
     def drop_one_errors(self):
         """For each calibration point, calculate the difference between the 'correct' energy
@@ -607,11 +609,11 @@ class EnergyCalibration(object):
                   cal_group.attrs['curvetype'],
                   cal_group.attrs['approximate'])
 
-        _names = cal_group["name"].value
-        _ph = cal_group["ph"].value
-        _energies = cal_group["energy"].value
-        _dph = cal_group["dph"].value
-        _de = cal_group["de"].value
+        _names = cal_group["name"][:]
+        _ph = cal_group["ph"][:]
+        _energies = cal_group["energy"][:]
+        _dph = cal_group["dph"][:]
+        _de = cal_group["de"][:]
 
         for thisname, ph, e, dph, de in zip(_names, _ph, _energies, _dph, _de):
             cal.add_cal_point(ph, e, thisname.decode(), dph, de)

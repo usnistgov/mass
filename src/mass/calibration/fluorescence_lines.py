@@ -17,10 +17,12 @@ November 24, 2010 : started as mn_kalpha.py
 import numpy as np
 import scipy as sp
 import pylab as plt
-import palettable
 from . import line_fits
+<<<<<<< HEAD
 from . import line_models
 from cycler import cycler
+=======
+>>>>>>> 05cb0b268fee2eef94f9789d5e6002701b17c3ed
 from collections import OrderedDict
 
 from mass.mathstat.special import voigt
@@ -214,6 +216,8 @@ lineshape_references["Schweppe 1992 Al"] = """J. Schweppe, R. D. Deslattes, T. M
     The higher energy satellite features are not measured by Schweppe, and instead taken from an email from Caroline Kilbourne to Joel Ullom dated 28 Sept 2010
     We expect these higher energy satellites do not affect the fitting of the peak location very much.
 """
+lineshape_references["Mendenhall 2019"] = """Marcus H. Mendenhall et al., J. Phys B in press (2019).
+    https://doi.org/10.1088/1361-6455/ab45d6"""
 
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
@@ -230,7 +234,8 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
               position_uncertainty=0.0, reference_measurement_type=None):
 
     # require exactly one method of specifying the amplitude of each component
-    assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT, LORENTZIAN_INTEGRAL_INTENSITY, VOIGT_PEAK_HEIGHT]
+    assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT,
+                                        LORENTZIAN_INTEGRAL_INTENSITY, VOIGT_PEAK_HEIGHT]
     # require the reference exists in lineshape_references
     assert reference_short in lineshape_references
 
@@ -246,7 +251,8 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         lorentzian_integral_intensity = [ph/voigt(0, 0, lw/2.0, reference_instrument_gaussian_sigma)
                                          for ph, lw in zip(reference_amplitude, lorentzian_fwhm)]
     elif reference_amplitude_type == LORENTZIAN_PEAK_HEIGHT:
-        lorentzian_integral_intensity = (0.5 * np.pi * lorentzian_fwhm) * np.array(reference_amplitude)
+        lorentzian_integral_intensity = (
+            0.5 * np.pi * lorentzian_fwhm) * np.array(reference_amplitude)
     elif reference_amplitude_type == LORENTZIAN_INTEGRAL_INTENSITY is not None:
         lorentzian_integral_intensity = reference_amplitude
     normalized_lorentzian_integral_intensity = np.array(lorentzian_integral_intensity) / \
@@ -315,7 +321,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     return spectrum_class
 
 
-addfitter(
+mgka = addfitter(
     element="Mg",
     linetype="KAlpha",
     reference_short="Klauber 1993",
@@ -383,7 +389,8 @@ addfitter(
 )
 
 addfitter(
-    element="Ti",  # The paper has two sets of TiKAlpha data, I used the set Refit of [21] Kawai et al 1994
+    # The paper has two sets of TiKAlpha data, I used the set Refit of [21] Kawai et al 1994
+    element="Ti",
     linetype="KAlpha",
     reference_short="Chantler 2006",
     reference_plot_gaussian_fwhm=0.11,
@@ -660,6 +667,33 @@ addfitter(
 )
 
 
+addfitter(
+    element="Mo",
+    linetype="KAlpha",
+    reference_short="Mendenhall 2019",
+    reference_plot_gaussian_fwhm=0.02,
+    nominal_peak_energy=17479.389,
+    energies=np.array((17479.389, 17374.577)),
+    lorentzian_fwhm=np.array((6.389, 6.3876)),
+    reference_amplitude=np.array((3331.119, 1684.988)),
+    ka12_energy_diff=104.812,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addfitter(
+    element="Mo",
+    linetype="KBeta",
+    reference_short="Mendenhall 2019",
+    reference_plot_gaussian_fwhm=0.02,
+    nominal_peak_energy=19606.734,
+    energies=np.array((19606.733, 19589.251, 19623.217)),
+    lorentzian_fwhm=np.array((6.88, 6.88, 6.88)),
+    reference_amplitude=np.array((958.08, 488.67, 29.14)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
 def plot_all_spectra():
     """Makes a bunch of plots showing the line shape and component parts for the KAlpha
     and KBeta complexes defined in here.
@@ -669,7 +703,7 @@ def plot_all_spectra():
         spectrum.plot_like_reference()
 
 if __name__ == "__main__":
-    spectrum = MgKAlpha()
+    spectrum = mgka()
     spectrum.rvs(100)
     spectrum.gaussian_fwhm = 1
     spectrum.rvs(100)

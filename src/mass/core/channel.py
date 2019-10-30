@@ -72,6 +72,7 @@ class NoiseRecords(object):
 
         self.datafile = None
         self.data = None
+        self.saved_auto_cuts = None
 
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
@@ -165,7 +166,8 @@ class NoiseRecords(object):
         """
 
         if not self.continuous and seg_length is not None:
-            raise ValueError("This NoiseRecords doesn't have continuous noise; it can't be resegmented.")
+            raise ValueError(
+                "This NoiseRecords doesn't have continuous noise; it can't be resegmented.")
 
         if seg_length is None:
             seg_length = self.nSamples
@@ -350,7 +352,8 @@ class NoiseRecords(object):
                         break
 
             if entries == 0:
-                raise Exception("Apparently all chunks had excusions, so no autocorrelation was computed")
+                raise Exception(
+                    "Apparently all chunks had excusions, so no autocorrelation was computed")
 
             ac /= entries
             ac /= (np.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=np.float))
@@ -668,11 +671,11 @@ class MicrocalDataSet(object):
 
         try:
             self.hdf5_group = hdf5_group
-            if "npulses" not in self.hdf5_group.attrs: # to allow TESGroupHDF5 with in read only mode
+            if "npulses" not in self.hdf5_group.attrs:  # to allow TESGroupHDF5 with in read only mode
                 self.hdf5_group.attrs['npulses'] = self.nPulses
             else:
                 assert self.hdf5_group.attrs['npulses'] == self.nPulses
-            if "channum" not in self.hdf5_group.attrs: # to allow TESGroupHDF5 with in read only mode
+            if "channum" not in self.hdf5_group.attrs:  # to allow TESGroupHDF5 with in read only mode
                 self.hdf5_group.attrs['channum'] = self.channum
             else:
                 assert self.hdf5_group.attrs['channum'] == self.channum
@@ -771,7 +774,8 @@ class MicrocalDataSet(object):
                     if 'variance' in filter_ds.attrs:
                         self.filter.variances[k.split("filt_")[1]] = filter_ds.attrs['variance']
                     if 'predicted_v_over_dv' in filter_ds.attrs:
-                        self.filter.predicted_v_over_dv[k.split("filt_")[1]] = filter_ds.attrs['predicted_v_over_dv']
+                        self.filter.predicted_v_over_dv[k.split(
+                            "filt_")[1]] = filter_ds.attrs['predicted_v_over_dv']
 
         grp = self.hdf5_group.require_group('cuts')
         self.cuts = Cuts(self.nPulses, self.tes_group, hdf5_group=grp)
@@ -784,14 +788,19 @@ class MicrocalDataSet(object):
         for k in hdf5_cal_group.keys():
             if not overwrite:
                 if k in self.calibration.keys():
-                    raise ValueError("trying to load over existing calibration, consider passing overwrite=True")
+                    raise ValueError(
+                        "trying to load over existing calibration, consider passing overwrite=True")
             self.calibration[k] = EnergyCalibration.load_from_hdf5(hdf5_cal_group, k)
-
 
     def __load_corrections(self):
         # drift correction should be loaded here, but currently I don't htink it is loaded at all
         if "phase_correction" in self.hdf5_group:
+<<<<<<< HEAD
             self.phaseCorrector = phase_correct.PhaseCorrector.fromHDF5(self.hdf5_group, name="phase_correction")
+=======
+            self.phaseCorrector = phase_correct.phaseCorrector.from_hdf5(
+                self.hdf5_group, name="phase_correction")
+>>>>>>> 05cb0b268fee2eef94f9789d5e6002701b17c3ed
 
     @property
     def p_peak_time(self):
@@ -827,21 +836,24 @@ class MicrocalDataSet(object):
         try:
             return self.hdf5_group["rows_after_last_external_trigger"]
         except KeyError:
-            raise ValueError("run tes_group.calc_external_trigger_timing with after_last=True before accessing this")
+            raise ValueError(
+                "run tes_group.calc_external_trigger_timing with after_last=True before accessing this")
 
     @property
     def rows_until_next_external_trigger(self):
         try:
             return self.hdf5_group["rows_until_next_external_trigger"]
         except KeyError:
-            raise ValueError("run tes_group.calc_external_trigger_timing with until_next=True before accessing this")
+            raise ValueError(
+                "run tes_group.calc_external_trigger_timing with until_next=True before accessing this")
 
     @property
     def rows_from_nearest_external_trigger(self):
         try:
             return self.hdf5_group["rows_from_nearest_external_trigger"]
         except KeyError:
-            raise ValueError("run tes_group.calc_external_trigger_timing with from_nearest=True before accessing this")
+            raise ValueError(
+                "run tes_group.calc_external_trigger_timing with from_nearest=True before accessing this")
 
     def __str__(self):
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
@@ -881,7 +893,8 @@ class MicrocalDataSet(object):
     def _compute_peak_samplenumber(self):
         if self.data is None:
             self.read_segment(0)
-        peak_idx = self.data[:, self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
+        peak_idx = self.data[:, self.cut_pre:self.nSamples
+                             - self.cut_post].argmax(axis=1)+self.cut_pre
         self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
@@ -925,12 +938,13 @@ class MicrocalDataSet(object):
             return
 
         if len(self.p_timestamp) < self.pulse_records.nPulses:
-            self.__setup_vectors(npulses=self.pulse_records.nPulses)  # make sure vectors are setup correctly
+            # make sure vectors are setup correctly
+            self.__setup_vectors(npulses=self.pulse_records.nPulses)
 
         if peak_time_microsec is None:
             self.peak_samplenumber = None
         else:
-            self.peak_samplenumber = 2+self.nPresamples+int(peak_time_microsec*1e-6/self.timebase)
+            self.peak_samplenumber = self.nPresamples+int(peak_time_microsec*1e-6/self.timebase)
         if pretrigger_ignore_microsec is None:
             self.pretrigger_ignore_samples = 3
         else:
@@ -972,38 +986,46 @@ class MicrocalDataSet(object):
 
         # Fit line to pretrigger and save the derivative and offset
         if doPretrigFit:
-            presampleNumbers = np.arange(self.cut_pre, self.nPresamples-self.pretrigger_ignore_samples)
-            ydata = self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].T
+            presampleNumbers = np.arange(self.cut_pre, self.nPresamples
+                                         - self.pretrigger_ignore_samples)
+            ydata = self.data[:seg_size, self.cut_pre:self.nPresamples
+                              - self.pretrigger_ignore_samples].T
             self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
                 np.polyfit(presampleNumbers, ydata, deg=1)
 
         self.p_pretrig_mean[first:end] = \
-            self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].mean(axis=1)
+            self.data[:seg_size, self.cut_pre:self.nPresamples
+                      - self.pretrigger_ignore_samples].mean(axis=1)
         self.p_pretrig_rms[first:end] = \
-            self.data[:seg_size, self.cut_pre:self.nPresamples-self.pretrigger_ignore_samples].std(axis=1)
-        self.p_peak_index[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
-        self.p_peak_value[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].max(axis=1)
-        self.p_min_value[first:end] = self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post].min(axis=1)
-        self.p_pulse_average[first:end] = self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post].mean(axis=1)
+            self.data[:seg_size, self.cut_pre:self.nPresamples
+                      - self.pretrigger_ignore_samples].std(axis=1)
+        self.p_peak_index[first:end] = self.data[:seg_size,
+                                                 self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
+        self.p_peak_value[first:end] = self.data[:seg_size,
+                                                 self.cut_pre:self.nSamples-self.cut_post].max(axis=1)
+        self.p_min_value[first:end] = self.data[:seg_size,
+                                                self.cut_pre:self.nSamples-self.cut_post].min(axis=1)
+        self.p_pulse_average[first:end] = self.data[:seg_size,
+                                                    self.nPresamples:self.nSamples-self.cut_post].mean(axis=1)
 
         # Remove the pretrigger mean from the peak value and the pulse average figures.
         ptm = self.p_pretrig_mean[first:end]
         self.p_pulse_average[first:end] -= ptm
         self.p_peak_value[first:end] -= np.asarray(ptm, dtype=self.p_peak_value.dtype)
         self.p_pulse_rms[first:end] = np.sqrt(
-            (self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post]**2.0).mean(axis=1) -
-            ptm*(ptm + 2*self.p_pulse_average[first:end]))
+            (self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post]**2.0).mean(axis=1)
+            - ptm*(ptm + 2*self.p_pulse_average[first:end]))
 
-        shift1 = (self.data[:seg_size, self.nPresamples+2]-ptm >
-                  4.3*self.p_pretrig_rms[first:end])
+        shift1 = (self.data[:seg_size, self.nPresamples-1]-ptm
+                  > 4.3*self.p_pretrig_rms[first:end])
         self.p_shift1[first:end] = shift1
 
-        halfidx = (self.nPresamples+5+self.peak_samplenumber)//2
+        halfidx = (self.nPresamples+2+self.peak_samplenumber)//2
         pkval = self.p_peak_value[first:end]
-        prompt = (self.data[:seg_size, self.nPresamples+5:halfidx].mean(axis=1) -
-                  ptm) / pkval
-        prompt[shift1] = (self.data[shift1, self.nPresamples+4:halfidx-1].mean(axis=1) -
-                          ptm[shift1]) / pkval[shift1]
+        prompt = (self.data[:seg_size, self.nPresamples+2:halfidx].mean(axis=1)
+                  - ptm) / pkval
+        prompt[shift1] = (self.data[shift1, self.nPresamples+1:halfidx-1].mean(axis=1)
+                          - ptm[shift1]) / pkval[shift1]
         self.p_promptness[first:end] = prompt
 
         self.p_rise_time[first:end] = \
@@ -1073,7 +1095,8 @@ class MicrocalDataSet(object):
         if pulse_count > 0:
             average_pulse /= pulse_count
         if subtract_mean:
-            average_pulse -= np.mean(average_pulse[:self.nPresamples - self.pretrigger_ignore_samples])
+            average_pulse -= np.mean(average_pulse[:self.nPresamples
+                                                   - self.pretrigger_ignore_samples])
         self.average_pulse[:] = average_pulse
 
     @_add_group_loop
@@ -1184,7 +1207,7 @@ class MicrocalDataSet(object):
         model[:, 0] = ap/apmax
         model[1:-1, 1] = (ap[2:] - ap[:-2])*0.5/apmax
         model[-1, 1] = (ap[-1]-ap[-2])/apmax
-        model[:self.nPresamples+2, :] = 0
+        model[:self.nPresamples-1, :] = 0
 
         # Now use min-entropy computation to model dp/dt on the rising edge
         def cost(slope, x, y):
@@ -1192,7 +1215,7 @@ class MicrocalDataSet(object):
 
         if self.peak_samplenumber is None:
             self._compute_peak_samplenumber()
-        for samplenum in range(self.nPresamples+2, self.peak_samplenumber):
+        for samplenum in range(self.nPresamples-1, self.peak_samplenumber):
             y = raw[:, samplenum]/rawscale
             bestslope = sp.optimize.brent(cost, (ATime, y), brack=[-.1, .25], tol=1e-7)
             model[samplenum, 1] = bestslope
@@ -1401,11 +1424,14 @@ class MicrocalDataSet(object):
         if n_lags is None and self.noise_records.continuous:
             n_lags = self.noise_records.nSamples
         if forceNew or all(self.noise_autocorr[:] == 0):
-            self.noise_records.compute_power_spectrum_reshape(max_excursion=max_excursion, seg_length=n_lags)
-            self.noise_records.compute_autocorrelation(n_lags=n_lags, plot=False, max_excursion=max_excursion)
+            self.noise_records.compute_power_spectrum_reshape(
+                max_excursion=max_excursion, seg_length=n_lags)
+            self.noise_records.compute_autocorrelation(
+                n_lags=n_lags, plot=False, max_excursion=max_excursion)
             self.noise_records.clear_cache()
 
-            self.noise_autocorr[:] = self.noise_records.autocorrelation[:len(self.noise_autocorr[:])]
+            self.noise_autocorr[:] = self.noise_records.autocorrelation[:len(
+                self.noise_autocorr[:])]
             self.noise_psd[:] = self.noise_records.noise_psd[:len(self.noise_psd[:])]
             self.noise_psd.attrs['delta_f'] = self.noise_records.noise_psd.attrs['delta_f']
         else:
@@ -1443,7 +1469,8 @@ class MicrocalDataSet(object):
         self.cuts.cut_parameter(self.p_postpeak_deriv, c['postpeak_deriv'], 'postpeak_deriv')
         self.cuts.cut_parameter(self.p_pulse_average, c['pulse_average'], 'pulse_average')
         self.cuts.cut_parameter(self.p_peak_value, c['peak_value'], 'peak_value')
-        self.cuts.cut_parameter(self.p_min_value[:] - self.p_pretrig_mean[:], c['min_value'], 'min_value')
+        self.cuts.cut_parameter(
+            self.p_min_value[:] - self.p_pretrig_mean[:], c['min_value'], 'min_value')
         self.cuts.cut_parameter(self.p_timestamp[:], c['timestamp_sec'], 'timestamp_sec')
 
         if c['timestamp_diff_sec'] is not None:
@@ -1465,6 +1492,7 @@ class MicrocalDataSet(object):
     def clear_cuts(self):
         """Clear all cuts."""
         self.cuts.clear_cut()
+        self.saved_auto_cuts = None
 
     def correct_flux_jumps(self, flux_quant):
         '''Remove 'flux' jumps' from pretrigger mean.
@@ -1482,15 +1510,18 @@ class MicrocalDataSet(object):
         '''
         # remember original value, just in case we need it
         self.p_pretrig_mean_orig = self.p_pretrig_mean[:]
-        corrected = mass.core.analysis_algorithms.correct_flux_jumps(self.p_pretrig_mean[:], self.good(), flux_quant)
+        corrected = mass.core.analysis_algorithms.correct_flux_jumps(
+            self.p_pretrig_mean[:], self.good(), flux_quant)
         self.p_pretrig_mean[:] = corrected
 
     @_add_group_loop
     def drift_correct(self, attr="p_filt_value", forceNew=False, category={}):
         """Drift correct using the standard entropy-minimizing algorithm"""
-        doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(self.p_filt_value_dc[:] == self.p_filt_value[:])
+        doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(
+            self.p_filt_value_dc[:] == self.p_filt_value[:])
         if not (forceNew or doesnt_exist):
-            LOG.info("chan %d drift correction skipped, because p_filt_value_dc already populated", self.channum)
+            LOG.info(
+                "chan %d drift correction skipped, because p_filt_value_dc already populated", self.channum)
             return
         g = self.cuts.good(**category)
         uncorrected = getattr(self, attr)[g]
@@ -1529,13 +1560,15 @@ class MicrocalDataSet(object):
             category (dict): if not None, then a dict giving a category name and the
                 required category label.
         """
-        doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
+        doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(
+            self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
         if not (forceNew or doesnt_exist):
             LOG.info("channel %d skipping phase_correct2014", self.channum)
             return
 
         data, g = self.first_n_good_pulses(maximum_num_records, category)
-        LOG.info("channel %d doing phase_correct2014 with %d good pulses", self.channum, data.shape[0])
+        LOG.info("channel %d doing phase_correct2014 with %d good pulses",
+                 self.channum, data.shape[0])
         prompt = self.p_promptness[:]
         prms = self.p_pulse_rms[:]
 
@@ -1657,7 +1690,8 @@ class MicrocalDataSet(object):
                     fittername = '%s.%sFitter()' % (module, line)
                     fitter = eval(fittername)
                 except AttributeError:
-                    raise ValueError("Cannot understand line=%s as an energy or a known calibration line." % line)
+                    raise ValueError(
+                        "Cannot understand line=%s as an energy or a known calibration line." % line)
 
         params, covar = fitter.fit(contents, bin_ctrs, plot=plot, **kwargs)
         if plot:
@@ -1701,7 +1735,8 @@ class MicrocalDataSet(object):
         auto_cal.fit_lines()
 
         if auto_cal.anyfailed:
-            LOG.warning("chan %d failed calibration because on of the fitter was a FailedFitter", self.channum)
+            LOG.warning(
+                "chan %d failed calibration because on of the fitter was a FailedFitter", self.channum)
             raise Exception()
 
         self.calibration[calname] = cal
@@ -1790,7 +1825,6 @@ class MicrocalDataSet(object):
 
         cuts_good = self.cuts.good()[pulsenums]
         pulses_plotted = -1
-        nplottable = cuts_good.sum()
         for i, pn in enumerate(pulsenums):
             if valid_status == 'cut' and cuts_good[i]:
                 continue
@@ -1810,7 +1844,8 @@ class MicrocalDataSet(object):
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
             if fcut is not None:
-                data = mass.core.analysis_algorithms.filter_signal_lowpass(data, 1./self.timebase, fcut)
+                data = mass.core.analysis_algorithms.filter_signal_lowpass(
+                    data, 1./self.timebase, fcut)
             if subtract_baseline:
                 # Recalculate the pretrigger mean here, to avoid issues due to flux slipping when
                 # plotting umux data
@@ -1958,7 +1993,9 @@ class MicrocalDataSet(object):
         # These are based on function calc_cuts_from_noise in make_preknowledge.py
         # in Galen's project POPE.jl.
 
-        if not (all(self.cuts.good()) or forceNew):
+        if self.saved_auto_cuts is None:
+            forceNew = True
+        if not forceNew:
             LOG.info("channel %g skipping auto cuts because cuts exist", self.channum)
             return
 
@@ -2019,6 +2056,7 @@ class MicrocalDataSet(object):
         try:
             g = self.hdf5_group["cuts/auto_cuts"]
         except KeyError:
+            self.saved_auto_cuts = None
             return
         cuts = mass.AnalysisControl()
         for attrname in ("peak_time_ms", "rise_time_ms", "pretrigger_rms",
@@ -2133,8 +2171,10 @@ class MicrocalDataSet(object):
                         subgroupName = nn_channel_key + '/' + neighborCategory
                         subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
                         # Remove duplicates, sort
-                        selectNeighbors = subgroupNeighbors[:, 0][np.isin(subgroupNeighbors[:, 2], nearestNeighborsDistances)]
-                        combinedNearestNeighbors = np.unique(np.append(combinedNearestNeighbors, selectNeighbors).astype(int))
+                        selectNeighbors = subgroupNeighbors[:, 0][np.isin(
+                            subgroupNeighbors[:, 2], nearestNeighborsDistances)]
+                        combinedNearestNeighbors = np.unique(
+                            np.append(combinedNearestNeighbors, selectNeighbors).astype(int))
                     if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
                         h5grp[crosstalk_key][:] = crosstalk_flagging_loop(combinedNearestNeighbors)
                     else:
@@ -2146,14 +2186,17 @@ class MicrocalDataSet(object):
                         categoryField = str(crosstalk_key + '_' + neighborCategory)
                         subgroupName = nn_channel_key + '/' + neighborCategory
                         subgroupNeighbors = self.hdf5_group[subgroupName + '/neighbors_list'].value
-                        selectNeighbors = subgroupNeighbors[:, 0][np.isin(subgroupNeighbors[:, 2], nearestNeighborsDistances)]
+                        selectNeighbors = subgroupNeighbors[:, 0][np.isin(
+                            subgroupNeighbors[:, 2], nearestNeighborsDistances)]
                         if np.sum(np.isin(self.tes_group.channel.keys(), selectNeighbors)) > 0:
                             LOG.info('Checking crosstalk between channel %d and %s neighbors...' % (
                                 self.channum, neighborCategory))
                             h5grp[categoryField][:] = crosstalk_flagging_loop(selectNeighbors)
-                            h5grp[crosstalk_key][:] = np.logical_or(h5grp[crosstalk_key], h5grp[categoryField])
+                            h5grp[crosstalk_key][:] = np.logical_or(
+                                h5grp[crosstalk_key], h5grp[categoryField])
                         else:
-                            msg = "channel %d skipping %s crosstalk cuts because" % (self.channum, neighborCategory)
+                            msg = "channel %d skipping %s crosstalk cuts because" % (
+                                self.channum, neighborCategory)
                             msg = msg * " no nearest neighbors matching criteria in category"
                             LOG.info(msg)
 
@@ -2199,7 +2242,8 @@ class MicrocalDataSet(object):
                     tempSquaredDistances.append(iLength**2)
                 singleDimensionalSquaredDistances.append(tempSquaredDistances)
             # Use np.meshgrid to make an array of all possible combinations of the arrays in each dimension
-            possibleSquaredCombinations = np.meshgrid(*[iArray for iArray in singleDimensionalSquaredDistances])
+            possibleSquaredCombinations = np.meshgrid(
+                *[iArray for iArray in singleDimensionalSquaredDistances])
             # Sum the squared distances along the corresponding axis to get squared distance at each point
             allSquaredDistances = possibleSquaredCombinations[0]
             for iDim in range(1, nDims):
@@ -2255,7 +2299,8 @@ class MicrocalDataSet(object):
 
         # Victim channel position dataset
         self.__dict__['position_%s' % nearestNeighborCategory] = \
-            h5grp[nearestNeighborCategory].require_dataset('position', shape=(nDims,), dtype=np.int64)
+            h5grp[nearestNeighborCategory].require_dataset(
+                'position', shape=(nDims,), dtype=np.int64)
 
         # Perpetrator channels dataset
         hnnc = h5grp[nearestNeighborCategory]
@@ -2326,7 +2371,7 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
         "tmin": tmin,
         "tmax": tmax,
         "normalize": normalize,
-        }
+    }
 
     dtime = tmax-tmin
     N = len(time)
