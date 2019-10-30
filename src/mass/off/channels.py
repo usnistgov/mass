@@ -1,5 +1,5 @@
 import mass
-from . import off
+import off
 import collections
 import os
 
