@@ -19,7 +19,7 @@ def readJsonString(f):
     and all remaining data is records"""
     s = ""
     while True:
-        line = f.readline()
+        line = f.readline().decode("utf-8")
         s+=line
         if line == "}\n":
             return s
@@ -40,7 +40,7 @@ class OffFile():
     def __init__(self,filename):
         self.filename = filename
         with open(self.filename,"rb") as f:
-            self.headerString=readJsonString(f).decode("utf-8")
+            self.headerString=readJsonString(f)
             # self.headerStringLength = f.tell() # doesn't work on windows because readline uses a readahead buffer
             self.headerStringLength = len(self.headerString)
         self.header = json.loads(self.headerString)
