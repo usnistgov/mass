@@ -18,11 +18,7 @@ import numpy as np
 import scipy as sp
 import pylab as plt
 from . import line_fits
-<<<<<<< HEAD
 from . import line_models
-from cycler import cycler
-=======
->>>>>>> 05cb0b268fee2eef94f9789d5e6002701b17c3ed
 from collections import OrderedDict
 
 from mass.mathstat.special import voigt
