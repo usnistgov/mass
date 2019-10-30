@@ -557,32 +557,20 @@ class EnergyCalibration(object):
         elif plottype == "loggain":
             axis.plot(pht, np.log(smoothgain), color=color)
             y = np.log(gains)
-            axis.set_ylabel("Log Gain log(eV/PH)")
+            axis.set_ylabel("Log Gain: log(eV/PH)")
             axis.set_title("Energy calibration curve, log gain")
         else:
             raise ValueError("plottype must be one of ('linear', 'gain','loggain','invgain').")
-        dy = (self._de/self._energies) * y
+        dy = ((self._de/self._energies)**2 + (self._dph/self._ph)**2)**0.5 * y
 
         # Plot and label cal points
-        if ph_rescale_power == 0.0:
-            axis.errorbar(self._ph, self._energies, yerr=self._de, xerr=self._dph, fmt='o',
-                          mec='black', mfc=markercolor, capsize=0)
-        else:
-            yscale = 1.0/(self._ph**ph_rescale_power)
-            dy = np.sqrt(self._de**2 + (self._dph*ph_rescale_power)**2)
-            axis.errorbar(self._ph, self._energies*yscale, yerr=dy*yscale,
-                          xerr=self._dph, fmt='or', capsize=0)
-        for pht, name in zip(self._ph, self._names):
-            axis.text(pht, self(pht)/pht**ph_rescale_power, name+'  ', ha='right')
-
+        axis.errorbar(self._ph, y, yerr=dy, xerr=self._dph, fmt='o',
+                      mec='black', mfc=markercolor, capsize=0)
         axis.grid(True)
         axis.set_xlabel("Pulse height")
-        if ph_rescale_power == 0.0:
-            axis.set_ylabel("Energy (eV)")
-            axis.set_title("Energy calibration curve")
-        else:
-            axis.set_ylabel("Energy (eV) / PH^%.4f" % ph_rescale_power)
-            axis.set_title("Energy calibration curve, scaled by %.4f power of PH" % ph_rescale_power)
+        for pht, name, yval in zip(self._ph, self._names, y):
+            axis.text(pht, yval, name+'  ', ha='right')
+
 
     def drop_one_errors(self):
         """For each calibration point, calculate the difference between the 'correct' energy

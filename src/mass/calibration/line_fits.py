@@ -7,11 +7,12 @@ Separated line fits (here) from the line shapes (still in fluorescence_lines.py)
 """
 
 import numpy as np
+import scipy as sp
 import pylab as plt
 
 from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
 from mass.mathstat.utilities import plot_as_stepped_hist
-from mass.mathstat.special import voigt
+from mass.mathstat.special import voigt, voigt_approx_fwhm
 
 
 def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
@@ -30,8 +31,9 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
     nhi = min(1000, nhi)  # A practical limit
     nlow = max(nlow, nhi)
     x_wide = np.arange(-nlow, nhi+len(x)) * dx + x[0]
-    if len(x_wide)>100000:
-        raise Exception("one of your fit parameters is probably crazy, so you're trying to fft data of length %i"%len(x_wide))
+    if len(x_wide) > 100000:
+        msg = "you're trying to fft data of length %i (bad fit param?)" % len(x_wide)
+        raise ValueError(msg)
 
     freq = np.fft.rfftfreq(len(x_wide), d=dx)
     rawspectrum = cleanspectrum_fn(x_wide)
@@ -68,6 +70,14 @@ class LineFitter(object):
         # Whether pulse heights are necessarily non-negative.
         self.phscale_positive = True
         self.penalty_function = None
+        self.hold = set([])
+        self.last_fit_bins = None
+        self.last_fit_contents = None
+        self.fit_success = False
+        self.last_fit_chisq = np.inf
+        self.failed_fit_exception = None
+        self.failed_fit_params = None
+        self.failed_fit_starting_fitfunc = None
 
     def set_penalty(self, penalty):
         """Set a regularizer, or penalty function, for the fitter. For its requirements,
@@ -77,16 +87,16 @@ class LineFitter(object):
     def fit(self, data, pulseheights=None, params=None, plot=True, axis=None,
             color=None, label=True, vary_resolution=True, vary_bg=True,
             vary_bg_slope=False, vary_tail=False, hold=None, verbose=False, ph_units="arb",
-            rethrow=False):
+            integrate_n_points=None, rethrow=False):
         """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
         set of histogram bins <pulseheights>.
 
         On a succesful fit self.fit_success is set to True. You can use self.plot() after the fact
         to make the same plot as if you passed plot=True.
 
-        On a failed fit, self.fit_success is set to False. self.failed_fit_exception contains the exception thrown.
-        self.plot will still work, and will indicate a failed fit. You can disable this behavior, and just have it
-        throw an exception if you pass rethrow=True.
+        On a failed fit, self.fit_success is set to False. self.failed_fit_exception contains the
+        exception thrown. self.plot will still work, and will indicate a failed fit. You can disable
+        this behavior, and just have it throw an exception if you pass rethrow=True.
 
         Args:
             pulseheights -- the histogram bin centers or bin edges.
@@ -95,12 +105,12 @@ class LineFitter(object):
                     depends on the exact line shape being fit.
 
             plot:   Whether to make a plot.  If not, then the next few args are ignored
-            axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
-                    current figure.
+            axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather
+                    than on the current figure.
             color:  Color for drawing the histogram contents behind the fit.
             label:  (True/False) Label for the fit line to go into the plot (usually used for
                     resolution and uncertainty)
-                    "full" label with all fit params including reduced chi sqaured, followed by "H" if was held
+                    "full" label with all fit params including chi sqaured (w/ an "H" if it was held)
             ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
 
             vary_resolution Whether to let the Gaussian resolution vary in the fit
@@ -110,6 +120,10 @@ class LineFitter(object):
             hold:      A sequence of parameter numbers to keep fixed.  Resolution, BG
                        BG slope, or tail will be held if relevant parameter number
                        appears in the hold sequence OR if relevant boolean vary_* tests False.
+            integrate_n_points: Perform numerical integration across each bin with this many points
+                        per bin. Default: None means use a heuristic to decide. For narrow bins,
+                        generally this will choose 1, i.e., the midpoint method. For wide ones,
+                        Simpson's method for 3, 5, or more will be appropriate
             rethrow: Throw any generated exceptions instead of catching them and setting fit_success=False.
 
         Returns:
@@ -148,14 +162,59 @@ class LineFitter(object):
 
         self.last_fit_bins = pulseheights.copy()
         self.last_fit_contents = data.copy()
+
         try:
             if params is None:
                 params = self.guess_starting_params(data, pulseheights)
 
+            if integrate_n_points is None:
+                integrate_n_points = 1
+                # Given no direction, we have to use a heuristic here to decide how densely
+                # to perform numerical integration within each bin.
+                w = self.feature_scale(params)
+                binwidth = pulseheights[1] - pulseheights[0]
+                if w/binwidth < 6.5:
+                    integrate_n_points = 3
+                if w/binwidth < 1.5:
+                    integrate_n_points = 5
+                if w/binwidth < 0.9:
+                    integrate_n_points = 7
+
+            if integrate_n_points % 2 != 1 or integrate_n_points < 1:
+                raise ValueError("integrate_n_points=%d, want an odd, positive number" % integrate_n_points)
+
+            # In this block, replace fitfunc with the version that integrates numerically across bins
+            fitfunc = self.fitfunc
+            if integrate_n_points > 1:
+                dx = pulseheights[1] - pulseheights[0]
+                x0 = pulseheights[0] - 0.5*dx
+                x1 = pulseheights[-1] + 0.5*dx
+                x_values = np.linspace(x0, x1, 1+(integrate_n_points-1)*len(pulseheights))
+                if integrate_n_points == 3:
+                    def integrated_model(params, _x):
+                        y = self.fitfunc(params, x_values)
+                        return (y[0:-1:2] + 4.0*y[1::2] + y[2::2])/6.0
+                elif integrate_n_points == 5:
+                    def integrated_model(params, _x):
+                        y = self.fitfunc(params, x_values)
+                        return (y[0:-1:4] + 4.0*y[1::4] + 2.0*y[2::4] + 4.0*y[3::4] + y[4::4])/12.0
+                else:
+                    def integrated_model(params, _x):
+                        y = self.fitfunc(params, x_values)
+                        ninterv = integrate_n_points-1
+                        dx = 1.0/ninterv
+                        z = y[0:-1:ninterv] + y[ninterv::ninterv]
+                        for i in range(1, ninterv, 2):
+                            z += 4.0*y[i::ninterv]
+                        for i in range(2, ninterv-1, 2):
+                            z += 2.0*y[i::ninterv]
+                        return z / (3.0*ninterv)
+                fitfunc = integrated_model
+
             # Max-likelihood histogram fitter
             epsilon = self.stepsize(params)
             fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
-                                                      self.fitfunc, TOL=1e-4, epsilon=epsilon)
+                                                      fitfunc, TOL=1e-4, epsilon=epsilon)
             self.setbounds(params, pulseheights)
             for i, b in enumerate(self.bounds):
                 fitter.setbounds(i, b[0], b[1])
@@ -170,6 +229,7 @@ class LineFitter(object):
             self.fit_success = True
             self.last_fit_chisq = fitter.chisq
             self.last_fit_result = self.fitfunc(self.last_fit_params, self.last_fit_bins)
+
         except Exception as e:
             if rethrow:
                 raise e
@@ -191,7 +251,7 @@ class LineFitter(object):
 
         return self.last_fit_params, self.last_fit_cov
 
-    def setbounds(self, *args, **kwargs):
+    def setbounds(self, params, ph):
         msg = "%s is an abstract base class; cannot be used without implementing setbounds" % type(self)
         raise NotImplementedError(msg)
 
@@ -330,6 +390,11 @@ class VoigtFitter(LineFitter):
     def __init__(self):
         super(VoigtFitter, self).__init__()
 
+    def feature_scale(self, params):
+        res = params[self.param_meaning["resolution"]]
+        lw = params[self.param_meaning["lorentz_fwhm"]]
+        return voigt_approx_fwhm(lw, res)
+
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
 
@@ -417,6 +482,13 @@ class NVoigtFitter(LineFitter):
             self.param_meaning["peak_ph%d" % j] = i*3+1
             self.param_meaning["lorentz_fwhm%d" % j] = i*3+2
             self.param_meaning["amplitude%d" % j] = i*3+3
+
+    def feature_scale(self, params):
+        res = params[self.param_meaning["resolution"]]
+        lw = params[self.param_meaning["lorentz_fwhm0"]]
+        for i in range(1, self.Nlines):
+            lw = min(lw, params[self.param_meaning["lorentz_fwhm%d" % i]])
+        return voigt_approx_fwhm(lw, res)
 
     def guess_starting_params(self, data, binctrs):
         raise NotImplementedError(
@@ -508,6 +580,9 @@ class GaussianFitter(LineFitter):
     def __init__(self):
         super(GaussianFitter, self).__init__()
 
+    def feature_scale(self, params):
+        return params[self.param_meaning["resolution"]]
+
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
 
@@ -586,6 +661,9 @@ class MultiLorentzianComplexFitter(LineFitter):
 
     def __init__(self):
         super(MultiLorentzianComplexFitter, self).__init__()
+
+    def feature_scale(self, params):
+        return params[self.param_meaning["resolution"]]
 
     def fitfunc(self, params, x):
         """Return the smeared line complex.

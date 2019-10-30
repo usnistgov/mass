@@ -164,6 +164,7 @@ class LJHFile(MicrocalFile):
         """
         super(LJHFile, self).__init__()
         self.filename = filename
+        self.client = "unknown"
         self.channum = int(filename.split("_chan")[1].split(".")[0])
         self.header_lines = []
         self.sample_usec = None
@@ -183,8 +184,6 @@ class LJHFile(MicrocalFile):
         self.__cached_segment = None
         self.__read_header(filename)
         self.set_segment_size(segmentsize)
-        self.software_type = ''
-
         self.datatimes_float = None
         self.datatimes_float_old = None
         self.rowcount = None
@@ -227,12 +226,6 @@ class LJHFile(MicrocalFile):
             lines.append(line)
             if line.startswith(b"#End of Header"):
                 break
-            elif line.startswith(b"Software Version"):
-                words = line.split()
-                if 'DASTARD' in words:
-                    self.software_type = 'DASTARD'
-                else:
-                    self.software_type = 'MATTER'
             elif line.startswith(b"Timebase"):
                 words = line.split()
                 self.timebase = float(words[-1])
@@ -248,6 +241,9 @@ class LJHFile(MicrocalFile):
             elif line.startswith(b"Column number"):
                 words = line.split()
                 self.column_number = int(words[-1])
+            elif line.startswith(b"Software Version"):
+                words = line.split()
+                self.client = " ".join(words[2:])
             elif line.startswith(b"Number of rows"):
                 words = line.split()
                 self.number_of_rows = int(words[-1])
@@ -267,12 +263,6 @@ class LJHFile(MicrocalFile):
             if len(lines) > self.TOO_LONG_HEADER:
                 raise IOError("header is too long--seems not to contain '#End of Header'\n" +
                               "in file %s" % filename)
-        
-        # Checks to see if data was taken with DASTARD. If it was, subtract 3 from nPresamples.
-        # This is necessary to go around a bug in how mass was originally designed which assumed
-        # a 3 sample delay to when the trigger was actually recorded.
-        if self.software_type == 'DASTARD':
-            self.nPresamples -= 3
 
         self.header_lines = lines
         self.header_size = fp.tell()
@@ -300,8 +290,14 @@ class LJHFile(MicrocalFile):
         if self.nPulses < 1:
             print("Warning: no pulses found.\n   File: %s" % filename)
 
-        # This used to be fatal, but it prevented opening files cut short by
-        # a crash of the DAQ software.
+        # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
+        # It adds 3 to the "true value" of nPresamples. For now, assume that only
+        # DASTARD clients have this figure correct.
+        if "DASTARD" not in self.client:
+            self.nPresamples += 3
+
+        # This used to be fatal. It prevented opening files cut short by
+        # a crash of the DAQ software, so we made it just a warning.
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
             print("Warning: The binary size " +
                   "(%d) is not an integer multiple of the pulse size %d bytes" %

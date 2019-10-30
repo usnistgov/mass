@@ -930,7 +930,7 @@ class MicrocalDataSet(object):
         if peak_time_microsec is None:
             self.peak_samplenumber = None
         else:
-            self.peak_samplenumber = 2+self.nPresamples+int(peak_time_microsec*1e-6/self.timebase)
+            self.peak_samplenumber = self.nPresamples+int(peak_time_microsec*1e-6/self.timebase)
         if pretrigger_ignore_microsec is None:
             self.pretrigger_ignore_samples = 3
         else:
@@ -994,15 +994,15 @@ class MicrocalDataSet(object):
             (self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post]**2.0).mean(axis=1) -
             ptm*(ptm + 2*self.p_pulse_average[first:end]))
 
-        shift1 = (self.data[:seg_size, self.nPresamples+2]-ptm >
+        shift1 = (self.data[:seg_size, self.nPresamples-1]-ptm >
                   4.3*self.p_pretrig_rms[first:end])
         self.p_shift1[first:end] = shift1
 
-        halfidx = (self.nPresamples+5+self.peak_samplenumber)//2
+        halfidx = (self.nPresamples+2+self.peak_samplenumber)//2
         pkval = self.p_peak_value[first:end]
-        prompt = (self.data[:seg_size, self.nPresamples+5:halfidx].mean(axis=1) -
+        prompt = (self.data[:seg_size, self.nPresamples+2:halfidx].mean(axis=1) -
                   ptm) / pkval
-        prompt[shift1] = (self.data[shift1, self.nPresamples+4:halfidx-1].mean(axis=1) -
+        prompt[shift1] = (self.data[shift1, self.nPresamples+1:halfidx-1].mean(axis=1) -
                           ptm[shift1]) / pkval[shift1]
         self.p_promptness[first:end] = prompt
 
@@ -1184,7 +1184,7 @@ class MicrocalDataSet(object):
         model[:, 0] = ap/apmax
         model[1:-1, 1] = (ap[2:] - ap[:-2])*0.5/apmax
         model[-1, 1] = (ap[-1]-ap[-2])/apmax
-        model[:self.nPresamples+2, :] = 0
+        model[:self.nPresamples-1, :] = 0
 
         # Now use min-entropy computation to model dp/dt on the rising edge
         def cost(slope, x, y):
@@ -1192,7 +1192,7 @@ class MicrocalDataSet(object):
 
         if self.peak_samplenumber is None:
             self._compute_peak_samplenumber()
-        for samplenum in range(self.nPresamples+2, self.peak_samplenumber):
+        for samplenum in range(self.nPresamples-1, self.peak_samplenumber):
             y = raw[:, samplenum]/rawscale
             bestslope = sp.optimize.brent(cost, (ATime, y), brack=[-.1, .25], tol=1e-7)
             model[samplenum, 1] = bestslope
