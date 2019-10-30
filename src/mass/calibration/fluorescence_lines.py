@@ -212,7 +212,7 @@ VOIGT_PEAK_HEIGHT = 99999
 
 
 def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
-              nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
+              nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,              
               reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
               position_uncertainty=0.0, reference_measurement_type=None):
 
