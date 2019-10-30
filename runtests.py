@@ -18,13 +18,13 @@ warnings.filterwarnings("ignore")
 LOG = logging.getLogger("mass")
 LOG.setLevel(logging.WARNING)
 
-VERBOSE=False
+VERBOSE=True
 # search mass and all subdirs for files matching "test_*.py"
 module_dirs = set()
 module_paths = set()
 rootdir = os.path.dirname(os.path.realpath(__file__))
 for dirpath, dirnames, filenames in os.walk(path.expanduser(rootdir)):
-    if dirpath.startswith(path.join(rootdir,"build")):
+    if "build" in dirpath:
         if VERBOSE: print("EXCLUDING: %s"%dirpath)
         continue
     else:
