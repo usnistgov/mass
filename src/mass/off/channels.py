@@ -947,7 +947,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         return "ChannelGroup with {} channels".format(len(self))
 
     def firstGoodChannel(self):
-        return self[self.keys()[0]]
+        return self[list(self.keys())[0]]
 
     def hist(self, binEdges, attr, states=None, g_func=None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
