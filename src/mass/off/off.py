@@ -51,9 +51,9 @@ class OffFile():
         self._updateMmap()
 
     def validateHeader(self):
-        with open(self.filename,"r") as f:
+        with open(self.filename,"rb") as f:
             f.seek(self.headerStringLength-2)
-            if not f.readline() == "}\n":
+            if not f.readline().decode("utf-8") == "}\n":
                 raise Exception("failed to find end of header")
         if self.header["FileFormat"] != "OFF":
             raise Exception("FileFormatVersion is {}, want OFF".format(self.header["FileFormatVersion"] ))
