@@ -39,7 +39,7 @@ class OffFile():
     """
     def __init__(self,filename):
         self.filename = filename
-        with open(self.filename,"r") as f:
+        with open(self.filename,"r", encoding="latin-1") as f:
             self.headerString=readJsonString(f)
             # self.headerStringLength = f.tell() # doesn't work on windows because readline uses a readahead buffer
             self.headerStringLength = len(self.headerString)
