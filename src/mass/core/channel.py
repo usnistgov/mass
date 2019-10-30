@@ -793,9 +793,10 @@ class MicrocalDataSet(object):
             self.calibration[k] = EnergyCalibration.load_from_hdf5(hdf5_cal_group, k)
 
     def __load_corrections(self):
-        # drift correction should be loaded here, but currently I don't htink it is loaded at all
+        # drift correction should be loaded here, but I don't think it is loaded at all, here or anywhere!
         if "phase_correction" in self.hdf5_group:
-            self.phaseCorrector = phase_correct.PhaseCorrector.fromHDF5(self.hdf5_group, name="phase_correction")
+            self.phaseCorrector = phase_correct.PhaseCorrector.fromHDF5(
+                self.hdf5_group, name="phase_correction")
 
     @property
     def p_peak_time(self):

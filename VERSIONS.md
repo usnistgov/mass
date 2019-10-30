@@ -1,10 +1,12 @@
 ## Note on version numbers of Mass
 
-**0.6.6** August-November 2019  
+**0.6.6** August-October 2019  
 * Fix issue 162: overcome biased fits when bins are too wide by allowing numerical integration in bin. How densely to sample can be chosen by user or a heuristic.
 * Fix issue 164: silently "correct" the off-by-3 error on `nPresamples` in MATTER-produced LJH files.
 * Fix issue 167: add molybdenum L line data from Mendenhall 2019.
 * Fix issue 147: auto_cuts fails if other cuts already exists.
+* Fix issue 140: pass tests on Python version 3.
+* Fix issue 166: could not run phase_correct twice on same data (HDF5 error).
 
 **0.6.5** July 2018-June 2019  
 * Factor phase correction into its own class and source file.
@@ -13,13 +15,15 @@
 * Fix bugs in `EnergyCalibration.plot()`
 
 **0.6.4** May-July 2018  
-* Fix issue 156 (phase correction with low statistics) and 157 (noise fails if noise records aren't continuous) and 158 (certain test failures).  
-* Make phase_correct method2017=True the default.  
+* Fix issue 156: phase correction with low statistics.
+* Fix issue 157: noise fails if noise records aren't continuous.
+* Fix issue 158: certain test failures.
+* Make phase_correct method2017=True the default.
 * Pep-8 fixes.
 
 **0.6.3** May 2018  
 * Refactor Fluorescence Line and Fitter Code.  
-* Fix incorrect fitters where Chantler reported Voigt peak height, such as VKalpha.  
+* Fix incorrect fitters where Chantler reported Voigt peak height instead of area, such as `VKalpha`.  
 * Add `fluorescence.md` doc file.
 
 **0.6.2** November 2017 - April 2018  
