@@ -24,7 +24,7 @@ module_dirs = set()
 module_paths = set()
 rootdir = os.path.dirname(os.path.realpath(__file__))
 for dirpath, dirnames, filenames in os.walk(path.expanduser(rootdir)):
-    if "build" in dirpath or ".git" in dirpath:
+    if "build" in dirpath:
         if VERBOSE: print("EXCLUDING: %s"%dirpath)
         continue
     else:
