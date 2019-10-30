@@ -64,10 +64,13 @@ class OffFile():
         self.nRecords = recordSize//self.dtype.itemsize
         self._mmap = np.memmap(self.filename,self.dtype,mode="r",
                               offset=self.afterHeaderPos, shape=(self.nRecords,))
-        self.__getitem__ = self._mmap.__getitem__ # make indexing into the off the same as indexing into the memory mapped array
+        #self.__getitem__ = self._mmap.__getitem__ # make indexing into the off the same as indexing into the memory mapped array
         self.__len__ = self._mmap.__len__
         self.__sizeof__ = self._mmap.__sizeof__
         self.shape = self._mmap.shape
+
+    def __getitem__(self,x):
+        return self._mmap.__getitem(x)
 
     def _decodeModelInfo(self):
         if "RowMajorFloat64ValuesBase64" in self.header["ModelInfo"]["Projectors"] and "RowMajorFloat64ValuesBase64" in self.header["ModelInfo"]["Basis"]:
