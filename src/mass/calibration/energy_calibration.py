@@ -619,3 +619,12 @@ class EnergyCalibration(object):
             cal.add_cal_point(ph, e, thisname.decode(), dph, de)
 
         return cal
+
+    def __repr__(self):
+        s = """mass.EnergyCalibration with {} entries
+        _ph: {}
+        _energies: {}
+        _names: {}
+        _curvetype: {}
+        _use_approximation: {}""".format(len(self._names),self._ph, self._energies, self._names, self._curvetype, self._use_approximation)
+        return s

@@ -9,3 +9,6 @@ scikit-learn
 h5py>=2.7
 palettable
 cycler
+fastdtw
+progress
+lmfit>=0.9.11

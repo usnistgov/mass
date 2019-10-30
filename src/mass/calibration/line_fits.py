@@ -276,7 +276,7 @@ class LineFitter(object):
         """
         labeldict = {meaning: meaning+" %.3g +- %.3g" for meaning in self.param_meaning.keys()}
         labeldict["resolution"] = "FWHM: %.3g +- %.3g"
-        labeldict["tail_frac"] = "f$_\\mathrm{tail}$: %.1f +- %.1f"
+        labeldict["tail_frac"] = "f$_\\mathrm{tail}$: %.3f +- %.3f"
         labeldict["peak_ph"] = "peak_ph: %.7g +- %.3g"
         slabel = ""
         for (meaning, i) in self.param_meaning.items():
@@ -299,6 +299,7 @@ class LineFitter(object):
         axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize, self.last_fit_bins[-1] + 0.5 * ph_binsize])
         axis.set_xlabel("energy (%s)" % ph_units)
         axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
+        axis.set_title("failed fit")
         axis.legend(loc="best", frameon=False)
 
     def plot(self, color=None, axis=None, label=True, ph_units="arb"):

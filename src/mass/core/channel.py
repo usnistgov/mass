@@ -12,6 +12,7 @@ import scipy as sp
 import scipy.signal
 import matplotlib.pylab as plt
 import inspect
+import os
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -804,11 +805,18 @@ class MicrocalDataSet(object):
 
     @property
     def external_trigger_rowcount(self):
-        if not self._external_trigger_rowcount:
+        if self._external_trigger_rowcount is None:
             filename = ljh_util.ljh_get_extern_trig_fname(self.filename)
-            h5 = h5py.File(filename, "r")
-            ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
-            self._external_trigger_rowcount = h5[ds_name]
+            if os.path.isfile(filename):
+                h5 = h5py.File(filename, "r")
+                ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
+                self._external_trigger_rowcount = h5[ds_name]
+            else:
+                basename, _ = ljh_util.ljh_basename_channum(self.filename)
+                filename = "{}_external_trigger.bin".format(basename)
+                with open(filename,"r") as f:
+                    f.readline() # read the header comments line
+                    self._external_trigger_rowcount = np.fromfile(f,dtype="int64")
             self.row_timebase = self.timebase/float(self.number_of_rows)
         return self._external_trigger_rowcount
 
@@ -1115,12 +1123,13 @@ class MicrocalDataSet(object):
         self.compute_average_pulse(mask, subtract_mean=subtract_mean,
                                    forceNew=forceNew)
 
-    def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0):
+    def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}):
         try:
             spectrum = self.noise_spectrum.spectrum()
         except Exception:
             spectrum = self.noise_psd[:]
-
+        if not (category is None or category == {}):
+            raise Exception("category argument has no effect on compute_oldfilter, pass None or {}. compute_oldfilter uses self.average_pulse")
         avg_signal = np.array(self.average_pulse)
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
@@ -1128,7 +1137,7 @@ class MicrocalDataSet(object):
         f.compute(fmax=fmax, f_3db=f_3db)
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0):
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0, category={}):
         """Compute a new-style filter to model the pulse and its time-derivative.
 
         Args:
@@ -1156,7 +1165,7 @@ class MicrocalDataSet(object):
         DEGREE = 1
 
         # The raw training data, which is shifted (trigger-aligned)
-        data, pulsenums = self.first_n_good_pulses(3000)
+        data, pulsenums = self.first_n_good_pulses(4000, category=category)
         raw = data[:, 1:]
         shift1 = self.p_shift1[:][pulsenums]
         raw[shift1, :] = data[shift1, 0:-1]
@@ -1502,7 +1511,7 @@ class MicrocalDataSet(object):
         self.p_pretrig_mean[:] = corrected
 
     @_add_group_loop
-    def drift_correct(self, forceNew=False, category=None):
+    def drift_correct(self, attr="p_filt_value", forceNew=False, category={}):
         """Drift correct using the standard entropy-minimizing algorithm"""
         doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(
             self.p_filt_value_dc[:] == self.p_filt_value[:])
@@ -1510,28 +1519,27 @@ class MicrocalDataSet(object):
             LOG.info(
                 "chan %d drift correction skipped, because p_filt_value_dc already populated", self.channum)
             return
-        if category is None:
-            category = {"calibration": "in"}
         g = self.cuts.good(**category)
-        uncorrected = self.p_filt_value[g]
+        uncorrected = getattr(self, attr)[g]
         indicator = self.p_pretrig_mean[g]
         drift_corr_param, self.drift_correct_info = \
             mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
         self.p_filt_value_dc.attrs.update(self.drift_correct_info)  # Store in hdf5 file
         LOG.info('chan %d best drift correction parameter: %.6f', self.channum, drift_corr_param)
-        self._apply_drift_correction()
+        self._apply_drift_correction(attr=attr)
 
-    def _apply_drift_correction(self):
+    def _apply_drift_correction(self, attr):
         # Apply correction
         assert self.p_filt_value_dc.attrs["type"] == "ptmean_gain"
         ptm_offset = self.p_filt_value_dc.attrs["median_pretrig_mean"]
+        uncorrected = getattr(self, attr)[:]
         gain = 1+(self.p_pretrig_mean[:]-ptm_offset)*self.p_filt_value_dc.attrs["slope"]
-        self.p_filt_value_dc[:] = self.p_filt_value[:]*gain
+        self.p_filt_value_dc[:] = uncorrected*gain
         self.hdf5_group.file.flush()
 
     @_add_group_loop
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False,
-                          forceNew=False, category=None):
+                          forceNew=False, category={}):
         """Apply the phase correction that worked for calibronium-like data as of June 2014.
 
         For more notes, do help(mass.core.analysis_algorithms.FilterTimeCorrection)
@@ -1554,8 +1562,6 @@ class MicrocalDataSet(object):
             LOG.info("channel %d skipping phase_correct2014", self.channum)
             return
 
-        if category is None:
-            category = {"calibration": "in"}
         data, g = self.first_n_good_pulses(maximum_num_records, category)
         LOG.info("channel %d doing phase_correct2014 with %d good pulses",
                  self.channum, data.shape[0])
@@ -1582,8 +1588,8 @@ class MicrocalDataSet(object):
             plt.figure(fnum)
 
     @_add_group_loop
-    def phase_correct(self, forceNew=False, category=None, ph_peaks=None, method2017=True,
-                      kernel_width=None, save_to_hdf5=True):
+    def phase_correct(self, attr="p_filt_value_dc", forceNew=False, category={}, ph_peaks=None, 
+        method2017=True, kernel_width=None, save_to_hdf5=True):
         """Apply the 2017 or 2015 phase correction method.
 
         Args:
@@ -1598,30 +1604,26 @@ class MicrocalDataSet(object):
         if not (forceNew or doesnt_exist):
             LOG.info("channel %d skipping phase_correct", self.channum)
             return
-
-        if category is None:
-            category = {"calibration": "in"}
         good = self.cuts.good(**category)
 
-        self.phaseCorrector = phase_correct.phase_correct(
-            self.p_filt_phase[good], self.p_filt_value_dc[good],
+        self.phaseCorrector = phase_correct.phase_correct(self.p_filt_phase[good], 
+            getattr(self,attr)[good],
             ph_peaks=ph_peaks, method2017=method2017, kernel_width=kernel_width,
-            uncorrectedName="p_filt_value_dc")
+            indicatorName = "p_filt_phase", uncorrectedName = "p_filt_value_dc")
 
         self.p_filt_phase_corr[:] = self.phaseCorrector.phase_uniformifier(self.p_filt_phase[:])
-        self.p_filt_value_phc[:] = self.phaseCorrector(
-            self.p_filt_phase[:], self.p_filt_value_dc[:])
+        self.p_filt_value_phc[:] = self.phaseCorrector(self.p_filt_phase[:], getattr(self,attr)[:])
 
         if save_to_hdf5:
             self.phaseCorrector.toHDF5(self.hdf5_group, overwrite=True)
 
         LOG.info('Channel %3d phase corrected. Correction size: %.2f',
-                 self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good]
-                                                                   - self.p_filt_value_dc[good], True))
-
+                 self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good] -
+                                                                   getattr(self,attr)[good], True))
+  
         return self.phaseCorrector
 
-    def first_n_good_pulses(self, n=50000, category=None):
+    def first_n_good_pulses(self, n=50000, category={}):
         """Return the first good pulse records.
 
         Args:
@@ -1635,8 +1637,6 @@ class MicrocalDataSet(object):
         If we did load all of ds.data at once, this would be roughly equivalent to
         return ds.data[ds.cuts.good()][:n], np.nonzero(ds.cuts.good())[0][:n]
         """
-        if category is None:
-            category = {"calibration": "in"}
         g = self.cuts.good(**category)
 
         first, end = self.read_segment(0)
@@ -1706,19 +1706,17 @@ class MicrocalDataSet(object):
     @_add_group_loop
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
-                  bin_size_ev=2.0, category=None, forceNew=False, maxacc=0.015, nextra=3,
-                  param_adjust_closure=None, diagnose=False):
+                  bin_size_ev=2.0, category={}, forceNew=False, maxacc=0.015, nextra=3,
+                  param_adjust_closure=None, curvetype="gain", approximate=False,
+                  diagnose=False):
         calname = attr+name_ext
 
         if not forceNew and calname in self.calibration:
             return self.calibration[calname]
 
         LOG.info("Calibrating chan %d to create %s", self.channum, calname)
-        cal = EnergyCalibration()
-        cal.set_use_approximation(False)
-
-        if category is None:
-            category = {"calibration": "in"}
+        cal = EnergyCalibration(curvetype=curvetype)
+        cal.set_use_approximation(approximate)
 
         # It tries to calibrate detector using mass.calibration.algorithm.EnergyCalibrationAutocal.
         auto_cal = EnergyCalibrationAutocal(cal,
@@ -1878,7 +1876,8 @@ class MicrocalDataSet(object):
 
     @_add_group_loop
     def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree=2000,
-                           pulses_per_degree=2000, max_degrees=20, forceNew=False):
+                           pulses_per_degree=2000, max_degrees=20, forceNew=False,
+                           category={}):
         """Drift correct over long times with an entropy-minimizing algorithm.
         Here we correct as a low-ish-order Legendre polynomial in time.
 
@@ -1889,11 +1888,12 @@ class MicrocalDataSet(object):
         max_degrees: never use more than this many degrees of Legendre polynomial.
 
         forceNew: whether to do this step, if it appears already to have been done.
+        category: choices for categorical cuts
         """
         if all(self.p_filt_value_tdc[:] == 0.0) or forceNew:
             LOG.info("chan %d doing time_drift_correct", self.channum)
             attr = getattr(self, attr)
-            g = self.cuts.good()
+            g = self.cuts.good(**category)
             pk = np.median(attr[g])
             g = np.logical_and(g, np.abs(attr[:]/pk-1) < 0.5)
             w = max(pk/3000., 1.0)

@@ -97,7 +97,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
                  hdf5_filename=None, hdf5_noisefilename=None,
-                 never_use=None, use_only=None):
+                 never_use=None, use_only=None, max_chans=None):
         """Set up a group of related data sets by their filenames.
 
         Args:
@@ -122,6 +122,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 (default None).
             use_only:  if not None, a sequence of channel numbers to use, i.e.
                 ignore all channels not on this list (default None).
+            max_chans: open at most this many ljh files
         """
 
         if noise_filenames is not None and len(noise_filenames) == 0:
@@ -150,6 +151,12 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # missing a partner, either noise without pulse or pulse without noise.
         remove_unpaired_channel_files(filenames, noise_filenames,
                                       never_use=never_use, use_only=use_only)
+
+        # enforce max_chans
+        if max_chans is not None:
+            n = min(max_chans, len(filenames))
+            filenames = filenames[:n]
+            noise_filenames = noise_filenames[:n]
 
         # Figure out where the 2 HDF5 files are to live, if the default argument
         # was given for their paths.
@@ -339,10 +346,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if self.noise_only:
             return "{0:s}(noise={1:s}, noise_only=True)".format(self.__class__.__name__,
                                                                 os.path.dirname(self.noise_filenames[0]))
-        else:
+        elif self.noise_filenames is not None:
             return "{0:s}(pulse={1:s}, noise={2:s})".format(self.__class__.__name__,
                                                             os.path.dirname(self.filenames[0]),
                                                             os.path.dirname(self.noise_filenames[0]))
+        else:
+            return "{0:s}(pulse={1:s}, noise=None)".format(self.__class__.__name__,
+                                                            os.path.dirname(self.filenames[0]))
 
     def __iter__(self):
         """Iterator over the self.datasets in channel number order"""
@@ -928,7 +938,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 plt.setp(ltext, fontsize='small')
 
     @show_progress("compute_filters")
-    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False):
+    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}):
         """
         compute_filters(self, fmax=None, f_3db=None, forceNew=False)
 
@@ -946,16 +956,16 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         for ds_num, ds in enumerate(self):
             if "filters" not in ds.hdf5_group or forceNew:
-                if ds.cuts.good().sum() < 10:
+                if len(ds.first_n_good_pulses(10, category=category)[0]) < 10:
                     ds.filter = None
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
                 if ds._use_new_filters:
-                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db,
-                                             cut_pre=cut_pre, cut_post=cut_post)
+                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db, 
+                    cut_pre=cut_pre, cut_post=cut_post, category=category)
                 else:
-                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db,
-                                             cut_pre=cut_pre, cut_post=cut_post)
+                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db, 
+                    cut_pre=cut_pre, cut_post=cut_post, category=category) # uses average pulse, not category
                 ds.filter = f
 
                 # Store all filters created to a new HDF5 group
