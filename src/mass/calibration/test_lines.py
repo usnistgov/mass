@@ -41,11 +41,14 @@ class Test_MnKA_distribution(unittest.TestCase):
         for (name, spectrum_class) in mass.spectrum_classes.items():
             if spectrum_class.element == "AlOx" or spectrum_class.reference_short == "NIST ASD" or spectrum_class.reference_short == "Clementson 2010" or spectrum_class.reference_short == "Nilsen 1995":
                 continue
-            result = np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name]) < 0.5
+            if "KBeta24" in name:
+                continue
+            target = mass.STANDARD_FEATURES[name]
+            result = np.abs(spectrum_class.nominal_peak_energy-target) < 0.5
             if not result:
                 print("{} spectrum_class.nominal_peak_energy={}, mass.STANDARD_FEATURES={}, abs diff={}".format(
-                    name, spectrum_class.nominal_peak_energy, mass.STANDARD_FEATURES[name],
-                    np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name])))
+                    name, spectrum_class.nominal_peak_energy, target,
+                    np.abs(spectrum_class.nominal_peak_energy-target)))
             self.assertTrue(result)
             # test that basic funtionality works for all instances
             spectrum = spectrum_class()

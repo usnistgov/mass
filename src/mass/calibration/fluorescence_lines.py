@@ -214,6 +214,8 @@ lineshape_references["Schweppe 1992 Al"] = """J. Schweppe, R. D. Deslattes, T. M
 """
 lineshape_references["Mendenhall 2019"] = """Marcus H. Mendenhall et al., J. Phys B in press (2019).
     https://doi.org/10.1088/1361-6455/ab45d6"""
+lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (2018) 125139
+    https://doi.org/10.1103/PhysRevB.97.125139"""
 
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
@@ -299,7 +301,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         fitter_superclass = line_fits._lowZ_KAlphaFitter
     elif spectrum.linetype == "KAlpha" or spectrum.linetype == "LAlpha":
         fitter_superclass = line_fits.GenericKAlphaFitter
-    elif spectrum.linetype == "KBeta" or "LBeta" in spectrum.linetype:
+    elif spectrum.linetype.startswith("KBeta") or "LBeta" in spectrum.linetype:
         fitter_superclass = line_fits.GenericKBetaFitter
     else:
         raise ValueError("no generic fitter for {}".format(spectrum))
@@ -660,6 +662,32 @@ addfitter(
     lorentzian_fwhm=np.array((11.0, 8.61)),
     reference_amplitude=np.array((14.828, 1)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+)
+
+
+addfitter(
+    element="Nb",
+    linetype="KBeta",
+    reference_short="Ravel 2018",
+    reference_plot_gaussian_fwhm=1.2,
+    nominal_peak_energy=18625.4,
+    energies=np.array((18625.4, 18609.9)),
+    lorentzian_fwhm=np.array((6.7, 6.7)),
+    reference_amplitude=np.array((1, 0.5)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addfitter(
+    element="Nb",
+    linetype="KBeta24",
+    reference_short="Ravel 2018",
+    reference_plot_gaussian_fwhm=1.2,
+    nominal_peak_energy=18952.79,
+    energies=np.array((18952.79, 18968.0, 18982.7)),
+    lorentzian_fwhm=np.array((8.67, 1.9, 5.2)),
+    reference_amplitude=np.array((14.07, 0.066, 0.359)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
 )
 
 
