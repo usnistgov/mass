@@ -49,8 +49,8 @@ class MicrocalFile(object):
     def __str__(self):
         """Summary for the print function"""
         return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
-                self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
-                1e6*self.timebase)
+            self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
+            1e6*self.timebase)
 
     def __repr__(self):
         """Compact representation of how to construct from a filename."""
@@ -93,6 +93,7 @@ class VirtualFile(MicrocalFile):
     """Object to act like a single microcalorimeter data file on disk, though the data are all
     held only in memory.
     """
+
     def __init__(self, data, times=None, presamples=0):
         """Initilize with in-memory data.
 
@@ -164,6 +165,7 @@ class LJHFile(MicrocalFile):
         """
         super(LJHFile, self).__init__()
         self.filename = filename
+        self.client = "unknown"
         self.channum = int(filename.split("_chan")[1].split(".")[0])
         self.header_lines = []
         self.sample_usec = None
@@ -241,6 +243,9 @@ class LJHFile(MicrocalFile):
             elif line.startswith(b"Column number"):
                 words = line.split()
                 self.column_number = int(words[-1])
+            elif line.startswith(b"Software Version"):
+                words = str(line).split()
+                self.client = " ".join(words[2:])
             elif line.startswith(b"Number of rows"):
                 words = line.split()
                 self.number_of_rows = int(words[-1])
@@ -258,8 +263,8 @@ class LJHFile(MicrocalFile):
                 self.version_str = words[-1]
 
             if len(lines) > self.TOO_LONG_HEADER:
-                raise IOError("header is too long--seems not to contain '#End of Header'\n" +
-                              "in file %s" % filename)
+                raise IOError("header is too long--seems not to contain '#End of Header'\n"
+                              + "in file %s" % filename)
 
         self.header_lines = lines
         self.header_size = fp.tell()
@@ -287,11 +292,17 @@ class LJHFile(MicrocalFile):
         if self.nPulses < 1:
             print("Warning: no pulses found.\n   File: %s" % filename)
 
-        # This used to be fatal, but it prevented opening files cut short by
-        # a crash of the DAQ software.
+        # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
+        # It adds 3 to the "true value" of nPresamples. For now, assume that only
+        # DASTARD clients have this figure correct.
+        if "DASTARD" not in self.client:
+            self.nPresamples += 3
+
+        # This used to be fatal. It prevented opening files cut short by
+        # a crash of the DAQ software, so we made it just a warning.
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
-            print("Warning: The binary size " +
-                  "(%d) is not an integer multiple of the pulse size %d bytes" %
+            print("Warning: The binary size "
+                  + "(%d) is not an integer multiple of the pulse size %d bytes" %
                   (self.binary_size, self.pulse_size_bytes))
             print("%06s" % filename)
 
@@ -346,7 +357,7 @@ class LJHFile(MicrocalFile):
                 first_slice = item
 
             if isinstance(item, tuple):
-                if len(item) is not 2:
+                if len(item) != 2:
                     raise ValueError("Not supported dimensions!")
                 first_slice = item[0]
                 second_slice = item[1]
@@ -460,7 +471,8 @@ class LJHFile(MicrocalFile):
             # fromfile will read up to max items
 
         self.rowcount = array["rowcount"]
-        self.datatimes_float = array["posix_usec"] * 1e-6  # convert to floating point with units of seconds
+        # convert to floating point with units of seconds
+        self.datatimes_float = array["posix_usec"] * 1e-6
         self.datatimes_raw = np.uint64(array["posix_usec"].copy())
         self.data = array["data"]
 
@@ -512,8 +524,8 @@ class LJHFile(MicrocalFile):
         # The old way was to store the time as a 32-bit int.  New way: double float
         # Store times as seconds in floating point.  Max value is 2^32 ms = 4.3x10^6
         datatime_4usec_tics = np.array(self.data[:, 0], dtype=np.uint64)
-        datatime_4usec_tics += 250*(np.array(self.data[:, 1], dtype=np.uint64) +
-                                    65536 * np.array(self.data[:, 2], dtype=np.uint64))
+        datatime_4usec_tics += 250*(np.array(self.data[:, 1], dtype=np.uint64)
+                                    + 65536 * np.array(self.data[:, 2], dtype=np.uint64))
         NS_PER_4USEC_TICK = 4000
         NS_PER_FRAME = np.int64(self.timebase*1e9)
         # since the timestamps is stored in 4 us units, which are not commensurate with the actual frame rate,
@@ -526,12 +538,14 @@ class LJHFile(MicrocalFile):
         # leave in the old calculation for comparison, later this should be removed
         SECONDS_PER_4MICROSECOND_TICK = (4.0/1e6)
         SECONDS_PER_MILLISECOND = 1e-3
-        self.datatimes_float_old = np.array(self.data[:, 0], dtype=np.double)*SECONDS_PER_4MICROSECOND_TICK
+        self.datatimes_float_old = np.array(
+            self.data[:, 0], dtype=np.double)*SECONDS_PER_4MICROSECOND_TICK
         self.datatimes_float_old += self.data[:, 1]*SECONDS_PER_MILLISECOND
         self.datatimes_float_old += self.data[:, 2]*(SECONDS_PER_MILLISECOND*65536.)
 
         self.rowcount = np.array(frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
-        self.datatimes_float = (frame_count+self.row_number/float(self.number_of_rows))*self.timebase
+        self.datatimes_float = (frame_count+self.row_number
+                                / float(self.number_of_rows))*self.timebase
 
         # Cut out zeros and the timestamp, which are 3 uint16 words @ start of each pulse
         self.data = self.data[:, 3:]

@@ -9,13 +9,11 @@ This module defines classes that handle one or more TES data streams together.
 from collections import Iterable
 from functools import reduce
 import os
-import re
 
 import six
 
 import numpy as np
 import matplotlib.pylab as plt
-import palettable
 import h5py
 
 import mass.core.analysis_algorithms
@@ -25,7 +23,6 @@ from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper
 from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
-from mass.core.optimal_filtering import Filter
 from mass.core.utilities import InlineUpdater, show_progress, plot_multipage
 from mass.core.ljh_util import remove_unpaired_channel_files, \
     filename_glob_expand
@@ -141,16 +138,18 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # even if there is only one result from the pattern matching.
         pattern = filenames
         filenames = filename_glob_expand(filenames)
-        if filenames is not None and len(filenames) == 0:
-            raise ValueError("Filename pattern '%s' expanded to no files" % pattern)
-        pattern = noise_filenames
-        noise_filenames = filename_glob_expand(noise_filenames)
-        if noise_filenames is not None and len(noise_filenames) == 0:
-            raise ValueError("Noise filename pattern '%s' expanded to no files" % pattern)
+        if filenames is None or len(filenames) == 0:
+            raise ValueError("Pulse filename pattern '%s' expanded to no files" % pattern)
+        if noise_filenames is not None:
+            pattern = noise_filenames
+            noise_filenames = filename_glob_expand(noise_filenames)
+            if noise_filenames is None or len(noise_filenames) == 0:
+                raise ValueError("Noise filename pattern '%s' expanded to no files" % pattern)
 
         # If using a glob pattern especially, we have to be careful to eliminate files that are
         # missing a partner, either noise without pulse or pulse without noise.
-        remove_unpaired_channel_files(filenames, noise_filenames, never_use=never_use, use_only=use_only)
+        remove_unpaired_channel_files(filenames, noise_filenames,
+                                      never_use=never_use, use_only=use_only)
 
         # Figure out where the 2 HDF5 files are to live, if the default argument
         # was given for their paths.
@@ -233,7 +232,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             if 'calibration' in hdf5_group:
                 hdf5_cal_grp = hdf5_group['calibration']
                 for cal_name in hdf5_cal_grp:
-                    dset.calibration[cal_name] = EnergyCalibration.load_from_hdf5(hdf5_cal_grp, cal_name)
+                    dset.calibration[cal_name] = EnergyCalibration.load_from_hdf5(
+                        hdf5_cal_grp, cal_name)
 
             if 'why_bad' in hdf5_group.attrs:
                 self._bad_channums[dset.channum] = [comment.decode() for comment in
@@ -547,7 +547,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
         Args:
             use_cython uses a cython (aka faster) implementation of summarize.
         """
-        nchan = float(len(self.channel.keys())) if include_badchan else float(self.num_good_channels)
+        nchan = float(len(self.channel.keys())) if include_badchan else float(
+            self.num_good_channels)
 
         for i, ds in enumerate(self.iter_channels(include_badchan)):
             try:
@@ -565,7 +566,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def calc_external_trigger_timing(self, after_last=False, until_next=False,
                                      from_nearest=False, forceNew=False):
         if not (after_last or until_next or from_nearest):
-            raise ValueError("at least one of from_last, until_next, or from_nearest should be True")
+            raise ValueError(
+                "at least one of from_last, until_next, or from_nearest should be True")
         ds = self.first_good_dataset
 
         # loading this dataset can be slow, so lets do it only once for the whole ChannelGroup
@@ -591,7 +593,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     if from_nearest:
                         g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
                                                           (ds.nPulses,), dtype=np.int64)
-                        g[:] = np.fmin(rows_after_last_external_trigger, rows_until_next_external_trigger)
+                        g[:] = np.fmin(rows_after_last_external_trigger,
+                                       rows_until_next_external_trigger)
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 
@@ -731,7 +734,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     valid_mask = None
                     LOG.info("Plotting all data, cut or uncut"),
                 else:
-                    raise ValueError("If valid is a string, it must contain 'all', 'uncut' or 'cut'.")
+                    raise ValueError(
+                        "If valid is a string, it must contain 'all', 'uncut' or 'cut'.")
 
             if valid_mask is not None:
                 nrecs = valid_mask.sum()
@@ -907,7 +911,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for i, ds in enumerate(dsets):
             avg_pulse = ds.average_pulse[:].copy()
             if fcut is not None:
-                avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(avg_pulse, 1./self.timebase, fcut)
+                avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(
+                    avg_pulse, 1./self.timebase, fcut)
             plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
                      color=cmap(float(i) / nplot))
 
@@ -933,8 +938,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
         cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
         """
         # Analyze the noise, if not already done
-        needs_noise = any([ds.noise_autocorr[0] == 0.0 or
-                           ds.noise_psd[1] == 0 for ds in self])
+        needs_noise = any([ds.noise_autocorr[0] == 0.0
+                           or ds.noise_psd[1] == 0 for ds in self])
         if needs_noise:
             LOG.debug("Computing noise autocorrelation and spectrum")
             self.compute_noise_spectra()
@@ -946,9 +951,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
                 if ds._use_new_filters:
-                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
+                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db,
+                                             cut_pre=cut_pre, cut_post=cut_post)
                 else:
-                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
+                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db,
+                                             cut_pre=cut_pre, cut_post=cut_post)
                 ds.filter = f
 
                 # Store all filters created to a new HDF5 group
@@ -1191,7 +1198,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for ds in self:
             try:
                 ds.correct_flux_jumps(flux_quant)
-            except Exception as e:
+            except Exception:
                 self.set_chan_bad(ds.channum, "failed to correct flux jumps")
 
     def sanitize_p_filt_phase(self):
@@ -1403,7 +1410,8 @@ class CrosstalkVeto(object):
                 self.nhits[t + a:t + b] += 1
 
             pileuptimes = vetotimes[ds.p_postpeak_deriv[g] > pileup_limit]
-            LOG.info("%s %d %f %d", vetotimes, len(vetotimes), 1.0e3 * ds.nPulses / (ms9 - ms0), len(pileuptimes))
+            LOG.info("%s %d %f %d", vetotimes, len(vetotimes), 1.0e3
+                     * ds.nPulses / (ms9 - ms0), len(pileuptimes))
             for t in pileuptimes:
                 self.nhits[t + b:t + b + 8] += 1
 
