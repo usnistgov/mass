@@ -317,7 +317,7 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     return spectrum_class
 
 
-mgka = addfitter(
+addfitter(
     element="Mg",
     linetype="KAlpha",
     reference_short="Klauber 1993",
@@ -699,7 +699,7 @@ def plot_all_spectra():
         spectrum.plot_like_reference()
 
 if __name__ == "__main__":
-    spectrum = mgka()
+    spectrum = fitter_classes["MgKAlpha"]()
     spectrum.rvs(100)
     spectrum.gaussian_fwhm = 1
     spectrum.rvs(100)

@@ -24,7 +24,8 @@ module_dirs = set()
 module_paths = set()
 rootdir = os.path.dirname(os.path.realpath(__file__))
 for dirpath, dirnames, filenames in os.walk(path.expanduser(rootdir)):
-    if "build" in dirpath:
+    print dirpath
+    if dirpath.startswith(path.join(rootdir,"build")) or any(s in dirpath for s in ["temp.macosx", "lib.macosx",".git"]): # dont look for tests in build directories
         if VERBOSE: print("EXCLUDING: %s"%dirpath)
         continue
     else:
