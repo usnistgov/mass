@@ -19,13 +19,23 @@ class PhaseCorrector():
             self.phase_uniformifier_x, self.phase_uniformifier_y)
 
     def toHDF5(self, hdf5_group, name="phase_correction", overwrite=False):
-        hdf5_group["{}/phase_uniformifier_x".format(name)] = self.phase_uniformifier_x
-        hdf5_group["{}/phase_uniformifier_y".format(name)] = self.phase_uniformifier_y
-        hdf5_group["{}/uncorrected_name".format(name)] = self.uncorrectedName
-        hdf5_group["{}/version".format(name)] = self.version
+        """Write to the given HDF5 group for later recovery from disk (by fromHDF5 class method)."""
+        group = hdf5_group.require_group(name)
+
+        def h5group_update(name, vector):
+            if name in group:
+                if overwrite:
+                    del group[name]
+                else:
+                    raise AttributeError("Cannot overwrite phase correction dataset '%s'" % name)
+            group[name] = vector
+        h5group_update("phase_uniformifier_x", self.phase_uniformifier_x)
+        h5group_update("phase_uniformifier_y", self.phase_uniformifier_y)
+        h5group_update("uncorrected_name", self.uncorrectedName)
+        h5group_update("version", self.version)
         for (i, correction) in enumerate(self.corrections):
-            hdf5_group["{}/correction_{}_x".format(name, i)] = correction._x
-            hdf5_group["{}/correction_{}_y".format(name, i)] = correction._y
+            h5group_update("correction_{}_x".format(i), correction._x)
+            h5group_update("correction_{}_y".format(i), correction._y)
 
     def correct(self, phase, ph):
         # attempt to force phases to fall between X and X
@@ -40,7 +50,7 @@ class PhaseCorrector():
         return self.correct(phase_indicator, ph)
 
     @classmethod
-    def fromHDF5(self, hdf5_group, name="phase_correction"):
+    def fromHDF5(cls, hdf5_group, name="phase_correction"):
         x = hdf5_group["{}/phase_uniformifier_x".format(name)][()]
         y = hdf5_group["{}/phase_uniformifier_y".format(name)][()]
         uncorrectedName = hdf5_group["{}/uncorrected_name".format(name)][()]
@@ -52,7 +62,7 @@ class PhaseCorrector():
             _y = hdf5_group["{}/correction_{}_y".format(name, i)][()]
             corrections.append(CubicSpline(_x, _y))
             i += 1
-        assert(version == self.version)
+        assert(version == cls.version)
         return PhaseCorrector(x, y, corrections, uncorrectedName)
 
     def __repr__(self):
