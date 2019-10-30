@@ -3,155 +3,13 @@ from . import line_fits
 from . import LORENTZIAN_PEAK_HEIGHT
 import numpy as np
 
-fluorescence_lines.addfitter(
-element="O",
-linetype=" He-Like 1s2p + 1s2s",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=573.94777,
-energies=np.array([560.983, 568.551, 573.94777]), lorentzian_fwhm=np.array([0.1,0.1,0.1]),
-reference_amplitude=np.array([1,1,10]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="O",
-linetype=" H-Like 2p",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=(653.679946*2+653.493657*1)/3,
-energies=np.array([653.493657, 653.679946]), lorentzian_fwhm=np.array([0.1,0.1]),
-reference_amplitude=np.array([1,2]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="O",
-linetype=" H-Like 3p",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=(774.634043*2+774.578843*1)/3,
-energies=np.array([774.634043, 774.578843]), lorentzian_fwhm=np.array([0.1,0.1]),
-reference_amplitude=np.array([2,1]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="O",
-linetype=" He-Like 1s3p",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=665.61536,
-energies=np.array([665.61536]), lorentzian_fwhm=np.array([0.1]),
-reference_amplitude=np.array([1]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="O",
-linetype=" He-Like 1s4p",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=697.79546 ,
-energies=np.array([697.79546 ]), lorentzian_fwhm=np.array([0.1]),
-reference_amplitude=np.array([1]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="Ne",
-linetype=" H-Like 2p",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=(1021.952896*2+1021.497550*1)/3,
-energies=np.array([1021.497550, 1021.952896]), lorentzian_fwhm=np.array([0.1,0.1]),
-reference_amplitude=np.array([1,2]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="Ne",
-linetype=" H-Like 3p",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=(1210.961453*2+1210.826524*1)/3,
-energies=np.array([1210.826524, 1210.961453]), lorentzian_fwhm=np.array([0.1,0.1]),
-reference_amplitude=np.array([1,2]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="Ne",
-linetype=" H-Like 4p",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=(1277.130058*2+1277.073140*1)/3,
-energies=np.array([1277.073140, 1277.130058]), lorentzian_fwhm=np.array([0.1,0.1]),
-reference_amplitude=np.array([1,2]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="Ne",
-linetype=" He-Like 1s2s",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=905.0772 ,
-energies=np.array([905.0772]), lorentzian_fwhm=np.array([0.1]),
-reference_amplitude=np.array([1]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="Ne",
-linetype=" He-Like 1s2p",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=922.0159 ,
-energies=np.array([922.0159]), lorentzian_fwhm=np.array([0.1]),
-reference_amplitude=np.array([1]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
-fluorescence_lines.addfitter(
-element="Ne",
-linetype=" He-Like 1s3p",
-reference_short='NIST ASD',
-fitter_type = line_fits.GenericKBetaFitter,
-reference_plot_gaussian_fwhm=0.5,
-nominal_peak_energy=1073.7689 ,
-energies=np.array([1073.7689]), lorentzian_fwhm=np.array([0.1]),
-reference_amplitude=np.array([1]),
-reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT
-,ka12_energy_diff=None
-)
-
 '''
 O LINES
 '''
 # H-like
 fluorescence_lines.addfitter(
 element="O",
+material="Highly Charge Ion",
 linetype=" H-Like 2p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -165,6 +23,7 @@ ka12_energy_diff=None
 
 fluorescence_lines.addfitter(
 element="O",
+material="Highly Charge Ion",
 linetype=" H-Like 3p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -178,6 +37,7 @@ ka12_energy_diff=None
 
 fluorescence_lines.addfitter(
 element="O",
+material="Highly Charge Ion",
 linetype=" H-Like 4p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -192,6 +52,7 @@ ka12_energy_diff=None
 # He-like
 fluorescence_lines.addfitter(
 element="O",
+material="Highly Charge Ion",
 linetype=" He-Like 1s2s+1s2p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -206,6 +67,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="O",
+material="Highly Charge Ion",
 linetype=" He-Like 1s2s 3S1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -220,6 +82,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="O",
+material="Highly Charge Ion",
 linetype=" He-Like 1s2p 1P1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -234,6 +97,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="O",
+material="Highly Charge Ion",
 linetype=" He-Like 1s3p 1P1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -248,6 +112,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="O",
+material="Highly Charge Ion",
 linetype=" He-Like 1s4p 1P1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -266,6 +131,7 @@ Ne LINES
 # H-like
 fluorescence_lines.addfitter(
 element="Ne",
+material="Highly Charge Ion",
 linetype=" H-Like 2p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -280,6 +146,7 @@ reference_measurement_type = "Theory"
 
 fluorescence_lines.addfitter(
 element="Ne",
+material="Highly Charge Ion",
 linetype=" H-Like 3p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -294,6 +161,7 @@ reference_measurement_type = "Theory"
 
 fluorescence_lines.addfitter(
 element="Ne",
+material="Highly Charge Ion",
 linetype=" H-Like 4p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -309,6 +177,7 @@ reference_measurement_type = "Theory"
 # He-like
 fluorescence_lines.addfitter(
 element="Ne",
+material="Highly Charge Ion",
 linetype=" He-Like 1s2s+1s2p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -323,6 +192,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="Ne",
+material="Highly Charge Ion",
 linetype=" He-Like 1s2s 3S1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -337,6 +207,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="Ne",
+material="Highly Charge Ion",
 linetype=" He-Like 1s2p 1P1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -351,6 +222,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="Ne",
+material="Highly Charge Ion",
 linetype=" He-Like 1s3p 1P1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -369,6 +241,7 @@ Ar LINES
 # H-like
 fluorescence_lines.addfitter(
 element="Ar",
+material="Highly Charge Ion",
 linetype=" H-Like 2p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -383,6 +256,7 @@ reference_measurement_type = "Theory"
 
 fluorescence_lines.addfitter(
 element="Ar",
+material="Highly Charge Ion",
 linetype=" H-Like 3p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -397,6 +271,7 @@ reference_measurement_type = "Theory"
 
 fluorescence_lines.addfitter(
 element="Ar",
+material="Highly Charge Ion",
 linetype=" H-Like 4p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -412,6 +287,7 @@ reference_measurement_type = "Theory"
 # He-like
 fluorescence_lines.addfitter(
 element="Ar",
+material="Highly Charge Ion",
 linetype=" He-Like 1s2s+1s2p",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -426,6 +302,7 @@ reference_measurement_type = "Theory"
 
 fluorescence_lines.addfitter(
 element="Ar",
+material="Highly Charge Ion",
 linetype=" He-Like 1s2s 3S1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -440,6 +317,7 @@ reference_measurement_type = "Theory"
 
 fluorescence_lines.addfitter(
 element="Ar",
+material="Highly Charge Ion",
 linetype=" He-Like 1s2p 1P1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -454,6 +332,7 @@ reference_measurement_type = "Theory"
 
 fluorescence_lines.addfitter(
 element="Ar",
+material="Highly Charge Ion",
 linetype=" He-Like 1s3p 1P1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -468,6 +347,7 @@ reference_measurement_type = "Theory"
 
 fluorescence_lines.addfitter(
 element="Ar",
+material="Highly Charge Ion",
 linetype=" He-Like 1s4p 1P1",
 reference_short='NIST ASD',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -486,6 +366,7 @@ W Lines
 # Ni-like
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-1",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -501,6 +382,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-2",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -516,6 +398,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-3",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -531,6 +414,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-4",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -546,6 +430,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-5",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -561,6 +446,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-6",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -576,6 +462,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-7",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -591,6 +478,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-8",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -606,6 +494,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-9",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -621,6 +510,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-10",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -636,6 +526,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-11",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -651,6 +542,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-12",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -666,6 +558,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-13",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -681,6 +574,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-14",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -696,6 +590,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-15",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -711,6 +606,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-16",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -726,6 +622,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-17",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -741,6 +638,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-18",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -756,6 +654,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-19",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -771,6 +670,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-20",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -786,6 +686,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-21",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -801,6 +702,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-22",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -816,6 +718,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-23",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -831,6 +734,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-24",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -846,6 +750,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-25",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -861,6 +766,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-26",
 reference_short='Clementson 2010',
 fitter_type = line_fits.GenericKBetaFitter,
@@ -876,6 +782,7 @@ reference_measurement_type = "Experiment"
 
 fluorescence_lines.addfitter(
 element="W",
+material="Highly Charge Ion",
 linetype=" Ni-Like 3s^2,3p^6,3s^3_3/2,3d^6_5/2,4p_1/2",
 reference_short='Nilsen 1995',
 fitter_type = line_fits.GenericKBetaFitter,
