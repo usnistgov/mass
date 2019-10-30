@@ -198,6 +198,10 @@ lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC u
 lineshape_references["Joe Fowler"] = """This is what Joe Fowler measured for tungsten L-lines in 2018."""
 lineshape_references["NIST ASD"]="""NIST Atomic Spectra Database
 Kramida, A., Ralchenko, Yu., Reader, J., and NIST ASD Team (2018). NIST Atomic Spectra Database (ver. 5.6.1), [Online]. Available: https://physics.nist.gov/asd [2018, December 12]. National Institute of Standards and Technology, Gaithersburg, MD. DOI: https://doi.org/10.18434/T4W30F """
+lineshape_references["Clementson 2010"] = """J. Clementson, P. Beiersdorfer, G. V. Brown, and M. F. Gu,
+    "Spectroscopy of M-shell x-ray transitions in Zn-like through Co-like W,"
+    Physica Scripta 81, 015301 (2010). https://iopscience.iop.org/article/10.1088/0031-8949/81/01/015301/meta"""
+lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
@@ -208,8 +212,9 @@ VOIGT_PEAK_HEIGHT = 99999
 
 
 def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
-              nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
-              reference_amplitude_type, ka12_energy_diff=None):
+              nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,              
+              reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
+              uncertainties=None, reference_measurement_type=None):
 
     # require exactly one method of specifying the amplitude of each component
     assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT, LORENTZIAN_INTEGRAL_INTENSITY, VOIGT_PEAK_HEIGHT]
@@ -244,7 +249,10 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         "reference_amplitude": reference_amplitude,
         "reference_amplitude_type": reference_amplitude_type,
         "normalized_lorentzian_integral_intensity": np.array(normalized_lorentzian_integral_intensity),
-        "nominal_peak_energy": float(nominal_peak_energy)
+        "nominal_peak_energy": float(nominal_peak_energy),
+        "fitter_type": fitter_type,
+        "uncertainties": np.array(uncertainties),
+        "reference_measurement_type": reference_measurement_type
     }
     if linetype == "KAlpha":
         dict["ka12_energy_diff"] = ka12_energy_diff
@@ -270,14 +278,13 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     globals()[cls.__name__] = cls
     # create fitter as well
     spectrum = cls()
-    if spectrum.element in ["Al", "Mg"]:
+    if fitter_type is not None:
+        superclass = fitter_type
+    elif spectrum.element in ["Al", "Mg"]:
         superclass = line_fits._lowZ_KAlphaFitter
     elif spectrum.linetype == "KAlpha" or spectrum.linetype == "LAlpha":
         superclass = line_fits.GenericKAlphaFitter
     elif spectrum.linetype == "KBeta" or "LBeta" in spectrum.linetype:
-        superclass = line_fits.GenericKBetaFitter
-    elif "like" in spectrum.linetype.lower():
-        #fall back to GenericKBetaFitter for Highly Charge Ions (eg O H-Like) for now
         superclass = line_fits.GenericKBetaFitter
     else:
         raise ValueError("no generic fitter for {}".format(spectrum))
