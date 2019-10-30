@@ -296,11 +296,11 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     if fitter_type is not None:
         fitter_superclass = fitter_type
     elif spectrum.element in ["Al", "Mg"]:
-        superclass = line_fits._lowZ_KAlphaFitter
+        fitter_superclass = line_fits._lowZ_KAlphaFitter
     elif spectrum.linetype == "KAlpha" or spectrum.linetype == "LAlpha":
-        superclass = line_fits.GenericKAlphaFitter
+        fitter_superclass = line_fits.GenericKAlphaFitter
     elif spectrum.linetype == "KBeta" or "LBeta" in spectrum.linetype:
-        superclass = line_fits.GenericKBetaFitter
+        fitter_superclass = line_fits.GenericKBetaFitter
     else:
         raise ValueError("no generic fitter for {}".format(spectrum))
     dict = {"spect": spectrum}
