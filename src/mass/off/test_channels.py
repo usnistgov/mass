@@ -51,10 +51,10 @@ ds.calibrationPlanAddPoint(11728, "Ar H-Like 2p", states="Ar")
 # at this point energyRough should work
 ds.plotHist(np.arange(0, 4000, 1), "energyRough", coAddStates=False)
 fitters = ds.calibrateFollowingPlan("filtValueDC", approximate=False)
-ds.linefit("Ne H-Like 2p",attr="energy",states="Ne")
-ds.linefit("Ne He-Like 1s2s+1s2p",attr="energy",states="Ne")
-ds.linefit("W Ni-7",attr="energy",states=["W 1","W 2"])
-ds.plotHist(np.arange(0,4000,4),"energy", coAddStates=False)
+ds.linefit("Ne H-Like 2p", attr="energy", states="Ne")
+ds.linefit("Ne He-Like 1s2s+1s2p", attr="energy", states="Ne")
+ds.linefit("W Ni-7", attr="energy", states=["W 1", "W 2"])
+ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
 
 
 ds.diagnoseCalibration()
