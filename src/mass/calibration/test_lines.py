@@ -41,6 +41,8 @@ class Test_MnKA_distribution(unittest.TestCase):
         for (name, spectrum_class) in mass.spectrum_classes.items():
             if spectrum_class.element == "AlOx" or spectrum_class.reference_short == "NIST ASD" or spectrum_class.reference_short == "Clementson 2010" or spectrum_class.reference_short == "Nilsen 1995":
                 continue
+            if not spectrum_class.is_default_material:
+                continue
             if "KBeta24" in name:
                 continue
             target = mass.STANDARD_FEATURES[name]
@@ -59,6 +61,42 @@ class Test_MnKA_distribution(unittest.TestCase):
             self.assertIsNot(s, "")
             # check that normalize intensities sum to 1
             self.assertAlmostEqual(1, spectrum.normalized_lorentzian_integral_intensity.sum())
+
+
+class TestAddFitter(unittest.TestCase):
+    def test_add_same_line_fails(self):
+        mass.addfitter(
+            element="dummy",
+            material="dummy_material",
+            linetype="dummy",
+            reference_short='NIST ASD',
+            fitter_type=mass.line_fits.GenericKBetaFitter,
+            reference_plot_gaussian_fwhm=0.5,
+            nominal_peak_energy=(653.679946*2+653.493657*1)/3,
+            energies=np.array([653.493657, 653.679946]), lorentzian_fwhm=np.array([0.1, 0.1]),
+            reference_amplitude=np.array([1, 2]),
+            reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
+        )
+        try:
+            mass.addfitter(
+                element="dummy",
+                material="dummy_material",
+                linetype="dummy",
+                reference_short='NIST ASD',
+                fitter_type=mass.line_fits.GenericKBetaFitter,
+                reference_plot_gaussian_fwhm=0.5,
+                nominal_peak_energy=(653.679946*2+653.493657*1)/3,
+                energies=np.array([653.493657, 653.679946]), lorentzian_fwhm=np.array([0.1, 0.1]),
+                reference_amplitude=np.array([1, 2]),
+                reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
+            )
+        except Exception:
+            # we want this to error, so return
+            return
+        self.assertTrue(False)  # fail if it didn't error
+
+    def test_some_lines_make_sense(self):
+        self.assertTrue(mass.spectrum_classes["MnKAlpha"]().nominal_peak_energy == 5898.802)
 
 
 if __name__ == "__main__":
