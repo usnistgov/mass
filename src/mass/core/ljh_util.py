@@ -70,7 +70,7 @@ def ljh_channum(name):
 
 
 def ljh_chan_names(fname, chans):
-    basename, chan = ljh_basename_channum(fname)
+    basename, _ = ljh_basename_channum(fname)
     ext = path.splitext(fname)[1]
     return [basename+"_chan%d%s" % (chan, ext) for chan in chans]
 

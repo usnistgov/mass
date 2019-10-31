@@ -29,7 +29,7 @@ class Test_SmoothingSpline(unittest.TestCase):
                         0.86140111,  0.9102821,  0.95851515,  1.00614861])
 
         # At time of issue #74, this crashed on next line for Joe, but not for Galen.
-        a = mass.mathstat.interpolate.SmoothingSplineLog(ph, e, de, dph)
+        mass.mathstat.interpolate.SmoothingSplineLog(ph, e, de, dph)
 
         cal = mass.calibration.energy_calibration.EnergyCalibration()
         for energy in np.linspace(3000, 6000, 10):

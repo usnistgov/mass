@@ -92,7 +92,8 @@ class TestToeplitzSolver_32(unittest.TestCase):
             y = numpy.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = numpy.abs(x_out-x_in).max()
-            self.assertAlmostEqual(0, big_dif, 10, msg='Unit vector trial i=%2d gives x_out=%s' % (i, x_out))
+            self.assertAlmostEqual(
+                0, big_dif, 10, msg='Unit vector trial i=%2d gives x_out=%s' % (i, x_out))
 
 
 class TestToeplitzSolver_512(unittest.TestCase):
@@ -113,7 +114,8 @@ class TestToeplitzSolver_512(unittest.TestCase):
             y = numpy.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = numpy.abs(x_out-x_in).max()
-            self.assertAlmostEqual(0, big_dif, 10, msg='Unit vector trial i=%2d gives x_out=%s' % (i, x_out))
+            self.assertAlmostEqual(
+                0, big_dif, 10, msg='Unit vector trial i=%2d gives x_out=%s' % (i, x_out))
 
     def test_arb_vectors(self):
         for _i in range(5):
@@ -127,6 +129,7 @@ class TestToeplitzSolver_512(unittest.TestCase):
 
 class TestToeplitzSpeed(object):
     """Test the speed of the Toeplitz solver."""
+
     def __init__(self, maxsize=8192):
         self.sizes = numpy.hstack((100, 200, numpy.arange(500, 5500, 500), 6144, 8192, 10000,
                                    15000, 20000, 30000, 50000, 100000))
@@ -181,7 +184,8 @@ class TestToeplitzSpeed(object):
             lu_piv = scipy.linalg.lu_factor(R)
             x3 = scipy.linalg.lu_solve(lu_piv, v, overwrite_b=False)
             dt.append(time.time()-t0)
-            print('rms rhs diff: %.3g, solution diff: %.3g %.3g' % ((v-v2).std(), (x-x2).std(), (x-x3).std()))
+            print('rms rhs diff: %.3g, solution diff: %.3g %.3g' %
+                  ((v-v2).std(), (x-x2).std(), (x-x3).std()))
 
         else:
             dt.extend(4*[numpy.NaN])

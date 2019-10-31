@@ -9,7 +9,8 @@ LOG = logging.getLogger("mass")
 
 class PhaseCorrector():
     version = 1
-    def __init__(self,phase_uniformifier_x, phase_uniformifier_y, corrections, indicatorName, uncorrectedName):
+
+    def __init__(self, phase_uniformifier_x, phase_uniformifier_y, corrections, indicatorName, uncorrectedName):
         self.corrections = corrections
         self.phase_uniformifier_x = np.array(phase_uniformifier_x)
         self.phase_uniformifier_y = np.array(phase_uniformifier_y)
@@ -73,13 +74,13 @@ class PhaseCorrector():
         phase_uniformifier_x: {}
         phase_uniformifier_y: {}
         uncorrectedName: {}
-        """.format(len(self.corrections), self.phase_uniformifier_x, 
-            self.phase_uniformifier_y, self.uncorrectedName)
+        """.format(len(self.corrections), self.phase_uniformifier_x,
+                   self.phase_uniformifier_y, self.uncorrectedName)
         return s
 
 
-def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=None, 
-indicatorName = "", uncorrectedName = ""):
+def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=None,
+                  indicatorName="", uncorrectedName=""):
     if ph_peaks is None:
         ph_peaks = _find_peaks_heuristic(pheight)
     if len(ph_peaks) <= 0:
@@ -136,8 +137,8 @@ indicatorName = "", uncorrectedName = ""):
             phase_uniformifier_x = np.array([0, 0, 0, 0])
             phase_uniformifier_y = np.array([0, 0, 0, 0])
 
-    return PhaseCorrector(phase_uniformifier_x, phase_uniformifier_y, corrections, 
-    indicatorName, uncorrectedName)
+    return PhaseCorrector(phase_uniformifier_x, phase_uniformifier_y, corrections,
+                          indicatorName, uncorrectedName)
 
 
 def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,

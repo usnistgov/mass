@@ -52,7 +52,7 @@ class Function(object):
     def __radd__(self, other):
         if isinstance(other, (int, float)):
             return ConstantFunction(other) + self
-        raise NotImplemented("+ is not implemented.")
+        raise NotImplementedError("+ is not implemented.")
 
     def __sub__(self, other):
         return self + (-other)
@@ -60,7 +60,7 @@ class Function(object):
     def __rsub__(self, other):
         if isinstance(other, (int, float)):
             return ConstantFunction(other) - self
-        raise NotImplemented("- is not implemented.")
+        raise NotImplementedError("- is not implemented.")
 
     def __mul__(self, other):
         return Multiplication(self, other)
@@ -68,7 +68,7 @@ class Function(object):
     def __rmul__(self, other):
         if isinstance(other, (int, float)):
             return ConstantFunction(other) * self
-        raise NotImplemented("* is not implemented.")
+        raise NotImplementedError("* is not implemented.")
 
     def truediv(self, other):
         if isinstance(other, (int, float)):
@@ -81,7 +81,7 @@ class Function(object):
     def rtruediv(self, other):
         if isinstance(other, (int, float)):
             return ConstantFunction(other) / self
-        raise NotImplemented("/ is not implemented")
+        raise NotImplementedError("/ is not implemented")
 
     __rtruediv__ = rtruediv
     __rdiv__ = rtruediv
@@ -269,8 +269,8 @@ class Multiplication(BinaryOperation, Function):
         if der == 0:
             return self.g(x) * self.h(x)
 
-        return np.sum([self.g(x, der=n) * self.h(x, der=der - n) *
-                       math.factorial(der) / math.factorial(der - n) / math.factorial(n)
+        return np.sum([self.g(x, der=n) * self.h(x, der=der - n)
+                       * math.factorial(der) / math.factorial(der - n) / math.factorial(n)
                        for n in range(der + 1)], axis=0)
 
     def __repr__(self):
