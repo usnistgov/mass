@@ -80,7 +80,7 @@ class SpectralLine(sp.stats.rv_continuous):
         components - True plots each voigt component in addition to the spectrum
         label - a string to label the plot with (optional)"""
         if x is None:
-            width = max(2*self.pdf_gaussian_fwhm,3*np.amax(self.lorentzian_fwhm))
+            width = max(2*self.pdf_gaussian_fwhm, 3*np.amax(self.lorentzian_fwhm))
             lo = np.amin(self.energies)-width
             hi = np.amax(self.energies)+width
             x = np.linspace(lo, hi, 500)
@@ -193,14 +193,14 @@ lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Frit
     The KBeta also appears to be a hack with scaled values."""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 lineshape_references["Joe Fowler"] = """This is what Joe Fowler measured for tungsten L-lines in 2018."""
-lineshape_references["NIST ASD"]="""NIST Atomic Spectra Database
+lineshape_references["NIST ASD"] = """NIST Atomic Spectra Database
 Kramida, A., Ralchenko, Yu., Reader, J., and NIST ASD Team (2018). NIST Atomic Spectra Database (ver. 5.6.1), [Online]. Available: https://physics.nist.gov/asd [2018, December 12]. National Institute of Standards and Technology, Gaithersburg, MD. DOI: https://doi.org/10.18434/T4W30F """
 lineshape_references["Clementson 2010"] = """J. Clementson, P. Beiersdorfer, G. V. Brown, and M. F. Gu,
     "Spectroscopy of M-shell x-ray transitions in Zn-like through Co-like W,"
     Physica Scripta 81, 015301 (2010). https://iopscience.iop.org/article/10.1088/0031-8949/81/01/015301/meta"""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 lineshape_references["Nilsen 1995"] = "Elliott, S. R., Beiersdorfer, P., Macgowan, B. J., & Nilsen, J. (1995). Measurements of line overlap for resonant spoiling of x-ray lasing transitions in nickle-like tungsten, 52(4), 2689–2692. https://doi.org/10.1103/PhysRevA.52.2689"
-lineshape_references["Deslattes Notebook Si"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster. 
+lineshape_references["Deslattes Notebook Si"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster.
 Added by GCO Oct 7 2019. Used the postion and width values from the from the lowest listed fit, the one in energy units.
 Used the intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile).
 Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at higher energy"""
@@ -223,6 +223,8 @@ I haven't accounted for that, so our models still don't match Deslattes. We woul
 Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at higher energy or estimated them from data in
 Mauron, O., Dousse, J. C., Hoszowska, J., Marques, J. P., Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s photoionization in elements 11≤Z≤17. 
 Physical Review A - Atomic, Molecular, and Optical Physics, 62(6), 062508–062501. https://doi.org/10.1103/PhysRevA.62.062508"""
+lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (2018) 125139
+    https://doi.org/10.1103/PhysRevB.97.125139"""
 
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
@@ -319,7 +321,7 @@ def addfitter(element, linetype, material, reference_short, reference_plot_gauss
             fitter_superclass = line_fits._lowZ_KAlphaFitter
         elif spectrum.linetype == "KAlpha" or spectrum.linetype == "LAlpha":
             fitter_superclass = line_fits.GenericKAlphaFitter
-        elif spectrum.linetype == "KBeta" or "LBeta" in spectrum.linetype:
+        elif spectrum.linetype.startswith("KBeta") or "LBeta" in spectrum.linetype:
             fitter_superclass = line_fits.GenericKBetaFitter
         else:
             raise ValueError("no generic fitter for {}".format(spectrum))
@@ -757,6 +759,32 @@ addfitter(
 
 
 addfitter(
+    element="Nb",
+    linetype="KBeta",
+    reference_short="Ravel 2018",
+    reference_plot_gaussian_fwhm=1.2,
+    nominal_peak_energy=18625.4,
+    energies=np.array((18625.4, 18609.9)),
+    lorentzian_fwhm=np.array((6.7, 6.7)),
+    reference_amplitude=np.array((1, 0.5)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addfitter(
+    element="Nb",
+    linetype="KBeta24",
+    reference_short="Ravel 2018",
+    reference_plot_gaussian_fwhm=1.2,
+    nominal_peak_energy=18952.79,
+    energies=np.array((18952.79, 18968.0, 18982.7)),
+    lorentzian_fwhm=np.array((8.67, 1.9, 5.2)),
+    reference_amplitude=np.array((14.07, 0.066, 0.359)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addfitter(
     element="Mo",
     material="metal",
     linetype="KAlpha",
@@ -792,6 +820,7 @@ def plot_all_spectra():
     for name, spectrum_class in spectrum_classes.items():
         spectrum = spectrum_class()
         spectrum.plot_like_reference()
+
 
 if __name__ == "__main__":
     spectrum = fitter_classes["MgKAlpha"]()
