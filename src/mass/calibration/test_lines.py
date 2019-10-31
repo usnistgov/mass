@@ -43,7 +43,6 @@ class Test_MnKA_distribution(unittest.TestCase):
                 continue
             if not spectrum_class.is_default_material:
                 continue
-            result = np.abs(spectrum_class.nominal_peak_energy-mass.STANDARD_FEATURES[name]) < 0.5
             if "KBeta24" in name:
                 continue
             target = mass.STANDARD_FEATURES[name]

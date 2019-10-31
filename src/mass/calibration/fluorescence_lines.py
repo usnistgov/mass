@@ -761,7 +761,7 @@ addfitter(
 addfitter(
     element="Nb",
     linetype="KBeta",
-    material="metal",
+    material="Nb2O5",
     reference_short="Ravel 2018",
     reference_plot_gaussian_fwhm=1.2,
     nominal_peak_energy=18625.4,
@@ -775,7 +775,7 @@ addfitter(
 addfitter(
     element="Nb",
     linetype="KBeta24",
-    material="metal",
+    material="Nb2O5",
     reference_short="Ravel 2018",
     reference_plot_gaussian_fwhm=1.2,
     nominal_peak_energy=18952.79,
