@@ -16,20 +16,20 @@ warnings.filterwarnings("ignore")
 LOG = logging.getLogger("mass")
 LOG.setLevel(logging.WARNING)
 
-VERBOSE = True
+VERBOSE = 1
 # search mass and all subdirs for files matching "test_*.py"
+# dont look for tests in build directories
+ignoredirs = ("temp.macosx", "lib.macosx", ".git", "__pycache__", "dist", "mass.egg-info")
 module_dirs = set()
 module_paths = set()
 rootdir = os.path.dirname(os.path.realpath(__file__))
 for dirpath, dirnames, filenames in os.walk(path.expanduser(rootdir)):
-    # dont look for tests in build directories
-    if dirpath.startswith(path.join(rootdir, "build")) or any(s in dirpath for s in ["temp.macosx", "lib.macosx"]):
-        if VERBOSE:
+    if dirpath.startswith(path.join(rootdir, "build")) or any(s in dirpath for s in ignoredirs):
+        if VERBOSE >= 2:
             print("EXCLUDING: %s" % dirpath)
         continue
-    else:
-        if VERBOSE:
-            print("SEARCHING: %s" % dirpath)
+    if VERBOSE >= 1:
+        print("SEARCHING: %s" % dirpath)
     for filename in filenames:
         if re.match(r"test_.+\.py\Z", filename):
             module_dirs.add(dirpath)
@@ -38,7 +38,7 @@ for dirpath, dirnames, filenames in os.walk(path.expanduser(rootdir)):
 # add path to folders containing one or more matching files to path
 for module_dir in module_dirs:
     sys.path.insert(0, module_dir)
-# import modules from those  files
+# import modules from those files
 modules = []
 for module_path in module_paths:
     module_name = path.splitext(path.split(module_path)[-1])[0]
