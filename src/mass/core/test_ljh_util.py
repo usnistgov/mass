@@ -1,15 +1,10 @@
-import tempfile
-import os.path
-
-import numpy as np
 import os
-import shutil
+import os.path
 import unittest as ut
-
-import mass
 import ljh_util
 
-from mass.core.ljh_util import *
+from mass.core.ljh_util import ljh_channum, filename_glob_expand, \
+    remove_unpaired_channel_files, ljh_sort_filenames_numerically
 
 
 class TestFilenameHandling(ut.TestCase):

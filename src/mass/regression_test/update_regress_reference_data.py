@@ -1,6 +1,4 @@
 import numpy as np
-import pylab as pl
-
 import mass
 
 import test_regression

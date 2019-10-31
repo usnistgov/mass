@@ -814,9 +814,9 @@ class MicrocalDataSet(object):
             else:
                 basename, _ = ljh_util.ljh_basename_channum(self.filename)
                 filename = "{}_external_trigger.bin".format(basename)
-                with open(filename,"r") as f:
-                    f.readline() # read the header comments line
-                    self._external_trigger_rowcount = np.fromfile(f,dtype="int64")
+                with open(filename, "r") as f:
+                    f.readline()  # read the header comments line
+                    self._external_trigger_rowcount = np.fromfile(f, dtype="int64")
             self.row_timebase = self.timebase/float(self.number_of_rows)
         return self._external_trigger_rowcount
 
@@ -1129,7 +1129,8 @@ class MicrocalDataSet(object):
         except Exception:
             spectrum = self.noise_psd[:]
         if not (category is None or category == {}):
-            raise Exception("category argument has no effect on compute_oldfilter, pass None or {}. compute_oldfilter uses self.average_pulse")
+            raise Exception(
+                "category argument has no effect on compute_oldfilter, pass None or {}. compute_oldfilter uses self.average_pulse")
         avg_signal = np.array(self.average_pulse)
         f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
@@ -1588,8 +1589,8 @@ class MicrocalDataSet(object):
             plt.figure(fnum)
 
     @_add_group_loop
-    def phase_correct(self, attr="p_filt_value_dc", forceNew=False, category={}, ph_peaks=None, 
-        method2017=True, kernel_width=None, save_to_hdf5=True):
+    def phase_correct(self, attr="p_filt_value_dc", forceNew=False, category={}, ph_peaks=None,
+                      method2017=True, kernel_width=None, save_to_hdf5=True):
         """Apply the 2017 or 2015 phase correction method.
 
         Args:
@@ -1606,21 +1607,21 @@ class MicrocalDataSet(object):
             return
         good = self.cuts.good(**category)
 
-        self.phaseCorrector = phase_correct.phase_correct(self.p_filt_phase[good], 
-            getattr(self,attr)[good],
-            ph_peaks=ph_peaks, method2017=method2017, kernel_width=kernel_width,
-            indicatorName = "p_filt_phase", uncorrectedName = "p_filt_value_dc")
+        self.phaseCorrector = phase_correct.phase_correct(self.p_filt_phase[good],
+                                                          getattr(self, attr)[good],
+                                                          ph_peaks=ph_peaks, method2017=method2017, kernel_width=kernel_width,
+                                                          indicatorName="p_filt_phase", uncorrectedName="p_filt_value_dc")
 
         self.p_filt_phase_corr[:] = self.phaseCorrector.phase_uniformifier(self.p_filt_phase[:])
-        self.p_filt_value_phc[:] = self.phaseCorrector(self.p_filt_phase[:], getattr(self,attr)[:])
+        self.p_filt_value_phc[:] = self.phaseCorrector(self.p_filt_phase[:], getattr(self, attr)[:])
 
         if save_to_hdf5:
             self.phaseCorrector.toHDF5(self.hdf5_group, overwrite=True)
 
         LOG.info('Channel %3d phase corrected. Correction size: %.2f',
-                 self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good] -
-                                                                   getattr(self,attr)[good], True))
-  
+                 self.channum, mass.mathstat.robust.median_abs_dev(self.p_filt_value_phc[good]
+                                                                   - getattr(self, attr)[good], True))
+
         return self.phaseCorrector
 
     def first_n_good_pulses(self, n=50000, category={}):

@@ -1,36 +1,37 @@
+import imp
+import sys
+import warnings
+import logging
+import re
+import os.path as path
+import os
 import unittest
 import matplotlib
-matplotlib.use("svg") #set to common backend so will run on semphora ci with fewer dependencies
-
-import mass
-import sys, imp
-import os
-import os.path as path
-import re
-import subprocess
-import logging
+matplotlib.use("svg")  # set to common backend so will run on semphora ci with fewer dependencies
 
 
-import warnings
 warnings.filterwarnings("ignore")
 
 # Raise the logging threshold, to reduce extraneous output during tests
 LOG = logging.getLogger("mass")
 LOG.setLevel(logging.WARNING)
 
-VERBOSE=True
+VERBOSE = True
 # search mass and all subdirs for files matching "test_*.py"
 module_dirs = set()
 module_paths = set()
 rootdir = os.path.dirname(os.path.realpath(__file__))
 for dirpath, dirnames, filenames in os.walk(path.expanduser(rootdir)):
-    if dirpath.startswith(path.join(rootdir,"build")) or any(s in dirpath for s in ["temp.macosx", "lib.macosx"]): # dont look for tests in build directories
-        if VERBOSE: print("EXCLUDING: %s"%dirpath)
+    # dont look for tests in build directories
+    if dirpath.startswith(path.join(rootdir, "build")) or any(s in dirpath for s in ["temp.macosx", "lib.macosx"]):
+        if VERBOSE:
+            print("EXCLUDING: %s" % dirpath)
         continue
     else:
-        if VERBOSE: print("SEARCHING: %s"%dirpath)
+        if VERBOSE:
+            print("SEARCHING: %s" % dirpath)
     for filename in filenames:
-        if re.match("test_.+\.py\Z", filename):
+        if re.match(r"test_.+\.py\Z", filename):
             module_dirs.add(dirpath)
             filepath = path.join(dirpath, filename)
             module_paths.add(filepath)
@@ -44,11 +45,12 @@ for module_path in module_paths:
     modules.append(imp.load_module(module_name, *imp.find_module(module_name)))
 # print out the modules found
 print(os.path.realpath(__file__))
-print("found the following %g modules to test:"%(len(modules)))
-for module in modules: print(module)
-if len(modules)==0:
+print("found the following %g modules to test:" % (len(modules)))
+for module in modules:
+    print(module)
+if len(modules) == 0:
     print("No modules found to test!")
-    sys.exit(1) # indicate test failure
+    sys.exit(1)  # indicate test failure
 
 # load up all tests into a suite
 suite = unittest.TestSuite()

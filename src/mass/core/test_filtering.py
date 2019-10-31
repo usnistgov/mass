@@ -4,7 +4,6 @@ import os
 import unittest as ut
 
 import mass
-from mass.core.files import *
 
 
 ljhdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "regression_test")
@@ -146,10 +145,9 @@ class TestFilters(ut.TestCase):
         ds.read_segment(0)
         NP = 50
         d = np.array(ds.data[:NP, 1:])  # NP pulses, cutting first sample
-        filt_ref = ds.filter.filt_noconst
+        self.assertIsNotNone(ds.filter.filt_noconst)
 
         # Test that filters actually have zero weight where they are supposed to.
-        filters = []
         PREMAX, POSTMAX = 50, 200
         for pre in [0, PREMAX//2, PREMAX]:
             for post in [0, POSTMAX//2, POSTMAX]:

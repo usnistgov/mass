@@ -17,8 +17,6 @@ x domain of P(x) log[P(x)/Q(x)].
 
 This equals the cross-entropy H(P,Q) - H(P). Note that cross-entropy and K-L divergence
 are not symmetric with respect to reversal of `x` and `y`.
-
-Eventually, plan to translate this to Cython.
 """
 
 import numpy as np

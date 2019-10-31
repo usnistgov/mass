@@ -1,12 +1,5 @@
-import tempfile
-import os.path
-
 import numpy as np
-import os
-import shutil
 import unittest as ut
-
-import scipy.stats
 
 import mass
 import logging
@@ -39,7 +32,7 @@ def make_drifting_data(distrib, res_fwhm_ev, cps, duration_s, gain_of_t):
     t = make_arrival_times(cps, duration_s)
     energies0 = distrib.rvs(size=len(t))
     gain = gain_of_t(t)
-    energies = gain*energies0
+    energies = gain*energies0 + np.random.standard_normal(len(t))*res_sigma
     return t, energies
 
 

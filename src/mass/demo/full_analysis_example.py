@@ -12,9 +12,7 @@ April 2017
 
 import numpy as np
 import pylab as plt
-import tempfile
 import os
-import shutil
 
 import mass
 

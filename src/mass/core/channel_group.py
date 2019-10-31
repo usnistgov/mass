@@ -352,7 +352,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                                                             os.path.dirname(self.noise_filenames[0]))
         else:
             return "{0:s}(pulse={1:s}, noise=None)".format(self.__class__.__name__,
-                                                            os.path.dirname(self.filenames[0]))
+                                                           os.path.dirname(self.filenames[0]))
 
     def __iter__(self):
         """Iterator over the self.datasets in channel number order"""
@@ -961,11 +961,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
                     continue
                 if ds._use_new_filters:
-                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db, 
-                    cut_pre=cut_pre, cut_post=cut_post, category=category)
+                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db,
+                                             cut_pre=cut_pre, cut_post=cut_post, category=category)
                 else:
-                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db, 
-                    cut_pre=cut_pre, cut_post=cut_post, category=category) # uses average pulse, not category
+                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db,
+                                             cut_pre=cut_pre, cut_post=cut_post, category=category)  # uses average pulse, not category
                 ds.filter = f
 
                 # Store all filters created to a new HDF5 group
@@ -1364,21 +1364,19 @@ class TESGroup(CutFieldMixin, GroupLooper):
         filename_one_file = '%s-hist-%s.pdf' % (attr, suffix)
 
         def helper(ds, ax):
-            ch = ds.channum
             g = ds.good()
-
             x_g = getattr(ds, attr)[g]
 
             # I generally prefer the "stepped" histtype, but that seems to interact
-            # poorly with log scale - the automatic choice of axus limites gets
+            # poorly with log scale - the automatic choice of axis limits gets
             # screwed up.
             plt.hist(x_g, range=range, bins=bins, histtype='bar')
             plt.yscale('log')
 
             if lines is not None:
-                x_lo = min(np.amin(x_g), np.amin(x_b))
-                x_hi = max(np.amax(x_g), np.amax(x_b))
-                for line in lines[k]:
+                x_lo = np.amin(x_g)
+                x_hi = np.amax(x_g)
+                for line in lines[ds.channum]:
                     plt.plot([x_lo, x_hi], [line, line], '-k')
 
             if y_range is not None:
@@ -1387,7 +1385,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             plt.xlabel(attr, fontsize=8)
             plt.ylabel('Counts / bin', fontsize=8)
             ax.tick_params(axis='both', labelsize=8)
-            plt.title('MATTER Ch%d' % ch, fontsize=10)
+            plt.title('MATTER Ch%d' % ds.channum, fontsize=10)
 
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)

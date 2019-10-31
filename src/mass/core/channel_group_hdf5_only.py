@@ -35,12 +35,13 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
             channum = int(h5fname[i+5:-8])
             try:
                 with h5py.File(h5fname, "r+") as single_channel_file:
-                    if ("clean_exit_posix_timestamp_s" in single_channel_file or
-                            not require_clean_exit) and len(single_channel_file["filt_value"][:]) > 1:
+                    if ("clean_exit_posix_timestamp_s" in single_channel_file
+                            or not require_clean_exit) and len(single_channel_file["filt_value"][:]) > 1:
                         if "channum" not in single_channel_file.attrs.keys():
                             single_channel_file.attrs["channum"] = channum
                         if "npulses" not in single_channel_file.attrs.keys():
-                            single_channel_file.attrs["npulses"] = len(single_channel_file["filt_value"])
+                            single_channel_file.attrs["npulses"] = len(
+                                single_channel_file["filt_value"])
                         single_channel_file.attrs["filename"] = h5fname
                 master_hdf5_file["chan%i" % channum] = h5py.ExternalLink(h5fname, "/")
             except KeyError:
@@ -52,9 +53,9 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
 class TESGroupHDF5(channel_group.TESGroup):
     """Represent a TESGroup, except where the raw LJH files are not available."""
 
-    def __init__(self, h5master_fname, read_only = False):
+    def __init__(self, h5master_fname, read_only=False):
         if not os.path.isfile(h5master_fname):
-            raise Exception("file %s does not exist",h5master_fname)
+            raise Exception("file %s does not exist", h5master_fname)
         elif read_only:
             self.hdf5_file = h5py.File(h5master_fname, "r")
         elif not read_only:
