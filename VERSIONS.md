@@ -4,7 +4,7 @@
 
 * Add partial use of [LMFit](https://lmfit.github.io/lmfit-py/index.html) for fitting.
 * Add code for analysis of OFF files.
-* Add K line shapes for elements K, S, Cl.
+* Add K line shapes for elements K, S, Cl. Also Nb (K-beta only).
 * Add fitters for certain highly charged ions from NIST Atomic Spectra Database.
 * Many other small changes, particularly for use at the EBIT.
 

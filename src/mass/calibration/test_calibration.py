@@ -64,14 +64,12 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
                     ph = energy**0.8
                     cal1.add_cal_point(ph, energy)
                 cal2 = cal1.copy()
-                ph1, e1, (drop1e, drop1err), \
-                    ph2, e2, (drop2e, drop2err) = (cal1.energy2ph(5000), cal1.ph2energy(5000),
-                                                   cal1.drop_one_errors(), cal2.energy2ph(5000),
-                                                   cal2.ph2energy(5000), cal2.drop_one_errors())
-                # self.assertEqual(e1,e2)
-                # self.assertEqual(ph1,ph2)
-                assert(e1 == e2)
-                assert(ph1 == ph2)
+                ph1, e1 = cal1.energy2ph(5000), cal1.ph2energy(5000)
+                ph2, e2 = cal2.energy2ph(5000), cal2.ph2energy(5000)
+                # drop1e, drop1err = cal1.drop_one_errors()
+                # drop2e, drop2err = cal2.drop_one_errors()
+                self.assertEqual(e1, e2)
+                self.assertEqual(ph1, ph2)
 
     def test_loglog_exact_diff(self):
         # loglog=True makes use_zerozero not matter
