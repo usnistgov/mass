@@ -215,13 +215,13 @@ lineshape_references["Schweppe 1992 Al"] = """J. Schweppe, R. D. Deslattes, T. M
 """
 lineshape_references["Mendenhall 2019"] = """Marcus H. Mendenhall et al., J. Phys B in press (2019).
     https://doi.org/10.1088/1361-6455/ab45d6"""
-lineshape_references["Deslattes Notebook S, Cl, K"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster. 
+lineshape_references["Deslattes Notebook S, Cl, K"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster.
 Added by GCO Oct 30 2019. Used the postion and width values from the from the lowest listed fit, the one in energy units.
 Used the intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile).
 The detector resolution ("width of Gauss. res. func." in MINUS-POSITON scan) is less than the Gaussian Width ("Gaussian width" in PLUS-POSITON scan)
 I haven't accounted for that, so our models still don't match Deslattes. We would need a gaussian_atomic_physics component added to our models.
 Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at higher energy or estimated them from data in
-Mauron, O., Dousse, J. C., Hoszowska, J., Marques, J. P., Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s photoionization in elements 11≤Z≤17. 
+Mauron, O., Dousse, J. C., Hoszowska, J., Marques, J. P., Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s photoionization in elements 11≤Z≤17.
 Physical Review A - Atomic, Molecular, and Optical Physics, 62(6), 062508–062501. https://doi.org/10.1103/PhysRevA.62.062508"""
 lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (2018) 125139
     https://doi.org/10.1103/PhysRevB.97.125139"""
@@ -284,14 +284,14 @@ def addfitter(element, linetype, material, reference_short, reference_plot_gauss
     }
     if linetype.startswith("KAlpha"):
         spectrum_attr_dict["ka12_energy_diff"] = ka12_energy_diff
-    classname_qualified = "{}_{}{}".format(material,element,linetype)
-    classname_unqualified = "{}{}".format(element,linetype)
+    classname_qualified = "{}_{}{}".format(material, element, linetype)
+    classname_unqualified = "{}{}".format(element, linetype)
 
     if is_default_material:
         classnames = [classname_unqualified]
-    else: 
+    else:
         classnames = [classname_qualified]
-    
+
     for classname in classnames:
         if classname in spectrum_classes.keys():
             raise Exception("classname {} already exists".format(classname))
@@ -326,7 +326,8 @@ def addfitter(element, linetype, material, reference_short, reference_plot_gauss
         else:
             raise ValueError("no generic fitter for {}".format(spectrum))
         fitter_attr_dict = {"spect": spectrum}
-        fitter_class = type(spectrum_class.__name__+"Fitter", (fitter_superclass,), fitter_attr_dict)
+        fitter_class = type(spectrum_class.__name__+"Fitter",
+                            (fitter_superclass,), fitter_attr_dict)
         globals()[spectrum_class.__name__+"Fitter"] = fitter_class
         fitter_classes[spectrum_class.__name__] = fitter_class
         if fitter_superclass == line_fits.GenericKAlphaFitter:
