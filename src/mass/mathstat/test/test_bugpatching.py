@@ -1,4 +1,3 @@
-import mass
 import numpy as np
 import pylab as plt
 import unittest as ut
@@ -13,6 +12,7 @@ class TestNumpyHistogramBug(ut.TestCase):
     This tests whether the bug exists. MASS attempts to monkey-patch np.histogram
     to prevent the bug from arising, and we are effectively checking that here.
     """
+
     def test_histogram_precision_bug(self):
         a64 = np.array([25552.234, 26000])
 

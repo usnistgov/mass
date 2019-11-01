@@ -74,6 +74,7 @@ class Test_gaussian(unittest.TestCase):
     """Simulate some Gaussian data, fit the histograms, and make sure that the results are
     consistent with the expectation at the 2-sigma level.
     """
+
     def setUp(self):
         np.random.seed(12348)
 
@@ -182,6 +183,7 @@ class Test_gaussian(unittest.TestCase):
 
 class SimplePenalty(object):
     """Function object to penalize param[1] exceeding pmax."""
+
     def __init__(self, pmax, pscale, amplitude):
         self.pmax = pmax
         self.pscale = pscale
@@ -222,7 +224,8 @@ class Test_fluorescence(unittest.TestCase):
             data = np.hstack((data, np.random.uniform(size=n_bg)*4.0-2.0))
         nobs, bin_edges = np.histogram(data, nbins, range=[5850, 5950])
         bins = bin_edges[1:]-0.5*(bin_edges[1]-bin_edges[0])
-        params, covar = self.fitter.fit(nobs, bins, params=(fwhm, 5898, 1, N, 1., 0, 0, 25), plot=False)
+        params, covar = self.fitter.fit(nobs, bins, params=(
+            fwhm, 5898, 1, N, 1., 0, 0, 25), plot=False)
 
         # Check uncertainties
         d_res, d_ectr, d_scale = covar.diagonal()[:3]**0.5
@@ -238,11 +241,14 @@ class Test_fluorescence(unittest.TestCase):
 
         # Check data consistent with uncertainties
         res, ectr, scale = params[:3]
-        msg = "Disagree at 4-sigma: Fit fwhm: %.4f  actual: %.4f; expect unc %.4f" % (res, fwhm, d_res)
+        msg = "Disagree at 4-sigma: Fit fwhm: %.4f  actual: %.4f; expect unc %.4f" % (
+            res, fwhm, d_res)
         self.assertLessEqual(abs(res-fwhm), 4*d_res, msg)
-        msg = "Disagree at 4-sigma: Fit Ectr: %.4f  actual: %.4f; expect unc %.4f" % (ectr, 5898.802, d_ectr)
+        msg = "Disagree at 4-sigma: Fit Ectr: %.4f  actual: %.4f; expect unc %.4f" % (
+            ectr, 5898.802, d_ectr)
         self.assertLessEqual(abs(ectr-5898.802), 4*d_ectr, msg)
-        msg = "Disagree at 4-sigma: Fit scale: %.4f  actual: %.4f; expect unc %.4f" % (scale, 1.0, d_scale)
+        msg = "Disagree at 4-sigma: Fit scale: %.4f  actual: %.4f; expect unc %.4f" % (
+            scale, 1.0, d_scale)
         self.assertLessEqual(abs(scale-1.0), 4*d_scale, msg)
 
     def test_mn_k_alpha_no_background(self):
@@ -276,7 +282,8 @@ class Test_fit_kink(unittest.TestCase):
 
     def test_noisless_fit(self):
         """Make sure fit_kink_model gets very close to exact answer without noise."""
-        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, self.y, kbounds=(3, 6))
+        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
+            self.x, self.y, kbounds=(3, 6))
         self.assertLessEqual(X2, 1e-8)
         self.assertLessEqual(abs(kbest-self.truek), 1e-5)
         self.assertLessEqual(abs(a-self.truek), 1e-5)
@@ -286,7 +293,8 @@ class Test_fit_kink(unittest.TestCase):
     def test_noisless_fit_no_bounds(self):
         """Make sure fit_kink_model gets very close to exact answer without noise and
         using maximal bounds."""
-        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, self.y, kbounds=None)
+        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
+            self.x, self.y, kbounds=None)
         self.assertLessEqual(X2, 1e-8)
         self.assertLessEqual(abs(kbest-self.truek), 1e-5)
         self.assertLessEqual(abs(a-self.truek), 1e-5)
@@ -297,7 +305,8 @@ class Test_fit_kink(unittest.TestCase):
         """Make sure fit_kink_model gets close enough to exact answer with noise."""
         np.random.seed(7474)
         noisy_y = self.y + np.random.standard_normal(len(self.x))*.2
-        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(self.x, noisy_y, kbounds=(3, 6))
+        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
+            self.x, noisy_y, kbounds=(3, 6))
         self.assertLessEqual(X2, 1.0)
         self.assertLessEqual(abs(kbest-self.truek), 0.3)
         self.assertLessEqual(abs(a-self.truek), 0.3)

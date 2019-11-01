@@ -72,6 +72,7 @@ def create_cuts(datagroup, existing_cuts=None):
 
 class MyMplCanvas(FigureCanvas):
     """Ultimately, this is a QWidget (as well as a FigureCanvasAgg, etc.)."""
+
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
 #        self.axes = self.fig.add_subplot(111)
@@ -141,6 +142,7 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
     This class is meant to be used by factory function make_cuts, and not by the end
     user.  Jeez.  Why are you even reading this?
     """
+
     def __init__(self, datagroup, existing_cuts=None):
         QtGui.QDialog.__init__(self, None)
         self.setupUi(self)
@@ -161,10 +163,12 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
 
         # Start with cuts at default values
         self.cuts = (CutVectorStatus("Pulse average", use_min=True, cut_min=0.0, min_allowed=0., max_allowed=99999.),
-                     CutVectorStatus("Pretrigger RMS", use_max=True, cut_max=10.0, min_allowed=0., max_allowed=999.),
+                     CutVectorStatus("Pretrigger RMS", use_max=True, cut_max=10.0,
+                                     min_allowed=0., max_allowed=999.),
                      CutVectorStatus("Pretrigger mean", use_hist_min=True, hist_min=-50,
                                      use_hist_max=True, hist_max=50, min_allowed=-9999., max_allowed=9999.),
-                     CutVectorStatus("Peak Value", use_min=True, cut_min=0.0, min_allowed=0., max_allowed=99999.),
+                     CutVectorStatus("Peak Value", use_min=True, cut_min=0.0,
+                                     min_allowed=0., max_allowed=99999.),
                      CutVectorStatus("Max post-peak dp/dt", use_max=True, cut_max=30.0, min_allowed=0.,
                                      max_allowed=999.),
                      CutVectorStatus("Rise time (ms)", use_max=True, cut_max=0.7, min_allowed=0., max_allowed=25.,
@@ -260,7 +264,8 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
     @pyqtSlot(QtCore.QString)
     def changed_dataset_count(self, newval):
         nchan_plot = int(newval)
-        menu_choices = ["%d-%d" % (i, i+nchan_plot-1) for i in range(0, self.n_channels, nchan_plot)]
+        menu_choices = ["%d-%d" % (i, i+nchan_plot-1)
+                        for i in range(0, self.n_channels, nchan_plot)]
 
         # The last choice needs to be corrected if the n_channels isn't a multiple of nchan_plot
         if (self.n_channels % nchan_plot) == 1:
@@ -387,15 +392,19 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         for dsnum, (h1, h2) in enumerate(zip(hist_all, hist_good)):
             color = self.color_of_channel(dsnum)
             if (h1 != h2).any():
-                mass.mathstat.utilities.plot_as_stepped_hist(axis, h1+dsnum*offset, bins, color='gray')
+                mass.mathstat.utilities.plot_as_stepped_hist(
+                    axis, h1+dsnum*offset, bins, color='gray')
             mass.mathstat.utilities.plot_as_stepped_hist(axis, h2+dsnum*offset, bins, color=color)
             if dsnum in subaxis_number:
                 subaxis = self.canvas.axes[subaxis_number[dsnum]]
                 this_offset = n_offsets_per_sub[subaxis_number[dsnum]]*offset
                 if (h1 != h2).any():
-                    mass.mathstat.utilities.plot_as_stepped_hist(subaxis, h1+this_offset, bins, color='gray')
-                mass.mathstat.utilities.plot_as_stepped_hist(subaxis, h2+this_offset, bins, color=color)
-                subaxis.text(bins[5], 0.2*offset+this_offset, "Channel %d" % dsnum2channum[dsnum], color=color)
+                    mass.mathstat.utilities.plot_as_stepped_hist(
+                        subaxis, h1+this_offset, bins, color='gray')
+                mass.mathstat.utilities.plot_as_stepped_hist(
+                    subaxis, h2+this_offset, bins, color=color)
+                subaxis.text(bins[5], 0.2*offset+this_offset, "Channel %d" %
+                             dsnum2channum[dsnum], color=color)
                 n_offsets_per_sub[subaxis_number[dsnum]] += 1
 
         xlabel = ("Pulse average", "Pretrigger RMS", "Pretrigger mean (median subtracted)", "Peak Value",
@@ -419,14 +428,14 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         cuts_rtm = self.cuts[5].get_cut_tuple()
         cuts_pkt = self.cuts[6].get_cut_tuple()
         cuts = mass.core.controller.AnalysisControl(
-                pulse_average=cuts_avg,
-                pretrigger_rms=cuts_rms,
-                pretrigger_mean_departure_from_median=cuts_ptm,
-                peak_value=cuts_pkv,
-                postpeak_deriv=cuts_ppd,
-                rise_time_ms=cuts_rtm,
-                peak_time_ms=cuts_pkt
-                )
+            pulse_average=cuts_avg,
+            pretrigger_rms=cuts_rms,
+            pretrigger_mean_departure_from_median=cuts_ptm,
+            peak_value=cuts_pkv,
+            postpeak_deriv=cuts_ppd,
+            rise_time_ms=cuts_rtm,
+            peak_time_ms=cuts_pkt
+        )
         code_text = """
 cuts = mass.core.controller.AnalysisControl(
         pulse_average=%s,

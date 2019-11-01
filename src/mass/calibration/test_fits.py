@@ -30,7 +30,8 @@ class Test_Gaussian(unittest.TestCase):
 
     def test_failed_fit(self):
         # pass nans
-        param, covar = self.fitter.fit(np.array([np.nan]*len(self.obs)), self.x, self.params, plot=True)
+        param, covar = self.fitter.fit(
+            np.array([np.nan]*len(self.obs)), self.x, self.params, plot=True)
         self.assertFalse(self.fitter.fit_success)
         self.assertTrue(np.isnan(self.fitter.last_fit_params[0]))
         self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][0]))
@@ -97,7 +98,7 @@ class Test_Gaussian(unittest.TestCase):
                 x = np.random.standard_normal(N)*sigma
                 c, b = np.histogram(x, 100, [-50, 50])
                 param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
-                                plot=False, hold=(3, 4, 5, 6))
+                                               plot=False, hold=(3, 4, 5, 6))
                 w[i] = param[0]
             typical_width = mass.robust.trimean(w)
             self.assertLess(typical_width/fwhm, 1.05)  # was typically ~1.18 before fix
@@ -114,7 +115,7 @@ class Test_Gaussian(unittest.TestCase):
                 x = np.random.standard_normal(N)*sigma
                 c, b = np.histogram(x, 100, [-50, 50])
                 param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
-                                plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
+                                               plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
                 w[i] = param[0]
             typical_width = mass.robust.trimean(w)
             if npoints > 1:
@@ -185,7 +186,7 @@ class Test_MnKA(unittest.TestCase):
     def test_plot_and_result_string(self):
         self.do_test()
         self.fitter.plot(label="full", ph_units="arb", color="r")
-        s = self.fitter.result_string
+        self.assertIsNotNone(self.fitter.result_string)
 
 
 class Test_MnKB(unittest.TestCase):
@@ -246,7 +247,7 @@ class Test_MnKB(unittest.TestCase):
     def test_plot_and_result_string(self):
         self.do_test()
         self.fitter.plot(label="full", ph_units="arb", color="r")
-        s = self.fitter.result_string
+        self.assertIsNotNone(self.fitter.result_string)
 
 
 class Test_Voigt(unittest.TestCase):
@@ -322,6 +323,39 @@ class Test_Voigt(unittest.TestCase):
 
     def test_zero_bg(self):
         self.singletest(bg=0)
+
+
+class Test_MnKA_lmfit(unittest.TestCase):
+    def test_lmfit(self):
+        n = 10000
+        resolution = 2.5
+        bin_edges = np.arange(5850, 5950, 1.0)
+        # generate random x-ray pulse energies following MnKAlpha distribution
+        distrib = mass.calibration.fluorescence_lines.MnKAlpha()
+        values = distrib.rvs(size=n)
+        # add gaussian oise to each x-ray energy
+        sigma = resolution/2.3548
+        values += sigma*np.random.standard_normal(size=n)
+        # histogram
+        counts, _ = np.histogram(values, bin_edges)
+        model = mass.model_classes["MnKAlpha"]()
+        bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+        params = model.guess(counts, bin_centers=bin_centers)
+        result = model.fit(counts, bin_centers=bin_centers, params=params)
+        fitter = mass.MnKAlphaFitter()
+        fitter.fit(counts, bin_centers, plot=False)
+        self.assertAlmostEqual(
+            fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value, delta=2*result.params["fwhm"].stderr)
+        self.assertAlmostEqual(
+            fitter.last_fit_params_dict["resolution"][1], result.params["fwhm"].stderr, places=1)
+        self.assertAlmostEqual(
+            fitter.last_fit_params_dict["amplitude"][0], result.params["amplitude"].value, delta=2*result.params["amplitude"].stderr)
+        self.assertAlmostEqual(
+            fitter.last_fit_params_dict["amplitude"][1], result.params["amplitude"].stderr, places=-3)
+        self.assertAlmostEqual(
+            fitter.last_fit_params_dict["bg_slope"][0], result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
+        self.assertAlmostEqual(
+            fitter.last_fit_params_dict["bg_slope"][1], result.params["bg_slope"].stderr, places=1)
 
 
 if __name__ == "__main__":

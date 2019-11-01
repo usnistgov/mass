@@ -45,6 +45,7 @@ class _DataLoader(QtGui.QDialog, Ui_CreateDataset):
     This class is meant to be used by factory function create_dataset, and not by the end
     user.  Jeez.  Why are you even reading this?
     """
+
     def __init__(self, parent=None, directory="", disabled_channels=()):
         QtGui.QDialog.__init__(self, parent)
         self.setupUi(self)

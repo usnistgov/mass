@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 """
 fluorescence_lines.py
 
@@ -18,6 +19,7 @@ import numpy as np
 import scipy as sp
 import pylab as plt
 from . import line_fits
+from . import line_models
 from collections import OrderedDict
 
 from mass.mathstat.special import voigt
@@ -78,10 +80,10 @@ class SpectralLine(sp.stats.rv_continuous):
         components - True plots each voigt component in addition to the spectrum
         label - a string to label the plot with (optional)"""
         if x is None:
-            width = 3*np.amax(self.lorentzian_fwhm)
+            width = max(2*self.pdf_gaussian_fwhm, 3*np.amax(self.lorentzian_fwhm))
             lo = np.amin(self.energies)-width
             hi = np.amax(self.energies)+width
-            x = np.arange(lo, hi, 0.1)
+            x = np.linspace(lo, hi, 500)
         if axis is None:
             plt.figure()
             axis = plt.gca()
@@ -157,9 +159,6 @@ lineshape_references["Klauber 1993"] = """Data are from C. Klauber, Applied Surf
     Spectroscopy and Related Phenomena 67 (1994) 463-478 titled "Accurate measurement
     of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5 "Average" column.
     """
-lineshape_references["Ullom Email 2010"] = """
-Data are from Joel Ullom, based on email to him from Caroline Kilbourne (NASA
-GSFC) dated 28 Sept 2010."""
 lineshape_references["Wollman 2000"] = """Data are from Wollman, Nam, Newbury, Hilton, Irwin, Berfren, Deiker, Rudman,
     and Martinis, NIM A 444 (2000) page 145. They come from combining 8 earlier
     references dated 1965 - 1993."""
@@ -194,30 +193,61 @@ lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Frit
     The KBeta also appears to be a hack with scaled values."""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 lineshape_references["Joe Fowler"] = """This is what Joe Fowler measured for tungsten L-lines in 2018."""
+lineshape_references["NIST ASD"] = """NIST Atomic Spectra Database
+Kramida, A., Ralchenko, Yu., Reader, J., and NIST ASD Team (2018). NIST Atomic Spectra Database (ver. 5.6.1), [Online]. Available: https://physics.nist.gov/asd [2018, December 12]. National Institute of Standards and Technology, Gaithersburg, MD. DOI: https://doi.org/10.18434/T4W30F """
+lineshape_references["Clementson 2010"] = """J. Clementson, P. Beiersdorfer, G. V. Brown, and M. F. Gu,
+    "Spectroscopy of M-shell x-ray transitions in Zn-like through Co-like W,"
+    Physica Scripta 81, 015301 (2010). https://iopscience.iop.org/article/10.1088/0031-8949/81/01/015301/meta"""
+lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
+lineshape_references["Nilsen 1995"] = "Elliott, S. R., Beiersdorfer, P., Macgowan, B. J., & Nilsen, J. (1995). Measurements of line overlap for resonant spoiling of x-ray lasing transitions in nickle-like tungsten, 52(4), 2689–2692. https://doi.org/10.1103/PhysRevA.52.2689"
+lineshape_references["Deslattes Notebook Si"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster.
+Added by GCO Oct 7 2019. Used the postion and width values from the from the lowest listed fit, the one in energy units.
+Used the intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile).
+Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at higher energy"""
+lineshape_references["Schweppe 1992 Al"] = """J. Schweppe, R. D. Deslattes, T. Mooney, and C. J. Powell in J. Electron
+    Spectroscopy and Related Phenomena 67 (1994) 463-478 titled "Accurate measurement
+    of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5 "Average" column.
+    They do not provide a full lineshape, GCO interperpreted the paper as follows:
+    Ka1 and Ka2 positions are taken from Table 6 "This work" column
+    Ka1 and Ka2 widths were fixed as equal, and we taken the value 0.43 eV from the 2nd to last paragraph
+    The higher energy satellite features are not measured by Schweppe, and instead taken from an email from Caroline Kilbourne to Joel Ullom dated 28 Sept 2010
+    We expect these higher energy satellites do not affect the fitting of the peak location very much.
+"""
 lineshape_references["Mendenhall 2019"] = """Marcus H. Mendenhall et al., J. Phys B in press (2019).
     https://doi.org/10.1088/1361-6455/ab45d6"""
+lineshape_references["Deslattes Notebook S, Cl, K"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster.
+Added by GCO Oct 30 2019. Used the postion and width values from the from the lowest listed fit, the one in energy units.
+Used the intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile).
+The detector resolution ("width of Gauss. res. func." in MINUS-POSITON scan) is less than the Gaussian Width ("Gaussian width" in PLUS-POSITON scan)
+I haven't accounted for that, so our models still don't match Deslattes. We would need a gaussian_atomic_physics component added to our models.
+Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at higher energy or estimated them from data in
+Mauron, O., Dousse, J. C., Hoszowska, J., Marques, J. P., Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s photoionization in elements 11≤Z≤17.
+Physical Review A - Atomic, Molecular, and Optical Physics, 62(6), 062508–062501. https://doi.org/10.1103/PhysRevA.62.062508"""
+lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (2018) 125139
+    https://doi.org/10.1103/PhysRevB.97.125139"""
 
 spectrum_classes = OrderedDict()
 fitter_classes = OrderedDict()
+model_classes = OrderedDict()
 
 LORENTZIAN_PEAK_HEIGHT = 999
 LORENTZIAN_INTEGRAL_INTENSITY = 9999
 VOIGT_PEAK_HEIGHT = 99999
 
 
-def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
+def addfitter(element, linetype, material, reference_short, reference_plot_gaussian_fwhm,
               nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
-              reference_amplitude_type, ka12_energy_diff=None):
+              reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
+              position_uncertainty=0.0, reference_measurement_type=None, is_default_material=True):
 
     # require exactly one method of specifying the amplitude of each component
     assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT,
                                         LORENTZIAN_INTEGRAL_INTENSITY, VOIGT_PEAK_HEIGHT]
     # require the reference exists in lineshape_references
     assert reference_short in lineshape_references
-    # require that linetype is supported
-    # assert linetype in ["KBeta", "KAlpha", "LAlpha"]
+
     # require kalpha lines to have ka12_energy_diff
-    if linetype == "KAlpha":
+    if linetype.startswith("KAlpha"):
         ka12_energy_diff = float(ka12_energy_diff)
     # require reference_plot_gaussian_fwhm to be a float or None
     assert reference_plot_gaussian_fwhm is None or isinstance(reference_plot_gaussian_fwhm, float)
@@ -235,8 +265,9 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
     normalized_lorentzian_integral_intensity = np.array(lorentzian_integral_intensity) / \
         float(np.sum(lorentzian_integral_intensity))
 
-    dict = {
+    spectrum_attr_dict = {
         "element": element,
+        "material": material,
         "linetype": linetype,
         "energies": np.array(energies),
         "lorentzian_fwhm": np.array(lorentzian_fwhm),
@@ -245,50 +276,73 @@ def addfitter(element, linetype, reference_short, reference_plot_gaussian_fwhm,
         "reference_amplitude": reference_amplitude,
         "reference_amplitude_type": reference_amplitude_type,
         "normalized_lorentzian_integral_intensity": np.array(normalized_lorentzian_integral_intensity),
-        "nominal_peak_energy": float(nominal_peak_energy)
+        "nominal_peak_energy": float(nominal_peak_energy),
+        "fitter_type": fitter_type,
+        "position_uncertainty": float(position_uncertainty),
+        "reference_measurement_type": reference_measurement_type,
+        "is_default_material": is_default_material,
     }
-    if linetype == "KAlpha":
-        dict["ka12_energy_diff"] = ka12_energy_diff
-    classname = element+linetype
-    cls = type(classname, (SpectralLine,), dict)
+    if linetype.startswith("KAlpha"):
+        spectrum_attr_dict["ka12_energy_diff"] = ka12_energy_diff
+    classname_qualified = "{}_{}{}".format(material, element, linetype)
+    classname_unqualified = "{}{}".format(element, linetype)
 
-    # The above is nearly equivalent to the below
-    # but the below doesn't errors because it doesn't like the use of the same
-    # name in both the class and the function arguments
-    # e.g., energies and energies
-    # class cls(SpectralLine):
-    #     __name__ = element+linetype
-    #     energies = np.array(energies)
-    #     lorentzian_fwhm = np.array(lorentzian_fwhm)
-    #     reference_plot_gaussian_fwhm = float(reference_plot_gaussian_fwhm)
-    #     reference_short = reference_short
-    #     normalized_lorentzian_integral_intensity = np.array(normalized_lorentzian_integral_intensity)
-    #     nominal_peak_energy = float(nominal_peak_energy)
-
-    # add fitter to spectrum_classes dict
-    spectrum_classes[cls.__name__] = cls
-    # make the fitter be a variable in the module
-    globals()[cls.__name__] = cls
-    # create fitter as well
-    spectrum = cls()
-    if spectrum.element in ["Al", "Mg"]:
-        superclass = line_fits._lowZ_KAlphaFitter
-    elif spectrum.linetype == "KAlpha" or spectrum.linetype == "LAlpha":
-        superclass = line_fits.GenericKAlphaFitter
-    elif spectrum.linetype == "KBeta" or "LBeta" in spectrum.linetype:
-        superclass = line_fits.GenericKBetaFitter
+    if is_default_material:
+        classnames = [classname_unqualified]
     else:
-        raise ValueError("no generic fitter for {}".format(spectrum))
-    dict = {"spect": spectrum}
-    fitter_class = type(cls.__name__+"Fitter", (superclass,), dict)
-    globals()[cls.__name__+"Fitter"] = fitter_class
-    fitter_classes[cls.__name__] = fitter_class
+        classnames = [classname_qualified]
 
-    return cls
+    for classname in classnames:
+        if classname in spectrum_classes.keys():
+            raise Exception("classname {} already exists".format(classname))
+        spectrum_class = type(classname, (SpectralLine,), spectrum_attr_dict)
+        # The above is nearly equivalent to the below
+        # but the below doesn't errors because it doesn't like the use of the same
+        # name in both the class and the function arguments
+        # e.g., energies and energies
+        # class spectrum_class(SpectralLine):
+        #     __name__ = element+linetype
+        #     energies = np.array(energies)
+        #     lorentzian_fwhm = np.array(lorentzian_fwhm)
+        #     reference_plot_gaussian_fwhm = float(reference_plot_gaussian_fwhm)
+        #     reference_short = reference_short
+        #     normalized_lorentzian_integral_intensity = np.array(normalized_lorentzian_integral_intensity)
+        #     nominal_peak_energy = float(nominal_peak_energy)
+
+        # add fitter to spectrum_classes dict
+        spectrum_classes[spectrum_class.__name__] = spectrum_class
+        # make the fitter be a variable in the module
+        globals()[spectrum_class.__name__] = spectrum_class
+        # create fitter as well
+        spectrum = spectrum_class()
+        if fitter_type is not None:
+            fitter_superclass = fitter_type
+        elif spectrum.element in ["Al", "Mg"]:
+            fitter_superclass = line_fits._lowZ_KAlphaFitter
+        elif spectrum.linetype == "KAlpha" or spectrum.linetype == "LAlpha":
+            fitter_superclass = line_fits.GenericKAlphaFitter
+        elif spectrum.linetype.startswith("KBeta") or "LBeta" in spectrum.linetype:
+            fitter_superclass = line_fits.GenericKBetaFitter
+        else:
+            raise ValueError("no generic fitter for {}".format(spectrum))
+        fitter_attr_dict = {"spect": spectrum}
+        fitter_class = type(spectrum_class.__name__+"Fitter",
+                            (fitter_superclass,), fitter_attr_dict)
+        globals()[spectrum_class.__name__+"Fitter"] = fitter_class
+        fitter_classes[spectrum_class.__name__] = fitter_class
+        if fitter_superclass == line_fits.GenericKAlphaFitter:
+            model_superclass = line_models.GenericKAlphaModel
+        else:
+            model_superclass = line_models.GenericLineModel
+        model_class = type(spectrum_class.__name__+"Model", (model_superclass,), fitter_attr_dict)
+        model_classes[spectrum_class.__name__] = model_class
+
+    return spectrum_class
 
 
-mgka = addfitter(
+addfitter(
     element="Mg",
+    material="metal",
     linetype="KAlpha",
     reference_short="Klauber 1993",
     reference_plot_gaussian_fwhm=None,
@@ -302,19 +356,22 @@ mgka = addfitter(
 
 addfitter(
     element="Al",
+    material="metal",
     linetype="KAlpha",
-    reference_short="Ullom Email 2010",
+    reference_short="Schweppe 1992 Al",
     reference_plot_gaussian_fwhm=None,
     nominal_peak_energy=1486.88931733,
-    energies=np.array((1486.9, 1486.5, 1492.3, 1496.4, 1498.4)),
+    energies=np.array((1486.706, 1486.293, 1492.3, 1496.4, 1498.4)),
     lorentzian_fwhm=np.array((0.43, 0.43, 1.34, 0.96, 1.255)),
     reference_amplitude=np.array((1, .5, .02, .12, .06)),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=3.0,
+    position_uncertainty=0.010,
 )
 
 addfitter(
-    element="AlOx",
+    element="Al",
+    material="AlO",
     linetype="KAlpha",
     reference_short="Wollman 2000",
     reference_plot_gaussian_fwhm=None,
@@ -324,10 +381,72 @@ addfitter(
     reference_amplitude=np.array((1.0, 0.5, 0.033, 0.12, 0.11, 0.07, 0.05)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=3.,
+    is_default_material=False
+)
+
+addfitter(
+    element="Si",
+    material="Si crystal",
+    linetype="KAlpha",
+    reference_short="Deslattes Notebook Si",
+    reference_plot_gaussian_fwhm=0.245,
+    nominal_peak_energy=1739.986,
+    energies=np.array((1739.39, 1739.986, 1752.0)),
+    lorentzian_fwhm=np.array((0.539, 0.524, 5)),
+    reference_amplitude=np.array((3.134e2, 6.121e3, 8e2)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=.6,
+    position_uncertainty=0.040
+)
+
+addfitter(
+    element="S",
+    material="MoS2 spray",
+    linetype="KAlpha",
+    reference_short="Deslattes Notebook S, Cl, K",
+    reference_plot_gaussian_fwhm=0.2414,
+    nominal_peak_energy=2307.89,
+    energies=np.array((2307.89, 2306.70)),
+    lorentzian_fwhm=np.array((0.769, 0.722)),
+    reference_amplitude=np.array((0.11951e5, 0.61114e4)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=1.19,
+    position_uncertainty=0.040
+)
+
+addfitter(
+    element="Cl",
+    material="KCl crystal",
+    linetype="KAlpha",
+    reference_short="Deslattes Notebook S, Cl, K",
+    reference_plot_gaussian_fwhm=0.266,
+    nominal_peak_energy=2622.44,
+    energies=np.array((2622.44, 2620.85, 2640)),
+    lorentzian_fwhm=np.array((0.925, 0.945, 5)),
+    reference_amplitude=np.array((0.15153e5, 0.82429e4, 0.15153e5/8.0)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=1.6,
+    position_uncertainty=0.040
+)
+
+addfitter(
+    element="K",
+    material="KCl crystal",
+    linetype="KAlpha",
+    reference_short="Deslattes Notebook S, Cl, K",
+    reference_plot_gaussian_fwhm=0.0896,
+    nominal_peak_energy=3313.93,
+    energies=np.array((3313.93, 3311.17)),
+    lorentzian_fwhm=np.array((0.948, 0.939)),
+    reference_amplitude=np.array((0.15153e5, 0.82429e4)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=2.75,
+    position_uncertainty=0.020
 )
 
 addfitter(
     element="Sc",
+    material="metal",
     linetype="KAlpha",
     reference_short="Chantler 2006",
     reference_plot_gaussian_fwhm=0.52,
@@ -342,6 +461,7 @@ addfitter(
 addfitter(
     # The paper has two sets of TiKAlpha data, I used the set Refit of [21] Kawai et al 1994
     element="Ti",
+    material="metal",
     linetype="KAlpha",
     reference_short="Chantler 2006",
     reference_plot_gaussian_fwhm=0.11,
@@ -355,6 +475,7 @@ addfitter(
 
 addfitter(
     element="Ti",
+    material="metal",
     linetype="KBeta",
     reference_short="Chantler 2013",
     reference_plot_gaussian_fwhm=1.244,
@@ -367,6 +488,7 @@ addfitter(
 
 addfitter(
     element="V",
+    material="metal",
     linetype="KAlpha",
     reference_short="Chantler 2006",
     reference_plot_gaussian_fwhm=1.99,  # Table I, other parameters
@@ -380,6 +502,7 @@ addfitter(
 
 addfitter(
     element="V",
+    material="metal",
     linetype="KBeta",
     reference_short="Chantler 2013, Section 5",
     reference_plot_gaussian_fwhm=None,
@@ -392,6 +515,7 @@ addfitter(
 
 addfitter(
     element="Cr",
+    material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
     reference_plot_gaussian_fwhm=None,
@@ -405,6 +529,7 @@ addfitter(
 
 addfitter(
     element="Cr",
+    material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
     reference_plot_gaussian_fwhm=None,
@@ -417,6 +542,7 @@ addfitter(
 
 addfitter(
     element="Mn",
+    material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
     reference_plot_gaussian_fwhm=None,
@@ -430,6 +556,7 @@ addfitter(
 
 addfitter(
     element="Mn",
+    material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
     reference_plot_gaussian_fwhm=None,
@@ -442,6 +569,7 @@ addfitter(
 
 addfitter(
     element="Fe",
+    material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
     reference_plot_gaussian_fwhm=None,
@@ -455,6 +583,7 @@ addfitter(
 
 addfitter(
     element="Fe",
+    material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
     reference_plot_gaussian_fwhm=None,
@@ -467,6 +596,7 @@ addfitter(
 
 addfitter(
     element="Co",
+    material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
     reference_plot_gaussian_fwhm=None,
@@ -480,6 +610,7 @@ addfitter(
 
 addfitter(
     element="Co",
+    material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
     reference_plot_gaussian_fwhm=None,
@@ -492,6 +623,7 @@ addfitter(
 
 addfitter(
     element="Ni",
+    material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
     reference_plot_gaussian_fwhm=None,
@@ -505,6 +637,7 @@ addfitter(
 
 addfitter(
     element="Ni",
+    material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
     reference_plot_gaussian_fwhm=None,
@@ -517,6 +650,7 @@ addfitter(
 
 addfitter(
     element="Cu",
+    material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997",
     reference_plot_gaussian_fwhm=None,
@@ -530,6 +664,7 @@ addfitter(
 
 addfitter(
     element="Cu",
+    material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
     reference_plot_gaussian_fwhm=None,
@@ -542,6 +677,7 @@ addfitter(
 
 addfitter(
     element="Zn",
+    material="metal",
     linetype="KAlpha",
     reference_short="Zn Hack",
     reference_plot_gaussian_fwhm=None,
@@ -555,6 +691,7 @@ addfitter(
 
 addfitter(
     element="Zn",
+    material="metal",
     linetype="KBeta",
     reference_short="Zn Hack",
     reference_plot_gaussian_fwhm=None,
@@ -567,6 +704,7 @@ addfitter(
 
 addfitter(
     element="Br",
+    material="metal",
     linetype="KAlpha",
     reference_short="Steve Smith",
     reference_plot_gaussian_fwhm=None,
@@ -581,6 +719,7 @@ addfitter(
 
 addfitter(
     element="W",
+    material="metal",
     linetype="LAlpha",
     reference_short="Joe Fowler",
     reference_plot_gaussian_fwhm=None,
@@ -594,6 +733,7 @@ addfitter(
 
 addfitter(
     element="W",
+    material="metal",
     linetype="LBeta1",
     reference_short="Joe Fowler",
     reference_plot_gaussian_fwhm=None,
@@ -607,6 +747,7 @@ addfitter(
 
 addfitter(
     element="W",
+    material="metal",
     linetype="LBeta2",
     reference_short="Joe Fowler",
     reference_plot_gaussian_fwhm=None,
@@ -619,7 +760,36 @@ addfitter(
 
 
 addfitter(
+    element="Nb",
+    linetype="KBeta",
+    material="Nb2O5",
+    reference_short="Ravel 2018",
+    reference_plot_gaussian_fwhm=1.2,
+    nominal_peak_energy=18625.4,
+    energies=np.array((18625.4, 18609.9)),
+    lorentzian_fwhm=np.array((6.7, 6.7)),
+    reference_amplitude=np.array((1, 0.5)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addfitter(
+    element="Nb",
+    linetype="KBeta24",
+    material="Nb2O5",
+    reference_short="Ravel 2018",
+    reference_plot_gaussian_fwhm=1.2,
+    nominal_peak_energy=18952.79,
+    energies=np.array((18952.79, 18968.0, 18982.7)),
+    lorentzian_fwhm=np.array((8.67, 1.9, 5.2)),
+    reference_amplitude=np.array((14.07, 0.066, 0.359)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addfitter(
     element="Mo",
+    material="metal",
     linetype="KAlpha",
     reference_short="Mendenhall 2019",
     reference_plot_gaussian_fwhm=0.02,
@@ -634,6 +804,7 @@ addfitter(
 
 addfitter(
     element="Mo",
+    material="metal",
     linetype="KBeta",
     reference_short="Mendenhall 2019",
     reference_plot_gaussian_fwhm=0.02,
@@ -655,7 +826,7 @@ def plot_all_spectra():
 
 
 if __name__ == "__main__":
-    spectrum = mgka()
+    spectrum = fitter_classes["MgKAlpha"]()
     spectrum.rvs(100)
     spectrum.gaussian_fwhm = 1
     spectrum.rvs(100)

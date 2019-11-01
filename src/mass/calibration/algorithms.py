@@ -29,7 +29,8 @@ def line_names_and_energies(line_names):
     if len(line_names) <= 0:
         return [], []
 
-    energies = [STANDARD_FEATURES.get(name_or_energy, name_or_energy) for name_or_energy in line_names]
+    energies = [STANDARD_FEATURES.get(name_or_energy, name_or_energy)
+                for name_or_energy in line_names]
     # names = [str(name_or_energy) for name_or_energy in line_names]
     return zip(*sorted(zip(line_names, energies), key=operator.itemgetter(1)))
 
@@ -180,8 +181,7 @@ def getfitter(name):
         "MnKAlpha" will return a MnKAlphaFitter
         "1150" will return a GaussianFitter
     """
-    return mass.calibration.fitter_classes.get(name,mass.calibration.GaussianFitter)()
-
+    return mass.calibration.fitter_classes.get(name, mass.calibration.GaussianFitter)()
 
 
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
@@ -292,7 +292,8 @@ class EnergyCalibrationAutocal(object):
         """All calibration emission lines are fitted with ComplexFitter or GaussianFitter
         self.line_names will be sored by energy after this method is finished.
         """
-        mresult = multifit(self.ph, self.line_names, self.fit_lo_hi, self.binsize_ev, self.slopes_de_dph)
+        mresult = multifit(self.ph, self.line_names, self.fit_lo_hi,
+                           self.binsize_ev, self.slopes_de_dph)
 
         for ph, e, n in zip(mresult["peak_ph"], mresult["energies"], mresult['line_names']):
             self.calibration.add_cal_point(ph, e, name=str(n))
@@ -336,13 +337,13 @@ class EnergyCalibrationAutocal(object):
 
             x = np.linspace(fitter.last_fit_bins[0], fitter.last_fit_bins[-1], 201)
             if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
-                ax.text(0.05, 0.97, str(el) +
-                        ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(eres),
+                ax.text(0.05, 0.97, str(el)
+                        + ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(eres),
                         transform=ax.transAxes, ha='left', va='top')
                 # y = [np.median(fitter.theory_function(fitter.params, a)) for a in x]
             else:
-                ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$') +
-                        '\n' + "Resolution: {0:.1f} (eV)".format(eres),
+                ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
+                        + '\n' + "Resolution: {0:.1f} (eV)".format(eres),
                         transform=ax.transAxes, ha='left', va='top')
             y = fitter.fitfunc(fitter.last_fit_params, x)
             ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)

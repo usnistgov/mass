@@ -1,12 +1,4 @@
-import tempfile
-import os.path
-
-import numpy as np
-import os
-import shutil
 import unittest as ut
-
-import mass
 
 
 import logging
@@ -15,15 +7,13 @@ LOG.setLevel(logging.NOTSET)
 
 
 class TestDemos(ut.TestCase):
-    # @classmethod
-    # def setUpClass(cls):
-    #     pass
-
     def test_fitting_demo(self):
         import fitting_demo
+        self.assertIsNotNone(fitting_demo)
 
     def test_fitting_fluorescence_demo(self):
         import fitting_fluorescence
+        self.assertIsNotNone(fitting_fluorescence)
 
     # fails with NameError: global name 'get_ipython' is not defined
     # def test_intro_demo(self):

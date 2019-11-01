@@ -45,15 +45,15 @@ class Test_Shorth(unittest.TestCase):
         """Verify behavior of the sort_inplace argument."""
         x = [7, 1, 2, 3, 4, 5, 6]
         y = numpy.array(x)
-        _ignore = shorth_range(x, sort_inplace=False)
-        _ignore = shorth_range(y, sort_inplace=False)
+        self.assertIsNotNone(shorth_range(x, sort_inplace=False))
+        self.assertIsNotNone(shorth_range(y, sort_inplace=False))
         self.assertEqual(x[0], 7, msg="shorth_range has reordered a list when asked not to.")
         self.assertEqual(y[0], 7, msg="shorth_range has reordered a ndarray when asked not to.")
 
         # If sort_inplace=True on a non-array, a Value Error is supposed to be raised.
         self.assertRaises(ValueError, shorth_range, x, sort_inplace=True)
 
-        _ignore = shorth_range(y, sort_inplace=True)
+        self.assertIsNotNone(shorth_range(y, sort_inplace=True))
         self.assertEqual(y[0], 1,
                          msg="shorth_range has not sorted a ndarray in place when requested to do so.")
 

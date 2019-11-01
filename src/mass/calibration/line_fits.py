@@ -7,7 +7,6 @@ Separated line fits (here) from the line shapes (still in fluorescence_lines.py)
 """
 
 import numpy as np
-import scipy as sp
 import pylab as plt
 
 from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
@@ -181,7 +180,8 @@ class LineFitter(object):
                     integrate_n_points = 7
 
             if integrate_n_points % 2 != 1 or integrate_n_points < 1:
-                raise ValueError("integrate_n_points=%d, want an odd, positive number" % integrate_n_points)
+                raise ValueError("integrate_n_points=%d, want an odd, positive number" %
+                                 integrate_n_points)
 
             # In this block, replace fitfunc with the version that integrates numerically across bins
             fitfunc = self.fitfunc
@@ -202,7 +202,7 @@ class LineFitter(object):
                     def integrated_model(params, _x):
                         y = self.fitfunc(params, x_values)
                         ninterv = integrate_n_points-1
-                        dx = 1.0/ninterv
+                        # dx = 1.0/ninterv
                         z = y[0:-1:ninterv] + y[ninterv::ninterv]
                         for i in range(1, ninterv, 2):
                             z += 4.0*y[i::ninterv]
@@ -244,7 +244,8 @@ class LineFitter(object):
             if params is None:
                 self.failed_fit_starting_fitfunc = np.ones(len(self.last_fit_contents))*np.nan
             else:
-                self.failed_fit_starting_fitfunc = self.fitfunc(self.failed_fit_params, self.last_fit_bins)
+                self.failed_fit_starting_fitfunc = self.fitfunc(
+                    self.failed_fit_params, self.last_fit_bins)
 
         if plot:
             self.plot(color, axis, label, ph_units)
@@ -252,7 +253,8 @@ class LineFitter(object):
         return self.last_fit_params, self.last_fit_cov
 
     def setbounds(self, params, ph):
-        msg = "%s is an abstract base class; cannot be used without implementing setbounds" % type(self)
+        msg = "%s is an abstract base class; cannot be used without implementing setbounds" % type(
+            self)
         raise NotImplementedError(msg)
 
     def _minBG0(self, params, ph):
@@ -276,7 +278,7 @@ class LineFitter(object):
         """
         labeldict = {meaning: meaning+" %.3g +- %.3g" for meaning in self.param_meaning.keys()}
         labeldict["resolution"] = "FWHM: %.3g +- %.3g"
-        labeldict["tail_frac"] = "f$_\\mathrm{tail}$: %.1f +- %.1f"
+        labeldict["tail_frac"] = "f$_\\mathrm{tail}$: %.3f +- %.3f"
         labeldict["peak_ph"] = "peak_ph: %.7g +- %.3g"
         slabel = ""
         for (meaning, i) in self.param_meaning.items():
@@ -296,9 +298,11 @@ class LineFitter(object):
         axis.plot(self.last_fit_bins, self.failed_fit_starting_fitfunc, color='m',
                   label="failed fit\nguess params shown")
         ph_binsize = self.last_fit_bins[1] - self.last_fit_bins[0]
-        axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize, self.last_fit_bins[-1] + 0.5 * ph_binsize])
+        axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize,
+                       self.last_fit_bins[-1] + 0.5 * ph_binsize])
         axis.set_xlabel("energy (%s)" % ph_units)
         axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
+        axis.set_title("failed fit")
         axis.legend(loc="best", frameon=False)
 
     def plot(self, color=None, axis=None, label=True, ph_units="arb"):
@@ -322,7 +326,8 @@ class LineFitter(object):
 
         plot_as_stepped_hist(axis, self.last_fit_contents, self.last_fit_bins, color=color)
         ph_binsize = self.last_fit_bins[1] - self.last_fit_bins[0]
-        axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize, self.last_fit_bins[-1] + 0.5 * ph_binsize])
+        axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize,
+                       self.last_fit_bins[-1] + 0.5 * ph_binsize])
         axis.set_xlabel("energy (%s)" % ph_units)
         axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
 
