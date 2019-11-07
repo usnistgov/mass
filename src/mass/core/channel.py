@@ -1173,7 +1173,8 @@ class MicrocalDataSet(object):
         data, pulsenums = self.first_n_good_pulses(4000, category=category)
         if shift1:
             raw = data[:, 1:]
-            raw[shift1, :] = data[self.p_shift1[:][pulsenums], 0:-1]
+            _shift1 = self.p_shift1[:][pulsenums]
+            raw[_shift1, :] = data[_shift1, 0:-1]
         else:
             raw = data[:,:]
 
