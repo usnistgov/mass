@@ -1138,7 +1138,7 @@ class MicrocalDataSet(object):
         f.compute(fmax=fmax, f_3db=f_3db)
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0, category={}):
+    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0, category={}, shift1=True):
         """Compute a new-style filter to model the pulse and its time-derivative.
 
         Args:
@@ -1151,6 +1151,10 @@ class MicrocalDataSet(object):
                 before filtering (default None)
             cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
             cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
+            shift1: Potentially shift each pulse by one sample based on ds.shift1 value, 
+            resulting filter is one sample shorter than pulse records. 
+            You probably want True, because GCO didn't make filter application aware of this.
+            This argument is just for making filters for use in Dastard.
 
         Returns:
             the filter (an ndarray)
@@ -1167,9 +1171,12 @@ class MicrocalDataSet(object):
 
         # The raw training data, which is shifted (trigger-aligned)
         data, pulsenums = self.first_n_good_pulses(4000, category=category)
-        raw = data[:, 1:]
-        shift1 = self.p_shift1[:][pulsenums]
-        raw[shift1, :] = data[shift1, 0:-1]
+        if shift1:
+            raw = data[:, 1:]
+            _shift1 = self.p_shift1[:][pulsenums]
+            raw[_shift1, :] = data[_shift1, 0:-1]
+        else:
+            raw = data[:,:]
 
         # Center promptness around 0, using a simple function of Prms
         prompt = self.p_promptness[:][pulsenums]
@@ -1198,7 +1205,10 @@ class MicrocalDataSet(object):
 
         # The 0 component of the model is an average pulse, but do not use
         # self.average_pulse, because it doesn't account for the shift1.
-        model = np.zeros((self.nSamples-1, 1+DEGREE), dtype=float)
+        if shift1:
+            model = np.zeros((self.nSamples-1, 1+DEGREE), dtype=float)
+        else:
+            model = np.zeros((self.nSamples, 1+DEGREE), dtype=float)
         ap = (raw.T/rawscale).mean(axis=1)
         apmax = np.max(ap)
         model[:, 0] = ap/apmax
