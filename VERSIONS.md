@@ -1,5 +1,10 @@
 ## Note on version numbers of Mass
 
+**0.7.1** November 2019-
+
+* More neon HCI lines.
+* compute_newfilter(...) takes option to turn off shift-by-1 (useful when working on Dastard data).
+
 **0.7.0** December 2018-October 2019
 
 * Add partial use of [LMFit](https://lmfit.github.io/lmfit-py/index.html) for fitting.
