@@ -1258,7 +1258,12 @@ class MicrocalDataSet(object):
             filter_values = self.hdf5_group['filters/%s' % filter_name].value
 
         if self._use_new_filters:
-            filterfunction = self._filter_data_segment_new
+            if len(filter_values) == self.nSamples - 1:
+                filterfunction = self._filter_data_segment_new
+            elif len(filter_values) == ds.nSamples:
+                # when dastard uses kink model for determining trigger location, we don't need to shift1
+                # this code path should be followed when filters are created with the shift1=False argument
+                filterfunction = self._filter_data_segment_new_dont_shift1
             filter_AT = self.filter.filt_aterms[0]
         else:
             filterfunction = self._filter_data_segment_old
@@ -1330,6 +1335,22 @@ class MicrocalDataSet(object):
         conv1[want_to_shift] = np.dot(data[want_to_shift, :-1], filter_AT)
         AT = conv1 / conv0
         return AT, conv0
+
+    def _filter_data_segment_new_dont_shift1(self, filter_values, filter_AT, first, end, transform=None):
+        #dastard with the kink model fitting to choose trigger location doesn't need any shifts
+        assert len(filter_values == self.nSamples)
+        seg_size = end - first
+        assert seg_size == self.data.shape[0]
+        ptmean = self.p_pretrig_mean[first:end]
+        data = self.data
+        if transform is not None:
+            ptmean.shape = (seg_size, 1)
+            data = transform(self.data - ptmean)
+            ptmean.shape = (seg_size,)
+        conv0 = np.dot(data, filter_values)
+        conv1 = np.dot(data, filter_AT)
+        AT = conv1 / conv0
+        return AT, conv0       
 
     def plot_summaries(self, valid='uncut', downsample=None, log=False):
         """Plot a summary of the data set, including time series and histograms of
