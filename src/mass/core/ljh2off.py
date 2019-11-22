@@ -84,7 +84,7 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
             offdata.tofile(f)
 
 def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples):
-    projectors_dict = load_projectors(args.h5_path)
+    projectors_dict = load_projectors(h5_path)
     basename, channum = mass.ljh_util.ljh_basename_channum(ljhpath)
     ljhdir, file_basename = os.path.split(basename)
     off_basename = os.path.join(output_dir, file_basename)
@@ -153,6 +153,5 @@ class FakeArgs():
 
     def __repr__(self):
         return "FakeArgs: change the script to have _TEST=False to use real args, this is just for testing from within ipython"
-
 
 
