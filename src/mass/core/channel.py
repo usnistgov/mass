@@ -1297,14 +1297,14 @@ class MicrocalDataSet(object):
 
         if self._use_ats_filters:
             if len(filter_values) == self.nSamples - 1:
-                filterfunction = self._filter_data_segment_new
+                filterfunction = self._filter_data_segment_ats
             elif len(filter_values) == self.nSamples:
                 # when dastard uses kink model for determining trigger location, we don't need to shift1
                 # this code path should be followed when filters are created with the shift1=False argument
-                filterfunction = self._filter_data_segment_new_dont_shift1
+                filterfunction = self._filter_data_segment_ats_dont_shift1
             filter_AT = self.filter.filt_aterms[0]
         else:
-            filterfunction = self._filter_data_segment_old
+            filterfunction = self._filter_data_segment_5lag
             filter_AT = None
 
         for s in range(self.pulse_records.n_segments):
@@ -1317,37 +1317,47 @@ class MicrocalDataSet(object):
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
-    def get_projectors(self, n_basis):
+    def get_projectors(self, f, n_basis, pulses_for_svd):
         assert n_basis >=3
-
-        pass
-
-    @_add_group_loop
-    def store_projectors(self, hdf5_file):
-        import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
-        invert = self.__dict__.get("invert_data", False)
-        scale = -1 if invert else 1
-        f = ds.filter
-        deriv_like_model = f.pulsemodel[:,1]*scale
-        pulse_like_model = f.pulsemodel[:,0]*scale
-        deriv_like_projector = f.filt_aterms*scale
-        pulse_like_projector = f.filt_noconst*scale
+        deriv_like_model = f.pulsemodel[:,1]
+        pulse_like_model = f.pulsemodel[:,0]
+        deriv_like_projector = f.filt_aterms
+        pulse_like_projector = f.filt_noconst
         mean_model = np.ones(len(deriv_like_model))/np.sqrt(float(len(deriv_like_model)))
         projectors = np.vstack((mean_model, deriv_like_projector, pulse_like_projector)).T
-        models = np.vstack((mean_model, deriv_like_model, pulse_like_model))
+        basis = np.vstack((mean_model, deriv_like_model, pulse_like_model))
+        if n_basis > 3:
+            import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
 
-        data, pulsenums = self.first_n_good_pulses(4000, category=category)
-        mpc = np.matmul(data, projectors) # modeled pulse coefs
-        mp  = np.matmul(models, mpc) # moded pulse
-        residuals = data-mp
-        svd = sklearn.decomposition.TruncatedSVD(n_components=3)
-        svd.fit(residuals)
+            mpc = np.matmul(pulses_for_svd, projectors) # modeled pulse coefs
+            mp  = np.matmul(mpc, basis) # moded pulse
+            residuals = pulses_for_svd-mp
+            svd = sklearn.decomposition.TruncatedSVD(n_components=n_basis-3)
+            svd.fit(residuals)
+            basis = np.vstack([basis, svd.components_])
+            projectors = np.hstack([projectors, svd.components_.T])
+        return projectors, basis
 
-        hdf5_file["{}/svdbasis/projectors".format(ds.channum)]=projectors # projectors is NxM, where N is samples/record and M the number of basis elements
-        hdf5_file["{}/svdbasis/basis".format(ds.channum)]=models # models is MxN
+
+    @_add_group_loop
+    def _projectors_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):
+        import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
+
+        if pulses_for_svd is None:
+            pulses_for_svd, _ = self.first_n_good_pulses(4000)
+        projectors, basis = self.get_projectors(self.filter, n_basis, pulses_for_svd)
+        
+        inverted = self.__dict__.get("invert_data", False)
+        if inverted: 
+            # flip every component except the mean component if pulses are inverted
+            basis[1:,:]*=-1
+            projectors[:,1:]*=-1
+
+        hdf5_file["{}/svdbasis/projectors".format(self.channum)]=projectors # projectors is NxM, where N is samples/record and M the number of basis elements
+        hdf5_file["{}/svdbasis/basis".format(self.channum)]=basis # models is MxN
 
 
-    def _filter_data_segment_old(self, filter_values, _filter_AT, first, end, transform=None):
+    def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
         """Traditional 5-lag filter used by default until 2015."""
         if first >= self.nPulses:
             return None, None
@@ -1379,7 +1389,7 @@ class MicrocalDataSet(object):
         peak_y = param[0, :] - 0.25 * param[1, :]**2 / param[2, :]
         return peak_x, peak_y
 
-    def _filter_data_segment_new(self, filter_values, filter_AT, first, end, transform=None):
+    def _filter_data_segment_ats(self, filter_values, filter_AT, first, end, transform=None):
         """single-lag filter developed in 2015"""
         if first >= self.nPulses:
             return None, None
@@ -1404,7 +1414,7 @@ class MicrocalDataSet(object):
         AT = conv1 / conv0
         return AT, conv0
 
-    def _filter_data_segment_new_dont_shift1(self, filter_values, filter_AT, first, end, transform=None):
+    def _filter_data_segment_ats_dont_shift1(self, filter_values, filter_AT, first, end, transform=None):
         #dastard with the kink model fitting to choose trigger location doesn't need any shifts
         assert len(filter_values == self.nSamples)
         seg_size = end - first

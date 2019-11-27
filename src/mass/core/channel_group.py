@@ -573,6 +573,21 @@ class TESGroup(CutFieldMixin, GroupLooper):
             except Exception as e:
                 self.set_chan_bad(ds.channum, "summarize_data failed with %s" % e)
 
+    def projectors_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False):
+        if hdf5_file is None:
+            basename, _ = self.datasets[0].filename.split("chan")
+            hdf5_filename = basename+"model.hdf5"
+            if os.path.isfile(hdf5_filename):
+                if not replace_output:
+                    raise Exception("file {} already exists, pass replace_output = True to overwrite".format(hdf5_filename))
+            with h5py.File(hdf5_filename, "w") as hdf5_file:
+                self._projectors_to_hdf5(hdf5_file, n_basis)
+                print("writing projectors to {}".format(hdf5_filename))
+        else:
+            print("writing projectors to {}".format(hdf5_filename))
+            self._projectors_to_hdf5(hdf5_file, n_basis)
+        return hdf5_filename
+
     def calc_external_trigger_timing(self, after_last=False, until_next=False,
                                      from_nearest=False, forceNew=False):
         if not (after_last or until_next or from_nearest):
