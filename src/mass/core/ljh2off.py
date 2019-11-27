@@ -62,7 +62,7 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
             # print("i_lo {}, i_hi {}, i_segment {}, nnow {}, nsum {}".format(i_lo, i_hi, i_segment, data.shape[0], n))
             timestamps = ljhfile.datatimes_float
             rowcounts = ljhfile.rowcount
-            mpc = np.matmul(data,projectors) # modeled pulse coefs
+            mpc = np.matmul(data, projectors) # modeled pulse coefs
             mp = np.matmul(mpc, basis) # modeled pulse
             residuals = mp-data
             offdata = np.zeros(data.shape[0], dtype)

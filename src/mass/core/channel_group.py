@@ -937,57 +937,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
 
-    @show_progress("compute_filters")
-    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}):
-        """
-        compute_filters(self, fmax=None, f_3db=None, forceNew=False)
-
-        Looks at ds._use_new_filters to decide which type of filter to use.
-
-        cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
-        cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
-        """
-        # Analyze the noise, if not already done
-        needs_noise = any([ds.noise_autocorr[0] == 0.0
-                           or ds.noise_psd[1] == 0 for ds in self])
-        if needs_noise:
-            LOG.debug("Computing noise autocorrelation and spectrum")
-            self.compute_noise_spectra()
-
-        for ds_num, ds in enumerate(self):
-            if "filters" not in ds.hdf5_group or forceNew:
-                if len(ds.first_n_good_pulses(10, category=category)[0]) < 10:
-                    ds.filter = None
-                    self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
-                    continue
-                if ds._use_new_filters:
-                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db,
-                                             cut_pre=cut_pre, cut_post=cut_post, category=category)
-                else:
-                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db,
-                                             cut_pre=cut_pre, cut_post=cut_post, category=category)  # uses average pulse, not category
-                ds.filter = f
-
-                # Store all filters created to a new HDF5 group
-                h5grp = ds.hdf5_group.require_group('filters')
-                if f.f_3db is not None:
-                    h5grp.attrs['f_3db'] = f.f_3db
-                if f.fmax is not None:
-                    h5grp.attrs['fmax'] = f.fmax
-                h5grp.attrs['peak'] = f.peak_signal
-                h5grp.attrs['shorten'] = f.shorten
-                h5grp.attrs['newfilter'] = ds._use_new_filters
-                for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
-                          "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
-                    if k in h5grp:
-                        del h5grp[k]
-                    if getattr(f, k, None) is not None:
-                        vec = h5grp.create_dataset(k, data=getattr(f, k))
-                        shortname = k.split('filt_')[1]
-                        vec.attrs['variance'] = f.variances.get(shortname, 0.0)
-                        vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv.get(shortname, 0.0)
-                yield (ds_num + 1) / float(self.n_channels)
-
     def plot_filters(self, axis=None, channels=None, cmap=None,
                      filtname="filt_noconst", legend=True):
         """Plot the optimal filters.
