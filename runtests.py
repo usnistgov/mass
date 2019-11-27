@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 LOG = logging.getLogger("mass")
 LOG.setLevel(logging.WARNING)
 
-VERBOSE = 1
+VERBOSE = 0
 # search mass and all subdirs for files matching "test_*.py"
 # dont look for tests in build directories
 ignoredirs = ("temp.macosx", "lib.macosx", ".git", "__pycache__", "dist", "mass.egg-info")

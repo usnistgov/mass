@@ -573,6 +573,17 @@ class TESGroup(CutFieldMixin, GroupLooper):
             except Exception as e:
                 self.set_chan_bad(ds.channum, "summarize_data failed with %s" % e)
 
+    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}, filter_type="ats"):
+        for ds in self.datasets:
+            if hasattr(ds, "_use_new_filters"):
+                raise Exception("ds._use_new_filters is deprecated, use the filter_type argument to this function instead")
+        if filter_type == "ats":
+            self.compute_ats_filter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post, forceNew=forceNew, category=category)
+        elif filter_type == "5lag":
+            self.compute_5lag_filter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post, forceNew=forceNew, category=category)
+        else:
+            raise Exception("filter_type must be one of `ats` or `5lag`")
+
     def projectors_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False):
         if hdf5_file is None:
             basename, _ = self.datasets[0].filename.split("chan")

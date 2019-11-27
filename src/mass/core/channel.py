@@ -565,7 +565,7 @@ class GroupLooper(object):
     pass
 
 
-def _add_group_loop(method):
+def _add_group_loop(throw_errors=True):
     """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
 
     This is a decorator to add before method definitions inside class MicrocalDataSet.
@@ -574,37 +574,45 @@ def _add_group_loop(method):
     class MicrocalDataSet(...):
         ...
 
-        @_add_group_loop
+        @_add_group_loop()
         def awesome_fuction(self, ...):
             ...
     """
 
-    method_name = method.__name__
+    def decorator(method):
+        method_name = method.__name__
 
-    def wrapper(self, *args, **kwargs):
-        for ds in self:
-            try:
-                method(ds, *args, **kwargs)
-            except KeyboardInterrupt as e:
-                raise e
-            except Exception as e:
-                self.set_chan_bad(ds.channum, "failed %s with %s" % (method_name, e))
+        def wrapper(self, *args, **kwargs):
+            for ds in self:
+                try:
+                    method(ds, *args, **kwargs)
+                except KeyboardInterrupt as e:
+                    raise e
+                except Exception as e:
+                    if throw_errors:
+                        import traceback, sys
+                        exc_type, exc_value, exc_traceback = sys.exc_info()
+                        s = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                        new_ex = Exception("an error happened during a group loop, the exception was {}\nTRACEBACK BELOW\n{}".format(e,s))
+                        raise new_ex
+                    self.set_chan_bad(ds.channum, "failed %s with %s" % (method_name, e))
 
-    wrapper.__name__ = method_name
+        wrapper.__name__ = method_name
 
-    # Generate a good doc-string.
-    lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
-    arginfo = inspect.getargspec(method)
-    argtext = inspect.formatargspec(*arginfo)
-    if method.__doc__ is None:
-        lines.append("\n%s%s has no docstring" % (method_name, argtext))
-    else:
-        lines.append("\n%s%s docstring reads:" % (method_name, argtext))
-        lines.append(method.__doc__)
-    wrapper.__doc__ = "\n".join(lines)
+        # Generate a good doc-string.
+        lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
+        arginfo = inspect.getargspec(method)
+        argtext = inspect.formatargspec(*arginfo)
+        if method.__doc__ is None:
+            lines.append("\n%s%s has no docstring" % (method_name, argtext))
+        else:
+            lines.append("\n%s%s docstring reads:" % (method_name, argtext))
+            lines.append(method.__doc__)
+        wrapper.__doc__ = "\n".join(lines)
 
-    setattr(GroupLooper, method_name, wrapper)
-    return method
+        setattr(GroupLooper, method_name, wrapper)
+        return method
+    return decorator
 
 
 class MicrocalDataSet(object):
@@ -663,7 +671,7 @@ class MicrocalDataSet(object):
         self.column_number = None
 
         self._external_trigger_rowcount = None
-        self._use_ats_filters = True
+        self._filter_type = "ats"
 
         self.row_timebase = None
 
@@ -742,13 +750,9 @@ class MicrocalDataSet(object):
             fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
             f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
             shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
-            if "newfilter" in filter_group.attrs:
-                newfilter = filter_group.attrs["newfilter"]
-            else:
-                newfilter = "filt_aterms" in filter_group.keys()
-            self._use_ats_filters = newfilter
+            filter_type = filter_group.attrs["filter_type"] # expect a string
 
-            if self._use_ats_filters:
+            if filter_type == "ats":
                 # arrival time safe filter can be shorter than records by 1 sample, or equal in length
                 avg_signal, aterms = filter_group.attrs["avg_signal"][()], filter_group["filt_aterms"][()]
                 model = np.vstack([avg_signal, aterms]).T
@@ -758,14 +762,17 @@ class MicrocalDataSet(object):
                                                     self.noise_autocorr,
                                                     sample_time=self.timebase,
                                                     peak=modelpeak)
-            else:
+            elif filter_type == "5lag":
                 self.filter = Filter(self.average_pulse[...],
                                      self.nPresamples - self.pretrigger_ignore_samples,
                                      self.noise_psd[...],
                                      self.noise_autocorr, sample_time=self.timebase,
                                      shorten=shorten)
+            else:
+                raise Exception("filter_type={}, must be `ats` or `5lag`".format(filter_type))
             self.filter.fmax = fmax
             self.filter.f_3db = f_3db
+            self._filter_type = filter_type
 
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                       "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
@@ -1096,7 +1103,7 @@ class MicrocalDataSet(object):
                                                    - self.pretrigger_ignore_samples])
         self.average_pulse[:] = average_pulse
 
-    @_add_group_loop
+    @_add_group_loop()
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000, subtract_mean=True, forceNew=False):
         """Compute an average pulse.
 
@@ -1133,7 +1140,7 @@ class MicrocalDataSet(object):
             h5grp.attrs['fmax'] = self.filter.fmax
         h5grp.attrs['peak'] = self.filter.peak_signal
         h5grp.attrs['shorten'] = self.filter.shorten
-        h5grp.attrs['newfilter'] = self._use_ats_filters
+        h5grp.attrs['filter_type'] = self._filter_type
         h5grp.attrs["avg_signal"] = self.filter.avg_signal
         for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                     "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
@@ -1145,12 +1152,14 @@ class MicrocalDataSet(object):
                 vec.attrs['variance'] = self.filter.variances.get(shortname, 0.0)
                 vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv.get(shortname, 0.0)
 
-    @_add_group_loop
+    @_add_group_loop(throw_errors=True)
     def compute_5lag_filter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}, forceNew=False):
         """Requires that compute_noise has been run and that average pulse has been computed"""        
         if "filters" in self.hdf5_group and not forceNew:
             print("ch {} skpping comput 5lag filter because it is already done".format(self.channum))
             return  
+        if all(self.noise_autocorr[:] == 0):
+            raise Exception("compute noise first")
         try:
             spectrum = self.noise_spectrum.spectrum()
         except Exception:
@@ -1163,11 +1172,12 @@ class MicrocalDataSet(object):
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
                              shorten=2, cut_pre=cut_pre, cut_post=cut_post)
         f.compute(fmax=fmax, f_3db=f_3db)
-        self._use_ats_filters=False
+        self.filter = f
+        self._filter_type="5lag"
         self._filter_to_hdf5()
         return f
 
-    @_add_group_loop
+    @_add_group_loop(throw_errors=True)
     def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0, 
     category={}, shift1=True, forceNew=False, minimum_n_pulses = 20):
         """Compute a arrival-time-safe filter to model the pulse and its time-derivative.
@@ -1199,7 +1209,8 @@ class MicrocalDataSet(object):
         if "filters" in self.hdf5_group and not forceNew:
             print("ch {} skipping compute_ats_filter because it is already done".format(self.channum))
             return   
-
+        if all(self.noise_autocorr[:] == 0):
+            raise Exception("compute noise first")
         # At the moment, 1st-order model vs arrival-time is required.
         DEGREE = 1
 
@@ -1269,14 +1280,16 @@ class MicrocalDataSet(object):
                                   sample_time=self.timebase, peak=modelpeak)
         f.compute(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         self.filter = f
-        self._use_ats_filters = True
+        if np.any(np.isnan(f.filt_noconst)) or np.any(np.isnan(f.filt_aterms)):
+            raise Exception("there are nan values in your filters!! BAD. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
+            model, self.nPresamples, self.noise_autocorr, self.timebase, modelpeak))
+        self._filter_type = "ats"
         self._filter_to_hdf5()
         return f
 
-    @_add_group_loop
+    @_add_group_loop(throw_errors=True)
     @show_progress("channel.filter_data_tdm")
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False,
-                    use_cython=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
         """Filter the complete data file one chunk at a time.
 
         Args:
@@ -1295,7 +1308,7 @@ class MicrocalDataSet(object):
         else:
             filter_values = self.hdf5_group['filters/%s' % filter_name][()]
 
-        if self._use_ats_filters:
+        if self._filter_type == "ats":
             if len(filter_values) == self.nSamples - 1:
                 filterfunction = self._filter_data_segment_ats
             elif len(filter_values) == self.nSamples:
@@ -1303,9 +1316,11 @@ class MicrocalDataSet(object):
                 # this code path should be followed when filters are created with the shift1=False argument
                 filterfunction = self._filter_data_segment_ats_dont_shift1
             filter_AT = self.filter.filt_aterms[0]
-        else:
+        elif self._filter_type == "5lag":
             filterfunction = self._filter_data_segment_5lag
             filter_AT = None
+        else:
+            raise Exception("filter_type={}, must be `ats` or `5lag`".format(filter_type))
 
         for s in range(self.pulse_records.n_segments):
             first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
@@ -1321,25 +1336,34 @@ class MicrocalDataSet(object):
         assert n_basis >=3
         deriv_like_model = f.pulsemodel[:,1]
         pulse_like_model = f.pulsemodel[:,0]
+        if not len(pulse_like_model)==self.nSamples:
+            raise Exception("filter length {} and ds.nSamples {} don't match, you likely need to use shift1=False in compute_filters".format(len(pulse_like_model), ds.nSamples))
         deriv_like_projector = f.filt_aterms
         pulse_like_projector = f.filt_noconst
         mean_model = np.ones(len(deriv_like_model))/np.sqrt(float(len(deriv_like_model)))
         projectors = np.vstack((mean_model, deriv_like_projector, pulse_like_projector)).T
         basis = np.vstack((mean_model, deriv_like_model, pulse_like_model))
+        print("projectors", projectors)
+        print("basis", basis)
         if n_basis > 3:
             import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
-
             mpc = np.matmul(pulses_for_svd, projectors) # modeled pulse coefs
             mp  = np.matmul(mpc, basis) # moded pulse
+            print("mpc", mpc)
+            print("mp", mp)
             residuals = pulses_for_svd-mp
             svd = sklearn.decomposition.TruncatedSVD(n_components=n_basis-3)
             svd.fit(residuals)
             basis = np.vstack([basis, svd.components_])
             projectors = np.hstack([projectors, svd.components_.T])
+        # be extra sure to subract off mean, except the mean component
+        for i in range(1,n_basis):
+            basis[i,:]-=basis[i,:].mean()
+            projectors[:,i]-=projectors[:,i].mean()
         return projectors, basis
 
 
-    @_add_group_loop
+    @_add_group_loop(throw_errors=True)
     def _projectors_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):
         import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
 
@@ -1352,6 +1376,7 @@ class MicrocalDataSet(object):
             # flip every component except the mean component if pulses are inverted
             basis[1:,:]*=-1
             projectors[:,1:]*=-1
+
 
         hdf5_file["{}/svdbasis/projectors".format(self.channum)]=projectors # projectors is NxM, where N is samples/record and M the number of basis elements
         hdf5_file["{}/svdbasis/basis".format(self.channum)]=basis # models is MxN
@@ -1515,7 +1540,7 @@ class MicrocalDataSet(object):
             if log:
                 plt.ylim(ymin=contents.min())
 
-    @_add_group_loop
+    @_add_group_loop()
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """Compute the noise power spectrum of this channel.
 
@@ -1543,7 +1568,7 @@ class MicrocalDataSet(object):
         else:
             LOG.info("chan %d skipping compute_noise_spectra because already done", self.channum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def apply_cuts(self, controls, clear=False, forceNew=True):
         """Apply the cuts.
 
@@ -1594,7 +1619,7 @@ class MicrocalDataSet(object):
         LOG.info("Chan %d after cuts, %d are good, %d are bad of %d total pulses",
                  self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses)
 
-    @_add_group_loop
+    @_add_group_loop()
     def clear_cuts(self):
         """Clear all cuts."""
         self.cuts.clear_cut()
@@ -1620,7 +1645,7 @@ class MicrocalDataSet(object):
             self.p_pretrig_mean[:], self.good(), flux_quant)
         self.p_pretrig_mean[:] = corrected
 
-    @_add_group_loop
+    @_add_group_loop()
     def drift_correct(self, attr="p_filt_value", forceNew=False, category={}):
         """Drift correct using the standard entropy-minimizing algorithm"""
         doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(
@@ -1647,7 +1672,7 @@ class MicrocalDataSet(object):
         self.p_filt_value_dc[:] = uncorrected*gain
         self.hdf5_group.file.flush()
 
-    @_add_group_loop
+    @_add_group_loop()
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False,
                           forceNew=False, category={}):
         """Apply the phase correction that worked for calibronium-like data as of June 2014.
@@ -1697,7 +1722,7 @@ class MicrocalDataSet(object):
             plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
             plt.figure(fnum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def phase_correct(self, attr="p_filt_value_dc", forceNew=False, category={}, ph_peaks=None,
                       method2017=True, kernel_width=None, save_to_hdf5=True):
         """Apply the 2017 or 2015 phase correction method.
@@ -1813,7 +1838,7 @@ class MicrocalDataSet(object):
     def pkl_fname(self):
         return ljh_util.mass_folder_from_ljh_fname(self.filename, filename="ch%d_calibration.pkl" % self.channum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, category={}, forceNew=False, maxacc=0.015, nextra=3,
@@ -1853,7 +1878,7 @@ class MicrocalDataSet(object):
             auto_cal.diagnose()
         self.convert_to_energy(attr, attr + name_ext)
 
-    @_add_group_loop
+    @_add_group_loop()
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
             calname = attr
@@ -1984,7 +2009,7 @@ class MicrocalDataSet(object):
         self.read_segment(seg_num)
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
-    @_add_group_loop
+    @_add_group_loop()
     def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree=2000,
                            pulses_per_degree=2000, max_degrees=20, forceNew=False,
                            category={}):
@@ -2064,7 +2089,7 @@ class MicrocalDataSet(object):
             print("%6d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
         print("%6d pulses total" % self.nPulses)
 
-    @_add_group_loop
+    @_add_group_loop()
     def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=False, clearCuts=True):
         """Compute and apply an appropriate set of automatically generated cuts.
 
@@ -2170,7 +2195,7 @@ class MicrocalDataSet(object):
             cuts.cuts_prm[attrname] = (None, g.attrs[attrname])
         self.saved_auto_cuts = cuts
 
-    @_add_group_loop
+    @_add_group_loop()
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         """Young! Why is there no doc string here??"""
         # first check to see if this had already been done
@@ -2195,7 +2220,7 @@ class MicrocalDataSet(object):
         else:
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def flag_crosstalking_pulses(self, priorTime, postTime, combineCategories=True,
                                  nearestNeighborsDistances=1, crosstalk_key='is_crosstalking',
                                  forceNew=False):
@@ -2312,7 +2337,7 @@ class MicrocalDataSet(object):
         else:
             LOG.info("channel %d skipping crosstalk cuts because nearest neighbors not set", self.channum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory='physical',
                                    distanceType='cartesian', forceNew=False):
         ''' Finds the nearest neighbors in a given space for all channels in a data set

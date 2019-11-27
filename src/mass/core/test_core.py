@@ -8,6 +8,7 @@ import unittest as ut
 
 import mass
 from mass.core.ljh_modify import LJHFile, ljh_copy_traces, ljh_append_traces, ljh_truncate
+import mass.off
 
 import logging
 LOG = logging.getLogger("mass")
@@ -216,10 +217,9 @@ class TestTESGroup(ut.TestCase):
         data = self.load_data()
         data.set_chan_good(1)
         data.summarize_data()
-        data.channel[1]._use_new_filters = False  # Not enough pulses for new filters.
         data.avg_pulses_auto_masks()
         data.compute_noise_spectra()
-        data.compute_filters()
+        data.compute_5lag_filter() # not enough pulses for ats filters
         data.plot_filters()
 
     def test_time_drift_correct(self):
@@ -275,6 +275,24 @@ class TestTESGroup(ut.TestCase):
         data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
         ds = data.channel[1]
         ds.compute_noise_spectra()
+
+    def test_projectors_and_ljh2off(self):
+        data = self.load_data()
+        data.compute_noise_spectra()
+        data.summarize_data()
+        data.compute_ats_filter(shift1=False)
+        data.filter_data()
+        ds = data.datasets[0]
+        hdf5_filename = data.projectors_to_hdf5(replace_output=True, n_basis=4)
+        output_dir = tempfile.mkdtemp()
+        max_channels = 100
+        n_ignore_presamples = 0
+        ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(ds.filename, hdf5_filename, output_dir, max_channels, 
+        n_ignore_presamples, require_experiment_state=False)
+        off = mass.off.off.OffFile(off_filenames[0])
+        self.assertTrue(np.allclose(off["coefs"][:, 2], ds.p_filt_value[:]))
+
+
 
 
 class TestTESHDF5Only(ut.TestCase):

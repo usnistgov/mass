@@ -322,7 +322,6 @@ class Filter(object):
             except KeyError:
                 print("%-20s not known" % f)
 
-
 class ArrivalTimeSafeFilter(Filter):
     """Compute a filter for pulses given a pulse model expressed as a
     polynomial in "arrival time". The filter will be insensitive to the

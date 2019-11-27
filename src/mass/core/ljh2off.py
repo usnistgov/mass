@@ -83,7 +83,7 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
             # write offdata to file
             offdata.tofile(f)
 
-def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples):
+def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True):
     projectors_dict = load_projectors(h5_path)
     basename, channum = mass.ljh_util.ljh_basename_channum(ljhpath)
     ljhdir, file_basename = os.path.split(basename)
@@ -107,14 +107,18 @@ def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples
     bar.finish()
     source_experiment_state_filename = "{}_experiment_state.txt".format(basename)
     sink_experiment_state_filename = "{}_experiment_state.txt".format(off_basename)
-    if source_experiment_state_filename != sink_experiment_state_filename:
-        with open(source_experiment_state_filename, "r") as f_source:
-            with open(sink_experiment_state_filename, "w") as f_sink:
-                for line in f_source:
-                    f_sink.write(line)
-                print("wrote experiment state file to : {}".format(os.path.abspath(sink_experiment_state_filename)))
-    else:
-        print("not copying experiment state file {} because the source and destination are the same".format(source_experiment_state_filename))
+    if os.path.isfile(source_experiment_state_filename):
+        if source_experiment_state_filename != sink_experiment_state_filename:
+            with open(source_experiment_state_filename, "r") as f_source:
+                with open(sink_experiment_state_filename, "w") as f_sink:
+                    for line in f_source:
+                        f_sink.write(line)
+                    print("wrote experiment state file to : {}".format(os.path.abspath(sink_experiment_state_filename)))
+        else:
+            print("not copying experiment state file {} because the source and destination are the same".format(source_experiment_state_filename))
+    elif require_experiment_state:
+        raise Exception("{} does not exist, and require_experiment_state=True".format(source_experiment_state_filename)) 
+
 
     return ljh_filenames, off_filenames
 
