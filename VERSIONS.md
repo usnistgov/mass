@@ -1,9 +1,10 @@
 ## Note on version numbers of Mass
 
-**0.7.1** November 2019-
+**0.7.1** November 2019-December 2019
 
 * More neon HCI lines.
 * compute_newfilter(...) takes option to turn off shift-by-1 (useful when working on Dastard data).
+* Fix issue 175: use of basestring isn't Python 3 compatible.
 
 **0.7.0** December 2018-October 2019
 

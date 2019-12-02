@@ -303,7 +303,10 @@ class Filter(object):
         """
 
         # Handle <filters> is a single string --> convert to tuple of 1 string
-        if isinstance(filters, basestring):
+        def isstr(x):
+            return isinstance(x, ("".__class__, u"".__class__))
+
+        if isstr(filters):
             filters = (filters,)
 
         # Handle default <filters> not given.

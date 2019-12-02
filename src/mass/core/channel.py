@@ -1151,8 +1151,8 @@ class MicrocalDataSet(object):
                 before filtering (default None)
             cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
             cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
-            shift1: Potentially shift each pulse by one sample based on ds.shift1 value, 
-            resulting filter is one sample shorter than pulse records. 
+            shift1: Potentially shift each pulse by one sample based on ds.shift1 value,
+            resulting filter is one sample shorter than pulse records.
             You probably want True, because GCO didn't make filter application aware of this.
             This argument is just for making filters for use in Dastard.
 
@@ -1176,7 +1176,7 @@ class MicrocalDataSet(object):
             _shift1 = self.p_shift1[:][pulsenums]
             raw[_shift1, :] = data[_shift1, 0:-1]
         else:
-            raw = data[:,:]
+            raw = data[:, :]
 
         # Center promptness around 0, using a simple function of Prms
         prompt = self.p_promptness[:][pulsenums]
@@ -1348,7 +1348,10 @@ class MicrocalDataSet(object):
         """
 
         # Convert "uncut" or "cut" to array of all good or all bad data
-        if isinstance(valid, basestring):
+        def isstr(x):
+            return isinstance(x, ("".__class__, u"".__class__))
+
+        if isstr(valid):
             if "uncut" in valid.lower():
                 valid = self.cuts.good()
                 status = "Plotting only uncut data"
