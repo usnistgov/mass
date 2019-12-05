@@ -378,8 +378,6 @@ class ArrivalTimeSafeFilter(Filter):
 
         if self.whitener is not None:
             WM = self.whitener(MT.T)
-            if fmax is not None or f_3db is not None:
-                band_limit(WM, self.sample_time, fmax, f_3db)
             A = np.dot(WM.T, WM)
             Ainv = np.linalg.inv(A)
             WtWM = self.whitener.applyWT(WM)
@@ -392,11 +390,12 @@ class ArrivalTimeSafeFilter(Filter):
             TS = mass.mathstat.toeplitz.ToeplitzSolver(noise_corr, symmetric=True)
 
             RinvM = np.vstack([TS(r) for r in MT]).T
-            if fmax is not None or f_3db is not None:
-                band_limit(RinvM, self.sample_time, fmax, f_3db)
             A = np.dot(MT, RinvM)
             Ainv = np.linalg.inv(A)
             filt = np.dot(Ainv, RinvM.T)
+
+        if fmax is not None or f_3db is not None:
+            band_limit(filt.T, self.sample_time, fmax, f_3db)
 
         if cut_pre > 0 or cut_post > 0:
             nfilt = filt.shape[0]
@@ -407,6 +406,7 @@ class ArrivalTimeSafeFilter(Filter):
         self.filt_noconst = filt[0]
         self.filt_aterms = filt[1:-1]
         self.filt_baseline = filt[-1]
+
         scale = np.max(self.avg_signal) / np.dot(filt[0], self.avg_signal)
         self.filt_noconst *= scale
         self.filt_aterms *= scale

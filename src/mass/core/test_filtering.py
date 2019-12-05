@@ -76,8 +76,8 @@ class TestFilters(ut.TestCase):
             f = ds.filter
             self.assertIn("noconst", f.variances)
             self.assertIn("noconst", f.predicted_v_over_dv)
-            self.assertAlmostEqual(f.variances["noconst"], 8.8e-7, delta=3e-8)
-            expected = 449.53 if newstyle else 456.7
+            self.assertAlmostEqual(f.variances["noconst"], 8.46e-7, delta=3e-8)
+            expected = 461.57 if newstyle else 456.7
             self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], expected, delta=0.1)
 
     def test_vdv_oldfilters(self):
@@ -197,7 +197,6 @@ class TestFilters(ut.TestCase):
         deriv_like = np.append(np.zeros(nPresamples), -np.ones(nPost))
         model = np.column_stack((pulse_like, deriv_like))
 
-        np.random.seed(1543)
         fake_noise = np.random.randn(nSamples)
         fake_noise[0] = 10.0
         whitener = None

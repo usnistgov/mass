@@ -5,6 +5,8 @@
 * More neon HCI lines.
 * compute_newfilter(...) takes option to turn off shift-by-1 (useful when working on Dastard data).
 * Fix issue 175: use of basestring isn't Python 3 compatible.
+* Fix issue 176: band limited ArrivalTimeSafeFilter were not DC-insensitive.
+* In the above, we fundamentally changed the exact computation of a filter so filtered data _will_ be changed by this version of MASS.
 
 **0.7.0** December 2018-October 2019
 
