@@ -590,10 +590,12 @@ def _add_group_loop(throw_errors=True):
                     raise e
                 except Exception as e:
                     if throw_errors:
-                        import traceback, sys
+                        import traceback
+                        import sys
                         exc_type, exc_value, exc_traceback = sys.exc_info()
                         s = traceback.format_exception(exc_type, exc_value, exc_traceback)
-                        new_ex = Exception("an error happened during a group loop, the exception was {}\nTRACEBACK BELOW\n{}".format(e,s))
+                        new_ex = Exception(
+                            "an error happened during a group loop, the exception was {}\nTRACEBACK BELOW\n{}".format(e, s))
                         raise new_ex
                     self.set_chan_bad(ds.channum, "failed %s with %s" % (method_name, e))
 
@@ -750,11 +752,12 @@ class MicrocalDataSet(object):
             fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
             f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
             shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
-            filter_type = filter_group.attrs["filter_type"] # expect a string
+            filter_type = filter_group.attrs["filter_type"]  # expect a string
 
             if filter_type == "ats":
                 # arrival time safe filter can be shorter than records by 1 sample, or equal in length
-                avg_signal, aterms = filter_group.attrs["avg_signal"][()], filter_group["filt_aterms"][()]
+                avg_signal, aterms = filter_group.attrs["avg_signal"][(
+                )], filter_group["filt_aterms"][()]
                 model = np.vstack([avg_signal, aterms]).T
                 modelpeak = np.max(avg_signal)
                 self.filter = ArrivalTimeSafeFilter(model,
@@ -1143,21 +1146,22 @@ class MicrocalDataSet(object):
         h5grp.attrs['filter_type'] = self._filter_type
         h5grp.attrs["avg_signal"] = self.filter.avg_signal
         for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
-                    "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
+                  "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
             if k in h5grp:
                 del h5grp[k]
             if getattr(self.filter, k, None) is not None:
                 vec = h5grp.create_dataset(k, data=getattr(self.filter, k))
                 shortname = k.split('filt_')[1]
                 vec.attrs['variance'] = self.filter.variances.get(shortname, 0.0)
-                vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv.get(shortname, 0.0)
+                vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv.get(
+                    shortname, 0.0)
 
     @_add_group_loop(throw_errors=True)
     def compute_5lag_filter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}, forceNew=False):
-        """Requires that compute_noise has been run and that average pulse has been computed"""        
+        """Requires that compute_noise has been run and that average pulse has been computed"""
         if "filters" in self.hdf5_group and not forceNew:
             print("ch {} skpping comput 5lag filter because it is already done".format(self.channum))
-            return  
+            return
         if all(self.noise_autocorr[:] == 0):
             raise Exception("compute noise first")
         try:
@@ -1173,13 +1177,13 @@ class MicrocalDataSet(object):
                              shorten=2, cut_pre=cut_pre, cut_post=cut_post)
         f.compute(fmax=fmax, f_3db=f_3db)
         self.filter = f
-        self._filter_type="5lag"
+        self._filter_type = "5lag"
         self._filter_to_hdf5()
         return f
 
     @_add_group_loop(throw_errors=True)
-    def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0, 
-    category={}, shift1=True, forceNew=False, minimum_n_pulses = 20):
+    def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0,
+                           category={}, shift1=True, forceNew=False, minimum_n_pulses=20):
         """Compute a arrival-time-safe filter to model the pulse and its time-derivative.
         Requires that `compute_noise` has been run.
 
@@ -1193,8 +1197,8 @@ class MicrocalDataSet(object):
                 before filtering (default None)
             cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
             cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
-            shift1: Potentially shift each pulse by one sample based on ds.shift1 value, 
-            resulting filter is one sample shorter than pulse records. 
+            shift1: Potentially shift each pulse by one sample based on ds.shift1 value,
+            resulting filter is one sample shorter than pulse records.
             If you used a zero threshold trigger (eg dastard egdeMulti you can likely use shift1=False)
 
         Returns:
@@ -1208,7 +1212,7 @@ class MicrocalDataSet(object):
         """
         if "filters" in self.hdf5_group and not forceNew:
             print("ch {} skipping compute_ats_filter because it is already done".format(self.channum))
-            return   
+            return
         if all(self.noise_autocorr[:] == 0):
             raise Exception("compute noise first")
         # At the moment, 1st-order model vs arrival-time is required.
@@ -1223,7 +1227,7 @@ class MicrocalDataSet(object):
             _shift1 = self.p_shift1[:][pulsenums]
             raw[_shift1, :] = data[_shift1, 0:-1]
         else:
-            raw = data[:,:]
+            raw = data[:, :]
 
         # Center promptness around 0, using a simple function of Prms
         prompt = self.p_promptness[:][pulsenums]
@@ -1282,7 +1286,7 @@ class MicrocalDataSet(object):
         self.filter = f
         if np.any(np.isnan(f.filt_noconst)) or np.any(np.isnan(f.filt_aterms)):
             raise Exception("there are nan values in your filters!! BAD. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
-            model, self.nPresamples, self.noise_autocorr, self.timebase, modelpeak))
+                model, self.nPresamples, self.noise_autocorr, self.timebase, modelpeak))
         self._filter_type = "ats"
         self._filter_to_hdf5()
         return f
@@ -1333,11 +1337,12 @@ class MicrocalDataSet(object):
         self.hdf5_group.file.flush()
 
     def get_projectors(self, f, n_basis, pulses_for_svd):
-        assert n_basis >=3
-        deriv_like_model = f.pulsemodel[:,1]
-        pulse_like_model = f.pulsemodel[:,0]
-        if not len(pulse_like_model)==self.nSamples:
-            raise Exception("filter length {} and ds.nSamples {} don't match, you likely need to use shift1=False in compute_filters".format(len(pulse_like_model), ds.nSamples))
+        assert n_basis >= 3
+        deriv_like_model = f.pulsemodel[:, 1]
+        pulse_like_model = f.pulsemodel[:, 0]
+        if not len(pulse_like_model) == self.nSamples:
+            raise Exception("filter length {} and ds.nSamples {} don't match, you likely need to use shift1=False in compute_filters".format(
+                len(pulse_like_model), ds.nSamples))
         deriv_like_projector = f.filt_aterms
         pulse_like_projector = f.filt_noconst
         mean_model = np.ones(len(deriv_like_model))/np.sqrt(float(len(deriv_like_model)))
@@ -1346,9 +1351,9 @@ class MicrocalDataSet(object):
         print("projectors", projectors)
         print("basis", basis)
         if n_basis > 3:
-            import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
-            mpc = np.matmul(pulses_for_svd, projectors) # modeled pulse coefs
-            mp  = np.matmul(mpc, basis) # moded pulse
+            import sklearn.decomposition  # import takes ~4 seconds, put it here to avoid it on most mass usages
+            mpc = np.matmul(pulses_for_svd, projectors)  # modeled pulse coefs
+            mp = np.matmul(mpc, basis)  # moded pulse
             print("mpc", mpc)
             print("mp", mp)
             residuals = pulses_for_svd-mp
@@ -1357,30 +1362,28 @@ class MicrocalDataSet(object):
             basis = np.vstack([basis, svd.components_])
             projectors = np.hstack([projectors, svd.components_.T])
         # be extra sure to subract off mean, except the mean component
-        for i in range(1,n_basis):
-            basis[i,:]-=basis[i,:].mean()
-            projectors[:,i]-=projectors[:,i].mean()
+        for i in range(1, n_basis):
+            basis[i, :] -= basis[i, :].mean()
+            projectors[:, i] -= projectors[:, i].mean()
         return projectors, basis
-
 
     @_add_group_loop(throw_errors=True)
     def _projectors_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):
-        import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
+        import sklearn.decomposition  # import takes ~4 seconds, put it here to avoid it on most mass usages
 
         if pulses_for_svd is None:
             pulses_for_svd, _ = self.first_n_good_pulses(4000)
         projectors, basis = self.get_projectors(self.filter, n_basis, pulses_for_svd)
-        
+
         inverted = self.__dict__.get("invert_data", False)
-        if inverted: 
+        if inverted:
             # flip every component except the mean component if pulses are inverted
-            basis[1:,:]*=-1
-            projectors[:,1:]*=-1
+            basis[1:, :] *= -1
+            projectors[:, 1:] *= -1
 
-
-        hdf5_file["{}/svdbasis/projectors".format(self.channum)]=projectors # projectors is NxM, where N is samples/record and M the number of basis elements
-        hdf5_file["{}/svdbasis/basis".format(self.channum)]=basis # models is MxN
-
+        # projectors is NxM, where N is samples/record and M the number of basis elements
+        hdf5_file["{}/svdbasis/projectors".format(self.channum)] = projectors
+        hdf5_file["{}/svdbasis/basis".format(self.channum)] = basis  # models is MxN
 
     def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
         """Traditional 5-lag filter used by default until 2015."""
@@ -1440,7 +1443,7 @@ class MicrocalDataSet(object):
         return AT, conv0
 
     def _filter_data_segment_ats_dont_shift1(self, filter_values, filter_AT, first, end, transform=None):
-        #dastard with the kink model fitting to choose trigger location doesn't need any shifts
+        # dastard with the kink model fitting to choose trigger location doesn't need any shifts
         assert len(filter_values == self.nSamples)
         seg_size = end - first
         assert seg_size == self.data.shape[0]
@@ -1453,7 +1456,7 @@ class MicrocalDataSet(object):
         conv0 = np.dot(data, filter_values)
         conv1 = np.dot(data, filter_AT)
         AT = conv1 / conv0
-        return AT, conv0       
+        return AT, conv0
 
     def plot_summaries(self, valid='uncut', downsample=None, log=False):
         """Plot a summary of the data set, including time series and histograms of
@@ -1472,7 +1475,10 @@ class MicrocalDataSet(object):
         """
 
         # Convert "uncut" or "cut" to array of all good or all bad data
-        if isinstance(valid, basestring):
+        def isstr(x):
+            return isinstance(x, ("".__class__, u"".__class__))
+
+        if isstr(valid):
             if "uncut" in valid.lower():
                 valid = self.cuts.good()
                 status = "Plotting only uncut data"

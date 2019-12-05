@@ -346,7 +346,7 @@ class Cuts(object):
         """Set the mask of a single field. It could be a boolean or categorical field.
 
         Args:
-            cut_num (basestring or int): the name of a cut field.
+            cut_num (string or int): the name of a cut field.
             mask (np.array(dtype=bool) or np.array(dtype=np.uint32): a cut mask for the cut field.
 
         Raises:
@@ -417,7 +417,7 @@ class Cuts(object):
                       but it must be an array of length self.nPulses
             <allowed> The cut to apply (see below).
             <cut_id>  The bit number (range [0,31]) to identify this cut or (as a
-                basestring) the name of the cut.
+                      string) the name of the cut.
 
         <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b.
         Either a or b may be None, indicating no cut.

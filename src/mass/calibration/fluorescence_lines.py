@@ -724,9 +724,9 @@ addfitter(
     reference_short="Joe Fowler",
     reference_plot_gaussian_fwhm=None,
     nominal_peak_energy=8398.24,
-    energies=np.array((8335.69, 8397.89)),
-    lorentzian_fwhm=np.array((6.31, 6.48)),
-    reference_amplitude=np.array((1, 8.973)),
+    energies=np.array((8335.34, 8398.24)),
+    lorentzian_fwhm=np.array((6.97, 7.01)),
+    reference_amplitude=np.array((.1020, .8980)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
@@ -739,7 +739,7 @@ addfitter(
     reference_plot_gaussian_fwhm=None,
     nominal_peak_energy=9672.58,
     energies=np.array((9672.58,)),
-    lorentzian_fwhm=np.array((7.34,)),
+    lorentzian_fwhm=np.array((7.71,)),
     reference_amplitude=np.array((1,)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
@@ -751,10 +751,10 @@ addfitter(
     linetype="LBeta2",
     reference_short="Joe Fowler",
     reference_plot_gaussian_fwhm=None,
-    nominal_peak_energy=9964.19,
-    energies=np.array((9964.21, 9951.04)),
-    lorentzian_fwhm=np.array((11.0, 8.61)),
-    reference_amplitude=np.array((14.828, 1)),
+    nominal_peak_energy=9964.13,
+    energies=np.array((9950.82, 9962.93, 9967.53))+1,
+    lorentzian_fwhm=np.array((9.16, 9.82, 9.90)),
+    reference_amplitude=np.array((.0847, .7726, .1426)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
