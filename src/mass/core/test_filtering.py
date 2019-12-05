@@ -70,7 +70,7 @@ class TestFilters(ut.TestCase):
 
     def verify_filters(self, data, filter_type):
         "Check that the filters contain what we expect"
-        expected = {"ats": 449.53, "5lag": 456.7}[filter_type]
+        expected = {"ats": 461.57, "5lag": 456.7}[filter_type]
         for ds in data:
             f = ds.filter
             self.assertIn("noconst", f.variances)

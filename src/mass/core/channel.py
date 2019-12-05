@@ -1324,7 +1324,7 @@ class MicrocalDataSet(object):
             filterfunction = self._filter_data_segment_5lag
             filter_AT = None
         else:
-            raise Exception("filter_type={}, must be `ats` or `5lag`".format(filter_type))
+            raise Exception("filter_type={}, must be `ats` or `5lag`".format(self._filter_type))
 
         for s in range(self.pulse_records.n_segments):
             first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
@@ -1341,8 +1341,8 @@ class MicrocalDataSet(object):
         deriv_like_model = f.pulsemodel[:, 1]
         pulse_like_model = f.pulsemodel[:, 0]
         if not len(pulse_like_model) == self.nSamples:
-            raise Exception("filter length {} and ds.nSamples {} don't match, you likely need to use shift1=False in compute_filters".format(
-                len(pulse_like_model), ds.nSamples))
+            raise Exception("filter length {} and nSamples {} don't match, you likely need to use shift1=False in compute_filters".format(
+                len(pulse_like_model), self.nSamples))
         deriv_like_projector = f.filt_aterms
         pulse_like_projector = f.filt_noconst
         mean_model = np.ones(len(deriv_like_model))/np.sqrt(float(len(deriv_like_model)))
@@ -1369,8 +1369,6 @@ class MicrocalDataSet(object):
 
     @_add_group_loop(throw_errors=True)
     def _projectors_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):
-        import sklearn.decomposition  # import takes ~4 seconds, put it here to avoid it on most mass usages
-
         if pulses_for_svd is None:
             pulses_for_svd, _ = self.first_n_good_pulses(4000)
         projectors, basis = self.get_projectors(self.filter, n_basis, pulses_for_svd)
