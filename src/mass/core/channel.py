@@ -565,7 +565,7 @@ class GroupLooper(object):
     pass
 
 
-def _add_group_loop(throw_errors=True):
+def _add_group_loop(throw_errors=False):
     """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
 
     This is a decorator to add before method definitions inside class MicrocalDataSet.
