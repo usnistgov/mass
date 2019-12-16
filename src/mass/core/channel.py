@@ -582,20 +582,20 @@ def _add_group_loop(throw_errors=True):
     def decorator(method):
         method_name = method.__name__
 
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self, *args,  **kwargs):
             for ds in self:
                 try:
                     method(ds, *args, **kwargs)
                 except KeyboardInterrupt as e:
                     raise e
                 except Exception as e:
+                    import traceback, sys
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    s = traceback.format_exception(exc_type, exc_value, exc_traceback)
                     if throw_errors:
-                        import traceback, sys
-                        exc_type, exc_value, exc_traceback = sys.exc_info()
-                        s = traceback.format_exception(exc_type, exc_value, exc_traceback)
-                        new_ex = Exception("an error happened during a group loop, the exception was {}\nTRACEBACK BELOW\n{}".format(e,s))
+                        new_ex = Exception("an error happened during a group loop, the exception was {}\nTRACEBACK BELOW\n{}".format(repr(e),s))
                         raise new_ex
-                    self.set_chan_bad(ds.channum, "failed %s with %s" % (method_name, e))
+                    self.set_chan_bad(ds.channum, "failed %s with %s\ntraceback:\n%s" % (method_name, e, s))
 
         wrapper.__name__ = method_name
 
@@ -750,7 +750,20 @@ class MicrocalDataSet(object):
             fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
             f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
             shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
-            filter_type = filter_group.attrs["filter_type"] # expect a string
+
+            if "version" in filter_group.attrs:
+                version = filter_group.attrs["version"]
+            else: 
+                version = 0 # older hdf5 files with filters have no version number, assign 0
+
+            if version > 0:
+                filter_type = filter_group.attrs["filter_type"] # a string
+            else:
+                if "newfilter" in filter_group.attrs: 
+                    # version 0 hdf5 files either did or did not have the "newfilter" attribute, newfilter corresponds to ats filters
+                    filter_type = "ats"
+                else:
+                    filter_type = "5lag"
 
             if filter_type == "ats":
                 # arrival time safe filter can be shorter than records by 1 sample, or equal in length
@@ -1142,6 +1155,7 @@ class MicrocalDataSet(object):
         h5grp.attrs['shorten'] = self.filter.shorten
         h5grp.attrs['filter_type'] = self._filter_type
         h5grp.attrs["avg_signal"] = self.filter.avg_signal
+        h5grp.attrs["version"] = 1
         for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                     "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
             if k in h5grp:
@@ -1152,7 +1166,7 @@ class MicrocalDataSet(object):
                 vec.attrs['variance'] = self.filter.variances.get(shortname, 0.0)
                 vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv.get(shortname, 0.0)
 
-    @_add_group_loop(throw_errors=True)
+    @_add_group_loop()
     def compute_5lag_filter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}, forceNew=False):
         """Requires that compute_noise has been run and that average pulse has been computed"""        
         if "filters" in self.hdf5_group and not forceNew:
@@ -1177,7 +1191,7 @@ class MicrocalDataSet(object):
         self._filter_to_hdf5()
         return f
 
-    @_add_group_loop(throw_errors=True)
+    @_add_group_loop()
     def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0, 
     category={}, shift1=True, forceNew=False, minimum_n_pulses = 20):
         """Compute a arrival-time-safe filter to model the pulse and its time-derivative.
@@ -1287,7 +1301,7 @@ class MicrocalDataSet(object):
         self._filter_to_hdf5()
         return f
 
-    @_add_group_loop(throw_errors=True)
+    @_add_group_loop()
     @show_progress("channel.filter_data_tdm")
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
         """Filter the complete data file one chunk at a time.
@@ -1340,30 +1354,11 @@ class MicrocalDataSet(object):
             raise Exception("filter length {} and ds.nSamples {} don't match, you likely need to use shift1=False in compute_filters".format(len(pulse_like_model), ds.nSamples))
         deriv_like_projector = f.filt_aterms
         pulse_like_projector = f.filt_noconst
-        mean_model = np.ones(len(deriv_like_model))/np.sqrt(float(len(deriv_like_model)))
-        projectors = np.vstack((mean_model, deriv_like_projector, pulse_like_projector)).T
-        basis = np.vstack((mean_model, deriv_like_model, pulse_like_model))
-        print("projectors", projectors)
-        print("basis", basis)
-        if n_basis > 3:
-            import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
-            mpc = np.matmul(pulses_for_svd, projectors) # modeled pulse coefs
-            mp  = np.matmul(mpc, basis) # moded pulse
-            print("mpc", mpc)
-            print("mp", mp)
-            residuals = pulses_for_svd-mp
-            svd = sklearn.decomposition.TruncatedSVD(n_components=n_basis-3)
-            svd.fit(residuals)
-            basis = np.vstack([basis, svd.components_])
-            projectors = np.hstack([projectors, svd.components_.T])
-        # be extra sure to subract off mean, except the mean component
-        for i in range(1,n_basis):
-            basis[i,:]-=basis[i,:].mean()
-            projectors[:,i]-=projectors[:,i].mean()
+        projectors, basis = _make_projectors_tsvd(deriv_like_model, deriv_like_projector, pulse_like_model, 
+        pulse_like_projector, n_basis, pulses_for_svd)
         return projectors, basis
 
-
-    @_add_group_loop(throw_errors=True)
+    @_add_group_loop()
     def _projectors_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):
         import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
 
@@ -1440,7 +1435,7 @@ class MicrocalDataSet(object):
         return AT, conv0
 
     def _filter_data_segment_ats_dont_shift1(self, filter_values, filter_AT, first, end, transform=None):
-        #dastard with the kink model fitting to choose trigger location doesn't need any shifts
+        # when using a zero threshold trigger (eg dastard using the kink-model) no shift is neccesary
         assert len(filter_values == self.nSamples)
         seg_size = end - first
         assert seg_size == self.data.shape[0]
@@ -2561,3 +2556,37 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     info["entropies"] = (H1, H2, H3)
     info["model"] = model
     return info
+
+def _make_projectors_tsvd(deriv_like_model, deriv_like_projector, pulse_like_model, pulse_like_projector, n_basis, pulses_for_svd):
+    """
+    return projectors in order
+    mean, deriv_ike, pulse_like, any svd components...
+    """
+    assert n_basis >=3
+    mean_model = np.ones(len(deriv_like_model))/np.sqrt(float(len(deriv_like_model)))
+    projectors = np.vstack((mean_model, deriv_like_projector, pulse_like_projector)).T
+    basis = np.vstack((mean_model, deriv_like_model, pulse_like_model))
+    if n_basis > 3:
+        import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
+        mpc = np.matmul(pulses_for_svd, projectors) # modeled pulse coefs
+        mp  = np.matmul(mpc, basis) # moded pulse
+        residuals = pulses_for_svd-mp
+        svd = sklearn.decomposition.TruncatedSVD(n_components=n_basis-3)
+        svd.fit(residuals)
+        basis = np.vstack([basis, svd.components_])
+        projectors = np.hstack([projectors, svd.components_.T])
+    # normalize the svd components
+    for i in range(3, n_basis):
+        d = np.dot(basis[i,:], basis[i,:])
+        normalized_basis = basis[i,:]/np.sqrt(d)
+        basis[i,:] = normalized_basis
+        projectors[:,i] = normalized_basis
+        d_check = np.dot(basis[i,:], projectors[:,i]) #check the normalization
+        if not np.isclose(d,1):
+            raise(Exception("d = {}".format(d)))
+    # make extra sure the mean is small
+    for i in range(1,n_basis):
+        basis[i,:] -= basis[i,:].mean()
+        projectors[:,i] -= projectors[:,i].mean()
+        
+    return projectors, basis
