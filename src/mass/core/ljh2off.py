@@ -7,12 +7,12 @@ import collections
 import numpy as np
 import h5py
 import progress.bar
-import argparse 
-import sys
+import argparse
 
-## intended for the application of converting ljh files to mass files given somep projectors and basis
+# intended for the application of converting ljh files to mass files given somep projectors and basis
 
 _OFF_VERSION = "0.2.0"
+
 
 def off_header_dict_from_ljhfile(ljhfile, projectors, basis, h5_path):
     d = collections.OrderedDict()
@@ -32,56 +32,63 @@ def off_header_dict_from_ljhfile(ljhfile, projectors, basis, h5_path):
         "SavedAs": "row-major float64 binary data after header and before records. projectors first then basis, nbytes = rows*cols*8 for each projectors and basis"
     }
     d["ModelInfo"]["ModelFile"] = h5_path
-    d["PulseFile"]=ljhfile.filename
-    d["ReadoutInfo"]= {
-        "ColumnsNum" : ljhfile.column_number,
-        "RowNum" : ljhfile.row_number,
-        "NumberOfColumns" : ljhfile.number_of_columns,
-        "NumberOfRows" : ljhfile.number_of_rows
+    d["PulseFile"] = ljhfile.filename
+    d["ReadoutInfo"] = {
+        "ColumnsNum": ljhfile.column_number,
+        "RowNum": ljhfile.row_number,
+        "NumberOfColumns": ljhfile.number_of_columns,
+        "NumberOfRows": ljhfile.number_of_rows
     }
-    d["CreationInfo"]={
-        "SourceName" : "ljh2off.py"
+    d["CreationInfo"] = {
+        "SourceName": "ljh2off.py"
     }
     return d
 
+
 def off_header_string_from_ljhfile(ljhfile, projectors, basis, h5_path):
     d = off_header_dict_from_ljhfile(ljhfile, projectors, basis, h5_path)
-    return json.dumps(d,indent=4)+"\n"
+    return json.dumps(d, indent=4)+"\n"
 
-def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version = _OFF_VERSION):
+
+def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
     ljhfile = mass.LJHFile(ljhpath)
     nbasis = nbasis = projectors.shape[1]
     dtype = mass.off.off.recordDtype(off_version, nbasis)
-    with open(offpath,"wb") as f: # opening in binary form prevents windows from messing up newlines
-        f.write(off_header_string_from_ljhfile(ljhfile, projectors.T, basis.T, h5_path).encode('utf-8'))
+    with open(offpath, "wb") as f:  # opening in binary form prevents windows from messing up newlines
+        f.write(off_header_string_from_ljhfile(
+            ljhfile, projectors.T, basis.T, h5_path).encode('utf-8'))
         projectors.T.tofile(f)
         basis.T.tofile(f)
-        n=0
-        for (i_lo,i_hi,i_segment,data) in ljhfile.iter_segments():
-            n+=data.shape[0]
+        n = 0
+        for (i_lo, i_hi, i_segment, data) in ljhfile.iter_segments():
+            n += data.shape[0]
             # print("i_lo {}, i_hi {}, i_segment {}, nnow {}, nsum {}".format(i_lo, i_hi, i_segment, data.shape[0], n))
             timestamps = ljhfile.datatimes_float
             rowcounts = ljhfile.rowcount
-            mpc = np.matmul(data, projectors) # modeled pulse coefs
-            mp = np.matmul(mpc, basis) # modeled pulse
+            mpc = np.matmul(data, projectors)  # modeled pulse coefs
+            mp = np.matmul(mpc, basis)  # modeled pulse
             residuals = mp-data
             offdata = np.zeros(data.shape[0], dtype)
-            if True: # load data into offdata: implementation 1
+            if True:  # load data into offdata: implementation 1
                 offdata["recordSamples"] = ljhfile.nSamples
                 offdata["recordPreSamples"] = ljhfile.nPresamples
                 offdata["framecount"] = rowcounts//ljhfile.number_of_rows
                 offdata["unixnano"] = timestamps*1e9
-                offdata["pretriggerMean"] = data[:,:ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
+                offdata["pretriggerMean"] = data[:,
+                                                 :ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
                 offdata["residualStdDev"] = np.std(residuals, axis=1)
                 offdata["coefs"] = mpc
-            else: # load data into offdata: implementation 2
+            else:  # load data into offdata: implementation 2
                 residual_std_dev = np.std(residuals, axis=1)
                 for i in range(data.shape[0]):
-                    offdata[i] = (ljhfile.nSamples, ljhfile.nPresamples, rowcounts[i]//ljhfile.number_of_rows,
-                    np.int64(timestamps[i]*1e9), data[i,:ljhfile.nPresamples-n_ignore_presamples].mean(), residual_std_dev[i],
-                    mpc[i,:])
+                    offdata[i] = (
+                        ljhfile.nSamples, ljhfile.nPresamples, rowcounts[i]//ljhfile.number_of_rows,
+                        np.int64(timestamps[i]*1e9),
+                        data[i, :ljhfile.nPresamples - n_ignore_presamples].mean(), residual_std_dev[i],
+                        mpc[i, :])
             # write offdata to file
             offdata.tofile(f)
+
 
 def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True):
     projectors_dict = load_projectors(h5_path)
@@ -113,18 +120,21 @@ def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples
                 with open(sink_experiment_state_filename, "w") as f_sink:
                     for line in f_source:
                         f_sink.write(line)
-                    print("wrote experiment state file to : {}".format(os.path.abspath(sink_experiment_state_filename)))
+                    print("wrote experiment state file to : {}".format(
+                        os.path.abspath(sink_experiment_state_filename)))
         else:
-            print("not copying experiment state file {} because the source and destination are the same".format(source_experiment_state_filename))
+            print("not copying experiment state file {} because the source and destination are the same".format(
+                source_experiment_state_filename))
     elif require_experiment_state:
-        raise Exception("{} does not exist, and require_experiment_state=True".format(source_experiment_state_filename)) 
-
+        raise Exception("{} does not exist, and require_experiment_state=True".format(
+            source_experiment_state_filename))
 
     return ljh_filenames, off_filenames
 
+
 def load_projectors(h5_path):
     projectors_dict = collections.OrderedDict()
-    with h5py.File(h5_path,"r") as h5:
+    with h5py.File(h5_path, "r") as h5:
         channel_numbers = sorted(map(int, h5.keys()))
         for channum in channel_numbers:
             projectors = np.array(h5["{}/svdbasis/projectors".format(channum)][()], dtype="float64")
@@ -132,19 +142,27 @@ def load_projectors(h5_path):
             projectors_dict[channum] = projectors, basis
     return projectors_dict
 
+
 def parse_args(fake):
     if fake:
         return FakeArgs()
     example_usage = """ python ljh2off.py data/20190924/0010/20190924_run0010_chan1.ljh data/20190923/0003/20190923_run0003_model.hdf5 test_ljh2off -m 4 -r"""
-    parser = argparse.ArgumentParser(description="convert ljh files to off files, example:\n"+example_usage)
-    parser.add_argument("ljh_path", help="path a a single ljh file, other channel numbers will be found automatically")
+    parser = argparse.ArgumentParser(
+        description="convert ljh files to off files, example:\n"+example_usage)
+    parser.add_argument(
+        "ljh_path", help="path a a single ljh file, other channel numbers will be found automatically")
     parser.add_argument("h5_path", help="path to a hdf5 file with projectors and bases")
-    parser.add_argument("output_dir", help="path to output dir (will be created if it doesn't exist)")
-    parser.add_argument("-r", "--replace_output", help="pass this to overwrite off files with the same path", action="store_true")
-    parser.add_argument("-m", "--max_channels", help="stop after processing this many channels", default = 2**31, type=int)
-    parser.add_argument("--n_ignore_presamples", help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=3, type=int)
+    parser.add_argument(
+        "output_dir", help="path to output dir (will be created if it doesn't exist)")
+    parser.add_argument("-r", "--replace_output",
+                        help="pass this to overwrite off files with the same path", action="store_true")
+    parser.add_argument("-m", "--max_channels",
+                        help="stop after processing this many channels", default=2**31, type=int)
+    parser.add_argument("--n_ignore_presamples",
+                        help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=3, type=int)
     args = parser.parse_args()
     return args
+
 
 class FakeArgs():
     def __init__(self):
@@ -157,5 +175,3 @@ class FakeArgs():
 
     def __repr__(self):
         return "FakeArgs: change the script to have _TEST=False to use real args, this is just for testing from within ipython"
-
-

@@ -70,12 +70,12 @@ class TestFilters(ut.TestCase):
 
     def verify_filters(self, data, filter_type):
         "Check that the filters contain what we expect"
-        expected = {"ats":449.53, "5lag": 456.7}[filter_type]
+        expected = {"ats": 461.57, "5lag": 456.7}[filter_type]
         for ds in data:
             f = ds.filter
             self.assertIn("noconst", f.variances)
             self.assertIn("noconst", f.predicted_v_over_dv)
-            self.assertAlmostEqual(f.variances["noconst"], 8.8e-7, delta=3e-8)
+            self.assertAlmostEqual(f.variances["noconst"], 8.46e-7, delta=3e-8)
             self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], expected, delta=0.1)
 
     def test_vdv_5lag_filters(self):
@@ -103,7 +103,7 @@ class TestFilters(ut.TestCase):
         filter2 = ds.filter
         self.assertEqual(filter_type, ds._filter_type)
         self.assertEqual(type(filter1), type(filter2))
-        if filter_type=="ats":
+        if filter_type == "ats":
             for ds in self.data:
                 self.assertIsNotNone(ds.filter.filt_aterms)
         data2.hdf5_file.close()
@@ -182,6 +182,45 @@ class TestFilters(ut.TestCase):
                 filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
                 fL = filterL.filt_noconst[cut_pre:N-cut_post]
                 self.assertTrue(np.allclose(fS, fL))
+
+    def test_dc_insensitive(self):
+        """When f_3db or fmax applied, filter should not become DC-sensitive.
+        Tests for issue #176."""
+        nSamples = 100
+        nPresamples = 50
+        nPost = nSamples-nPresamples
+
+        # Some fake data
+        pulse_like = np.append(np.zeros(nPresamples), np.linspace(nPost-1, 0, nPost))
+        deriv_like = np.append(np.zeros(nPresamples), -np.ones(nPost))
+        model = np.column_stack((pulse_like, deriv_like))
+
+        fake_noise = np.random.randn(nSamples)
+        fake_noise[0] = 10.0
+        whitener = None
+        dt = 6.72e-6
+
+        fnew = mass.ArrivalTimeSafeFilter(
+            model, nPresamples, fake_noise, whitener, dt, np.max(pulse_like))
+        fold = mass.Filter(pulse_like, nPresamples, noise_autocorr=fake_noise, sample_time=dt)
+        fnew.name = "AT Safe filter"
+        fold.name = "Classic filter"
+        for test_filter in (fold, fnew):
+            test_filter.compute(f_3db=None, fmax=None)
+            std = np.median(np.abs(test_filter.filt_noconst))
+            mean = test_filter.filt_noconst.mean()
+            self.assertLess(
+                mean, 1e-10*std, msg="{} failed DC test w/o lowpass".format(test_filter.name))
+
+            test_filter.compute(f_3db=1e4, fmax=None)
+            mean = test_filter.filt_noconst.mean()
+            self.assertLess(
+                mean, 1e-10*std, msg="{} failed DC test w/ f_3db".format(test_filter.name))
+
+            test_filter.compute(f_3db=None, fmax=1e4)
+            mean = test_filter.filt_noconst.mean()
+            self.assertLess(
+                mean, 1e-10*std, msg="{} failed DC test w/ fmax".format(test_filter.name))
 
 
 class TestWhitener(ut.TestCase):
