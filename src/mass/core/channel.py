@@ -589,13 +589,16 @@ def _add_group_loop(throw_errors=False):
                 except KeyboardInterrupt as e:
                     raise e
                 except Exception as e:
-                    import traceback, sys
+                    import traceback
+                    import sys
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     s = traceback.format_exception(exc_type, exc_value, exc_traceback)
                     if throw_errors:
-                        new_ex = Exception("an error happened during a group loop, the exception was {}\nTRACEBACK BELOW\n{}".format(repr(e),s))
+                        new_ex = Exception(
+                            "an error happened during a group loop, the exception was {}\nTRACEBACK BELOW\n{}".format(repr(e), s))
                         raise new_ex
-                    self.set_chan_bad(ds.channum, "failed %s with %s\ntraceback:\n%s" % (method_name, e, s))
+                    self.set_chan_bad(ds.channum, "failed %s with %s\ntraceback:\n%s" %
+                                      (method_name, e, s))
 
         wrapper.__name__ = method_name
 
@@ -753,13 +756,13 @@ class MicrocalDataSet(object):
 
             if "version" in filter_group.attrs:
                 version = filter_group.attrs["version"]
-            else: 
-                version = 0 # older hdf5 files with filters have no version number, assign 0
+            else:
+                version = 0  # older hdf5 files with filters have no version number, assign 0
 
             if version > 0:
-                filter_type = filter_group.attrs["filter_type"] # a string
+                filter_type = filter_group.attrs["filter_type"]  # a string
             else:
-                if "newfilter" in filter_group.attrs: 
+                if "newfilter" in filter_group.attrs:
                     # version 0 hdf5 files either did or did not have the "newfilter" attribute, newfilter corresponds to ats filters
                     filter_type = "ats"
                 else:
@@ -1194,8 +1197,8 @@ class MicrocalDataSet(object):
         return f
 
     @_add_group_loop()
-    def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0, 
-    category={}, shift1=True, forceNew=False, minimum_n_pulses = 20):
+    def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0,
+                           category={}, shift1=True, forceNew=False, minimum_n_pulses=20):
         """Compute a arrival-time-safe filter to model the pulse and its time-derivative.
         Requires that `compute_noise` has been run.
 
@@ -1357,8 +1360,8 @@ class MicrocalDataSet(object):
                 len(pulse_like_model), self.nSamples))
         deriv_like_projector = f.filt_aterms
         pulse_like_projector = f.filt_noconst
-        projectors, basis = _make_projectors_tsvd(deriv_like_model, deriv_like_projector, pulse_like_model, 
-        pulse_like_projector, n_basis, pulses_for_svd)
+        projectors, basis = _make_projectors_tsvd(deriv_like_model, deriv_like_projector, pulse_like_model,
+                                                  pulse_like_projector, n_basis, pulses_for_svd)
         return projectors, basis
 
     @_add_group_loop()
@@ -2560,19 +2563,20 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     info["model"] = model
     return info
 
+
 def _make_projectors_tsvd(deriv_like_model, deriv_like_projector, pulse_like_model, pulse_like_projector, n_basis, pulses_for_svd):
     """
     return projectors in order
     mean, deriv_ike, pulse_like, any svd components...
     """
-    assert n_basis >=3
+    assert n_basis >= 3
     mean_model = np.ones(len(deriv_like_model))/np.sqrt(float(len(deriv_like_model)))
     projectors = np.vstack((mean_model, deriv_like_projector, pulse_like_projector)).T
     basis = np.vstack((mean_model, deriv_like_model, pulse_like_model))
     if n_basis > 3:
-        import sklearn.decomposition # import takes ~4 seconds, put it here to avoid it on most mass usages
-        mpc = np.matmul(pulses_for_svd, projectors) # modeled pulse coefs
-        mp  = np.matmul(mpc, basis) # moded pulse
+        import sklearn.decomposition  # import takes ~4 seconds, put it here to avoid it on most mass usages
+        mpc = np.matmul(pulses_for_svd, projectors)  # modeled pulse coefs
+        mp = np.matmul(mpc, basis)  # moded pulse
         residuals = pulses_for_svd-mp
         svd = sklearn.decomposition.TruncatedSVD(n_components=n_basis-3)
         svd.fit(residuals)
@@ -2580,16 +2584,16 @@ def _make_projectors_tsvd(deriv_like_model, deriv_like_projector, pulse_like_mod
         projectors = np.hstack([projectors, svd.components_.T])
     # normalize the svd components
     for i in range(3, n_basis):
-        d = np.dot(basis[i,:], basis[i,:])
-        normalized_basis = basis[i,:]/np.sqrt(d)
-        basis[i,:] = normalized_basis
-        projectors[:,i] = normalized_basis
-        d_check = np.dot(basis[i,:], projectors[:,i]) #check the normalization
-        if not np.isclose(d,1):
+        d = np.dot(basis[i, :], basis[i, :])
+        normalized_basis = basis[i, :]/np.sqrt(d)
+        basis[i, :] = normalized_basis
+        projectors[:, i] = normalized_basis
+        d_check = np.dot(basis[i, :], projectors[:, i])  # check the normalization
+        if not np.isclose(d_check, 1):
             raise(Exception("d = {}".format(d)))
     # make extra sure the mean is small
-    for i in range(1,n_basis):
-        basis[i,:] -= basis[i,:].mean()
-        projectors[:,i] -= projectors[:,i].mean()
+    for i in range(1, n_basis):
+        basis[i, :] -= basis[i, :].mean()
+        projectors[:, i] -= projectors[:, i].mean()
 
     return projectors, basis

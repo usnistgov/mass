@@ -94,5 +94,15 @@ class TestSummaries(ut.TestCase):
         nt.assert_allclose(ppd1, ppd2)
 
 
+class TestStoredFilters(ut.TestCase):
+    """Make sure we can read filters stored by MASS v0.7.0"""
+
+    def test_filters(self):
+        fname = "{}/regress_mass_v0_7_0.hdf5".format(ljhdir)
+        # The following will error if cannot read pre-v0.7.1 filters.
+        data = mass.TESGroupHDF5(fname, read_only=True)
+        self.assertIsInstance(data, mass.core.channel_group_hdf5_only.TESGroupHDF5)
+
+
 if __name__ == '__main__':
     ut.main()

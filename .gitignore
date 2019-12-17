@@ -27,6 +27,8 @@ TAGS
 *.log
 *.hdf5
 *.h5
+!regress_mass_v0_7_0.hdf5
+.DS_Store
 
 # Cython produces C source files and can produce HTML
 src/mass/core/*.c
