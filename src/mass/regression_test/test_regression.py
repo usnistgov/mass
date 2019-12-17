@@ -97,7 +97,7 @@ class TestSummaries(ut.TestCase):
 class TestStoredFilters(ut.TestCase):
     """Make sure we can read filters stored by MASS v0.7.0"""
 
-    def test_filters(self):
+    def test_filters_in_old_hdf5_files(self):
         fname = "{}/regress_mass_v0_7_0.hdf5".format(ljhdir)
         # The following will error if cannot read pre-v0.7.1 filters.
         data = mass.TESGroupHDF5(fname, read_only=True)

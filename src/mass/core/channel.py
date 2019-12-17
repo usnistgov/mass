@@ -770,8 +770,11 @@ class MicrocalDataSet(object):
 
             if filter_type == "ats":
                 # arrival time safe filter can be shorter than records by 1 sample, or equal in length
-                avg_signal, aterms = filter_group.attrs["avg_signal"][(
-                )], filter_group["filt_aterms"][()]
+                if version > 0:
+                    avg_signal, aterms = filter_group.attrs["avg_signal"][()], filter_group["filt_aterms"][()]
+                else:
+                    # version 0 hdf5 files did not storage avg_signal, use truncated average_pulse instead
+                    avg_signal, aterms = self.average_pulse[1:], filter_group["filt_aterms"][()]
                 model = np.vstack([avg_signal, aterms]).T
                 modelpeak = np.max(avg_signal)
                 self.filter = ArrivalTimeSafeFilter(model,
