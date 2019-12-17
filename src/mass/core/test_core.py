@@ -293,15 +293,15 @@ class TestTESGroup(ut.TestCase):
         off = mass.off.off.OffFile(off_filenames[0])
         self.assertTrue(np.allclose(off["coefs"][:, 2], ds.p_filt_value[:]))
 
-        x,y=off.recordXY(0)
+        # x,y=off.recordXY(0)
 
-        with h5py.File(hdf5_filename,"r") as h5:
-            projectors = h5["1/svdbasis/projectors"][()]
-            basis = h5["1/svdbasis/basis"][()]
-        self.assertEqual(projectors.shape, (ds.nSamples, n_basis))
-        self.assertEqual(basis.shape, projectors.shape[::-1])
-        mpc = np.matmul(ds.read_trace(0), projectors)
-        self.assertTrue(np.allclose(off["coefs"][0, :], mpc))
+        # with h5py.File(hdf5_filename,"r") as h5:
+        #     projectors = h5["1/svdbasis/projectors"][()]
+        #     basis = h5["1/svdbasis/basis"][()]
+        # self.assertEqual(projectors.shape, (ds.nSamples, n_basis))
+        # self.assertEqual(basis.shape, projectors.shape[::-1])
+        # mpc = np.matmul(ds.read_trace(0), projectors)
+        # self.assertTrue(np.allclose(off["coefs"][0, :], mpc))
         # import h5py
         # import pylab as plt
         # also need to remove matplotlib.use("svg") from runtests.py and run only this file to avoid lots of plots
