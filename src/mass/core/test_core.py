@@ -1,9 +1,9 @@
-import tempfile
-import os.path
-
+import h5py
 import numpy as np
 import os
+import os.path
 import shutil
+import tempfile
 import unittest as ut
 
 import mass
@@ -219,7 +219,7 @@ class TestTESGroup(ut.TestCase):
         data.summarize_data()
         data.avg_pulses_auto_masks()
         data.compute_noise_spectra()
-        data.compute_5lag_filter() # not enough pulses for ats filters
+        data.compute_5lag_filter()  # not enough pulses for ats filters
         data.plot_filters()
 
     def test_time_drift_correct(self):
@@ -288,14 +288,14 @@ class TestTESGroup(ut.TestCase):
         output_dir = tempfile.mkdtemp()
         max_channels = 100
         n_ignore_presamples = 0
-        ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(ds.filename, hdf5_filename, output_dir, max_channels, 
-        n_ignore_presamples, require_experiment_state=False)
+        ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(ds.filename, hdf5_filename, output_dir, max_channels,
+                                                                 n_ignore_presamples, require_experiment_state=False)
         off = mass.off.off.OffFile(off_filenames[0])
         self.assertTrue(np.allclose(off["coefs"][:, 2], ds.p_filt_value[:]))
 
-        x,y=off.recordXY(0)
+        x, y = off.recordXY(0)
 
-        with h5py.File(hdf5_filename,"r") as h5:
+        with h5py.File(hdf5_filename, "r") as h5:
             projectors = h5["1/svdbasis/projectors"][()]
             basis = h5["1/svdbasis/basis"][()]
         self.assertEqual(projectors.shape, (ds.nSamples, n_basis))
@@ -328,8 +328,6 @@ class TestTESGroup(ut.TestCase):
 
         # plt.show()
         # plt.pause(20)
-
-
 
 
 class TestTESHDF5Only(ut.TestCase):
