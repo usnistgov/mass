@@ -174,6 +174,51 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
+fluorescence_lines.addfitter(
+    element="Ne",
+    material="Highly Charged Ion",
+    linetype=" H-Like 5p",
+    reference_short='NIST ASD',
+    fitter_type = line_fits.GenericKBetaFitter,
+    reference_plot_gaussian_fwhm=0.5,
+    nominal_peak_energy=(1307.757092*2+1307.727954*1)/3,
+    energies=np.array([1307.727954, 1307.757092]), lorentzian_fwhm=np.array([0.1,0.1]),
+    reference_amplitude=np.array([1,2]),
+    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    ka12_energy_diff=None,
+    reference_measurement_type = "Theory"
+)
+
+fluorescence_lines.addfitter(
+    element="Ne",
+    material="Highly Charged Ion",
+    linetype=" H-Like 6p",
+    reference_short='NIST ASD',
+    fitter_type = line_fits.GenericKBetaFitter,
+    reference_plot_gaussian_fwhm=0.5,
+    nominal_peak_energy=(1324.393513*2+1324.376653*1)/3,
+    energies=np.array([1324.376653, 1324.393513]), lorentzian_fwhm=np.array([0.1,0.1]),
+    reference_amplitude=np.array([1,2]),
+    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    ka12_energy_diff=None,
+    reference_measurement_type = "Theory"
+)
+
+fluorescence_lines.addfitter(
+    element="Ne",
+    material="Highly Charged Ion",
+    linetype=" H-Like 7p",
+    reference_short='NIST ASD',
+    fitter_type = line_fits.GenericKBetaFitter,
+    reference_plot_gaussian_fwhm=0.5,
+    nominal_peak_energy=(1334.424384*2+1334.413767*1)/3,
+    energies=np.array([1334.413767, 1334.424384]), lorentzian_fwhm=np.array([0.1,0.1]),
+    reference_amplitude=np.array([1,2]),
+    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    ka12_energy_diff=None,
+    reference_measurement_type = "Theory"
+)
+
 # He-like
 fluorescence_lines.addfitter(
     element="Ne",

@@ -444,20 +444,12 @@ class EnergyCalibration(object):
         elif self.npts == 1:
             p1 = self._ph[0]
             e1 = self._energies[0]
-            # self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
-            # p_over_scale = Multiplication(ConstantFunction(1.0 / p1), Identity())
-            # power_p = Composition(PowerFunction(self.nonlinearity), p_over_scale)
-            self._ph2energy_anon = e1 * (Identity() / p1)**self.nonlinearity
-
-        elif self.npts == 2:
-            p1, p2 = self._ph
-            e1, e2 = self._energies
-            self.nonlinearity = np.log(e2/e1) / np.log(p2/p1)
-
-            # self._ph2energy_anon = lambda p: e1*(p/p1)**self.nonlinearity
-            # p_over_scale = Multiplication(ConstantFunction(1.0 / p1), Identity())
-            # power_p = Composition(PowerFunction(self.nonlinearity), p_over_scale)
-            self._ph2energy_anon = e1 * (Identity() / p1)**self.nonlinearity
+            if self.curvename() == "loglog":
+                self._ph2energy_anon = e1 * (Identity() / p1)**self.nonlinearity
+            elif self.curvename() in ["gain", "invgain"]:
+                self._ph2energy_anon = (e1/p1)*Identity()
+            else:
+                raise Exception("curvename={} not implemented for npts=1".format(self.curvename()))
 
         elif self.curvename() == "loglog":
             x = np.log(self._ph)
