@@ -771,7 +771,8 @@ class MicrocalDataSet(object):
             if filter_type == "ats":
                 # arrival time safe filter can be shorter than records by 1 sample, or equal in length
                 if version > 0:
-                    avg_signal, aterms = filter_group.attrs["avg_signal"][()], filter_group["filt_aterms"][()]
+                    avg_signal, aterms = filter_group.attrs["avg_signal"][(
+                    )], filter_group["filt_aterms"][()]
                 else:
                     # version 0 hdf5 files did not storage avg_signal, use truncated average_pulse instead
                     avg_signal, aterms = self.average_pulse[1:], filter_group["filt_aterms"][()]
@@ -1361,10 +1362,14 @@ class MicrocalDataSet(object):
         if not len(pulse_like_model) == self.nSamples:
             raise Exception("filter length {} and nSamples {} don't match, you likely need to use shift1=False in compute_filters".format(
                 len(pulse_like_model), self.nSamples))
-        deriv_like_projector = f.filt_aterms
-        pulse_like_projector = f.filt_noconst
-        projectors, basis = _make_projectors_tsvd(deriv_like_model, deriv_like_projector, pulse_like_model,
-                                                  pulse_like_projector, n_basis, pulses_for_svd)
+        projectors1 = np.vstack([f.filt_baseline,
+                                 f.filt_aterms[0],
+                                 f.filt_noconst])
+        basis1 = np.vstack([np.ones(len(pulse_like_model), dtype=float),
+                            deriv_like_model,
+                            pulse_like_model]).T
+        projectors, basis = _additional_projectors_tsvd(
+            projectors1, basis1, n_basis, pulses_for_svd)
         return projectors, basis
 
     @_add_group_loop()
@@ -1376,12 +1381,13 @@ class MicrocalDataSet(object):
         inverted = self.__dict__.get("invert_data", False)
         if inverted:
             # flip every component except the mean component if pulses are inverted
-            basis[1:, :] *= -1
-            projectors[:, 1:] *= -1
+            basis[:, 1:] *= -1
+            projectors[1:, :] *= -1
 
-        # projectors is NxM, where N is samples/record and M the number of basis elements
+        # projectors is MxN, where N is samples/record and M the number of basis elements
+        # basis is NxM
         hdf5_file["{}/svdbasis/projectors".format(self.channum)] = projectors
-        hdf5_file["{}/svdbasis/basis".format(self.channum)] = basis  # models is MxN
+        hdf5_file["{}/svdbasis/basis".format(self.channum)] = basis
 
     def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
         """Traditional 5-lag filter used by default until 2015."""
@@ -2567,36 +2573,38 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     return info
 
 
-def _make_projectors_tsvd(deriv_like_model, deriv_like_projector, pulse_like_model, pulse_like_projector, n_basis, pulses_for_svd):
+def _additional_projectors_tsvd(projectors, basis, n_basis, pulses_for_svd):
     """
-    return projectors in order
+    Given an existing basis with projectors, compute a basis with n_basis elements
+    by randomized SVD of the residual elements of the training data in pulses_for_svd.
+    It should be the case that projectors.dot(basis) is approximately the identity matrix.
+
+    It is assumed that the projectors will have been computed from the basis in some
+    noise-optimal way, say, from optimal filtering. However, the additional basis elements
+    will be computed from a standard (non-noise-weighted) SVD, and the additional projectors
+    will be computed without noise optimization.
+
+    The projectors and basis will be ordered as:
     mean, deriv_ike, pulse_like, any svd components...
     """
-    assert n_basis >= 3
-    mean_model = np.ones(len(deriv_like_model))/np.sqrt(float(len(deriv_like_model)))
-    projectors = np.vstack((mean_model, deriv_like_projector, pulse_like_projector)).T
-    basis = np.vstack((mean_model, deriv_like_model, pulse_like_model))
-    if n_basis > 3:
-        import sklearn.decomposition  # import takes ~4 seconds, put it here to avoid it on most mass usages
-        mpc = np.matmul(pulses_for_svd, projectors)  # modeled pulse coefs
-        mp = np.matmul(mpc, basis)  # moded pulse
-        residuals = pulses_for_svd-mp
-        svd = sklearn.decomposition.TruncatedSVD(n_components=n_basis-3)
-        svd.fit(residuals)
-        basis = np.vstack([basis, svd.components_])
-        projectors = np.hstack([projectors, svd.components_.T])
-    # normalize the svd components
-    for i in range(3, n_basis):
-        d = np.dot(basis[i, :], basis[i, :])
-        normalized_basis = basis[i, :]/np.sqrt(d)
-        basis[i, :] = normalized_basis
-        projectors[:, i] = normalized_basis
-        d_check = np.dot(basis[i, :], projectors[:, i])  # check the normalization
-        if not np.isclose(d_check, 1):
-            raise(Exception("d = {}".format(d)))
-    # make extra sure the mean is small
-    for i in range(1, n_basis):
-        basis[i, :] -= basis[i, :].mean()
-        projectors[:, i] -= projectors[:, i].mean()
+
+    # Check sanity of inputs
+    n_samples, n_existing = basis.shape
+    assert (n_existing, n_samples) == projectors.shape
+    assert n_basis >= n_existing
+
+    if n_basis == n_existing:
+        return projectors, basis
+
+    mpc = np.matmul(projectors, pulses_for_svd.T)  # modeled pulse coefs
+    mp = np.matmul(basis, mpc)  # modeled pulse
+    residuals = pulses_for_svd.T - mp
+    Q = mass.mathstat.utilities.find_range_randomly(residuals, n_basis-3)
+
+    projectors2 = np.linalg.pinv(Q)  # = Q.T, perhaps??
+    projectors2 -= projectors2.dot(basis).dot(projectors)
+
+    basis = np.hstack([basis, Q])
+    projectors = np.vstack([projectors, projectors2])
 
     return projectors, basis

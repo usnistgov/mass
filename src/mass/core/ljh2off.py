@@ -52,40 +52,41 @@ def off_header_string_from_ljhfile(ljhfile, projectors, basis, h5_path):
 
 def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
     ljhfile = mass.LJHFile(ljhpath)
-    nbasis = nbasis = projectors.shape[1]
+    nbasis = projectors.shape[0]
     dtype = mass.off.off.recordDtype(off_version, nbasis)
     with open(offpath, "wb") as f:  # opening in binary form prevents windows from messing up newlines
         f.write(off_header_string_from_ljhfile(
-            ljhfile, projectors.T, basis.T, h5_path).encode('utf-8'))
-        projectors.T.tofile(f)
-        basis.T.tofile(f)
+            ljhfile, projectors, basis, h5_path).encode('utf-8'))
+        projectors.tofile(f)
+        basis.tofile(f)
         n = 0
         for (i_lo, i_hi, i_segment, data) in ljhfile.iter_segments():
-            n += data.shape[0]
+            records_this_seg = data.shape[0]
+            n += records_this_seg
             # print("i_lo {}, i_hi {}, i_segment {}, nnow {}, nsum {}".format(i_lo, i_hi, i_segment, data.shape[0], n))
             timestamps = ljhfile.datatimes_float
             rowcounts = ljhfile.rowcount
-            mpc = np.matmul(data, projectors)  # modeled pulse coefs
-            mp = np.matmul(mpc, basis)  # modeled pulse
-            residuals = mp-data
-            offdata = np.zeros(data.shape[0], dtype)
+            mpc = np.matmul(projectors, data.T)  # modeled pulse coefs
+            mp = np.matmul(basis, mpc)  # modeled pulse
+            residuals = mp-data.T
+            residual_std_dev = np.std(residuals, axis=0)
+            pretrig_mean = data[:, :ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
+            offdata = np.zeros(records_this_seg, dtype)
             if True:  # load data into offdata: implementation 1
                 offdata["recordSamples"] = ljhfile.nSamples
                 offdata["recordPreSamples"] = ljhfile.nPresamples
                 offdata["framecount"] = rowcounts//ljhfile.number_of_rows
                 offdata["unixnano"] = timestamps*1e9
-                offdata["pretriggerMean"] = data[:,
-                                                 :ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
-                offdata["residualStdDev"] = np.std(residuals, axis=1)
-                offdata["coefs"] = mpc
+                offdata["pretriggerMean"] = pretrig_mean
+                offdata["residualStdDev"] = residual_std_dev
+                offdata["coefs"] = mpc.T
             else:  # load data into offdata: implementation 2
-                residual_std_dev = np.std(residuals, axis=1)
-                for i in range(data.shape[0]):
+                for i in range(records_this_seg):
                     offdata[i] = (
                         ljhfile.nSamples, ljhfile.nPresamples, rowcounts[i]//ljhfile.number_of_rows,
                         np.int64(timestamps[i]*1e9),
-                        data[i, :ljhfile.nPresamples - n_ignore_presamples].mean(), residual_std_dev[i],
-                        mpc[i, :])
+                        pretrig_mean[i], residual_std_dev[i],
+                        mpc[:, i])
             # write offdata to file
             offdata.tofile(f)
 
