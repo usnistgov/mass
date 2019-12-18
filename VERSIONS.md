@@ -1,5 +1,12 @@
 ## Note on version numbers of Mass
 
+**0.7.2** December 2019
+
+* Allow ArrivalTimeSafeFilter to be full length, skipping the "shift-1" possibility that DASTARD doesn't need.
+* Refactor calling `MicrocalDataSet` method `compute_filter()` into `compute_5lag_filter()` and `compute_ats_filter()`.
+* Add scripts/ljh2off.py and `MicrocalDataSet.projectors_to_hdf5()`
+* Fix issue 177: read new and old stored filters.
+
 **0.7.1** November 2019-December 2019
 
 * More neon HCI lines.
@@ -7,10 +14,6 @@
 * Fix issue 175: use of basestring isn't Python 3 compatible.
 * Fix issue 176: band limited ArrivalTimeSafeFilter were not DC-insensitive.
 * In the above, we fundamentally changed the exact computation of a filter so filtered data _will_ be changed by this version of MASS.
-* Allow ArrivalTimeSafeFilter to be full length, skipping the "shift-1" possibility that DASTARD doesn't need.
-* Refactor calling `MicrocalDataSet` method `compute_filter()` into `compute_5lag_filter()` and `compute_ats_filter()`.
-* Add scripts/ljh2off.py and `MicrocalDataSet.projectors_to_hdf5()`
-* Fix issue 177: read new and old stored filters.
 
 **0.7.0** December 2018-October 2019
 
