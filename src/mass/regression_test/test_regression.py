@@ -39,8 +39,7 @@ def process_file(prefix, cuts, do_filter=True):
         data.summarize_filters(std_energy=600)
         data.filter_data()
         data.drift_correct(forceNew=True)
-
-        data.filter_data(forceNew=True, use_cython=True)
+        data.filter_data(forceNew=True)
 
     return data
 
@@ -93,6 +92,16 @@ class TestSummaries(ut.TestCase):
         ppd2 = ds.p_postpeak_deriv[:]
         ds.summarize_data(forceNew=True, peak_time_microsec=None)
         nt.assert_allclose(ppd1, ppd2)
+
+
+class TestStoredFilters(ut.TestCase):
+    """Make sure we can read filters stored by MASS v0.7.0"""
+
+    def test_filters_in_old_hdf5_files(self):
+        fname = "{}/regress_mass_v0_7_0.hdf5".format(ljhdir)
+        # The following will error if cannot read pre-v0.7.1 filters.
+        data = mass.TESGroupHDF5(fname, read_only=True)
+        self.assertIsInstance(data, mass.core.channel_group_hdf5_only.TESGroupHDF5)
 
 
 if __name__ == '__main__':

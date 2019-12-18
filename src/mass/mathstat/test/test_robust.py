@@ -170,6 +170,7 @@ class Test_Qscale(unittest.TestCase):
         """Test some random (normal) data to be sure that the fast and Qslow
         operations give the same result.
         """
+        numpy.random.seed(0)  # improve test repeatability
         for size in (3, 6, 9, 15, 20, 25, 30, 40, 45, 50, 75, 100, 140):
             data = numpy.random.standard_normal(size=size)
             qs = self.Qslow(data)

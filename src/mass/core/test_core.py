@@ -1,13 +1,14 @@
-import tempfile
-import os.path
-
+import h5py
 import numpy as np
 import os
+import os.path
 import shutil
+import tempfile
 import unittest as ut
 
 import mass
 from mass.core.ljh_modify import LJHFile, ljh_copy_traces, ljh_append_traces, ljh_truncate
+import mass.off
 
 import logging
 LOG = logging.getLogger("mass")
@@ -216,10 +217,9 @@ class TestTESGroup(ut.TestCase):
         data = self.load_data()
         data.set_chan_good(1)
         data.summarize_data()
-        data.channel[1]._use_new_filters = False  # Not enough pulses for new filters.
         data.avg_pulses_auto_masks()
         data.compute_noise_spectra()
-        data.compute_filters()
+        data.compute_5lag_filter()  # not enough pulses for ats filters
         data.plot_filters()
 
     def test_time_drift_correct(self):
@@ -275,6 +275,59 @@ class TestTESGroup(ut.TestCase):
         data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
         ds = data.channel[1]
         ds.compute_noise_spectra()
+
+    def test_projectors_and_ljh2off(self):
+        data = self.load_data()
+        data.compute_noise_spectra()
+        data.summarize_data()
+        data.compute_ats_filter(shift1=False)
+        data.filter_data()
+        ds = data.datasets[0]
+        n_basis = 5
+        hdf5_filename = data.projectors_to_hdf5(replace_output=True, n_basis=n_basis)
+        output_dir = tempfile.mkdtemp()
+        max_channels = 100
+        n_ignore_presamples = 0
+        ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(ds.filename, hdf5_filename, output_dir, max_channels,
+                                                                 n_ignore_presamples, require_experiment_state=False)
+        off = mass.off.off.OffFile(off_filenames[0])
+        self.assertTrue(np.allclose(off["coefs"][:, 2], ds.p_filt_value[:]))
+
+        x, y = off.recordXY(0)
+
+        with h5py.File(hdf5_filename, "r") as h5:
+            projectors = h5["1/svdbasis/projectors"][()]
+            basis = h5["1/svdbasis/basis"][()]
+        self.assertEqual(projectors.shape, (n_basis, ds.nSamples))
+        self.assertEqual(basis.shape, projectors.shape[::-1])
+        mpc = projectors.dot(ds.read_trace(0))
+        self.assertTrue(np.allclose(off["coefs"][0, :], mpc))
+        import pylab as plt
+        # also need to remove matplotlib.use("svg") from runtests.py and run only this file to avoid lots of plots
+        # are the projectors orthogonal? NO :(
+        # print "projectors * projectors.T"
+        # print np.matmul(projectors, projectors.T)
+        # print "basis.T * basis"
+        # print np.matmul(basis.T, basis)
+        # print "projectors * basis"
+        # # should this be the identity matrix? Yes.
+        # print np.matmul(projectors, basis)
+        #
+        # plt.figure()
+        # plt.plot(basis)
+        # plt.title("basis")
+        # plt.legend(["mean", "deriv", "pulse", "svd1", "svd2"])
+        # plt.figure()
+        # plt.plot(y, label="from off")
+        # plt.plot(ds.read_trace(1), label="from ljh")
+        # plt.legend()
+        # plt.figure()
+        # plt.plot(projectors.T)
+        # plt.legend(["mean", "deriv", "pulse", "svd1", "svd2"])
+        # plt.title("projectors")
+        #
+        # plt.show()
+        # plt.pause(20)
 
 
 class TestTESHDF5Only(ut.TestCase):
