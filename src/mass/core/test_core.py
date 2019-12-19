@@ -280,6 +280,7 @@ class TestTESGroup(ut.TestCase):
         data = self.load_data()
         data.compute_noise_spectra()
         data.summarize_data()
+        data.auto_cuts()
         data.compute_ats_filter(shift1=False)
         data.filter_data()
         ds = data.datasets[0]

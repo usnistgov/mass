@@ -1388,6 +1388,13 @@ class MicrocalDataSet(object):
         # basis is NxM
         hdf5_file["{}/svdbasis/projectors".format(self.channum)] = projectors
         hdf5_file["{}/svdbasis/basis".format(self.channum)] = basis
+        hdf5_file["{}/svdbasis/v_dv".format(self.channum)] = self.filter.predicted_v_over_dv.get("noconst", 0.0)
+
+        if hasattr(self, "saved_auto_cuts"):
+            hdf5_file["{}/svdbasis/pretrig_rms_median".format(self.channum)] = self.saved_auto_cuts._pretrig_rms_median
+            hdf5_file["{}/svdbasis/pretrig_rms_sigma".format(self.channum)] = self.saved_auto_cuts._pretrig_rms_sigma
+        else:
+            raise Exception("use autocuts when making projectors, so it can save more info about desired cuts")
 
     def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
         """Traditional 5-lag filter used by default until 2015."""
@@ -2131,9 +2138,6 @@ class MicrocalDataSet(object):
         Returns:
             The cut object that was applied.
         """
-        # These are based on function calc_cuts_from_noise in make_preknowledge.py
-        # in Galen's project POPE.jl.
-
         if self.saved_auto_cuts is None:
             forceNew = True
         if not forceNew:
@@ -2180,6 +2184,9 @@ class MicrocalDataSet(object):
             pretrigger_rms=(None, pt_max),
             postpeak_deriv=(None, md_max),
         )
+        cuts._pretrig_rms_median = pt_med # store these so we can acess them when writing projectors to hdf5
+        cuts._pretrig_rms_sigma = pt_madn
+
         self.apply_cuts(cuts, forceNew=True, clear=False)
         self.__save_auto_cuts(cuts)
         return cuts
