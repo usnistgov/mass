@@ -276,7 +276,7 @@ class TestTESGroup(ut.TestCase):
         ds = data.channel[1]
         ds.compute_noise_spectra()
 
-    def test_projectors_and_ljh2off(self):
+    def test_pulse_model_and_ljh2off(self):
         data = self.load_data()
         data.compute_noise_spectra()
         data.summarize_data()
@@ -284,8 +284,8 @@ class TestTESGroup(ut.TestCase):
         data.compute_ats_filter(shift1=False)
         data.filter_data()
         ds = data.datasets[0]
-        n_basis = 5
-        hdf5_filename = data.projectors_to_hdf5(replace_output=True, n_basis=n_basis)
+        n_basis = 3
+        hdf5_filename = data.pulse_model_to_hdf5(replace_output=True, n_basis=n_basis)
         output_dir = tempfile.mkdtemp()
         max_channels = 100
         n_ignore_presamples = 0
@@ -297,38 +297,36 @@ class TestTESGroup(ut.TestCase):
         x, y = off.recordXY(0)
 
         with h5py.File(hdf5_filename, "r") as h5:
-            projectors = h5["1/svdbasis/projectors"][()]
-            basis = h5["1/svdbasis/basis"][()]
-        self.assertEqual(projectors.shape, (n_basis, ds.nSamples))
-        self.assertEqual(basis.shape, projectors.shape[::-1])
-        mpc = projectors.dot(ds.read_trace(0))
+            group = h5["1"]
+            pulse_model = mass.PulseModel.fromHDF5(group)
+        self.assertEqual(pulse_model.projectors.shape, (n_basis, ds.nSamples))
+        self.assertEqual(pulse_model.basis.shape, pulse_model.projectors.shape[::-1])
+        mpc = pulse_model.projectors.dot(ds.read_trace(0))
         self.assertTrue(np.allclose(off["coefs"][0, :], mpc))
         import pylab as plt
         # also need to remove matplotlib.use("svg") from runtests.py and run only this file to avoid lots of plots
         # are the projectors orthogonal? NO :(
-        # print "projectors * projectors.T"
-        # print np.matmul(projectors, projectors.T)
-        # print "basis.T * basis"
-        # print np.matmul(basis.T, basis)
-        # print "projectors * basis"
-        # # should this be the identity matrix? Yes.
-        # print np.matmul(projectors, basis)
-        #
-        # plt.figure()
-        # plt.plot(basis)
-        # plt.title("basis")
-        # plt.legend(["mean", "deriv", "pulse", "svd1", "svd2"])
-        # plt.figure()
-        # plt.plot(y, label="from off")
-        # plt.plot(ds.read_trace(1), label="from ljh")
-        # plt.legend()
-        # plt.figure()
-        # plt.plot(projectors.T)
-        # plt.legend(["mean", "deriv", "pulse", "svd1", "svd2"])
-        # plt.title("projectors")
-        #
-        # plt.show()
-        # plt.pause(20)
+        print "projectors * basis"
+        # should this be the identity matrix? Yes.
+        print np.matmul(pulse_model.projectors, pulse_model.basis)
+        print "residualStdDev/scale"
+        print off["residualStdDev"]/pulse_model.pretrig_rms_median
+        
+        plt.figure()
+        plt.plot(pulse_model.basis)
+        plt.title("basis")
+        plt.legend(["mean", "deriv", "pulse", "svd1", "svd2"])
+        plt.figure()
+        plt.plot(y, label="from off")
+        plt.plot(ds.read_trace(1), label="from ljh")
+        plt.legend()
+        plt.figure()
+        plt.plot(pulse_model.projectors.T)
+        plt.legend(["mean", "deriv", "pulse", "svd1", "svd2"])
+        plt.title("projectors")
+        
+        plt.show()
+        plt.pause(60)
 
 
 class TestTESHDF5Only(ut.TestCase):

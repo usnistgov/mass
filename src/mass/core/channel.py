@@ -20,6 +20,7 @@ import mass.mathstat.interpolate
 import mass.mathstat.robust
 import mass.core.analysis_algorithms
 from . import phase_correct
+from .pulse_model import PulseModel
 
 from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile
@@ -565,7 +566,7 @@ class GroupLooper(object):
     pass
 
 
-def _add_group_loop(throw_errors=False):
+def _add_group_loop(throw_errors=True):
     """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
 
     This is a decorator to add before method definitions inside class MicrocalDataSet.
@@ -1355,7 +1356,7 @@ class MicrocalDataSet(object):
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
-    def get_projectors(self, f, n_basis, pulses_for_svd):
+    def get_pulse_model(self, f, n_basis, pulses_for_svd):
         assert n_basis >= 3
         deriv_like_model = f.pulsemodel[:, 1]
         pulse_like_model = f.pulsemodel[:, 0]
@@ -1368,33 +1369,23 @@ class MicrocalDataSet(object):
         basis1 = np.vstack([np.ones(len(pulse_like_model), dtype=float),
                             deriv_like_model,
                             pulse_like_model]).T
-        projectors, basis = _additional_projectors_tsvd(
-            projectors1, basis1, n_basis, pulses_for_svd)
-        return projectors, basis
-
-    @_add_group_loop()
-    def _projectors_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):
         if pulses_for_svd is None:
             pulses_for_svd, _ = self.first_n_good_pulses(4000)
-        projectors, basis = self.get_projectors(self.filter, n_basis, pulses_for_svd)
-
-        inverted = self.__dict__.get("invert_data", False)
-        if inverted:
-            # flip every component except the mean component if pulses are inverted
-            basis[:, 1:] *= -1
-            projectors[1:, :] *= -1
-
-        # projectors is MxN, where N is samples/record and M the number of basis elements
-        # basis is NxM
-        hdf5_file["{}/svdbasis/projectors".format(self.channum)] = projectors
-        hdf5_file["{}/svdbasis/basis".format(self.channum)] = basis
-        hdf5_file["{}/svdbasis/v_dv".format(self.channum)] = self.filter.predicted_v_over_dv.get("noconst", 0.0)
-
         if hasattr(self, "saved_auto_cuts"):
-            hdf5_file["{}/svdbasis/pretrig_rms_median".format(self.channum)] = self.saved_auto_cuts._pretrig_rms_median
-            hdf5_file["{}/svdbasis/pretrig_rms_sigma".format(self.channum)] = self.saved_auto_cuts._pretrig_rms_sigma
+            pretrig_rms_median = self.saved_auto_cuts._pretrig_rms_median
+            pretrig_rms_sigma = self.saved_auto_cuts._pretrig_rms_sigma
         else:
             raise Exception("use autocuts when making projectors, so it can save more info about desired cuts")
+        v_dv = f.predicted_v_over_dv.get("noconst", 0.0)
+        pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma)
+        return pulse_model
+
+    @_add_group_loop()
+    def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):
+        pulse_model = self.get_pulse_model(self.filter, n_basis, pulses_for_svd)
+        save_inverted = self.__dict__.get("invert_data", False)
+        hdf5_group = hdf5_file.create_group("{}".format(self.channum))
+        pulse_model.toHDF5(hdf5_group, save_inverted)
 
     def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
         """Traditional 5-lag filter used by default until 2015."""
@@ -2580,38 +2571,4 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     return info
 
 
-def _additional_projectors_tsvd(projectors, basis, n_basis, pulses_for_svd):
-    """
-    Given an existing basis with projectors, compute a basis with n_basis elements
-    by randomized SVD of the residual elements of the training data in pulses_for_svd.
-    It should be the case that projectors.dot(basis) is approximately the identity matrix.
 
-    It is assumed that the projectors will have been computed from the basis in some
-    noise-optimal way, say, from optimal filtering. However, the additional basis elements
-    will be computed from a standard (non-noise-weighted) SVD, and the additional projectors
-    will be computed without noise optimization.
-
-    The projectors and basis will be ordered as:
-    mean, deriv_ike, pulse_like, any svd components...
-    """
-
-    # Check sanity of inputs
-    n_samples, n_existing = basis.shape
-    assert (n_existing, n_samples) == projectors.shape
-    assert n_basis >= n_existing
-
-    if n_basis == n_existing:
-        return projectors, basis
-
-    mpc = np.matmul(projectors, pulses_for_svd.T)  # modeled pulse coefs
-    mp = np.matmul(basis, mpc)  # modeled pulse
-    residuals = pulses_for_svd.T - mp
-    Q = mass.mathstat.utilities.find_range_randomly(residuals, n_basis-3)
-
-    projectors2 = np.linalg.pinv(Q)  # = Q.T, perhaps??
-    projectors2 -= projectors2.dot(basis).dot(projectors)
-
-    basis = np.hstack([basis, Q])
-    projectors = np.vstack([projectors, projectors2])
-
-    return projectors, basis
