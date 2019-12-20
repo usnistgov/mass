@@ -277,6 +277,7 @@ class TestTESGroup(ut.TestCase):
         ds.compute_noise_spectra()
 
     def test_pulse_model_and_ljh2off(self):
+        np.random.seed(0)
         data = self.load_data()
         data.compute_noise_spectra()
         data.summarize_data()
@@ -284,7 +285,7 @@ class TestTESGroup(ut.TestCase):
         data.compute_ats_filter(shift1=False)
         data.filter_data()
         ds = data.datasets[0]
-        n_basis = 3
+        n_basis = 5
         hdf5_filename = data.pulse_model_to_hdf5(replace_output=True, n_basis=n_basis)
         output_dir = tempfile.mkdtemp()
         max_channels = 100
@@ -303,30 +304,19 @@ class TestTESGroup(ut.TestCase):
         self.assertEqual(pulse_model.basis.shape, pulse_model.projectors.shape[::-1])
         mpc = pulse_model.projectors.dot(ds.read_trace(0))
         self.assertTrue(np.allclose(off["coefs"][0, :], mpc))
-        import pylab as plt
-        # also need to remove matplotlib.use("svg") from runtests.py and run only this file to avoid lots of plots
-        # are the projectors orthogonal? NO :(
-        print("projectors * basis")
-        # should this be the identity matrix? Yes.
-        print np.matmul(pulse_model.projectors, pulse_model.basis)
-        print("residualStdDev/scale")
-        print off["residualStdDev"]/pulse_model.pretrig_rms_median
-        
-        plt.figure()
-        plt.plot(pulse_model.basis)
-        plt.title("basis")
-        plt.legend(["mean", "deriv", "pulse", "svd1", "svd2"])
-        plt.figure()
-        plt.plot(y, label="from off")
-        plt.plot(ds.read_trace(1), label="from ljh")
-        plt.legend()
-        plt.figure()
-        plt.plot(pulse_model.projectors.T)
-        plt.legend(["mean", "deriv", "pulse", "svd1", "svd2"])
-        plt.title("projectors")
-        
-        plt.show()
-        plt.pause(60)
+
+        # this test should pass, but it doesn'ts
+        should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
+        wrongness = np.abs(should_be_identity-np.identity(n_basis))
+        self.assertTrue(np.amax(wrongness)<4e-2) # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+        pulse_model.plot()
+
+        if False: # left for debug purposes
+            # also comment out the line in runtests.py that sets the backend to svg
+            # and change line 34 to only run test_core
+            import pylab as plt
+            plt.show()
+            plt.pause(60)
 
 
 class TestTESHDF5Only(ut.TestCase):

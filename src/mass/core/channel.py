@@ -1371,14 +1371,15 @@ class MicrocalDataSet(object):
                             pulse_like_model]).T
         if pulses_for_svd is None:
             pulses_for_svd, _ = self.first_n_good_pulses(4000)
+            pulses_for_svd = pulses_for_svd.T
         if hasattr(self, "saved_auto_cuts"):
             pretrig_rms_median = self.saved_auto_cuts._pretrig_rms_median
             pretrig_rms_sigma = self.saved_auto_cuts._pretrig_rms_sigma
         else:
             raise Exception("use autocuts when making projectors, so it can save more info about desired cuts")
         v_dv = f.predicted_v_over_dv.get("noconst", 0.0)
-        pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma)
-        return pulse_model
+        self.pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename)
+        return self.pulse_model
 
     @_add_group_loop()
     def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):

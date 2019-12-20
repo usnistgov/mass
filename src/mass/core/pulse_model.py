@@ -1,8 +1,10 @@
 import pylab as plt
+import numpy as np
+import mass.mathstat
 
 class PulseModel():
     version = 1
-    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma):
+    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name):
         self.pulses_for_svd = pulses_for_svd
         self.n_basis = n_basis
         if projectors_so_far.shape[0] < n_basis:
@@ -14,6 +16,7 @@ class PulseModel():
         self.v_dv = v_dv
         self.pretrig_rms_median = pretrig_rms_median
         self.pretrig_rms_sigma = pretrig_rms_sigma
+        self.file_name = str(file_name)
 
     def toHDF5(self, hdf5_group, save_inverted):
         projectors, basis = self.projectors[()], self.basis[()]
@@ -32,6 +35,7 @@ class PulseModel():
         hdf5_group["svdbasis/pretrig_rms_median"] = self.pretrig_rms_median
         hdf5_group["svdbasis/pretrig_rms_sigma"] = self.pretrig_rms_sigma
         hdf5_group["svdbasis/version"] = self.version
+        hdf5_group["svdbasis/file_name"] = self.file_name
 
     @classmethod
     def fromHDF5(self, hdf5_group):
@@ -43,9 +47,10 @@ class PulseModel():
         pretrig_rms_median = hdf5_group["svdbasis/pretrig_rms_median"][()]
         pretrig_rms_sigma = hdf5_group["svdbasis/pretrig_rms_sigma"][()]
         version = hdf5_group["svdbasis/version"][()]
+        file_name = hdf5_group["svdbasis/file_name"][()]
         if version != 1:
             raise Exception("loading not implemented for other versions")
-        return PulseModel(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma)
+        return PulseModel(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name)
 
     def _additional_projectors_tsvd(self, projectors, basis, n_basis, pulses_for_svd):
         """
@@ -70,9 +75,9 @@ class PulseModel():
         if n_basis == n_existing:
             return projectors, basis
 
-        mpc = np.matmul(projectors, pulses_for_svd.T)  # modeled pulse coefs
+        mpc = np.matmul(projectors, pulses_for_svd)  # modeled pulse coefs
         mp = np.matmul(basis, mpc)  # modeled pulse
-        residuals = pulses_for_svd.T - mp
+        residuals = pulses_for_svd - mp
         Q = mass.mathstat.utilities.find_range_randomly(residuals, n_basis-3)
 
         projectors2 = np.linalg.pinv(Q)  # = Q.T, perhaps??
@@ -85,27 +90,48 @@ class PulseModel():
 
 
     def plot(self):
-        labels = ["mean", "deriv", "pulse"]
+        labels = ["pulse", "deriv", "mean"]
         for i in range(self.n_basis-3):
             labels = ["svd{}".format(i)] + labels
-        mpc = self.projectors.data(self.pulses_for_svd)
-        mp = pulses_for_svd.dot(self.basis)
+        mpc = np.matmul(self.projectors, self.pulses_for_svd)
+        mp = np.matmul(self.basis, mpc)
         residuals = self.pulses_for_svd-mp
 
-        plt.figure(figsize=(10,12))
-        plt.subplot(411)
+        fig=plt.figure(figsize=(10,14))
+        plt.subplot(511)
+        projector_scale = np.amax(np.abs(self.projectors[2,:]))
         plt.plot(self.projectors[::-1,:].T)
         plt.title("projectors")
+        plt.ylim(-2*projector_scale,2*projector_scale)
         plt.legend(labels)
-        plt.subplot(412)
+        plt.grid(True)
+        plt.subplot(512)
         plt.plot(self.basis[:,::-1])
         plt.title("basis")
         plt.legend(labels)
-        plt.subplot(413)
-        plt.plot(self.pulses_for_svd[:10,:])
+        plt.grid(True)
+        plt.subplot(513)
+        plt.plot(self.pulses_for_svd[:,:10])
         plt.title("from ljh")
-        plt.subplot(414)
-        plt.plot(residuals[:10,:])
+        plt.legend(["{}".format(i) for i in range(10)])
+        plt.grid(True)
+        plt.subplot(514)
+        plt.plot(residuals[:,:10])
         plt.title("residuals")
+        plt.legend(["{}".format(i) for i in range(10)])
+        plt.grid(True)
+        should_be_identity = np.matmul(self.projectors, self.basis)
+        identity = np.identity(self.n_basis)
+        wrongness = np.abs(should_be_identity-identity)
+        plt.subplot(515)
+        plt.imshow(np.log10(wrongness))
+        plt.title("log10(abs(projectors*basis-identity))")
+        plt.colorbar()
+        fig.suptitle(self.file_name)
 
 
+        plt.figure()
+        plt.plot(self.pulses_for_svd[:,0], label="from ljh")
+        plt.plot(mp[:,0],label="modeled pulse")
+        plt.legend()
+        plt.title("modeled pulse vs true pulse")
