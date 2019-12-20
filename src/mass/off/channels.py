@@ -26,8 +26,6 @@ class ExperimentStateFile():
             raise Exception("provide filename or offFilename")
         self.excludeStates = excludeStates
         self.parse()
-        self._statesDictCalculatedToIndex = None
-        self._statesDictCalculatedToUnixnanosLen = None
         self.labelAliasesDict = {} # map unaliasedLabels to aliasedLabels
 
     def experimentStateFilenameFromOffFilename(self, offFilename):
@@ -71,8 +69,6 @@ class ExperimentStateFile():
         calculate statesDict, a dictionary mapping state name to EITHER a slice OR a boolean array with length equal to unixnanos
         slices are used for unique states, boolean arrays are used for repeated states
         """
-        if self._statesDictCalculatedToIndex is not None:
-            raise Exception("updating statesDict not yet implemented, self._statesDictCalculatedToIndex = {}".format(self._statesDictCalculatedToIndex))
         statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos)
         for i, label in enumerate(self.allLabels): # iterate over self.allLabels because it corresponds to self.unixnanos
@@ -382,7 +378,6 @@ class Channel(CorG):
     @property
     def statesDict(self):
         if self._statesDict is None:
-            print("self._statesDict = {}".format(self._statesDict))
             self._statesDict = self.experimentStateFile.calcStatesDict(self.offFile["unixnano"])
         return self._statesDict
 
