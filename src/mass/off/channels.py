@@ -71,7 +71,7 @@ class ExperimentStateFile():
         calculate statesDict, a dictionary mapping state name to EITHER a slice OR a boolean array with length equal to unixnanos
         slices are used for unique states, boolean arrays are used for repeated states
         """
-        if self._statesDictCalculatedToIndex != None:
+        if self._statesDictCalculatedToIndex is not None:
             raise Exception("updating statesDict not yet implemented")
         statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos)
