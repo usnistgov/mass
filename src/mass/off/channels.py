@@ -72,7 +72,7 @@ class ExperimentStateFile():
         slices are used for unique states, boolean arrays are used for repeated states
         """
         if self._statesDictCalculatedToIndex is not None:
-            raise Exception("updating statesDict not yet implemented")
+            raise Exception("updating statesDict not yet implemented, self._statesDictCalculatedToIndex = {}".format(self._statesDictCalculatedToIndex))
         statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos)
         for i, label in enumerate(self.allLabels): # iterate over self.allLabels because it corresponds to self.unixnanos
@@ -382,6 +382,7 @@ class Channel(CorG):
     @property
     def statesDict(self):
         if self._statesDict is None:
+            print("self._statesDict = {}".format(self._statesDict))
             self._statesDict = self.experimentStateFile.calcStatesDict(self.offFile["unixnano"])
         return self._statesDict
 
