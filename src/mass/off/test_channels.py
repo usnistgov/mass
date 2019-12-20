@@ -13,7 +13,7 @@ d = os.path.dirname(os.path.realpath(__file__))
 
 filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
 data = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2),
-                    verbose=False, channelClass=Channel)
+                    verbose=False, channelClass=Channel, excludeStates=["START","END"])
 data.setOutputDir(baseDir=d, deleteAndRecreate=True)
 data.experimentStateFile.aliasState("B", "Ne")
 data.experimentStateFile.aliasState("C", "W 1")
@@ -126,8 +126,7 @@ class TestSummaries(ut.TestCase):
         self.assertTrue(newds.driftCorrection == ds.driftCorrection)
 
     def test_fixedBehaviors(self):
-        self.assertEqual(ds.stateLabels, ["START", "Ne", "W 1",
-                                          "Os", "Ar", "Re", "W 2", "CO2", "Ir", "END"])
+        self.assertEqual(ds.stateLabels, ["Ne", "W 1","Os", "Ar", "Re", "W 2", "CO2", "Ir"])
 
 
 if __name__ == '__main__':

@@ -13,16 +13,22 @@ import shutil
 
 
 class ExperimentStateFile():
-    def __init__(self, filename=None, offFilename=None, excludeStart=False, excludeEnd=False):
+    def __init__(self, filename=None, offFilename=None, excludeStates = "auto"):
+        """
+        excludeStates - when "auto" it either exclude no states when START is the only state or or excludes START, END and IGNORE
+        otherwise pass a list of states to exclude
+        """
         if filename is not None:
             self.filename = filename
         elif offFilename is not None:
             self.filename = self.experimentStateFilenameFromOffFilename(offFilename)
         else:
             raise Exception("provide filename or offFilename")
-        self.excludeStart = excludeStart
-        self.excludeEnd = excludeEnd
+        self.excludeStates = excludeStates
         self.parse()
+        self._statesDictCalculatedToIndex = None
+        self._statesDictCalculatedToUnixnanosLen = None
+        self.labelAliasesDict = {} # map unaliasedLabels to aliasedLabels
 
     def experimentStateFilenameFromOffFilename(self, offFilename):
         basename, channum = mass.ljh_util.ljh_basename_channum(offFilename)
@@ -47,42 +53,58 @@ class ExperimentStateFile():
             labels.append(label)
         self.allLabels = labels
         self.unixnanos = np.array(unixnanos)
-        self.labels = self.applyExcludesToLabels(self.allLabels)
-        self.unaliasedLabels = self.labels[:]
+        self.unaliasedLabels = self.applyExcludesToLabels(self.allLabels)
+
+    def calculateAutoExcludes(self):
+        if len(self.allLabels) == 1:
+            return []
+        else:
+            return ["START", "END", "STOP"]
 
     def applyExcludesToLabels(self, allLabels):
-        # if there are no other states so don't exclude START and END,
-        return [lb for lb in self.allLabels if not ((self.excludeEnd and lb == "END") or (self.excludeStart and lb == "START"))]
-
-    # this needs to be able to refresh with length changes
+        if self.excludeStates == "auto":
+            self.excludeStates = self.calculateAutoExcludes()
+        return [label for label in self.allLabels if label not in self.excludeStates]
 
     def calcStatesDict(self, unixnanos):
         """
-        accepts a vector of unixnano timestamps and returns a dictionary mapping
-        state labels to vectors of bools that can be used to
-        index into an array like filtValue"""
+        calculate statesDict, a dictionary mapping state name to EITHER a slice OR a boolean array with length equal to unixnanos
+        slices are used for unique states, boolean arrays are used for repeated states
+        """
+        if self._statesDictCalculatedToIndex != None:
+            raise Exception("updating statesDict not yet implemented")
         statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos)
-        for i, label in enumerate(self.allLabels):
+        for i, label in enumerate(self.allLabels): # iterate over self.allLabels because it corresponds to self.unixnanos
             if label not in self.unaliasedLabels:
                 continue
-            if label not in statesDict:
-                statesDict[label] = np.zeros(len(unixnanos), dtype="bool")
-            if i+1 == len(self.allLabels):
-                statesDict[label][inds[i]:len(unixnanos)] = True
-            else:
-                statesDict[label][inds[i]:inds[i+1]] = True
-            # add aliases
-            j = self.unaliasedLabels.index(label)
-            statesDict[self.labels[j]] = statesDict[label]  # add aliases
+            aliasedLabel = self.labelAliasesDict.get(label, label)
+            if self.unaliasedLabels.count(label) == 1: # this label is unique
+                if i+1 == len(self.allLabels):
+                    statesDict[aliasedLabel] = slice(inds[i], len(unixnanos))
+                else:
+                    statesDict[aliasedLabel] = slice(inds[i], inds[i+1])
+            else: # this state is repeated
+                if labaliasedLabelel not in statesDict:
+                    statesDict[aliasedLabel] = np.zeros(len(unixnanos), dtype="bool")    
+                if i+1 == len(self.allLabels):
+                    statesDict[aliasedLabel][inds[i]:len(unixnanos)] = True
+                else:
+                    statesDict[aliasedLabel][inds[i]:inds[i+1]] = True
+        self._statesDictCalculatedToIndex = i
+        self._statesDictCalculatedToUnixnanosLen = len(unixnanos)
+        assert(len(statesDict)==len(self.unaliasedLabels))
         return statesDict
-
+ 
     def __repr__(self):
         return "ExperimentStateFile: "+self.filename
 
-    def aliasState(self, state, alias):
-        i = self.labels.index(state)
-        self.labels[i] = alias
+    def aliasState(self, unaliasedLabel, aliasedLabel):
+        self.labelAliasesDict[unaliasedLabel] = aliasedLabel
+
+    @property
+    def labels(self):
+        return [self.labelAliasesDict.get(label,label) for label in self.unaliasedLabels]
 
 
 def annotate_lines(axis, labelLines, labelLines_color2=[], color1="k", color2="r"):
@@ -344,7 +366,13 @@ class Channel(CorG):
         if states is not None:
             z = np.zeros(self.nRecords, dtype="bool")
             for state in states:
-                z = np.logical_or(z, self.statesDict[state])
+                y = self.statesDict[state]
+                if isinstance(y, slice):
+                    z[y] = True
+                elif isinstance(y, np.ndarray):
+                    z = np.logical_or(z, self.statesDict[state])
+                else:
+                    raise Exception("statesDict entries of type {} not supported".format(type(y)))
             g = np.logical_and(g, z)
         return g
 
@@ -947,13 +975,12 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
     3. data.whyChanBad returns an OrderedDict of bad channel numbers and reason
     """
 
-    def __init__(self, offFileNames, verbose=True, channelClass=Channel, experimentStateFile=None, excludeStartAndEndInExperimentStateFile=False):
+    def __init__(self, offFileNames, verbose=True, channelClass=Channel, experimentStateFile=None, excludeStates="auto"):
         collections.OrderedDict.__init__(self)
         self.verbose = verbose
         self.offFileNames = offFileNames
         if experimentStateFile is None:
-            self.experimentStateFile = ExperimentStateFile(offFilename=self.offFileNames[0], excludeStart=excludeStartAndEndInExperimentStateFile,
-                                                           excludeEnd=excludeStartAndEndInExperimentStateFile)
+            self.experimentStateFile = ExperimentStateFile(offFilename=self.offFileNames[0], excludeStates=excludeStates)
         else:
             self.experimentStateFile = experimentStateFile
         self._includeBad = False
