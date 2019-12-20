@@ -306,10 +306,10 @@ class TestTESGroup(ut.TestCase):
         import pylab as plt
         # also need to remove matplotlib.use("svg") from runtests.py and run only this file to avoid lots of plots
         # are the projectors orthogonal? NO :(
-        print "projectors * basis"
+        print("projectors * basis")
         # should this be the identity matrix? Yes.
         print np.matmul(pulse_model.projectors, pulse_model.basis)
-        print "residualStdDev/scale"
+        print("residualStdDev/scale")
         print off["residualStdDev"]/pulse_model.pretrig_rms_median
         
         plt.figure()
