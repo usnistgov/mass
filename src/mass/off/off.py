@@ -14,7 +14,7 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
         dt_list = [("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
                          ("unixnano", np.int64), ("pretriggerMean", np.float32), ("residualStdDev", np.float32)]
         if descriptive_coefs_names:
-            dt_list += [("pulseMean", np.float32), ("derivLike", np.float32), ("filtValue", np.float32)]
+            dt_list += [("pulseMean", np.float32), ("derivativeLike", np.float32), ("filtValue", np.float32)]
             if nBasis > 3:
                 dt_list += [("extraCoefs", np.float32, (nBasis-3))]
         else: 

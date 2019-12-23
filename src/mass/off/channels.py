@@ -234,7 +234,7 @@ class CorG():
     def stateLabels(self):
         return self.experimentStateFile.labels
 
-    def plotHist(self, binEdges, attr, axis=None, labelLines=[], states=None, g_func=None, coAddStates=True):
+    def plotHist(self, binEdges, attr, axis=None, labelLines=[], states=None, goodFunc=None, coAddStates=True):
         """plot a coadded histogram from all good datasets and all good pulses
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram "p_energy" or "p_filt_value"
@@ -248,17 +248,18 @@ class CorG():
         if states is None:
             states = self.stateLabels
         if coAddStates:
-            x, y = self.hist(binEdges, attr, states=states, g_func=g_func)
+            x, y = self.hist(binEdges, attr, states=states, goodFunc=goodFunc)
             axis.plot(x, y, drawstyle="steps-mid", label=states)
         else:
             for state in states:
-                x, y = self.hist(binEdges, attr, states=state, g_func=g_func)
+                x, y = self.hist(binEdges, attr, states=states, goodFunc=goodFunc)
                 axis.plot(x, y, drawstyle="steps-mid", label=state)
         axis.set_xlabel(attr)
         axis.set_ylabel("counts per %0.1f unit bin" % (binEdges[1]-binEdges[0]))
         plt.legend(title="states")
         axis.set_title(self.shortName)
         annotate_lines(axis, labelLines)
+        return axis
 
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=1, binEdges=None, label="full", plot=True,
@@ -411,6 +412,12 @@ class Channel(CorG):
         t0 = self.offFile["unixnano"][0]
         self.recipes["relTimeSec"]=Recipe(lambda unixnano: unixnano*1e9-t0)
 
+    def isOffAttr(self, attr):
+        return attr in self.offFile.dtype.names
+
+    def isRecipeAttr(self, attr):
+        return attr in self.recipes.keys()
+
     def learnChannumAndShortname(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFile.filename)
         self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
@@ -429,13 +436,13 @@ class Channel(CorG):
 
     def getStatesIndicies(self, states=None):
         """return a list of slices corresponding to the passed states
-        this list is appropriate for passing to getOffAttr or getPulseAttr
+        this list is appropriate for passing to getOffAttr or getRecipeAttr
         """
         if isinstance(states, str):
             states = [states]
         if states is None:
             return [slice(0,len(self))]
-        inds = {}
+        inds = []
         for state in states:
             v = self.statesDict[state]
             assert isinstance(v, slice)
@@ -489,7 +496,7 @@ class Channel(CorG):
 
     @property
     def relTimeSec(self):
-        return self.getPulseAttr("relTimeSec", slice(None)) # slice(None) is equivalent to indexing the whole array with :
+        return self.getRecipeAttr("relTimeSec", slice(None)) # slice(None) is equivalent to indexing the whole array with :
 
     @property
     def unixnano(self):
@@ -497,11 +504,11 @@ class Channel(CorG):
 
     @property
     def pulseMean(self):
-        return self.offFile["coefs"][:, 0]
+        return self.offFile["pulseMean"]
 
     @property
     def derivativeLike(self):
-        return self.offFile["coefs"][:, 1]
+        return self.offFile["derivativeLike"]
 
     @property
     def filtPhase(self):
@@ -510,19 +517,19 @@ class Channel(CorG):
 
     @property
     def filtValue(self):
-        return self.offFile["coefs"][:, 2]
+        return self.getOffAttr("filtValue", slice(None))
 
     def defaultGoodFunc(self, v):
         """v must be of self.offFile.dtype"""
         g = v["residualStdDev"] > self.stdDevResThreshold
         return g
 
-    def getOffAttr(self, offAttr, inds, goodFunc=None):
+    def getOffAttr(self, offAttr, inds, goodFunc=None, returnBad=False):
         """
         offAttr - a string or list of strings with names of items to get from offFile, eg ["filtValue","pretriggerMean"]
         inds - a slice or list of slices to index into items with
         goodFunc - a function called on the data read from the off file, must return a vector of bool values
-
+        returnBad - if true, np.logical_not the goodFunc output
         getOffAttr("filtValue", slice(0,10), f) is roughly equivalent to:
         g = f(offFile[0:10])
         offFile["filtValue"][0:10][g]
@@ -533,31 +540,41 @@ class Channel(CorG):
         if isinstance(inds, slice):
             r = self.offFile[inds]
             g = goodFunc(r)
+            if returnBad:
+                g = np.logical_not(g)
             output = r[g][offAttr]          
         elif isinstance(inds, list):
             assert all([isinstance(_inds, slice) for _inds in inds])
-            output = self.getOffAttr(offAttr, inds[0], goodFunc)
+            output = self.getOffAttr(offAttr, inds[0], goodFunc, returnBad)
             for i in xrange(1,len(inds)):
-                output = np.hstack(output, self.getOffAttr(offAttr, inds[i], goodFunc))
+                output = np.hstack( (output, self.getOffAttr(offAttr, inds[i], goodFunc, returnBad)) )
         else:
             raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
         return output
 
-    def getPulseAttr(self, attr, inds, goodFunc=None):
+    def getRecipeAttr(self, attr, inds, goodFunc=None, returnBad=False):
         if goodFunc is None:
             goodFunc = self.defaultGoodFunc
         recipe = self.recipes[attr]
         offAttr = recipe.nonRecipeArgs 
         # make a single read from the off file, even if we need multiple items like "pretriggerMean" and "filtValue" simultaneously
-        offAttrValues = self.getOffAttr(offAttr, inds, goodFunc) # this should be a ndarray with a dtype mapping names to items
+        offAttrValues = self.getOffAttr(offAttr, inds, goodFunc, returnBad) # this should be a ndarray with a dtype mapping names to items
         args = {}
         for k in offAttr:
             args[k] = offAttrValues[k] # here we break out the ndarray into seperate arrays
         return recipe(args)
 
+    def getAttr(self, attr, inds, goodFunc=None, returnBad=False):
+        if self.isOffAttr(attr):
+            return self.getOffAttr(attr, inds, goodFunc, returnBad)
+        elif self.isRecipeAttr(attr):
+            return self.getRecipeAttr(attr, inds, goodFunc, returnBad)
+        else:
+            raise Exception("attr {} is neither an OffAttr or a RecipeAttr".format(attr))
+
     @property
     def filtValueDC(self):
-        return self.getPulseAttr("filtValueDC", ())
+        return self.getRecipeAttr("filtValueDC", slice(None))
 
     @property
     def filtValuePC(self):
@@ -590,42 +607,41 @@ class Channel(CorG):
         uncalibrated = getattr(self, self.calibrationArbsInRefChannelUnits.uncalibratedName)
         return self.calibrationArbsInRefChannelUnits(uncalibrated)
 
-    def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False):
+    def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, goodFunc = None):
         if axis is None:
             plt.figure()
             axis = plt.gca()
-        inds = self.getStatesIndicies(states)
-        self.getPulseAttr([nameA, nameB], inds, goodFunc = None)
-        A = getattr(self, nameA)
-        B = getattr(self, nameB)
         if states is None:
             states = self.stateLabels
+        def getAB(inds, goodFunc, returnBad):
+            A = self.getAttr(nameA, inds, goodFunc, returnBad)
+            B = self.getAttr(nameB, inds, goodFunc, returnBad)
+            return A,B
+
         for state in states:
-            g = self.choose(state)
-            axis.plot(A[g], B[g], ".", label=state)
+            inds = self.getStatesIndicies(state)
+            A,B = getAB(inds, goodFunc, returnBad = False)
+            axis.plot(A, B, ".", label=state)
             if includeBad:
-                b = self.choose(state, good=False)
-                axis.plot(A[b], B[b], "x", label=state+" bad")
+                A,B = getAB(inds, goodFunc, returnBad = True)
+                axis.plot(A, B, "x", label=state+" bad")
         plt.xlabel(nameA)
         plt.ylabel(nameB)
         plt.title(self.shortName)
         plt.legend(title="states")
         return axis
 
-    def hist(self, binEdges, attr, states=None, g_func=None):
+    def hist(self, binEdges, attr, states=None, goodFunc=None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
-        g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.choose() would return
-            This vector is anded with the vector from ds.choose
+        goodFunc -- a function taking a 1d array of vales of type self.offFile.dtype and returning a vector of bool
          """
         binEdges = np.array(binEdges)
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
-        vals = getattr(self, attr)
-        g = self.choose(states)
-        if g_func is not None:
-            g = np.logical_and(g, g_func(self))
-        counts, _ = np.histogram(vals[g], binEdges)
+        inds = self.getStatesIndicies(states)
+        vals = self.getAttr(attr, inds, goodFunc)
+        counts, _ = np.histogram(vals, binEdges)
         return binCenters, counts
 
     @add_group_loop
