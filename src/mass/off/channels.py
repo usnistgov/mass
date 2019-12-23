@@ -252,7 +252,7 @@ class CorG():
             axis.plot(x, y, drawstyle="steps-mid", label=states)
         else:
             for state in states:
-                x, y = self.hist(binEdges, attr, states=states, goodFunc=goodFunc)
+                x, y = self.hist(binEdges, attr, states=state, goodFunc=goodFunc)
                 axis.plot(x, y, drawstyle="steps-mid", label=state)
         axis.set_xlabel(attr)
         axis.set_ylabel("counts per %0.1f unit bin" % (binEdges[1]-binEdges[0]))
@@ -521,7 +521,7 @@ class Channel(CorG):
 
     def defaultGoodFunc(self, v):
         """v must be of self.offFile.dtype"""
-        g = v["residualStdDev"] > self.stdDevResThreshold
+        g = v["residualStdDev"] < self.stdDevResThreshold
         return g
 
     def getOffAttr(self, offAttr, inds, goodFunc=None, returnBad=False):
