@@ -23,8 +23,8 @@ data.experimentStateFile.aliasState("F", "Re")
 data.experimentStateFile.aliasState("G", "W 2")
 data.experimentStateFile.aliasState("H", "CO2")
 data.experimentStateFile.aliasState("I", "Ir")
-data.learnStdDevResThresholdUsingRatioToNoiseStd(ratioToNoiseStd=5)
-data.learnDriftCorrection()
+data.learnStdDevResThresholdUsingRatioToNoiseStd(ratioToNoiseStd=5, _rethrow=True)
+data.learnDriftCorrection(_rethrow=True)
 ds = data.firstGoodChannel()
 ds.plotAvsB("relTimeSec", "residualStdDev",  includeBad=True)
 ds.plotAvsB("relTimeSec", "pretriggerMean", includeBad=True)
@@ -127,6 +127,9 @@ class TestSummaries(ut.TestCase):
 
     def test_fixedBehaviors(self):
         self.assertEqual(ds.stateLabels, ["Ne", "W 1","Os", "Ar", "Re", "W 2", "CO2", "Ir"])
+
+    def test_reading_some_items(self):
+        self.asserEquals(ds.telTimeSec[0],0)
 
 
 if __name__ == '__main__':

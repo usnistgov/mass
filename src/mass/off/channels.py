@@ -319,10 +319,82 @@ class CorG():
 
         return fitter
 
+
+
+class Recipe():
+    """
+    If `r` is a Recipe, it is a wrapper around a function `f` and the names of its arguments. 
+    Arguments can either be names to be provided in a dictionary `d` when `r(d)` is called, or
+    argument can be Recipe. 
+    `r.nonRecipeArgs` is a list of the names of all the argumets `r` takes as well as all the other recipes that `r` depends upon
+    `r(d)` where d is a dict mappring the names of argument to values will call `f` with the appropriate arguments, and also 
+    evaulate arguments which are recipes.
+
+    The reasons this exists is so I can get a list of all the argument I need from the off file, so I can read from the off file 
+    a single time to evaluate a recipe that may depend on many values from the off file. My previous implementation would make multiple
+    reads to the off file.
+    """
+
+    def __init__(self, f, argNames=None):
+        assert not isinstance(f, Recipe)
+        self.f = f
+        self.args = collections.OrderedDict() # assumes the dict preserves insertion order
+        inspectedArgNames = inspect.getargspec(self.f).args # may be python 2.7 only
+        if inspectedArgNames[0] == "self": # drop the self argument for class methods
+            inspectedArgNames = inspectedArgNames[1:]
+        if argNames is None:
+            for argName in inspectedArgNames:
+                self.args[argName]=argName
+        else:
+            assert len(inspectedArgNames) == len(argNames)
+            for argName, inspectedArgName in zip(argNames, inspectedArgNames):
+                self.args[argName]=inspectedArgName
+    def setArg(self, argName, r):
+        assert isinstance(r, Recipe)
+        assert argName in self.args
+        self.args[argName]=r
+    @property
+    def nonRecipeArgs(self):
+        a = []
+        for (k,v) in self.args.items():
+            if isinstance(v, Recipe):
+                a += v.nonRecipeArgs
+            else:
+                a.append(k)
+        return a
+    def __call__(self, args):
+        new_args = []
+        for (k,v) in self.args.items():
+            if isinstance(v, Recipe):
+                new_args.append(v(args))
+            else:
+                new_args.append(args[k])
+        return self.f(*new_args) # call functions with positional arguments so names don't need to match
+    def __repr__(self,indent=0):
+        s = "Recipe: f={}, args=".format(self.f)
+        s += "\n" + "  "*indent + "{\n"
+        for (k,v) in self.args.items():
+            if isinstance(v, Recipe):
+                s += "{}{}: {}\n".format("  "*(indent+1), k, v.__repr__(indent+1))
+            else:
+                s += "{}{}: {}\n".format("  "*(indent+1), k, v)
+        s += "  "*indent + "}"
+        return s
+def funa(x,y):
+    return x+y
+def funb(a,z): 
+    return a+z
+ra = Recipe(funa)
+rb = Recipe(funb)
+rb.setArg("a", ra)
+args = {"x":1, "y":0, "z":2}
+assert rb(args) == 3
+assert ra(args) == 1
+
+
+
 # wrap up an off file with some conviencine functions
 # like a TESChannel
-
-
 class Channel(CorG):
     def __init__(self, offFile, experimentStateFile, verbose=True):
         self.offFile = offFile
@@ -331,6 +403,13 @@ class Channel(CorG):
         self._statesDict = None
         self.verbose = verbose
         self.learnChannumAndShortname()
+        self.recipes = {}
+        self._defineDefaultRecipes()
+
+    def _defineDefaultRecipes(self):
+        assert(len(self.recipes)==0)
+        t0 = self.offFile["unixnano"][0]
+        self.recipes["relTimeSec"]=Recipe(lambda unixnano: unixnano*1e9-t0)
 
     def learnChannumAndShortname(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFile.filename)
@@ -347,6 +426,21 @@ class Channel(CorG):
     @add_group_loop
     def learnStdDevResThresholdUsingRatioToNoiseStd(self, ratioToNoiseStd=1.5):
         self.stdDevResThreshold = self.offFile.header["ModelInfo"]["NoiseStandardDeviation"]*ratioToNoiseStd
+
+    def getStatesIndicies(self, states=None):
+        """return a list of slices corresponding to the passed states
+        this list is appropriate for passing to getOffAttr or getPulseAttr
+        """
+        if isinstance(states, str):
+            states = [states]
+        if states is None:
+            return [slice(0,len(self))]
+        inds = {}
+        for state in states:
+            v = self.statesDict[state]
+            assert isinstance(v, slice)
+            inds.append(v)
+        return inds    
 
     def choose(self, states=None, good=True):
         """ return boolean indicies of "choose" pulses
@@ -395,8 +489,7 @@ class Channel(CorG):
 
     @property
     def relTimeSec(self):
-        t = self.offFile["unixnano"]
-        return (t-t[0])/1e9
+        return self.getPulseAttr("relTimeSec", slice(None)) # slice(None) is equivalent to indexing the whole array with :
 
     @property
     def unixnano(self):
@@ -419,19 +512,52 @@ class Channel(CorG):
     def filtValue(self):
         return self.offFile["coefs"][:, 2]
 
-    @property
-    def coef3(self):
-        return self.offFile["coefs"][:, 3]
+    def defaultGoodFunc(self, v):
+        """v must be of self.offFile.dtype"""
+        g = v["residualStdDev"] > self.stdDevResThreshold
+        return g
 
-    @property
-    def coef4(self):
-        return self.offFile["coefs"][:, 4]
+    def getOffAttr(self, offAttr, inds, goodFunc=None):
+        """
+        offAttr - a string or list of strings with names of items to get from offFile, eg ["filtValue","pretriggerMean"]
+        inds - a slice or list of slices to index into items with
+        goodFunc - a function called on the data read from the off file, must return a vector of bool values
+
+        getOffAttr("filtValue", slice(0,10), f) is roughly equivalent to:
+        g = f(offFile[0:10])
+        offFile["filtValue"][0:10][g]
+        """
+        if goodFunc is None:
+            goodFunc = self.defaultGoodFunc
+        # offAttr can be a list of offAttr names
+        if isinstance(inds, slice):
+            r = self.offFile[inds]
+            g = goodFunc(r)
+            output = r[g][offAttr]          
+        elif isinstance(inds, list):
+            assert all([isinstance(_inds, slice) for _inds in inds])
+            output = self.getOffAttr(offAttr, inds[0], goodFunc)
+            for i in xrange(1,len(inds)):
+                output = np.hstack(output, self.getOffAttr(offAttr, inds[i], goodFunc))
+        else:
+            raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
+        return output
+
+    def getPulseAttr(self, attr, inds, goodFunc=None):
+        if goodFunc is None:
+            goodFunc = self.defaultGoodFunc
+        recipe = self.recipes[attr]
+        offAttr = recipe.nonRecipeArgs 
+        # make a single read from the off file, even if we need multiple items like "pretriggerMean" and "filtValue" simultaneously
+        offAttrValues = self.getOffAttr(offAttr, inds, goodFunc) # this should be a ndarray with a dtype mapping names to items
+        args = {}
+        for k in offAttr:
+            args[k] = offAttrValues[k] # here we break out the ndarray into seperate arrays
+        return recipe(args)
 
     @property
     def filtValueDC(self):
-        indicator = getattr(self, self.driftCorrection.indicatorName)
-        uncorrected = getattr(self, self.driftCorrection.uncorrectedName)
-        return self.driftCorrection.apply(indicator, uncorrected)
+        return self.getPulseAttr("filtValueDC", ())
 
     @property
     def filtValuePC(self):
@@ -468,6 +594,8 @@ class Channel(CorG):
         if axis is None:
             plt.figure()
             axis = plt.gca()
+        inds = self.getStatesIndicies(states)
+        self.getPulseAttr([nameA, nameB], inds, goodFunc = None)
         A = getattr(self, nameA)
         B = getattr(self, nameB)
         if states is None:
@@ -501,14 +629,15 @@ class Channel(CorG):
         return binCenters, counts
 
     @add_group_loop
-    def learnDriftCorrection(self, states=None, indicatorName="pretriggerMean", uncorrectedName="filtValue"):
-        g = self.choose(states)
-        indicator = getattr(self, indicatorName)[g]
-        uncorrected = getattr(self, uncorrectedName)[g]
-        slope, info = mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
+    def learnDriftCorrection(self, states=None, indicatorName="pretriggerMean", uncorrectedName="filtValue", goodFunc=None):
+        inds = self.getStatesIndicies(states)
+        v=self.getOffAttr([indicatorName, uncorrectedName], inds)
+        slope, info = mass.core.analysis_algorithms.drift_correct(v[indicatorName], v[uncorrectedName])
         self.driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
         # we dont want to storeFiltValueDC in memory, we simply store a DriftCorrection object
+        recipe = Recipe(self.driftCorrection.apply, [indicatorName, uncorrectedName])
+        self.recipes["filtValueDC"] = recipe
         return self.driftCorrection
 
     def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions):
