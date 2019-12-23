@@ -347,7 +347,7 @@ class Recipe():
             for argName in inspectedArgNames:
                 self.args[argName]=argName
         else:
-            assert len(inspectedArgNames) == len(argNames)
+            assert len(inspectedArgNames) >= len(argNames) # i would like to do == here, but i'd need to handle optional arguments better
             for argName, inspectedArgName in zip(argNames, inspectedArgNames):
                 self.args[argName]=inspectedArgName
     def setArg(self, argName, r):
@@ -669,23 +669,26 @@ class Channel(CorG):
     def hasDriftCorrection(self):
         return hasattr(self, "driftCorrection")
 
-    def plotCompareDriftCorrect(self, axis=None, states=None, includeBad=False):
+    def plotCompareDriftCorrect(self, axis=None, states=None, goodFunc=None, includeBad=False):
         if axis is None:
             plt.figure()
             axis = plt.gca()
-        A = getattr(self, self.driftCorrection.indicatorName)
-        B = getattr(self, self.driftCorrection.uncorrectedName)
-        C = getattr(self, "filtValueDC")
+
         if states is None:
             states = self.stateLabels
         for state in states:
-            g = self.choose(state)
-            axis.plot(A[g], B[g], ".", label=state)
-            axis.plot(A[g], C[g], ".", label=state+" DC")
+            inds = self.getStatesIndicies(state)
+            A = self.getAttr(self.driftCorrection.indicatorName, inds, goodFunc)
+            B = self.getAttr(self.driftCorrection.uncorrectedName, inds, goodFunc)
+            C = self.getAttr("filtValueDC", inds, goodFunc)
+            axis.plot(A, B, ".", label=state)
+            axis.plot(A, C, ".", label=state+" DC")
             if includeBad:
-                b = self.choose(state, good=False)
-                axis.plot(A[b], B[b], "x", label=state+" bad")
-                axis.plot(A[b], C[b], "x", label=state+" bad DC")
+                A = self.getAttr(self.driftCorrection.indicatorName, inds, goodFunc, returnBad=True)
+                B = self.getAttr(self.driftCorrection.uncorrectedName, inds, goodFunc, returnBad=True)
+                C = self.getAttr("filtValueDC", inds, goodFunc, returnBad=True)                
+                axis.plot(A, B, "x", label=state+" bad")
+                axis.plot(A, C, "x", label=state+" bad DC")
         plt.xlabel(self.driftCorrection.indicatorName)
         plt.ylabel(self.driftCorrection.uncorrectedName + ",filtValueDC")
         plt.title(self.shortName+" drift correct comparison")
@@ -696,10 +699,18 @@ class Channel(CorG):
         self.calibrationPlan = CalibrationPlan()
         self.calibrationPlanAttr = attr
 
+
     def calibrationPlanAddPoint(self, uncalibratedVal, name, states=None, energy=None):
         self.calibrationPlan.addCalPoint(uncalibratedVal, name, states, energy)
         self.calibrationRough = self.calibrationPlan.getRoughCalibration()
         self.calibrationRough.uncalibratedName = self.calibrationPlanAttr
+        recipe = Recipe(self.calibrationRough.ph2energy, [self.calibrationRough.uncalibratedName])
+        if self.calibrationRough.uncalibratedName in self.recipes:
+            recipe.setArg(self.calibrationRough.uncalibratedName, self.recipes[self.calibrationRough.uncalibratedName])
+        self.recipes["energyRough"] = recipe
+        return self.calibrationPlan
+
+
 
     @add_group_loop
     def calibrateFollowingPlan(self, attr, curvetype="gain", approximate=True, dlo=50, dhi=50, binsize=1):
