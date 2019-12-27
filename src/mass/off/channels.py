@@ -410,7 +410,8 @@ class Channel(CorG):
     def _defineDefaultRecipes(self):
         assert(len(self.recipes)==0)
         t0 = self.offFile["unixnano"][0]
-        self.recipes["relTimeSec"]=Recipe(lambda unixnano: unixnano*1e9-t0)
+        self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e9, ["unixnano"])
+        self.addRecipe("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
 
     def isOffAttr(self, attr):
         return attr in self.offFile.dtype.names
@@ -464,36 +465,37 @@ class Channel(CorG):
 
     @property
     def residualStdDev(self):
-        return self.offFile["residualStdDev"]
+        return self.getAttr("residualStdDev", slice(None))
 
     @property
     def pretriggerMean(self):
-        return self.offFile["pretriggerMean"]
+        return self.getAttr("pretriggerMean", slice(None))
 
     @property
     def relTimeSec(self):
-        return self.getRecipeAttr("relTimeSec", slice(None)) # slice(None) is equivalent to indexing the whole array with :
+        return self.getAttr("relTimeSec", slice(None)) # slice(None) is equivalent to indexing the whole array with :
 
     @property
     def unixnano(self):
-        return self.offFile["unixnano"]
+        return self.getAttr("unixnano", slice(None))
 
     @property
     def pulseMean(self):
-        return self.offFile["pulseMean"]
+        return self.getAttr("pulseMean", slice(None))
 
     @property
     def derivativeLike(self):
-        return self.offFile["derivativeLike"]
+        return self.getAttr("derivativeLike", slice(None))
 
     @property
     def filtPhase(self):
         """ used as input for phase correction """
-        return self.derivativeLike/self.filtValue
+        return self.getAttr("filtPhase", slice(None))
+
 
     @property
     def filtValue(self):
-        return self.getOffAttr("filtValue", slice(None))
+        return self.getAttr("filtValue", slice(None))
 
     def defaultGoodFunc(self, v):
         """v must be of self.offFile.dtype"""
@@ -554,34 +556,19 @@ class Channel(CorG):
 
     @property
     def filtValuePC(self):
-        indicator = getattr(self, self.phaseCorrection.indicatorName)
-        uncorrected = getattr(self, self.phaseCorrection.uncorrectedName)
-        return self.phaseCorrection(indicator, uncorrected)
+        return self.getAttr("filtValuePC", slice(None))
 
     @property
     def energy(self):
-        uncalibrated = getattr(self, self.calibration.uncalibratedName)
-        return self.calibration(uncalibrated)
+        return self.getAttr("energy", slice(None))
 
     @property
     def energyRough(self):
-        uncalibrated = getattr(self, self.calibrationRough.uncalibratedName)
-        return self.calibrationRough(uncalibrated)
-
-    @property
-    def energyDC(self):
-        """ apply calibration to filtValueDC, ignore calibration.uncalibratedName """
-        return self.calibration(self.filtValueDC)
-
-    @property
-    def energyPC(self):
-        """ apply calibration to filtValuePC, ignore calibration.uncalibratedName """
-        return self.calibration(self.filtValuePC)
+        return self.getAttr("energyRough", slice(None))
 
     @property
     def arbsInRefChannelUnits(self):
-        uncalibrated = getattr(self, self.calibrationArbsInRefChannelUnits.uncalibratedName)
-        return self.calibrationArbsInRefChannelUnits(uncalibrated)
+        return self.getAttr("arbsInRefChannelUnits", slice(None))
 
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, goodFunc = None):
         if axis is None:

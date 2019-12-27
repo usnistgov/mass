@@ -130,6 +130,7 @@ class TestSummaries(ut.TestCase):
 
     def test_reading_some_items(self):
         self.assertEquals(ds.relTimeSec[0],0)
+        self.assertLess(np.abs(np.median(ds.filtPhase)),0.5)
 
 
 if __name__ == '__main__':
