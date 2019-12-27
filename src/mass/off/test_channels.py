@@ -62,7 +62,7 @@ ds.learnPhaseCorrection("Ne", "derivativeLike", "filtValue", [3768])
 
 ds3 = data[3]
 data.alignToReferenceChannel(referenceChannel=ds,
-                             binEdges=np.arange(500, 20000, 4), attr="filtValueDC")
+                             binEdges=np.arange(500, 20000, 4), attr="filtValueDC", _rethrow=True)
 aligner = ds3.aligner
 aligner.samePeaksPlot()
 aligner.samePeaksPlotWithAlignmentCal()
@@ -129,7 +129,7 @@ class TestSummaries(ut.TestCase):
         self.assertEqual(ds.stateLabels, ["Ne", "W 1","Os", "Ar", "Re", "W 2", "CO2", "Ir"])
 
     def test_reading_some_items(self):
-        self.asserEquals(ds.telTimeSec[0],0)
+        self.assertEquals(ds.relTimeSec[0],0)
 
 
 if __name__ == '__main__':

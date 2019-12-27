@@ -240,7 +240,7 @@ class CorG():
         attr -- which attribute to histogram "p_energy" or "p_filt_value"
         axis -- if None, then create a new figure, otherwise plot onto this axis
         annotate_lines -- enter lines names in STANDARD_FEATURES to add to the plot, calls annotate_lines
-        g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
+        goodFunc -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
             This vector is anded with the vector calculated by the histogrammer    """
         if axis is None:
             plt.figure()
@@ -263,7 +263,7 @@ class CorG():
 
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=1, binEdges=None, label="full", plot=True,
-                guessParams=None, g_func=None, holdvals=None):
+                guessParams=None, goodFunc=None, holdvals=None):
         """Do a fit to `lineNameOrEnergy` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
@@ -275,7 +275,7 @@ class CorG():
         plot -- passed to fitter.fit, determine if plot happens
         guessParams -- passed to fitter.fit, fitter.fit will guess the params on its own if this is None
         category -- pass {"side":"A"} or similar to use categorical cuts
-        g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
+        goodFunc -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
         holdvals -- a dictionary mapping keys from fitter.params_meaning to values... eg {"background":0, "dP_dE":1}
             This vector is anded with the vector calculated by the histogrammer
         """
@@ -296,7 +296,7 @@ class CorG():
         if axis is None and plot:
             plt.figure()
             axis = plt.gca()
-        bin_centers, counts = self.hist(binEdges, attr, states, g_func)
+        bin_centers, counts = self.hist(binEdges, attr, states, goodFunc)
         if guessParams is None:
             guessParams = fitter.guess_starting_params(counts, bin_centers)
         if holdvals is None:
@@ -448,30 +448,6 @@ class Channel(CorG):
             assert isinstance(v, slice)
             inds.append(v)
         return inds    
-
-    def choose(self, states=None, good=True):
-        """ return boolean indicies of "choose" pulses
-        if state is none, all states are chosen
-        ds.choose("A") selects state A
-        ds.choose(["A","B"]) selects states A and B
-        """
-        g = self.offFile["residualStdDev"] < self.stdDevResThreshold
-        if not good:
-            g = np.logical_not(g)
-        if isinstance(states, str):
-            states = [states]
-        if states is not None:
-            z = np.zeros(self.nRecords, dtype="bool")
-            for state in states:
-                y = self.statesDict[state]
-                if isinstance(y, slice):
-                    z[y] = True
-                elif isinstance(y, np.ndarray):
-                    z = np.logical_or(z, self.statesDict[state])
-                else:
-                    raise Exception("statesDict entries of type {} not supported".format(type(y)))
-            g = np.logical_and(g, z)
-        return g
 
     def __repr__(self):
         return "Channel based on %s" % self.offFile
@@ -631,7 +607,7 @@ class Channel(CorG):
         plt.legend(title="states")
         return axis
 
-    def hist(self, binEdges, attr, states=None, goodFunc=None):
+    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad = False):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
@@ -640,14 +616,14 @@ class Channel(CorG):
         binEdges = np.array(binEdges)
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
         inds = self.getStatesIndicies(states)
-        vals = self.getAttr(attr, inds, goodFunc)
+        vals = self.getAttr(attr, inds, goodFunc, returnBad)
         counts, _ = np.histogram(vals, binEdges)
         return binCenters, counts
 
     @add_group_loop
-    def learnDriftCorrection(self, states=None, indicatorName="pretriggerMean", uncorrectedName="filtValue", goodFunc=None):
+    def learnDriftCorrection(self, states=None, indicatorName="pretriggerMean", uncorrectedName="filtValue", goodFunc=None, returnBad = False):
         inds = self.getStatesIndicies(states)
-        v=self.getOffAttr([indicatorName, uncorrectedName], inds)
+        v=self.getOffAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
         slope, info = mass.core.analysis_algorithms.drift_correct(v[indicatorName], v[uncorrectedName])
         self.driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
@@ -656,15 +632,15 @@ class Channel(CorG):
         self.recipes["filtValueDC"] = recipe
         return self.driftCorrection
 
-    def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions):
-        g = self.choose(states)
-        indicator = getattr(self, indicatorName)[g]
-        uncorrected = getattr(self, uncorrectedName)[g]
+    def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions, goodFunc=None, returnBad = False):
+        inds = self.getStatesIndicies(states)
+        indicator = self.getAttr(indicatorName, inds, goodFunc, returnBad)
+        uncorrected = self.getAttr(uncorrectedName, inds, goodFunc, returnBad)
         self.phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
 
     def loadDriftCorrection(self):
-        pass
+        raise Exception("not implemented")
 
     def hasDriftCorrection(self):
         return hasattr(self, "driftCorrection")
@@ -704,10 +680,7 @@ class Channel(CorG):
         self.calibrationPlan.addCalPoint(uncalibratedVal, name, states, energy)
         self.calibrationRough = self.calibrationPlan.getRoughCalibration()
         self.calibrationRough.uncalibratedName = self.calibrationPlanAttr
-        recipe = Recipe(self.calibrationRough.ph2energy, [self.calibrationRough.uncalibratedName])
-        if self.calibrationRough.uncalibratedName in self.recipes:
-            recipe.setArg(self.calibrationRough.uncalibratedName, self.recipes[self.calibrationRough.uncalibratedName])
-        self.recipes["energyRough"] = recipe
+        self.addRecipe("energyRough", self.calibrationRough.ph2energy, [self.calibrationRough.uncalibratedName])
         return self.calibrationPlan
 
 
@@ -733,7 +706,27 @@ class Channel(CorG):
             phRefined = self.calibrationRough.energy2ph(fitter.last_fit_params_dict["peak_ph"][0])
             self.calibration.add_cal_point(phRefined, energy, name)
         self.fittersFromCalibrateFollowingPlan = fitters
+        self.addRecipe("energy", self.calibration.ph2energy, [self.calibration.uncalibratedName] )
         return fitters
+
+    def addRecipe(self, recipeName, f, argNames):
+        """
+        recipeName - the name of the new Attr to create, eg "energy"
+        f - the function used to caluclate the Attr
+        argNames - a list of argument names, they can be OffAttrs or other recipes
+        """
+        # add a recipe
+        # 1. create the recipe
+        # 2. call setArg to point at any existing recipes for argument
+        # 3. add to dict with key recipeName
+        assert isinstance(argNames, list)
+        recipe = Recipe(f, argNames)
+        for argName in argNames:
+            if argName in self.recipes:
+                recipe.setArg(argName, self.recipes[argName])
+            elif not self.isOffAttr(argName):
+                raise Exception("argName={} should be in self.recipes or be an OffAttr".format(argName))
+        self.recipes[recipeName] = recipe
 
     def markBad(self, reason, extraInfo=None):
         self.markedBadReason = reason
@@ -790,19 +783,20 @@ class Channel(CorG):
                                                   refCalPlan.names, refCalPlan.states):
                 self.calibrationPlanAddPoint(self.calibrationArbsInRefChannelUnits.energy2ph(ph),
                                              name, states, energy)
+        self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [self.calibrationArbsInRefChannelUnits.uncalibratedName])
         return self.aligner
 
     @add_group_loop
     def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None,
                             positionToleranceAbsolute=None, attr="energy", states=None,
                             dlo=50, dhi=50, binsize=1, binEdges=None, guessParams=None,
-                            g_func=None, holdvals=None):
+                            goodFunc=None, holdvals=None):
         """calls ds.linefit to fit the given line
         marks self bad if the fit position is more than toleranceFitSigma*fitSigma away
         from the correct position
         """
         fitter = self.linefit(line, attr, states, None, dlo, dhi, binsize, binEdges, False,
-                              guessParams, g_func, holdvals)
+                              guessParams, goodFunc, holdvals)
         fitPos, fitSigma = fitter.last_fit_params_dict["peak_ph"]
         resolution, _ = fitter.last_fit_params_dict["resolution"]
         if positionToleranceAbsolute is not None:
@@ -822,13 +816,13 @@ class Channel(CorG):
                 line, resolution, worstAllowedFWHM))
         return fitter
 
-    def histsToHDF5(self, h5File, binEdges, attr="energy", g_func=None):
+    def histsToHDF5(self, h5File, binEdges, attr="energy", goodFunc=None):
         grp = h5File.require_group(str(self.channum))
         for state in self.stateLabels:  # hist for each state
-            binCenters, counts = self.hist(binEdges, attr, state, g_func)
+            binCenters, counts = self.hist(binEdges, attr, state, goodFunc)
             grp["{}/bin_centers".format(state)] = binCenters
             grp["{}/counts".format(state)] = counts
-        binCenters, counts = self.hist(binEdges, attr, g_func=g_func)  # all states hist
+        binCenters, counts = self.hist(binEdges, attr, goodFunc=goodFunc)  # all states hist
         grp["bin_centers_ev"] = binCenters
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
@@ -870,19 +864,20 @@ class Channel(CorG):
             self.phaseCorrection = mass.core.phase_correct.PhaseCorrector.fromHDF5(grp)
 
     @add_group_loop
-    def energyTimestampLabelToHDF5(self, h5File):
+    def energyTimestampLabelToHDF5(self, h5File, goodFunc = None, returnBad = False):
         grp = h5File.require_group(str(self.channum))
-        energy = self.energy
-        unixnano = self.unixnano
         if len(self.stateLabels) > 0:
             for state in self.stateLabels:
-                g = self.choose(states=state)
-                grp["{}/energy".format(state)] = energy[g]
-                grp["{}/unixnano".format(state)] = unixnano[g]
+                energy = self.getAttr("energy", inds, goodFunc, returnBad)
+                unixnano = self.getAttr("unixnano", inds, goodFunc, returnBad)
+                grp["{}/energy".format(state)] = energy
+                grp["{}/unixnano".format(state)] = unixnano
         else:
-            g = self.choose()
-            grp["{}/energy".format(state)] = energy[g]
-            grp["{}/unixnano".format(state)] = unixnano[g]
+            energy = self.getAttr("energy", slice(None), goodFunc, returnBad)
+            unixnano = self.getAttr("unixnano", slice(None), goodFunc, returnBad)
+            grp["{}/energy".format(state)] = energy
+            grp["{}/unixnano".format(state)] = unixnano
+
 
     @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute=None, thresholdSigmaFromMedianAbsoluteValue=None):
@@ -935,9 +930,9 @@ class AlignBToA():
         self.states = states
         self.peak_inds_b = self.samePeaks()
 
-    def samePeaks(self):
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = getattr(self.ds_b, self.attr)[self.ds_b.choose(self.states)]
+    def samePeaks(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
+        ph_a = self.ds_a.getAttr(self.attr, slice(None), goodFunc_a, returnBad)
+        ph_b = self.ds_b.getAttr(self.attr, slice(None), goodFunc_b, returnBad)
         if self.scale_by_median:
             median_ratio_a_over_b = np.median(ph_a)/np.median(ph_b)
         else:
@@ -966,9 +961,9 @@ class AlignBToA():
         peak_inds_a = np.searchsorted(self.bin_edges, self.peak_xs_a)-1
         return peak_inds_a
 
-    def samePeaksPlot(self):
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = getattr(self.ds_b, self.attr)[self.ds_b.choose(self.states)]
+    def samePeaksPlot(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
+        ph_a = self.ds_a.getAttr(self.attr, slice(None), goodFunc_a, returnBad)
+        ph_b = self.ds_b.getAttr(self.attr, slice(None), goodFunc_b, returnBad)
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         plt.figure()
@@ -987,9 +982,11 @@ class AlignBToA():
         plt.title(self.ds_a.shortName+" + "+self.ds_b.shortName
                   + "\nwith same peaks noted, peaks not expected to be aligned in this plot")
 
-    def samePeaksPlotWithAlignmentCal(self):
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = self.ds_b.arbsInRefChannelUnits[self.ds_b.choose(self.states)]
+    def samePeaksPlotWithAlignmentCal(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
+        inds_a = self.ds_a.getStatesIndicies(self.states)
+        ph_a = self.ds_a.getAttr(self.attr, inds_a, goodFunc_a, returnBad)
+        inds_b = self.ds_b.getStatesIndicies(self.states)
+        ph_b = self.ds_b.getAttr("arbsInRefChannelUnits", slice(None), goodFunc_b, returnBad)        
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         plt.figure()
@@ -1027,18 +1024,18 @@ class AlignBToA():
         diff_frac_lo = np.amin(derivatives)/np.median(derivatives)
         return diff_frac_hi < threshold_hi and diff_frac_lo > threshold_lo
 
-    def _laplaceEntropy(self, w=None):
+    def _laplaceEntropy(self, w=None, goodFunc_a=None, goodFunc_b=None, returnBad=False):
         if w is None:
             w = self.bin_edges[1]-self.bin_edges[0]
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = getattr(self.ds_b, self.newattr)[self.ds_b.choose(self.states)]
+        ph_a = self.ds_a.getAttr(self.attr, slice(None), goodFunc_a, returnBad)
+        ph_b = self.ds_b.getAttr(self.newattr, slice(None), goodFunc_b, returnBad)
         entropy = mass.entropy.laplace_cross_entropy(ph_a[ph_a > self.bin_edges[0]],
                                                      ph_b[ph_b > self.bin_edges[0]], w=w)
         return entropy
 
-    def _ksStatistic(self):
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = getattr(self.ds_b, self.newattr)[self.ds_b.choose(self.states)]
+    def _ksStatistic(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
+        ph_a = self.ds_a.getAttr(self.attr, slice(None), goodFunc_a, returnBad)
+        ph_b = self.ds_b.getAttr(self.newattr, slice(None), goodFunc_b, returnBad)
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         cdf_a = np.cumsum(counts_a)/np.sum(counts_a)
@@ -1160,27 +1157,25 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
     def firstGoodChannel(self):
         return self[list(self.keys())[0]]
 
-    def hist(self, binEdges, attr, states=None, g_func=None):
+    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
-        g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.choose() would return
-            This vector is anded with the vector from ds.choose
          """
-        binCenters, countsdict = self.hists(binEdges, attr, states, g_func)
+        binCenters, countsdict = self.hists(binEdges, attr, states, goodFunc=goodFunc, returnBad=returnBad)
         counts = np.zeros_like(binCenters, dtype="int")
         for (k, v) in countsdict.items():
             counts += v
         return binCenters, counts
 
-    def hists(self, binEdges, attr, states=None, g_func=None, channums=None):
+    def hists(self, binEdges, attr, states=None, goodFunc=None, returnBad=False, channums=None):
         binEdges = np.array(binEdges)
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
         countsdict = collections.OrderedDict()
         if channums is None:
             channums = self.keys()
         for channum in channums:
-            _, countsdict[channum] = self[channum].hist(binEdges, attr, states, g_func)
+            _, countsdict[channum] = self[channum].hist(binEdges, attr, states, goodFunc, returnBad)
         return binCenters, countsdict
 
     @property
@@ -1193,7 +1188,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             return w
 
     def plotHists(self, binEdges, attr, axis=None, labelLines=[], states=None,
-                  g_func=None, maxChans=8, channums=None):
+                  goodFunc=None, maxChans=8, channums=None):
         if channums is None:
             channums = list(self.keys())[:min(maxChans, len(self))]
         if axis is None:
@@ -1203,7 +1198,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             states = self.stateLabels
         for channum in channums:
             ds = self[channum]
-            ds.plotHist(binEdges, attr, axis, [], states, g_func)
+            ds.plotHist(binEdges, attr, axis, [], states, goodFunc)
             line = axis.lines[-1]
             line.set_label("{}".format(channum))
             if ds.markedBadBool:
@@ -1239,15 +1234,15 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self._includeBad = False
         self._includeBadDesired = False
 
-    def histsToHDF5(self, h5File, binEdges, attr="energy", g_func=None):
+    def histsToHDF5(self, h5File, binEdges, attr="energy", goodFunc=None):
         for (channum, ds) in self.items():
-            ds.histsToHDF5(h5File, binEdges, attr, g_func)
+            ds.histsToHDF5(h5File, binEdges, attr, goodFunc)
         grp = h5File.require_group("all_channels")
         for state in self.stateLabels:  # hist for each state
-            binCenters, counts = self.hist(binEdges, attr, state, g_func)
+            binCenters, counts = self.hist(binEdges, attr, state, goodFunc)
             grp["{}/bin_centers".format(state)] = binCenters
             grp["{}/counts".format(state)] = counts
-        binCenters, counts = self.hist(binEdges, attr, g_func=g_func)  # all states hist
+        binCenters, counts = self.hist(binEdges, attr, goodFunc=goodFunc)  # all states hist
         grp["bin_centers_ev"] = binCenters
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
@@ -1259,10 +1254,10 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None, positionToleranceAbsolute=None,
                             attr='energy', states=None, dlo=50, dhi=50, binsize=1, binEdges=None,
-                            guessParams=None, g_func=None, holdvals=None, resolutionPlot=True, hdf5Group=None,
+                            guessParams=None, goodFunc=None, holdvals=None, resolutionPlot=True, hdf5Group=None,
                             _rethrow=False):
         fitters = self._qualityCheckLinefit(line, positionToleranceFitSigma, worstAllowedFWHM, positionToleranceAbsolute,
-                                            attr, states, dlo, dhi, binsize, binEdges, guessParams, g_func, holdvals,
+                                            attr, states, dlo, dhi, binsize, binEdges, guessParams, goodFunc, holdvals,
                                             _rethrow=_rethrow)
         resolutions = np.array([fitter.last_fit_params_dict["resolution"][0]
                                 for fitter in fitters.values() if fitter.fit_success])
