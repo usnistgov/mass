@@ -320,6 +320,8 @@ class CorG():
 
         return fitter
 
+class NoCutInds():
+    pass
 
 
 class Recipe():
@@ -405,9 +407,9 @@ class Channel(CorG):
         self.verbose = verbose
         self.learnChannumAndShortname()
         self.recipes = {}
-        self._defineDefaultRecipes()
+        self._defineDefaultRecipesAndProperties()
 
-    def _defineDefaultRecipes(self):
+    def _defineDefaultRecipesAndProperties(self):
         assert(len(self.recipes)==0)
         t0 = self.offFile["unixnano"][0]
         self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e9, ["unixnano"])
@@ -492,7 +494,6 @@ class Channel(CorG):
         """ used as input for phase correction """
         return self.getAttr("filtPhase", slice(None))
 
-
     @property
     def filtValue(self):
         return self.getAttr("filtValue", slice(None))
@@ -524,7 +525,7 @@ class Channel(CorG):
         elif isinstance(inds, list):
             assert all([isinstance(_inds, slice) for _inds in inds])
             output = self.getOffAttr(offAttr, inds[0], goodFunc, returnBad)
-            for i in xrange(1,len(inds)):
+            for i in range(1,len(inds)):
                 output = np.hstack( (output, self.getOffAttr(offAttr, inds[i], goodFunc, returnBad)) )
         else:
             raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
@@ -549,26 +550,6 @@ class Channel(CorG):
             return self.getRecipeAttr(attr, inds, goodFunc, returnBad)
         else:
             raise Exception("attr {} is neither an OffAttr or a RecipeAttr".format(attr))
-
-    @property
-    def filtValueDC(self):
-        return self.getRecipeAttr("filtValueDC", slice(None))
-
-    @property
-    def filtValuePC(self):
-        return self.getAttr("filtValuePC", slice(None))
-
-    @property
-    def energy(self):
-        return self.getAttr("energy", slice(None))
-
-    @property
-    def energyRough(self):
-        return self.getAttr("energyRough", slice(None))
-
-    @property
-    def arbsInRefChannelUnits(self):
-        return self.getAttr("arbsInRefChannelUnits", slice(None))
 
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, goodFunc = None):
         if axis is None:
@@ -696,11 +677,12 @@ class Channel(CorG):
         self.addRecipe("energy", self.calibration.ph2energy, [self.calibration.uncalibratedName] )
         return fitters
 
-    def addRecipe(self, recipeName, f, argNames):
+    def addRecipe(self, recipeName, f, argNames, createProperty=True):
         """
         recipeName - the name of the new Attr to create, eg "energy"
         f - the function used to caluclate the Attr
         argNames - a list of argument names, they can be OffAttrs or other recipes
+        createProperty - if True will create a property such that you can access the output of the recipe as eg `ds.energy`
         """
         # add a recipe
         # 1. create the recipe
@@ -714,6 +696,9 @@ class Channel(CorG):
             elif not self.isOffAttr(argName):
                 raise Exception("argName={} should be in self.recipes or be an OffAttr".format(argName))
         self.recipes[recipeName] = recipe
+        # 4. create a property to access the recipe
+        if createProperty and not hasattr(Channel, recipeName): # recipes are added to the class, so only do it once per recipeName
+            setattr(Channel, recipeName, property(lambda argself: argself.getAttr(recipeName, slice(None))) )
 
     def markBad(self, reason, extraInfo=None):
         self.markedBadReason = reason
