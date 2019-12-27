@@ -323,7 +323,6 @@ class CorG():
 class NoCutInds():
     pass
 
-
 class Recipe():
     """
     If `r` is a Recipe, it is a wrapper around a function `f` and the names of its arguments. 
@@ -467,36 +466,36 @@ class Channel(CorG):
 
     @property
     def residualStdDev(self):
-        return self.getAttr("residualStdDev", slice(None))
+        return self.getAttr("residualStdDev", NoCutInds())
 
     @property
     def pretriggerMean(self):
-        return self.getAttr("pretriggerMean", slice(None))
+        return self.getAttr("pretriggerMean", NoCutInds())
 
     @property
     def relTimeSec(self):
-        return self.getAttr("relTimeSec", slice(None)) # slice(None) is equivalent to indexing the whole array with :
+        return self.getAttr("relTimeSec", NoCutInds()) # NoCutInds() is equivalent to indexing the whole array with :
 
     @property
     def unixnano(self):
-        return self.getAttr("unixnano", slice(None))
+        return self.getAttr("unixnano", NoCutInds())
 
     @property
     def pulseMean(self):
-        return self.getAttr("pulseMean", slice(None))
+        return self.getAttr("pulseMean", NoCutInds())
 
     @property
     def derivativeLike(self):
-        return self.getAttr("derivativeLike", slice(None))
+        return self.getAttr("derivativeLike", NoCutInds())
 
     @property
     def filtPhase(self):
         """ used as input for phase correction """
-        return self.getAttr("filtPhase", slice(None))
+        return self.getAttr("filtPhase", NoCutInds())
 
     @property
     def filtValue(self):
-        return self.getAttr("filtValue", slice(None))
+        return self.getAttr("filtValue", NoCutInds())
 
     def defaultGoodFunc(self, v):
         """v must be of self.offFile.dtype"""
@@ -527,6 +526,8 @@ class Channel(CorG):
             output = self.getOffAttr(offAttr, inds[0], goodFunc, returnBad)
             for i in range(1,len(inds)):
                 output = np.hstack( (output, self.getOffAttr(offAttr, inds[i], goodFunc, returnBad)) )
+        elif isinstance(inds, NoCutInds):
+            output = self.offFile[offAttr]
         else:
             raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
         return output
@@ -698,7 +699,7 @@ class Channel(CorG):
         self.recipes[recipeName] = recipe
         # 4. create a property to access the recipe
         if createProperty and not hasattr(Channel, recipeName): # recipes are added to the class, so only do it once per recipeName
-            setattr(Channel, recipeName, property(lambda argself: argself.getAttr(recipeName, slice(None))) )
+            setattr(Channel, recipeName, property(lambda argself: argself.getAttr(recipeName, NoCutInds())) )
 
     def markBad(self, reason, extraInfo=None):
         self.markedBadReason = reason
