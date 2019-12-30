@@ -136,13 +136,11 @@ class TestSummaries(ut.TestCase):
     def test_getOffAttr_with_list_of_inds(self):
         inds = ds.getStatesIndicies(["Ne", "W 1","Os", "Ar", "Re", "W 2", "CO2", "Ir"])
         v0 = ds.getOffAttr("filtValue", inds, _listMethodSelect=0)
-        v1 = ds.getOffAttr("filtValue", inds, _listMethodSelect=1)
         v2 = ds.getOffAttr("filtValue", inds, _listMethodSelect=2)
         self.assertTrue(np.allclose(v0,v2))
-        self.assertTrue(np.allclose(v1,v2))
         # this is a test of correctness because
         # the implementation of method 0 is simpler than method 2 
-        # method2 is the default becaue it is much faster
+        # method 2 is the default because it is much faster
 
 
 if __name__ == '__main__':

@@ -524,9 +524,8 @@ class Channel(CorG):
             output = r[g][offAttr]          
         elif isinstance(inds, list) and _listMethodSelect == 2: #preallocate and truncate
             # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
-            # and about 2x fatster than temporary bool index
-            # the alternate methods could be removed, GCO left them in for correctness testing
-            assert all([isinstance(s, slice) and s.step is None for s in inds])
+            # and about 2x fatster than temporary bool index, which can be found in commit 063bcce
+            assert all([isinstance(s, slice) and s.step is None for s in inds]) # make sure s.step is None so my simple length calculation will work
             max_length = np.sum([s.stop-s.start for s in inds])
             output_dtype = self.offFile[0:0][offAttr].dtype # get the dtype to preallocate with
             output_prealloc = np.zeros(max_length, output_dtype)
@@ -537,16 +536,9 @@ class Channel(CorG):
                 ihi = ilo+len(tmp)
                 output_prealloc[ilo:ihi]=tmp
             output = output_prealloc[0:ihi]
-        elif isinstance(inds, list) and _listMethodSelect == 1: # temporary bool index
-            b = np.zeros(len(self), dtype="bool")
-            for s in inds:
-                b[s]=True
-            r = self.offFile[b]
-            g = goodFunc(r)
-            if returnBad:
-                g = np.logical_not(g)
-            output = r[g][offAttr]
         elif isinstance(inds, list) and _listMethodSelect == 0: # repeated hstack
+            # this could be removed, along with the _listMethodSelect argument
+            # this is only left in because it is useful for correctness testing for preallocate and truncate method since this is simpler
             assert all([isinstance(_inds, slice) for _inds in inds])
             output = self.getOffAttr(offAttr, inds[0], goodFunc, returnBad)
             for i in range(1,len(inds)):
