@@ -8,7 +8,7 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
     """ return a np.dtype matching the record datatype for the given offVersion and nBasis
     descriptive_coefs_names - determines how the modeled pulse coefficients are name, you usually want True
     For True, the names will be `derivLike`, `pulseLike`, and if nBasis>3, also `extraCoefs`
-    For False, they will all have the single name `coefs`. False is to make implementing recordXY easier"""
+    For False, they will all have the single name `coefs`. False is to make implementing recordXY and other methods that want access to all coefs simultaneously easier"""
     if offVersion == "0.1.0" or offVersion == "0.2.0":
         # start of the dtype is identical for all cases
         dt_list = [("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
@@ -151,11 +151,15 @@ class OffFile(object):
         # z = record length (eg 4)
 
         ## .view(self._dtype_non_descriptive) should be a copy-free way of changing the dtype so we can access the coefs all together
-        allVals = np.matmul(self.basis, self[i].view(self._dtype_non_descriptive)["coefs"])
+        allVals = np.matmul(self.basis, self._mmap_with_coefs[i]["coefs"])
         return allVals
 
     def recordXY(self, i):
         return self.sampleTimes(i), self.modeledPulse(i)
+
+    @property
+    def _mmap_with_coefs(self):
+        return self._mmap.view(self._dtype_non_descriptive)
 
 
 if __name__ == "__main__":

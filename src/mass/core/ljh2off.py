@@ -53,7 +53,7 @@ def off_header_string_from_ljhfile(ljhfile, projectors, basis, h5_path):
 def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
     ljhfile = mass.LJHFile(ljhpath)
     nbasis = projectors.shape[0]
-    dtype = mass.off.off.recordDtype(off_version, nbasis)
+    dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
     with open(offpath, "wb") as f:  # opening in binary form prevents windows from messing up newlines
         f.write(off_header_string_from_ljhfile(
             ljhfile, projectors, basis, h5_path).encode('utf-8'))
