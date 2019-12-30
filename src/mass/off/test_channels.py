@@ -1,5 +1,5 @@
 import mass
-from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks
+from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, Recipe
 import h5py
 import os
 import numpy as np
@@ -141,6 +141,18 @@ class TestSummaries(ut.TestCase):
         # this is a test of correctness because
         # the implementation of method 0 is simpler than method 2 
         # method 2 is the default because it is much faster
+
+    def test_recipes(self):
+        def funa(x,y):
+            return x+y
+        def funb(a,z): 
+            return a+z
+        ra = Recipe(funa)
+        rb = Recipe(funb)
+        rb.setArg("a", ra)
+        args = {"x":1, "y":0, "z":2}
+        self.assertEqual(rb(args), 3)
+        self.assertEqual(ra(args), 1)
 
 
 if __name__ == '__main__':

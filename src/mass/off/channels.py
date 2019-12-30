@@ -382,17 +382,6 @@ class Recipe():
                 s += "{}{}: {}\n".format("  "*(indent+1), k, v)
         s += "  "*indent + "}"
         return s
-def funa(x,y):
-    return x+y
-def funb(a,z): 
-    return a+z
-ra = Recipe(funa)
-rb = Recipe(funb)
-rb.setArg("a", ra)
-args = {"x":1, "y":0, "z":2}
-assert rb(args) == 3
-assert ra(args) == 1
-
 
 
 # wrap up an off file with some conviencine functions
