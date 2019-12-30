@@ -57,7 +57,7 @@ class ExperimentStateFile():
         if len(self.allLabels) == 1:
             return []
         else:
-            return ["START", "END", "STOP"]
+            return ["START", "END", "STOP", "IGNORE"]
 
     def applyExcludesToLabels(self, allLabels):
         if self.excludeStates == "auto":
