@@ -502,12 +502,13 @@ class Channel(CorG):
         g = v["residualStdDev"] < self.stdDevResThreshold
         return g
 
-    def getOffAttr(self, offAttr, inds, goodFunc=None, returnBad=False):
+    def getOffAttr(self, offAttr, inds, goodFunc=None, returnBad=False, _listMethodSelect=2):
         """
         offAttr - a string or list of strings with names of items to get from offFile, eg ["filtValue","pretriggerMean"]
         inds - a slice or list of slices to index into items with
         goodFunc - a function called on the data read from the off file, must return a vector of bool values
         returnBad - if true, np.logical_not the goodFunc output
+        _listMethodSelect - used for debugging and testing, chooses the implmentation of this method used for lists of indicies
         getOffAttr("filtValue", slice(0,10), f) is roughly equivalent to:
         g = f(offFile[0:10])
         offFile["filtValue"][0:10][g]
@@ -521,7 +522,31 @@ class Channel(CorG):
             if returnBad:
                 g = np.logical_not(g)
             output = r[g][offAttr]          
-        elif isinstance(inds, list):
+        elif isinstance(inds, list) and _listMethodSelect == 2: #preallocate and truncate
+            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
+            # and about 2x fatster than temporary bool index
+            # the alternate methods could be removed, GCO left them in for correctness testing
+            assert all([isinstance(s, slice) and s.step is None for s in inds])
+            max_length = np.sum([s.stop-s.start for s in inds])
+            output_dtype = self.offFile[0:0][offAttr].dtype # get the dtype to preallocate with
+            output_prealloc = np.zeros(max_length, output_dtype)
+            ilo,ihi = 0,0
+            for s in inds:
+                tmp = self.getOffAttr(offAttr, s, goodFunc, returnBad)
+                ilo = ihi
+                ihi = ilo+len(tmp)
+                output_prealloc[ilo:ihi]=tmp
+            output = output_prealloc[0:ihi]
+        elif isinstance(inds, list) and _listMethodSelect == 1: # temporary bool index
+            b = np.zeros(len(self), dtype="bool")
+            for s in inds:
+                b[s]=True
+            r = self.offFile[b]
+            g = goodFunc(r)
+            if returnBad:
+                g = np.logical_not(g)
+            output = r[g][offAttr]
+        elif isinstance(inds, list) and _listMethodSelect == 0: # repeated hstack
             assert all([isinstance(_inds, slice) for _inds in inds])
             output = self.getOffAttr(offAttr, inds[0], goodFunc, returnBad)
             for i in range(1,len(inds)):
