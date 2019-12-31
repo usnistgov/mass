@@ -85,9 +85,11 @@ class ExperimentStateFile():
         if statesDict is None:
             statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
-        if i0_allLabels > 0: # the state that was active last time calcStatesDict was called may need special handling
-            k = statesDict.keys()[-1]
-            s = statesDict[k]
+        if len(statesDict.keys()) > 0: # the state that was active last time calcStatesDict was called may need special handling
+            assert i0_allLabels>0
+            for k in statesDict.keys():
+                last_key = k
+            s = statesDict[last_key]
             s2 = slice(s.start, inds[0])
             statesDict[k] = s2
         for i, label in enumerate(self.allLabels[i0_allLabels:]): # iterate over self.allLabels because it corresponds to self.unixnanos
