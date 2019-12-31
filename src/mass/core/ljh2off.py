@@ -92,21 +92,21 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
 
 
 def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True):
-    projectors_dict = load_projectors(h5_path)
+    pulse_model_dict = load_pulse_models(h5_path)
     basename, channum = mass.ljh_util.ljh_basename_channum(ljhpath)
     ljhdir, file_basename = os.path.split(basename)
     off_basename = os.path.join(output_dir, file_basename)
-    n_channels = min(max_channels, len(projectors_dict))
+    n_channels = min(max_channels, len(pulse_model_dict))
     bar = progress.bar.Bar("processing ljh files to off files:", max=n_channels)
     off_filenames = []
     ljh_filenames = []
-    for channum, (projectors, basis) in projectors_dict.items():
+    for channum, pulse_model in pulse_model_dict.items():
         ljhpath = "{}_chan{}.ljh".format(basename, channum)
         offpath = '{}_chan{}.off'.format(off_basename, channum)
         if not os.path.isfile(ljhpath):
             continue
-        projectors, basis = projectors_dict[channum]
-        ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path)
+        pulse_model = pulse_model_dict[channum]
+        ljh2off(ljhpath, offpath, pulse_model.projectors, pulse_model.basis, n_ignore_presamples, h5_path)
         bar.next()
         off_filenames.append(offpath)
         ljh_filenames.append(ljhpath)
@@ -133,15 +133,14 @@ def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples
     return ljh_filenames, off_filenames
 
 
-def load_projectors(h5_path):
-    projectors_dict = collections.OrderedDict()
+def load_pulse_models(h5_path):
+    pulse_model_dict = collections.OrderedDict()
     with h5py.File(h5_path, "r") as h5:
         channel_numbers = sorted(map(int, h5.keys()))
         for channum in channel_numbers:
-            projectors = np.array(h5["{}/svdbasis/projectors".format(channum)][()], dtype="float64")
-            basis = np.array(h5["{}/svdbasis/basis".format(channum)][()], dtype="float64")
-            projectors_dict[channum] = projectors, basis
-    return projectors_dict
+            pulse_model = mass.PulseModel.fromHDF5(h5["{}".format(channum)])
+            pulse_model_dict[channum] = pulse_model
+    return pulse_model_dict
 
 
 def parse_args(fake):
