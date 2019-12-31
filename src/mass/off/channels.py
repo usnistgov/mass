@@ -157,7 +157,7 @@ class DriftCorrection():
         medianIndicator = hdf5_group["{}/medianIndicator".format(name)].value
         slope = hdf5_group["{}/slope".format(name)].value
         version = hdf5_group["{}/version".format(name)].value
-        assert(version == self.version)
+        assert(version == cls.version)
         return cls(indicatorName, uncorrectedName, medianIndicator, slope)
 
     def __eq__(self, other):
