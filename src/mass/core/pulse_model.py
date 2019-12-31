@@ -3,7 +3,14 @@ import numpy as np
 import mass.mathstat
 
 class PulseModel():
+    """Object to hold a "pulse model", meaning a low-dimensional linear basis to express "all" pulses,
+    along with a projector such that projector.dot(basis) is the identity matrix.
+
+    Also has the capacity to store to and restore from HDF5, and the ability to compute additional
+    basis elements and corresponding projectors with method _additional_projectors_tsvd"""
+
     version = 1
+
     def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name):
         self.pulses_for_svd = pulses_for_svd
         self.n_basis = n_basis
@@ -38,7 +45,7 @@ class PulseModel():
         hdf5_group["svdbasis/file_name"] = self.file_name
 
     @classmethod
-    def fromHDF5(self, hdf5_group):
+    def fromHDF5(cls, hdf5_group):
         projectors = hdf5_group["svdbasis/projectors"][()]
         n_basis = projectors.shape[0]
         basis = hdf5_group["svdbasis/basis"][()]
@@ -50,7 +57,7 @@ class PulseModel():
         file_name = hdf5_group["svdbasis/file_name"][()]
         if version != 1:
             raise Exception("loading not implemented for other versions")
-        return PulseModel(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name)
+        return cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name)
 
     def _additional_projectors_tsvd(self, projectors, basis, n_basis, pulses_for_svd):
         """
@@ -128,7 +135,6 @@ class PulseModel():
         plt.title("log10(abs(projectors*basis-identity))")
         plt.colorbar()
         fig.suptitle(self.file_name)
-
 
         plt.figure()
         plt.plot(self.pulses_for_svd[:,0], label="from ljh")
