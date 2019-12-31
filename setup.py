@@ -143,5 +143,5 @@ if __name__ == "__main__":
           cmdclass={'build': QtBuilder},
           package_dir={'': os.path.join(BASEDIR, 'src')},
           scripts=[os.path.join(BASEDIR, "bin", "ljh_truncate")],
-          install_requires=reqs
+        #   install_requires=reqs
           )

@@ -25,8 +25,12 @@ class ExperimentStateFile():
         else:
             raise Exception("provide filename or offFilename")
         self.excludeStates = excludeStates
+        self.parse_start = 0
+        self.allLabels = []
+        self.unixnanos = np.zeros(0)
         self.parse()
         self.labelAliasesDict = {} # map unaliasedLabels to aliasedLabels
+        self._statesDictCalculated = False
 
     def experimentStateFilenameFromOffFilename(self, offFilename):
         basename, channum = mass.ljh_util.ljh_basename_channum(offFilename)
@@ -34,14 +38,27 @@ class ExperimentStateFile():
 
     def parse(self):
         with open(self.filename, "r") as f:
+            f.seek(self.parse_start) # if we call parse a second time, we want to add states rather than reparse the whole file
+            line = f.readline()
+            while line:
+                print f.tell(), line
+                line = f.readline()
+        with open(self.filename, "r") as f:
+            f.seek(self.parse_start) # if we call parse a second time, we want to add states rather than reparse the whole file
             lines = f.readlines()
-        if len(lines) < 1:
-            raise Exception("zero lines in file")
-        if not lines[0][0] == "#":
-            raise Exception("first line should start with #, was %s" % lines[0])
+            parse_end = f.tell()
+        if self.parse_start == 0:
+            header_line = lines[0]
+            if header_line[0] != "#":
+                raise Exception("first line should start with #, was %s" % header_line)
+            lines = lines[1:]
+            if len(lines) == 0:
+                raise Exception("zero lines after header in file")
+        if len(lines) == 0:
+            return # no new states    
         unixnanos = []
         labels = []
-        for line in lines[1:]:
+        for line in lines:
             a, b = line.split(",")
             a = a.strip()
             b = b.strip()
@@ -49,9 +66,10 @@ class ExperimentStateFile():
             label = b
             unixnanos.append(unixnano)
             labels.append(label)
-        self.allLabels = labels
-        self.unixnanos = np.array(unixnanos)
+        self.allLabels += labels
+        self.unixnanos = np.hstack([self.unixnanos, np.array(unixnanos)])
         self.unaliasedLabels = self.applyExcludesToLabels(self.allLabels)
+        self.parse_start = parse_end # next call to parse, start from here
 
     def calculateAutoExcludes(self):
         if len(self.allLabels) == 1:
@@ -64,31 +82,58 @@ class ExperimentStateFile():
             self.excludeStates = self.calculateAutoExcludes()
         return [label for label in self.allLabels if label not in self.excludeStates]
 
-    def calcStatesDict(self, unixnanos):
+    def calcStatesDict(self, unixnanos, statesDict = None, i0_allLabels = 0, i0_unixnanos = 0):
         """
         calculate statesDict, a dictionary mapping state name to EITHER a slice OR a boolean array with length equal to unixnanos
         slices are used for unique states, boolean arrays are used for repeated states
+        when updating pass in the existing statesDict and i0 must be the first label in allLabels that wasn't used to calculate the existing statesDict
         """
-        statesDict = collections.OrderedDict()
-        inds = np.searchsorted(unixnanos, self.unixnanos)
-        for i, label in enumerate(self.allLabels): # iterate over self.allLabels because it corresponds to self.unixnanos
+        if statesDict is None:
+            statesDict = collections.OrderedDict()
+        inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
+        
+        print("allLabels", self.allLabels)
+        print("inds",  inds)
+        print("len(unixnanos)", len(unixnanos))
+        print("i0_allLabels", i0_allLabels, "i0_unixnanos", i0_unixnanos)
+        if i0_allLabels > 0: # the state that was active last time calcStatesDict was called may need special handling
+            k = statesDict.keys()[-1]
+            s = statesDict[k]
+            s2 = slice(s.start, inds[0])
+            statesDict[k] = s2
+        for i, label in enumerate(self.allLabels[i0_allLabels:]): # iterate over self.allLabels because it corresponds to self.unixnanos
             if label not in self.unaliasedLabels:
                 continue
             aliasedLabel = self.labelAliasesDict.get(label, label)
-            if self.unaliasedLabels.count(label) == 1: # this label is unique
+            if i0_allLabels>0:
+                print("i={}, label={}, aliasedLabel={}, b={}".format(i, label, aliasedLabel, aliasedLabel in statesDict))
+            if aliasedLabel in statesDict:
+                # this label is not unique, use a bool index
+                v = statesDict[aliasedLabel]
+                if isinstance(v, np.ndarray):
+                    if len(v) == len(unixnanos): # the bool index is already the correct length
+                        bool_index = v
+                    elif len(v) < len(unixnanos): # the bool index needs to be longer
+                        bool_index = np.zeros(len(unixnanos), dtype="bool")
+                        bool_index[:length(v)]=v
+                    else:
+                        raise Exception("should not be possible to have len(v)={}>len(unixnanos)={}".format(len(v), len(unixnanos)))
+                elif isinstance(v, slice): # if we've seen this state once before, we would have a slice
+                    bool_index = np.zeros(len(unixnanos), dtype="bool")
+                    bool_index[v]=True
+                    if i+1 == len(self.allLabels):
+                        bool_index[inds[i]:len(unixnanos)] = True
+                    else:
+                        bool_index[inds[i]:inds[i+1]] = True
+                else:
+                    raise Exception("v should be a slice or another bool index, v is a {} for label={}, aliasedlabel={}".format(type(v), label, unaliasedLabel))
+                statesDict[aliasedLabel] = bool_index
+            else: # this state is unique, use a slice
                 if i+1 == len(self.allLabels):
                     statesDict[aliasedLabel] = slice(inds[i], len(unixnanos))
                 else:
                     statesDict[aliasedLabel] = slice(inds[i], inds[i+1])
-            else: # this state is repeated
-                if labaliasedLabelel not in statesDict:
-                    statesDict[aliasedLabel] = np.zeros(len(unixnanos), dtype="bool")    
-                if i+1 == len(self.allLabels):
-                    statesDict[aliasedLabel][inds[i]:len(unixnanos)] = True
-                else:
-                    statesDict[aliasedLabel][inds[i]:inds[i+1]] = True
-        self._statesDictCalculatedToIndex = i
-        self._statesDictCalculatedToUnixnanosLen = len(unixnanos)
+        self._statesDictCalculated = True
         assert(len(statesDict)==len(self.unaliasedLabels))
         return statesDict
  
@@ -96,6 +141,8 @@ class ExperimentStateFile():
         return "ExperimentStateFile: "+self.filename
 
     def aliasState(self, unaliasedLabel, aliasedLabel):
+        if self._statesDictCalculated:
+            raise Exception("call aliasState before calculating or re-calculating statesDict")
         self.labelAliasesDict[unaliasedLabel] = aliasedLabel
 
     @property
@@ -1134,8 +1181,29 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         return "ChannelGroup with {} channels".format(len(self))
 
     def firstGoodChannel(self):
-        return self[list(self.keys())[0]]
+        for ds in self.values():
+            if not ds.markedBadBool:
+                return ds
+        raise Exception("no good channels")
 
+    def refreshFromFiles(self):
+        """
+        refresh from files on disk to reflect new information: longer off files and new experiment states
+        to be called occasionally when running something that updates in real time
+        """
+        ds = self.firstGoodChannel()
+        i0_allLabels = len(self.experimentStateFile.allLabels)
+        n_old_labels = len(self.experimentStateFile.labels)
+        self.experimentStateFile.parse()
+        n_new_labels = len(self.experimentStateFile.labels)-n_old_labels
+        n_new_pulses_dict = collections.OrderedDict()
+        for ds in self.values():
+            i0_unixnanos = len(ds)
+            ds.offFile._updateMmap() # will update nRecords by mmapping more data in the offFile if available
+            ds._statesDict = self.experimentStateFile.calcStatesDict(ds.unixnano[i0_unixnanos:], ds.statesDict, i0_allLabels, i0_unixnanos)
+            n_new_pulses_dict[ds.channum] = len(ds)-i0_unixnanos
+        return n_new_labels, n_new_pulses_dict
+        
     def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         binEdges -- edges of bins unsed for histogram
