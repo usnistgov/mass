@@ -230,10 +230,6 @@ class TestSummaries(ut.TestCase):
             _, hist = ds.hist(np.arange(0,4000,1000), "filtValue", states=global_states)
             for ((k_local,v_local), (k,v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
                 self.assertEqual(v_local,v)
-            assert(all(x==x_local))
-            print "hist_compare"
-            print hist_local
-            print hist
             self.assertTrue(all(ds.filtValue == ds_local.filtValue))
             self.assertTrue(all(hist_local == hist))
         except AssertionError:

@@ -39,12 +39,6 @@ class ExperimentStateFile():
     def parse(self):
         with open(self.filename, "r") as f:
             f.seek(self.parse_start) # if we call parse a second time, we want to add states rather than reparse the whole file
-            line = f.readline()
-            while line:
-                print f.tell(), line
-                line = f.readline()
-        with open(self.filename, "r") as f:
-            f.seek(self.parse_start) # if we call parse a second time, we want to add states rather than reparse the whole file
             lines = f.readlines()
             parse_end = f.tell()
         if self.parse_start == 0:
@@ -91,11 +85,6 @@ class ExperimentStateFile():
         if statesDict is None:
             statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
-        
-        print("allLabels", self.allLabels)
-        print("inds",  inds)
-        print("len(unixnanos)", len(unixnanos))
-        print("i0_allLabels", i0_allLabels, "i0_unixnanos", i0_unixnanos)
         if i0_allLabels > 0: # the state that was active last time calcStatesDict was called may need special handling
             k = statesDict.keys()[-1]
             s = statesDict[k]
@@ -105,8 +94,6 @@ class ExperimentStateFile():
             if label not in self.unaliasedLabels:
                 continue
             aliasedLabel = self.labelAliasesDict.get(label, label)
-            if i0_allLabels>0:
-                print("i={}, label={}, aliasedLabel={}, b={}".format(i, label, aliasedLabel, aliasedLabel in statesDict))
             if aliasedLabel in statesDict:
                 # this label is not unique, use a bool index
                 v = statesDict[aliasedLabel]
