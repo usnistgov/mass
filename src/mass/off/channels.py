@@ -151,14 +151,14 @@ class DriftCorrection():
         hdf5_group["{}/version".format(name)] = self.version
 
     @classmethod
-    def fromHDF5(self, hdf5_group, name="driftCorrection"):
+    def fromHDF5(cls, hdf5_group, name="driftCorrection"):
         indicatorName = hdf5_group["{}/indicatorName".format(name)].value
         uncorrectedName = hdf5_group["{}/uncorrectedName".format(name)].value
         medianIndicator = hdf5_group["{}/medianIndicator".format(name)].value
         slope = hdf5_group["{}/slope".format(name)].value
         version = hdf5_group["{}/version".format(name)].value
         assert(version == self.version)
-        return DriftCorrection(indicatorName, uncorrectedName, medianIndicator, slope)
+        return cls(indicatorName, uncorrectedName, medianIndicator, slope)
 
     def __eq__(self, other):
         """Overrides the default implementation"""

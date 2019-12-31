@@ -38,7 +38,7 @@ class PulseModel():
         hdf5_group["svdbasis/file_name"] = self.file_name
 
     @classmethod
-    def fromHDF5(self, hdf5_group):
+    def fromHDF5(cls, hdf5_group):
         projectors = hdf5_group["svdbasis/projectors"][()]
         n_basis = projectors.shape[0]
         basis = hdf5_group["svdbasis/basis"][()]
@@ -50,7 +50,7 @@ class PulseModel():
         file_name = hdf5_group["svdbasis/file_name"][()]
         if version != 1:
             raise Exception("loading not implemented for other versions")
-        return PulseModel(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name)
+        return cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name)
 
     def _additional_projectors_tsvd(self, projectors, basis, n_basis, pulses_for_svd):
         """
