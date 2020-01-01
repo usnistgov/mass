@@ -308,10 +308,11 @@ class TestTESGroup(ut.TestCase):
         # this test should pass, but it doesn'ts
         should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
         wrongness = np.abs(should_be_identity-np.identity(n_basis))
-        self.assertTrue(np.amax(wrongness)<4e-2) # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+        # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+        self.assertTrue(np.amax(wrongness) < 4e-2)
         pulse_model.plot()
 
-        if False: # left for debug purposes
+        if False:  # left for debug purposes
             # also comment out the line in runtests.py that sets the backend to svg
             # and change line 34 to only run test_core
             import pylab as plt
