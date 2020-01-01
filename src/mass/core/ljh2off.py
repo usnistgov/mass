@@ -9,7 +9,7 @@ import h5py
 import progress.bar
 import argparse
 
-# intended for the application of converting ljh files to mass files given somep projectors and basis
+# Intended for conversion of LJH files to OFF files, given some projectors and basis
 
 _OFF_VERSION = "0.2.0"
 
@@ -53,7 +53,7 @@ def off_header_string_from_ljhfile(ljhfile, projectors, basis, h5_path):
 def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
     ljhfile = mass.LJHFile(ljhpath)
     nbasis = projectors.shape[0]
-    dtype = mass.off.off.recordDtype(off_version, nbasis)
+    dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
     with open(offpath, "wb") as f:  # opening in binary form prevents windows from messing up newlines
         f.write(off_header_string_from_ljhfile(
             ljhfile, projectors, basis, h5_path).encode('utf-8'))
@@ -106,7 +106,8 @@ def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples
         if not os.path.isfile(ljhpath):
             continue
         pulse_model = pulse_model_dict[channum]
-        ljh2off(ljhpath, offpath, pulse_model.projectors, pulse_model.basis, n_ignore_presamples, h5_path)
+        ljh2off(ljhpath, offpath, pulse_model.projectors,
+                pulse_model.basis, n_ignore_presamples, h5_path)
         bar.next()
         off_filenames.append(offpath)
         ljh_filenames.append(ljhpath)

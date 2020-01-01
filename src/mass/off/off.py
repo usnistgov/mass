@@ -4,11 +4,24 @@ import os
 import base64
 
 
-def recordDtype(offVersion, nBasis):
-    """ return a np.dtype matching the record datatype for the given offVersion and nBasis"""
+def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
+    """ return a np.dtype matching the record datatype for the given offVersion and nBasis
+    descriptive_coefs_names - determines how the modeled pulse coefficients are name, you usually want True
+    For True, the names will be `derivLike`, `pulseLike`, and if nBasis>3, also `extraCoefs`
+    For False, they will all have the single name `coefs`. False is to make implementing recordXY and other
+    methods that want access to all coefs simultaneously easier"""
     if offVersion == "0.1.0" or offVersion == "0.2.0":
-        return np.dtype([("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
-                         ("unixnano", np.int64), ("pretriggerMean", np.float32), ("residualStdDev", np.float32), ("coefs", np.float32, (nBasis))])
+        # start of the dtype is identical for all cases
+        dt_list = [("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
+                   ("unixnano", np.int64), ("pretriggerMean", np.float32), ("residualStdDev", np.float32)]
+        if descriptive_coefs_names:
+            dt_list += [("pulseMean", np.float32), ("derivativeLike",
+                                                    np.float32), ("filtValue", np.float32)]
+            if nBasis > 3:
+                dt_list += [("extraCoefs", np.float32, (nBasis-3))]
+        else:
+            dt_list += [("coefs", np.float32, (nBasis))]
+        return np.dtype(dt_list)
     else:
         raise Exception("dtype for OFF version {} not implemented".format(offVersion))
 
@@ -46,6 +59,8 @@ class OffFile(object):
             self.headerStringLength = len(self.headerString)
         self.header = json.loads(self.headerString)
         self.dtype = recordDtype(self.header["FileFormatVersion"], self.header["NumberOfBases"])
+        self._dtype_non_descriptive = recordDtype(
+            self.header["FileFormatVersion"], self.header["NumberOfBases"], descriptive_coefs_names=False)
         self.framePeriodSeconds = float(self.header["FramePeriodSeconds"])
         self.validateHeader()
         self._decodeModelInfo()  # calculates afterHeaderPos used by _updateMmap
@@ -139,11 +154,17 @@ class OffFile(object):
         # modelData (z,1) = basis (z,n) * coefs (n,1)
         # n = number of basis (eg 3)
         # z = record length (eg 4)
-        allVals = np.matmul(self.basis, self[i]["coefs"])
+
+        # .view(self._dtype_non_descriptive) should be a copy-free way of changing the dtype so we can access the coefs all together
+        allVals = np.matmul(self.basis, self._mmap_with_coefs[i]["coefs"])
         return allVals
 
     def recordXY(self, i):
         return self.sampleTimes(i), self.modeledPulse(i)
+
+    @property
+    def _mmap_with_coefs(self):
+        return self._mmap.view(self._dtype_non_descriptive)
 
 
 if __name__ == "__main__":

@@ -293,7 +293,7 @@ class TestTESGroup(ut.TestCase):
         ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(ds.filename, hdf5_filename, output_dir, max_channels,
                                                                  n_ignore_presamples, require_experiment_state=False)
         off = mass.off.off.OffFile(off_filenames[0])
-        self.assertTrue(np.allclose(off["coefs"][:, 2], ds.p_filt_value[:]))
+        self.assertTrue(np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:]))
 
         x, y = off.recordXY(0)
 
@@ -303,15 +303,16 @@ class TestTESGroup(ut.TestCase):
         self.assertEqual(pulse_model.projectors.shape, (n_basis, ds.nSamples))
         self.assertEqual(pulse_model.basis.shape, pulse_model.projectors.shape[::-1])
         mpc = pulse_model.projectors.dot(ds.read_trace(0))
-        self.assertTrue(np.allclose(off["coefs"][0, :], mpc))
+        self.assertTrue(np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc))
 
         # this test should pass, but it doesn'ts
         should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
         wrongness = np.abs(should_be_identity-np.identity(n_basis))
-        self.assertTrue(np.amax(wrongness)<4e-2) # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+        # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+        self.assertTrue(np.amax(wrongness) < 4e-2)
         pulse_model.plot()
 
-        if False: # left for debug purposes
+        if False:  # left for debug purposes
             # also comment out the line in runtests.py that sets the backend to svg
             # and change line 34 to only run test_core
             import pylab as plt
