@@ -13,7 +13,7 @@ d = os.path.dirname(os.path.realpath(__file__))
 
 filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
 data = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2),
-                    verbose=False, channelClass=Channel, excludeStates=["START","END"])
+                    verbose=False, channelClass=Channel, excludeStates=["START", "END"])
 data.setOutputDir(baseDir=d, deleteAndRecreate=True)
 data.experimentStateFile.aliasState("B", "Ne")
 data.experimentStateFile.aliasState("C", "W 1")
@@ -169,31 +169,32 @@ class TestSummaries(ut.TestCase):
         self.assertTrue(newds.driftCorrection == ds.driftCorrection)
 
     def test_fixedBehaviors(self):
-        self.assertEqual(ds.stateLabels, ["Ne", "W 1","Os", "Ar", "Re", "W 2", "CO2", "Ir"])
+        self.assertEqual(ds.stateLabels, ["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
 
     def test_reading_some_items(self):
-        self.assertEquals(ds.relTimeSec[0],0)
-        self.assertLess(np.abs(np.median(ds.filtPhase)),0.5)
+        self.assertEquals(ds.relTimeSec[0], 0)
+        self.assertLess(np.abs(np.median(ds.filtPhase)), 0.5)
         self.assertAlmostEqual(ds.energy[3], ds.energyRough[3], delta=5)
 
     def test_getOffAttr_with_list_of_inds(self):
-        inds = ds.getStatesIndicies(["Ne", "W 1","Os", "Ar", "Re", "W 2", "CO2", "Ir"])
+        inds = ds.getStatesIndicies(["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
         v0 = ds.getOffAttr("filtValue", inds, _listMethodSelect=0)
         v2 = ds.getOffAttr("filtValue", inds, _listMethodSelect=2)
-        self.assertTrue(np.allclose(v0,v2))
+        self.assertTrue(np.allclose(v0, v2))
         # this is a test of correctness because
-        # the implementation of method 0 is simpler than method 2 
+        # the implementation of method 0 is simpler than method 2
         # method 2 is the default because it is much faster
 
     def test_recipes(self):
-        def funa(x,y):
+        def funa(x, y):
             return x+y
-        def funb(a,z): 
+
+        def funb(a, z):
             return a+z
         ra = Recipe(funa)
         rb = Recipe(funb)
         rb.setArg("a", ra)
-        args = {"x":1, "y":0, "z":2}
+        args = {"x": 1, "y": 0, "z": 2}
         self.assertEqual(rb(args), 3)
         self.assertEqual(ra(args), 1)
 

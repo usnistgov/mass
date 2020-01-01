@@ -3,7 +3,14 @@ import numpy as np
 import mass.mathstat
 
 class PulseModel():
+    """Object to hold a "pulse model", meaning a low-dimensional linear basis to express "all" pulses,
+    along with a projector such that projector.dot(basis) is the identity matrix.
+
+    Also has the capacity to store to and restore from HDF5, and the ability to compute additional
+    basis elements and corresponding projectors with method _additional_projectors_tsvd"""
+
     version = 1
+
     def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name):
         self.pulses_for_svd = pulses_for_svd
         self.n_basis = n_basis
@@ -128,7 +135,6 @@ class PulseModel():
         plt.title("log10(abs(projectors*basis-identity))")
         plt.colorbar()
         fig.suptitle(self.file_name)
-
 
         plt.figure()
         plt.plot(self.pulses_for_svd[:,0], label="from ljh")
