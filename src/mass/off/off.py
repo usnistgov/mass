@@ -83,7 +83,7 @@ class OffFile(object):
         recordSize = fileSize-self.afterHeaderPos
         if _nRecords is None:
             self.nRecords = recordSize//self.dtype.itemsize
-        else: # for testing only
+        else:  # for testing only
             self.nRecords = _nRecords
         self._mmap = np.memmap(self.filename, self.dtype, mode="r",
                                offset=self.afterHeaderPos, shape=(self.nRecords,))

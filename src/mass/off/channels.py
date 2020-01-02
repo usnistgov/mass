@@ -107,7 +107,7 @@ class ExperimentStateFile():
                         bool_index = v
                     elif len(v) < len(unixnanos):  # the bool index needs to be longer
                         bool_index = np.zeros(len(unixnanos), dtype="bool")
-                        bool_index[:length(v)] = v
+                        bool_index[:len(v)] = v
                     else:
                         raise Exception("should not be possible to have len(v)={}>len(unixnanos)={}".format(
                             len(v), len(unixnanos)))
@@ -120,7 +120,7 @@ class ExperimentStateFile():
                         bool_index[inds[i]:inds[i+1]] = True
                 else:
                     raise Exception("v should be a slice or another bool index, v is a {} for label={}, aliasedlabel={}".format(
-                        type(v), label, unaliasedLabel))
+                        type(v), label, aliasedLabel))
                 statesDict[aliasedLabel] = bool_index
             else:  # this state is unique, use a slice
                 if i+1 == len(self.allLabels):
@@ -1020,7 +1020,7 @@ class AlignBToA():
     def samePeaksPlotWithAlignmentCal(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
         inds_a = self.ds_a.getStatesIndicies(self.states)
         ph_a = self.ds_a.getAttr(self.attr, inds_a, goodFunc_a, returnBad)
-        inds_b = self.ds_b.getStatesIndicies(self.states)
+        # inds_b = self.ds_b.getStatesIndicies(self.states)
         ph_b = self.ds_b.getAttr("arbsInRefChannelUnits", slice(None), goodFunc_b, returnBad)
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)

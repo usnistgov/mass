@@ -163,7 +163,6 @@ with h5py.File(data.outputHDF5.filename, "r") as h5:
 # raise Exception()
 
 
-
 class TestSummaries(ut.TestCase):
     def test_recipeFromHDF5(self):
         self.assertTrue(newds.driftCorrection == ds.driftCorrection)
@@ -209,28 +208,29 @@ class TestSummaries(ut.TestCase):
             # reach inside offFile and experimentStateFile to make it look like the files were originally opened during state E
             # then we refresh to learn about states F-I
             # the numerical constants are chosen to make sense for this scenario... if you vary one you may need to vary all
-            ds_local.offFile._updateMmap(_nRecords=11600) # mmap only the first half of records
+            ds_local.offFile._updateMmap(_nRecords=11600)  # mmap only the first half of records
             experimentStateFile.allLabels = experimentStateFile.allLabels[:5]
             experimentStateFile.unixnanos = experimentStateFile.unixnanos[:5]
-            experimentStateFile.unaliasedLabels = experimentStateFile.applyExcludesToLabels(experimentStateFile.allLabels)
+            experimentStateFile.unaliasedLabels = experimentStateFile.applyExcludesToLabels(
+                experimentStateFile.allLabels)
             experimentStateFile.parse_start = 159
             self.assertEqual(len(ds_local), 11600)
             self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E"])
             # use the global ds a the source of truth
-            for ((k_local,v_local), (k,v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
-                if k_local == "E": # since we stoppe data aquisition during E, it won't equal it's final value
+            for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
+                if k_local == "E":  # since we stoppe data aquisition during E, it won't equal it's final value
                     self.assertNotEqual(v_local, v)
                 else:
-                    self.assertEqual(v_local,v)
+                    self.assertEqual(v_local, v)
             n_new_labels, n_new_pulses_dict = data_local.refreshFromFiles()
             self.assertEqual(len(ds_local), len(ds))
             self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E", "F", "G", "H", "I"])
             states = ["B", "H", "I"]
-            _, hist_local = ds_local.hist(np.arange(0,4000,1000), "filtValue", states=states)
+            _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue", states=states)
             global_states = [data.experimentStateFile.labelAliasesDict[state] for state in states]
-            _, hist = ds.hist(np.arange(0,4000,1000), "filtValue", states=global_states)
-            for ((k_local,v_local), (k,v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
-                self.assertEqual(v_local,v)
+            _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue", states=global_states)
+            for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
+                self.assertEqual(v_local, v)
             self.assertTrue(all(ds.filtValue == ds_local.filtValue))
             self.assertTrue(all(hist_local == hist))
         except AssertionError:
