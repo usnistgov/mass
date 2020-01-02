@@ -107,65 +107,25 @@ print(data.outputHDF5)
 print(os.path.abspath(data.outputDir))
 
 
-with data.outputHDF5 as h5:
-    fitters = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
-                                       worstAllowedFWHM=4.5, states="Ne", _rethrow=False,
-                                       resolutionPlot=True, hdf5Group=h5)
-    data.histsToHDF5(h5, np.arange(4000))
-    data.recipeToHDF5(h5)
-    data.energyTimestampLabelToHDF5(h5)
+h5 =  data.outputHDF5 # dont use with here, it will hide errors
+fitters = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
+                                    worstAllowedFWHM=4.5, states="Ne", _rethrow=False,
+                                    resolutionPlot=True, hdf5Group=h5)
+data.histsToHDF5(h5, np.arange(4000))
+data.recipeToHDF5(h5)
+data.energyTimestampLabelToHDF5(h5)
+h5.close()
 
-with h5py.File(data.outputHDF5.filename, "r") as h5:
-    print(h5.keys())
-    newds = Channel(ds.offFile, ds.experimentStateFile)
-    newds.recipeFromHDF5(h5)
-
-
-# # im reusing the global names local and ds, here they refer to local variables
-# data_local = ChannelGroup([filename])
-# ds_local = data_local.firstGoodChannel()
-# ds_local.stdDevResThreshold = np.inf
-# experimentStateFile = data_local.experimentStateFile
-# # reach inside offFile and experimentStateFile to make it look like new data has been added to their files since they were opened
-# # the numerical constants are chosen to make sense... if you vary one you may need to vary all
-# ds_local.offFile._updateMmap(_nRecords=11600) # mmap only the first half of records
-# experimentStateFile.allLabels = experimentStateFile.allLabels[:5]
-# experimentStateFile.unixnanos = experimentStateFile.unixnanos[:5]
-# experimentStateFile.unaliasedLabels = experimentStateFile.applyExcludesToLabels(experimentStateFile.allLabels)
-# experimentStateFile.parse_start = 159
-# # print("before refresh")
-# # print(experimentStateFile.allLabels)
-# # print(ds_local.stateLabels)
-# # self.assertEqual(len(ds_local), 19445/2)
-# # self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E"])
-# for ((k_local,v_local), (k,v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
-#     if v_local != v:
-#         s="**"
-#     else:
-#         s="  "
-#     print("{}{}: {} vs {}: {}".format(s, k_local, v_local, k, v))
-# n_new_labels, n_new_pulses_dict = data_local.refreshFromFiles()
-# # print("after refresh")
-# # print(experimentStateFile.allLabels)
-# # print(ds_local.stateLabels)
-# # self.assertEqual(len(ds_local), 19445)
-# # self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E", "F", "G", "H", "I"])
-# _, hist_local = ds_local.hist(np.arange(0,4000,50), "filtValue", states=["B", "H", "I"])
-# _, hist = ds.hist(np.arange(0,4000,50), "filtValue", states=["Ne", "CO2", "Ir"])
-# for ((k_local,v_local), (k,v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
-#     if v_local != v:
-#         s="**"
-#     else:
-#         s="  "
-#     print("{}{}: {} vs {}: {}".format(s, k_local, v_local, k, v))
-# # self.assertTrue(all(hist_local == hist))
-# # self.assertEqual(hist_local.sum(), hist.sum())
-# raise Exception()
-
+h5 =  h5py.File(data.outputHDF5.filename, "r") # dont use with here, it will hide errors
+newds = Channel(ds.offFile, ds.experimentStateFile)
+newds.recipeFromHDF5(h5)
+h5.close()
 
 class TestSummaries(ut.TestCase):
     def test_recipeFromHDF5(self):
         self.assertTrue(newds.driftCorrection == ds.driftCorrection)
+        self.assertTrue(np.allclose(newds.filtValueDC, ds.filtValueDC))
+        self.assertTrue(np.allclose(newds.energy, ds.energy))
 
     def test_fixedBehaviors(self):
         self.assertEqual(ds.stateLabels, ["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])

@@ -656,9 +656,7 @@ class Channel(CorG):
             v[indicatorName], v[uncorrectedName])
         self.driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
-        # we dont want to storeFiltValueDC in memory, we simply store a DriftCorrection object
-        recipe = Recipe(self.driftCorrection.apply, [indicatorName, uncorrectedName])
-        self.recipes["filtValueDC"] = recipe
+        self.addRecipe("filtValueDC", self.driftCorrection.apply, [self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         return self.driftCorrection
 
     def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions, goodFunc=None, returnBad=False):
@@ -667,6 +665,7 @@ class Channel(CorG):
         uncorrected = self.getAttr(uncorrectedName, inds, goodFunc, returnBad)
         self.phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
+        self.addRecipe("filtValuePC", self.phaseCorrection.correct, [self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     def loadDriftCorrection(self):
         raise Exception("not implemented")
@@ -885,25 +884,32 @@ class Channel(CorG):
         grp = h5File.require_group(str(self.channum))
         if "driftCorrection" in grp:
             self.driftCorrection = DriftCorrection.fromHDF5(grp)
+            self.addRecipe("filtValueDC", self.driftCorrection.apply, [self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         if "calibration" in grp:
             self.calibration = mass.EnergyCalibration.load_from_hdf5(grp, "calibration")
             self.calibration.uncalibratedName = grp["calibration/uncalibratedName"].value
+            self.addRecipe("energy", self.calibration.ph2energy, [self.calibration.uncalibratedName])
         if "calibrationRough" in grp:
             self.calibrationRough = mass.EnergyCalibration.load_from_hdf5(grp, "calibrationRough")
             self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"].value
+            self.addRecipe("energyRough", self.calibrationRough.ph2energy, [self.calibrationRough.uncalibratedName])
         if "calibrationArbsInRefChannelUnits" in grp:
             self.calibrationArbsInRefChannelUnits = mass.EnergyCalibration.load_from_hdf5(
                 grp, "calibrationArbsInRefChannelUnits")
             self.calibrationArbsInRefChannelUnits.uncalibratedName = grp[
                 "calibrationArbsInRefChannelUnits/uncalibratedName"].value
+            self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
+                    self.calibrationArbsInRefChannelUnits.uncalibratedName])
         if "phase_correction" in grp:
             self.phaseCorrection = mass.core.phase_correct.PhaseCorrector.fromHDF5(grp)
+            self.addRecipe("filtValuePC", self.phaseCorrection.correct, [self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     @add_group_loop
     def energyTimestampLabelToHDF5(self, h5File, goodFunc=None, returnBad=False):
         grp = h5File.require_group(str(self.channum))
         if len(self.stateLabels) > 0:
             for state in self.stateLabels:
+                inds = self.getStatesIndicies(state)
                 energy = self.getAttr("energy", inds, goodFunc, returnBad)
                 unixnano = self.getAttr("unixnano", inds, goodFunc, returnBad)
                 grp["{}/energy".format(state)] = energy
@@ -1383,7 +1389,6 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             return h5py.File(self._outputHDF5Filename, "w")
         else:
             return h5py.File(self._outputHDF5Filename, "a")
-        return self._outputHDF5
 
     def fitterPlot(self, lineName, states=None):
         fitters = [ds.linefit(lineName, plot=False, states=states) for ds in self.values()]
