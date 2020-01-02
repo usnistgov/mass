@@ -25,8 +25,12 @@ class ExperimentStateFile():
         else:
             raise Exception("provide filename or offFilename")
         self.excludeStates = excludeStates
+        self.parse_start = 0
+        self.allLabels = []
+        self.unixnanos = np.zeros(0)
         self.parse()
         self.labelAliasesDict = {}  # map unaliasedLabels to aliasedLabels
+        self._statesDictCalculated = False
 
     def experimentStateFilenameFromOffFilename(self, offFilename):
         basename, channum = mass.ljh_util.ljh_basename_channum(offFilename)
@@ -34,14 +38,22 @@ class ExperimentStateFile():
 
     def parse(self):
         with open(self.filename, "r") as f:
+            # if we call parse a second time, we want to add states rather than reparse the whole file
+            f.seek(self.parse_start)
             lines = f.readlines()
-        if len(lines) < 1:
-            raise Exception("zero lines in file")
-        if not lines[0][0] == "#":
-            raise Exception("first line should start with #, was %s" % lines[0])
+            parse_end = f.tell()
+        if self.parse_start == 0:
+            header_line = lines[0]
+            if header_line[0] != "#":
+                raise Exception("first line should start with #, was %s" % header_line)
+            lines = lines[1:]
+            if len(lines) == 0:
+                raise Exception("zero lines after header in file")
+        if len(lines) == 0:
+            return  # no new states
         unixnanos = []
         labels = []
-        for line in lines[1:]:
+        for line in lines:
             a, b = line.split(",")
             a = a.strip()
             b = b.strip()
@@ -49,9 +61,10 @@ class ExperimentStateFile():
             label = b
             unixnanos.append(unixnano)
             labels.append(label)
-        self.allLabels = labels
-        self.unixnanos = np.array(unixnanos)
+        self.allLabels += labels
+        self.unixnanos = np.hstack([self.unixnanos, np.array(unixnanos)])
         self.unaliasedLabels = self.applyExcludesToLabels(self.allLabels)
+        self.parse_start = parse_end  # next call to parse, start from here
 
     def calculateAutoExcludes(self):
         if len(self.allLabels) == 1:
@@ -64,32 +77,57 @@ class ExperimentStateFile():
             self.excludeStates = self.calculateAutoExcludes()
         return [label for label in self.allLabels if label not in self.excludeStates]
 
-    def calcStatesDict(self, unixnanos):
+    def calcStatesDict(self, unixnanos, statesDict=None, i0_allLabels=0, i0_unixnanos=0):
         """
         calculate statesDict, a dictionary mapping state name to EITHER a slice OR a boolean array with length
         equal to unixnanos. Slices are used for unique states; boolean arrays are used for repeated states.
+        When updating pass in the existing statesDict and i0 must be the first label in allLabels that wasn't
+        used to calculate the existing statesDict.
         """
-        statesDict = collections.OrderedDict()
-        inds = np.searchsorted(unixnanos, self.unixnanos)
+        if statesDict is None:
+            statesDict = collections.OrderedDict()
+        inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
+        if len(statesDict.keys()) > 0:  # the state that was active last time calcStatesDict was called may need special handling
+            assert i0_allLabels > 0
+            for k in statesDict.keys():
+                last_key = k
+            s = statesDict[last_key]
+            s2 = slice(s.start, inds[0])
+            statesDict[k] = s2
         # iterate over self.allLabels because it corresponds to self.unixnanos
-        for i, label in enumerate(self.allLabels):
+        for i, label in enumerate(self.allLabels[i0_allLabels:]):
             if label not in self.unaliasedLabels:
                 continue
             aliasedLabel = self.labelAliasesDict.get(label, label)
-            if self.unaliasedLabels.count(label) == 1:  # this label is unique
+            if aliasedLabel in statesDict:
+                # this label is not unique, use a bool index
+                v = statesDict[aliasedLabel]
+                if isinstance(v, np.ndarray):
+                    if len(v) == len(unixnanos):  # the bool index is already the correct length
+                        bool_index = v
+                    elif len(v) < len(unixnanos):  # the bool index needs to be longer
+                        bool_index = np.zeros(len(unixnanos), dtype="bool")
+                        bool_index[:len(v)] = v
+                    else:
+                        raise Exception("should not be possible to have len(v)={}>len(unixnanos)={}".format(
+                            len(v), len(unixnanos)))
+                elif isinstance(v, slice):  # if we've seen this state once before, we would have a slice
+                    bool_index = np.zeros(len(unixnanos), dtype="bool")
+                    bool_index[v] = True
+                    if i+1 == len(self.allLabels):
+                        bool_index[inds[i]:len(unixnanos)] = True
+                    else:
+                        bool_index[inds[i]:inds[i+1]] = True
+                else:
+                    raise Exception("v should be a slice or another bool index, v is a {} for label={}, aliasedlabel={}".format(
+                        type(v), label, aliasedLabel))
+                statesDict[aliasedLabel] = bool_index
+            else:  # this state is unique, use a slice
                 if i+1 == len(self.allLabels):
                     statesDict[aliasedLabel] = slice(inds[i], len(unixnanos))
                 else:
                     statesDict[aliasedLabel] = slice(inds[i], inds[i+1])
-            else:  # this state is repeated
-                if labaliasedLabelel not in statesDict:
-                    statesDict[aliasedLabel] = np.zeros(len(unixnanos), dtype="bool")
-                if i+1 == len(self.allLabels):
-                    statesDict[aliasedLabel][inds[i]:len(unixnanos)] = True
-                else:
-                    statesDict[aliasedLabel][inds[i]:inds[i+1]] = True
-        self._statesDictCalculatedToIndex = i
-        self._statesDictCalculatedToUnixnanosLen = len(unixnanos)
+        self._statesDictCalculated = True
         assert(len(statesDict) == len(self.unaliasedLabels))
         return statesDict
 
@@ -97,6 +135,8 @@ class ExperimentStateFile():
         return "ExperimentStateFile: "+self.filename
 
     def aliasState(self, unaliasedLabel, aliasedLabel):
+        if self._statesDictCalculated:
+            raise Exception("call aliasState before calculating or re-calculating statesDict")
         self.labelAliasesDict[unaliasedLabel] = aliasedLabel
 
     @property
@@ -616,9 +656,7 @@ class Channel(CorG):
             v[indicatorName], v[uncorrectedName])
         self.driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
-        # we dont want to storeFiltValueDC in memory, we simply store a DriftCorrection object
-        recipe = Recipe(self.driftCorrection.apply, [indicatorName, uncorrectedName])
-        self.recipes["filtValueDC"] = recipe
+        self.addRecipe("filtValueDC", self.driftCorrection.apply, [self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         return self.driftCorrection
 
     def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions, goodFunc=None, returnBad=False):
@@ -627,6 +665,7 @@ class Channel(CorG):
         uncorrected = self.getAttr(uncorrectedName, inds, goodFunc, returnBad)
         self.phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
+        self.addRecipe("filtValuePC", self.phaseCorrection.correct, [self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     def loadDriftCorrection(self):
         raise Exception("not implemented")
@@ -845,25 +884,32 @@ class Channel(CorG):
         grp = h5File.require_group(str(self.channum))
         if "driftCorrection" in grp:
             self.driftCorrection = DriftCorrection.fromHDF5(grp)
+            self.addRecipe("filtValueDC", self.driftCorrection.apply, [self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         if "calibration" in grp:
             self.calibration = mass.EnergyCalibration.load_from_hdf5(grp, "calibration")
             self.calibration.uncalibratedName = grp["calibration/uncalibratedName"].value
+            self.addRecipe("energy", self.calibration.ph2energy, [self.calibration.uncalibratedName])
         if "calibrationRough" in grp:
             self.calibrationRough = mass.EnergyCalibration.load_from_hdf5(grp, "calibrationRough")
             self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"].value
+            self.addRecipe("energyRough", self.calibrationRough.ph2energy, [self.calibrationRough.uncalibratedName])
         if "calibrationArbsInRefChannelUnits" in grp:
             self.calibrationArbsInRefChannelUnits = mass.EnergyCalibration.load_from_hdf5(
                 grp, "calibrationArbsInRefChannelUnits")
             self.calibrationArbsInRefChannelUnits.uncalibratedName = grp[
                 "calibrationArbsInRefChannelUnits/uncalibratedName"].value
+            self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
+                    self.calibrationArbsInRefChannelUnits.uncalibratedName])
         if "phase_correction" in grp:
             self.phaseCorrection = mass.core.phase_correct.PhaseCorrector.fromHDF5(grp)
+            self.addRecipe("filtValuePC", self.phaseCorrection.correct, [self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     @add_group_loop
     def energyTimestampLabelToHDF5(self, h5File, goodFunc=None, returnBad=False):
         grp = h5File.require_group(str(self.channum))
         if len(self.stateLabels) > 0:
             for state in self.stateLabels:
+                inds = self.getStatesIndicies(state)
                 energy = self.getAttr("energy", inds, goodFunc, returnBad)
                 unixnano = self.getAttr("unixnano", inds, goodFunc, returnBad)
                 grp["{}/energy".format(state)] = energy
@@ -980,7 +1026,7 @@ class AlignBToA():
     def samePeaksPlotWithAlignmentCal(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
         inds_a = self.ds_a.getStatesIndicies(self.states)
         ph_a = self.ds_a.getAttr(self.attr, inds_a, goodFunc_a, returnBad)
-        inds_b = self.ds_b.getStatesIndicies(self.states)
+        # inds_b = self.ds_b.getStatesIndicies(self.states)
         ph_b = self.ds_b.getAttr("arbsInRefChannelUnits", slice(None), goodFunc_b, returnBad)
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
@@ -1151,7 +1197,29 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         return "ChannelGroup with {} channels".format(len(self))
 
     def firstGoodChannel(self):
-        return self[list(self.keys())[0]]
+        for ds in self.values():
+            if not ds.markedBadBool:
+                return ds
+        raise Exception("no good channels")
+
+    def refreshFromFiles(self):
+        """
+        refresh from files on disk to reflect new information: longer off files and new experiment states
+        to be called occasionally when running something that updates in real time
+        """
+        ds = self.firstGoodChannel()
+        i0_allLabels = len(self.experimentStateFile.allLabels)
+        n_old_labels = len(self.experimentStateFile.labels)
+        self.experimentStateFile.parse()
+        n_new_labels = len(self.experimentStateFile.labels)-n_old_labels
+        n_new_pulses_dict = collections.OrderedDict()
+        for ds in self.values():
+            i0_unixnanos = len(ds)
+            ds.offFile._updateMmap()  # will update nRecords by mmapping more data in the offFile if available
+            ds._statesDict = self.experimentStateFile.calcStatesDict(
+                ds.unixnano[i0_unixnanos:], ds.statesDict, i0_allLabels, i0_unixnanos)
+            n_new_pulses_dict[ds.channum] = len(ds)-i0_unixnanos
+        return n_new_labels, n_new_pulses_dict
 
     def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
@@ -1321,7 +1389,6 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             return h5py.File(self._outputHDF5Filename, "w")
         else:
             return h5py.File(self._outputHDF5Filename, "a")
-        return self._outputHDF5
 
     def fitterPlot(self, lineName, states=None):
         fitters = [ds.linefit(lineName, plot=False, states=states) for ds in self.values()]

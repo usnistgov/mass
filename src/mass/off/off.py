@@ -75,10 +75,16 @@ class OffFile(object):
             raise Exception("FileFormatVersion is {}, want OFF".format(
                 self.header["FileFormatVersion"]))
 
-    def _updateMmap(self):
+    def _updateMmap(self, _nRecords=None):
+        """
+        _nRecords is for testing only, mmap exaclty _nRecords records
+        """
         fileSize = os.path.getsize(self.filename)
         recordSize = fileSize-self.afterHeaderPos
-        self.nRecords = recordSize//self.dtype.itemsize
+        if _nRecords is None:
+            self.nRecords = recordSize//self.dtype.itemsize
+        else:  # for testing only
+            self.nRecords = _nRecords
         self._mmap = np.memmap(self.filename, self.dtype, mode="r",
                                offset=self.afterHeaderPos, shape=(self.nRecords,))
         self.shape = self._mmap.shape
