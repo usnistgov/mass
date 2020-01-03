@@ -10,7 +10,8 @@ import inspect
 import fastdtw
 import h5py
 import shutil
-
+import logging
+LOG = logging.getLogger("mass")
 
 class ExperimentStateFile():
     def __init__(self, filename=None, offFilename=None, excludeStates="auto"):
@@ -777,11 +778,11 @@ class Channel(CorG):
         self.markedBadReason = reason
         self.markedBadExtraInfo = extraInfo
         self.markedBadBool = True
-        s = "\nMARK BAD {}\nreason: {}".format(self.shortName, reason)
+        s = "\nMARK BAD {}: reason={}".format(self.shortName, reason)
         if extraInfo is not None:
             s += "\nextraInfo: {}".format(extraInfo)
         if self.verbose:
-            print(s)
+            LOG.warn(s)
 
     def markGood(self):
         self.markedBadReason = None
@@ -1152,10 +1153,13 @@ def getOffFileListFromOneFile(filename, maxChans=None):
 
 
 class SilenceBar(progress.bar.Bar):
-    "A progres bar that can be turned off by passing silence=True"
+    "A progres bar that can be turned off by passing silence=True or by setting the log level higher than NOTSET"
 
     def __init__(self, message, max, silence):
         self.silence = silence
+        if not silence:
+            if not LOG.isEnabledFor(0):
+                self.silence = True
         if not self.silence:
             progress.bar.Bar.__init__(self, message, max=max)
 
@@ -1253,7 +1257,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
         countsdict = collections.OrderedDict()
         if channums is None:
-            channums = self.keys()
+            channums = self.keys() # this should exclud bad channels by default
         for channum in channums:
             _, countsdict[channum] = self[channum].hist(binEdges, attr, states, goodFunc, returnBad)
         return binCenters, countsdict
@@ -1289,9 +1293,18 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def __iter__(self):
         if self._includeBad:
-            return collections.OrderedDict.__iter__(self)
+            return (channum for (channum, ds) in collections.OrderedDict.items(self))
         else:
-            return (channum for channum in collections.OrderedDict.__iter__(self) if not self[channum].markedBadBool)
+            return (channum for (channum, ds) in collections.OrderedDict.items(self) if not ds.markedBadBool)
+
+    def keys(self):
+        return [channum for channum in self]
+
+    def values(self):
+        return [self[channum] for channum in self.keys()]
+
+    def items(self):
+        return [(channum, self[channum]) for channum in self.keys()]
 
     def __len__(self):
         return len([k for k in self])

@@ -195,9 +195,37 @@ class TestSummaries(ut.TestCase):
             self.assertTrue(all(ds.filtValue == ds_local.filtValue))
             self.assertTrue(all(hist_local == hist))
         except AssertionError:
-            import pdb
+            import pdb # make debugging easier by using pdb
             pdb.set_trace()
 
+    def test_bad_channels_skipped(self):
+        # try:
+        data_local = ChannelGroup([filename])
+        self.assertEqual(len(data_local.keys()),1)
+        ds_local = data_local.firstGoodChannel()
+        ds_local.stdDevResThreshold = 100
+        _, hists_pre_bad = data_local.hists(np.arange(10), "filtValue")
+        self.assertFalse(ds_local.markedBadBool)
+        ds_local.markBad("testing")
+        _, hists_post_bad = data_local.hists(np.arange(10), "filtValue")
+        self.assertEqual(len(hists_pre_bad), 1)
+        self.assertEqual(len(hists_post_bad), 0)
+        self.assertEqual(len(data_local.keys()),0)
+        self.assertTrue(ds_local.markedBadBool)
+        n_include_bad = 0
+        with data_local.includeBad():
+            for ds in data_local:
+                n_include_bad+=1
+        self.assertEqual(n_include_bad,1)
+        n_exclude_bad = 0
+        with data_local.includeBad(False):
+            for ds in data_local:
+                n_exclude_bad+=1
+        self.assertEqual(n_exclude_bad,0)        
+
+        # except AssertionError:
+        #     import pdb # make debugging easier by using pdb
+        #     pdb.set_trace()
 
 if __name__ == '__main__':
     ut.main()
