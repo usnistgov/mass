@@ -346,7 +346,7 @@ class EnergyCalibrationAutocal(object):
                         + '\n' + "Resolution: {0:.1f} (eV)".format(eres),
                         transform=ax.transAxes, ha='left', va='top')
             y = fitter.fitfunc(fitter.last_fit_params, x)
-            ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
+            ax.plot(x, y, '-', color=[(0.9, 0.1, 0.1)], lw=2)
             ax.set_xlim(np.min(x), np.max(x))
             ax.set_ylim(0, np.max(fitter.last_fit_contents) * 1.3)
 
@@ -374,7 +374,7 @@ class EnergyCalibrationAutocal(object):
         width = ub - lb
         x = np.linspace(lb - width / 10, ub + width / 10, 101)
         y = self.calibration(x)
-        ax.plot(x, y, '--', color=['orange'], lw=2, zorder=-2)
+        ax.plot(x, y, '--', color='orange', lw=2, zorder=-2)
 
         ax.yaxis.set_tick_params(labelleft=False, labelright=True)
         ax.yaxis.set_label_position('right')

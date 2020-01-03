@@ -160,9 +160,9 @@ def MicrocalDataSet_auto_drift_correct_rms(self, prange=None, times=None, ptrang
         plt.plot(corrector, data, ',')
         xlim = plt.xlim()
         c = np.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
-        plt.plot(c, -c*best_slope + data.mean(),color=['green'])
+        plt.plot(c, -c*best_slope + data.mean(),color='green')
         plt.ylim(prange)
-        axis1.plot(slopes, np.poly1d(poly_coef)(slopes),color=['red'])
+        axis1.plot(slopes, np.poly1d(poly_coef)(slopes),color='red')
         plt.xlabel("Pretrigger mean - mean(PT mean)")
         plt.ylabel("Selected, uncorrected pulse heights")
     return best_slope
@@ -227,7 +227,7 @@ def MicrocalDataSet_auto_drift_correct(self, prange=None, times=None, plot=False
         plt.subplot(211)
         plt.plot(slopes, fit_resolutions,'go')
         plt.plot(best_slope, best_slope_resolution,'bo')
-        plt.plot(slopes, np.polyval(poly_coef, slopes),color=['red'])
+        plt.plot(slopes, np.polyval(poly_coef, slopes),color='red')
         plt.xlabel("Drift correction slope")
         plt.ylabel("Fit resolution from selected, corrected pulse heights")
         plt.title('auto_drift_correct fitting %s'%line_name)
@@ -236,7 +236,7 @@ def MicrocalDataSet_auto_drift_correct(self, prange=None, times=None, plot=False
         plt.plot(corrector, data, ',')
         xlim = plt.xlim()
         c = np.arange(0,101)*.01*(xlim[1]-xlim[0])+xlim[0]
-        plt.plot(c, -c*best_slope + data.mean(),color=['green'])
+        plt.plot(c, -c*best_slope + data.mean(),color='green')
         plt.ylim(prange)
         plt.xlabel("Pretrigger mean - mean(PT mean)")
         plt.ylabel("Selected, uncorrected pulse heights")

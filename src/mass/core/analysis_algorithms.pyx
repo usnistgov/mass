@@ -547,12 +547,12 @@ class FilterTimeCorrection(object):
 
             if plot:
                 ax = axes[(Nlabels-1-i)*2]
-                ax.plot(pvalues, output_lag0, 'o', color=[colors[i]])
+                ax.plot(pvalues, output_lag0, 'o', color=colors[i])
 
                 ax.text(.1, .85, 'Cluster %2d:  FWHM: %.2f arbs' % (i, 2.3548*np.std(output_lag0)),
                         transform=ax.transAxes)
                 ax = axes[(Nlabels-1-i)*2+1]
-                ax.plot(pvalues, output_fit, 'd-', color=[colors[i]])
+                ax.plot(pvalues, output_fit, 'd-', color=colors[i])
                 ax.text(.1, .85, 'Cluster %2d:  FWHM: %.2f arbs' % (i, 2.3548*np.std(output_fit)),
                         transform=ax.transAxes)
 
@@ -620,7 +620,7 @@ class FilterTimeCorrection(object):
             if scale_x:
                 x /= (self.prompt_range[i][2]-self.prompt_range[i][0])
             plt.plot(x, self.splines[i](xraw), 'gray')
-            plt.plot(x, y, 'd-', color=[colors[i]])
+            plt.plot(x, y, 'd-', color=colors[i])
             xlab = "Promptness"
             if center_x:
                 xlab += ', centered'

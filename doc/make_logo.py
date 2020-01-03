@@ -21,11 +21,11 @@ def logo(seed=4):
     fig = pylab.figure(9, figsize=(1.28, 1.28), dpi=100)
     fig.subplots_adjust(bottom=0.15, top=0.85, left=0.15, right=0.85)
     pylab.clf()
-    pylab.plot(t, x, color=[trace_color], lw=2)
+    pylab.plot(t, x, color=trace_color, lw=2)
     pylab.xticks([])
     pylab.yticks([])
 #    pylab.ylim([-.2,1.2])
-    pylab.text(105,.65, 'Mass', ha='right', size=18, color=[text_color])
+    pylab.text(105,.65, 'Mass', ha='right', size=18, color=text_color)
 
     # Other dets
     numpy.random.seed(seed)

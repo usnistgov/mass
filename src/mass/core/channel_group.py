@@ -805,7 +805,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 plt.subplot(ny_plots, 2, 1 + i * 2, sharex=ax_master)
 
             if len(vect) > 0:
-                plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=[color])
+                plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
             else:
                 plt.text(.5, .5, 'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
@@ -1273,8 +1273,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 x_g = (x_g - getattr(ds, x_attr)[0]) / (60*60)
                 x_b = (x_b - getattr(ds, x_attr)[0]) / (60*60)
 
-            plt.plot(x_b, y_b, '.', markersize=2.5, color=['gray'])
-            plt.plot(x_g, y_g, '.', markersize=2.5, color=['blue'])
+            plt.plot(x_b, y_b, '.', markersize=2.5, color='gray')
+            plt.plot(x_g, y_g, '.', markersize=2.5, color='blue')
 
             if lines is not None:
                 x_lo = min(np.amin(x_g), np.amin(x_b))
