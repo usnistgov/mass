@@ -103,9 +103,6 @@ labelPeaks(ax, names=nos.keys(), energies=nos.values(), line=ax.lines[1])
 
 data.fitterPlot("W Ni-20", states=["W 1"])
 
-print(data.outputHDF5)
-print(os.path.abspath(data.outputDir))
-
 
 h5 = data.outputHDF5  # dont use with here, it will hide errors
 fitters = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,

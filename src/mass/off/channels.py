@@ -194,11 +194,11 @@ class DriftCorrection():
 
     @classmethod
     def fromHDF5(cls, hdf5_group, name="driftCorrection"):
-        indicatorName = hdf5_group["{}/indicatorName".format(name)].value
-        uncorrectedName = hdf5_group["{}/uncorrectedName".format(name)].value
-        medianIndicator = hdf5_group["{}/medianIndicator".format(name)].value
-        slope = hdf5_group["{}/slope".format(name)].value
-        version = hdf5_group["{}/version".format(name)].value
+        indicatorName = hdf5_group["{}/indicatorName".format(name)][()]
+        uncorrectedName = hdf5_group["{}/uncorrectedName".format(name)][()]
+        medianIndicator = hdf5_group["{}/medianIndicator".format(name)][()]
+        slope = hdf5_group["{}/slope".format(name)][()]
+        version = hdf5_group["{}/version".format(name)][()]
         assert(version == cls.version)
         return cls(indicatorName, uncorrectedName, medianIndicator, slope)
 
@@ -900,19 +900,19 @@ class Channel(CorG):
                            self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         if "calibration" in grp:
             self.calibration = mass.EnergyCalibration.load_from_hdf5(grp, "calibration")
-            self.calibration.uncalibratedName = grp["calibration/uncalibratedName"].value
+            self.calibration.uncalibratedName = grp["calibration/uncalibratedName"][()]
             self.addRecipe("energy", self.calibration.ph2energy,
                            [self.calibration.uncalibratedName])
         if "calibrationRough" in grp:
             self.calibrationRough = mass.EnergyCalibration.load_from_hdf5(grp, "calibrationRough")
-            self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"].value
+            self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"][()]
             self.addRecipe("energyRough", self.calibrationRough.ph2energy,
                            [self.calibrationRough.uncalibratedName])
         if "calibrationArbsInRefChannelUnits" in grp:
             self.calibrationArbsInRefChannelUnits = mass.EnergyCalibration.load_from_hdf5(
                 grp, "calibrationArbsInRefChannelUnits")
             self.calibrationArbsInRefChannelUnits.uncalibratedName = grp[
-                "calibrationArbsInRefChannelUnits/uncalibratedName"].value
+                "calibrationArbsInRefChannelUnits/uncalibratedName"][()]
             self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
                 self.calibrationArbsInRefChannelUnits.uncalibratedName])
         if "phase_correction" in grp:
