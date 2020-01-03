@@ -452,11 +452,19 @@ class Channel(CorG):
         self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e9, ["unixnano"])
         self.addRecipe("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
 
+    @property 
+    def _offAttrs(self):
+        return self.offFile.dtype.names
+
+    @property
+    def _recipeAttrs(self):
+        return self.recipes.keys()
+
     def isOffAttr(self, attr):
-        return attr in self.offFile.dtype.names
+        return attr in self._offAttrs
 
     def isRecipeAttr(self, attr):
-        return attr in self.recipes.keys()
+        return attr in self._recipeAttrs
 
     def learnChannumAndShortname(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFile.filename)
@@ -475,7 +483,8 @@ class Channel(CorG):
         self.stdDevResThreshold = self.offFile.header["ModelInfo"]["NoiseStandardDeviation"]*ratioToNoiseStd
 
     def getStatesIndicies(self, states=None):
-        """return a list of slices corresponding to the passed states
+        """return a list of slices corresponding to
+         the passed states
         this list is appropriate for passing to getOffAttr or getRecipeAttr
         """
         if isinstance(states, str):
@@ -608,7 +617,7 @@ class Channel(CorG):
         elif self.isRecipeAttr(attr):
             return self.getRecipeAttr(attr, inds, goodFunc, returnBad)
         else:
-            raise Exception("attr {} is neither an OffAttr or a RecipeAttr".format(attr))
+            raise Exception("attr {} is neither an OffAttr or a RecipeAttr. OffAttrs: {}\nRecipeAttrs: {}".format(attr, list(self._offAttrs), list(self._recipeAttrs)))
 
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, goodFunc=None):
         if axis is None:
