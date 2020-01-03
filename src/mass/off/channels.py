@@ -13,6 +13,7 @@ import shutil
 import logging
 LOG = logging.getLogger("mass")
 
+
 class ExperimentStateFile():
     def __init__(self, filename=None, offFilename=None, excludeStates="auto"):
         """
@@ -453,7 +454,7 @@ class Channel(CorG):
         self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e9, ["unixnano"])
         self.addRecipe("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
 
-    @property 
+    @property
     def _offAttrs(self):
         return self.offFile.dtype.names
 
@@ -1257,7 +1258,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
         countsdict = collections.OrderedDict()
         if channums is None:
-            channums = self.keys() # this should exclud bad channels by default
+            channums = self.keys()  # this should exclud bad channels by default
         for channum in channums:
             _, countsdict[channum] = self[channum].hist(binEdges, attr, states, goodFunc, returnBad)
         return binCenters, countsdict

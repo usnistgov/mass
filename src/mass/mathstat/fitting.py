@@ -11,6 +11,9 @@ Joe Fowler, NIST
 import numpy as np
 import scipy as sp
 import time
+import logging
+
+LOG = logging.getLogger("mass")
 
 __all__ = ['MaximumLikelihoodHistogramFitter', 'kink_model', 'fit_kink_model']
 

@@ -93,13 +93,15 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
             offdata.tofile(f)
 
 
-def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True, show_progress = LOG.isEnabledFor(logging.WARN) ):
+def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True,
+                 show_progress=LOG.isEnabledFor(logging.WARN)):
     pulse_model_dict = load_pulse_models(h5_path)
     basename, channum = mass.ljh_util.ljh_basename_channum(ljhpath)
     ljhdir, file_basename = os.path.split(basename)
     off_basename = os.path.join(output_dir, file_basename)
     n_channels = min(max_channels, len(pulse_model_dict))
-    if show_progress: bar = progress.bar.Bar("processing ljh files to off files:", max=n_channels)
+    if show_progress:
+        bar = progress.bar.Bar("processing ljh files to off files:", max=n_channels)
     off_filenames = []
     ljh_filenames = []
     handled_channels = 0
@@ -111,13 +113,15 @@ def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples
         pulse_model = pulse_model_dict[channum]
         ljh2off(ljhpath, offpath, pulse_model.projectors,
                 pulse_model.basis, n_ignore_presamples, h5_path)
-        if show_progress: bar.next()
+        if show_progress:
+            bar.next()
         off_filenames.append(offpath)
         ljh_filenames.append(ljhpath)
         handled_channels += 1
         if handled_channels == max_channels:
             break
-    if show_progress: bar.finish()
+    if show_progress:
+        bar.finish()
     source_experiment_state_filename = "{}_experiment_state.txt".format(basename)
     sink_experiment_state_filename = "{}_experiment_state.txt".format(off_basename)
     if os.path.isfile(source_experiment_state_filename):

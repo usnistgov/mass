@@ -2176,7 +2176,7 @@ class MicrocalDataSet(object):
             pretrigger_rms=(None, pt_max),
             postpeak_deriv=(None, md_max),
         )
-        cuts._pretrig_rms_median = pt_med # store these so we can acess them when writing projectors to hdf5
+        cuts._pretrig_rms_median = pt_med  # store these so we can acess them when writing projectors to hdf5
         cuts._pretrig_rms_sigma = pt_madn
 
         self.apply_cuts(cuts, forceNew=True, clear=False)
@@ -2570,6 +2570,3 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     info["entropies"] = (H1, H2, H3)
     info["model"] = model
     return info
-
-
-
