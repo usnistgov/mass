@@ -38,7 +38,7 @@ def logo(seed=4):
             print t0,
             x[t>t0] += exp(-(t[t>t0]-t0)/fall_time)-exp(-(t[t>t0]-t0)/rise_time)
         x *= ph_other/normalize
-        pylab.plot(t, x-.1*i-.35, color=[cm(i/(ndets-.5))])
+        pylab.plot(t, x-.1*i-.35, color=cm(i/(ndets-.5)))
         print
 
     pylab.ylim([-.4-.1*ndets, 1.2+.03*ndets])
