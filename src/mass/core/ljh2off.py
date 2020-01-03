@@ -93,7 +93,7 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
             offdata.tofile(f)
 
 
-def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True, show_progress = LOG.isEnabledFor(0) ):
+def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True, show_progress = LOG.isEnabledFor(logging.WARN) ):
     pulse_model_dict = load_pulse_models(h5_path)
     basename, channum = mass.ljh_util.ljh_basename_channum(ljhpath)
     ljhdir, file_basename = os.path.split(basename)

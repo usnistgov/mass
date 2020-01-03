@@ -1158,7 +1158,7 @@ class SilenceBar(progress.bar.Bar):
     def __init__(self, message, max, silence):
         self.silence = silence
         if not silence:
-            if not LOG.isEnabledFor(0):
+            if not LOG.isEnabledFor(logging.WARN):
                 self.silence = True
         if not self.silence:
             progress.bar.Bar.__init__(self, message, max=max)
