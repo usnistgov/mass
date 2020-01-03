@@ -378,7 +378,7 @@ class CDMGroup(BaseChannelGroup):
         if modulated_offsets is None:
             modulated_offsets = (0,0,0,0)
         for i,rc in enumerate(self.raw_channels):
-            plt.plot(self.ms, rc.data[n,:]+modulated_offsets[i]-rc.data[n,:self.nPresamples].mean(), color=[self.colors[i]], label='SQUID sw%d'%i)
+            plt.plot(self.ms, rc.data[n,:]+modulated_offsets[i]-rc.data[n,:self.nPresamples].mean(), color=self.colors[i], label='SQUID sw%d'%i)
         if xlim is not None: plt.xlim(xlim)
         plt.legend(loc='upper left')
         plt.title("Modulated (raw) signal")
@@ -386,7 +386,7 @@ class CDMGroup(BaseChannelGroup):
 
         plt.subplot(212)
         for i,ds in enumerate(self.datasets):
-            plt.plot(self.ms, ds.data[n,:]-ds.p_pretrig_mean[pulsenum], color=[self.colors[i]], label='TES %d'%i)
+            plt.plot(self.ms, ds.data[n,:]-ds.p_pretrig_mean[pulsenum], color=self.colors[i], label='TES %d'%i)
         if xlim is not None: plt.xlim(xlim)
         plt.legend(loc='upper left')
         plt.title("Demodulated signal")

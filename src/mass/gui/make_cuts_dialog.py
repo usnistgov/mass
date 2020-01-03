@@ -413,10 +413,10 @@ class _CutsCreator(QtGui.QDialog, Ui_Dialog):
         x0, x1 = axis.get_xlim()
         if cut.use_min and cut.cut_min > x0:
             x0 = cut.cut_min
-            axis.plot([x0, x0], axis.get_ylim(), color=['gray'])
+            axis.plot([x0, x0], axis.get_ylim(), color='gray')
         if cut.use_max and cut.cut_max < x1:
             x1 = cut.cut_max
-            axis.plot([x1, x1], axis.get_ylim(), color=['gray'])
+            axis.plot([x1, x1], axis.get_ylim(), color='gray')
         self.canvas.draw()
 
     def generate_mass_cuts(self):
