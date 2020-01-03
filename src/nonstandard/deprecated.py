@@ -75,7 +75,7 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
     params = (0., 4, corrections.mean())
     fitparams, _iflag = sp.optimize.leastsq(errfunc, params, args=(self.p_filt_phase[valid], ph_vector[valid]))
     phases = np.arange(-0.6,0.5001,.01)
-    if plot: plt.plot(phases, model(fitparams, phases), color='blue')
+    if plot: plt.plot(phases, model(fitparams, phases), color=['blue'])
 
 
     self.phase_correction={'phase':fitparams[0],

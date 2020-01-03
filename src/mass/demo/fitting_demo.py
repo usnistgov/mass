@@ -105,7 +105,7 @@ for nbg in (0, 1, 2):
     LOG.info("")
 
     # Compute the model function and plot it in red.
-    plt.plot(bin_ctr, fitter.last_fit_result, color=color[nbg], label=title[nbg])
+    plt.plot(bin_ctr, fitter.last_fit_result, color=[color[nbg]], label=title[nbg])
 plt.legend()
 
 # <demo> stop

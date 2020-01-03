@@ -288,7 +288,7 @@ class Filter(object):
             plt.clf()
             axis = plt.subplot(111)
         try:
-            axis.plot(self.__dict__[filtname], color='red')
+            axis.plot(self.__dict__[filtname], color=['red'])
         except AttributeError:
             pass
 
@@ -611,13 +611,13 @@ class ExperimentalFilter(Filter):
         else:
             axis1, axis2 = axes
         try:
-            axis1.plot(self.filt_noconst, color='red')
-            axis2.plot(self.filt_baseline, color='purple')
-            axis2.plot(self.filt_baseline_pretrig, color='blue')
+            axis1.plot(self.filt_noconst, color=['red'])
+            axis2.plot(self.filt_baseline, color=['purple'])
+            axis2.plot(self.filt_baseline_pretrig, color=['blue'])
         except AttributeError:
             pass
         try:
-            axis1.plot(self.filt_fourier, color='gold')
+            axis1.plot(self.filt_fourier, color=['gold'])
         except AttributeError:
             pass
 

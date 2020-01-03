@@ -443,8 +443,8 @@ class NoiseRecords(object):
             plt.clf()
             axis = plt.subplot(111)
         t = self.timebase * 1e3 * np.arange(len(self.autocorrelation))
-        axis.plot(t, self.autocorrelation, label=label, color=color)
-        axis.plot([0], [self.autocorrelation[0]], 'o', color=color)
+        axis.plot(t, self.autocorrelation, label=label, color=[color])
+        axis.plot([0], [self.autocorrelation[0]], 'o', color=[color])
         axis.set_xlabel("Lag (ms)")
         axis.set_ylabel(r"Autocorrelation (counts$^2$)")
 
@@ -1534,7 +1534,7 @@ class MicrocalDataSet(object):
             plt.ylabel(label)
             if valid is not None:
                 vect = vect[valid]
-            plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
+            plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=[color])
             if i == len(plottables) - 1:
                 plt.xlabel("Time since last UT midnight (hours)")
 
