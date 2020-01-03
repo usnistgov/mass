@@ -1293,9 +1293,9 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def __iter__(self):
         if self._includeBad:
-            return (channum for (channum, ds) in collections.OrderedDict.items(self))
+            return (channum for channum in collections.OrderedDict.__iter__(self))
         else:
-            return (channum for (channum, ds) in collections.OrderedDict.items(self) if not ds.markedBadBool)
+            return (channum for channum in collections.OrderedDict.__iter__(self) if not self[channum].markedBadBool)
 
     def keys(self):
         return [channum for channum in self]
