@@ -950,7 +950,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(
                     avg_pulse, 1./self.timebase, fcut)
             plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
-                     color=cmap(float(i) / nplot))
+                     color=[cmap(float(i) / nplot)])
 
         plt.title("Average pulse for each channel when it is hit")
 
