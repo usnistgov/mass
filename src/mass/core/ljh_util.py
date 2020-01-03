@@ -4,13 +4,12 @@ number from the name, sorting names by channel number, and so on).
 """
 
 import glob
-from os import path
 import os
 import re
-
-import six
-
 import numpy as np
+
+from os import path
+from ..common import isstr
 
 __all__ = ["ljh_basename_channum", "ljh_chan_names", "ljh_get_channels",
            "output_basename_from_ljh_fname",
@@ -181,7 +180,7 @@ def filename_glob_expand(pattern):
         A list of 0 or more filenames. The result is sorted by
         ljh_sort_filenames_numerically().
     """
-    if not isinstance(pattern, six.string_types):
+    if not isstr(pattern):
         return pattern
 
     result = glob.glob(pattern)

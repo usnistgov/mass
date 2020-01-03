@@ -6,18 +6,18 @@ Part of the Microcalorimeter Analysis Software System (MASS).
 This module defines classes that handle one or more TES data streams together.
 """
 
-from collections import Iterable
-from functools import reduce
 import os
-
-import six
+import h5py
+import logging
 
 import numpy as np
 import matplotlib.pylab as plt
-import h5py
 
 import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
+
+from collections import Iterable
+from functools import reduce
 
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper
@@ -26,8 +26,8 @@ from mass.core.cut import CutFieldMixin
 from mass.core.utilities import InlineUpdater, show_progress, plot_multipage
 from mass.core.ljh_util import remove_unpaired_channel_files, \
     filename_glob_expand
+from ..common import isstr
 
-import logging
 LOG = logging.getLogger("mass")
 
 
@@ -171,7 +171,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             self.hdf5_file = None
         else:
             # Convert a single filename to a tuple of size one
-            if isinstance(filenames, six.string_types):
+            if isstr(filenames):
                 filenames = (filenames,)
             self.filenames = tuple(filenames)
             self.n_channels = len(self.filenames)
@@ -184,7 +184,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         self.noise_filenames = None
         self.hdf5_noisefile = None
         if noise_filenames is not None:
-            if isinstance(noise_filenames, six.string_types):
+            if isstr(noise_filenames):
                 noise_filenames = (noise_filenames,)
             self.noise_filenames = noise_filenames
             self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'a')
@@ -414,9 +414,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             data.set_chan_bad(1, "too few good pulses")
             data.set_chan_bad(103, [1, 3, 5], "detector unstable")
         """
-        added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args
-                                    if not isinstance(x, six.string_types)])
-        comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, six.string_types)], '')
+        added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args if not isstr(x)])
+        comment = reduce(lambda x, y: y, [x for x in args if isstr(x)], '')
 
         for channum in added_to_list:
             new_comment = self._bad_channums.get(channum, []) + [comment]
@@ -759,7 +758,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for i, (channum, ds) in enumerate(zip(channel_numbers, datasets)):
 
             # Convert "uncut" or "cut" to array of all good or all bad data
-            if isinstance(valid, six.string_types):
+            if isstr(valid):
                 if "uncut" in valid.lower():
                     valid_mask = ds.cuts.good()
                     LOG.info("Plotting only uncut data"),
