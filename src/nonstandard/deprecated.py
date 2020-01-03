@@ -46,7 +46,7 @@ def MicrocalDataSet_phase_correct(self, prange=None, times=None, plot=True):
     if plot:
         plt.clf()
         plt.subplot(211)
-        plt.plot((self.p_filt_phase[valid]+.5)%1-.5, ph_vector[valid],',',color='orange')
+        plt.plot((self.p_filt_phase[valid]+.5)%1-.5, ph_vector[valid],',',color=['orange'])
         plt.xlabel("Hypothetical 'center phase'")
         plt.ylabel("Filtered PH")
         plt.xlim([-.55,.55])

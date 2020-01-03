@@ -6,7 +6,6 @@ or when being tested.
 import logging
 
 mylogger = logging.getLogger("mass")
-mylogger.setLevel(logging.INFO)
 
 # create console handler and a formatter
 ch = logging.StreamHandler()

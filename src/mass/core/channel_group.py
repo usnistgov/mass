@@ -592,9 +592,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     raise Exception("file {} already exists, pass replace_output = True to overwrite".format(hdf5_filename))
             with h5py.File(hdf5_filename, "w") as hdf5_file:
                 self._pulse_model_to_hdf5(hdf5_file, n_basis)
-                print("writing pulse_model to {}".format(hdf5_filename))
+                LOG.info("writing pulse_model to {}".format(hdf5_filename))
         else:
-            print("writing pulse_model to {}".format(hdf5_filename))
+            LOG.info("writing pulse_model to {}".format(hdf5_filename))
             self._pulse_model_to_hdf5(hdf5_file, n_basis)
         return hdf5_filename
 
@@ -949,7 +949,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(
                     avg_pulse, 1./self.timebase, fcut)
             plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
-                     color=cmap(float(i) / nplot))
+                     color=[cmap(float(i) / nplot)])
 
         plt.title("Average pulse for each channel when it is hit")
 

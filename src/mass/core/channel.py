@@ -1180,7 +1180,7 @@ class MicrocalDataSet(object):
     def compute_5lag_filter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}, forceNew=False):
         """Requires that compute_noise has been run and that average pulse has been computed"""
         if "filters" in self.hdf5_group and not forceNew:
-            print("ch {} skpping comput 5lag filter because it is already done".format(self.channum))
+            LOG.info("ch {} skpping comput 5lag filter because it is already done".format(self.channum))
             return
         if all(self.noise_autocorr[:] == 0):
             raise Exception("compute noise first")
@@ -1231,7 +1231,7 @@ class MicrocalDataSet(object):
         the pulse average to get the arrival-time dependence.
         """
         if "filters" in self.hdf5_group and not forceNew:
-            print("ch {} skipping compute_ats_filter because it is already done".format(self.channum))
+            LOG.info("ch {} skipping compute_ats_filter because it is already done".format(self.channum))
             return
         if all(self.noise_autocorr[:] == 0):
             raise Exception("compute noise first")
@@ -2176,7 +2176,7 @@ class MicrocalDataSet(object):
             pretrigger_rms=(None, pt_max),
             postpeak_deriv=(None, md_max),
         )
-        cuts._pretrig_rms_median = pt_med # store these so we can acess them when writing projectors to hdf5
+        cuts._pretrig_rms_median = pt_med  # store these so we can acess them when writing projectors to hdf5
         cuts._pretrig_rms_sigma = pt_madn
 
         self.apply_cuts(cuts, forceNew=True, clear=False)
@@ -2409,7 +2409,7 @@ class MicrocalDataSet(object):
                     squaredDistanceDictionary[squaredDistance]
 
         def calculate_manhattan_distances():
-            print('Placeholder function for calculating manhattan distances between detectors')
+            raise Exception("not implemented")
 
         def process_matching_channel(positionToCompare):
             '''
@@ -2462,7 +2462,7 @@ class MicrocalDataSet(object):
             elif distanceType == 'manhattan':
                 calculate_manhattan_distances()
             else:
-                print('Distance type ' + distanceType + ' not recognized.')
+                raise Exception('Distance type ' + distanceType + ' not recognized.')
 
 
 def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
@@ -2570,6 +2570,3 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     info["entropies"] = (H1, H2, H3)
     info["model"] = model
     return info
-
-
-

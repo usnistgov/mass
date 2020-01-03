@@ -7,14 +7,17 @@ import os.path as path
 import os
 import unittest
 import matplotlib
-matplotlib.use("svg")  # set to common backend so will run on semphora ci with fewer dependencies
+# suppress matplotlib warnings during tests: https://stackoverflow.com/questions/55109716/c-argument-looks-like-a-single-numeric-rgb-or-rgba-sequence
+from matplotlib.axes._axes import _log as matplotlib_axes_logger
 
+matplotlib.use("svg")  # set to common backend so will run on semphora ci with fewer dependencies
+matplotlib_axes_logger.setLevel('ERROR')
 
 warnings.filterwarnings("ignore")
 
 # Raise the logging threshold, to reduce extraneous output during tests
 LOG = logging.getLogger("mass")
-LOG.setLevel(logging.WARNING)
+LOG.setLevel(logging.ERROR)
 
 VERBOSE = 0
 # search mass and all subdirs for files matching "test_*.py"

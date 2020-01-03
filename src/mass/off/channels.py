@@ -10,6 +10,8 @@ import inspect
 import fastdtw
 import h5py
 import shutil
+import logging
+LOG = logging.getLogger("mass")
 
 
 class ExperimentStateFile():
@@ -193,11 +195,11 @@ class DriftCorrection():
 
     @classmethod
     def fromHDF5(cls, hdf5_group, name="driftCorrection"):
-        indicatorName = hdf5_group["{}/indicatorName".format(name)].value
-        uncorrectedName = hdf5_group["{}/uncorrectedName".format(name)].value
-        medianIndicator = hdf5_group["{}/medianIndicator".format(name)].value
-        slope = hdf5_group["{}/slope".format(name)].value
-        version = hdf5_group["{}/version".format(name)].value
+        indicatorName = hdf5_group["{}/indicatorName".format(name)][()]
+        uncorrectedName = hdf5_group["{}/uncorrectedName".format(name)][()]
+        medianIndicator = hdf5_group["{}/medianIndicator".format(name)][()]
+        slope = hdf5_group["{}/slope".format(name)][()]
+        version = hdf5_group["{}/version".format(name)][()]
         assert(version == cls.version)
         return cls(indicatorName, uncorrectedName, medianIndicator, slope)
 
@@ -452,11 +454,19 @@ class Channel(CorG):
         self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e9, ["unixnano"])
         self.addRecipe("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
 
+    @property
+    def _offAttrs(self):
+        return self.offFile.dtype.names
+
+    @property
+    def _recipeAttrs(self):
+        return self.recipes.keys()
+
     def isOffAttr(self, attr):
-        return attr in self.offFile.dtype.names
+        return attr in self._offAttrs
 
     def isRecipeAttr(self, attr):
-        return attr in self.recipes.keys()
+        return attr in self._recipeAttrs
 
     def learnChannumAndShortname(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFile.filename)
@@ -475,7 +485,8 @@ class Channel(CorG):
         self.stdDevResThreshold = self.offFile.header["ModelInfo"]["NoiseStandardDeviation"]*ratioToNoiseStd
 
     def getStatesIndicies(self, states=None):
-        """return a list of slices corresponding to the passed states
+        """return a list of slices corresponding to
+         the passed states
         this list is appropriate for passing to getOffAttr or getRecipeAttr
         """
         if isinstance(states, str):
@@ -608,7 +619,7 @@ class Channel(CorG):
         elif self.isRecipeAttr(attr):
             return self.getRecipeAttr(attr, inds, goodFunc, returnBad)
         else:
-            raise Exception("attr {} is neither an OffAttr or a RecipeAttr".format(attr))
+            raise Exception("attr {} is neither an OffAttr or a RecipeAttr. OffAttrs: {}\nRecipeAttrs: {}".format(attr, list(self._offAttrs), list(self._recipeAttrs)))
 
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, goodFunc=None):
         if axis is None:
@@ -768,11 +779,11 @@ class Channel(CorG):
         self.markedBadReason = reason
         self.markedBadExtraInfo = extraInfo
         self.markedBadBool = True
-        s = "\nMARK BAD {}\nreason: {}".format(self.shortName, reason)
+        s = "\nMARK BAD {}: reason={}".format(self.shortName, reason)
         if extraInfo is not None:
             s += "\nextraInfo: {}".format(extraInfo)
         if self.verbose:
-            print(s)
+            LOG.warn(s)
 
     def markGood(self):
         self.markedBadReason = None
@@ -890,19 +901,19 @@ class Channel(CorG):
                            self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         if "calibration" in grp:
             self.calibration = mass.EnergyCalibration.load_from_hdf5(grp, "calibration")
-            self.calibration.uncalibratedName = grp["calibration/uncalibratedName"].value
+            self.calibration.uncalibratedName = grp["calibration/uncalibratedName"][()]
             self.addRecipe("energy", self.calibration.ph2energy,
                            [self.calibration.uncalibratedName])
         if "calibrationRough" in grp:
             self.calibrationRough = mass.EnergyCalibration.load_from_hdf5(grp, "calibrationRough")
-            self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"].value
+            self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"][()]
             self.addRecipe("energyRough", self.calibrationRough.ph2energy,
                            [self.calibrationRough.uncalibratedName])
         if "calibrationArbsInRefChannelUnits" in grp:
             self.calibrationArbsInRefChannelUnits = mass.EnergyCalibration.load_from_hdf5(
                 grp, "calibrationArbsInRefChannelUnits")
             self.calibrationArbsInRefChannelUnits.uncalibratedName = grp[
-                "calibrationArbsInRefChannelUnits/uncalibratedName"].value
+                "calibrationArbsInRefChannelUnits/uncalibratedName"][()]
             self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
                 self.calibrationArbsInRefChannelUnits.uncalibratedName])
         if "phase_correction" in grp:
@@ -1143,10 +1154,13 @@ def getOffFileListFromOneFile(filename, maxChans=None):
 
 
 class SilenceBar(progress.bar.Bar):
-    "A progres bar that can be turned off by passing silence=True"
+    "A progres bar that can be turned off by passing silence=True or by setting the log level higher than NOTSET"
 
     def __init__(self, message, max, silence):
         self.silence = silence
+        if not silence:
+            if not LOG.isEnabledFor(logging.WARN):
+                self.silence = True
         if not self.silence:
             progress.bar.Bar.__init__(self, message, max=max)
 
@@ -1244,7 +1258,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
         countsdict = collections.OrderedDict()
         if channums is None:
-            channums = self.keys()
+            channums = self.keys()  # this should exclud bad channels by default
         for channum in channums:
             _, countsdict[channum] = self[channum].hist(binEdges, attr, states, goodFunc, returnBad)
         return binCenters, countsdict
@@ -1280,9 +1294,18 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def __iter__(self):
         if self._includeBad:
-            return collections.OrderedDict.__iter__(self)
+            return (channum for channum in collections.OrderedDict.__iter__(self))
         else:
             return (channum for channum in collections.OrderedDict.__iter__(self) if not self[channum].markedBadBool)
+
+    def keys(self):
+        return [channum for channum in self]
+
+    def values(self):
+        return [self[channum] for channum in self.keys()]
+
+    def items(self):
+        return [(channum, self[channum]) for channum in self.keys()]
 
     def __len__(self):
         return len([k for k in self])
