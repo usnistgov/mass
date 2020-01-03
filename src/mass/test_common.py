@@ -7,7 +7,7 @@ from common import isstr
 class TestCommon(ut.TestCase):
     def test_isstr(self):
         truestrings = ("text", b"bytes", u"unicode", r"rawstrin\g")
-        notstrings = ((), [], 3, 3.4, np.array([3, 5]), None, True, False, {3:4})
+        notstrings = ((), [], 3, 3.4, np.array([3, 5]), None, True, False, {3: 4})
 
         for s in truestrings:
             self.assertTrue(isstr(s), msg="isstr({}) returns False, want True".format(s))

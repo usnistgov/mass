@@ -191,20 +191,22 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
         for energy in np.linspace(3000, 6000, 10):
             ph = energy**0.8
             cal1.add_cal_point(ph, energy)
-        fname = "to_be_delete.hdf5"
-        with h5py.File(fname, "w") as h5:
-            grp = h5.require_group("calibration")
-            cal1.save_to_hdf5(grp, "cal1")
-            cal2 = mass.calibration.energy_calibration.EnergyCalibration.load_from_hdf5(grp, "cal1")
-            self.assertEqual(len(grp.keys()), 1)
-        self.assertTrue(all(cal1._ph == cal2._ph))
-        self.assertTrue(all(cal2._energies == cal2._energies))
-        self.assertTrue(all(cal1._dph == cal2._dph))
-        self.assertTrue(all(cal1._de == cal2._de))
-        self.assertEqual(cal1.nonlinearity, cal2.nonlinearity)
-        self.assertEqual(cal1.CURVETYPE, cal2.CURVETYPE)
-        self.assertEqual(cal1._use_approximation, cal2._use_approximation)
-        os.remove(fname)
+        fname = "to_be_deleted.hdf5"
+        for ctype in (0, "gain"):
+            cal1.set_curvetype(ctype)
+            with h5py.File(fname, "w") as h5:
+                grp = h5.require_group("calibration")
+                cal1.save_to_hdf5(grp, "cal1")
+                cal2 = mass.calibration.energy_calibration.EnergyCalibration.load_from_hdf5(grp, "cal1")
+                self.assertEqual(len(grp.keys()), 1)
+            self.assertTrue(all(cal1._ph == cal2._ph))
+            self.assertTrue(all(cal2._energies == cal2._energies))
+            self.assertTrue(all(cal1._dph == cal2._dph))
+            self.assertTrue(all(cal1._de == cal2._de))
+            self.assertEqual(cal1.nonlinearity, cal2.nonlinearity)
+            self.assertEqual(cal1.CURVETYPE, cal2.CURVETYPE)
+            self.assertEqual(cal1._use_approximation, cal2._use_approximation)
+            os.remove(fname)
 
     def test_negative_inputs(self):
         """Negative or zero pulse-heights shouldn't produce NaN or Inf energies."""

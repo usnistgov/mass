@@ -206,6 +206,8 @@ class EnergyCalibration(object):
 
     def set_curvetype(self, curvetype):
         if isstr(curvetype):
+            if isinstance(curvetype, bytes):  # Fix a behavior of h5py for writing in py2, reading in py3.
+                curvetype = curvetype.decode("utf-8")
             try:
                 curvetype = self.CURVETYPE.index(curvetype.lower())
             except ValueError:
