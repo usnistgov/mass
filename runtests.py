@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore")
 
 # Raise the logging threshold, to reduce extraneous output during tests
 LOG = logging.getLogger("mass")
-LOG.setLevel(logging.WARNING)
+LOG.setLevel(logging.ERROR)
 
 VERBOSE = 0
 # search mass and all subdirs for files matching "test_*.py"

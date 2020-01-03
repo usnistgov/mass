@@ -4,7 +4,6 @@ import unittest as ut
 import mass
 import logging
 LOG = logging.getLogger("mass")
-# LOG.setLevel(logging.NOTSET)
 
 np.random.seed(19324234)  # make tests not fail randomly
 

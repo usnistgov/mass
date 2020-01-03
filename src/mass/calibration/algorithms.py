@@ -374,7 +374,7 @@ class EnergyCalibrationAutocal(object):
         width = ub - lb
         x = np.linspace(lb - width / 10, ub + width / 10, 101)
         y = self.calibration(x)
-        ax.plot(x, y, '--', color='orange', lw=2, zorder=-2)
+        ax.plot(x, y, '--', color=['orange'], lw=2, zorder=-2)
 
         ax.yaxis.set_tick_params(labelleft=False, labelright=True)
         ax.yaxis.set_label_position('right')

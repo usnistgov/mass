@@ -593,9 +593,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     raise Exception("file {} already exists, pass replace_output = True to overwrite".format(hdf5_filename))
             with h5py.File(hdf5_filename, "w") as hdf5_file:
                 self._pulse_model_to_hdf5(hdf5_file, n_basis)
-                print("writing pulse_model to {}".format(hdf5_filename))
+                LOG.info("writing pulse_model to {}".format(hdf5_filename))
         else:
-            print("writing pulse_model to {}".format(hdf5_filename))
+            LOG.info("writing pulse_model to {}".format(hdf5_filename))
             self._pulse_model_to_hdf5(hdf5_file, n_basis)
         return hdf5_filename
 
@@ -805,7 +805,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 plt.subplot(ny_plots, 2, 1 + i * 2, sharex=ax_master)
 
             if len(vect) > 0:
-                plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
+                plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=[color])
             else:
                 plt.text(.5, .5, 'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
@@ -1273,8 +1273,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 x_g = (x_g - getattr(ds, x_attr)[0]) / (60*60)
                 x_b = (x_b - getattr(ds, x_attr)[0]) / (60*60)
 
-            plt.plot(x_b, y_b, '.', markersize=2.5, color='gray')
-            plt.plot(x_g, y_g, '.', markersize=2.5, color='blue')
+            plt.plot(x_b, y_b, '.', markersize=2.5, color=['gray'])
+            plt.plot(x_g, y_g, '.', markersize=2.5, color=['blue'])
 
             if lines is not None:
                 x_lo = min(np.amin(x_g), np.amin(x_b))

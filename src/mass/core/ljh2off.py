@@ -8,6 +8,8 @@ import numpy as np
 import h5py
 import progress.bar
 import argparse
+import logging
+LOG = logging.getLogger("mass")
 
 # Intended for conversion of LJH files to OFF files, given some projectors and basis
 
@@ -91,15 +93,16 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
             offdata.tofile(f)
 
 
-def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True):
+def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True, show_progress = LOG.isEnabledFor(0) ):
     pulse_model_dict = load_pulse_models(h5_path)
     basename, channum = mass.ljh_util.ljh_basename_channum(ljhpath)
     ljhdir, file_basename = os.path.split(basename)
     off_basename = os.path.join(output_dir, file_basename)
     n_channels = min(max_channels, len(pulse_model_dict))
-    bar = progress.bar.Bar("processing ljh files to off files:", max=n_channels)
+    if show_progress: bar = progress.bar.Bar("processing ljh files to off files:", max=n_channels)
     off_filenames = []
     ljh_filenames = []
+    handled_channels = 0
     for channum, pulse_model in pulse_model_dict.items():
         ljhpath = "{}_chan{}.ljh".format(basename, channum)
         offpath = '{}_chan{}.off'.format(off_basename, channum)
@@ -108,12 +111,13 @@ def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples
         pulse_model = pulse_model_dict[channum]
         ljh2off(ljhpath, offpath, pulse_model.projectors,
                 pulse_model.basis, n_ignore_presamples, h5_path)
-        bar.next()
+        if show_progress: bar.next()
         off_filenames.append(offpath)
         ljh_filenames.append(ljhpath)
-        if bar.index == max_channels:
+        handled_channels += 1
+        if handled_channels == max_channels:
             break
-    bar.finish()
+    if show_progress: bar.finish()
     source_experiment_state_filename = "{}_experiment_state.txt".format(basename)
     sink_experiment_state_filename = "{}_experiment_state.txt".format(off_basename)
     if os.path.isfile(source_experiment_state_filename):

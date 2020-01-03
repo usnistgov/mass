@@ -64,7 +64,6 @@ class TestPhaseCorrect(ut.TestCase):
             fitter.fit(counts, bin_edges, params=params, label="full",
                        axis=plt.gca(), hold=hold, plot=plot)
             resolutions.append(fitter.last_fit_params_dict["resolution"][0])
-        print("achieved resolutions in phase correct through microcaldataset test", resolutions)
         self.assertLessEqual(resolutions[0], 4.3)
         self.assertLessEqual(resolutions[1], 4.4)
         self.assertLessEqual(resolutions[2], 5.0)
@@ -109,7 +108,6 @@ class TestPhaseCorrect(ut.TestCase):
             fitter.fit(counts, bin_edges, params=params, label="full",
                        axis=plt.gca(), hold=hold, plot=plot)
             resolutions.append(fitter.last_fit_params_dict["resolution"][0])
-        print("achieved resolutions in phase correct test", resolutions)
         self.assertLessEqual(resolutions[0], 4.3)
         self.assertLessEqual(resolutions[1], 4.4)
         self.assertLessEqual(resolutions[2], 5.0)
