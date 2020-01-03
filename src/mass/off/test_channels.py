@@ -107,19 +107,20 @@ print(data.outputHDF5)
 print(os.path.abspath(data.outputDir))
 
 
-h5 =  data.outputHDF5 # dont use with here, it will hide errors
+h5 = data.outputHDF5  # dont use with here, it will hide errors
 fitters = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
-                                    worstAllowedFWHM=4.5, states="Ne", _rethrow=False,
-                                    resolutionPlot=True, hdf5Group=h5)
+                                   worstAllowedFWHM=4.5, states="Ne", _rethrow=False,
+                                   resolutionPlot=True, hdf5Group=h5)
 data.histsToHDF5(h5, np.arange(4000))
 data.recipeToHDF5(h5)
 data.energyTimestampLabelToHDF5(h5)
 h5.close()
 
-h5 =  h5py.File(data.outputHDF5.filename, "r") # dont use with here, it will hide errors
+h5 = h5py.File(data.outputHDF5.filename, "r")  # dont use with here, it will hide errors
 newds = Channel(ds.offFile, ds.experimentStateFile)
 newds.recipeFromHDF5(h5)
 h5.close()
+
 
 class TestSummaries(ut.TestCase):
     def test_recipeFromHDF5(self):

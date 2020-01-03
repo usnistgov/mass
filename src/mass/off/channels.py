@@ -1,5 +1,5 @@
 import mass
-import off
+from .off import OffFile
 import collections
 import os
 
@@ -665,7 +665,8 @@ class Channel(CorG):
             v[indicatorName], v[uncorrectedName])
         self.driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
-        self.addRecipe("filtValueDC", self.driftCorrection.apply, [self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
+        self.addRecipe("filtValueDC", self.driftCorrection.apply, [
+                       self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         return self.driftCorrection
 
     def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions, goodFunc=None, returnBad=False):
@@ -674,7 +675,8 @@ class Channel(CorG):
         uncorrected = self.getAttr(uncorrectedName, inds, goodFunc, returnBad)
         self.phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
-        self.addRecipe("filtValuePC", self.phaseCorrection.correct, [self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
+        self.addRecipe("filtValuePC", self.phaseCorrection.correct, [
+                       self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     def loadDriftCorrection(self):
         raise Exception("not implemented")
@@ -893,25 +895,29 @@ class Channel(CorG):
         grp = h5File.require_group(str(self.channum))
         if "driftCorrection" in grp:
             self.driftCorrection = DriftCorrection.fromHDF5(grp)
-            self.addRecipe("filtValueDC", self.driftCorrection.apply, [self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
+            self.addRecipe("filtValueDC", self.driftCorrection.apply, [
+                           self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         if "calibration" in grp:
             self.calibration = mass.EnergyCalibration.load_from_hdf5(grp, "calibration")
             self.calibration.uncalibratedName = grp["calibration/uncalibratedName"].value
-            self.addRecipe("energy", self.calibration.ph2energy, [self.calibration.uncalibratedName])
+            self.addRecipe("energy", self.calibration.ph2energy,
+                           [self.calibration.uncalibratedName])
         if "calibrationRough" in grp:
             self.calibrationRough = mass.EnergyCalibration.load_from_hdf5(grp, "calibrationRough")
             self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"].value
-            self.addRecipe("energyRough", self.calibrationRough.ph2energy, [self.calibrationRough.uncalibratedName])
+            self.addRecipe("energyRough", self.calibrationRough.ph2energy,
+                           [self.calibrationRough.uncalibratedName])
         if "calibrationArbsInRefChannelUnits" in grp:
             self.calibrationArbsInRefChannelUnits = mass.EnergyCalibration.load_from_hdf5(
                 grp, "calibrationArbsInRefChannelUnits")
             self.calibrationArbsInRefChannelUnits.uncalibratedName = grp[
                 "calibrationArbsInRefChannelUnits/uncalibratedName"].value
             self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
-                    self.calibrationArbsInRefChannelUnits.uncalibratedName])
+                self.calibrationArbsInRefChannelUnits.uncalibratedName])
         if "phase_correction" in grp:
             self.phaseCorrection = mass.core.phase_correct.PhaseCorrector.fromHDF5(grp)
-            self.addRecipe("filtValuePC", self.phaseCorrection.correct, [self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
+            self.addRecipe("filtValuePC", self.phaseCorrection.correct, [
+                           self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     @add_group_loop
     def energyTimestampLabelToHDF5(self, h5File, goodFunc=None, returnBad=False):
@@ -1197,7 +1203,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             self.offFileNames), silence=not self.verbose)
         for name in self.offFileNames:
             _, channum = mass.ljh_util.ljh_basename_channum(name)
-            self[channum] = self._channelClass(off.OffFile(
+            self[channum] = self._channelClass(OffFile(
                 name), self.experimentStateFile, verbose=self.verbose)
             bar.next()
         bar.finish()
