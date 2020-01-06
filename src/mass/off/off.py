@@ -3,6 +3,12 @@ import numpy as np
 import os
 import base64
 
+"""
+Supported off versions:
+0.1.0 has projectors and basis in json with base64 encoding
+0.2.0 has projectors and basis after json as binary
+0.3.0 adds pretrigDelta field
+"""
 
 def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
     """ return a np.dtype matching the record datatype for the given offVersion and nBasis
@@ -14,17 +20,20 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
         # start of the dtype is identical for all cases
         dt_list = [("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
                    ("unixnano", np.int64), ("pretriggerMean", np.float32), ("residualStdDev", np.float32)]
-        if descriptive_coefs_names:
-            dt_list += [("pulseMean", np.float32), ("derivativeLike",
-                                                    np.float32), ("filtValue", np.float32)]
-            if nBasis > 3:
-                dt_list += [("extraCoefs", np.float32, (nBasis-3))]
-        else:
-            dt_list += [("coefs", np.float32, (nBasis))]
-        return np.dtype(dt_list)
+    elif offVersion == "0.3.0":
+        dt_list = [("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
+                   ("unixnano", np.int64), ("pretriggerMean", np.float32), ("pretriggerDelta", np.float32), ("residualStdDev", np.float32)]        
     else:
         raise Exception("dtype for OFF version {} not implemented".format(offVersion))
 
+    if descriptive_coefs_names:
+        dt_list += [("pulseMean", np.float32), ("derivativeLike",
+                                                np.float32), ("filtValue", np.float32)]
+        if nBasis > 3:
+            dt_list += [("extraCoefs", np.float32, (nBasis-3))]
+    else:
+        dt_list += [("coefs", np.float32, (nBasis))]
+    return np.dtype(dt_list)
 
 def readJsonString(f):
     """look in file f for a line "}\\n" and return all contents up to that point
