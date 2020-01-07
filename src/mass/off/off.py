@@ -10,6 +10,7 @@ Supported off versions:
 0.3.0 adds pretrigDelta field
 """
 
+
 def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
     """ return a np.dtype matching the record datatype for the given offVersion and nBasis
     descriptive_coefs_names - determines how the modeled pulse coefficients are name, you usually want True
@@ -22,7 +23,7 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
                    ("unixnano", np.int64), ("pretriggerMean", np.float32), ("residualStdDev", np.float32)]
     elif offVersion == "0.3.0":
         dt_list = [("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
-                   ("unixnano", np.int64), ("pretriggerMean", np.float32), ("pretriggerDelta", np.float32), ("residualStdDev", np.float32)]        
+                   ("unixnano", np.int64), ("pretriggerMean", np.float32), ("pretriggerDelta", np.float32), ("residualStdDev", np.float32)]
     else:
         raise Exception("dtype for OFF version {} not implemented".format(offVersion))
 
@@ -34,6 +35,7 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
     else:
         dt_list += [("coefs", np.float32, (nBasis))]
     return np.dtype(dt_list)
+
 
 def readJsonString(f):
     """look in file f for a line "}\\n" and return all contents up to that point

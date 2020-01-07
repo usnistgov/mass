@@ -12,8 +12,9 @@
 * faster `getOffAttr` (OFF file performance) for lists of 100s of slices
 * `data.refreshFromFiles` added, this parses the experiment state file from the last point it was parsed to, then updates the off file mmaps, then recalculates all `ds._statesDict` based on the new states and info in the OFF file.
 * Has tests on the internals of `ExperimentStatefile` and `OffFile`.
-* Fix reading in Py3 of HDF5 calbrations written by Py2, and other Py3 problems. 
+* Fix reading in Py3 of HDF5 calbrations written by Py2, and other Py3 problems.
 * Silent testing.
+* Support OFF files version 0.3.0.
 
 **0.7.1** November 2019-December 2019
 
