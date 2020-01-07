@@ -1,5 +1,21 @@
 ## Note on version numbers of Mass
 
+**0.7.2** December 2019-January 2020
+
+* Allow ArrivalTimeSafeFilter to be full length, skipping the "shift-1" possibility that DASTARD doesn't need.
+* Refactor calling `MicrocalDataSet` method `compute_filter()` into `compute_5lag_filter()` and `compute_ats_filter()`.
+* Add scripts/ljh2off.py and `MicrocalDataSet.projectors_to_hdf5()`
+* Fix issue 177: read new and old stored filters.
+* projectors include v_dv, noise_rms_median, noise_rms_sigma
+* refactor projectors to `pulse_model.PulseModel`
+* `ExperimentStateFile` stores unique states as slices
+* faster `getOffAttr` (OFF file performance) for lists of 100s of slices
+* `data.refreshFromFiles` added, this parses the experiment state file from the last point it was parsed to, then updates the off file mmaps, then recalculates all `ds._statesDict` based on the new states and info in the OFF file.
+* Has tests on the internals of `ExperimentStatefile` and `OffFile`.
+* Fix reading in Py3 of HDF5 calbrations written by Py2, and other Py3 problems.
+* Silent testing.
+* Support OFF files version 0.3.0.
+
 **0.7.1** November 2019-December 2019
 
 * More neon HCI lines.

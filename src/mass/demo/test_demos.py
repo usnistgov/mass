@@ -3,7 +3,6 @@ import unittest as ut
 
 import logging
 LOG = logging.getLogger("mass")
-LOG.setLevel(logging.NOTSET)
 
 
 class TestDemos(ut.TestCase):

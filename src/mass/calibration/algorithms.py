@@ -7,15 +7,13 @@ mass.calibration.young module.
 import collections
 import itertools
 import operator
-
-import six
-
 import numpy as np
 
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 from matplotlib.ticker import MaxNLocator
 
+from ..common import isstr
 from mass.calibration.energy_calibration import STANDARD_FEATURES
 import mass.calibration
 from .energy_calibration import EnergyCalibration
@@ -346,7 +344,7 @@ class EnergyCalibrationAutocal(object):
                         + '\n' + "Resolution: {0:.1f} (eV)".format(eres),
                         transform=ax.transAxes, ha='left', va='top')
             y = fitter.fitfunc(fitter.last_fit_params, x)
-            ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
+            ax.plot(x, y, '-', color=[(0.9, 0.1, 0.1)], lw=2)
             ax.set_xlim(np.min(x), np.max(x))
             ax.set_ylim(0, np.max(fitter.last_fit_contents) * 1.3)
 
@@ -355,7 +353,7 @@ class EnergyCalibrationAutocal(object):
         for el, pht, fitter, energy in zip(self.line_names, self.calibration.cal_point_phs,
                                            self.fitters, self.calibration.cal_point_energies):
             peak_name = 'Unknown'
-            if isinstance(el, six.string_types):
+            if isstr(el):
                 peak_name = el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
             elif isinstance(el, (int, float)):
                 peak_name = "{0:.1f} (eV)".format(energy)

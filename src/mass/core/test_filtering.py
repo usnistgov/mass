@@ -62,50 +62,48 @@ class TestFilters(ut.TestCase):
         self.data.hdf5_file.close()
         self.data.hdf5_noisefile.close()
 
-    def filter_summaries(self, newstyle):
+    def filter_summaries(self, filter_type):
         """Make sure that filters either old-style or new-style have a predicted resolution,
         whether the filters are created fresh or are loaded from HDF5."""
-        for ds in self.data:
-            ds._use_new_filters = newstyle
-        self.data.compute_filters(f_3db=10000, forceNew=True)
-        self.verify_filters(self.data, newstyle)
+        self.data.compute_filters(f_3db=10000, forceNew=True, filter_type=filter_type)
+        self.verify_filters(self.data, filter_type)
 
-    def verify_filters(self, data, newstyle):
+    def verify_filters(self, data, filter_type):
         "Check that the filters contain what we expect"
+        expected = {"ats": 461.57, "5lag": 456.7}[filter_type]
         for ds in data:
             f = ds.filter
             self.assertIn("noconst", f.variances)
             self.assertIn("noconst", f.predicted_v_over_dv)
             self.assertAlmostEqual(f.variances["noconst"], 8.46e-7, delta=3e-8)
-            expected = 461.57 if newstyle else 456.7
             self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], expected, delta=0.1)
 
-    def test_vdv_oldfilters(self):
+    def test_vdv_5lag_filters(self):
         """Make sure old filters have a v/dv"""
-        self.filter_summaries(newstyle=False)
+        self.filter_summaries(filter_type="5lag")
 
-    def test_vdv_newfilters(self):
+    def test_vdv_ats_filters(self):
         """Make sure new filters have a v/dv"""
-        self.filter_summaries(newstyle=True)
+        self.filter_summaries(filter_type="ats")
 
-    def filter_reload(self, newstyle):
+    def filter_reload(self, filter_type):
         """Make sure filters can be reloaded, whether new or old-style."""
-        self.filter_summaries(newstyle=newstyle)
+        self.filter_summaries(filter_type=filter_type)
         ds = self.data.channel[1]
-        self.assertEqual(newstyle, ds._use_new_filters)
+        self.assertEqual(filter_type, ds._filter_type)
         filter1 = ds.filter
 
         pf = ds.filename
         nf = ds.noise_records.filename
         data2 = mass.TESGroup(pf, nf)
-        self.verify_filters(data2, newstyle)
+        self.verify_filters(data2, filter_type)
         data2.compute_filters()
-        self.verify_filters(data2, newstyle)
+        self.verify_filters(data2, filter_type)
         ds = data2.channel[1]
         filter2 = ds.filter
-        self.assertEqual(newstyle, ds._use_new_filters)
+        self.assertEqual(filter_type, ds._filter_type)
         self.assertEqual(type(filter1), type(filter2))
-        if newstyle:
+        if filter_type == "ats":
             for ds in self.data:
                 self.assertIsNotNone(ds.filter.filt_aterms)
         data2.hdf5_file.close()
@@ -113,11 +111,11 @@ class TestFilters(ut.TestCase):
 
     def test_filter_reload_new(self):
         """Make sure we can create new filters and reload them"""
-        self.filter_reload(True)
+        self.filter_reload(filter_type="ats")
 
     def test_filter_reload_old(self):
         """Make sure we can create old filters and reload them"""
-        self.filter_reload(False)
+        self.filter_reload(filter_type="5lag")
 
     def test_filter_notmanypulses(self):
         """Be sure we can filter only a small # of pulses. See issue #87"""
@@ -128,20 +126,20 @@ class TestFilters(ut.TestCase):
         c = np.ones(ds.nPulses, dtype=np.bool)
         c[:40] = False
         ds.cuts.cut("temporary", c)
-        ds.compute_newfilter(f_3db=5000)
+        ds.compute_ats_filter(f_3db=5000)
         f = ds.filter.filt_noconst
         self.assertFalse(np.any(np.isnan(f)))
 
         # Now un-do the temporary cut and re-build the filter
         c = np.zeros(ds.nPulses, dtype=np.bool)
         ds.cuts.cut("temporary", c)
-        ds.compute_newfilter(f_3db=5000)
+        ds.compute_ats_filter(f_3db=5000)
         self.assertFalse(np.any(np.isnan(f)))
 
     def test_masked_filter(self):
         """Test that zero-weighting samples from the beginning and end works."""
         ds = self.data.channel[1]
-        ds.compute_newfilter(f_3db=5000)
+        ds.compute_ats_filter(f_3db=5000)
         ds.read_segment(0)
         NP = 50
         d = np.array(ds.data[:NP, 1:])  # NP pulses, cutting first sample

@@ -3,14 +3,13 @@ Objects to assist with calibration from pulse heights to absolute energies.
 
 Created on May 16, 2011
 """
-import six
-
 import numpy as np
 from scipy.optimize import brentq
 
 from mass.mathstat.interpolate import CubicSplineFunction, SmoothingSplineFunction
 from mass.mathstat.derivative import ExponentialFunction, Identity, LogFunction
 from mass.calibration.nist_xray_database import NISTXrayDBFile
+from ..common import isstr
 
 
 def LineEnergies():
@@ -206,7 +205,9 @@ class EnergyCalibration(object):
             self._model_is_stale = True
 
     def set_curvetype(self, curvetype):
-        if isinstance(curvetype, six.string_types):
+        if isstr(curvetype):
+            if isinstance(curvetype, bytes):  # Fix a behavior of h5py for writing in py2, reading in py3.
+                curvetype = curvetype.decode("utf-8")
             try:
                 curvetype = self.CURVETYPE.index(curvetype.lower())
             except ValueError:

@@ -6,18 +6,18 @@ Part of the Microcalorimeter Analysis Software System (MASS).
 This module defines classes that handle one or more TES data streams together.
 """
 
-from collections import Iterable
-from functools import reduce
 import os
-
-import six
+import h5py
+import logging
 
 import numpy as np
 import matplotlib.pylab as plt
-import h5py
 
 import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
+
+from collections import Iterable
+from functools import reduce
 
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper
@@ -26,8 +26,8 @@ from mass.core.cut import CutFieldMixin
 from mass.core.utilities import InlineUpdater, show_progress, plot_multipage
 from mass.core.ljh_util import remove_unpaired_channel_files, \
     filename_glob_expand
+from ..common import isstr
 
-import logging
 LOG = logging.getLogger("mass")
 
 
@@ -171,7 +171,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             self.hdf5_file = None
         else:
             # Convert a single filename to a tuple of size one
-            if isinstance(filenames, six.string_types):
+            if isstr(filenames):
                 filenames = (filenames,)
             self.filenames = tuple(filenames)
             self.n_channels = len(self.filenames)
@@ -184,7 +184,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         self.noise_filenames = None
         self.hdf5_noisefile = None
         if noise_filenames is not None:
-            if isinstance(noise_filenames, six.string_types):
+            if isstr(noise_filenames):
                 noise_filenames = (noise_filenames,)
             self.noise_filenames = noise_filenames
             self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'a')
@@ -414,9 +414,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             data.set_chan_bad(1, "too few good pulses")
             data.set_chan_bad(103, [1, 3, 5], "detector unstable")
         """
-        added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args
-                                    if not isinstance(x, six.string_types)])
-        comment = reduce(lambda x, y: y, [x for x in args if isinstance(x, six.string_types)], '')
+        added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args if not isstr(x)])
+        comment = reduce(lambda x, y: y, [x for x in args if isstr(x)], '')
 
         for channum in added_to_list:
             new_comment = self._bad_channums.get(channum, []) + [comment]
@@ -572,6 +571,32 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 self.hdf5_file.flush()
             except Exception as e:
                 self.set_chan_bad(ds.channum, "summarize_data failed with %s" % e)
+
+    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}, filter_type="ats"):
+        for ds in self.datasets:
+            if hasattr(ds, "_use_new_filters"):
+                raise Exception("ds._use_new_filters is deprecated, use the filter_type argument to this function instead")
+        if filter_type == "ats":
+            self.compute_ats_filter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post, forceNew=forceNew, category=category)
+        elif filter_type == "5lag":
+            self.compute_5lag_filter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post, forceNew=forceNew, category=category)
+        else:
+            raise Exception("filter_type must be one of `ats` or `5lag`")
+
+    def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False):
+        if hdf5_file is None:
+            basename, _ = self.datasets[0].filename.split("chan")
+            hdf5_filename = basename+"model.hdf5"
+            if os.path.isfile(hdf5_filename):
+                if not replace_output:
+                    raise Exception("file {} already exists, pass replace_output = True to overwrite".format(hdf5_filename))
+            with h5py.File(hdf5_filename, "w") as hdf5_file:
+                self._pulse_model_to_hdf5(hdf5_file, n_basis)
+                LOG.info("writing pulse_model to {}".format(hdf5_filename))
+        else:
+            LOG.info("writing pulse_model to {}".format(hdf5_filename))
+            self._pulse_model_to_hdf5(hdf5_file, n_basis)
+        return hdf5_filename
 
     def calc_external_trigger_timing(self, after_last=False, until_next=False,
                                      from_nearest=False, forceNew=False):
@@ -733,7 +758,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for i, (channum, ds) in enumerate(zip(channel_numbers, datasets)):
 
             # Convert "uncut" or "cut" to array of all good or all bad data
-            if isinstance(valid, six.string_types):
+            if isstr(valid):
                 if "uncut" in valid.lower():
                     valid_mask = ds.cuts.good()
                     LOG.info("Plotting only uncut data"),
@@ -924,7 +949,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(
                     avg_pulse, 1./self.timebase, fcut)
             plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
-                     color=cmap(float(i) / nplot))
+                     color=[cmap(float(i) / nplot)])
 
         plt.title("Average pulse for each channel when it is hit")
 
@@ -936,57 +961,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
             if nplot > 12:
                 ltext = axis.get_legend().get_texts()
                 plt.setp(ltext, fontsize='small')
-
-    @show_progress("compute_filters")
-    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}):
-        """
-        compute_filters(self, fmax=None, f_3db=None, forceNew=False)
-
-        Looks at ds._use_new_filters to decide which type of filter to use.
-
-        cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
-        cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
-        """
-        # Analyze the noise, if not already done
-        needs_noise = any([ds.noise_autocorr[0] == 0.0
-                           or ds.noise_psd[1] == 0 for ds in self])
-        if needs_noise:
-            LOG.debug("Computing noise autocorrelation and spectrum")
-            self.compute_noise_spectra()
-
-        for ds_num, ds in enumerate(self):
-            if "filters" not in ds.hdf5_group or forceNew:
-                if len(ds.first_n_good_pulses(10, category=category)[0]) < 10:
-                    ds.filter = None
-                    self.set_chan_bad(ds.channum, 'cannot compute filter, too few good pulses')
-                    continue
-                if ds._use_new_filters:
-                    f = ds.compute_newfilter(fmax=fmax, f_3db=f_3db,
-                                             cut_pre=cut_pre, cut_post=cut_post, category=category)
-                else:
-                    f = ds.compute_oldfilter(fmax=fmax, f_3db=f_3db,
-                                             cut_pre=cut_pre, cut_post=cut_post, category=category)  # uses average pulse, not category
-                ds.filter = f
-
-                # Store all filters created to a new HDF5 group
-                h5grp = ds.hdf5_group.require_group('filters')
-                if f.f_3db is not None:
-                    h5grp.attrs['f_3db'] = f.f_3db
-                if f.fmax is not None:
-                    h5grp.attrs['fmax'] = f.fmax
-                h5grp.attrs['peak'] = f.peak_signal
-                h5grp.attrs['shorten'] = f.shorten
-                h5grp.attrs['newfilter'] = ds._use_new_filters
-                for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
-                          "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
-                    if k in h5grp:
-                        del h5grp[k]
-                    if getattr(f, k, None) is not None:
-                        vec = h5grp.create_dataset(k, data=getattr(f, k))
-                        shortname = k.split('filt_')[1]
-                        vec.attrs['variance'] = f.variances.get(shortname, 0.0)
-                        vec.attrs['predicted_v_over_dv'] = f.predicted_v_over_dv.get(shortname, 0.0)
-                yield (ds_num + 1) / float(self.n_channels)
 
     def plot_filters(self, axis=None, channels=None, cmap=None,
                      filtname="filt_noconst", legend=True):

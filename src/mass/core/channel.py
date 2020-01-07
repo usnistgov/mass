@@ -20,6 +20,7 @@ import mass.mathstat.interpolate
 import mass.mathstat.robust
 import mass.core.analysis_algorithms
 from . import phase_correct
+from .pulse_model import PulseModel
 
 from mass.core.cut import Cuts
 from mass.core.files import VirtualFile, LJHFile
@@ -565,7 +566,7 @@ class GroupLooper(object):
     pass
 
 
-def _add_group_loop(method):
+def _add_group_loop(throw_errors=False):
     """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
 
     This is a decorator to add before method definitions inside class MicrocalDataSet.
@@ -574,37 +575,48 @@ def _add_group_loop(method):
     class MicrocalDataSet(...):
         ...
 
-        @_add_group_loop
+        @_add_group_loop()
         def awesome_fuction(self, ...):
             ...
     """
 
-    method_name = method.__name__
+    def decorator(method):
+        method_name = method.__name__
 
-    def wrapper(self, *args, **kwargs):
-        for ds in self:
-            try:
-                method(ds, *args, **kwargs)
-            except KeyboardInterrupt as e:
-                raise e
-            except Exception as e:
-                self.set_chan_bad(ds.channum, "failed %s with %s" % (method_name, e))
+        def wrapper(self, *args,  **kwargs):
+            for ds in self:
+                try:
+                    method(ds, *args, **kwargs)
+                except KeyboardInterrupt as e:
+                    raise e
+                except Exception as e:
+                    import traceback
+                    import sys
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    s = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                    if throw_errors:
+                        new_ex = Exception(
+                            "an error happened during a group loop, the exception was {}\nTRACEBACK BELOW\n{}".format(repr(e), s))
+                        raise new_ex
+                    self.set_chan_bad(ds.channum, "failed %s with %s\ntraceback:\n%s" %
+                                      (method_name, e, s))
 
-    wrapper.__name__ = method_name
+        wrapper.__name__ = method_name
 
-    # Generate a good doc-string.
-    lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
-    arginfo = inspect.getargspec(method)
-    argtext = inspect.formatargspec(*arginfo)
-    if method.__doc__ is None:
-        lines.append("\n%s%s has no docstring" % (method_name, argtext))
-    else:
-        lines.append("\n%s%s docstring reads:" % (method_name, argtext))
-        lines.append(method.__doc__)
-    wrapper.__doc__ = "\n".join(lines)
+        # Generate a good doc-string.
+        lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
+        arginfo = inspect.getargspec(method)
+        argtext = inspect.formatargspec(*arginfo)
+        if method.__doc__ is None:
+            lines.append("\n%s%s has no docstring" % (method_name, argtext))
+        else:
+            lines.append("\n%s%s docstring reads:" % (method_name, argtext))
+            lines.append(method.__doc__)
+        wrapper.__doc__ = "\n".join(lines)
 
-    setattr(GroupLooper, method_name, wrapper)
-    return method
+        setattr(GroupLooper, method_name, wrapper)
+        return method
+    return decorator
 
 
 class MicrocalDataSet(object):
@@ -663,7 +675,7 @@ class MicrocalDataSet(object):
         self.column_number = None
 
         self._external_trigger_rowcount = None
-        self._use_new_filters = True
+        self._filter_type = "ats"
 
         self.row_timebase = None
 
@@ -742,29 +754,47 @@ class MicrocalDataSet(object):
             fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
             f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
             shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
-            if "newfilter" in filter_group.attrs:
-                newfilter = filter_group.attrs["newfilter"]
-            else:
-                newfilter = "filt_aterms" in filter_group.keys()
-            self._use_new_filters = newfilter
 
-            if newfilter:
-                aterms = filter_group["filt_aterms"][:]
-                model = np.vstack([self.average_pulse[1:], aterms]).T
-                modelpeak = np.max(self.average_pulse)
+            if "version" in filter_group.attrs:
+                version = filter_group.attrs["version"]
+            else:
+                version = 0  # older hdf5 files with filters have no version number, assign 0
+
+            if version > 0:
+                filter_type = filter_group.attrs["filter_type"]  # a string
+            else:
+                if "newfilter" in filter_group.attrs:
+                    # version 0 hdf5 files either did or did not have the "newfilter" attribute, newfilter corresponds to ats filters
+                    filter_type = "ats"
+                else:
+                    filter_type = "5lag"
+
+            if filter_type == "ats":
+                # arrival time safe filter can be shorter than records by 1 sample, or equal in length
+                if version > 0:
+                    avg_signal, aterms = filter_group.attrs["avg_signal"][(
+                    )], filter_group["filt_aterms"][()]
+                else:
+                    # version 0 hdf5 files did not storage avg_signal, use truncated average_pulse instead
+                    avg_signal, aterms = self.average_pulse[1:], filter_group["filt_aterms"][()]
+                model = np.vstack([avg_signal, aterms]).T
+                modelpeak = np.max(avg_signal)
                 self.filter = ArrivalTimeSafeFilter(model,
                                                     self.nPresamples - self.pretrigger_ignore_samples,
                                                     self.noise_autocorr,
                                                     sample_time=self.timebase,
                                                     peak=modelpeak)
-            else:
+            elif filter_type == "5lag":
                 self.filter = Filter(self.average_pulse[...],
                                      self.nPresamples - self.pretrigger_ignore_samples,
                                      self.noise_psd[...],
                                      self.noise_autocorr, sample_time=self.timebase,
                                      shorten=shorten)
+            else:
+                raise Exception("filter_type={}, must be `ats` or `5lag`".format(filter_type))
             self.filter.fmax = fmax
             self.filter.f_3db = f_3db
+            self._filter_type = filter_type
 
             for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                       "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
@@ -1095,7 +1125,7 @@ class MicrocalDataSet(object):
                                                    - self.pretrigger_ignore_samples])
         self.average_pulse[:] = average_pulse
 
-    @_add_group_loop
+    @_add_group_loop()
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000, subtract_mean=True, forceNew=False):
         """Compute an average pulse.
 
@@ -1123,7 +1153,37 @@ class MicrocalDataSet(object):
         self.compute_average_pulse(mask, subtract_mean=subtract_mean,
                                    forceNew=forceNew)
 
-    def compute_oldfilter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}):
+    def _filter_to_hdf5(self):
+        # Store all filters created to a new HDF5 group
+        h5grp = self.hdf5_group.require_group('filters')
+        if self.filter.f_3db is not None:
+            h5grp.attrs['f_3db'] = self.filter.f_3db
+        if self.filter.fmax is not None:
+            h5grp.attrs['fmax'] = self.filter.fmax
+        h5grp.attrs['peak'] = self.filter.peak_signal
+        h5grp.attrs['shorten'] = self.filter.shorten
+        h5grp.attrs['filter_type'] = self._filter_type
+        h5grp.attrs["avg_signal"] = self.filter.avg_signal
+        h5grp.attrs["version"] = 1
+        for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
+                  "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
+            if k in h5grp:
+                del h5grp[k]
+            if getattr(self.filter, k, None) is not None:
+                vec = h5grp.create_dataset(k, data=getattr(self.filter, k))
+                shortname = k.split('filt_')[1]
+                vec.attrs['variance'] = self.filter.variances.get(shortname, 0.0)
+                vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv.get(
+                    shortname, 0.0)
+
+    @_add_group_loop()
+    def compute_5lag_filter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}, forceNew=False):
+        """Requires that compute_noise has been run and that average pulse has been computed"""
+        if "filters" in self.hdf5_group and not forceNew:
+            LOG.info("ch {} skpping comput 5lag filter because it is already done".format(self.channum))
+            return
+        if all(self.noise_autocorr[:] == 0):
+            raise Exception("compute noise first")
         try:
             spectrum = self.noise_spectrum.spectrum()
         except Exception:
@@ -1136,10 +1196,16 @@ class MicrocalDataSet(object):
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
                              shorten=2, cut_pre=cut_pre, cut_post=cut_post)
         f.compute(fmax=fmax, f_3db=f_3db)
+        self.filter = f
+        self._filter_type = "5lag"
+        self._filter_to_hdf5()
         return f
 
-    def compute_newfilter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0, category={}, shift1=True):
-        """Compute a new-style filter to model the pulse and its time-derivative.
+    @_add_group_loop()
+    def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0,
+                           category={}, shift1=True, forceNew=False, minimum_n_pulses=20):
+        """Compute a arrival-time-safe filter to model the pulse and its time-derivative.
+        Requires that `compute_noise` has been run.
 
         Args:
             fmax: if not None, the hard cutoff in frequency space, above which
@@ -1153,8 +1219,7 @@ class MicrocalDataSet(object):
             cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
             shift1: Potentially shift each pulse by one sample based on ds.shift1 value,
             resulting filter is one sample shorter than pulse records.
-            You probably want True, because GCO didn't make filter application aware of this.
-            This argument is just for making filters for use in Dastard.
+            If you used a zero threshold trigger (eg dastard egdeMulti you can likely use shift1=False)
 
         Returns:
             the filter (an ndarray)
@@ -1165,12 +1230,18 @@ class MicrocalDataSet(object):
         is less noisy and in fact more robust to rely on the finite-difference of
         the pulse average to get the arrival-time dependence.
         """
-
+        if "filters" in self.hdf5_group and not forceNew:
+            LOG.info("ch {} skipping compute_ats_filter because it is already done".format(self.channum))
+            return
+        if all(self.noise_autocorr[:] == 0):
+            raise Exception("compute noise first")
         # At the moment, 1st-order model vs arrival-time is required.
         DEGREE = 1
 
         # The raw training data, which is shifted (trigger-aligned)
         data, pulsenums = self.first_n_good_pulses(4000, category=category)
+        if len(pulsenums) < minimum_n_pulses:
+            raise Exception("too few good pulses, ngood={}".format(len(pulsenums)))
         if shift1:
             raw = data[:, 1:]
             _shift1 = self.p_shift1[:][pulsenums]
@@ -1233,12 +1304,16 @@ class MicrocalDataSet(object):
                                   sample_time=self.timebase, peak=modelpeak)
         f.compute(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         self.filter = f
+        if np.any(np.isnan(f.filt_noconst)) or np.any(np.isnan(f.filt_aterms)):
+            raise Exception("there are nan values in your filters!! BAD. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
+                model, self.nPresamples, self.noise_autocorr, self.timebase, modelpeak))
+        self._filter_type = "ats"
+        self._filter_to_hdf5()
         return f
 
-    @_add_group_loop
+    @_add_group_loop()
     @show_progress("channel.filter_data_tdm")
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False,
-                    use_cython=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
         """Filter the complete data file one chunk at a time.
 
         Args:
@@ -1255,14 +1330,21 @@ class MicrocalDataSet(object):
         if self.filter is not None:
             filter_values = self.filter.__dict__[filter_name]
         else:
-            filter_values = self.hdf5_group['filters/%s' % filter_name].value
+            filter_values = self.hdf5_group['filters/%s' % filter_name][()]
 
-        if self._use_new_filters:
-            filterfunction = self._filter_data_segment_new
+        if self._filter_type == "ats":
+            if len(filter_values) == self.nSamples - 1:
+                filterfunction = self._filter_data_segment_ats
+            elif len(filter_values) == self.nSamples:
+                # when dastard uses kink model for determining trigger location, we don't need to shift1
+                # this code path should be followed when filters are created with the shift1=False argument
+                filterfunction = self._filter_data_segment_ats_dont_shift1
             filter_AT = self.filter.filt_aterms[0]
-        else:
-            filterfunction = self._filter_data_segment_old
+        elif self._filter_type == "5lag":
+            filterfunction = self._filter_data_segment_5lag
             filter_AT = None
+        else:
+            raise Exception("filter_type={}, must be `ats` or `5lag`".format(self._filter_type))
 
         for s in range(self.pulse_records.n_segments):
             first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
@@ -1274,7 +1356,39 @@ class MicrocalDataSet(object):
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
-    def _filter_data_segment_old(self, filter_values, _filter_AT, first, end, transform=None):
+    def get_pulse_model(self, f, n_basis, pulses_for_svd):
+        assert n_basis >= 3
+        deriv_like_model = f.pulsemodel[:, 1]
+        pulse_like_model = f.pulsemodel[:, 0]
+        if not len(pulse_like_model) == self.nSamples:
+            raise Exception("filter length {} and nSamples {} don't match, you likely need to use shift1=False in compute_filters".format(
+                len(pulse_like_model), self.nSamples))
+        projectors1 = np.vstack([f.filt_baseline,
+                                 f.filt_aterms[0],
+                                 f.filt_noconst])
+        basis1 = np.vstack([np.ones(len(pulse_like_model), dtype=float),
+                            deriv_like_model,
+                            pulse_like_model]).T
+        if pulses_for_svd is None:
+            pulses_for_svd, _ = self.first_n_good_pulses(4000)
+            pulses_for_svd = pulses_for_svd.T
+        if hasattr(self, "saved_auto_cuts"):
+            pretrig_rms_median = self.saved_auto_cuts._pretrig_rms_median
+            pretrig_rms_sigma = self.saved_auto_cuts._pretrig_rms_sigma
+        else:
+            raise Exception("use autocuts when making projectors, so it can save more info about desired cuts")
+        v_dv = f.predicted_v_over_dv.get("noconst", 0.0)
+        self.pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename)
+        return self.pulse_model
+
+    @_add_group_loop()
+    def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):
+        pulse_model = self.get_pulse_model(self.filter, n_basis, pulses_for_svd)
+        save_inverted = self.__dict__.get("invert_data", False)
+        hdf5_group = hdf5_file.create_group("{}".format(self.channum))
+        pulse_model.toHDF5(hdf5_group, save_inverted)
+
+    def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
         """Traditional 5-lag filter used by default until 2015."""
         if first >= self.nPulses:
             return None, None
@@ -1306,7 +1420,7 @@ class MicrocalDataSet(object):
         peak_y = param[0, :] - 0.25 * param[1, :]**2 / param[2, :]
         return peak_x, peak_y
 
-    def _filter_data_segment_new(self, filter_values, filter_AT, first, end, transform=None):
+    def _filter_data_segment_ats(self, filter_values, filter_AT, first, end, transform=None):
         """single-lag filter developed in 2015"""
         if first >= self.nPulses:
             return None, None
@@ -1328,6 +1442,22 @@ class MicrocalDataSet(object):
         want_to_shift = self.p_shift1[first:end]
         conv0[want_to_shift] = np.dot(data[want_to_shift, :-1], filter_values)
         conv1[want_to_shift] = np.dot(data[want_to_shift, :-1], filter_AT)
+        AT = conv1 / conv0
+        return AT, conv0
+
+    def _filter_data_segment_ats_dont_shift1(self, filter_values, filter_AT, first, end, transform=None):
+        # when using a zero threshold trigger (eg dastard using the kink-model) no shift is neccesary
+        assert len(filter_values == self.nSamples)
+        seg_size = end - first
+        assert seg_size == self.data.shape[0]
+        ptmean = self.p_pretrig_mean[first:end]
+        data = self.data
+        if transform is not None:
+            ptmean.shape = (seg_size, 1)
+            data = transform(self.data - ptmean)
+            ptmean.shape = (seg_size,)
+        conv0 = np.dot(data, filter_values)
+        conv1 = np.dot(data, filter_AT)
         AT = conv1 / conv0
         return AT, conv0
 
@@ -1419,7 +1549,7 @@ class MicrocalDataSet(object):
             if log:
                 plt.ylim(ymin=contents.min())
 
-    @_add_group_loop
+    @_add_group_loop()
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """Compute the noise power spectrum of this channel.
 
@@ -1447,7 +1577,7 @@ class MicrocalDataSet(object):
         else:
             LOG.info("chan %d skipping compute_noise_spectra because already done", self.channum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def apply_cuts(self, controls, clear=False, forceNew=True):
         """Apply the cuts.
 
@@ -1498,7 +1628,7 @@ class MicrocalDataSet(object):
         LOG.info("Chan %d after cuts, %d are good, %d are bad of %d total pulses",
                  self.channum, self.cuts.good().sum(), self.cuts.bad().sum(), self.nPulses)
 
-    @_add_group_loop
+    @_add_group_loop()
     def clear_cuts(self):
         """Clear all cuts."""
         self.cuts.clear_cut()
@@ -1524,7 +1654,7 @@ class MicrocalDataSet(object):
             self.p_pretrig_mean[:], self.good(), flux_quant)
         self.p_pretrig_mean[:] = corrected
 
-    @_add_group_loop
+    @_add_group_loop()
     def drift_correct(self, attr="p_filt_value", forceNew=False, category={}):
         """Drift correct using the standard entropy-minimizing algorithm"""
         doesnt_exist = all(self.p_filt_value_dc[:] == 0) or all(
@@ -1551,7 +1681,7 @@ class MicrocalDataSet(object):
         self.p_filt_value_dc[:] = uncorrected*gain
         self.hdf5_group.file.flush()
 
-    @_add_group_loop
+    @_add_group_loop()
     def phase_correct2014(self, typical_resolution, maximum_num_records=50000, plot=False,
                           forceNew=False, category={}):
         """Apply the phase correction that worked for calibronium-like data as of June 2014.
@@ -1601,7 +1731,7 @@ class MicrocalDataSet(object):
             plt.plot(prompt[g], self.p_filt_value_phc[g], 'b.')
             plt.figure(fnum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def phase_correct(self, attr="p_filt_value_dc", forceNew=False, category={}, ph_peaks=None,
                       method2017=True, kernel_width=None, save_to_hdf5=True):
         """Apply the 2017 or 2015 phase correction method.
@@ -1717,7 +1847,7 @@ class MicrocalDataSet(object):
     def pkl_fname(self):
         return ljh_util.mass_folder_from_ljh_fname(self.filename, filename="ch%d_calibration.pkl" % self.channum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, category={}, forceNew=False, maxacc=0.015, nextra=3,
@@ -1757,7 +1887,7 @@ class MicrocalDataSet(object):
             auto_cal.diagnose()
         self.convert_to_energy(attr, attr + name_ext)
 
-    @_add_group_loop
+    @_add_group_loop()
     def convert_to_energy(self, attr, calname=None):
         if calname is None:
             calname = attr
@@ -1888,7 +2018,7 @@ class MicrocalDataSet(object):
         self.read_segment(seg_num)
         return self.data[record_num % self.pulse_records.pulses_per_seg, :]
 
-    @_add_group_loop
+    @_add_group_loop()
     def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree=2000,
                            pulses_per_degree=2000, max_degrees=20, forceNew=False,
                            category={}):
@@ -1968,7 +2098,7 @@ class MicrocalDataSet(object):
             print("%6d pulses cut by %s" % (self.cuts.bad(cut_name).sum(), cut_name.upper()))
         print("%6d pulses total" % self.nPulses)
 
-    @_add_group_loop
+    @_add_group_loop()
     def auto_cuts(self, nsigma_pt_rms=8.0, nsigma_max_deriv=8.0, pretrig_rms_percentile=None, forceNew=False, clearCuts=True):
         """Compute and apply an appropriate set of automatically generated cuts.
 
@@ -2000,9 +2130,6 @@ class MicrocalDataSet(object):
         Returns:
             The cut object that was applied.
         """
-        # These are based on function calc_cuts_from_noise in make_preknowledge.py
-        # in Galen's project POPE.jl.
-
         if self.saved_auto_cuts is None:
             forceNew = True
         if not forceNew:
@@ -2049,6 +2176,9 @@ class MicrocalDataSet(object):
             pretrigger_rms=(None, pt_max),
             postpeak_deriv=(None, md_max),
         )
+        cuts._pretrig_rms_median = pt_med  # store these so we can acess them when writing projectors to hdf5
+        cuts._pretrig_rms_sigma = pt_madn
+
         self.apply_cuts(cuts, forceNew=True, clear=False)
         self.__save_auto_cuts(cuts)
         return cuts
@@ -2074,7 +2204,7 @@ class MicrocalDataSet(object):
             cuts.cuts_prm[attrname] = (None, g.attrs[attrname])
         self.saved_auto_cuts = cuts
 
-    @_add_group_loop
+    @_add_group_loop()
     def smart_cuts(self, threshold=10.0, n_trainings=10000, forceNew=False):
         """Young! Why is there no doc string here??"""
         # first check to see if this had already been done
@@ -2099,7 +2229,7 @@ class MicrocalDataSet(object):
         else:
             LOG.info("channel %g skipping smart cuts because it was already done", self.channum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def flag_crosstalking_pulses(self, priorTime, postTime, combineCategories=True,
                                  nearestNeighborsDistances=1, crosstalk_key='is_crosstalking',
                                  forceNew=False):
@@ -2216,7 +2346,7 @@ class MicrocalDataSet(object):
         else:
             LOG.info("channel %d skipping crosstalk cuts because nearest neighbors not set", self.channum)
 
-    @_add_group_loop
+    @_add_group_loop()
     def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory='physical',
                                    distanceType='cartesian', forceNew=False):
         ''' Finds the nearest neighbors in a given space for all channels in a data set
@@ -2279,7 +2409,7 @@ class MicrocalDataSet(object):
                     squaredDistanceDictionary[squaredDistance]
 
         def calculate_manhattan_distances():
-            print('Placeholder function for calculating manhattan distances between detectors')
+            raise Exception("not implemented")
 
         def process_matching_channel(positionToCompare):
             '''
@@ -2332,7 +2462,7 @@ class MicrocalDataSet(object):
             elif distanceType == 'manhattan':
                 calculate_manhattan_distances()
             else:
-                print('Distance type ' + distanceType + ' not recognized.')
+                raise Exception('Distance type ' + distanceType + ' not recognized.')
 
 
 def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,

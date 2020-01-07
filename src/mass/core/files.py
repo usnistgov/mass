@@ -24,7 +24,8 @@ Created on Feb 16, 2011
 import numpy as np
 import os
 from distutils.version import StrictVersion
-
+import logging
+LOG = logging.getLogger("mass")
 
 class MicrocalFile(object):
     """A set of data on disk containing triggered records from a microcalorimeter.
@@ -290,7 +291,7 @@ class LJHFile(MicrocalFile):
         if self.nPresamples is None:
             raise IOError("No 'Presamples' line found in header.\n   File: %s" % filename)
         if self.nPulses < 1:
-            print("Warning: no pulses found.\n   File: %s" % filename)
+            LOG.warn("Warning: no pulses found.\n   File: %s" % filename)
 
         # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
         # It adds 3 to the "true value" of nPresamples. For now, assume that only
@@ -301,10 +302,10 @@ class LJHFile(MicrocalFile):
         # This used to be fatal. It prevented opening files cut short by
         # a crash of the DAQ software, so we made it just a warning.
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
-            print("Warning: The binary size "
+            LOG.warn("Warning: The binary size "
                   + "(%d) is not an integer multiple of the pulse size %d bytes" %
                   (self.binary_size, self.pulse_size_bytes))
-            print("%06s" % filename)
+            LOG.warn("%06s" % filename)
 
         # Record the sample times in microseconds
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
@@ -499,13 +500,6 @@ class LJHFile(MicrocalFile):
                 fp.seek(skip)
             array = np.fromfile(fp, dtype=np.uint16, sep="", count=wordcount)
 
-        # Let's not catch an Exception, if we don't know which one to catch.
-        #     print(self.filename)
-        #     print('array[-4:]', array[-4:])
-        #     print('wordcount', wordcount, 'skip', skip)
-        #     print('arrays.size', array.size, 'array.dtype', array.dtype)
-        # raise
-
         # If data has a fractional record at the end, truncate to make it go away.
         self.segment_pulses = len(array) // (self.pulse_size_bytes // 2)
         array = array[:self.segment_pulses * (self.pulse_size_bytes // 2)]
@@ -513,7 +507,7 @@ class LJHFile(MicrocalFile):
         try:
             self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes // 2])
         except ValueError as ex:
-            print(skip, max_size, self.segment_pulses, self.pulse_size_bytes, len(array))
+            LOG.debug(skip, max_size, self.segment_pulses, self.pulse_size_bytes, len(array))
             raise ex
 
         # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,

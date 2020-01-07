@@ -242,7 +242,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     @show_progress("filter_data_tdm")
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=True):
+    def filter_data_cython(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=True):
         """Filter the complete data file one chunk at a time."""
         cdef:
             Py_ssize_t i, j, k
@@ -271,9 +271,8 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             filter_values = self.hdf5_group['filters/%s' % filter_name].value
 
         # For now, the "new" (2015) filters cannot be applied in cython.
-        if self._use_new_filters:
-            MicrocalDataSet.filter_data(self, filter_name=filter_name, transform=transform, forceNew=forceNew)
-            return
+        if self._filter_type != "5lag":
+            raise Exception("filter_data_cython only works with filter_type=5lag")
 
         n_segments = self.pulse_records.n_segments
         pulses_per_seg = self.pulse_records.pulses_per_seg

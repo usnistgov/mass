@@ -1,5 +1,5 @@
 import mass
-import off
+from .off import OffFile
 import collections
 import os
 
@@ -10,19 +10,29 @@ import inspect
 import fastdtw
 import h5py
 import shutil
+import logging
+LOG = logging.getLogger("mass")
 
 
 class ExperimentStateFile():
-    def __init__(self, filename=None, offFilename=None, excludeStart=False, excludeEnd=False):
+    def __init__(self, filename=None, offFilename=None, excludeStates="auto"):
+        """
+        excludeStates - when "auto" it either exclude no states when START is the only state or or excludes START, END and IGNORE
+        otherwise pass a list of states to exclude
+        """
         if filename is not None:
             self.filename = filename
         elif offFilename is not None:
             self.filename = self.experimentStateFilenameFromOffFilename(offFilename)
         else:
             raise Exception("provide filename or offFilename")
-        self.excludeStart = excludeStart
-        self.excludeEnd = excludeEnd
+        self.excludeStates = excludeStates
+        self.parse_start = 0
+        self.allLabels = []
+        self.unixnanos = np.zeros(0)
         self.parse()
+        self.labelAliasesDict = {}  # map unaliasedLabels to aliasedLabels
+        self._statesDictCalculated = False
 
     def experimentStateFilenameFromOffFilename(self, offFilename):
         basename, channum = mass.ljh_util.ljh_basename_channum(offFilename)
@@ -30,14 +40,22 @@ class ExperimentStateFile():
 
     def parse(self):
         with open(self.filename, "r") as f:
+            # if we call parse a second time, we want to add states rather than reparse the whole file
+            f.seek(self.parse_start)
             lines = f.readlines()
-        if len(lines) < 1:
-            raise Exception("zero lines in file")
-        if not lines[0][0] == "#":
-            raise Exception("first line should start with #, was %s" % lines[0])
+            parse_end = f.tell()
+        if self.parse_start == 0:
+            header_line = lines[0]
+            if header_line[0] != "#":
+                raise Exception("first line should start with #, was %s" % header_line)
+            lines = lines[1:]
+            if len(lines) == 0:
+                raise Exception("zero lines after header in file")
+        if len(lines) == 0:
+            return  # no new states
         unixnanos = []
         labels = []
-        for line in lines[1:]:
+        for line in lines:
             a, b = line.split(",")
             a = a.strip()
             b = b.strip()
@@ -45,44 +63,87 @@ class ExperimentStateFile():
             label = b
             unixnanos.append(unixnano)
             labels.append(label)
-        self.allLabels = labels
-        self.unixnanos = np.array(unixnanos)
-        self.labels = self.applyExcludesToLabels(self.allLabels)
-        self.unaliasedLabels = self.labels[:]
+        self.allLabels += labels
+        self.unixnanos = np.hstack([self.unixnanos, np.array(unixnanos)])
+        self.unaliasedLabels = self.applyExcludesToLabels(self.allLabels)
+        self.parse_start = parse_end  # next call to parse, start from here
+
+    def calculateAutoExcludes(self):
+        if len(self.allLabels) == 1:
+            return []
+        else:
+            return ["START", "END", "STOP", "IGNORE"]
 
     def applyExcludesToLabels(self, allLabels):
-        # if there are no other states so don't exclude START and END,
-        return [lb for lb in self.allLabels if not ((self.excludeEnd and lb == "END") or (self.excludeStart and lb == "START"))]
+        if self.excludeStates == "auto":
+            self.excludeStates = self.calculateAutoExcludes()
+        return [label for label in self.allLabels if label not in self.excludeStates]
 
-    # this needs to be able to refresh with length changes
-
-    def calcStatesDict(self, unixnanos):
+    def calcStatesDict(self, unixnanos, statesDict=None, i0_allLabels=0, i0_unixnanos=0):
         """
-        accepts a vector of unixnano timestamps and returns a dictionary mapping
-        state labels to vectors of bools that can be used to
-        index into an array like filtValue"""
-        statesDict = collections.OrderedDict()
-        inds = np.searchsorted(unixnanos, self.unixnanos)
-        for i, label in enumerate(self.allLabels):
+        calculate statesDict, a dictionary mapping state name to EITHER a slice OR a boolean array with length
+        equal to unixnanos. Slices are used for unique states; boolean arrays are used for repeated states.
+        When updating pass in the existing statesDict and i0 must be the first label in allLabels that wasn't
+        used to calculate the existing statesDict.
+        """
+        if statesDict is None:
+            statesDict = collections.OrderedDict()
+        inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
+        if len(statesDict.keys()) > 0:  # the state that was active last time calcStatesDict was called may need special handling
+            assert i0_allLabels > 0
+            for k in statesDict.keys():
+                last_key = k
+            s = statesDict[last_key]
+            s2 = slice(s.start, inds[0])
+            statesDict[k] = s2
+        # iterate over self.allLabels because it corresponds to self.unixnanos
+        for i, label in enumerate(self.allLabels[i0_allLabels:]):
             if label not in self.unaliasedLabels:
                 continue
-            if label not in statesDict:
-                statesDict[label] = np.zeros(len(unixnanos), dtype="bool")
-            if i+1 == len(self.allLabels):
-                statesDict[label][inds[i]:len(unixnanos)] = True
-            else:
-                statesDict[label][inds[i]:inds[i+1]] = True
-            # add aliases
-            j = self.unaliasedLabels.index(label)
-            statesDict[self.labels[j]] = statesDict[label]  # add aliases
+            aliasedLabel = self.labelAliasesDict.get(label, label)
+            if aliasedLabel in statesDict:
+                # this label is not unique, use a bool index
+                v = statesDict[aliasedLabel]
+                if isinstance(v, np.ndarray):
+                    if len(v) == len(unixnanos):  # the bool index is already the correct length
+                        bool_index = v
+                    elif len(v) < len(unixnanos):  # the bool index needs to be longer
+                        bool_index = np.zeros(len(unixnanos), dtype="bool")
+                        bool_index[:len(v)] = v
+                    else:
+                        raise Exception("should not be possible to have len(v)={}>len(unixnanos)={}".format(
+                            len(v), len(unixnanos)))
+                elif isinstance(v, slice):  # if we've seen this state once before, we would have a slice
+                    bool_index = np.zeros(len(unixnanos), dtype="bool")
+                    bool_index[v] = True
+                    if i+1 == len(self.allLabels):
+                        bool_index[inds[i]:len(unixnanos)] = True
+                    else:
+                        bool_index[inds[i]:inds[i+1]] = True
+                else:
+                    raise Exception("v should be a slice or another bool index, v is a {} for label={}, aliasedlabel={}".format(
+                        type(v), label, aliasedLabel))
+                statesDict[aliasedLabel] = bool_index
+            else:  # this state is unique, use a slice
+                if i+1 == len(self.allLabels):
+                    statesDict[aliasedLabel] = slice(inds[i], len(unixnanos))
+                else:
+                    statesDict[aliasedLabel] = slice(inds[i], inds[i+1])
+        self._statesDictCalculated = True
+        assert(len(statesDict) == len(self.unaliasedLabels))
         return statesDict
 
     def __repr__(self):
         return "ExperimentStateFile: "+self.filename
 
-    def aliasState(self, state, alias):
-        i = self.labels.index(state)
-        self.labels[i] = alias
+    def aliasState(self, unaliasedLabel, aliasedLabel):
+        if self._statesDictCalculated:
+            raise Exception("call aliasState before calculating or re-calculating statesDict")
+        self.labelAliasesDict[unaliasedLabel] = aliasedLabel
+
+    @property
+    def labels(self):
+        return [self.labelAliasesDict.get(label, label) for label in self.unaliasedLabels]
 
 
 def annotate_lines(axis, labelLines, labelLines_color2=[], color1="k", color2="r"):
@@ -133,14 +194,14 @@ class DriftCorrection():
         hdf5_group["{}/version".format(name)] = self.version
 
     @classmethod
-    def fromHDF5(self, hdf5_group, name="driftCorrection"):
-        indicatorName = hdf5_group["{}/indicatorName".format(name)].value
-        uncorrectedName = hdf5_group["{}/uncorrectedName".format(name)].value
-        medianIndicator = hdf5_group["{}/medianIndicator".format(name)].value
-        slope = hdf5_group["{}/slope".format(name)].value
-        version = hdf5_group["{}/version".format(name)].value
-        assert(version == self.version)
-        return DriftCorrection(indicatorName, uncorrectedName, medianIndicator, slope)
+    def fromHDF5(cls, hdf5_group, name="driftCorrection"):
+        indicatorName = hdf5_group["{}/indicatorName".format(name)][()]
+        uncorrectedName = hdf5_group["{}/uncorrectedName".format(name)][()]
+        medianIndicator = hdf5_group["{}/medianIndicator".format(name)][()]
+        slope = hdf5_group["{}/slope".format(name)][()]
+        version = hdf5_group["{}/version".format(name)][()]
+        assert(version == cls.version)
+        return cls(indicatorName, uncorrectedName, medianIndicator, slope)
 
     def __eq__(self, other):
         """Overrides the default implementation"""
@@ -216,13 +277,13 @@ class CorG():
     def stateLabels(self):
         return self.experimentStateFile.labels
 
-    def plotHist(self, binEdges, attr, axis=None, labelLines=[], states=None, g_func=None, coAddStates=True):
+    def plotHist(self, binEdges, attr, axis=None, labelLines=[], states=None, goodFunc=None, coAddStates=True):
         """plot a coadded histogram from all good datasets and all good pulses
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram "p_energy" or "p_filt_value"
         axis -- if None, then create a new figure, otherwise plot onto this axis
         annotate_lines -- enter lines names in STANDARD_FEATURES to add to the plot, calls annotate_lines
-        g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
+        goodFunc -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
             This vector is anded with the vector calculated by the histogrammer    """
         if axis is None:
             plt.figure()
@@ -230,21 +291,22 @@ class CorG():
         if states is None:
             states = self.stateLabels
         if coAddStates:
-            x, y = self.hist(binEdges, attr, states=states, g_func=g_func)
+            x, y = self.hist(binEdges, attr, states=states, goodFunc=goodFunc)
             axis.plot(x, y, drawstyle="steps-mid", label=states)
         else:
             for state in states:
-                x, y = self.hist(binEdges, attr, states=state, g_func=g_func)
+                x, y = self.hist(binEdges, attr, states=state, goodFunc=goodFunc)
                 axis.plot(x, y, drawstyle="steps-mid", label=state)
         axis.set_xlabel(attr)
         axis.set_ylabel("counts per %0.1f unit bin" % (binEdges[1]-binEdges[0]))
         plt.legend(title="states")
         axis.set_title(self.shortName)
         annotate_lines(axis, labelLines)
+        return axis
 
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=1, binEdges=None, label="full", plot=True,
-                guessParams=None, g_func=None, holdvals=None):
+                guessParams=None, goodFunc=None, holdvals=None):
         """Do a fit to `lineNameOrEnergy` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
@@ -256,7 +318,7 @@ class CorG():
         plot -- passed to fitter.fit, determine if plot happens
         guessParams -- passed to fitter.fit, fitter.fit will guess the params on its own if this is None
         category -- pass {"side":"A"} or similar to use categorical cuts
-        g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
+        goodFunc -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
         holdvals -- a dictionary mapping keys from fitter.params_meaning to values... eg {"background":0, "dP_dE":1}
             This vector is anded with the vector calculated by the histogrammer
         """
@@ -277,7 +339,7 @@ class CorG():
         if axis is None and plot:
             plt.figure()
             axis = plt.gca()
-        bin_centers, counts = self.hist(binEdges, attr, states, g_func)
+        bin_centers, counts = self.hist(binEdges, attr, states, goodFunc)
         if guessParams is None:
             guessParams = fitter.guess_starting_params(counts, bin_centers)
         if holdvals is None:
@@ -301,10 +363,80 @@ class CorG():
 
         return fitter
 
+
+class NoCutInds():
+    pass
+
+
+class Recipe():
+    """
+    If `r` is a Recipe, it is a wrapper around a function `f` and the names of its arguments.
+    Arguments can either be names to be provided in a dictionary `d` when `r(d)` is called, or
+    argument can be Recipe.
+    `r.nonRecipeArgs` is a list of the names of all the argumets `r` takes as well as all the other recipes that `r` depends upon
+    `r(d)` where d is a dict mappring the names of argument to values will call `f` with the appropriate arguments, and also
+    evaulate arguments which are recipes.
+
+    The reasons this exists is so I can get a list of all the argument I need from the off file, so I can read from the off file
+    a single time to evaluate a recipe that may depend on many values from the off file. My previous implementation would make multiple
+    reads to the off file.
+    """
+
+    def __init__(self, f, argNames=None):
+        assert not isinstance(f, Recipe)
+        self.f = f
+        self.args = collections.OrderedDict()  # assumes the dict preserves insertion order
+        inspectedArgNames = inspect.getargspec(self.f).args  # may be python 2.7 only
+        if inspectedArgNames[0] == "self":  # drop the self argument for class methods
+            inspectedArgNames = inspectedArgNames[1:]
+        if argNames is None:
+            for argName in inspectedArgNames:
+                self.args[argName] = argName
+        else:
+            # i would like to do == here, but i'd need to handle optional arguments better
+            assert len(inspectedArgNames) >= len(argNames)
+            for argName, inspectedArgName in zip(argNames, inspectedArgNames):
+                self.args[argName] = inspectedArgName
+
+    def setArg(self, argName, r):
+        assert isinstance(r, Recipe)
+        assert argName in self.args
+        self.args[argName] = r
+
+    @property
+    def nonRecipeArgs(self):
+        a = []
+        for (k, v) in self.args.items():
+            if isinstance(v, Recipe):
+                a += v.nonRecipeArgs
+            else:
+                a.append(k)
+        return a
+
+    def __call__(self, args):
+        new_args = []
+        for (k, v) in self.args.items():
+            if isinstance(v, Recipe):
+                new_args.append(v(args))
+            else:
+                new_args.append(args[k])
+        # call functions with positional arguments so names don't need to match
+        return self.f(*new_args)
+
+    def __repr__(self, indent=0):
+        s = "Recipe: f={}, args=".format(self.f)
+        s += "\n" + "  "*indent + "{\n"
+        for (k, v) in self.args.items():
+            if isinstance(v, Recipe):
+                s += "{}{}: {}\n".format("  "*(indent+1), k, v.__repr__(indent+1))
+            else:
+                s += "{}{}: {}\n".format("  "*(indent+1), k, v)
+        s += "  "*indent + "}"
+        return s
+
+
 # wrap up an off file with some conviencine functions
 # like a TESChannel
-
-
 class Channel(CorG):
     def __init__(self, offFile, experimentStateFile, verbose=True):
         self.offFile = offFile
@@ -313,6 +445,28 @@ class Channel(CorG):
         self._statesDict = None
         self.verbose = verbose
         self.learnChannumAndShortname()
+        self.recipes = {}
+        self._defineDefaultRecipesAndProperties()
+
+    def _defineDefaultRecipesAndProperties(self):
+        assert(len(self.recipes) == 0)
+        t0 = self.offFile["unixnano"][0]
+        self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e9, ["unixnano"])
+        self.addRecipe("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
+
+    @property
+    def _offAttrs(self):
+        return self.offFile.dtype.names
+
+    @property
+    def _recipeAttrs(self):
+        return self.recipes.keys()
+
+    def isOffAttr(self, attr):
+        return attr in self._offAttrs
+
+    def isRecipeAttr(self, attr):
+        return attr in self._recipeAttrs
 
     def learnChannumAndShortname(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFile.filename)
@@ -330,23 +484,21 @@ class Channel(CorG):
     def learnStdDevResThresholdUsingRatioToNoiseStd(self, ratioToNoiseStd=1.5):
         self.stdDevResThreshold = self.offFile.header["ModelInfo"]["NoiseStandardDeviation"]*ratioToNoiseStd
 
-    def choose(self, states=None, good=True):
-        """ return boolean indicies of "choose" pulses
-        if state is none, all states are chosen
-        ds.choose("A") selects state A
-        ds.choose(["A","B"]) selects states A and B
+    def getStatesIndicies(self, states=None):
+        """return a list of slices corresponding to
+         the passed states
+        this list is appropriate for passing to getOffAttr or getRecipeAttr
         """
-        g = self.offFile["residualStdDev"] < self.stdDevResThreshold
-        if not good:
-            g = np.logical_not(g)
         if isinstance(states, str):
             states = [states]
-        if states is not None:
-            z = np.zeros(self.nRecords, dtype="bool")
-            for state in states:
-                z = np.logical_or(z, self.statesDict[state])
-            g = np.logical_and(g, z)
-        return g
+        if states is None:
+            return [slice(0, len(self))]
+        inds = []
+        for state in states:
+            v = self.statesDict[state]
+            assert isinstance(v, slice)
+            inds.append(v)
+        return inds
 
     def __repr__(self):
         return "Channel based on %s" % self.offFile
@@ -363,160 +515,198 @@ class Channel(CorG):
 
     @property
     def residualStdDev(self):
-        return self.offFile["residualStdDev"]
+        return self.getAttr("residualStdDev", NoCutInds())
 
     @property
     def pretriggerMean(self):
-        return self.offFile["pretriggerMean"]
+        return self.getAttr("pretriggerMean", NoCutInds())
 
     @property
     def relTimeSec(self):
-        t = self.offFile["unixnano"]
-        return (t-t[0])/1e9
+        # NoCutInds() is equivalent to indexing the whole array with :
+        return self.getAttr("relTimeSec", NoCutInds())
 
     @property
     def unixnano(self):
-        return self.offFile["unixnano"]
+        return self.getAttr("unixnano", NoCutInds())
 
     @property
     def pulseMean(self):
-        return self.offFile["coefs"][:, 0]
+        return self.getAttr("pulseMean", NoCutInds())
 
     @property
     def derivativeLike(self):
-        return self.offFile["coefs"][:, 1]
+        return self.getAttr("derivativeLike", NoCutInds())
 
     @property
     def filtPhase(self):
         """ used as input for phase correction """
-        return self.derivativeLike/self.filtValue
+        return self.getAttr("filtPhase", NoCutInds())
 
     @property
     def filtValue(self):
-        return self.offFile["coefs"][:, 2]
+        return self.getAttr("filtValue", NoCutInds())
 
-    @property
-    def coef3(self):
-        return self.offFile["coefs"][:, 3]
+    def defaultGoodFunc(self, v):
+        """v must be of self.offFile.dtype"""
+        g = v["residualStdDev"] < self.stdDevResThreshold
+        return g
 
-    @property
-    def coef4(self):
-        return self.offFile["coefs"][:, 4]
+    def getOffAttr(self, offAttr, inds, goodFunc=None, returnBad=False, _listMethodSelect=2):
+        """
+        offAttr - a string or list of strings with names of items to get from offFile, eg ["filtValue","pretriggerMean"]
+        inds - a slice or list of slices to index into items with
+        goodFunc - a function called on the data read from the off file, must return a vector of bool values
+        returnBad - if true, np.logical_not the goodFunc output
+        _listMethodSelect - used for debugging and testing, chooses the implmentation of this method used for lists of indicies
+        getOffAttr("filtValue", slice(0,10), f) is roughly equivalent to:
+        g = f(offFile[0:10])
+        offFile["filtValue"][0:10][g]
+        """
+        if goodFunc is None:
+            goodFunc = self.defaultGoodFunc
+        # offAttr can be a list of offAttr names
+        if isinstance(inds, slice):
+            r = self.offFile[inds]
+            g = goodFunc(r)
+            if returnBad:
+                g = np.logical_not(g)
+            output = r[g][offAttr]
+        elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
+            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
+            # and about 2x fatster than temporary bool index, which can be found in commit 063bcce
+            # make sure s.step is None so my simple length calculation will work
+            assert all([isinstance(s, slice) and s.step is None for s in inds])
+            max_length = np.sum([s.stop-s.start for s in inds])
+            output_dtype = self.offFile[0:0][offAttr].dtype  # get the dtype to preallocate with
+            output_prealloc = np.zeros(max_length, output_dtype)
+            ilo, ihi = 0, 0
+            for s in inds:
+                tmp = self.getOffAttr(offAttr, s, goodFunc, returnBad)
+                ilo = ihi
+                ihi = ilo+len(tmp)
+                output_prealloc[ilo:ihi] = tmp
+            output = output_prealloc[0:ihi]
+        elif isinstance(inds, list) and _listMethodSelect == 0:  # repeated hstack
+            # this could be removed, along with the _listMethodSelect argument
+            # this is only left in because it is useful for correctness testing for preallocate and truncate method since this is simpler
+            assert all([isinstance(_inds, slice) for _inds in inds])
+            output = self.getOffAttr(offAttr, inds[0], goodFunc, returnBad)
+            for i in range(1, len(inds)):
+                output = np.hstack((output, self.getOffAttr(offAttr, inds[i], goodFunc, returnBad)))
+        elif isinstance(inds, NoCutInds):
+            output = self.offFile[offAttr]
+        else:
+            raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
+        return output
 
-    @property
-    def filtValueDC(self):
-        indicator = getattr(self, self.driftCorrection.indicatorName)
-        uncorrected = getattr(self, self.driftCorrection.uncorrectedName)
-        return self.driftCorrection.apply(indicator, uncorrected)
+    def getRecipeAttr(self, attr, inds, goodFunc=None, returnBad=False):
+        if goodFunc is None:
+            goodFunc = self.defaultGoodFunc
+        recipe = self.recipes[attr]
+        offAttr = recipe.nonRecipeArgs
+        # make a single read from the off file, even if we need multiple items like "pretriggerMean" and "filtValue" simultaneously
+        # this should be a ndarray with a dtype mapping names to items
+        offAttrValues = self.getOffAttr(offAttr, inds, goodFunc, returnBad)
+        args = {}
+        for k in offAttr:
+            args[k] = offAttrValues[k]  # here we break out the ndarray into seperate arrays
+        return recipe(args)
 
-    @property
-    def filtValuePC(self):
-        indicator = getattr(self, self.phaseCorrection.indicatorName)
-        uncorrected = getattr(self, self.phaseCorrection.uncorrectedName)
-        return self.phaseCorrection(indicator, uncorrected)
+    def getAttr(self, attr, inds, goodFunc=None, returnBad=False):
+        if self.isOffAttr(attr):
+            return self.getOffAttr(attr, inds, goodFunc, returnBad)
+        elif self.isRecipeAttr(attr):
+            return self.getRecipeAttr(attr, inds, goodFunc, returnBad)
+        else:
+            raise Exception("attr {} is neither an OffAttr or a RecipeAttr. OffAttrs: {}\nRecipeAttrs: {}".format(attr, list(self._offAttrs), list(self._recipeAttrs)))
 
-    @property
-    def energy(self):
-        uncalibrated = getattr(self, self.calibration.uncalibratedName)
-        return self.calibration(uncalibrated)
-
-    @property
-    def energyRough(self):
-        uncalibrated = getattr(self, self.calibrationRough.uncalibratedName)
-        return self.calibrationRough(uncalibrated)
-
-    @property
-    def energyDC(self):
-        """ apply calibration to filtValueDC, ignore calibration.uncalibratedName """
-        return self.calibration(self.filtValueDC)
-
-    @property
-    def energyPC(self):
-        """ apply calibration to filtValuePC, ignore calibration.uncalibratedName """
-        return self.calibration(self.filtValuePC)
-
-    @property
-    def arbsInRefChannelUnits(self):
-        uncalibrated = getattr(self, self.calibrationArbsInRefChannelUnits.uncalibratedName)
-        return self.calibrationArbsInRefChannelUnits(uncalibrated)
-
-    def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False):
+    def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, goodFunc=None):
         if axis is None:
             plt.figure()
             axis = plt.gca()
-        A = getattr(self, nameA)
-        B = getattr(self, nameB)
         if states is None:
             states = self.stateLabels
+
+        def getAB(inds, goodFunc, returnBad):
+            A = self.getAttr(nameA, inds, goodFunc, returnBad)
+            B = self.getAttr(nameB, inds, goodFunc, returnBad)
+            return A, B
+
         for state in states:
-            g = self.choose(state)
-            axis.plot(A[g], B[g], ".", label=state)
+            inds = self.getStatesIndicies(state)
+            A, B = getAB(inds, goodFunc, returnBad=False)
+            axis.plot(A, B, ".", label=state)
             if includeBad:
-                b = self.choose(state, good=False)
-                axis.plot(A[b], B[b], "x", label=state+" bad")
+                A, B = getAB(inds, goodFunc, returnBad=True)
+                axis.plot(A, B, "x", label=state+" bad")
         plt.xlabel(nameA)
         plt.ylabel(nameB)
         plt.title(self.shortName)
         plt.legend(title="states")
         return axis
 
-    def hist(self, binEdges, attr, states=None, g_func=None):
+    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
-        g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.choose() would return
-            This vector is anded with the vector from ds.choose
+        goodFunc -- a function taking a 1d array of vales of type self.offFile.dtype and returning a vector of bool
          """
         binEdges = np.array(binEdges)
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
-        vals = getattr(self, attr)
-        g = self.choose(states)
-        if g_func is not None:
-            g = np.logical_and(g, g_func(self))
-        counts, _ = np.histogram(vals[g], binEdges)
+        inds = self.getStatesIndicies(states)
+        vals = self.getAttr(attr, inds, goodFunc, returnBad)
+        counts, _ = np.histogram(vals, binEdges)
         return binCenters, counts
 
     @add_group_loop
-    def learnDriftCorrection(self, states=None, indicatorName="pretriggerMean", uncorrectedName="filtValue"):
-        g = self.choose(states)
-        indicator = getattr(self, indicatorName)[g]
-        uncorrected = getattr(self, uncorrectedName)[g]
-        slope, info = mass.core.analysis_algorithms.drift_correct(indicator, uncorrected)
+    def learnDriftCorrection(self, states=None, indicatorName="pretriggerMean", uncorrectedName="filtValue", goodFunc=None, returnBad=False):
+        inds = self.getStatesIndicies(states)
+        v = self.getOffAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
+        slope, info = mass.core.analysis_algorithms.drift_correct(
+            v[indicatorName], v[uncorrectedName])
         self.driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
-        # we dont want to storeFiltValueDC in memory, we simply store a DriftCorrection object
+        self.addRecipe("filtValueDC", self.driftCorrection.apply, [
+                       self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         return self.driftCorrection
 
-    def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions):
-        g = self.choose(states)
-        indicator = getattr(self, indicatorName)[g]
-        uncorrected = getattr(self, uncorrectedName)[g]
+    def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions, goodFunc=None, returnBad=False):
+        inds = self.getStatesIndicies(states)
+        indicator = self.getAttr(indicatorName, inds, goodFunc, returnBad)
+        uncorrected = self.getAttr(uncorrectedName, inds, goodFunc, returnBad)
         self.phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
+        self.addRecipe("filtValuePC", self.phaseCorrection.correct, [
+                       self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     def loadDriftCorrection(self):
-        pass
+        raise Exception("not implemented")
 
     def hasDriftCorrection(self):
         return hasattr(self, "driftCorrection")
 
-    def plotCompareDriftCorrect(self, axis=None, states=None, includeBad=False):
+    def plotCompareDriftCorrect(self, axis=None, states=None, goodFunc=None, includeBad=False):
         if axis is None:
             plt.figure()
             axis = plt.gca()
-        A = getattr(self, self.driftCorrection.indicatorName)
-        B = getattr(self, self.driftCorrection.uncorrectedName)
-        C = getattr(self, "filtValueDC")
+
         if states is None:
             states = self.stateLabels
         for state in states:
-            g = self.choose(state)
-            axis.plot(A[g], B[g], ".", label=state)
-            axis.plot(A[g], C[g], ".", label=state+" DC")
+            inds = self.getStatesIndicies(state)
+            A = self.getAttr(self.driftCorrection.indicatorName, inds, goodFunc)
+            B = self.getAttr(self.driftCorrection.uncorrectedName, inds, goodFunc)
+            C = self.getAttr("filtValueDC", inds, goodFunc)
+            axis.plot(A, B, ".", label=state)
+            axis.plot(A, C, ".", label=state+" DC")
             if includeBad:
-                b = self.choose(state, good=False)
-                axis.plot(A[b], B[b], "x", label=state+" bad")
-                axis.plot(A[b], C[b], "x", label=state+" bad DC")
+                A = self.getAttr(self.driftCorrection.indicatorName, inds, goodFunc, returnBad=True)
+                B = self.getAttr(self.driftCorrection.uncorrectedName,
+                                 inds, goodFunc, returnBad=True)
+                C = self.getAttr("filtValueDC", inds, goodFunc, returnBad=True)
+                axis.plot(A, B, "x", label=state+" bad")
+                axis.plot(A, C, "x", label=state+" bad DC")
         plt.xlabel(self.driftCorrection.indicatorName)
         plt.ylabel(self.driftCorrection.uncorrectedName + ",filtValueDC")
         plt.title(self.shortName+" drift correct comparison")
@@ -531,6 +721,9 @@ class Channel(CorG):
         self.calibrationPlan.addCalPoint(uncalibratedVal, name, states, energy)
         self.calibrationRough = self.calibrationPlan.getRoughCalibration()
         self.calibrationRough.uncalibratedName = self.calibrationPlanAttr
+        self.addRecipe("energyRough", self.calibrationRough.ph2energy,
+                       [self.calibrationRough.uncalibratedName])
+        return self.calibrationPlan
 
     @add_group_loop
     def calibrateFollowingPlan(self, attr, curvetype="gain", approximate=True, dlo=50, dhi=50, binsize=1):
@@ -553,17 +746,44 @@ class Channel(CorG):
             phRefined = self.calibrationRough.energy2ph(fitter.last_fit_params_dict["peak_ph"][0])
             self.calibration.add_cal_point(phRefined, energy, name)
         self.fittersFromCalibrateFollowingPlan = fitters
+        self.addRecipe("energy", self.calibration.ph2energy, [self.calibration.uncalibratedName])
         return fitters
+
+    def addRecipe(self, recipeName, f, argNames, createProperty=True):
+        """
+        recipeName - the name of the new Attr to create, eg "energy"
+        f - the function used to caluclate the Attr
+        argNames - a list of argument names, they can be OffAttrs or other recipes
+        createProperty - if True will create a property such that you can access the output of the recipe as eg `ds.energy`
+        """
+        # add a recipe
+        # 1. create the recipe
+        # 2. call setArg to point at any existing recipes for argument
+        # 3. add to dict with key recipeName
+        assert isinstance(argNames, list)
+        recipe = Recipe(f, argNames)
+        for argName in argNames:
+            if argName in self.recipes:
+                recipe.setArg(argName, self.recipes[argName])
+            elif not self.isOffAttr(argName):
+                raise Exception(
+                    "argName={} should be in self.recipes or be an OffAttr".format(argName))
+        self.recipes[recipeName] = recipe
+        # 4. create a property to access the recipe
+        # recipes are added to the class, so only do it once per recipeName
+        if createProperty and not hasattr(Channel, recipeName):
+            setattr(Channel, recipeName, property(
+                lambda argself: argself.getAttr(recipeName, NoCutInds())))
 
     def markBad(self, reason, extraInfo=None):
         self.markedBadReason = reason
         self.markedBadExtraInfo = extraInfo
         self.markedBadBool = True
-        s = "\nMARK BAD {}\nreason: {}".format(self.shortName, reason)
+        s = "\nMARK BAD {}: reason={}".format(self.shortName, reason)
         if extraInfo is not None:
             s += "\nextraInfo: {}".format(extraInfo)
         if self.verbose:
-            print(s)
+            LOG.warn(s)
 
     def markGood(self):
         self.markedBadReason = None
@@ -610,19 +830,21 @@ class Channel(CorG):
                                                   refCalPlan.names, refCalPlan.states):
                 self.calibrationPlanAddPoint(self.calibrationArbsInRefChannelUnits.energy2ph(ph),
                                              name, states, energy)
+        self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
+                       self.calibrationArbsInRefChannelUnits.uncalibratedName])
         return self.aligner
 
     @add_group_loop
     def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None,
                             positionToleranceAbsolute=None, attr="energy", states=None,
                             dlo=50, dhi=50, binsize=1, binEdges=None, guessParams=None,
-                            g_func=None, holdvals=None):
+                            goodFunc=None, holdvals=None):
         """calls ds.linefit to fit the given line
         marks self bad if the fit position is more than toleranceFitSigma*fitSigma away
         from the correct position
         """
         fitter = self.linefit(line, attr, states, None, dlo, dhi, binsize, binEdges, False,
-                              guessParams, g_func, holdvals)
+                              guessParams, goodFunc, holdvals)
         fitPos, fitSigma = fitter.last_fit_params_dict["peak_ph"]
         resolution, _ = fitter.last_fit_params_dict["resolution"]
         if positionToleranceAbsolute is not None:
@@ -642,13 +864,13 @@ class Channel(CorG):
                 line, resolution, worstAllowedFWHM))
         return fitter
 
-    def histsToHDF5(self, h5File, binEdges, attr="energy", g_func=None):
+    def histsToHDF5(self, h5File, binEdges, attr="energy", goodFunc=None):
         grp = h5File.require_group(str(self.channum))
         for state in self.stateLabels:  # hist for each state
-            binCenters, counts = self.hist(binEdges, attr, state, g_func)
+            binCenters, counts = self.hist(binEdges, attr, state, goodFunc)
             grp["{}/bin_centers".format(state)] = binCenters
             grp["{}/counts".format(state)] = counts
-        binCenters, counts = self.hist(binEdges, attr, g_func=g_func)  # all states hist
+        binCenters, counts = self.hist(binEdges, attr, goodFunc=goodFunc)  # all states hist
         grp["bin_centers_ev"] = binCenters
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
@@ -675,34 +897,45 @@ class Channel(CorG):
         grp = h5File.require_group(str(self.channum))
         if "driftCorrection" in grp:
             self.driftCorrection = DriftCorrection.fromHDF5(grp)
+            self.addRecipe("filtValueDC", self.driftCorrection.apply, [
+                           self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         if "calibration" in grp:
             self.calibration = mass.EnergyCalibration.load_from_hdf5(grp, "calibration")
-            self.calibration.uncalibratedName = grp["calibration/uncalibratedName"].value
+            self.calibration.uncalibratedName = grp["calibration/uncalibratedName"][()]
+            self.addRecipe("energy", self.calibration.ph2energy,
+                           [self.calibration.uncalibratedName])
         if "calibrationRough" in grp:
             self.calibrationRough = mass.EnergyCalibration.load_from_hdf5(grp, "calibrationRough")
-            self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"].value
+            self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"][()]
+            self.addRecipe("energyRough", self.calibrationRough.ph2energy,
+                           [self.calibrationRough.uncalibratedName])
         if "calibrationArbsInRefChannelUnits" in grp:
             self.calibrationArbsInRefChannelUnits = mass.EnergyCalibration.load_from_hdf5(
                 grp, "calibrationArbsInRefChannelUnits")
             self.calibrationArbsInRefChannelUnits.uncalibratedName = grp[
-                "calibrationArbsInRefChannelUnits/uncalibratedName"].value
+                "calibrationArbsInRefChannelUnits/uncalibratedName"][()]
+            self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
+                self.calibrationArbsInRefChannelUnits.uncalibratedName])
         if "phase_correction" in grp:
             self.phaseCorrection = mass.core.phase_correct.PhaseCorrector.fromHDF5(grp)
+            self.addRecipe("filtValuePC", self.phaseCorrection.correct, [
+                           self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     @add_group_loop
-    def energyTimestampLabelToHDF5(self, h5File):
+    def energyTimestampLabelToHDF5(self, h5File, goodFunc=None, returnBad=False):
         grp = h5File.require_group(str(self.channum))
-        energy = self.energy
-        unixnano = self.unixnano
         if len(self.stateLabels) > 0:
             for state in self.stateLabels:
-                g = self.choose(states=state)
-                grp["{}/energy".format(state)] = energy[g]
-                grp["{}/unixnano".format(state)] = unixnano[g]
+                inds = self.getStatesIndicies(state)
+                energy = self.getAttr("energy", inds, goodFunc, returnBad)
+                unixnano = self.getAttr("unixnano", inds, goodFunc, returnBad)
+                grp["{}/energy".format(state)] = energy
+                grp["{}/unixnano".format(state)] = unixnano
         else:
-            g = self.choose()
-            grp["{}/energy".format(state)] = energy[g]
-            grp["{}/unixnano".format(state)] = unixnano[g]
+            energy = self.getAttr("energy", slice(None), goodFunc, returnBad)
+            unixnano = self.getAttr("unixnano", slice(None), goodFunc, returnBad)
+            grp["{}/energy".format(state)] = energy
+            grp["{}/unixnano".format(state)] = unixnano
 
     @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute=None, thresholdSigmaFromMedianAbsoluteValue=None):
@@ -755,9 +988,9 @@ class AlignBToA():
         self.states = states
         self.peak_inds_b = self.samePeaks()
 
-    def samePeaks(self):
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = getattr(self.ds_b, self.attr)[self.ds_b.choose(self.states)]
+    def samePeaks(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
+        ph_a = self.ds_a.getAttr(self.attr, slice(None), goodFunc_a, returnBad)
+        ph_b = self.ds_b.getAttr(self.attr, slice(None), goodFunc_b, returnBad)
         if self.scale_by_median:
             median_ratio_a_over_b = np.median(ph_a)/np.median(ph_b)
         else:
@@ -786,9 +1019,9 @@ class AlignBToA():
         peak_inds_a = np.searchsorted(self.bin_edges, self.peak_xs_a)-1
         return peak_inds_a
 
-    def samePeaksPlot(self):
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = getattr(self.ds_b, self.attr)[self.ds_b.choose(self.states)]
+    def samePeaksPlot(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
+        ph_a = self.ds_a.getAttr(self.attr, slice(None), goodFunc_a, returnBad)
+        ph_b = self.ds_b.getAttr(self.attr, slice(None), goodFunc_b, returnBad)
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         plt.figure()
@@ -807,9 +1040,11 @@ class AlignBToA():
         plt.title(self.ds_a.shortName+" + "+self.ds_b.shortName
                   + "\nwith same peaks noted, peaks not expected to be aligned in this plot")
 
-    def samePeaksPlotWithAlignmentCal(self):
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = self.ds_b.arbsInRefChannelUnits[self.ds_b.choose(self.states)]
+    def samePeaksPlotWithAlignmentCal(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
+        inds_a = self.ds_a.getStatesIndicies(self.states)
+        ph_a = self.ds_a.getAttr(self.attr, inds_a, goodFunc_a, returnBad)
+        # inds_b = self.ds_b.getStatesIndicies(self.states)
+        ph_b = self.ds_b.getAttr("arbsInRefChannelUnits", slice(None), goodFunc_b, returnBad)
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         plt.figure()
@@ -847,18 +1082,18 @@ class AlignBToA():
         diff_frac_lo = np.amin(derivatives)/np.median(derivatives)
         return diff_frac_hi < threshold_hi and diff_frac_lo > threshold_lo
 
-    def _laplaceEntropy(self, w=None):
+    def _laplaceEntropy(self, w=None, goodFunc_a=None, goodFunc_b=None, returnBad=False):
         if w is None:
             w = self.bin_edges[1]-self.bin_edges[0]
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = getattr(self.ds_b, self.newattr)[self.ds_b.choose(self.states)]
+        ph_a = self.ds_a.getAttr(self.attr, slice(None), goodFunc_a, returnBad)
+        ph_b = self.ds_b.getAttr(self.newattr, slice(None), goodFunc_b, returnBad)
         entropy = mass.entropy.laplace_cross_entropy(ph_a[ph_a > self.bin_edges[0]],
                                                      ph_b[ph_b > self.bin_edges[0]], w=w)
         return entropy
 
-    def _ksStatistic(self):
-        ph_a = getattr(self.ds_a, self.attr)[self.ds_a.choose(self.states)]
-        ph_b = getattr(self.ds_b, self.newattr)[self.ds_b.choose(self.states)]
+    def _ksStatistic(self, goodFunc_a=None, goodFunc_b=None, returnBad=False):
+        ph_a = self.ds_a.getAttr(self.attr, slice(None), goodFunc_a, returnBad)
+        ph_b = self.ds_b.getAttr(self.newattr, slice(None), goodFunc_b, returnBad)
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         cdf_a = np.cumsum(counts_a)/np.sum(counts_a)
@@ -919,10 +1154,13 @@ def getOffFileListFromOneFile(filename, maxChans=None):
 
 
 class SilenceBar(progress.bar.Bar):
-    "A progres bar that can be turned off by passing silence=True"
+    "A progres bar that can be turned off by passing silence=True or by setting the log level higher than NOTSET"
 
     def __init__(self, message, max, silence):
         self.silence = silence
+        if not silence:
+            if not LOG.isEnabledFor(logging.WARN):
+                self.silence = True
         if not self.silence:
             progress.bar.Bar.__init__(self, message, max=max)
 
@@ -947,13 +1185,13 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
     3. data.whyChanBad returns an OrderedDict of bad channel numbers and reason
     """
 
-    def __init__(self, offFileNames, verbose=True, channelClass=Channel, experimentStateFile=None, excludeStartAndEndInExperimentStateFile=False):
+    def __init__(self, offFileNames, verbose=True, channelClass=Channel, experimentStateFile=None, excludeStates="auto"):
         collections.OrderedDict.__init__(self)
         self.verbose = verbose
         self.offFileNames = offFileNames
         if experimentStateFile is None:
-            self.experimentStateFile = ExperimentStateFile(offFilename=self.offFileNames[0], excludeStart=excludeStartAndEndInExperimentStateFile,
-                                                           excludeEnd=excludeStartAndEndInExperimentStateFile)
+            self.experimentStateFile = ExperimentStateFile(
+                offFilename=self.offFileNames[0], excludeStates=excludeStates)
         else:
             self.experimentStateFile = experimentStateFile
         self._includeBad = False
@@ -970,7 +1208,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             self.offFileNames), silence=not self.verbose)
         for name in self.offFileNames:
             _, channum = mass.ljh_util.ljh_basename_channum(name)
-            self[channum] = self._channelClass(off.OffFile(
+            self[channum] = self._channelClass(OffFile(
                 name), self.experimentStateFile, verbose=self.verbose)
             bar.next()
         bar.finish()
@@ -979,29 +1217,50 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         return "ChannelGroup with {} channels".format(len(self))
 
     def firstGoodChannel(self):
-        return self[list(self.keys())[0]]
+        for ds in self.values():
+            if not ds.markedBadBool:
+                return ds
+        raise Exception("no good channels")
 
-    def hist(self, binEdges, attr, states=None, g_func=None):
+    def refreshFromFiles(self):
+        """
+        refresh from files on disk to reflect new information: longer off files and new experiment states
+        to be called occasionally when running something that updates in real time
+        """
+        ds = self.firstGoodChannel()
+        i0_allLabels = len(self.experimentStateFile.allLabels)
+        n_old_labels = len(self.experimentStateFile.labels)
+        self.experimentStateFile.parse()
+        n_new_labels = len(self.experimentStateFile.labels)-n_old_labels
+        n_new_pulses_dict = collections.OrderedDict()
+        for ds in self.values():
+            i0_unixnanos = len(ds)
+            ds.offFile._updateMmap()  # will update nRecords by mmapping more data in the offFile if available
+            ds._statesDict = self.experimentStateFile.calcStatesDict(
+                ds.unixnano[i0_unixnanos:], ds.statesDict, i0_allLabels, i0_unixnanos)
+            n_new_pulses_dict[ds.channum] = len(ds)-i0_unixnanos
+        return n_new_labels, n_new_pulses_dict
+
+    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
-        g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.choose() would return
-            This vector is anded with the vector from ds.choose
          """
-        binCenters, countsdict = self.hists(binEdges, attr, states, g_func)
+        binCenters, countsdict = self.hists(
+            binEdges, attr, states, goodFunc=goodFunc, returnBad=returnBad)
         counts = np.zeros_like(binCenters, dtype="int")
         for (k, v) in countsdict.items():
             counts += v
         return binCenters, counts
 
-    def hists(self, binEdges, attr, states=None, g_func=None, channums=None):
+    def hists(self, binEdges, attr, states=None, goodFunc=None, returnBad=False, channums=None):
         binEdges = np.array(binEdges)
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
         countsdict = collections.OrderedDict()
         if channums is None:
-            channums = self.keys()
+            channums = self.keys()  # this should exclud bad channels by default
         for channum in channums:
-            _, countsdict[channum] = self[channum].hist(binEdges, attr, states, g_func)
+            _, countsdict[channum] = self[channum].hist(binEdges, attr, states, goodFunc, returnBad)
         return binCenters, countsdict
 
     @property
@@ -1014,7 +1273,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             return w
 
     def plotHists(self, binEdges, attr, axis=None, labelLines=[], states=None,
-                  g_func=None, maxChans=8, channums=None):
+                  goodFunc=None, maxChans=8, channums=None):
         if channums is None:
             channums = list(self.keys())[:min(maxChans, len(self))]
         if axis is None:
@@ -1024,7 +1283,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             states = self.stateLabels
         for channum in channums:
             ds = self[channum]
-            ds.plotHist(binEdges, attr, axis, [], states, g_func)
+            ds.plotHist(binEdges, attr, axis, [], states, goodFunc)
             line = axis.lines[-1]
             line.set_label("{}".format(channum))
             if ds.markedBadBool:
@@ -1035,9 +1294,18 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def __iter__(self):
         if self._includeBad:
-            return collections.OrderedDict.__iter__(self)
+            return (channum for channum in collections.OrderedDict.__iter__(self))
         else:
             return (channum for channum in collections.OrderedDict.__iter__(self) if not self[channum].markedBadBool)
+
+    def keys(self):
+        return [channum for channum in self]
+
+    def values(self):
+        return [self[channum] for channum in self.keys()]
+
+    def items(self):
+        return [(channum, self[channum]) for channum in self.keys()]
 
     def __len__(self):
         return len([k for k in self])
@@ -1060,15 +1328,15 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self._includeBad = False
         self._includeBadDesired = False
 
-    def histsToHDF5(self, h5File, binEdges, attr="energy", g_func=None):
+    def histsToHDF5(self, h5File, binEdges, attr="energy", goodFunc=None):
         for (channum, ds) in self.items():
-            ds.histsToHDF5(h5File, binEdges, attr, g_func)
+            ds.histsToHDF5(h5File, binEdges, attr, goodFunc)
         grp = h5File.require_group("all_channels")
         for state in self.stateLabels:  # hist for each state
-            binCenters, counts = self.hist(binEdges, attr, state, g_func)
+            binCenters, counts = self.hist(binEdges, attr, state, goodFunc)
             grp["{}/bin_centers".format(state)] = binCenters
             grp["{}/counts".format(state)] = counts
-        binCenters, counts = self.hist(binEdges, attr, g_func=g_func)  # all states hist
+        binCenters, counts = self.hist(binEdges, attr, goodFunc=goodFunc)  # all states hist
         grp["bin_centers_ev"] = binCenters
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
@@ -1080,10 +1348,10 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None, positionToleranceAbsolute=None,
                             attr='energy', states=None, dlo=50, dhi=50, binsize=1, binEdges=None,
-                            guessParams=None, g_func=None, holdvals=None, resolutionPlot=True, hdf5Group=None,
+                            guessParams=None, goodFunc=None, holdvals=None, resolutionPlot=True, hdf5Group=None,
                             _rethrow=False):
         fitters = self._qualityCheckLinefit(line, positionToleranceFitSigma, worstAllowedFWHM, positionToleranceAbsolute,
-                                            attr, states, dlo, dhi, binsize, binEdges, guessParams, g_func, holdvals,
+                                            attr, states, dlo, dhi, binsize, binEdges, guessParams, goodFunc, holdvals,
                                             _rethrow=_rethrow)
         resolutions = np.array([fitter.last_fit_params_dict["resolution"][0]
                                 for fitter in fitters.values() if fitter.fit_success])
@@ -1150,7 +1418,6 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             return h5py.File(self._outputHDF5Filename, "w")
         else:
             return h5py.File(self._outputHDF5Filename, "a")
-        return self._outputHDF5
 
     def fitterPlot(self, lineName, states=None):
         fitters = [ds.linefit(lineName, plot=False, states=states) for ds in self.values()]

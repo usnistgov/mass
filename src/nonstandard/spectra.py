@@ -204,7 +204,7 @@ class SpectrumGroup(object):
             plt.clf()
             axis = plt.subplot(111)
         if color is None:
-            color = plt.cm.get_cmap('nipy_spectral')
+            cmap = plt.cm.get_cmap('nipy_spectral')
 
         bin_centers = np.arange(0.5, nbins)*(binrange[1]-binrange[0])/nbins + binrange[0]
 
@@ -214,7 +214,7 @@ class SpectrumGroup(object):
                 cont, _bins = np.histogram(rs.pulses, nbins, binrange)
             else:
                 cont, _bins = np.histogram(rs.energies, nbins, binrange)
-            plot_as_stepped_hist(axis, cont+i*yoffset, bin_centers, color=color(float(i)/self.nchan))
+            plot_as_stepped_hist(axis, cont+i*yoffset, bin_centers, color=[cmap(float(i)/self.nchan)])
 
 
     def calibrate_brightest_lines(self, line_energies, nbins, vmax, dv_smear,
