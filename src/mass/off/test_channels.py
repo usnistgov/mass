@@ -191,6 +191,9 @@ class TestSummaries(ut.TestCase):
                 self.assertEqual(v_local, v)
             self.assertTrue(all(ds.filtValue == ds_local.filtValue))
             self.assertTrue(all(hist_local == hist))
+            # refresh again without updating the files, make sure it doesnt crash
+            n_new_labels_2, n_new_pulses_dict2 = data.refreshFromFiles()
+            self.assertEqual(n_new_labels_2, 0)
         except AssertionError:
             import pdb  # make debugging easier by using pdb
             pdb.set_trace()

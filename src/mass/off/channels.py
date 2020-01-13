@@ -89,7 +89,8 @@ class ExperimentStateFile():
         if statesDict is None:
             statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
-        if len(statesDict.keys()) > 0:  # the state that was active last time calcStatesDict was called may need special handling
+        logging.debug(f"statesDict {statesDict}, inds {inds}, len(unixnanos) {len(unixnanos)}")
+        if len(statesDict.keys()) > 0 and len(inds)>0:  # the state that was active last time calcStatesDict was called may need special handling
             assert i0_allLabels > 0
             for k in statesDict.keys():
                 last_key = k
@@ -1233,6 +1234,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self.experimentStateFile.parse()
         n_new_labels = len(self.experimentStateFile.labels)-n_old_labels
         n_new_pulses_dict = collections.OrderedDict()
+        logging.debug(f"n_new_lables {n_new_labels}, i0_allLabels {i0_allLabels}")
         for ds in self.values():
             i0_unixnanos = len(ds)
             ds.offFile._updateMmap()  # will update nRecords by mmapping more data in the offFile if available
