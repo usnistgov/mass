@@ -223,6 +223,28 @@ class TestSummaries(ut.TestCase):
                 n_exclude_bad += 1
         self.assertEqual(n_exclude_bad, 0)
 
+    def test_experiment_state_file_repeated_states(self):
+        # a better test would create an alternate experiment state file with repeated indicies and use that rather than reach into the internals of ExperimentStateFile
+        esf = mass.off.channels.ExperimentStateFile(_parse=False)
+        # reach into the internals to simulate the results of parse with repeated states
+        esf.allLabels = ["A", "B", "A", "B", "IGNORE", "A"]
+        esf.unixnanos = np.arange(len(esf.allLabels))*100
+        esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
+        unixnanos = np.arange(2*len(esf.allLabels))*50 # two entires per label
+        d = esf.calcStatesDict(unixnanos) 
+        self.assertEqual(len(d["A"]), esf.allLabels.count("A"))
+        self.assertEqual(len(d["B"]), esf.allLabels.count("B"))
+        self.assertFalse("IGNORE" in d.keys())
+        for s in d["A"]+d["B"]:
+            self.assertEqual(s.stop-s.start,2)
+
+    def test_getAttr_with_list_of_slice(self):
+        ind = [slice(0,5),slice(5,10)]
+        self.assertTrue(np.allclose(ds.getAttr("filtValue",ind), ds.getAttr("filtValue",slice(0,10))))
+        self.assertTrue(np.allclose(ds.getAttr("filtValue",[slice(0,10)]), ds.getAttr("filtValue",slice(0,10))))
+
+
+
 
 if __name__ == '__main__':
     ut.main()
