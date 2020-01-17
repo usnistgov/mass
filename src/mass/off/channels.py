@@ -15,9 +15,10 @@ LOG = logging.getLogger("mass")
 
 
 class ExperimentStateFile():
-    def __init__(self, filename=None, offFilename=None, excludeStates="auto"):
+    def __init__(self, filename=None, offFilename=None, excludeStates="auto", _parse=True):
         """
         excludeStates - when "auto" it either exclude no states when START is the only state or or excludes START, END and IGNORE
+        _parse is only for testing
         otherwise pass a list of states to exclude
         """
         if filename is not None:
@@ -25,12 +26,15 @@ class ExperimentStateFile():
         elif offFilename is not None:
             self.filename = self.experimentStateFilenameFromOffFilename(offFilename)
         else:
-            raise Exception("provide filename or offFilename")
+            self.filename = None
         self.excludeStates = excludeStates
         self.parse_start = 0
         self.allLabels = []
         self.unixnanos = np.zeros(0)
-        self.parse()
+        if _parse:
+            if self.filename is None:
+                raise Exception("pass filename or offFilename or _parse=False")
+            self.parse()
         self.labelAliasesDict = {}  # map unaliasedLabels to aliasedLabels
         self._statesDictCalculated = False
 
@@ -75,9 +79,19 @@ class ExperimentStateFile():
             return ["START", "END", "STOP", "IGNORE"]
 
     def applyExcludesToLabels(self, allLabels):
+        """ 
+        possible recalculate self.excludeStates
+        return a list of state labels that is unique, and contains all entries in allLabels except those in self.excludeStates
+        order in the returned list is that of first appearance in allLables
+        """
         if self.excludeStates == "auto":
             self.excludeStates = self.calculateAutoExcludes()
-        return [label for label in self.allLabels if label not in self.excludeStates]
+        r = []
+        for label in allLabels:
+            if label in self.excludeStates or label in r:
+                continue
+            r.append(label)
+        return r
 
     def calcStatesDict(self, unixnanos, statesDict=None, i0_allLabels=0, i0_unixnanos=0):
         """
@@ -101,34 +115,25 @@ class ExperimentStateFile():
             if label not in self.unaliasedLabels:
                 continue
             aliasedLabel = self.labelAliasesDict.get(label, label)
+            if i+1 == len(self.allLabels):
+                s = slice(inds[i], len(unixnanos))
+            else:
+                s = slice(inds[i], inds[i+1])
             if aliasedLabel in statesDict:
-                # this label is not unique, use a bool index
+                # this label is unique, use a list of slices
                 v = statesDict[aliasedLabel]
-                if isinstance(v, np.ndarray):
-                    if len(v) == len(unixnanos):  # the bool index is already the correct length
-                        bool_index = v
-                    elif len(v) < len(unixnanos):  # the bool index needs to be longer
-                        bool_index = np.zeros(len(unixnanos), dtype="bool")
-                        bool_index[:len(v)] = v
-                    else:
-                        raise Exception("should not be possible to have len(v)={}>len(unixnanos)={}".format(
-                            len(v), len(unixnanos)))
-                elif isinstance(v, slice):  # if we've seen this state once before, we would have a slice
-                    bool_index = np.zeros(len(unixnanos), dtype="bool")
-                    bool_index[v] = True
-                    if i+1 == len(self.allLabels):
-                        bool_index[inds[i]:len(unixnanos)] = True
-                    else:
-                        bool_index[inds[i]:inds[i+1]] = True
+                if isinstance(v, slice):
+                    # this label was previously unique... create the list of slices
+                    statesDict[aliasedLabel] = [v,s]
+                elif isinstance(v, list):
+                    # this label was previously not unique... append to the list of slices
+                    statesDict[aliasedLabel] = v+[s]
                 else:
-                    raise Exception("v should be a slice or another bool index, v is a {} for label={}, aliasedlabel={}".format(
+                    raise Exception("v should be a slice or list of slices, v is a {} for label={}, aliasedlabel={}".format(
                         type(v), label, aliasedLabel))
-                statesDict[aliasedLabel] = bool_index
             else:  # this state is unique, use a slice
-                if i+1 == len(self.allLabels):
-                    statesDict[aliasedLabel] = slice(inds[i], len(unixnanos))
-                else:
-                    statesDict[aliasedLabel] = slice(inds[i], inds[i+1])
+                statesDict[aliasedLabel] = s
+        # statesDict values should be slices for unique states and lists of slices for non-unique states
         self._statesDictCalculated = True
         assert(len(statesDict) == len(self.unaliasedLabels))
         return statesDict
