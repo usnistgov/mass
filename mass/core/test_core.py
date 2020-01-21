@@ -18,7 +18,7 @@ class TestFiles(ut.TestCase):
 
     def test_ljh_copy_and_append_traces(self):
         """Test copying and appending traces to LJH files."""
-        src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan1.ljh')
+        src_name = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
         dest_name = os.path.join(tempfile.gettempdir(), 'foo_chan1.ljh')
         src = LJHFile(src_name)
 
@@ -49,7 +49,7 @@ class TestFiles(ut.TestCase):
 
     def test_ljh_truncate_wrong_format(self):
         # First a file using LJH format 2.1.0 - should raise an exception
-        src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan1.ljh')
+        src_name = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
         dest_name = os.path.join(tempfile.mkdtemp(), 'foo_chan1.ljh')
 
         def func():
@@ -85,7 +85,7 @@ class TestFiles(ut.TestCase):
         # Want to make sure that we didn't screw something up with the
         # segmentation, so try various lengths
         # Tests with a file with 1230 pulses, each 1016 bytes long
-        src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan3.ljh')
+        src_name = os.path.join('mass', 'regression_test', 'regress_chan3.ljh')
         self.run_test_ljh_truncate_n_pulses(src_name, 1000, None)
         self.run_test_ljh_truncate_n_pulses(src_name, 0, None)
         self.run_test_ljh_truncate_n_pulses(src_name, 1, None)
@@ -100,7 +100,7 @@ class TestFiles(ut.TestCase):
         # Want to make sure that we didn't screw something up with the
         # segmentation, so try various lengths
         # Tests with a file with 1230 pulses, each 1016 bytes long
-        src_name = os.path.join('src', 'mass', 'regression_test', 'regress_chan3.ljh')
+        src_name = os.path.join('mass', 'regression_test', 'regress_chan3.ljh')
         self.run_test_ljh_truncate_timestamp(src_name, 1000, 1510871067891481/1e6, None)
         self.run_test_ljh_truncate_timestamp(src_name,  100, 1510871020202899/1e6, 1016*2000)
         self.run_test_ljh_truncate_timestamp(src_name,   49, 1510871016889751/1e6, 1016*50)
@@ -111,8 +111,8 @@ class TestFiles(ut.TestCase):
 
     def test_ljh_dastard_other_reading(self):
         "Make sure we read DASTARD vs non-DASTARD LJH files correctly"
-        src_name1 = os.path.join('src', 'mass', 'regression_test', 'regress_chan1.ljh')
-        src_name2 = os.path.join('src', 'mass', 'regression_test', 'regress_dastard_chan1.ljh')
+        src_name1 = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
+        src_name2 = os.path.join('mass', 'regression_test', 'regress_dastard_chan1.ljh')
         data1 = mass.TESGroup(src_name1)
         data2 = mass.TESGroup(src_name2)
         for d in (data1, data2):
@@ -138,11 +138,11 @@ class TestTESGroup(ut.TestCase):
     """Basic tests of the TESGroup object."""
 
     def load_data(self, clear_hdf5=True):
-        src_name = 'src/mass/regression_test/regress_chan1.ljh'
-        noi_name = 'src/mass/regression_test/regress_chan1.noi'
+        src_name = 'mass/regression_test/regress_chan1.ljh'
+        noi_name = 'mass/regression_test/regress_chan1.noi'
         if clear_hdf5:
-            for name in ['src/mass/regression_test/regress_mass.hdf5',
-                         'src/mass/regression_test/regress_noise_mass.hdf5']:
+            for name in ['mass/regression_test/regress_mass.hdf5',
+                         'mass/regression_test/regress_noise_mass.hdf5']:
                 if os.path.isfile(name):
                     os.remove(name)
         return mass.TESGroup([src_name], [noi_name])
@@ -270,8 +270,8 @@ class TestTESGroup(ut.TestCase):
 
     def test_noncontinuous_noise(self):
         "Test for issue 157: failure when noise_is_continuous=False"
-        src_name = 'src/mass/regression_test/regress_chan1.ljh'
-        noi_name = 'src/mass/regression_test/regress_chan1.noi'
+        src_name = 'mass/regression_test/regress_chan1.ljh'
+        noi_name = 'mass/regression_test/regress_chan1.noi'
         data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
         ds = data.channel[1]
         ds.compute_noise_spectra()
@@ -325,10 +325,10 @@ class TestTESHDF5Only(ut.TestCase):
 
     def test_all_channels_bad(self):
         """Make sure it mass can open a mass generated file in HDF5 Only mode."""
-        src_name = 'src/mass/regression_test/regress_chan1.ljh'
-        noi_name = 'src/mass/regression_test/regress_chan1.noi'
-        for name in ['src/mass/regression_test/regress_mass.hdf5',
-                     'src/mass/regression_test/regress_noise_mass.hdf5']:
+        src_name = 'mass/regression_test/regress_chan1.ljh'
+        noi_name = 'mass/regression_test/regress_chan1.noi'
+        for name in ['mass/regression_test/regress_mass.hdf5',
+                     'mass/regression_test/regress_noise_mass.hdf5']:
             if os.path.isfile(name):
                 os.remove(name)
         data = mass.TESGroup([src_name], [noi_name])
@@ -342,7 +342,7 @@ class TestTESHDF5Only(ut.TestCase):
         LOG.info(data2)
 
     def test_ordering_hdf5only(self):
-        src_name = "src/mass/regression_test/regress_chan1.ljh"
+        src_name = "mass/regression_test/regress_chan1.ljh"
         dir = tempfile.mkdtemp()
         dest_name = "%s/temporary_chan%d.ljh"
         chan1_dest = dest_name % (dir, 1)

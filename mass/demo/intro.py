@@ -24,8 +24,8 @@ wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
 
 DIR = tempfile.mkdtemp()
-srcname = sourceroot.source_file("src/mass/regression_test/regress_chan1.ljh")
-noiname = sourceroot.source_file("src/mass/regression_test/regress_chan1.noi")
+srcname = sourceroot.source_file("mass/regression_test/regress_chan1.ljh")
+noiname = sourceroot.source_file("mass/regression_test/regress_chan1.noi")
 shutil.copy(srcname, DIR)
 shutil.copy(noiname, DIR)
 

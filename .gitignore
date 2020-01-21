@@ -36,3 +36,5 @@ src/mass/core/*.html
 src/mass/mathstat/*.c
 src/mass/mathstat/*.html
 src/mass/demo/sourceroot.py
+mass/core/analysis_algorithms.c
+*.so
