@@ -19,6 +19,21 @@ warnings.filterwarnings("ignore")
 LOG = logging.getLogger("mass")
 LOG.setLevel(logging.ERROR)
 
+# remove the src directory from the src path
+try:
+    i = sys.path.index(os.path.dirname(os.path.realpath(__file__)))
+    sys.path.pop(i)
+except:
+    pass
+try:
+    i = sys.path.index("")
+    sys.path.pop(i)
+except:
+    pass
+print("sys.path\n\n\n\n\n")
+print(sys.path)
+
+
 VERBOSE = 0
 # search mass and all subdirs for files matching "test_*.py"
 # dont look for tests in build directories

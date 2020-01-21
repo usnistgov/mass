@@ -1,7 +1,7 @@
 import unittest as ut
 import numpy as np
 
-from common import isstr
+from mass.common import isstr
 
 
 class TestCommon(ut.TestCase):
