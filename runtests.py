@@ -12,7 +12,6 @@ from matplotlib.axes._axes import _log as matplotlib_axes_logger
 
 matplotlib.use("svg")  # set to common backend so will run on semphora ci with fewer dependencies
 matplotlib_axes_logger.setLevel('ERROR')
-
 warnings.filterwarnings("ignore")
 
 # Raise the logging threshold, to reduce extraneous output during tests
@@ -20,6 +19,19 @@ LOG = logging.getLogger("mass")
 LOG.setLevel(logging.ERROR)
 
 VERBOSE = 0
+
+# remove the src directory from the sys path
+# this way we are sure to import the installed version of mass
+for d in ["", os.getcwd()]:
+    if d in sys.path:
+        i = sys.path.index(d)
+        sys.path.pop(i)
+
+if VERBOSE >0:
+    print("sys.path")
+    print(sys.path)
+
+
 # search mass and all subdirs for files matching "test_*.py"
 # dont look for tests in build directories
 ignoredirs = ("temp.macosx", "lib.macosx", ".git", "__pycache__", "dist", "mass.egg-info")
