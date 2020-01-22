@@ -1,5 +1,10 @@
 ## Note on version numbers of Mass
 
+**0.7.3** January 2020-
+
+* Reorganize code to live in mass/... instead of src/mass/...; always test installed Mass.
+* Can now use "setup.py develop" to link `site-packages` back to local mass, so "installed Mass" can = local.
+
 **0.7.2** December 2019-January 2020
 
 * Allow ArrivalTimeSafeFilter to be full length, skipping the "shift-1" possibility that DASTARD doesn't need.
