@@ -5,7 +5,8 @@ matplotlib>=1.5, <3.0;python_version<"3.0"
 matplotlib>=3.0;python_version>="3.0"
 Cython
 pandas
-statsmodels>=0.8.0
+statsmodels>=0.8
+matplotlib>=0.8, <=0.10;python_version<"3.0"
 scikit-learn
 h5py>=2.7
 palettable

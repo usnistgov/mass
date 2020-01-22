@@ -2,16 +2,15 @@
 build
 dist
 *.egg-info
-
 # Eclipse
 .project
 .pydevproject
-
 # PyCharm
 .idea
-
 # Spyder
 .spyproject
+# VsCode
+.vscode
 
 # General
 lint-report.txt
