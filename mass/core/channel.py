@@ -140,8 +140,10 @@ class NoiseRecords(object):
         c.datafile = self.datafile.copy()
         return c
 
-    def compute_power_spectrum(self, window=mass.mathstat.power_spectrum.hann, plot=True,
+    def compute_power_spectrum(self, window=None, plot=True,
                                max_excursion=1000):
+        if window is None:
+            window = mass.mathstat.power_spectrum.hann
         self.compute_power_spectrum_reshape(window=window, seg_length=None,
                                             max_excursion=max_excursion)
         if plot:
