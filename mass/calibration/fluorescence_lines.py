@@ -818,22 +818,10 @@ addfitter(
 )
 
 
-def plot_all_spectra():
-    """Makes a bunch of plots showing the line shape and component parts for the KAlpha
-    and KBeta complexes defined in here.
-    Intended to nearly replicate plots in references giving spectral lineshapes"""
-    for name, spectrum_class in spectrum_classes.items():
-        spectrum = spectrum_class()
+def plot_all_spectra(maxplots=10):
+    """Makes plots showing the line shape and component parts for some lines.
+    Intended to replicate plots in the literature giving spectral lineshapes."""
+    keys = list(spectrum_classes.keys())[:maxplots]
+    for name in keys:
+        spectrum = spectrum_classes[name]()
         spectrum.plot_like_reference()
-
-
-if __name__ == "__main__":
-    spectrum = fitter_classes["MgKAlpha"]()
-    spectrum.rvs(100)
-    spectrum.gaussian_fwhm = 1
-    spectrum.rvs(100)
-    spectrum.plot()
-    plt.close("all")
-
-    plot_all_spectra()
-    plt.show()
