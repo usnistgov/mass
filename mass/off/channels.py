@@ -501,8 +501,14 @@ class Channel(CorG):
         inds = []
         for state in states:
             v = self.statesDict[state]
-            assert isinstance(v, slice)
-            inds.append(v)
+            if isinstance(v, slice):
+                inds.append(v)
+            elif isinstance(v, list):
+                for vv in v:
+                    assert isinstance(vv, slice)
+                    inds.append(vv)
+            else:
+                raise Exception("v should be a list of slices or a slice, but is a {}".format(type(v)))
         return inds
 
     def __repr__(self):
