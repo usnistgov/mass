@@ -4,6 +4,7 @@
 
 * Reorganize code to live in mass/... instead of src/mass/...; always test installed Mass.
 * Can now use "setup.py develop" to link `site-packages` back to local mass, so "installed Mass" can = local.
+* Fix issue 172: add an intrinsic Gaussian in SpectralLine: components can now be Voigts, not Lorentzians.
 
 **0.7.2** December 2019-January 2020
 
