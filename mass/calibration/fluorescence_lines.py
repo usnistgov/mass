@@ -30,9 +30,16 @@ class SpectralLine(sp.stats.rv_continuous):
     return an rv_frozen.
     """
 
-    def __init__(self, pdf_gaussian_fwhm=0.0):
-        """Set up a default Gaussian smearing of 0"""
-        self.pdf_gaussian_fwhm = pdf_gaussian_fwhm
+    def __init__(self, pdf_gaussian_fwhm=0.0, intrinsic_sigma=0.0):
+        """Constructor needs two Gaussian widths (both default to zero):
+
+        `pdf_gaussian_fwhm` is the instrumental energy resolution (eV).
+            Can be changed with method set_gauss_fwhm().
+        `intrinsic_sigma` is the width (sigma) of any 'intrinsic Gaussian', as found (for example) in
+            the Fowler et al 2020 metrology shape estimation for the lanthanide L lines. Normally zero.
+        """
+        self.intrinsic_sigma = intrinsic_sigma
+        self.set_gauss_fwhm(pdf_gaussian_fwhm)
         self.peak_energy = sp.optimize.brent(lambda x: -self.pdf(x),
                                              brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
         self.cumulative_amplitudes = self.normalized_lorentzian_integral_intensity.cumsum()
@@ -50,8 +57,8 @@ class SpectralLine(sp.stats.rv_continuous):
         result = np.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
-            result += ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=self.gaussian_sigma)
-            # Note that voigt is normalized to have unit integrated intensity
+            result += ampl * voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gaussian_sigma)
+            # mass.voigt() is normalized to have unit integrated intensity
         return result
 
     def components(self, x):
@@ -82,8 +89,8 @@ class SpectralLine(sp.stats.rv_continuous):
                 axis.plot(x, component, "--")
         pdf = self.pdf(x)
         axis.plot(x, self.pdf(x), "k", lw=2, label=label)
-        axis.set_xlabel("energy (eV)")
-        axis.set_ylabel("counts (arb)")
+        axis.set_xlabel("Energy (eV)")
+        axis.set_ylabel("Counts per {:.2} eV bin".format(x[1]-x[0]))
         axis.set_xlim(x[0], x[-1])
         if setylim:
             axis.set_ylim(np.amin(pdf)*0.1, np.amax(pdf))
@@ -93,10 +100,12 @@ class SpectralLine(sp.stats.rv_continuous):
 
     def plot_like_reference(self, axis=None):
         lastresolution = self.pdf_gaussian_fwhm
-        if self.reference_plot_gaussian_fwhm is not None:
-            self.pdf_gaussian_fwhm = self.reference_plot_gaussian_fwhm
-        axis = self.plot(axis)
-        self.pdf_gaussian_fwhm = lastresolution
+        try:
+            if self.reference_plot_gaussian_fwhm is not None:
+                self.set_gauss_fwhm(self.reference_plot_gaussian_fwhm)
+            axis = self.plot(axis=axis)
+        finally:
+            self.set_gauss_fwhm(lastresolution)
         return axis
 
     def _rvs(self, *args, **kwargs):
@@ -123,10 +132,6 @@ class SpectralLine(sp.stats.rv_continuous):
         return results
 
     @property
-    def gaussian_sigma(self):
-        return self.pdf_gaussian_fwhm/FWHM_OVER_SIGMA
-
-    @property
     def shortname(self):
         return self.element+self.linetype
 
@@ -135,7 +140,12 @@ class SpectralLine(sp.stats.rv_continuous):
         return lineshape_references[self.reference_short]
 
     def set_gauss_fwhm(self, fwhm):
+        """Update the energy spread function to be a Gaussian of full width `fwhm`.
+        The Voigt functions that make up this line will have a Gaussian sigma that's the quadrature
+        sum of this Gaussian and the "intrinsic sigma" (normally zero) of the model components.
+        """
         self.pdf_gaussian_fwhm = fwhm
+        self.gaussian_sigma = ((fwhm/FWHM_OVER_SIGMA)**2 + self.intrinsic_sigma**2)**0.5
 
 
 lineshape_references = OrderedDict()
