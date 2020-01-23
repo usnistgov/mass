@@ -3,16 +3,6 @@
 fluorescence_lines.py
 
 Tools for fitting and simulating X-ray fluorescence lines.
-
-Many data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
-Phys Rev A56 (#6) pages 4554ff (1997 December).  See online at
-http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
-
-Joe Fowler, NIST
-
-Feb 2014       : added aluminum in metal and oxide form
-July 12, 2012  : added fitting of Voigt and Lorentzians
-November 24, 2010 : started as mn_kalpha.py
 """
 
 import numpy as np
@@ -45,9 +35,9 @@ class SpectralLine(sp.stats.rv_continuous):
         self.pdf_gaussian_fwhm = pdf_gaussian_fwhm
         self.peak_energy = sp.optimize.brent(lambda x: -self.pdf(x),
                                              brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
-        # make it a subclassing of rv_continuous work
-        sp.stats.rv_continuous.__init__(self)
         self.cumulative_amplitudes = self.normalized_lorentzian_integral_intensity.cumsum()
+        # Make subclassing of rv_continuous work
+        sp.stats.rv_continuous.__init__(self)
         self._pdf = self.pdf
 
     def __call__(self, x):
@@ -309,33 +299,35 @@ def addfitter(element, linetype, material, reference_short, reference_plot_gauss
         #     normalized_lorentzian_integral_intensity = np.array(normalized_lorentzian_integral_intensity)
         #     nominal_peak_energy = float(nominal_peak_energy)
 
-        # add fitter to spectrum_classes dict
-        spectrum_classes[spectrum_class.__name__] = spectrum_class
-        # make the fitter be a variable in the module
-        globals()[spectrum_class.__name__] = spectrum_class
-        # create fitter as well
-        spectrum = spectrum_class()
+        # Add this SpectralLine to spectrum_classes dict AND make it be a variable in the module
+        spectrum_classes[classname] = spectrum_class
+        globals()[classname] = spectrum_class
+
+        # Create a Fitter as well
+        line_instance = spectrum_class()
         if fitter_type is not None:
             fitter_superclass = fitter_type
-        elif spectrum.element in ["Al", "Mg"]:
+        elif line_instance.element in ["Al", "Mg"]:
             fitter_superclass = line_fits._lowZ_KAlphaFitter
-        elif spectrum.linetype == "KAlpha" or spectrum.linetype == "LAlpha":
+        elif line_instance.linetype == "KAlpha" or line_instance.linetype == "LAlpha":
             fitter_superclass = line_fits.GenericKAlphaFitter
-        elif spectrum.linetype.startswith("KBeta") or "LBeta" in spectrum.linetype:
+        elif line_instance.linetype.startswith("KBeta") or "LBeta" in line_instance.linetype:
             fitter_superclass = line_fits.GenericKBetaFitter
         else:
-            raise ValueError("no generic fitter for {}".format(spectrum))
-        fitter_attr_dict = {"spect": spectrum}
-        fitter_class = type(spectrum_class.__name__+"Fitter",
+            raise ValueError("no generic fitter for {}".format(line_instance))
+        fitter_attr_dict = {"spect": line_instance}
+        fitter_class = type(classname+"Fitter",
                             (fitter_superclass,), fitter_attr_dict)
-        globals()[spectrum_class.__name__+"Fitter"] = fitter_class
-        fitter_classes[spectrum_class.__name__] = fitter_class
+        fitter_classes[classname] = fitter_class
+        globals()[classname+"Fitter"] = fitter_class
+
+        # Finally, create a Model
         if fitter_superclass == line_fits.GenericKAlphaFitter:
             model_superclass = line_models.GenericKAlphaModel
         else:
             model_superclass = line_models.GenericLineModel
-        model_class = type(spectrum_class.__name__+"Model", (model_superclass,), fitter_attr_dict)
-        model_classes[spectrum_class.__name__] = model_class
+        model_class = type(classname+"Model", (model_superclass,), fitter_attr_dict)
+        model_classes[classname] = model_class
 
     return spectrum_class
 

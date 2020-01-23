@@ -1,17 +1,24 @@
+"""
+Implements MLEModel, CompositeMLEModel, GenericLineModel,
+GenericKAlphaModel
+"""
+
 import lmfit
 import numpy as np
 from . import line_fits
 
 
 class MLEModel(lmfit.Model):
+    """A version of lmfit.Model that uses Maximum Likelihood weights
+    in place of chisq, as described in: doi:10.1007/s10909-014-1098-4
+    "Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"
+    """
+
     require_errorbars = True
-    """ A version of lmfit.Model that uses Maximum Likeliehood Estimates weights in place of chisq
-    following:
-    doi:10.1007/s10909-014-1098-4 Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"""
 
     def _residual(self, params, data, weights, **kwargs):
         """Calculate the chi_MLE^2 value from Joe Fowler's Paper
-        doi:10.1007/s10909-014-1098-4 Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation
+        doi:10.1007/s10909-014-1098-4 "Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"
         """
         y = self.eval(params, **kwargs)
         if data is None:
@@ -51,10 +58,6 @@ class MLEModel(lmfit.Model):
         """*"""
         return CompositeMLEModel(self, other, lmfit.model.operator.mul)
 
-    def __div__(self, other):
-        """/"""
-        return CompositeMLEModel(self, other, lmfit.model.operator.truediv)
-
     def __truediv__(self, other):
         """/"""
         return CompositeMLEModel(self, other, lmfit.model.operator.truediv)
@@ -67,9 +70,10 @@ class MLEModel(lmfit.Model):
 
 
 class CompositeMLEModel(lmfit.CompositeModel):
-    """ A version of lmfit.CompositeModel that uses Maximum Likeliehood Estimates weights in place of chisq
-    following:
-    doi:10.1007/s10909-014-1098-4 Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"""
+    """A version of lmfit.CompositeModel that uses Maximum Likelihood weights
+    in place of chisq, as described in: doi:10.1007/s10909-014-1098-4
+    "Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"
+    """
 
     def _residual(self, params, data, weights, **kwargs):
         """Calculate the chi_MLE^2 value from Joe Fowler's Paper
@@ -100,10 +104,6 @@ class CompositeMLEModel(lmfit.CompositeModel):
     def __mul__(self, other):
         """*"""
         return CompositeMLEModel(self, other, lmfit.model.operator.mul)
-
-    def __div__(self, other):
-        """/"""
-        return CompositeMLEModel(self, other, lmfit.model.operator.truediv)
 
     def __truediv__(self, other):
         """/"""
@@ -141,7 +141,7 @@ class GenericLineModel(MLEModel):
         self.set_param_hint('tail_tau', value=0, min=0, max=100, vary=False)
 
     def guess(self, data, bin_centers=None, **kwargs):
-        "guess values for the peak_ph, amplitude, and background"
+        "Guess values for the peak_ph, amplitude, and background."
         if data.sum() <= 0:
             raise ValueError("This histogram has no contents")
         peak_ph = bin_centers[data.argmax()]
@@ -156,8 +156,10 @@ class GenericLineModel(MLEModel):
 
 
 class GenericKAlphaModel(GenericLineModel):
+    "Overrides GenericLineModel.guess to make guesses appropriate for K-alpha lines."
+
     def guess(self, data, bin_centers=None, **kwargs):
-        "guess values for the peak_ph, amplitude, and background, and dph_de"
+        "Guess values for the peak_ph, amplitude, and background, and dph_de"
         if data.sum() <= 0:
             raise ValueError("This histogram has no contents")
         # Heuristic: find the Ka1 line as the peak bin, and then make
