@@ -294,7 +294,7 @@ def addfitter(element, linetype, material, reference_short, reference_plot_gauss
 
     for classname in classnames:
         if classname in spectrum_classes.keys():
-            raise Exception("classname {} already exists".format(classname))
+            raise ValueError("classname {} already exists".format(classname))
         spectrum_class = type(classname, (SpectralLine,), spectrum_attr_dict)
         # The above is nearly equivalent to the below
         # but the below doesn't errors because it doesn't like the use of the same
