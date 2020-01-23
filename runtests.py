@@ -71,8 +71,7 @@ if len(modules) == 0:
 suite = unittest.TestSuite()
 for module in modules:
     suite.addTests(unittest.defaultTestLoader.loadTestsFromModule(module))
-
-runner = unittest.TextTestRunner()
+runner = unittest.TextTestRunner(verbosity=VERBOSE+1)
 result = runner.run(suite)
 
 # zero exit code means success, all others mean failure
