@@ -49,9 +49,9 @@ class Test_LaplaceEntropy(unittest.TestCase):
         expect_i = np.array([1, 1, 0, 1, 0, 1, 1, 1], dtype=np.bool)
 
         for a, b in zip(m, expect_m):
-            self.assertEquals(a, b)
+            self.assertEqual(a, b)
         for a, b in zip(is1, expect_i):
-            self.assertEquals(a, b)
+            self.assertEqual(a, b)
 
     def test_specific_values_crossH(self):
         """Cross-entropy on some specific values."""
