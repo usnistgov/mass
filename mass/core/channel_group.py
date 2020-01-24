@@ -197,7 +197,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             try:
                 self.experimentStateFile = mass.off.channels.ExperimentStateFile(
                     datasetFilename=self.filenames[0], excludeStates=excludeStates)
-            except FileNotFoundError as e:
+            except IOError as e:
                 print('Skipping loading of experiment state file because {}'.format(e))
         else:
             self.experimentStateFile = experimentStateFile
