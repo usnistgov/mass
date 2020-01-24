@@ -97,7 +97,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
                  hdf5_filename=None, hdf5_noisefilename=None,
-                 never_use=None, use_only=None, max_chans=None):
+                 never_use=None, use_only=None, max_chans=None,
+                 experimentStateFile=None, excludeStates="auto"):
         """Set up a group of related data sets by their filenames.
 
         Args:
@@ -190,6 +191,16 @@ class TESGroup(CutFieldMixin, GroupLooper):
             self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'a')
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
+
+        # Load up experiment state file
+        if experimentStateFile is None:
+            try:
+                self.experimentStateFile = mass.off.channels.ExperimentStateFile(
+                    datasetFilename=self.filenames[0], excludeStates=excludeStates)
+            except IOError as e:
+                print('Skipping loading of experiment state file because {}'.format(e))
+        else:
+            self.experimentStateFile = experimentStateFile
 
         # Set up other aspects of the object
         self.nhits = None
@@ -573,6 +584,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 self.set_chan_bad(ds.channum, "summarize_data failed with %s" % e)
 
     def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}, filter_type="ats"):
+        LOG.warning('compute_filters is deprecated and will eventually be removed, please use compute_ats_filter or compute_5lag_filter directly')
         for ds in self.datasets:
             if hasattr(ds, "_use_new_filters"):
                 raise Exception("ds._use_new_filters is deprecated, use the filter_type argument to this function instead")
@@ -583,7 +595,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         else:
             raise Exception("filter_type must be one of `ats` or `5lag`")
 
-    def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False):
+    def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False, maximum_n_pulses=4000, category={}):
         if hdf5_file is None:
             basename, _ = self.datasets[0].filename.split("chan")
             hdf5_filename = basename+"model.hdf5"
@@ -591,11 +603,12 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 if not replace_output:
                     raise Exception("file {} already exists, pass replace_output = True to overwrite".format(hdf5_filename))
             with h5py.File(hdf5_filename, "w") as hdf5_file:
-                self._pulse_model_to_hdf5(hdf5_file, n_basis)
+                self._pulse_model_to_hdf5(hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses, category=category)
                 LOG.info("writing pulse_model to {}".format(hdf5_filename))
         else:
+            hdf5_filename = hdf5_file.filename
             LOG.info("writing pulse_model to {}".format(hdf5_filename))
-            self._pulse_model_to_hdf5(hdf5_file, n_basis)
+            self._pulse_model_to_hdf5(hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses, category=category)
         return hdf5_filename
 
     def calc_external_trigger_timing(self, after_last=False, until_next=False,
