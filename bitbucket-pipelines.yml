@@ -31,5 +31,5 @@ pipelines:
           image: python:3.8.1
           script: # Modify the commands below to build your repository.
             - pip install -r requirements.txt
-            - python setup.py install
+            - python setup.py develop
             - pytest
