@@ -83,6 +83,7 @@ class LineFitter(object):
         self.failed_fit_exception = None
         self.failed_fit_params = None
         self.failed_fit_starting_fitfunc = None
+        self._have_warned = False
 
     def set_penalty(self, penalty):
         """Set a regularizer, or penalty function, for the fitter. For its requirements,
@@ -135,6 +136,13 @@ class LineFitter(object):
             (fitparams, covariance)
             fitparams has same format as input variable params.
         """
+        if not self._have_warned:
+            import warnings
+            self._have_warned = True
+            msg = """The old mass.*Fitter objects are deprecated as of January 2020.
+
+Please see mass/doc/LineFitting.md for how to use the new Model objects and LMFIT instead."""
+            warnings.warn(msg, UserWarning)
 
         # Convert bin edges to centers
         pulseheights = np.asarray(pulseheights)
