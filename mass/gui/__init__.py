@@ -9,11 +9,11 @@ Contains various objects to simplify life with a (Qt4) GUI.
 import pylab
 import matplotlib.backends
 
-import load_data_dialog
-import make_cuts_dialog
+import mass.gui.load_data_dialog
+import mass.gui.make_cuts_dialog
 
-from load_data_dialog import *
-from make_cuts_dialog import *
+from mass.gui.load_data_dialog import *
+from mass.gui.make_cuts_dialog import *
 
 # The following magic will open a figure, which suffices
 # to start the Qt4 event loop and prevent crashes.

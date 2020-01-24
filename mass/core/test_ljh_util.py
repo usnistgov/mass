@@ -11,10 +11,10 @@ class TestFilenameHandling(ut.TestCase):
     """Test various functions that handle LJH filenames."""
 
     def test_glob(self):
-        self.assertIn(os.path.join("src", "mass", "regression_test", "regress_chan1.ljh"),
-                      filename_glob_expand(os.path.join("src", "mass", "regression_test", "regress_chan*.ljh")))
-        self.assertIn(os.path.join("src", "mass", "regression_test", "regress_chan1.noi"),
-                      filename_glob_expand(os.path.join("src", "mass", "regression_test", "regress_chan*.noi")))
+        self.assertIn(os.path.join("mass", "regression_test", "regress_chan1.ljh"),
+                      filename_glob_expand(os.path.join("mass", "regression_test", "regress_chan*.ljh")))
+        self.assertIn(os.path.join("mass", "regression_test", "regress_chan1.noi"),
+                      filename_glob_expand(os.path.join("mass", "regression_test", "regress_chan*.noi")))
 
     def test_extract_channum(self):
         self.assertEqual(1, ljh_channum("dummy_chan1.ljh"))
