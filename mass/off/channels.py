@@ -260,7 +260,11 @@ def add_group_loop(method):
     # Generate a good doc-string.
     lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
     lines.append("pass _rethrow=True to see stacktrace from first error")
-    argtext = inspect.signature(method)
+    try:
+        argtext = inspect.signature(method)  # Python 3.3 and later
+    except AttributeError:
+        arginfo = inspect.getargspec(method)
+        argtext = inspect.formatargspec(*arginfo)
     if method.__doc__ is None:
         lines.append("\n%s%s has no docstring" % (method_name, argtext))
     else:
@@ -390,7 +394,7 @@ class Recipe():
         assert not isinstance(f, Recipe)
         self.f = f
         self.args = collections.OrderedDict()  # assumes the dict preserves insertion order
-        inspectedArgNames = list(inspect.signature(self.f).parameters)
+        inspectedArgNames = list(inspect.signature(self.f).parameters)  # Py 3.3+ only??
         if "self" in inspectedArgNames:  # drop the self argument for class methods
             inspectedArgNames.remove("self")
         if argNames is None:
