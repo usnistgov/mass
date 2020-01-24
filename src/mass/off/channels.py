@@ -15,7 +15,7 @@ LOG = logging.getLogger("mass")
 
 
 class ExperimentStateFile():
-    def __init__(self, filename=None, offFilename=None, excludeStates="auto", _parse=True):
+    def __init__(self, filename=None, datasetFilename=None, excludeStates="auto", _parse=True):
         """
         excludeStates - when "auto" it either exclude no states when START is the only state or or excludes START, END and IGNORE
         _parse is only for testing
@@ -23,8 +23,8 @@ class ExperimentStateFile():
         """
         if filename is not None:
             self.filename = filename
-        elif offFilename is not None:
-            self.filename = self.experimentStateFilenameFromOffFilename(offFilename)
+        elif datasetFilename is not None:
+            self.filename = self.experimentStateFilenameFromDatasetFilename(datasetFilename)
         else:
             self.filename = None
         self.excludeStates = excludeStates
@@ -33,13 +33,13 @@ class ExperimentStateFile():
         self.unixnanos = np.zeros(0)
         if _parse:
             if self.filename is None:
-                raise Exception("pass filename or offFilename or _parse=False")
+                raise Exception("pass filename or datasetFilename or _parse=False")
             self.parse()
         self.labelAliasesDict = {}  # map unaliasedLabels to aliasedLabels
         self._statesDictCalculated = False
 
-    def experimentStateFilenameFromOffFilename(self, offFilename):
-        basename, channum = mass.ljh_util.ljh_basename_channum(offFilename)
+    def experimentStateFilenameFromDatasetFilename(self, datasetFilename):
+        basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
         return basename+"_experiment_state.txt"
 
     def parse(self):
@@ -1196,7 +1196,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self.offFileNames = offFileNames
         if experimentStateFile is None:
             self.experimentStateFile = ExperimentStateFile(
-                offFilename=self.offFileNames[0], excludeStates=excludeStates)
+                datasetFilename=self.offFileNames[0], excludeStates=excludeStates)
         else:
             self.experimentStateFile = experimentStateFile
         self._includeBad = False
