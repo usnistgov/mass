@@ -9,6 +9,7 @@ Beginning in January 2020, we are trying to stop using our previous method, in w
 ## LMFit vs Scipy vs our homemade method
 
 LMFIT has numerous advantages over the basic `scipy.optimize` module. Quoting from the LMFIT documentation, the user can:
+
 * forget about the order of variables and refer to Parameters by meaningful names.
 * place bounds on Parameters as attributes, without worrying about preserving the order of arrays for variables and boundaries.
 * fix Parameters, without having to rewrite the objective function.
@@ -72,10 +73,7 @@ params = resultA.params.copy()
 params["dph_de"].set(1.0, vary=False)
 resultB = model.fit(sim, params, bin_centers=e)
 print(resultB.fit_report())
-plt.clf()
-plt.plot(e, sim, "o", label="Data")
-plt.plot(e, resultB.best_fit, label="Fit")
-plt.legend()
+resultB.plot()
 # The best-fit params are found in resultB.params
 # and a dictionary of their values is resultB.best_values.
 # The parameters given as an argument to fit are unchanged.
@@ -89,10 +87,7 @@ params = model.guess(sim, bin_centers=e)
 params["dph_de"].set(1.0, vary=False)
 resultC = model.fit(sim, params, bin_centers=e)
 print(resultC.fit_report())
-plt.clf()
-plt.plot(e, sim, "o", label="Data")
-plt.plot(e, resultC.best_fit, label="Fit")
-plt.legend()
+resultC.plot()
 ```
 
 By default, the `has_tails=True` will set up a non-zero low-energy tail and allow it to vary, while the high-energy tail is set to zero amplitude and doesn't vary. Use these numbered examples if you want to fit for a high-energy tail (1), to fix the low-E tail at some non-zero level (2) or to turn off the low-E tail completely (3):
@@ -162,4 +157,30 @@ Did you get a `LinAlgWarning` when you performed that last fit? I did! This is p
 
 Notice how the old "Fitter" methods are very simple to use in the usual case, but increasingly klunky if you want to vary what usually doesn't vary, to hold what usually isn't held, and to skip plotting, etc etc?
 
+An overview of how to convert is:
+
+1. Get a Model object instead of a fitter object.
+1. Use `p=model.guess(data, bin_centers=e)` to create a heuristic for the starting parameters.
+1. Change starting values and toggle the `vary` attribute on parameters, as needed.
+1. Use `result=model.fit(data, p, bin_centers=e)` to perform the fit and store the result.
+1. The result holds many attributes and methods (see [MinimizerResult](https://lmfit.github.io/lmfit-py/fitting.html#minimizerresult-the-optimization-result) for full documentation). These include:
+  * `result.params` = the model's best-fit parameters object
+  * `result.best_values` = a dictionary of the best-fit parameter values
+  * `result.best_fit` = the model's y-values at the best-fit parameter values
+  * `result.chisqr` = the chi-squared statistic of the fit (here, -2log(L))
+  * `result.covar` = the computed covariance
+  * `result.fit_report()` = return a pretty-printed string reporting on the fit
+  * `result.plot_fit()` = make a plot of the data and fit
+  * `result.plot_residuals()` = make a plot of the residuals (fit-data)
+  * `result.plot()` = make a plot of the data, fit, and residuals
+
+
 One detail that's changed: the new models parameterize the tau values (scale lengths of exponential tails) in eV units. The old fitters assumed tau were given in units of bins.
+
+## To do
+
+* [ ] We probably should restructure the `SpectralLine`, `GenericLineModel`, and perhaps also the older `LineFitter` objects such that the specific versions for (say) Mn Kα become not subclasses but instances of them. See [issue 182](https://bitbucket.org/joe_fowler/mass/issues/182/does-creation-of-3-classes-per-spectral) on the question of whether this change might speed up loading of MASS.
+* [ ] Add to `GenericLineModel` one or more methods to make plots comparing data and fit with parameter values printed on the plot.
+* [ ] The LMFIT view of models is such that we would probably find it easy to fit one histogram for the sum of (say) a Mn Kα and a Cr Kβ line simultaneously. Add features to our object, as needed, and document the procedure here.
+* [ ] We could implement convolution between two models (see just below [CompositeModel](https://lmfit.github.io/lmfit-py/model.html#lmfit.model.CompositeModel) in the docs for how to do this).
+* [ ] At some point, we ought to remove the deprecated `LineFitter` object and subclasses thereof.
