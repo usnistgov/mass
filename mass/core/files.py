@@ -231,7 +231,7 @@ class LJHFile(MicrocalFile):
                     raise IOError("header is too long--seems not to contain '#End of Header'\n"
                                 + "in file %s" % filename)
                 elif b":" in line:
-                    a,b = line.split(b":",maxsplit=1) 
+                    a,b = line.split(b":",1) # maxsplits=1, py27 doesnt support keyword
                     a=a.strip()
                     b=b.strip()
                     if a in header_dict:
