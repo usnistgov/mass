@@ -24,7 +24,8 @@ Created on Feb 16, 2011
 import numpy as np
 import os
 from distutils.version import StrictVersion
-import logging
+import logging 
+import collections
 LOG = logging.getLogger("mass")
 
 class MicrocalFile(object):
@@ -166,21 +167,20 @@ class LJHFile(MicrocalFile):
         """
         super(LJHFile, self).__init__()
         self.filename = filename
-        self.client = "unknown"
+        self.client = None
         self.channum = int(filename.split("_chan")[1].split(".")[0])
-        self.header_lines = []
         self.sample_usec = None
-        self.timestamp_offset = 0.0
-        self.pulses_per_seg = 0
-        self.segmentsize = 0
-        self.n_segments = 0
-        self.segment_pulses = 0
-        self.header_size = 0
-        self.pulse_size_bytes = 0
-        self.row_number = -1
-        self.column_number = -1
-        self.number_of_rows = -1
-        self.number_of_columns = -1
+        self.timestamp_offset = None
+        self.pulses_per_seg = None
+        self.segmentsize = None
+        self.n_segments = None
+        self.segment_pulses = None
+        self.header_size = None
+        self.pulse_size_bytes = None
+        self.row_number = None
+        self.column_number = None
+        self.number_of_rows = None
+        self.number_of_columns = None
         self.data = None
         self.version_str = None
         self.__cached_segment = None
@@ -216,96 +216,68 @@ class LJHFile(MicrocalFile):
         Args:
             filename: path to the file to be opened.
         """
+        # parse header into a dictionary
+        header_dict = collections.OrderedDict()
+        with open(filename, "rb") as fp: 
+            i = 0
+            while True:
+                i+=1
+                line = fp.readline() 
+                if line.startswith(b"#End of Header"):
+                    break
+                elif line == b"":
+                    raise Exception("reached EOF before #End of Header")
+                elif i>self.TOO_LONG_HEADER:
+                    raise IOError("header is too long--seems not to contain '#End of Header'\n"
+                                + "in file %s" % filename)
+                elif b":" in line:
+                    a,b = line.split(b":",maxsplit=1) 
+                    a=a.strip()
+                    b=b.strip()
+                    if a in header_dict:
+                        LOG.warning("repeated header entry {}".format(a))
+                    header_dict[a.strip()]=b.strip()
+                else:
+                    continue # ignore lines without ":"
+            self.header_size = fp.tell()
 
-        fp = open(filename, "rb")
-
-        lines = []
-        while True:
-            line = fp.readline()
-            if line == b"":
-                if len(lines) == 0:
-                    raise IOError("No header found.\n   File: %s" % filename)
-                break
-            lines.append(line)
-            if line.startswith(b"#End of Header"):
-                break
-            elif line.startswith(b"Timebase"):
-                words = line.split()
-                self.timebase = float(words[-1])
-            elif line.startswith(b"Total Samples"):
-                words = line.split()
-                self.nSamples = int(words[-1])
-            elif line.startswith(b"Presamples"):
-                words = line.split()
-                self.nPresamples = int(words[-1])
-            elif line.startswith(b"Row number"):
-                words = line.split()
-                self.row_number = int(words[-1])
-            elif line.startswith(b"Column number"):
-                words = line.split()
-                self.column_number = int(words[-1])
-            elif line.startswith(b"Software Version"):
-                words = str(line).split()
-                self.client = " ".join(words[2:])
-            elif line.startswith(b"Number of rows"):
-                words = line.split()
-                self.number_of_rows = int(words[-1])
-            elif line.startswith(b"Number of columns"):
-                words = line.split()
-                self.number_of_columns = int(words[-1])
-            elif line.startswith(b"Timestamp offset (s)"):
-                words = line.split()
-                try:
-                    self.timestamp_offset = float(words[-1])
-                except Exception:
-                    self.timestamp_offset = 0.0
-            elif line.startswith(b"Save File Format Version:"):
-                words = line.split()
-                self.version_str = words[-1]
-
-            if len(lines) > self.TOO_LONG_HEADER:
-                raise IOError("header is too long--seems not to contain '#End of Header'\n"
-                              + "in file %s" % filename)
-
-        self.header_lines = lines
-        self.header_size = fp.tell()
-        # fp.seek(0, os.SEEK_END)
-        # self.binary_size = fp.tell() - self.header_size
-        self.binary_size = os.stat(filename).st_size - self.header_size
-        fp.close()
-
+        # extract required values from header_dict
+        # use header_dict.get for default values
+        self.timebase = float(header_dict[b"Timebase"])
+        self.nSamples = int(header_dict[b"Total Samples"])
+        self.nPresamples = int(header_dict[b"Presamples"])
+        # column number and row number have entries like "Column number (from 0-0 inclusive)"
+        row_number_k = [k for k in header_dict.keys() if k.startswith(b"Row number")]
+        if len(row_number_k) > 0:
+            self.row_number = int(header_dict[row_number_k[0]])
+        col_number_k = [k for k in header_dict.keys() if k.startswith(b"Column number")]
+        if len(col_number_k) > 0:
+            self.row_number = int(header_dict[col_number_k[0]])        
+        self.client = header_dict.get(b"Software Version", b"UNKNOWN")
+        self.number_of_columns = int(header_dict.get(b"Number of columns",-1))
+        self.number_of_rows = int(header_dict.get(b"Number of rows",-1))
+        self.timestamp_offset = float(header_dict.get(b"Timestamp offset (s)",b"-1"))
+        self.version_str = header_dict[b'Save File Format Version']
         if StrictVersion(self.version_str.decode()) >= StrictVersion("2.2.0"):
             self.pulse_size_bytes = (16 + 2 * self.nSamples)
         else:
             self.pulse_size_bytes = (6 + 2 * self.nSamples)
-
-        self.nPulses = self.binary_size // self.pulse_size_bytes
-
-        # Check for major problems in the LJH file:
-        if len(self.header_lines) < 1:
-            raise IOError("No header found.\n   File: %s" % filename)
-        if self.timebase is None:
-            raise IOError("No 'Timebase' line found in header.\n   File: %s" % filename)
-        if self.nSamples is None:
-            raise IOError("No 'Total Samples' line found in header.\n   File: %s" % filename)
-        if self.nPresamples is None:
-            raise IOError("No 'Presamples' line found in header.\n   File: %s" % filename)
-        if self.nPulses < 1:
-            LOG.warn("Warning: no pulses found.\n   File: %s" % filename)
-
+        self.binary_size = os.stat(filename).st_size - self.header_size
+        self.header_dict = header_dict
+        self.nPulses = self.binary_size // self.pulse_size_bytes       
         # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
         # It adds 3 to the "true value" of nPresamples. For now, assume that only
         # DASTARD clients have this figure correct.
-        if "DASTARD" not in self.client:
+        if b"DASTARD" not in self.client:
             self.nPresamples += 3
 
         # This used to be fatal. It prevented opening files cut short by
         # a crash of the DAQ software, so we made it just a warning.
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
-            LOG.warn("Warning: The binary size "
+            LOG.warning("Warning: The binary size "
                   + "(%d) is not an integer multiple of the pulse size %d bytes" %
                   (self.binary_size, self.pulse_size_bytes))
-            LOG.warn("%06s" % filename)
+            LOG.warning("%06s" % filename)
 
         # Record the sample times in microseconds
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
