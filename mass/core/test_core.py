@@ -122,8 +122,8 @@ class TestFiles(ut.TestCase):
         ds2 = data2.channel[1]
         self.assertTrue(b"MATTER" in ds1.pulse_records.datafile.client)
         self.assertTrue(b"DASTARD" in ds2.pulse_records.datafile.client)
-        self.assertTrue(ds1.pulse_records.datafile.header_dict[b"Presamples"],512)
-        self.assertTrue(ds2.pulse_records.datafile.header_dict[b"Presamples"],515)
+        self.assertEqual(int(ds1.pulse_records.datafile.header_dict[b"Presamples"]),512)
+        self.assertEqual(int(ds2.pulse_records.datafile.header_dict[b"Presamples"]),515)
         self.assertEqual(515, ds1.nPresamples)
         self.assertEqual(515, ds2.nPresamples)
         v1 = ds1.data[0]
