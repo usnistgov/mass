@@ -79,7 +79,7 @@ class ExperimentStateFile():
             return ["START", "END", "STOP", "IGNORE"]
 
     def applyExcludesToLabels(self, allLabels):
-        """ 
+        """
         possible recalculate self.excludeStates
         return a list of state labels that is unique, and contains all entries in allLabels except those in self.excludeStates
         order in the returned list is that of first appearance in allLables
@@ -103,7 +103,7 @@ class ExperimentStateFile():
         if statesDict is None:
             statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
-        if len(statesDict.keys()) > 0 and len(inds)>0:  # the state that was active last time calcStatesDict was called may need special handling
+        if len(statesDict.keys()) > 0 and len(inds) > 0:  # the state that was active last time calcStatesDict was called may need special handling
             assert i0_allLabels > 0
             for k in statesDict.keys():
                 last_key = k
@@ -124,7 +124,7 @@ class ExperimentStateFile():
                 v = statesDict[aliasedLabel]
                 if isinstance(v, slice):
                     # this label was previously unique... create the list of slices
-                    statesDict[aliasedLabel] = [v,s]
+                    statesDict[aliasedLabel] = [v, s]
                 elif isinstance(v, list):
                     # this label was previously not unique... append to the list of slices
                     statesDict[aliasedLabel] = v+[s]
@@ -794,7 +794,7 @@ class Channel(CorG):
         if extraInfo is not None:
             s += "\nextraInfo: {}".format(extraInfo)
         if self.verbose:
-            LOG.warn(s)
+            LOG.warning(s)
 
     def markGood(self):
         self.markedBadReason = None
