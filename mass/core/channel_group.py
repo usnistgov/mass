@@ -13,11 +13,16 @@ import logging
 import numpy as np
 import matplotlib.pylab as plt
 
+try:
+    # Python 3
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
+
+from functools import reduce
+
 import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
-
-from collections import Iterable
-from functools import reduce
 
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper

@@ -605,8 +605,7 @@ def _add_group_loop(throw_errors=False):
 
         # Generate a good doc-string.
         lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
-        arginfo = inspect.getargspec(method)
-        argtext = inspect.formatargspec(*arginfo)
+        argtext = inspect.signature(method)
         if method.__doc__ is None:
             lines.append("\n%s%s has no docstring" % (method_name, argtext))
         else:

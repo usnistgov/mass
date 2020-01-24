@@ -260,8 +260,7 @@ def add_group_loop(method):
     # Generate a good doc-string.
     lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
     lines.append("pass _rethrow=True to see stacktrace from first error")
-    arginfo = inspect.getargspec(method)
-    argtext = inspect.formatargspec(*arginfo)
+    argtext = inspect.signature(method)
     if method.__doc__ is None:
         lines.append("\n%s%s has no docstring" % (method_name, argtext))
     else:
