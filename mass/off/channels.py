@@ -390,9 +390,9 @@ class Recipe():
         assert not isinstance(f, Recipe)
         self.f = f
         self.args = collections.OrderedDict()  # assumes the dict preserves insertion order
-        inspectedArgNames = inspect.getargspec(self.f).args  # may be python 2.7 only
-        if inspectedArgNames[0] == "self":  # drop the self argument for class methods
-            inspectedArgNames = inspectedArgNames[1:]
+        inspectedArgNames = list(inspect.signature(self.f).parameters)
+        if "self" in inspectedArgNames:  # drop the self argument for class methods
+            inspectedArgNames.remove("self")
         if argNames is None:
             for argName in inspectedArgNames:
                 self.args[argName] = argName

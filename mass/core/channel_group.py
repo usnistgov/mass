@@ -14,8 +14,7 @@ import numpy as np
 import matplotlib.pylab as plt
 
 try:
-    # Python 3
-    from collections.abc import Iterable
+    from collections.abc import Iterable  # Python 3
 except ImportError:
     from collections import Iterable
 

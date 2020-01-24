@@ -118,13 +118,13 @@ class OffFile(object):
             self._decodeModelInfoMmap()
 
     def _decodeModelInfoBase64(self):
-        projectorsData = base64.decodestring(
+        projectorsData = base64.decodebytes(
             self.header["ModelInfo"]["Projectors"]["RowMajorFloat64ValuesBase64"].encode())
         projectorsRows = int(self.header["ModelInfo"]["Projectors"]["Rows"])
         projectorsCols = int(self.header["ModelInfo"]["Projectors"]["Cols"])
         self.projectors = np.frombuffer(projectorsData, np.float64)
         self.projectors = self.projectors.reshape((projectorsRows, projectorsCols))
-        basisData = base64.decodestring(
+        basisData = base64.decodebytes(
             self.header["ModelInfo"]["Basis"]["RowMajorFloat64ValuesBase64"].encode())
         basisRows = int(self.header["ModelInfo"]["Basis"]["Rows"])
         basisCols = int(self.header["ModelInfo"]["Basis"]["Cols"])
