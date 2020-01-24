@@ -131,21 +131,37 @@ class CompositeMLEModel(lmfit.CompositeModel):
 
 class GenericLineModel(MLEModel):
     def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise',
-                 **kwargs):
+                 has_tails=False, **kwargs):
         # self.spect must be defined by inheriting classes
-        def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
-                      background, bg_slope, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi):
-            energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
-            self.spect.set_gauss_fwhm(fwhm)
-            cleanspectrum_fn = self.spect.pdf
-            spectrum = line_fits._smear_exponential_tail(
-                cleanspectrum_fn, energy, fwhm, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi)
-            retval = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
-            if any(np.isnan(retval)) or any(retval < 0):
-                raise ValueError
-            return retval
+        self._has_tails = has_tails
+        if has_tails:
+            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
+                          background, bg_slope, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi):
+                energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
+                self.spect.set_gauss_fwhm(fwhm)
+                cleanspectrum_fn = self.spect.pdf
+                # Convert tau values (in eV units) to
+                # lengths in bin units, which _smear_exponential_tail expects
+                binwidth = bin_centers[1]-bin_centers[0]
+                length_lo = tail_tau*dph_de/binwidth
+                length_hi = tail_tau_hi*dph_de/binwidth
+                spectrum = line_fits._smear_exponential_tail(
+                    cleanspectrum_fn, energy, fwhm, tail_frac, length_lo, tail_frac_hi, length_hi)
+                retval = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
+                if any(np.isnan(retval)) or any(retval < 0):
+                    raise ValueError
+                return retval
+        else:
+            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude, background, bg_slope):
+                energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
+                self.spect.set_gauss_fwhm(fwhm)
+                spectrum = self.spect.pdf(energy)
+                retval = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
+                if any(np.isnan(retval)) or any(retval < 0):
+                    raise ValueError
+                return retval
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
-                       'independent_vars': independent_vars, 'name': "MnKAlpha"})
+                       'independent_vars': independent_vars, 'name': "unknownLine"})
         super(GenericLineModel, self).__init__(modelfunc, **kwargs)
         self._set_paramhints_prefix()
 
@@ -156,10 +172,11 @@ class GenericLineModel(MLEModel):
         self.set_param_hint("amplitude", value=100, min=0)
         self.set_param_hint('background', value=1, min=0)
         self.set_param_hint('bg_slope', value=0, vary=False)
-        self.set_param_hint('tail_frac', value=0, min=0, max=1, vary=False)
-        self.set_param_hint('tail_tau', value=0, min=0, max=100, vary=False)
-        self.set_param_hint('tail_frac_hi', value=0, min=0, max=1, vary=False)
-        self.set_param_hint('tail_tau_hi', value=0, min=0, max=100, vary=False)
+        if self._has_tails:
+            self.set_param_hint('tail_frac', value=0.05, min=0, max=1, vary=True)
+            self.set_param_hint('tail_tau', value=30, min=0, max=100, vary=True)
+            self.set_param_hint('tail_frac_hi', value=0, min=0, max=1, vary=False)
+            self.set_param_hint('tail_tau_hi', value=0, min=0, max=100, vary=False)
 
     def guess(self, data, bin_centers=None, **kwargs):
         "Guess values for the peak_ph, amplitude, and background."
