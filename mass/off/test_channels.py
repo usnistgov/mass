@@ -238,6 +238,13 @@ class TestSummaries(ut.TestCase):
         for s in d["A"]+d["B"]:
             self.assertEqual(s.stop-s.start,2)
 
+        data_local = ChannelGroup([filename], experimentStateFile=esf)
+        ds_local = data_local.firstGoodChannel()   
+        ds_local.stdDevResThreshold = 100
+        inds = ds_local.getStatesIndicies("A")
+        fv = ds_local.getAttr("filtValue", inds)
+
+
     def test_getAttr_with_list_of_slice(self):
         ind = [slice(0,5),slice(5,10)]
         self.assertTrue(np.allclose(ds.getAttr("filtValue",ind), ds.getAttr("filtValue",slice(0,10))))
