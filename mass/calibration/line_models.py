@@ -62,6 +62,25 @@ class MLEModel(lmfit.Model):
         """/"""
         return CompositeMLEModel(self, other, lmfit.model.operator.truediv)
 
+    # def exponentialTail(self):
+    #     """Return a new CompositeModel that convolves this object with a 2-sided exponential tail kernel."""
+    #     def kernelfunc(bin_centers, frac_lo, length_lo, frac_hi, length_hi):
+    #         pass
+    #
+    #     kmodel = MLEModel(kernelfunc)
+    #     kmodel.set_param_hint('frac_lo', value=0.1, min=0, max=1, vary=False)
+    #     kmodel.set_param_hint('frac_hi', value=0.0, min=0, max=1, vary=False)
+    #     kmodel.set_param_hint('length_lo', value=1.0, min=0, vary=False)
+    #     kmodel.set_param_hint('length_hi', value=1.0, min=0, vary=False)
+    #
+    #     dummy_op = lmfit.model.operator.add  # won't actually use this, b/c overriding c.eval method.
+    #     c = CompositeMLEModel(self, kmodel, dummy_op)
+    #
+    #     def blah():
+    #         pass
+    #     c.eval = blah
+    #     return c
+
     def fit(self, *args, **kwargs):
         result = lmfit.Model.fit(self, *args, **kwargs)
         if self.require_errorbars and (not result.errorbars):
@@ -113,14 +132,14 @@ class CompositeMLEModel(lmfit.CompositeModel):
 class GenericLineModel(MLEModel):
     def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise',
                  **kwargs):
-        # spect must be defined by inheriting classes
+        # self.spect must be defined by inheriting classes
         def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
-                      background, bg_slope, tail_frac, tail_tau):
+                      background, bg_slope, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi):
             energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
             self.spect.set_gauss_fwhm(fwhm)
             cleanspectrum_fn = self.spect.pdf
-            spectrum = line_fits._smear_lowEtail(
-                cleanspectrum_fn, energy, fwhm, tail_frac, tail_tau)
+            spectrum = line_fits._smear_exponential_tail(
+                cleanspectrum_fn, energy, fwhm, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi)
             retval = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
             if any(np.isnan(retval)) or any(retval < 0):
                 raise ValueError
@@ -137,8 +156,10 @@ class GenericLineModel(MLEModel):
         self.set_param_hint("amplitude", value=100, min=0)
         self.set_param_hint('background', value=1, min=0)
         self.set_param_hint('bg_slope', value=0, vary=False)
-        self.set_param_hint('tail_frac', value=0, min=0, vary=False)
+        self.set_param_hint('tail_frac', value=0, min=0, max=1, vary=False)
         self.set_param_hint('tail_tau', value=0, min=0, max=100, vary=False)
+        self.set_param_hint('tail_frac_hi', value=0, min=0, max=1, vary=False)
+        self.set_param_hint('tail_tau_hi', value=0, min=0, max=100, vary=False)
 
     def guess(self, data, bin_centers=None, **kwargs):
         "Guess values for the peak_ph, amplitude, and background."

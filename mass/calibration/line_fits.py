@@ -14,19 +14,20 @@ from mass.mathstat.utilities import plot_as_stepped_hist
 from mass.mathstat.special import voigt, voigt_approx_fwhm
 
 
-def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
-    """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E tail."""
-    if P_tailfrac <= 1e-5:
+def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau,
+                            P_tailfrac_hi=0.0, P_tailtau_hi=1):
+    """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E and/or
+    high-E tail."""
+    if P_tailfrac <= 1e-6 and P_tailfrac_hi <= 1e-6:
         return cleanspectrum_fn(x)
 
     # Compute the low-E-tailed spectrum. This is done by
     # convolution, which is computed using DFT methods.
     # A wider energy range must be used, or wrap-around effects of
     # tails will corrupt the model.
-    # Go 6*tau or up to 500 eV low; go res + tail (up to 50 eV) high, up to 1000 bins
     dx = x[1] - x[0]
-    nlow = int(min(P_tailtau*6, 500) / dx + 0.5)
-    nhi = int((P_resolution + min(P_tailtau, 50)) / dx + 0.5)
+    nlow = int(min(P_tailtau*6, P_tailtau_hi, 100) / dx + 0.5)
+    nhi = int((P_resolution + min(P_tailtau, P_tailtau_hi*6, 100)) / dx + 0.5)
     nhi = min(1000, nhi)  # A practical limit
     nlow = max(nlow, nhi)
     x_wide = np.arange(-nlow, nhi+len(x)) * dx + x[0]
@@ -37,12 +38,17 @@ def _smear_lowEtail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau):
     freq = np.fft.rfftfreq(len(x_wide), d=dx)
     rawspectrum = cleanspectrum_fn(x_wide)
     ft = np.fft.rfft(rawspectrum)
-    ft += ft * P_tailfrac * (1.0 / (1 - 2j * np.pi * freq * P_tailtau) - 1)
+    rescale = np.ones_like(ft)
+    if P_tailfrac > 1e-6:
+        rescale += P_tailfrac * (1.0 / (1 - 2j*np.pi*freq*P_tailtau) - 1)
+    if P_tailfrac_hi > 1e-6:
+        rescale += P_tailfrac_hi * (1.0 / (1 + 2j*np.pi*freq*P_tailtau_hi) - 1)
+    ft *= rescale
     smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
-    # in pathalogical cases, convolutuion can cause negative values
-    # this is a hacky way to protect against that
+    # In pathological cases, convolution can cause negative values.
+    # Here is a hacky way to protect against that.
     smoothspectrum[smoothspectrum < 0] = 0
-    return smoothspectrum[nlow:nlow + len(x)]
+    return smoothspectrum[nlow:nlow+len(x)]
 
 
 def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
@@ -436,7 +442,7 @@ class VoigtFitter(LineFitter):
         def cleanspectrum_fn(x):
             return voigt(x, P_phpeak, lorentz_hwhm, sigma)
 
-        spectrum = _smear_lowEtail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
+        spectrum = _smear_exponential_tail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def setbounds(self, params, ph):
@@ -523,7 +529,7 @@ class NVoigtFitter(LineFitter):
             for i in range(self.Nlines):
                 s += voigt(x, params[1+3*i], params[2+3*i]*0.5, sigma) * params[3+3*i]
             return s
-        spectrum = _smear_lowEtail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
+        spectrum = _smear_exponential_tail(cleanspectrum_fn, x, P_gaussfwhm, P_tailfrac, P_tailtau)
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def setbounds(self, params, ph):
@@ -618,7 +624,7 @@ class GaussianFitter(LineFitter):
         def cleanspectrum_fn(x):
             return np.exp(-0.5*(x-P_phpeak)**2/(sigma**2))
 
-        spectrum = _smear_lowEtail(cleanspectrum_fn, x, 0, P_tailfrac, P_tailtau)
+        spectrum = _smear_exponential_tail(cleanspectrum_fn, x, 0, P_tailfrac, P_tailtau)
         return _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
 
     def setbounds(self, params, ph):
@@ -684,7 +690,7 @@ class MultiLorentzianComplexFitter(LineFitter):
         energy = (x - P_phpeak) / P_dphde + self.spect.peak_energy
         self.spect.set_gauss_fwhm(P_gaussfwhm)
         cleanspectrum_fn = self.spect.pdf
-        spectrum = _smear_lowEtail(cleanspectrum_fn, energy, P_gaussfwhm, P_tailfrac, P_tailtau)
+        spectrum = _smear_exponential_tail(cleanspectrum_fn, energy, P_gaussfwhm, P_tailfrac, P_tailtau)
         retval = _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
         if any(np.isnan(retval)) or any(retval < 0):
             raise ValueError
