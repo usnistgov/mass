@@ -22,7 +22,7 @@ clean:
 	rm -f `find . -name "*.pyc"`
 
 test:
-	python runtests.py
+	pytest
 
 archive: $(TARGET_ZIP)
 
@@ -38,4 +38,4 @@ pep8-report.txt: $(PEPFILES) MAKEFILE
 
 lint: lint-report.txt
 lint-report.txt: pylintrc $(PYFILES) MAKEFILE
-	pylint-2.7 --rcfile=$< src/mass > $@
+	pylint --rcfile=$< src/mass > $@
