@@ -141,7 +141,7 @@ class EnergyCalibration(object):
         if np.isscalar(pulse_ht):
             if np.isscalar(result):
                 return result
-            return np.asscalar(result)
+            return result.item()
 
         # Change any inf or NaN results to 0.0 energy.
         if any(np.isnan(result)):

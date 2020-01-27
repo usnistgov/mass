@@ -27,7 +27,7 @@ clean:
 	rm -f `find . -name "*.pyc"`
 
 test:
-	python runtests.py
+	pytest
 
 archive: $(TARGET_ZIP)
 

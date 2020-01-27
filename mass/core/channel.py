@@ -607,8 +607,12 @@ def _add_group_loop(throw_errors=False):
 
         # Generate a good doc-string.
         lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
-        arginfo = inspect.getargspec(method)
-        argtext = inspect.formatargspec(*arginfo)
+        try:
+            argtext = inspect.signature(method)  # Python 3.3 and later
+        except AttributeError:
+            arginfo = inspect.getargspec(method)
+            argtext = inspect.formatargspec(*arginfo)
+
         if method.__doc__ is None:
             lines.append("\n%s%s has no docstring" % (method_name, argtext))
         else:
@@ -1205,7 +1209,8 @@ class MicrocalDataSet(object):
 
     @_add_group_loop()
     def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0,
-                           category={}, shift1=True, forceNew=False, minimum_n_pulses=20):
+                           category={}, shift1=True, forceNew=False, minimum_n_pulses=20,
+                           maximum_n_pulses=4000):
         """Compute a arrival-time-safe filter to model the pulse and its time-derivative.
         Requires that `compute_noise` has been run.
 
@@ -1241,7 +1246,7 @@ class MicrocalDataSet(object):
         DEGREE = 1
 
         # The raw training data, which is shifted (trigger-aligned)
-        data, pulsenums = self.first_n_good_pulses(4000, category=category)
+        data, pulsenums = self.first_n_good_pulses(maximum_n_pulses, category=category)
         if len(pulsenums) < minimum_n_pulses:
             raise Exception("too few good pulses, ngood={}".format(len(pulsenums)))
         if shift1:
@@ -1358,7 +1363,7 @@ class MicrocalDataSet(object):
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
-    def get_pulse_model(self, f, n_basis, pulses_for_svd):
+    def get_pulse_model(self, f, n_basis, pulses_for_svd, maximum_n_pulses=4000, category={}):
         assert n_basis >= 3
         deriv_like_model = f.pulsemodel[:, 1]
         pulse_like_model = f.pulsemodel[:, 0]
@@ -1372,7 +1377,7 @@ class MicrocalDataSet(object):
                             deriv_like_model,
                             pulse_like_model]).T
         if pulses_for_svd is None:
-            pulses_for_svd, _ = self.first_n_good_pulses(4000)
+            pulses_for_svd, _ = self.first_n_good_pulses(maximum_n_pulses, category=category)
             pulses_for_svd = pulses_for_svd.T
         if hasattr(self, "saved_auto_cuts"):
             pretrig_rms_median = self.saved_auto_cuts._pretrig_rms_median
@@ -1384,8 +1389,8 @@ class MicrocalDataSet(object):
         return self.pulse_model
 
     @_add_group_loop()
-    def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None):
-        pulse_model = self.get_pulse_model(self.filter, n_basis, pulses_for_svd)
+    def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None, maximum_n_pulses=4000, category={}):
+        pulse_model = self.get_pulse_model(self.filter, n_basis, pulses_for_svd, maximum_n_pulses=maximum_n_pulses, category=category)
         save_inverted = self.__dict__.get("invert_data", False)
         hdf5_group = hdf5_file.create_group("{}".format(self.channum))
         pulse_model.toHDF5(hdf5_group, save_inverted)

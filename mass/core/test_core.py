@@ -62,7 +62,7 @@ class TestFiles(ut.TestCase):
 
         src = LJHFile(src_name)
         dest = LJHFile(dest_name)
-        self.assertEquals(n_pulses_expected, dest.nPulses)
+        self.assertEqual(n_pulses_expected, dest.nPulses)
         for k in range(n_pulses_expected):
             self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
             self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
@@ -120,10 +120,10 @@ class TestFiles(ut.TestCase):
             d.read_segment(0)
         ds1 = data1.channel[1]
         ds2 = data2.channel[1]
-        self.assertTrue("MATTER" in ds1.pulse_records.datafile.client)
-        self.assertTrue("DASTARD" in ds2.pulse_records.datafile.client)
-        self.assertTrue(b"Presamples: 512\r\n" in ds1.pulse_records.datafile.header_lines)
-        self.assertTrue(b"Presamples: 515\n" in ds2.pulse_records.datafile.header_lines)
+        self.assertTrue(b"MATTER" in ds1.pulse_records.datafile.client)
+        self.assertTrue(b"DASTARD" in ds2.pulse_records.datafile.client)
+        self.assertEqual(int(ds1.pulse_records.datafile.header_dict[b"Presamples"]), 512)
+        self.assertEqual(int(ds2.pulse_records.datafile.header_dict[b"Presamples"]), 515)
         self.assertEqual(515, ds1.nPresamples)
         self.assertEqual(515, ds2.nPresamples)
         v1 = ds1.data[0]

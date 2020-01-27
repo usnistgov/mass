@@ -141,9 +141,9 @@ class Test_Qscale(unittest.TestCase):
 
         x = numpy.array([4, 3, 2, 1])
         _ = Qscale(x, sort_inplace=False)
-        self.assertEquals(x[0], 4, msg="Qscale sorted data when asked not to.")
+        self.assertEqual(x[0], 4, msg="Qscale sorted data when asked not to.")
         _ = Qscale(x, sort_inplace=True)
-        self.assertEquals(x[3], 4, msg="Qscale did not sort data when asked to sort.")
+        self.assertEqual(x[3], 4, msg="Qscale did not sort data when asked to sort.")
 
     def Qslow(self, x):
         """Compute Q the simple, slow way, an O(n^2) calculation to verify the fast one."""

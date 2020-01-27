@@ -129,7 +129,7 @@ class TestSummaries(ut.TestCase):
         self.assertEqual(ds.stateLabels, ["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
 
     def test_reading_some_items(self):
-        self.assertEquals(ds.relTimeSec[0], 0)
+        self.assertEqual(ds.relTimeSec[0], 0)
         self.assertLess(np.abs(np.median(ds.filtPhase)), 0.5)
         self.assertAlmostEqual(ds.energy[3], ds.energyRough[3], delta=5)
 
@@ -231,12 +231,19 @@ class TestSummaries(ut.TestCase):
         esf.unixnanos = np.arange(len(esf.allLabels))*100
         esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
         unixnanos = np.arange(2*len(esf.allLabels))*50 # two entires per label
-        d = esf.calcStatesDict(unixnanos) 
+        d = esf.calcStatesDict(unixnanos)
         self.assertEqual(len(d["A"]), esf.allLabels.count("A"))
         self.assertEqual(len(d["B"]), esf.allLabels.count("B"))
         self.assertFalse("IGNORE" in d.keys())
         for s in d["A"]+d["B"]:
             self.assertEqual(s.stop-s.start,2)
+
+        data_local = ChannelGroup([filename], experimentStateFile=esf)
+        ds_local = data_local.firstGoodChannel()
+        ds_local.stdDevResThreshold = 100
+        inds = ds_local.getStatesIndicies("A")
+        fv = ds_local.getAttr("filtValue", inds)
+
 
     def test_getAttr_with_list_of_slice(self):
         ind = [slice(0,5),slice(5,10)]

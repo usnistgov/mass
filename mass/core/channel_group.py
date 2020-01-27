@@ -13,11 +13,15 @@ import logging
 import numpy as np
 import matplotlib.pylab as plt
 
+try:
+    from collections.abc import Iterable  # Python 3
+except ImportError:
+    from collections import Iterable
+
+from functools import reduce
+
 import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
-
-from collections import Iterable
-from functools import reduce
 
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper
@@ -97,7 +101,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
                  noise_is_continuous=True, max_cachesize=None,
                  hdf5_filename=None, hdf5_noisefilename=None,
-                 never_use=None, use_only=None, max_chans=None):
+                 never_use=None, use_only=None, max_chans=None,
+                 experimentStateFile=None, excludeStates="auto"):
         """Set up a group of related data sets by their filenames.
 
         Args:
@@ -191,6 +196,16 @@ class TESGroup(CutFieldMixin, GroupLooper):
             if noise_only:
                 self.n_channels = len(self.noise_filenames)
 
+        # Load up experiment state file
+        if experimentStateFile is None:
+            try:
+                self.experimentStateFile = mass.off.channels.ExperimentStateFile(
+                    datasetFilename=self.filenames[0], excludeStates=excludeStates)
+            except IOError as e:
+                print('Skipping loading of experiment state file because {}'.format(e))
+        else:
+            self.experimentStateFile = experimentStateFile
+
         # Set up other aspects of the object
         self.nhits = None
         self.n_segments = 0
@@ -259,7 +274,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                                      hdf5_group=hdf5_noisegroup)
 
                 if pulse.channum != noise.channum:
-                    LOG.warn("WARNING: TESGroup did not add data: channums don't match %s, %s", fname, nf)
+                    LOG.warning("WARNING: TESGroup did not add data: channums don't match %s, %s", fname, nf)
                     continue
                 dset.noise_records = noise
                 assert(dset.channum == dset.noise_records.channum)
@@ -420,7 +435,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for channum in added_to_list:
             new_comment = self._bad_channums.get(channum, []) + [comment]
             self._bad_channums[channum] = new_comment
-            LOG.warn('WARNING: Chan %s flagged bad because %s', channum, comment)
+            LOG.warning('WARNING: Chan %s flagged bad because %s', channum, comment)
             self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] =  \
                 np.asarray(new_comment, dtype=np.bytes_)
 
@@ -516,7 +531,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         self._allowed_segnums = allowed_segnums
 
         if ranges is not None:
-            LOG.warn("""Warning!  This feature is only half-complete.  Currently, granularity is limited.
+            LOG.warning("""Warning!  This feature is only half-complete.  Currently, granularity is limited.
     Only full "segments" of size %d records can be ignored.
     Will use %d segments and ignore %d.""", self.pulses_per_seg, self._allowed_segnums.sum(),
                      self.n_segments - self._allowed_segnums.sum())
@@ -573,6 +588,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 self.set_chan_bad(ds.channum, "summarize_data failed with %s" % e)
 
     def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}, filter_type="ats"):
+        LOG.warning('compute_filters is deprecated and will eventually be removed, please use compute_ats_filter or compute_5lag_filter directly')
         for ds in self.datasets:
             if hasattr(ds, "_use_new_filters"):
                 raise Exception("ds._use_new_filters is deprecated, use the filter_type argument to this function instead")
@@ -583,7 +599,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         else:
             raise Exception("filter_type must be one of `ats` or `5lag`")
 
-    def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False):
+    def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False, maximum_n_pulses=4000, category={}):
         if hdf5_file is None:
             basename, _ = self.datasets[0].filename.split("chan")
             hdf5_filename = basename+"model.hdf5"
@@ -591,11 +607,12 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 if not replace_output:
                     raise Exception("file {} already exists, pass replace_output = True to overwrite".format(hdf5_filename))
             with h5py.File(hdf5_filename, "w") as hdf5_file:
-                self._pulse_model_to_hdf5(hdf5_file, n_basis)
+                self._pulse_model_to_hdf5(hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses, category=category)
                 LOG.info("writing pulse_model to {}".format(hdf5_filename))
         else:
+            hdf5_filename = hdf5_file.filename
             LOG.info("writing pulse_model to {}".format(hdf5_filename))
-            self._pulse_model_to_hdf5(hdf5_file, n_basis)
+            self._pulse_model_to_hdf5(hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses, category=category)
         return hdf5_filename
 
     def calc_external_trigger_timing(self, after_last=False, until_next=False,
@@ -882,7 +899,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             raise ValueError("Call make_masks with one of pulse_avg_range"
                              " pulse_rms_range, or pulse_peak_range specified.")
         elif nranges > 1:
-            LOG.warn("Warning: make_masks uses only one range argument.  Checking only '%s'.", vectname)
+            LOG.warning("Warning: make_masks uses only one range argument.  Checking only '%s'.", vectname)
 
         middle = 0.5 * (pmin + pmax)
         abs_lim = 0.5 * np.abs(pmax - pmin)
@@ -1009,8 +1026,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 LOG.info("Chan %3d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV",
                          ds.channum, filter_name, v_dv, std_energy, std_energy / v_dv)
             except Exception as e:
-                LOG.warn("Filter %d can't be used", i)
-                LOG.warn(e)
+                LOG.warning("Filter %d can't be used", i)
+                LOG.warning(e)
 
     def report(self):
         """Report on the number of data points and similar."""
@@ -1154,7 +1171,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 axis.plot(freq, yvalue, label='Chan %d' % channum,
                           color=cmap(float(i) / nplot))
             except Exception:
-                LOG.warn("WARNING: Could not plot channel %4d.", channum)
+                LOG.warning("WARNING: Could not plot channel %4d.", channum)
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
