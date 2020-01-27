@@ -416,11 +416,15 @@ class Recipe():
 
     @property
     def nonRecipeArgs(self):
-        a = []
+        # collect a unique list of all requires nonRecipe args...
+        # FUTURE?: possibly I should just always index into the off files and get all offArgs all the time?
+        a = [] 
         for (k, v) in self.args.items():
             if isinstance(v, Recipe):
-                a += v.nonRecipeArgs
-            else:
+                for vv in v.nonRecipeArgs:
+                    if vv not in a:
+                        a.append(vv)
+            elif k not in a:
                 a.append(k)
         return a
 
@@ -677,24 +681,35 @@ class Channel(CorG):
         return binCenters, counts
 
     @add_group_loop
-    def learnDriftCorrection(self, states=None, indicatorName="pretriggerMean", uncorrectedName="filtValue", goodFunc=None, returnBad=False):
+    def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue", correctedName = "filtValueDC", states=None, goodFunc=None, returnBad=False):
         inds = self.getStatesIndicies(states)
-        v = self.getOffAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
+        v = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
         slope, info = mass.core.analysis_algorithms.drift_correct(
             v[indicatorName], v[uncorrectedName])
         self.driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
-        self.addRecipe("filtValueDC", self.driftCorrection.apply, [
+        self.addRecipe(correctedName, self.driftCorrection.apply, [
                        self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
         return self.driftCorrection
 
-    def learnPhaseCorrection(self, states, indicatorName, uncorrectedName, linePositions, goodFunc=None, returnBad=False):
+    @add_group_loop
+    def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName = "filtValuePC", states=None, 
+    linePositionsFunc=None, goodFunc=None, returnBad=False):
+        """
+        linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
+        otherwise try to call it with self as an argument... here is an example of how you could use all but one peak from calibrationRough:
+        `data.learnPhaseCorrection(linePositionsFunc = lambda ds: dsl.calibrationRough._ph[1:]`
+        """
+        # may need to generalize this to allow using a specific state for phase correction as a specfic line... with something like calibrationPlan
+        if linePositionsFunc is None:
+            linePositions = self.calibrationRough._ph
+        else:
+            linePositions = linePositionsFunc(self)
         inds = self.getStatesIndicies(states)
-        indicator = self.getAttr(indicatorName, inds, goodFunc, returnBad)
-        uncorrected = self.getAttr(uncorrectedName, inds, goodFunc, returnBad)
+        v = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
         self.phaseCorrection = mass.core.phase_correct.phase_correct(
-            indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
-        self.addRecipe("filtValuePC", self.phaseCorrection.correct, [
+            v[indicatorName], v[uncorrected], linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
+        self.addRecipe(correctedName, self.phaseCorrection.correct, [
                        self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     def loadDriftCorrection(self):

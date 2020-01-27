@@ -58,7 +58,6 @@ ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
 
 
 ds.diagnoseCalibration()
-ds.learnPhaseCorrection("Ne", "derivativeLike", "filtValue", [3768])
 
 ds3 = data[3]
 data.alignToReferenceChannel(referenceChannel=ds,
@@ -66,6 +65,10 @@ data.alignToReferenceChannel(referenceChannel=ds,
 aligner = ds3.aligner
 aligner.samePeaksPlot()
 aligner.samePeaksPlotWithAlignmentCal()
+
+# phase correct
+data.learnPhaseCorrection(uncorrectedName="filtValueDC")
+ds.hist(np.arange(0,4000,1), "filtValuePC")
 
 fitters = data.calibrateFollowingPlan(
     "filtValueDC", _rethrow=False, dlo=10, dhi=10, approximate=False)
@@ -118,6 +121,9 @@ newds = Channel(ds.offFile, ds.experimentStateFile)
 newds.recipeFromHDF5(h5)
 h5.close()
 
+# make sure we can use recipe outputs as inputs for drift correction and phase correction
+ds.learnDriftCorrection(uncorrectedName="filtValuePC", correctedName="filtValuePCDC")
+ds.learnPhaseCorrection(uncorrectedName="filtValueDC", correctedName="filtValueDCPC")
 
 class TestSummaries(ut.TestCase):
     def test_recipeFromHDF5(self):
