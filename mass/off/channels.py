@@ -673,7 +673,10 @@ class Channel(CorG):
         return binCenters, counts
 
     @add_group_loop
-    def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue", correctedName = "filtValueDC", states=None, goodFunc=None, returnBad=False):
+    def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue", correctedName = None, states=None, goodFunc=None, returnBad=False):
+        """do a linear correction between the indicator and uncorrected... """
+        if correctedName is None:
+            correctedName = uncorrectedName + "DC"
         inds = self.getStatesIndicies(states)
         indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
         slope, info = mass.core.analysis_algorithms.drift_correct(
@@ -684,7 +687,7 @@ class Channel(CorG):
         return driftCorrection
 
     @add_group_loop
-    def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName = "filtValuePC", states=None, 
+    def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName = None, states=None, 
     linePositionsFunc=None, goodFunc=None, returnBad=False):
         """
         linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
@@ -692,6 +695,8 @@ class Channel(CorG):
         `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f._ph`
         """
         # may need to generalize this to allow using a specific state for phase correction as a specfic line... with something like calibrationPlan
+        if correctedName is None:
+            correctedName = uncorrectedName + "PC"
         if linePositionsFunc is None:
             linePositions = self.recipes["energyRough"].f._ph
         else:
@@ -703,12 +708,25 @@ class Channel(CorG):
         self.addRecipe(correctedName, self.phaseCorrection.correct, [
                        self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
-    def loadDriftCorrection(self):
-        raise Exception("not implemented")
+    @add_group_loop
+    def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName = None, 
+    states=None, goodFunc=None, returnBad=None, kernel_width = 1, sec_per_degree=2000, pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
+        """do a polynomial correction based on the indicator
+        you are encouraged to change the settings that affect the degree of the polynomail
+        see help in mass.core.channel.time_drift_correct for details on settings"""
+        if correctedName is None:
+            correctedName = uncorrectedName+"TC"
+        inds = self.getStatesIndicies(states)
+        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
+        info = mass.core.channel.time_drift_correct(indicator, uncorrected, kernel_width, sec_per_degree,
+        pulses_per_degree, max_degrees, ndeg, limit)
 
-    def hasDriftCorrection(self):
-        return hasattr(self, "driftCorrection")
-
+        def time_drift_correct(indicator, uncorrected):
+            tnorm = info["normalize"](indicator)
+            corrected = uncorrected*(1+info["model"](tnorm))
+            return corrected
+        self.addRecipe(correctedName, time_drift_correct, [indicatorName, uncorrectedName])
+        
     def plotCompareDriftCorrect(self, axis=None, states=None, goodFunc=None, includeBad=False):
         if axis is None:
             plt.figure()

@@ -66,10 +66,6 @@ aligner = ds3.aligner
 aligner.samePeaksPlot()
 aligner.samePeaksPlotWithAlignmentCal()
 
-# phase correct
-data.learnPhaseCorrection(uncorrectedName="filtValueDC", _rethrow=True)
-ds.hist(np.arange(0,4000,1), "filtValuePC")
-
 fitters = data.calibrateFollowingPlan(
     "filtValueDC", _rethrow=False, dlo=10, dhi=10, approximate=False)
 data.qualityCheckDropOneErrors(thresholdAbsolute=2.5, thresholdSigmaFromMedianAbsoluteValue=6, _rethrow=True)
@@ -121,9 +117,11 @@ h5.close()
 # newds.recipeFromHDF5(h5)
 # h5.close()
 
-# make sure we can use recipe outputs as inputs for drift correction and phase correction
-# ds.learnDriftCorrection(uncorrectedName="filtValuePC", correctedName="filtValuePCDC") # messed up the recipeFromHDF5 test
-ds.learnPhaseCorrection(uncorrectedName="filtValueDC", correctedName="filtValueDCPC")
+# test various corrections, including corrections that take recipes as input
+ds.learnPhaseCorrection(uncorrectedName="filtValueDC")
+ds.filtValueDCPC[0]
+ds.learnTimeDriftCorrection(uncorrectedName="filtValueDCPC")
+ds.filtValueDCPCTC[0]
 
 class TestSummaries(ut.TestCase):
     # def test_recipeFromHDF5(self):
