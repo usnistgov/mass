@@ -502,7 +502,7 @@ class Channel(CorG):
     def getStatesIndicies(self, states=None):
         """return a list of slices corresponding to
          the passed states
-        this list is appropriate for passing to getOffAttr or getRecipeAttr
+        this list is appropriate for passing to _indexOffWithCuts or getRecipeAttr
         """
         if isinstance(states, str):
             states = [states]
@@ -573,16 +573,15 @@ class Channel(CorG):
         g = v["residualStdDev"] < self.stdDevResThreshold
         return g
 
-    def getOffAttr(self, offAttr, inds, goodFunc=None, returnBad=False, _listMethodSelect=2):
+    def _indexOffWithCuts(self, inds, goodFunc=None, returnBad=False, _listMethodSelect=2):
         """
-        offAttr - a string or list of strings with names of items to get from offFile, eg ["filtValue","pretriggerMean"]
         inds - a slice or list of slices to index into items with
         goodFunc - a function called on the data read from the off file, must return a vector of bool values
         returnBad - if true, np.logical_not the goodFunc output
         _listMethodSelect - used for debugging and testing, chooses the implmentation of this method used for lists of indicies
-        getOffAttr("filtValue", slice(0,10), f) is roughly equivalent to:
+        _indexOffWithCuts(slice(0,10), f) is roughly equivalent to:
         g = f(offFile[0:10])
-        offFile["filtValue"][0:10][g]
+        offFile[0:10][g]
         """
         if goodFunc is None:
             goodFunc = self.defaultGoodFunc
@@ -592,18 +591,18 @@ class Channel(CorG):
             g = goodFunc(r)
             if returnBad:
                 g = np.logical_not(g)
-            output = r[g][offAttr]
+            output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
             # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
             # and about 2x fatster than temporary bool index, which can be found in commit 063bcce
             # make sure s.step is None so my simple length calculation will work
             assert all([isinstance(s, slice) and s.step is None for s in inds])
             max_length = np.sum([s.stop-s.start for s in inds])
-            output_dtype = self.offFile[0:0][offAttr].dtype  # get the dtype to preallocate with
+            output_dtype = self.offFile.dtype  # get the dtype to preallocate with
             output_prealloc = np.zeros(max_length, output_dtype)
             ilo, ihi = 0, 0
             for s in inds:
-                tmp = self.getOffAttr(offAttr, s, goodFunc, returnBad)
+                tmp = self._indexOffWithCuts(s, goodFunc, returnBad)
                 ilo = ihi
                 ihi = ilo+len(tmp)
                 output_prealloc[ilo:ihi] = tmp
@@ -612,35 +611,30 @@ class Channel(CorG):
             # this could be removed, along with the _listMethodSelect argument
             # this is only left in because it is useful for correctness testing for preallocate and truncate method since this is simpler
             assert all([isinstance(_inds, slice) for _inds in inds])
-            output = self.getOffAttr(offAttr, inds[0], goodFunc, returnBad)
+            output = self._indexOffWithCuts(inds[0], goodFunc, returnBad)
             for i in range(1, len(inds)):
-                output = np.hstack((output, self.getOffAttr(offAttr, inds[i], goodFunc, returnBad)))
+                output = np.hstack((output, self._indexOffWithCuts(inds[i], goodFunc, returnBad)))
         elif isinstance(inds, NoCutInds):
-            output = self.offFile[offAttr]
+            output = self.offFile
         else:
             raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
         return output
 
-    def getRecipeAttr(self, attr, inds, goodFunc=None, returnBad=False):
-        if goodFunc is None:
-            goodFunc = self.defaultGoodFunc
-        recipe = self.recipes[attr]
-        offAttr = recipe.nonRecipeArgs
-        # make a single read from the off file, even if we need multiple items like "pretriggerMean" and "filtValue" simultaneously
-        # this should be a ndarray with a dtype mapping names to items
-        offAttrValues = self.getOffAttr(offAttr, inds, goodFunc, returnBad)
-        args = {}
-        for k in offAttr:
-            args[k] = offAttrValues[k]  # here we break out the ndarray into seperate arrays
-        return recipe(args)
-
     def getAttr(self, attr, inds, goodFunc=None, returnBad=False):
-        if self.isOffAttr(attr):
-            return self.getOffAttr(attr, inds, goodFunc, returnBad)
-        elif self.isRecipeAttr(attr):
-            return self.getRecipeAttr(attr, inds, goodFunc, returnBad)
+        offAttrValues = self._indexOffWithCuts(inds, goodFunc, returnBad) # single read from disk, read all values
+        if isinstance(attr, list):
+            return [self._getAttr(a, offAttrValues) for a in attr]
         else:
-            raise Exception("attr {} is neither an OffAttr or a RecipeAttr. OffAttrs: {}\nRecipeAttrs: {}".format(attr, list(self._offAttrs), list(self._recipeAttrs)))
+            return self._getAttr(attr, offAttrValues)
+
+    def _getAttr(self, attr, offAttrValues):
+        if self.isRecipeAttr(attr):
+            recipe = self.recipes[attr]
+            return recipe(offAttrValues)
+        elif self.isOffAttr(attr):
+            return offAttrValues[attr]
+        else:
+            raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(attr, list(self._offAttrs), list(self._recipeAttrs)))
 
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, goodFunc=None):
         if axis is None:
@@ -683,9 +677,9 @@ class Channel(CorG):
     @add_group_loop
     def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue", correctedName = "filtValueDC", states=None, goodFunc=None, returnBad=False):
         inds = self.getStatesIndicies(states)
-        v = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
+        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
         slope, info = mass.core.analysis_algorithms.drift_correct(
-            v[indicatorName], v[uncorrectedName])
+            indicator, uncorrected)
         self.driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
         self.addRecipe(correctedName, self.driftCorrection.apply, [
@@ -706,9 +700,9 @@ class Channel(CorG):
         else:
             linePositions = linePositionsFunc(self)
         inds = self.getStatesIndicies(states)
-        v = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
+        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
         self.phaseCorrection = mass.core.phase_correct.phase_correct(
-            v[indicatorName], v[uncorrected], linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
+            indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
         self.addRecipe(correctedName, self.phaseCorrection.correct, [
                        self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
