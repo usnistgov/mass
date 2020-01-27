@@ -400,7 +400,10 @@ class Recipe():
         try:
             inspectedArgNames = list(inspect.signature(self.f).parameters)  # Py 3.3+ only??
         except AttributeError:
-            inspectedArgNames = inspect.getargspec(self.f).args  # Pre-Py 3.3
+            try:
+                inspectedArgNames = inspect.getargspec(self.f).args  # Pre-Py 3.3
+            except TypeError:
+                inspectedArgNames = inspect.getargspec(self.f.__call__).args
         if "self" in inspectedArgNames:  # drop the self argument for class methods
             inspectedArgNames.remove("self")
         if argNames is None:
@@ -430,7 +433,7 @@ class Recipe():
             else:
                 new_args.append(args[k])
         # call functions with positional arguments so names don't need to match
-        return self.f(*new_args)
+        return self.f(*new_args) 
 
     def __repr__(self, indent=0):
         s = "Recipe: f={}, args=".format(self.f)
