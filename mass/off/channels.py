@@ -187,6 +187,9 @@ class DriftCorrection():
         self.medianIndicator = medianIndicator
         self.slope = slope
 
+    def __call__(self, indicator, uncorrected):
+        return self.apply(indicator, uncorrected)
+
     def apply(self, indicator, uncorrected):
         gain = 1+(indicator-self.medianIndicator)*self.slope
         return gain*uncorrected
@@ -389,9 +392,10 @@ class Recipe():
     reads to the off file.
     """
 
-    def __init__(self, f, argNames=None):
+    def __init__(self, f, argNames=None, inverse=None):
         assert not isinstance(f, Recipe)
         self.f = f
+        self.inverse = inverse
         self.args = collections.OrderedDict()  # assumes the dict preserves insertion order
         try:
             inspectedArgNames = list(inspect.signature(self.f).parameters)  # Py 3.3+ only??
@@ -408,10 +412,15 @@ class Recipe():
             for argName, inspectedArgName in zip(argNames, inspectedArgNames):
                 self.args[argName] = inspectedArgName
 
-    def setArg(self, argName, r):
+    def setArgToRecipe(self, argName, r):
         assert isinstance(r, Recipe)
         assert argName in self.args
         self.args[argName] = r
+
+    @property
+    def argsL(self):
+        "return the 'left side' arguments.... aka what self.f calls them"
+        return list(self.args.keys())
 
     def __call__(self, args):
         new_args = []
@@ -666,11 +675,10 @@ class Channel(CorG):
         indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
         slope, info = mass.core.analysis_algorithms.drift_correct(
             indicator, uncorrected)
-        self.driftCorrection = DriftCorrection(
-            indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
-        self.addRecipe(correctedName, self.driftCorrection.apply, [
-                       self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
-        return self.driftCorrection
+        driftCorrection = DriftCorrection(indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
+        self.addRecipe(correctedName, driftCorrection, [
+                       driftCorrection.indicatorName, driftCorrection.uncorrectedName])
+        return driftCorrection
 
     @add_group_loop
     def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName = "filtValuePC", states=None, 
@@ -678,11 +686,11 @@ class Channel(CorG):
         """
         linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
         otherwise try to call it with self as an argument... here is an example of how you could use all but one peak from calibrationRough:
-        `data.learnPhaseCorrection(linePositionsFunc = lambda ds: dsl.calibrationRough._ph[1:]`
+        `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f._ph`
         """
         # may need to generalize this to allow using a specific state for phase correction as a specfic line... with something like calibrationPlan
         if linePositionsFunc is None:
-            linePositions = self.calibrationRough._ph
+            linePositions = self.recipes["energyRough"].f._ph
         else:
             linePositions = linePositionsFunc(self)
         inds = self.getStatesIndicies(states)
@@ -702,14 +710,16 @@ class Channel(CorG):
         if axis is None:
             plt.figure()
             axis = plt.gca()
-
+        recipe = self.recipes["filtValueDC"]
+        indicatorName = "pretriggerMean"
+        uncorrectedName = "filtValue"
+        assert recipe.args[indicatorName] == "indicator"
+        assert recipe.args[uncorrectedName] == "uncorrected"
         if states is None:
             states = self.stateLabels
         for state in states:
             inds = self.getStatesIndicies(state)
-            A = self.getAttr(self.driftCorrection.indicatorName, inds, goodFunc)
-            B = self.getAttr(self.driftCorrection.uncorrectedName, inds, goodFunc)
-            C = self.getAttr("filtValueDC", inds, goodFunc)
+            A,B,C = self.getAttr([indicatorName,uncorrectedName,"filtValueDC"], inds, goodFunc)
             axis.plot(A, B, ".", label=state)
             axis.plot(A, C, ".", label=state+" DC")
             if includeBad:
@@ -719,8 +729,8 @@ class Channel(CorG):
                 C = self.getAttr("filtValueDC", inds, goodFunc, returnBad=True)
                 axis.plot(A, B, "x", label=state+" bad")
                 axis.plot(A, C, "x", label=state+" bad DC")
-        plt.xlabel(self.driftCorrection.indicatorName)
-        plt.ylabel(self.driftCorrection.uncorrectedName + ",filtValueDC")
+        plt.xlabel(indicatorName)
+        plt.ylabel(uncorrectedName + ",filtValueDC")
         plt.title(self.shortName+" drift correct comparison")
         plt.legend(title="states")
         return axis
@@ -731,16 +741,16 @@ class Channel(CorG):
 
     def calibrationPlanAddPoint(self, uncalibratedVal, name, states=None, energy=None):
         self.calibrationPlan.addCalPoint(uncalibratedVal, name, states, energy)
-        self.calibrationRough = self.calibrationPlan.getRoughCalibration()
-        self.calibrationRough.uncalibratedName = self.calibrationPlanAttr
-        self.addRecipe("energyRough", self.calibrationRough.ph2energy,
-                       [self.calibrationRough.uncalibratedName])
+        calibrationRough = self.calibrationPlan.getRoughCalibration()
+        calibrationRough.uncalibratedName = self.calibrationPlanAttr
+        self.addRecipe("energyRough", calibrationRough,
+                       [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph)
         return self.calibrationPlan
 
     @add_group_loop
     def calibrateFollowingPlan(self, attr, curvetype="gain", approximate=True, dlo=50, dhi=50, binsize=1):
-        self.calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
-        self.calibration.uncalibratedName = attr
+        calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
+        calibration.uncalibratedName = attr
         fitters = []
         for (ph, energy, name, states) in zip(self.calibrationPlan.uncalibratedVals, self.calibrationPlan.energies,
                                               self.calibrationPlan.names, self.calibrationPlan.states):
@@ -755,13 +765,14 @@ class Channel(CorG):
                 self.markBad("calibrateFollowingPlan: failed fit {}, states {}".format(
                     name, states), extraInfo=fitter)
                 continue
-            phRefined = self.calibrationRough.energy2ph(fitter.last_fit_params_dict["peak_ph"][0])
-            self.calibration.add_cal_point(phRefined, energy, name)
+            assert self.recipes["energyRough"].argsL[0] == attr
+            phRefined = self.recipes["energyRough"].inverse(fitter.last_fit_params_dict["peak_ph"][0])
+            calibration.add_cal_point(phRefined, energy, name)
         self.fittersFromCalibrateFollowingPlan = fitters
-        self.addRecipe("energy", self.calibration.ph2energy, [self.calibration.uncalibratedName])
+        self.addRecipe("energy", calibration, [calibration.uncalibratedName])
         return fitters
 
-    def addRecipe(self, recipeName, f, argNames, createProperty=True):
+    def addRecipe(self, recipeName, f, argNames, inverse=None, createProperty=True):
         """
         recipeName - the name of the new Attr to create, eg "energy"
         f - the function used to caluclate the Attr
@@ -770,13 +781,13 @@ class Channel(CorG):
         """
         # add a recipe
         # 1. create the recipe
-        # 2. call setArg to point at any existing recipes for argument
+        # 2. call setArgToRecipe to point at any existing recipes for argument
         # 3. add to dict with key recipeName
         assert isinstance(argNames, list)
-        recipe = Recipe(f, argNames)
+        recipe = Recipe(f, argNames, inverse=inverse)
         for argName in argNames:
             if argName in self.recipes:
-                recipe.setArg(argName, self.recipes[argName])
+                recipe.setArgToRecipe(argName, self.recipes[argName])
             elif not self.isOffAttr(argName):
                 raise Exception(
                     "argName={} should be in self.recipes or be an OffAttr".format(argName))
@@ -876,6 +887,7 @@ class Channel(CorG):
                 line, resolution, worstAllowedFWHM))
         return fitter
 
+    @add_group_loop
     def histsToHDF5(self, h5File, binEdges, attr="energy", goodFunc=None):
         grp = h5File.require_group(str(self.channum))
         for state in self.stateLabels:  # hist for each state
@@ -886,52 +898,6 @@ class Channel(CorG):
         grp["bin_centers_ev"] = binCenters
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
-
-    @add_group_loop
-    def recipeToHDF5(self, h5File):
-        grp = h5File.require_group(str(self.channum))
-        if hasattr(self, "driftCorrection"):
-            self.driftCorrection.toHDF5(grp)
-        if hasattr(self, "calibration"):
-            self.calibration.save_to_hdf5(grp, "calibration")
-            grp["calibration/uncalibratedName"] = self.calibration.uncalibratedName
-        if hasattr(self, "calibrationRough"):
-            self.calibrationRough.save_to_hdf5(grp, "calibrationRough")
-            grp["calibrationRough/uncalibratedName"] = self.calibrationRough.uncalibratedName
-        if hasattr(self, "calibrationArbsInRefChannelUnits"):
-            self.calibrationArbsInRefChannelUnits.save_to_hdf5(
-                grp, "calibrationArbsInRefChannelUnits")
-            grp["calibrationArbsInRefChannelUnits/uncalibratedName"] = self.calibrationArbsInRefChannelUnits.uncalibratedName
-        if hasattr(self, "phaseCorrection"):
-            self.phaseCorrection.toHDF5(grp)
-
-    def recipeFromHDF5(self, h5File):
-        grp = h5File.require_group(str(self.channum))
-        if "driftCorrection" in grp:
-            self.driftCorrection = DriftCorrection.fromHDF5(grp)
-            self.addRecipe("filtValueDC", self.driftCorrection.apply, [
-                           self.driftCorrection.indicatorName, self.driftCorrection.uncorrectedName])
-        if "calibration" in grp:
-            self.calibration = mass.EnergyCalibration.load_from_hdf5(grp, "calibration")
-            self.calibration.uncalibratedName = grp["calibration/uncalibratedName"][()]
-            self.addRecipe("energy", self.calibration.ph2energy,
-                           [self.calibration.uncalibratedName])
-        if "calibrationRough" in grp:
-            self.calibrationRough = mass.EnergyCalibration.load_from_hdf5(grp, "calibrationRough")
-            self.calibrationRough.uncalibratedName = grp["calibrationRough/uncalibratedName"][()]
-            self.addRecipe("energyRough", self.calibrationRough.ph2energy,
-                           [self.calibrationRough.uncalibratedName])
-        if "calibrationArbsInRefChannelUnits" in grp:
-            self.calibrationArbsInRefChannelUnits = mass.EnergyCalibration.load_from_hdf5(
-                grp, "calibrationArbsInRefChannelUnits")
-            self.calibrationArbsInRefChannelUnits.uncalibratedName = grp[
-                "calibrationArbsInRefChannelUnits/uncalibratedName"][()]
-            self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
-                self.calibrationArbsInRefChannelUnits.uncalibratedName])
-        if "phase_correction" in grp:
-            self.phaseCorrection = mass.core.phase_correct.PhaseCorrector.fromHDF5(grp)
-            self.addRecipe("filtValuePC", self.phaseCorrection.correct, [
-                           self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
 
     @add_group_loop
     def energyTimestampLabelToHDF5(self, h5File, goodFunc=None, returnBad=False):
@@ -951,7 +917,8 @@ class Channel(CorG):
 
     @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute=None, thresholdSigmaFromMedianAbsoluteValue=None):
-        energies, errors = self.calibration.drop_one_errors()
+        calibration = self.recipes["energy"].f
+        energies, errors = calibration.drop_one_errors()
         maxAbsError = np.amax(np.abs(errors))
         medianAbsoluteValue = np.median(np.abs(errors))
         k = 1.4826  # https://en.wikipedia.org/wiki/Median_absolute_deviation
@@ -977,9 +944,11 @@ class Channel(CorG):
             else:
                 plt.title(type(fitter.spect).__name__)
         ax = plt.subplot(n, n, i+2)
-        self.calibration.plot(axis=ax)
+        calibration = self.recipes["energy"].f
+        calibration.plot(axis=ax)
+        uncalibratedName = self.recipes["energy"].argsL[0]
         ax = plt.subplot(n, n, i+3)
-        self.plotHist(np.arange(0, 16000, 4), self.calibration.uncalibratedName,
+        self.plotHist(np.arange(0, 16000, 4), uncalibratedName,
                       axis=ax, coAddStates=False)
         plt.vlines(self.calibrationPlan.uncalibratedVals, 0, plt.ylim()[1])
 
