@@ -703,10 +703,10 @@ class Channel(CorG):
             linePositions = linePositionsFunc(self)
         inds = self.getStatesIndicies(states)
         indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
-        self.phaseCorrection = mass.core.phase_correct.phase_correct(
+        phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
-        self.addRecipe(correctedName, self.phaseCorrection.correct, [
-                       self.phaseCorrection.indicatorName, self.phaseCorrection.uncorrectedName])
+        self.addRecipe(correctedName, phaseCorrection.correct, [
+                       phaseCorrection.indicatorName, phaseCorrection.uncorrectedName])
 
     @add_group_loop
     def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName = None, 

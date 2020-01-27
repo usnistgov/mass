@@ -117,17 +117,24 @@ h5.close()
 # newds.recipeFromHDF5(h5)
 # h5.close()
 
-# test various corrections, including corrections that take recipes as input
+# test corrections with recipes as input 
 ds.learnPhaseCorrection(uncorrectedName="filtValueDC")
-ds.filtValueDCPC[0]
 ds.learnTimeDriftCorrection(uncorrectedName="filtValueDCPC")
-ds.filtValueDCPCTC[0]
+ds.filtValueDCPCTC[0] # this will error if the attr doesnt exist
+
 
 class TestSummaries(ut.TestCase):
     # def test_recipeFromHDF5(self):
     #     self.assertTrue(newds.driftCorrection == ds.driftCorrection)
     #     self.assertTrue(np.allclose(newds.filtValueDC, ds.filtValueDC))
     #     self.assertTrue(np.allclose(newds.energy, ds.energy))
+
+    def test_repeatingTheSameCorrectionWithNewNameDoesntChantTheOriginal(self):
+        # repeating the same correciton with new name doesnt change the orirignal
+        orig = ds.filtValueDC[:]
+        ds.learnDriftCorrection(uncorrectedName="filtValueDCPCTC")
+        ds.filtValueDCPCTC[0]
+        self.assertTrue(np.allclose(orig, ds.filtValueDC))
 
     def test_fixedBehaviors(self):
         self.assertEqual(ds.stateLabels, ["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
