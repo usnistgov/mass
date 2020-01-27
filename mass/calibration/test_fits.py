@@ -339,7 +339,7 @@ class Test_MnKA_lmfit(unittest.TestCase):
         values += sigma*np.random.standard_normal(size=n)
         # histogram
         counts, _ = np.histogram(values, bin_edges)
-        model = mass.model_classes["MnKAlpha"]()
+        model = mass.make_line_model(distrib)
         bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
         params = model.guess(counts, bin_centers=bin_centers)
         result = model.fit(counts, bin_centers=bin_centers, params=params)

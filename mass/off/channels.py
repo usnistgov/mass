@@ -334,7 +334,8 @@ class CorG():
             fitter = lineNameOrEnergy
             nominal_peak_energy = fitter.spect.nominal_peak_energy
         elif isinstance(lineNameOrEnergy, str):
-            fitter = mass.fitter_classes[lineNameOrEnergy]()
+            line = mass.spectrum_classes[lineNameOrEnergy]()
+            fitter = mass.make_line_fitter(line)
             nominal_peak_energy = fitter.spect.nominal_peak_energy
         else:
             fitter = mass.GaussianFitter()
@@ -749,7 +750,7 @@ class Channel(CorG):
         fitters = []
         for (ph, energy, name, states) in zip(self.calibrationPlan.uncalibratedVals, self.calibrationPlan.energies,
                                               self.calibrationPlan.names, self.calibrationPlan.states):
-            if name in mass.fitter_classes:
+            if name in mass.spectrum_classes:
                 fitter = self.linefit(name, "energyRough", states, dlo=dlo, dhi=dhi,
                                       plot=False, binsize=binsize)
             else:

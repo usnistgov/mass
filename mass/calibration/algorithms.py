@@ -183,7 +183,10 @@ def getfitter(name):
         "MnKAlpha" will return a MnKAlphaFitter
         "1150" will return a GaussianFitter
     """
-    return mass.calibration.fitter_classes.get(name, mass.calibration.GaussianFitter)()
+    if name in mass.calibration.spectrum_classes:
+        line = mass.calibration.spectrum_classes[name]()
+        return mass.make_line_fitter(line)
+    return mass.calibration.GaussianFitter()
 
 
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):

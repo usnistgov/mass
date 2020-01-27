@@ -61,10 +61,10 @@ The `SpectralLine` object is useful to you if you need to generate simulated dat
 
 ### How to use the new, LMFIT-based models for fitting
 
-The simplest case requires only 3 steps: create a model instance, guess its parameters from the data, and perform a fit with this guess. Unlike the old fitters, plotting is not done as part of the fit--you have to do that separately.
+The simplest case requires only 3 steps: create a model instance from a `SpectralLine`, guess its parameters from the data, and perform a fit with this guess. Unlike the old fitters, plotting is not done as part of the fit--you have to do that separately.
 
 ```python
-model = mass.model_classes["MnKAlpha"]()
+model = mass.make_line_model(line)
 params = model.guess(sim, bin_centers=e)
 resultA = model.fit(sim, params, bin_centers=e)
 
@@ -82,7 +82,7 @@ resultB.plot()
 Notice when you report the fit (or check the contents of the `params` or `resultB.params` objects), there are no parameters referring to exponential tails of a Bortels response. That's because the default fitter assumes a Gaussian response. If you want tails, that's a constructor argument:
 
 ```python
-model = mass.model_classes["MnKAlpha"](has_tails=True)
+model = mass.make_line_model(line, has_tails=True)
 params = model.guess(sim, bin_centers=e)
 params["dph_de"].set(1.0, vary=False)
 resultC = model.fit(sim, params, bin_centers=e)
@@ -114,10 +114,8 @@ Adding or removing the `_hi` suffix to/from the parameter names in the examples 
 Keep in mind that the code in this section is considered deprecated. You should replace it (see the next section for how) in your own scripts. This explanation is here simply for reference and to help you replace.
 
 ```python
-# In general, fitters for known lines are instantiated by:
-fitter = mass.fitter_classes["MnKAlpha"]()
-# But the following is a shortcut for many lines:
-fitter = mass.MnKAlphaFitter()
+# Fitters for known lines are instantiated by:
+fitter = mass.make_line_fitter(line)
 paramA, covar = fitter.fit(sim, e)
 print(paramA)
 ```
