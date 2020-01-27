@@ -79,7 +79,7 @@ class ExperimentStateFile():
             return ["START", "END", "STOP", "IGNORE"]
 
     def applyExcludesToLabels(self, allLabels):
-        """ 
+        """
         possible recalculate self.excludeStates
         return a list of state labels that is unique, and contains all entries in allLabels except those in self.excludeStates
         order in the returned list is that of first appearance in allLables
@@ -103,7 +103,7 @@ class ExperimentStateFile():
         if statesDict is None:
             statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
-        if len(statesDict.keys()) > 0 and len(inds)>0:  # the state that was active last time calcStatesDict was called may need special handling
+        if len(statesDict.keys()) > 0 and len(inds) > 0:  # the state that was active last time calcStatesDict was called may need special handling
             assert i0_allLabels > 0
             for k in statesDict.keys():
                 last_key = k
@@ -124,7 +124,7 @@ class ExperimentStateFile():
                 v = statesDict[aliasedLabel]
                 if isinstance(v, slice):
                     # this label was previously unique... create the list of slices
-                    statesDict[aliasedLabel] = [v,s]
+                    statesDict[aliasedLabel] = [v, s]
                 elif isinstance(v, list):
                     # this label was previously not unique... append to the list of slices
                     statesDict[aliasedLabel] = v+[s]
@@ -260,8 +260,11 @@ def add_group_loop(method):
     # Generate a good doc-string.
     lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
     lines.append("pass _rethrow=True to see stacktrace from first error")
-    arginfo = inspect.getargspec(method)
-    argtext = inspect.formatargspec(*arginfo)
+    try:
+        argtext = inspect.signature(method)  # Python 3.3 and later
+    except AttributeError:
+        arginfo = inspect.getargspec(method)
+        argtext = inspect.formatargspec(*arginfo)
     if method.__doc__ is None:
         lines.append("\n%s%s has no docstring" % (method_name, argtext))
     else:
@@ -391,9 +394,12 @@ class Recipe():
         assert not isinstance(f, Recipe)
         self.f = f
         self.args = collections.OrderedDict()  # assumes the dict preserves insertion order
-        inspectedArgNames = inspect.getargspec(self.f).args  # may be python 2.7 only
-        if inspectedArgNames[0] == "self":  # drop the self argument for class methods
-            inspectedArgNames = inspectedArgNames[1:]
+        try:
+            inspectedArgNames = list(inspect.signature(self.f).parameters)  # Py 3.3+ only??
+        except AttributeError:
+            inspectedArgNames = inspect.getargspec(self.f).args  # Pre-Py 3.3
+        if "self" in inspectedArgNames:  # drop the self argument for class methods
+            inspectedArgNames.remove("self")
         if argNames is None:
             for argName in inspectedArgNames:
                 self.args[argName] = argName
@@ -794,7 +800,7 @@ class Channel(CorG):
         if extraInfo is not None:
             s += "\nextraInfo: {}".format(extraInfo)
         if self.verbose:
-            LOG.warn(s)
+            LOG.warning(s)
 
     def markGood(self):
         self.markedBadReason = None

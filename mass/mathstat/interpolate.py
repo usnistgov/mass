@@ -299,7 +299,7 @@ class SmoothingSpline(object):
     the highest knots.
 
     For a proof see Reinsch, C. H. (1967). "Smoothing by spline functions."
-    Numerische Mathematik, 10(3), 177–183. http://doi.org/10.1007/BF02162161
+    Numerische Mathematik, 10(3), 177-183. http://doi.org/10.1007/BF02162161
     """
 
     def __init__(self, x, y, dy, dx=None, maxchisq=None):

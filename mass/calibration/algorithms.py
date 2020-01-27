@@ -4,10 +4,14 @@ for calibration. Mostly they are pulled out of the former
 mass.calibration.young module.
 """
 
-import collections
 import itertools
 import operator
 import numpy as np
+
+try:
+    from collections.abc import Iterable  # Python 3
+except ImportError:
+    from collections import Iterable
 
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
@@ -270,7 +274,7 @@ class EnergyCalibrationAutocal(object):
         self.line_names, self.energies_opt, self.ph_opt = find_opt_assignment(
             lm, self.line_names, nextra, nincrement, nextramax, maxacc=maxacc)
 
-        if isinstance(binsize_ev, collections.Iterable):
+        if isinstance(binsize_ev, Iterable):
             self.binsize_ev = binsize_ev
         else:
             self.binsize_ev = [binsize_ev] * len(self.energies_opt)

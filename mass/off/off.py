@@ -1,7 +1,13 @@
 import json
 import numpy as np
 import os
-import base64
+
+try:
+    from base64 import decodebytes  # Py 3.1 and later
+except ImportError:
+    from base64 import decodestring
+    decodebytes = decodestring
+
 
 """
 Supported off versions:
@@ -118,13 +124,13 @@ class OffFile(object):
             self._decodeModelInfoMmap()
 
     def _decodeModelInfoBase64(self):
-        projectorsData = base64.decodestring(
+        projectorsData = decodebytes(
             self.header["ModelInfo"]["Projectors"]["RowMajorFloat64ValuesBase64"].encode())
         projectorsRows = int(self.header["ModelInfo"]["Projectors"]["Rows"])
         projectorsCols = int(self.header["ModelInfo"]["Projectors"]["Cols"])
         self.projectors = np.frombuffer(projectorsData, np.float64)
         self.projectors = self.projectors.reshape((projectorsRows, projectorsCols))
-        basisData = base64.decodestring(
+        basisData = decodebytes(
             self.header["ModelInfo"]["Basis"]["RowMajorFloat64ValuesBase64"].encode())
         basisRows = int(self.header["ModelInfo"]["Basis"]["Rows"])
         basisCols = int(self.header["ModelInfo"]["Basis"]["Cols"])
