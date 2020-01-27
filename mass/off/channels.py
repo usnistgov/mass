@@ -381,7 +381,6 @@ class Recipe():
     If `r` is a Recipe, it is a wrapper around a function `f` and the names of its arguments.
     Arguments can either be names to be provided in a dictionary `d` when `r(d)` is called, or
     argument can be Recipe.
-    `r.nonRecipeArgs` is a list of the names of all the argumets `r` takes as well as all the other recipes that `r` depends upon
     `r(d)` where d is a dict mappring the names of argument to values will call `f` with the appropriate arguments, and also
     evaulate arguments which are recipes.
 
@@ -413,20 +412,6 @@ class Recipe():
         assert isinstance(r, Recipe)
         assert argName in self.args
         self.args[argName] = r
-
-    @property
-    def nonRecipeArgs(self):
-        # collect a unique list of all requires nonRecipe args...
-        # FUTURE?: possibly I should just always index into the off files and get all offArgs all the time?
-        a = [] 
-        for (k, v) in self.args.items():
-            if isinstance(v, Recipe):
-                for vv in v.nonRecipeArgs:
-                    if vv not in a:
-                        a.append(vv)
-            elif k not in a:
-                a.append(k)
-        return a
 
     def __call__(self, args):
         new_args = []
@@ -621,13 +606,19 @@ class Channel(CorG):
         return output
 
     def getAttr(self, attr, inds, goodFunc=None, returnBad=False):
+        """ 
+        attr - may be a string or a list of strings corresponding to Attrs defined by recipes or the offFile
+        inds - a slice or list of slices
+        returns either a single vector or a list of vectors whose entries correspond to the entries in attr
+        """
         offAttrValues = self._indexOffWithCuts(inds, goodFunc, returnBad) # single read from disk, read all values
         if isinstance(attr, list):
             return [self._getAttr(a, offAttrValues) for a in attr]
         else:
             return self._getAttr(attr, offAttrValues)
 
-    def _getAttr(self, attr, offAttrValues):
+    def _getAttr(self, attr, offAttrValues): 
+        """ internal function used to implement getAttr, does no cutting """
         if self.isRecipeAttr(attr):
             recipe = self.recipes[attr]
             return recipe(offAttrValues)
@@ -643,17 +634,12 @@ class Channel(CorG):
         if states is None:
             states = self.stateLabels
 
-        def getAB(inds, goodFunc, returnBad):
-            A = self.getAttr(nameA, inds, goodFunc, returnBad)
-            B = self.getAttr(nameB, inds, goodFunc, returnBad)
-            return A, B
-
         for state in states:
             inds = self.getStatesIndicies(state)
-            A, B = getAB(inds, goodFunc, returnBad=False)
+            A, B = self.getAttr([nameA, nameB], inds, goodFunc, returnBad=False)
             axis.plot(A, B, ".", label=state)
             if includeBad:
-                A, B = getAB(inds, goodFunc, returnBad=True)
+                A, B = self.getAttr([nameA, nameB], inds, goodFunc, returnBad=True)
                 axis.plot(A, B, "x", label=state+" bad")
         plt.xlabel(nameA)
         plt.ylabel(nameB)
