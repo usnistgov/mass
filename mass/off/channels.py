@@ -36,7 +36,7 @@ class ExperimentStateFile():
                 raise Exception("pass filename or datasetFilename or _parse=False")
             self.parse()
         self.labelAliasesDict = {}  # map unaliasedLabels to aliasedLabels
-        self._statesDictCalculated = False
+        self._preventAliasState = False # causes aliasState to raise an Exception when it wouldn't work as expected
 
     def experimentStateFilenameFromDatasetFilename(self, datasetFilename):
         basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
@@ -134,7 +134,7 @@ class ExperimentStateFile():
             else:  # this state is unique, use a slice
                 statesDict[aliasedLabel] = s
         # statesDict values should be slices for unique states and lists of slices for non-unique states
-        self._statesDictCalculated = True
+        self._preventAliasState = True
         assert(len(statesDict) == len(self.unaliasedLabels))
         return statesDict
 
@@ -142,7 +142,7 @@ class ExperimentStateFile():
         return "ExperimentStateFile: "+self.filename
 
     def aliasState(self, unaliasedLabel, aliasedLabel):
-        if self._statesDictCalculated:
+        if self._preventAliasState:
             raise Exception("call aliasState before calculating or re-calculating statesDict")
         self.labelAliasesDict[unaliasedLabel] = aliasedLabel
 
