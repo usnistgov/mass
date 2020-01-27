@@ -1,5 +1,16 @@
 ## Note on version numbers of Mass
 
+**0.7.3** January 2020-
+
+* Reorganize code to live in mass/... instead of src/mass/...; always test installed Mass.
+* Can now use "setup.py develop" to link `site-packages` back to local mass, so "installed Mass" can = local.
+* Fix issue 172: add an intrinsic Gaussian in SpectralLine: components can now be Voigts, not Lorentzians.
+* Spectral lines can have a 2-sided exponential tail, not only a low-energy tail.
+* Instantiating a `GenericLineModel` with the default `has_tails=False` forbids exponential tails, taking a shortcut around that (slow) code.
+* Add LineFitter.md to document use of the new fitting Models.
+* Fix issue 165: use of LMFIT for fitting is now the default. Deprecate the old `*Fitter` objects.
+* Fix issue 163: problems when the scaling of parameters (or their uncertainty) varies widely between parameters.
+
 **0.7.2** December 2019-January 2020
 
 * Allow ArrivalTimeSafeFilter to be full length, skipping the "shift-1" possibility that DASTARD doesn't need.

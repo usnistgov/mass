@@ -3,16 +3,6 @@
 fluorescence_lines.py
 
 Tools for fitting and simulating X-ray fluorescence lines.
-
-Many data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
-Phys Rev A56 (#6) pages 4554ff (1997 December).  See online at
-http://pra.aps.org/pdf/PRA/v56/i6/p4554_1
-
-Joe Fowler, NIST
-
-Feb 2014       : added aluminum in metal and oxide form
-July 12, 2012  : added fitting of Voigt and Lorentzians
-November 24, 2010 : started as mn_kalpha.py
 """
 
 import numpy as np
@@ -40,14 +30,21 @@ class SpectralLine(sp.stats.rv_continuous):
     return an rv_frozen.
     """
 
-    def __init__(self, pdf_gaussian_fwhm=0.0):
-        """Set up a default Gaussian smearing of 0"""
-        self.pdf_gaussian_fwhm = pdf_gaussian_fwhm
+    def __init__(self, pdf_gaussian_fwhm=0.0, intrinsic_sigma=0.0):
+        """Constructor needs two Gaussian widths (both default to zero):
+
+        `pdf_gaussian_fwhm` is the instrumental energy resolution (eV).
+            Can be changed with method set_gauss_fwhm().
+        `intrinsic_sigma` is the width (sigma) of any 'intrinsic Gaussian', as found (for example) in
+            the Fowler et al 2020 metrology shape estimation for the lanthanide L lines. Normally zero.
+        """
+        self.intrinsic_sigma = intrinsic_sigma
+        self.set_gauss_fwhm(pdf_gaussian_fwhm)
         self.peak_energy = sp.optimize.brent(lambda x: -self.pdf(x),
                                              brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
-        # make it a subclassing of rv_continuous work
-        sp.stats.rv_continuous.__init__(self)
         self.cumulative_amplitudes = self.normalized_lorentzian_integral_intensity.cumsum()
+        # Make subclassing of rv_continuous work
+        sp.stats.rv_continuous.__init__(self)
         self._pdf = self.pdf
 
     def __call__(self, x):
@@ -60,8 +57,8 @@ class SpectralLine(sp.stats.rv_continuous):
         result = np.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
-            result += ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=self.gaussian_sigma)
-            # Note that voigt is normalized to have unit integrated intensity
+            result += ampl * voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gaussian_sigma)
+            # mass.voigt() is normalized to have unit integrated intensity
         return result
 
     def components(self, x):
@@ -92,8 +89,8 @@ class SpectralLine(sp.stats.rv_continuous):
                 axis.plot(x, component, "--")
         pdf = self.pdf(x)
         axis.plot(x, self.pdf(x), "k", lw=2, label=label)
-        axis.set_xlabel("energy (eV)")
-        axis.set_ylabel("counts (arb)")
+        axis.set_xlabel("Energy (eV)")
+        axis.set_ylabel("Counts per {:.2} eV bin".format(x[1]-x[0]))
         axis.set_xlim(x[0], x[-1])
         if setylim:
             axis.set_ylim(np.amin(pdf)*0.1, np.amax(pdf))
@@ -103,10 +100,12 @@ class SpectralLine(sp.stats.rv_continuous):
 
     def plot_like_reference(self, axis=None):
         lastresolution = self.pdf_gaussian_fwhm
-        if self.reference_plot_gaussian_fwhm is not None:
-            self.pdf_gaussian_fwhm = self.reference_plot_gaussian_fwhm
-        axis = self.plot(axis)
-        self.pdf_gaussian_fwhm = lastresolution
+        try:
+            if self.reference_plot_gaussian_fwhm is not None:
+                self.set_gauss_fwhm(self.reference_plot_gaussian_fwhm)
+            axis = self.plot(axis=axis)
+        finally:
+            self.set_gauss_fwhm(lastresolution)
         return axis
 
     def _rvs(self, *args, **kwargs):
@@ -133,10 +132,6 @@ class SpectralLine(sp.stats.rv_continuous):
         return results
 
     @property
-    def gaussian_sigma(self):
-        return self.pdf_gaussian_fwhm/FWHM_OVER_SIGMA
-
-    @property
     def shortname(self):
         return self.element+self.linetype
 
@@ -145,7 +140,12 @@ class SpectralLine(sp.stats.rv_continuous):
         return lineshape_references[self.reference_short]
 
     def set_gauss_fwhm(self, fwhm):
+        """Update the energy spread function to be a Gaussian of full width `fwhm`.
+        The Voigt functions that make up this line will have a Gaussian sigma that's the quadrature
+        sum of this Gaussian and the "intrinsic sigma" (normally zero) of the model components.
+        """
         self.pdf_gaussian_fwhm = fwhm
+        self.gaussian_sigma = ((fwhm/FWHM_OVER_SIGMA)**2 + self.intrinsic_sigma**2)**0.5
 
 
 lineshape_references = OrderedDict()
@@ -294,7 +294,7 @@ def addfitter(element, linetype, material, reference_short, reference_plot_gauss
 
     for classname in classnames:
         if classname in spectrum_classes.keys():
-            raise Exception("classname {} already exists".format(classname))
+            raise ValueError("classname {} already exists".format(classname))
         spectrum_class = type(classname, (SpectralLine,), spectrum_attr_dict)
         # The above is nearly equivalent to the below
         # but the below doesn't errors because it doesn't like the use of the same
@@ -309,33 +309,35 @@ def addfitter(element, linetype, material, reference_short, reference_plot_gauss
         #     normalized_lorentzian_integral_intensity = np.array(normalized_lorentzian_integral_intensity)
         #     nominal_peak_energy = float(nominal_peak_energy)
 
-        # add fitter to spectrum_classes dict
-        spectrum_classes[spectrum_class.__name__] = spectrum_class
-        # make the fitter be a variable in the module
-        globals()[spectrum_class.__name__] = spectrum_class
-        # create fitter as well
-        spectrum = spectrum_class()
+        # Add this SpectralLine to spectrum_classes dict AND make it be a variable in the module
+        spectrum_classes[classname] = spectrum_class
+        globals()[classname] = spectrum_class
+
+        # Create a Fitter as well
+        line_instance = spectrum_class()
         if fitter_type is not None:
             fitter_superclass = fitter_type
-        elif spectrum.element in ["Al", "Mg"]:
+        elif line_instance.element in ["Al", "Mg"]:
             fitter_superclass = line_fits._lowZ_KAlphaFitter
-        elif spectrum.linetype == "KAlpha" or spectrum.linetype == "LAlpha":
+        elif line_instance.linetype == "KAlpha" or line_instance.linetype == "LAlpha":
             fitter_superclass = line_fits.GenericKAlphaFitter
-        elif spectrum.linetype.startswith("KBeta") or "LBeta" in spectrum.linetype:
+        elif line_instance.linetype.startswith("KBeta") or "LBeta" in line_instance.linetype:
             fitter_superclass = line_fits.GenericKBetaFitter
         else:
-            raise ValueError("no generic fitter for {}".format(spectrum))
-        fitter_attr_dict = {"spect": spectrum}
-        fitter_class = type(spectrum_class.__name__+"Fitter",
+            raise ValueError("no generic fitter for {}".format(line_instance))
+        fitter_attr_dict = {"spect": line_instance}
+        fitter_class = type(classname+"Fitter",
                             (fitter_superclass,), fitter_attr_dict)
-        globals()[spectrum_class.__name__+"Fitter"] = fitter_class
-        fitter_classes[spectrum_class.__name__] = fitter_class
+        fitter_classes[classname] = fitter_class
+        globals()[classname+"Fitter"] = fitter_class
+
+        # Finally, create a Model
         if fitter_superclass == line_fits.GenericKAlphaFitter:
             model_superclass = line_models.GenericKAlphaModel
         else:
             model_superclass = line_models.GenericLineModel
-        model_class = type(spectrum_class.__name__+"Model", (model_superclass,), fitter_attr_dict)
-        model_classes[spectrum_class.__name__] = model_class
+        model_class = type(classname+"Model", (model_superclass,), fitter_attr_dict)
+        model_classes[classname] = model_class
 
     return spectrum_class
 
@@ -816,22 +818,10 @@ addfitter(
 )
 
 
-def plot_all_spectra():
-    """Makes a bunch of plots showing the line shape and component parts for the KAlpha
-    and KBeta complexes defined in here.
-    Intended to nearly replicate plots in references giving spectral lineshapes"""
-    for name, spectrum_class in spectrum_classes.items():
-        spectrum = spectrum_class()
+def plot_all_spectra(maxplots=10):
+    """Makes plots showing the line shape and component parts for some lines.
+    Intended to replicate plots in the literature giving spectral lineshapes."""
+    keys = list(spectrum_classes.keys())[:maxplots]
+    for name in keys:
+        spectrum = spectrum_classes[name]()
         spectrum.plot_like_reference()
-
-
-if __name__ == "__main__":
-    spectrum = fitter_classes["MgKAlpha"]()
-    spectrum.rvs(100)
-    spectrum.gaussian_fwhm = 1
-    spectrum.rvs(100)
-    spectrum.plot()
-    plt.close("all")
-
-    plot_all_spectra()
-    plt.show()
