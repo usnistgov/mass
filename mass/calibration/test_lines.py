@@ -65,7 +65,7 @@ class Test_MnKA_distribution(unittest.TestCase):
 
 class TestAddFitter(unittest.TestCase):
     def test_add_same_line_fails(self):
-        mass.addfitter(
+        mass.calibration.fluorescence_lines.addline(
             element="dummy",
             material="dummy_material",
             linetype="dummy",
@@ -78,7 +78,7 @@ class TestAddFitter(unittest.TestCase):
             reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
         )
         with self.assertRaises(ValueError):
-            mass.addfitter(
+            mass.calibration.fluorescence_lines.addline(
                 element="dummy",
                 material="dummy_material",
                 linetype="dummy",

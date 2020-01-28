@@ -130,9 +130,9 @@ class CompositeMLEModel(lmfit.CompositeModel):
 
 
 class GenericLineModel(MLEModel):
-    def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise',
+    def __init__(self, spect, independent_vars=['bin_centers'], prefix='', nan_policy='raise',
                  has_tails=False, **kwargs):
-        # self.spect must be defined by inheriting classes
+        self.spect = spect
         self._has_tails = has_tails
         if has_tails:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
@@ -161,7 +161,7 @@ class GenericLineModel(MLEModel):
                     raise ValueError
                 return retval
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
-                       'independent_vars': independent_vars, 'name': "unknownLine"})
+                       'independent_vars': independent_vars})
         super(GenericLineModel, self).__init__(modelfunc, **kwargs)
         self._set_paramhints_prefix()
 

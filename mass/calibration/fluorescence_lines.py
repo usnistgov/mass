@@ -23,7 +23,7 @@ class SpectralLine(sp.stats.rv_continuous):
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 
-    Call addfitter to create a new subclass properly.
+    Call addline to create a new subclass properly.
 
     This subclasses scipy.stats.stats.rv_continuous, but acts more like an rv_frozen.
     Calling this object with an argument evalutes the pdf at the argument, it does not
@@ -227,18 +227,16 @@ lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (201
     https://doi.org/10.1103/PhysRevB.97.125139"""
 
 spectrum_classes = OrderedDict()
-fitter_classes = OrderedDict()
-model_classes = OrderedDict()
 
 LORENTZIAN_PEAK_HEIGHT = 999
 LORENTZIAN_INTEGRAL_INTENSITY = 9999
 VOIGT_PEAK_HEIGHT = 99999
 
 
-def addfitter(element, linetype, material, reference_short, reference_plot_gaussian_fwhm,
-              nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
-              reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
-              position_uncertainty=0.0, reference_measurement_type=None, is_default_material=True):
+def addline(element, linetype, material, reference_short, reference_plot_gaussian_fwhm,
+             nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
+             reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
+             position_uncertainty=0.0, reference_measurement_type=None, is_default_material=True):
 
     # require exactly one method of specifying the amplitude of each component
     assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT,
@@ -284,65 +282,57 @@ def addfitter(element, linetype, material, reference_short, reference_plot_gauss
     }
     if linetype.startswith("KAlpha"):
         spectrum_attr_dict["ka12_energy_diff"] = ka12_energy_diff
-    classname_qualified = "{}_{}{}".format(material, element, linetype)
-    classname_unqualified = "{}{}".format(element, linetype)
 
     if is_default_material:
-        classnames = [classname_unqualified]
+        classname = "{}{}".format(element, linetype)
     else:
-        classnames = [classname_qualified]
+        classname = "{}_{}{}".format(material, element, linetype)
+    if classname in spectrum_classes.keys():
+        raise ValueError("classname {} already exists".format(classname))
 
-    for classname in classnames:
-        if classname in spectrum_classes.keys():
-            raise ValueError("classname {} already exists".format(classname))
-        spectrum_class = type(classname, (SpectralLine,), spectrum_attr_dict)
-        # The above is nearly equivalent to the below
-        # but the below doesn't errors because it doesn't like the use of the same
-        # name in both the class and the function arguments
-        # e.g., energies and energies
-        # class spectrum_class(SpectralLine):
-        #     __name__ = element+linetype
-        #     energies = np.array(energies)
-        #     lorentzian_fwhm = np.array(lorentzian_fwhm)
-        #     reference_plot_gaussian_fwhm = float(reference_plot_gaussian_fwhm)
-        #     reference_short = reference_short
-        #     normalized_lorentzian_integral_intensity = np.array(normalized_lorentzian_integral_intensity)
-        #     nominal_peak_energy = float(nominal_peak_energy)
+    spectrum_class = type(classname, (SpectralLine,), spectrum_attr_dict)
 
-        # Add this SpectralLine to spectrum_classes dict AND make it be a variable in the module
-        spectrum_classes[classname] = spectrum_class
-        globals()[classname] = spectrum_class
+    # Add this SpectralLine to spectrum_classes dict AND make it be a variable in the module
+    spectrum_classes[classname] = spectrum_class
+    globals()[classname] = spectrum_class
 
-        # Create a Fitter as well
-        line_instance = spectrum_class()
-        if fitter_type is not None:
-            fitter_superclass = fitter_type
-        elif line_instance.element in ["Al", "Mg"]:
-            fitter_superclass = line_fits._lowZ_KAlphaFitter
-        elif line_instance.linetype == "KAlpha" or line_instance.linetype == "LAlpha":
-            fitter_superclass = line_fits.GenericKAlphaFitter
-        elif line_instance.linetype.startswith("KBeta") or "LBeta" in line_instance.linetype:
-            fitter_superclass = line_fits.GenericKBetaFitter
-        else:
-            raise ValueError("no generic fitter for {}".format(line_instance))
-        fitter_attr_dict = {"spect": line_instance}
-        fitter_class = type(classname+"Fitter",
-                            (fitter_superclass,), fitter_attr_dict)
-        fitter_classes[classname] = fitter_class
-        globals()[classname+"Fitter"] = fitter_class
-
-        # Finally, create a Model
-        if fitter_superclass == line_fits.GenericKAlphaFitter:
-            model_superclass = line_models.GenericKAlphaModel
-        else:
-            model_superclass = line_models.GenericLineModel
-        model_class = type(classname+"Model", (model_superclass,), fitter_attr_dict)
-        model_classes[classname] = model_class
-
+    def mlf():
+        c = spectrum_class
+        return make_line_fitter(c())
+    globals()[classname+"Fitter"] = mlf
     return spectrum_class
 
 
-addfitter(
+def make_line_fitter(line):
+    """Generate a LineFitter instance from a SpectralLine (deprecated)"""
+    if line.fitter_type is not None:
+        fitter_class = line.fitter_type
+    elif line.linetype == "KAlpha" or line.linetype == "LAlpha":
+        if line.element in ["Al", "Mg"]:
+            fitter_class = line_fits._lowZ_KAlphaFitter
+        else:
+            fitter_class = line_fits.GenericKAlphaFitter
+    elif line.linetype.startswith("KBeta") or "LBeta" in line.linetype:
+        fitter_class = line_fits.GenericKBetaFitter
+    else:
+        raise ValueError("no generic fitter for {}".format(line))
+    f = fitter_class()
+    f.spect = line
+    f.name = line.element+line.linetype
+    return f
+
+
+def make_line_model(line, has_tails=False):
+    """Generate a LineModel instance from a SpectralLine"""
+    if line.linetype == "KAlpha":
+        model_class = line_models.GenericKAlphaModel
+    else:
+        model_class = line_models.GenericLineModel
+    name = line.element+line.linetype
+    return model_class(name=name, spect=line, has_tails=has_tails)
+
+
+addline(
     element="Mg",
     material="metal",
     linetype="KAlpha",
@@ -356,7 +346,7 @@ addfitter(
     ka12_energy_diff=2.2,
 )
 
-addfitter(
+addline(
     element="Al",
     material="metal",
     linetype="KAlpha",
@@ -371,7 +361,7 @@ addfitter(
     position_uncertainty=0.010,
 )
 
-addfitter(
+addline(
     element="Al",
     material="AlO",
     linetype="KAlpha",
@@ -386,7 +376,7 @@ addfitter(
     is_default_material=False
 )
 
-addfitter(
+addline(
     element="Si",
     material="Si crystal",
     linetype="KAlpha",
@@ -401,7 +391,7 @@ addfitter(
     position_uncertainty=0.040
 )
 
-addfitter(
+addline(
     element="S",
     material="MoS2 spray",
     linetype="KAlpha",
@@ -416,7 +406,7 @@ addfitter(
     position_uncertainty=0.040
 )
 
-addfitter(
+addline(
     element="Cl",
     material="KCl crystal",
     linetype="KAlpha",
@@ -431,7 +421,7 @@ addfitter(
     position_uncertainty=0.040
 )
 
-addfitter(
+addline(
     element="K",
     material="KCl crystal",
     linetype="KAlpha",
@@ -446,7 +436,7 @@ addfitter(
     position_uncertainty=0.020
 )
 
-addfitter(
+addline(
     element="Sc",
     material="metal",
     linetype="KAlpha",
@@ -460,7 +450,7 @@ addfitter(
     ka12_energy_diff=5.1,
 )
 
-addfitter(
+addline(
     # The paper has two sets of TiKAlpha data, I used the set Refit of [21] Kawai et al 1994
     element="Ti",
     material="metal",
@@ -475,7 +465,7 @@ addfitter(
     ka12_energy_diff=6.0,
 )
 
-addfitter(
+addline(
     element="Ti",
     material="metal",
     linetype="KBeta",
@@ -488,7 +478,7 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
 )
 
-addfitter(
+addline(
     element="V",
     material="metal",
     linetype="KAlpha",
@@ -502,7 +492,7 @@ addfitter(
     ka12_energy_diff=7.5,
 )
 
-addfitter(
+addline(
     element="V",
     material="metal",
     linetype="KBeta",
@@ -515,7 +505,7 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
 )
 
-addfitter(
+addline(
     element="Cr",
     material="metal",
     linetype="KAlpha",
@@ -529,7 +519,7 @@ addfitter(
     ka12_energy_diff=9.2,
 )
 
-addfitter(
+addline(
     element="Cr",
     material="metal",
     linetype="KBeta",
@@ -542,7 +532,7 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-addfitter(
+addline(
     element="Mn",
     material="metal",
     linetype="KAlpha",
@@ -556,7 +546,7 @@ addfitter(
     ka12_energy_diff=11.1,
 )
 
-addfitter(
+addline(
     element="Mn",
     material="metal",
     linetype="KBeta",
@@ -569,7 +559,7 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-addfitter(
+addline(
     element="Fe",
     material="metal",
     linetype="KAlpha",
@@ -583,7 +573,7 @@ addfitter(
     ka12_energy_diff=13.0,
 )
 
-addfitter(
+addline(
     element="Fe",
     material="metal",
     linetype="KBeta",
@@ -596,7 +586,7 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-addfitter(
+addline(
     element="Co",
     material="metal",
     linetype="KAlpha",
@@ -610,7 +600,7 @@ addfitter(
     ka12_energy_diff=15.0,
 )
 
-addfitter(
+addline(
     element="Co",
     material="metal",
     linetype="KBeta",
@@ -623,7 +613,7 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-addfitter(
+addline(
     element="Ni",
     material="metal",
     linetype="KAlpha",
@@ -637,7 +627,7 @@ addfitter(
     ka12_energy_diff=17.2,
 )
 
-addfitter(
+addline(
     element="Ni",
     material="metal",
     linetype="KBeta",
@@ -650,7 +640,7 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-addfitter(
+addline(
     element="Cu",
     material="metal",
     linetype="KAlpha",
@@ -664,7 +654,7 @@ addfitter(
     ka12_energy_diff=20.0,
 )
 
-addfitter(
+addline(
     element="Cu",
     material="metal",
     linetype="KBeta",
@@ -677,7 +667,7 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-addfitter(
+addline(
     element="Zn",
     material="metal",
     linetype="KAlpha",
@@ -691,7 +681,7 @@ addfitter(
     ka12_energy_diff=23.0,
 )
 
-addfitter(
+addline(
     element="Zn",
     material="metal",
     linetype="KBeta",
@@ -704,7 +694,7 @@ addfitter(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-addfitter(
+addline(
     element="Br",
     material="metal",
     linetype="KAlpha",
@@ -719,7 +709,7 @@ addfitter(
 )
 
 
-addfitter(
+addline(
     element="W",
     material="metal",
     linetype="LAlpha",
@@ -733,7 +723,7 @@ addfitter(
 )
 
 
-addfitter(
+addline(
     element="W",
     material="metal",
     linetype="LBeta1",
@@ -747,7 +737,7 @@ addfitter(
 )
 
 
-addfitter(
+addline(
     element="W",
     material="metal",
     linetype="LBeta2",
@@ -761,7 +751,7 @@ addfitter(
 )
 
 
-addfitter(
+addline(
     element="Nb",
     linetype="KBeta",
     material="Nb2O5",
@@ -775,7 +765,7 @@ addfitter(
 )
 
 
-addfitter(
+addline(
     element="Nb",
     linetype="KBeta24",
     material="Nb2O5",
@@ -789,7 +779,7 @@ addfitter(
 )
 
 
-addfitter(
+addline(
     element="Mo",
     material="metal",
     linetype="KAlpha",
@@ -804,7 +794,7 @@ addfitter(
 )
 
 
-addfitter(
+addline(
     element="Mo",
     material="metal",
     linetype="KBeta",

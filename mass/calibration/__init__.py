@@ -13,5 +13,3 @@ from .fluorescence_lines import *
 from .line_fits import *
 from .algorithms import *
 from .line_models import *
-
-from . import _highly_charged_ion_lines

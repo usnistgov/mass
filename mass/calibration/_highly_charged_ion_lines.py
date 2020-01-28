@@ -7,7 +7,7 @@ import numpy as np
 O LINES
 '''
 # H-like
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="O",
     material="Highly Charged Ion",
     linetype=" H-Like 2p",
@@ -21,7 +21,7 @@ fluorescence_lines.addfitter(
     ka12_energy_diff=None
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="O",
     material="Highly Charged Ion",
     linetype=" H-Like 3p",
@@ -35,7 +35,7 @@ fluorescence_lines.addfitter(
     ka12_energy_diff=None
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="O",
     material="Highly Charged Ion",
     linetype=" H-Like 4p",
@@ -50,7 +50,7 @@ fluorescence_lines.addfitter(
 )
 
 # He-like
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="O",
     material="Highly Charged Ion",
     linetype=" He-Like 1s2s+1s2p",
@@ -65,7 +65,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="O",
     material="Highly Charged Ion",
     linetype=" He-Like 1s2s 3S1",
@@ -80,7 +80,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="O",
     material="Highly Charged Ion",
     linetype=" He-Like 1s2p 1P1",
@@ -95,7 +95,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="O",
     material="Highly Charged Ion",
     linetype=" He-Like 1s3p 1P1",
@@ -110,7 +110,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="O",
     material="Highly Charged Ion",
     linetype=" He-Like 1s4p 1P1",
@@ -129,7 +129,7 @@ fluorescence_lines.addfitter(
 Ne LINES
 '''
 # H-like
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" H-Like 2p",
@@ -144,7 +144,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" H-Like 3p",
@@ -159,7 +159,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" H-Like 4p",
@@ -174,53 +174,53 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" H-Like 5p",
     reference_short='NIST ASD',
-    fitter_type = line_fits.GenericKBetaFitter,
+    fitter_type=line_fits.GenericKBetaFitter,
     reference_plot_gaussian_fwhm=0.5,
     nominal_peak_energy=(1307.757092*2+1307.727954*1)/3,
-    energies=np.array([1307.727954, 1307.757092]), lorentzian_fwhm=np.array([0.1,0.1]),
-    reference_amplitude=np.array([1,2]),
+    energies=np.array([1307.727954, 1307.757092]), lorentzian_fwhm=np.array([0.1, 0.1]),
+    reference_amplitude=np.array([1, 2]),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=None,
-    reference_measurement_type = "Theory"
+    reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" H-Like 6p",
     reference_short='NIST ASD',
-    fitter_type = line_fits.GenericKBetaFitter,
+    fitter_type=line_fits.GenericKBetaFitter,
     reference_plot_gaussian_fwhm=0.5,
     nominal_peak_energy=(1324.393513*2+1324.376653*1)/3,
-    energies=np.array([1324.376653, 1324.393513]), lorentzian_fwhm=np.array([0.1,0.1]),
-    reference_amplitude=np.array([1,2]),
+    energies=np.array([1324.376653, 1324.393513]), lorentzian_fwhm=np.array([0.1, 0.1]),
+    reference_amplitude=np.array([1, 2]),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=None,
-    reference_measurement_type = "Theory"
+    reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" H-Like 7p",
     reference_short='NIST ASD',
-    fitter_type = line_fits.GenericKBetaFitter,
+    fitter_type=line_fits.GenericKBetaFitter,
     reference_plot_gaussian_fwhm=0.5,
     nominal_peak_energy=(1334.424384*2+1334.413767*1)/3,
-    energies=np.array([1334.413767, 1334.424384]), lorentzian_fwhm=np.array([0.1,0.1]),
-    reference_amplitude=np.array([1,2]),
+    energies=np.array([1334.413767, 1334.424384]), lorentzian_fwhm=np.array([0.1, 0.1]),
+    reference_amplitude=np.array([1, 2]),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=None,
-    reference_measurement_type = "Theory"
+    reference_measurement_type="Theory"
 )
 
 # He-like
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" He-Like 1s2s+1s2p",
@@ -235,7 +235,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" He-Like 1s2s 3S1",
@@ -250,7 +250,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" He-Like 1s2p 1P1",
@@ -265,7 +265,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ne",
     material="Highly Charged Ion",
     linetype=" He-Like 1s3p 1P1",
@@ -284,7 +284,7 @@ fluorescence_lines.addfitter(
 Ar LINES
 '''
 # H-like
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ar",
     material="Highly Charged Ion",
     linetype=" H-Like 2p",
@@ -299,7 +299,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ar",
     material="Highly Charged Ion",
     linetype=" H-Like 3p",
@@ -314,7 +314,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ar",
     material="Highly Charged Ion",
     linetype=" H-Like 4p",
@@ -330,7 +330,7 @@ fluorescence_lines.addfitter(
 )
 
 # He-like
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ar",
     material="Highly Charged Ion",
     linetype=" He-Like 1s2s+1s2p",
@@ -345,7 +345,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ar",
     material="Highly Charged Ion",
     linetype=" He-Like 1s2s 3S1",
@@ -360,7 +360,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ar",
     material="Highly Charged Ion",
     linetype=" He-Like 1s2p 1P1",
@@ -375,7 +375,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ar",
     material="Highly Charged Ion",
     linetype=" He-Like 1s3p 1P1",
@@ -390,7 +390,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Theory"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="Ar",
     material="Highly Charged Ion",
     linetype=" He-Like 1s4p 1P1",
@@ -409,7 +409,7 @@ fluorescence_lines.addfitter(
 W Lines
 '''
 # Ni-like
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-1",
@@ -425,7 +425,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-2",
@@ -441,7 +441,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-3",
@@ -457,7 +457,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-4",
@@ -473,7 +473,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-5",
@@ -489,7 +489,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-6",
@@ -505,7 +505,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-7",
@@ -521,7 +521,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-8",
@@ -537,7 +537,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-9",
@@ -553,7 +553,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-10",
@@ -569,7 +569,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-11",
@@ -585,7 +585,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-12",
@@ -601,7 +601,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-13",
@@ -617,7 +617,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-14",
@@ -633,7 +633,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-15",
@@ -649,7 +649,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-16",
@@ -665,7 +665,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-17",
@@ -681,7 +681,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-18",
@@ -697,7 +697,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-19",
@@ -713,7 +713,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-20",
@@ -729,7 +729,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-21",
@@ -745,7 +745,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-22",
@@ -761,7 +761,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-23",
@@ -777,7 +777,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-24",
@@ -793,7 +793,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-25",
@@ -809,7 +809,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-26",
@@ -825,7 +825,7 @@ fluorescence_lines.addfitter(
     reference_measurement_type="Experiment"
 )
 
-fluorescence_lines.addfitter(
+fluorescence_lines.addline(
     element="W",
     material="Highly Charged Ion",
     linetype=" Ni-Like 3s^2,3p^6,3s^3_3/2,3d^6_5/2,4p_1/2",
