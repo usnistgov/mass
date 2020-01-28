@@ -23,7 +23,7 @@ class SpectralLine(sp.stats.rv_continuous):
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 
-    Call _addline to create a new subclass properly.
+    Call addline to create a new subclass properly.
 
     This subclasses scipy.stats.stats.rv_continuous, but acts more like an rv_frozen.
     Calling this object with an argument evalutes the pdf at the argument, it does not
@@ -233,7 +233,7 @@ LORENTZIAN_INTEGRAL_INTENSITY = 9999
 VOIGT_PEAK_HEIGHT = 99999
 
 
-def _addline(element, linetype, material, reference_short, reference_plot_gaussian_fwhm,
+def addline(element, linetype, material, reference_short, reference_plot_gaussian_fwhm,
              nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
              reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
              position_uncertainty=0.0, reference_measurement_type=None, is_default_material=True):
@@ -332,7 +332,7 @@ def make_line_model(line, has_tails=False):
     return model_class(name=name, spect=line, has_tails=has_tails)
 
 
-_addline(
+addline(
     element="Mg",
     material="metal",
     linetype="KAlpha",
@@ -346,7 +346,7 @@ _addline(
     ka12_energy_diff=2.2,
 )
 
-_addline(
+addline(
     element="Al",
     material="metal",
     linetype="KAlpha",
@@ -361,7 +361,7 @@ _addline(
     position_uncertainty=0.010,
 )
 
-_addline(
+addline(
     element="Al",
     material="AlO",
     linetype="KAlpha",
@@ -376,7 +376,7 @@ _addline(
     is_default_material=False
 )
 
-_addline(
+addline(
     element="Si",
     material="Si crystal",
     linetype="KAlpha",
@@ -391,7 +391,7 @@ _addline(
     position_uncertainty=0.040
 )
 
-_addline(
+addline(
     element="S",
     material="MoS2 spray",
     linetype="KAlpha",
@@ -406,7 +406,7 @@ _addline(
     position_uncertainty=0.040
 )
 
-_addline(
+addline(
     element="Cl",
     material="KCl crystal",
     linetype="KAlpha",
@@ -421,7 +421,7 @@ _addline(
     position_uncertainty=0.040
 )
 
-_addline(
+addline(
     element="K",
     material="KCl crystal",
     linetype="KAlpha",
@@ -436,7 +436,7 @@ _addline(
     position_uncertainty=0.020
 )
 
-_addline(
+addline(
     element="Sc",
     material="metal",
     linetype="KAlpha",
@@ -450,7 +450,7 @@ _addline(
     ka12_energy_diff=5.1,
 )
 
-_addline(
+addline(
     # The paper has two sets of TiKAlpha data, I used the set Refit of [21] Kawai et al 1994
     element="Ti",
     material="metal",
@@ -465,7 +465,7 @@ _addline(
     ka12_energy_diff=6.0,
 )
 
-_addline(
+addline(
     element="Ti",
     material="metal",
     linetype="KBeta",
@@ -478,7 +478,7 @@ _addline(
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
 )
 
-_addline(
+addline(
     element="V",
     material="metal",
     linetype="KAlpha",
@@ -492,7 +492,7 @@ _addline(
     ka12_energy_diff=7.5,
 )
 
-_addline(
+addline(
     element="V",
     material="metal",
     linetype="KBeta",
@@ -505,7 +505,7 @@ _addline(
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
 )
 
-_addline(
+addline(
     element="Cr",
     material="metal",
     linetype="KAlpha",
@@ -519,7 +519,7 @@ _addline(
     ka12_energy_diff=9.2,
 )
 
-_addline(
+addline(
     element="Cr",
     material="metal",
     linetype="KBeta",
@@ -532,7 +532,7 @@ _addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-_addline(
+addline(
     element="Mn",
     material="metal",
     linetype="KAlpha",
@@ -546,7 +546,7 @@ _addline(
     ka12_energy_diff=11.1,
 )
 
-_addline(
+addline(
     element="Mn",
     material="metal",
     linetype="KBeta",
@@ -559,7 +559,7 @@ _addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-_addline(
+addline(
     element="Fe",
     material="metal",
     linetype="KAlpha",
@@ -573,7 +573,7 @@ _addline(
     ka12_energy_diff=13.0,
 )
 
-_addline(
+addline(
     element="Fe",
     material="metal",
     linetype="KBeta",
@@ -586,7 +586,7 @@ _addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-_addline(
+addline(
     element="Co",
     material="metal",
     linetype="KAlpha",
@@ -600,7 +600,7 @@ _addline(
     ka12_energy_diff=15.0,
 )
 
-_addline(
+addline(
     element="Co",
     material="metal",
     linetype="KBeta",
@@ -613,7 +613,7 @@ _addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-_addline(
+addline(
     element="Ni",
     material="metal",
     linetype="KAlpha",
@@ -627,7 +627,7 @@ _addline(
     ka12_energy_diff=17.2,
 )
 
-_addline(
+addline(
     element="Ni",
     material="metal",
     linetype="KBeta",
@@ -640,7 +640,7 @@ _addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-_addline(
+addline(
     element="Cu",
     material="metal",
     linetype="KAlpha",
@@ -654,7 +654,7 @@ _addline(
     ka12_energy_diff=20.0,
 )
 
-_addline(
+addline(
     element="Cu",
     material="metal",
     linetype="KBeta",
@@ -667,7 +667,7 @@ _addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-_addline(
+addline(
     element="Zn",
     material="metal",
     linetype="KAlpha",
@@ -681,7 +681,7 @@ _addline(
     ka12_energy_diff=23.0,
 )
 
-_addline(
+addline(
     element="Zn",
     material="metal",
     linetype="KBeta",
@@ -694,7 +694,7 @@ _addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
-_addline(
+addline(
     element="Br",
     material="metal",
     linetype="KAlpha",
@@ -709,7 +709,7 @@ _addline(
 )
 
 
-_addline(
+addline(
     element="W",
     material="metal",
     linetype="LAlpha",
@@ -723,7 +723,7 @@ _addline(
 )
 
 
-_addline(
+addline(
     element="W",
     material="metal",
     linetype="LBeta1",
@@ -737,7 +737,7 @@ _addline(
 )
 
 
-_addline(
+addline(
     element="W",
     material="metal",
     linetype="LBeta2",
@@ -751,7 +751,7 @@ _addline(
 )
 
 
-_addline(
+addline(
     element="Nb",
     linetype="KBeta",
     material="Nb2O5",
@@ -765,7 +765,7 @@ _addline(
 )
 
 
-_addline(
+addline(
     element="Nb",
     linetype="KBeta24",
     material="Nb2O5",
@@ -779,7 +779,7 @@ _addline(
 )
 
 
-_addline(
+addline(
     element="Mo",
     material="metal",
     linetype="KAlpha",
@@ -794,7 +794,7 @@ _addline(
 )
 
 
-_addline(
+addline(
     element="Mo",
     material="metal",
     linetype="KBeta",
