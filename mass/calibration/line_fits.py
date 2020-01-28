@@ -84,6 +84,10 @@ class LineFitter(object):
         self.failed_fit_params = None
         self.failed_fit_starting_fitfunc = None
         self._have_warned = False
+        self.name = "UnknownLine"
+
+    def __repr__(self):
+        return "mass.LineFitter({})".format(self.name)
 
     def set_penalty(self, penalty):
         """Set a regularizer, or penalty function, for the fitter. For its requirements,

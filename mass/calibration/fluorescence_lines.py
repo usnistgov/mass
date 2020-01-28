@@ -318,6 +318,7 @@ def make_line_fitter(line):
         raise ValueError("no generic fitter for {}".format(line))
     f = fitter_class()
     f.spect = line
+    f.name = line.element+line.linetype
     return f
 
 
