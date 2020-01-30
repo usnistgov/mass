@@ -123,13 +123,21 @@ ds.learnTimeDriftCorrection(uncorrectedName="filtValueDCPC")
 ds.filtValueDCPCTC[0] # this will error if the attr doesnt exist
 
 
+
 class TestSummaries(ut.TestCase):
     # def test_recipeFromHDF5(self):
     #     self.assertTrue(newds.driftCorrection == ds.driftCorrection)
     #     self.assertTrue(np.allclose(newds.filtValueDC, ds.filtValueDC))
     #     self.assertTrue(np.allclose(newds.energy, ds.energy))
 
-    def test_repeatingTheSameCorrectionWithNewNameDoesntChantTheOriginal(self):
+    def test_calibration_n_iter(self):
+        ds.calibrateFollowingPlan("filtValue", calibratedName = "energy2", n_iter=2, approximate=False)
+        # it should be a little different from energy
+        self.assertNotEqual(0, np.mean(np.abs(ds.energy-ds.energy2)))
+        # but should also be similar... though I had to set rtol higher than I expected for this to pass
+        self.assertTrue(np.allclose(ds.energy, ds.energy2, rtol=1e-1))
+
+    def test_repeatingTheSameCorrectionWithNewNameDoesntChangeTheOriginal(self):
         # repeating the same correciton with new name doesnt change the orirignal
         orig = ds.filtValueDC[:]
         ds.learnDriftCorrection(uncorrectedName="filtValueDCPCTC")

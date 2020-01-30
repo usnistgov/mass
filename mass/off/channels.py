@@ -317,7 +317,7 @@ class CorG():
 
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=1, binEdges=None, label="full", plot=True,
-                guessParams=None, goodFunc=None, holdvals=None):
+                guessParams=None, goodFunc=None, holdvals=None, calibration = None):
         """Do a fit to `lineNameOrEnergy` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
@@ -332,6 +332,7 @@ class CorG():
         goodFunc -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
         holdvals -- a dictionary mapping keys from fitter.params_meaning to values... eg {"background":0, "dP_dE":1}
             This vector is anded with the vector calculated by the histogrammer
+        calbration -- a calibration to be passed to hist
         """
         if isinstance(lineNameOrEnergy, mass.LineFitter):
             fitter = lineNameOrEnergy
@@ -343,19 +344,19 @@ class CorG():
             fitter = mass.GaussianFitter()
             nominal_peak_energy = float(lineNameOrEnergy)
         if binEdges is None:
-            if attr.startswith("energy"):
+            if attr.startswith("energy") or calibration is not None:
                 binEdges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
             else:
-                raise Exception("must pass binEdges if attr does not start with energy")
+                raise Exception("must pass binEdges if attr does not start with energy and you don't pass a calibration")
         if axis is None and plot:
             plt.figure()
             axis = plt.gca()
-        bin_centers, counts = self.hist(binEdges, attr, states, goodFunc)
+        bin_centers, counts = self.hist(binEdges, attr, states, goodFunc, calibration=calibration)
         if guessParams is None:
             guessParams = fitter.guess_starting_params(counts, bin_centers)
         if holdvals is None:
             holdvals = {}
-        if attr.startswith("energy") and "dP_dE" in fitter.param_meaning:
+        if (attr.startswith("energy") or calibration is not None) and "dP_dE" in fitter.param_meaning:
             holdvals["dP_dE"] = 1.0
         hold = []
         for (k, v) in holdvals.items():
@@ -659,16 +660,19 @@ class Channel(CorG):
         plt.legend(title="states")
         return axis
 
-    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False):
+    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False, calibration = None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
         goodFunc -- a function taking a 1d array of vales of type self.offFile.dtype and returning a vector of bool
-         """
+        calibration -- if not None, transform values by val = calibration(val) before histogramming
+        """
         binEdges = np.array(binEdges)
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
         inds = self.getStatesIndicies(states)
         vals = self.getAttr(attr, inds, goodFunc, returnBad)
+        if calibration is not None:
+            vals = calibration(vals)
         counts, _ = np.histogram(vals, binEdges)
         return binCenters, counts
 
@@ -769,28 +773,39 @@ class Channel(CorG):
         return self.calibrationPlan
 
     @add_group_loop
-    def calibrateFollowingPlan(self, attr, curvetype="gain", approximate=True, dlo=50, dhi=50, binsize=1):
-        calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
-        calibration.uncalibratedName = attr
-        fitters = []
-        for (ph, energy, name, states) in zip(self.calibrationPlan.uncalibratedVals, self.calibrationPlan.energies,
-                                              self.calibrationPlan.names, self.calibrationPlan.states):
-            if name in mass.fitter_classes:
-                fitter = self.linefit(name, "energyRough", states, dlo=dlo, dhi=dhi,
-                                      plot=False, binsize=binsize)
-            else:
-                fitter = self.linefit(energy, "energyRough", states, dlo=dlo, dhi=dhi,
-                                      plot=False, binsize=binsize)
-            fitters.append(fitter)
-            if not fitter.fit_success:
-                self.markBad("calibrateFollowingPlan: failed fit {}, states {}".format(
-                    name, states), extraInfo=fitter)
-                continue
-            assert self.recipes["energyRough"].argsL[0] == attr
-            phRefined = self.recipes["energyRough"].inverse(fitter.last_fit_params_dict["peak_ph"][0])
-            calibration.add_cal_point(phRefined, energy, name)
-        self.fittersFromCalibrateFollowingPlan = fitters
-        self.addRecipe("energy", calibration, [calibration.uncalibratedName])
+    def calibrateFollowingPlan(self, uncalibratedName, calibratedName = "energy", curvetype="gain", approximate=False, 
+    dlo=50, dhi=50, binsize=1, plan = None, n_iter = 1):
+        if plan is None:
+            plan = self.calibrationPlan
+        starting_cal = plan.getRoughCalibration()
+        intermediate_calibrations = []
+        for i in range(n_iter):
+            calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
+            calibration.uncalibratedName = uncalibratedName
+            fitters = []
+            for (ph, energy, name, states) in zip(plan.uncalibratedVals, plan.energies,
+                                                plan.names, plan.states):
+                if name in mass.fitter_classes:
+                    fitter = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
+                                        plot=False, binsize=binsize, calibration = starting_cal)
+                else:
+                    fitter = self.linefit(energy, uncalibratedName, states, dlo=dlo, dhi=dhi,
+                                        plot=False, binsize=binsize, calibration = starting_cal)
+                fitters.append(fitter)
+                if not fitter.fit_success:
+                    self.markBad("calibrateFollowingPlan: failed fit {}, states {}".format(
+                        name, states), extraInfo=fitter)
+                    continue
+                ph, ph_uncertainty = starting_cal.energy2ph(fitter.last_fit_params_dict["peak_ph"])
+                calibration.add_cal_point(ph, energy, name, ph_uncertainty)
+            calibration.fitters = fitters
+            calibration.plan = plan
+            is_last_iteration = i+1 == n_iter
+            if not is_last_iteration:
+                intermediate_calibrations.append(calibration)
+                starting_cal = calibration
+        calibration.intermediate_calibrations = intermediate_calibrations
+        self.addRecipe(calibratedName, calibration, [calibration.uncalibratedName])
         return fitters
 
     def addRecipe(self, recipeName, f, argNames, inverse=None, createProperty=True):
@@ -953,11 +968,16 @@ class Channel(CorG):
                 self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdAbsolute)".format(
                     maxAbsError, thresholdAbsolute))
 
-    def diagnoseCalibration(self):
+    def diagnoseCalibration(self, calibratedName="energy"):
+        calibration = self.recipes[calibratedName].f
+        uncalibratedName = calibration.uncalibratedName
+        fitters = calibration.fitters
+        plan = calibration.plan
+        n_intermediate = len(calibration.intermediate_calibrations)
         plt.figure(figsize=(20, 12))
-        plt.suptitle(self.shortName)
-        n = int(np.ceil(np.sqrt(len(self.fittersFromCalibrateFollowingPlan)+2)))
-        for i, fitter in enumerate(self.fittersFromCalibrateFollowingPlan):
+        plt.suptitle(self.shortName+", cal diagnose for '{}'\n with {} intermediate calibrations".format(calibratedName, n_intermediate))
+        n = int(np.ceil(np.sqrt(len(fitters)+2)))
+        for i, fitter in enumerate(fitters):
             ax = plt.subplot(n, n, i+1)
             fitter.plot(axis=ax, label="full")
             if isinstance(fitter, mass.GaussianFitter):
@@ -965,9 +985,7 @@ class Channel(CorG):
             else:
                 plt.title(type(fitter.spect).__name__)
         ax = plt.subplot(n, n, i+2)
-        calibration = self.recipes["energy"].f
         calibration.plot(axis=ax)
-        uncalibratedName = self.recipes["energy"].argsL[0]
         ax = plt.subplot(n, n, i+3)
         self.plotHist(np.arange(0, 16000, 4), uncalibratedName,
                       axis=ax, coAddStates=False)
@@ -1243,11 +1261,14 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             n_new_pulses_dict[ds.channum] = len(ds)-i0_unixnanos
         return n_new_labels, n_new_pulses_dict
 
-    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False):
+    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False, calibration=None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
+        calibration -- will throw an exception if this is not None
          """
+        if calibration is not None:
+            raise Exception("calibration is an argument only to match the api of Channel.hist, but is not valid for ChannelGroup.hist")
         binCenters, countsdict = self.hists(
             binEdges, attr, states, goodFunc=goodFunc, returnBad=returnBad)
         counts = np.zeros_like(binCenters, dtype="int")
