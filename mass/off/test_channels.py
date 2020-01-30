@@ -153,7 +153,7 @@ class TestSummaries(ut.TestCase):
         self.assertLess(np.abs(np.median(ds.filtPhase)), 0.5)
         self.assertAlmostEqual(ds.energy[3], ds.energyRough[3], delta=5)
 
-    def test__indexOffWithCuts_with_list_of_inds(self):
+    def test_indexOffWithCuts_with_list_of_inds(self):
         inds = ds.getStatesIndicies(["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
         v0 = ds._indexOffWithCuts(inds, _listMethodSelect=0)
         v2 = ds._indexOffWithCuts(inds, _listMethodSelect=2)
@@ -161,6 +161,14 @@ class TestSummaries(ut.TestCase):
         # this is a test of correctness because
         # the implementation of method 0 is simpler than method 2
         # method 2 is the default because it is much faster
+
+    def test_getAttr(self):
+        ds.getAttr("energy",slice(0,50)) # index with slice
+        ds.getAttr("energy", "Ne") # index with state
+        e0 = ds.getAttr("energy", ["Ne", "W 1"]) # index with list of states
+        inds = ds.getStatesIndicies(["Ne", "W 1"])
+        e1 = ds.getAttr("energy", inds) # index with inds from same list of states
+        self.assertTrue(np.allclose(e0,e1))
 
     def test_recipes(self):
         def funa(x, y):

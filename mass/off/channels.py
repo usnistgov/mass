@@ -380,6 +380,9 @@ class CorG():
 class NoCutInds():
     pass
 
+class InvalidStatesException(Exception):
+    pass
+
 
 class Recipe():
     """
@@ -517,7 +520,7 @@ class Channel(CorG):
                     assert isinstance(vv, slice)
                     inds.append(vv)
             else:
-                raise Exception("v should be a list of slices or a slice, but is a {}".format(type(v)))
+                raise InvalidStatesException("v should be a list of slices or a slice, but is a {}".format(type(v)))
         return inds
 
     def __repr__(self):
@@ -619,12 +622,21 @@ class Channel(CorG):
             raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
         return output
 
-    def getAttr(self, attr, inds, goodFunc=None, returnBad=False):
+    def getAttr(self, attr, indsOrStates, goodFunc=None, returnBad=False):
         """ 
         attr - may be a string or a list of strings corresponding to Attrs defined by recipes or the offFile
         inds - a slice or list of slices
         returns either a single vector or a list of vectors whose entries correspond to the entries in attr
         """
+        # first 
+        if indsOrStates is None or isinstance(indsOrStates, str) or (isinstance(indsOrStates, list) and isinstance(indsOrStates[0], str)): # relies on short circuiting to not evaluate last clause unless indsOrStates is a list
+            # looks like states
+            try:
+                inds = self.getStatesIndicies(indsOrStates)
+            except InvalidStatesException:
+                inds = indsOrStates
+        else:
+            inds = indsOrStates
         offAttrValues = self._indexOffWithCuts(inds, goodFunc, returnBad) # single read from disk, read all values
         if isinstance(attr, list):
             return [self._getAttr(a, offAttrValues) for a in attr]
@@ -649,11 +661,10 @@ class Channel(CorG):
             states = self.stateLabels
 
         for state in states:
-            inds = self.getStatesIndicies(state)
-            A, B = self.getAttr([nameA, nameB], inds, goodFunc, returnBad=False)
+            A, B = self.getAttr([nameA, nameB], state, goodFunc, returnBad=False)
             axis.plot(A, B, ".", label=state)
             if includeBad:
-                A, B = self.getAttr([nameA, nameB], inds, goodFunc, returnBad=True)
+                A, B = self.getAttr([nameA, nameB], state, goodFunc, returnBad=True)
                 axis.plot(A, B, "x", label=state+" bad")
         plt.xlabel(nameA)
         plt.ylabel(nameB)
@@ -670,8 +681,7 @@ class Channel(CorG):
         """
         binEdges = np.array(binEdges)
         binCenters = 0.5*(binEdges[1:]+binEdges[:-1])
-        inds = self.getStatesIndicies(states)
-        vals = self.getAttr(attr, inds, goodFunc, returnBad)
+        vals = self.getAttr(attr, states, goodFunc, returnBad)
         if calibration is not None:
             vals = calibration(vals)
         counts, _ = np.histogram(vals, binEdges)
@@ -682,8 +692,7 @@ class Channel(CorG):
         """do a linear correction between the indicator and uncorrected... """
         if correctedName is None:
             correctedName = uncorrectedName + "DC"
-        inds = self.getStatesIndicies(states)
-        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
+        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], states, goodFunc, returnBad)
         slope, info = mass.core.analysis_algorithms.drift_correct(
             indicator, uncorrected)
         driftCorrection = DriftCorrection(indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
@@ -706,8 +715,7 @@ class Channel(CorG):
             linePositions = self.recipes["energyRough"].f._ph
         else:
             linePositions = linePositionsFunc(self)
-        inds = self.getStatesIndicies(states)
-        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
+        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], states, goodFunc, returnBad)
         phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
         self.addRecipe(correctedName, phaseCorrection.correct, [
@@ -721,8 +729,7 @@ class Channel(CorG):
         see help in mass.core.channel.time_drift_correct for details on settings"""
         if correctedName is None:
             correctedName = uncorrectedName+"TC"
-        inds = self.getStatesIndicies(states)
-        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], inds, goodFunc, returnBad)
+        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], states, goodFunc, returnBad)
         info = mass.core.channel.time_drift_correct(indicator, uncorrected, kernel_width, sec_per_degree,
         pulses_per_degree, max_degrees, ndeg, limit)
 
@@ -744,8 +751,7 @@ class Channel(CorG):
         if states is None:
             states = self.stateLabels
         for state in states:
-            inds = self.getStatesIndicies(state)
-            A,B,C = self.getAttr([indicatorName,uncorrectedName,"filtValueDC"], inds, goodFunc)
+            A,B,C = self.getAttr([indicatorName,uncorrectedName,"filtValueDC"], state, goodFunc)
             axis.plot(A, B, ".", label=state)
             axis.plot(A, C, ".", label=state+" DC")
             if includeBad:
@@ -941,14 +947,11 @@ class Channel(CorG):
         grp = h5File.require_group(str(self.channum))
         if len(self.stateLabels) > 0:
             for state in self.stateLabels:
-                inds = self.getStatesIndicies(state)
-                energy = self.getAttr("energy", inds, goodFunc, returnBad)
-                unixnano = self.getAttr("unixnano", inds, goodFunc, returnBad)
+                energy, unixnano = self.getAttr(["energy", "unixnano"], state, goodFunc, returnBad)
                 grp["{}/energy".format(state)] = energy
                 grp["{}/unixnano".format(state)] = unixnano
         else:
-            energy = self.getAttr("energy", slice(None), goodFunc, returnBad)
-            unixnano = self.getAttr("unixnano", slice(None), goodFunc, returnBad)
+            energy, unixnano = self.getAttr(["energy","unixnano"], slice(None), goodFunc, returnBad)
             grp["{}/energy".format(state)] = energy
             grp["{}/unixnano".format(state)] = unixnano
 
