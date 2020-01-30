@@ -157,23 +157,12 @@ class TestAlgorithms(unittest.TestCase):
         cal.diagnose()
         self.assertTrue(hasattr(cal, "autocal"))
         # test fitters are correct type, and ordered by line energy
-        self.assertEqual(type(auto_cal.fitters[0]), mass.TiKAlphaFitter)
-        self.assertEqual(type(auto_cal.fitters[1]), mass.MnKAlphaFitter)
-        self.assertEqual(type(auto_cal.fitters[2]), mass.FeKAlphaFitter)
-        self.assertEqual(type(auto_cal.fitters[3]), mass.MnKBetaFitter)
-        self.assertEqual(type(auto_cal.fitters[4]), mass.CuKAlphaFitter)
-
-    def test_fitter_classes(self):
-        self.assertEqual(mass.calibration.MnKAlphaFitter,
-                         mass.calibration.fitter_classes.get("MnKAlpha", mass.calibration.GaussianFitter))
-        self.assertEqual(mass.calibration.GaussianFitter,
-                         mass.calibration.fitter_classes.get(1100, mass.calibration.GaussianFitter))
-
-    def test_getfitter(self):
-        self.assertEqual(mass.calibration.MnKAlphaFitter,
-                         type(mass.calibration.algorithms.getfitter("MnKAlpha")))
-        self.assertEqual(mass.calibration.GaussianFitter,
-                         type(mass.calibration.algorithms.getfitter(1100)))
+        e0 = 0
+        for f in auto_cal.fitters:
+            self.assertEqual(type(auto_cal.fitters[0]), mass.GenericKAlphaFitter)
+            peak = f.spect.peak_energy
+            self.assertLess(e0, peak)
+            e0 = peak
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import mass
 from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, Recipe
+from mass.calibration import _highly_charged_ion_lines
 import h5py
 import os
 import numpy as np
@@ -246,13 +247,13 @@ class TestSummaries(ut.TestCase):
         esf.allLabels = ["A", "B", "A", "B", "IGNORE", "A"]
         esf.unixnanos = np.arange(len(esf.allLabels))*100
         esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
-        unixnanos = np.arange(2*len(esf.allLabels))*50 # two entires per label
+        unixnanos = np.arange(2*len(esf.allLabels))*50  # two entires per label
         d = esf.calcStatesDict(unixnanos)
         self.assertEqual(len(d["A"]), esf.allLabels.count("A"))
         self.assertEqual(len(d["B"]), esf.allLabels.count("B"))
         self.assertFalse("IGNORE" in d.keys())
         for s in d["A"]+d["B"]:
-            self.assertEqual(s.stop-s.start,2)
+            self.assertEqual(s.stop-s.start, 2)
 
         data_local = ChannelGroup([filename], experimentStateFile=esf)
         ds_local = data_local.firstGoodChannel()
@@ -260,13 +261,10 @@ class TestSummaries(ut.TestCase):
         inds = ds_local.getStatesIndicies("A")
         fv = ds_local.getAttr("filtValue", inds)
 
-
     def test_getAttr_with_list_of_slice(self):
-        ind = [slice(0,5),slice(5,10)]
-        self.assertTrue(np.allclose(ds.getAttr("filtValue",ind), ds.getAttr("filtValue",slice(0,10))))
-        self.assertTrue(np.allclose(ds.getAttr("filtValue",[slice(0,10)]), ds.getAttr("filtValue",slice(0,10))))
-
-
+        ind = [slice(0, 5), slice(5, 10)]
+        self.assertTrue(np.allclose(ds.getAttr("filtValue", ind), ds.getAttr("filtValue", slice(0, 10))))
+        self.assertTrue(np.allclose(ds.getAttr("filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10))))
 
 
 if __name__ == '__main__':

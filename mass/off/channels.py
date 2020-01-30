@@ -338,7 +338,8 @@ class CorG():
             fitter = lineNameOrEnergy
             nominal_peak_energy = fitter.spect.nominal_peak_energy
         elif isinstance(lineNameOrEnergy, str):
-            fitter = mass.fitter_classes[lineNameOrEnergy]()
+            line = mass.spectrum_classes[lineNameOrEnergy]()
+            fitter = mass.make_line_fitter(line)
             nominal_peak_energy = fitter.spect.nominal_peak_energy
         else:
             fitter = mass.GaussianFitter()

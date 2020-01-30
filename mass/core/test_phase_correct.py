@@ -52,7 +52,7 @@ class TestPhaseCorrect(ut.TestCase):
 
         resolutions = []
         for name in line_names:
-            fitter = mass.fitter_classes[name]()
+            fitter = mass.make_line_fitter(mass.spectrum_classes[name]())
             bin_edges = np.arange(-100, 100)+fitter.spect.peak_energy
             # bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
             counts, _ = np.histogram(ds.p_filt_value_phc, bin_edges)
@@ -96,7 +96,7 @@ class TestPhaseCorrect(ut.TestCase):
 
         resolutions = []
         for name in line_names:
-            fitter = mass.fitter_classes[name]()
+            fitter = mass.make_line_fitter(mass.spectrum_classes[name]())
             bin_edges = np.arange(-100, 100)+fitter.spect.peak_energy
             # bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
             counts, _ = np.histogram(corrected, bin_edges)

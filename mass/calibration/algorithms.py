@@ -183,7 +183,10 @@ def getfitter(name):
         "MnKAlpha" will return a MnKAlphaFitter
         "1150" will return a GaussianFitter
     """
-    return mass.calibration.fitter_classes.get(name, mass.calibration.GaussianFitter)()
+    if name in mass.calibration.spectrum_classes:
+        line = mass.calibration.spectrum_classes[name]()
+        return mass.make_line_fitter(line)
+    return mass.calibration.GaussianFitter()
 
 
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
@@ -335,7 +338,7 @@ class EnergyCalibrationAutocal(object):
             bin_edges = np.linspace(fitter.last_fit_bins[0] - binsize/2.0,
                                     fitter.last_fit_bins[-1] + binsize/2.0, len(fitter.last_fit_bins)+1)
             ax.fill(np.repeat(bin_edges, 2), np.hstack([[0], np.repeat(fitter.last_fit_contents, 2), [0]]),
-                    lw=1, fc=(0.3, 0.3, 0.9), ec=(0.1, 0.1, 1.0), alpha=0.8)
+                    lw=1, fc="#4c4ce6", ec="#1a1aff", alpha=0.8)
 
             x = np.linspace(fitter.last_fit_bins[0], fitter.last_fit_bins[-1], 201)
             if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
@@ -368,7 +371,7 @@ class EnergyCalibrationAutocal(object):
                                                                       fig.dpi_scale_trans))
 
         ax.scatter(self.calibration.cal_point_phs,
-                   self.calibration.cal_point_energies, s=36, c=(0.2, 0.2, 0.8))
+                   self.calibration.cal_point_energies, s=36, c="#3333cc")
 
         lb = np.amin(self.calibration.cal_point_phs)
         ub = np.amax(self.calibration.cal_point_phs)

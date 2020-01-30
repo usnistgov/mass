@@ -65,7 +65,7 @@ class Test_MnKA_distribution(unittest.TestCase):
 
 class TestAddFitter(unittest.TestCase):
     def test_add_same_line_fails(self):
-        mass.addfitter(
+        mass.calibration.fluorescence_lines.addline(
             element="dummy",
             material="dummy_material",
             linetype="dummy",
@@ -77,8 +77,8 @@ class TestAddFitter(unittest.TestCase):
             reference_amplitude=np.array([1, 2]),
             reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
         )
-        try:
-            mass.addfitter(
+        with self.assertRaises(ValueError):
+            mass.calibration.fluorescence_lines.addline(
                 element="dummy",
                 material="dummy_material",
                 linetype="dummy",
@@ -90,10 +90,24 @@ class TestAddFitter(unittest.TestCase):
                 reference_amplitude=np.array([1, 2]),
                 reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
             )
-        except Exception:
-            # we want this to error, so return
-            return
-        self.assertTrue(False)  # fail if it didn't error
+
+    def test_intrinsic_sigma(self):
+        line = mass.calibration.fluorescence_lines.MnKAlpha()
+        e = np.linspace(5880, 5910, 31)
+        y1 = line(e)
+        line.set_gauss_fwhm(8)
+        y2 = line(e)
+        line.intrinsic_sigma = 8/2.3548
+        line.set_gauss_fwhm(0)
+        y3 = line(e)
+        maxdiff = np.abs(y1-y2).max()
+        self.assertGreater(maxdiff, 1e-4, "Setting resolution=8 eV should change line")
+        maxdiff = np.abs(y1-y3).max()
+        self.assertGreater(maxdiff, 1e-4, "Setting instrinsic_sigma to 3.40 eV should change line")
+        maxdiff = np.abs(y2-y3).max()
+        self.assertLess(maxdiff, 1e-5, "Setting resolution=8 eV or intrinsic_sigma=3.40 eV should be equivalent")
+        line.intrinsic_sigma = 0.0
+        line.set_gauss_fwhm(0)
 
     def test_some_lines_make_sense(self):
         self.assertTrue(mass.spectrum_classes["MnKAlpha"]().nominal_peak_energy == 5898.802)
