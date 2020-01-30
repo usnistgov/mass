@@ -786,7 +786,7 @@ class Channel(CorG):
             fitters = []
             for (ph, energy, name, states) in zip(plan.uncalibratedVals, plan.energies,
                                                 plan.names, plan.states):
-                if name in mass.fitter_classes:
+                if name in mass.spectrum_classes:
                     fitter = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                         plot=False, binsize=binsize, calibration = starting_cal)
                 else:
