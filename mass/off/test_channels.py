@@ -86,7 +86,7 @@ names = ["W Ni-{}".format(i) for i in range(1, 27)]
 n = collections.OrderedDict()
 # line = ax.lines[0]
 for name in names:
-    n[name] = mass.spectrum_classes[name].nominal_peak_energy
+    n[name] = mass.spectra[name].nominal_peak_energy
 labelPeak(ax, "W Ni-8", n["W Ni-8"])
 labelPeaks(axis=ax, names=n.keys(), energies=n.values(), line=ax.lines[0])
 nos = collections.OrderedDict()

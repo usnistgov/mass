@@ -210,14 +210,14 @@ class Test_fluorescence(unittest.TestCase):
     """
 
     def setUp(self):
-        np.random.seed(12349)
+        np.random.seed(121312)
         self.fitter = mass.MnKAlphaFitter()
 
     def generate_and_fit_data(self, N, fwhm=1.0, nbins=100, N_bg=0):
         n_signal = np.random.poisson(N)
         n_bg = np.random.poisson(N_bg)
 
-        distrib = mass.calibration.fluorescence_lines.MnKAlpha()
+        distrib = mass.calibration.fluorescence_lines.MnKAlpha
         distrib.set_gauss_fwhm(fwhm)
         data = distrib.rvs(size=n_signal)
         if N_bg > 0:
@@ -241,13 +241,13 @@ class Test_fluorescence(unittest.TestCase):
 
         # Check data consistent with uncertainties
         res, ectr, scale = params[:3]
-        msg = "Disagree at 4-sigma: Fit fwhm: %.4f  actual: %.4f; expect unc %.4f" % (
+        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit fwhm: %.4f  actual: %.4f; expect unc %.4f" % (fwhm, nbins, N_bg,
             res, fwhm, d_res)
         self.assertLessEqual(abs(res-fwhm), 4*d_res, msg)
-        msg = "Disagree at 4-sigma: Fit Ectr: %.4f  actual: %.4f; expect unc %.4f" % (
+        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit Ectr: %.4f  actual: %.4f; expect unc %.4f" % (fwhm, nbins, N_bg,
             ectr, 5898.802, d_ectr)
         self.assertLessEqual(abs(ectr-5898.802), 4*d_ectr, msg)
-        msg = "Disagree at 4-sigma: Fit scale: %.4f  actual: %.4f; expect unc %.4f" % (
+        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit scale: %.4f  actual: %.4f; expect unc %.4f" % (fwhm, nbins, N_bg,
             scale, 1.0, d_scale)
         self.assertLessEqual(abs(scale-1.0), 4*d_scale, msg)
 

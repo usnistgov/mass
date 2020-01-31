@@ -338,7 +338,7 @@ class CorG():
             fitter = lineNameOrEnergy
             nominal_peak_energy = fitter.spect.nominal_peak_energy
         elif isinstance(lineNameOrEnergy, str):
-            line = mass.spectrum_classes[lineNameOrEnergy]()
+            line = mass.spectra[lineNameOrEnergy]
             fitter = mass.make_line_fitter(line)
             nominal_peak_energy = fitter.spect.nominal_peak_energy
         else:
@@ -792,7 +792,7 @@ class Channel(CorG):
             fitters = []
             for (ph, energy, name, states) in zip(plan.uncalibratedVals, plan.energies,
                                                 plan.names, plan.states):
-                if name in mass.spectrum_classes:
+                if name in mass.spectra:
                     fitter = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                         plot=False, binsize=binsize, calibration = starting_cal)
                 else:
@@ -1136,8 +1136,8 @@ class CalibrationPlan():
 
     def addCalPoint(self, uncalibratedVal,  name, states=None, energy=None):
         _energy = None
-        if name in mass.spectrum_classes:
-            _energy = mass.spectrum_classes[name]().peak_energy
+        if name in mass.spectra:
+            _energy = mass.spectra[name].peak_energy
         elif name in mass.STANDARD_FEATURES:
             _energy = mass.STANDARD_FEATURES[name]
         if _energy is not None:
@@ -1146,7 +1146,7 @@ class CalibrationPlan():
             energy = _energy
         if energy is None:
             raise(Exception(
-                "name {} not found in mass.spectrum_classes or mass.STANDARD_FEATURES, pass energy".format(name)))
+                "name {} not found in mass.spectra or mass.STANDARD_FEATURES, pass energy".format(name)))
         self.uncalibratedVals = np.hstack((self.uncalibratedVals, uncalibratedVal))
         self.names.append(name)
         self.energies = np.hstack((self.energies, energy))

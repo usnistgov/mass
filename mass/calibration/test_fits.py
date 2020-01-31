@@ -131,7 +131,7 @@ class Test_Gaussian(unittest.TestCase):
 class Test_MnKA(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.MnKAlphaFitter()
-        self.distrib = mass.calibration.fluorescence_lines.MnKAlpha()
+        self.distrib = mass.calibration.fluorescence_lines.MnKAlpha
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
         np.random.seed(96)
@@ -192,7 +192,7 @@ class Test_MnKA(unittest.TestCase):
 class Test_MnKB(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.MnKBetaFitter()
-        self.distrib = mass.calibration.fluorescence_lines.MnKBeta()
+        self.distrib = mass.calibration.fluorescence_lines.MnKBeta
         np.random.seed(97)
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-beta fits stored to %s" % self.tempdir)
@@ -331,7 +331,7 @@ class Test_MnKA_lmfit(unittest.TestCase):
         resolution = 2.5
         bin_edges = np.arange(5850, 5950, 1.0)
         # generate random x-ray pulse energies following MnKAlpha distribution
-        distrib = mass.calibration.fluorescence_lines.MnKAlpha()
+        distrib = mass.calibration.fluorescence_lines.MnKAlpha
         np.random.seed(154)
         values = distrib.rvs(size=n)
         # add gaussian oise to each x-ray energy
