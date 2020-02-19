@@ -94,10 +94,10 @@ class TestAddFitter(unittest.TestCase):
         line = mass.calibration.fluorescence_lines.MnKAlpha
         e = np.linspace(5880, 5910, 31)
         y1 = line(e)
-        line.set_gauss_fwhm(8)
+        line.set_instrument_gauss_fwhm(8)
         y2 = line(e)
         line.intrinsic_sigma = 8/2.3548
-        line.set_gauss_fwhm(0)
+        line.set_instrument_gauss_fwhm(0)
         y3 = line(e)
         maxdiff = np.abs(y1-y2).max()
         self.assertGreater(maxdiff, 1e-4, "Setting resolution=8 eV should change line")
@@ -106,7 +106,7 @@ class TestAddFitter(unittest.TestCase):
         maxdiff = np.abs(y2-y3).max()
         self.assertLess(maxdiff, 1e-5, "Setting resolution=8 eV or intrinsic_sigma=3.40 eV should be equivalent")
         line.intrinsic_sigma = 0.0
-        line.set_gauss_fwhm(0)
+        line.set_instrument_gauss_fwhm(0)
 
     def test_some_lines_make_sense(self):
         self.assertTrue(mass.spectra["MnKAlpha"].nominal_peak_energy == 5898.802)

@@ -24,7 +24,7 @@ class TestPhaseCorrect(ut.TestCase):
         line_names = ["MnKAlpha", "FeKAlpha", "CuKAlpha", "CrKAlpha"]
         for i, name in enumerate(line_names):
             spect = mass.spectra[name]
-            spect.set_gauss_fwhm(3)
+            spect.set_instrument_gauss_fwhm(3)
             energies[i*1000:(i+1)*1000] = spect.rvs(size=1000)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))
@@ -83,7 +83,7 @@ class TestPhaseCorrect(ut.TestCase):
         line_names = ["MnKAlpha", "FeKAlpha", "CuKAlpha", "CrKAlpha"]
         for i, name in enumerate(line_names):
             spect = mass.spectra[name]
-            spect.set_gauss_fwhm(3)
+            spect.set_instrument_gauss_fwhm(3)
             energies[i*1000:(i+1)*1000] = spect.rvs(size=1000)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))

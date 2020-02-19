@@ -32,11 +32,11 @@ class SpectralLine(sp.stats.rv_continuous):
     def __init__(self, element, material, linetype, energies, lorentzian_fwhm, intrinsic_sigma,
     reference_plot_gaussian_fwhm, reference_short, reference_amplitude, reference_amplitude_type,
     normalized_lorentzian_integral_intensity, nominal_peak_energy, fitter_type, position_uncertainty,
-    reference_measurement_type, is_default_material, pdf_gaussian_fwhm=0.0):
+    reference_measurement_type, is_default_material):
         """Constructor needs two Gaussian widths (both default to zero):
 
         `pdf_gaussian_fwhm` is the instrumental energy resolution (eV).
-            Can be changed with method set_gauss_fwhm().
+            Can be changed with method set_instrument_gauss_fwhm().
         `intrinsic_sigma` is the width (sigma) of any 'intrinsic Gaussian', as found (for example) in
             the Fowler et al 2020 metrology shape estimation for the lanthanide L lines. Normally zero.
         """
@@ -57,12 +57,11 @@ class SpectralLine(sp.stats.rv_continuous):
         self.position_uncertainty = position_uncertainty
         self.reference_measurement_type = reference_measurement_type
         self.is_default_material = is_default_material
-        self.set_gauss_fwhm(pdf_gaussian_fwhm)
         self.has_peak_energy = False
         self.cumulative_amplitudes = self.normalized_lorentzian_integral_intensity.cumsum()
+        self.set_instrument_gauss_fwhm(0.0)
         # Make subclassing of rv_continuous work
         sp.stats.rv_continuous.__init__(self)
-        self._pdf = self.pdf
 
     @property
     def peak_energy(self):
@@ -77,13 +76,13 @@ class SpectralLine(sp.stats.rv_continuous):
         """Make the class callable, returning the same value as the self.pdf method."""
         return self.pdf(x)
 
-    def pdf(self, x):
+    def _pdf(self, x):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
         x = np.asarray(x, dtype=np.float)
         result = np.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
-            result += ampl * voigt(x, energy, hwhm=fwhm*0.5, sigma=self.gaussian_sigma)
+            result += ampl * voigt(x, energy, hwhm=fwhm*0.5, sigma=self._gaussian_sigma)
             # mass.voigt() is normalized to have unit integrated intensity
         return result
 
@@ -93,7 +92,7 @@ class SpectralLine(sp.stats.rv_continuous):
         components = []
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
-            components.append(ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=self.gaussian_sigma))
+            components.append(ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=self._gaussian_sigma))
         return components
 
     def plot(self, x=None, axis=None, components=True, label=None, setylim=True):
@@ -128,10 +127,10 @@ class SpectralLine(sp.stats.rv_continuous):
         lastresolution = self.pdf_gaussian_fwhm
         try:
             if self.reference_plot_gaussian_fwhm is not None:
-                self.set_gauss_fwhm(self.reference_plot_gaussian_fwhm)
+                self.set_instrument_gauss_fwhm(self.reference_plot_gaussian_fwhm)
             axis = self.plot(axis=axis)
         finally:
-            self.set_gauss_fwhm(lastresolution)
+            self.set_instrument_gauss_fwhm(lastresolution)
         return axis
 
     def _rvs(self, *args, **kwargs):
@@ -145,8 +144,8 @@ class SpectralLine(sp.stats.rv_continuous):
         # Choose Lorentzian variates of the appropriate width (but centered on 0)
         lor = np.random.standard_cauchy(size=self._size) * self.lorentzian_fwhm[iline] * 0.5
         # If necessary, add a Gaussian variate to mimic finite resolution
-        if self.gaussian_sigma > 0.0:
-            lor += np.random.standard_normal(size=self._size) * self.gaussian_sigma
+        if self._gaussian_sigma > 0.0:
+            lor += np.random.standard_normal(size=self._size) * self._gaussian_sigma
         # Finally, add the line centers.
         results = lor + self.energies[iline]
         # We must check for non-positive results and replace them by recursive call
@@ -168,13 +167,13 @@ class SpectralLine(sp.stats.rv_continuous):
     def reference(self):
         return lineshape_references[self.reference_short]
 
-    def set_gauss_fwhm(self, fwhm):
+    def set_instrument_gauss_fwhm(self, fwhm):
         """Update the energy spread function to be a Gaussian of full width `fwhm`.
         The Voigt functions that make up this line will have a Gaussian sigma that's the quadrature
         sum of this Gaussian and the "intrinsic sigma" (normally zero) of the model components.
         """
-        self.pdf_gaussian_fwhm = fwhm
-        self.gaussian_sigma = ((fwhm/FWHM_OVER_SIGMA)**2 + self.intrinsic_sigma**2)**0.5
+        self._instrument_gaussian_fwhm = fwhm
+        self._gaussian_sigma = ((fwhm/FWHM_OVER_SIGMA)**2 + self.intrinsic_sigma**2)**0.5
 
     def __repr__(self):
         return "SpectralLine: {}".format(self.shortname)

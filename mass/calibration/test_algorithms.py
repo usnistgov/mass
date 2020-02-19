@@ -96,15 +96,15 @@ class TestAlgorithms(unittest.TestCase):
         spect = {}
         num_samples = {k: 1000*k for k in [1, 2, 3, 4, 5]}
         spect[1] = mass.fluorescence_lines.MnKAlpha
-        spect[1].set_gauss_fwhm(2)
+        spect[1].set_instrument_gauss_fwhm(2)
         spect[2] = mass.fluorescence_lines.MnKBeta
-        spect[2].set_gauss_fwhm(3)
+        spect[2].set_instrument_gauss_fwhm(3)
         spect[3] = mass.fluorescence_lines.CuKAlpha
-        spect[3].set_gauss_fwhm(4)
+        spect[3].set_instrument_gauss_fwhm(4)
         spect[4] = mass.fluorescence_lines.TiKAlpha
-        spect[4].set_gauss_fwhm(5)
+        spect[4].set_instrument_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha
-        spect[5].set_gauss_fwhm(6)
+        spect[5].set_instrument_gauss_fwhm(6)
         e = []
         for k, s in spect.items():
             e.extend(s.rvs(size=num_samples[k]))
@@ -132,15 +132,15 @@ class TestAlgorithms(unittest.TestCase):
         spect = {}
         num_samples = {k: 1000*k for k in [1, 2, 3, 4, 5]}
         spect[1] = mass.fluorescence_lines.MnKAlpha
-        spect[1].set_gauss_fwhm(2)
+        spect[1].set_instrument_gauss_fwhm(2)
         spect[2] = mass.fluorescence_lines.MnKBeta
-        spect[2].set_gauss_fwhm(3)
+        spect[2].set_instrument_gauss_fwhm(3)
         spect[3] = mass.fluorescence_lines.CuKAlpha
-        spect[3].set_gauss_fwhm(4)
+        spect[3].set_instrument_gauss_fwhm(4)
         spect[4] = mass.fluorescence_lines.TiKAlpha
-        spect[4].set_gauss_fwhm(5)
+        spect[4].set_instrument_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha
-        spect[5].set_gauss_fwhm(6)
+        spect[5].set_instrument_gauss_fwhm(6)
         e = []
         for k, s in spect.items():
             e.extend(s.rvs(size=num_samples[k]))
