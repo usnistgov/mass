@@ -102,7 +102,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                  noise_is_continuous=True, max_cachesize=None,
                  hdf5_filename=None, hdf5_noisefilename=None,
                  never_use=None, use_only=None, max_chans=None,
-                 experimentStateFile=None, excludeStates="auto"):
+                 experimentStateFile=None, excludeStates="auto", overwrite_hdf5_file=False):
         """Set up a group of related data sets by their filenames.
 
         Args:
@@ -180,7 +180,10 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 filenames = (filenames,)
             self.filenames = tuple(filenames)
             self.n_channels = len(self.filenames)
-            self.hdf5_file = h5py.File(hdf5_filename, 'a')
+            if overwrite_hdf5_file:
+                self.hdf5_file = h5py.File(hdf5_filename, 'w')
+            else: 
+                self.hdf5_file = h5py.File(hdf5_filename, 'a')
 
         # Cut parameter description need to initialized.
         self.cut_field_desc_init()
