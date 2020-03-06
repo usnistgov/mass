@@ -1,0 +1,4 @@
+import mass
+
+if __name__ == "__main__":
+    mass.core.projectors_script.main()

@@ -1,6 +1,6 @@
 # Regression Tests
 
-There is a set of regression tests in `test_regression.py` which will fail if the output of a script is changed. This change could reflect either an improvement or worse results, but at least we will know the change happened. These tests use `regress_chan1.ljh` and `regress_chan1.noi` as input files. Any other tests that require LJH files to exist, but don't care a lot about the contents, can use these as input files as well.
+There is a set of regression tests in `test_regression.py` which will fail if the output of a script is changed. This change could reflect either an improvement or worse results, but at least we will know the change happened. These tests use `regress_chan1.ljh` and `regress_noise_chan1.ljh` as input files. Any other tests that require LJH files to exist, but don't care a lot about the contents, can use these as input files as well.
 
 ## Reference Data
 
