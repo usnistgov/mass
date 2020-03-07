@@ -2,6 +2,7 @@ import mass
 import os
 import logging
 import h5py
+import argparse
 LOG = logging.getLogger("mass")                                        
 LOG.setLevel(logging.DEBUG) 
 
@@ -28,7 +29,7 @@ def parse_args(fake):
         "noise_path", help="path a a single ljh file with noise records, other channel numbers will be found automatically")
     parser.add_argument("-o", "--output_path", help="output filename (should be .hdf5), the default behavior will place it in the same directory as pulse_path", default=None, type=str)
     parser.add_argument("-r", "--replace_output",
-                        help="pass this to overwrite off files with the same path", action="store_true", type=bool,default=False)
+                        help="pass this to overwrite off files with the same path", action="store_true",default=False)
     parser.add_argument("-m", "--max_channels",
                         help="stop after processing this many channels", default=2**31, type=int)
     parser.add_argument("--n_ignore_presamples",
