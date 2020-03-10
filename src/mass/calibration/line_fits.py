@@ -1075,12 +1075,12 @@ class GammaGaussianWideFitter(LineFitter):
 
     Parameters are:
     0 - Gaussian 1 resolution (FWHM)
-    0 - Gaussian 2 resolution (FWHM)
-    1 - Pulse height (x-value) of the line peak
-    2 - Amplitude 1 (y-value) of the line peak
-    2 - Amplitude 2 (y-value) of the line peak
-    3 - Mean background counts per bin on low energy side
-    4 - Mean background counts per bin on high energy side
+    1 - Gaussian 2 resolution (FWHM)
+    2 - Pulse height (x-value) of the line peak
+    3 - Amplitude 1 (y-value) of the line peak
+    4 - Amplitude 2 (y-value) of the line peak
+    5 - Mean background counts per bin on low energy side
+    6 - Mean background counts per bin on high energy side
 
     The units of 0, 1, 2, 3, and 4 are all whatsoever units are used for pulse heights.
     """
