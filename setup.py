@@ -10,20 +10,14 @@ from distutils.command.build import build as basic_build
 
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
-
-def parse_requirements(filename):
-    """ load requirements from a pip requirements file """
-    lineiter = (line.strip() for line in open(filename))
-    return [line for line in lineiter if line and not line.startswith("#")]
-
-
-reqs_path = os.path.join(BASEDIR, "requirements.txt")
-# apparently parsing the requirements.txt file is not advised see:
-# http://stackoverflow.com/questions/14399534/reference-requirements-txt-for-the-install-requires-kwarg-in-setuptools-setup-py
-
-reqs = parse_requirements(reqs_path)
-# reqs is a list of requirement
-# e.g. ['django==1.5.1', 'mezzanine==1.4.6']
+requirements = ["numpy>=1.11","scipy>=0.19","Cython","pandas","scikit-learn",
+"h5py>=2.7","palettable","cycler","fastdtw","progress","lmfit>=0.9.11","pytest"]
+if sys.version_info.major == 3:
+    requirements += ["matplotlib>1.5", "statsmodels>0.8"]
+elif sys.version_info.major == 2:
+    requirements += ["matplotlib<3.0", "statsmodels<0.10"]
+else:
+    raise Exception("seriously you have something other than python 2 or 3?")
 
 
 def parse_version_number(VERSIONFILE=None):
@@ -43,7 +37,6 @@ def parse_version_number(VERSIONFILE=None):
 
 
 MASS_VERSION = parse_version_number()
-
 
 def generate_sourceroot_file():
     """We need a file to point back to the root of the source directory"""
