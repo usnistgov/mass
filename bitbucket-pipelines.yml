@@ -12,7 +12,7 @@ pipelines:
           name: python 2.7
           image: python:2.7.12
           script: # Modify the commands below to build your repository.
-            - python setup.py develop
+            - python install -e .
             - pytest
       - step:
           caches:
@@ -20,7 +20,7 @@ pipelines:
           name: python 3.7
           image: python:3.7.2
           script: # Modify the commands below to build your repository.
-            - python setup.py develop
+            - python install -e .
             - pytest
       - step:
           caches:
@@ -28,5 +28,5 @@ pipelines:
           name: python 3.8
           image: python:3.8.1
           script: # Modify the commands below to build your repository.
-            - python setup.py develop
+            - python install -e .
             - pytest
