@@ -7,6 +7,12 @@ Joe Fowler, NIST Boulder Labs
 
 import os.path
 from distutils.command.build import build as basic_build
+import sys
+import numpy as np
+from Cython.Build import cythonize
+
+from setuptools import setup
+from setuptools.extension import Extension
 
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -97,12 +103,6 @@ class QtBuilder(basic_build):
 
 
 if __name__ == "__main__":
-    import numpy as np
-    from Cython.Build import cythonize
-
-    from setuptools import setup
-    from setuptools.extension import Extension
-
     generate_sourceroot_file()
 
     setup(name='mass',
