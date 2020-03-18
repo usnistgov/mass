@@ -135,6 +135,6 @@ if __name__ == "__main__":
                         }, # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
           cmdclass={'build': QtBuilder},
           package_dir={'mass': "mass"},
-          install_requires=requirements
+          install_requires=requirements,
           scripts=[os.path.join(BASEDIR, "bin", "ljh_truncate"), os.path.join(BASEDIR, "bin", "ljh2off"), os.path.join(BASEDIR, "bin", "make_projectors")],
           )
