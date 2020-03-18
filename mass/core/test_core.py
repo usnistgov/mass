@@ -139,7 +139,7 @@ class TestTESGroup(ut.TestCase):
 
     def load_data(self, clear_hdf5=True):
         src_name = 'mass/regression_test/regress_chan1.ljh'
-        noi_name = 'mass/regression_test/regress_chan1.noi'
+        noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
         if clear_hdf5:
             for name in ['mass/regression_test/regress_mass.hdf5',
                          'mass/regression_test/regress_noise_mass.hdf5']:
@@ -271,7 +271,7 @@ class TestTESGroup(ut.TestCase):
     def test_noncontinuous_noise(self):
         "Test for issue 157: failure when noise_is_continuous=False"
         src_name = 'mass/regression_test/regress_chan1.ljh'
-        noi_name = 'mass/regression_test/regress_chan1.noi'
+        noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
         data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
         ds = data.channel[1]
         ds.compute_noise_spectra()
@@ -319,6 +319,25 @@ class TestTESGroup(ut.TestCase):
             plt.show()
             plt.pause(60)
 
+    def test_projectors_script(self):
+        import mass.core.projectors_script
+        class Args():
+            def __init__(self):
+                self.pulse_path = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
+                self.noise_path = os.path.join('mass', 'regression_test', 'regress_noise_chan1.ljh')
+                self.output_path = os.path.join('mass', 'regression_test', 'projectors_script_test.hdf5')
+                self.replace_output=True
+                self.max_channels = 4
+                self.n_ignore_presamples = 2
+                self.n_sigma_pt_rms = 8
+                self.n_sigma_max_deriv = 8
+                self.n_basis = 5
+                self.maximum_n_pulses = 4000
+                self.silent = False
+                self.mass_hdf5_path = os.path.join('mass', 'regression_test', 'projectors_script_test_mass.hdf5')
+
+        mass.core.projectors_script.main(Args())
+
 
 class TestTESHDF5Only(ut.TestCase):
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
@@ -326,7 +345,7 @@ class TestTESHDF5Only(ut.TestCase):
     def test_all_channels_bad(self):
         """Make sure it mass can open a mass generated file in HDF5 Only mode."""
         src_name = 'mass/regression_test/regress_chan1.ljh'
-        noi_name = 'mass/regression_test/regress_chan1.noi'
+        noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
         for name in ['mass/regression_test/regress_mass.hdf5',
                      'mass/regression_test/regress_noise_mass.hdf5']:
             if os.path.isfile(name):

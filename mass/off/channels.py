@@ -468,7 +468,7 @@ class Channel(CorG):
     def _defineDefaultRecipesAndProperties(self):
         assert(len(self.recipes) == 0)
         t0 = self.offFile["unixnano"][0]
-        self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e9, ["unixnano"])
+        self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e-9, ["unixnano"])
         self.addRecipe("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
 
     @property
