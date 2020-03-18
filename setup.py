@@ -45,7 +45,7 @@ def parse_version_number(VERSIONFILE=None):
 MASS_VERSION = parse_version_number()
 
 def generate_sourceroot_file():
-    """We need a file to point back to the root of the source directory"""
+    """We need a file to point back to the root of the source directory. This is needed only for the demos, and it wouldn't be neccesary when installed with `pip -e`."""
 
     root = os.path.dirname(os.path.abspath(__file__))
     code = """
@@ -132,7 +132,7 @@ if __name__ == "__main__":
                                  ]),
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
-                        },
+                        }, # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
           cmdclass={'build': QtBuilder},
           package_dir={'mass': "mass"},
           install_requires=requirements
