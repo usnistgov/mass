@@ -13,6 +13,8 @@ We reccomend you use Python 3, although as of March 2020 we are still supporting
 pip install -e git+https://oneilg@bitbucket.org/joe_fowler/mass.git#egg=mass
 ```
 
+When installed with the `-e` argument the mass source code will be in `src/mass` relative to where you ran the install command. You can install without `-e` if you don't need to modify the source, but the tests won't pass. To get them to pass we need to install all the test data with the source code and we currently don't do that.
+
 Dependency managment in python is a mess. Ubuntu tries to install packages via apt, then you can also install them via pip. Often if you have them installed via apt, then pip will lie to you about what version is available. A solution is to use virtual env. It changes your terminal to use a certain version of python with its own new set of packages. Here are commands to make a virtualenv and activate it. You should put the line that starts with `source` in `~/.profile` so it always starts new terminals with this virtual enviroment activated. Do not skip the pip upgrade, or else anything with PyQt will fail.
 ```
 python3 -m venv ~/venv/qsp
