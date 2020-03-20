@@ -136,5 +136,5 @@ if __name__ == "__main__":
           cmdclass={'build': QtBuilder},
           package_dir={'mass': "mass"},
           install_requires=requirements,
-          scripts=["bin/ljh_truncate", "bin/ljh2off", "bin/make_projectors")],
+          scripts=["bin/ljh_truncate", "bin/ljh2off", "bin/make_projectors"],
           )
