@@ -321,12 +321,14 @@ class TestTESGroup(ut.TestCase):
 
     def test_projectors_script(self):
         import mass.core.projectors_script
+
         class Args():
             def __init__(self):
                 self.pulse_path = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
                 self.noise_path = os.path.join('mass', 'regression_test', 'regress_noise_chan1.ljh')
-                self.output_path = os.path.join('mass', 'regression_test', 'projectors_script_test.hdf5')
-                self.replace_output=True
+                self.output_path = os.path.join(
+                    'mass', 'regression_test', 'projectors_script_test.hdf5')
+                self.replace_output = True
                 self.max_channels = 4
                 self.n_ignore_presamples = 2
                 self.n_sigma_pt_rms = 8
@@ -334,7 +336,8 @@ class TestTESGroup(ut.TestCase):
                 self.n_basis = 5
                 self.maximum_n_pulses = 4000
                 self.silent = False
-                self.mass_hdf5_path = os.path.join('mass', 'regression_test', 'projectors_script_test_mass.hdf5')
+                self.mass_hdf5_path = os.path.join(
+                    'mass', 'regression_test', 'projectors_script_test_mass.hdf5')
 
         mass.core.projectors_script.main(Args())
 

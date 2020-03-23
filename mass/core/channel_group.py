@@ -182,7 +182,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             self.n_channels = len(self.filenames)
             if overwrite_hdf5_file:
                 self.hdf5_file = h5py.File(hdf5_filename, 'w')
-            else: 
+            else:
                 self.hdf5_file = h5py.File(hdf5_filename, 'a')
 
         # Cut parameter description need to initialized.
@@ -277,7 +277,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                                      hdf5_group=hdf5_noisegroup)
 
                 if pulse.channum != noise.channum:
-                    LOG.warning("WARNING: TESGroup did not add data: channums don't match %s, %s", fname, nf)
+                    LOG.warning(
+                        "WARNING: TESGroup did not add data: channums don't match %s, %s", fname, nf)
                     continue
                 dset.noise_records = noise
                 assert(dset.channum == dset.noise_records.channum)
@@ -432,7 +433,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             data.set_chan_bad(1, "too few good pulses")
             data.set_chan_bad(103, [1, 3, 5], "detector unstable")
         """
-        added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args if not isstr(x)])
+        added_to_list = set.union(*[set(x) if isinstance(x, Iterable)
+                                    else {x} for x in args if not isstr(x)])
         comment = reduce(lambda x, y: y, [x for x in args if isstr(x)], '')
 
         for channum in added_to_list:
@@ -537,7 +539,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             LOG.warning("""Warning!  This feature is only half-complete.  Currently, granularity is limited.
     Only full "segments" of size %d records can be ignored.
     Will use %d segments and ignore %d.""", self.pulses_per_seg, self._allowed_segnums.sum(),
-                     self.n_segments - self._allowed_segnums.sum())
+                        self.n_segments - self._allowed_segnums.sum())
 
     def iter_segments(self, first_seg=0, end_seg=-1, sample_mask=None, segment_mask=None):
         if self._allowed_segnums is None:
@@ -591,14 +593,18 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 self.set_chan_bad(ds.channum, "summarize_data failed with %s" % e)
 
     def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}, filter_type="ats"):
-        LOG.warning('compute_filters is deprecated and will eventually be removed, please use compute_ats_filter or compute_5lag_filter directly')
+        LOG.warning(
+            'compute_filters is deprecated and will eventually be removed, please use compute_ats_filter or compute_5lag_filter directly')
         for ds in self.datasets:
             if hasattr(ds, "_use_new_filters"):
-                raise Exception("ds._use_new_filters is deprecated, use the filter_type argument to this function instead")
+                raise Exception(
+                    "ds._use_new_filters is deprecated, use the filter_type argument to this function instead")
         if filter_type == "ats":
-            self.compute_ats_filter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post, forceNew=forceNew, category=category)
+            self.compute_ats_filter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre,
+                                    cut_post=cut_post, forceNew=forceNew, category=category)
         elif filter_type == "5lag":
-            self.compute_5lag_filter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post, forceNew=forceNew, category=category)
+            self.compute_5lag_filter(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre,
+                                     cut_post=cut_post, forceNew=forceNew, category=category)
         else:
             raise Exception("filter_type must be one of `ats` or `5lag`")
 
@@ -608,14 +614,17 @@ class TESGroup(CutFieldMixin, GroupLooper):
             hdf5_filename = basename+"model.hdf5"
             if os.path.isfile(hdf5_filename):
                 if not replace_output:
-                    raise Exception("file {} already exists, pass replace_output = True to overwrite".format(hdf5_filename))
+                    raise Exception(
+                        "file {} already exists, pass replace_output = True to overwrite".format(hdf5_filename))
             with h5py.File(hdf5_filename, "w") as hdf5_file:
-                self._pulse_model_to_hdf5(hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses, category=category)
+                self._pulse_model_to_hdf5(
+                    hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses, category=category)
                 LOG.info("writing pulse_model to {}".format(hdf5_filename))
         else:
             hdf5_filename = hdf5_file.filename
             LOG.info("writing pulse_model to {}".format(hdf5_filename))
-            self._pulse_model_to_hdf5(hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses, category=category)
+            self._pulse_model_to_hdf5(
+                hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses, category=category)
         return hdf5_filename
 
     def calc_external_trigger_timing(self, after_last=False, until_next=False,
@@ -902,7 +911,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             raise ValueError("Call make_masks with one of pulse_avg_range"
                              " pulse_rms_range, or pulse_peak_range specified.")
         elif nranges > 1:
-            LOG.warning("Warning: make_masks uses only one range argument.  Checking only '%s'.", vectname)
+            LOG.warning(
+                "Warning: make_masks uses only one range argument.  Checking only '%s'.", vectname)
 
         middle = 0.5 * (pmin + pmax)
         abs_lim = 0.5 * np.abs(pmax - pmin)

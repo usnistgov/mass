@@ -7,8 +7,8 @@
                         November 2010-present
 
 # Installation
-We reccomend you use Python 3, although as of March 2020 we are still supporting python 2.7.
-  
+We recommend you use Python 3, although as of March 2020 we are still supporting python 2.7.
+
 ```  
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@develop#egg=mass
 ```
@@ -57,7 +57,7 @@ Realtime analysis is implemented by writing filtered values as well as "svd comp
 
 If you look for files named `test_*.py` they will have examples of how the tested functions are called. You can learn a fair amount from looking at them.
 
-Run all the tests on your systemto make sure they pass!. Do `pytest` in the `mass` directory. Tests require that you install via `pip install -e ...` or `python setup.py develop`.
+Run all the tests on your system and make sure they pass!. Do `pytest` in the `mass` directory. Tests require that you install via `pip install -e ...` or `python setup.py develop`.
 
 ## Tutorials and demos
 

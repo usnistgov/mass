@@ -16,8 +16,8 @@ from setuptools.extension import Extension
 
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
-requirements = ["numpy>=1.11","scipy>=0.19","Cython","pandas","scikit-learn",
-"h5py>=2.7","palettable","cycler","fastdtw","progress","lmfit>=0.9.11","pytest"]
+requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn",
+                "h5py>=2.7", "palettable", "cycler", "fastdtw", "progress", "lmfit>=0.9.11", "pytest"]
 if sys.version_info.major == 3:
     requirements += ["matplotlib>1.5", "statsmodels>0.8"]
 elif sys.version_info.major == 2:
@@ -43,6 +43,7 @@ def parse_version_number(VERSIONFILE=None):
 
 
 MASS_VERSION = parse_version_number()
+
 
 def generate_sourceroot_file():
     """We need a file to point back to the root of the source directory. This is needed only for the demos, and it wouldn't be neccesary when installed with `pip -e`."""
@@ -132,7 +133,7 @@ if __name__ == "__main__":
                                  ]),
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
-                        }, # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
+                        },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
           cmdclass={'build': QtBuilder},
           package_dir={'mass': "mass"},
           install_requires=requirements,

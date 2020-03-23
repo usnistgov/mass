@@ -69,7 +69,8 @@ aligner.samePeaksPlotWithAlignmentCal()
 
 fitters = data.calibrateFollowingPlan(
     "filtValueDC", _rethrow=False, dlo=10, dhi=10, approximate=False)
-data.qualityCheckDropOneErrors(thresholdAbsolute=2.5, thresholdSigmaFromMedianAbsoluteValue=6, _rethrow=True)
+data.qualityCheckDropOneErrors(
+    thresholdAbsolute=2.5, thresholdSigmaFromMedianAbsoluteValue=6, _rethrow=True)
 
 
 data.hist(np.arange(0, 4000, 1), "energy")
@@ -118,11 +119,10 @@ h5.close()
 # newds.recipeFromHDF5(h5)
 # h5.close()
 
-# test corrections with recipes as input 
+# test corrections with recipes as input
 ds.learnPhaseCorrection(uncorrectedName="filtValueDC")
 ds.learnTimeDriftCorrection(uncorrectedName="filtValueDCPC")
-ds.filtValueDCPCTC[0] # this will error if the attr doesnt exist
-
+ds.filtValueDCPCTC[0]  # this will error if the attr doesnt exist
 
 
 class TestSummaries(ut.TestCase):
@@ -132,7 +132,8 @@ class TestSummaries(ut.TestCase):
     #     self.assertTrue(np.allclose(newds.energy, ds.energy))
 
     def test_calibration_n_iter(self):
-        ds.calibrateFollowingPlan("filtValue", calibratedName = "energy2", n_iter=2, approximate=False)
+        ds.calibrateFollowingPlan("filtValue", calibratedName="energy2",
+                                  n_iter=2, approximate=False)
         # it should be a little different from energy
         self.assertNotEqual(0, np.mean(np.abs(ds.energy-ds.energy2)))
         # but should also be similar... though I had to set rtol higher than I expected for this to pass
@@ -163,12 +164,12 @@ class TestSummaries(ut.TestCase):
         # method 2 is the default because it is much faster
 
     def test_getAttr(self):
-        ds.getAttr("energy",slice(0,50)) # index with slice
-        ds.getAttr("energy", "Ne") # index with state
-        e0 = ds.getAttr("energy", ["Ne", "W 1"]) # index with list of states
+        ds.getAttr("energy", slice(0, 50))  # index with slice
+        ds.getAttr("energy", "Ne")  # index with state
+        e0 = ds.getAttr("energy", ["Ne", "W 1"])  # index with list of states
         inds = ds.getStatesIndicies(["Ne", "W 1"])
-        e1 = ds.getAttr("energy", inds) # index with inds from same list of states
-        self.assertTrue(np.allclose(e0,e1))
+        e1 = ds.getAttr("energy", inds)  # index with inds from same list of states
+        self.assertTrue(np.allclose(e0, e1))
 
     def test_recipes(self):
         def funa(x, y):
@@ -222,7 +223,6 @@ class TestSummaries(ut.TestCase):
         n_new_labels_2, n_new_pulses_dict2 = data.refreshFromFiles()
         self.assertEqual(n_new_labels_2, 0)
 
-
     def test_bad_channels_skipped(self):
         # try:
         data_local = ChannelGroup([filename])
@@ -271,8 +271,10 @@ class TestSummaries(ut.TestCase):
 
     def test_getAttr_with_list_of_slice(self):
         ind = [slice(0, 5), slice(5, 10)]
-        self.assertTrue(np.allclose(ds.getAttr("filtValue", ind), ds.getAttr("filtValue", slice(0, 10))))
-        self.assertTrue(np.allclose(ds.getAttr("filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10))))
+        self.assertTrue(np.allclose(ds.getAttr("filtValue", ind),
+                                    ds.getAttr("filtValue", slice(0, 10))))
+        self.assertTrue(np.allclose(ds.getAttr(
+            "filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10))))
 
 
 if __name__ == '__main__':
