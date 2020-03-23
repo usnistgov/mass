@@ -2,16 +2,15 @@
 build
 dist
 *.egg-info
-
 # Eclipse
 .project
 .pydevproject
-
 # PyCharm
 .idea
-
 # Spyder
 .spyproject
+# VsCode
+.vscode
 
 # General
 lint-report.txt
@@ -31,8 +30,7 @@ TAGS
 .DS_Store
 
 # Cython produces C source files and can produce HTML
-src/mass/core/*.c
-src/mass/core/*.html
-src/mass/mathstat/*.c
-src/mass/mathstat/*.html
-src/mass/demo/sourceroot.py
+*.c
+*.html
+mass/demo/sourceroot.py
+*.so

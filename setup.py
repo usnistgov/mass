@@ -31,7 +31,7 @@ def parse_version_number(VERSIONFILE=None):
     import re
 
     if not VERSIONFILE:
-        VERSIONFILE = os.path.join(BASEDIR, "src", 'mass', "_version.py")
+        VERSIONFILE = os.path.join(BASEDIR, 'mass', "_version.py")
 
     verstrline = open(VERSIONFILE, "rt").read()
     VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
@@ -61,7 +61,7 @@ def source_file(item=""):
     \"\"\"A function to remember the directory from which mass was installed.\"\"\"
     return os.path.join(sourceroot, item)
 """ % root
-    with open(os.path.join(BASEDIR, "src", "mass", "demo", "sourceroot.py"), "w") as fp:
+    with open(os.path.join(BASEDIR, "mass", "demo", "sourceroot.py"), "w") as fp:
         fp.write(code)
 
 
@@ -94,7 +94,7 @@ class QtBuilder(basic_build):
 
     def run(self):
         # Compile the Qt files to Python files, then call the base class run() method
-        for dirpath, _, filenames in os.walk('src'):
+        for dirpath, _, filenames in os.walk('mass'):
             for filename in filenames:
                 if filename.endswith('.ui'):
                     self.compile_ui(os.path.join(dirpath, filename))
@@ -121,19 +121,19 @@ if __name__ == "__main__":
           packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
                     'mass.demo', 'mass.gui', 'mass.off'],
           ext_modules=cythonize([Extension('mass.core.cython_channel',
-                                           [os.path.join(BASEDIR, 'src', 'mass',
+                                           [os.path.join(BASEDIR, 'mass',
                                                          'core', 'cython_channel.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.mathstat.robust',
-                                           [os.path.join(BASEDIR, 'src', 'mass',
+                                           [os.path.join(BASEDIR, 'mass',
                                                          'mathstat', 'robust.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.core.analysis_algorithms',
-                                           [os.path.join(BASEDIR, 'src', 'mass', 'core',
+                                           [os.path.join(BASEDIR, 'mass', 'core',
                                                          'analysis_algorithms.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.mathstat.entropy',
-                                           [os.path.join(BASEDIR, 'src', 'mass',
+                                           [os.path.join(BASEDIR, 'mass',
                                                          'mathstat', 'entropy.pyx')],
                                            include_dirs=[np.get_include()])
                                  ]),
@@ -141,7 +141,7 @@ if __name__ == "__main__":
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
                         },
           cmdclass={'build': QtBuilder},
-          package_dir={'': os.path.join(BASEDIR, 'src')},
+          package_dir={'mass': "mass"},
           scripts=[os.path.join(BASEDIR, "bin", "ljh_truncate")],
           install_requires=reqs
           )
