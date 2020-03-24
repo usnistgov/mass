@@ -766,10 +766,7 @@ class Channel(CorG):
             axis.plot(A, B, ".", label=state)
             axis.plot(A, C, ".", label=state+" DC")
             if includeBad:
-                A = self.getAttr(self.driftCorrection.indicatorName, inds, goodFunc, returnBad=True)
-                B = self.getAttr(self.driftCorrection.uncorrectedName,
-                                 inds, goodFunc, returnBad=True)
-                C = self.getAttr("filtValueDC", inds, goodFunc, returnBad=True)
+                A, B, C = self.getAttr([indicatorName, uncorrectedName, "filtValueDC"], state, goodFunc, returnBad=True)
                 axis.plot(A, B, "x", label=state+" bad")
                 axis.plot(A, C, "x", label=state+" bad DC")
         plt.xlabel(indicatorName)
