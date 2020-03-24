@@ -7,23 +7,23 @@ Joe Fowler, NIST Boulder Labs
 
 import os.path
 from distutils.command.build import build as basic_build
+import sys
+import numpy as np
+from Cython.Build import cythonize
+
+from setuptools import setup
+from setuptools.extension import Extension
 
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
-
-def parse_requirements(filename):
-    """ load requirements from a pip requirements file """
-    lineiter = (line.strip() for line in open(filename))
-    return [line for line in lineiter if line and not line.startswith("#")]
-
-
-reqs_path = os.path.join(BASEDIR, "requirements.txt")
-# apparently parsing the requirements.txt file is not advised see:
-# http://stackoverflow.com/questions/14399534/reference-requirements-txt-for-the-install-requires-kwarg-in-setuptools-setup-py
-
-reqs = parse_requirements(reqs_path)
-# reqs is a list of requirement
-# e.g. ['django==1.5.1', 'mezzanine==1.4.6']
+requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn",
+                "h5py>=2.7", "palettable", "cycler", "fastdtw", "progress", "lmfit>=0.9.11", "pytest"]
+if sys.version_info.major == 3:
+    requirements += ["matplotlib>1.5", "statsmodels>0.8"]
+elif sys.version_info.major == 2:
+    requirements += ["matplotlib<3.0", "statsmodels<0.10"]
+else:
+    raise Exception("seriously you have something other than python 2 or 3?")
 
 
 def parse_version_number(VERSIONFILE=None):
@@ -46,7 +46,7 @@ MASS_VERSION = parse_version_number()
 
 
 def generate_sourceroot_file():
-    """We need a file to point back to the root of the source directory"""
+    """We need a file to point back to the root of the source directory. This is needed only for the demos, and it wouldn't be neccesary when installed with `pip -e`."""
 
     root = os.path.dirname(os.path.abspath(__file__))
     code = """
@@ -104,12 +104,6 @@ class QtBuilder(basic_build):
 
 
 if __name__ == "__main__":
-    import numpy as np
-    from Cython.Build import cythonize
-
-    from setuptools import setup
-    from setuptools.extension import Extension
-
     generate_sourceroot_file()
 
     setup(name='mass',
@@ -139,9 +133,9 @@ if __name__ == "__main__":
                                  ]),
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
-                        },
+                        },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
           cmdclass={'build': QtBuilder},
           package_dir={'mass': "mass"},
-          scripts=[os.path.join(BASEDIR, "bin", "ljh_truncate")],
-          install_requires=reqs
+          install_requires=requirements,
+          scripts=["bin/ljh_truncate", "bin/ljh2off", "bin/make_projectors"],
           )

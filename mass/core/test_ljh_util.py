@@ -13,8 +13,8 @@ class TestFilenameHandling(ut.TestCase):
     def test_glob(self):
         self.assertIn(os.path.join("mass", "regression_test", "regress_chan1.ljh"),
                       filename_glob_expand(os.path.join("mass", "regression_test", "regress_chan*.ljh")))
-        self.assertIn(os.path.join("mass", "regression_test", "regress_chan1.noi"),
-                      filename_glob_expand(os.path.join("mass", "regression_test", "regress_chan*.noi")))
+        self.assertIn(os.path.join("mass", "regression_test", "regress_noise_chan1.ljh"),
+                      filename_glob_expand(os.path.join("mass", "regression_test", "regress_noise_chan*.ljh")))
 
     def test_extract_channum(self):
         self.assertEqual(1, ljh_channum("dummy_chan1.ljh"))
@@ -68,11 +68,11 @@ class TestFilenameHandling(ut.TestCase):
 
     def test_ljh_basename(self):
         bname = "/a/b/c/d_chan1.ljh"
-        bnamenoi = "/a/b/c/d_chan1.noi"
+        bnamenoi = "/a/b/c/d_noise_chan1.ljh"
         out = ljh_chan_names(bname, [3])
         outnoi = ljh_chan_names(bnamenoi, [3])
         self.assertTrue("/a/b/c/d_chan3.ljh" in out)
-        self.assertTrue("/a/b/c/d_chan3.noi" in outnoi)
+        self.assertTrue("/a/b/c/d_noise_chan3.ljh" in outnoi)
 
     def test_ljh_basename_channum(self):
         basename = "/a/b/c/d"

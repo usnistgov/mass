@@ -12,8 +12,8 @@ pipelines:
           name: python 2.7
           image: python:2.7.12
           script: # Modify the commands below to build your repository.
-            - pip install -r requirements.txt
-            - python setup.py develop
+            - pip install --upgrade pip # the pip with py27 is too old for pyproject.toml, so we need to upgrade
+            - pip install -e .
             - pytest
       - step:
           caches:
@@ -21,8 +21,7 @@ pipelines:
           name: python 3.7
           image: python:3.7.2
           script: # Modify the commands below to build your repository.
-            - pip install -r requirements.txt
-            - python setup.py develop
+            - pip install -e .
             - pytest
       - step:
           caches:
@@ -30,6 +29,5 @@ pipelines:
           name: python 3.8
           image: python:3.8.1
           script: # Modify the commands below to build your repository.
-            - pip install -r requirements.txt
-            - python setup.py develop
+            - pip install -e .
             - pytest

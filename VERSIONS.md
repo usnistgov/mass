@@ -1,6 +1,11 @@
 ## Note on version numbers of Mass
 
-**0.7.3** January 2020-
+**0.7.4** January 2020-March 23 2020
+
+* Make `mass` installable by pip.
+* Add entry points so some scripts are automatically installed.
+
+**0.7.3** January 2020-March 2020
 
 * Reorganize code to live in mass/... instead of src/mass/...; always test installed Mass.
 * Can now use "setup.py develop" to link `site-packages` back to local mass, so "installed Mass" can = local.
