@@ -7,19 +7,23 @@ Joe Fowler, NIST Boulder Labs
 
 import os.path
 from distutils.command.build import build as basic_build
+import sys
+import numpy as np
+from Cython.Build import cythonize
 
-def parse_requirements(filename):
-    """ load requirements from a pip requirements file """
-    lineiter = (line.strip() for line in open(filename))
-    return [line for line in lineiter if line and not line.startswith("#")]
+from setuptools import setup
+from setuptools.extension import Extension
 
-reqs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),"requirements.txt")
-# apparently parsing the requirements.txt file is not advised see:
-# http://stackoverflow.com/questions/14399534/reference-requirements-txt-for-the-install-requires-kwarg-in-setuptools-setup-py
+BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
-reqs = parse_requirements(reqs_path)
-# reqs is a list of requirement
-# e.g. ['django==1.5.1', 'mezzanine==1.4.6']
+requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn",
+                "h5py>=2.7", "palettable", "cycler", "fastdtw", "progress", "lmfit>=0.9.11", "pytest"]
+if sys.version_info.major == 3:
+    requirements += ["matplotlib>1.5", "statsmodels>0.8"]
+elif sys.version_info.major == 2:
+    requirements += ["matplotlib<3.0", "statsmodels<0.10"]
+else:
+    raise Exception("seriously you have something other than python 2 or 3?")
 
 
 def parse_version_number(VERSIONFILE=None):
@@ -27,7 +31,7 @@ def parse_version_number(VERSIONFILE=None):
     import re
 
     if not VERSIONFILE:
-        VERSIONFILE = os.path.join("src", 'mass', "_version.py")
+        VERSIONFILE = os.path.join(BASEDIR, 'mass', "_version.py")
 
     verstrline = open(VERSIONFILE, "rt").read()
     VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
@@ -42,7 +46,7 @@ MASS_VERSION = parse_version_number()
 
 
 def generate_sourceroot_file():
-    """We need a file to point back to the root of the source directory"""
+    """We need a file to point back to the root of the source directory. This is needed only for the demos, and it wouldn't be neccesary when installed with `pip -e`."""
 
     root = os.path.dirname(os.path.abspath(__file__))
     code = """
@@ -57,7 +61,7 @@ def source_file(item=""):
     \"\"\"A function to remember the directory from which mass was installed.\"\"\"
     return os.path.join(sourceroot, item)
 """ % root
-    with open("src/mass/demo/sourceroot.py", "w") as fp:
+    with open(os.path.join(BASEDIR, "mass", "demo", "sourceroot.py"), "w") as fp:
         fp.write(code)
 
 
@@ -75,7 +79,7 @@ class QtBuilder(basic_build):
             fp = open(py_file, 'w')
             uic.compileUi(ui_file, fp, indent=4)
             fp.close()
-            print("Compiled '%s' into '%s'"%(ui_file, py_file))
+            print("Compiled '%s' into '%s'" % (ui_file, py_file))
         except Exception as e:
             print('Unable to compile user interface', e)
             return
@@ -90,7 +94,7 @@ class QtBuilder(basic_build):
 
     def run(self):
         # Compile the Qt files to Python files, then call the base class run() method
-        for dirpath, _, filenames in os.walk('src'):
+        for dirpath, _, filenames in os.walk('mass'):
             for filename in filenames:
                 if filename.endswith('.ui'):
                     self.compile_ui(os.path.join(dirpath, filename))
@@ -100,12 +104,6 @@ class QtBuilder(basic_build):
 
 
 if __name__ == "__main__":
-    import numpy as np
-    from Cython.Build import cythonize
-
-    from setuptools import setup
-    from setuptools.extension import Extension
-
     generate_sourceroot_file()
 
     setup(name='mass',
@@ -115,25 +113,29 @@ if __name__ == "__main__":
           url='https://bitbucket.org/joe_fowler/mass',
           description='Microcalorimeter Analysis Software Suite',
           packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
-                    'mass.demo', 'mass.gui'],
+                    'mass.demo', 'mass.gui', 'mass.off'],
           ext_modules=cythonize([Extension('mass.core.cython_channel',
-                                           [os.path.join('src', 'mass', 'core', 'cython_channel.pyx')],
+                                           [os.path.join(BASEDIR, 'mass',
+                                                         'core', 'cython_channel.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.mathstat.robust',
-                                           [os.path.join('src', 'mass', 'mathstat', 'robust.pyx')],
+                                           [os.path.join(BASEDIR, 'mass',
+                                                         'mathstat', 'robust.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.core.analysis_algorithms',
-                                           [os.path.join('src', 'mass', 'core', 'analysis_algorithms.pyx')],
+                                           [os.path.join(BASEDIR, 'mass', 'core',
+                                                         'analysis_algorithms.pyx')],
                                            include_dirs=[np.get_include()]),
                                  Extension('mass.mathstat.entropy',
-                                           [os.path.join('src', 'mass', 'mathstat', 'entropy.pyx')],
+                                           [os.path.join(BASEDIR, 'mass',
+                                                         'mathstat', 'entropy.pyx')],
                                            include_dirs=[np.get_include()])
                                  ]),
           package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
                         'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
-                        },
+                        },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
           cmdclass={'build': QtBuilder},
-          package_dir={'': 'src'},
-          scripts=['bin/ljh_truncate'],
-          install_requires=reqs
+          package_dir={'mass': "mass"},
+          install_requires=requirements,
+          scripts=["bin/ljh_truncate", "bin/ljh2off", "bin/make_projectors"],
           )
