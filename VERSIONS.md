@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.7.4** January 2020-March 26 2020
+**0.7.4** March 26 2020
 
 * Make `mass` installable by pip.
 * Add entry points so some scripts are automatically installed.
