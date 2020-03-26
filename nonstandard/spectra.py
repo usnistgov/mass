@@ -36,7 +36,6 @@ class RawSpectrum(object):
         self.calibration = mass.calibration.energy_calibration.EnergyCalibration('volts')
         self.calibration_valid = True
 
-
     def copy(self):
         rs = RawSpectrum(self.pulses)
         rs.brightest_lines = self.brightest_lines.copy()
@@ -45,10 +44,8 @@ class RawSpectrum(object):
         rs.calibration_valid = self.calibration_valid
         return rs
 
-
-    def max(self): #@ReservedAssignment
+    def max(self):  # @ReservedAssignment
         return self.pulses.max()
-
 
     def calibrate_brightest_lines(self, line_energies, nbins, vmax, dv_smear,
                                   min_bin_sep=8, line_names=None):
@@ -56,14 +53,14 @@ class RawSpectrum(object):
         lines = self.find_brightest_lines(nbins, vmax, dv_smear, min_bin_sep=min_bin_sep,
                                           max_lines=len(line_energies))
         if line_names is None:
-            line_names = ['line%d'%i for i in range(len(lines))]
-        if len(lines)==0:
+            line_names = ['line%d' % i for i in range(len(lines))]
+        if len(lines) == 0:
             self.calibration_valid = False
             return
 
         # So far, line_energies and lines are both sorted by peak contents.
         # But we need to match up these lines by energy order, even if contents happen to be out of order
-        volts = lines[:,1]
+        volts = lines[:, 1]
         volts.sort()
         line_energies = line_energies[:len(volts)]
         line_energies.sort()
@@ -72,10 +69,8 @@ class RawSpectrum(object):
             self.calibration.add_cal_point(result, energy, name)
         self.recompute_energies()
 
-
     def recompute_energies(self):
         self.energies = self.calibration(self.pulses)
-
 
     def find_brightest_lines(self, nbins, vmax, dv_smear,
                              min_bin_sep=8, max_lines=None):
@@ -84,7 +79,7 @@ class RawSpectrum(object):
             max_lines = 999999999
 
         # Step 1: find lines by histogramming the data and smearing.
-        cont, bins = np.histogram(self.pulses, nbins, [0,vmax])
+        cont, bins = np.histogram(self.pulses, nbins, [0, vmax])
         bin_ctr = 0.5*(bins[1:]+bins[:-1])
 
         # Assume 40 counts = 1000 eV and smear by resolution (typically 60 eV FWHM, or 25 eV rms)
@@ -112,7 +107,7 @@ class RawSpectrum(object):
         spectral_line = mass.calibration.GaussianLine()
         fitter = mass.calibration.GaussianFitter(spectral_line)
 
-        lines=[]
+        lines = []
         for peak in peak_bins:
             spectral_line.energy = peak
             try:
@@ -146,7 +141,6 @@ class SpectrumGroup(object):
     to each other and to known energy features.
     '''
 
-
     def __init__(self, spectrum_iter=None):
         '''
         Construct a SpectrumGroup, optionally with initial voltage (uncalibrated) spectra.
@@ -161,9 +155,8 @@ class SpectrumGroup(object):
         self.npulses = 0
 
         if spectrum_iter is not None:
-            for sp in spectrum_iter:
-                self.add_spectrum(sp)
-
+            for spect in spectrum_iter:
+                self.add_spectrum(spect)
 
     def copy(self):
         """Return a deep copy of self (useful when code changes)"""
@@ -171,19 +164,17 @@ class SpectrumGroup(object):
         sg.plot_ordering = self.plot_ordering
         return sg
 
-
-    def add_spectrum(self, sp):
-        """Add <sp> to the list of spectra, where <sp> is an ndarray containing uncalibrated pulse sizes
+    def add_spectrum(self, spect):
+        """Add <sp> to the list of spectra, where <spect> is an ndarray containing uncalibrated pulse sizes
         or an instance of RawSpectrum."""
         try:
-            sp = RawSpectrum(sp)
+            spect = RawSpectrum(spect)
         except TypeError:
             pass
-        self.raw_spectra.append(sp)
+        self.raw_spectra.append(spect)
         self.plot_ordering.append(self.nchan)
         self.nchan += 1
-        self.npulses += sp.npulses
-
+        self.npulses += spect.npulses
 
     def store(self, filename):
         """Store the complete data state in file named <filename>.
@@ -191,15 +182,14 @@ class SpectrumGroup(object):
         fp = open(filename, "wb")
         pickler = pickle.Pickler(fp, protocol=pickle.HIGHEST_PROTOCOL)
         pickler.dump(self.nchan)
-        for sp in self.raw_spectra:
-            pickler.dump(sp)
+        for spect in self.raw_spectra:
+            pickler.dump(spect)
         fp.close()
-
 
     def plot_all(self, nbins=2000, binrange=None, yoffset=50, axis=None, color=None, raw=False):
         if binrange is None:
             m = max((rs.max() for rs in self.raw_spectra))
-            binrange = [0,m]
+            binrange = [0, m]
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
@@ -208,20 +198,19 @@ class SpectrumGroup(object):
 
         bin_centers = np.arange(0.5, nbins)*(binrange[1]-binrange[0])/nbins + binrange[0]
 
-        for i,spect_number in enumerate(self.plot_ordering):
+        for i, spect_number in enumerate(self.plot_ordering):
             rs = self.raw_spectra[spect_number]
             if raw:
                 cont, _bins = np.histogram(rs.pulses, nbins, binrange)
             else:
                 cont, _bins = np.histogram(rs.energies, nbins, binrange)
-            plot_as_stepped_hist(axis, cont+i*yoffset, bin_centers, color=[cmap(float(i)/self.nchan)])
-
+            plot_as_stepped_hist(axis, cont+i*yoffset, bin_centers, color=cmap(float(i)/self.nchan))
 
     def calibrate_brightest_lines(self, line_energies, nbins, vmax, dv_smear,
                                   min_bin_sep=8, line_names=None):
         for rs in self.raw_spectra:
             rs.calibrate_brightest_lines(line_energies, nbins=nbins, vmax=vmax, dv_smear=dv_smear,
-                                         min_bin_sep = min_bin_sep, line_names=line_names)
+                                         min_bin_sep=min_bin_sep, line_names=line_names)
 
 
 def load_spectrum_group(filename):
@@ -268,10 +257,10 @@ def minimize_ks_prob(s1, s2, ex, ey, search_range=None, tol=1e-6, print_output=F
         e2 = c2(s2.pulses)
         c1.remove_cal_point_name("tmp")
         c2.remove_cal_point_name("tmp")
-        emin = min(ex,ey)
-        emax = max(ex,ey)
-        use1 = np.logical_and(e1>emin, e1<emax)
-        use2 = np.logical_and(e2>emin, e2<emax)
+        emin = min(ex, ey)
+        emax = max(ex, ey)
+        use1 = np.logical_and(e1 > emin, e1 < emax)
+        use2 = np.logical_and(e2 > emin, e2 < emax)
         if (use1).sum() == 0 or (use2).sum() == 0:
             return 1.0, v1, v2
         return sp.stats.ks_2samp(e1[use1], e2[use2])[0]
@@ -299,9 +288,11 @@ def match_two_spectra(s1, s2, initial_energies, min_scale=0.9, max_scale=1.1):
     print(c1)
     for i, erange in enumerate(initial_energies):
         ematch, emax = erange
-        best_scale, v1, v2 = minimize_ks_prob(s1, s2, ematch, emax, tol=1e-4, search_range=[.96,1.04])
-        if best_scale > min_scale and best_scale<max_scale:
-            print("Range %f to %f has best_scale, v1, v2=%f %f %f" % (ematch, emax, best_scale, v1, v2))
+        best_scale, v1, v2 = minimize_ks_prob(
+            s1, s2, ematch, emax, tol=1e-4, search_range=[.96, 1.04])
+        if best_scale > min_scale and best_scale < max_scale:
+            print("Range %f to %f has best_scale, v1, v2=%f %f %f" %
+                  (ematch, emax, best_scale, v1, v2))
             c1.add_cal_point(v1, ematch, "tmp%d" % i)
             c2.add_cal_point(v2, ematch, "tmp%d" % i)
     s1.recompute_energies()

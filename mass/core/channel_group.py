@@ -978,8 +978,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             if fcut is not None:
                 avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(
                     avg_pulse, 1./self.timebase, fcut)
-            plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum,
-                     color=[cmap(float(i) / nplot)])
+            plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum, color=cmap(float(i) / nplot))
 
         plt.title("Average pulse for each channel when it is hit")
 
@@ -1016,6 +1015,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             if channum not in self.channel:
                 continue
             ds = self.channel[channum]
+            if ds.filter is None:
+                continue
             plt.plot(ds.filter.__dict__[filtname], label="Chan %d" % channum,
                      color=cmap(float(ds_num) / len(channels)))
 
