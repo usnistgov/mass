@@ -24,9 +24,10 @@ Created on Feb 16, 2011
 import numpy as np
 import os
 from distutils.version import StrictVersion
-import logging 
+import logging
 import collections
 LOG = logging.getLogger("mass")
+
 
 class MicrocalFile(object):
     """A set of data on disk containing triggered records from a microcalorimeter.
@@ -218,27 +219,27 @@ class LJHFile(MicrocalFile):
         """
         # parse header into a dictionary
         header_dict = collections.OrderedDict()
-        with open(filename, "rb") as fp: 
+        with open(filename, "rb") as fp:
             i = 0
             while True:
-                i+=1
-                line = fp.readline() 
+                i += 1
+                line = fp.readline()
                 if line.startswith(b"#End of Header"):
                     break
                 elif line == b"":
                     raise Exception("reached EOF before #End of Header")
-                elif i>self.TOO_LONG_HEADER:
+                elif i > self.TOO_LONG_HEADER:
                     raise IOError("header is too long--seems not to contain '#End of Header'\n"
-                                + "in file %s" % filename)
+                                  + "in file %s" % filename)
                 elif b":" in line:
-                    a,b = line.split(b":",1) # maxsplits=1, py27 doesnt support keyword
-                    a=a.strip()
-                    b=b.strip()
-                    if a in header_dict:
+                    a, b = line.split(b":", 1)  # maxsplits=1, py27 doesnt support keyword
+                    a = a.strip()
+                    b = b.strip()
+                    if a in header_dict and a != b"Dummy":
                         LOG.warning("repeated header entry {}".format(a))
-                    header_dict[a.strip()]=b.strip()
+                    header_dict[a.strip()] = b.strip()
                 else:
-                    continue # ignore lines without ":"
+                    continue  # ignore lines without ":"
             self.header_size = fp.tell()
 
         # extract required values from header_dict
@@ -252,11 +253,11 @@ class LJHFile(MicrocalFile):
             self.row_number = int(header_dict[row_number_k[0]])
         col_number_k = [k for k in header_dict.keys() if k.startswith(b"Column number")]
         if len(col_number_k) > 0:
-            self.row_number = int(header_dict[col_number_k[0]])        
+            self.row_number = int(header_dict[col_number_k[0]])
         self.client = header_dict.get(b"Software Version", b"UNKNOWN")
-        self.number_of_columns = int(header_dict.get(b"Number of columns",-1))
-        self.number_of_rows = int(header_dict.get(b"Number of rows",-1))
-        self.timestamp_offset = float(header_dict.get(b"Timestamp offset (s)",b"-1"))
+        self.number_of_columns = int(header_dict.get(b"Number of columns", -1))
+        self.number_of_rows = int(header_dict.get(b"Number of rows", -1))
+        self.timestamp_offset = float(header_dict.get(b"Timestamp offset (s)", b"-1"))
         self.version_str = header_dict[b'Save File Format Version']
         if StrictVersion(self.version_str.decode()) >= StrictVersion("2.2.0"):
             self.pulse_size_bytes = (16 + 2 * self.nSamples)
@@ -264,7 +265,7 @@ class LJHFile(MicrocalFile):
             self.pulse_size_bytes = (6 + 2 * self.nSamples)
         self.binary_size = os.stat(filename).st_size - self.header_size
         self.header_dict = header_dict
-        self.nPulses = self.binary_size // self.pulse_size_bytes       
+        self.nPulses = self.binary_size // self.pulse_size_bytes
         # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
         # It adds 3 to the "true value" of nPresamples. For now, assume that only
         # DASTARD clients have this figure correct.
@@ -275,8 +276,8 @@ class LJHFile(MicrocalFile):
         # a crash of the DAQ software, so we made it just a warning.
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
             LOG.warning("Warning: The binary size "
-                  + "(%d) is not an integer multiple of the pulse size %d bytes" %
-                  (self.binary_size, self.pulse_size_bytes))
+                        + "(%d) is not an integer multiple of the pulse size %d bytes" %
+                        (self.binary_size, self.pulse_size_bytes))
             LOG.warning("%06s" % filename)
 
         # Record the sample times in microseconds
