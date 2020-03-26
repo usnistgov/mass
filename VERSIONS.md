@@ -1,14 +1,17 @@
 ## Note on version numbers of Mass
 
-**0.7.4** January 2020-March 23 2020
+**0.7.4** January 2020-March 26 2020
 
 * Make `mass` installable by pip.
 * Add entry points so some scripts are automatically installed.
+* Fix minor annoyances and pep-8 violations.
+* Fix issue 187: cannot plot_average_pulses or plot_filters.
+* Fix issue 188: annoying log messages upon reading older LJH files.
 
 **0.7.3** January 2020-March 2020
 
 * Reorganize code to live in mass/... instead of src/mass/...; always test installed Mass.
-* Can now use "setup.py develop" to link `site-packages` back to local mass, so "installed Mass" can = local.
+* Can now use "setup.py develop" to link `site-packages` back to local mass, so "installed Mass" can be your local.
 * Fix issue 172: add an intrinsic Gaussian in SpectralLine: components can now be Voigts, not Lorentzians.
 * Spectral lines can have a 2-sided exponential tail, not only a low-energy tail.
 * Instantiating a `GenericLineModel` with the default `has_tails=False` forbids exponential tails, taking a shortcut around that (slow) code.
@@ -17,7 +20,8 @@
 * Fix issue 163: problems when the scaling of parameters (or their uncertainty) varies widely between parameters.
 * Start using [pytest](https://docs.pytest.org/en/latest/) for package testing instead of our own `runtests.py` script.
 * Fix issue 181: deprecated `import imp` was removed; no longer needed with pytest.
-* Remove global dictionaries `fitter_classes` and `model_classes`. Replace with functions `make_line_fitter` and `make_line_model` that generate instances from a `SpectralLine` object.
+* Remove global dictionaries `fitter_classes` and `model_classes`. Replace with functions `make_line_fitter` and `make_line_model` that generate instances from a `SpectralLine` object. Fixes issue 182.
+* Fix issues 183-184: problems in `mass.off`.
 
 **0.7.2** December 2019-January 2020
 
