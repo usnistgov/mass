@@ -1015,6 +1015,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             if channum not in self.channel:
                 continue
             ds = self.channel[channum]
+            if ds.filter is None:
+                continue
             plt.plot(ds.filter.__dict__[filtname], label="Chan %d" % channum,
                      color=cmap(float(ds_num) / len(channels)))
 
