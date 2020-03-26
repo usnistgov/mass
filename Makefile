@@ -5,14 +5,19 @@
 
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
-PYFILES = $(shell find src/mass -name "*.py")
-CYFILES = $(shell find src/mass -name "*.pyx")
-FORMFILES := $(shell find src/mass -name "*_form_ui.py")
+PYFILES = $(shell find mass -name "*.py")
+CYFILES = $(shell find mass -name "*.pyx")
+FORMFILES := $(shell find mass -name "*_form_ui.py")
 
-.PHONY: lint archive  build install clean test report_install_location pep8
+.PHONY: lint archive all build develop install clean test report_install_location pep8
+
+all: build develop test
 
 build:
 	python setup.py build
+
+develop: build
+	sudo python setup.py develop
 
 install: build
 	sudo python setup.py install
@@ -22,7 +27,7 @@ clean:
 	rm -f `find . -name "*.pyc"`
 
 test:
-	python runtests.py
+	pytest
 
 archive: $(TARGET_ZIP)
 
@@ -34,8 +39,8 @@ PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))
 
 pep8: pep8-report.txt
 pep8-report.txt: $(PEPFILES) MAKEFILE
-	pep8 --statistics --max-line-length=120 $(PEPFILES) > $@
+	pycodestyle --statistics --max-line-length=130 $(PEPFILES) > $@
 
 lint: lint-report.txt
 lint-report.txt: pylintrc $(PYFILES) MAKEFILE
-	pylint-2.7 --rcfile=$< src/mass > $@
+	pylint-2.7 --rcfile=$< mass > $@
