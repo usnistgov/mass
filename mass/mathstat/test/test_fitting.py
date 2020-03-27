@@ -218,8 +218,7 @@ class Test_fluorescence(unittest.TestCase):
         n_bg = np.random.poisson(N_bg)
 
         distrib = mass.calibration.fluorescence_lines.MnKAlpha
-        distrib.set_instrument_gauss_fwhm(fwhm)
-        data = distrib.rvs(size=n_signal)
+        data = distrib.rvs(size=n_signal, instrument_gaussian_fwhm=fwhm)
         if N_bg > 0:
             data = np.hstack((data, np.random.uniform(size=n_bg)*4.0-2.0))
         nobs, bin_edges = np.histogram(data, nbins, range=[5850, 5950])

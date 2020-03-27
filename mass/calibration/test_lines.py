@@ -31,6 +31,7 @@ class Test_MnKA_distribution(unittest.TestCase):
 
     def test_quartiles(self):
         """Check that the quartiles of the generated energies are reasonable."""
+        print(self.distrib.__dict__)
         values = self.distrib.rvs(size=100000)
         quartiles = sp.stats.scoreatpercentile(values, [25, 50, 75])
         self.assertAlmostEqual(quartiles[0], 5888.3, 0)
@@ -70,7 +71,7 @@ class TestAddFitter(unittest.TestCase):
             linetype="dummy",
             reference_short='NIST ASD',
             fitter_type=mass.line_fits.GenericKBetaFitter,
-            reference_plot_gaussian_fwhm=0.5,
+            reference_plot_instrument_gaussian_fwhm=0.5,
             nominal_peak_energy=(653.679946*2+653.493657*1)/3,
             energies=np.array([653.493657, 653.679946]), lorentzian_fwhm=np.array([0.1, 0.1]),
             reference_amplitude=np.array([1, 2]),
@@ -83,7 +84,7 @@ class TestAddFitter(unittest.TestCase):
                 linetype="dummy",
                 reference_short='NIST ASD',
                 fitter_type=mass.line_fits.GenericKBetaFitter,
-                reference_plot_gaussian_fwhm=0.5,
+                reference_plot_instrument_gaussian_fwhm=0.5,
                 nominal_peak_energy=(653.679946*2+653.493657*1)/3,
                 energies=np.array([653.493657, 653.679946]), lorentzian_fwhm=np.array([0.1, 0.1]),
                 reference_amplitude=np.array([1, 2]),
@@ -94,10 +95,8 @@ class TestAddFitter(unittest.TestCase):
         line = mass.calibration.fluorescence_lines.MnKAlpha
         e = np.linspace(5880, 5910, 31)
         y1 = line(e)
-        line.set_instrument_gauss_fwhm(8)
-        y2 = line(e)
+        y2 = line(e, instrument_gaussian_fwhm=8)
         line.intrinsic_sigma = 8/2.3548
-        line.set_instrument_gauss_fwhm(0)
         y3 = line(e)
         maxdiff = np.abs(y1-y2).max()
         self.assertGreater(maxdiff, 1e-4, "Setting resolution=8 eV should change line")
@@ -106,7 +105,6 @@ class TestAddFitter(unittest.TestCase):
         maxdiff = np.abs(y2-y3).max()
         self.assertLess(maxdiff, 1e-5, "Setting resolution=8 eV or intrinsic_sigma=3.40 eV should be equivalent")
         line.intrinsic_sigma = 0.0
-        line.set_instrument_gauss_fwhm(0)
 
     def test_some_lines_make_sense(self):
         self.assertTrue(mass.spectra["MnKAlpha"].nominal_peak_energy == 5898.802)

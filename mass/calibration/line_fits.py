@@ -700,8 +700,7 @@ class MultiLorentzianComplexFitter(LineFitter):
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
 
         energy = (x - P_phpeak) / P_dphde + self.spect.peak_energy
-        self.spect.set_instrument_gauss_fwhm(P_gaussfwhm)
-        cleanspectrum_fn = self.spect.pdf
+        cleanspectrum_fn = lambda x: self.spect.pdf(x, P_gaussfwhm)
         spectrum = _smear_exponential_tail(cleanspectrum_fn, energy, P_gaussfwhm, P_tailfrac, P_tailtau)
         retval = _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)
         if any(np.isnan(retval)) or any(retval < 0):

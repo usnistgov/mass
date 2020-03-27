@@ -96,18 +96,13 @@ class TestAlgorithms(unittest.TestCase):
         spect = {}
         num_samples = {k: 1000*k for k in [1, 2, 3, 4, 5]}
         spect[1] = mass.fluorescence_lines.MnKAlpha
-        spect[1].set_instrument_gauss_fwhm(2)
         spect[2] = mass.fluorescence_lines.MnKBeta
-        spect[2].set_instrument_gauss_fwhm(3)
         spect[3] = mass.fluorescence_lines.CuKAlpha
-        spect[3].set_instrument_gauss_fwhm(4)
         spect[4] = mass.fluorescence_lines.TiKAlpha
-        spect[4].set_instrument_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha
-        spect[5].set_instrument_gauss_fwhm(6)
         e = []
-        for k, s in spect.items():
-            e.extend(s.rvs(size=num_samples[k]))
+        for i,(k, s) in enumerate(spect.items()):
+            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=i+2))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
@@ -132,18 +127,13 @@ class TestAlgorithms(unittest.TestCase):
         spect = {}
         num_samples = {k: 1000*k for k in [1, 2, 3, 4, 5]}
         spect[1] = mass.fluorescence_lines.MnKAlpha
-        spect[1].set_instrument_gauss_fwhm(2)
         spect[2] = mass.fluorescence_lines.MnKBeta
-        spect[2].set_instrument_gauss_fwhm(3)
         spect[3] = mass.fluorescence_lines.CuKAlpha
-        spect[3].set_instrument_gauss_fwhm(4)
         spect[4] = mass.fluorescence_lines.TiKAlpha
-        spect[4].set_instrument_gauss_fwhm(5)
         spect[5] = mass.fluorescence_lines.FeKAlpha
-        spect[5].set_instrument_gauss_fwhm(6)
         e = []
-        for k, s in spect.items():
-            e.extend(s.rvs(size=num_samples[k]))
+        for i,(k, s) in enumerate(spect.items()):
+            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=i+2))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9

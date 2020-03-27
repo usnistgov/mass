@@ -18,25 +18,25 @@ LOG = logging.getLogger("mass")
 
 FWHM_OVER_SIGMA = (8 * np.log(2))**0.5
 
-class SpectralLine(sp.stats.rv_continuous):
+class SpectralLine():
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 
     Call addline to create a new subclass properly.
 
-    This subclasses scipy.stats.stats.rv_continuous, but acts more like an rv_frozen.
+    The API follows scipy.stats.stats.rv_continuous and is kind of like rv_frozen.
     Calling this object with an argument evalutes the pdf at the argument, it does not
     return an rv_frozen.
+
+    But so far we ony define `rvs` and `pdf`.
+
     """
 
     def __init__(self, element, material, linetype, energies, lorentzian_fwhm, intrinsic_sigma,
-    reference_plot_gaussian_fwhm, reference_short, reference_amplitude, reference_amplitude_type,
+    reference_plot_instrument_gaussian_fwhm, reference_short, reference_amplitude, reference_amplitude_type,
     normalized_lorentzian_integral_intensity, nominal_peak_energy, fitter_type, position_uncertainty,
     reference_measurement_type, is_default_material):
         """Constructor needs two Gaussian widths (both default to zero):
-
-        `pdf_gaussian_fwhm` is the instrumental energy resolution (eV).
-            Can be changed with method set_instrument_gauss_fwhm().
         `intrinsic_sigma` is the width (sigma) of any 'intrinsic Gaussian', as found (for example) in
             the Fowler et al 2020 metrology shape estimation for the lanthanide L lines. Normally zero.
         """
@@ -46,7 +46,7 @@ class SpectralLine(sp.stats.rv_continuous):
         self.energies = energies
         self.lorentzian_fwhm = lorentzian_fwhm
         self.intrinsic_sigma = intrinsic_sigma
-        self.reference_plot_gaussian_fwhm = reference_plot_gaussian_fwhm
+        self.reference_plot_instrument_gaussian_fwhm = reference_plot_instrument_gaussian_fwhm
         self.reference_short = reference_short
         self.reference_amplitude = reference_amplitude
         self.reference_amplitude_type = reference_amplitude_type
@@ -59,9 +59,6 @@ class SpectralLine(sp.stats.rv_continuous):
         self.is_default_material = is_default_material
         self.has_peak_energy = False
         self.cumulative_amplitudes = self.normalized_lorentzian_integral_intensity.cumsum()
-        self.set_instrument_gauss_fwhm(0.0)
-        # Make subclassing of rv_continuous work
-        sp.stats.rv_continuous.__init__(self)
 
     @property
     def peak_energy(self):
@@ -72,37 +69,40 @@ class SpectralLine(sp.stats.rv_continuous):
             self.has_peak_energy = True        
         return self._peak_energy
 
-    def __call__(self, x):
+    def __call__(self, x, instrument_gaussian_fwhm=0):
         """Make the class callable, returning the same value as the self.pdf method."""
-        return self.pdf(x)
+        return self.pdf(x, instrument_gaussian_fwhm)
 
-    def _pdf(self, x):
+    def pdf(self, x, instrument_gaussian_fwhm=0):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
+        gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         x = np.asarray(x, dtype=np.float)
         result = np.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
-            result += ampl * voigt(x, energy, hwhm=fwhm*0.5, sigma=self._gaussian_sigma)
+            result += ampl * voigt(x, energy, hwhm=fwhm*0.5, sigma=gaussian_sigma)
             # mass.voigt() is normalized to have unit integrated intensity
         return result
 
-    def components(self, x):
+    def components(self, x, instrument_gaussian_fwhm=0):
         """List of spectrum components as a function of <x>, the energy in eV"""
+        gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         x = np.asarray(x, dtype=np.float)
         components = []
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
-            components.append(ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=self._gaussian_sigma))
+            components.append(ampl * voigt(x, energy, hwhm=fwhm * 0.5, sigma=gaussian_sigma))
         return components
 
-    def plot(self, x=None, axis=None, components=True, label=None, setylim=True):
+    def plot(self, x=None, instrument_gaussian_fwhm=0, axis=None, components=True, label=None, setylim=True):
         """Plot the spectrum.
         x - np array of energy in eV to plot at (sensible default)
         axis - axis to plot on (default creates new figure)
         components - True plots each voigt component in addition to the spectrum
         label - a string to label the plot with (optional)"""
+        gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         if x is None:
-            width = max(2*self.pdf_gaussian_fwhm, 3*np.amax(self.lorentzian_fwhm))
+            width = max(2*gaussian_sigma, 3*np.amax(self.lorentzian_fwhm))
             lo = np.amin(self.energies)-width
             hi = np.amax(self.energies)+width
             x = np.linspace(lo, hi, 500)
@@ -113,39 +113,34 @@ class SpectralLine(sp.stats.rv_continuous):
             for component in self.components(x):
                 axis.plot(x, component, "--")
         pdf = self.pdf(x)
-        axis.plot(x, self.pdf(x), "k", lw=2, label=label)
+        axis.plot(x, self.pdf(x, instrument_gaussian_fwhm), "k", lw=2, label=label)
         axis.set_xlabel("Energy (eV)")
         axis.set_ylabel("Counts per {:.2} eV bin".format(x[1]-x[0]))
         axis.set_xlim(x[0], x[-1])
         if setylim:
             axis.set_ylim(np.amin(pdf)*0.1, np.amax(pdf))
         axis.set_title("{} with resolution {:.2f} eV FWHM".format(self.shortname,
-                                                                  self.pdf_gaussian_fwhm))
+                                                                  instrument_gaussian_fwhm))
         return axis
 
     def plot_like_reference(self, axis=None):
-        lastresolution = self.pdf_gaussian_fwhm
-        try:
-            if self.reference_plot_gaussian_fwhm is not None:
-                self.set_instrument_gauss_fwhm(self.reference_plot_gaussian_fwhm)
-            axis = self.plot(axis=axis)
-        finally:
-            self.set_instrument_gauss_fwhm(lastresolution)
+        axis = self.plot(axis=axis, instrument_gaussian_fwhm=self.reference_plot_instrument_gaussian_fwhm)
         return axis
 
-    def _rvs(self, *args, **kwargs):
+    def rvs(self, size, instrument_gaussian_fwhm=0):
         """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
         compute.  But it's easy enough to generate the random variates themselves, so we
         override that method.  Don't call this directly!  Instead call .rvs(), which wraps this.
         Takes gaussian_fwhm as a keyword argument."""
+        gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         # Choose from among the N Lorentzian lines in proportion to the line amplitudes
         iline = self.cumulative_amplitudes.searchsorted(
-            np.random.uniform(0, self.cumulative_amplitudes[-1], size=self._size))
+            np.random.uniform(0, self.cumulative_amplitudes[-1], size=size))
         # Choose Lorentzian variates of the appropriate width (but centered on 0)
-        lor = np.random.standard_cauchy(size=self._size) * self.lorentzian_fwhm[iline] * 0.5
+        lor = np.random.standard_cauchy(size=size) * self.lorentzian_fwhm[iline] * 0.5
         # If necessary, add a Gaussian variate to mimic finite resolution
-        if self._gaussian_sigma > 0.0:
-            lor += np.random.standard_normal(size=self._size) * self._gaussian_sigma
+        if gaussian_sigma > 0.0:
+            lor += np.random.standard_normal(size=size) * gaussian_sigma
         # Finally, add the line centers.
         results = lor + self.energies[iline]
         # We must check for non-positive results and replace them by recursive call
@@ -167,13 +162,11 @@ class SpectralLine(sp.stats.rv_continuous):
     def reference(self):
         return lineshape_references[self.reference_short]
 
-    def set_instrument_gauss_fwhm(self, fwhm):
-        """Update the energy spread function to be a Gaussian of full width `fwhm`.
-        The Voigt functions that make up this line will have a Gaussian sigma that's the quadrature
-        sum of this Gaussian and the "intrinsic sigma" (normally zero) of the model components.
+    def _gaussian_sigma(self, instrument_gaussian_fwhm):
+        """combined intrinstic_sigma and insturment_gaussian_fwhm in quadrature and return the result
         """
-        self._instrument_gaussian_fwhm = fwhm
-        self._gaussian_sigma = ((fwhm/FWHM_OVER_SIGMA)**2 + self.intrinsic_sigma**2)**0.5
+        assert instrument_gaussian_fwhm >= 0
+        return ((instrument_gaussian_fwhm/FWHM_OVER_SIGMA)**2 + self.intrinsic_sigma**2)**0.5
 
     def __repr__(self):
         return "SpectralLine: {}".format(self.shortname)
@@ -264,7 +257,7 @@ LORENTZIAN_INTEGRAL_INTENSITY = 9999
 VOIGT_PEAK_HEIGHT = 99999
 
 
-def addline(element, linetype, material, reference_short, reference_plot_gaussian_fwhm,
+def addline(element, linetype, material, reference_short, reference_plot_instrument_gaussian_fwhm,
              nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
              reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
              position_uncertainty=np.NaN, intrinsic_sigma = 0, reference_measurement_type=None, is_default_material=True):
@@ -278,12 +271,12 @@ def addline(element, linetype, material, reference_short, reference_plot_gaussia
     # require kalpha lines to have ka12_energy_diff
     if linetype.startswith("KAlpha"):
         ka12_energy_diff = float(ka12_energy_diff)
-    # require reference_plot_gaussian_fwhm to be a float or None
-    assert reference_plot_gaussian_fwhm is None or isinstance(reference_plot_gaussian_fwhm, float)
+    # require reference_plot_instrument_gaussian_fwhm to be a float or None
+    assert reference_plot_instrument_gaussian_fwhm is None or isinstance(reference_plot_instrument_gaussian_fwhm, float)
 
     # calculate normalized lorentzian_integral_intensity
     if reference_amplitude_type == VOIGT_PEAK_HEIGHT:
-        reference_instrument_gaussian_sigma = reference_plot_gaussian_fwhm/FWHM_OVER_SIGMA
+        reference_instrument_gaussian_sigma = reference_plot_instrument_gaussian_fwhm/FWHM_OVER_SIGMA
         lorentzian_integral_intensity = [ph/voigt(0, 0, lw/2.0, reference_instrument_gaussian_sigma)
                                          for ph, lw in zip(reference_amplitude, lorentzian_fwhm)]
     elif reference_amplitude_type == LORENTZIAN_PEAK_HEIGHT:
@@ -302,7 +295,7 @@ def addline(element, linetype, material, reference_short, reference_plot_gaussia
         energies = np.array(energies),
         lorentzian_fwhm = np.array(lorentzian_fwhm),
         intrinsic_sigma = intrinsic_sigma,
-        reference_plot_gaussian_fwhm = reference_plot_gaussian_fwhm,
+        reference_plot_instrument_gaussian_fwhm = reference_plot_instrument_gaussian_fwhm,
         reference_short = reference_short,
         reference_amplitude = reference_amplitude,
         reference_amplitude_type = reference_amplitude_type,
@@ -363,7 +356,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Klauber 1993",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=1253.687,
     energies=np.array((-.265, 0, 4.740, 8.210, 8.487, 10.095, 17.404, 20.430)) + 1253.687,
     lorentzian_fwhm=np.array((.541, .541, 1.1056, .6264, .7349, 1.0007, 1.4311, .8656)),
@@ -377,7 +370,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Schweppe 1992 Al",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=1486.88931733,
     energies=np.array((1486.706, 1486.293, 1492.3, 1496.4, 1498.4)),
     lorentzian_fwhm=np.array((0.43, 0.43, 1.34, 0.96, 1.255)),
@@ -392,7 +385,7 @@ addline(
     material="AlO",
     linetype="KAlpha",
     reference_short="Wollman 2000",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=1486.930456,
     energies=np.array((1486.94, 1486.52, 1492.94, 1496.85, 1498.70, 1507.4, 1510.9)),
     lorentzian_fwhm=np.array((0.43, 0.43, 1.34, 0.96, 1.25, 1.5, 0.9)),
@@ -407,7 +400,7 @@ addline(
     material="Si crystal",
     linetype="KAlpha",
     reference_short="Deslattes Notebook Si",
-    reference_plot_gaussian_fwhm=0.245,
+    reference_plot_instrument_gaussian_fwhm=0.245,
     nominal_peak_energy=1739.986,
     energies=np.array((1739.39, 1739.986, 1752.0)),
     lorentzian_fwhm=np.array((0.539, 0.524, 5)),
@@ -422,7 +415,7 @@ addline(
     material="MoS2 spray",
     linetype="KAlpha",
     reference_short="Deslattes Notebook S, Cl, K",
-    reference_plot_gaussian_fwhm=0.2414,
+    reference_plot_instrument_gaussian_fwhm=0.2414,
     nominal_peak_energy=2307.89,
     energies=np.array((2307.89, 2306.70)),
     lorentzian_fwhm=np.array((0.769, 0.722)),
@@ -437,7 +430,7 @@ addline(
     material="KCl crystal",
     linetype="KAlpha",
     reference_short="Deslattes Notebook S, Cl, K",
-    reference_plot_gaussian_fwhm=0.266,
+    reference_plot_instrument_gaussian_fwhm=0.266,
     nominal_peak_energy=2622.44,
     energies=np.array((2622.44, 2620.85, 2640)),
     lorentzian_fwhm=np.array((0.925, 0.945, 5)),
@@ -452,7 +445,7 @@ addline(
     material="KCl crystal",
     linetype="KAlpha",
     reference_short="Deslattes Notebook S, Cl, K",
-    reference_plot_gaussian_fwhm=0.0896,
+    reference_plot_instrument_gaussian_fwhm=0.0896,
     nominal_peak_energy=3313.93,
     energies=np.array((3313.93, 3311.17)),
     lorentzian_fwhm=np.array((0.948, 0.939)),
@@ -467,7 +460,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Chantler 2006",
-    reference_plot_gaussian_fwhm=0.52,
+    reference_plot_instrument_gaussian_fwhm=0.52,
     nominal_peak_energy=4090.735,
     energies=np.array((4090.745, 4089.452, 4087.782, 4093.547, 4085.941, 4083.976)),  # Table I C_i
     lorentzian_fwhm=np.array((1.17, 2.65, 1.41, 2.09, 1.53, 3.49)),  # Table I W_i
@@ -482,7 +475,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Chantler 2006",
-    reference_plot_gaussian_fwhm=0.11,
+    reference_plot_instrument_gaussian_fwhm=0.11,
     nominal_peak_energy=4510.903,
     energies=np.array((4510.918, 4509.954, 4507.763, 4514.002, 4504.910, 4503.088)),  # Table I C_i
     lorentzian_fwhm=np.array((1.37, 2.22, 3.75, 1.70, 1.88, 4.49)),  # Table I W_i
@@ -496,7 +489,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Chantler 2013",
-    reference_plot_gaussian_fwhm=1.244,
+    reference_plot_instrument_gaussian_fwhm=1.244,
     nominal_peak_energy=4931.966,
     energies=np.array((25.37, 30.096, 31.967, 35.59)) + 4900,
     lorentzian_fwhm=np.array((16.3, 4.25, 0.42, 0.47)),
@@ -509,7 +502,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Chantler 2006",
-    reference_plot_gaussian_fwhm=1.99,  # Table I, other parameters
+    reference_plot_instrument_gaussian_fwhm=1.99,  # Table I, other parameters
     nominal_peak_energy=4952.216,
     energies=np.array((4952.237, 4950.656, 4948.266, 4955.269, 4944.672, 4943.014)),  # Table I C_i
     lorentzian_fwhm=np.array((1.45, 2.00, 1.81, 1.76, 2.94, 3.09)),  # Table I W_i
@@ -523,7 +516,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Chantler 2013, Section 5",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=5426.956,
     energies=np.array((18.19, 24.50, 26.992)) + 5400,
     lorentzian_fwhm=np.array((18.86, 5.48, 2.499)),
@@ -536,7 +529,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=5414.81,
     energies=5400 + np.array((14.874, 14.099, 12.745, 10.583, 18.304, 5.551, 3.986)),
     lorentzian_fwhm=np.array((1.457, 1.760, 3.138, 5.149, 1.988, 2.224, 4.4740)),
@@ -550,7 +543,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=5946.82,
     energies=5900 + np.array((47.00, 35.31, 46.24, 42.04, 44.93)),  # Table III E_i
     lorentzian_fwhm=np.array((1.70, 15.98, 1.90, 6.69, 3.37)),  # Table III W_i
@@ -563,7 +556,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=5898.802,
     energies=5800 + np.array((98.853, 97.867, 94.829, 96.532, 99.417, 102.712, 87.743, 86.495)),
     lorentzian_fwhm=np.array((1.715, 2.043, 4.499, 2.663, 0.969, 1.553, 2.361, 4.216)),
@@ -577,7 +570,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=6490.18,
     energies=6400 + np.array((90.89, 86.31, 77.73, 90.06, 88.83)),  # Table III E_i
     lorentzian_fwhm=np.array((1.83, 9.40, 13.22, 1.81, 2.81)),  # Table III W_i
@@ -590,7 +583,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=6404.01,
     energies=np.array((6404.148, 6403.295, 6400.653, 6402.077, 6391.190, 6389.106, 6390.275)),
     lorentzian_fwhm=np.array((1.613, 1.965, 4.833, 2.803, 2.487, 2.339, 4.433)),
@@ -604,7 +597,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=7058.18,
     energies=np.array((7046.90, 7057.21, 7058.36, 7054.75)),  # Table III E_i
     lorentzian_fwhm=np.array((14.17, 3.12, 1.97, 6.38)),  # Table III W_i
@@ -617,7 +610,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=6930.38,
     energies=np.array((6930.425, 6929.388, 6927.676, 6930.941, 6915.713, 6914.659, 6913.078)),
     lorentzian_fwhm=np.array((1.795, 2.695, 4.555, 0.808, 2.406, 2.773, 4.463)),
@@ -631,7 +624,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=7649.45,
     energies=np.array((7649.60, 7647.83, 7639.87, 7645.49, 7636.21, 7654.13)),  # Table III E_i
     lorentzian_fwhm=np.array((3.05, 3.58, 9.78, 4.89, 13.59, 3.79)),  # Table III W_i
@@ -644,7 +637,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997, NISTfits.ipf",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=7478.26,
     energies=np.array((7478.281, 7476.529, 7461.131, 7459.874, 7458.029)),
     lorentzian_fwhm=np.array((2.013, 4.711, 2.674, 3.039, 4.476)),
@@ -658,7 +651,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=8264.78,
     energies=np.array((8265.01, 8263.01, 8256.67, 8268.70)),  # Table III E_i
     lorentzian_fwhm=np.array((3.76, 4.34, 13.70, 5.18)),  # Table III W_i
@@ -671,7 +664,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Hoelzer 1997",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=8047.83,
     energies=np.array((8047.8372, 8045.3672, 8027.9935, 8026.5041)),
     lorentzian_fwhm=np.array((2.285, 3.358, 2.667, 3.571)),
@@ -685,7 +678,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Hoelzer 1997",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=8905.42,
     energies=np.array((8905.532, 8903.109, 8908.462, 8897.387, 8911.393)),  # Table III E_i
     lorentzian_fwhm=np.array((3.52, 3.52, 3.55, 8.08, 5.31)),  # Table III W_i
@@ -698,7 +691,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Zn Hack",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=8638.91,
     energies=[8638.8872, 8636.4172, 8615.9835, 8614.4941],
     lorentzian_fwhm=np.array((2.285, 3.358, 2.667, 3.571)) * 1.1,
@@ -712,7 +705,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Zn Hack",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=9572.03,
     energies=np.array((8905.532, 8903.109, 8908.462, 8897.387, 8911.393))*1.06 + 133.85,
     lorentzian_fwhm=np.array((3.52, 3.52, 3.55, 8.08, 5.31))*1.06,
@@ -725,7 +718,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Steve Smith",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=11924.36,
     energies=np.array((11924.2, 11877.6)),
     lorentzian_fwhm=np.array((3.60, 3.73)),
@@ -740,7 +733,7 @@ addline(
     material="metal",
     linetype="LAlpha",
     reference_short="Joe Fowler",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=8398.24,
     energies=np.array((8335.34, 8398.24)),
     lorentzian_fwhm=np.array((6.97, 7.01)),
@@ -754,7 +747,7 @@ addline(
     material="metal",
     linetype="LBeta1",
     reference_short="Joe Fowler",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=9672.58,
     energies=np.array((9672.58,)),
     lorentzian_fwhm=np.array((7.71,)),
@@ -768,7 +761,7 @@ addline(
     material="metal",
     linetype="LBeta2",
     reference_short="Joe Fowler",
-    reference_plot_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=9964.13,
     energies=np.array((9950.82, 9962.93, 9967.53))+1,
     lorentzian_fwhm=np.array((9.16, 9.82, 9.90)),
@@ -782,7 +775,7 @@ addline(
     linetype="KBeta",
     material="Nb2O5",
     reference_short="Ravel 2018",
-    reference_plot_gaussian_fwhm=1.2,
+    reference_plot_instrument_gaussian_fwhm=1.2,
     nominal_peak_energy=18625.4,
     energies=np.array((18625.4, 18609.9)),
     lorentzian_fwhm=np.array((6.7, 6.7)),
@@ -796,7 +789,7 @@ addline(
     linetype="KBeta24",
     material="Nb2O5",
     reference_short="Ravel 2018",
-    reference_plot_gaussian_fwhm=1.2,
+    reference_plot_instrument_gaussian_fwhm=1.2,
     nominal_peak_energy=18952.79,
     energies=np.array((18952.79, 18968.0, 18982.7)),
     lorentzian_fwhm=np.array((8.67, 1.9, 5.2)),
@@ -810,7 +803,7 @@ addline(
     material="metal",
     linetype="KAlpha",
     reference_short="Mendenhall 2019",
-    reference_plot_gaussian_fwhm=0.02,
+    reference_plot_instrument_gaussian_fwhm=0.02,
     nominal_peak_energy=17479.389,
     energies=np.array((17479.389, 17374.577)),
     lorentzian_fwhm=np.array((6.389, 6.3876)),
@@ -825,7 +818,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Mendenhall 2019",
-    reference_plot_gaussian_fwhm=0.02,
+    reference_plot_instrument_gaussian_fwhm=0.02,
     nominal_peak_energy=19606.734,
     energies=np.array((19606.733, 19589.251, 19623.217)),
     lorentzian_fwhm=np.array((6.88, 6.88, 6.88)),
