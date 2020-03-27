@@ -342,6 +342,10 @@ class EnergyCalibration(object):
     def cal_point_energies(self):
         return self._energies
 
+    @property
+    def cal_point_names(self):
+        return self._names
+
     def _update_converters(self):
         """There is now one (or more) new data points. All the math goes on in this method."""
         # Sort in ascending energy order

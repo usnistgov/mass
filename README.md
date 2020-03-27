@@ -6,14 +6,24 @@
 
                         November 2010-present
 
-# Test Status
-* Develop, Python 2.7 [![Build Status](https://semaphoreci.com/api/v1/projects/682fce58-5d81-4d08-bb85-78a6edd0a4c2/946875/badge.svg)](https://semaphoreci.com/drjoefowler/mass)
+# Installation
+We recommend you use Python 3, although as of March 2020 we are still supporting python 2.7.
+
+```  
+pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@develop#egg=mass
+```
+
+See [`nist-qsp-tdm`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) README for instructions to install all tdm python software simultaneously, and how to setup venv.
+
+
+## Scripts
+Mass installs 3 scripts (as of March 2020). These are `ljh_truncate`, `make_projectors`, and `ljh2off`. You can check `setup.py` and look for either `scripts` or `console_scripts` to see if any others have been added. These should be executable from your terminal from anywhere without typing `python` before them. They all have help accessible via eg `ljh2off --help`.
 
 # Documentation
-[Online documentation](https://oneilg.bitbucket.io/mass/)
+Use ipython to do something like `mass.function?` to see docstrings, or browse the source code. Also there are some overview `.md` files in the `doc` folder. I like to view these `.md` files in bitbucket.
 
-The documentation of mass is a work in progress, it is worth reviewing. It is easy to help with the documentation. There are two ways to help.
 
+How to help with the documentation:
 1. [Write a docstring.](https://www.python.org/dev/peps/pep-0257/#multi-line-docstrings) (or update an old docstring and fix the formatting while you're at it)
   * A poorly formatted docstring is better than no docstring, don't be shy.
 2. [Add to (or write a new) .md file.](http://commonmark.org/help/)
@@ -21,9 +31,6 @@ The documentation of mass is a work in progress, it is worth reviewing. It is ea
   * again, poorly formatted markdown is better than no markdown  
   * [link to WYSIWIG online markdown editor/viewer.](https://dillinger.io/) Just copy and paste once it looks like you want it to.
   * look in mass/doc for .md files
-3. Submit a pull request with your changes (or just copy and paste it into an issue with a description of where it goes, and I'll do the git work)
-
-After that I (Galen) will update the docs page with your changes.
 
 # Intro
 
@@ -43,13 +50,14 @@ single extension module in Cython that I wrote to execute some calculations from
 
 Mass is being shifted from a personal project to a system that can be shared by microcalorimeters users at NIST and elsewhere.  This step is only a year old, so please be patient!  Let the author know what's missing or wrong or useful.
 
-
+# Realtime Analysis
+Realtime analysis is implemented by writing filtered values as well as "svd components" represting the shape of each pulse to a `.off` file. This requires a substanial change is how things in mass work, thus there is a new interface that replaces larges parts of mass in `mass.off`. Look at `mass/off/test_channels.py` for a test script that shows basic usage.
 
 ## Tests
 
 If you look for files named `test_*.py` they will have examples of how the tested functions are called. You can learn a fair amount from looking at them.
 
-Run all the tests on your systemto make sure they pass!. Do `python runtests.py` in the `mass` directory.
+Run all the tests on your system and make sure they pass!. Do `pytest` in the `mass` directory. Tests require that you install via `pip install -e ...` or `python setup.py develop`.
 
 ## Tutorials and demos
 

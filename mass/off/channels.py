@@ -36,7 +36,7 @@ class ExperimentStateFile():
                 raise Exception("pass filename or datasetFilename or _parse=False")
             self.parse()
         self.labelAliasesDict = {}  # map unaliasedLabels to aliasedLabels
-        self._preventAliasState = False # causes aliasState to raise an Exception when it wouldn't work as expected
+        self._preventAliasState = False  # causes aliasState to raise an Exception when it wouldn't work as expected
 
     def experimentStateFilenameFromDatasetFilename(self, datasetFilename):
         basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
@@ -103,7 +103,8 @@ class ExperimentStateFile():
         if statesDict is None:
             statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
-        if len(statesDict.keys()) > 0 and len(inds) > 0:  # the state that was active last time calcStatesDict was called may need special handling
+        # the state that was active last time calcStatesDict was called may need special handling
+        if len(statesDict.keys()) > 0 and len(inds) > 0:
             assert i0_allLabels > 0
             for k in statesDict.keys():
                 last_key = k
@@ -317,7 +318,7 @@ class CorG():
 
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=1, binEdges=None, label="full", plot=True,
-                guessParams=None, goodFunc=None, holdvals=None, calibration = None):
+                guessParams=None, goodFunc=None, holdvals=None, calibration=None):
         """Do a fit to `lineNameOrEnergy` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
@@ -348,7 +349,8 @@ class CorG():
             if attr.startswith("energy") or calibration is not None:
                 binEdges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
             else:
-                raise Exception("must pass binEdges if attr does not start with energy and you don't pass a calibration")
+                raise Exception(
+                    "must pass binEdges if attr does not start with energy and you don't pass a calibration")
         if axis is None and plot:
             plt.figure()
             axis = plt.gca()
@@ -379,6 +381,7 @@ class CorG():
 
 class NoCutInds():
     pass
+
 
 class InvalidStatesException(Exception):
     pass
@@ -438,7 +441,7 @@ class Recipe():
             else:
                 new_args.append(args[k])
         # call functions with positional arguments so names don't need to match
-        return self.f(*new_args) 
+        return self.f(*new_args)
 
     def __repr__(self, indent=0):
         s = "Recipe: f={}, args=".format(self.f)
@@ -468,7 +471,7 @@ class Channel(CorG):
     def _defineDefaultRecipesAndProperties(self):
         assert(len(self.recipes) == 0)
         t0 = self.offFile["unixnano"][0]
-        self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e9, ["unixnano"])
+        self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e-9, ["unixnano"])
         self.addRecipe("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
 
     @property
@@ -520,7 +523,8 @@ class Channel(CorG):
                     assert isinstance(vv, slice)
                     inds.append(vv)
             else:
-                raise InvalidStatesException("v should be a list of slices or a slice, but is a {}".format(type(v)))
+                raise InvalidStatesException(
+                    "v should be a list of slices or a slice, but is a {}".format(type(v)))
         return inds
 
     def __repr__(self):
@@ -623,13 +627,14 @@ class Channel(CorG):
         return output
 
     def getAttr(self, attr, indsOrStates, goodFunc=None, returnBad=False):
-        """ 
+        """
         attr - may be a string or a list of strings corresponding to Attrs defined by recipes or the offFile
         inds - a slice or list of slices
         returns either a single vector or a list of vectors whose entries correspond to the entries in attr
         """
-        # first 
-        if indsOrStates is None or isinstance(indsOrStates, str) or (isinstance(indsOrStates, list) and isinstance(indsOrStates[0], str)): # relies on short circuiting to not evaluate last clause unless indsOrStates is a list
+        # first
+        # relies on short circuiting to not evaluate last clause unless indsOrStates is a list
+        if indsOrStates is None or isinstance(indsOrStates, str) or (isinstance(indsOrStates, list) and isinstance(indsOrStates[0], str)):
             # looks like states
             try:
                 inds = self.getStatesIndicies(indsOrStates)
@@ -637,13 +642,14 @@ class Channel(CorG):
                 inds = indsOrStates
         else:
             inds = indsOrStates
-        offAttrValues = self._indexOffWithCuts(inds, goodFunc, returnBad) # single read from disk, read all values
+        # single read from disk, read all values
+        offAttrValues = self._indexOffWithCuts(inds, goodFunc, returnBad)
         if isinstance(attr, list):
             return [self._getAttr(a, offAttrValues) for a in attr]
         else:
             return self._getAttr(attr, offAttrValues)
 
-    def _getAttr(self, attr, offAttrValues): 
+    def _getAttr(self, attr, offAttrValues):
         """ internal function used to implement getAttr, does no cutting """
         if self.isRecipeAttr(attr):
             recipe = self.recipes[attr]
@@ -651,7 +657,8 @@ class Channel(CorG):
         elif self.isOffAttr(attr):
             return offAttrValues[attr]
         else:
-            raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(attr, list(self._offAttrs), list(self._recipeAttrs)))
+            raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(
+                attr, list(self._offAttrs), list(self._recipeAttrs)))
 
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, goodFunc=None):
         if axis is None:
@@ -672,7 +679,7 @@ class Channel(CorG):
         plt.legend(title="states")
         return axis
 
-    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False, calibration = None):
+    def hist(self, binEdges, attr, states=None, goodFunc=None, returnBad=False, calibration=None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
@@ -688,21 +695,23 @@ class Channel(CorG):
         return binCenters, counts
 
     @add_group_loop
-    def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue", correctedName = None, states=None, goodFunc=None, returnBad=False):
+    def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue", correctedName=None, states=None, goodFunc=None, returnBad=False):
         """do a linear correction between the indicator and uncorrected... """
         if correctedName is None:
             correctedName = uncorrectedName + "DC"
-        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], states, goodFunc, returnBad)
+        indicator, uncorrected = self.getAttr(
+            [indicatorName, uncorrectedName], states, goodFunc, returnBad)
         slope, info = mass.core.analysis_algorithms.drift_correct(
             indicator, uncorrected)
-        driftCorrection = DriftCorrection(indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
+        driftCorrection = DriftCorrection(
+            indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
         self.addRecipe(correctedName, driftCorrection, [
                        driftCorrection.indicatorName, driftCorrection.uncorrectedName])
         return driftCorrection
 
     @add_group_loop
-    def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName = None, states=None, 
-    linePositionsFunc=None, goodFunc=None, returnBad=False):
+    def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName=None, states=None,
+                             linePositionsFunc=None, goodFunc=None, returnBad=False):
         """
         linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
         otherwise try to call it with self as an argument... here is an example of how you could use all but one peak from calibrationRough:
@@ -715,30 +724,32 @@ class Channel(CorG):
             linePositions = self.recipes["energyRough"].f._ph
         else:
             linePositions = linePositionsFunc(self)
-        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], states, goodFunc, returnBad)
+        indicator, uncorrected = self.getAttr(
+            [indicatorName, uncorrectedName], states, goodFunc, returnBad)
         phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
         self.addRecipe(correctedName, phaseCorrection.correct, [
                        phaseCorrection.indicatorName, phaseCorrection.uncorrectedName])
 
     @add_group_loop
-    def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName = None, 
-    states=None, goodFunc=None, returnBad=None, kernel_width = 1, sec_per_degree=2000, pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
+    def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
+                                 states=None, goodFunc=None, returnBad=None, kernel_width=1, sec_per_degree=2000, pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
         """do a polynomial correction based on the indicator
         you are encouraged to change the settings that affect the degree of the polynomail
         see help in mass.core.channel.time_drift_correct for details on settings"""
         if correctedName is None:
             correctedName = uncorrectedName+"TC"
-        indicator, uncorrected = self.getAttr([indicatorName, uncorrectedName], states, goodFunc, returnBad)
+        indicator, uncorrected = self.getAttr(
+            [indicatorName, uncorrectedName], states, goodFunc, returnBad)
         info = mass.core.channel.time_drift_correct(indicator, uncorrected, kernel_width, sec_per_degree,
-        pulses_per_degree, max_degrees, ndeg, limit)
+                                                    pulses_per_degree, max_degrees, ndeg, limit)
 
         def time_drift_correct(indicator, uncorrected):
             tnorm = info["normalize"](indicator)
             corrected = uncorrected*(1+info["model"](tnorm))
             return corrected
         self.addRecipe(correctedName, time_drift_correct, [indicatorName, uncorrectedName])
-        
+
     def plotCompareDriftCorrect(self, axis=None, states=None, goodFunc=None, includeBad=False):
         if axis is None:
             plt.figure()
@@ -751,14 +762,11 @@ class Channel(CorG):
         if states is None:
             states = self.stateLabels
         for state in states:
-            A,B,C = self.getAttr([indicatorName,uncorrectedName,"filtValueDC"], state, goodFunc)
+            A, B, C = self.getAttr([indicatorName, uncorrectedName, "filtValueDC"], state, goodFunc)
             axis.plot(A, B, ".", label=state)
             axis.plot(A, C, ".", label=state+" DC")
             if includeBad:
-                A = self.getAttr(self.driftCorrection.indicatorName, inds, goodFunc, returnBad=True)
-                B = self.getAttr(self.driftCorrection.uncorrectedName,
-                                 inds, goodFunc, returnBad=True)
-                C = self.getAttr("filtValueDC", inds, goodFunc, returnBad=True)
+                A, B, C = self.getAttr([indicatorName, uncorrectedName, "filtValueDC"], state, goodFunc, returnBad=True)
                 axis.plot(A, B, "x", label=state+" bad")
                 axis.plot(A, C, "x", label=state+" bad DC")
         plt.xlabel(indicatorName)
@@ -780,8 +788,8 @@ class Channel(CorG):
         return self.calibrationPlan
 
     @add_group_loop
-    def calibrateFollowingPlan(self, uncalibratedName, calibratedName = "energy", curvetype="gain", approximate=False, 
-    dlo=50, dhi=50, binsize=1, plan = None, n_iter = 1):
+    def calibrateFollowingPlan(self, uncalibratedName, calibratedName="energy", curvetype="gain", approximate=False,
+                               dlo=50, dhi=50, binsize=1, plan=None, n_iter=1):
         if plan is None:
             plan = self.calibrationPlan
         starting_cal = plan.getRoughCalibration()
@@ -794,10 +802,10 @@ class Channel(CorG):
                                                 plan.names, plan.states):
                 if name in mass.spectra:
                     fitter = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
-                                        plot=False, binsize=binsize, calibration = starting_cal)
+                                          plot=False, binsize=binsize, calibration=starting_cal)
                 else:
                     fitter = self.linefit(energy, uncalibratedName, states, dlo=dlo, dhi=dhi,
-                                        plot=False, binsize=binsize, calibration = starting_cal)
+                                          plot=False, binsize=binsize, calibration=starting_cal)
                 fitters.append(fitter)
                 if not fitter.fit_success:
                     self.markBad("calibrateFollowingPlan: failed fit {}, states {}".format(
@@ -951,7 +959,8 @@ class Channel(CorG):
                 grp["{}/energy".format(state)] = energy
                 grp["{}/unixnano".format(state)] = unixnano
         else:
-            energy, unixnano = self.getAttr(["energy","unixnano"], slice(None), goodFunc, returnBad)
+            energy, unixnano = self.getAttr(
+                ["energy", "unixnano"], slice(None), goodFunc, returnBad)
             grp["{}/energy".format(state)] = energy
             grp["{}/unixnano".format(state)] = unixnano
 
@@ -979,7 +988,8 @@ class Channel(CorG):
         plan = calibration.plan
         n_intermediate = len(calibration.intermediate_calibrations)
         plt.figure(figsize=(20, 12))
-        plt.suptitle(self.shortName+", cal diagnose for '{}'\n with {} intermediate calibrations".format(calibratedName, n_intermediate))
+        plt.suptitle(
+            self.shortName+", cal diagnose for '{}'\n with {} intermediate calibrations".format(calibratedName, n_intermediate))
         n = int(np.ceil(np.sqrt(len(fitters)+2)))
         for i, fitter in enumerate(fitters):
             ax = plt.subplot(n, n, i+1)
@@ -1272,7 +1282,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         calibration -- will throw an exception if this is not None
          """
         if calibration is not None:
-            raise Exception("calibration is an argument only to match the api of Channel.hist, but is not valid for ChannelGroup.hist")
+            raise Exception(
+                "calibration is an argument only to match the api of Channel.hist, but is not valid for ChannelGroup.hist")
         binCenters, countsdict = self.hists(
             binEdges, attr, states, goodFunc=goodFunc, returnBad=returnBad)
         counts = np.zeros_like(binCenters, dtype="int")

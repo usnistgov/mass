@@ -13,9 +13,9 @@ def process_file(prefix, cuts, do_filter=True):
     """Returns a TESGroup given the file prefix; preloads a set of cuts."""
     channels = (1,)
     pulse_files = [os.path.join(ljhdir, "%s_chan%d.ljh" % (prefix, c)) for c in channels]
-    noise_files = [os.path.join(ljhdir, "%s_chan%d.noi" % (prefix, c)) for c in channels]
+    noise_files = [os.path.join(ljhdir, "%s_noise_chan%d.ljh" % (prefix, c)) for c in channels]
     pulse_files = os.path.join(ljhdir, "%s_chan*.ljh" % prefix)
-    noise_files = os.path.join(ljhdir, "%s_chan*.noi" % prefix)
+    noise_files = os.path.join(ljhdir, "%s_noise_chan*.ljh" % prefix)
 
     # Start from clean slate by removing any hdf5 files
     for fl in glob.glob(os.path.join(ljhdir, "%s_mass.hdf5" % prefix)):

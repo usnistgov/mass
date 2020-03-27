@@ -24,7 +24,7 @@ plt.ion()
 
 DIR = tempfile.mkdtemp()
 srcname = sourceroot.source_file("mass/regression_test/regress_chan1.ljh")
-noiname = sourceroot.source_file("mass/regression_test/regress_chan1.noi")
+noiname = sourceroot.source_file("mass/regression_test/regress_noise_chan1.ljh")
 shutil.copy(srcname, DIR)
 shutil.copy(noiname, DIR)
 
@@ -40,7 +40,7 @@ file and noise file to the temporary directory:
 # in this case we have only one of each.
 
 pulse_pattern = os.path.join(DIR, "regress_chan*.ljh")
-noise_pattern = os.path.join(DIR, "regress_chan*.noi")
+noise_pattern = os.path.join(DIR, "regress_noise_chan*.ljh")
 print(pulse_pattern)
 print(noise_pattern)
 

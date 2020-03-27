@@ -351,7 +351,7 @@ class EnergyCalibrationAutocal(object):
                         + '\n' + "Resolution: {0:.1f} (eV)".format(eres),
                         transform=ax.transAxes, ha='left', va='top')
             y = fitter.fitfunc(fitter.last_fit_params, x)
-            ax.plot(x, y, '-', color=[(0.9, 0.1, 0.1)], lw=2)
+            ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
             ax.set_xlim(np.min(x), np.max(x))
             ax.set_ylim(0, np.max(fitter.last_fit_contents) * 1.3)
 
