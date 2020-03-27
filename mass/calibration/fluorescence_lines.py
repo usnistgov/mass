@@ -251,6 +251,7 @@ lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (201
     https://doi.org/10.1103/PhysRevB.97.125139"""
 
 spectra = OrderedDict()
+spectrum_classes = OrderedDict() # for backwards compatability
 
 LORENTZIAN_PEAK_HEIGHT = 999
 LORENTZIAN_INTEGRAL_INTENSITY = 9999
@@ -314,6 +315,7 @@ def addline(element, linetype, material, reference_short, reference_plot_instrum
 
     # Add this SpectralLine to spectra dict AND make it be a variable in the module
     spectra[name] = line
+    spectrum_classes[name] = lambda: line
     globals()[name] = line
 
     def mlf():
