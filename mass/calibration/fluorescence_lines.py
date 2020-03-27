@@ -194,35 +194,44 @@ lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Frit
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 lineshape_references["Joe Fowler"] = """This is what Joe Fowler measured for tungsten L-lines in 2018."""
 lineshape_references["NIST ASD"] = """NIST Atomic Spectra Database
-Kramida, A., Ralchenko, Yu., Reader, J., and NIST ASD Team (2018). NIST Atomic Spectra Database (ver. 5.6.1), [Online]. Available: https://physics.nist.gov/asd [2018, December 12]. National Institute of Standards and Technology, Gaithersburg, MD. DOI: https://doi.org/10.18434/T4W30F """
+Kramida, A., Ralchenko, Yu., Reader, J., and NIST ASD Team (2018). NIST Atomic Spectra Database (ver. 5.6.1),
+[Online]. Available: https://physics.nist.gov/asd [2018, December 12]. National Institute of Standards and
+Technology, Gaithersburg, MD. DOI: https://doi.org/10.18434/T4W30F"""
 lineshape_references["Clementson 2010"] = """J. Clementson, P. Beiersdorfer, G. V. Brown, and M. F. Gu,
     "Spectroscopy of M-shell x-ray transitions in Zn-like through Co-like W,"
     Physica Scripta 81, 015301 (2010). https://iopscience.iop.org/article/10.1088/0031-8949/81/01/015301/meta"""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
-lineshape_references["Nilsen 1995"] = "Elliott, S. R., Beiersdorfer, P., Macgowan, B. J., & Nilsen, J. (1995). Measurements of line overlap for resonant spoiling of x-ray lasing transitions in nickle-like tungsten, 52(4), 2689–2692. https://doi.org/10.1103/PhysRevA.52.2689"
+lineshape_references["Nilsen 1995"] = """Elliott, S. R., Beiersdorfer, P., Macgowan, B. J., & Nilsen, J. (1995).
+Measurements of line overlap for resonant spoiling of x-ray lasing transitions in nickel-like tungsten, 52(4),
+2689–2692. https://doi.org/10.1103/PhysRevA.52.2689"""
 lineshape_references["Deslattes Notebook Si"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster.
 Added by GCO Oct 7 2019. Used the postion and width values from the from the lowest listed fit, the one in energy units.
 Used the intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile).
-Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at higher energy"""
-lineshape_references["Schweppe 1992 Al"] = """J. Schweppe, R. D. Deslattes, T. Mooney, and C. J. Powell in J. Electron
-    Spectroscopy and Related Phenomena 67 (1994) 463-478 titled "Accurate measurement
-    of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5 "Average" column.
-    They do not provide a full lineshape, GCO interperpreted the paper as follows:
-    Ka1 and Ka2 positions are taken from Table 6 "This work" column
-    Ka1 and Ka2 widths were fixed as equal, and we taken the value 0.43 eV from the 2nd to last paragraph
-    The higher energy satellite features are not measured by Schweppe, and instead taken from an email from Caroline Kilbourne to Joel Ullom dated 28 Sept 2010
-    We expect these higher energy satellites do not affect the fitting of the peak location very much.
+Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the
+small feature at higher energy"""
+lineshape_references["Schweppe 1992 Al"] = """J. Schweppe, R. D. Deslattes, T. Mooney, and C. J. Powell
+in J. Electron Spectroscopy and Related Phenomena 67
+(1994) 463-478 titled "Accurate measurement of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5
+"Average" column. They do not provide a full lineshape, GCO interperpreted the paper as follows: Ka1 and Ka2
+positions are taken from Table 6 "This work" column Ka1 and Ka2 widths were fixed as equal, and we taken the
+value 0.43 eV from the 2nd to last paragraph The higher energy satellite features are not measured by
+Schweppe, and instead taken from an email from Caroline Kilbourne to Joel Ullom dated 28 Sept 2010 We expect
+these higher energy satellites do not affect the fitting of the peak location very much.
 """
 lineshape_references["Mendenhall 2019"] = """Marcus H. Mendenhall et al., J. Phys B in press (2019).
     https://doi.org/10.1088/1361-6455/ab45d6"""
-lineshape_references["Deslattes Notebook S, Cl, K"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster.
-Added by GCO Oct 30 2019. Used the postion and width values from the from the lowest listed fit, the one in energy units.
-Used the intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile).
-The detector resolution ("width of Gauss. res. func." in MINUS-POSITON scan) is less than the Gaussian Width ("Gaussian width" in PLUS-POSITON scan)
-I haven't accounted for that, so our models still don't match Deslattes. We would need a gaussian_atomic_physics component added to our models.
-Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at higher energy or estimated them from data in
-Mauron, O., Dousse, J. C., Hoszowska, J., Marques, J. P., Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s photoionization in elements 11≤Z≤17.
-Physical Review A - Atomic, Molecular, and Optical Physics, 62(6), 062508–062501. https://doi.org/10.1103/PhysRevA.62.062508"""
+lineshape_references["Deslattes Notebook S, Cl, K"] = """Scanned pages from Deslattes/Mooney's notebook
+provided by Csilla Szabo-Foster. Added by GCO Oct 30 2019. Used
+the postion and width values from the from the lowest listed fit, the one in energy units. Used the
+intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile). The
+detector resolution ("width of Gauss. res. func." in MINUS-POSITON scan) is less than the Gaussian Width
+("Gaussian width" in PLUS-POSITON scan) I haven't accounted for that, so our models still don't match
+Deslattes. We would need a gaussian_atomic_physics component added to our models. Also the notebook only
+included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the small feature at
+higher energy or estimated them from data in Mauron, O., Dousse, J. C., Hoszowska, J., Marques, J. P.,
+Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s photoionization in elements
+11≤Z≤17. Physical Review A - Atomic, Molecular, and Optical Physics, 62(6), 062508–062501.
+https://doi.org/10.1103/PhysRevA.62.062508"""
 lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (2018) 125139
     https://doi.org/10.1103/PhysRevB.97.125139"""
 
@@ -234,9 +243,9 @@ VOIGT_PEAK_HEIGHT = 99999
 
 
 def addline(element, linetype, material, reference_short, reference_plot_gaussian_fwhm,
-             nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
-             reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
-             position_uncertainty=0.0, reference_measurement_type=None, is_default_material=True):
+            nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
+            reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
+            position_uncertainty=0.0, reference_measurement_type=None, is_default_material=True):
 
     # require exactly one method of specifying the amplitude of each component
     assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT,

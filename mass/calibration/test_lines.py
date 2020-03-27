@@ -39,7 +39,9 @@ class Test_MnKA_distribution(unittest.TestCase):
 
     def test_location_against_STANDARD_FEATUES(self):
         for (name, spectrum_class) in mass.spectrum_classes.items():
-            if spectrum_class.element == "AlOx" or spectrum_class.reference_short == "NIST ASD" or spectrum_class.reference_short == "Clementson 2010" or spectrum_class.reference_short == "Nilsen 1995":
+            if spectrum_class.element == "AlOx":
+                continue
+            if spectrum_class.reference_short in ("NIST ASD", "Clementson 2010", "Nilsen 1995"):
                 continue
             if not spectrum_class.is_default_material:
                 continue
@@ -105,7 +107,8 @@ class TestAddFitter(unittest.TestCase):
         maxdiff = np.abs(y1-y3).max()
         self.assertGreater(maxdiff, 1e-4, "Setting instrinsic_sigma to 3.40 eV should change line")
         maxdiff = np.abs(y2-y3).max()
-        self.assertLess(maxdiff, 1e-5, "Setting resolution=8 eV or intrinsic_sigma=3.40 eV should be equivalent")
+        self.assertLess(
+            maxdiff, 1e-5, "Setting resolution=8 eV or intrinsic_sigma=3.40 eV should be equivalent")
         line.intrinsic_sigma = 0.0
         line.set_gauss_fwhm(0)
 

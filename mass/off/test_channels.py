@@ -1,7 +1,5 @@
 import mass
 from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, Recipe
-from mass.calibration import _highly_charged_ion_lines
-import h5py
 import os
 import numpy as np
 import pylab as plt
@@ -249,7 +247,8 @@ class TestSummaries(ut.TestCase):
         self.assertEqual(n_exclude_bad, 0)
 
     def test_experiment_state_file_repeated_states(self):
-        # a better test would create an alternate experiment state file with repeated indicies and use that rather than reach into the internals of ExperimentStateFile
+        # A better test would create an alternate experiment state file with repeated indicies and use that
+        # rather than reach into the internals of ExperimentStateFile
         esf = mass.off.channels.ExperimentStateFile(_parse=False)
         # reach into the internals to simulate the results of parse with repeated states
         esf.allLabels = ["A", "B", "A", "B", "IGNORE", "A"]
@@ -267,7 +266,7 @@ class TestSummaries(ut.TestCase):
         ds_local = data_local.firstGoodChannel()
         ds_local.stdDevResThreshold = 100
         inds = ds_local.getStatesIndicies("A")
-        fv = ds_local.getAttr("filtValue", inds)
+        _ = ds_local.getAttr("filtValue", inds)
 
     def test_getAttr_with_list_of_slice(self):
         ind = [slice(0, 5), slice(5, 10)]
