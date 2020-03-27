@@ -1,5 +1,6 @@
 import mass
 from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, Recipe
+from mass.calibration import _highly_charged_ion_lines
 import os
 import numpy as np
 import pylab as plt
@@ -274,6 +275,9 @@ class TestSummaries(ut.TestCase):
                                     ds.getAttr("filtValue", slice(0, 10))))
         self.assertTrue(np.allclose(ds.getAttr(
             "filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10))))
+
+    def test_HCI_loads(self):
+        self.assertTrue("O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines))
 
 
 if __name__ == '__main__':
