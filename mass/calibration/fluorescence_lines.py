@@ -64,16 +64,16 @@ class SpectralLine():
     def peak_energy(self):
         # lazily calculate peak energy
         if not self.has_peak_energy:
-            self._peak_energy = sp.optimize.brent(lambda x: -self.pdf(x),
+            self._peak_energy = sp.optimize.brent(lambda x: -self.pdf(x, instrument_gaussian_fwhm=0),
                 brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)    
             self.has_peak_energy = True        
         return self._peak_energy
 
-    def __call__(self, x, instrument_gaussian_fwhm=0):
+    def __call__(self, x, instrument_gaussian_fwhm):
         """Make the class callable, returning the same value as the self.pdf method."""
         return self.pdf(x, instrument_gaussian_fwhm)
 
-    def pdf(self, x, instrument_gaussian_fwhm=0):
+    def pdf(self, x, instrument_gaussian_fwhm):
         """Spectrum (arb units) as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         x = np.asarray(x, dtype=np.float)
@@ -84,7 +84,7 @@ class SpectralLine():
             # mass.voigt() is normalized to have unit integrated intensity
         return result
 
-    def components(self, x, instrument_gaussian_fwhm=0):
+    def components(self, x, instrument_gaussian_fwhm):
         """List of spectrum components as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         x = np.asarray(x, dtype=np.float)
@@ -127,7 +127,7 @@ class SpectralLine():
         axis = self.plot(axis=axis, instrument_gaussian_fwhm=self.reference_plot_instrument_gaussian_fwhm)
         return axis
 
-    def rvs(self, size, instrument_gaussian_fwhm=0):
+    def rvs(self, size, instrument_gaussian_fwhm):
         """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
         compute.  But it's easy enough to generate the random variates themselves, so we
         override that method.  Don't call this directly!  Instead call .rvs(), which wraps this.
@@ -148,7 +148,7 @@ class SpectralLine():
         not_positive = results <= 0.0
         if np.any(not_positive):
             Nbad = not_positive.sum()
-            results[not_positive] = self.rvs(size=Nbad)
+            results[not_positive] = self.rvs(size=Nbad, instrument_gaussian_fwhm=instrument_gaussian_fwhm)
         return results
 
     @property

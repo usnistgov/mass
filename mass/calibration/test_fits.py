@@ -140,7 +140,7 @@ class Test_MnKA(unittest.TestCase):
                 nbins=150, vary_bg_slope=False, vary_tail=False):
         bmin, bmax = 5875, 5910
 
-        values = self.distrib.rvs(size=n)
+        values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
         sigma = resolution/2.3548
         values += sigma*np.random.standard_normal(size=n)
 
@@ -201,7 +201,7 @@ class Test_MnKB(unittest.TestCase):
                 bg=10, nbins=150, vary_bg_slope=False, vary_tail=False):
         bmin, bmax = 6460, 6510
 
-        values = self.distrib.rvs(size=n)
+        values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
         sigma = resolution/2.3548
         values += sigma*np.random.standard_normal(size=n)
 
@@ -333,7 +333,7 @@ class Test_MnKA_lmfit(unittest.TestCase):
         # generate random x-ray pulse energies following MnKAlpha distribution
         distrib = mass.calibration.fluorescence_lines.MnKAlpha
         np.random.seed(154)
-        values = distrib.rvs(size=n)
+        values = distrib.rvs(size=n, instrument_gaussian_fwhm=0)
         # add gaussian oise to each x-ray energy
         sigma = resolution/2.3548
         values += sigma*np.random.standard_normal(size=n)
