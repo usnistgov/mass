@@ -1,16 +1,22 @@
-import mass
-from .off import OffFile
-import collections
+# std lib imports
 import os
-
-import numpy as np
-import pylab as plt
-import progress.bar
-import inspect
-import fastdtw
-import h5py
 import shutil
 import logging
+import collections
+import inspect
+
+# pkg imports
+import numpy as np
+import pylab as plt
+import fastdtw
+import h5py
+
+# local imports
+import mass
+from .off import OffFile
+from .util import GroupLooper, add_group_loop, labelPeak, labelPeaks, Recipe
+from .util import annotate_lines, SilenceBar
+
 LOG = logging.getLogger("mass")
 
 
@@ -152,33 +158,6 @@ class ExperimentStateFile():
         return [self.labelAliasesDict.get(label, label) for label in self.unaliasedLabels]
 
 
-def annotate_lines(axis, labelLines, labelLines_color2=[], color1="k", color2="r"):
-    """Annotate plot on axis with line names.
-    labelLines -- eg ["MnKAlpha","TiKBeta"] list of keys of STANDARD_FEATURES
-    labelLines_color2 -- optional,eg ["MnKAlpha","TiKBeta"] list of keys of STANDARD_FEATURES
-    color1 -- text color for labelLines
-    color2 -- text color for labelLines_color2
-    """
-    n = len(labelLines)+len(labelLines_color2)
-    yscale = plt.gca().get_yscale()
-    for (i, labelLine) in enumerate(labelLines):
-        energy = mass.STANDARD_FEATURES[labelLine]
-        if yscale == "linear":
-            axis.annotate(labelLine, (energy, (1+i)*plt.ylim()
-                                      [1]/float(1.5*n)), xycoords="data", color=color1)
-        elif yscale == "log":
-            axis.annotate(labelLine, (energy, np.exp(
-                (1+i)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data", color=color1)
-    for (j, labelLine) in enumerate(labelLines_color2):
-        energy = mass.STANDARD_FEATURES[labelLine]
-        if yscale == "linear":
-            axis.annotate(labelLine, (energy, (2+i+j)*plt.ylim()
-                                      [1]/float(1.5*n)), xycoords="data", color=color2)
-        elif yscale == "log":
-            axis.annotate(labelLine, (energy, np.exp(
-                (2+i+j)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data", color=color2)
-
-
 class DriftCorrection():
     version = 1
 
@@ -220,67 +199,6 @@ class DriftCorrection():
             return False
 
 
-class GroupLooper(object):
-    """A mixin class to allow ChannelGroup objects to hold methods that loop over
-    their constituent channels. (Has to be a mixin, in order to break the import
-    cycle that would otherwise occur.)"""
-    pass
-
-
-def add_group_loop(method):
-    """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
-
-    This is a decorator to add before method definitions inside class MicrocalDataSet.
-    Usage is:
-
-    class MicrocalDataSet(...):
-        ...
-
-        @add_group_loop
-        def awesome_fuction(self, ...):
-            ...
-    """
-    method_name = method.__name__
-
-    def wrapper(self, *args, **kwargs):
-        bar = SilenceBar(method_name, max=len(self.offFileNames), silence=not self.verbose)
-        rethrow = kwargs.pop("_rethrow", False)
-        returnVals = collections.OrderedDict()
-        for (channum, ds) in self.items():
-            try:
-                z = method(ds, *args, **kwargs)
-                returnVals[channum] = z
-            except KeyboardInterrupt as e:
-                raise(e)
-            except Exception as e:
-                ds.markBad("{} during {}".format(e, method_name), e)
-                if rethrow:
-                    raise
-            bar.next()
-        bar.finish()
-        return returnVals
-    wrapper.__name__ = method_name
-
-    # Generate a good doc-string.
-    lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
-    lines.append("pass _rethrow=True to see stacktrace from first error")
-    try:
-        argtext = inspect.signature(method)  # Python 3.3 and later
-    except AttributeError:
-        arginfo = inspect.getargspec(method)
-        argtext = inspect.formatargspec(*arginfo)
-    if method.__doc__ is None:
-        lines.append("\n%s%s has no docstring" % (method_name, argtext))
-    else:
-        lines.append("\n%s%s docstring reads:" % (method_name, argtext))
-        lines.append(method.__doc__)
-    wrapper.__doc__ = "\n".join(lines)
-
-    setattr(GroupLooper, method_name, wrapper)
-    setattr(GroupLooper, "_"+method_name, wrapper)
-    return method
-
-
 class CorG():
     """
     implments methods that are shared across Channel and ChannelGroup
@@ -318,65 +236,61 @@ class CorG():
 
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=1, binEdges=None, label="full", plot=True,
-                guessParams=None, goodFunc=None, holdvals=None, calibration=None):
-        """Do a fit to `lineNameOrEnergy` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
-        lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
+                params=None, goodFunc=None, calibration=None, require_errorbars=True):
+        """Do a fit to `lineNameOrEnergy` and return the result. You can get the params results with result.params
+        lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel", your you can pass in a model like a mass.MnKAlphaModel().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
         states -- will be passed to hist, coAddStates will be True
         axis -- if axis is None and plot==True, will create a new figure, otherwise plot onto this axis
-        dlo and dhi and binsize -- by default it tries to fit with bin edges given by np.arange(fitter.spect.nominal_peak_energy-dlo, fitter.spect.nominal_peak_energy+dhi, binsize)
+        dlo and dhi and binsize -- by default it tries to fit with bin edges given by np.arange(model.spect.peak_energy-dlo, model.spect.peak_energy+dhi, binsize)
         binEdges -- pass the binEdges you want as a numpy array
-        label -- passed to fitter.plot
-        plot -- passed to fitter.fit, determine if plot happens
-        guessParams -- passed to fitter.fit, fitter.fit will guess the params on its own if this is None
-        category -- pass {"side":"A"} or similar to use categorical cuts
+        label -- passed to model.plot
+        plot -- passed to model.fit, determine if plot happens
+        params -- passed to model.fit, model.fit will guess the params on its own if this is None
         goodFunc -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
-        holdvals -- a dictionary mapping keys from fitter.params_meaning to values... eg {"background":0, "dP_dE":1}
-            This vector is anded with the vector calculated by the histogrammer
-        calbration -- a calibration to be passed to hist
+        calbration -- a calibration to be passed to hist - will error if used with an "energy..." attr
+        require_errorbars -- throw an error if lmfit doesn't return errorbars
         """
-        if isinstance(lineNameOrEnergy, mass.LineFitter):
-            fitter = lineNameOrEnergy
-            nominal_peak_energy = fitter.spect.nominal_peak_energy
+        if isinstance(lineNameOrEnergy, mass.GenericLineModel):
+            model = lineNameOrEnergy
         elif isinstance(lineNameOrEnergy, str):
             line = mass.spectra[lineNameOrEnergy]
-            fitter = mass.make_line_fitter(line)
-            nominal_peak_energy = fitter.spect.nominal_peak_energy
+            model = line.model()
         else:
-            fitter = mass.GaussianFitter()
-            nominal_peak_energy = float(lineNameOrEnergy)
+            line = mass.FallbackMonochromaticLine(lineNameOrEnergy)
+            model = line.model()
         if binEdges is None:
             if attr.startswith("energy") or calibration is not None:
-                binEdges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
+                pe = model.spect.peak_energy
+                binEdges = np.arange(pe-dlo, pe+dhi, binsize)
             else:
                 raise Exception(
-                    "must pass binEdges if attr does not start with energy and you don't pass a calibration")
+                    "must pass binEdges if attr does not start with energy and you don't pass a calibration, also don't use energy and calibration at the same time")
         if axis is None and plot:
             plt.figure()
             axis = plt.gca()
+        # print(f"binEdges.size={binEdges.size}, binEdges.mean()={binEdges.mean()}")
+        # print(f"attr={attr},states={states}")
         bin_centers, counts = self.hist(binEdges, attr, states, goodFunc, calibration=calibration)
-        if guessParams is None:
-            guessParams = fitter.guess_starting_params(counts, bin_centers)
-        if holdvals is None:
-            holdvals = {}
-        if (attr.startswith("energy") or calibration is not None) and "dP_dE" in fitter.param_meaning:
-            holdvals["dP_dE"] = 1.0
-        hold = []
-        for (k, v) in holdvals.items():
-            i = fitter.param_meaning[k]
-            guessParams[i] = v
-            hold.append(i)
+        # print(f"counts.size={counts.size},counts.sum()={counts.sum()}")
+        if params is None:
+            params = model.guess(counts, bin_centers=bin_centers)
+        if attr.startswith("energy") or calibration is not None:
+            params["dph_de"].set(vary=False)
 
-        params, covar = fitter.fit(counts, bin_centers, params=guessParams,
-                                   axis=axis, label=label, plot=plot, hold=hold)
+        result = model.fit(counts, params, bin_centers=bin_centers)
+        # axis=axis, label=label, plot=plot)
         if plot:
-            axis.set_title(self.shortName+", {}, states = {}".format(lineNameOrEnergy, states))
             if attr.startswith("energy"):
-                plt.xlabel(attr+" (eV)")
+                xlabel = attr+" (eV)"
             else:
-                plt.xlabel(attr + "(arbs)")
+                xlabel = attr + "(arbs)"
+            result.plot_fit(ax=axis,
+            xlabel=xlabel, ylabel="counts per {:.2f} unit bin".format(bin_centers[1]-bin_centers[0]))
+            axis.set_title(self.shortName+", {}, states = {}".format(lineNameOrEnergy, states))
 
-        return fitter
+        return result
+
 
 
 class NoCutInds():
@@ -385,74 +299,6 @@ class NoCutInds():
 
 class InvalidStatesException(Exception):
     pass
-
-
-class Recipe():
-    """
-    If `r` is a Recipe, it is a wrapper around a function `f` and the names of its arguments.
-    Arguments can either be names to be provided in a dictionary `d` when `r(d)` is called, or
-    argument can be Recipe.
-    `r(d)` where d is a dict mappring the names of argument to values will call `f` with the appropriate arguments, and also
-    evaulate arguments which are recipes.
-
-    The reasons this exists is so I can get a list of all the argument I need from the off file, so I can read from the off file
-    a single time to evaluate a recipe that may depend on many values from the off file. My previous implementation would make multiple
-    reads to the off file.
-    """
-
-    def __init__(self, f, argNames=None, inverse=None):
-        assert not isinstance(f, Recipe)
-        self.f = f
-        self.inverse = inverse
-        self.args = collections.OrderedDict()  # assumes the dict preserves insertion order
-        try:
-            inspectedArgNames = list(inspect.signature(self.f).parameters)  # Py 3.3+ only??
-        except AttributeError:
-            try:
-                inspectedArgNames = inspect.getargspec(self.f).args  # Pre-Py 3.3
-            except TypeError:
-                inspectedArgNames = inspect.getargspec(self.f.__call__).args
-        if "self" in inspectedArgNames:  # drop the self argument for class methods
-            inspectedArgNames.remove("self")
-        if argNames is None:
-            for argName in inspectedArgNames:
-                self.args[argName] = argName
-        else:
-            # i would like to do == here, but i'd need to handle optional arguments better
-            assert len(inspectedArgNames) >= len(argNames)
-            for argName, inspectedArgName in zip(argNames, inspectedArgNames):
-                self.args[argName] = inspectedArgName
-
-    def setArgToRecipe(self, argName, r):
-        assert isinstance(r, Recipe)
-        assert argName in self.args
-        self.args[argName] = r
-
-    @property
-    def argsL(self):
-        "return the 'left side' arguments.... aka what self.f calls them"
-        return list(self.args.keys())
-
-    def __call__(self, args):
-        new_args = []
-        for (k, v) in self.args.items():
-            if isinstance(v, Recipe):
-                new_args.append(v(args))
-            else:
-                new_args.append(args[k])
-        # call functions with positional arguments so names don't need to match
-        return self.f(*new_args)
-
-    def __repr__(self, indent=0):
-        s = "Recipe: f={}, args=".format(self.f)
-        s += "\n" + "  "*indent + "{\n"
-        for (k, v) in self.args.items():
-            if isinstance(v, Recipe):
-                s += "{}{}: {}\n".format("  "*(indent+1), k, v.__repr__(indent+1))
-            else:
-                s += "{}{}: {}\n".format("  "*(indent+1), k, v)
-        s += "  "*indent + "}"
-        return s
 
 
 # wrap up an off file with some conviencine functions
@@ -797,23 +643,24 @@ class Channel(CorG):
         for i in range(n_iter):
             calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
             calibration.uncalibratedName = uncalibratedName
-            fitters = []
+            results = []
             for (ph, energy, name, states) in zip(plan.uncalibratedVals, plan.energies,
                                                 plan.names, plan.states):
-                if name in mass.spectra:
-                    fitter = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
-                                          plot=False, binsize=binsize, calibration=starting_cal)
-                else:
-                    fitter = self.linefit(energy, uncalibratedName, states, dlo=dlo, dhi=dhi,
-                                          plot=False, binsize=binsize, calibration=starting_cal)
-                fitters.append(fitter)
-                if not fitter.fit_success:
+                result = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
+                                        plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False)
+
+                results.append(result)
+                if not result.success:
                     self.markBad("calibrateFollowingPlan: failed fit {}, states {}".format(
-                        name, states), extraInfo=fitter)
+                        name, states), extraInfo=result)
+                    continue 
+                if not result.errorbars:
+                    self.markBad("calibrateFollowingPlan: {} fit without error bars, states={}".format(name, states), extraInfo=result)
                     continue
-                ph, ph_uncertainty = starting_cal.energy2ph(fitter.last_fit_params_dict["peak_ph"])
+                ph = starting_cal.energy2ph(result.params["peak_ph"].value)
+                ph_uncertainty = result.params["peak_ph"].stderr/starting_cal.energy2dedph(result.params["peak_ph"].value)
                 calibration.add_cal_point(ph, energy, name, ph_uncertainty)
-            calibration.fitters = fitters
+            calibration.results = results
             calibration.plan = plan
             is_last_iteration = i+1 == n_iter
             if not is_last_iteration:
@@ -821,7 +668,7 @@ class Channel(CorG):
                 starting_cal = calibration
         calibration.intermediate_calibrations = intermediate_calibrations
         self.addRecipe(calibratedName, calibration, [calibration.uncalibratedName])
-        return fitters
+        return results
 
     def addRecipe(self, recipeName, f, argNames, inverse=None, createProperty=True):
         """
@@ -917,10 +764,11 @@ class Channel(CorG):
         marks self bad if the fit position is more than toleranceFitSigma*fitSigma away
         from the correct position
         """
-        fitter = self.linefit(line, attr, states, None, dlo, dhi, binsize, binEdges, False,
+        result = self.linefit(line, attr, states, None, dlo, dhi, binsize, binEdges, False,
                               guessParams, goodFunc, holdvals)
-        fitPos, fitSigma = fitter.last_fit_params_dict["peak_ph"]
-        resolution, _ = fitter.last_fit_params_dict["resolution"]
+        fitPos = result.params["peak_ph"].value
+        fitSigma = result.params["peak_ph"].stderr
+        resolution = result.params["fwhm"].value
         if positionToleranceAbsolute is not None:
             if positionToleranceFitSigma is not None:
                 raise Exception(
@@ -930,13 +778,13 @@ class Channel(CorG):
             tolerance = fitSigma*positionToleranceFitSigma
         else:
             tolerance = np.inf
-        if np.abs(fitPos-fitter.spect.peak_energy) > tolerance:
+        if np.abs(fitPos-result.model.spect.peak_energy) > tolerance:
             self.markBad("qualityCheckLinefit: for {}, want {} within {}, got {}".format(
-                line, fitter.spect.peak_energy, tolerance, fitPos))
+                line, result.model.spect.peak_energy, tolerance, fitPos))
         if worstAllowedFWHM is not None and resolution > worstAllowedFWHM:
             self.markBad("qualityCheckLinefit: for {}, fit resolution {} > threshold {}".format(
                 line, resolution, worstAllowedFWHM))
-        return fitter
+        return result
 
     @add_group_loop
     def histsToHDF5(self, h5File, binEdges, attr="energy", goodFunc=None):
@@ -984,26 +832,24 @@ class Channel(CorG):
     def diagnoseCalibration(self, calibratedName="energy"):
         calibration = self.recipes[calibratedName].f
         uncalibratedName = calibration.uncalibratedName
-        fitters = calibration.fitters
+        results = calibration.results
         plan = calibration.plan
         n_intermediate = len(calibration.intermediate_calibrations)
         plt.figure(figsize=(20, 12))
         plt.suptitle(
             self.shortName+", cal diagnose for '{}'\n with {} intermediate calibrations".format(calibratedName, n_intermediate))
-        n = int(np.ceil(np.sqrt(len(fitters)+2)))
-        for i, fitter in enumerate(fitters):
+        n = int(np.ceil(np.sqrt(len(results)+2)))
+        for i, result in enumerate(results):
             ax = plt.subplot(n, n, i+1)
-            fitter.plot(axis=ax, label="full")
-            if isinstance(fitter, mass.GaussianFitter):
-                plt.title("GaussianFitter (energy?)")
-            else:
-                plt.title(type(fitter.spect).__name__)
+            result.plot_fit(ax=ax)
+            plt.title(result.model.spect.shortname)
         ax = plt.subplot(n, n, i+2)
         calibration.plot(axis=ax)
         ax = plt.subplot(n, n, i+3)
         self.plotHist(np.arange(0, 16000, 4), uncalibratedName,
                       axis=ax, coAddStates=False)
         plt.vlines(self.calibrationPlan.uncalibratedVals, 0, plt.ylim()[1])
+        plt.tight_layout()
 
 
 class AlignBToA():
@@ -1187,26 +1033,6 @@ def getOffFileListFromOneFile(filename, maxChans=None):
     return z
 
 
-class SilenceBar(progress.bar.Bar):
-    "A progres bar that can be turned off by passing silence=True or by setting the log level higher than NOTSET"
-
-    def __init__(self, message, max, silence):
-        self.silence = silence
-        if not silence:
-            if not LOG.isEnabledFor(logging.WARN):
-                self.silence = True
-        if not self.silence:
-            progress.bar.Bar.__init__(self, message, max=max)
-
-    def next(self):
-        if not self.silence:
-            progress.bar.Bar.next(self)
-
-    def finish(self):
-        if not self.silence:
-            progress.bar.Bar.finish(self)
-
-
 class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
     """
     ChannelGroup is an OrdredDict of Channels with some additional features
@@ -1388,11 +1214,16 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                             attr='energy', states=None, dlo=50, dhi=50, binsize=1, binEdges=None,
                             guessParams=None, goodFunc=None, holdvals=None, resolutionPlot=True, hdf5Group=None,
                             _rethrow=False):
-        fitters = self._qualityCheckLinefit(line, positionToleranceFitSigma, worstAllowedFWHM, positionToleranceAbsolute,
+        """
+        Here we are overwriting the qualityCheckLinefit method created by GroupLooper
+        the call to _qualityCheckLinefit uses the method created by GroupLooper
+        """
+        results = self._qualityCheckLinefit(line, positionToleranceFitSigma, worstAllowedFWHM, positionToleranceAbsolute,
                                             attr, states, dlo, dhi, binsize, binEdges, guessParams, goodFunc, holdvals,
                                             _rethrow=_rethrow)
-        resolutions = np.array([fitter.last_fit_params_dict["resolution"][0]
-                                for fitter in fitters.values() if fitter.fit_success])
+        resolutions = np.array([r.params["fwhm"].value
+                                for r in results.values() if r.success])
+        print(f"resolutions {resolutions}")
         if resolutionPlot:
             plt.figure()
             axis = plt.gca()
@@ -1407,12 +1238,12 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                     if ds.markedBadBool:
                         grp["markedBadReason"] = ds.markedBadReason
                     else:
-                        fitter = fitters[channum]
-                        for (k, (v, err)) in fitter.last_fit_params_dict.items():
-                            grp[k] = v
-                            grp[k+"_err"] = err
+                        result = results[channum]
+                        for (k, v) in result.params.items():
+                            grp[k] = v.value
+                            grp[k+"_err"] = v.stderr
                         grp["states"] = str(states)
-        return fitters
+        return results
 
     def setOutputDir(self, baseDir=None, deleteAndRecreate=None, suffix="_output"):
         """Set the output directory to which plots and hdf5 files will go
@@ -1457,17 +1288,17 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         else:
             return h5py.File(self._outputHDF5Filename, "a")
 
-    def fitterPlot(self, lineName, states=None):
-        fitters = [ds.linefit(lineName, plot=False, states=states) for ds in self.values()]
-        fitter = self.linefit(lineName, plot=False, states=states)
+    def resultPlot(self, lineName, states=None):
+        results = [ds.linefit(lineName, plot=False, states=states) for ds in self.values()]
+        result = self.linefit(lineName, plot=False, states=states)
         fig = plt.figure(figsize=(12, 12))
         fig.suptitle("{} fits to {} with states = {}".format(self.shortName, lineName, states))
-        fitter.plot(label="full", axis=plt.subplot(2, 2, 3))
+        result.plot_fit(ax=plt.subplot(2, 2, 3))
         plt.xlabel("energy (eV)")
         plt.ylabel("counts per bin")
-        resolutions = [_f.last_fit_params_dict["resolution"][0] for _f in fitters]
-        positions = [_f.last_fit_params_dict["peak_ph"][0] for _f in fitters]
-        position_errs = [_f.last_fit_params_dict["peak_ph"][1] for _f in fitters]
+        resolutions = [r.params["fwhm"].value for r in results]
+        positions = [r.params["peak_ph"].value for r in results]
+        position_errs = [r.params["peak_ph"].stderr for r in results]
         ax = plt.subplot(2, 2, 1)
         plt.hist(resolutions)
         plt.xlabel("resolution (eV fwhm)")
@@ -1479,27 +1310,14 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         plt.xlabel("fit position (eV)")
         plt.ylabel("channels per bin")
         plt.text(0.5, 0.9, "median = {:.2f}\ndb position = {:.3f}".format(np.median(positions),
-                                                                          fitter.spect.peak_energy), transform=ax.transAxes)
-        plt.vlines(fitter.spect.peak_energy, plt.ylim()[0], plt.ylim()[1], label="db position")
+                                                                          result.model.spect.peak_energy), transform=ax.transAxes)
+        plt.vlines(result.model.spect.peak_energy, plt.ylim()[0], plt.ylim()[1], label="db position")
         ax = plt.subplot(2, 2, 4)
         plt.errorbar(np.arange(len(positions)), positions, yerr=position_errs, fmt=".")
-        plt.hlines(fitter.spect.peak_energy, plt.xlim()[0], plt.xlim()[1], label="db position")
+        plt.hlines(result.model.spect.peak_energy, plt.xlim()[0], plt.xlim()[1], label="db position")
         plt.legend()
         plt.xlabel("channel number")
         plt.ylabel("line position (eV)")
 
 
-def labelPeak(axis, name, energy, line=None, deltaELocalMaximum=5, color=None):
-    if line is None:
-        line = axis.lines[0]
-    if color is None:
-        color = line.get_color()
-    ydataLocalMaximum = np.amax([np.interp(energy+de, line.get_xdata(), line.get_ydata(),
-                                           right=0, left=0) for de in np.linspace(-1, 1, 10)*deltaELocalMaximum])
-    plt.annotate(name, (energy, ydataLocalMaximum), (0, 10), textcoords='offset points',
-                 rotation=90, verticalalignment='top', horizontalalignment="center", color=color)
 
-
-def labelPeaks(axis, names, energies, line=None, deltaELocalMaximum=5, color=None):
-    for name, energy in zip(names, energies):
-        labelPeak(axis, name, energy, line, deltaELocalMaximum, color)

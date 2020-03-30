@@ -13,9 +13,6 @@ class MLEModel(lmfit.Model):
     in place of chisq, as described in: doi:10.1007/s10909-014-1098-4
     "Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"
     """
-
-    require_errorbars = True
-
     def _residual(self, params, data, weights, **kwargs):
         """Calculate the chi_MLE^2 value from Joe Fowler's Paper
         doi:10.1007/s10909-014-1098-4 "Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"
@@ -82,9 +79,14 @@ class MLEModel(lmfit.Model):
     #     return c
 
     def fit(self, *args, **kwargs):
+        if "method" not in kwargs:
+            kwargs["method"] = "least_squares" # gives uncertainties more often than leastsq
         result = lmfit.Model.fit(self, *args, **kwargs)
-        if self.require_errorbars and (not result.errorbars):
-            raise(Exception("error bars not computed, are some of your guess values equal to max or min? you can set .require_errorbars=False to not error here"))
+        # if result.success and not result.errorbars:
+            # refit using least_squares because that usually gives error bars
+
+        # if require_errorbars and (not result.errorbars):
+        #     raise(Exception("error bars not computed, are some of your guess values equal to max or min? you can pass require_errorbars=False, or try fitting with a different method"))
         return result
 
 
@@ -146,18 +148,18 @@ class GenericLineModel(MLEModel):
                 length_hi = tail_tau_hi*dph_de/binwidth
                 spectrum = line_fits._smear_exponential_tail(
                     cleanspectrum_fn, energy, fwhm, tail_frac, length_lo, tail_frac_hi, length_hi)
-                retval = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
-                if any(np.isnan(retval)) or any(retval < 0):
-                    raise ValueError
-                return retval
+                r = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
+                if any(np.isnan(r)) or any(r < 0):
+                    raise ValueError("some entry in r is nan or negative")
+                return r
         else:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude, background, bg_slope):
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 spectrum = self.spect.pdf(energy, fwhm)
-                retval = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
-                if any(np.isnan(retval)) or any(retval < 0):
-                    raise ValueError
-                return retval
+                r = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
+                if any(np.isnan(r)) or any(r < 0):
+                    raise ValueError("some entry in r is nan or negative")
+                return r
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
                        'independent_vars': independent_vars})
         super(GenericLineModel, self).__init__(modelfunc, **kwargs)
@@ -165,7 +167,7 @@ class GenericLineModel(MLEModel):
 
     def _set_paramhints_prefix(self):
         self.set_param_hint('fwhm', value=4, min=0)
-        self.set_param_hint('peak_ph', min=0)
+        self.set_param_hint('peak_ph', min=0, max=2**16)
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
         self.set_param_hint("amplitude", value=100, min=0)
         self.set_param_hint('background', value=1, min=0)
@@ -179,15 +181,19 @@ class GenericLineModel(MLEModel):
     def guess(self, data, bin_centers=None, **kwargs):
         "Guess values for the peak_ph, amplitude, and background."
         if data.sum() <= 0:
-            raise ValueError("This histogram has no contents")
-        peak_ph = bin_centers[data.argmax()]
-        ampl = data.max() * 9.4  # this number is taken from the GenericKBetaFitter
-        if len(data) > 20:
-            # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
-            baseline = max(data[0:10].mean(), 1.0/len(data))
+            pars = self.make_params()
+            for k,v in pars.items():
+                v.set(0,vary=False)
+            pars["dph_de"].set(1,vary=False)
         else:
-            baseline = 0.1
-        pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl)
+            peak_ph = bin_centers[data.argmax()]
+            ampl = data.max() * 9.4  # this number is taken from the GenericKBetaFitter
+            if len(data) > 20:
+                # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
+                baseline = max(data[0:10].mean(), 1.0/len(data))
+            else:
+                baseline = 0.1
+            pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
 

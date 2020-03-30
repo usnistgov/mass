@@ -171,6 +171,12 @@ class SpectralLine():
     def __repr__(self):
         return "SpectralLine: {}".format(self.shortname)
 
+    def model(self, has_tails=False):
+        return make_line_model(self, has_tails=has_tails)
+
+    def fitter(self):
+        return make_line_fitter(self)
+
 
 lineshape_references = OrderedDict()
 lineshape_references["Klauber 1993"] = """Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.

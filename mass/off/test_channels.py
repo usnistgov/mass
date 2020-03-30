@@ -10,7 +10,10 @@ import collections
 import unittest as ut
 
 # this is intented to be both a test and a tutorial script
-d = os.path.dirname(os.path.realpath(__file__))
+try:
+    d = os.path.dirname(os.path.realpath(__file__))
+except NameError:
+    d = os.getcwd()
 
 filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
 data = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2),
@@ -51,7 +54,7 @@ ds.calibrationPlanAddPoint(11125, "Ar He-Like 1s2s+1s2p", states="Ar")
 ds.calibrationPlanAddPoint(11728, "Ar H-Like 2p", states="Ar")
 # at this point energyRough should work
 ds.plotHist(np.arange(0, 4000, 1), "energyRough", coAddStates=False)
-fitters = ds.calibrateFollowingPlan("filtValueDC", approximate=False)
+results = ds.calibrateFollowingPlan("filtValueDC", approximate=False)
 ds.linefit("Ne H-Like 2p", attr="energy", states="Ne")
 ds.linefit("Ne He-Like 1s2s+1s2p", attr="energy", states="Ne")
 ds.linefit("W Ni-7", attr="energy", states=["W 1", "W 2"])
@@ -67,8 +70,8 @@ aligner = ds3.aligner
 aligner.samePeaksPlot()
 aligner.samePeaksPlotWithAlignmentCal()
 
-fitters = data.calibrateFollowingPlan(
-    "filtValueDC", _rethrow=False, dlo=10, dhi=10, approximate=False)
+results = data.calibrateFollowingPlan(
+    "filtValueDC", dlo=10, dhi=10, approximate=False, _rethrow=True)
 data.qualityCheckDropOneErrors(
     thresholdAbsolute=2.5, thresholdSigmaFromMedianAbsoluteValue=6, _rethrow=True)
 
@@ -102,12 +105,13 @@ nos["Os Ni-16"] = 3032
 nos["Os Ni-17"] = 3102
 labelPeaks(ax, names=nos.keys(), energies=nos.values(), line=ax.lines[1])
 
-data.fitterPlot("W Ni-20", states=["W 1"])
+data.resultPlot("W Ni-20", states=["W 1"])
 
+print(data.whyChanBad)
 
 h5 = data.outputHDF5  # dont use with here, it will hide errors
-fitters = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
-                                   worstAllowedFWHM=4.5, states="Ne", _rethrow=False,
+results = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
+                                   worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
                                    resolutionPlot=True, hdf5Group=h5)
 data.histsToHDF5(h5, np.arange(4000))
 # data.recipeToHDF5(h5)

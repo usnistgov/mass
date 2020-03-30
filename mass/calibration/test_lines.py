@@ -90,6 +90,13 @@ class TestAddFitter(unittest.TestCase):
                 reference_amplitude=np.array([1, 2]),
                 reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
             )
+        # test various ways I can get access to the new line
+        mass.spectra["dummydummy"].model()
+        mass.spectra["dummydummy"].model(has_tails=True)
+        mass.spectra["dummydummy"].fitter()
+        mass.spectrum_classes["dummydummy"]().model()
+        mass.make_line_model(mass.spectra["dummydummy"])
+        mass.make_line_fitter(mass.spectra["dummydummy"])
 
     def test_intrinsic_sigma(self):
         line = mass.calibration.fluorescence_lines.MnKAlpha
