@@ -285,7 +285,7 @@ class CorG():
                 xlabel = attr+" (eV)"
             else:
                 xlabel = attr + "(arbs)"
-            result.plot_fit(ax=axis,
+            result._plot_fit(ax=axis,
             xlabel=xlabel, ylabel="counts per {:.2f} unit bin".format(bin_centers[1]-bin_centers[0]))
             axis.set_title(self.shortName+", {}, states = {}".format(lineNameOrEnergy, states))
 
@@ -842,7 +842,7 @@ class Channel(CorG):
         n = int(np.ceil(np.sqrt(len(results)+2)))
         for i, result in enumerate(results):
             ax = plt.subplot(n, n, i+1)
-            result.plot_fit(ax=ax)
+            result._plot_fit(ax=ax)
             plt.title(result.model.spect.shortname)
         ax = plt.subplot(n, n, i+2)
         calibration.plot(axis=ax)
@@ -1294,7 +1294,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         result = self.linefit(lineName, plot=False, states=states)
         fig = plt.figure(figsize=(12, 12))
         fig.suptitle("{} fits to {} with states = {}".format(self.shortName, lineName, states))
-        result.plot_fit(ax=plt.subplot(2, 2, 3))
+        result._plot_fit(ax=plt.subplot(2, 2, 3))
         plt.xlabel("energy (eV)")
         plt.ylabel("counts per bin")
         resolutions = [r.params["fwhm"].value for r in results]

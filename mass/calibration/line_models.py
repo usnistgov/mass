@@ -201,20 +201,20 @@ class GenericLineModel(MLEModel):
 
     def guess(self, data, bin_centers=None, **kwargs):
         "Guess values for the peak_ph, amplitude, and background."
-        if data.sum() <= 0:
-            pars = self.make_params()
-            for k,v in pars.items():
-                v.set(0,vary=False)
-            pars["dph_de"].set(1,vary=False)
+        # if data.sum() <= 0:
+        #     pars = self.make_params()
+        #     for k,v in pars.items():
+        #         v.set(0,vary=False)
+        #     pars["dph_de"].set(1,vary=False)
+        # else:
+        peak_ph = bin_centers[data.argmax()]
+        ampl = data.max() * 9.4  # this number is taken from the GenericKBetaFitter
+        if len(data) > 20:
+            # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
+            baseline = max(data[0:10].mean(), 1.0/len(data))
         else:
-            peak_ph = bin_centers[data.argmax()]
-            ampl = data.max() * 9.4  # this number is taken from the GenericKBetaFitter
-            if len(data) > 20:
-                # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
-                baseline = max(data[0:10].mean(), 1.0/len(data))
-            else:
-                baseline = 0.1
-            pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl)
+            baseline = 0.1
+        pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
 
@@ -245,3 +245,20 @@ class GenericKAlphaModel(GenericLineModel):
             baseline = 0.1
         pars = self.make_params(peak_ph=ph_ka1, dph_de=dph/dE, background=baseline, amplitude=ampl)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
+
+
+# add these functions to lmfit.model.ModelResult
+def _result_compact_fit_report(self):
+    return self.fit_report(sort_pars=True)
+
+
+def _result_plot(self, ax=None, title=None, xlabel=None, ylabel=None):
+    lmfit.model.ModelResult.plot_fit(self, ax=ax, 
+    xlabel=xlabel, ylabel=ylabel)
+    if title is not None:
+        plt.title(title)
+    ax.legend(["datablugi", self._compact_fit_report()],loc='best', frameon=False)
+
+
+lmfit.model.ModelResult._plot_fit = _result_plot
+lmfit.model.ModelResult._compact_fit_report = _result_compact_fit_report
