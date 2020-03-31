@@ -201,7 +201,7 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
 
     with open(output_filename, "wb") as outfile:
         # write the header as a single string.
-        for (k,v) in infile.header_dict.items():
+        for (k, v) in infile.header_dict.items():
             outfile.write(k+b": "+v+b"\r\n")
         outfile.write(b"#End of Header\r\n")
 

@@ -117,7 +117,8 @@ class OffFile(object):
         return self._mmap.__sizeof__()
 
     def _decodeModelInfo(self):
-        if "RowMajorFloat64ValuesBase64" in self.header["ModelInfo"]["Projectors"] and "RowMajorFloat64ValuesBase64" in self.header["ModelInfo"]["Basis"]:
+        if "RowMajorFloat64ValuesBase64" in self.header["ModelInfo"]["Projectors"] and \
+                "RowMajorFloat64ValuesBase64" in self.header["ModelInfo"]["Basis"]:
             # should only be in version 0.1.0 files
             self._decodeModelInfoBase64()
         else:

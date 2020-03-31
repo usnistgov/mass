@@ -2,6 +2,7 @@ import pylab as plt
 import numpy as np
 import mass.mathstat
 
+
 class PulseModel():
     """Object to hold a "pulse model", meaning a low-dimensional linear basis to express "all" pulses,
     along with a projector such that projector.dot(basis) is the identity matrix.
@@ -15,11 +16,13 @@ class PulseModel():
         self.pulses_for_svd = pulses_for_svd
         self.n_basis = n_basis
         if projectors_so_far.shape[0] < n_basis:
-            self.projectors, self.basis = self._additional_projectors_tsvd(projectors_so_far, basis_so_far, n_basis, pulses_for_svd)
+            self.projectors, self.basis = self._additional_projectors_tsvd(
+                projectors_so_far, basis_so_far, n_basis, pulses_for_svd)
         elif projectors_so_far.shape[0] == n_basis:
             self.projectors, self.basis = projectors_so_far, basis_so_far
         else:
-            raise Exception("n_basis={} < projectors_so_far.shape[0] = {}".format(n_basis, projectors_so_far.shape[0]))
+            raise Exception("n_basis={} < projectors_so_far.shape[0] = {}".format(
+                n_basis, projectors_so_far.shape[0]))
         self.v_dv = v_dv
         self.pretrig_rms_median = pretrig_rms_median
         self.pretrig_rms_sigma = pretrig_rms_sigma
@@ -95,7 +98,6 @@ class PulseModel():
 
         return projectors, basis
 
-
     def plot(self):
         labels = ["pulse", "deriv", "mean"]
         for i in range(self.n_basis-3):
@@ -104,26 +106,26 @@ class PulseModel():
         mp = np.matmul(self.basis, mpc)
         residuals = self.pulses_for_svd-mp
 
-        fig=plt.figure(figsize=(10,14))
+        fig = plt.figure(figsize=(10, 14))
         plt.subplot(511)
-        projector_scale = np.amax(np.abs(self.projectors[2,:]))
-        plt.plot(self.projectors[::-1,:].T)
+        projector_scale = np.amax(np.abs(self.projectors[2, :]))
+        plt.plot(self.projectors[::-1, :].T)
         plt.title("projectors")
-        plt.ylim(-2*projector_scale,2*projector_scale)
+        plt.ylim(-2*projector_scale, 2*projector_scale)
         plt.legend(labels)
         plt.grid(True)
         plt.subplot(512)
-        plt.plot(self.basis[:,::-1])
+        plt.plot(self.basis[:, ::-1])
         plt.title("basis")
         plt.legend(labels)
         plt.grid(True)
         plt.subplot(513)
-        plt.plot(self.pulses_for_svd[:,:10])
+        plt.plot(self.pulses_for_svd[:, :10])
         plt.title("from ljh")
         plt.legend(["{}".format(i) for i in range(10)])
         plt.grid(True)
         plt.subplot(514)
-        plt.plot(residuals[:,:10])
+        plt.plot(residuals[:, :10])
         plt.title("residuals")
         plt.legend(["{}".format(i) for i in range(10)])
         plt.grid(True)
@@ -137,7 +139,7 @@ class PulseModel():
         fig.suptitle(self.file_name)
 
         plt.figure()
-        plt.plot(self.pulses_for_svd[:,0], label="from ljh")
-        plt.plot(mp[:,0],label="modeled pulse")
+        plt.plot(self.pulses_for_svd[:, 0], label="from ljh")
+        plt.plot(mp[:, 0], label="modeled pulse")
         plt.legend()
         plt.title("modeled pulse vs true pulse")

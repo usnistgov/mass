@@ -319,12 +319,14 @@ class CorG():
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=1, binEdges=None, label="full", plot=True,
                 guessParams=None, goodFunc=None, holdvals=None, calibration=None):
-        """Do a fit to `lineNameOrEnergy` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
+        """Do a fit to `lineNameOrEnergy` and return the fitter. You can get the params results with
+            fitter.last_fit_params_dict or any other way you like.
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
         states -- will be passed to hist, coAddStates will be True
         axis -- if axis is None and plot==True, will create a new figure, otherwise plot onto this axis
-        dlo and dhi and binsize -- by default it tries to fit with bin edges given by np.arange(fitter.spect.nominal_peak_energy-dlo, fitter.spect.nominal_peak_energy+dhi, binsize)
+        dlo and dhi and binsize -- by default it tries to fit with bin edges given by
+            np.arange(fitter.spect.nominal_peak_energy-dlo, fitter.spect.nominal_peak_energy+dhi, binsize)
         binEdges -- pass the binEdges you want as a numpy array
         label -- passed to fitter.plot
         plot -- passed to fitter.fit, determine if plot happens
@@ -695,7 +697,8 @@ class Channel(CorG):
         return binCenters, counts
 
     @add_group_loop
-    def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue", correctedName=None, states=None, goodFunc=None, returnBad=False):
+    def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue",
+                             correctedName=None, states=None, goodFunc=None, returnBad=False):
         """do a linear correction between the indicator and uncorrected... """
         if correctedName is None:
             correctedName = uncorrectedName + "DC"
@@ -733,7 +736,8 @@ class Channel(CorG):
 
     @add_group_loop
     def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
-                                 states=None, goodFunc=None, returnBad=None, kernel_width=1, sec_per_degree=2000, pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
+                                 states=None, goodFunc=None, returnBad=None, kernel_width=1, sec_per_degree=2000,
+                                 pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
         """do a polynomial correction based on the indicator
         you are encouraged to change the settings that affect the degree of the polynomail
         see help in mass.core.channel.time_drift_correct for details on settings"""
@@ -766,7 +770,8 @@ class Channel(CorG):
             axis.plot(A, B, ".", label=state)
             axis.plot(A, C, ".", label=state+" DC")
             if includeBad:
-                A, B, C = self.getAttr([indicatorName, uncorrectedName, "filtValueDC"], state, goodFunc, returnBad=True)
+                A, B, C = self.getAttr([indicatorName, uncorrectedName,
+                                        "filtValueDC"], state, goodFunc, returnBad=True)
                 axis.plot(A, B, "x", label=state+" bad")
                 axis.plot(A, C, "x", label=state+" bad DC")
         plt.xlabel(indicatorName)
@@ -974,8 +979,9 @@ class Channel(CorG):
         sigma = k*medianAbsoluteValue
         if thresholdAbsolute is not None:
             if maxAbsError > sigma*thresholdSigmaFromMedianAbsoluteValue:
-                self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdSigmaFromMedianAbsoluteValue)".format(
-                    maxAbsError, sigma*thresholdSigmaFromMedianAbsoluteValue))
+                self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} ({})".format(
+                    maxAbsError, sigma*thresholdSigmaFromMedianAbsoluteValue,
+                    "thresholdSigmaFromMedianAbsoluteValue"))
         if thresholdAbsolute is not None:
             if maxAbsError > thresholdAbsolute:
                 self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdAbsolute)".format(
@@ -1417,8 +1423,10 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
     def setOutputDir(self, baseDir=None, deleteAndRecreate=None, suffix="_output"):
         """Set the output directory to which plots and hdf5 files will go
         baseDir -- the directory in which the output directory will exist
-        deleteAndRecreate (required keyword arg) -- if True, will delete the whole directory if it already exists (good for if you re-run the same script alot)
-        if False, will attempt to create the directory, if it already exists (like if you rerun the same script), it will error
+        deleteAndRecreate (required keyword arg) -- if True, will delete the whole directory if it already exists
+                (good for if you re-run the same script alot)
+                if False, will attempt to create the directory,
+                if it already exists (like if you rerun the same script), it will error
         suffix -- added to the first part of shortName to create the output directory name
 
         commonly called as

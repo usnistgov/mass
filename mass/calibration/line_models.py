@@ -84,7 +84,8 @@ class MLEModel(lmfit.Model):
     def fit(self, *args, **kwargs):
         result = lmfit.Model.fit(self, *args, **kwargs)
         if self.require_errorbars and (not result.errorbars):
-            raise(Exception("error bars not computed, are some of your guess values equal to max or min? you can set .require_errorbars=False to not error here"))
+            raise(Exception("""Error bars not computed, are some of your guess values equal to max or min?
+            You can set .require_errorbars=False to not error here"""))
         return result
 
 
