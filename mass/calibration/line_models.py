@@ -79,15 +79,36 @@ class MLEModel(lmfit.Model):
     #     return c
 
     def fit(self, *args, **kwargs):
+        """as lmfit.Model.fit except
+        1. the default method is "least_squares because it gives error bars more often at 1.5-2.0X speed penalty
+        2. supports "leastsq_refit" which uses "leastsq" to fit, but if there are no error bars, refits with "least_squares"
+        """
         if "method" not in kwargs:
-            kwargs["method"] = "least_squares" # gives uncertainties more often than leastsq
-        result = lmfit.Model.fit(self, *args, **kwargs)
-        # if result.success and not result.errorbars:
-            # refit using least_squares because that usually gives error bars
+            # change default method
+            kwargs["method"] = "least_squares"
+            # least_squares always gives uncertainties, while the normal default leastsq often does not
+            # leastsq fails to give uncertaities if parameters are near bounds or at their initial value
+            # least_squares is about 1.5X to 2.0X slower based on two test case
+        return self._fit(*args, **kwargs)
 
-        # if require_errorbars and (not result.errorbars):
-        #     raise(Exception("error bars not computed, are some of your guess values equal to max or min? you can pass require_errorbars=False, or try fitting with a different method"))
-        return result
+    def _fit(self, *args, **kwargs):
+        """internal implementation of fit to add support for "leastsq_refit" method"""
+        if kwargs["method"] == "leastsq_refit":
+            # fit fit with leastsq, then if we dont have unceratinties, fit again with least_squares
+            kwargs["method"] = "leastsq"
+            result = lmfit.Model.fit(self, *args, **kwargs)
+            if result.success and result.errorbars:
+                return result
+            kwargs["method"] = "least_squares"
+            if "params" in kwargs:
+                kwargs["params"] = result.params
+            elif len(args) > 1:
+                args = [result.params if i ==1 else arg for (i,arg) in enumerate(args)]
+            result2 = lmfit.Model.fit(self, *args, **kwargs)
+            return result2
+        else:
+            result = lmfit.Model.fit(self, *args, **kwargs)
+            return result
 
 
 class CompositeMLEModel(lmfit.CompositeModel):
