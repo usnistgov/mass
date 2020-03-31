@@ -101,7 +101,7 @@ class TestAlgorithms(unittest.TestCase):
         spect[4] = mass.fluorescence_lines.TiKAlpha
         spect[5] = mass.fluorescence_lines.FeKAlpha
         e = []
-        for i,(k, s) in enumerate(spect.items()):
+        for i, (k, s) in enumerate(spect.items()):
             e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=i+2))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
@@ -132,7 +132,7 @@ class TestAlgorithms(unittest.TestCase):
         spect[4] = mass.fluorescence_lines.TiKAlpha
         spect[5] = mass.fluorescence_lines.FeKAlpha
         e = []
-        for i,(k, s) in enumerate(spect.items()):
+        for i, (k, s) in enumerate(spect.items()):
             e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=i+2))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!

@@ -804,7 +804,7 @@ class Channel(CorG):
             calibration.uncalibratedName = uncalibratedName
             fitters = []
             for (ph, energy, name, states) in zip(plan.uncalibratedVals, plan.energies,
-                                                plan.names, plan.states):
+                                                  plan.names, plan.states):
                 if name in mass.spectra:
                     fitter = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                           plot=False, binsize=binsize, calibration=starting_cal)
@@ -991,7 +991,7 @@ class Channel(CorG):
         calibration = self.recipes[calibratedName].f
         uncalibratedName = calibration.uncalibratedName
         fitters = calibration.fitters
-        plan = calibration.plan
+        # plan = calibration.plan
         n_intermediate = len(calibration.intermediate_calibrations)
         plt.figure(figsize=(20, 12))
         plt.suptitle(

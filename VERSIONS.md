@@ -2,6 +2,7 @@
 
 **0.7.5** March 2020-
 
+* `mass.spectra` contains dictionary of class instances instead of class objects.
 * Fix long lines and other pep8 warnings. Fix the Make targets pep8 and lint for Python3.
 
 **0.7.4** March 26 2020
