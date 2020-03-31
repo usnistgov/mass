@@ -541,7 +541,8 @@ class Channel(CorG):
         return binCenters, counts
 
     @add_group_loop
-    def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue", correctedName=None, states=None, goodFunc=None, returnBad=False):
+    def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue",
+                             correctedName=None, states=None, goodFunc=None, returnBad=False):
         """do a linear correction between the indicator and uncorrected... """
         if correctedName is None:
             correctedName = uncorrectedName + "DC"
@@ -579,7 +580,8 @@ class Channel(CorG):
 
     @add_group_loop
     def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
-                                 states=None, goodFunc=None, returnBad=None, kernel_width=1, sec_per_degree=2000, pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
+                                 states=None, goodFunc=None, returnBad=None, kernel_width=1, sec_per_degree=2000,
+                                 pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
         """do a polynomial correction based on the indicator
         you are encouraged to change the settings that affect the degree of the polynomail
         see help in mass.core.channel.time_drift_correct for details on settings"""
@@ -612,7 +614,8 @@ class Channel(CorG):
             axis.plot(A, B, ".", label=state)
             axis.plot(A, C, ".", label=state+" DC")
             if includeBad:
-                A, B, C = self.getAttr([indicatorName, uncorrectedName, "filtValueDC"], state, goodFunc, returnBad=True)
+                A, B, C = self.getAttr([indicatorName, uncorrectedName,
+                                        "filtValueDC"], state, goodFunc, returnBad=True)
                 axis.plot(A, B, "x", label=state+" bad")
                 axis.plot(A, C, "x", label=state+" bad DC")
         plt.xlabel(indicatorName)
@@ -823,8 +826,9 @@ class Channel(CorG):
         sigma = k*medianAbsoluteValue
         if thresholdAbsolute is not None:
             if maxAbsError > sigma*thresholdSigmaFromMedianAbsoluteValue:
-                self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdSigmaFromMedianAbsoluteValue)".format(
-                    maxAbsError, sigma*thresholdSigmaFromMedianAbsoluteValue))
+                self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} ({})".format(
+                    maxAbsError, sigma*thresholdSigmaFromMedianAbsoluteValue,
+                    "thresholdSigmaFromMedianAbsoluteValue"))
         if thresholdAbsolute is not None:
             if maxAbsError > thresholdAbsolute:
                 self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdAbsolute)".format(
@@ -1249,8 +1253,10 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
     def setOutputDir(self, baseDir=None, deleteAndRecreate=None, suffix="_output"):
         """Set the output directory to which plots and hdf5 files will go
         baseDir -- the directory in which the output directory will exist
-        deleteAndRecreate (required keyword arg) -- if True, will delete the whole directory if it already exists (good for if you re-run the same script alot)
-        if False, will attempt to create the directory, if it already exists (like if you rerun the same script), it will error
+        deleteAndRecreate (required keyword arg) -- if True, will delete the whole directory if it already exists
+                (good for if you re-run the same script alot)
+                if False, will attempt to create the directory,
+                if it already exists (like if you rerun the same script), it will error
         suffix -- added to the first part of shortName to create the output directory name
 
         commonly called as

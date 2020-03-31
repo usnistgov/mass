@@ -240,14 +240,14 @@ class Test_fluorescence(unittest.TestCase):
 
         # Check data consistent with uncertainties
         res, ectr, scale = params[:3]
-        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit fwhm: %.4f  actual: %.4f; expect unc %.4f" % (fwhm, nbins, N_bg,
-            res, fwhm, d_res)
+        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit fwhm: %.4f  actual: %.4f; expect unc %.4f" % (
+            fwhm, nbins, N_bg, res, fwhm, d_res)
         self.assertLessEqual(abs(res-fwhm), 4*d_res, msg)
-        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit Ectr: %.4f  actual: %.4f; expect unc %.4f" % (fwhm, nbins, N_bg,
-            ectr, 5898.802, d_ectr)
+        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit Ectr: %.4f  actual: %.4f; expect unc %.4f" % (
+            fwhm, nbins, N_bg, ectr, 5898.802, d_ectr)
         self.assertLessEqual(abs(ectr-5898.802), 4*d_ectr, msg)
-        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit scale: %.4f  actual: %.4f; expect unc %.4f" % (fwhm, nbins, N_bg,
-            scale, 1.0, d_scale)
+        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit scale: %.4f  actual: %.4f; expect unc %.4f" % (
+            fwhm, nbins, N_bg, scale, 1.0, d_scale)
         self.assertLessEqual(abs(scale-1.0), 4*d_scale, msg)
 
     def test_mn_k_alpha_no_background(self):

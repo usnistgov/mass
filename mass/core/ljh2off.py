@@ -23,15 +23,18 @@ def off_header_dict_from_ljhfile(ljhfile, projectors, basis, h5_path):
     d["NumberOfBases"] = projectors.shape[0]
     d["FileFormat"] = "OFF"
     d["ModelInfo"] = collections.OrderedDict()
+    saved_msg = " ".join(
+        ["row-major float64 binary data after header and before records.",
+         "projectors first then basis, nbytes = rows*cols*8 for each projectors and basis"])
     d["ModelInfo"]["Projectors"] = {
         "Rows": projectors.shape[0],
         "Cols": projectors.shape[1],
-        "SavedAs": "row-major float64 binary data after header and before records. projectors first then basis, nbytes = rows*cols*8 for each projectors and basis"
+        "SavedAs": saved_msg
     }
     d["ModelInfo"]["Basis"] = {
         "Rows": basis.shape[0],
         "Cols": basis.shape[1],
-        "SavedAs": "row-major float64 binary data after header and before records. projectors first then basis, nbytes = rows*cols*8 for each projectors and basis"
+        "SavedAs": saved_msg
     }
     d["ModelInfo"]["ModelFile"] = h5_path
     d["PulseFile"] = ljhfile.filename
@@ -155,7 +158,8 @@ def load_pulse_models(h5_path):
 def parse_args(fake):
     if fake:
         return FakeArgs()
-    example_usage = """ python ljh2off.py data/20190924/0010/20190924_run0010_chan1.ljh data/20190923/0003/20190923_run0003_model.hdf5 test_ljh2off -m 4 -r"""
+    example_usage = """ python ljh2off.py data/20190924/0010/20190924_run0010_chan1.ljh """
+    example_usage += """data/20190923/0003/20190923_run0003_model.hdf5 test_ljh2off -m 4 -r"""
     parser = argparse.ArgumentParser(
         description="convert ljh files to off files, example:\n"+example_usage)
     parser.add_argument(

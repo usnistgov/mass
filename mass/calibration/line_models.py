@@ -161,7 +161,7 @@ class GenericLineModel(MLEModel):
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
                           background, bg_slope, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi):
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
-                cleanspectrum_fn = lambda x: self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
+                def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
                 # Convert tau values (in eV units) to
                 # lengths in bin units, which _smear_exponential_tail expects
                 binwidth = bin_centers[1]-bin_centers[0]

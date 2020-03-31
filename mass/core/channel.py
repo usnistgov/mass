@@ -1312,7 +1312,8 @@ class MicrocalDataSet(object):
         f.compute(fmax=fmax, f_3db=f_3db, cut_pre=cut_pre, cut_post=cut_post)
         self.filter = f
         if np.any(np.isnan(f.filt_noconst)) or np.any(np.isnan(f.filt_aterms)):
-            raise Exception("there are nan values in your filters!! BAD. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
+            raise Exception("{}. model {}, nPresamples {}, noise_autcorr {}, timebase {}, modelpeak {}".format(
+                "there are nan values in your filters!! BAD",
                 model, self.nPresamples, self.noise_autocorr, self.timebase, modelpeak))
         self._filter_type = "ats"
         self._filter_to_hdf5()
@@ -1383,14 +1384,17 @@ class MicrocalDataSet(object):
             pretrig_rms_median = self.saved_auto_cuts._pretrig_rms_median
             pretrig_rms_sigma = self.saved_auto_cuts._pretrig_rms_sigma
         else:
-            raise Exception("use autocuts when making projectors, so it can save more info about desired cuts")
+            raise Exception(
+                "use autocuts when making projectors, so it can save more info about desired cuts")
         v_dv = f.predicted_v_over_dv.get("noconst", 0.0)
-        self.pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename)
+        self.pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd,
+                                      v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename)
         return self.pulse_model
 
     @_add_group_loop()
     def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None, maximum_n_pulses=4000, category={}):
-        pulse_model = self.get_pulse_model(self.filter, n_basis, pulses_for_svd, maximum_n_pulses=maximum_n_pulses, category=category)
+        pulse_model = self.get_pulse_model(
+            self.filter, n_basis, pulses_for_svd, maximum_n_pulses=maximum_n_pulses, category=category)
         save_inverted = self.__dict__.get("invert_data", False)
         hdf5_group = hdf5_file.create_group("{}".format(self.channum))
         pulse_model.toHDF5(hdf5_group, save_inverted)
