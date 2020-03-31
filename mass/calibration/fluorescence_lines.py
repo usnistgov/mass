@@ -18,7 +18,7 @@ LOG = logging.getLogger("mass")
 
 FWHM_OVER_SIGMA = (8 * np.log(2))**0.5
 
-class SpectralLine():
+class SpectralLine(sp.stats.rv_continuous):
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 
