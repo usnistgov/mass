@@ -19,8 +19,7 @@ spectrum = mass.MnKAlpha()
 plt.clf()
 axis=plt.gca()
 for fwhm in (3,4,5,6,8,10):
-    spectrum.set_gauss_fwhm(fwhm)
-    spectrum.plot(axis=axis,components=False,label="{}".format(fwhm),setylim=False);
+    spectrum.plot(axis=axis,components=False,label="{}".format(fwhm),setylim=False),instrument_gaussian_fwhm=fwhm);
 plt.legend(loc="upper left")
 plt.title("Mn K$\\alpha$ distribution at various resolutions")
 plt.xlabel("Energy (eV)")
@@ -28,13 +27,11 @@ plt.xlabel("Energy (eV)")
 
 #### 2. Generate random deviates from a fluorescence line shape
 
-Objects of the `SpectralLine` class subclass the scipy type `scipy.stats.rv_continuous` and offer all the methods, such as `pdf`, `cdf`, `mean`, `median`, and the random deviate generator, `rvs`. Note that you the behavior of calling a `SpectralLine` differs from the `rv_continuous` class.:
+Objects of the `SpectralLine` class roughly copy the API of the scipy type `scipy.stats.rv_continuous` and offer some of the methods, such as `pdf`, `rvs`.:
 
 ```python
-spectrum.set_gauss_fwhm(0)
-energies0 = spectrum.rvs(size=20000)
-spectrum.set_gauss_fwhm(3)
-energies3 = spectrum.rvs(size=20000)
+energies0 = spectrum.rvs(size=20000, instrument_gaussian_fwhm=0)
+energies3 = spectrum.rvs(size=20000, instrument_gaussian_fwhm=3) 
 
 plt.clf()
 contents0, bin_edges0, _ = plt.hist(energies0, 200, [5820,5960], histtype="step")

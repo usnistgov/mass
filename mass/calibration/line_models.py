@@ -84,7 +84,8 @@ class MLEModel(lmfit.Model):
     def fit(self, *args, **kwargs):
         result = lmfit.Model.fit(self, *args, **kwargs)
         if self.require_errorbars and (not result.errorbars):
-            raise(Exception("error bars not computed, are some of your guess values equal to max or min? you can set .require_errorbars=False to not error here"))
+            raise(Exception("""Error bars not computed, are some of your guess values equal to max or min?
+            You can set .require_errorbars=False to not error here"""))
         return result
 
 
@@ -138,8 +139,7 @@ class GenericLineModel(MLEModel):
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
                           background, bg_slope, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi):
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
-                self.spect.set_gauss_fwhm(fwhm)
-                cleanspectrum_fn = self.spect.pdf
+                def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
                 # Convert tau values (in eV units) to
                 # lengths in bin units, which _smear_exponential_tail expects
                 binwidth = bin_centers[1]-bin_centers[0]
@@ -154,8 +154,7 @@ class GenericLineModel(MLEModel):
         else:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude, background, bg_slope):
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
-                self.spect.set_gauss_fwhm(fwhm)
-                spectrum = self.spect.pdf(energy)
+                spectrum = self.spect.pdf(energy, fwhm)
                 retval = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
                 if any(np.isnan(retval)) or any(retval < 0):
                     raise ValueError

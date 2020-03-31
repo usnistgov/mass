@@ -46,9 +46,8 @@ import pylab as plt
 line = mass.spectrum_classes["MnKAlpha"]()
 # But the following is a shortcut for many lines:
 line = mass.MnKAlpha()
-line.set_gauss_fwhm(2.2)  # set the energy resolution of this line
 N = 100000
-energies = line.rvs(size=N)  # draw from the distribution
+energies = line.rvs(size=N, instrument_gaussian_fwhm=2.2)  # draw from the distribution
 plt.clf()
 sim, bin_edges, _ = plt.hist(energies, 120, [5865, 5925], histtype="step");
 binsize = bin_edges[1] - bin_edges[0]

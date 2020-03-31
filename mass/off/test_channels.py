@@ -1,7 +1,6 @@
 import mass
 from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, Recipe
 from mass.calibration import _highly_charged_ion_lines
-import h5py
 import os
 import numpy as np
 import pylab as plt
@@ -87,7 +86,7 @@ names = ["W Ni-{}".format(i) for i in range(1, 27)]
 n = collections.OrderedDict()
 # line = ax.lines[0]
 for name in names:
-    n[name] = mass.spectrum_classes[name].nominal_peak_energy
+    n[name] = mass.spectra[name].nominal_peak_energy
 labelPeak(ax, "W Ni-8", n["W Ni-8"])
 labelPeaks(axis=ax, names=n.keys(), energies=n.values(), line=ax.lines[0])
 nos = collections.OrderedDict()
@@ -249,7 +248,8 @@ class TestSummaries(ut.TestCase):
         self.assertEqual(n_exclude_bad, 0)
 
     def test_experiment_state_file_repeated_states(self):
-        # a better test would create an alternate experiment state file with repeated indicies and use that rather than reach into the internals of ExperimentStateFile
+        # A better test would create an alternate experiment state file with repeated indicies and use that
+        # rather than reach into the internals of ExperimentStateFile
         esf = mass.off.channels.ExperimentStateFile(_parse=False)
         # reach into the internals to simulate the results of parse with repeated states
         esf.allLabels = ["A", "B", "A", "B", "IGNORE", "A"]
@@ -267,7 +267,7 @@ class TestSummaries(ut.TestCase):
         ds_local = data_local.firstGoodChannel()
         ds_local.stdDevResThreshold = 100
         inds = ds_local.getStatesIndicies("A")
-        fv = ds_local.getAttr("filtValue", inds)
+        _ = ds_local.getAttr("filtValue", inds)
 
     def test_getAttr_with_list_of_slice(self):
         ind = [slice(0, 5), slice(5, 10)]
@@ -275,6 +275,9 @@ class TestSummaries(ut.TestCase):
                                     ds.getAttr("filtValue", slice(0, 10))))
         self.assertTrue(np.allclose(ds.getAttr(
             "filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10))))
+
+    def test_HCI_loads(self):
+        self.assertTrue("O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines))
 
 
 if __name__ == '__main__':

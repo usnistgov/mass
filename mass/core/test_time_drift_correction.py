@@ -29,7 +29,7 @@ def make_drifting_data(distrib, res_fwhm_ev, cps, duration_s, gain_of_t):
     """
     res_sigma = res_fwhm_ev / 2.3548
     t = make_arrival_times(cps, duration_s)
-    energies0 = distrib.rvs(size=len(t))
+    energies0 = distrib.rvs(size=len(t), instrument_gaussian_fwhm=0)
     gain = gain_of_t(t)
     energies = gain*energies0 + np.random.standard_normal(len(t))*res_sigma
     return t, energies
@@ -51,7 +51,7 @@ class TestTimeDriftCorrection(ut.TestCase):
         return 1+0.005*np.sin(2*np.pi*t/10000.)
 
     def test_make_drifting_data(self):
-        distrib = mass.calibration.MnKAlpha()
+        distrib = mass.calibration.MnKAlpha
         res_fwhm_ev = 3.0
         cps = 1
         duration_s = 10000
