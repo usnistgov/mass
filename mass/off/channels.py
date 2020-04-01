@@ -294,7 +294,7 @@ class CorG():
 
     _default_bin_size = 1.0
     def setDefaultBinsize(self, binsize):
-        """sets the default binsize used by linefit and functions that call it"""
+        """sets the default binsize in eV used by self.linefit and functions that call it"""
         self._default_bin_size = binsize
 
     def _handle_binsize(self, binsize):
@@ -1338,6 +1338,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         plt.ylabel("line position (eV)")
 
     def setDefaultBinsize(self, binsize):
+        """sets the default binsize in eV used by self.linefit and functions that call it,
+        also sets it for all children"""
         self._default_bin_size = binsize
         with self.includeBad():
             for ds in self.values():
