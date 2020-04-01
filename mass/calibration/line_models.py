@@ -94,10 +94,13 @@ class MLEModel(lmfit.Model):
             # leastsq fails to give uncertaities if parameters are near bounds or at their initial value
             # least_squares is about 1.5X to 2.0X slower based on two test case
         if "minimum_bins_per_fwhm" not in kwargs:
-            kwargs["minimum_bins_per_fwhm"]=3
+            minimum_bins_per_fwhm=3 # provide default value
+        else:
+            minimum_bins_per_fwhm=kwargs["minimum_bins_per_fwhm"] 
+            del kwargs["minimum_bins_per_fwhm"] # remove this argument before passwing kwargs to ._fit
         result = self._fit(*args, **kwargs)
         result.__class__ = LineModelResult
-        result._validate_bins_per_fwhm(kwargs["minimum_bins_per_fwhm"])
+        result._validate_bins_per_fwhm(minimum_bins_per_fwhm)
         return result
 
     def _fit(self, *args, **kwargs):
