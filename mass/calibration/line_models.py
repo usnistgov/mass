@@ -5,7 +5,9 @@ GenericKAlphaModel
 
 import lmfit
 import numpy as np
+
 from . import line_fits
+
 
 
 class MLEModel(lmfit.Model):
@@ -249,7 +251,16 @@ class GenericKAlphaModel(GenericLineModel):
 
 # add these functions to lmfit.model.ModelResult
 def _result_compact_fit_report(self):
-    return self.fit_report(sort_pars=True)
+    s = ""
+    sn = {"background":"bg","amplitude":"ampl","bg_slope":"bg_slp"}
+    for k in sorted(self.params.keys()):
+        v = self.params[k]
+        if v.vary:
+            sig_figs = int(np.ceil(np.log10(v.value/v.stderr))+1)
+            s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
+        else:
+            s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
+    return s[:-1]
 
 
 def _result_plot(self, ax=None, title=None, xlabel=None, ylabel=None):
@@ -257,8 +268,14 @@ def _result_plot(self, ax=None, title=None, xlabel=None, ylabel=None):
     xlabel=xlabel, ylabel=ylabel)
     if title is not None:
         plt.title(title)
-    ax.legend(["datablugi", self._compact_fit_report()],loc='best', frameon=False)
+    ax.text(0.05,0.95, self._compact_fit_report(), transform=ax.transAxes, 
+    verticalalignment="top", bbox=dict(facecolor='w', alpha=0.5), family="monospace")
+    # ax.legend(["data", self._compact_fit_report()],loc='best', frameon=True, framealpha = 0.5)
+    ax.legend(loc="upper right")
 
 
 lmfit.model.ModelResult._plot_fit = _result_plot
 lmfit.model.ModelResult._compact_fit_report = _result_compact_fit_report
+
+
+
