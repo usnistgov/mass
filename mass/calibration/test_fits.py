@@ -329,7 +329,7 @@ class Test_MnKA_lmfit(unittest.TestCase):
     def test_lmfit(self):
         n = 10000
         resolution = 2.5
-        bin_edges = np.arange(5850, 5950, 1.0)
+        bin_edges = np.arange(5850, 5950, 0.5)
         # generate random x-ray pulse energies following MnKAlpha distribution
         line = mass.calibration.fluorescence_lines.MnKAlpha
         np.random.seed(154)

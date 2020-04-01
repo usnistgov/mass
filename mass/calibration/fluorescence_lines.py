@@ -180,6 +180,11 @@ class SpectralLine(sp.stats.rv_continuous):
     def fitter(self):
         return make_line_fitter(self)
 
+    def minimum_fwhm(self, instrument_gaussian_fwhm):
+        """for the narrowest lorentzian in the line model, calculate the combined fwhm including 
+        the lorentzian, intrinstic_sigma, and instrument_gaussian_fwhm"""
+        fwhm2 = np.amin(self.lorentzian_fwhm)**2+instrument_gaussian_fwhm**2+(self.intrinsic_sigma*FWHM_OVER_SIGMA)**2
+        return np.sqrt(fwhm2)
 
 lineshape_references = OrderedDict()
 lineshape_references["Klauber 1993"] = """Data are from C. Klauber, Applied Surface Science 70/71 (1993) pages 35-39.

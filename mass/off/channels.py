@@ -235,7 +235,7 @@ class CorG():
         return axis
 
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
-                binsize=1, binEdges=None, label="full", plot=True,
+                binsize=None, binEdges=None, label="full", plot=True,
                 params=None, goodFunc=None, calibration=None, require_errorbars=True, method="leastsq_refit"):
         """Do a fit to `lineNameOrEnergy` and return the result. You can get the params results with result.params
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel", your you can pass in a model like a mass.MnKAlphaModel().
@@ -262,7 +262,7 @@ class CorG():
         if binEdges is None:
             if attr.startswith("energy") or calibration is not None:
                 pe = model.spect.peak_energy
-                binEdges = np.arange(pe-dlo, pe+dhi, binsize)
+                binEdges = np.arange(pe-dlo, pe+dhi, self._handle_binsize(binsize))
             else:
                 raise Exception(
                     "must pass binEdges if attr does not start with energy and you don't pass a calibration, also don't use energy and calibration at the same time")
@@ -277,21 +277,31 @@ class CorG():
             params = model.guess(counts, bin_centers=bin_centers)
         if attr.startswith("energy") or calibration is not None:
             params["dph_de"].set(vary=False)
-
+            unit_str = "eV"
+        if calibration is None:
+            unit_str = "arbs"
+        if calibration is not None:
+            attr_str = f"{attr} with cal"
+        else:
+            attr_str = attr
+        # unit_str and attr_str are used by result.plotm to label the axes properly
         result = model.fit(counts, params, bin_centers=bin_centers, method=method)
-        # axis=axis, label=label, plot=plot)
+        result.set_label_hints(binsize=bin_centers[1]-bin_centers[0], ds_shortname=self.shortName,
+        unit_str=unit_str, attr_str=attr_str)
         if plot:
-            if attr.startswith("energy"):
-                xlabel = attr+" (eV)"
-            else:
-                xlabel = attr + "(arbs)"
-            result._plot_fit(ax=axis,
-            xlabel=xlabel, ylabel="counts per {:.2f} unit bin".format(bin_centers[1]-bin_centers[0]))
-            axis.set_title(self.shortName+", {}, states = {}".format(lineNameOrEnergy, states))
-
+            result.plotm()
         return result
 
+    _default_bin_size = 1.0
+    def setDefaultBinsize(self, binsize):
+        """sets the default binsize used by linefit and functions that call it"""
+        self._default_bin_size = binsize
 
+    def _handle_binsize(self, binsize):
+        if binsize is None:
+            return self._default_bin_size
+        else:
+            return binsize
 
 class NoCutInds():
     pass
@@ -304,6 +314,7 @@ class InvalidStatesException(Exception):
 # wrap up an off file with some conviencine functions
 # like a TESChannel
 class Channel(CorG):
+    _default_bin_size = 1
     def __init__(self, offFile, experimentStateFile, verbose=True):
         self.offFile = offFile
         self.experimentStateFile = experimentStateFile
@@ -638,7 +649,7 @@ class Channel(CorG):
 
     @add_group_loop
     def calibrateFollowingPlan(self, uncalibratedName, calibratedName="energy", curvetype="gain", approximate=False,
-                               dlo=50, dhi=50, binsize=1, plan=None, n_iter=1, method="leastsq_refit"):
+                               dlo=50, dhi=50, binsize=None, plan=None, n_iter=1, method="leastsq_refit"):
         if plan is None:
             plan = self.calibrationPlan
         starting_cal = plan.getRoughCalibration()
@@ -762,7 +773,7 @@ class Channel(CorG):
     @add_group_loop
     def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None,
                             positionToleranceAbsolute=None, attr="energy", states=None,
-                            dlo=50, dhi=50, binsize=1, binEdges=None, guessParams=None,
+                            dlo=50, dhi=50, binsize=None, binEdges=None, guessParams=None,
                             goodFunc=None, holdvals=None):
         """calls ds.linefit to fit the given line
         marks self bad if the fit position is more than toleranceFitSigma*fitSigma away
@@ -846,8 +857,7 @@ class Channel(CorG):
         n = int(np.ceil(np.sqrt(len(results)+2)))
         for i, result in enumerate(results):
             ax = plt.subplot(n, n, i+1)
-            result._plot_fit(ax=ax)
-            plt.title(result.model.spect.shortname)
+            result.plotm(ax=ax, title=str(result.model.spect.shortname)) # pass title to suppress showing the dataset shortName on each subplot
         ax = plt.subplot(n, n, i+2)
         calibration.plot(axis=ax)
         ax = plt.subplot(n, n, i+3)
@@ -855,6 +865,7 @@ class Channel(CorG):
                       axis=ax, coAddStates=False)
         plt.vlines(self.calibrationPlan.uncalibratedVals, 0, plt.ylim()[1])
         plt.tight_layout()
+
 
 
 class AlignBToA():
@@ -1216,7 +1227,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                 ds.markGood()
 
     def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None, positionToleranceAbsolute=None,
-                            attr='energy', states=None, dlo=50, dhi=50, binsize=1, binEdges=None,
+                            attr='energy', states=None, dlo=50, dhi=50, binsize=None, binEdges=None,
                             guessParams=None, goodFunc=None, holdvals=None, resolutionPlot=True, hdf5Group=None,
                             _rethrow=False):
         """
@@ -1295,12 +1306,12 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         else:
             return h5py.File(self._outputHDF5Filename, "a")
 
-    def resultPlot(self, lineName, states=None):
-        results = [ds.linefit(lineName, plot=False, states=states) for ds in self.values()]
-        result = self.linefit(lineName, plot=False, states=states)
+    def resultPlot(self, lineName, states=None, binsize=None):
+        results = [ds.linefit(lineName, plot=False, states=states, binsize=binsize) for ds in self.values()]
+        result = self.linefit(lineName, plot=False, states=states, binsize=binsize)
         fig = plt.figure(figsize=(12, 12))
         fig.suptitle("{} fits to {} with states = {}".format(self.shortName, lineName, states))
-        result._plot_fit(ax=plt.subplot(2, 2, 3))
+        result.plotm(ax=plt.subplot(2, 2, 3))
         plt.xlabel("energy (eV)")
         plt.ylabel("counts per bin")
         resolutions = [r.params["fwhm"].value for r in results]
@@ -1325,6 +1336,12 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         plt.legend()
         plt.xlabel("channel number")
         plt.ylabel("line position (eV)")
+
+    def setDefaultBinsize(self, binsize):
+        self._default_bin_size = binsize
+        with self.includeBad():
+            for ds in self.values():
+                ds.setDefaultBinsize(binsize)
 
 
 
