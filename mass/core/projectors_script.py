@@ -11,9 +11,11 @@ LOG.setLevel(logging.DEBUG)
 
 
 def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_deriv,
-                    n_basis, maximum_n_pulses, mass_hdf5_path):
+                    n_basis, maximum_n_pulses, mass_hdf5_path, invert_data):
     data = mass.TESGroup(pulse_files, noise_files, overwrite_hdf5_file=True,
                          hdf5_filename=mass_hdf5_path)
+    for ds in data:
+        ds.invert_data = invert_data
     data.summarize_data()
     data.auto_cuts(nsigma_pt_rms=n_sigma_pt_rms, nsigma_max_deriv=n_sigma_max_deriv)
     data.compute_noise_spectra()
@@ -52,6 +54,8 @@ def parse_args(fake):
                         help="supress text output, mostly for testing")
     parser.add_argument("--mass_hdf5_path", default=None,
                         help="specify the path for the mass hdf5 file that is generated as a byproduct of this script")
+    parser.add_argument("-i","--invert_data", action="store_true",
+                        help="pass this flag for downward going pulses (eg RAVEN)")
     args = parser.parse_args()
     return args
 
@@ -69,7 +73,7 @@ def main(args=None):
         print("found these {} channels with both pulse and noise files: {}".format(len(channums), channums))
     nchan = len(channums)
     if args.max_channels < nchan:
-        channums = channums[:nchan]
+        channums = channums[:args.max_channels]
         if not args.silent:
             print("chose first max_channels={} channels".format(args.max_channels))
     if len(channums) == 0:
@@ -91,4 +95,5 @@ def main(args=None):
     with h5py.File(args.output_path, "w") as h5:
         make_projectors(pulse_files=pulse_files, noise_files=noise_files, h5=h5,
                         n_sigma_pt_rms=args.n_sigma_pt_rms, n_sigma_max_deriv=args.n_sigma_max_deriv,
-                        n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path)
+                        n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path,
+                        invert_data=args.invert_data)
