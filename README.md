@@ -10,7 +10,7 @@
 Requires Python 3.
 
 ```  
-pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@develop#egg=mass
+pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass
 ```
 
 See [`nist-qsp-tdm`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) README for instructions to install all tdm python software simultaneously, and how to setup venv.
@@ -22,7 +22,7 @@ Mass installs 3 scripts (as of March 2020). These are `ljh_truncate`, `make_proj
 ### Python 2.7
 If you really want to use Python 2.7, version 0.7.4 is the last version tested on Python 2.7, you can install it with the following command:
 ```  
-pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@versions/0.7.4#egg=mass
+pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@versions/0.7.5#egg=mass
 ```
 
 # Documentation
