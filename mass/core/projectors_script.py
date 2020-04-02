@@ -21,6 +21,7 @@ def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_de
     data.compute_noise_spectra()
     data.compute_ats_filter(shift1=False)
     data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses)
+    return data.n_good_channels(), data.n_channels
 
 
 def parse_args(fake):
@@ -93,7 +94,12 @@ def main(args=None):
         sys.exit(1)
     # create output file
     with h5py.File(args.output_path, "w") as h5:
-        make_projectors(pulse_files=pulse_files, noise_files=noise_files, h5=h5,
+        n_good, n = make_projectors(pulse_files=pulse_files, noise_files=noise_files, h5=h5,
                         n_sigma_pt_rms=args.n_sigma_pt_rms, n_sigma_max_deriv=args.n_sigma_max_deriv,
                         n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path,
                         invert_data=args.invert_data)
+    if not args.silent:
+        if n_good == 0:
+            print(f"all channels bad, could be because you need -i for inverted pulses")
+        print(f"made projectors for {n_good} of {n} channels")
+        print(f"written to {args.output_path}")
