@@ -7,7 +7,7 @@
                         November 2010-present
 
 # Installation
-We recommend you use Python 3, although as of March 2020 we are still supporting python 2.7.
+Requires Python 3.
 
 ```  
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@develop#egg=mass
@@ -18,6 +18,12 @@ See [`nist-qsp-tdm`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) README fo
 
 ## Scripts
 Mass installs 3 scripts (as of March 2020). These are `ljh_truncate`, `make_projectors`, and `ljh2off`. You can check `setup.py` and look for either `scripts` or `console_scripts` to see if any others have been added. These should be executable from your terminal from anywhere without typing `python` before them. They all have help accessible via eg `ljh2off --help`.
+
+### Python 2.7
+If you really want to use Python 2.7, version 0.7.4 is the last version tested on Python 2.7, you can install it with the following command:
+```  
+pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@versions/0.7.4#egg=mass
+```
 
 # Documentation
 Use ipython to do something like `mass.function?` to see docstrings, or browse the source code. Also there are some overview `.md` files in the `doc` folder. I like to view these `.md` files in bitbucket.
