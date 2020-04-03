@@ -107,35 +107,37 @@ if __name__ == "__main__":
     generate_sourceroot_file()
 
     setup(name='mass',
-          version=MASS_VERSION,
-          author='Joe Fowler',
-          author_email='joe.fowler@nist.gov',
-          url='https://bitbucket.org/joe_fowler/mass',
-          description='Microcalorimeter Analysis Software Suite',
-          packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
-                    'mass.demo', 'mass.gui', 'mass.off'],
-          ext_modules=cythonize([Extension('mass.core.cython_channel',
-                                           [os.path.join(BASEDIR, 'mass',
-                                                         'core', 'cython_channel.pyx')],
-                                           include_dirs=[np.get_include()]),
-                                 Extension('mass.mathstat.robust',
-                                           [os.path.join(BASEDIR, 'mass',
-                                                         'mathstat', 'robust.pyx')],
-                                           include_dirs=[np.get_include()]),
-                                 Extension('mass.core.analysis_algorithms',
-                                           [os.path.join(BASEDIR, 'mass', 'core',
-                                                         'analysis_algorithms.pyx')],
-                                           include_dirs=[np.get_include()]),
-                                 Extension('mass.mathstat.entropy',
-                                           [os.path.join(BASEDIR, 'mass',
-                                                         'mathstat', 'entropy.pyx')],
-                                           include_dirs=[np.get_include()])
-                                 ]),
-          package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
-                        'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
-                        },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
-          cmdclass={'build': QtBuilder},
-          package_dir={'mass': "mass"},
-          install_requires=requirements,
-          scripts=["bin/ljh_truncate", "bin/ljh2off", "bin/make_projectors"],
-          )
+        version=MASS_VERSION,
+        author='Joe Fowler',
+        author_email='joe.fowler@nist.gov',
+        url='https://bitbucket.org/joe_fowler/mass',
+        description='Microcalorimeter Analysis Software Suite',
+        packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
+                'mass.demo', 'mass.gui', 'mass.off'],
+        ext_modules=cythonize([Extension('mass.core.cython_channel',
+                                        [os.path.join(BASEDIR, 'mass',
+                                                        'core', 'cython_channel.pyx')],
+                                        include_dirs=[np.get_include()]),
+                                Extension('mass.mathstat.robust',
+                                        [os.path.join(BASEDIR, 'mass',
+                                                        'mathstat', 'robust.pyx')],
+                                        include_dirs=[np.get_include()]),
+                                Extension('mass.core.analysis_algorithms',
+                                        [os.path.join(BASEDIR, 'mass', 'core',
+                                                        'analysis_algorithms.pyx')],
+                                        include_dirs=[np.get_include()]),
+                                Extension('mass.mathstat.entropy',
+                                        [os.path.join(BASEDIR, 'mass',
+                                                        'mathstat', 'entropy.pyx')],
+                                        include_dirs=[np.get_include()])
+                                ]),
+        package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
+                    'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
+                    },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
+        cmdclass={'build': QtBuilder},
+        package_dir={'mass': "mass"},
+        install_requires=requirements,
+        scripts=["bin/ljh_truncate",  "bin/make_projectors"],
+        entry_points = {
+        'console_scripts': ['mass.ljh2off:main'],}
+        )
