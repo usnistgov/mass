@@ -9,7 +9,6 @@ import h5py
 import progress.bar
 import argparse
 import logging
-import pdb
 LOG = logging.getLogger("mass")
 
 # Intended for conversion of LJH files to OFF files, given some projectors and basis
@@ -72,6 +71,9 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
             # print("i_lo {}, i_hi {}, i_segment {}, nnow {}, nsum {}".format(i_lo, i_hi, i_segment, data.shape[0], n))
             timestamps = ljhfile.datatimes_float
             rowcounts = ljhfile.rowcount
+            projector_record_length = projectors.shape[1]
+            data_record_length = data.shape[1]
+            assert projector_record_length == data_record_length, f"projectors are for records of length {projector_record_length}, but {ljhfile} has records of length {data_record_length}"
             mpc = np.matmul(projectors, data.T)  # modeled pulse coefs
             mp = np.matmul(basis, mpc)  # modeled pulse
             residuals = mp-data.T
@@ -167,7 +169,7 @@ def parse_args(fake):
     example_usage += """data/20190923/0003/20190923_run0003_model.hdf5 test_ljh2off -m 4 -r"""
     parser = argparse.ArgumentParser(
         description="convert ljh files to off files, example:\n"+example_usage, 
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter))
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "ljh_path", help="path a a single ljh file, other channel numbers will be found automatically")
     parser.add_argument("h5_path", help="path to a hdf5 file with projectors and bases")
@@ -179,18 +181,14 @@ def parse_args(fake):
                         help="stop after processing this many channels", default=2**31, type=int)
     parser.add_argument("--n_ignore_presamples",
                         help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=0, type=int)
-    parser.add_argument("--pdb", action="store_true", help="drop to pdb after an error")
     args = parser.parse_args()
     return args
 
 def main():
     print("starting ljh2off")
     args = mass.ljh2off.parse_args(fake=False)
-    if args.pdb:
-        print("PDB\n\n\n")
-        pdb.pm()
     for k in sorted(vars(args).keys()):
-        print("{}: {}".format(k, vars(args)[k]))
+        print("{}: {}".format(k, vars(args)[k])) 
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir)
     elif not args.replace_output:

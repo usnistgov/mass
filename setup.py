@@ -139,5 +139,5 @@ if __name__ == "__main__":
         install_requires=requirements,
         scripts=["bin/ljh_truncate",  "bin/make_projectors"],
         entry_points = {
-        'console_scripts': ['mass.ljh2off:main'],}
+        'console_scripts': ['ljh2off=mass.core.ljh2off:main'],}
         )
