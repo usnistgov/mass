@@ -8,6 +8,9 @@ import progress.bar
 import pylab as plt
 import numpy as np
 
+# user imports
+import mass
+
 LOG = logging.getLogger("mass")
 
 class Recipe():
@@ -195,3 +198,21 @@ class SilenceBar(progress.bar.Bar):
     def finish(self):
         if not self.silence:
             progress.bar.Bar.finish(self)
+
+
+def get_model(lineNameOrEnergy):
+    if isinstance(lineNameOrEnergy, mass.GenericLineModel):
+        line = lineNameOrEnergy.spect
+    elif isinstance(lineNameOrEnergy, str):
+        if lineNameOrEnergy in mass.spectra:
+            line = mass.spectra[lineNameOrEnergy]
+        elif lineNameOrEnergy in mass.STANDARD_FEATURES:
+            energy = mass.STANDARD_FEATURES[lineNameOrEnergy]
+            line = mass.SpectralLine.quick_monochromatic_line(lineNameOrEnergy, energy, 0.001, 0)
+    else:
+        try:
+            energy = float(lineNameOrEnergy)
+        except:
+            raise Exception(f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
+        line = mass.SpectralLine.quick_monochromatic_line(f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
+    return line.model()

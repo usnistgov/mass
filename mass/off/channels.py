@@ -16,6 +16,7 @@ import mass
 from .off import OffFile
 from .util import GroupLooper, add_group_loop, labelPeak, labelPeaks, Recipe
 from .util import annotate_lines, SilenceBar
+from .import util
 
 LOG = logging.getLogger("mass")
 
@@ -251,14 +252,7 @@ class CorG():
         calbration -- a calibration to be passed to hist - will error if used with an "energy..." attr
         require_errorbars -- throw an error if lmfit doesn't return errorbars
         """
-        if isinstance(lineNameOrEnergy, mass.GenericLineModel):
-            model = lineNameOrEnergy
-        elif isinstance(lineNameOrEnergy, str):
-            line = mass.spectra[lineNameOrEnergy]
-            model = line.model()
-        else:
-            line = mass.FallbackMonochromaticLine(lineNameOrEnergy)
-            model = line.model()
+        model = util.get_model(lineNameOrEnergy)
         if binEdges is None:
             if attr.startswith("energy") or calibration is not None:
                 pe = model.spect.peak_energy
@@ -276,7 +270,7 @@ class CorG():
         if params is None:
             params = model.guess(counts, bin_centers=bin_centers)
         if attr.startswith("energy") or calibration is not None:
-            params["dph_de"].set(vary=False)
+            params["dph_de"].set(1.0,vary=False)
             unit_str = "eV"
         if calibration is None:
             unit_str = "arbs"
@@ -286,8 +280,12 @@ class CorG():
             attr_str = attr
         # unit_str and attr_str are used by result.plotm to label the axes properly
         result = model.fit(counts, params, bin_centers=bin_centers, method=method)
+        if states == None:
+            states_hint = "all states"
+        else:
+            states_hint = f"{states}"
         result.set_label_hints(binsize=bin_centers[1]-bin_centers[0], ds_shortname=self.shortName,
-        unit_str=unit_str, attr_str=attr_str)
+        unit_str=unit_str, attr_str=attr_str, states_hint=states_hint)
         if plot:
             result.plotm()
         return result

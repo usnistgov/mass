@@ -9,7 +9,7 @@ import pylab as plt
 
 from . import line_fits
 
-
+VALIDATE_BIN_SIZE = True
 
 class MLEModel(lmfit.Model):
     """A version of lmfit.Model that uses Maximum Likelihood weights
@@ -268,6 +268,7 @@ class LineModelResult(lmfit.model.ModelResult):
             v = self.params[k]
             if v.vary:
                 sig_figs = int(np.ceil(np.log10(v.value/v.stderr))+1)
+                sig_figs = max(1, sig_figs)
                 s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
             else:
                 s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
@@ -286,11 +287,12 @@ class LineModelResult(lmfit.model.ModelResult):
         # ax.legend(["data", self._compact_fit_report()],loc='best', frameon=True, framealpha = 0.5)
         ax.legend(loc="upper right")
 
-    def set_label_hints(self, binsize, ds_shortname, attr_str, unit_str):
+    def set_label_hints(self, binsize, ds_shortname, attr_str, unit_str, states_hint=""):
         self._binsize = binsize
         self._ds_shortname = ds_shortname
         self._attr_str = attr_str
         self._unit_str = unit_str
+        self._states_hint = states_hint
         self._has_label_hints = True
 
     def _handle_default_labels(self, title, xlabel, ylabel):
@@ -299,6 +301,8 @@ class LineModelResult(lmfit.model.ModelResult):
                 title = f"{self._ds_shortname}: {self.model.spect.shortname}"
             if ylabel is None:
                 ylabel = f"counts per {self._binsize:g} {self._unit_str} bin"
+                if self._states_hint != "":
+                    ylabel += f"\nstates={self._states_hint}"
             if xlabel is None:
                 xlabel = f"{self._attr_str} ({self._unit_str})"
         else:
@@ -310,6 +314,8 @@ class LineModelResult(lmfit.model.ModelResult):
     def _validate_bins_per_fwhm(self, minimum_bins_per_fwhm):
         if not "bin_centers" in self.userkws:
             return # i guess someone used this for a non histogram fit
+        if not VALIDATE_BIN_SIZE:
+            return 
         bin_centers = self.userkws["bin_centers"]
         bin_size = bin_centers[1]-bin_centers[0]
         bin_size_energy = bin_size/self.params["dph_de"]
@@ -323,5 +329,6 @@ class LineModelResult(lmfit.model.ModelResult):
          to avoid this error:\n
          1. use smaller bins\n 
          or 2. pass a smaller value of `minimum_bins_per_fwhm` to .fit\n
+         or 3. set `mass.line_models.VALIDATE_BIN_SIZE = False`
          see https://bitbucket.org/joe_fowler/mass/issues/162/resolution-bias-in-fits-where-bin-size-is for discussion on this issue""")
             

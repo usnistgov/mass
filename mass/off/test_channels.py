@@ -7,6 +7,7 @@ import pylab as plt
 import collections
 
 import unittest as ut
+import pytest
 
 # this is intented to be both a test and a tutorial script
 try:
@@ -283,6 +284,28 @@ class TestSummaries(ut.TestCase):
 
     def test_HCI_loads(self):
         self.assertTrue("O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines))
+
+
+# pytest style test! way simpler to write
+def test_get_model():
+    m_127 = mass.off.util.get_model(127)
+    assert m_127.spect.peak_energy == 127
+    assert m_127.spect.shortname == "127eVquick_line"
+
+    m_au = mass.off.util.get_model("AuLAlpha")
+    assert m_au.spect.peak_energy == mass.STANDARD_FEATURES["AuLAlpha"]
+    assert m_au.spect.shortname == "AuLAlphaquick_line"
+
+    m_ti = mass.off.util.get_model("TiKAlpha")
+    assert m_ti.spect.shortname == "TiKAlpha"
+
+    ql = mass.SpectralLine.quick_monochromatic_line("test",100,0.001,0)
+    m_ql = mass.off.util.get_model(ql.model())
+    assert m_ql.spect.shortname == "testquick_line"
+
+    with pytest.raises(UnboundLocalError):
+        mass.off.util.get_model("this is a str but not a standard feature")
+
 
 
 if __name__ == '__main__':
