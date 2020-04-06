@@ -500,8 +500,7 @@ class Channel(CorG):
     def _getAttr(self, attr, offAttrValues):
         """ internal function used to implement getAttr, does no cutting """
         if self.isRecipeAttr(attr):
-            recipe = self.recipes[attr]
-            return recipe(offAttrValues)
+            return self.recipes.craft(attr, offAttrValues)
         elif self.isOffAttr(attr):
             return offAttrValues[attr]
         else:

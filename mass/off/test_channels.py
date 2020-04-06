@@ -302,13 +302,20 @@ def test_recipes():
 
     def funb(a, z):
         return a+z
+
     rb.add("a", funa)
     rb.add("b", funb)
-    rb.add("c", lambda a,b: a+b)
+    rb.add("c", lambda a, b: a+b)
+    with pytest.raises(AssertionError):
+        rb.add("e", lambda a, b, c, d, f: a)  # should fail because f isn't defined 
+    with pytest.raises(AssertionError):
+        rb.add("f", lambda a, b: c+d, ingredients=["a", "b", "c"])  # should fail because ingredients is longer than argument list
     args = {"x": 1, "y": 2, "z": 3}
-    assert rb["a"](args) == 3
-    assert rb["b"](args) == 6
-    assert rb["c"](args) == 9
+    assert rb.craft("a", args) == 3
+    assert rb.craft("b", args) == 6
+    assert rb.craft("c", args) == 9
+    assert rb.craft("c", args) == 9
+    assert rb.craftWithFunction(lambda a, b, c: a+b+c, args) == 18
 
 
 if __name__ == '__main__':

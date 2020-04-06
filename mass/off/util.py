@@ -20,23 +20,25 @@ class NoCutInds():
 class InvalidStatesException(Exception):
     pass
 
+
 class RecipeBook():
     def __init__(self, baseIngredients, propertyClass=None):
         self.craftedIngredients = collections.OrderedDict()
-        self.baseIngredients = baseIngredients
-        self.propertyClass = propertyClass
+        self.baseIngredients = baseIngredients  # list of names of base ingredients that will be passed to craft
+        self.propertyClass = propertyClass  # class that properites will be added to
 
     def add(self, recipeName, f, ingredients=None, inverse=None, createProperty=True):
         """
-        recipeName - the name of the new Attr to create, eg "energy"
-        f - the function used to caluclate the Attr
-        argNames - a list of argument names, they can be OffAttrs or other recipes
+        recipeName - the name of the new ingredient to create, eg "energy", the name "__temp__" is used internall, do not use it
+        f - the function used to craft (evaluate) a new output or ingredient
+        ingredients - a list of igredients names, used if the names of the arguments of f are not ingredient names
         createProperty - if True will create a property such that you can access the output of the recipe as eg `ds.energy`
         """
         # add a recipe
         # 1. create the recipe
-        # 2. call setArgToRecipe to point at any existing recipes for argument
-        # 3. add to dict with key recipeName
+        # 2. point at other recipes for items not in baseIngredients
+        # 3. add to craftedIngredients with key recipeName
+        # 4. create a property in propertyClass with name recipeName
 
         # nomenclature:
         # the function f takes arguments
@@ -51,6 +53,7 @@ class RecipeBook():
             # learn ingredient names from signature of f
             for argName in inspectedArgNames:
                 ingredient = argName
+                assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients, f"ingredient={ingredient} must be in baseIngredients={self.baseIngredients} or craftedIngredients={self.craftedIngredients}"
                 i2a[ingredient] = argName
         else:
             # i would like to do == here, but i'd need to handle optional arguments better
@@ -63,13 +66,15 @@ class RecipeBook():
         for ingredient in i2a:
             if ingredient in self.craftedIngredients:
                 recipe._setIngredientToRecipe(ingredient, self.craftedIngredients[ingredient])
+        if recipeName == "__temp__":
+            return recipe
         self.craftedIngredients[recipeName] = recipe
-        # 4. create a property to access the recipe
         # recipes are added to the class, so only do it once per recipeName
         if self.propertyClass is not None:
             if createProperty and not hasattr(self.propertyClass, recipeName):
                 setattr(self.propertyClass, recipeName, property(
                     lambda argself: argself.getAttr(recipeName, NoCutInds())))
+        return recipe
 
     def __len__(self):
         return len(self.craftedIngredients)
@@ -80,6 +85,23 @@ class RecipeBook():
     def __getitem__(self, i):
         return self.craftedIngredients[i]
 
+    def craft(self, recipeName, ingredientSource):
+        """
+        Craft (evaluate the reciple) recipeName.
+        recipeName - a key in self.craftedIngredients
+        ingredientSource - a dict like object with keys in self.baseIngredients
+        """
+        r = self.craftedIngredients[recipeName]
+        return r(ingredientSource)
+
+    def craftWithFunction(self, f, ingredientSource, ingredients=None):
+        """
+        Create a temporary recipe from f and then craft it.
+        f - a function to be passed to self.add
+        ingredientSource - a dict like object with keys in self.baseIngredients
+        """
+        r = self.add("__temp__", f, ingredients)
+        return r(ingredientSource)
 
 
 class Recipe():
@@ -111,15 +133,15 @@ class Recipe():
         "return the 'left side' arguments.... aka what self.f calls them"
         return list(self.args.keys())
 
-    def __call__(self, args):
-        new_args = []
+    def __call__(self, ingredientSource):
+        args = []
         for (k, v) in self.i2a.items():
             if isinstance(v, Recipe):
-                new_args.append(v(args))
+                args.append(v(ingredientSource))
             else:
-                new_args.append(args[k])
+                args.append(ingredientSource[k])
         # call functions with positional arguments so names don't need to match
-        return self.f(*new_args)
+        return self.f(*args)
 
     def __repr__(self, indent=0):
         s = "Recipe: f={}, args=".format(self.f)
