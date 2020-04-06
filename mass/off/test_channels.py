@@ -1,13 +1,17 @@
+#normal imports
 import mass
-from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, Recipe
+from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks
 from mass.calibration import _highly_charged_ion_lines
-import os
 import numpy as np
 import pylab as plt
-import collections
 
+# test only imports
+from . import util
 import unittest as ut
 import pytest
+import collections
+import os
+
 
 # this is intented to be both a test and a tutorial script
 try:
@@ -131,10 +135,6 @@ ds.filtValueDCPCTC[0]  # this will error if the attr doesnt exist
 
 
 class TestSummaries(ut.TestCase):
-    # def test_recipeFromHDF5(self):
-    #     self.assertTrue(newds.driftCorrection == ds.driftCorrection)
-    #     self.assertTrue(np.allclose(newds.filtValueDC, ds.filtValueDC))
-    #     self.assertTrue(np.allclose(newds.energy, ds.energy))
 
     def test_calibration_n_iter(self):
         ds.calibrateFollowingPlan("filtValue", calibratedName="energy2",
@@ -175,19 +175,6 @@ class TestSummaries(ut.TestCase):
         inds = ds.getStatesIndicies(["Ne", "W 1"])
         e1 = ds.getAttr("energy", inds)  # index with inds from same list of states
         self.assertTrue(np.allclose(e0, e1))
-
-    def test_recipes(self):
-        def funa(x, y):
-            return x+y
-
-        def funb(a, z):
-            return a+z
-        ra = Recipe(funa)
-        rb = Recipe(funb)
-        rb.setArgToRecipe("a", ra)
-        args = {"x": 1, "y": 0, "z": 2}
-        self.assertEqual(rb(args), 3)
-        self.assertEqual(ra(args), 1)
 
     def test_refresh_from_files(self):
         # ds and data refers to the global variable from the script before the tests
@@ -299,13 +286,29 @@ def test_get_model():
     m_ti = mass.off.util.get_model("TiKAlpha")
     assert m_ti.spect.shortname == "TiKAlpha"
 
-    ql = mass.SpectralLine.quick_monochromatic_line("test",100,0.001,0)
+    ql = mass.SpectralLine.quick_monochromatic_line("test", 100, 0.001, 0)
     m_ql = mass.off.util.get_model(ql.model())
     assert m_ql.spect.shortname == "testquick_line"
 
     with pytest.raises(UnboundLocalError):
         mass.off.util.get_model("this is a str but not a standard feature")
 
+
+def test_recipes():
+    rb = util.RecipeBook(baseIngredients=["x", "y", "z"])
+
+    def funa(x, y):
+        return x+y
+
+    def funb(a, z):
+        return a+z
+    rb.add("a", funa)
+    rb.add("b", funb)
+    rb.add("c", lambda a,b: a+b)
+    args = {"x": 1, "y": 2, "z": 3}
+    assert rb["a"](args) == 3
+    assert rb["b"](args) == 6
+    assert rb["c"](args) == 9
 
 
 if __name__ == '__main__':

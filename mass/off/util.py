@@ -13,6 +13,75 @@ import mass
 
 LOG = logging.getLogger("mass")
 
+class NoCutInds():
+    pass
+
+
+class InvalidStatesException(Exception):
+    pass
+
+class RecipeBook():
+    def __init__(self, baseIngredients, propertyClass=None):
+        self.craftedIngredients = collections.OrderedDict()
+        self.baseIngredients = baseIngredients
+        self.propertyClass = propertyClass
+
+    def add(self, recipeName, f, ingredients=None, inverse=None, createProperty=True):
+        """
+        recipeName - the name of the new Attr to create, eg "energy"
+        f - the function used to caluclate the Attr
+        argNames - a list of argument names, they can be OffAttrs or other recipes
+        createProperty - if True will create a property such that you can access the output of the recipe as eg `ds.energy`
+        """
+        # add a recipe
+        # 1. create the recipe
+        # 2. call setArgToRecipe to point at any existing recipes for argument
+        # 3. add to dict with key recipeName
+
+        # nomenclature:
+        # the function f takes arguments
+        # the recipe collects ingredients, and passes them as arguments
+        # the dictionary i2a maps ingredients to arguments
+        assert isinstance(ingredients, list) or ingredients is None
+        inspectedArgNames = list(inspect.signature(f).parameters)  
+        if "self" in inspectedArgNames:  # drop the self argument for class methods
+            inspectedArgNames.remove("self")
+        i2a = collections.OrderedDict()
+        if ingredients is None:
+            # learn ingredient names from signature of f
+            for argName in inspectedArgNames:
+                ingredient = argName
+                i2a[ingredient] = argName
+        else:
+            # i would like to do == here, but i'd need to handle optional arguments better
+            assert len(inspectedArgNames) >= len(ingredients)
+            for ingredient, inspectedArgName in zip(ingredients, inspectedArgNames):
+                assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients
+                i2a[ingredient] = inspectedArgName        
+ 
+        recipe = Recipe(f, i2a)
+        for ingredient in i2a:
+            if ingredient in self.craftedIngredients:
+                recipe._setIngredientToRecipe(ingredient, self.craftedIngredients[ingredient])
+        self.craftedIngredients[recipeName] = recipe
+        # 4. create a property to access the recipe
+        # recipes are added to the class, so only do it once per recipeName
+        if self.propertyClass is not None:
+            if createProperty and not hasattr(self.propertyClass, recipeName):
+                setattr(self.propertyClass, recipeName, property(
+                    lambda argself: argself.getAttr(recipeName, NoCutInds())))
+
+    def __len__(self):
+        return len(self.craftedIngredients)
+    
+    def keys(self):
+        return self.craftedIngredients.keys()
+
+    def __getitem__(self, i):
+        return self.craftedIngredients[i]
+
+
+
 class Recipe():
     """
     If `r` is a Recipe, it is a wrapper around a function `f` and the names of its arguments.
@@ -26,33 +95,16 @@ class Recipe():
     reads to the off file.
     """
 
-    def __init__(self, f, argNames=None, inverse=None):
+    def __init__(self, f, i2a, inverse=None):
         assert not isinstance(f, Recipe)
         self.f = f
         self.inverse = inverse
-        self.args = collections.OrderedDict()  # assumes the dict preserves insertion order
-        try:
-            inspectedArgNames = list(inspect.signature(self.f).parameters)  # Py 3.3+ only??
-        except AttributeError:
-            try:
-                inspectedArgNames = inspect.getargspec(self.f).args  # Pre-Py 3.3
-            except TypeError:
-                inspectedArgNames = inspect.getargspec(self.f.__call__).args
-        if "self" in inspectedArgNames:  # drop the self argument for class methods
-            inspectedArgNames.remove("self")
-        if argNames is None:
-            for argName in inspectedArgNames:
-                self.args[argName] = argName
-        else:
-            # i would like to do == here, but i'd need to handle optional arguments better
-            assert len(inspectedArgNames) >= len(argNames)
-            for argName, inspectedArgName in zip(argNames, inspectedArgNames):
-                self.args[argName] = inspectedArgName
+        self.i2a = i2a
 
-    def setArgToRecipe(self, argName, r):
+    def _setIngredientToRecipe(self, ingredient, r):
         assert isinstance(r, Recipe)
-        assert argName in self.args
-        self.args[argName] = r
+        assert ingredient in self.i2a
+        self.i2a[ingredient] = r
 
     @property
     def argsL(self):
@@ -61,7 +113,7 @@ class Recipe():
 
     def __call__(self, args):
         new_args = []
-        for (k, v) in self.args.items():
+        for (k, v) in self.i2a.items():
             if isinstance(v, Recipe):
                 new_args.append(v(args))
             else:
@@ -72,7 +124,7 @@ class Recipe():
     def __repr__(self, indent=0):
         s = "Recipe: f={}, args=".format(self.f)
         s += "\n" + "  "*indent + "{\n"
-        for (k, v) in self.args.items():
+        for (k, v) in self.i2a.items():
             if isinstance(v, Recipe):
                 s += "{}{}: {}\n".format("  "*(indent+1), k, v.__repr__(indent+1))
             else:

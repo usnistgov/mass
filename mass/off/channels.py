@@ -14,8 +14,8 @@ import h5py
 # local imports
 import mass
 from .off import OffFile
-from .util import GroupLooper, add_group_loop, labelPeak, labelPeaks, Recipe
-from .util import annotate_lines, SilenceBar
+from .util import GroupLooper, add_group_loop, labelPeak, labelPeaks, Recipe, RecipeBook
+from .util import annotate_lines, SilenceBar, NoCutInds, InvalidStatesException
 from .import util
 
 LOG = logging.getLogger("mass")
@@ -301,13 +301,6 @@ class CorG():
         else:
             return binsize
 
-class NoCutInds():
-    pass
-
-
-class InvalidStatesException(Exception):
-    pass
-
 
 # wrap up an off file with some conviencine functions
 # like a TESChannel
@@ -320,14 +313,14 @@ class Channel(CorG):
         self._statesDict = None
         self.verbose = verbose
         self.learnChannumAndShortname()
-        self.recipes = {}
+        self.recipes = RecipeBook(self._offAttrs, Channel)
         self._defineDefaultRecipesAndProperties()
 
     def _defineDefaultRecipesAndProperties(self):
         assert(len(self.recipes) == 0)
         t0 = self.offFile["unixnano"][0]
-        self.addRecipe("relTimeSec", lambda unixnano: (unixnano-t0)*1e-9, ["unixnano"])
-        self.addRecipe("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
+        self.recipes.add("relTimeSec", lambda unixnano: (unixnano-t0)*1e-9, ["unixnano"])
+        self.recipes.add("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
 
     @property
     def _offAttrs(self):
@@ -561,7 +554,7 @@ class Channel(CorG):
             indicator, uncorrected)
         driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
-        self.addRecipe(correctedName, driftCorrection, [
+        self.recipes.add(correctedName, driftCorrection, [
                        driftCorrection.indicatorName, driftCorrection.uncorrectedName])
         return driftCorrection
 
@@ -584,7 +577,7 @@ class Channel(CorG):
             [indicatorName, uncorrectedName], states, goodFunc, returnBad)
         phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
-        self.addRecipe(correctedName, phaseCorrection.correct, [
+        self.recipes.add(correctedName, phaseCorrection.correct, [
                        phaseCorrection.indicatorName, phaseCorrection.uncorrectedName])
 
     @add_group_loop
@@ -605,7 +598,7 @@ class Channel(CorG):
             tnorm = info["normalize"](indicator)
             corrected = uncorrected*(1+info["model"](tnorm))
             return corrected
-        self.addRecipe(correctedName, time_drift_correct, [indicatorName, uncorrectedName])
+        self.recipes.add(correctedName, time_drift_correct, [indicatorName, uncorrectedName])
 
     def plotCompareDriftCorrect(self, axis=None, states=None, goodFunc=None, includeBad=False):
         if axis is None:
@@ -614,8 +607,8 @@ class Channel(CorG):
         recipe = self.recipes["filtValueDC"]
         indicatorName = "pretriggerMean"
         uncorrectedName = "filtValue"
-        assert recipe.args[indicatorName] == "indicator"
-        assert recipe.args[uncorrectedName] == "uncorrected"
+        assert recipe.i2a[indicatorName] == "indicator"
+        assert recipe.i2a[uncorrectedName] == "uncorrected"
         if states is None:
             states = self.stateLabels
         for state in states:
@@ -641,7 +634,7 @@ class Channel(CorG):
         self.calibrationPlan.addCalPoint(uncalibratedVal, name, states, energy)
         calibrationRough = self.calibrationPlan.getRoughCalibration()
         calibrationRough.uncalibratedName = self.calibrationPlanAttr
-        self.addRecipe("energyRough", calibrationRough,
+        self.recipes.add("energyRough", calibrationRough,
                        [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph)
         return self.calibrationPlan
 
@@ -680,34 +673,10 @@ class Channel(CorG):
                 intermediate_calibrations.append(calibration)
                 starting_cal = calibration
         calibration.intermediate_calibrations = intermediate_calibrations
-        self.addRecipe(calibratedName, calibration, [calibration.uncalibratedName])
+        self.recipes.add(calibratedName, calibration, [calibration.uncalibratedName])
         return results
 
-    def addRecipe(self, recipeName, f, argNames, inverse=None, createProperty=True):
-        """
-        recipeName - the name of the new Attr to create, eg "energy"
-        f - the function used to caluclate the Attr
-        argNames - a list of argument names, they can be OffAttrs or other recipes
-        createProperty - if True will create a property such that you can access the output of the recipe as eg `ds.energy`
-        """
-        # add a recipe
-        # 1. create the recipe
-        # 2. call setArgToRecipe to point at any existing recipes for argument
-        # 3. add to dict with key recipeName
-        assert isinstance(argNames, list)
-        recipe = Recipe(f, argNames, inverse=inverse)
-        for argName in argNames:
-            if argName in self.recipes:
-                recipe.setArgToRecipe(argName, self.recipes[argName])
-            elif not self.isOffAttr(argName):
-                raise Exception(
-                    "argName={} should be in self.recipes or be an OffAttr".format(argName))
-        self.recipes[recipeName] = recipe
-        # 4. create a property to access the recipe
-        # recipes are added to the class, so only do it once per recipeName
-        if createProperty and not hasattr(Channel, recipeName):
-            setattr(Channel, recipeName, property(
-                lambda argself: argself.getAttr(recipeName, NoCutInds())))
+
 
     def markBad(self, reason, extraInfo=None):
         self.markedBadReason = reason
@@ -764,7 +733,7 @@ class Channel(CorG):
                                                   refCalPlan.names, refCalPlan.states):
                 self.calibrationPlanAddPoint(self.calibrationArbsInRefChannelUnits.energy2ph(ph),
                                              name, states, energy)
-        self.addRecipe("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
+        self.recipes.add("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
                        self.calibrationArbsInRefChannelUnits.uncalibratedName])
         return self.aligner
 
