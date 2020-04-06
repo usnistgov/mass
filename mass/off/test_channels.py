@@ -133,6 +133,15 @@ ds.learnPhaseCorrection(uncorrectedName="filtValueDC")
 ds.learnTimeDriftCorrection(uncorrectedName="filtValueDCPC")
 ds.filtValueDCPCTC[0]  # this will error if the attr doesnt exist
 
+# test cutRecipes
+for ds in data.values():
+    ds.recipes.add("cut_for_dc", lambda energyRough: np.abs(energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
+ds = data.firstGoodChannel() # the loop will change the binding of ds, restore it
+selectedEnergies = ds.energyRough[ds.cut_for_dc]
+len(selectedEnergies) == np.sum(np.abs(ds.energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
+
+data.learnDriftCorrection(uncorrectedName="filtValue",correctedName="filtValueCutTest", cutRecipe="cut_for_dc", _rethrow=True)
+
 
 class TestSummaries(ut.TestCase):
 
@@ -307,7 +316,7 @@ def test_recipes():
     rb.add("b", funb)
     rb.add("c", lambda a, b: a+b)
     with pytest.raises(AssertionError):
-        rb.add("e", lambda a, b, c, d, f: a)  # should fail because f isn't defined 
+        rb.add("e", lambda a, b, c, d, f: a)  # should fail because f isn't in baseIngredients and hasn't been added 
     with pytest.raises(AssertionError):
         rb.add("f", lambda a, b: c+d, ingredients=["a", "b", "c"])  # should fail because ingredients is longer than argument list
     args = {"x": 1, "y": 2, "z": 3}

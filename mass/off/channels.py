@@ -427,7 +427,7 @@ class Channel(CorG):
         g = v["residualStdDev"] < self.stdDevResThreshold
         return g
 
-    def _indexOffWithCuts(self, inds, goodFunc=None, returnBad=False, _listMethodSelect=2):
+    def _indexOffWithCuts(self, inds, goodFunc=None, returnBad=False, _listMethodSelect=2, cutRecipe=None):
         """
         inds - a slice or list of slices to index into items with
         goodFunc - a function called on the data read from the off file, must return a vector of bool values
@@ -439,6 +439,8 @@ class Channel(CorG):
         """
         if goodFunc is None:
             goodFunc = self.defaultGoodFunc
+        if cutRecipe is not None:
+            goodFunc = lambda ingredients: self.recipes.craft(cutRecipe, ingredients)
         # offAttr can be a list of offAttr names
         if isinstance(inds, slice):
             r = self.offFile[inds]
@@ -474,7 +476,7 @@ class Channel(CorG):
             raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
         return output
 
-    def getAttr(self, attr, indsOrStates, goodFunc=None, returnBad=False):
+    def getAttr(self, attr, indsOrStates, goodFunc=None, returnBad=False, cutRecipe=None):
         """
         attr - may be a string or a list of strings corresponding to Attrs defined by recipes or the offFile
         inds - a slice or list of slices
@@ -491,7 +493,7 @@ class Channel(CorG):
         else:
             inds = indsOrStates
         # single read from disk, read all values
-        offAttrValues = self._indexOffWithCuts(inds, goodFunc, returnBad)
+        offAttrValues = self._indexOffWithCuts(inds, goodFunc, returnBad, cutRecipe=cutRecipe)
         if isinstance(attr, list):
             return [self._getAttr(a, offAttrValues) for a in attr]
         else:
@@ -543,12 +545,12 @@ class Channel(CorG):
 
     @add_group_loop
     def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue",
-                             correctedName=None, states=None, goodFunc=None, returnBad=False):
+                             correctedName=None, states=None, goodFunc=None, returnBad=False, cutRecipe=None):
         """do a linear correction between the indicator and uncorrected... """
         if correctedName is None:
             correctedName = uncorrectedName + "DC"
         indicator, uncorrected = self.getAttr(
-            [indicatorName, uncorrectedName], states, goodFunc, returnBad)
+            [indicatorName, uncorrectedName], states, goodFunc, returnBad, cutRecipe)
         slope, info = mass.core.analysis_algorithms.drift_correct(
             indicator, uncorrected)
         driftCorrection = DriftCorrection(
