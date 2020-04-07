@@ -6,7 +6,7 @@ import numpy as np
 import pylab as plt
 
 # test only imports
-from . import util
+from mass.off import util
 import unittest as ut
 import pytest
 import collections
@@ -41,7 +41,7 @@ ds.plotAvsB("relTimeSec", "filtValue", includeBad=False)
 ds.plotHist(np.arange(0, 40000, 4), "filtValue")
 ds.plotHist(np.arange(0, 40000, 4), "filtValue", coAddStates=False)
 ds.plotResidualStdDev()
-driftCorrectInfo = ds.learnDriftCorrection(states=["W 1", "W 2"])
+driftCorrectInfo = ds.learnDriftCorrection(states=["W 1", "W 2"], overwriteRecipe=True)
 ds.plotCompareDriftCorrect()
 
 ds.calibrationPlanInit("filtValueDC")
@@ -76,7 +76,7 @@ aligner.samePeaksPlot()
 aligner.samePeaksPlotWithAlignmentCal()
 
 results = data.calibrateFollowingPlan(
-    "filtValueDC", dlo=10, dhi=10, approximate=False, _rethrow=True)
+    "filtValueDC", dlo=10, dhi=10, approximate=False, _rethrow=True, overwriteRecipe=True)
 data.qualityCheckDropOneErrors(
     thresholdAbsolute=2.5, thresholdSigmaFromMedianAbsoluteValue=6, _rethrow=True)
 
@@ -134,13 +134,11 @@ ds.learnTimeDriftCorrection(uncorrectedName="filtValueDCPC")
 ds.filtValueDCPCTC[0]  # this will error if the attr doesnt exist
 
 # test cutRecipes
-for ds in data.values():
-    ds.recipes.add("cut_for_dc", lambda energyRough: np.abs(energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
-ds = data.firstGoodChannel() # the loop will change the binding of ds, restore it
-selectedEnergies = ds.energyRough[ds.cut_for_dc]
-len(selectedEnergies) == np.sum(np.abs(ds.energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
-
-data.learnDriftCorrection(uncorrectedName="filtValue",correctedName="filtValueCutTest", cutRecipe="cut_for_dc", _rethrow=True)
+ds.recipes.add("cutNearTiKAlpha", lambda energyRough: np.abs(energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
+selectedEnergies = ds.energyRough[ds.cutNearTiKAlpha]
+assert len(selectedEnergies) == np.sum(np.abs(ds.energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
+data.learnDriftCorrection(uncorrectedName="filtValue",correctedName="filtValueDCCutTest", cutRecipeName="cutNearTiKAlpha", _rethrow=True)
+data.learnDriftCorrection(uncorrectedName="filtValue",correctedName="filtValueDCCutTestInv", cutRecipeName="!cutNearTiKAlpha", _rethrow=True)
 
 
 class TestSummaries(ut.TestCase):
@@ -154,7 +152,7 @@ class TestSummaries(ut.TestCase):
         self.assertTrue(np.allclose(ds.energy, ds.energy2, rtol=1e-1))
 
     def test_repeatingTheSameCorrectionWithNewNameDoesntChangeTheOriginal(self):
-        # repeating the same correciton with new name doesnt change the orirignal
+        # repeating the same correciton with new name doesnt change the original
         orig = ds.filtValueDC[:]
         ds.learnDriftCorrection(uncorrectedName="filtValueDCPCTC")
         ds.filtValueDCPCTC[0]
@@ -324,7 +322,8 @@ def test_recipes():
     assert rb.craft("b", args) == 6
     assert rb.craft("c", args) == 9
     assert rb.craft("c", args) == 9
-    assert rb.craftWithFunction(lambda a, b, c: a+b+c, args) == 18
+    assert rb._craftWithFunction(lambda a, b, c: a+b+c, args) == 18
+    assert rb.craft(lambda a, b, c: a+b+c, args) == 18
 
 
 if __name__ == '__main__':

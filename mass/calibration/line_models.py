@@ -287,11 +287,12 @@ class LineModelResult(lmfit.model.ModelResult):
         # ax.legend(["data", self._compact_fit_report()],loc='best', frameon=True, framealpha = 0.5)
         ax.legend(loc="upper right")
 
-    def set_label_hints(self, binsize, ds_shortname, attr_str, unit_str, states_hint=""):
+    def set_label_hints(self, binsize, ds_shortname, attr_str, unit_str, cut_hint, states_hint=""):
         self._binsize = binsize
         self._ds_shortname = ds_shortname
         self._attr_str = attr_str
         self._unit_str = unit_str
+        self._cut_hint = cut_hint
         self._states_hint = states_hint
         self._has_label_hints = True
 
@@ -302,7 +303,7 @@ class LineModelResult(lmfit.model.ModelResult):
             if ylabel is None:
                 ylabel = f"counts per {self._binsize:g} {self._unit_str} bin"
                 if self._states_hint != "":
-                    ylabel += f"\nstates={self._states_hint}"
+                    ylabel += f"\nstates={self._states_hint}: {self._cut_hint}"
             if xlabel is None:
                 xlabel = f"{self._attr_str} ({self._unit_str})"
         else:

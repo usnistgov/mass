@@ -68,3 +68,6 @@ Run all the tests on your system and make sure they pass!. Do `pytest` in the `m
 ## Tutorials and demos
 
 These are all probably out of date. They live in `mass/mass/demo`. If you want to contribute to mass, but don't want to do a bunch of programming, updating the demos would be a huge help!
+
+# Development Tips
+`pytest-watch --pdb -- mass/off` run from the source directory will run only the tests in `mass/off`, automatically, each time a file is saved. Upon any error it will drop into pdb for debugging. You will need to `pip install pytest-watch` first.

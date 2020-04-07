@@ -27,9 +27,10 @@ class RecipeBook():
         self.baseIngredients = baseIngredients  # list of names of base ingredients that will be passed to craft
         self.propertyClass = propertyClass  # class that properites will be added to
 
-    def add(self, recipeName, f, ingredients=None, inverse=None, createProperty=True):
+    def add(self, recipeName, f, ingredients=None, overwrite=False, inverse=None, createProperty=True):
         """
-        recipeName - the name of the new ingredient to create, eg "energy", the name "__temp__" is used internall, do not use it
+        recipeName - the name of the new ingredient to create, eg "energy", the name "__temp__" is used internall, do not use it.
+        recipe names with "cut" in them are special, only use them for cuts
         f - the function used to craft (evaluate) a new output or ingredient
         ingredients - a list of igredients names, used if the names of the arguments of f are not ingredient names
         createProperty - if True will create a property such that you can access the output of the recipe as eg `ds.energy`
@@ -68,6 +69,8 @@ class RecipeBook():
                 recipe._setIngredientToRecipe(ingredient, self.craftedIngredients[ingredient])
         if recipeName == "__temp__":
             return recipe
+        assert recipeName not in self.craftedIngredients or overwrite, f"recipeName={recipeName} already in self.craftedIngredients with keys={list(self.craftedIngredients.keys())}"
+        assert not recipeName.startswith("!")
         self.craftedIngredients[recipeName] = recipe
         # recipes are added to the class, so only do it once per recipeName
         if self.propertyClass is not None:
@@ -91,10 +94,17 @@ class RecipeBook():
         recipeName - a key in self.craftedIngredients
         ingredientSource - a dict like object with keys in self.baseIngredients
         """
-        r = self.craftedIngredients[recipeName]
-        return r(ingredientSource)
+        if callable(recipeName):
+            return self._craftWithFunction(recipeName, ingredientSource)
+        elif "cut" in recipeName:
+            return self._craftCut(recipeName, ingredientSource)
+        elif recipeName in self.craftedIngredients:
+            r = self.craftedIngredients[recipeName]
+            return r(ingredientSource)
+        else:
+            raise Exception(f"recipeName={recipeName} must be in self.cratftedIngredients or callalbe")
 
-    def craftWithFunction(self, f, ingredientSource, ingredients=None):
+    def _craftWithFunction(self, f, ingredientSource, ingredients=None):
         """
         Create a temporary recipe from f and then craft it.
         f - a function to be passed to self.add
@@ -102,6 +112,17 @@ class RecipeBook():
         """
         r = self.add("__temp__", f, ingredients)
         return r(ingredientSource)
+
+    def _craftCut(self, cutRecipeName, ingredientSource):
+        cutBaseRecipeName = cutRecipeName.lstrip("!")
+        numberBang = len(cutRecipeName) - len(cutBaseRecipeName)
+        assert cutBaseRecipeName in self.craftedIngredients
+        r = self.craftedIngredients[cutBaseRecipeName]
+        if numberBang%2 == 0:
+            return r(ingredientSource)
+        else:
+            return np.logical_not(r(ingredientSource))        
+
 
 
 class Recipe():
