@@ -10,6 +10,7 @@ import numpy as np
 import pylab as plt
 import fastdtw
 import h5py
+import lmfit
 
 # local imports
 import mass
@@ -17,6 +18,7 @@ from .off import OffFile
 from .util import GroupLooper, add_group_loop, labelPeak, labelPeaks, Recipe, RecipeBook
 from .util import annotate_lines, SilenceBar, NoCutInds, InvalidStatesException
 from .import util
+
 
 LOG = logging.getLogger("mass")
 
@@ -237,7 +239,8 @@ class CorG():
 
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=None, binEdges=None, label="full", plot=True,
-                params=None, cutRecipeName=None, calibration=None, require_errorbars=True, method="leastsq_refit"):
+                params_fixed=None, cutRecipeName=None, calibration=None, require_errorbars=True, method="leastsq_refit",
+                has_tails=False, params_update=lmfit.Parameters()):
         """Do a fit to `lineNameOrEnergy` and return the result. You can get the params results with result.params
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel", your you can pass in a model like a mass.MnKAlphaModel().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
@@ -247,12 +250,15 @@ class CorG():
         binEdges -- pass the binEdges you want as a numpy array
         label -- passed to model.plot
         plot -- passed to model.fit, determine if plot happens
-        params -- passed to model.fit, model.fit will guess the params on its own if this is None
+        params_fixed -- passed to model.fit, model.fit will guess the params on its own if this is None, in either case it will update with params_update
         cutRecipeName -- a function a function taking a MicrocalDataSet and returning a vector like ds.good() would return
         calbration -- a calibration to be passed to hist - will error if used with an "energy..." attr
         require_errorbars -- throw an error if lmfit doesn't return errorbars
+        method -- fit method to use
+        has_tails -- used when creating a model, will add both high and low energy tails to the model
+        params_update -- after guessing params, call params.update(params_update)
         """
-        model = util.get_model(lineNameOrEnergy)
+        model = util.get_model(lineNameOrEnergy, has_tails=has_tails)
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         if binEdges is None:
             if attr.startswith("energy") or calibration is not None:
@@ -268,8 +274,10 @@ class CorG():
         # print(f"attr={attr},states={states}")
         bin_centers, counts = self.hist(binEdges, attr, states, cutRecipeName, calibration=calibration)
         # print(f"counts.size={counts.size},counts.sum()={counts.sum()}")
-        if params is None:
+        if params_fixed is None:
             params = model.guess(counts, bin_centers=bin_centers)
+        else:
+            params = params_fixed
         if attr.startswith("energy") or calibration is not None:
             params["dph_de"].set(1.0,vary=False)
             unit_str = "eV"
@@ -279,6 +287,7 @@ class CorG():
             attr_str = f"{attr} with cal"
         else:
             attr_str = attr
+        params.update(params_update)
         # unit_str and attr_str are used by result.plotm to label the axes properly
         result = model.fit(counts, params, bin_centers=bin_centers, method=method)
         if states == None:
@@ -650,7 +659,8 @@ class Channel(CorG):
 
     @add_group_loop
     def calibrateFollowingPlan(self, uncalibratedName, calibratedName="energy", curvetype="gain", approximate=False,
-                               dlo=50, dhi=50, binsize=None, plan=None, n_iter=1, method="leastsq_refit", overwriteRecipe=False):
+                               dlo=50, dhi=50, binsize=None, plan=None, n_iter=1, method="leastsq_refit", overwriteRecipe=False,
+                               has_tails=False, params_update=lmfit.Parameters()):
         if plan is None:
             plan = self.calibrationPlan
         starting_cal = plan.getRoughCalibration()
@@ -663,7 +673,7 @@ class Channel(CorG):
                                                 plan.names, plan.states):
                 result = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                         plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
-                                        method=method)
+                                        method=method, params_update=params_update, has_tails=has_tails)
 
                 results.append(result)
                 if not result.success:

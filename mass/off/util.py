@@ -54,7 +54,7 @@ class RecipeBook():
             # learn ingredient names from signature of f
             for argName in inspectedArgNames:
                 ingredient = argName
-                assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients, f"ingredient={ingredient} must be in baseIngredients={self.baseIngredients} or craftedIngredients={self.craftedIngredients}"
+                assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients, f"ingredient='{ingredient}' must be in baseIngredients={self.baseIngredients} or craftedIngredients.keys()={list(self.craftedIngredients.keys())}"
                 i2a[ingredient] = argName
         else:
             # i would like to do == here, but i'd need to handle optional arguments better
@@ -63,7 +63,7 @@ class RecipeBook():
                 assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients
                 i2a[ingredient] = inspectedArgName        
  
-        recipe = Recipe(f, i2a)
+        recipe = Recipe(f, i2a, inverse, recipeName)
         for ingredient in i2a:
             if ingredient in self.craftedIngredients:
                 recipe._setIngredientToRecipe(ingredient, self.craftedIngredients[ingredient])
@@ -123,6 +123,13 @@ class RecipeBook():
         else:
             return np.logical_not(r(ingredientSource))        
 
+    def __repr__(self):
+        bi = ", ".join(self.baseIngredients)
+        ci = ", ".join(self.craftedIngredients.keys())
+        s = f"RecipeBook: baseIngedients={bi}, craftedIngredeints={ci}"
+        return s
+
+
 
 
 class Recipe():
@@ -138,21 +145,17 @@ class Recipe():
     reads to the off file.
     """
 
-    def __init__(self, f, i2a, inverse=None):
+    def __init__(self, f, i2a, inverse, name):
         assert not isinstance(f, Recipe)
         self.f = f
         self.inverse = inverse
         self.i2a = i2a
+        self.name = name
 
     def _setIngredientToRecipe(self, ingredient, r):
         assert isinstance(r, Recipe)
         assert ingredient in self.i2a
         self.i2a[ingredient] = r
-
-    @property
-    def argsL(self):
-        "return the 'left side' arguments.... aka what self.f calls them"
-        return list(self.args.keys())
 
     def __call__(self, ingredientSource):
         args = []
@@ -165,14 +168,14 @@ class Recipe():
         return self.f(*args)
 
     def __repr__(self, indent=0):
-        s = "Recipe: f={}, args=".format(self.f)
-        s += "\n" + "  "*indent + "{\n"
-        for (k, v) in self.i2a.items():
-            if isinstance(v, Recipe):
-                s += "{}{}: {}\n".format("  "*(indent+1), k, v.__repr__(indent+1))
+        ingredients_strs = []
+        for k,v in self.i2a.items():
+            if isinstance(v,Recipe):
+                ingredients_strs.append(f"Recipe:{k}")
             else:
-                s += "{}{}: {}\n".format("  "*(indent+1), k, v)
-        s += "  "*indent + "}"
+                ingredients_strs.append(k)
+        i = ", ".join(ingredients_strs)
+        s = f"Recipe {self.name}: f={self.f}, ingredients={i}, inverse={self.inverse}"
         return s
 
 class GroupLooper(object):
@@ -295,7 +298,7 @@ class SilenceBar(progress.bar.Bar):
             progress.bar.Bar.finish(self)
 
 
-def get_model(lineNameOrEnergy):
+def get_model(lineNameOrEnergy, has_tails=False):
     if isinstance(lineNameOrEnergy, mass.GenericLineModel):
         line = lineNameOrEnergy.spect
     elif isinstance(lineNameOrEnergy, str):
@@ -310,4 +313,4 @@ def get_model(lineNameOrEnergy):
         except:
             raise Exception(f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
         line = mass.SpectralLine.quick_monochromatic_line(f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
-    return line.model()
+    return line.model(has_tails)

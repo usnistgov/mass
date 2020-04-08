@@ -267,9 +267,13 @@ class LineModelResult(lmfit.model.ModelResult):
         for k in sorted(self.params.keys()):
             v = self.params[k]
             if v.vary:
-                sig_figs = int(np.ceil(np.log10(v.value/v.stderr))+1)
-                sig_figs = max(1, sig_figs)
-                s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
+                if v.stderr is None:
+                    sig_figs = 2
+                    s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±None\n"
+                else:
+                    sig_figs = int(np.ceil(np.log10(np.abs(v.value/v.stderr)))+1)
+                    sig_figs = max(1, sig_figs)
+                    s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
             else:
                 s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
         return s[:-1]

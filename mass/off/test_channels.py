@@ -4,6 +4,7 @@ from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak
 from mass.calibration import _highly_charged_ion_lines
 import numpy as np
 import pylab as plt
+import lmfit
 
 # test only imports
 from mass.off import util
@@ -325,6 +326,23 @@ def test_recipes():
     assert rb._craftWithFunction(lambda a, b, c: a+b+c, args) == 18
     assert rb.craft(lambda a, b, c: a+b+c, args) == 18
 
+
+def test_linefit_has_tails():
+    result = ds.linefit("O H-Like 2p", states="CO2")
+    assert "tail_frac" not in result.params.keys()
+    result = ds.linefit("O H-Like 2p", states="CO2", has_tails=True)
+    assert result.params["tail_frac"].vary == True
+    assert result.params["tail_frac_hi"].vary == False
+    assert result.params["tail_frac_hi"].value == 0
+    params = lmfit.Parameters()
+    params.add("tail_frac_hi", value=0.01, vary=True, min=0, max=0.5)
+    params.add("tail_tau_hi", value=8, vary=True, min=0, max=100)
+    result = ds.linefit("O H-Like 2p", states="CO2", has_tails=True, params_update=params)
+    assert result.params["tail_frac"].vary == True
+    assert result.params["tail_frac_hi"].vary == True
+    assert result.params["tail_frac_hi"].value > 0
+    assert result.params["tail_tau_hi"].vary == True
+    assert result.params["tail_tau_hi"].value > 0
 
 if __name__ == '__main__':
     ut.main()
