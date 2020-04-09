@@ -11,6 +11,7 @@ import pylab as plt
 import fastdtw
 import h5py
 import lmfit
+import scipy.interpolate
 
 # local imports
 import mass
@@ -370,16 +371,47 @@ class Channel(CorG):
         self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
 
     @add_group_loop
-    def learnStdDevResThresholdUsingMedianAbsoluteDeviation(self, nSigma=7):
-        median = np.median(self.residualStdDev)
-        mad = np.median(np.abs(self.residualStdDev-median))
-        k = 1.4826  # for gaussian distribution, ratio of sigma to median absolution deviation
-        sigma = mad*k
-        self.stdDevResThreshold = median+nSigma*sigma
+    def learnResidualStdDevCut(self, n_sigma_equiv=10, cutRecipeName="cutResidualStdDev", binSizeFv=2000, states=None, plot=False, setDefault=True, overwriteRecipe=False):
+        """EXPERIMENTAL: learn a cut based on the residualStdDev. uses the median absolute deviation to estiamte a gaussian sigma 
+        that is robust to outliers as a function of filt Value, then uses that to set an upper limit based on n_sigma_equiv
+        highly reccomend that you call it with plot=True on at least a few datasets first
+        """
+        # the code currently only works for a single threshold, but has some parts in place for implementing a filtValue dependent threshold
+        filtValue, residualStdDev = self.getAttr(["filtValue", "residualStdDev"], indsOrStates=states)
+        # binEdges = np.percentile(filtValue, np.linspace(0, 100, N+1))
+        binEdges = np.arange(0, np.amax(filtValue), binSizeFv)
+        N = len(binEdges)-1
+        sigmas, medians, fv_mids =[], [], []
+        for i in range(N):
+            lo,hi = binEdges[i], binEdges[i+1]
+            inds = np.logical_and(filtValue > lo, filtValue < hi)
+            if len(inds) <= 2:
+                continue
+            mad, sigma_equiv, median = mass.off.util.median_absolute_deviation(residualStdDev[inds])
+            sigmas.append(sigma_equiv)
+            medians.append(median)
+            fv_mids.append((lo+hi)/2)
+        if len(sigmas)<1:
+            raise Exception(f"too few pulses, len(filtValue)={len(filtValue)}")
+        sigmas = np.array(sigmas)
+        medians = np.array(medians)
+        fv_mids = np.array(fv_mids)
 
-    @add_group_loop
-    def learnStdDevResThresholdUsingRatioToNoiseStd(self, ratioToNoiseStd=1.5):
-        self.stdDevResThreshold = self.offFile.header["ModelInfo"]["NoiseStandardDeviation"]*ratioToNoiseStd
+        threshold = medians+n_sigma_equiv*sigmas
+        threshold_func = scipy.interpolate.interp1d(fv_mids, threshold, kind="nearest", bounds_error=False,
+        fill_value=(-1, threshold[-1])) # by using a fill value of -1 on the left side, we cut all pulses with negative filt value
+        self.cutAdd(cutRecipeName, lambda filtValue, residualStdDev: residualStdDev < threshold_func(filtValue), setDefault=setDefault, overwrite=overwriteRecipe)
+
+
+        if plot:
+            xmin, xmax = np.amin(filtValue), np.amax(filtValue)
+            x = np.linspace(xmin, xmax, 100)
+            y = threshold_func(x)
+            self.plotAvsB("filtValue","residualStdDev",states=states,includeBad=True, cutRecipeName=cutRecipeName) #creates a figure
+            plt.plot(fv_mids, medians, "o-", label="median", lw=3)
+            plt.plot(x, y, label=f"threshold", lw=3)
+            plt.legend()    
+
 
     def getStatesIndicies(self, states=None):
         """return a list of slices corresponding to
@@ -712,26 +744,6 @@ class Channel(CorG):
         self.markedBadReason = None
         self.markedBadExtraInfo = None
         self.markedBadBool = False
-
-    def plotResidualStdDev(self, axis=None):
-        if axis is None:
-            plt.figure()
-            axis = plt.gca()
-        x = np.sort(self.residualStdDev)/self.offFile.header["ModelInfo"]["NoiseStandardDeviation"]
-        y = np.linspace(0, 1, len(x))
-        inds = x > (self.stdDevResThreshold
-                    / self.offFile.header["ModelInfo"]["NoiseStandardDeviation"])
-        axis.plot(x, y, label="<threshold")
-        axis.plot(x[inds], y[inds], "r", label=">threshold")
-        axis.vlines(self.stdDevResThreshold
-                    / self.offFile.header["ModelInfo"]["NoiseStandardDeviation"], 0, 1)
-        axis.set_xlabel("residualStdDev/noiseStdDev")
-        axis.set_ylabel("fraction of pulses with equal or lower residualStdDev")
-        axis.set_title("{}, {} total pulses, {:0.3f} cut".format(
-            self.shortName, len(self), float(inds.sum()/float(len(self)))))  # somehow the extra float() is required on windows?
-        axis.legend()
-        axis.set_xlim(max(0, x[0]), 3)
-        axis.set_ylim(0, 1)
 
     def __len__(self):
         return len(self.offFile)

@@ -314,3 +314,13 @@ def get_model(lineNameOrEnergy, has_tails=False):
             raise Exception(f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
         line = mass.SpectralLine.quick_monochromatic_line(f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
     return line.model(has_tails)
+
+SIGMA_OVER_MAD = 1/0.67449
+def median_absolute_deviation(x):
+    """calculate the median_absolute_deviation and its sigma equivalent assuming gaussian distribution
+    returns mad, sigma_equiv, median
+    """
+    median = np.median(x)
+    mad = np.median(np.abs(x-median))
+    sigma_equiv = mad*SIGMA_OVER_MAD
+    return mad, sigma_equiv, median

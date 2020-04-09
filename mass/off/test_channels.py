@@ -15,6 +15,7 @@ import os
 
 
 # this is intented to be both a test and a tutorial script
+# in most cases you want to remove all _rethrow=True, its mostly for debugging mass
 try:
     d = os.path.dirname(os.path.realpath(__file__))
 except NameError:
@@ -32,8 +33,7 @@ data.experimentStateFile.aliasState("F", "Re")
 data.experimentStateFile.aliasState("G", "W 2")
 data.experimentStateFile.aliasState("H", "CO2")
 data.experimentStateFile.aliasState("I", "Ir")
-data.learnStdDevResThresholdUsingRatioToNoiseStd(ratioToNoiseStd=5, _rethrow=True)
-data.learnDriftCorrection(_rethrow=True)
+data.learnResidualStdDevCut(plot=True, _rethrow=True) # creates "cutResidualStdDev" and sets it to default
 data.setDefaultBinsize(0.5)
 ds = data.firstGoodChannel()
 ds.plotAvsB("relTimeSec", "residualStdDev",  includeBad=True)
@@ -41,11 +41,9 @@ ds.plotAvsB("relTimeSec", "pretriggerMean", includeBad=True)
 ds.plotAvsB("relTimeSec", "filtValue", includeBad=False)
 ds.plotHist(np.arange(0, 40000, 4), "filtValue")
 ds.plotHist(np.arange(0, 40000, 4), "filtValue", coAddStates=False)
-ds.plotResidualStdDev()
-driftCorrectInfo = ds.learnDriftCorrection(states=["W 1", "W 2"], overwriteRecipe=True)
-ds.plotCompareDriftCorrect()
 
-ds.calibrationPlanInit("filtValueDC")
+# set calibration points, and create attribute "energyRough"
+ds.calibrationPlanInit("filtValue")
 ds.calibrationPlanAddPoint(2128, "O He-Like 1s2s+1s2p", states="CO2")
 ds.calibrationPlanAddPoint(2421, "O H-Like 2p", states="CO2")
 ds.calibrationPlanAddPoint(2864, "O H-Like 3p", states="CO2")
@@ -60,6 +58,21 @@ ds.calibrationPlanAddPoint(11125, "Ar He-Like 1s2s+1s2p", states="Ar")
 ds.calibrationPlanAddPoint(11728, "Ar H-Like 2p", states="Ar")
 # at this point energyRough should work
 ds.plotHist(np.arange(0, 4000, 1), "energyRough", coAddStates=False)
+
+# align all channels to have calibration plans at the same peaks
+data.alignToReferenceChannel(referenceChannel=ds,
+                             binEdges=np.arange(500, 20000, 4), attr="filtValue", _rethrow=True)
+aligner = data[3].aligner
+aligner.samePeaksPlot()
+aligner.samePeaksPlotWithAlignmentCal()
+
+# create "filtValueDC" by drift correcting on data near some particular energy
+# to do so we first create a cut, but we do not set it as default
+data.cutAdd("cutForLearnDC", lambda energyRough: np.logical_and(energyRough > 1000, energyRough < 3500), setDefault=False, _rethrow=True)
+data.learnDriftCorrection(states=["W 1", "W 2"], cutRecipeName="cutForLearnDC", _rethrow=True) # uses "cutForLearnDC" in place of the default, so far no easy way to use both
+ds.plotCompareDriftCorrect()
+
+# calibrate on filtValueDC, it's usually close enough to filtValue to use the same calibration plan
 results = ds.calibrateFollowingPlan("filtValueDC", approximate=False)
 ds.linefit("Ne H-Like 2p", attr="energy", states="Ne")
 ds.linefit("Ne He-Like 1s2s+1s2p", attr="energy", states="Ne")
@@ -69,12 +82,7 @@ ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
 
 ds.diagnoseCalibration()
 
-ds3 = data[3]
-data.alignToReferenceChannel(referenceChannel=ds,
-                             binEdges=np.arange(500, 20000, 4), attr="filtValueDC", _rethrow=True)
-aligner = ds3.aligner
-aligner.samePeaksPlot()
-aligner.samePeaksPlotWithAlignmentCal()
+
 
 results = data.calibrateFollowingPlan(
     "filtValueDC", dlo=10, dhi=10, approximate=False, _rethrow=True, overwriteRecipe=True)
@@ -135,7 +143,7 @@ ds.learnTimeDriftCorrection(uncorrectedName="filtValueDCPC")
 ds.filtValueDCPCTC[0]  # this will error if the attr doesnt exist
 
 # test cutRecipes
-ds.recipes.add("cutNearTiKAlpha", lambda energyRough: np.abs(energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
+data.cutAdd("cutNearTiKAlpha", lambda energyRough: np.abs(energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
 selectedEnergies = ds.energyRough[ds.cutNearTiKAlpha]
 assert len(selectedEnergies) == np.sum(np.abs(ds.energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
 data.learnDriftCorrection(uncorrectedName="filtValue",correctedName="filtValueDCCutTest", cutRecipeName="cutNearTiKAlpha", _rethrow=True)
@@ -189,7 +197,6 @@ class TestSummaries(ut.TestCase):
         # while ds_local and data_local refer to the similar local variables
         data_local = ChannelGroup([filename])
         ds_local = data_local.firstGoodChannel()
-        ds_local.stdDevResThreshold = ds.stdDevResThreshold
         experimentStateFile = data_local.experimentStateFile
         # reach inside offFile and experimentStateFile to make it look like the files were originally opened during state E
         # then we refresh to learn about states F-I
@@ -212,9 +219,9 @@ class TestSummaries(ut.TestCase):
         self.assertEqual(len(ds_local), len(ds))
         self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E", "F", "G", "H", "I"])
         states = ["B", "H", "I"]
-        _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue", states=states)
+        _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue", states=states, cutRecipeName="cutNone")
         global_states = [data.experimentStateFile.labelAliasesDict[state] for state in states]
-        _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue", states=global_states)
+        _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue", states=global_states, cutRecipeName="cutNone")
         for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
             self.assertEqual(v_local, v)
         self.assertTrue(all(ds.filtValue == ds_local.filtValue))
@@ -343,6 +350,12 @@ def test_linefit_has_tails():
     assert result.params["tail_frac_hi"].value > 0
     assert result.params["tail_tau_hi"].vary == True
     assert result.params["tail_tau_hi"].value > 0
+
+
+def test_median_absolute_deviation():
+    mad, sigma_equiv, median = util.median_absolute_deviation([1, 1, 2, 3, 4])
+    assert mad == 1
+    assert median == 2
 
 if __name__ == '__main__':
     ut.main()
