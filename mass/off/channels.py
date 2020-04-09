@@ -371,7 +371,7 @@ class Channel(CorG):
         self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
 
     @add_group_loop
-    def learnResidualStdDevCut(self, n_sigma_equiv=10, cutRecipeName="cutResidualStdDev", binSizeFv=2000, minFv=150,
+    def learnResidualStdDevCut(self, n_sigma_equiv=15, cutRecipeName="cutResidualStdDev", binSizeFv=2000, minFv=150,
         states=None, plot=False, setDefault=True, overwriteRecipe=False):
         """EXPERIMENTAL: learn a cut based on the residualStdDev. uses the median absolute deviation to estiamte a gaussian sigma 
         that is robust to outliers as a function of filt Value, then uses that to set an upper limit based on n_sigma_equiv
@@ -386,7 +386,7 @@ class Channel(CorG):
         for i in range(N):
             lo,hi = binEdges[i], binEdges[i+1]
             inds = np.logical_and(filtValue > lo, filtValue < hi)
-            if len(inds) <= 2:
+            if len(inds) <= 4:
                 continue
             mad, sigma_equiv, median = mass.off.util.median_absolute_deviation(residualStdDev[inds])
             sigmas.append(sigma_equiv)
