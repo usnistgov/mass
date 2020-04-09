@@ -43,8 +43,8 @@ def parse_args(fake):
                         help="stop after processing this many channels", default=2**31, type=int)
     parser.add_argument("--n_ignore_presamples",
                         help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=3, type=int)
-    parser.add_argument("--n_sigma_pt_rms", type=float, default=8,
-                        help="passed to autocuts to determine pulses used to generate pulse model")
+    parser.add_argument("--n_sigma_pt_rms", type=float, default=10000,
+                        help="passed to autocuts to determine pulses used to generate pulse model, the default large value basically disables this cut, which causes the projectors to be able to model the non-flat pretrigger region better")
     parser.add_argument("--n_sigma_max_deriv", type=float, default=8,
                         help="passed to autocuts to determine pulses used to generate pulse model")
     parser.add_argument("-n", "--n_basis", type=int, default=5,
