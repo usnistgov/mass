@@ -371,7 +371,8 @@ class Channel(CorG):
         self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
 
     @add_group_loop
-    def learnResidualStdDevCut(self, n_sigma_equiv=10, cutRecipeName="cutResidualStdDev", binSizeFv=2000, states=None, plot=False, setDefault=True, overwriteRecipe=False):
+    def learnResidualStdDevCut(self, n_sigma_equiv=10, cutRecipeName="cutResidualStdDev", binSizeFv=2000, minFv=150,
+        states=None, plot=False, setDefault=True, overwriteRecipe=False):
         """EXPERIMENTAL: learn a cut based on the residualStdDev. uses the median absolute deviation to estiamte a gaussian sigma 
         that is robust to outliers as a function of filt Value, then uses that to set an upper limit based on n_sigma_equiv
         highly reccomend that you call it with plot=True on at least a few datasets first
@@ -381,7 +382,7 @@ class Channel(CorG):
         # binEdges = np.percentile(filtValue, np.linspace(0, 100, N+1))
         binEdges = np.arange(0, np.amax(filtValue), binSizeFv)
         N = len(binEdges)-1
-        sigmas, medians, fv_mids =[], [], []
+        sigmas, medians, fv_mids =[0], [0], [minFv]
         for i in range(N):
             lo,hi = binEdges[i], binEdges[i+1]
             inds = np.logical_and(filtValue > lo, filtValue < hi)
@@ -398,8 +399,11 @@ class Channel(CorG):
         fv_mids = np.array(fv_mids)
 
         threshold = medians+n_sigma_equiv*sigmas
-        threshold_func = scipy.interpolate.interp1d(fv_mids, threshold, kind="nearest", bounds_error=False,
-        fill_value=(-1, threshold[-1])) # by using a fill value of -1 on the left side, we cut all pulses with negative filt value
+        threshold_func = scipy.interpolate.interp1d(fv_mids, threshold, kind="next", bounds_error=False,
+        fill_value=(-1, threshold[-1])) 
+        # the threshold for all filtValues below minFv will be -1
+        # filtValues just above binFv should look to the next point since kind="next", so the precise chioce of median and sigma to pair with binFv shouldn't matter
+        # filtValues above the maximum filtValue should use the same threshold as the maximum filtValue
         self.cutAdd(cutRecipeName, lambda filtValue, residualStdDev: residualStdDev < threshold_func(filtValue), setDefault=setDefault, overwrite=overwriteRecipe)
 
 

@@ -195,7 +195,7 @@ class TestSummaries(ut.TestCase):
     def test_refresh_from_files(self):
         # ds and data refers to the global variable from the script before the tests
         # while ds_local and data_local refer to the similar local variables
-        data_local = ChannelGroup([filename])
+        data_local = ChannelGroup([filename], verbose=False)
         ds_local = data_local.firstGoodChannel()
         experimentStateFile = data_local.experimentStateFile
         # reach inside offFile and experimentStateFile to make it look like the files were originally opened during state E

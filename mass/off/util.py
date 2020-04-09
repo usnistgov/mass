@@ -324,3 +324,4 @@ def median_absolute_deviation(x):
     mad = np.median(np.abs(x-median))
     sigma_equiv = mad*SIGMA_OVER_MAD
     return mad, sigma_equiv, median
+
