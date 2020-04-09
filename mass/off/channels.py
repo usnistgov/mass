@@ -371,14 +371,14 @@ class Channel(CorG):
         self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
 
     @add_group_loop
-    def learnResidualStdDevCut(self, n_sigma_equiv=15, cutRecipeName="cutResidualStdDev", binSizeFv=2000, minFv=150,
-        states=None, plot=False, setDefault=True, overwriteRecipe=False):
+    def learnResidualStdDevCut(self, n_sigma_equiv=15, newCutRecipeName="cutResidualStdDev", binSizeFv=2000, minFv=150,
+        states=None, plot=False, setDefault=True, overwriteRecipe=False, cutRecipeName=None):
         """EXPERIMENTAL: learn a cut based on the residualStdDev. uses the median absolute deviation to estiamte a gaussian sigma 
         that is robust to outliers as a function of filt Value, then uses that to set an upper limit based on n_sigma_equiv
         highly reccomend that you call it with plot=True on at least a few datasets first
         """
         # the code currently only works for a single threshold, but has some parts in place for implementing a filtValue dependent threshold
-        filtValue, residualStdDev = self.getAttr(["filtValue", "residualStdDev"], indsOrStates=states)
+        filtValue, residualStdDev = self.getAttr(["filtValue", "residualStdDev"], indsOrStates=states, cutRecipeName=cutRecipeName)
         # binEdges = np.percentile(filtValue, np.linspace(0, 100, N+1))
         binEdges = np.arange(0, np.amax(filtValue), binSizeFv)
         N = len(binEdges)-1
@@ -404,14 +404,14 @@ class Channel(CorG):
         # the threshold for all filtValues below minFv will be -1
         # filtValues just above binFv should look to the next point since kind="next", so the precise chioce of median and sigma to pair with binFv shouldn't matter
         # filtValues above the maximum filtValue should use the same threshold as the maximum filtValue
-        self.cutAdd(cutRecipeName, lambda filtValue, residualStdDev: residualStdDev < threshold_func(filtValue), setDefault=setDefault, overwrite=overwriteRecipe)
+        self.cutAdd(newCutRecipeName, lambda filtValue, residualStdDev: residualStdDev < threshold_func(filtValue), setDefault=setDefault, overwrite=overwriteRecipe)
 
 
         if plot:
             xmin, xmax = np.amin(filtValue), np.amax(filtValue)
             x = np.linspace(xmin, xmax, 100)
             y = threshold_func(x)
-            self.plotAvsB("filtValue","residualStdDev",states=states,includeBad=True, cutRecipeName=cutRecipeName) #creates a figure
+            self.plotAvsB("filtValue","residualStdDev",states=states,includeBad=True, cutRecipeName=newCutRecipeName) #creates a figure
             plt.plot(fv_mids, medians, "o-", label="median", lw=3)
             plt.plot(x, y, label=f"threshold", lw=3)
             plt.legend()    
