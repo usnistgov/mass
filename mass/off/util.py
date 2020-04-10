@@ -13,6 +13,7 @@ import mass
 
 LOG = logging.getLogger("mass")
 
+
 class NoCutInds():
     pass
 
@@ -46,7 +47,7 @@ class RecipeBook():
         # the recipe collects ingredients, and passes them as arguments
         # the dictionary i2a maps ingredients to arguments
         assert isinstance(ingredients, list) or ingredients is None
-        inspectedArgNames = list(inspect.signature(f).parameters)  
+        inspectedArgNames = list(inspect.signature(f).parameters)
         if "self" in inspectedArgNames:  # drop the self argument for class methods
             inspectedArgNames.remove("self")
         i2a = collections.OrderedDict()
@@ -61,8 +62,8 @@ class RecipeBook():
             assert len(inspectedArgNames) >= len(ingredients)
             for ingredient, inspectedArgName in zip(ingredients, inspectedArgNames):
                 assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients
-                i2a[ingredient] = inspectedArgName        
- 
+                i2a[ingredient] = inspectedArgName
+
         recipe = Recipe(f, i2a, inverse, recipeName)
         for ingredient in i2a:
             if ingredient in self.craftedIngredients:
@@ -81,7 +82,7 @@ class RecipeBook():
 
     def __len__(self):
         return len(self.craftedIngredients)
-    
+
     def keys(self):
         return self.craftedIngredients.keys()
 
@@ -102,7 +103,8 @@ class RecipeBook():
             r = self.craftedIngredients[recipeName]
             return r(ingredientSource)
         else:
-            raise Exception(f"recipeName={recipeName} must be in self.cratftedIngredients or callalbe")
+            raise Exception(
+                f"recipeName={recipeName} must be in self.cratftedIngredients or callalbe")
 
     def _craftWithFunction(self, f, ingredientSource, ingredients=None):
         """
@@ -118,18 +120,16 @@ class RecipeBook():
         numberBang = len(cutRecipeName) - len(cutBaseRecipeName)
         assert cutBaseRecipeName in self.craftedIngredients
         r = self.craftedIngredients[cutBaseRecipeName]
-        if numberBang%2 == 0:
+        if numberBang % 2 == 0:
             return r(ingredientSource)
         else:
-            return np.logical_not(r(ingredientSource))        
+            return np.logical_not(r(ingredientSource))
 
     def __repr__(self):
         bi = ", ".join(self.baseIngredients)
         ci = ", ".join(self.craftedIngredients.keys())
         s = f"RecipeBook: baseIngedients={bi}, craftedIngredeints={ci}"
         return s
-
-
 
 
 class Recipe():
@@ -169,14 +169,15 @@ class Recipe():
 
     def __repr__(self, indent=0):
         ingredients_strs = []
-        for k,v in self.i2a.items():
-            if isinstance(v,Recipe):
+        for k, v in self.i2a.items():
+            if isinstance(v, Recipe):
                 ingredients_strs.append(f"Recipe:{k}")
             else:
                 ingredients_strs.append(k)
         i = ", ".join(ingredients_strs)
         s = f"Recipe {self.name}: f={self.f}, ingredients={i}, inverse={self.inverse}"
         return s
+
 
 class GroupLooper(object):
     """A mixin class to allow ChannelGroup objects to hold methods that loop over
@@ -238,6 +239,7 @@ def add_group_loop(method):
     setattr(GroupLooper, "_"+method_name, wrapper)
     return method
 
+
 def labelPeak(axis, name, energy, line=None, deltaELocalMaximum=5, color=None):
     if line is None:
         line = axis.lines[0]
@@ -248,9 +250,11 @@ def labelPeak(axis, name, energy, line=None, deltaELocalMaximum=5, color=None):
     plt.annotate(name, (energy, ydataLocalMaximum), (0, 10), textcoords='offset points',
                  rotation=90, verticalalignment='top', horizontalalignment="center", color=color)
 
+
 def labelPeaks(axis, names, energies, line=None, deltaELocalMaximum=5, color=None):
     for name, energy in zip(names, energies):
         labelPeak(axis, name, energy, line, deltaELocalMaximum, color)
+
 
 def annotate_lines(axis, labelLines, labelLines_color2=[], color1="k", color2="r"):
     """Annotate plot on axis with line names.
@@ -277,6 +281,7 @@ def annotate_lines(axis, labelLines, labelLines_color2=[], color1="k", color2="r
         elif yscale == "log":
             axis.annotate(labelLine, (energy, np.exp(
                 (2+i+j)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data", color=color2)
+
 
 class SilenceBar(progress.bar.Bar):
     "A progres bar that can be turned off by passing silence=True or by setting the log level higher than NOTSET"
@@ -310,12 +315,17 @@ def get_model(lineNameOrEnergy, has_tails=False):
     else:
         try:
             energy = float(lineNameOrEnergy)
-        except:
-            raise Exception(f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
-        line = mass.SpectralLine.quick_monochromatic_line(f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
+        except Exception:
+            raise Exception(
+                f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
+        line = mass.SpectralLine.quick_monochromatic_line(
+            f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
     return line.model(has_tails)
 
+
 SIGMA_OVER_MAD = 1/0.67449
+
+
 def median_absolute_deviation(x):
     """calculate the median_absolute_deviation and its sigma equivalent assuming gaussian distribution
     returns mad, sigma_equiv, median
@@ -324,4 +334,3 @@ def median_absolute_deviation(x):
     mad = np.median(np.abs(x-median))
     sigma_equiv = mad*SIGMA_OVER_MAD
     return mad, sigma_equiv, median
-

@@ -55,7 +55,7 @@ def parse_args(fake):
                         help="supress text output, mostly for testing")
     parser.add_argument("--mass_hdf5_path", default=None,
                         help="specify the path for the mass hdf5 file that is generated as a byproduct of this script")
-    parser.add_argument("-i","--invert_data", action="store_true",
+    parser.add_argument("-i", "--invert_data", action="store_true",
                         help="pass this flag for downward going pulses (eg RAVEN)")
     args = parser.parse_args()
     return args
@@ -95,9 +95,9 @@ def main(args=None):
     # create output file
     with h5py.File(args.output_path, "w") as h5:
         n_good, n = make_projectors(pulse_files=pulse_files, noise_files=noise_files, h5=h5,
-                        n_sigma_pt_rms=args.n_sigma_pt_rms, n_sigma_max_deriv=args.n_sigma_max_deriv,
-                        n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path,
-                        invert_data=args.invert_data)
+                                    n_sigma_pt_rms=args.n_sigma_pt_rms, n_sigma_max_deriv=args.n_sigma_max_deriv,
+                                    n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path,
+                                    invert_data=args.invert_data)
     if not args.silent:
         if n_good == 0:
             print(f"all channels bad, could be because you need -i for inverted pulses")

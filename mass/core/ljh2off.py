@@ -9,6 +9,7 @@ import h5py
 import progress.bar
 import argparse
 import logging
+import sys
 LOG = logging.getLogger("mass")
 
 # Intended for conversion of LJH files to OFF files, given some projectors and basis
@@ -80,9 +81,10 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
             residual_std_dev = np.std(residuals, axis=0)
             pretrig_mean = data[:, :ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
             offdata = np.zeros(records_this_seg, dtype)
-            pfit_pt_delta = np.polyfit(np.arange(ljhfile.nPresamples-n_ignore_presamples), 
-                data[:, :ljhfile.nPresamples-n_ignore_presamples].T, deg=1)
-            pt_delta = np.polyval(pfit_pt_delta, ljhfile.nPresamples-n_ignore_presamples-1) - np.polyval(pfit_pt_delta, 0)
+            pfit_pt_delta = np.polyfit(np.arange(ljhfile.nPresamples-n_ignore_presamples),
+                                       data[:, :ljhfile.nPresamples-n_ignore_presamples].T, deg=1)
+            pt_delta = np.polyval(pfit_pt_delta, ljhfile.nPresamples
+                                  - n_ignore_presamples-1) - np.polyval(pfit_pt_delta, 0)
             if True:  # load data into offdata: implementation 1
                 offdata["recordSamples"] = ljhfile.nSamples
                 offdata["recordPreSamples"] = ljhfile.nPresamples
@@ -168,7 +170,7 @@ def parse_args(fake):
     example_usage = """ python ljh2off.py data/20190924/0010/20190924_run0010_chan1.ljh """
     example_usage += """data/20190923/0003/20190923_run0003_model.hdf5 test_ljh2off -m 4 -r"""
     parser = argparse.ArgumentParser(
-        description="convert ljh files to off files, example:\n"+example_usage, 
+        description="convert ljh files to off files, example:\n"+example_usage,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "ljh_path", help="path a a single ljh file, other channel numbers will be found automatically")
@@ -184,11 +186,12 @@ def parse_args(fake):
     args = parser.parse_args()
     return args
 
+
 def main():
     print("starting ljh2off")
     args = mass.ljh2off.parse_args(fake=False)
     for k in sorted(vars(args).keys()):
-        print("{}: {}".format(k, vars(args)[k])) 
+        print("{}: {}".format(k, vars(args)[k]))
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir)
     elif not args.replace_output:

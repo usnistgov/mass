@@ -1,4 +1,4 @@
-#normal imports
+# Normal imports
 import mass
 from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks
 from mass.calibration import _highly_charged_ion_lines
@@ -33,7 +33,8 @@ data.experimentStateFile.aliasState("F", "Re")
 data.experimentStateFile.aliasState("G", "W 2")
 data.experimentStateFile.aliasState("H", "CO2")
 data.experimentStateFile.aliasState("I", "Ir")
-data.learnResidualStdDevCut(plot=True, _rethrow=True) # creates "cutResidualStdDev" and sets it to default
+# creates "cutResidualStdDev" and sets it to default
+data.learnResidualStdDevCut(plot=True, _rethrow=True)
 data.setDefaultBinsize(0.5)
 ds = data.firstGoodChannel()
 ds.plotAvsB("relTimeSec", "residualStdDev",  includeBad=True)
@@ -68,8 +69,10 @@ aligner.samePeaksPlotWithAlignmentCal()
 
 # create "filtValueDC" by drift correcting on data near some particular energy
 # to do so we first create a cut, but we do not set it as default
-data.cutAdd("cutForLearnDC", lambda energyRough: np.logical_and(energyRough > 1000, energyRough < 3500), setDefault=False, _rethrow=True)
-data.learnDriftCorrection(states=["W 1", "W 2"], cutRecipeName="cutForLearnDC", _rethrow=True) # uses "cutForLearnDC" in place of the default, so far no easy way to use both
+data.cutAdd("cutForLearnDC", lambda energyRough: np.logical_and(
+    energyRough > 1000, energyRough < 3500), setDefault=False, _rethrow=True)
+# uses "cutForLearnDC" in place of the default, so far no easy way to use both
+data.learnDriftCorrection(states=["W 1", "W 2"], cutRecipeName="cutForLearnDC", _rethrow=True)
 ds.plotCompareDriftCorrect()
 
 # calibrate on filtValueDC, it's usually close enough to filtValue to use the same calibration plan
@@ -81,7 +84,6 @@ ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
 
 
 ds.diagnoseCalibration()
-
 
 
 results = data.calibrateFollowingPlan(
@@ -143,11 +145,15 @@ ds.learnTimeDriftCorrection(uncorrectedName="filtValueDCPC")
 ds.filtValueDCPCTC[0]  # this will error if the attr doesnt exist
 
 # test cutRecipes
-data.cutAdd("cutNearTiKAlpha", lambda energyRough: np.abs(energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
+data.cutAdd("cutNearTiKAlpha", lambda energyRough: np.abs(
+    energyRough-mass.STANDARD_FEATURES["TiKAlpha"]) < 60)
 selectedEnergies = ds.energyRough[ds.cutNearTiKAlpha]
-assert len(selectedEnergies) == np.sum(np.abs(ds.energyRough-mass.STANDARD_FEATURES["TiKAlpha"])<60)
-data.learnDriftCorrection(uncorrectedName="filtValue",correctedName="filtValueDCCutTest", cutRecipeName="cutNearTiKAlpha", _rethrow=True)
-data.learnDriftCorrection(uncorrectedName="filtValue",correctedName="filtValueDCCutTestInv", cutRecipeName="!cutNearTiKAlpha", _rethrow=True)
+assert len(selectedEnergies) == np.sum(
+    np.abs(ds.energyRough-mass.STANDARD_FEATURES["TiKAlpha"]) < 60)
+data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueDCCutTest",
+                          cutRecipeName="cutNearTiKAlpha", _rethrow=True)
+data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueDCCutTestInv",
+                          cutRecipeName="!cutNearTiKAlpha", _rethrow=True)
 
 
 class TestSummaries(ut.TestCase):
@@ -219,9 +225,11 @@ class TestSummaries(ut.TestCase):
         self.assertEqual(len(ds_local), len(ds))
         self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E", "F", "G", "H", "I"])
         states = ["B", "H", "I"]
-        _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue", states=states, cutRecipeName="cutNone")
+        _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue",
+                                      states=states, cutRecipeName="cutNone")
         global_states = [data.experimentStateFile.labelAliasesDict[state] for state in states]
-        _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue", states=global_states, cutRecipeName="cutNone")
+        _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue",
+                          states=global_states, cutRecipeName="cutNone")
         for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
             self.assertEqual(v_local, v)
         self.assertTrue(all(ds.filtValue == ds_local.filtValue))
@@ -322,9 +330,11 @@ def test_recipes():
     rb.add("b", funb)
     rb.add("c", lambda a, b: a+b)
     with pytest.raises(AssertionError):
-        rb.add("e", lambda a, b, c, d, f: a)  # should fail because f isn't in baseIngredients and hasn't been added 
+        # should fail because f isn't in baseIngredients and hasn't been added
+        rb.add("e", lambda a, b, c, d, f: a)
     with pytest.raises(AssertionError):
-        rb.add("f", lambda a, b: c+d, ingredients=["a", "b", "c"])  # should fail because ingredients is longer than argument list
+        # should fail because ingredients is longer than argument list
+        rb.add("f", lambda a, b: a+b, ingredients=["a", "b", "c"])
     args = {"x": 1, "y": 2, "z": 3}
     assert rb.craft("a", args) == 3
     assert rb.craft("b", args) == 6
@@ -338,17 +348,17 @@ def test_linefit_has_tails():
     result = ds.linefit("O H-Like 2p", states="CO2")
     assert "tail_frac" not in result.params.keys()
     result = ds.linefit("O H-Like 2p", states="CO2", has_tails=True)
-    assert result.params["tail_frac"].vary == True
-    assert result.params["tail_frac_hi"].vary == False
+    assert result.params["tail_frac"].vary is True
+    assert result.params["tail_frac_hi"].vary is False
     assert result.params["tail_frac_hi"].value == 0
     params = lmfit.Parameters()
     params.add("tail_frac_hi", value=0.01, vary=True, min=0, max=0.5)
     params.add("tail_tau_hi", value=8, vary=True, min=0, max=100)
     result = ds.linefit("O H-Like 2p", states="CO2", has_tails=True, params_update=params)
-    assert result.params["tail_frac"].vary == True
-    assert result.params["tail_frac_hi"].vary == True
+    assert result.params["tail_frac"].vary is True
+    assert result.params["tail_frac_hi"].vary is True
     assert result.params["tail_frac_hi"].value > 0
-    assert result.params["tail_tau_hi"].vary == True
+    assert result.params["tail_tau_hi"].vary is True
     assert result.params["tail_tau_hi"].value > 0
 
 
@@ -356,6 +366,7 @@ def test_median_absolute_deviation():
     mad, sigma_equiv, median = util.median_absolute_deviation([1, 1, 2, 3, 4])
     assert mad == 1
     assert median == 2
+
 
 if __name__ == '__main__':
     ut.main()

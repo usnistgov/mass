@@ -11,11 +11,13 @@ from . import line_fits
 
 VALIDATE_BIN_SIZE = True
 
+
 class MLEModel(lmfit.Model):
     """A version of lmfit.Model that uses Maximum Likelihood weights
     in place of chisq, as described in: doi:10.1007/s10909-014-1098-4
     "Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"
     """
+
     def _residual(self, params, data, weights, **kwargs):
         """Calculate the chi_MLE^2 value from Joe Fowler's Paper
         doi:10.1007/s10909-014-1098-4 "Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"
@@ -94,10 +96,11 @@ class MLEModel(lmfit.Model):
             # leastsq fails to give uncertaities if parameters are near bounds or at their initial value
             # least_squares is about 1.5X to 2.0X slower based on two test case
         if "minimum_bins_per_fwhm" not in kwargs:
-            minimum_bins_per_fwhm=3 # provide default value
+            minimum_bins_per_fwhm = 3  # provide default value
         else:
-            minimum_bins_per_fwhm=kwargs["minimum_bins_per_fwhm"] 
-            del kwargs["minimum_bins_per_fwhm"] # remove this argument before passwing kwargs to ._fit
+            minimum_bins_per_fwhm = kwargs["minimum_bins_per_fwhm"]
+            # remove this argument before passwing kwargs to ._fit
+            del kwargs["minimum_bins_per_fwhm"]
         result = self._fit(*args, **kwargs)
         result.__class__ = LineModelResult
         result._validate_bins_per_fwhm(minimum_bins_per_fwhm)
@@ -115,15 +118,15 @@ class MLEModel(lmfit.Model):
             if "params" in kwargs:
                 kwargs["params"] = result0.params
             elif len(args) > 1:
-                args = [result0.params if i ==1 else arg for (i,arg) in enumerate(args)]
+                args = [result0.params if i == 1 else arg for (i, arg) in enumerate(args)]
             result = lmfit.Model.fit(self, *args, **kwargs)
         else:
             result = lmfit.Model.fit(self, *args, **kwargs)
         return result
 
 
-
-class CompositeMLEModel(MLEModel, lmfit.CompositeModel): # first parent has precedence for repeated method (eg fit)
+# first parent has precedence for repeated method (eg fit)
+class CompositeMLEModel(MLEModel, lmfit.CompositeModel):
     """A version of lmfit.CompositeModel that uses Maximum Likelihood weights
     in place of chisq, as described in: doi:10.1007/s10909-014-1098-4
     "Maximum-Likelihood Fits to Histograms for Improved Parameter Estimation"
@@ -162,7 +165,6 @@ class CompositeMLEModel(MLEModel, lmfit.CompositeModel): # first parent has prec
     def __truediv__(self, other):
         """/"""
         return CompositeMLEModel(self, other, lmfit.model.operator.truediv)
-        
 
 
 class GenericLineModel(MLEModel):
@@ -230,6 +232,7 @@ class GenericLineModel(MLEModel):
         pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
+
 class GenericKAlphaModel(GenericLineModel):
     "Overrides GenericLineModel.guess to make guesses appropriate for K-alpha lines."
 
@@ -261,33 +264,33 @@ class GenericKAlphaModel(GenericLineModel):
 
 class LineModelResult(lmfit.model.ModelResult):
     """like lmfit.model.Model result, but with some convenient plotting functions for line spectra fits"""
+
     def _compact_fit_report(self):
         s = ""
-        sn = {"background":"bg","amplitude":"ampl","bg_slope":"bg_slp"}
+        sn = {"background": "bg", "amplitude": "ampl", "bg_slope": "bg_slp"}
         for k in sorted(self.params.keys()):
             v = self.params[k]
             if v.vary:
                 if v.stderr is None:
                     sig_figs = 2
-                    s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±None\n"
+                    s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±None\n"
                 else:
                     sig_figs = int(np.ceil(np.log10(np.abs(v.value/v.stderr)))+1)
                     sig_figs = max(1, sig_figs)
-                    s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
+                    s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
             else:
-                s+=f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
+                s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
         return s[:-1]
-
 
     def plotm(self, ax=None, title=None, xlabel=None, ylabel=None):
         """plot the data, the fit, and annotate the plot with the parameters"""
         title, xlabel, ylabel = self._handle_default_labels(title, xlabel, ylabel)
-        ax=lmfit.model.ModelResult.plot_fit(self, ax=ax, 
-        xlabel=xlabel, ylabel=ylabel)
+        ax = lmfit.model.ModelResult.plot_fit(self, ax=ax,
+                                              xlabel=xlabel, ylabel=ylabel)
         if title is not None:
             plt.title(title)
-        ax.text(0.05,0.95, self._compact_fit_report(), transform=ax.transAxes, 
-        verticalalignment="top", bbox=dict(facecolor='w', alpha=0.5), family="monospace")
+        ax.text(0.05, 0.95, self._compact_fit_report(), transform=ax.transAxes,
+                verticalalignment="top", bbox=dict(facecolor='w', alpha=0.5), family="monospace")
         # ax.legend(["data", self._compact_fit_report()],loc='best', frameon=True, framealpha = 0.5)
         ax.legend(loc="upper right")
 
@@ -313,14 +316,14 @@ class LineModelResult(lmfit.model.ModelResult):
         else:
             if ylabel is None and "bin_centers" in self.userkws:
                 binsize = self.userkws["bin_centers"][1]-self.userkws["bin_centers"][0]
-                ylabel = f"counts per {binsize:g} unit bin"            
+                ylabel = f"counts per {binsize:g} unit bin"
         return title, xlabel, ylabel
 
     def _validate_bins_per_fwhm(self, minimum_bins_per_fwhm):
-        if not "bin_centers" in self.userkws:
-            return # i guess someone used this for a non histogram fit
+        if "bin_centers" not in self.userkws:
+            return  # i guess someone used this for a non histogram fit
         if not VALIDATE_BIN_SIZE:
-            return 
+            return
         bin_centers = self.userkws["bin_centers"]
         bin_size = bin_centers[1]-bin_centers[0]
         bin_size_energy = bin_size/self.params["dph_de"]
@@ -332,8 +335,7 @@ class LineModelResult(lmfit.model.ModelResult):
          minimum fwhm accounting for narrowest lorentzian in spectrum (energy units) = {minimum_fwhm_energy:.3g}\n
          bins_per_fwhm = {bins_per_fwhm:.3g}, minimum_bins_per_fwhm = {minimum_bins_per_fwhm:.3g}\n
          to avoid this error:\n
-         1. use smaller bins\n 
+         1. use smaller bins\n
          or 2. pass a smaller value of `minimum_bins_per_fwhm` to .fit\n
          or 3. set `mass.line_models.VALIDATE_BIN_SIZE = False`
          see https://bitbucket.org/joe_fowler/mass/issues/162/resolution-bias-in-fits-where-bin-size-is for discussion on this issue""")
-            

@@ -181,17 +181,18 @@ class SpectralLine(sp.stats.rv_continuous):
         return make_line_fitter(self)
 
     def minimum_fwhm(self, instrument_gaussian_fwhm):
-        """for the narrowest lorentzian in the line model, calculate the combined fwhm including 
+        """for the narrowest lorentzian in the line model, calculate the combined fwhm including
         the lorentzian, intrinstic_sigma, and instrument_gaussian_fwhm"""
-        fwhm2 = np.amin(self.lorentzian_fwhm)**2+instrument_gaussian_fwhm**2+(self.intrinsic_sigma*FWHM_OVER_SIGMA)**2
+        fwhm2 = np.amin(self.lorentzian_fwhm)**2+instrument_gaussian_fwhm**2 + \
+            (self.intrinsic_sigma*FWHM_OVER_SIGMA)**2
         return np.sqrt(fwhm2)
 
     @classmethod
     def quick_monochromatic_line(cls, name, energy, lorentzian_fwhm, intrinsic_sigma):
         """
         Create a quick monochromatic line. Intended for use in calibration when we know a line energy, but not a lineshape model.
-        Returns and instrance of SpectralLine with most fields having contents like "unknown: quick_line". The line will have 
-        a single lorentzian element with the given energy, fwhm, and intrinsic_sigma values. 
+        Returns and instrance of SpectralLine with most fields having contents like "unknown: quick_line". The line will have
+        a single lorentzian element with the given energy, fwhm, and intrinsic_sigma values.
         """
         element = name
         material = "unknown: quick_line"
@@ -205,15 +206,14 @@ class SpectralLine(sp.stats.rv_continuous):
         reference_amplitude_type = "unkown: quick_line"
         normalized_lorentzian_integral_intensity = np.array([1])
         nominal_peak_energy = energy
-        fitter_type = line_fits.GenericKBetaFitter # dont float dph_de
+        fitter_type = line_fits.GenericKBetaFitter  # dont float dph_de
         position_uncertainty = "unknown: quick_line"
         reference_measurement_type = "unkown: quick_line"
         is_default_material = True
         return cls(element, material, linetype, energies, lorentzian_fwhm, intrinsic_sigma,
-                 reference_plot_instrument_gaussian_fwhm, reference_short, reference_amplitude, reference_amplitude_type,
-                 normalized_lorentzian_integral_intensity, nominal_peak_energy, fitter_type, position_uncertainty,
-                 reference_measurement_type, is_default_material)
-    
+                   reference_plot_instrument_gaussian_fwhm, reference_short, reference_amplitude, reference_amplitude_type,
+                   normalized_lorentzian_integral_intensity, nominal_peak_energy, fitter_type, position_uncertainty,
+                   reference_measurement_type, is_default_material)
 
 
 lineshape_references = OrderedDict()

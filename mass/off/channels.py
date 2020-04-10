@@ -3,7 +3,6 @@ import os
 import shutil
 import logging
 import collections
-import inspect
 
 # pkg imports
 import numpy as np
@@ -273,14 +272,15 @@ class CorG():
             axis = plt.gca()
         # print(f"binEdges.size={binEdges.size}, binEdges.mean()={binEdges.mean()}")
         # print(f"attr={attr},states={states}")
-        bin_centers, counts = self.hist(binEdges, attr, states, cutRecipeName, calibration=calibration)
+        bin_centers, counts = self.hist(
+            binEdges, attr, states, cutRecipeName, calibration=calibration)
         # print(f"counts.size={counts.size},counts.sum()={counts.sum()}")
         if params_fixed is None:
             params = model.guess(counts, bin_centers=bin_centers)
         else:
             params = params_fixed
         if attr.startswith("energy") or calibration is not None:
-            params["dph_de"].set(1.0,vary=False)
+            params["dph_de"].set(1.0, vary=False)
             unit_str = "eV"
         if calibration is None:
             unit_str = "arbs"
@@ -291,19 +291,20 @@ class CorG():
         params.update(params_update)
         # unit_str and attr_str are used by result.plotm to label the axes properly
         result = model.fit(counts, params, bin_centers=bin_centers, method=method)
-        if states == None:
+        if states is None:
             states_hint = "all states"
         elif isinstance(states, list):
             states_hint = ", ".join(states)
         else:
             states_hint = states
         result.set_label_hints(binsize=bin_centers[1]-bin_centers[0], ds_shortname=self.shortName,
-        unit_str=unit_str, attr_str=attr_str, cut_hint=cutRecipeName, states_hint=states_hint)
+                               unit_str=unit_str, attr_str=attr_str, cut_hint=cutRecipeName, states_hint=states_hint)
         if plot:
             result.plotm()
         return result
 
     _default_bin_size = 1.0
+
     def setDefaultBinsize(self, binsize):
         """sets the default binsize in eV used by self.linefit and functions that call it"""
         self._default_bin_size = binsize
@@ -332,14 +333,15 @@ class Channel(CorG):
         self.verbose = verbose
         self.learnChannumAndShortname()
         self.recipes = RecipeBook(self._offAttrs, Channel)
-        self._defineDefaultRecipesAndProperties() # sets _default_cut_recipe_name
+        self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
     def _defineDefaultRecipesAndProperties(self):
         assert(len(self.recipes) == 0)
         t0 = self.offFile["unixnano"][0]
         self.recipes.add("relTimeSec", lambda unixnano: (unixnano-t0)*1e-9, ["unixnano"])
         self.recipes.add("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
-        self.cutAdd("cutNone", lambda filtValue: np.ones(len(filtValue), dtype="bool"), setDefault=True)
+        self.cutAdd("cutNone", lambda filtValue: np.ones(
+            len(filtValue), dtype="bool"), setDefault=True)
 
     @add_group_loop
     def cutAdd(self, cutRecipeName, f, ingredients=None, overwrite=False, setDefault=False):
@@ -372,19 +374,20 @@ class Channel(CorG):
 
     @add_group_loop
     def learnResidualStdDevCut(self, n_sigma_equiv=15, newCutRecipeName="cutResidualStdDev", binSizeFv=2000, minFv=150,
-        states=None, plot=False, setDefault=True, overwriteRecipe=False, cutRecipeName=None):
-        """EXPERIMENTAL: learn a cut based on the residualStdDev. uses the median absolute deviation to estiamte a gaussian sigma 
+                               states=None, plot=False, setDefault=True, overwriteRecipe=False, cutRecipeName=None):
+        """EXPERIMENTAL: learn a cut based on the residualStdDev. uses the median absolute deviation to estiamte a gaussian sigma
         that is robust to outliers as a function of filt Value, then uses that to set an upper limit based on n_sigma_equiv
         highly reccomend that you call it with plot=True on at least a few datasets first
         """
         # the code currently only works for a single threshold, but has some parts in place for implementing a filtValue dependent threshold
-        filtValue, residualStdDev = self.getAttr(["filtValue", "residualStdDev"], indsOrStates=states, cutRecipeName=cutRecipeName)
+        filtValue, residualStdDev = self.getAttr(
+            ["filtValue", "residualStdDev"], indsOrStates=states, cutRecipeName=cutRecipeName)
         # binEdges = np.percentile(filtValue, np.linspace(0, 100, N+1))
         binEdges = np.arange(0, np.amax(filtValue), binSizeFv)
         N = len(binEdges)-1
-        sigmas, medians, fv_mids =[0], [0], [minFv]
+        sigmas, medians, fv_mids = [0], [0], [minFv]
         for i in range(N):
-            lo,hi = binEdges[i], binEdges[i+1]
+            lo, hi = binEdges[i], binEdges[i+1]
             inds = np.logical_and(filtValue > lo, filtValue < hi)
             if len(inds) <= 4:
                 continue
@@ -392,7 +395,7 @@ class Channel(CorG):
             sigmas.append(sigma_equiv)
             medians.append(median)
             fv_mids.append((lo+hi)/2)
-        if len(sigmas)<1:
+        if len(sigmas) < 1:
             raise Exception(f"too few pulses, len(filtValue)={len(filtValue)}")
         sigmas = np.array(sigmas)
         medians = np.array(medians)
@@ -400,22 +403,23 @@ class Channel(CorG):
 
         threshold = medians+n_sigma_equiv*sigmas
         threshold_func = scipy.interpolate.interp1d(fv_mids, threshold, kind="next", bounds_error=False,
-        fill_value=(-1, threshold[-1])) 
+                                                    fill_value=(-1, threshold[-1]))
         # the threshold for all filtValues below minFv will be -1
         # filtValues just above binFv should look to the next point since kind="next", so the precise chioce of median and sigma to pair with binFv shouldn't matter
         # filtValues above the maximum filtValue should use the same threshold as the maximum filtValue
-        self.cutAdd(newCutRecipeName, lambda filtValue, residualStdDev: residualStdDev < threshold_func(filtValue), setDefault=setDefault, overwrite=overwriteRecipe)
-
+        self.cutAdd(newCutRecipeName,
+                    lambda filtValue, residualStdDev: residualStdDev < threshold_func(filtValue),
+                    setDefault=setDefault, overwrite=overwriteRecipe)
 
         if plot:
             xmin, xmax = np.amin(filtValue), np.amax(filtValue)
             x = np.linspace(xmin, xmax, 100)
             y = threshold_func(x)
-            self.plotAvsB("filtValue","residualStdDev",states=states,includeBad=True, cutRecipeName=newCutRecipeName) #creates a figure
+            self.plotAvsB("filtValue", "residualStdDev", states=states, includeBad=True,
+                          cutRecipeName=newCutRecipeName)  # creates a figure
             plt.plot(fv_mids, medians, "o-", label="median", lw=3)
             plt.plot(x, y, label=f"threshold", lw=3)
-            plt.legend()    
-
+            plt.legend()
 
     def getStatesIndicies(self, states=None):
         """return a list of slices corresponding to
@@ -610,7 +614,7 @@ class Channel(CorG):
         driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
         self.recipes.add(correctedName, driftCorrection, [
-                       driftCorrection.indicatorName, driftCorrection.uncorrectedName],overwrite=overwriteRecipe)
+            driftCorrection.indicatorName, driftCorrection.uncorrectedName], overwrite=overwriteRecipe)
         return driftCorrection
 
     @add_group_loop
@@ -633,7 +637,7 @@ class Channel(CorG):
         phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
         self.recipes.add(correctedName, phaseCorrection.correct, [
-                       phaseCorrection.indicatorName, phaseCorrection.uncorrectedName])
+            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName])
 
     @add_group_loop
     def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
@@ -667,7 +671,8 @@ class Channel(CorG):
         if states is None:
             states = self.stateLabels
         for state in states:
-            A, B, C = self.getAttr([indicatorName, uncorrectedName, "filtValueDC"], state, cutRecipeName)
+            A, B, C = self.getAttr([indicatorName, uncorrectedName,
+                                    "filtValueDC"], state, cutRecipeName)
             axis.plot(A, B, ".", label=state)
             axis.plot(A, C, ".", label=state+" DC")
             if includeBad:
@@ -690,7 +695,7 @@ class Channel(CorG):
         calibrationRough = self.calibrationPlan.getRoughCalibration()
         calibrationRough.uncalibratedName = self.calibrationPlanAttr
         self.recipes.add("energyRough", calibrationRough,
-                       [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
+                         [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         return self.calibrationPlan
 
     @add_group_loop
@@ -706,21 +711,23 @@ class Channel(CorG):
             calibration.uncalibratedName = uncalibratedName
             results = []
             for (ph, energy, name, states) in zip(plan.uncalibratedVals, plan.energies,
-                                                plan.names, plan.states):
+                                                  plan.names, plan.states):
                 result = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
-                                        plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
-                                        method=method, params_update=params_update, has_tails=has_tails)
+                                      plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
+                                      method=method, params_update=params_update, has_tails=has_tails)
 
                 results.append(result)
                 if not result.success:
                     self.markBad("calibrateFollowingPlan: failed fit {}, states {}".format(
                         name, states), extraInfo=result)
-                    continue 
+                    continue
                 if not result.errorbars:
-                    self.markBad("calibrateFollowingPlan: {} fit without error bars, states={}".format(name, states), extraInfo=result)
+                    self.markBad("calibrateFollowingPlan: {} fit without error bars, states={}".format(
+                        name, states), extraInfo=result)
                     continue
                 ph = starting_cal.energy2ph(result.params["peak_ph"].value)
-                ph_uncertainty = result.params["peak_ph"].stderr/starting_cal.energy2dedph(result.params["peak_ph"].value)
+                ph_uncertainty = result.params["peak_ph"].stderr / \
+                    starting_cal.energy2dedph(result.params["peak_ph"].value)
                 calibration.add_cal_point(ph, energy, name, ph_uncertainty)
             calibration.results = results
             calibration.plan = plan
@@ -729,10 +736,9 @@ class Channel(CorG):
                 intermediate_calibrations.append(calibration)
                 starting_cal = calibration
         calibration.intermediate_calibrations = intermediate_calibrations
-        self.recipes.add(calibratedName, calibration, [calibration.uncalibratedName], overwrite=overwriteRecipe)
+        self.recipes.add(calibratedName, calibration, [
+                         calibration.uncalibratedName], overwrite=overwriteRecipe)
         return results
-
-
 
     def markBad(self, reason, extraInfo=None):
         self.markedBadReason = reason
@@ -771,7 +777,7 @@ class Channel(CorG):
                 self.calibrationPlanAddPoint(self.calibrationArbsInRefChannelUnits.energy2ph(ph),
                                              name, states, energy)
         self.recipes.add("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
-                       self.calibrationArbsInRefChannelUnits.uncalibratedName])
+            self.calibrationArbsInRefChannelUnits.uncalibratedName])
         return self.aligner
 
     @add_group_loop
@@ -783,7 +789,7 @@ class Channel(CorG):
         marks self bad if the fit position is more than toleranceFitSigma*fitSigma away
         from the correct position
         """
-        result = self.linefit(line, attr, states, None, dlo, dhi, binsize, binEdges, 
+        result = self.linefit(line, attr, states, None, dlo, dhi, binsize, binEdges,
                               guessParams, cutRecipeName, holdvals)
         fitPos = result.params["peak_ph"].value
         fitSigma = result.params["peak_ph"].stderr
@@ -812,7 +818,8 @@ class Channel(CorG):
             binCenters, counts = self.hist(binEdges, attr, state, cutRecipeName)
             grp["{}/bin_centers".format(state)] = binCenters
             grp["{}/counts".format(state)] = counts
-        binCenters, counts = self.hist(binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
+        binCenters, counts = self.hist(
+            binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
         grp["bin_centers_ev"] = binCenters
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
@@ -853,7 +860,6 @@ class Channel(CorG):
         calibration = self.recipes[calibratedName].f
         uncalibratedName = calibration.uncalibratedName
         results = calibration.results
-        plan = calibration.plan
         n_intermediate = len(calibration.intermediate_calibrations)
         plt.figure(figsize=(20, 12))
         plt.suptitle(
@@ -861,7 +867,8 @@ class Channel(CorG):
         n = int(np.ceil(np.sqrt(len(results)+2)))
         for i, result in enumerate(results):
             ax = plt.subplot(n, n, i+1)
-            result.plotm(ax=ax, title=str(result.model.spect.shortname)) # pass title to suppress showing the dataset shortName on each subplot
+            # pass title to suppress showing the dataset shortName on each subplot
+            result.plotm(ax=ax, title=str(result.model.spect.shortname))
         ax = plt.subplot(n, n, i+2)
         calibration.plot(axis=ax)
         ax = plt.subplot(n, n, i+3)
@@ -869,7 +876,6 @@ class Channel(CorG):
                       axis=ax, coAddStates=False)
         plt.vlines(self.calibrationPlan.uncalibratedVals, 0, plt.ylim()[1])
         plt.tight_layout()
-
 
 
 class AlignBToA():
@@ -1242,7 +1248,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             binCenters, counts = self.hist(binEdges, attr, state, cutRecipeName)
             grp["{}/bin_centers".format(state)] = binCenters
             grp["{}/counts".format(state)] = counts
-        binCenters, counts = self.hist(binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
+        binCenters, counts = self.hist(
+            binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
         grp["bin_centers_ev"] = binCenters
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
@@ -1333,7 +1340,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             return h5py.File(self._outputHDF5Filename, "a")
 
     def resultPlot(self, lineName, states=None, binsize=None):
-        results = [ds.linefit(lineName, plot=False, states=states, binsize=binsize) for ds in self.values()]
+        results = [ds.linefit(lineName, plot=False, states=states, binsize=binsize)
+                   for ds in self.values()]
         result = self.linefit(lineName, plot=False, states=states, binsize=binsize)
         fig = plt.figure(figsize=(12, 12))
         fig.suptitle("{} fits to {} with states = {}".format(self.shortName, lineName, states))
@@ -1355,10 +1363,12 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         plt.ylabel("channels per bin")
         plt.text(0.5, 0.9, "median = {:.2f}\ndb position = {:.3f}".format(np.median(positions),
                                                                           result.model.spect.peak_energy), transform=ax.transAxes)
-        plt.vlines(result.model.spect.peak_energy, plt.ylim()[0], plt.ylim()[1], label="db position")
+        plt.vlines(result.model.spect.peak_energy, plt.ylim()
+                   [0], plt.ylim()[1], label="db position")
         ax = plt.subplot(2, 2, 4)
         plt.errorbar(np.arange(len(positions)), positions, yerr=position_errs, fmt=".")
-        plt.hlines(result.model.spect.peak_energy, plt.xlim()[0], plt.xlim()[1], label="db position")
+        plt.hlines(result.model.spect.peak_energy, plt.xlim()
+                   [0], plt.xlim()[1], label="db position")
         plt.legend()
         plt.xlabel("channel number")
         plt.ylabel("line position (eV)")
@@ -1377,6 +1387,3 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self._default_cut_recipe_name = cutRecipeName
         for ds in self.values():
             ds.cutSetDefault(cutRecipeName)
-
-
-
