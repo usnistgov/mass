@@ -338,6 +338,7 @@ class TestTESGroup(ut.TestCase):
                 self.silent = False
                 self.mass_hdf5_path = os.path.join(
                     'mass', 'regression_test', 'projectors_script_test_mass.hdf5')
+                self.invert_data = False
 
         mass.core.projectors_script.main(Args())
 

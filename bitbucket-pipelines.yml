@@ -9,13 +9,6 @@ pipelines:
   default:
     - parallel:
       - step:
-          name: python 2.7
-          image: python:2.7.12
-          script: # Modify the commands below to build your repository.
-            - pip install --upgrade pip # the pip with py27 is too old for pyproject.toml, so we need to upgrade
-            - pip install -e .
-            - pytest
-      - step:
           caches:
             - pip
           name: python 3.7
