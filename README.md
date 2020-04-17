@@ -15,9 +15,14 @@ pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass
 
 See [`nist-qsp-tdm`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) README for instructions to install all tdm python software simultaneously, and how to setup venv.
 
+## Windows
+You may need to install Visual Studio Community Edition. 
+
+## Sudo
+Try installing without `sudo` first, though I find on NIST macs that I can't get away without sudo.
 
 ## Scripts
-Mass installs 3 scripts (as of March 2020). These are `ljh_truncate`, `make_projectors`, and `ljh2off`. You can check `setup.py` and look for either `scripts` or `console_scripts` to see if any others have been added. These should be executable from your terminal from anywhere without typing `python` before them. They all have help accessible via eg `ljh2off --help`.
+Mass installs 3 scripts (as of March 2020). These are `ljh_truncate`, `make_projectors`, and `ljh2off`. You can check `setup.py` and look for either `scripts` or `console_scripts` to see if any others have been added. These should be executable from your terminal from anywhere without typing `python` before them, though you may need to add something to your path. Please update this if you need to add something to your path. They all have help accessible via eg `ljh2off --help`.
 
 ### Python 2.7
 If you really want to use Python 2.7, version 0.7.5 is the last version tested on Python 2.7, you can install it with the following command:
@@ -70,4 +75,19 @@ Run all the tests on your system and make sure they pass!. Do `pytest` in the `m
 These are all probably out of date. They live in `mass/mass/demo`. If you want to contribute to mass, but don't want to do a bunch of programming, updating the demos would be a huge help!
 
 # Development Tips
+
+## Running Tests
+Run tests from within the source directory with `pytest`
+
+### Auto-run subsets of tests
 `pytest-watch --pdb -- mass/off` run from the source directory will run only the tests in `mass/off`, automatically, each time a file is saved. Upon any error it will drop into pdb for debugging. You will need to `pip install pytest-watch` first.
+
+## Install location
+If you intall in a venv, the install location will be inside the `venv/src/mass` where `venv` is the name of your venv.
+Otherwise will will just be in mass relative to where you run the pip command.
+
+## -e
+The -e command makes development really easy, you can change python files, then the next time you import mass the new files will be used. If you change Cython files or other complied files you should install again. Either do `pip install -e .` from within the soure directory, or call `python setup.py develop` from within the directory.
+
+## reload
+You may find `reload(mass.mathstat)` useful for interactive code development, but be aware it can't reload complied files. 
