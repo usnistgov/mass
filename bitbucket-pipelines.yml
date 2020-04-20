@@ -33,6 +33,7 @@ pipelines:
             - echo $BITBUCKET_BRANCH
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
+            - git clone -v git@bitbucket.org:oneilg/oneilg.bitbucket.io.git
             - pip install -e .
             - pip install recommonmark sphinx
             - cd doc
