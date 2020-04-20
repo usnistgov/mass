@@ -35,4 +35,5 @@ pipelines:
             - ls
             - cd doc
             - ls
-            - ./make_and_deploy_docs.sh
+            - ./make_and_deploy_docs_bitbucket.sh
+
