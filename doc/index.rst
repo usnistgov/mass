@@ -9,7 +9,6 @@ Hand written documentation
 .. toctree::
 
    autocal
-   Cuts
    Demos
    hdf5_only
    invert_pulses

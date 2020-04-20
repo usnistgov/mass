@@ -24,3 +24,12 @@ pipelines:
           script: # Modify the commands below to build your repository.
             - pip install -e .
             - pytest
+      - step:
+          caches: 
+            - pip
+          name: deploy docs
+          image: python:3.8.1
+          script:
+            - pip install recommonmark sphinx
+            - cd doc
+            - ./make_and_deploy_docs.sh
