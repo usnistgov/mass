@@ -36,7 +36,5 @@ pipelines:
             - pip install -e .
             - pip install recommonmark sphinx
             - cd doc
-            branches:
-              cleanup:
-                - ./make_and_deploy_docs_bitbucket.sh
+            - ./make_and_deploy_docs_bitbucket.sh $BITBUCKET_BRANCH
 
