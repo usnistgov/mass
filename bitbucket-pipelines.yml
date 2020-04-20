@@ -30,6 +30,9 @@ pipelines:
           name: deploy docs
           image: python:3.8.1
           script:
+            - pip install -e .
             - pip install recommonmark sphinx
+            - ls
             - cd doc
+            - ls
             - ./make_and_deploy_docs.sh
