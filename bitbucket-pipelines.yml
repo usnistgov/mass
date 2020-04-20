@@ -29,7 +29,8 @@ pipelines:
             - pip
           name: deploy docs
           image: python:3.8.1
-          script:
+          script: 
+            - echo $BITBUCKET_BRANCH
             - pip install -e .
             - pip install recommonmark sphinx
             - ls
