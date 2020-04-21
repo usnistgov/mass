@@ -21,9 +21,9 @@ def LineEnergies():
     It is a dictionary from peak name to energy, with several alternate names
     for the lines:
 
-    >>> E = Energies()
-    >>> print E["MnKAlpha"]
-    >>> print E["MnKAlpha"], E["MnKA"], E["MnKA1"], E["MnKL3"]
+    E = Energies()
+    print E["MnKAlpha"]
+    print E["MnKAlpha"], E["MnKA"], E["MnKA1"], E["MnKL3"]
     """
     db = NISTXrayDBFile()
     alternate_line_names = {v: k for (k, v) in db.LINE_NICKNAMES.items()}
