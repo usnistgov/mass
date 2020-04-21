@@ -1,3 +1,4 @@
+# Autocal
 ## Automatic Energy Calibration
 
 When you want to calibrate a TES detector using a series of X-ray emission lines

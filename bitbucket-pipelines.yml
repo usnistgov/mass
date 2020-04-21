@@ -24,3 +24,16 @@ pipelines:
           script: # Modify the commands below to build your repository.
             - pip install -e .
             - pytest
+      - step:
+          caches: 
+            - pip
+          name: deploy docs
+          image: python:3.8.1
+          script: 
+            - git config --global user.email "galen.oneil@nist.gov"
+            - git config --global user.name "Bitbucket Pipeline Doc Deploy"
+            - pip install -e .
+            - pip install recommonmark sphinx
+            - cd doc
+            - ./make_and_deploy_docs_bitbucket.sh $BITBUCKET_BRANCH
+

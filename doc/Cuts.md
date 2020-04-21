@@ -1,3 +1,4 @@
+# Cuts
 In Sept 2015 Young introduced a new API for cuts that is both more functional, and faster in many cases than the previous API.
 
 There are two types of cut fields, _boolean_ and _categorical_.
