@@ -31,7 +31,8 @@ pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@versions/0.7.5#eg
 ```
 
 # Documentation
-Use ipython to do something like `mass.function?` to see docstrings, or browse the source code. Also there are some overview `.md` files in the `doc` folder. I like to view these `.md` files in bitbucket.
+[Docs for master](https://oneilg.bitbucket.io/mass/) 
+[Docs for latest push to any non master branch](https://oneilg.bitbucket.io/mass_non_master/) 
 
 
 How to help with the documentation:

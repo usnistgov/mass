@@ -30,7 +30,6 @@ pipelines:
           name: deploy docs
           image: python:3.8.1
           script: 
-            - echo $BITBUCKET_BRANCH
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
             - pip install -e .
