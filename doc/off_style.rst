@@ -20,9 +20,9 @@ Here we open an OFF file and plot a reconstructed record.
   plt.plot(x,y)
   plt.xlabel("time (s)")
   plt.ylabel("reconstructed signal (arbs)")
-  plt.savefig("img/offxy.svg")
+  plt.savefig("img/offxy.png")
 
-.. image:: img/offxy.svg
+.. image:: img/offxy.png
   :width: 600
 
 What is in a record?
@@ -48,15 +48,15 @@ Basic Analysis with a ``ChannelGroup``
   from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks
   data = ChannelGroup(getOffFileListFromOneFile("../mass/off/data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off", maxChans=2))
   data.learnResidualStdDevCut(plot=True)
-  plt.savefig("img/residualStdDevCut.svg")
+  plt.savefig("img/residualStdDevCut.png")
   ds = data[1]
   ds.plotHist(np.arange(0,40000,10),"filtValue")
-  plt.savefig("img/hist1.svg")
+  plt.savefig("img/hist1.png")
 
-.. image:: img/residualStdDevCut.svg
+.. image:: img/residualStdDevCut.png
   :width: 45%
 
-.. image:: img/hist1.svg
+.. image:: img/hist1.png
   :width: 45%
 
 Here we opened all the channels that have the same base filename, plus we opened the ``_experiment_state.txt`` that defines states. States provide a convenient way to seperate your data into different chunks by time, and a generally assigned during data aquistion, but you can always make a new ``_experiment_state.txt`` file to split things up a different way.
@@ -80,7 +80,7 @@ Here we opened all the channels that have the same base filename, plus we opened
   ds.calibrationPlanAddPoint(11728, "Ar H-Like 2p", states="Ar")
   # at this point energyRough should work
   ds.plotHist(np.arange(0, 4000, 1), "energyRough", coAddStates=False)
-  plt.savefig("img/hist2.svg")
+  plt.savefig("img/hist2.png")
 
-.. image:: img/hist2.svg
+.. image:: img/hist2.png
   :width: 45%
