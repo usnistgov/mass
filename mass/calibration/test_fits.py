@@ -407,9 +407,11 @@ class Test_Composites_lmfit(unittest.TestCase):
         model1_noprefix = mass.fluorescence_lines.make_line_model(self.line1)
         assert(model1_noprefix.prefix == '')
         params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers)
+        params1_noprefix['dph_de'].set(value=1.0, vary=False)
         result1_noprefix = model1_noprefix.fit(self.counts1, params=params1_noprefix, bin_centers=self.bin_centers)
         for iComp in result1_noprefix.components:
             assert(iComp.prefix == '')
+        result1_noprefix._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
     def test_NonUniqueParamsFails(self):
         model1_noprefix = mass.fluorescence_lines.make_line_model(self.line1)
