@@ -358,6 +358,90 @@ class Test_MnKA_lmfit(unittest.TestCase):
         self.assertAlmostEqual(
             fitter.last_fit_params_dict["bg_slope"][1], result.params["bg_slope"].stderr, places=1)
 
+class Test_Composites_lmfit(unittest.TestCase):
+    def setUp(self):
+        if 'dummy1' not in mass.spectrum_classes.keys():
+            mass.calibration.fluorescence_lines.addline(
+                element="dummy",
+                material="dummy_material",
+                linetype="1",
+                reference_short='NIST ASD',
+                fitter_type=mass.line_fits.GenericKBetaFitter,
+                reference_plot_instrument_gaussian_fwhm=0.5,
+                nominal_peak_energy=653.493657,
+                energies=np.array([653.493657]), lorentzian_fwhm=np.array([0.1]),
+                reference_amplitude=np.array([1]),
+                reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
+            )
+        if 'dummy2' not in mass.spectrum_classes.keys():
+            mass.calibration.fluorescence_lines.addline(
+                element="dummy",
+                material="dummy_material",
+                linetype="2",
+                reference_short='NIST ASD',
+                fitter_type=mass.line_fits.GenericKBetaFitter,
+                reference_plot_instrument_gaussian_fwhm=0.5,
+                nominal_peak_energy=653.679946,
+                energies=np.array([653.679946]), lorentzian_fwhm=np.array([0.1]),
+                reference_amplitude=np.array([1]),
+                reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
+            )
+        np.random.seed(131)
+        bin_edges = np.arange(600, 700, 0.4)
+        resolution = 4.0
+        sigma = resolution/2.3548
+        n1 = 10000
+        n2 = 20000
+        self.n = n1+n2
+        self.line1 = mass.spectrum_classes['dummy1']()
+        self.line2 = mass.spectrum_classes['dummy2']()
+        self.nominal_separation = self.line2.nominal_peak_energy - self.line1.nominal_peak_energy
+        values1 = self.line1.rvs(size=n1, instrument_gaussian_fwhm=resolution)
+        values2 = self.line2.rvs(size=n2, instrument_gaussian_fwhm=resolution)
+        self.counts1, _ = np.histogram(values1, bin_edges)
+        self.counts2, _ = np.histogram(values2, bin_edges)
+        self.counts = self.counts1 + self.counts2
+        self.bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+        
+    def test_FitToModelWithoutPrefix(self):
+        model1_noprefix = mass.fluorescence_lines.make_line_model(self.line1)
+        assert(model1_noprefix.prefix == '')
+        params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers)
+        result1_noprefix = model1_noprefix.fit(self.counts1, params=params1_noprefix, bin_centers=self.bin_centers)
+        for iComp in result1_noprefix.components:
+            assert(iComp.prefix == '')
+
+    def test_NonUniqueParamsFails(self):
+        model1_noprefix = mass.fluorescence_lines.make_line_model(self.line1)
+        model2_noprefix = mass.fluorescence_lines.make_line_model(self.line2)
+        with self.assertRaises(NameError):
+            composite_model = model1_noprefix + model2_noprefix
+    
+    def test_CompositeModelFit(self):
+        prefix1 = 'p1_'
+        prefix2 = 'p2_'
+        model1 = mass.fluorescence_lines.make_line_model(self.line1, prefix=prefix1)
+        model2 = mass.fluorescence_lines.make_line_model(self.line2, prefix=prefix2)
+        assert(model1.prefix == prefix1)
+        assert(model2.prefix == prefix2)
+        params1 = model1.guess(self.counts1, bin_centers=self.bin_centers)
+        params2 = model2.guess(self.counts2, bin_centers=self.bin_centers)
+        params1['{}dph_de'.format(prefix1)].set(value=1.0, vary=False)
+        params2['{}dph_de'.format(prefix2)].set(value=1.0, vary=False)
+        result1 = model1.fit(self.counts1, params=params1, bin_centers=self.bin_centers)
+        result2 = model2.fit(self.counts2, params=params2, bin_centers=self.bin_centers)
+        compositeModel = model1 + model2
+        modelComponentPrefixes = [iComp.prefix for iComp in compositeModel.components]
+        assert(np.logical_and(prefix1 in modelComponentPrefixes, prefix2 in modelComponentPrefixes))
+        compositeParams = result1.params + result2.params
+        compositeParams['{}fwhm'.format(prefix1)].expr = '{}fwhm'.format(prefix2)
+        compositeParams['{}peak_ph'.format(prefix1)].expr = '{}peak_ph - {}'.format(prefix2, self.nominal_separation)
+        compositeParams.add(name='ampRatio', value = 0.5, vary=False)
+        compositeParams['{}amplitude'.format(prefix1)].expr='{}amplitude * ampRatio'.format(prefix2)
+        compositeResult = compositeModel.fit(self.counts, params=compositeParams, bin_centers=self.bin_centers)
+        resultComponentPrefixes = [iComp.prefix for iComp in compositeResult.components]
+        assert(np.logical_and(prefix1 in resultComponentPrefixes, prefix2 in resultComponentPrefixes))
+        compositeResult._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
 if __name__ == "__main__":
     unittest.main()
