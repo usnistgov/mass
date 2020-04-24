@@ -1272,7 +1272,6 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                                             _rethrow=_rethrow)
         resolutions = np.array([r.params["fwhm"].value
                                 for r in results.values() if r.success])
-        print(f"resolutions {resolutions}")
         if resolutionPlot:
             plt.figure()
             axis = plt.gca()

@@ -32,8 +32,8 @@ pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@versions/0.7.5#eg
 
 # Documentation
 
-  * [Docs for master](https://oneilg.bitbucket.io/mass/) 
-  * [Docs for latest push to any non master branch](https://oneilg.bitbucket.io/mass_non_master/) 
+* [Docs for master](https://oneilg.bitbucket.io/mass/) 
+* [Docs for latest push to any non master branch](https://oneilg.bitbucket.io/mass_non_master/) 
 
 
 How to help with the documentation:
