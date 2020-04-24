@@ -239,8 +239,9 @@ lineshape_references["Chantler 2006"] = """Chantler, C., Kinnane, M., Su, C.-H.,
     Be sure to look at Table I, not the very similar Table II which lists parameters in different parameterization."""
 lineshape_references["Chantler 2013"] = """C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
 http://iopscience.iop.org/0953-4075/46/14/145601"""
-lineshape_references["Chantler 2013, Section 5"] = """
-We were using L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys
+lineshape_references["Chantler 2013, Section 5"] = """C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
+http://iopscience.iop.org/0953-4075/46/14/145601
+We were originally using L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys
 Rev A 87 022512 (2013). http://pra.aps.org/abstract/PRA/v87/i2/e022512
 
 BUT these were adjusted in C Chantler, L Smale, J Kimpton, et al., J Phys B
@@ -544,7 +545,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Chantler 2013",
-    reference_plot_instrument_gaussian_fwhm=1.244,
+    reference_plot_instrument_gaussian_fwhm=1.244*2.3548,
     nominal_peak_energy=4931.966,
     energies=np.array((25.37, 30.096, 31.967, 35.59)) + 4900,
     lorentzian_fwhm=np.array((16.3, 4.25, 0.42, 0.47)),
@@ -571,7 +572,7 @@ addline(
     material="metal",
     linetype="KBeta",
     reference_short="Chantler 2013, Section 5",
-    reference_plot_instrument_gaussian_fwhm=None,
+    reference_plot_instrument_gaussian_fwhm=0.805*2.3548,
     nominal_peak_energy=5426.956,
     energies=np.array((18.19, 24.50, 26.992)) + 5400,
     lorentzian_fwhm=np.array((18.86, 5.48, 2.499)),
