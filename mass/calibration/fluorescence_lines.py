@@ -587,8 +587,8 @@ addline(
     reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=5414.81,
     energies=5400 + np.array((14.874, 14.099, 12.745, 10.583, 18.304, 5.551, 3.986)),
-    lorentzian_fwhm=np.array((1.457, 1.760, 3.138, 5.149, 1.988, 2.224, 4.4740)),
-    reference_amplitude=np.array((882, 237, 85, 45, 15, 386, 36)),
+    lorentzian_fwhm=np.array((1.457, 1.760, 3.138, 5.149, 1.988, 2.224, 4.740)),
+    reference_amplitude=np.array((822, 237, 85, 45, 15, 386, 36)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=9.2,
 )
@@ -641,11 +641,18 @@ addline(
     reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=6404.01,
     energies=np.array((6404.148, 6403.295, 6400.653, 6402.077, 6391.190, 6389.106, 6390.275)),
-    lorentzian_fwhm=np.array((1.613, 1.965, 4.833, 2.803, 2.487, 2.339, 4.433)),
+    lorentzian_fwhm=np.array((1.613, 1.965, 4.833, 2.803, 2.487, 4.339, 2.57)),
     reference_amplitude=np.array((697, 376, 88, 136, 339, 60, 102)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=13.0,
 )
+# ERROR IN HOLZER PAPER:
+# The FWHM in the Table II of Holzer have the Kalpha_22 and _23 widths as 2.339 and 4.433, but
+# these disagree with their Figure 1c. Swapping the widths (as you see above) makes the curve
+# match the figure, though the exact I_int values still don't match those in Table II.
+# To get the I_int values close, we choose width 4.339 and 2.57. These are still just a guess,
+# but that's where the above values come from. See conversation with Richard Gnewkow of the
+# Technische Universität Berlin on April 23-24, 2020.
 
 addline(
     element="Fe",
@@ -673,6 +680,9 @@ addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=15.0,
 )
+# Notice that Co KAlpha in Holzer shows the 4th line as having integrated intensity of 0.088, but
+# this is probably a typo (should read 0.008). No effect on the data above, though, because it's a
+# derived quantity.
 
 addline(
     element="Co",
