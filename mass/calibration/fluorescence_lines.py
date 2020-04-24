@@ -396,14 +396,14 @@ def make_line_fitter(line):
     return f
 
 
-def make_line_model(line, has_tails=False):
+def make_line_model(line, has_tails=False, prefix=''):
     """Generate a LineModel instance from a SpectralLine"""
     if line.linetype == "KAlpha":
         model_class = line_models.GenericKAlphaModel
     else:
         model_class = line_models.GenericLineModel
     name = line.element+line.linetype
-    return model_class(name=name, spect=line, has_tails=has_tails)
+    return model_class(name=name, spect=line, has_tails=has_tails, prefix=prefix)
 
 
 addline(
