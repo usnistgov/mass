@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # build the docs
 make clean
+make doctest
 make html
 
 
