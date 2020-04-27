@@ -243,7 +243,6 @@ class TestSummaries(ut.TestCase):
         data_local = ChannelGroup([filename])
         self.assertEqual(len(data_local.keys()), 1)
         ds_local = data_local.firstGoodChannel()
-        ds_local.stdDevResThreshold = 100
         _, hists_pre_bad = data_local.hists(np.arange(10), "filtValue")
         self.assertFalse(ds_local.markedBadBool)
         ds_local.markBad("testing")
