@@ -231,8 +231,6 @@ Then we calibrate each channel, using ``filtValueDC`` as the input. This creates
 
 Then you will often want to fit some lines. 
 
-.. warning:: It looks like the cut label is wrong for linefit on ``data`` rather than ``ds``. Need to fix that.
-
 .. testcode::
 
   data.linefit("W Ni-20", states=["W 1", "W 2"])

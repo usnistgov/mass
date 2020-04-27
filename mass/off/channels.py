@@ -315,12 +315,6 @@ class CorG():
         else:
             return binsize
 
-    def _handleDefaultCut(self, cutRecipeName):
-        if cutRecipeName is None:
-            return self._default_cut_recipe_name
-        else:
-            return cutRecipeName
-
 
 # wrap up an off file with some conviencine functions
 # like a TESChannel
@@ -353,6 +347,12 @@ class Channel(CorG):
         assert cutRecipeName.startswith("cut")
         assert cutRecipeName in self.recipes.keys()
         self._default_cut_recipe_name = cutRecipeName
+
+    def _handleDefaultCut(self, cutRecipeName):
+        if cutRecipeName is None:
+            return self._default_cut_recipe_name
+        else:
+            return cutRecipeName
 
     @property
     def _offAttrs(self):
@@ -1105,6 +1105,14 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self._channelClass = channelClass
         self.loadChannels()
         self._default_cut_recipe_name = self.firstGoodChannel()._default_cut_recipe_name
+
+    def _handleDefaultCut(self, cutRecipeName):
+        ds = self.firstGoodChannel()
+        defaultCut = ds._default_cut_recipe_name
+        for ds in self.values():
+            if ds._default_cut_recipe_name != defaultCut:
+                raise Exception("you are tyring to use the default cut from a channel group, but not all channels have the same default cut")
+        return defaultCut
 
     @property
     def shortName(self):
