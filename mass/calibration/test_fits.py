@@ -445,5 +445,33 @@ class Test_Composites_lmfit(unittest.TestCase):
         assert(np.logical_and(prefix1 in resultComponentPrefixes, prefix2 in resultComponentPrefixes))
         compositeResult._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
+class Test_NoFWHM_MLE(unittest.TestCase):
+    def test_BackgroundMLEFit(self):
+        class BackgroundMLEModel(mass.calibration.line_models.MLEModel):
+            def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise', **kwargs):
+                def modelfunc(bin_centers, background, bg_slope):
+                    bg = np.zeros_like(bin_centers) + background
+                    bg += bg_slope * np.arange(len(bin_centers))
+                    bg[bg < 0] = 0
+                    if any(np.isnan(bg)) or any(bg < 0):
+                        raise ValueError("some entry in r is nan or negative")
+                    return bg
+                kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,'independent_vars': independent_vars})
+                super(BackgroundMLEModel, self).__init__(modelfunc, **kwargs)   
+                self.set_param_hint('background', value=1, min=0)     
+                self.set_param_hint('bg_slope', value=0)
+        
+        test_model = BackgroundMLEModel(name='LinearTestModel', prefix = 'p1_')
+        test_params = test_model.make_params(background=1.0, bg_slope=0.0)
+        x_data = np.arange(1000,2000,1)
+        test_background = 127.3
+        test_background_error = np.sqrt(test_background)
+        test_bg_slope = 0.17
+        y_data = np.zeros_like(x_data) + test_background + np.random.normal(scale=test_background_error, size=len(x_data))
+        y_data += test_bg_slope * np.arange(len(x_data))
+        y_data[y_data < 0] = 0
+        test_result = test_model.fit(y_data, test_params, bin_centers=x_data)
+
+
 if __name__ == "__main__":
     unittest.main()
