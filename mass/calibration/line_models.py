@@ -328,7 +328,7 @@ class LineModelResult(lmfit.model.ModelResult):
         bin_size = bin_centers[1]-bin_centers[0]
         for iComp in self.components:
             prefix = iComp.prefix
-            if np.logical_and(prefix+"dph_de" in self.params, prefix+"fwhm" in self.params):
+            if (prefix+"dph_de" in self.params) and (prefix+"fwhm" in self.params):
                 bin_size_energy = bin_size/self.params[prefix+"dph_de"]
                 instrument_gaussian_fwhm_energy = self.params[prefix+"fwhm"].value/self.params[prefix+"dph_de"]
                 minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm_energy)

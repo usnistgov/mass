@@ -325,38 +325,37 @@ class Test_Voigt(unittest.TestCase):
         self.singletest(bg=0)
 
 
-class Test_MnKA_lmfit(unittest.TestCase):
-    def test_lmfit(self):
-        n = 10000
-        resolution = 2.5
-        bin_edges = np.arange(5850, 5950, 0.5)
-        # generate random x-ray pulse energies following MnKAlpha distribution
-        line = mass.calibration.fluorescence_lines.MnKAlpha
-        np.random.seed(154)
-        values = line.rvs(size=n, instrument_gaussian_fwhm=0)
-        # add gaussian oise to each x-ray energy
-        sigma = resolution/2.3548
-        values += sigma*np.random.standard_normal(size=n)
-        # histogram
-        counts, _ = np.histogram(values, bin_edges)
-        model = line.model()
-        bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
-        params = model.guess(counts, bin_centers=bin_centers)
-        result = model.fit(counts, bin_centers=bin_centers, params=params)
-        fitter = mass.MnKAlphaFitter()
-        fitter.fit(counts, bin_centers, plot=False)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value, delta=2*result.params["fwhm"].stderr)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["resolution"][1], result.params["fwhm"].stderr, places=1)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][0], result.params["amplitude"].value, delta=2*result.params["amplitude"].stderr)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][1], result.params["amplitude"].stderr, places=-3)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["bg_slope"][0], result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["bg_slope"][1], result.params["bg_slope"].stderr, places=1)
+def test_MnKA_lmfit(self):
+    n = 10000
+    resolution = 2.5
+    bin_edges = np.arange(5850, 5950, 0.5)
+    # generate random x-ray pulse energies following MnKAlpha distribution
+    line = mass.calibration.fluorescence_lines.MnKAlpha
+    np.random.seed(154)
+    values = line.rvs(size=n, instrument_gaussian_fwhm=0)
+    # add gaussian oise to each x-ray energy
+    sigma = resolution/2.3548
+    values += sigma*np.random.standard_normal(size=n)
+    # histogram
+    counts, _ = np.histogram(values, bin_edges)
+    model = line.model()
+    bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+    params = model.guess(counts, bin_centers=bin_centers)
+    result = model.fit(counts, bin_centers=bin_centers, params=params)
+    fitter = mass.MnKAlphaFitter()
+    fitter.fit(counts, bin_centers, plot=False)
+    self.assertAlmostEqual(
+        fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value, delta=2*result.params["fwhm"].stderr)
+    self.assertAlmostEqual(
+        fitter.last_fit_params_dict["resolution"][1], result.params["fwhm"].stderr, places=1)
+    self.assertAlmostEqual(
+        fitter.last_fit_params_dict["amplitude"][0], result.params["amplitude"].value, delta=2*result.params["amplitude"].stderr)
+    self.assertAlmostEqual(
+        fitter.last_fit_params_dict["amplitude"][1], result.params["amplitude"].stderr, places=-3)
+    self.assertAlmostEqual(
+        fitter.last_fit_params_dict["bg_slope"][0], result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
+    self.assertAlmostEqual(
+        fitter.last_fit_params_dict["bg_slope"][1], result.params["bg_slope"].stderr, places=1)
 
 class Test_Composites_lmfit(unittest.TestCase):
     def setUp(self):
@@ -445,32 +444,31 @@ class Test_Composites_lmfit(unittest.TestCase):
         assert(np.logical_and(prefix1 in resultComponentPrefixes, prefix2 in resultComponentPrefixes))
         compositeResult._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
-class Test_NoFWHM_MLE(unittest.TestCase):
-    def test_BackgroundMLEFit(self):
-        class BackgroundMLEModel(mass.calibration.line_models.MLEModel):
-            def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise', **kwargs):
-                def modelfunc(bin_centers, background, bg_slope):
-                    bg = np.zeros_like(bin_centers) + background
-                    bg += bg_slope * np.arange(len(bin_centers))
-                    bg[bg < 0] = 0
-                    if any(np.isnan(bg)) or any(bg < 0):
-                        raise ValueError("some entry in r is nan or negative")
-                    return bg
-                kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,'independent_vars': independent_vars})
-                super(BackgroundMLEModel, self).__init__(modelfunc, **kwargs)   
-                self.set_param_hint('background', value=1, min=0)     
-                self.set_param_hint('bg_slope', value=0)
-        
-        test_model = BackgroundMLEModel(name='LinearTestModel', prefix = 'p1_')
-        test_params = test_model.make_params(background=1.0, bg_slope=0.0)
-        x_data = np.arange(1000,2000,1)
-        test_background = 127.3
-        test_background_error = np.sqrt(test_background)
-        test_bg_slope = 0.17
-        y_data = np.zeros_like(x_data) + test_background + np.random.normal(scale=test_background_error, size=len(x_data))
-        y_data += test_bg_slope * np.arange(len(x_data))
-        y_data[y_data < 0] = 0
-        test_result = test_model.fit(y_data, test_params, bin_centers=x_data)
+def test_BackgroundMLEModel(self):
+    class BackgroundMLEModel(mass.calibration.line_models.MLEModel):
+        def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise', **kwargs):
+            def modelfunc(bin_centers, background, bg_slope):
+                bg = np.zeros_like(bin_centers) + background
+                bg += bg_slope * np.arange(len(bin_centers))
+                bg[bg < 0] = 0
+                if any(np.isnan(bg)) or any(bg < 0):
+                    raise ValueError("some entry in r is nan or negative")
+                return bg
+            kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,'independent_vars': independent_vars})
+            super(BackgroundMLEModel, self).__init__(modelfunc, **kwargs)   
+            self.set_param_hint('background', value=1, min=0)     
+            self.set_param_hint('bg_slope', value=0)
+    
+    test_model = BackgroundMLEModel(name='LinearTestModel', prefix = 'p1_')
+    test_params = test_model.make_params(background=1.0, bg_slope=0.0)
+    x_data = np.arange(1000,2000,1)
+    test_background = 127.3
+    test_background_error = np.sqrt(test_background)
+    test_bg_slope = 0.17
+    y_data = np.zeros_like(x_data) + test_background + np.random.normal(scale=test_background_error, size=len(x_data))
+    y_data += test_bg_slope * np.arange(len(x_data))
+    y_data[y_data < 0] = 0
+    test_result = test_model.fit(y_data, test_params, bin_centers=x_data)
 
 
 if __name__ == "__main__":
