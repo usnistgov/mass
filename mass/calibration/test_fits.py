@@ -444,7 +444,7 @@ class Test_Composites_lmfit(unittest.TestCase):
         assert(np.logical_and(prefix1 in resultComponentPrefixes, prefix2 in resultComponentPrefixes))
         compositeResult._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
-def test_BackgroundMLEModel(self):
+def test_BackgroundMLEModel():
     class BackgroundMLEModel(mass.calibration.line_models.MLEModel):
         def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise', **kwargs):
             def modelfunc(bin_centers, background, bg_slope):
