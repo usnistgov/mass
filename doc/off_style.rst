@@ -327,8 +327,8 @@ Linefit
   plt.savefig("img/linefit_no_bg.png");plt.close()
   plt.savefig("img/linefit_tail_hi.png");plt.close() 
 
-.. image:: img/linefit_no_bg.png
+.. image:: img/linefit_tail_hi.png
   :width: 45%
 
-.. image:: img/linefit_tail_hi.png
+.. image:: img/linefit_no_bg.png
   :width: 45%
