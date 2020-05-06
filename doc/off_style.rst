@@ -144,7 +144,9 @@ Then we can learn some basic cuts and get an overview of the data.
 
 Here we opened all the channels that have the same base filename, plus we opened the ``_experiment_state.txt`` that defines states. 
 States provide a convenient way to seperate your data into different chunks by time, and a generally assigned during data aquistion, 
-but you can always make a new ``_experiment_state.txt`` file to split things up a different way.
+but you can always make a new ``_experiment_state.txt`` file to split things up a different way. This dataset is from an Electron
+Beam Ion Trap (EBIT) run, and we alias the state names to correspond to the primary element injected into the EBIT during that state. 
+Here ``W 1`` represents the first time Tungsten was injection, since it was injected multiple times.
 
 To calibrate the data we create a ``CalibrationPlan``, for now we do it manually on just one channel. See how we can call out which 
 state or states a paricular line appears in. One a channel has a ``CalibrationPlan`` the recipe ``energyRough`` will be defined.
