@@ -343,7 +343,7 @@ def test_recipes():
     assert rb.craft(lambda a, b, c: a+b+c, args) == 18
 
 
-def test_linefit_has_tails():
+def test_linefit_has_tail_and_has_linear_background():
     result = ds.linefit("O H-Like 2p", states="CO2")
     assert "tail_frac" not in result.params.keys()
     result = ds.linefit("O H-Like 2p", states="CO2", has_tails=True)
@@ -360,6 +360,9 @@ def test_linefit_has_tails():
     assert result.params["tail_tau_hi"].vary is True
     assert result.params["tail_tau_hi"].value > 0
 
+    result = ds.linefit("O H-Like 2p", states="CO2", has_linear_background=False)
+    assert "background" not in result.params.keys()
+    assert "bg_slope" not in result.params.keys()
 
 def test_median_absolute_deviation():
     mad, sigma_equiv, median = util.median_absolute_deviation([1, 1, 2, 3, 4])

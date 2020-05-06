@@ -303,7 +303,7 @@ class SilenceBar(progress.bar.Bar):
             progress.bar.Bar.finish(self)
 
 
-def get_model(lineNameOrEnergy, has_tails=False):
+def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
     if isinstance(lineNameOrEnergy, mass.GenericLineModel):
         line = lineNameOrEnergy.spect
     elif isinstance(lineNameOrEnergy, str):
@@ -320,7 +320,7 @@ def get_model(lineNameOrEnergy, has_tails=False):
                 f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
         line = mass.SpectralLine.quick_monochromatic_line(
             f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
-    return line.model(has_tails)
+    return line.model(has_linear_background=has_linear_background, has_tails=has_tails)
 
 
 SIGMA_OVER_MAD = 1/0.67449
