@@ -97,7 +97,6 @@ class TestAddFitter(unittest.TestCase):
         mass.spectra["dummydummy"].model(has_tails=True)
         mass.spectra["dummydummy"].fitter()
         mass.spectrum_classes["dummydummy"]().model()
-        mass.make_line_model(mass.spectra["dummydummy"])
         mass.make_line_fitter(mass.spectra["dummydummy"])
 
     def test_intrinsic_sigma(self):

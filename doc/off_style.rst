@@ -144,7 +144,9 @@ Then we can learn some basic cuts and get an overview of the data.
 
 Here we opened all the channels that have the same base filename, plus we opened the ``_experiment_state.txt`` that defines states. 
 States provide a convenient way to seperate your data into different chunks by time, and a generally assigned during data aquistion, 
-but you can always make a new ``_experiment_state.txt`` file to split things up a different way.
+but you can always make a new ``_experiment_state.txt`` file to split things up a different way. This dataset is from an Electron
+Beam Ion Trap (EBIT) run, and we alias the state names to correspond to the primary element injected into the EBIT during that state. 
+Here ``W 1`` represents the first time Tungsten was injection, since it was injected multiple times.
 
 To calibrate the data we create a ``CalibrationPlan``, for now we do it manually on just one channel. See how we can call out which 
 state or states a paricular line appears in. One a channel has a ``CalibrationPlan`` the recipe ``energyRough`` will be defined.
@@ -301,3 +303,34 @@ Below I show how to add a recipe and inspect existing recipes.
   :options: +NORMALIZE_WHITESPACE
 
   RecipeBook: baseIngedients=recordSamples, recordPreSamples, framecount, unixnano, pretriggerMean, residualStdDev, pulseMean, derivativeLike, filtValue, extraCoefs, craftedIngredeints=relTimeSec, filtPhase, cutNone, cutResidualStdDev, energyRough, arbsInRefChannelUnits, cutForLearnDC, filtValueDC, energy, timeSquared, timePretrig
+
+Linefit
+-------
+
+``X.linefit`` is a convenience method for quickly fitting a single lines. Here we show some of the options.
+
+.. testcode::
+
+  import lmfit
+  # turn off the linear background if you want to later create a composite model, having multiple background functions messes up composite models
+  ds.linefit("W Ni-20", states=["W 1", "W 2"], has_linear_background=False)
+
+  # add tails and specify their parameters
+  p = lmfit.Parameters()
+  p.add("tail_frac_hi", value=0.01, min=0, max=1)
+  p.add("tail_tau_hi", value=8, vary=False)
+  p.add("tail_tau", value=8, vary=False)
+  p.add("tail_frac_hi", value=0.04, min=0, max=1)
+  ds.linefit("W Ni-20", states=["W 1", "W 2"], has_linear_background=False, has_tails=True, params_update=p)
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/linefit_no_bg.png");plt.close()
+  plt.savefig("img/linefit_tail_hi.png");plt.close() 
+
+.. image:: img/linefit_tail_hi.png
+  :width: 45%
+
+.. image:: img/linefit_no_bg.png
+  :width: 45%

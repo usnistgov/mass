@@ -240,7 +240,7 @@ class CorG():
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=None, binEdges=None, label="full", plot=True,
                 params_fixed=None, cutRecipeName=None, calibration=None, require_errorbars=True, method="leastsq_refit",
-                has_tails=False, params_update=lmfit.Parameters()):
+                has_linear_background=True, has_tails=False, params_update=lmfit.Parameters()):
         """Do a fit to `lineNameOrEnergy` and return the result. You can get the params results with result.params
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel", your you can pass in a model like a mass.MnKAlphaModel().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
@@ -258,7 +258,7 @@ class CorG():
         has_tails -- used when creating a model, will add both high and low energy tails to the model
         params_update -- after guessing params, call params.update(params_update)
         """
-        model = util.get_model(lineNameOrEnergy, has_tails=has_tails)
+        model = util.get_model(lineNameOrEnergy, has_linear_background=has_linear_background, has_tails=has_tails)
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         if binEdges is None:
             if attr.startswith("energy") or calibration is not None:

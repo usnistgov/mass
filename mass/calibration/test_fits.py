@@ -403,7 +403,7 @@ class Test_Composites_lmfit(unittest.TestCase):
         self.bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
         
     def test_FitToModelWithoutPrefix(self):
-        model1_noprefix = mass.fluorescence_lines.make_line_model(self.line1)
+        model1_noprefix = self.line1.model()
         assert(model1_noprefix.prefix == '')
         params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers)
         params1_noprefix['dph_de'].set(value=1.0, vary=False)
@@ -413,16 +413,16 @@ class Test_Composites_lmfit(unittest.TestCase):
         result1_noprefix._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
     def test_NonUniqueParamsFails(self):
-        model1_noprefix = mass.fluorescence_lines.make_line_model(self.line1)
-        model2_noprefix = mass.fluorescence_lines.make_line_model(self.line2)
+        model1_noprefix = self.line1.model()
+        model2_noprefix = self.line2.model()
         with self.assertRaises(NameError):
             composite_model = model1_noprefix + model2_noprefix
     
-    def test_CompositeModelFit(self):
+    def test_CompositeModelFit_with_prefix_and_background(self):
         prefix1 = 'p1_'
         prefix2 = 'p2_'
-        model1 = mass.fluorescence_lines.make_line_model(self.line1, prefix=prefix1)
-        model2 = mass.fluorescence_lines.make_line_model(self.line2, prefix=prefix2)
+        model1 = self.line1.model(prefix=prefix1)
+        model2 = self.line2.model(prefix=prefix2, has_linear_background=False)
         assert(model1.prefix == prefix1)
         assert(model2.prefix == prefix2)
         params1 = model1.guess(self.counts1, bin_centers=self.bin_centers)
