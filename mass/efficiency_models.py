@@ -24,6 +24,7 @@ class FilterStack():
     def add_AlFilmWithOxide(self, name, thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
         c = AlFilmWithOxide(name=name, thickness_nm=thickness_nm, Al_density_g_per_cm3=Al_density_g_per_cm3,
         num_oxidized_surfaces=num_oxidized_surfaces, oxide_density_g_per_cm3=oxide_density_g_per_cm3)
+        self.components.append(c)
 
     def add_LEX_HT(self, name):
         c = LEX_HT(name=name)
