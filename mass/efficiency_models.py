@@ -11,6 +11,24 @@ class FilterStack():
         assert isinstance(c, FilterStack)
         self.components.append(c)
 
+    def add_Film(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, absorber=False):
+        c = Film(name=name, material=material, area_density_g_per_cm2=area_density_g_per_cm2, 
+        thickness_nm=thickness_nm, density_g_per_cm3=density_g_per_cm3, absorber=absorber)
+        self.components.append(c)
+
+    def add_Mesh(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, fill_fraction=None, absorber=False):
+        c = Mesh(name=name, material=material, area_density_g_per_cm2=area_density_g_per_cm2, 
+        thickness_nm=thickness_nm, density_g_per_cm3=density_g_per_cm3, fill_fraction=fill_fraction, absorber=absorber)
+        self.components.append(c)
+
+    def add_AlFilmWithOxide(self, name, thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
+        c = AlFilmWithOxide(name=name, thickness_nm=thickness_nm, Al_density_g_per_cm3=Al_density_g_per_cm3,
+        num_oxidized_surfaces=num_oxidized_surfaces, oxide_density_g_per_cm3=oxide_density_g_per_cm3)
+
+    def add_LEX_HT(self, name):
+        c = LEX_HT(name=name)
+        self.components.append(c)
+
     def get_efficiency(self, xray_energies):
         assert self.components != [], '{} has no components of which to calculate efficiency'.format(self.name)
         individual_efficiency = np.array([iComponent.get_efficiency(xray_energies) for iComponent in self.components])
@@ -77,14 +95,30 @@ class Mesh(Film):
         else:
             return (mesh_efficiency * self.fill_fraction) + (1.0 - self.fill_fraction)
 
+class AlFilmWithOxide(FilterStack):
+    def __init__(self, name, thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
+        assert num_oxidized_surfaces in [1,2], 'only 1 or 2 oxidzed surfaces allowed'
+        super().__init__(name)
+        # Set up Al film
+        self.add_Film(name='Al Film', material='Al', thickness_nm=thickness_nm, density_g_per_cm3=Al_density_g_per_cm3)
+        # Set up aluminum oxide       
+        oxide_dict = xraylib.GetCompoundDataNISTByName('Aluminum Oxide')
+        oxide_atomic_numbers = np.array(oxide_dict['Elements'])
+        oxide_material = [xraylib.AtomicNumberToSymbol(iAtomicNumber) for iAtomicNumber in oxide_atomic_numbers]
+        oxide_thickness = num_oxidized_surfaces * 3.0e-7 # cm
+        if oxide_density_g_per_cm3 is None:
+            oxide_density_g_per_cm3 = oxide_dict['density']
+        oxide_mass_fractions = np.array(oxide_dict['massFractions'])
+        oxide_area_density_g_per_cm2 = oxide_mass_fractions * oxide_density_g_per_cm3 * oxide_thickness
+        self.add_Film(name='Native Oxide', material=oxide_material, area_density_g_per_cm2=oxide_area_density_g_per_cm2)
+
 class LEX_HT(FilterStack):
     def __init__(self, name):
         super().__init__(name)
         # Set up Al + polyimide film
         film_material = ['C', 'H', 'N', 'O', 'Al']
         film_area_density_g_per_cm2 = [6.7e-5, 2.6e-6, 7.2e-6, 1.7e-5, 1.7e-5]
-        film_name = 'LEX_HT Film'
-        self.add(Film(name=film_name, material=film_material, area_density_g_per_cm2=film_area_density_g_per_cm2))
+        self.add_Film(name='LEX_HT Film', material=film_material, area_density_g_per_cm2=film_area_density_g_per_cm2)
         # Set up mesh
         mesh_material = ['Fe','Cr', 'Ni', 'Mn', 'Si']
         mesh_thickness = 100.0e-4 # cm
@@ -92,5 +126,16 @@ class LEX_HT(FilterStack):
         mesh_material_fractions = np.array([0.705, 0.19, 0.09, 0.01, 0.005]) # fraction by weight
         mesh_area_density_g_per_cm2 = mesh_material_fractions * mesh_density * mesh_thickness # g/cm^2
         mesh_fill_fraction = 0.19
-        mesh_name = 'LEX_HT Mesh'
-        self.add(Mesh(name=mesh_name, material=mesh_material, area_density_g_per_cm2=mesh_area_density_g_per_cm2, fill_fraction=mesh_fill_fraction))
+        self.add_Mesh(name='LEX_HT Mesh', material=mesh_material, area_density_g_per_cm2=mesh_area_density_g_per_cm2, fill_fraction=mesh_fill_fraction)
+
+# EBIT Instrument
+EBIT_filter_stack = FilterStack(name='EBIT Filter Stack 2018')
+EBIT_filter_stack.add_Film(name='Electroplated Au Absorber', material='Au', thickness_nm=965.5, absorber=True)
+EBIT_filter_stack.add_AlFilmWithOxide(name='50mK Filter', thickness_nm=112.5)
+EBIT_filter_stack.add_AlFilmWithOxide(name='3K Filter', thickness_nm=108.5)
+filter_50K = FilterStack(name='50K Filter')
+filter_50K.add_AlFilmWithOxide(name='50K Filter',thickness_nm=102.6)
+filter_50K.add_Mesh(name='Ni Mesh', material='Ni', thickness_nm=15.0e3, fill_fraction=0.17)
+EBIT_filter_stack.add(filter_50K)
+EBIT_filter_stack.add_LEX_HT('Luxel Window TES')
+EBIT_filter_stack.add_LEX_HT('Luxel Window EBIT')
