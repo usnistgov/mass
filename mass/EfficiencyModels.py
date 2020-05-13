@@ -1,30 +1,13 @@
-import mass.xray_filters as xray_filters
+from mass.xray_filters import *
 
-
-# Name filter stack level object, create associated dict
-EBIT_filter_stack_name = 'EBIT Filter Stack'
-EBIT_filter_dict = {}
-# Name filter level objects, describe filter components
-# Units in keV for energy, cgs for everything else
-EBIT_filter_dict['Absorber'] = {}
-EBIT_filter_dict['Absorber']['Evaporated Au'] = {'component_type': 'AbsorberFromThickness', 'material': 'Au', 'thickness': 965.5e-7}
-
-EBIT_filter_dict['Filter 50mK'] = {}
-EBIT_filter_dict['Filter 50mK']['Al Film'] = {'component_type': 'FilmFromThickness', 'material': 'Al', 'thickness': 112.5e-7}
-
-EBIT_filter_dict['Filter 3K'] = {}
-EBIT_filter_dict['Filter 3K']['Al Film'] = {'component_type': 'FilmFromThickness', 'material': 'Al', 'thickness': 108.5e-7}
-
-EBIT_filter_dict['Filter 50K'] = {}
-EBIT_filter_dict['Filter 50K']['Al Film'] = {'component_type': 'FilmFromThickness', 'material': 'Al', 'thickness': 102.6e-7}
-EBIT_filter_dict['Filter 50K']['Ni Mesh'] = {'component_type': 'MeshFromThickness', 'material': 'Ni', 'thickness': 15.0e-4, 'fraction_blocked': 0.17}
-
-EBIT_filter_dict['Luxel Window TES'] = {'component_type': 'LuxelVacuumWindow'}
-
-EBIT_filter_dict['Luxel Window EBIT'] = {'component_type': 'LuxelVacuumWindow'}
-
-# Create filter stack object with given name and import_dict
-EBIT_filter_stack = xray_filters.FilterObject(name=EBIT_filter_stack_name, import_dict=EBIT_filter_dict)
-
-
-
+# EBIT Instrument
+EBIT_filter_stack = FilterStack(name='EBIT Filter Stack')
+EBIT_filter_stack.add(Film(name='Electroplated Au Absorber', material='Au', thickness_nm=965.5, absorber=True))
+EBIT_filter_stack.add(Film(name='50mK Filter', material='Al', thickness_nm=112.5))
+EBIT_filter_stack.add(Film(name='3K Filter', material='Al', thickness_nm=108.5))
+filter_50K = FilterStack(name='50K Filter')
+filter_50K.add(Film(name='Al Film', material='Al', thickness_nm=102.6))
+filter_50K.add(Mesh(name='Ni Mesh', material='Ni', thickness_nm=15.0e3, fill_fraction=0.17))
+EBIT_filter_stack.add(filter_50K)
+EBIT_filter_stack.add(LEX_HT('Luxel Window TES'))
+EBIT_filter_stack.add(LEX_HT('Luxel Window EBIT'))
