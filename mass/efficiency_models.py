@@ -53,7 +53,7 @@ class FilterStack():
             ax.set_ylabel('Efficiency (%)')
             ax.set_title('{} Efficiency'.format(self.name))
         else:
-            ax.plot(xray_energies, efficiency)
+            ax.plot(xray_energies, efficiency*100.0)
 
     def plot_component_efficiencies(self, xray_energies):
         assert self.components != [], '{} has no components to plot'.format(self.name)
@@ -171,3 +171,13 @@ filter_50K.add_Mesh(name='Ni Mesh', material='Ni', thickness_nm=15.0e3, fill_fra
 EBIT_filter_stack.add(filter_50K)
 EBIT_filter_stack.add_LEX_HT('Luxel Window TES')
 EBIT_filter_stack.add_LEX_HT('Luxel Window EBIT')
+
+# RAVEN Instrument
+RAVEN1_fs = FilterStack(name='RAVEN1 2019')
+RAVEN1_fs.add_Film(name='Evaporated Bi Absorber', material='Bi', thickness_nm=4.4e3, absorber=True)
+RAVEN1_fs.add_AlFilmWithPolymer(name='50mK Filter', Al_thickness_nm=108.4, polymer_thickness_nm=206.4)
+RAVEN1_fs.add_AlFilmWithPolymer(name='3K Filter', Al_thickness_nm=108.4, polymer_thickness_nm=206.4)
+RAVEN1_fs.add_AlFilmWithOxide(name='50K Filter', thickness_nm=1.0e3)
+RAVEN1_fs.add_Film(name='Be TES Vacuum Window', material='Be', thickness_nm=200.0e3)
+RAVEN1_fs.add_AlFilmWithOxide(name='e- Filter', thickness_nm=5.0e3)
+RAVEN1_fs.add_Film(name='Be SEM Vacuum Window', material='Be', thickness_nm=200.0e3)
