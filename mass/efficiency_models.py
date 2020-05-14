@@ -26,6 +26,13 @@ class FilterStack():
         num_oxidized_surfaces=num_oxidized_surfaces, oxide_density_g_per_cm3=oxide_density_g_per_cm3)
         self.components.append(c)
 
+    def add_AlFilmWithPolymer(self, name, Al_thickness_nm, polymer_thickness_nm, polymer_fractions=None, polymer_density_g_per_cm3=None,
+    num_oxidized_surfaces=1, oxide_density_g_per_cm3=None):
+        c = AlFilmWithPolymer(name=name, Al_thickness_nm=Al_thickness_nm, polymer_thickness_nm = polymer_thickness_nm, 
+        polymer_fractions=polymer_fractions, polymer_density_g_per_cm3=polymer_density_g_per_cm3,
+        num_oxidized_surfaces=num_oxidized_surfaces, oxide_density_g_per_cm3=oxide_density_g_per_cm3)
+        self.components.append(c)
+
     def add_LEX_HT(self, name):
         c = LEX_HT(name=name)
         self.components.append(c)
@@ -96,13 +103,12 @@ class Mesh(Film):
         else:
             return (mesh_efficiency * self.fill_fraction) + (1.0 - self.fill_fraction)
 
-class AlFilmWithOxide(FilterStack):
+class AlFilmWithOxide(Film):
     def __init__(self, name, thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
         assert num_oxidized_surfaces in [1,2], 'only 1 or 2 oxidzed surfaces allowed'
-        super().__init__(name)
-        # Set up Al film
-        self.add_Film(name='Al Film', material='Al', thickness_nm=thickness_nm, density_g_per_cm3=Al_density_g_per_cm3)
-        # Set up aluminum oxide       
+        if Al_density_g_per_cm3 is None:
+            Al_density_g_per_cm3=xraylib.ElementDensity(xraylib.SymbolToAtomicNumber('Al'))
+        Al_area_density_g_per_cm2 = thickness_nm * Al_density_g_per_cm3 *1e-7    
         oxide_dict = xraylib.GetCompoundDataNISTByName('Aluminum Oxide')
         oxide_atomic_numbers = np.array(oxide_dict['Elements'])
         oxide_material = [xraylib.AtomicNumberToSymbol(iAtomicNumber) for iAtomicNumber in oxide_atomic_numbers]
@@ -111,7 +117,32 @@ class AlFilmWithOxide(FilterStack):
             oxide_density_g_per_cm3 = oxide_dict['density']
         oxide_mass_fractions = np.array(oxide_dict['massFractions'])
         oxide_area_density_g_per_cm2 = oxide_mass_fractions * oxide_density_g_per_cm3 * oxide_thickness
-        self.add_Film(name='Native Oxide', material=oxide_material, area_density_g_per_cm2=oxide_area_density_g_per_cm2)
+        material = np.hstack(['Al', oxide_material])
+        area_density_g_per_cm2=np.hstack([Al_area_density_g_per_cm2, oxide_area_density_g_per_cm2])
+        super().__init__(name='Al Film + Native Oxide', material=material, area_density_g_per_cm2=area_density_g_per_cm2)
+
+class AlFilmWithPolymer(Film):
+    def __init__(self, name, Al_thickness_nm, polymer_thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=1, 
+    oxide_density_g_per_cm3=None, polymer_fractions=None, polymer_density_g_per_cm3=None):
+        assert num_oxidized_surfaces in [1,2], 'only 1 or 2 oxidzed surfaces allowed'
+        if Al_density_g_per_cm3 is None:
+            Al_density_g_per_cm3=xraylib.ElementDensity(xraylib.SymbolToAtomicNumber('Al'))
+        Al_area_density_g_per_cm2 = Al_thickness_nm * Al_density_g_per_cm3 *1e-7    
+        oxide_dict = xraylib.GetCompoundDataNISTByName('Aluminum Oxide')
+        oxide_atomic_numbers = np.array(oxide_dict['Elements'])
+        oxide_material = [xraylib.AtomicNumberToSymbol(iAtomicNumber) for iAtomicNumber in oxide_atomic_numbers]
+        oxide_thickness = num_oxidized_surfaces * 3.0e-7 # cm
+        if oxide_density_g_per_cm3 is None:
+            oxide_density_g_per_cm3 = oxide_dict['density']
+        oxide_mass_fractions = np.array(oxide_dict['massFractions'])
+        oxide_area_density_g_per_cm2 = oxide_mass_fractions * oxide_density_g_per_cm3 * oxide_thickness
+        polymer_material = ['H', 'C', 'N', 'O']
+        polymer_density_g_per_cm3 = 1.4
+        polymer_mass_fractions = np.array([0.0264, 0.6911, 0.0733, 0.2092])
+        polymer_area_density_g_per_cm2 = polymer_mass_fractions * polymer_density_g_per_cm3 * polymer_thickness_nm * 1e-7
+        material = np.hstack(['Al', oxide_material, polymer_material])
+        area_density_g_per_cm2=np.hstack([Al_area_density_g_per_cm2, oxide_area_density_g_per_cm2, polymer_area_density_g_per_cm2])
+        super().__init__(name='Al Film + Polymer', material=material, area_density_g_per_cm2=area_density_g_per_cm2)
 
 class LEX_HT(FilterStack):
     def __init__(self, name):
