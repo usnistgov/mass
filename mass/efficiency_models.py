@@ -21,8 +21,8 @@ class FilterStack():
         thickness_nm=thickness_nm, density_g_per_cm3=density_g_per_cm3, fill_fraction=fill_fraction, absorber=absorber)
         self.components.append(c)
 
-    def add_AlFilmWithOxide(self, name, thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
-        c = AlFilmWithOxide(name=name, thickness_nm=thickness_nm, Al_density_g_per_cm3=Al_density_g_per_cm3,
+    def add_AlFilmWithOxide(self, name, Al_thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
+        c = AlFilmWithOxide(name=name, Al_thickness_nm=Al_thickness_nm, Al_density_g_per_cm3=Al_density_g_per_cm3,
         num_oxidized_surfaces=num_oxidized_surfaces, oxide_density_g_per_cm3=oxide_density_g_per_cm3)
         self.components.append(c)
 
@@ -104,11 +104,24 @@ class Mesh(Film):
             return (mesh_efficiency * self.fill_fraction) + (1.0 - self.fill_fraction)
 
 class AlFilmWithOxide(Film):
-    def __init__(self, name, thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
+    ''' Create an Al film with 3nm Al2O3 oxide on both sides. 
+
+    Ideal for modeling free-standing Ir-blocking Al filters. '''
+    def __init__(self, name, Al_thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
+        ''' Initialize AlFilmWithOxide object
+
+        Args:
+            name: name given to filter object, e.g. '50K Filter'.
+            Al_thickness_nm: thickness, in nm, of Al film
+            Al_density_g_per_cm3: Al film density, in g/cm3, defaults to xraylib value
+            num_oxidized_surfaces: Number of film surfaces that contain a native oxide, default 2
+            oxide_density_g_per_cm3: Al2O3 oxide density, in g/cm3, defaults to bulk xraylib value
+
+        '''
         assert num_oxidized_surfaces in [1,2], 'only 1 or 2 oxidzed surfaces allowed'
         if Al_density_g_per_cm3 is None:
             Al_density_g_per_cm3=xraylib.ElementDensity(xraylib.SymbolToAtomicNumber('Al'))
-        Al_area_density_g_per_cm2 = thickness_nm * Al_density_g_per_cm3 *1e-7    
+        Al_area_density_g_per_cm2 = Al_thickness_nm * Al_density_g_per_cm3 *1e-7    
         oxide_dict = xraylib.GetCompoundDataNISTByName('Aluminum Oxide')
         oxide_atomic_numbers = np.array(oxide_dict['Elements'])
         oxide_material = [xraylib.AtomicNumberToSymbol(iAtomicNumber) for iAtomicNumber in oxide_atomic_numbers]
@@ -122,8 +135,23 @@ class AlFilmWithOxide(Film):
         super().__init__(name='Al Film + Native Oxide', material=material, area_density_g_per_cm2=area_density_g_per_cm2)
 
 class AlFilmWithPolymer(Film):
+    ''' Create an Al film with polymer layer on 1 side and native oxide on other. 
+    
+    Ideal for modeling polymer-backed Ir-blocking Al filters. '''
     def __init__(self, name, Al_thickness_nm, polymer_thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=1, 
     oxide_density_g_per_cm3=None, polymer_fractions=None, polymer_density_g_per_cm3=None):
+        ''' Initialize AlFilmWithPolymer object
+
+        Args:
+            name: name given to filter object, e.g. '50K Filter'.
+            Al_thickness_nm: thickness, in nm, of Al film
+            polymer_thickness_nm: thickness, in nm, of filter backside polymer
+            Al_density_g_per_cm3: Al film density, in g/cm3, defaults to xraylib value
+            num_oxidized_surfaces: Number of film surfaces that contain a native oxide, default 2
+            oxide_density_g_per_cm3: Al2O3 oxide density, in g/cm3, defaults to bulk xraylib value
+            polymer_fractions: elemental mass fractions of polymer used, defaults to Kapton
+            polymer_density_g_per_cm3: Polymer density, in g/cm3, defaults to Kapton
+        '''
         assert num_oxidized_surfaces in [1,2], 'only 1 or 2 oxidzed surfaces allowed'
         if Al_density_g_per_cm3 is None:
             Al_density_g_per_cm3=xraylib.ElementDensity(xraylib.SymbolToAtomicNumber('Al'))
@@ -136,16 +164,27 @@ class AlFilmWithPolymer(Film):
             oxide_density_g_per_cm3 = oxide_dict['density']
         oxide_mass_fractions = np.array(oxide_dict['massFractions'])
         oxide_area_density_g_per_cm2 = oxide_mass_fractions * oxide_density_g_per_cm3 * oxide_thickness
-        polymer_material = ['H', 'C', 'N', 'O']
-        polymer_density_g_per_cm3 = 1.4
-        polymer_mass_fractions = np.array([0.0264, 0.6911, 0.0733, 0.2092])
+        polymer_dict = xraylib.GetCompoundDataNISTByName('Kapton Polyimide Film')
+        polymer_atomic_numbers = np.array(polymer_dict['Elements'])
+        polymer_material = [xraylib.AtomicNumberToSymbol(iAtomicNumber) for iAtomicNumber in polymer_atomic_numbers]
+        if polymer_density_g_per_cm3 is None:
+            polymer_density_g_per_cm3 = polymer_dict['density']
+        polymer_mass_fractions = np.array(polymer_dict['massFractions'])
         polymer_area_density_g_per_cm2 = polymer_mass_fractions * polymer_density_g_per_cm3 * polymer_thickness_nm * 1e-7
         material = np.hstack(['Al', oxide_material, polymer_material])
         area_density_g_per_cm2=np.hstack([Al_area_density_g_per_cm2, oxide_area_density_g_per_cm2, polymer_area_density_g_per_cm2])
         super().__init__(name='Al Film + Polymer', material=material, area_density_g_per_cm2=area_density_g_per_cm2)
 
 class LEX_HT(FilterStack):
+    ''' Create an Al film with polymer and stainless steel backing. 
+    
+    Ideal modeling LEX-HT vacuum window.'''
     def __init__(self, name):
+        ''' Initialize LEX_HT object
+
+        Args:
+            name: name given to filter object, e.g. '50K Filter'.
+        '''
         super().__init__(name)
         # Set up Al + polyimide film
         film_material = ['C', 'H', 'N', 'O', 'Al']
@@ -161,12 +200,12 @@ class LEX_HT(FilterStack):
         self.add_Mesh(name='LEX_HT Mesh', material=mesh_material, area_density_g_per_cm2=mesh_area_density_g_per_cm2, fill_fraction=mesh_fill_fraction)
 
 # EBIT Instrument
-EBIT_filter_stack = FilterStack(name='EBIT Filter Stack 2018')
+EBIT_filter_stack = FilterStack(name='EBIT 2018')
 EBIT_filter_stack.add_Film(name='Electroplated Au Absorber', material='Au', thickness_nm=965.5, absorber=True)
-EBIT_filter_stack.add_AlFilmWithOxide(name='50mK Filter', thickness_nm=112.5)
-EBIT_filter_stack.add_AlFilmWithOxide(name='3K Filter', thickness_nm=108.5)
+EBIT_filter_stack.add_AlFilmWithOxide(name='50mK Filter', Al_thickness_nm=112.5)
+EBIT_filter_stack.add_AlFilmWithOxide(name='3K Filter', Al_thickness_nm=108.5)
 filter_50K = FilterStack(name='50K Filter')
-filter_50K.add_AlFilmWithOxide(name='50K Filter',thickness_nm=102.6)
+filter_50K.add_AlFilmWithOxide(name='50K Filter',Al_thickness_nm=102.6)
 filter_50K.add_Mesh(name='Ni Mesh', material='Ni', thickness_nm=15.0e3, fill_fraction=0.17)
 EBIT_filter_stack.add(filter_50K)
 EBIT_filter_stack.add_LEX_HT('Luxel Window TES')
@@ -177,7 +216,7 @@ RAVEN1_fs = FilterStack(name='RAVEN1 2019')
 RAVEN1_fs.add_Film(name='Evaporated Bi Absorber', material='Bi', thickness_nm=4.4e3, absorber=True)
 RAVEN1_fs.add_AlFilmWithPolymer(name='50mK Filter', Al_thickness_nm=108.4, polymer_thickness_nm=206.4)
 RAVEN1_fs.add_AlFilmWithPolymer(name='3K Filter', Al_thickness_nm=108.4, polymer_thickness_nm=206.4)
-RAVEN1_fs.add_AlFilmWithOxide(name='50K Filter', thickness_nm=1.0e3)
+RAVEN1_fs.add_AlFilmWithOxide(name='50K Filter', Al_thickness_nm=1.0e3)
 RAVEN1_fs.add_Film(name='Be TES Vacuum Window', material='Be', thickness_nm=200.0e3)
-RAVEN1_fs.add_AlFilmWithOxide(name='e- Filter', thickness_nm=5.0e3)
+RAVEN1_fs.add_AlFilmWithOxide(name='e- Filter', Al_thickness_nm=5.0e3)
 RAVEN1_fs.add_Film(name='Be SEM Vacuum Window', material='Be', thickness_nm=200.0e3)
