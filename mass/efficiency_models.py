@@ -199,24 +199,34 @@ class LEX_HT(FilterStack):
         mesh_fill_fraction = 0.19
         self.add_Mesh(name='LEX_HT Mesh', material=mesh_material, area_density_g_per_cm2=mesh_area_density_g_per_cm2, fill_fraction=mesh_fill_fraction)
 
-# EBIT Instrument
-EBIT_filter_stack = FilterStack(name='EBIT 2018')
-EBIT_filter_stack.add_Film(name='Electroplated Au Absorber', material='Au', thickness_nm=965.5, absorber=True)
-EBIT_filter_stack.add_AlFilmWithOxide(name='50mK Filter', Al_thickness_nm=112.5)
-EBIT_filter_stack.add_AlFilmWithOxide(name='3K Filter', Al_thickness_nm=108.5)
-filter_50K = FilterStack(name='50K Filter')
-filter_50K.add_AlFilmWithOxide(name='50K Filter',Al_thickness_nm=102.6)
-filter_50K.add_Mesh(name='Ni Mesh', material='Ni', thickness_nm=15.0e3, fill_fraction=0.17)
-EBIT_filter_stack.add(filter_50K)
-EBIT_filter_stack.add_LEX_HT('Luxel Window TES')
-EBIT_filter_stack.add_LEX_HT('Luxel Window EBIT')
+def get_filter_stacks_dict():
+    # Create models for TES instruments
+    fs_dict = {}
 
-# RAVEN Instrument
-RAVEN1_fs = FilterStack(name='RAVEN1 2019')
-RAVEN1_fs.add_Film(name='Evaporated Bi Absorber', material='Bi', thickness_nm=4.4e3, absorber=True)
-RAVEN1_fs.add_AlFilmWithPolymer(name='50mK Filter', Al_thickness_nm=108.4, polymer_thickness_nm=206.4)
-RAVEN1_fs.add_AlFilmWithPolymer(name='3K Filter', Al_thickness_nm=108.4, polymer_thickness_nm=206.4)
-RAVEN1_fs.add_AlFilmWithOxide(name='50K Filter', Al_thickness_nm=1.0e3)
-RAVEN1_fs.add_Film(name='Be TES Vacuum Window', material='Be', thickness_nm=200.0e3)
-RAVEN1_fs.add_AlFilmWithOxide(name='e- Filter', Al_thickness_nm=5.0e3)
-RAVEN1_fs.add_Film(name='Be SEM Vacuum Window', material='Be', thickness_nm=200.0e3)
+    # EBIT Instrument
+    EBIT_filter_stack = FilterStack(name='EBIT 2018')
+    EBIT_filter_stack.add_Film(name='Electroplated Au Absorber', material='Au', thickness_nm=965.5, absorber=True)
+    EBIT_filter_stack.add_AlFilmWithOxide(name='50mK Filter', Al_thickness_nm=112.5)
+    EBIT_filter_stack.add_AlFilmWithOxide(name='3K Filter', Al_thickness_nm=108.5)
+    filter_50K = FilterStack(name='50K Filter')
+    filter_50K.add_AlFilmWithOxide(name='50K Filter',Al_thickness_nm=102.6)
+    filter_50K.add_Mesh(name='Ni Mesh', material='Ni', thickness_nm=15.0e3, fill_fraction=0.17)
+    EBIT_filter_stack.add(filter_50K)
+    EBIT_filter_stack.add_LEX_HT('Luxel Window TES')
+    EBIT_filter_stack.add_LEX_HT('Luxel Window EBIT')
+    fs_dict[EBIT_filter_stack.name] = EBIT_filter_stack
+
+    # RAVEN Instrument
+    RAVEN1_fs = FilterStack(name='RAVEN1 2019')
+    RAVEN1_fs.add_Film(name='Evaporated Bi Absorber', material='Bi', thickness_nm=4.4e3, absorber=True)
+    RAVEN1_fs.add_AlFilmWithPolymer(name='50mK Filter', Al_thickness_nm=108.4, polymer_thickness_nm=206.4)
+    RAVEN1_fs.add_AlFilmWithPolymer(name='3K Filter', Al_thickness_nm=108.4, polymer_thickness_nm=206.4)
+    RAVEN1_fs.add_AlFilmWithOxide(name='50K Filter', Al_thickness_nm=1.0e3)
+    RAVEN1_fs.add_Film(name='Be TES Vacuum Window', material='Be', thickness_nm=200.0e3)
+    RAVEN1_fs.add_AlFilmWithOxide(name='e- Filter', Al_thickness_nm=5.0e3)
+    RAVEN1_fs.add_Film(name='Be SEM Vacuum Window', material='Be', thickness_nm=200.0e3)
+    fs_dict[RAVEN1_fs.name] = RAVEN1_fs
+    
+    return fs_dict
+
+models = get_filter_stacks_dict()
