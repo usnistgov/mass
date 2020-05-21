@@ -13,6 +13,8 @@ Exploring model class functions with premade efficiency models
 ---------------------
 Here, we import the mass.efficiency_models module and demonstrate the functionality with some of the premade efficiency models.
 Generally, these premade models are put in place for TES instruments with well known absorber and filter stack compositions.
+To demonstrate, we work with the 'EBIT 2018' model, which models the TES spectrometer setup at the NIST EBIT, as it was commissioned in 2018.
+This model includes a $\sim 1 \mu$m thick absorber, 3 $\sim 100$~nm thick Al IR blocking filters,
 
 .. testcode::
 
