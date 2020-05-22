@@ -74,18 +74,15 @@ Testing with energy range 100 to 20,000 eV, 1 eV steps.
 .. testcode::
 
   xray_energies_eV = np.arange(100,20000,1)
-
-  fig = plt.figure()
-  ax = fig.add_subplot(111)
-  EBIT_model.plot_efficiency(xray_energies_eV, ax=ax)
-  ax.set_xlabel('Energy (eV)')
-  ax.set_ylabel('Efficiency (%)')
-  ax.set_title('{} Efficiency'.format(EBIT_model.name))
+  EBIT_model.plot_efficiency(xray_energies_eV)
 
 .. testcode::
   :hide:
 
-  fig.savefig("img/EBIT_efficiency.png");plt.close()
+  plt.savefig("img/EBIT_efficiency.png");plt.close()
 
 .. image:: img/EBIT_efficiency.png
   :width: 45%
+
+.. testcode::
+  print('test print without testoutput block')
