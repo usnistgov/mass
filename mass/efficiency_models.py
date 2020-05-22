@@ -1,6 +1,9 @@
-import xraylib
 import numpy as np
 import pylab as plt
+try:
+    import xraylib
+except ImportError:
+    raise ImportError('This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
 
 class FilterStack():
     def __init__(self, name):
