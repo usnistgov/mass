@@ -40,28 +40,28 @@ class FilterStack():
         c = LEX_HT(name=name)
         self.components.append(c)
 
-    def get_efficiency(self, xray_energies):
+    def get_efficiency(self, xray_energies_eV):
         assert self.components != [], '{} has no components of which to calculate efficiency'.format(self.name)
-        individual_efficiency = np.array([iComponent.get_efficiency(xray_energies) for iComponent in self.components])
+        individual_efficiency = np.array([iComponent.get_efficiency(xray_energies_eV) for iComponent in self.components])
         efficiency = np.prod(individual_efficiency, axis=0)
         return efficiency
 
-    def plot_efficiency(self, xray_energies, ax=None):
-        efficiency = self.get_efficiency(xray_energies)
+    def plot_efficiency(self, xray_energies_eV, ax=None):
+        efficiency = self.get_efficiency(xray_energies_eV)
         if ax==None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(xray_energies, efficiency*100.0)
+            ax.plot(xray_energies_eV, efficiency*100.0)
             ax.set_xlabel('Energy (keV)')
             ax.set_ylabel('Efficiency (%)')
             ax.set_title('{} Efficiency'.format(self.name))
         else:
-            ax.plot(xray_energies, efficiency*100.0)
+            ax.plot(xray_energies_eV, efficiency*100.0)
 
-    def plot_component_efficiencies(self, xray_energies):
+    def plot_component_efficiencies(self, xray_energies_eV):
         assert self.components != [], '{} has no components to plot'.format(self.name)
         for iComponent in self.components:
-            iComponent.plot_efficiency(xray_energies)
+            iComponent.plot_efficiency(xray_energies_eV)
 
 class Film(FilterStack):
     def __init__(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, absorber=False):

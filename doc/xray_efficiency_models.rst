@@ -9,7 +9,7 @@ Here, we attempt to model the effects that would cause the measured spectrum to 
 such as energy dependent losses in transmission due to IR blocking filters and vacuum windows.
 Energy dependent absorber efficiency can also be modeled.
 
-Exploring model class functions with premade efficiency models
+Exploring ``FilterStack`` class and subclass functions with premade efficiency models
 ---------------------
 Here, we import the mass.efficiency_models module and demonstrate the functionality with some of the premade efficiency models.
 Generally, these premade models are put in place for TES instruments with well known absorber and filter stack compositions.
@@ -20,10 +20,23 @@ We begin by importing ``efficiency_models`` and examining the EBIT efficiency mo
 .. testcode::
 
   import mass.efficiency_models
+  import numpy as np
+  import pylab as plt
+
   EBIT_model = mass.efficiency_models.models['EBIT 2018']
   print('{} consists of:'.format(EBIT_model.name))
   for iComponent in EBIT_model.components:
-    print(' - {} {}'.format(iComponent.name, iComponent))
+    print(' - {}'.format(iComponent.name))
+
+.. testoutput::
+
+  EBIT 2018 consists of:
+  - Electroplated Au Absorber
+  - 50mK Filter
+  - 3K Filter
+  - 50K Filter
+  - Luxel Window TES
+  - Luxel Window EBIT
 
 In this case, the components represented the various filters and absorbers within the filter stack. 
 More complicated filters can be built up with components of an arbitrary number of layers. 
@@ -35,4 +48,36 @@ For example, a filter can consist of both a film and a support mesh backing the 
     if len(iComponent.components) > 0:
       print('{} consists of:'.format(iComponent.name))
       for iSubcomponent in iComponent.components:
-        print(' - {} {}'.format(iSubcomponent.name, iSubcomponent))
+        print(' - {}'.format(iSubcomponent.name))
+
+.. testoutput::
+
+  50K Filter consists of:
+  - Al Film
+  - Ni Mesh
+  Luxel Window TES consists of:
+  - LEX_HT Film
+  - LEX_HT Mesh
+  Luxel Window EBIT consists of:
+  - LEX_HT Film
+  - LEX_HT Mesh
+
+Next, we examine the function ``get_efficiency(xray_energies_eV)``, which is an attribute of ``FilterStack``. 
+This can be called for the entire filter stack or for individual components in the filter stack. 
+As an example, we look at the efficiency of the EBIT 2018 filter stack and the 50K filter component between 
+2,000 eV and 10,000 eV, at 1,000 eV steps.
+
+.. testcode::
+
+  xray_energies_eV = np.arange(2000, 10000, 1000)
+  stack_efficiency = EBIT_model.get_efficiency(xray_energies_eV)
+  filter50K_component = EBIT_model.components[[iComponent.name for iComponent in EBIT_model.components].index('50K Filter')]
+  filter50K_efficiency = filter50K_component.get_efficiency(xray_energies_eV)
+
+  print(stack_efficiency.round(decimals=2))
+  print(filter50K_efficiency.round(decimals=2))
+
+.. testoutput::
+
+  [0.34 0.47 0.46 0.38 0.31 0.24 0.19 0.14]
+  [0.78 0.81 0.82 0.84 0.87 0.89 0.92 0.83]
