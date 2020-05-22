@@ -34,8 +34,8 @@ pipelines:
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
             - pip install -e .
             - curl http://xmi-apt.tomschoonjans.eu/xmi.packages.key | apt-key add -
-            - echo "deb [arch=amd64] http://xmi-apt.tomschoonjans.eu/ubuntu xenial stable"
-            - echo "deb-src http://xmi-apt.tomschoonjans.eu/ubuntu xenial stable"
+            - echo "deb [arch=amd64] http://xmi-apt.tomschoonjans.eu/ubuntu buster stable"
+            - echo "deb-src http://xmi-apt.tomschoonjans.eu/ubuntu buster stable"
             - apt-get update
             - apt-get install libxrl11 libxrl11-dev libxrlf03-11 libxrl-perl python3-libxrl11
             - pip install recommonmark sphinx
