@@ -135,7 +135,7 @@ class AlFilmWithOxide(Film):
         oxide_area_density_g_per_cm2 = oxide_mass_fractions * oxide_density_g_per_cm3 * oxide_thickness
         material = np.hstack(['Al', oxide_material])
         area_density_g_per_cm2=np.hstack([Al_area_density_g_per_cm2, oxide_area_density_g_per_cm2])
-        super().__init__(name='Al Film + Native Oxide', material=material, area_density_g_per_cm2=area_density_g_per_cm2)
+        super().__init__(name=name, material=material, area_density_g_per_cm2=area_density_g_per_cm2)
 
 class AlFilmWithPolymer(Film):
     ''' Create an Al film with polymer layer on 1 side and native oxide on other. 
@@ -176,7 +176,7 @@ class AlFilmWithPolymer(Film):
         polymer_area_density_g_per_cm2 = polymer_mass_fractions * polymer_density_g_per_cm3 * polymer_thickness_nm * 1e-7
         material = np.hstack(['Al', oxide_material, polymer_material])
         area_density_g_per_cm2=np.hstack([Al_area_density_g_per_cm2, oxide_area_density_g_per_cm2, polymer_area_density_g_per_cm2])
-        super().__init__(name='Al Film + Polymer', material=material, area_density_g_per_cm2=area_density_g_per_cm2)
+        super().__init__(name=name, material=material, area_density_g_per_cm2=area_density_g_per_cm2)
 
 class LEX_HT(FilterStack):
     ''' Create an Al film with polymer and stainless steel backing. 
@@ -212,7 +212,7 @@ def get_filter_stacks_dict():
     EBIT_filter_stack.add_AlFilmWithOxide(name='50mK Filter', Al_thickness_nm=112.5)
     EBIT_filter_stack.add_AlFilmWithOxide(name='3K Filter', Al_thickness_nm=108.5)
     filter_50K = FilterStack(name='50K Filter')
-    filter_50K.add_AlFilmWithOxide(name='50K Filter',Al_thickness_nm=102.6)
+    filter_50K.add_AlFilmWithOxide(name='Al Film',Al_thickness_nm=102.6)
     filter_50K.add_Mesh(name='Ni Mesh', material='Ni', thickness_nm=15.0e3, fill_fraction=0.17)
     EBIT_filter_stack.add(filter_50K)
     EBIT_filter_stack.add_LEX_HT('Luxel Window TES')
