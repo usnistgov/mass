@@ -33,6 +33,7 @@ pipelines:
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
             - pip install -e .
+            - apt-get update && apt-get install libxrl11 libxrl11-dev libxrlf03-11 libxrl-perl python3-libxrl11
             - pip install recommonmark sphinx
             - cd doc
             - make clean
