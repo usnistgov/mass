@@ -9,6 +9,9 @@ class FilterStack():
     def __init__(self, name):
         self.name = name
         self.components = []
+    
+    def __repr__(self):
+        return '{0:s}(name={1:s})'.format(self.__class__.__name__, self.name)
 
     def add(self, c):
         assert isinstance(c, FilterStack)

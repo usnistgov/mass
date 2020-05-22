@@ -24,19 +24,11 @@ We begin by importing ``efficiency_models`` and examining the EBIT efficiency mo
   import pylab as plt
 
   EBIT_model = mass.efficiency_models.models['EBIT 2018']
-  print('{} consists of:'.format(EBIT_model.name))
-  for iComponent in EBIT_model.components:
-    print(' - {}'.format(iComponent.name))
+  print('{} components:'.format(EBIT_model.name), EBIT_model.components)
 
 .. testoutput::
 
-  EBIT 2018 consists of:
-  - Electroplated Au Absorber
-  - 50mK Filter
-  - 3K Filter
-  - 50K Filter
-  - Luxel Window TES
-  - Luxel Window EBIT
+  EBIT 2018 components: [Film(name=Electroplated Au Absorber), AlFilmWithOxide(name=50mK Filter), AlFilmWithOxide(name=3K Filter), FilterStack(name=50K Filter), LEX_HT(name=Luxel Window TES), LEX_HT(name=Luxel Window EBIT)]
 
 In this case, the components represented the various filters and absorbers within the filter stack. 
 More complicated filters can be built up with components of an arbitrary number of layers. 
@@ -46,21 +38,13 @@ For example, a filter can consist of both a film and a support mesh backing the 
 
   for iComponent in EBIT_model.components:
     if len(iComponent.components) > 0:
-      print('{} consists of:'.format(iComponent.name))
-      for iSubcomponent in iComponent.components:
-        print(' - {}'.format(iSubcomponent.name))
+      print('{} components:'.format(iComponent.name), iComponent.components)
 
 .. testoutput::
 
-  50K Filter consists of:
-  - Al Film
-  - Ni Mesh
-  Luxel Window TES consists of:
-  - LEX_HT Film
-  - LEX_HT Mesh
-  Luxel Window EBIT consists of:
-  - LEX_HT Film
-  - LEX_HT Mesh
+  50K Filter components: [AlFilmWithOxide(name=Al Film), Mesh(name=Ni Mesh)]
+  Luxel Window TES components: [Film(name=LEX_HT Film), Mesh(name=LEX_HT Mesh)]
+  Luxel Window EBIT components: [Film(name=LEX_HT Film), Mesh(name=LEX_HT Mesh)]
 
 Next, we examine the function ``get_efficiency(xray_energies_eV)``, which is an attribute of ``FilterStack``. 
 This can be called for the entire filter stack or for individual components in the filter stack. 
@@ -81,3 +65,21 @@ As an example, we look at the efficiency of the EBIT 2018 filter stack and the 5
 
   [0.34 0.47 0.46 0.38 0.31 0.24 0.19 0.14]
   [0.78 0.81 0.82 0.84 0.87 0.89 0.92 0.83]
+
+Instead of getting an array with efficiencies, we can instead plot the efficiencies as a function of energy.
+Here, we use the function ``plot_efficiency(xray_energies_eV, ax)``.
+``ax`` defaults to None, but can be used to plot the efficiencies on a user provided axis.
+Testing with energy range 100 to 20,000 eV, 1 eV steps.
+
+.. testcode::
+
+  xray_energies_eV = np.arange(100,20000,1)
+  EBIT_model.plot_efficiency(xray_energies_eV)
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/EBIT_efficiency.png");plt.close()
+
+.. image:: img/EBIT_efficiency.png
+  :width: 45%
