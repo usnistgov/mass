@@ -39,7 +39,7 @@ pipelines:
             - apt-get update
             - apt-get install -y libxrl11 libxrl11-dev libxrlf03-11 libxrl-perl python3-libxrl11
             - export PYTHONPATH="$PYTHONPATH:/usr/lib/python3/dist-packages"
-            - rm -rf /usr/lib/python3/dist-packages/numpy* /usr/lib/python3/dist-packages/pkg-resources
+            - rm -rf /usr/lib/python3/dist-packages/numpy*
             - dpkg -L python3-libxrl11
             - ls /usr/lib/python3/dist-packages
             - cd doc
