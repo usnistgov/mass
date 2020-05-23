@@ -32,6 +32,7 @@ pipelines:
           script: 
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
+            - apt-get update
             - apt-get install -y gfortran gfortran-8 libblas3 libgfortran-8-dev libgfortran5 liblapack3 python3-numpy python3-pkg-resources
             - curl http://xmi-apt.tomschoonjans.eu/xmi.packages.key | apt-key add -
             - printf "deb [arch=amd64] http://xmi-apt.tomschoonjans.eu/debian buster stable\ndeb-src http://xmi-apt.tomschoonjans.eu/debian buster stable" > /etc/apt/sources.list
