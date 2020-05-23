@@ -38,7 +38,7 @@ pipelines:
             - printf "deb [arch=amd64] http://xmi-apt.tomschoonjans.eu/debian buster stable\ndeb-src http://xmi-apt.tomschoonjans.eu/debian buster stable" > /etc/apt/sources.list.d/backports.list
             - apt-get update
             - apt-get install -y libxrl11 libxrl11-dev libxrlf03-11 libxrl-perl python3-libxrl11
-            - export PATH="$PATH:/usr/lib/python3/dist-packages/xraylib.py"
+            - export PATH="$PATH:/usr/lib/python3/dist-packages"
             - dpkg -L python3-libxrl11
             - cat /etc/os-release
             - ls /usr/lib/python3/dist-packages
