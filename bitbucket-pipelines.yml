@@ -28,7 +28,7 @@ pipelines:
           caches: 
             - pip
           name: deploy docs
-          image: python:3.8.1
+          image: python:3.7.2
           script: 
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
@@ -39,7 +39,7 @@ pipelines:
             - apt-get update
             - apt-get install -y libxrl11 libxrl11-dev libxrlf03-11 libxrl-perl python3-libxrl11
             - export PYTHONPATH="$PYTHONPATH:/usr/lib/python3/dist-packages"
-            - rm -rf /usr/lib/python3/dist-packages/numpy*
+            - rm -rf /usr/lib/python3/dist-packages/numpy* /usr/lib/python3/dist-packages/pkg-resources
             - dpkg -L python3-libxrl11
             - ls /usr/lib/python3/dist-packages
             - cd doc
