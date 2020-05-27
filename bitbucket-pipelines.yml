@@ -39,7 +39,7 @@ pipelines:
             - curl -O http://lvserver.ugent.be/xraylib/xraylib-4.0.0.tar.gz
             - gunzip xraylib-4.0.0.tar.gz
             - tar xvf xraylib-4.0.0.tar
-            - rm xvf xraylib-4.0.0.tar
+            - rm xraylib-4.0.0.tar
             - cd xraylib-4.0.0
             - ./configure --usr/local --disable-fortran2003 --disable-perl
             - make
