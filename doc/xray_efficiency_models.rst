@@ -84,8 +84,4 @@ Testing with energy range 100 to 20,000 eV, 1 eV steps.
 .. image:: img/EBIT_efficiency.png
   :width: 45%
 
-.. testcode::
-
-  print('test print without testoutput block')
-
 End of doc
