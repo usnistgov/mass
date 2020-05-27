@@ -41,7 +41,7 @@ pipelines:
             - tar xvf xraylib-4.0.0.tar
             - rm xraylib-4.0.0.tar
             - cd xraylib-4.0.0
-            - ./configure --prefix=/usr/local --disable-fortran2003 --disable-perl
+            - ./configure --prefix=/usr/local --disable-fortran2003 --disable-perl --enable-python-integration
             - make
             - make install
             - cd ..
