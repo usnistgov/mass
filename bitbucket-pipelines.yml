@@ -34,14 +34,18 @@ pipelines:
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
             - pip install -e .
             - pip install recommonmark sphinx
-            - curl http://xmi-apt.tomschoonjans.eu/xmi.packages.key | apt-key add -
-            - printf "deb [arch=amd64] http://xmi-apt.tomschoonjans.eu/debian buster stable\ndeb-src http://xmi-apt.tomschoonjans.eu/debian buster stable" > /etc/apt/sources.list.d/backports.list
-            - apt-get update
-            - apt-get install -y libxrl11 libxrl11-dev libxrlf03-11 libxrl-perl python3-libxrl11
-            - export PYTHONPATH="$PYTHONPATH:/usr/lib/python3/dist-packages"
-            - rm -rf /usr/lib/python3/dist-packages/numpy* /usr/lib/python3/dist-packages/pkg-resources
-            - dpkg -L python3-libxrl11
-            - ls /usr/lib/python3/dist-packages
+            - apt-get install swig
+            - curl -O http://lvserver.ugent.be/xraylib/xraylib-4.0.0.tar.gz
+            - gunzip xraylib-4.0.0.tar.gz
+            - tar xvf xraylib-4.0.0.tar
+            - rm xvf xraylib-4.0.0.tar
+            - cd xraylib-4.0.0
+            - ./configure --usr/local --disable-fortran2003 --disable-perl
+            - make
+            - sudo make install
+            - cd ..
+            - ls /usr/local/lib/python3.8/site-packages
+            - rm xraylib-4.0.0
             - cd doc
             - make clean
             - make doctest
