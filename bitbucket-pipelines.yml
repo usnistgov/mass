@@ -43,7 +43,7 @@ pipelines:
             - cd xraylib-4.0.0
             - ./configure --prefix=/usr/local --disable-fortran2003 --disable-perl
             - make
-            - sudo make install
+            - make install
             - cd ..
             - rm -rf xraylib-4.0.0
             - ls /usr/local/lib/python3.8/site-packages
