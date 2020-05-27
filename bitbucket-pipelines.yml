@@ -41,12 +41,14 @@ pipelines:
             - tar xvf xraylib-4.0.0.tar
             - rm xraylib-4.0.0.tar
             - cd xraylib-4.0.0
-            - ./configure --prefix=/usr/local --disable-fortran2003 --disable-perl --enable-python-integration
+            - ./configure --prefix=/usr/local --disable-fortran2003 --disable-perl
             - make
             - make install
             - cd ..
             - rm -rf xraylib-4.0.0
             - ls /usr/local/lib/python3.8/site-packages
+            - ls /usr/local/lib
+            - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
             - cd doc
             - make clean
             - make doctest
