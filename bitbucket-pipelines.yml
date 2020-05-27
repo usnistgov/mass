@@ -34,6 +34,7 @@ pipelines:
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
             - pip install -e .
             - pip install recommonmark sphinx
+            - apt-get update
             - apt-get install swig
             - curl -O http://lvserver.ugent.be/xraylib/xraylib-4.0.0.tar.gz
             - gunzip xraylib-4.0.0.tar.gz
@@ -44,8 +45,8 @@ pipelines:
             - make
             - sudo make install
             - cd ..
+            - rm -rf xraylib-4.0.0
             - ls /usr/local/lib/python3.8/site-packages
-            - rm xraylib-4.0.0
             - cd doc
             - make clean
             - make doctest
