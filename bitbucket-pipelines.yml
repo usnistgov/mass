@@ -46,8 +46,6 @@ pipelines:
             - make install
             - cd ..
             - rm -rf xraylib-4.0.0
-            - ls /usr/local/lib/python3.8/site-packages
-            - ls /usr/local/lib
             - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
             - cd doc
             - make clean
