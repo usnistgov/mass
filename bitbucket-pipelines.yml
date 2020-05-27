@@ -35,7 +35,7 @@ pipelines:
             - pip install -e .
             - pip install recommonmark sphinx
             - apt-get update
-            - apt-get install swig
+            - apt-get install -y swig
             - curl -O http://lvserver.ugent.be/xraylib/xraylib-4.0.0.tar.gz
             - gunzip xraylib-4.0.0.tar.gz
             - tar xvf xraylib-4.0.0.tar
