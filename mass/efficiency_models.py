@@ -17,13 +17,8 @@ class FilterStack():
         assert isinstance(c, FilterStack)
         self.components[c.name] = c
 
-    def add_Film(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, absorber=False):
+    def add_Film(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, fill_fraction=1.0, absorber=False):
         c = Film(name=name, material=material, area_density_g_per_cm2=area_density_g_per_cm2, 
-        thickness_nm=thickness_nm, density_g_per_cm3=density_g_per_cm3, absorber=absorber)
-        self.components[c.name] = c
-
-    def add_Mesh(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, fill_fraction=None, absorber=False):
-        c = Mesh(name=name, material=material, area_density_g_per_cm2=area_density_g_per_cm2, 
         thickness_nm=thickness_nm, density_g_per_cm3=density_g_per_cm3, fill_fraction=fill_fraction, absorber=absorber)
         self.components[c.name] = c
 
@@ -67,10 +62,11 @@ class FilterStack():
             iComponent.plot_efficiency(xray_energies_eV)
 
 class Film(FilterStack):
-    def __init__(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, absorber=False):
+    def __init__(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, fill_fraction=1.0, absorber=False):
         super().__init__(name)
         self.material=np.array(material, ndmin=1)
         self.atomic_number = np.array([xraylib.SymbolToAtomicNumber(iMaterial) for iMaterial in self.material], ndmin=1)
+        self.fill_fraction = fill_fraction
         self.absorber=absorber
         assert np.logical_xor(area_density_g_per_cm2 is not None, thickness_nm is not None), 'must use either area density or thickness'
         assert ~np.logical_and(area_density_g_per_cm2 is not None, density_g_per_cm3 is not None), 'overconstrained, must choose area density or density'
@@ -91,23 +87,9 @@ class Film(FilterStack):
         individual_transmittance = np.exp(-optical_depth)
         transmittance = np.prod(individual_transmittance, axis=0)
         if self.absorber:
-            return 1.0 - transmittance
+            return (1.0 - transmittance) * self.fill_fraction
         else:
-            return transmittance
-
-class Mesh(Film):
-    def __init__(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, fill_fraction=None, absorber=False):
-        assert fill_fraction is not None, 'Mesh requires fill_fraction argument'
-        self.fill_fraction = fill_fraction
-        super().__init__(name=name, material=material, area_density_g_per_cm2=area_density_g_per_cm2,
-        thickness_nm=thickness_nm, density_g_per_cm3=density_g_per_cm3, absorber=absorber)
-
-    def get_efficiency(self, xray_energies_eV):
-        mesh_efficiency = super().get_efficiency(xray_energies_eV)
-        if self.absorber:
-            return mesh_efficiency * self.fill_fraction
-        else:
-            return (mesh_efficiency * self.fill_fraction) + (1.0 - self.fill_fraction)
+            return (transmittance * self.fill_fraction) + (1.0 - self.fill_fraction)
 
 class AlFilmWithOxide(Film):
     ''' Create an Al film with 3nm Al2O3 oxide on both sides. 
@@ -203,7 +185,7 @@ class LEX_HT(FilterStack):
         mesh_material_fractions = np.array([0.705, 0.19, 0.09, 0.01, 0.005]) # fraction by weight
         mesh_area_density_g_per_cm2 = mesh_material_fractions * mesh_density * mesh_thickness # g/cm^2
         mesh_fill_fraction = 0.19
-        self.add_Mesh(name='LEX_HT Mesh', material=mesh_material, area_density_g_per_cm2=mesh_area_density_g_per_cm2, fill_fraction=mesh_fill_fraction)
+        self.add_Film(name='LEX_HT Mesh', material=mesh_material, area_density_g_per_cm2=mesh_area_density_g_per_cm2, fill_fraction=mesh_fill_fraction)
 
 def get_filter_stacks_dict():
     # Create models for TES instruments
@@ -216,7 +198,7 @@ def get_filter_stacks_dict():
     EBIT_filter_stack.add_AlFilmWithOxide(name='3K Filter', Al_thickness_nm=108.5)
     filter_50K = FilterStack(name='50K Filter')
     filter_50K.add_AlFilmWithOxide(name='Al Film',Al_thickness_nm=102.6)
-    filter_50K.add_Mesh(name='Ni Mesh', material='Ni', thickness_nm=15.0e3, fill_fraction=0.17)
+    filter_50K.add_Film(name='Ni Mesh', material='Ni', thickness_nm=15.0e3, fill_fraction=0.17)
     EBIT_filter_stack.add(filter_50K)
     EBIT_filter_stack.add_LEX_HT('Luxel Window TES')
     EBIT_filter_stack.add_LEX_HT('Luxel Window EBIT')

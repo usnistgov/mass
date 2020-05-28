@@ -142,6 +142,6 @@ instead of transmittance, as the efficiency.
 .. testcode::
 
   custom_model = mass.efficiency_models.FilterStack(name='My Filter Stack')
-  custom_model.add_Film(name='My Absorber', material='Bi', thickness_nm=4.0e3, absorber=True)
-  custom_model.add_Film(name='My 50mK Filter', material='Al', thickness_nm=100.0)
-  custom_model.add_Film(name='My 3K Filter', material='Si', thickness_nm=500.0)
+  custom_model.add_Film(name='My Bi Absorber', material='Bi', thickness_nm=4.0e3, absorber=True)
+  custom_model.add_Film(name='My Al Filter', material='Al', thickness_nm=100.0)
+  custom_model.add_Film(name='My Si Filter', material='Si', thickness_nm=500.0)
