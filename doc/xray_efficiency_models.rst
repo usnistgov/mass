@@ -1,6 +1,9 @@
 Detector X-ray Efficiency Models
 =======================
 
+.. warning:: This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.
+
+
 Motivation
 ----------
 For many analyses, it is important to estimate a x-ray spectrum as it would be seen from the source rather than as it would be measured with a set of detectors.
