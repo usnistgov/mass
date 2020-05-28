@@ -81,7 +81,7 @@ Testing with energy range 100 to 20,000 eV, 1 eV steps.
 .. testcode::
   :hide:
 
-  plt.savefig("img/filter_50K_efficiency.png);plt.close()
+  plt.savefig("img/filter_50K_efficiency.png");plt.close()
   plt.savefig("img/EBIT_efficiency.png");plt.close()
 
 .. image:: img/EBIT_efficiency.png
@@ -124,3 +124,8 @@ Here, we plot the efficiencies of the 6 components that make up the EBIT system'
 
 .. image:: img/component_EBIT_window.png
   :width: 30%
+
+
+Creating your own custom filter stack model using ``FilterStack`` objects
+---------------------
+Now we will explore creating custom FilterStack objects and building up your very own filter stack model.
