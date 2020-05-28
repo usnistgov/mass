@@ -154,6 +154,8 @@ instead of transmittance, as the efficiency.
 
 Let us look at the efficiency curves of the filter stack and its components.
 
+.. testcode::
+
   custom_model.plot_efficiency(xray_energies_eV)
   custom_model.plot_component_efficiencies(xray_energies_eV)
 
