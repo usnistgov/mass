@@ -128,4 +128,21 @@ Here, we plot the efficiencies of the 6 components that make up the EBIT system'
 
 Creating your own custom filter stack model using ``FilterStack`` objects
 ---------------------
-Now we will explore creating custom FilterStack objects and building up your very own filter stack model.
+Now we will explore creating custom ``FilterStack`` objects and building up your very own filter stack model.
+First, we will create a general ``FilterStack`` object, representing a stack of filters.
+We will then populate this object with filters, which take the form of the various ``FilterStack`` object subclasses, such as ``Film``,
+or even other ``FilterStack`` objects to create more complicated filters with multiple components.
+We will start by adding some simple ``Film`` objects to the filter stack.
+This class requires a the ``name`` and ``material`` arguments, and the optical depth can be specified by passing in either
+``area_density_g_per_cm2`` or ``thickness_nm`` (but not both). 
+By default, most ``FilterStack`` objects use the bulk density of a material to calculate the optical depth when the ``thickness_nm`` is used,
+but a custom density can be specified with the ``density_g_per_cm3`` argument. 
+Finally, most ``FilterStack`` subclasses can use the ``absorber`` argument (default False), which will cause the object to return absorption,
+instead of transmittance, as the efficiency.
+
+.. testcode::
+
+  custom_model = mass.efficiency_models.FilterStack(name='My Filter Stack')
+  custom_model.add_Film(name='My Absorber', material='Bi', thickness_nm=4.0e3, absorber=True)
+  custom_model.add_Film(name='My 50mK Filter', material='Al', thickness_nm=100.0)
+  custom_model.add_Film(name='My 3K Filter', material='Si', thickness_nm=500.0)
