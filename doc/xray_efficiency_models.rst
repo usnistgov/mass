@@ -131,11 +131,13 @@ Now we will explore creating custom ``FilterStack`` objects and building up your
 First, we will create a general ``FilterStack`` object, representing a stack of filters.
 We will then populate this object with filters, which take the form of the various ``FilterStack`` object subclasses, such as ``Film``,
 or even other ``FilterStack`` objects to create more complicated filters with multiple components.
+The ``add`` argument can be used to add a premade ``FilterStack`` object as a component of a different ``FilterStack`` object.
 We will start by adding some simple ``Film`` objects to the filter stack.
 This class requires a the ``name`` and ``material`` arguments, and the optical depth can be specified by passing in either
 ``area_density_g_per_cm2`` or ``thickness_nm`` (but not both). 
 By default, most ``FilterStack`` objects use the bulk density of a material to calculate the optical depth when the ``thickness_nm`` is used,
 but a custom density can be specified with the ``density_g_per_cm3`` argument. 
+In addition, a meshed style filter can be modelled using the ``fill_fraction`` argument.
 Finally, most ``FilterStack`` subclasses can use the ``absorber`` argument (default False), which will cause the object to return absorption,
 instead of transmittance, as the efficiency.
 
@@ -143,5 +145,58 @@ instead of transmittance, as the efficiency.
 
   custom_model = mass.efficiency_models.FilterStack(name='My Filter Stack')
   custom_model.add_Film(name='My Bi Absorber', material='Bi', thickness_nm=4.0e3, absorber=True)
-  custom_model.add_Film(name='My Al Filter', material='Al', thickness_nm=100.0)
-  custom_model.add_Film(name='My Si Filter', material='Si', thickness_nm=500.0)
+  custom_model.add_Film(name='My Al 50mK Filter', material='Al', thickness_nm=100.0)
+  custom_model.add_Film(name='My Si 3K Filter', material='Si', thickness_nm=500.0)
+  custom_filter = mass.efficiency_models.FilterStack(name='My meshed 50K Filter')
+  custom_filter.add_Film(name='Al Film', material='Al', thickness_nm=100.0)
+  custom_filter.add_Film(name='Ni Mesh', material='Ni', thickness_nm=10.0e3, fill_fraction=0.2)
+  custom_model.add(custom_filter)
+
+Let us look at the efficiency curves of the filter stack and its components.
+
+  custom_model.plot_efficiency(xray_energies_eV)
+  custom_model.plot_component_efficiencies(xray_energies_eV)
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/custom_50K.png");plt.close()
+  plt.savefig("img/custom_3K.png");plt.close()
+  plt.savefig("img/custom_50mK.png");plt.close()
+  plt.savefig("img/custom_absorber.png");plt.close()
+  plt.savefig("img/custom_filter_stack.png");plt.close()
+
+.. image:: img/custom_filter_stack.png
+  :width: 30%  
+
+.. image:: img/custom_absorber.png
+  :width: 30%  
+
+.. image:: img/custom_50mK.png
+  :width: 30%  
+
+.. image:: img/custom_3K.png
+  :width: 30%  
+
+.. image:: img/custom_50K.png
+  :width: 30%  
+
+
+
+We can also look more in depth at 50K filter component efficiencies.
+
+.. testcode::
+
+  custom_filter.plot_component_efficiencies(xray_energies_eV)
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/custom_Ni_mesh.png");plt.close()
+  plt.savefig("img/custom_Al_film.png");plt.close()
+
+.. image:: img/custom_Al_film.png
+  :width: 30%  
+
+.. image:: img/custom_Ni_mesh.png
+  :width: 30%  
