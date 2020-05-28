@@ -53,10 +53,10 @@ As an example, we look at the efficiency of the EBIT 2018 filter stack and the 5
 
 .. testcode::
 
-  xray_energies_eV = np.arange(2000, 10000, 1000)
-  stack_efficiency = EBIT_model.get_efficiency(xray_energies_eV)
+  sparse_xray_energies_eV = np.arange(2000, 10000, 1000)
+  stack_efficiency = EBIT_model.get_efficiency(sparse_xray_energies_eV)
   filter50K_component = EBIT_model.components[[iComponent.name for iComponent in EBIT_model.components].index('50K Filter')]
-  filter50K_efficiency = filter50K_component.get_efficiency(xray_energies_eV)
+  filter50K_efficiency = filter50K_component.get_efficiency(sparse_xray_energies_eV)
 
   print(stack_efficiency.round(decimals=2))
   print(filter50K_efficiency.round(decimals=2))
@@ -66,20 +66,61 @@ As an example, we look at the efficiency of the EBIT 2018 filter stack and the 5
   [0.34 0.47 0.46 0.38 0.31 0.24 0.19 0.14]
   [0.78 0.81 0.82 0.84 0.87 0.89 0.92 0.83]
 
-Instead of getting an array with efficiencies, we can instead plot the efficiencies as a function of energy.
+Instead of getting an array with efficiencies, we can create a plot of the efficiencies.
 Here, we use the function ``plot_efficiency(xray_energies_eV, ax)``.
 ``ax`` defaults to None, but can be used to plot the efficiencies on a user provided axis.
+Just like ``get_efficiency``, ``plot_efficiency`` works with FilterStack and its subclasses.
 Testing with energy range 100 to 20,000 eV, 1 eV steps.
 
 .. testcode::
 
   xray_energies_eV = np.arange(100,20000,1)
   EBIT_model.plot_efficiency(xray_energies_eV)
+  filter50K_component.plot_efficiency(xray_energies_eV)
 
 .. testcode::
   :hide:
 
+  plt.savefig("img/filter_50K_efficiency.png);plt.close()
   plt.savefig("img/EBIT_efficiency.png");plt.close()
 
 .. image:: img/EBIT_efficiency.png
   :width: 45%
+
+.. image:: img/filter_50K_efficiency.png
+  :width: 45%
+
+Alternatively, you could plot the individual component efficiencies of a filter.
+Here, we plot the efficiencies of the 6 components that make up the EBIT system's filter stack.
+
+.. testcode::
+
+  EBIT_model.plot_component_efficiencies(xray_energies_eV)
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/component_EBIT_window.png");plt.close()
+  plt.savefig("img/component_TES_window.png");plt.close()
+  plt.savefig("img/component_50K.png");plt.close()
+  plt.savefig("img/component_3K.png");plt.close()
+  plt.savefig("img/component_50mK.png");plt.close()
+  plt.savefig("img/component_absorber.png");plt.close()
+
+.. image:: img/component_absorber.png
+  :width: 30%
+
+.. image:: img/component_50mK.png
+  :width: 30%
+
+.. image:: img/component_3K.png
+  :width: 30%
+
+.. image:: img/component_50K.png
+  :width: 30%
+
+.. image:: img/component_TES_window.png
+  :width: 30%
+
+.. image:: img/component_EBIT_window.png
+  :width: 30%
