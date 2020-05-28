@@ -42,9 +42,9 @@ For example, a filter can consist of both a film and a support mesh backing the 
 
 .. testoutput::
 
-  50K Filter components: {'Al Film': AlFilmWithOxide, 'Ni Mesh': Mesh}
-  Luxel Window TES components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Mesh}
-  Luxel Window EBIT components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Mesh}
+  50K Filter components: {'Al Film': AlFilmWithOxide, 'Ni Mesh': Film}
+  Luxel Window TES components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Film}
+  Luxel Window EBIT components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Film}
 
 Next, we examine the function ``get_efficiency(xray_energies_eV)``, which is an attribute of ``FilterStack``. 
 This can be called for the entire filter stack or for individual components in the filter stack. 
