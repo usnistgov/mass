@@ -183,8 +183,6 @@ Let us look at the efficiency curves of the filter stack and its components.
 .. image:: img/custom_50K.png
   :width: 30%  
 
-
-
 We can also look more in depth at 50K filter component efficiencies.
 
 .. testcode::
@@ -202,3 +200,35 @@ We can also look more in depth at 50K filter component efficiencies.
 
 .. image:: img/custom_Ni_mesh.png
   :width: 30%  
+
+There are also some premade filter classes for filters that commonly show up in our instrument filter stacks.
+At the moment, the FilterStack subclasses listed below are implemented:
+ - ``AlFilmWithOxide`` - models a typical IR blocking filter with native oxide layers, which can be important for thin filters.
+ - ``AlFilmWithPolymer`` - class models a similar IR blocking filter, but with increased structural support from a polymer backing.
+ - ``LEX_HT`` - class models LEX_HT vacuum windows, which contain a polymer backed Al film and stainless steel mesh.
+Usage examples and efficiency curves of these classes are shown below.
+
+.. testcode::
+
+  premade_filter_stack = mass.efficiency_models.FilterStack(name='A Stack of Premade Filters')
+  premade_filter_stack.add_AlFilmWithOxide(name='My Oxidized Al Filter', Al_thickness_nm=50.0)
+  premade_filter_stack.add_AlFilmWithPolymer(name='My Polymer Backed Al Filter', Al_thickness_nm=100.0, polymer_thickness_nm=200.0)
+  premade_filter_stack.add_LEX_HT(name='My LEX HT Filter')
+  low_xray_energies_eV = np.arange(100,3000,1)
+  premade_filter_stack.plot_component_efficiencies(low_xray_energies_eV)
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/premade_LEX_HT.png");plt.close()
+  plt.savefig("img/premade_Al_polymer.png");plt.close()
+  plt.savefig("img/premade_Al_oxide.png");plt.close()
+
+.. image:: img/premade_Al_oxide.png
+  :width: 30%  
+
+.. image:: img/premade_Al_polymer.png
+  :width: 30%  
+
+.. image:: img/premade_LEX_HT.png
+  :width: 30%
