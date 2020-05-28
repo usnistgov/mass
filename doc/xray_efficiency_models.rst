@@ -204,8 +204,8 @@ We can also look more in depth at 50K filter component efficiencies.
 There are also some premade filter classes for filters that commonly show up in our instrument filter stacks.
 At the moment, the FilterStack subclasses listed below are implemented:
  - ``AlFilmWithOxide`` - models a typical IR blocking filter with native oxide layers, which can be important for thin filters.
- - ``AlFilmWithPolymer`` - class models a similar IR blocking filter, but with increased structural support from a polymer backing.
- - ``LEX_HT`` - class models LEX_HT vacuum windows, which contain a polymer backed Al film and stainless steel mesh.
+ - ``AlFilmWithPolymer`` - models a similar IR blocking filter, but with increased structural support from a polymer backing.
+ - ``LEX_HT`` - models LEX_HT vacuum windows, which contain a polymer backed Al film and stainless steel mesh.
 Usage examples and efficiency curves of these classes are shown below.
 
 .. testcode::
