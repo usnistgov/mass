@@ -28,7 +28,7 @@ We begin by importing ``efficiency_models`` and examining the EBIT efficiency mo
 
 .. testoutput::
 
-  EBIT 2018 components: [Film(name=Electroplated Au Absorber), AlFilmWithOxide(name=50mK Filter), AlFilmWithOxide(name=3K Filter), FilterStack(name=50K Filter), LEX_HT(name=Luxel Window TES), LEX_HT(name=Luxel Window EBIT)]
+  EBIT 2018 components: {'Electroplated Au Absorber': Film, '50mK Filter': AlFilmWithOxide, '3K Filter': AlFilmWithOxide, '50K Filter': FilterStack, 'Luxel Window TES': LEX_HT, 'Luxel Window EBIT': LEX_HT}
 
 In this case, the components represented the various filters and absorbers within the filter stack. 
 More complicated filters can be built up with components of an arbitrary number of layers. 
@@ -36,15 +36,15 @@ For example, a filter can consist of both a film and a support mesh backing the 
 
 .. testcode::
 
-  for iComponent in EBIT_model.components:
-    if len(iComponent.components) > 0:
+  for iComponent in list(EBIT_model.components.values()):
+    if iComponent.components != {}:
       print('{} components:'.format(iComponent.name), iComponent.components)
 
 .. testoutput::
 
-  50K Filter components: [AlFilmWithOxide(name=Al Film), Mesh(name=Ni Mesh)]
-  Luxel Window TES components: [Film(name=LEX_HT Film), Mesh(name=LEX_HT Mesh)]
-  Luxel Window EBIT components: [Film(name=LEX_HT Film), Mesh(name=LEX_HT Mesh)]
+  50K Filter components: {'Al Film': AlFilmWithOxide, 'Ni Mesh': Mesh}
+  Luxel Window TES components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Mesh}
+  Luxel Window EBIT components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Mesh}
 
 Next, we examine the function ``get_efficiency(xray_energies_eV)``, which is an attribute of ``FilterStack``. 
 This can be called for the entire filter stack or for individual components in the filter stack. 
@@ -55,8 +55,7 @@ As an example, we look at the efficiency of the EBIT 2018 filter stack and the 5
 
   sparse_xray_energies_eV = np.arange(2000, 10000, 1000)
   stack_efficiency = EBIT_model.get_efficiency(sparse_xray_energies_eV)
-  filter50K_component = EBIT_model.components[[iComponent.name for iComponent in EBIT_model.components].index('50K Filter')]
-  filter50K_efficiency = filter50K_component.get_efficiency(sparse_xray_energies_eV)
+  filter50K_efficiency = EBIT_model.components['50K Filter'].get_efficiency(sparse_xray_energies_eV)
 
   print(stack_efficiency.round(decimals=2))
   print(filter50K_efficiency.round(decimals=2))
@@ -76,7 +75,7 @@ Testing with energy range 100 to 20,000 eV, 1 eV steps.
 
   xray_energies_eV = np.arange(100,20000,1)
   EBIT_model.plot_efficiency(xray_energies_eV)
-  filter50K_component.plot_efficiency(xray_energies_eV)
+  EBIT_model.components['50K Filter'].plot_efficiency(xray_energies_eV)
 
 .. testcode::
   :hide:

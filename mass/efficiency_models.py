@@ -8,44 +8,44 @@ except ImportError:
 class FilterStack():
     def __init__(self, name):
         self.name = name
-        self.components = []
+        self.components = {}
     
     def __repr__(self):
-        return '{0:s}(name={1:s})'.format(self.__class__.__name__, self.name)
+        return self.__class__.__name__
 
     def add(self, c):
         assert isinstance(c, FilterStack)
-        self.components.append(c)
+        self.components[c.name] = c
 
     def add_Film(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, absorber=False):
         c = Film(name=name, material=material, area_density_g_per_cm2=area_density_g_per_cm2, 
         thickness_nm=thickness_nm, density_g_per_cm3=density_g_per_cm3, absorber=absorber)
-        self.components.append(c)
+        self.components[c.name] = c
 
     def add_Mesh(self, name, material, area_density_g_per_cm2=None, thickness_nm=None, density_g_per_cm3=None, fill_fraction=None, absorber=False):
         c = Mesh(name=name, material=material, area_density_g_per_cm2=area_density_g_per_cm2, 
         thickness_nm=thickness_nm, density_g_per_cm3=density_g_per_cm3, fill_fraction=fill_fraction, absorber=absorber)
-        self.components.append(c)
+        self.components[c.name] = c
 
     def add_AlFilmWithOxide(self, name, Al_thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
         c = AlFilmWithOxide(name=name, Al_thickness_nm=Al_thickness_nm, Al_density_g_per_cm3=Al_density_g_per_cm3,
         num_oxidized_surfaces=num_oxidized_surfaces, oxide_density_g_per_cm3=oxide_density_g_per_cm3)
-        self.components.append(c)
+        self.components[c.name] = c
 
     def add_AlFilmWithPolymer(self, name, Al_thickness_nm, polymer_thickness_nm, polymer_fractions=None, polymer_density_g_per_cm3=None,
     num_oxidized_surfaces=1, oxide_density_g_per_cm3=None):
         c = AlFilmWithPolymer(name=name, Al_thickness_nm=Al_thickness_nm, polymer_thickness_nm = polymer_thickness_nm, 
         polymer_fractions=polymer_fractions, polymer_density_g_per_cm3=polymer_density_g_per_cm3,
         num_oxidized_surfaces=num_oxidized_surfaces, oxide_density_g_per_cm3=oxide_density_g_per_cm3)
-        self.components.append(c)
+        self.components[c.name] = c
 
     def add_LEX_HT(self, name):
         c = LEX_HT(name=name)
-        self.components.append(c)
+        self.components[c.name] = c
 
     def get_efficiency(self, xray_energies_eV):
-        assert self.components != [], '{} has no components of which to calculate efficiency'.format(self.name)
-        individual_efficiency = np.array([iComponent.get_efficiency(xray_energies_eV) for iComponent in self.components])
+        assert self.components != {}, '{} has no components of which to calculate efficiency'.format(self.name)
+        individual_efficiency = np.array([iComponent.get_efficiency(xray_energies_eV) for iComponent in list(self.components.values())])
         efficiency = np.prod(individual_efficiency, axis=0)
         return efficiency
 
@@ -62,8 +62,8 @@ class FilterStack():
             ax.plot(xray_energies_eV, efficiency*100.0)
 
     def plot_component_efficiencies(self, xray_energies_eV):
-        assert self.components != [], '{} has no components to plot'.format(self.name)
-        for iComponent in self.components:
+        assert self.components != {}, '{} has no components to plot'.format(self.name)
+        for iComponent in list(self.components.values()):
             iComponent.plot_efficiency(xray_energies_eV)
 
 class Film(FilterStack):
