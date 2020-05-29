@@ -93,3 +93,6 @@ The -e command makes development really easy, you can change python files, then 
 
 ## reload
 You may find `reload(mass.mathstat)` useful for interactive code development, but be aware it can't reload complied files. 
+
+## Working on docs + tests
+Change directory into `doc` then `make doctest;make html;open _build/html/index.html`. Read about RST format, it is weird, my most common mistake is forgetting the blank line between `.. blah` statements and the following text.

@@ -169,12 +169,13 @@ class CompositeMLEModel(MLEModel, lmfit.CompositeModel):
 
 class GenericLineModel(MLEModel):
     def __init__(self, spect, independent_vars=['bin_centers'], prefix='', nan_policy='raise',
-                 has_tails=False, **kwargs):
+                 has_linear_background=True, has_tails=False, **kwargs):
         self.spect = spect
         self._has_tails = has_tails
+        self._has_linear_background = has_linear_background
         if has_tails:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
-                          background, bg_slope, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi):
+                          background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_frac_hi=0, tail_tau_hi=8):
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
                 # Convert tau values (in eV units) to
@@ -189,15 +190,20 @@ class GenericLineModel(MLEModel):
                     raise ValueError("some entry in r is nan or negative")
                 return r
         else:
-            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude, background, bg_slope):
+            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude, background=0, bg_slope=0):
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 spectrum = self.spect.pdf(energy, fwhm)
                 r = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
                 return r
+        param_names = ["fwhm", "peak_ph", "dph_de", "amplitude"]
+        if self._has_linear_background:
+            param_names += ["background", "bg_slope"]
+        if self._has_tails:
+            param_names += ["tail_frac", "tail_tau", "tail_frac_hi", "tail_tau_hi"]
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
-                       'independent_vars': independent_vars})
+                       'independent_vars': independent_vars, "param_names" : param_names})
         super(GenericLineModel, self).__init__(modelfunc, **kwargs)
         self._set_paramhints_prefix()
 
@@ -206,8 +212,9 @@ class GenericLineModel(MLEModel):
         self.set_param_hint('peak_ph', min=0, max=2**16)
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
         self.set_param_hint("amplitude", value=100, min=0)
-        self.set_param_hint('background', value=1, min=0)
-        self.set_param_hint('bg_slope', value=0, vary=False)
+        if self._has_linear_background:
+            self.set_param_hint('background', value=1, min=0)
+            self.set_param_hint('bg_slope', value=0, vary=False)
         if self._has_tails:
             self.set_param_hint('tail_frac', value=0.05, min=0, max=1, vary=True)
             self.set_param_hint('tail_tau', value=30, min=0, max=100, vary=True)
@@ -328,16 +335,17 @@ class LineModelResult(lmfit.model.ModelResult):
         bin_size = bin_centers[1]-bin_centers[0]
         for iComp in self.components:
             prefix = iComp.prefix
-            bin_size_energy = bin_size/self.params[prefix+"dph_de"]
-            instrument_gaussian_fwhm_energy = self.params[prefix+"fwhm"].value/self.params[prefix+"dph_de"]
-            minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm_energy)
-            bins_per_fwhm = minimum_fwhm_energy/bin_size_energy
-            if bins_per_fwhm < minimum_bins_per_fwhm:
-                raise Exception(f"""your bins are too large. bin_size (energy units) = {bin_size_energy:.3g}, fit_fwhm (energy units) = {instrument_gaussian_fwhm_energy:.3g}\n
-            minimum fwhm accounting for narrowest lorentzian in spectrum (energy units) = {minimum_fwhm_energy:.3g}\n
-            bins_per_fwhm = {bins_per_fwhm:.3g}, minimum_bins_per_fwhm = {minimum_bins_per_fwhm:.3g}\n
-            to avoid this error:\n
-            1. use smaller bins\n
-            or 2. pass a smaller value of `minimum_bins_per_fwhm` to .fit\n
-            or 3. set `mass.line_models.VALIDATE_BIN_SIZE = False`
-            see https://bitbucket.org/joe_fowler/mass/issues/162/resolution-bias-in-fits-where-bin-size-is for discussion on this issue""")
+            if (prefix+"dph_de" in self.params) and (prefix+"fwhm" in self.params):
+                bin_size_energy = bin_size/self.params[prefix+"dph_de"]
+                instrument_gaussian_fwhm_energy = self.params[prefix+"fwhm"].value/self.params[prefix+"dph_de"]
+                minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm_energy)
+                bins_per_fwhm = minimum_fwhm_energy/bin_size_energy
+                if bins_per_fwhm < minimum_bins_per_fwhm:
+                    raise Exception(f"""your bins are too large. bin_size (energy units) = {bin_size_energy:.3g}, fit_fwhm (energy units) = {instrument_gaussian_fwhm_energy:.3g}\n
+                minimum fwhm accounting for narrowest lorentzian in spectrum (energy units) = {minimum_fwhm_energy:.3g}\n
+                bins_per_fwhm = {bins_per_fwhm:.3g}, minimum_bins_per_fwhm = {minimum_bins_per_fwhm:.3g}\n
+                to avoid this error:\n
+                1. use smaller bins\n
+                or 2. pass a smaller value of `minimum_bins_per_fwhm` to .fit\n
+                or 3. set `mass.line_models.VALIDATE_BIN_SIZE = False`
+                see https://bitbucket.org/joe_fowler/mass/issues/162/resolution-bias-in-fits-where-bin-size-is for discussion on this issue""")

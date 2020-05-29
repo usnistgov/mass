@@ -324,9 +324,8 @@ class Test_Voigt(unittest.TestCase):
     def test_zero_bg(self):
         self.singletest(bg=0)
 
-
-class Test_MnKA_lmfit(unittest.TestCase):
-    def test_lmfit(self):
+class TestMnKA_fitter_vs_model(unittest.TestCase):
+    def test_MnKA_lmfit(self):
         n = 10000
         resolution = 2.5
         bin_edges = np.arange(5850, 5950, 0.5)
@@ -404,7 +403,7 @@ class Test_Composites_lmfit(unittest.TestCase):
         self.bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
         
     def test_FitToModelWithoutPrefix(self):
-        model1_noprefix = mass.fluorescence_lines.make_line_model(self.line1)
+        model1_noprefix = self.line1.model()
         assert(model1_noprefix.prefix == '')
         params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers)
         params1_noprefix['dph_de'].set(value=1.0, vary=False)
@@ -414,16 +413,16 @@ class Test_Composites_lmfit(unittest.TestCase):
         result1_noprefix._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
     def test_NonUniqueParamsFails(self):
-        model1_noprefix = mass.fluorescence_lines.make_line_model(self.line1)
-        model2_noprefix = mass.fluorescence_lines.make_line_model(self.line2)
+        model1_noprefix = self.line1.model()
+        model2_noprefix = self.line2.model()
         with self.assertRaises(NameError):
             composite_model = model1_noprefix + model2_noprefix
     
-    def test_CompositeModelFit(self):
+    def test_CompositeModelFit_with_prefix_and_background(self):
         prefix1 = 'p1_'
         prefix2 = 'p2_'
-        model1 = mass.fluorescence_lines.make_line_model(self.line1, prefix=prefix1)
-        model2 = mass.fluorescence_lines.make_line_model(self.line2, prefix=prefix2)
+        model1 = self.line1.model(prefix=prefix1)
+        model2 = self.line2.model(prefix=prefix2, has_linear_background=False)
         assert(model1.prefix == prefix1)
         assert(model2.prefix == prefix2)
         params1 = model1.guess(self.counts1, bin_centers=self.bin_centers)
@@ -444,6 +443,33 @@ class Test_Composites_lmfit(unittest.TestCase):
         resultComponentPrefixes = [iComp.prefix for iComp in compositeResult.components]
         assert(np.logical_and(prefix1 in resultComponentPrefixes, prefix2 in resultComponentPrefixes))
         compositeResult._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
+
+def test_BackgroundMLEModel():
+    class BackgroundMLEModel(mass.calibration.line_models.MLEModel):
+        def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise', **kwargs):
+            def modelfunc(bin_centers, background, bg_slope):
+                bg = np.zeros_like(bin_centers) + background
+                bg += bg_slope * np.arange(len(bin_centers))
+                bg[bg < 0] = 0
+                if any(np.isnan(bg)) or any(bg < 0):
+                    raise ValueError("some entry in r is nan or negative")
+                return bg
+            kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,'independent_vars': independent_vars})
+            super(BackgroundMLEModel, self).__init__(modelfunc, **kwargs)   
+            self.set_param_hint('background', value=1, min=0)     
+            self.set_param_hint('bg_slope', value=0)
+    
+    test_model = BackgroundMLEModel(name='LinearTestModel', prefix = 'p1_')
+    test_params = test_model.make_params(background=1.0, bg_slope=0.0)
+    x_data = np.arange(1000,2000,1)
+    test_background = 127.3
+    test_background_error = np.sqrt(test_background)
+    test_bg_slope = 0.17
+    y_data = np.zeros_like(x_data) + test_background + np.random.normal(scale=test_background_error, size=len(x_data))
+    y_data += test_bg_slope * np.arange(len(x_data))
+    y_data[y_data < 0] = 0
+    test_result = test_model.fit(y_data, test_params, bin_centers=x_data)
+
 
 if __name__ == "__main__":
     unittest.main()
