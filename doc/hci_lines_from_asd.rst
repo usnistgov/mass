@@ -25,15 +25,16 @@ This file is located at mass/calibration/nist_asd.pickle.
 A custom pickle file can be used by passing in the ``pickleFilename`` argument during initialization.
 The methods of the ``NIST_ASD`` class are described below:
 
-``getAvailableElements()`` - Returns a list of all available elements in the ASD pickle file
+- ``getAvailableElements()`` - Returns a list of all available elements in the ASD pickle file
 
-``getAvailableSpectralCharges(element)`` - For a given element, returns all available charge states
-  Args:
+- ``getAvailableSpectralCharges(element)`` - For a given element, returns all available charge states
+  Arguments:
     ``element``: str representing atomic symbol of element to use
 
-``getAvailableLevels(element, spectralCharge, requiredConf=None, requiredTerm=None, requiredJVal=None, maxLevels=None, units='eV')``
+- ``getAvailableLevels(element, spectralCharge, requiredConf=None, requiredTerm=None, requiredJVal=None, maxLevels=None, units='eV')``
+  Arguments:
 
-``getSingleLevel(self, element, spectralCharge, conf, term, j_val, units='eV', getUncertainty=True)``
+- ``getSingleLevel(self, element, spectralCharge, conf, term, j_val, units='eV', getUncertainty=True)``
 
 
 .. testcode::
