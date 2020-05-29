@@ -25,17 +25,33 @@ This file is located at mass/calibration/nist_asd.pickle.
 A custom pickle file can be used by passing in the ``pickleFilename`` argument during initialization.
 The methods of the ``NIST_ASD`` class are described below:
 
-- ``getAvailableElements()`` - Returns a list of all available elements in the ASD pickle file
+- ``getAvailableElements()``
+  - Returns a list of all available elements in the ASD pickle file
 
-- ``getAvailableSpectralCharges(element)`` - For a given element, returns all available charge states
-  Arguments:
-    ``element``: str representing atomic symbol of element to use
+- ``getAvailableSpectralCharges(element)``
+  - For a given element, returns all available charge states
+  - Arguments:
+    - ``element``: str representing atomic symbol of element to use
 
 - ``getAvailableLevels(element, spectralCharge, requiredConf=None, requiredTerm=None, requiredJVal=None, maxLevels=None, units='eV')``
-  Arguments:
+  -Arguments:
+    - ``element``:
+    - ``spectralCharge``:
+    - ``requiredConf``: (default None)
+    - ``requiredTerm``: (default None)
+    - ``requiredJVal``: (default None)
+    - ``maxLevels``: (default None)
+    - ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values.
 
-- ``getSingleLevel(self, element, spectralCharge, conf, term, j_val, units='eV', getUncertainty=True)``
-
+- ``getSingleLevel(self, element, spectralCharge, conf, term, JVal, units='eV', getUncertainty=True)``
+  -Arguments:
+    - ``element``:
+    - ``spectralCharge``:
+    - ``conf``:
+    - ``term``:
+    - ``JVal``:
+    - ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values.
+    - ``getUncertainty``: (default True)
 
 .. testcode::
 

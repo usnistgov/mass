@@ -47,12 +47,12 @@ class NIST_ASD():
                 if maxLevels is not None:
                     if numLevels == maxLevels:
                         return levelsDict
-                # If required, check to see if level matches search conf, term, j_val
+                # If required, check to see if level matches search conf, term, JVal
                 includeConf = False
                 includeTerm = False
                 includeJVal = False            
                 conf, term, j_str = iLevel.split()
-                j_val = j_str.split('=')[1]            
+                JVal= j_str.split('=')[1]            
                 if requiredConf is None:
                     includeConf = True
                 else:
@@ -66,7 +66,7 @@ class NIST_ASD():
                 if requiredJVal is None:
                     includeJVal = True
                 else:
-                    if j_val == requiredJVal:
+                    if JVal == requiredJVal:
                         includeJVal = True
                 # Include levels that match, in either cm-1 or eV
                 if includeConf and includeTerm and includeJVal:
@@ -82,17 +82,17 @@ class NIST_ASD():
                 'Warning: cannot parse level: {}'.format(iLevel)
         return levelsDict
 
-    def getSingleLevel(self, element, spectralCharge, conf, term, j_val, units='eV', getUncertainty=True):
+    def getSingleLevel(self, element, spectralCharge, conf, term, JVal, units='eV', getUncertainty=True):
         if units == 'cm-1':
             if getUncertainty:
-                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, j_val)]
+                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, JVal)]
             else:
-                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, j_val)][0]
+                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, JVal)][0]
         elif units == 'eV':
             if getUncertainty:
-                levelEnergy = [iValue * INVCM_TO_EV for iValue in self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, j_val)]]
+                levelEnergy = [iValue * INVCM_TO_EV for iValue in self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, JVal)]]
             else:
-                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, j_val)][0] * INVCM_TO_EV
+                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, JVal)][0] * INVCM_TO_EV
         else:
             levelEnergy = None
             print('Unit type not supported, please use eV or cm-1')
