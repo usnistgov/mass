@@ -9,7 +9,6 @@ Paul Szypryt
 '''
 
 import numpy as np
-import xraylib
 import pickle
 import scipy.constants as sp_const
 import os
@@ -17,6 +16,10 @@ import mass
 from . import fluorescence_lines
 from . import line_fits
 from . import LORENTZIAN_PEAK_HEIGHT
+try:
+    import xraylib
+except ImportError:
+    raise ImportError('This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
 
 INVCM_TO_EV = sp_const.c * sp_const.physical_constants['Planck constant in eV s'][0] * 100.0
 DEFAULT_PICKLE_NAME = 'nist_asd.pickle'
@@ -95,49 +98,25 @@ class NIST_ASD():
             print('Unit type not supported, please use eV or cm-1')
         return levelEnergy
 
-    def add_H_like_pairs(self, element, maxPairs=None):
-        # Grab term = 2P* levels for a given element and charge state
-        spectr_ch = xraylib.SymbolToAtomicNumber(element)
-        requiredTerm = '2P*'
-        if maxPairs is not None:
-            levelsDict=self.getAvailableLevels(element, spectralCharge=spectr_ch, requiredTerm=requiredTerm, maxLevels=maxPairs*2)
-        else:
-            levelsDict=self.getAvailableLevels(element, spectralCharge=spectr_ch, requiredTerm=requiredTerm)    
-        # Check for 2 levels per term (J=1/2 and J=3/2)
-        configurations = []
-        for iLevel in list(levelsDict.keys()):
-            conf = iLevel.split(' ')[0]
-            configurations.append(conf)
-        validConfigurations = []
-        for iConfiguration in np.unique(configurations):
-            if configurations.count(iConfiguration)==2:
-                validConfigurations.append(iConfiguration)
-        # Create lines for each valid doublet
-        for iValidConf in validConfigurations:
-            confDict=self.getAvailableLevels(element, spectralCharge=spectr_ch, requiredConf=iValidConf, requiredTerm=requiredTerm)
-            energies = np.array(list(confDict.values()))[:,0]
-            line_identifier = '{}'.format(iValidConf)
-            add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=line_identifier, energies=energies, widths=[0.1, 0.1], ratios=[1.0, 2.0])
+def add_He_like_lines(asd, element, maxLevels=None):
+    spectr_ch = int(xraylib.SymbolToAtomicNumber(element)-1)
+    if maxLevels is not None:
+        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels)
+    else:
+        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch)
+    for iLevel in list(levelsDict.keys()):
+        lineEnergy = [levelsDict[iLevel][0]]
+        add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=lineEnergy, widths=[0.1], ratios=[1.0])
 
-    def add_He_like_lines(self, element, maxLevels=None):
-        spectr_ch = int(xraylib.SymbolToAtomicNumber(element)-1)
-        if maxLevels is not None:
-            levelsDict=self.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels)
-        else:
-            levelsDict=self.getAvailableLevels(element, spectralCharge=spectr_ch)
-        for iLevel in list(levelsDict.keys()):
-            lineEnergy = [levelsDict[iLevel][0]]
-            add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=lineEnergy, widths=[0.1], ratios=[1.0])
-
-    def add_H_like_lines(self, element, maxLevels=None):
-        spectr_ch = int(xraylib.SymbolToAtomicNumber(element))
-        if maxLevels is not None:
-            levelsDict=self.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels)
-        else:
-            levelsDict=self.getAvailableLevels(element, spectralCharge=spectr_ch)
-        for iLevel in list(levelsDict.keys()):
-            lineEnergy = [levelsDict[iLevel][0]]
-            add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=lineEnergy, widths=[0.1], ratios=[1.0])
+def add_H_like_lines(asd, element, maxLevels=None):
+    spectr_ch = int(xraylib.SymbolToAtomicNumber(element))
+    if maxLevels is not None:
+        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels)
+    else:
+        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch)
+    for iLevel in list(levelsDict.keys()):
+        lineEnergy = [levelsDict[iLevel][0]]
+        add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=lineEnergy, widths=[0.1], ratios=[1.0])
 
 def add_hci_line(element, spectr_ch, line_identifier, energies, widths, ratios, nominal_peak_energy=None):
     energies=np.array(energies)
@@ -163,47 +142,10 @@ def add_hci_line(element, spectr_ch, line_identifier, energies, widths, ratios, 
     )    
     return spectrum_class
 
-
 asd = NIST_ASD()
+# Some commonly used elements at the EBIT
 elementList = ['N', 'O', 'Ne', 'Ar']
+# Add all known H- and He-like lines for commonly used elements
 for iElement in elementList:
-    asd.add_H_like_lines(iElement, maxLevels=None)
-    asd.add_He_like_lines(iElement, maxLevels=None)
-    asd.add_H_like_pairs(iElement, maxPairs=None) # eventually want to just do this with lmfit models
-
-
-# Eventually create these as lmfit models rather than mass spectra classes
-# Create some He-like 1s2s,2p line complexes
-# Ne
-Ne9_1s2s_3S = asd.getSingleLevel('Ne', 9, conf='1s.2s', term='3S', j_val='1') # less dominant line
-Ne8_contam_line = asd.getSingleLevel('Ne', 8,  conf='1s.(2S).2s.2p.(3P*)', term='2P*', j_val='')
-Ne9_1s2p_triplet = list(asd.getAvailableLevels('Ne', 9, requiredConf='1s.2p', requiredTerm='3P*').values())
-#Ne_1s2s_1S = asd.getSingleLevel('Ne', 9, conf='1s.2s', term='1S', j_val='0') # weak, probably do not include
-Ne9_1s2p_singlet = asd.getSingleLevel('Ne', 9, conf='1s.2p', term='1P*', j_val='1') # dominant line
-Ne9_complex_energies = np.hstack([Ne9_1s2s_3S[0], Ne8_contam_line[0], list(np.array(Ne9_1s2p_triplet)[:,0]), Ne9_1s2p_singlet[0]])
-Ne9_complex_widths = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-Ne9_complex_ratios = [12, 4, 1, 1, 1, 42]
-add_hci_line(
-    element='Ne',
-    spectr_ch = 9,
-    line_identifier = '1s2s,2p Complex', 
-    energies = Ne9_complex_energies,
-    widths = Ne9_complex_widths,
-    ratios = Ne9_complex_ratios, 
-    nominal_peak_energy=Ne9_1s2p_singlet[0]
-    )
-
-# Combined N7 2p + N6 1s3p 1P*
-N6_1s3p_1P = asd.getSingleLevel('N', 6, conf='1s.3p', term='1P*', j_val='1')
-N7_2p = list(asd.getAvailableLevels('N', 7, requiredConf='2p', requiredTerm='2P*').values())
-N7_2p_combined_energies = np.hstack([N6_1s3p_1P[0], list(np.array(N7_2p)[:,0])])
-N7_2p_combined_widths = [0.1, 0.1, 0.1]
-N7_2p_combined_ratios = [2, 1, 2]
-add_hci_line(
-    element='N',
-    spectr_ch = 7,
-    line_identifier = '2p + N6 1s3p', 
-    energies = N7_2p_combined_energies,
-    widths = N7_2p_combined_widths,
-    ratios = N7_2p_combined_ratios
-    )
+    add_H_like_lines(asd=asd, element=iElement, maxLevels=None)
+    add_He_like_lines(asd=asd, element=iElement, maxLevels=None)
