@@ -26,15 +26,21 @@ A custom pickle file can be used by passing in the ``pickleFilename`` argument d
 The methods of the ``NIST_ASD`` class are described below:
 
 - ``getAvailableElements()``
+
   - Returns a list of all available elements in the ASD pickle file
 
 - ``getAvailableSpectralCharges(element)``
+
   - For a given element, returns all available charge states
+
   - Arguments:
+  
     - ``element``: str representing atomic symbol of element to use
 
 - ``getAvailableLevels(element, spectralCharge, requiredConf=None, requiredTerm=None, requiredJVal=None, maxLevels=None, units='eV')``
-  -Arguments:
+
+  - Arguments:
+
     - ``element``:
     - ``spectralCharge``:
     - ``requiredConf``: (default None)
@@ -44,7 +50,9 @@ The methods of the ``NIST_ASD`` class are described below:
     - ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values.
 
 - ``getSingleLevel(self, element, spectralCharge, conf, term, JVal, units='eV', getUncertainty=True)``
-  -Arguments:
+
+  - Arguments:
+
     - ``element``:
     - ``spectralCharge``:
     - ``conf``:
