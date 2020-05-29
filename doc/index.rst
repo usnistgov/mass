@@ -10,6 +10,7 @@ Mass
    :caption: Contents:
 
    off_style
+   xray_efficiency_models
 
 .. 
 

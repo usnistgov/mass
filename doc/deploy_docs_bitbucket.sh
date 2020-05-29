@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
-# build the docs
-make clean
-make doctest
-make html
-
+# deploy the docs
 
 git clone git@bitbucket.org:oneilg/oneilg.bitbucket.io.git
 
