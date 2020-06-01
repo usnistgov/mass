@@ -25,41 +25,37 @@ This file is located at mass/calibration/nist_asd.pickle.
 A custom pickle file can be used by passing in the ``pickleFilename`` argument during initialization.
 The methods of the ``NIST_ASD`` class are described below:
 
-| ``getAvailableElements()``
-|   Returns a list of all available elements from the ASD pickle file
-|
-| ``getAvailableSpectralCharges(element)``
-|   For a given element, returns all available charge states from the ASD pickle file
-|   Arguments:
-|     ``element``: str representing atomic symbol of element, e.g. 'Ne'
-|
-| ``getAvailableLevels(element, spectralCharge, requiredConf=None, requiredTerm=None, requiredJVal=None, maxLevels=None, units='eV')``
-|   For a given element and spectral charge state, list all known levels from the ASD pickle file
-|   Arguments:
-|     ``element``: str representing atomic symbol of element, e.g. 'Ne'
-|     ``spectralCharge``: int representing spectral charge state, e.g. 1 for neutral atoms, 10 for H-like Ne
-|     ``requiredConf``: (default None) filters results to those with ``conf == requiredConf``
-|     ``requiredTerm``: (default None) filters results to those with ``term == requiredTerm``
-|     ``requiredJVal``: (default None) filters results to those with ``JVal == requiredJVal``
-|     ``maxLevels``: (default None) the maximum number of levels (sorted by energy) to return
-|     ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values
-|
-| ``getSingleLevel(element, spectralCharge, conf, term, JVal, units='eV', getUncertainty=True)``
-|   Return the level data for a fully defined element, charge state, conf, term, and JVal.
-|   Arguments:
-|     ``element``: str representing atomic symbol of element, e.g. 'Ne'
-|     ``spectralCharge``: int representing spectral charge state, e.g. 1 for neutral atoms, 10 for H-like Ne
-|     ``conf``: str representing nuclear configuration, e.g. '2p'
-|     ``term``: str representing nuclear term, e.g. '2P*'
-|     ``JVal``: str representing total angular momentum J, e.g. '3/2'
-|     ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values
-|     ``getUncertainty``: (default True) if True, includes uncertainties in list of levels
+.. autoclass:: mass.calibration._hci_lines.NIST_ASD
+  :members:
+  :undoc-members:
+
+Next, we will demonstrate usage of these methods with the example of Ne,
+a commonly injected gas at the NIST EBIT.
 
 .. testcode::
 
   import mass.calibration._hci_lines
+  import numpy
 
+  test_asd = mass.calibration._hci_lines.NIST_ASD()
+  availableElements = test_asd.getAvailableElements()
+  assert 'Ne' in availableElements
+  availableNeCharges = test_asd.getAvailableSpectralCharges(element='Ne')
+  assert 10 in availableNeCharges
+  subsetNe10Levels = test_asd.getAvailableLevels(element='Ne', spectralCharge=10, maxLevels=6, getUncertainty=False)
+  assert '2p 2P* J=1/2' in list(subsetNe10Levels.keys())
+  exampleNeLevel = test_asd.getSingleLevel(element='Ne', spectralCharge=10, conf='2p', term='2P*', JVal='1/2', getUncertainty=False)
 
-.. autoclass:: mass.calibration._hci_lines.NIST_ASD
-  :members:
-  :undoc-members:
+  print(availableElements[:10])
+  print(availableNeCharges)
+  for k, v in subsetNe10Levels.items():
+    subsetNe10Levels[k] = round(v, 1)
+  print(subsetNe10Levels)
+  print('{:.1f}'.format(exampleNeLevel))
+
+.. testoutput::
+
+  ['Sn', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Rb', 'Se', 'Cl', 'Br']
+  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  {'1s 2S J=1/2': 0.0, '2p 2P* J=1/2': 1021.5, '2s 2S J=1/2': 1021.5, '2p 2P* J=3/2': 1022.0, '3p 2P* J=1/2': 1210.8, '3s 2S J=1/2': 1210.8}
+  1021.5
