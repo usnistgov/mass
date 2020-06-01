@@ -45,6 +45,7 @@ The methods of the ``NIST_ASD`` class are described below:
 |     ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values
 |
 | ``getSingleLevel(element, spectralCharge, conf, term, JVal, units='eV', getUncertainty=True)``
+|   Return the level data for a fully defined element, charge state, conf, term, and JVal.
 |   Arguments:
 |     ``element``: str representing atomic symbol of element, e.g. 'Ne'
 |     ``spectralCharge``: int representing spectral charge state, e.g. 1 for neutral atoms, 10 for H-like Ne
@@ -57,3 +58,8 @@ The methods of the ``NIST_ASD`` class are described below:
 .. testcode::
 
   import mass.calibration._hci_lines
+
+
+.. autoclass:: mass.calibration._hci_lines.NIST_ASD
+  :members:
+  :undoc-members:

@@ -25,16 +25,32 @@ INVCM_TO_EV = sp_const.c * sp_const.physical_constants['Planck constant in eV s'
 DEFAULT_PICKLE_NAME = 'nist_asd.pickle'
 
 class NIST_ASD():
+    '''Class for working with a pickled atomic spectra database'''
+
     def __init__(self, pickleFilename=None):
+        '''Loads ASD pickle file
+
+        Args:
+            pickleFilename: (default None) ASD pickle file name, as str, if not using default
+        '''
+
         if pickleFilename is None:
             pickleFilename = os.path.join(os.path.split(__file__)[0], DEFAULT_PICKLE_NAME)
         with open(pickleFilename, 'rb') as handle:            
             self.NIST_ASD_Dict = pickle.load(handle)
 
     def getAvailableElements(self):
+        '''Returns a list of all available elements from the ASD pickle file'''
+
         return list(self.NIST_ASD_Dict.keys())
 
     def getAvailableSpectralCharges(self, element):
+        '''For a given element, returns all available charge states from the ASD pickle file
+        
+        Args:
+            element: str representing atomic symbol of element, e.g. 'Ne'
+        '''
+        
         return list(self.NIST_ASD_Dict[element].keys())
 
     def getAvailableLevels(self, element, spectralCharge, requiredConf=None, requiredTerm=None, requiredJVal=None, maxLevels=None, units='eV'):
