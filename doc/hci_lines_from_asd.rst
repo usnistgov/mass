@@ -26,32 +26,33 @@ A custom pickle file can be used by passing in the ``pickleFilename`` argument d
 The methods of the ``NIST_ASD`` class are described below:
 
 | ``getAvailableElements()``
-|   Returns a list of all available elements in the ASD pickle file
+|   Returns a list of all available elements from the ASD pickle file
 |
 | ``getAvailableSpectralCharges(element)``
-|   For a given element, returns all available charge states
+|   For a given element, returns all available charge states from the ASD pickle file
 |   Arguments:
-|     ``element``: str representing atomic symbol of element to use
+|     ``element``: str representing atomic symbol of element, e.g. 'Ne'
 |
 | ``getAvailableLevels(element, spectralCharge, requiredConf=None, requiredTerm=None, requiredJVal=None, maxLevels=None, units='eV')``
+|   For a given element and spectral charge state, list all known levels from the ASD pickle file
 |   Arguments:
-|     ``element``:
-|     ``spectralCharge``:
-|     ``requiredConf``: (default None)
-|     ``requiredTerm``: (default None)
-|     ``requiredJVal``: (default None)
-|     ``maxLevels``: (default None)
-|     ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values.
+|     ``element``: str representing atomic symbol of element, e.g. 'Ne'
+|     ``spectralCharge``: int representing spectral charge state, e.g. 1 for neutral atoms, 10 for H-like Ne
+|     ``requiredConf``: (default None) filters results to those with ``conf == requiredConf``
+|     ``requiredTerm``: (default None) filters results to those with ``term == requiredTerm``
+|     ``requiredJVal``: (default None) filters results to those with ``JVal == requiredJVal``
+|     ``maxLevels``: (default None) the maximum number of levels (sorted by energy) to return
+|     ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values
 |
-| ``getSingleLevel(self, element, spectralCharge, conf, term, JVal, units='eV', getUncertainty=True)``
+| ``getSingleLevel(element, spectralCharge, conf, term, JVal, units='eV', getUncertainty=True)``
 |   Arguments:
-|     ``element``:
-|     ``spectralCharge``:
-|     ``conf``:
-|     ``term``:
-|     ``JVal``:
-|     ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values.
-|     ``getUncertainty``: (default True)
+|     ``element``: str representing atomic symbol of element, e.g. 'Ne'
+|     ``spectralCharge``: int representing spectral charge state, e.g. 1 for neutral atoms, 10 for H-like Ne
+|     ``conf``: str representing nuclear configuration, e.g. '2p'
+|     ``term``: str representing nuclear term, e.g. '2P*'
+|     ``JVal``: str representing total angular momentum J, e.g. '3/2'
+|     ``units``: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values
+|     ``getUncertainty``: (default True) if True, includes uncertainties in list of levels
 
 .. testcode::
 
