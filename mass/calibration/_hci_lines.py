@@ -171,25 +171,32 @@ def add_hci_line(element, spectr_ch, line_identifier, energies, widths, ratios, 
     )    
     return spectrum_class
 
-def add_He_like_lines_from_asd(asd, element, maxLevels=None):
-    spectr_ch = int(xraylib.SymbolToAtomicNumber(element)-1)
-    if maxLevels is not None:
-        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels)
-    else:
-        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch)
-    for iLevel in list(levelsDict.keys()):
-        lineEnergy = [levelsDict[iLevel][0]]
-        add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=lineEnergy, widths=[0.1], ratios=[1.0])
-
 def add_H_like_lines_from_asd(asd, element, maxLevels=None):
     spectr_ch = int(xraylib.SymbolToAtomicNumber(element))
+    added_lines=[]
     if maxLevels is not None:
         levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels)
     else:
         levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch)
     for iLevel in list(levelsDict.keys()):
         lineEnergy = [levelsDict[iLevel][0]]
-        add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=lineEnergy, widths=[0.1], ratios=[1.0])
+        iLine=add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=lineEnergy, widths=[0.1], ratios=[1.0])
+        added_lines.append(iLine)
+    return added_lines
+
+def add_He_like_lines_from_asd(asd, element, maxLevels=None):
+    spectr_ch = int(xraylib.SymbolToAtomicNumber(element)-1)
+    added_lines=[]
+    if maxLevels is not None:
+        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels)
+    else:
+        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch)
+    for iLevel in list(levelsDict.keys()):
+        lineEnergy = [levelsDict[iLevel][0]]
+        iLine = add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=lineEnergy, widths=[0.1], ratios=[1.0])
+        added_lines.append(iLine)
+    return added_lines
+
 
 # Script for adding some lines for elements commonly used at the EBIT
 asd = NIST_ASD()
