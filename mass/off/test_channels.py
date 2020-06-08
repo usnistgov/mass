@@ -284,16 +284,25 @@ class TestSummaries(ut.TestCase):
         inds = ds_local.getStatesIndicies("A")
         _ = ds_local.getAttr("filtValue", inds)
 
-    def test_getAttr_with_list_of_slice(self):
-        ind = [slice(0, 5), slice(5, 10)]
-        self.assertTrue(np.allclose(ds.getAttr("filtValue", ind),
-                                    ds.getAttr("filtValue", slice(0, 10))))
-        self.assertTrue(np.allclose(ds.getAttr(
-            "filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10))))
+def test_getAttr_with_list_of_slice():
+    ind = [slice(0, 5), slice(5, 10)]
+    assert np.allclose(ds.getAttr("filtValue", ind), ds.getAttr("filtValue", slice(0, 10)))
+    assert np.allclose(ds.getAttr("filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10)))
 
-    def test_HCI_loads(self):
-        self.assertTrue("O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines))
 
+def test_HCI_loads():
+    assert "O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines)
+
+def test_getAttr_and_recipes_with_coefs():
+    ind = [slice(0, 5), slice(5, 10)]
+    coefs = ds.getAttr("coefs", ind)
+    filtValue, coefs2 = ds.getAttr(["filtValue","coefs"], ind)   
+    assert np.allclose(coefs, coefs2) 
+    assert np.allclose(coefs[:,2], filtValue)
+    ds.recipes.add("coefsSum", lambda coefs: coefs.sum(axis=1))
+    assert np.allclose(ds.getAttr("coefsSum", ind), coefs.sum(axis=1))
+    print(f"{coefs.shape=}")
+    print(f"{coefs.sum(axis=1).shape=}")
 
 # pytest style test! way simpler to write
 def test_get_model():
@@ -368,6 +377,8 @@ def test_median_absolute_deviation():
     mad, sigma_equiv, median = util.median_absolute_deviation([1, 1, 2, 3, 4])
     assert mad == 1
     assert median == 2
+
+
 
 
 if __name__ == '__main__':

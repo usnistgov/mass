@@ -98,10 +98,14 @@ class PulseModel():
 
         return projectors, basis
 
-    def plot(self):
-        labels = ["pulse", "deriv", "mean"]
+    def labels(self):
+        labels = ["const", "deriv", "pulse"]
         for i in range(self.n_basis-3):
-            labels = ["svd{}".format(i)] + labels
+            labels = labels + ["svd{}".format(i)]        
+        return labels
+
+    def plot(self):
+        labels = self.labels()
         mpc = np.matmul(self.projectors, self.pulses_for_svd)
         mp = np.matmul(self.basis, mpc)
         residuals = self.pulses_for_svd-mp
@@ -111,13 +115,13 @@ class PulseModel():
         projector_scale = np.amax(np.abs(self.projectors[2, :]))
         plt.plot(self.projectors[::-1, :].T)
         plt.title("projectors")
-        plt.ylim(-2*projector_scale, 2*projector_scale)
-        plt.legend(labels)
+        # plt.ylim(-2*projector_scale, 2*projector_scale)
+        plt.legend(labels[::-1])
         plt.grid(True)
         plt.subplot(512)
         plt.plot(self.basis[:, ::-1])
         plt.title("basis")
-        plt.legend(labels)
+        plt.legend(labels[::-1])
         plt.grid(True)
         plt.subplot(513)
         plt.plot(self.pulses_for_svd[:, :10])
@@ -139,7 +143,7 @@ class PulseModel():
         fig.suptitle(self.file_name)
 
         plt.figure()
-        plt.plot(self.pulses_for_svd[:, 0], label="from ljh")
-        plt.plot(mp[:, 0], label="modeled pulse")
+        plt.plot(self.pulses_for_svd[:, 0], label="from ljh index 0")
+        plt.plot(mp[:, 0], label="modeled pulse index 0")
         plt.legend()
         plt.title("modeled pulse vs true pulse")

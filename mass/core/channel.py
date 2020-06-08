@@ -13,6 +13,7 @@ import scipy.signal
 import matplotlib.pylab as plt
 import inspect
 import os
+import sys
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -568,7 +569,7 @@ class GroupLooper(object):
     pass
 
 
-def _add_group_loop(throw_errors=False):
+def _add_group_loop():
     """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
 
     This is a decorator to add before method definitions inside class MicrocalDataSet.
@@ -581,11 +582,11 @@ def _add_group_loop(throw_errors=False):
         def awesome_fuction(self, ...):
             ...
     """
-
+    is_running_tests = "pytest" in sys.modules
     def decorator(method):
         method_name = method.__name__
-
         def wrapper(self, *args,  **kwargs):
+            rethrow = kwargs.pop("_rethrow", is_running_tests) # always throw errors when testing
             for ds in self:
                 try:
                     method(ds, *args, **kwargs)
@@ -596,10 +597,8 @@ def _add_group_loop(throw_errors=False):
                     import sys
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     s = traceback.format_exception(exc_type, exc_value, exc_traceback)
-                    if throw_errors:
-                        new_ex = Exception(
-                            "an error happened during a group loop, the exception was {}\nTRACEBACK BELOW\n{}".format(repr(e), s))
-                        raise new_ex
+                    if rethrow:
+                        raise
                     self.set_chan_bad(ds.channum, "failed %s with %s\ntraceback:\n%s" %
                                       (method_name, e, s))
 
@@ -1190,27 +1189,33 @@ class MicrocalDataSet(object):
             return
         if all(self.noise_autocorr[:] == 0):
             raise Exception("compute noise first")
-        try:
-            spectrum = self.noise_spectrum.spectrum()
-        except Exception:
-            spectrum = self.noise_psd[:]
         if not (category is None or category == {}):
             raise Exception(
                 "category argument has no effect on compute_oldfilter, pass None or {}. compute_oldfilter uses self.average_pulse")
-        avg_signal = np.array(self.average_pulse)
-        f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
-                             spectrum, self.noise_autocorr, sample_time=self.timebase,
-                             shorten=2, cut_pre=cut_pre, cut_post=cut_post)
-        f.compute(fmax=fmax, f_3db=f_3db)
+        f = self._compute_5lag_filter_no_mutation(fmax, f_3db, cut_pre, cut_post)
         self.filter = f
         self._filter_type = "5lag"
         self._filter_to_hdf5()
         return f
 
+    def _compute_5lag_filter_no_mutation(self, fmax, f_3db, cut_pre, cut_post):
+        try:
+            spectrum = self.noise_spectrum.spectrum()
+        except Exception:
+            spectrum = self.noise_psd[:]
+        avg_signal = np.array(self.average_pulse)
+        if np.sum(np.abs(self.average_pulse)) == 0:
+            raise Exception("average pulse is all zeros, try avg_pulses_auto_masks first")
+        f = mass.core.Filter(avg_signal, self.nPresamples-self.pretrigger_ignore_samples,
+                             spectrum, self.noise_autocorr, sample_time=self.timebase,
+                             shorten=2, cut_pre=cut_pre, cut_post=cut_post)
+        f.compute(fmax=fmax, f_3db=f_3db)
+        return f        
+
     @_add_group_loop()
     def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0,
                            category={}, shift1=True, forceNew=False, minimum_n_pulses=20,
-                           maximum_n_pulses=4000):
+                           maximum_n_pulses=4000, optimize_dp_dt=True):
         """Compute a arrival-time-safe filter to model the pulse and its time-derivative.
         Requires that `compute_noise` has been run.
 
@@ -1222,6 +1227,7 @@ class MicrocalDataSet(object):
                 (default None)
             transform: a callable object that will be called on all data records
                 before filtering (default None)
+            optimize_dp_dt: bool, try a more elaborate approach to dp_dt than just the finite difference (works well for x-ray, bad for gamma rays)
             cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
             cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
             shift1: Potentially shift each pulse by one sample based on ds.shift1 value,
@@ -1294,16 +1300,17 @@ class MicrocalDataSet(object):
         model[-1, 1] = (ap[-1]-ap[-2])/apmax
         model[:self.nPresamples-1, :] = 0
 
-        # Now use min-entropy computation to model dp/dt on the rising edge
-        def cost(slope, x, y):
-            return mass.mathstat.entropy.laplace_entropy(y-x*slope, 0.002)
+        if optimize_dp_dt:
+            # Now use min-entropy computation to model dp/dt on the rising edge
+            def cost(slope, x, y):
+                return mass.mathstat.entropy.laplace_entropy(y-x*slope, 0.002)
 
-        if self.peak_samplenumber is None:
-            self._compute_peak_samplenumber()
-        for samplenum in range(self.nPresamples-1, self.peak_samplenumber):
-            y = raw[:, samplenum]/rawscale
-            bestslope = sp.optimize.brent(cost, (ATime, y), brack=[-.1, .25], tol=1e-7)
-            model[samplenum, 1] = bestslope
+            if self.peak_samplenumber is None:
+                self._compute_peak_samplenumber()
+            for samplenum in range(self.nPresamples-1, self.peak_samplenumber):
+                y = raw[:, samplenum]/rawscale
+                bestslope = sp.optimize.brent(cost, (ATime, y), brack=[-.1, .25], tol=1e-7)
+                model[samplenum, 1] = bestslope
 
         modelpeak = np.median(rawscale)
         self.pulsemodel = model

@@ -326,7 +326,9 @@ class Channel(CorG):
         self._statesDict = None
         self.verbose = verbose
         self.learnChannumAndShortname()
-        self.recipes = RecipeBook(self._offAttrs, Channel)
+        self.recipes = RecipeBook(self._offAttrs, Channel, 
+            wrapper = lambda x: util.IngredientsWrapper(x, self.offFile._dtype_non_descriptive))
+        # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
     def _defineDefaultRecipesAndProperties(self):
@@ -356,7 +358,8 @@ class Channel(CorG):
 
     @property
     def _offAttrs(self):
-        return self.offFile.dtype.names
+        # adding ("coefs",) is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients       
+        return self.offFile.dtype.names+("coefs",)
 
     @property
     def _recipeAttrs(self):
@@ -503,7 +506,10 @@ class Channel(CorG):
         # offAttr can be a list of offAttr names
         if isinstance(inds, slice):
             r = self.offFile[inds]
-            g = self.recipes.craft(cutRecipeName, r)
+            # I'd like to be able to do either r["coefs"] to get all projection coefficients
+            # or r["filtValue"] to get only the filtValue
+            # IngredientsWrapper lets that work within recipes.craft
+            g = self.recipes.craft(cutRecipeName, util.IngredientsWrapper(r, self.offFile._dtype_non_descriptive))
             output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
             # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
@@ -560,6 +566,8 @@ class Channel(CorG):
         """ internal function used to implement getAttr, does no cutting """
         if self.isRecipeAttr(attr):
             return self.recipes.craft(attr, offAttrValues)
+        if attr == "coefs":
+            return offAttrValues.view(self.offFile._dtype_non_descriptive)["coefs"]
         elif self.isOffAttr(attr):
             return offAttrValues[attr]
         else:

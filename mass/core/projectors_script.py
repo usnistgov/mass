@@ -11,7 +11,7 @@ LOG.setLevel(logging.DEBUG)
 
 
 def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_deriv,
-                    n_basis, maximum_n_pulses, mass_hdf5_path, invert_data):
+                    n_basis, maximum_n_pulses, mass_hdf5_path, invert_data, optimize_dp_dt):
     data = mass.TESGroup(pulse_files, noise_files, overwrite_hdf5_file=True,
                          hdf5_filename=mass_hdf5_path)
     for ds in data:
@@ -19,8 +19,20 @@ def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_de
     data.summarize_data()
     data.auto_cuts(nsigma_pt_rms=n_sigma_pt_rms, nsigma_max_deriv=n_sigma_max_deriv)
     data.compute_noise_spectra()
-    data.compute_ats_filter(shift1=False)
-    data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses)
+    data.compute_ats_filter(shift1=False, optimize_dp_dt=optimize_dp_dt)
+    hdf5_filename = data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses)
+    with h5py.File(hdf5_filename,"a") as h5:     # also write the 5 lag filter, avg signal, and noise_spectrum
+        # this was added after the original projectors implementation to support gamma ray work
+        # it's not as clean of a design, so it could be a good target for a refactor later
+        for ds in data:
+            ds.avg_pulses_auto_masks()
+            f_5lag = ds._compute_5lag_filter_no_mutation(fmax=None, f_3db=None, cut_pre=0, cut_post=0)
+            h5[f"{ds.channum}/svdbasis/5lag_filter"] = f_5lag.filt_noconst
+            h5[f"{ds.channum}/svdbasis/average_pulse_for_5lag"] = ds.average_pulse[:]
+            h5[f"{ds.channum}/svdbasis/noise_psd"] = ds.noise_psd[:]
+            h5[f"{ds.channum}/svdbasis/noise_psd_delta_f"] = ds.noise_psd.attrs['delta_f']
+            h5[f"{ds.channum}/svdbasis/noise_autocorr"] = ds.noise_autocorr[:]
+
     return data.n_good_channels(), data.n_channels
 
 
@@ -57,6 +69,8 @@ def parse_args(fake):
                         help="specify the path for the mass hdf5 file that is generated as a byproduct of this script")
     parser.add_argument("-i", "--invert_data", action="store_true",
                         help="pass this flag for downward going pulses (eg RAVEN)")
+    parser.add_argument("--dont_optimize_dp_dt", help="simpler derivative like calculating, better for gamma data",
+                        action="store_true")
     args = parser.parse_args()
     return args
 
@@ -97,7 +111,7 @@ def main(args=None):
         n_good, n = make_projectors(pulse_files=pulse_files, noise_files=noise_files, h5=h5,
                                     n_sigma_pt_rms=args.n_sigma_pt_rms, n_sigma_max_deriv=args.n_sigma_max_deriv,
                                     n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path,
-                                    invert_data=args.invert_data)
+                                    invert_data=args.invert_data, optimize_dp_dt=not args.dont_optimize_dp_dt)
     if not args.silent:
         if n_good == 0:
             print(f"all channels bad, could be because you need -i for inverted pulses")
