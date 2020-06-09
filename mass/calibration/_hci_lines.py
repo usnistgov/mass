@@ -12,12 +12,11 @@ import numpy as np
 import pickle
 import scipy.constants as sp_const
 import os
-import mass
 from . import fluorescence_lines
 from . import line_fits
 from . import LORENTZIAN_PEAK_HEIGHT
 try:
-    import xraylib
+    from xraylib import SymbolToAtomicNumber
 except ImportError:
     raise ImportError('This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
 
@@ -172,7 +171,7 @@ def add_hci_line(element, spectr_ch, line_identifier, energies, widths, ratios, 
     return spectrum_class
 
 def add_H_like_lines_from_asd(asd, element, maxLevels=None):
-    spectr_ch = int(xraylib.SymbolToAtomicNumber(element))
+    spectr_ch = int(SymbolToAtomicNumber(element))
     added_lines=[]
     if maxLevels is not None:
         levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels)
@@ -185,7 +184,7 @@ def add_H_like_lines_from_asd(asd, element, maxLevels=None):
     return added_lines
 
 def add_He_like_lines_from_asd(asd, element, maxLevels=None):
-    spectr_ch = int(xraylib.SymbolToAtomicNumber(element)-1)
+    spectr_ch = int(SymbolToAtomicNumber(element)-1)
     added_lines=[]
     if maxLevels is not None:
         levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels)
@@ -200,8 +199,8 @@ def add_He_like_lines_from_asd(asd, element, maxLevels=None):
 
 # Script for adding some lines for elements commonly used at the EBIT
 asd = NIST_ASD()
-elementList = ['N', 'O', 'Ne', 'Ar']
+_elementList = ['N', 'O', 'Ne', 'Ar']
 # Add all known H- and He-like lines for these elements
-for iElement in elementList:
-    add_H_like_lines_from_asd(asd=asd, element=iElement, maxLevels=None)
-    add_He_like_lines_from_asd(asd=asd, element=iElement, maxLevels=None)
+for _iElement in _elementList:
+    add_H_like_lines_from_asd(asd=asd, element=_iElement, maxLevels=None)
+    add_He_like_lines_from_asd(asd=asd, element=_iElement, maxLevels=None)

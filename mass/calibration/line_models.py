@@ -166,6 +166,27 @@ class CompositeMLEModel(MLEModel, lmfit.CompositeModel):
         """/"""
         return CompositeMLEModel(self, other, lmfit.model.operator.truediv)
 
+    def guess(self, data, bin_centers=None, **kwargs):
+        '''guess method generalized for composite line models'''
+        params={}
+        for iParam in self.param_names:
+            if 'peak_ph' in iParam:
+                peak_ph = bin_centers[data.argmax()]
+                params[iParam] = peak_ph
+            if 'amplitude' in iParam:
+                ampl = data.max() * 9.4 # this number is taken from the GenericKBetaFitter
+                params[iParam] = ampl
+            if 'background' in iParam:
+                if len(data) > 20:
+                    # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
+                    baseline = max(data[0:10].mean(), 1.0/len(data))
+                else:
+                    baseline = 0.1
+                params[iParam] = baseline
+                
+        pars = self.make_params(**params)    
+        return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
+
 
 class GenericLineModel(MLEModel):
     def __init__(self, spect, independent_vars=['bin_centers'], prefix='', nan_policy='raise',
@@ -206,6 +227,7 @@ class GenericLineModel(MLEModel):
                        'independent_vars': independent_vars, "param_names" : param_names})
         super(GenericLineModel, self).__init__(modelfunc, **kwargs)
         self._set_paramhints_prefix()
+        self.peak_energy = self.spect.peak_energy # workaround for off style energy calibration
 
     def _set_paramhints_prefix(self):
         self.set_param_hint('fwhm', value=4, min=0)
@@ -239,6 +261,32 @@ class GenericLineModel(MLEModel):
         pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
+class LinearBackgroundModel(MLEModel):
+    def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise', **kwargs):
+        def modelfunc(bin_centers, background, bg_slope):
+            bg = np.zeros_like(bin_centers) + background
+            bg += bg_slope * np.arange(len(bin_centers))
+            bg[bg < 0] = 0
+            if any(np.isnan(bg)) or any(bg < 0):
+                raise ValueError("some entry in r is nan or negative")
+            return bg
+        kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
+                       'independent_vars': independent_vars})
+        super(LinearBackgroundModel, self).__init__(modelfunc, **kwargs)
+        self._set_paramhints_prefix()
+
+    def _set_paramhints_prefix(self):
+        self.set_param_hint('background', value=1, min=0)
+        self.set_param_hint('bg_slope', value=0, vary=False)
+
+    def guess(self, data, bin_centers=None, **kwargs):
+        if len(data) > 20:
+            # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
+            baseline = max(data[0:10].mean(), 1.0/len(data))
+        else:
+            baseline = 0.1
+        pars = self.make_params(background=baseline)
+        return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)     
 
 class GenericKAlphaModel(GenericLineModel):
     "Overrides GenericLineModel.guess to make guesses appropriate for K-alpha lines."
@@ -277,7 +325,7 @@ class LineModelResult(lmfit.model.ModelResult):
         sn = {"background": "bg", "amplitude": "ampl", "bg_slope": "bg_slp"}
         for k in sorted(self.params.keys()):
             v = self.params[k]
-            if v.vary:
+            if v.vary or v.expr is not None:
                 if v.stderr is None:
                     sig_figs = 2
                     s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±None\n"
@@ -286,6 +334,7 @@ class LineModelResult(lmfit.model.ModelResult):
                     sig_figs = max(1, sig_figs)
                     s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
             else:
+                sig_figs = 2
                 s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
         return s[:-1]
 
@@ -313,7 +362,7 @@ class LineModelResult(lmfit.model.ModelResult):
     def _handle_default_labels(self, title, xlabel, ylabel):
         if hasattr(self, "_has_label_hints"):
             if title is None:
-                title = f"{self._ds_shortname}: {self.model.spect.shortname}"
+                title = f"{self._ds_shortname}: {self.model._name}"
             if ylabel is None:
                 ylabel = f"counts per {self._binsize:g} {self._unit_str} bin"
                 if self._states_hint != "":

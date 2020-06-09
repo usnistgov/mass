@@ -304,8 +304,8 @@ class SilenceBar(progress.bar.Bar):
 
 
 def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
-    if isinstance(lineNameOrEnergy, mass.GenericLineModel):
-        line = lineNameOrEnergy.spect
+    if isinstance(lineNameOrEnergy, mass.calibration.line_models.MLEModel):
+        return lineNameOrEnergy
     elif isinstance(lineNameOrEnergy, str):
         if lineNameOrEnergy in mass.spectra:
             line = mass.spectra[lineNameOrEnergy]

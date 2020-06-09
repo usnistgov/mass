@@ -262,7 +262,10 @@ class CorG():
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         if binEdges is None:
             if attr.startswith("energy") or calibration is not None:
-                pe = model.spect.peak_energy
+                if isinstance(model, mass.calibration.line_models.CompositeMLEModel):
+                    pe = model.peak_energy
+                else:
+                    pe = model.spect.peak_energy
                 binEdges = np.arange(pe-dlo, pe+dhi, self._handleDefaultBinsize(binsize))
             else:
                 raise Exception(
@@ -280,7 +283,9 @@ class CorG():
         else:
             params = params_fixed
         if attr.startswith("energy") or calibration is not None:
-            params["dph_de"].set(1.0, vary=False)
+            for i_param in list(params.keys()):
+                if "dph_de" in i_param:
+                    params[i_param].set(1.0, vary=False)
             unit_str = "eV"
         if calibration is None:
             unit_str = "arbs"
@@ -715,7 +720,12 @@ class Channel(CorG):
                 result = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                       plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
                                       method=method, params_update=params_update, has_tails=has_tails)
-
+                if isinstance(result.model, mass.calibration.line_models.CompositeMLEModel):
+                    peak_prefix = result.model.peak_prefix
+                elif isinstance(result.model, mass.calibration.line_models.GenericLineModel):
+                    peak_prefix = result.model.prefix
+                else:
+                    peak_prefix=''
                 results.append(result)
                 if not result.success:
                     self.markBad("calibrateFollowingPlan: failed fit {}, states {}".format(
@@ -725,9 +735,9 @@ class Channel(CorG):
                     self.markBad("calibrateFollowingPlan: {} fit without error bars, states={}".format(
                         name, states), extraInfo=result)
                     continue
-                ph = starting_cal.energy2ph(result.params["peak_ph"].value)
-                ph_uncertainty = result.params["peak_ph"].stderr / \
-                    starting_cal.energy2dedph(result.params["peak_ph"].value)
+                ph = starting_cal.energy2ph(result.params[peak_prefix+"peak_ph"].value)
+                ph_uncertainty = result.params[peak_prefix+"peak_ph"].stderr / \
+                    starting_cal.energy2dedph(result.params[peak_prefix+"peak_ph"].value)
                 calibration.add_cal_point(ph, energy, name, ph_uncertainty)
             calibration.results = results
             calibration.plan = plan
@@ -791,9 +801,15 @@ class Channel(CorG):
         """
         result = self.linefit(line, attr, states, None, dlo, dhi, binsize, binEdges,
                               guessParams, cutRecipeName, holdvals)
-        fitPos = result.params["peak_ph"].value
-        fitSigma = result.params["peak_ph"].stderr
-        resolution = result.params["fwhm"].value
+        if isinstance(result.model, mass.calibration.line_models.CompositeMLEModel):
+            peak_prefix = result.model.peak_prefix
+            peak_energy = result.model.peak_energy
+        elif isinstance(result.model, mass.calibration.line_models.GenericLineModel):
+            peak_prefix = result.model.prefix
+            peak_energy = result.model.spect.peak_energy
+        fitPos = result.params[peak_prefix+"peak_ph"].value
+        fitSigma = result.params[peak_prefix+"peak_ph"].stderr
+        resolution = result.params[peak_prefix+"fwhm"].value
         if positionToleranceAbsolute is not None:
             if positionToleranceFitSigma is not None:
                 raise Exception(
@@ -803,9 +819,9 @@ class Channel(CorG):
             tolerance = fitSigma*positionToleranceFitSigma
         else:
             tolerance = np.inf
-        if np.abs(fitPos-result.model.spect.peak_energy) > tolerance:
+        if np.abs(fitPos-peak_energy) > tolerance:
             self.markBad("qualityCheckLinefit: for {}, want {} within {}, got {}".format(
-                line, result.model.spect.peak_energy, tolerance, fitPos))
+                line, peak_energy, tolerance, fitPos))
         if worstAllowedFWHM is not None and resolution > worstAllowedFWHM:
             self.markBad("qualityCheckLinefit: for {}, fit resolution {} > threshold {}".format(
                 line, resolution, worstAllowedFWHM))
@@ -868,7 +884,7 @@ class Channel(CorG):
         for i, result in enumerate(results):
             ax = plt.subplot(n, n, i+1)
             # pass title to suppress showing the dataset shortName on each subplot
-            result.plotm(ax=ax, title=str(result.model.spect.shortname))
+            result.plotm(ax=ax, title=str(result.model._name))
         ax = plt.subplot(n, n, i+2)
         calibration.plot(axis=ax)
         ax = plt.subplot(n, n, i+3)
@@ -1043,6 +1059,8 @@ class CalibrationPlan():
             _energy = mass.spectra[name].peak_energy
         elif name in mass.STANDARD_FEATURES:
             _energy = mass.STANDARD_FEATURES[name]
+        elif isinstance(name, mass.calibration.line_models.MLEModel):
+            _energy = name.peak_energy
         if _energy is not None:
             if (energy is not None) and (energy != _energy):
                 raise(Exception("found energy={} from {}, do not pass a value to energy".format(_energy, name)))
@@ -1369,12 +1387,12 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         plt.xlabel("fit position (eV)")
         plt.ylabel("channels per bin")
         plt.text(0.5, 0.9, "median = {:.2f}\ndb position = {:.3f}".format(np.median(positions),
-                                                                          result.model.spect.peak_energy), transform=ax.transAxes)
-        plt.vlines(result.model.spect.peak_energy, plt.ylim()
+                                                                          result.model.peak_energy), transform=ax.transAxes)
+        plt.vlines(result.model.peak_energy, plt.ylim()
                    [0], plt.ylim()[1], label="db position")
         ax = plt.subplot(2, 2, 4)
         plt.errorbar(np.arange(len(positions)), positions, yerr=position_errs, fmt=".")
-        plt.hlines(result.model.spect.peak_energy, plt.xlim()
+        plt.hlines(result.model.peak_energy, plt.xlim()
                    [0], plt.xlim()[1], label="db position")
         plt.legend()
         plt.xlabel("channel number")
