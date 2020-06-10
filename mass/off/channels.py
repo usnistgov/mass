@@ -574,25 +574,35 @@ class Channel(CorG):
             raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(
                 attr, list(self._offAttrs), list(self._recipeAttrs)))
 
+
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, cutRecipeName=None):
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         if axis is None:
             plt.figure()
             axis = plt.gca()
         if states is None:
-            states = self.stateLabels
-
-        for state in states:
-            A, B = self.getAttr([nameA, nameB], state, cutRecipeName)
-            axis.plot(A, B, ".", label=state)
-            if includeBad:
-                A, B = self.getAttr([nameA, nameB], state, f"!{cutRecipeName}")
-                axis.plot(A, B, "x", label=state+" bad")
+            states = self.stateLabels    
+        if isinstance(nameB, list):
+            self._plotAvsB_list(nameA, nameB, axis, states, includeBad, cutRecipeName)
+        else:
+            self._plotAvsB_single(nameA, nameB, axis, states, includeBad, cutRecipeName)
         plt.xlabel(nameA)
         plt.ylabel(nameB)
-        plt.title(self.shortName)
-        plt.legend(title="states")
+        plt.title(f"{self.shortName}\ncutRecipeName={cutRecipeName}")
+        plt.legend(title="states")       
         return axis
+
+    def _plotAvsB_list(self, nameA, nameBlist, axis, states, includeBad, cutRecipeName):
+            for nameB in nameBlist:
+                self._plotAvsB_single(nameA, nameB, axis, states, includeBad, cutRecipeName, prefix=nameB)
+
+    def _plotAvsB_single(self, nameA, nameB, axis=None, states=None, includeBad=False, cutRecipeName=None, prefix=""):
+        for state in states:
+            A, B = self.getAttr([nameA, nameB], state, cutRecipeName)
+            axis.plot(A, B, ".", label=prefix+state)
+            if includeBad:
+                A, B = self.getAttr([nameA, nameB], state, f"!{cutRecipeName}")
+                axis.plot(A, B, "x", label=prefix+state+" bad")
 
     def hist(self, binEdges, attr, states=None, cutRecipeName=None, calibration=None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
@@ -699,7 +709,17 @@ class Channel(CorG):
         self.calibrationPlanAttr = attr
 
     def calibrationPlanAddPoint(self, uncalibratedVal, name, states=None, energy=None):
-        self.calibrationPlan.addCalPoint(uncalibratedVal, name, states, energy)
+        if energy is None:
+            if name in mass.spectra:
+                line = mass.spectra[name]    
+            elif name in mass.STANDARD_FEATURES:
+                energy = mass.STANDARD_FEATURES[name]
+                line = mass.SpectralLine.quick_monochromatic_line(name, energy, 0.001, 0)
+            else:
+                raise Exception("failed to get line")
+        else:
+            line = mass.SpectralLine.quick_monochromatic_line(name, energy, 0.001, 0)
+        self.calibrationPlan.addCalPoint(uncalibratedVal, states, line)
         calibrationRough = self.calibrationPlan.getRoughCalibration()
         calibrationRough.uncalibratedName = self.calibrationPlanAttr
         self.recipes.add("energyRough", calibrationRough,
@@ -718,25 +738,24 @@ class Channel(CorG):
             calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
             calibration.uncalibratedName = uncalibratedName
             results = []
-            for (ph, energy, name, states) in zip(plan.uncalibratedVals, plan.energies,
-                                                  plan.names, plan.states):
-                result = self.linefit(name, uncalibratedName, states, dlo=dlo, dhi=dhi,
+            for (ph,line, states) in zip(plan.uncalibratedVals, plan.lines, plan.states):
+                result = self.linefit(line, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                       plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
                                       method=method, params_update=params_update, has_tails=has_tails)
 
                 results.append(result)
                 if not result.success:
-                    self.markBad("calibrateFollowingPlan: failed fit {}, states {}".format(
-                        name, states), extraInfo=result)
+                    self.markBad(f"calibrateFollowingPlan: failed fit {line}, states {states}", 
+                    extraInfo=result)
                     continue
                 if not result.errorbars:
-                    self.markBad("calibrateFollowingPlan: {} fit without error bars, states={}".format(
-                        name, states), extraInfo=result)
+                    self.markBad(f"calibrateFollowingPlan: {line} fit without error bars, states={states}",
+                    extraInfo=result)
                     continue
                 ph = starting_cal.energy2ph(result.params["peak_ph"].value)
                 ph_uncertainty = result.params["peak_ph"].stderr / \
                     starting_cal.energy2dedph(result.params["peak_ph"].value)
-                calibration.add_cal_point(ph, energy, name, ph_uncertainty)
+                calibration.add_cal_point(ph, line.peak_energy, line.shortname, ph_uncertainty)
             calibration.results = results
             calibration.plan = plan
             is_last_iteration = i+1 == n_iter
@@ -908,8 +927,8 @@ class AlignBToA():
             cutRecipeName_a = self.cutRecipeName
         if cutRecipeName_b is None:
             cutRecipeName_b = self.cutRecipeName
-        ph_a = self.ds_a.getAttr(self.attr, slice(None), cutRecipeName_a)
-        ph_b = self.ds_b.getAttr(self.attr, slice(None), cutRecipeName_b)
+        ph_a = self.ds_a.getAttr(self.attr, self.states, cutRecipeName_a)
+        ph_b = self.ds_b.getAttr(self.attr, self.states, cutRecipeName_b)
         if self.scale_by_median:
             median_ratio_a_over_b = np.median(ph_a)/np.median(ph_b)
         else:
@@ -931,7 +950,7 @@ class AlignBToA():
         peak_xs_b = peak_xs_b_median_scaled/median_ratio_a_over_b
         min_bin = self.bin_edges[0]
         bin_spacing = self.bin_edges[1]-self.bin_edges[0]
-        peak_inds_b = map(int, (peak_xs_b-min_bin)/bin_spacing)
+        peak_inds_b = np.array((peak_xs_b-min_bin)/bin_spacing, dtype="int")
         return peak_inds_b
 
     def findPeakIndsA(self, counts_a):
@@ -943,8 +962,8 @@ class AlignBToA():
             cutRecipeName_a = self.cutRecipeName
         if cutRecipeName_b is None:
             cutRecipeName_b = self.cutRecipeName
-        ph_a = self.ds_a.getAttr(self.attr, slice(None), cutRecipeName_a)
-        ph_b = self.ds_b.getAttr(self.attr, slice(None), cutRecipeName_b)
+        ph_a = self.ds_a.getAttr(self.attr, self.states, cutRecipeName_a)
+        ph_b = self.ds_b.getAttr(self.attr, self.states, cutRecipeName_b)
         counts_a, _ = np.histogram(ph_a, self.bin_edges)
         counts_b, _ = np.histogram(ph_b, self.bin_edges)
         plt.figure()
@@ -963,29 +982,31 @@ class AlignBToA():
         plt.title(self.ds_a.shortName+" + "+self.ds_b.shortName
                   + "\nwith same peaks noted, peaks not expected to be aligned in this plot")
 
-    def samePeaksPlotWithAlignmentCal(self, cutRecipeName_a=None, cutRecipeName_b=None):
-        if cutRecipeName_a is None:
-            cutRecipeName_a = self.cutRecipeName
-        if cutRecipeName_b is None:
-            cutRecipeName_b = self.cutRecipeName
-        inds_a = self.ds_a.getStatesIndicies(self.states)
-        ph_a = self.ds_a.getAttr(self.attr, inds_a, cutRecipeName_a)
-        # inds_b = self.ds_b.getStatesIndicies(self.states)
-        ph_b = self.ds_b.getAttr("arbsInRefChannelUnits", slice(None), cutRecipeName_b)
-        counts_a, _ = np.histogram(ph_a, self.bin_edges)
-        counts_b, _ = np.histogram(ph_b, self.bin_edges)
-        plt.figure()
-        plt.plot(self.bin_centers, counts_a, label="a: channel %i" % self.ds_a.channum)
-        for i, pi in enumerate(self.peak_inds_a):
-            plt.plot(self.bin_centers[pi], counts_a[pi], "o",
-                     color=self.cm(float(i)/len(self.peak_inds_a)))
-        plt.plot(self.bin_centers, counts_b, label="b: channel %i" % self.ds_b.channum)
-        for i, pi in enumerate(self.peak_inds_a):
-            plt.plot(self.bin_centers[pi], counts_b[pi], "o",
-                     color=self.cm(float(i)/len(self.peak_inds_a)))
-        plt.xlabel("arbsInRefChannelUnits (ref channel = {})".format(self.ds_a.channum))
-        plt.ylabel("counts per %0.2f unit bin" % (self.bin_centers[1]-self.bin_centers[0]))
-        plt.legend()
+
+    
+    # somehow this plot is wrong... the channel a histogram is wrong somehow
+    # def samePeaksPlotWithAlignmentCal(self, cutRecipeName_a=None, cutRecipeName_b=None):
+    #     if cutRecipeName_a is None:
+    #         cutRecipeName_a = self.cutRecipeName
+    #     if cutRecipeName_b is None:
+    #         cutRecipeName_b = self.cutRecipeName
+    #     ph_a = self.ds_a.getAttr(self.attr, self.states, cutRecipeName_a)
+    #     ph_b = self.ds_b.getAttr("arbsInRefChannelUnits", self.states, cutRecipeName_b)
+    #     counts_a, _ = np.histogram(ph_a, self.bin_edges)
+    #     counts_b, _ = np.histogram(ph_b, self.bin_edges)
+    #     breakpoint()
+    #     plt.figure()
+    #     plt.plot(self.bin_centers, counts_a, label="a: channel %i" % self.ds_a.channum)
+    #     for i, pi in enumerate(self.peak_inds_a):
+    #         plt.plot(self.bin_centers[pi], counts_a[pi], "o",
+    #                  color=self.cm(float(i)/len(self.peak_inds_a)))
+    #     plt.plot(self.bin_centers, counts_b, label="b: channel %i" % self.ds_b.channum)
+    #     for i, pi in enumerate(self.peak_inds_a):
+    #         plt.plot(self.bin_centers[pi], counts_b[pi], "o",
+    #                  color=self.cm(float(i)/len(self.peak_inds_a)))
+    #     plt.xlabel("arbsInRefChannelUnits (ref channel = {})".format(self.ds_a.channum))
+    #     plt.ylabel("counts per %0.2f unit bin" % (self.bin_centers[1]-self.bin_centers[0]))
+    #     plt.legend()
 
     def normalize(self, x):
         return x/float(np.sum(x))
@@ -1041,34 +1062,28 @@ class AlignBToA():
 class CalibrationPlan():
     def __init__(self):
         self.uncalibratedVals = np.zeros(0)
-        self.energies = np.zeros(0)
         self.states = []
-        self.names = []
+        self.lines = []
 
-    def addCalPoint(self, uncalibratedVal,  name, states=None, energy=None):
-        _energy = None
-        if name in mass.spectra:
-            _energy = mass.spectra[name].peak_energy
-        elif name in mass.STANDARD_FEATURES:
-            _energy = mass.STANDARD_FEATURES[name]
-        if _energy is not None:
-            if (energy is not None) and (energy != _energy):
-                raise(Exception("found energy={} from {}, do not pass a value to energy".format(_energy, name)))
-            energy = _energy
-        if energy is None:
-            raise(Exception(
-                "name {} not found in mass.spectra or mass.STANDARD_FEATURES, pass energy".format(name)))
+    def addCalPoint(self, uncalibratedVal,  states, line):
         self.uncalibratedVals = np.hstack((self.uncalibratedVals, uncalibratedVal))
-        self.names.append(name)
-        self.energies = np.hstack((self.energies, energy))
         self.states.append(states)
+        self.lines.append(line)
+
+    @property
+    def energies(self):
+        return np.array([line.peak_energy for line in self.lines])
+
+    @property
+    def names(self):
+        return [line.shortname for line in self.lines]
 
     def __repr__(self):
-        s = """CalibrationPlan with {} entries
-        x: {}
-        y: {}
-        states: {}
-        names: {}""".format(len(self.names), self.uncalibratedVals, self.energies, self.states, self.names)
+        s = f"""CalibrationPlan with {len(self.lines)} entries
+        x: {self.uncalibratedVals}
+        y: {self.energies}
+        states: {self.states}
+        names: {self.names}"""
         return s
 
     def getRoughCalibration(self):

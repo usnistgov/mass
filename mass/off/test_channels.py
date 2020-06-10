@@ -1,6 +1,6 @@
 # Normal imports
 import mass
-from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks
+from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, NoCutInds
 from mass.calibration import _highly_charged_ion_lines
 import numpy as np
 import pylab as plt
@@ -301,8 +301,12 @@ def test_getAttr_and_recipes_with_coefs():
     assert np.allclose(coefs[:,2], filtValue)
     ds.recipes.add("coefsSum", lambda coefs: coefs.sum(axis=1))
     assert np.allclose(ds.getAttr("coefsSum", ind), coefs.sum(axis=1))
-    print(f"{coefs.shape=}")
-    print(f"{coefs.sum(axis=1).shape=}")
+    ds.recipes.add("coefsSumPlusFiltvalue", lambda filtValue,coefs: coefs.sum(axis=1)+filtValue)
+    assert np.allclose(ds.getAttr("coefsSumPlusFiltvalue", ind), coefs.sum(axis=1)+filtValue)
+    # test access as with NoCutInds
+    ds.getAttr("coefs", NoCutInds())
+    ds.getAttr("coefsSum", NoCutInds())
+
 
 # pytest style test! way simpler to write
 def test_get_model():
@@ -321,7 +325,7 @@ def test_get_model():
     m_ql = mass.off.util.get_model(ql.model())
     assert m_ql.spect.shortname == "testquick_line"
 
-    with pytest.raises(UnboundLocalError):
+    with pytest.raises(mass.off.util.FailedToGetModelException):
         mass.off.util.get_model("this is a str but not a standard feature")
 
 
