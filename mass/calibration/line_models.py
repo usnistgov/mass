@@ -34,7 +34,7 @@ class MLEModel(lmfit.Model):
 
     def __repr__(self):
         """Return representation of Model."""
-        return "<MLEModel: %s>" % (self.name)
+        return f"<{type(self).__name__}: {self.name}>"
 
     def _reprstring(self, long=False):
         out = self._name
@@ -46,7 +46,7 @@ class MLEModel(lmfit.Model):
                 opts.append("%s='%s'" % (k, v))
         if len(opts) > 0:
             out = "%s, %s" % (out, ', '.join(opts))
-        return "MLEModel(%s)" % out
+        return f"{type(self).__name__}({out})"
 
     def __add__(self, other):
         """+"""
@@ -146,9 +146,9 @@ class CompositeMLEModel(MLEModel, lmfit.CompositeModel):
         vals[y < data] *= -1
         return vals
 
-    def __repr__(self):
-        """Return representation of Model."""
-        return "<CompositeMLEModel: %s>" % (self.name)
+    # def __repr__(self):
+    #     """Return representation of Model."""
+    #     return "<CompositeMLEModel: %s>" % (self.name)
 
     def __add__(self, other):
         """+"""
@@ -223,12 +223,11 @@ class GenericLineModel(MLEModel):
 
     def guess(self, data, bin_centers, **kwargs):
         "Guess values for the peak_ph, amplitude, and background."
-        # if data.sum() <= 0:
-        #     pars = self.make_params()
-        #     for k,v in pars.items():
-        #         v.set(0,vary=False)
-        #     pars["dph_de"].set(1,vary=False)
-        # else:
+        order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+        def percentiles(p):
+            return bin_centers[(order_stat > p).argmax()]
+        fwhm = 0.7*(percentiles(0.75) - percentiles(0.25))
+        # b could be an alternate guess for peak_ph
         peak_ph = bin_centers[data.argmax()]
         ampl = data.max() * 9.4  # this number is taken from the GenericKBetaFitter
         if len(data) > 20:
@@ -236,7 +235,7 @@ class GenericLineModel(MLEModel):
             baseline = max(data[0:10].mean(), 1.0/len(data))
         else:
             baseline = 0.1
-        pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl)
+        pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl, fwhm=fwhm)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
 

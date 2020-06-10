@@ -211,8 +211,6 @@ def add_group_loop(method):
     def wrapper(self, *args, **kwargs):
         bar = SilenceBar(method_name, max=len(self.offFileNames), silence=not self.verbose)
         rethrow = kwargs.pop("_rethrow", is_running_tests) # always rethrow during tests
-        if "pytest" in sys.modules:
-            rethrow = True # always rethrow during tests
         returnVals = collections.OrderedDict()
         for (channum, ds) in self.items():
             try:

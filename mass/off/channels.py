@@ -763,8 +763,8 @@ class Channel(CorG):
                 intermediate_calibrations.append(calibration)
                 starting_cal = calibration
         calibration.intermediate_calibrations = intermediate_calibrations
-        self.recipes.add(calibratedName, calibration, [
-                         calibration.uncalibratedName], overwrite=overwriteRecipe)
+        self.recipes.add(calibratedName, calibration, 
+            [calibration.uncalibratedName], overwrite=overwriteRecipe)
         return results
 
     def markBad(self, reason, extraInfo=None):
@@ -905,6 +905,52 @@ class Channel(CorG):
         plt.tight_layout()
 
 
+def normalize(x):
+    return x/float(np.sum(x))
+
+def dtw_same_peaks(bin_edges, ph_a, ph_b, peak_inds_a, scale_by_median, normalize_before_dtw, plot=False):
+    if scale_by_median:
+        median_ratio_a_over_b = np.median(ph_a)/np.median(ph_b)
+    else:
+        median_ratio_a_over_b = 1.0
+    ph_b_median_scaled = ph_b*median_ratio_a_over_b
+    counts_a, _ = np.histogram(ph_a, bin_edges)
+    counts_b_median_scaled, _ = np.histogram(ph_b_median_scaled, bin_edges)
+    if normalize_before_dtw:
+        distance, path = fastdtw.fastdtw(normalize(counts_a), 
+            normalize(counts_b_median_scaled))
+    else:
+        distance, path = fastdtw.fastdtw(counts_a, counts_b_median_scaled)
+    i_a = [x[0] for x in path]
+    i_b_median_scaled = [x[1] for x in path]
+    peak_inds_b_median_scaled = np.array(
+        [i_b_median_scaled[i_a.index(pia)] for pia in peak_inds_a])
+    peak_xs_b_median_scaled = bin_edges[peak_inds_b_median_scaled]
+    peak_xs_b = peak_xs_b_median_scaled/median_ratio_a_over_b
+    min_bin = bin_edges[0]
+    bin_spacing = bin_edges[1]-bin_edges[0]
+    peak_inds_b = np.array((peak_xs_b-min_bin)/bin_spacing, dtype="int")
+
+    if plot:
+        counts_b, _ = np.histogram(ph_b, bin_edges)
+        bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+        plt.figure()
+        plt.plot(counts_a, label="counts_a")
+        plt.plot(counts_b, label="counts_b")
+        plt.plot(peak_inds_a, counts_a[peak_inds_a], "o")
+        plt.plot(peak_inds_b, counts_b[peak_inds_b], "s")
+        plt.legend()
+        plt.xlabel("ind")
+
+        plt.figure()
+        plt.plot(bin_centers, counts_a, label="a")
+        plt.plot(bin_centers, counts_b, label="b")
+        plt.plot(bin_centers[peak_inds_a], counts_a[peak_inds_a], "o", label="a")
+        plt.plot(bin_centers[peak_inds_b], counts_b[peak_inds_b], "s", label="b")
+        plt.xlabel("bin_centers")
+    return peak_inds_b    
+
+
 class AlignBToA():
     cm = plt.cm.gist_ncar
 
@@ -920,6 +966,7 @@ class AlignBToA():
         self.states = states
         self.scale_by_median = scale_by_median
         self.normalize_before_dtw = normalize_before_dtw
+        self.peak_inds_a = np.searchsorted(self.bin_edges, self.peak_xs_a)-1
         self.peak_inds_b = self.samePeaks()
 
     def samePeaks(self, cutRecipeName_a=None, cutRecipeName_b=None):
@@ -929,33 +976,8 @@ class AlignBToA():
             cutRecipeName_b = self.cutRecipeName
         ph_a = self.ds_a.getAttr(self.attr, self.states, cutRecipeName_a)
         ph_b = self.ds_b.getAttr(self.attr, self.states, cutRecipeName_b)
-        if self.scale_by_median:
-            median_ratio_a_over_b = np.median(ph_a)/np.median(ph_b)
-        else:
-            median_ratio_a_over_b = 1.0
-        ph_b_median_scaled = ph_b*median_ratio_a_over_b
-        counts_a, _ = np.histogram(ph_a, self.bin_edges)
-        counts_b_median_scaled, _ = np.histogram(ph_b_median_scaled, self.bin_edges)
-        self.peak_inds_a = self.findPeakIndsA(counts_a)
-        if self.normalize_before_dtw:
-            distance, path = fastdtw.fastdtw(self.normalize(
-                counts_a), self.normalize(counts_b_median_scaled))
-        else:
-            distance, path = fastdtw.fastdtw(counts_a, counts_b_median_scaled)
-        i_a = [x[0] for x in path]
-        i_b_median_scaled = [x[1] for x in path]
-        peak_inds_b_median_scaled = np.array(
-            [i_b_median_scaled[i_a.index(pia)] for pia in self.peak_inds_a])
-        peak_xs_b_median_scaled = self.bin_edges[peak_inds_b_median_scaled]
-        peak_xs_b = peak_xs_b_median_scaled/median_ratio_a_over_b
-        min_bin = self.bin_edges[0]
-        bin_spacing = self.bin_edges[1]-self.bin_edges[0]
-        peak_inds_b = np.array((peak_xs_b-min_bin)/bin_spacing, dtype="int")
-        return peak_inds_b
+        return dtw_same_peaks(self.bin_edges, ph_a, ph_b, self.peak_inds_a, self.scale_by_median, self.normalize_before_dtw)
 
-    def findPeakIndsA(self, counts_a):
-        peak_inds_a = np.searchsorted(self.bin_edges, self.peak_xs_a)-1
-        return peak_inds_a
 
     def samePeaksPlot(self, cutRecipeName_a=None, cutRecipeName_b=None):
         if cutRecipeName_a is None:
@@ -982,34 +1004,29 @@ class AlignBToA():
         plt.title(self.ds_a.shortName+" + "+self.ds_b.shortName
                   + "\nwith same peaks noted, peaks not expected to be aligned in this plot")
 
-
-    
     # somehow this plot is wrong... the channel a histogram is wrong somehow
-    # def samePeaksPlotWithAlignmentCal(self, cutRecipeName_a=None, cutRecipeName_b=None):
-    #     if cutRecipeName_a is None:
-    #         cutRecipeName_a = self.cutRecipeName
-    #     if cutRecipeName_b is None:
-    #         cutRecipeName_b = self.cutRecipeName
-    #     ph_a = self.ds_a.getAttr(self.attr, self.states, cutRecipeName_a)
-    #     ph_b = self.ds_b.getAttr("arbsInRefChannelUnits", self.states, cutRecipeName_b)
-    #     counts_a, _ = np.histogram(ph_a, self.bin_edges)
-    #     counts_b, _ = np.histogram(ph_b, self.bin_edges)
-    #     breakpoint()
-    #     plt.figure()
-    #     plt.plot(self.bin_centers, counts_a, label="a: channel %i" % self.ds_a.channum)
-    #     for i, pi in enumerate(self.peak_inds_a):
-    #         plt.plot(self.bin_centers[pi], counts_a[pi], "o",
-    #                  color=self.cm(float(i)/len(self.peak_inds_a)))
-    #     plt.plot(self.bin_centers, counts_b, label="b: channel %i" % self.ds_b.channum)
-    #     for i, pi in enumerate(self.peak_inds_a):
-    #         plt.plot(self.bin_centers[pi], counts_b[pi], "o",
-    #                  color=self.cm(float(i)/len(self.peak_inds_a)))
-    #     plt.xlabel("arbsInRefChannelUnits (ref channel = {})".format(self.ds_a.channum))
-    #     plt.ylabel("counts per %0.2f unit bin" % (self.bin_centers[1]-self.bin_centers[0]))
-    #     plt.legend()
-
-    def normalize(self, x):
-        return x/float(np.sum(x))
+    def samePeaksPlotWithAlignmentCal(self, cutRecipeName_a=None, cutRecipeName_b=None):
+        if cutRecipeName_a is None:
+            cutRecipeName_a = self.cutRecipeName
+        if cutRecipeName_b is None:
+            cutRecipeName_b = self.cutRecipeName
+        ph_a = self.ds_a.getAttr(self.attr, self.states, cutRecipeName_a)
+        ph_b = self.ds_b.getAttr("arbsInRefChannelUnits", self.states, cutRecipeName_b)
+        counts_a, _ = np.histogram(ph_a, self.bin_edges)
+        counts_b, _ = np.histogram(ph_b, self.bin_edges)
+        # breakpoint()
+        plt.figure()
+        plt.plot(self.bin_centers, counts_a, label="a: channel %i" % self.ds_a.channum)
+        for i, pi in enumerate(self.peak_inds_a):
+            plt.plot(self.bin_centers[pi], counts_a[pi], "o",
+                     color=self.cm(float(i)/len(self.peak_inds_a)))
+        plt.plot(self.bin_centers, counts_b, label="b: channel %i" % self.ds_b.channum)
+        for i, pi in enumerate(self.peak_inds_a):
+            plt.plot(self.bin_centers[pi], counts_b[pi], "o",
+                     color=self.cm(float(i)/len(self.peak_inds_a)))
+        plt.xlabel("arbsInRefChannelUnits (ref channel = {})".format(self.ds_a.channum))
+        plt.ylabel("counts per %0.2f unit bin" % (self.bin_centers[1]-self.bin_centers[0]))
+        plt.legend()
 
     def getCalBtoA(self):
         cal_b_to_a = mass.EnergyCalibration(curvetype="gain")

@@ -23,7 +23,7 @@ except NameError:
 
 filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
 data = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2),
-                    verbose=False, channelClass=Channel, excludeStates=["START", "END"])
+                    verbose=True, channelClass=Channel, excludeStates=["START", "END"])
 data.setOutputDir(baseDir=d, deleteAndRecreate=True)
 data.experimentStateFile.aliasState("B", "Ne")
 data.experimentStateFile.aliasState("C", "W 1")
@@ -77,7 +77,6 @@ ds.plotCompareDriftCorrect()
 
 # calibrate on filtValueDC, it's usually close enough to filtValue to use the same calibration plan
 results = ds.calibrateFollowingPlan("filtValueDC", approximate=False)
-ds.linefit("Ne H-Like 2p", attr="energy", states="Ne")
 ds.linefit("Ne He-Like 1s2s+1s2p", attr="energy", states="Ne")
 ds.linefit("W Ni-7", attr="energy", states=["W 1", "W 2"])
 ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
