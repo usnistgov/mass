@@ -209,7 +209,7 @@ class GenericLineModel(MLEModel):
 
     def _set_paramhints_prefix(self):
         self.set_param_hint('fwhm', value=4, min=0)
-        self.set_param_hint('peak_ph', min=0, max=2**16)
+        self.set_param_hint('peak_ph', min=0)
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
         self.set_param_hint("amplitude", value=100, min=0)
         if self._has_linear_background:
@@ -221,7 +221,7 @@ class GenericLineModel(MLEModel):
             self.set_param_hint('tail_frac_hi', value=0, min=0, max=1, vary=False)
             self.set_param_hint('tail_tau_hi', value=0, min=0, max=100, vary=False)
 
-    def guess(self, data, bin_centers=None, **kwargs):
+    def guess(self, data, bin_centers, **kwargs):
         "Guess values for the peak_ph, amplitude, and background."
         # if data.sum() <= 0:
         #     pars = self.make_params()
@@ -287,7 +287,8 @@ class LineModelResult(lmfit.model.ModelResult):
                     s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
             else:
                 s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
-        return s[:-1]
+        s += f"redchi  {self.redchi:.2g}"
+        return s
 
     def plotm(self, ax=None, title=None, xlabel=None, ylabel=None):
         """plot the data, the fit, and annotate the plot with the parameters"""
