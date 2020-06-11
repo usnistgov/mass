@@ -176,6 +176,7 @@ class GenericLineModel(MLEModel):
         if has_tails:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
                           background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_frac_hi=0, tail_tau_hi=8):
+                bin_centers = np.asarray(bin_centers, dtype=np.float)
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
                 # Convert tau values (in eV units) to
@@ -191,6 +192,7 @@ class GenericLineModel(MLEModel):
                 return r
         else:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude, background=0, bg_slope=0):
+                bin_centers = np.asarray(bin_centers, dtype=np.float)
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 spectrum = self.spect.pdf(energy, fwhm)
                 r = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
@@ -203,7 +205,7 @@ class GenericLineModel(MLEModel):
         if self._has_tails:
             param_names += ["tail_frac", "tail_tau", "tail_frac_hi", "tail_tau_hi"]
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
-                       'independent_vars': independent_vars, "param_names" : param_names})
+                       'independent_vars': independent_vars, "param_names": param_names})
         super(GenericLineModel, self).__init__(modelfunc, **kwargs)
         self._set_paramhints_prefix()
 
@@ -330,14 +332,15 @@ class LineModelResult(lmfit.model.ModelResult):
         if "bin_centers" not in self.userkws:
             return  # i guess someone used this for a non histogram fit
         if not VALIDATE_BIN_SIZE:
-            return        
+            return
         bin_centers = self.userkws["bin_centers"]
         bin_size = bin_centers[1]-bin_centers[0]
         for iComp in self.components:
             prefix = iComp.prefix
             if (prefix+"dph_de" in self.params) and (prefix+"fwhm" in self.params):
                 bin_size_energy = bin_size/self.params[prefix+"dph_de"]
-                instrument_gaussian_fwhm_energy = self.params[prefix+"fwhm"].value/self.params[prefix+"dph_de"]
+                instrument_gaussian_fwhm_energy = self.params[prefix +
+                                                              "fwhm"].value/self.params[prefix+"dph_de"]
                 minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm_energy)
                 bins_per_fwhm = minimum_fwhm_energy/bin_size_energy
                 if bins_per_fwhm < minimum_bins_per_fwhm:
