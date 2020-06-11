@@ -394,7 +394,7 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
             params = model.guess(sim, bin_centers=bctr)
             params["peak_ph"].set(value=5899*SCALE)
             result = model.fit(sim, params, bin_centers=bctr)
-            print(result.fit_report())
+            # If the above never errors, then problem solved.
 
 
 class Test_Composites_lmfit(unittest.TestCase):

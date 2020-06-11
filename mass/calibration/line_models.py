@@ -341,12 +341,12 @@ class LineModelResult(lmfit.model.ModelResult):
             fwhm = "{}fwhm".format(prefix)
             if (dphde in self.params) and (fwhm in self.params):
                 bin_size_energy = bin_size/self.params[dphde]
-                instrument_gaussian_fwhm_energy = self.params[fwhm].value/self.params[dphde]
-                minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm_energy)
+                instrument_gaussian_fwhm = self.params[fwhm].value
+                minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm)
                 bins_per_fwhm = minimum_fwhm_energy/bin_size_energy
                 if bins_per_fwhm < minimum_bins_per_fwhm:
                     msg = f"""bins are too large.
-Bin size (energy units) = {bin_size_energy:.3g}, fit FWHM (energy units) = {instrument_gaussian_fwhm_energy:.3g}
+Bin size (energy units) = {bin_size_energy:.3g}, fit FWHM (energy units) = {instrument_gaussian_fwhm:.3g}
 Minimum FWHM accounting for narrowest Lorentzian in spectrum (energy units) = {minimum_fwhm_energy:.3g}
 Bins per FWHM = {bins_per_fwhm:.3g}, Minimum Bins per FWHM = {minimum_bins_per_fwhm:.3g}
 To avoid this error:
