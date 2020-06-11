@@ -337,18 +337,21 @@ class LineModelResult(lmfit.model.ModelResult):
         bin_size = bin_centers[1]-bin_centers[0]
         for iComp in self.components:
             prefix = iComp.prefix
-            if (prefix+"dph_de" in self.params) and (prefix+"fwhm" in self.params):
-                bin_size_energy = bin_size/self.params[prefix+"dph_de"]
-                instrument_gaussian_fwhm_energy = self.params[prefix +
-                                                              "fwhm"].value/self.params[prefix+"dph_de"]
-                minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm_energy)
+            dphde = "{}dph_de".format(prefix)
+            fwhm = "{}fwhm".format(prefix)
+            if (dphde in self.params) and (fwhm in self.params):
+                bin_size_energy = bin_size/self.params[dphde]
+                instrument_gaussian_fwhm = self.params[fwhm].value
+                minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm)
                 bins_per_fwhm = minimum_fwhm_energy/bin_size_energy
                 if bins_per_fwhm < minimum_bins_per_fwhm:
-                    raise Exception(f"""your bins are too large. bin_size (energy units) = {bin_size_energy:.3g}, fit_fwhm (energy units) = {instrument_gaussian_fwhm_energy:.3g}\n
-                minimum fwhm accounting for narrowest lorentzian in spectrum (energy units) = {minimum_fwhm_energy:.3g}\n
-                bins_per_fwhm = {bins_per_fwhm:.3g}, minimum_bins_per_fwhm = {minimum_bins_per_fwhm:.3g}\n
-                to avoid this error:\n
-                1. use smaller bins\n
-                or 2. pass a smaller value of `minimum_bins_per_fwhm` to .fit\n
-                or 3. set `mass.line_models.VALIDATE_BIN_SIZE = False`
-                see https://bitbucket.org/joe_fowler/mass/issues/162/resolution-bias-in-fits-where-bin-size-is for discussion on this issue""")
+                    msg = f"""bins are too large.
+Bin size (energy units) = {bin_size_energy:.3g}, fit FWHM (energy units) = {instrument_gaussian_fwhm:.3g}
+Minimum FWHM accounting for narrowest Lorentzian in spectrum (energy units) = {minimum_fwhm_energy:.3g}
+Bins per FWHM = {bins_per_fwhm:.3g}, Minimum Bins per FWHM = {minimum_bins_per_fwhm:.3g}
+To avoid this error:
+1. use smaller bins, or
+2. pass a smaller value of `minimum_bins_per_fwhm` to .fit, or
+3. set `mass.line_models.VALIDATE_BIN_SIZE = False`.
+See https://bitbucket.org/joe_fowler/mass/issues/162 for discussion on this issue"""
+                    raise ValueError(msg)

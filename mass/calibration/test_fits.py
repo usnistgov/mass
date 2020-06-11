@@ -379,6 +379,23 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         val2 = result.params["peak_ph"].value
         self.assertNotAlmostEqual(val1, val2, delta=0.1)
 
+    def test_MnKA_narrowbins(self):
+        """See issue 194: if dPH/dE >> 1, we should not automatically trigger the too-narrow-bins warning."""
+        line = mass.calibration.fluorescence_lines.MnKAlpha
+        model = line.model()
+        N = 10000
+        np.random.seed(238)
+        energies = line.rvs(size=N, instrument_gaussian_fwhm=4.0)  # draw from the distribution
+
+        for SCALE in (0.1, 1, 10.):
+            sim, bin_edges = np.histogram(energies*SCALE, 60, [5865*SCALE, 5925*SCALE])
+            binsize = bin_edges[1] - bin_edges[0]
+            bctr = bin_edges[:-1] + 0.5*binsize
+            params = model.guess(sim, bin_centers=bctr)
+            params["peak_ph"].set(value=5899*SCALE)
+            result = model.fit(sim, params, bin_centers=bctr)
+            # If the above never errors, then problem solved.
+
 
 class Test_Composites_lmfit(unittest.TestCase):
     def setUp(self):
