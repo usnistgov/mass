@@ -6,6 +6,7 @@
 * Fix long lines and other pep8 warnings. Fix the Make targets pep8 and lint for Python3.
 * Fix issue 189: clean up top-level directory and pytest configuration.
 * Fix issue 191: typos in our CrKAlpha line and apparent typo in Hölzer on the FeKAlpha line.
+* Fix issue 193: problem in fitting to histograms with `dtype=np.float32` for the bin edges.
 
 **0.7.4** March 26 2020
 
