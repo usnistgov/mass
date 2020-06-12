@@ -120,7 +120,7 @@ def initialize_HeLike_complex_model(element, has_linear_background=False, has_ta
     individual_lines = [mass.spectrum_classes[i_line_name]() for i_line_name in line_names]
     individual_models = [initialize_hci_line_model(i_line_name, has_linear_background=False, has_tails=has_tails) for i_line_name in line_names]
     # Set up composite model
-    composite_name = '{}{} 1s2s,2p Complex'.format(element, charge)
+    composite_name = '{}{} 1s2s_2p Complex'.format(element, charge)
     composite_model = initialize_hci_composite_model(composite_name=composite_name, individual_models=individual_models, has_linear_background=has_linear_background)
     return composite_model
 
