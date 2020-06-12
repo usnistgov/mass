@@ -197,6 +197,7 @@ class GenericLineModel(MLEModel):
         if has_tails:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
                           background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_frac_hi=0, tail_tau_hi=8):
+                bin_centers = np.asarray(bin_centers, dtype=np.float)
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
                 # Convert tau values (in eV units) to
@@ -212,6 +213,7 @@ class GenericLineModel(MLEModel):
                 return r
         else:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude, background=0, bg_slope=0):
+                bin_centers = np.asarray(bin_centers, dtype=np.float)
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 spectrum = self.spect.pdf(energy, fwhm)
                 r = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
@@ -224,7 +226,7 @@ class GenericLineModel(MLEModel):
         if self._has_tails:
             param_names += ["tail_frac", "tail_tau", "tail_frac_hi", "tail_tau_hi"]
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
-                       'independent_vars': independent_vars, "param_names" : param_names})
+                       'independent_vars': independent_vars, "param_names": param_names})
         super(GenericLineModel, self).__init__(modelfunc, **kwargs)
         self._set_paramhints_prefix()
         self.peak_energy = self.spect.peak_energy # workaround for off style energy calibration
@@ -379,22 +381,26 @@ class LineModelResult(lmfit.model.ModelResult):
         if "bin_centers" not in self.userkws:
             return  # i guess someone used this for a non histogram fit
         if not VALIDATE_BIN_SIZE:
-            return        
+            return
         bin_centers = self.userkws["bin_centers"]
         bin_size = bin_centers[1]-bin_centers[0]
         for iComp in self.components:
             prefix = iComp.prefix
-            if (prefix+"dph_de" in self.params) and (prefix+"fwhm" in self.params):
-                bin_size_energy = bin_size/self.params[prefix+"dph_de"]
-                instrument_gaussian_fwhm_energy = self.params[prefix+"fwhm"].value/self.params[prefix+"dph_de"]
-                minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm_energy)
+            dphde = "{}dph_de".format(prefix)
+            fwhm = "{}fwhm".format(prefix)
+            if (dphde in self.params) and (fwhm in self.params):
+                bin_size_energy = bin_size/self.params[dphde]
+                instrument_gaussian_fwhm = self.params[fwhm].value
+                minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm)
                 bins_per_fwhm = minimum_fwhm_energy/bin_size_energy
                 if bins_per_fwhm < minimum_bins_per_fwhm:
-                    raise Exception(f"""your bins are too large. bin_size (energy units) = {bin_size_energy:.3g}, fit_fwhm (energy units) = {instrument_gaussian_fwhm_energy:.3g}\n
-                minimum fwhm accounting for narrowest lorentzian in spectrum (energy units) = {minimum_fwhm_energy:.3g}\n
-                bins_per_fwhm = {bins_per_fwhm:.3g}, minimum_bins_per_fwhm = {minimum_bins_per_fwhm:.3g}\n
-                to avoid this error:\n
-                1. use smaller bins\n
-                or 2. pass a smaller value of `minimum_bins_per_fwhm` to .fit\n
-                or 3. set `mass.line_models.VALIDATE_BIN_SIZE = False`
-                see https://bitbucket.org/joe_fowler/mass/issues/162/resolution-bias-in-fits-where-bin-size-is for discussion on this issue""")
+                    msg = f"""bins are too large.
+Bin size (energy units) = {bin_size_energy:.3g}, fit FWHM (energy units) = {instrument_gaussian_fwhm:.3g}
+Minimum FWHM accounting for narrowest Lorentzian in spectrum (energy units) = {minimum_fwhm_energy:.3g}
+Bins per FWHM = {bins_per_fwhm:.3g}, Minimum Bins per FWHM = {minimum_bins_per_fwhm:.3g}
+To avoid this error:
+1. use smaller bins, or
+2. pass a smaller value of `minimum_bins_per_fwhm` to .fit, or
+3. set `mass.line_models.VALIDATE_BIN_SIZE = False`.
+See https://bitbucket.org/joe_fowler/mass/issues/162 for discussion on this issue"""
+                    raise ValueError(msg)
