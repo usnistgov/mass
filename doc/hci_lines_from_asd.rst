@@ -113,6 +113,7 @@ and then add some of the lower order H- and He-like Ga lines.
   print([[iLine, round(iLine.nominal_peak_energy, 1)] for iLine in HeLikeGaLines])
 
 .. testoutput::
+
   [SpectralLine: Ne10 2p 2P* J=3/2, 1022.0]
   [SpectralLine: O7 1s.2p 1P* J=1, 573.9]
   [[SpectralLine: Ga31 1s 2S J=1/2, 0.0], [SpectralLine: Ga31 2p 2P* J=1/2, 9917.0], [SpectralLine: Ga31 2s 2S J=1/2, 9918.0], [SpectralLine: Ga31 2p 2P* J=3/2, 9960.3], [SpectralLine: Ga31 3p 2P* J=1/2, 11767.7], [SpectralLine: Ga31 3s 2S J=1/2, 11768.0]]
