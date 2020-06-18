@@ -93,7 +93,7 @@ def initialize_HLike_2P_model(element, conf, has_linear_background=False, has_ta
     # Initialize composite model and set addition H-like constraints
     composite_name = '{}{} {}'.format(element, charge, conf)
     composite_model = initialize_hci_composite_model(composite_name=composite_name, individual_models=[model_1_2, model_3_2], 
-    has_linear_background=has_linear_background)
+    has_linear_background=has_linear_background, peak_component_name=line_name_3_2)
     amp_ratio_param_name = '{}{}_{}_amp_ratio'.format(element, charge, conf)
     composite_model.set_param_hint(name=amp_ratio_param_name, value = 0.5, min=0.0, vary=vary_amp_ratio)
     composite_model.set_param_hint('{}amplitude'.format(prefix_1_2), expr='{}amplitude * {}'.format(prefix_3_2, amp_ratio_param_name))
@@ -121,7 +121,8 @@ def initialize_HeLike_complex_model(element, has_linear_background=False, has_ta
     individual_models = [initialize_hci_line_model(i_line_name, has_linear_background=False, has_tails=has_tails) for i_line_name in line_names]
     # Set up composite model
     composite_name = '{}{} 1s2s_2p Complex'.format(element, charge)
-    composite_model = initialize_hci_composite_model(composite_name=composite_name, individual_models=individual_models, has_linear_background=has_linear_background)
+    composite_model = initialize_hci_composite_model(composite_name=composite_name, individual_models=individual_models, 
+    has_linear_background=has_linear_background, peak_component_name=line_name_1s2p_1P)
     return composite_model
 
     
@@ -189,12 +190,14 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
     # 500 eV region of H-/He-like N
     N6_1s3p_model = initialize_hci_line_model('N6 1s.3p 1P* J=1', has_linear_background=False, has_tails=has_tails)
     N7_2p_model = initialize_HLike_2P_model('N', '2p', has_linear_background=False, has_tails=has_tails, vary_amp_ratio=vary_Hlike_amp_ratio)
-    N_500eV_model = initialize_hci_composite_model('N 500eV Region', [N6_1s3p_model, N7_2p_model], has_linear_background=has_linear_background)
+    N_500eV_model = initialize_hci_composite_model('N 500eV Region', [N6_1s3p_model, N7_2p_model], 
+    has_linear_background=has_linear_background, peak_component_name='N7 2p 2P* J=3/2')
     models_dict[N_500eV_model._name] = N_500eV_model
     # 660 eV region of H-/He-like O
     O8_2p_model = initialize_HLike_2P_model('O', '2p', has_linear_background=False, has_tails=has_tails, vary_amp_ratio=vary_Hlike_amp_ratio)
     O7_1s3p_model = initialize_hci_line_model('O7 1s.3p 1P* J=1', has_linear_background=False, has_tails=has_tails)
-    O_660eV_model = initialize_hci_composite_model('O 660eV Region', [O8_2p_model, O7_1s3p_model], has_linear_background=has_linear_background)
+    O_660eV_model = initialize_hci_composite_model('O 660eV Region', [O8_2p_model, O7_1s3p_model], 
+    has_linear_background=has_linear_background, peak_component_name='O8 2p 2P* J=3/2')
     models_dict[O_660eV_model._name] = O_660eV_model
 
     return models_dict
