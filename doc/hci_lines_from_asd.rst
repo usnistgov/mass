@@ -80,10 +80,10 @@ As an example, let us create a H-like Be line. Here, we assume a lorentzian widt
   conf=test_conf, term=test_term, JVal=test_JVal, getUncertainty=False)
   test_line = mass.calibration._hci_lines.add_hci_line(element=test_element, spectr_ch=test_charge, 
   line_identifier=test_level, energies=[test_energy], widths=[0.1], ratios=[1.0])
-  assert test_line.nominal_peak_energy == test_energy
+  assert test_line.peak_energy == test_energy
 
   print(test_line)
-  print('{:.1f}'.format(test_line.nominal_peak_energy))
+  print('{:.1f}'.format(test_line.peak_energy))
 
 .. testoutput::
 
@@ -109,12 +109,12 @@ and then add some of the lower order H- and He-like Ga lines.
   HLikeGaLines = mass.calibration._hci_lines.add_H_like_lines_from_asd(asd=test_asd, element=test_element, maxLevels=6)
   HeLikeGaLines = mass.calibration._hci_lines.add_He_like_lines_from_asd(asd=test_asd, element=test_element, maxLevels=7)
 
-  print([[iLine, round(iLine.nominal_peak_energy, 1)] for iLine in HLikeGaLines])
-  print([[iLine, round(iLine.nominal_peak_energy, 1)] for iLine in HeLikeGaLines])
+  print([[iLine, round(iLine.peak_energy, 1)] for iLine in HLikeGaLines])
+  print([[iLine, round(iLine.peak_energy, 1)] for iLine in HeLikeGaLines])
 
 .. testoutput::
 
   [SpectralLine: Ne10 2p 2P* J=3/2, 1022.0]
   [SpectralLine: O7 1s.2p 1P* J=1, 573.9]
-  [[SpectralLine: Ga31 1s 2S J=1/2, 0.0], [SpectralLine: Ga31 2p 2P* J=1/2, 9917.0], [SpectralLine: Ga31 2s 2S J=1/2, 9918.0], [SpectralLine: Ga31 2p 2P* J=3/2, 9960.3], [SpectralLine: Ga31 3p 2P* J=1/2, 11767.7], [SpectralLine: Ga31 3s 2S J=1/2, 11768.0]]
-  [[SpectralLine: Ga30 1s2 1S J=0, 0.0], [SpectralLine: Ga30 1s.2s 3S J=1, 9535.8], [SpectralLine: Ga30 1s.2p 3P* J=0, 9571.9], [SpectralLine: Ga30 1s.2p 3P* J=1, 9574.6], [SpectralLine: Ga30 1s.2s 1S J=0, 9574.8], [SpectralLine: Ga30 1s.2p 3P* J=2, 9607.5], [SpectralLine: Ga30 1s.2p 1P* J=1, 9628.3]]
+  [[SpectralLine: Ga31 2p 2P* J=1/2, 9917.0], [SpectralLine: Ga31 2s 2S J=1/2, 9918.0], [SpectralLine: Ga31 2p 2P* J=3/2, 9960.3], [SpectralLine: Ga31 3p 2P* J=1/2, 11767.7], [SpectralLine: Ga31 3s 2S J=1/2, 11768.0], [SpectralLine: Ga31 3d 2D J=3/2, 11780.5]]
+  [[SpectralLine: Ga30 1s.2s 3S J=1, 9535.8], [SpectralLine: Ga30 1s.2p 3P* J=0, 9571.9], [SpectralLine: Ga30 1s.2p 3P* J=1, 9574.6], [SpectralLine: Ga30 1s.2s 1S J=0, 9574.8], [SpectralLine: Ga30 1s.2p 3P* J=2, 9607.5], [SpectralLine: Ga30 1s.2p 1P* J=1, 9628.3], [SpectralLine: Ga30 1s.3s 3S J=1, 11304.6]]
