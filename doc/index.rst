@@ -10,6 +10,7 @@ Mass
    :caption: Contents:
 
    off_style
+   hci_lines_from_asd
    xray_efficiency_models
 
 .. 

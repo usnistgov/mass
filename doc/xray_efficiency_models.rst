@@ -1,5 +1,5 @@
 Detector X-ray Efficiency Models
-=======================
+================================
 
 .. warning:: This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.
 
@@ -13,7 +13,7 @@ such as energy dependent losses in transmission due to IR blocking filters and v
 Energy dependent absorber efficiency can also be modeled.
 
 Exploring ``FilterStack`` class and subclass functions with premade efficiency models
----------------------
+-------------------------------------------------------------------------------------
 Here, we import the mass.efficiency_models module and demonstrate the functionality with some of the premade efficiency models.
 Generally, these premade models are put in place for TES instruments with well known absorber and filter stack compositions.
 To demonstrate, we work with the 'EBIT 2018' model, which models the TES spectrometer setup at the NIST EBIT, as it was commissioned in 2018.
@@ -129,7 +129,7 @@ Here, we plot the efficiencies of the 6 components that make up the EBIT system'
 
 
 Creating your own custom filter stack model using ``FilterStack`` objects
----------------------
+-------------------------------------------------------------------------
 Now we will explore creating custom ``FilterStack`` objects and building up your very own filter stack model.
 First, we will create a general ``FilterStack`` object, representing a stack of filters.
 We will then populate this object with filters, which take the form of the various ``FilterStack`` object subclasses, such as ``Film``,

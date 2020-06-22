@@ -132,7 +132,7 @@ if __name__ == "__main__":
                                         include_dirs=[np.get_include()])
                                 ]),
         package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
-                    'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat']
+                    'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat', 'nist_asd.pickle']
                     },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
         cmdclass={'build': QtBuilder},
         package_dir={'mass': "mass"},
