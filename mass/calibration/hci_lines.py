@@ -1,5 +1,5 @@
 '''
-_hci_lines.py
+hci_lines.py
 
 Uses pickle file containing NIST ASD levels data to generate some commonly used HCI lines in mass.
 Meant to be a replacement for _highly_charged_ion_lines.py, which hard codes in line parameters.
@@ -114,7 +114,7 @@ class NIST_ASD():
                         levelsDict = None
                         print('Unit type not supported, please use eV or cm-1')
             except ValueError:
-                'Warning: cannot parse level: {}'.format(iLevel)
+                f'Warning: cannot parse level: {iLevel}'
         return levelsDict
 
     def getSingleLevel(self, element, spectralCharge, conf, term, JVal, units='eV', getUncertainty=True):
@@ -129,17 +129,17 @@ class NIST_ASD():
             units: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values
             getUncertainty: (default True) if True, includes uncertainties in list of levels
         '''
-
+        levelString=f'{conf} {term} J={JVal}'
         if units == 'cm-1':
             if getUncertainty:
-                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, JVal)]
+                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge][levelString]
             else:
-                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, JVal)][0]
+                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge][levelString][0]
         elif units == 'eV':
             if getUncertainty:
-                levelEnergy = [iValue * INVCM_TO_EV for iValue in self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, JVal)]]
+                levelEnergy = [iValue * INVCM_TO_EV for iValue in self.NIST_ASD_Dict[element][spectralCharge][levelString]]
             else:
-                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge]['{} {} J={}'.format(conf, term, JVal)][0] * INVCM_TO_EV
+                levelEnergy = self.NIST_ASD_Dict[element][spectralCharge][levelString][0] * INVCM_TO_EV
         else:
             levelEnergy = None
             print('Unit type not supported, please use eV or cm-1')
@@ -153,7 +153,7 @@ def add_hci_line(element, spectr_ch, line_identifier, energies, widths, ratios, 
     ratios=np.array(ratios)
     if nominal_peak_energy == None:
         nominal_peak_energy = np.dot(energies, ratios)/np.sum(ratios)
-    linetype = "{} {}".format(int(spectr_ch), line_identifier)
+    linetype = f"{int(spectr_ch)} {line_identifier}"
 
     spectrum_class = fluorescence_lines.addline(
     element=element,
