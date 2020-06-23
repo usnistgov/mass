@@ -1,5 +1,5 @@
 """
-_hci_models.py
+hci_models.py
 
 Some useful methods for initializing GenericLineModel and CompositeMLEModel objects applied to HCI lines.
 
@@ -9,7 +9,7 @@ Paul Szypryt
 
 import numpy as np
 import re
-import mass.calibration._hci_lines
+import mass.calibration.hci_lines
 try:
     from xraylib import SymbolToAtomicNumber
 except ImportError:
