@@ -116,7 +116,7 @@ class SpectralLine(sp.stats.rv_continuous):
         pdf = self.pdf(x, instrument_gaussian_fwhm)
         axis.plot(x, pdf, "k", lw=2, label=label)
         axis.set_xlabel("Energy (eV)")
-        axis.set_ylabel("Counts per {:.2} eV bin".format(x[1]-x[0]))
+        axis.set_ylabel("Counts per {:.2} eV bin".format(float(x[1]-x[0])))
         axis.set_xlim(x[0], x[-1])
         if setylim:
             axis.set_ylim(np.amin(pdf)*0.1, np.amax(pdf))
