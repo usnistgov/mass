@@ -302,7 +302,7 @@ Below I show how to add a recipe and inspect existing recipes.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  RecipeBook: baseIngedients=recordSamples, recordPreSamples, framecount, unixnano, pretriggerMean, residualStdDev, pulseMean, derivativeLike, filtValue, extraCoefs, craftedIngredeints=relTimeSec, filtPhase, cutNone, cutResidualStdDev, energyRough, arbsInRefChannelUnits, cutForLearnDC, filtValueDC, energy, timeSquared, timePretrig
+  RecipeBook: baseIngedients=recordSamples, recordPreSamples, framecount, unixnano, pretriggerMean, residualStdDev, pulseMean, derivativeLike, filtValue, extraCoefs, coefs, craftedIngredeints=relTimeSec, filtPhase, cutNone, cutResidualStdDev, energyRough, arbsInRefChannelUnits, cutForLearnDC, filtValueDC, energy, timeSquared, timePretrig
 
 Linefit
 -------
