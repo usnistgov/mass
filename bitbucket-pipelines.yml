@@ -14,6 +14,7 @@ pipelines:
           name: python 3.7
           image: python:3.7.2
           script: # Modify the commands below to build your repository.
+            - pip install --upgrade pip
             - pip install -e .
             - pytest
       - step:
@@ -22,6 +23,7 @@ pipelines:
           name: python 3.8
           image: python:3.8.1
           script: # Modify the commands below to build your repository.
+            - pip install --upgrade pip
             - pip install -e .
             - pytest
       - step:
@@ -32,6 +34,7 @@ pipelines:
           script: 
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
+            - pip install --upgrade pip
             - pip install -e .
             - pip install recommonmark sphinx
             - apt-get update
