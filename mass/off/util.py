@@ -369,3 +369,6 @@ class IngredientsWrapper():
             return self.ingredient_source.view(self.coefs_dtype)["coefs"]
         else:
             return self.ingredient_source[k]
+
+    def view(self, coefs_dtype):
+        return self.ingredient_source.view(coefs_dtype)

@@ -340,6 +340,8 @@ class TestTESGroup(ut.TestCase):
                     'mass', 'regression_test', 'projectors_script_test_mass.hdf5')
                 self.invert_data = False
                 self.dont_optimize_dp_dt = True
+                self.extra_n_basis_5lag = 1
+                self.noise_weight_basis=True
 
         mass.core.projectors_script.main(Args())
 

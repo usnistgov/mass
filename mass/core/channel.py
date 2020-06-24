@@ -1371,8 +1371,10 @@ class MicrocalDataSet(object):
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
-    def get_pulse_model(self, f, n_basis, pulses_for_svd, maximum_n_pulses=4000, category={}):
+    def get_pulse_model(self, f, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag=0, 
+            maximum_n_pulses=4000, noise_weight_basis=True, category={}):
         assert n_basis >= 3
+        assert isinstance(f, ArrivalTimeSafeFilter), "requires arrival time safe filter"
         deriv_like_model = f.pulsemodel[:, 1]
         pulse_like_model = f.pulsemodel[:, 0]
         if not len(pulse_like_model) == self.nSamples:
@@ -1381,9 +1383,16 @@ class MicrocalDataSet(object):
         projectors1 = np.vstack([f.filt_baseline,
                                  f.filt_aterms[0],
                                  f.filt_noconst])
-        basis1 = np.vstack([np.ones(len(pulse_like_model), dtype=float),
-                            deriv_like_model,
-                            pulse_like_model]).T
+        if noise_weight_basis:
+            basis1 = np.vstack([np.ones(len(pulse_like_model), dtype=float),
+                                deriv_like_model,
+                                pulse_like_model]).T
+        else:
+            def joint_norm(x):
+                """return y such that x.dot(y)==1 or at least pretty close"""
+                return x/x.dot(x)
+            # this leads to terrible results, but I'm leaving it in for now so I don't get tempted to try adding it back for testing
+            basis1 = np.vstack([joint_norm(p) for p in projectors1]).T
         if pulses_for_svd is None:
             pulses_for_svd, _ = self.first_n_good_pulses(maximum_n_pulses, category=category)
             pulses_for_svd = pulses_for_svd.T
@@ -1395,13 +1404,20 @@ class MicrocalDataSet(object):
                 "use autocuts when making projectors, so it can save more info about desired cuts")
         v_dv = f.predicted_v_over_dv.get("noconst", 0.0)
         self.pulse_model = PulseModel(projectors1, basis1, n_basis, pulses_for_svd,
-                                      v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename)
+                                      v_dv, pretrig_rms_median, pretrig_rms_sigma, self.filename,
+                                      extra_n_basis_5lag, f_5lag.filt_noconst,
+                                      self.average_pulse[:], self.noise_psd[:], self.noise_psd.attrs['delta_f'],
+                                      self.noise_autocorr[:])
         return self.pulse_model
 
     @_add_group_loop()
-    def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None, maximum_n_pulses=4000, category={}):
+    def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None, extra_n_basis_5lag=0, 
+                             maximum_n_pulses=4000, noise_weight_basis=True, category={}):
+        self.avg_pulses_auto_masks(forceNew=False, max_pulses_to_use=maximum_n_pulses)
+        f_5lag = self._compute_5lag_filter_no_mutation(fmax=None, f_3db=None, cut_pre=0, cut_post=0)
         pulse_model = self.get_pulse_model(
-            self.filter, n_basis, pulses_for_svd, maximum_n_pulses=maximum_n_pulses, category=category)
+            self.filter, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag,
+            maximum_n_pulses=maximum_n_pulses, noise_weight_basis=noise_weight_basis, category=category)
         save_inverted = self.__dict__.get("invert_data", False)
         hdf5_group = hdf5_file.create_group("{}".format(self.channum))
         pulse_model.toHDF5(hdf5_group, save_inverted)

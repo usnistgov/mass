@@ -292,6 +292,9 @@ class LineModelResult(lmfit.model.ModelResult):
     def plotm(self, ax=None, title=None, xlabel=None, ylabel=None):
         """plot the data, the fit, and annotate the plot with the parameters"""
         title, xlabel, ylabel = self._handle_default_labels(title, xlabel, ylabel)
+        if ax is None:
+            plt.figure()
+            ax = plt.gca()
         ax = lmfit.model.ModelResult.plot_fit(self, ax=ax,
                                               xlabel=xlabel, ylabel=ylabel)
         if title is not None:
