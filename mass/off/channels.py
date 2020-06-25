@@ -17,7 +17,8 @@ import mass
 from .off import OffFile
 from .util import GroupLooper, add_group_loop, labelPeak, labelPeaks, Recipe, RecipeBook
 from .util import annotate_lines, SilenceBar, NoCutInds, InvalidStatesException
-from .import util
+from . import util
+from . import fivelag
 
 
 LOG = logging.getLogger("mass")
@@ -416,13 +417,17 @@ class Channel(CorG):
 
         if plot:
             xmin, xmax = np.amin(filtValue), np.amax(filtValue)
-            x = np.linspace(xmin, xmax, 100)
+            ymin, ymax = np.amin(residualStdDev), np.amax(residualStdDev)
+            assert ymin > 0
+            x = np.linspace(xmin, xmax, 1000)
             y = threshold_func(x)
             self.plotAvsB("filtValue", "residualStdDev", states=states, includeBad=True,
                           cutRecipeName=newCutRecipeName)  # creates a figure
             plt.plot(fv_mids, medians, "o-", label="median", lw=3)
             plt.plot(x, y, label=f"threshold", lw=3)
             plt.legend()
+            plt.yscale("log")
+            plt.ylim(ymin/2,ymax*2)
 
     def getStatesIndicies(self, states=None):
         """return a list of slices corresponding to
@@ -904,6 +909,11 @@ class Channel(CorG):
         plt.vlines(self.calibrationPlan.uncalibratedVals, 0, plt.ylim()[1])
         plt.tight_layout()
 
+    def add5LagRecipes(self, f):
+        filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(f, self.offFile.basis)
+        self.recipes.add("cba5Lag", lambda coefs: np.matmul(coefs, filter_5lag_fit_in_basis))
+        self.recipes.add("filtValue5Lag", lambda cba5Lag: fivelag.filtValue5Lag(cba5Lag))
+        self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
 
 def normalize(x):
     return x/float(np.sum(x))
