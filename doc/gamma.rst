@@ -63,11 +63,6 @@ Define a working directory, make sure it exists and is empty before we start.
   model_hdf5 = os.path.join(d, "20181018_144520_model.hdf5")
   mass_hdf5 = os.path.join(d, "20181018_144520_mass.hdf5")
   mass_noise_hdf5 = os.path.join(d, "20181018_144325_noise_mass.hdf5")
-  print(f"mass_hdf5 {mass_hdf5}")
-  print(f"model_mass_hdf5 {model_mass_hdf5}")
-  print(f"model_hdf5 {model_hdf5}")
-
-
 
 Plain mass analysis
 -------------------
@@ -78,8 +73,6 @@ Here we do "plain" mass analysis, basically we just use 5 lag filters, cuts, dri
 	
   pulse_files = [testucalfiles.d["coho2018"].pulse_files[i] for i in [0,2]]
   noise_files = [testucalfiles.d["coho2018"].noise_files[i] for i in [0,2]]
-  print(f"{noise_files=}")
-  print(f"{pulse_files=}")
   data_plain = mass.TESGroup(filenames = pulse_files,
           noise_filenames = noise_files,
           hdf5_filename = mass_hdf5,
