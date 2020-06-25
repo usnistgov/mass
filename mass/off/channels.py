@@ -268,9 +268,6 @@ class CorG():
             else:
                 raise Exception(
                     "must pass binEdges if attr does not start with energy and you don't pass a calibration, also don't use energy and calibration at the same time")
-        if axis is None and plot:
-            plt.figure()
-            axis = plt.gca()
         # print(f"binEdges.size={binEdges.size}, binEdges.mean()={binEdges.mean()}")
         # print(f"attr={attr},states={states}")
         bin_centers, counts = self.hist(
@@ -301,7 +298,7 @@ class CorG():
         result.set_label_hints(binsize=bin_centers[1]-bin_centers[0], ds_shortname=self.shortName,
                                unit_str=unit_str, attr_str=attr_str, cut_hint=cutRecipeName, states_hint=states_hint)
         if plot:
-            result.plotm()
+            result.plotm(ax=axis)
         return result
 
     _default_bin_size = 1.0

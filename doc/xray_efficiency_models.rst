@@ -235,3 +235,10 @@ Usage examples and efficiency curves of these classes are shown below.
 
 .. image:: img/premade_LEX_HT.png
   :width: 30%
+
+.. testcode::
+  :hide:
+  
+  # will fail tests if any figs are open
+  if (n := len(plt.get_fignums())) != 0:
+      print(f"{n} figs left open")

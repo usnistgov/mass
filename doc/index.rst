@@ -10,6 +10,7 @@ Mass
    :caption: Contents:
 
    off_style
+   gamma
    xray_efficiency_models
 
 .. 
@@ -20,7 +21,7 @@ Hand written documentation (mostly old style mass)
    :maxdepth: 2
    :caption: Contents:
 
-   Cuts.md
+   cuts_md.md
    autocal
    Demos
    hdf5_only

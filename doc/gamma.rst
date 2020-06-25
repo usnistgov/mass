@@ -52,9 +52,10 @@ Define a working directory, make sure it exists and is empty before we start.
 
   import shutil
   try:
-      d = os.path.dirname(os.path.realpath(__file__),"_gamma")
+      d0 = os.path.dirname(os.path.realpath(__file__))
   except:
-      d = os.getcwd()
+      d0 = os.getcwd()
+  d = os.path.join(d0, "_gamma")
   if os.path.isdir(d):
     shutil.rmtree(d)
   os.mkdir(d)
@@ -142,6 +143,7 @@ Then we create off files from the ljh files and the pulse model.
 .. testcode::
 	
   output_dir = os.path.join(d, "20181018_144520_off")
+  os.mkdir(output_dir)
   r = mass.ljh2off.ljh2off_loop(ljhpath = pulse_files[0],
       h5_path = model_hdf5, 
       output_dir = output_dir,
@@ -150,6 +152,7 @@ Then we create off files from the ljh files and the pulse model.
       require_experiment_state=False,
       show_progress=True)
   ljh_filenames, off_filenames = r
+
 
   # write a dummy experiment state file, since the data didn't come with one
   with open(os.path.join(output_dir, "20181018_144520_experiment_state.txt"),"w") as f:
@@ -332,8 +335,13 @@ OFF vs Plain Comparision
 
 For many days I thought the Plain mass were about 2 eV better than the OFF style results. I finally tracked the difference
 down to slighly different ways of fitting the data. Here I do an apples to apples comparison by making sure the histogram bins,
-cuts, and fitting model and algorithm are all identical between Plain and OFF styles.
+cuts, and fitting model and algorithm are all identical between Plain and OFF styles. While off appears slightly better here
+it is illusory, if you run with different random seeds you can get off to appear worse. Unlike with filtValue, I haven't
+been able to get identical results with off vs plain, just comparable. I believe OFF is just as good when you have
+enough projectors, not better or worse.
 
+We use ds.filtValueDC to access all filtValueDC values without any cuts applied. This may be removed in the future, let 
+me know what you think about it.
 
 .. testcode::
 
@@ -345,7 +353,7 @@ cuts, and fitting model and algorithm are all identical between Plain and OFF st
       bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
       g = plain_ds.good()
       cal = plain_ds.calibration["p_filt_value_dc"]
-      counts, _ = np.histogram(cal(ds.getAttr("filtValueDC", slice(None))[g]), bin_edges)
+      counts, _ = np.histogram(cal(ds.filtValueDC[g]), bin_edges)
       model = mass.off.util.get_model(line)
       params = model.guess(counts, bin_centers)
       params["dph_de"].set(1,vary=False)
@@ -395,7 +403,7 @@ from the previous section, not the apples to apples comparison where we used the
   # how many were cut
   for (ch, ds) in data.items():
       dsp = data_plain.channel[ch]
-      print(f"ch {ch}off   ngood={ds.getAttr("cutResidualStdDev", slice(None)).sum()} ntot={len(ds)}")
+      print(f"ch {ch}off   ngood={ds.cutResidualStdDev.sum()} ntot={len(ds)}")
       print(f"ch {ch}plain ngood={dsp.good().sum()} ntot={dsp.nPulses}")
 
 .. testoutput::
@@ -408,8 +416,8 @@ from the previous section, not the apples to apples comparison where we used the
 
 
 
-warning about defining recipes
-------------------------------
+Warning about defining recipes and closure scope
+------------------------------------------------
 
 .. testcode::
 
@@ -430,12 +438,7 @@ warning about defining recipes
         v = ds.getAttr(attr, slice(0,1))[0]
         print(f"channel {ds.channum} {attr} gives {v}")
 
-      
-  # if we write the loop in a way that doesn't redefine the ds variable, we can see the problem clearly
-  for attr in ["channum_wrong", "channum_right"]:
-      for channum in data.keys():
-        v = data[channum].getAttr(attr, slice(0,1))[0]
-        print(f"channel {channum} {attr} gives {v}")
+Here the output looks right because ds was changing in the loop.
 
 .. testoutput::
 
@@ -443,6 +446,19 @@ warning about defining recipes
   channel 13 channum_wrong gives 13.0
   channel 3 channum_right gives 3.0
   channel 13 channum_right gives 13.0
+
+.. testcode::
+
+  # if we write the loop in a way that doesn't redefine the ds variable, we can see the problem clearly
+  for attr in ["channum_wrong", "channum_right"]:
+      for channum in data.keys():
+        v = data[channum].getAttr(attr, slice(0,1))[0]
+        print(f"channel {channum} {attr} gives {v}")
+
+Here the output is wrong because we loop in a way that doesnt re-define ds.
+
+.. testoutput::
+
   channel 3 channum_wrong gives 13.0
   channel 13 channum_wrong gives 13.0
   channel 3 channum_right gives 3.0
@@ -451,5 +467,7 @@ warning about defining recipes
 .. testcode::
   :hide:
   
+  # will fail tests if any figs are open
   if (n := len(plt.get_fignums())) != 0:
-      print(f"{f} figs left open")
+      print(f"{n} figs left open")
+
