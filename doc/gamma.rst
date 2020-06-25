@@ -106,8 +106,8 @@ Most of the time you shouldn't need anything but nbasis, optimize_dp_dt for gamm
 .. testcode::
 
   with h5py.File(model_hdf5,"w") as h5:
-      mass.make_projectors(pulse_files=[testucalfiles.d["coho2018"].pulse_files[i] for i in [0,2]],
-          noise_files=[testucalfiles.d["coho2018"].noise_files[i] for i in [0,2]],
+      mass.make_projectors(pulse_files=pulse_files,
+          noise_files=noise_files,
           h5=h5,
           n_sigma_pt_rms=1000, # we want tails of previous pulses in our basis
           n_sigma_max_deriv=10,
