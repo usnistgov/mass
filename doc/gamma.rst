@@ -62,6 +62,11 @@ Define a working directory, make sure it exists and is empty before we start.
   model_mass_hdf5 = os.path.join(d, "20181018_144520_mass_for_model.hdf5")
   model_hdf5 = os.path.join(d, "20181018_144520_model.hdf5")
   mass_hdf5 = os.path.join(d, "20181018_144520_mass.hdf5")
+  print(f"mass_hdf5 {mass_hdf5}")
+  print(f"model_mass_hdf5 {model_mass_hdf5}")
+  print(f"model_hdf5 {model_hdf5}")
+
+
 
 Plain mass analysis
 -------------------
