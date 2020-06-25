@@ -111,12 +111,12 @@ class SpectralLine(sp.stats.rv_continuous):
             plt.figure()
             axis = plt.gca()
         if components:
-            for component in self.components(x):
+            for component in self.components(x, instrument_gaussian_fwhm):
                 axis.plot(x, component, "--")
-        pdf = self.pdf(x)
-        axis.plot(x, self.pdf(x, instrument_gaussian_fwhm), "k", lw=2, label=label)
+        pdf = self.pdf(x, instrument_gaussian_fwhm)
+        axis.plot(x, pdf, "k", lw=2, label=label)
         axis.set_xlabel("Energy (eV)")
-        axis.set_ylabel("Counts per {:.2} eV bin".format(x[1]-x[0]))
+        axis.set_ylabel("Counts per {:.2} eV bin".format(float(x[1]-x[0])))
         axis.set_xlim(x[0], x[-1])
         if setylim:
             axis.set_ylim(np.amin(pdf)*0.1, np.amax(pdf))

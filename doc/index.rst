@@ -11,6 +11,7 @@ Mass
 
    off_style
    gamma
+   hci_lines_from_asd
    xray_efficiency_models
 
 .. 
@@ -21,7 +22,7 @@ Hand written documentation (mostly old style mass)
    :maxdepth: 2
    :caption: Contents:
 
-   cuts_md.md
+   cuts_md
    autocal
    Demos
    hdf5_only
