@@ -37,7 +37,6 @@ Imports and such
   import pylab as plt
   import numpy as np
   import lmfit
-  import testucalfiles
 
   np.random.seed(2)  # the projector creation process uses a random algorithm for svds, this ensures we get the same answer each time
 
