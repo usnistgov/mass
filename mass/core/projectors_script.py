@@ -11,10 +11,11 @@ LOG.setLevel(logging.DEBUG)
 
 
 def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_deriv,
-                    n_basis, maximum_n_pulses, mass_hdf5_path, invert_data, optimize_dp_dt,
+                    n_basis, maximum_n_pulses, mass_hdf5_path, mass_hdf5_noise_path, invert_data, optimize_dp_dt,
                     extra_n_basis_5lag, noise_weight_basis):
     data = mass.TESGroup(pulse_files, noise_files, overwrite_hdf5_file=True,
-                         hdf5_filename=mass_hdf5_path)
+                         hdf5_filename=mass_hdf5_path,
+                         hdf5_noisefilename=mass_hdf5_noise_path)
     for ds in data:
         ds.invert_data = invert_data
     data.summarize_data()
@@ -59,6 +60,8 @@ def parse_args(fake):
                         help="supress text output, mostly for testing")
     parser.add_argument("--mass_hdf5_path", default=None,
                         help="specify the path for the mass hdf5 file that is generated as a byproduct of this script")
+    parser.add_argument("--mass_hdf5_noise_path", default=None,
+                        help="specify the path for the mass noise hdf5 file that is generated a as a byproduct of this script")
     parser.add_argument("-i", "--invert_data", action="store_true",
                         help="pass this flag for downward going pulses (eg RAVEN)")
     parser.add_argument("--dont_optimize_dp_dt", help="simpler derivative like calculating, better for gamma data",
@@ -105,6 +108,7 @@ def main(args=None):
         n_good, n = make_projectors(pulse_files=pulse_files, noise_files=noise_files, h5=h5,
                                     n_sigma_pt_rms=args.n_sigma_pt_rms, n_sigma_max_deriv=args.n_sigma_max_deriv,
                                     n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path,
+                                    mass_hdf5_noise_path=args.mass_hdf5_noise_path, 
                                     invert_data=args.invert_data, optimize_dp_dt=not args.dont_optimize_dp_dt,
                                     extra_n_basis_5lag=args.extra_n_basis_5lag, noise_weight_basis=args.noise_weight_basis)
     if not args.silent:

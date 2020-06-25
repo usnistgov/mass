@@ -62,6 +62,7 @@ Define a working directory, make sure it exists and is empty before we start.
   model_mass_hdf5 = os.path.join(d, "20181018_144520_mass_for_model.hdf5")
   model_hdf5 = os.path.join(d, "20181018_144520_model.hdf5")
   mass_hdf5 = os.path.join(d, "20181018_144520_mass.hdf5")
+  mass_noise_hdf5 = os.path.join(d, "20181018_144325_noise_mass.hdf5")
   print(f"mass_hdf5 {mass_hdf5}")
   print(f"model_mass_hdf5 {model_mass_hdf5}")
   print(f"model_hdf5 {model_hdf5}")
@@ -77,9 +78,12 @@ Here we do "plain" mass analysis, basically we just use 5 lag filters, cuts, dri
 	
   pulse_files = [testucalfiles.d["coho2018"].pulse_files[i] for i in [0,2]]
   noise_files = [testucalfiles.d["coho2018"].noise_files[i] for i in [0,2]]
-  data_plain = mass.TESGroup(filenames=pulse_files,
-          noise_filenames=noise_files,
-          hdf5_filename=mass_hdf5)
+  print(f"{noise_files=}")
+  print(f"{pulse_files=}")
+  data_plain = mass.TESGroup(filenames = pulse_files,
+          noise_filenames = noise_files,
+          hdf5_filename = mass_hdf5,
+          hdf5_noisefilename = mass_noise_hdf5)
   data_plain.summarize_data(pretrigger_ignore_microsec=500)
   data_plain.auto_cuts()
   universal_cuts = mass.controller.AnalysisControl(
@@ -116,6 +120,7 @@ Most of the time you shouldn't need anything but nbasis, optimize_dp_dt for gamm
           n_basis=5,
           maximum_n_pulses=5000,
           mass_hdf5_path=model_mass_hdf5,
+          mass_hdf5_noise_path=mass_noise_hdf5,
           invert_data=False,
           optimize_dp_dt=False, # seems to work better for gamma data
           extra_n_basis_5lag=0, # mostly for testing, might help you make a more efficient basis for gamma rays, but doesn't seem neccesary
