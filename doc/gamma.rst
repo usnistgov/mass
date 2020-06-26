@@ -16,15 +16,6 @@ of arrival time.
 Here we will analyze some "CoHo" data taken with a Roach uMux system at LANL in 2018. Coho refers to Co57 and Ho166m (a metastable state with 1200 year half-life). We first analyze it with "plain mass",
 then with "off style" mass. We do an apples to apples comparison to show that the results are nearly identical.
 
-Making Projectors and ljh2off
------------------------------
-The script ``make_projectors`` will make projectors and write them to disk in a format ``dastardcommander`` and ``ljh2off`` can use. 
-The script ``ljh2off`` can generate off files from ljh files, so you can use this style of analysis on any data, or change your projectors. 
-Call either with a ``-h`` flag for help, also all the functionality is available through functions in ``mass``.
-
-Here we will call the functions those scripts call rather than calling the scripts, because it's easier to write python code in the docs than call shell commands.
-
-
 Imports and such
 ---------------------
 
@@ -97,11 +88,16 @@ Here we do "plain" mass analysis, basically we just use 5 lag filters, cuts, dri
   data_plain.calibrate("p_filt_value_dc", ["ErKAlpha1", 'Ho166m_80', 'Co57_122', 'Ho166m_184'], fit_range_ev=600, 
       bin_size_ev=10, diagnose=False, _rethrow=True)
 
-Make projectors
----------------
+Making Projectors and ljh2off
+-----------------------------
+The script ``make_projectors`` will make projectors and write them to disk in a format ``dastardcommander`` and ``ljh2off`` can use. 
+The script ``ljh2off`` can generate off files from ljh files, so you can use this style of analysis on any data, or change your projectors. 
+Call either with a ``-h`` flag for help, also all the functionality is available through functions in ``mass``.
 
-Now we make projectors. Here I'm showing lots of the possible options with some comments.
-Most of the time you shouldn't need anything but nbasis, optimize_dp_dt for gamma data, and invert data if neccesary.
+Here we will call the functions those scripts call rather than calling the scripts, because it's easier to write python code in the docs than call shell commands.
+
+I'm showing lots of the possible options with some comments.
+Most of the time the defaults should work fine. 
 
 .. testcode::
 
@@ -118,7 +114,7 @@ Most of the time you shouldn't need anything but nbasis, optimize_dp_dt for gamm
           invert_data=False,
           optimize_dp_dt=False, # seems to work better for gamma data
           extra_n_basis_5lag=0, # mostly for testing, might help you make a more efficient basis for gamma rays, but doesn't seem neccesary
-          noise_weight_basis=True) # only for testing, not expected to ever help to change this
+          noise_weight_basis=True) # only for testing, may not even work right to set to False
 
 
   with h5py.File(model_hdf5,"r") as h5:
