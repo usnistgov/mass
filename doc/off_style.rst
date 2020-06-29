@@ -343,3 +343,17 @@ Linefit
   # will fail tests if any figs are open
   if (n := len(plt.get_fignums())) != 0:
       print(f"{n} figs left open")
+
+Channel
+--------
+
+.. autoclass:: mass.off.Channel
+  :members:
+  :undoc-members:
+
+Channel Group
+-------------
+
+.. autoclass:: mass.off.ChannelGroup
+  :members:
+  :undoc-members:

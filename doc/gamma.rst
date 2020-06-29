@@ -36,10 +36,10 @@ Imports and such
   mass.STANDARD_FEATURES['Co57_122'] = 122.06065e3
   mass.STANDARD_FEATURES['Ho166m_184'] = 184.4113e3
 
-Define a working directory, make sure it exists and is empty before we start.
+Create a clean working directory, ensure all temp files go there. In principle I could hide this, but it is easier to debug if I leave it visible.
 
 .. testcode::
-
+  
   import shutil
   try:
       d0 = os.path.dirname(os.path.realpath(__file__))
@@ -121,6 +121,10 @@ Most of the time the defaults should work fine.
       models = {int(ch) : mass.pulse_model.PulseModel.fromHDF5(h5[ch]) for ch in h5.keys()}
   models[3].plot()
 
+Here we plot some info about the "pulse model", aka the projectors and basis. The right image is larger vertically,
+so the formatting looks odd.
+
+
 .. testcode::
   :hide:
 
@@ -133,10 +137,9 @@ Most of the time the defaults should work fine.
 .. image:: img/gamma_model2.png
   :width: 45%
 
-Here we plot some info about the "pulse model", aka the projectors and basis.
 
 ljh2off
--------
++++++++
 
 Then we create off files from the ljh files and the pulse model.
 
@@ -291,7 +294,7 @@ a plot of all the fits used for the calibration of one channel.
   params = lmfit.Parameters() # use this to adjust params after the guessing routine, eg to hold them fixed
   # here the guess routine works well enough so we don't add anything to params
   # you can also just leave this out, but I wanted to show that it exists
-  results_5lag = data.calibrateFollowingPlan("filtValue5Lag", calibratedName="energy5Lag",
+  results_5lag = data.calibrateFollowingPlan("filtValue5Lag", calibratedName="energyNoDC",
       dlo=400, dhi=400,overwriteRecipe=True, params_update = params)
   results_dc = data.calibrateFollowingPlan("filtValueDC", calibratedName="energy",
       dlo=400, dhi=400,overwriteRecipe=True, params_update = params)
@@ -312,7 +315,7 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
 
   # with off style cuts
   line = 'Ho166m_80'
-  for attr in ["energy", "energy5Lag"][:]:
+  for attr in ["energy", "energyNoDC"][:]:
       print(f"{attr}:")
       for ds in data.values():
           result = ds.linefit(line, attr, dlo=200, dhi=200, plot=False, params_update = params)
@@ -326,7 +329,7 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
   energy:
     20181018_144520 chan3  Ho166m_80 fwhm=60.19+/-1.93
     20181018_144520 chan13 Ho166m_80 fwhm=62.49+/-2.03
-  energy5Lag:
+  energyNoDC:
     20181018_144520 chan3  Ho166m_80 fwhm=64.12+/-2.46
     20181018_144520 chan13 Ho166m_80 fwhm=70.69+/-2.62
 
@@ -415,6 +418,87 @@ from the previous section, not the apples to apples comparison where we used the
   ch 13plain ngood=21320 ntot=22406
 
 
+Looking into odd pulses
+-----------------------
+In the residualStdDev plot there is a cluser of pulses with residualStdDev of about 1000 and a second cluster around 5000.
+Also in the pretriggerMeanCorrected plot there is a large population of pulses with pretriggers of about 0-2000, seperate 
+from the main group at around 4000. Here we will isolate and plot some of those pulses.
+
+.. testcode::
+
+  ds = data[3]
+  plain_ds = data_plain.channel[3]
+  def cutResROI(residualStdDev):
+    return np.logical_and(residualStdDev>800, residualStdDev<1500)
+
+  data.cutAdd("cutResROI", cutResROI)
+  data.cutAdd("cutOddPTM", lambda pretriggerMeanCorrected: pretriggerMeanCorrected<2000)
+  data.cutAdd("cutOddPTDelta", lambda pretriggerDelta, energy: np.logical_and(np.abs(pretriggerDelta)>20,
+                                                                      np.logical_and(energy<80900,
+                                                                                     energy>80100)))
+
+
+  ds.plotAvsB("filtValue", "residualStdDev", cutRecipeName="cutResROI", includeBad=True)
+  plt.yscale("log")
+
+  inds = np.nonzero(ds.cutResROI)[0]
+  plt.figure()
+  plain_ds.plot_traces(inds[:10], subtract_baseline=True)
+  plt.title("residual stdDev group")
+
+  ds.plotAvsB("relTimeSec","pretriggerMeanCorrected", cutRecipeName="cutOddPTM", includeBad=True)
+  inds2 = np.nonzero(ds.cutOddPTM)[0]
+  plt.figure()
+  plain_ds.plot_traces(inds2[:10], subtract_baseline=True)
+  plt.title("odd pretriggerMeanCorrected") 
+
+  ds.plotAvsB("pretriggerDelta","energy", cutRecipeName="cutOddPTDelta", includeBad=True)
+  plt.xlim(-400,400)
+  plt.ylim(80100, 80900)  
+  inds3 = np.nonzero(ds.cutOddPTDelta)[0]
+  plt.figure()
+  plain_ds.plot_traces(inds3[:10], subtract_baseline=True)
+  plt.title("odd PTDelta") 
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/gamma_odd6.png");plt.close()
+  plt.savefig("img/gamma_odd5.png");plt.close()
+  plt.savefig("img/gamma_odd4.png");plt.close()
+  plt.savefig("img/gamma_odd3.png");plt.close()
+  plt.savefig("img/gamma_odd2.png");plt.close()
+  plt.savefig("img/gamma_odd1.png");plt.close()
+
+Dotted traces were cut by the plain mass analysis. So here we see all the but one of the pulses in the horizontal group of residualStdDev
+were cut by plain mass. The one that was not cut in plain mass has a phase slip on the rising edge, and should be cut. Many 
+of the others are pulse pile-up events. I suspect that a pulse of constant size causes a roughly
+constant sized residualStdDev, so the reason there are two bands is that those are the two strongest lines appearing as 
+pileup.
+
+.. image:: img/gamma_odd1.png
+  :width: 45%
+
+.. image:: img/gamma_odd2.png
+  :width: 45%
+
+Here we see that many of the odd pretriggerMeanCorrected values come from early triggers, and all were also cut in the 
+plain mass analysis.
+
+.. image:: img/gamma_odd3.png
+  :width: 45%
+
+.. image:: img/gamma_odd4.png
+  :width: 45%
+
+Here we look at the pretriggerDelta quantity, designed to replace p_pretrig_rms. I think the pulse records are long
+enough and the count rates low enough that we don't see many tails of previous pulses.
+
+.. image:: img/gamma_odd5.png
+  :width: 45%
+
+.. image:: img/gamma_odd6.png
+  :width: 45%
 
 Warning about defining recipes and closure scope
 ------------------------------------------------
