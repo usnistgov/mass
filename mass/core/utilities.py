@@ -111,7 +111,10 @@ def show_progress(name):
         @functools.wraps(func)
         def work(self, *args, **kwargs):
             try:
-                print_updater = self.updater(name)
+                if 'sphinx' in sys.modules: # supress output during doctests
+                    print_updater = NullUpdater()
+                else:
+                    print_updater = self.updater(name)
             except TypeError:
                 print_updater = NullUpdater()
 

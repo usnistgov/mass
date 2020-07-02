@@ -2,6 +2,7 @@
 import inspect
 import collections
 import logging
+import sys
 
 # pkg imports
 import progress.bar
@@ -13,7 +14,6 @@ import mass
 
 LOG = logging.getLogger("mass")
 
-
 class NoCutInds():
     pass
 
@@ -23,10 +23,15 @@ class InvalidStatesException(Exception):
 
 
 class RecipeBook():
-    def __init__(self, baseIngredients, propertyClass=None):
+    def __init__(self, baseIngredients, propertyClass=None, wrapper=lambda x: x):
+        """
+        propertyClass - which class to add properties to, if they are to be added
+        wrapper - used in Recipe.craft to allow both "coefs" and "filtValue" to be ingredeints, while "filtValue" refers to a sub-array of "coefs"
+        """
         self.craftedIngredients = collections.OrderedDict()
         self.baseIngredients = baseIngredients  # list of names of base ingredients that will be passed to craft
         self.propertyClass = propertyClass  # class that properites will be added to
+        self.wrapper = wrapper
 
     def add(self, recipeName, f, ingredients=None, overwrite=False, inverse=None, createProperty=True):
         """
@@ -64,7 +69,7 @@ class RecipeBook():
                 assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients
                 i2a[ingredient] = inspectedArgName
 
-        recipe = Recipe(f, i2a, inverse, recipeName)
+        recipe = Recipe(f, i2a, inverse, recipeName, self.wrapper)
         for ingredient in i2a:
             if ingredient in self.craftedIngredients:
                 recipe._setIngredientToRecipe(ingredient, self.craftedIngredients[ingredient])
@@ -145,12 +150,13 @@ class Recipe():
     reads to the off file.
     """
 
-    def __init__(self, f, i2a, inverse, name):
+    def __init__(self, f, i2a, inverse, name, ingredientWrapper):
         assert not isinstance(f, Recipe)
         self.f = f
         self.inverse = inverse
         self.i2a = i2a
         self.name = name
+        self.ingredientWrapper = ingredientWrapper
 
     def _setIngredientToRecipe(self, ingredient, r):
         assert isinstance(r, Recipe)
@@ -163,7 +169,8 @@ class Recipe():
             if isinstance(v, Recipe):
                 args.append(v(ingredientSource))
             else:
-                args.append(ingredientSource[k])
+                wrapped = self.ingredientWrapper(ingredientSource)
+                args.append(wrapped[k])
         # call functions with positional arguments so names don't need to match
         return self.f(*args)
 
@@ -200,10 +207,10 @@ def add_group_loop(method):
             ...
     """
     method_name = method.__name__
-
+    is_running_tests = "pytest" in sys.modules
     def wrapper(self, *args, **kwargs):
         bar = SilenceBar(method_name, max=len(self.offFileNames), silence=not self.verbose)
-        rethrow = kwargs.pop("_rethrow", False)
+        rethrow = kwargs.pop("_rethrow", is_running_tests) # always rethrow during tests
         returnVals = collections.OrderedDict()
         for (channum, ds) in self.items():
             try:
@@ -303,20 +310,27 @@ class SilenceBar(progress.bar.Bar):
             progress.bar.Bar.finish(self)
 
 
+class FailedToGetModelException(Exception):
+    pass
+
 def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
     if isinstance(lineNameOrEnergy, mass.GenericLineModel):
         line = lineNameOrEnergy.spect
+    elif isinstance(lineNameOrEnergy, mass.SpectralLine):
+        line = lineNameOrEnergy
     elif isinstance(lineNameOrEnergy, str):
         if lineNameOrEnergy in mass.spectra:
-            line = mass.spectra[lineNameOrEnergy]
+            line = mass.spectra[lineNameOrEnergy]    
         elif lineNameOrEnergy in mass.STANDARD_FEATURES:
             energy = mass.STANDARD_FEATURES[lineNameOrEnergy]
             line = mass.SpectralLine.quick_monochromatic_line(lineNameOrEnergy, energy, 0.001, 0)
+        else:
+            raise FailedToGetModelException(f"failed to get line from lineNameOrEnergy={lineNameOrEnergy}")
     else:
         try:
             energy = float(lineNameOrEnergy)
         except Exception:
-            raise Exception(
+            raise FailedToGetModelException(
                 f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
         line = mass.SpectralLine.quick_monochromatic_line(
             f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
@@ -334,3 +348,27 @@ def median_absolute_deviation(x):
     mad = np.median(np.abs(x-median))
     sigma_equiv = mad*SIGMA_OVER_MAD
     return mad, sigma_equiv, median
+
+
+class IngredientsWrapper():
+    """
+    I'd like to be able to do either ingredient_source["coefs"] to get all projection coefficients
+    or ingredient_source["filtValue"] to get only the filtValue
+    IngredientsWrapper lets that work within recipes.craft
+    IngredientWrapper is part of that hack
+
+    ingredient_source - an ndarray read from an off file with dtype that defined "filtValue"
+    coefs_dtype - an alternate dtype that defines "coefs"
+    """
+    def __init__(self, ingredient_source, coefs_dtype):
+        self.ingredient_source = ingredient_source
+        self.coefs_dtype = coefs_dtype
+    
+    def __getitem__(self, k):
+        if k == "coefs":
+            return self.ingredient_source.view(self.coefs_dtype)["coefs"]
+        else:
+            return self.ingredient_source[k]
+
+    def view(self, coefs_dtype):
+        return self.ingredient_source.view(coefs_dtype)

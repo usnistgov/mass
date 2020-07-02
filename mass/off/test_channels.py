@@ -1,6 +1,6 @@
 # Normal imports
 import mass
-from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks
+from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, NoCutInds
 from mass.calibration import _highly_charged_ion_lines
 import numpy as np
 import pylab as plt
@@ -23,7 +23,7 @@ except NameError:
 
 filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
 data = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2),
-                    verbose=False, channelClass=Channel, excludeStates=["START", "END"])
+                    verbose=True, channelClass=Channel, excludeStates=["START", "END"])
 data.setOutputDir(baseDir=d, deleteAndRecreate=True)
 data.experimentStateFile.aliasState("B", "Ne")
 data.experimentStateFile.aliasState("C", "W 1")
@@ -77,7 +77,6 @@ ds.plotCompareDriftCorrect()
 
 # calibrate on filtValueDC, it's usually close enough to filtValue to use the same calibration plan
 results = ds.calibrateFollowingPlan("filtValueDC", approximate=False)
-ds.linefit("Ne H-Like 2p", attr="energy", states="Ne")
 ds.linefit("Ne He-Like 1s2s+1s2p", attr="energy", states="Ne")
 ds.linefit("W Ni-7", attr="energy", states=["W 1", "W 2"])
 ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
@@ -284,15 +283,28 @@ class TestSummaries(ut.TestCase):
         inds = ds_local.getStatesIndicies("A")
         _ = ds_local.getAttr("filtValue", inds)
 
-    def test_getAttr_with_list_of_slice(self):
-        ind = [slice(0, 5), slice(5, 10)]
-        self.assertTrue(np.allclose(ds.getAttr("filtValue", ind),
-                                    ds.getAttr("filtValue", slice(0, 10))))
-        self.assertTrue(np.allclose(ds.getAttr(
-            "filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10))))
+def test_getAttr_with_list_of_slice():
+    ind = [slice(0, 5), slice(5, 10)]
+    assert np.allclose(ds.getAttr("filtValue", ind), ds.getAttr("filtValue", slice(0, 10)))
+    assert np.allclose(ds.getAttr("filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10)))
 
-    def test_HCI_loads(self):
-        self.assertTrue("O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines))
+
+def test_HCI_loads():
+    assert "O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines)
+
+def test_getAttr_and_recipes_with_coefs():
+    ind = [slice(0, 5), slice(5, 10)]
+    coefs = ds.getAttr("coefs", ind)
+    filtValue, coefs2 = ds.getAttr(["filtValue","coefs"], ind)   
+    assert np.allclose(coefs, coefs2) 
+    assert np.allclose(coefs[:,2], filtValue)
+    ds.recipes.add("coefsSum", lambda coefs: coefs.sum(axis=1))
+    assert np.allclose(ds.getAttr("coefsSum", ind), coefs.sum(axis=1))
+    ds.recipes.add("coefsSumPlusFiltvalue", lambda filtValue,coefs: coefs.sum(axis=1)+filtValue)
+    assert np.allclose(ds.getAttr("coefsSumPlusFiltvalue", ind), coefs.sum(axis=1)+filtValue)
+    # test access as with NoCutInds
+    ds.getAttr("coefs", NoCutInds())
+    ds.getAttr("coefsSum", NoCutInds())
 
 
 # pytest style test! way simpler to write
@@ -312,7 +324,7 @@ def test_get_model():
     m_ql = mass.off.util.get_model(ql.model())
     assert m_ql.spect.shortname == "testquick_line"
 
-    with pytest.raises(UnboundLocalError):
+    with pytest.raises(mass.off.util.FailedToGetModelException):
         mass.off.util.get_model("this is a str but not a standard feature")
 
 
@@ -368,6 +380,8 @@ def test_median_absolute_deviation():
     mad, sigma_equiv, median = util.median_absolute_deviation([1, 1, 2, 3, 4])
     assert mad == 1
     assert median == 2
+
+
 
 
 if __name__ == '__main__':
