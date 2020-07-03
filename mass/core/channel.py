@@ -767,6 +767,8 @@ class MicrocalDataSet(object):
 
             if version > 0:
                 filter_type = filter_group.attrs["filter_type"]  # a string
+                if type(filter_type) == bytes:
+                    filter_type = filter_type.decode()
             else:
                 if "newfilter" in filter_group.attrs:
                     # version 0 hdf5 files either did or did not have the "newfilter" attribute, newfilter corresponds to ats filters

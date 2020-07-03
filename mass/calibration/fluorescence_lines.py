@@ -181,9 +181,9 @@ class SpectralLine(sp.stats.rv_continuous):
         else:
             model_class = line_models.GenericLineModel
         name = self.element+self.linetype
-        m = model_class(name=name, spect=self, has_linear_background=has_linear_background, has_tails=has_tails, prefix=prefix)
+        m = model_class(name=name, spect=self, has_linear_background=has_linear_background,
+                        has_tails=has_tails, prefix=prefix)
         return m
-
 
     def fitter(self):
         return make_line_fitter(self)
