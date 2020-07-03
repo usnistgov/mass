@@ -111,10 +111,10 @@ class SpectralLine(sp.stats.rv_continuous):
             plt.figure()
             axis = plt.gca()
         if components:
-            for component in self.components(x):
+            for component in self.components(x, instrument_gaussian_fwhm):
                 axis.plot(x, component, "--")
-        pdf = self.pdf(x)
-        axis.plot(x, self.pdf(x, instrument_gaussian_fwhm), "k", lw=2, label=label)
+        pdf = self.pdf(x, instrument_gaussian_fwhm)
+        axis.plot(x, pdf, "k", lw=2, label=label)
         axis.set_xlabel("Energy (eV)")
         axis.set_ylabel("Counts per {:.2} eV bin".format(x[1]-x[0]))
         axis.set_xlim(x[0], x[-1])
@@ -181,9 +181,9 @@ class SpectralLine(sp.stats.rv_continuous):
         else:
             model_class = line_models.GenericLineModel
         name = self.element+self.linetype
-        m = model_class(name=name, spect=self, has_linear_background=has_linear_background, has_tails=has_tails, prefix=prefix)
+        m = model_class(name=name, spect=self, has_linear_background=has_linear_background,
+                        has_tails=has_tails, prefix=prefix)
         return m
-
 
     def fitter(self):
         return make_line_fitter(self)
