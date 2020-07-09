@@ -381,7 +381,11 @@ def test_median_absolute_deviation():
     assert mad == 1
     assert median == 2
 
-
+def test_aliasState():
+    esf = mass.off.channels.ExperimentStateFile(data.experimentStateFile.filename)
+    esf.aliasState("B", "Ne")
+    esf.aliasState(["C", "G"], "W")
+    sd = esf.calcStatesDict(ds.unixnano)
 
 
 if __name__ == '__main__':

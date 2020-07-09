@@ -3,6 +3,7 @@ import os
 import shutil
 import logging
 import collections
+from typing import List, Dict, Union
 
 # pkg imports
 import numpy as np
@@ -25,11 +26,10 @@ LOG = logging.getLogger("mass")
 
 
 class ExperimentStateFile():
-    def __init__(self, filename=None, datasetFilename=None, excludeStates="auto", _parse=True):
+    def __init__(self, filename: str=None, datasetFilename: str=None, excludeStates: str="auto", _parse: bool=True):
         """
-        excludeStates - when "auto" it either exclude no states when START is the only state or or excludes START, END and IGNORE
-        _parse is only for testing
-        otherwise pass a list of states to exclude
+        excludeStates - when "auto" it either exclude no states when START is the only state or or excludes START, END and IGNORE otherwise pass a list of states to exclude
+        _parse - is only for testing, can be used to prevent parsing on init
         """
         if filename is not None:
             self.filename = filename
@@ -45,7 +45,7 @@ class ExperimentStateFile():
             if self.filename is None:
                 raise Exception("pass filename or datasetFilename or _parse=False")
             self.parse()
-        self.labelAliasesDict = {}  # map unaliasedLabels to aliasedLabels
+        self.labelAliasesDict: Dict[str, str] = {}  # map unaliasedLabels to aliasedLabels
         self._preventAliasState = False  # causes aliasState to raise an Exception when it wouldn't work as expected
 
     def experimentStateFilenameFromDatasetFilename(self, datasetFilename):
@@ -105,8 +105,8 @@ class ExperimentStateFile():
 
     def calcStatesDict(self, unixnanos, statesDict=None, i0_allLabels=0, i0_unixnanos=0):
         """
-        calculate statesDict, a dictionary mapping state name to EITHER a slice OR a boolean array with length
-        equal to unixnanos. Slices are used for unique states; boolean arrays are used for repeated states.
+        calculate statesDict, a dictionary mapping state name to EITHER a slice OR a list of slices
+        equal to unixnanos. Slices are used for unique states; list of slices are used for repeated states.
         When updating pass in the existing statesDict and i0 must be the first label in allLabels that wasn't
         used to calculate the existing statesDict.
         """
@@ -146,19 +146,24 @@ class ExperimentStateFile():
                 statesDict[aliasedLabel] = s
         # statesDict values should be slices for unique states and lists of slices for non-unique states
         self._preventAliasState = True
-        assert(len(statesDict) == len(self.unaliasedLabels))
         return statesDict
 
     def __repr__(self):
         return "ExperimentStateFile: "+self.filename
 
-    def aliasState(self, unaliasedLabel, aliasedLabel):
+    def aliasState(self, unaliasedLabel: Union[str, List[str]], aliasedLabel: str) -> None:
         if self._preventAliasState:
             raise Exception("call aliasState before calculating or re-calculating statesDict")
-        self.labelAliasesDict[unaliasedLabel] = aliasedLabel
+        if isinstance(unaliasedLabel, list):
+            for _unaliasedLabel in unaliasedLabel:
+                self.labelAliasesDict[_unaliasedLabel] = aliasedLabel
+        elif isinstance(unaliasedLabel, str):
+            self.labelAliasesDict[unaliasedLabel] = aliasedLabel
+        else:
+            raise Exception(f"invalid type for unaliasedLabel={unaliasedLabel}")
 
     @property
-    def labels(self):
+    def labels(self) -> List[str]:
         return [self.labelAliasesDict.get(label, label) for label in self.unaliasedLabels]
 
 
