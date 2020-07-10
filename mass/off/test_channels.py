@@ -386,7 +386,6 @@ def test_aliasState():
     esf.aliasState("B", "Ne")
     esf.aliasState(["C", "G"], "W")
     sd = esf.calcStatesDict(ds.unixnano)
-    print(f"{sd=}")
     for s in ["B", "C", "G"]:
         assert s not in sd.keys() 
     assert isinstance(sd["Ne"], slice)
