@@ -27,6 +27,7 @@ def initialize_hci_line_model(line_name, has_linear_background=False, has_tails=
     line = mass.spectrum_classes[line_name]()
     prefix = '{}_'.format(line_name).replace(' ', '_').replace('J=', '').replace('/', '_').replace('*', '').replace('.', '')
     line_model = line.model(has_linear_background=has_linear_background, has_tails=has_tails, prefix=prefix)
+    line_model.shortname = line_name
     return line_model
 
 def initialize_hci_composite_model(composite_name, individual_models, has_linear_background=False, peak_component_name=None):
@@ -67,7 +68,7 @@ def initialize_hci_composite_model(composite_name, individual_models, has_linear
             separation = line_component_energies[i] - composite_model.peak_energy
             composite_model.set_param_hint('{}peak_ph'.format(line_component_prefixes[i]), 
             expr='({0} * {1}dph_de) + {1}peak_ph'.format(separation, composite_model.peak_prefix))
-    
+    composite_model.shortname = composite_name
     return composite_model
 
 def initialize_HLike_2P_model(element, conf, has_linear_background=False, has_tails=False, vary_amp_ratio=False):

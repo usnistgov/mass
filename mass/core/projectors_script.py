@@ -11,16 +11,21 @@ LOG.setLevel(logging.DEBUG)
 
 
 def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_deriv,
-                    n_basis, maximum_n_pulses, mass_hdf5_path, invert_data):
+                    n_basis, maximum_n_pulses, mass_hdf5_path, mass_hdf5_noise_path, invert_data, optimize_dp_dt,
+                    extra_n_basis_5lag, noise_weight_basis):
     data = mass.TESGroup(pulse_files, noise_files, overwrite_hdf5_file=True,
-                         hdf5_filename=mass_hdf5_path)
+                         hdf5_filename=mass_hdf5_path,
+                         hdf5_noisefilename=mass_hdf5_noise_path)
     for ds in data:
         ds.invert_data = invert_data
     data.summarize_data()
     data.auto_cuts(nsigma_pt_rms=n_sigma_pt_rms, nsigma_max_deriv=n_sigma_max_deriv)
     data.compute_noise_spectra()
-    data.compute_ats_filter(shift1=False)
-    data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses)
+    data.compute_ats_filter(shift1=False, optimize_dp_dt=optimize_dp_dt)
+    hdf5_filename = data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses,
+                    extra_n_basis_5lag=extra_n_basis_5lag, noise_weight_basis=noise_weight_basis,
+                    _rethrow=True)
+
     return data.n_good_channels(), data.n_channels
 
 
@@ -55,8 +60,14 @@ def parse_args(fake):
                         help="supress text output, mostly for testing")
     parser.add_argument("--mass_hdf5_path", default=None,
                         help="specify the path for the mass hdf5 file that is generated as a byproduct of this script")
+    parser.add_argument("--mass_hdf5_noise_path", default=None,
+                        help="specify the path for the mass noise hdf5 file that is generated a as a byproduct of this script")
     parser.add_argument("-i", "--invert_data", action="store_true",
                         help="pass this flag for downward going pulses (eg RAVEN)")
+    parser.add_argument("--dont_optimize_dp_dt", help="simpler derivative like calculating, better for gamma data",
+                        action="store_true")
+    parser.add_argument("--extra_n_basis_5lag", help="use this many basis components to improve 5 lag filter representation",
+                        default=0, type=int)
     args = parser.parse_args()
     return args
 
@@ -97,7 +108,9 @@ def main(args=None):
         n_good, n = make_projectors(pulse_files=pulse_files, noise_files=noise_files, h5=h5,
                                     n_sigma_pt_rms=args.n_sigma_pt_rms, n_sigma_max_deriv=args.n_sigma_max_deriv,
                                     n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path,
-                                    invert_data=args.invert_data)
+                                    mass_hdf5_noise_path=args.mass_hdf5_noise_path, 
+                                    invert_data=args.invert_data, optimize_dp_dt=not args.dont_optimize_dp_dt,
+                                    extra_n_basis_5lag=args.extra_n_basis_5lag, noise_weight_basis=args.noise_weight_basis)
     if not args.silent:
         if n_good == 0:
             print(f"all channels bad, could be because you need -i for inverted pulses")

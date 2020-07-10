@@ -134,6 +134,8 @@ Then we can learn some basic cuts and get an overview of the data.
 
   plt.savefig("img/hist1.png");plt.close() # opposite order of how they were plotted
   plt.savefig("img/residualStdDevCut.png");plt.close()
+  plt.savefig("img/residualStdDevCut2.png");plt.close()
+
 
 
 .. image:: img/residualStdDevCut.png
@@ -302,7 +304,7 @@ Below I show how to add a recipe and inspect existing recipes.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  RecipeBook: baseIngedients=recordSamples, recordPreSamples, framecount, unixnano, pretriggerMean, residualStdDev, pulseMean, derivativeLike, filtValue, extraCoefs, craftedIngredeints=relTimeSec, filtPhase, cutNone, cutResidualStdDev, energyRough, arbsInRefChannelUnits, cutForLearnDC, filtValueDC, energy, timeSquared, timePretrig
+  RecipeBook: baseIngedients=recordSamples, recordPreSamples, framecount, unixnano, pretriggerMean, residualStdDev, pulseMean, derivativeLike, filtValue, extraCoefs, coefs, craftedIngredeints=relTimeSec, filtPhase, cutNone, cutResidualStdDev, energyRough, arbsInRefChannelUnits, cutForLearnDC, filtValueDC, energy, timeSquared, timePretrig
 
 Linefit
 -------
@@ -334,3 +336,24 @@ Linefit
 
 .. image:: img/linefit_no_bg.png
   :width: 45%
+
+.. testcode::
+  :hide:
+  
+  # will fail tests if any figs are open
+  if (n := len(plt.get_fignums())) != 0:
+      print(f"{n} figs left open")
+
+Channel
+--------
+
+.. autoclass:: mass.off.Channel
+  :members:
+  :undoc-members:
+
+Channel Group
+-------------
+
+.. autoclass:: mass.off.ChannelGroup
+  :members:
+  :undoc-members:

@@ -20,6 +20,7 @@ from .fake_data import *
 from .files import *
 from .optimal_filtering import *
 from .pulse_model import *
+from .projectors_script import make_projectors
 
 # Don't import the contents of these at the top level
 import mass.core.ljh_util

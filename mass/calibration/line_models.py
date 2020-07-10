@@ -34,7 +34,7 @@ class MLEModel(lmfit.Model):
 
     def __repr__(self):
         """Return representation of Model."""
-        return "<MLEModel: %s>" % (self.name)
+        return f"<{type(self).__name__}: {self.name}>"
 
     def _reprstring(self, long=False):
         out = self._name
@@ -46,7 +46,7 @@ class MLEModel(lmfit.Model):
                 opts.append("%s='%s'" % (k, v))
         if len(opts) > 0:
             out = "%s, %s" % (out, ', '.join(opts))
-        return "MLEModel(%s)" % out
+        return f"{type(self).__name__}({out})"
 
     def __add__(self, other):
         """+"""
@@ -146,9 +146,9 @@ class CompositeMLEModel(MLEModel, lmfit.CompositeModel):
         vals[y < data] *= -1
         return vals
 
-    def __repr__(self):
-        """Return representation of Model."""
-        return "<CompositeMLEModel: %s>" % (self.name)
+    # def __repr__(self):
+    #     """Return representation of Model."""
+    #     return "<CompositeMLEModel: %s>" % (self.name)
 
     def __add__(self, other):
         """+"""
@@ -233,7 +233,7 @@ class GenericLineModel(MLEModel):
 
     def _set_paramhints_prefix(self):
         self.set_param_hint('fwhm', value=4, min=0)
-        self.set_param_hint('peak_ph', min=0, max=2**16)
+        self.set_param_hint('peak_ph', min=0)
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
         self.set_param_hint("amplitude", value=100, min=0)
         if self._has_linear_background:
@@ -245,14 +245,13 @@ class GenericLineModel(MLEModel):
             self.set_param_hint('tail_frac_hi', value=0, min=0, max=1, vary=False)
             self.set_param_hint('tail_tau_hi', value=0, min=0, max=100, vary=False)
 
-    def guess(self, data, bin_centers=None, **kwargs):
+    def guess(self, data, bin_centers, **kwargs):
         "Guess values for the peak_ph, amplitude, and background."
-        # if data.sum() <= 0:
-        #     pars = self.make_params()
-        #     for k,v in pars.items():
-        #         v.set(0,vary=False)
-        #     pars["dph_de"].set(1,vary=False)
-        # else:
+        order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+        def percentiles(p):
+            return bin_centers[(order_stat > p).argmax()]
+        fwhm = 0.7*(percentiles(0.75) - percentiles(0.25))
+        # b could be an alternate guess for peak_ph
         peak_ph = bin_centers[data.argmax()]
         ampl = data.max() * 9.4  # this number is taken from the GenericKBetaFitter
         if len(data) > 20:
@@ -260,7 +259,7 @@ class GenericLineModel(MLEModel):
             baseline = max(data[0:10].mean(), 1.0/len(data))
         else:
             baseline = 0.1
-        pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl)
+        pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl, fwhm=fwhm)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
 class LinearBackgroundModel(MLEModel):
@@ -338,11 +337,15 @@ class LineModelResult(lmfit.model.ModelResult):
             else:
                 sig_figs = 2
                 s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
-        return s[:-1]
+        s += f"redchi  {self.redchi:.2g}"
+        return s
 
     def plotm(self, ax=None, title=None, xlabel=None, ylabel=None):
         """plot the data, the fit, and annotate the plot with the parameters"""
         title, xlabel, ylabel = self._handle_default_labels(title, xlabel, ylabel)
+        if ax is None:
+            plt.figure()
+            ax = plt.gca()
         ax = lmfit.model.ModelResult.plot_fit(self, ax=ax,
                                               xlabel=xlabel, ylabel=ylabel)
         if title is not None:
