@@ -35,6 +35,8 @@ def initialize_hci_composite_model(composite_name, individual_models, has_linear
     Args:
         composite_name: str name given to composite line model
         line_models: array of lmfit models to sum into a composite model
+        has_linear_background: (default False) include a single linear background on top of group of lorentzians
+        peak_component_name: designate a component to be a peak for energy, all expressions are referenced to this component
     '''
 
     composite_model = np.sum(individual_models)
@@ -123,9 +125,7 @@ def initialize_HeLike_complex_model(element, has_linear_background=False, has_ta
     composite_name = '{}{} 1s2s_2p Complex'.format(element, charge)
     composite_model = initialize_hci_composite_model(composite_name=composite_name, individual_models=individual_models, 
     has_linear_background=has_linear_background, peak_component_name=line_name_1s2p_1P)
-    return composite_model
-
-    
+    return composite_model    
 
 def add_bg_model(generic_model, vary_slope=False):
     '''Adds a LinearBackgroundModel to a generic lmfit model
@@ -151,6 +151,7 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
         has_linear_background: (default False) include a single linear background on top of the 2 Lorentzians
         has_tails: (default False) include low energy tail in the model
         vary_Hlike_amp_ratio: (default False) allow the ratio of the J=3/2 to J=1/2 H-like states to vary
+        additional_Helike_complex_lines: (default []) additional line names to include inHe-like complex model, e.g. low level Li/Be-like features
     '''
 
     models_dict={}
@@ -173,7 +174,7 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
         Helike_model = initialize_HeLike_complex_model(i_element, has_linear_background=has_linear_background, 
         has_tails=has_tails, additional_line_names=additional_Helike_complex_lines)
         models_dict[Helike_model._name] = Helike_model
-    # 1s.np 1P* lines for n>2
+    # 1s.np 1P* lines for n>=3
     conf_Helike_1P_dict={}
     conf_Helike_1P_dict['N'] = ['1s.4p', '1s.5p']
     conf_Helike_1P_dict['O'] = ['1s.4p', '1s.5p']
