@@ -16,7 +16,7 @@ pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass
 See [`nist-qsp-tdm`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) README for instructions to install all tdm python software simultaneously, and how to setup venv.
 
 ## Windows
-You may need to install Visual Studio Community Edition. 
+You may need to install Visual Studio Community Edition.
 
 ## Sudo
 Try installing without `sudo` first, though I find on NIST macs that I can't get away without sudo.
@@ -32,21 +32,22 @@ pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@versions/0.7.5#eg
 
 # Documentation
 
-* [Docs for master](https://oneilg.bitbucket.io/mass/) 
-* [Docs for latest push to any non master branch](https://oneilg.bitbucket.io/mass_non_master/) 
+* [Docs for master](https://oneilg.bitbucket.io/mass/)
+* [Docs for latest push to any non master branch](https://oneilg.bitbucket.io/mass_non_master/)
 
 
 How to help with the documentation:
+
 1. [Write a docstring.](https://www.python.org/dev/peps/pep-0257/#multi-line-docstrings) (or update an old docstring and fix the formatting while you're at it)
-  * A poorly formatted docstring is better than no docstring, don't be shy.
-2. [Add to (or write a new) .md file.](http://commonmark.org/help/)
-  * put a header (line starting with pound) as the first line
-  * again, poorly formatted markdown is better than no markdown  
-  * [link to WYSIWIG online markdown editor/viewer.](https://dillinger.io/) Just copy and paste once it looks like you want it to.
-  * look in mass/doc for .md files
+   * A poorly formatted docstring is better than no docstring; don't be shy.
+2. [Add to (or write a new) .md or .rst file.](http://commonmark.org/help/)
+   * Put a header (line starting with pound) as the first line.
+   * Again, poorly formatted markdown is better than no markdown.
+   * [Here's a WYSIWIG online markdown editor/viewer.](https://dillinger.io/) Just copy and paste once it looks like you want it to.
+   * Look in mass/doc for .md files and .rst files. The latter contain sphinx doctests. Should probably use these for all new documentation.
+
 
 # Intro
-
 
 Mass is a software suite to analyze data from microcalorimeters.  It is meant to be exactly as general as NIST users and their collaborators require, without being any more general than that.  
 
@@ -92,7 +93,7 @@ Otherwise will will just be in mass relative to where you run the pip command.
 The -e command makes development really easy, you can change python files, then the next time you import mass the new files will be used. If you change Cython files or other complied files you should install again. Either do `pip install -e .` from within the soure directory, or call `python setup.py develop` from within the directory.
 
 ## reload
-You may find `reload(mass.mathstat)` useful for interactive code development, but be aware it can't reload complied files. 
+You may find `reload(mass.mathstat)` useful for interactive code development, but be aware it can't reload complied files.
 
 ## Working on docs + tests
 Change directory into `doc` then `make doctest;make html;open _build/html/index.html`. Read about RST format, it is weird, my most common mistake is forgetting the blank line between `.. blah` statements and the following text.
