@@ -152,6 +152,7 @@ class ExperimentStateFile():
         return "ExperimentStateFile: "+self.filename
 
     def aliasState(self, unaliasedLabel: Union[str, List[str]], aliasedLabel: str) -> None:
+        assert isinstance(aliasedLabel, str)
         if self._preventAliasState:
             raise Exception("call aliasState before calculating or re-calculating statesDict")
         if isinstance(unaliasedLabel, list):
