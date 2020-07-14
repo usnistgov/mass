@@ -8,7 +8,7 @@ Motivation
 ----------
 For many analyses, it is important to estimate a x-ray spectrum as it would be seen from the source rather than as it would be measured with a set of detectors.
 This can be important, for example, when trying to determine line intensity ratios of two lines separated in energy space.
-Here, we attempt to model the effects that would cause the measured spectrum to be different from the true spectrum, 
+Here, we attempt to model the effects that would cause the measured spectrum to be different from the true spectrum,
 such as energy dependent losses in transmission due to IR blocking filters and vacuum windows.
 Energy dependent absorber efficiency can also be modeled.
 
@@ -22,19 +22,19 @@ We begin by importing ``efficiency_models`` and examining the EBIT efficiency mo
 
 .. testcode::
 
-  import mass.efficiency_models
+  import mass
   import numpy as np
   import pylab as plt
 
-  EBIT_model = mass.efficiency_models.models['EBIT 2018']
+  EBIT_model = mass.filterstack_models['EBIT 2018']
   print('{} components:'.format(EBIT_model.name), EBIT_model.components)
 
 .. testoutput::
 
   EBIT 2018 components: {'Electroplated Au Absorber': Film, '50mK Filter': AlFilmWithOxide, '3K Filter': AlFilmWithOxide, '50K Filter': FilterStack, 'Luxel Window TES': LEX_HT, 'Luxel Window EBIT': LEX_HT}
 
-In this case, the components represented the various filters and absorbers within the filter stack. 
-More complicated filters can be built up with components of an arbitrary number of layers. 
+In this case, the components represented the various filters and absorbers within the filter stack.
+More complicated filters can be built up with components of an arbitrary number of layers.
 For example, a filter can consist of both a film and a support mesh backing the film.
 
 .. testcode::
@@ -49,9 +49,9 @@ For example, a filter can consist of both a film and a support mesh backing the 
   Luxel Window TES components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Film}
   Luxel Window EBIT components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Film}
 
-Next, we examine the function ``get_efficiency(xray_energies_eV)``, which is an attribute of ``FilterStack``. 
-This can be called for the entire filter stack or for individual components in the filter stack. 
-As an example, we look at the efficiency of the EBIT 2018 filter stack and the 50K filter component between 
+Next, we examine the function ``get_efficiency(xray_energies_eV)``, which is an attribute of ``FilterStack``.
+This can be called for the entire filter stack or for individual components in the filter stack.
+As an example, we look at the efficiency of the EBIT 2018 filter stack and the 50K filter component between
 2,000 eV and 10,000 eV, at 1,000 eV steps.
 
 .. testcode::
@@ -137,20 +137,20 @@ or even other ``FilterStack`` objects to create more complicated filters with mu
 The ``add`` argument can be used to add a premade ``FilterStack`` object as a component of a different ``FilterStack`` object.
 We will start by adding some simple ``Film`` objects to the filter stack.
 This class requires a the ``name`` and ``material`` arguments, and the optical depth can be specified by passing in either
-``area_density_g_per_cm2`` or ``thickness_nm`` (but not both). 
+``area_density_g_per_cm2`` or ``thickness_nm`` (but not both).
 By default, most ``FilterStack`` objects use the bulk density of a material to calculate the optical depth when the ``thickness_nm`` is used,
-but a custom density can be specified with the ``density_g_per_cm3`` argument. 
+but a custom density can be specified with the ``density_g_per_cm3`` argument.
 In addition, a meshed style filter can be modelled using the ``fill_fraction`` argument.
 Finally, most ``FilterStack`` subclasses can use the ``absorber`` argument (default False), which will cause the object to return absorption,
 instead of transmittance, as the efficiency.
 
 .. testcode::
 
-  custom_model = mass.efficiency_models.FilterStack(name='My Filter Stack')
+  custom_model = mass.FilterStack(name='My Filter Stack')
   custom_model.add_Film(name='My Bi Absorber', material='Bi', thickness_nm=4.0e3, absorber=True)
   custom_model.add_Film(name='My Al 50mK Filter', material='Al', thickness_nm=100.0)
   custom_model.add_Film(name='My Si 3K Filter', material='Si', thickness_nm=500.0)
-  custom_filter = mass.efficiency_models.FilterStack(name='My meshed 50K Filter')
+  custom_filter = mass.FilterStack(name='My meshed 50K Filter')
   custom_filter.add_Film(name='Al Film', material='Al', thickness_nm=100.0)
   custom_filter.add_Film(name='Ni Mesh', material='Ni', thickness_nm=10.0e3, fill_fraction=0.2)
   custom_model.add(custom_filter)
@@ -172,19 +172,19 @@ Let us look at the efficiency curves of the filter stack and its components.
   plt.savefig("img/custom_filter_stack.png");plt.close()
 
 .. image:: img/custom_filter_stack.png
-  :width: 30%  
+  :width: 30%
 
 .. image:: img/custom_absorber.png
-  :width: 30%  
+  :width: 30%
 
 .. image:: img/custom_50mK.png
-  :width: 30%  
+  :width: 30%
 
 .. image:: img/custom_3K.png
-  :width: 30%  
+  :width: 30%
 
 .. image:: img/custom_50K.png
-  :width: 30%  
+  :width: 30%
 
 We can also look more in depth at 50K filter component efficiencies.
 
@@ -199,10 +199,10 @@ We can also look more in depth at 50K filter component efficiencies.
   plt.savefig("img/custom_Al_film.png");plt.close()
 
 .. image:: img/custom_Al_film.png
-  :width: 30%  
+  :width: 30%
 
 .. image:: img/custom_Ni_mesh.png
-  :width: 30%  
+  :width: 30%
 
 There are also some premade filter classes for filters that commonly show up in our instrument filter stacks.
 At the moment, the FilterStack subclasses listed below are implemented:
@@ -213,7 +213,7 @@ Usage examples and efficiency curves of these classes are shown below.
 
 .. testcode::
 
-  premade_filter_stack = mass.efficiency_models.FilterStack(name='A Stack of Premade Filters')
+  premade_filter_stack = mass.FilterStack(name='A Stack of Premade Filters')
   premade_filter_stack.add_AlFilmWithOxide(name='My Oxidized Al Filter', Al_thickness_nm=50.0)
   premade_filter_stack.add_AlFilmWithPolymer(name='My Polymer Backed Al Filter', Al_thickness_nm=100.0, polymer_thickness_nm=200.0)
   premade_filter_stack.add_LEX_HT(name='My LEX HT Filter')
@@ -228,17 +228,17 @@ Usage examples and efficiency curves of these classes are shown below.
   plt.savefig("img/premade_Al_oxide.png");plt.close()
 
 .. image:: img/premade_Al_oxide.png
-  :width: 30%  
+  :width: 30%
 
 .. image:: img/premade_Al_polymer.png
-  :width: 30%  
+  :width: 30%
 
 .. image:: img/premade_LEX_HT.png
   :width: 30%
 
 .. testcode::
   :hide:
-  
+
   # will fail tests if any figs are open
   if (n := len(plt.get_fignums())) != 0:
       print(f"{n} figs left open")

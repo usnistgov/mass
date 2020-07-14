@@ -22,16 +22,7 @@ pipelines:
             - pip
           name: python 3.8
           image: python:3.8.1
-          script: # Modify the commands below to build your repository.
-            - pip install --upgrade pip
-            - pip install -e .
-            - pytest
-      - step:
-          caches: 
-            - pip
-          name: deploy docs
-          image: python:3.8.1
-          script: 
+          script:
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
             - pip install --upgrade pip
@@ -50,9 +41,10 @@ pipelines:
             - cd ..
             - rm -rf xraylib-4.0.0
             - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
+            - pytest
+            # Below here: make and deploy documentation.
             - cd doc
             - make clean
             - make doctest
             - make html
             - ./deploy_docs_bitbucket.sh $BITBUCKET_BRANCH
-
