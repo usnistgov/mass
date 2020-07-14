@@ -39,14 +39,15 @@ pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@versions/0.7.5#eg
 How to help with the documentation:
 
 1. [Write a docstring.](https://www.python.org/dev/peps/pep-0257/#multi-line-docstrings) (or update an old docstring and fix the formatting while you're at it). A poorly formatted docstring is better than no docstring; don't be shy.
-2. [Add to (or write a new) .md or .rst file.](http://commonmark.org/help/).
+2. [Add to (or write a new) .rst file.](http://commonmark.org/help/).
 
 General advice on updating/creating documentation files:
 
 * Put a header (line starting with pound) as the first line.
 * Again, poorly formatted markdown is better than no markdown.
 * [Here's a WYSIWIG online markdown editor/viewer.](https://dillinger.io/) Just copy and paste once it looks like you want it to.
-* Look in mass/doc for .md files and .rst files. The latter contain sphinx doctests. We should probably use these for all new documentation.
+* Look in mass/doc for .md files and .rst files. The latter contain sphinx doctests. We should probably use these for all new documentation
+* If there's something worth updating in an existing .md file, then update it. Better yet, change it to an .rst file with doctests. 
 
 
 # Intro
