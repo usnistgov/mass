@@ -22,20 +22,13 @@ pipelines:
             - pip
           name: python 3.8
           image: python:3.8.1
-          script: # Modify the commands below to build your repository.
-            - pip install --upgrade pip
-            - pip install -e .
-            - pytest
-      - step:
-          caches: 
-            - pip
-          name: deploy docs
-          image: python:3.8.1
           script: 
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
             - pip install --upgrade pip
             - pip install -e .
+            - pytest
+            # Below here, doctest creation and deplotment
             - pip install recommonmark sphinx
             - apt-get update
             - apt-get install -y swig
@@ -55,4 +48,3 @@ pipelines:
             - make doctest
             - make html
             - ./deploy_docs_bitbucket.sh $BITBUCKET_BRANCH
-
