@@ -42,6 +42,7 @@ How to help with the documentation:
 2. [Add to (or write a new) .md or .rst file.](http://commonmark.org/help/).
 
 General advice on updating/creating documentation files:
+
 * Put a header (line starting with pound) as the first line.
 * Again, poorly formatted markdown is better than no markdown.
 * [Here's a WYSIWIG online markdown editor/viewer.](https://dillinger.io/) Just copy and paste once it looks like you want it to.
