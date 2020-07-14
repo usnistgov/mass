@@ -26,7 +26,8 @@ from mass import _version
 # html_theme_options = {
 #     'inlinecss': """max-width: none"""
 # }
-html_last_updated_fmt = ""  # Default format for a "last updated" tag on each page footer.
+# Default format for a "last updated" tag on each page footer.
+html_last_updated_fmt = "%H:%M %Z on %b %d, %Y"
 
 # -- General configuration ------------------------------------------------
 
