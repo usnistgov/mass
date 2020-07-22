@@ -319,10 +319,10 @@ Linefit
 
   # add tails and specify their parameters
   p = lmfit.Parameters()
+  p.add("tail_frac", value=0.04, min=0, max=1)
+  p.add("tail_tau", value=8, vary=False)
   p.add("tail_frac_hi", value=0.01, min=0, max=1)
   p.add("tail_tau_hi", value=8, vary=False)
-  p.add("tail_tau", value=8, vary=False)
-  p.add("tail_frac_hi", value=0.04, min=0, max=1)
   ds.linefit("W Ni-20", states=["W 1", "W 2"], has_linear_background=False, has_tails=True, params_update=p)
 
 .. testcode::
