@@ -42,13 +42,12 @@ Objects of the type `SpectralLine` encode the line shape of a fluorescence line,
 import mass
 import pylab as plt
 
-# In general, known lines are instantiated by:
-line = mass.spectrum_classes["MnKAlpha"]()
+# In general, known lines are accessed by:
+line = mass.spectra["MnKAlpha"]
 # But the following is a shortcut for many lines:
-line = mass.MnKAlpha()
-line.set_gauss_fwhm(2.2)  # set the energy resolution of this line
+line = mass.MnKAlpha
 N = 100000
-energies = line.rvs(size=N)  # draw from the distribution
+energies = line.rvs(size=N, instrument_gaussian_fwhm=2.2)  # draw from the distribution
 plt.clf()
 sim, bin_edges, _ = plt.hist(energies, 120, [5865, 5925], histtype="step");
 binsize = bin_edges[1] - bin_edges[0]
@@ -64,7 +63,7 @@ The `SpectralLine` object is useful to you if you need to generate simulated dat
 The simplest case requires only 3 steps: create a model instance from a `SpectralLine`, guess its parameters from the data, and perform a fit with this guess. Unlike the old fitters, plotting is not done as part of the fit--you have to do that separately.
 
 ```python
-model = mass.make_line_model(line)
+model = line.model()
 params = model.guess(sim, bin_centers=e)
 resultA = model.fit(sim, params, bin_centers=e)
 
@@ -82,7 +81,7 @@ resultB.plot()
 Notice when you report the fit (or check the contents of the `params` or `resultB.params` objects), there are no parameters referring to exponential tails of a Bortels response. That's because the default fitter assumes a Gaussian response. If you want tails, that's a constructor argument:
 
 ```python
-model = mass.make_line_model(line, has_tails=True)
+model = line.model(has_tails=True)
 params = model.guess(sim, bin_centers=e)
 params["dph_de"].set(1.0, vary=False)
 resultC = model.fit(sim, params, bin_centers=e)
@@ -115,7 +114,7 @@ Keep in mind that the code in this section is considered deprecated. You should 
 
 ```python
 # Fitters for known lines are instantiated by:
-fitter = mass.make_line_fitter(line)
+fitter = line.fitter()
 paramA, covar = fitter.fit(sim, e)
 print(paramA)
 ```
@@ -177,7 +176,7 @@ One detail that's changed: the new models parameterize the tau values (scale len
 
 ## To do
 
-* [ ] We probably should restructure the `SpectralLine`, `GenericLineModel`, and perhaps also the older `LineFitter` objects such that the specific versions for (say) Mn Kα become not subclasses but instances of them. See [issue 182](https://bitbucket.org/joe_fowler/mass/issues/182/does-creation-of-3-classes-per-spectral) on the question of whether this change might speed up loading of MASS.
+* [X] We probably should restructure the `SpectralLine`, `GenericLineModel`, and perhaps also the older `LineFitter` objects such that the specific versions for (say) Mn Kα become not subclasses but instances of them. See [issue 182](https://bitbucket.org/joe_fowler/mass/issues/182/does-creation-of-3-classes-per-spectral) on the question of whether this change might speed up loading of MASS. Done by PR#120.
 * [ ] Add to `GenericLineModel` one or more methods to make plots comparing data and fit with parameter values printed on the plot.
 * [ ] The LMFIT view of models is such that we would probably find it easy to fit one histogram for the sum of (say) a Mn Kα and a Cr Kβ line simultaneously. Add features to our object, as needed, and document the procedure here.
 * [ ] We could implement convolution between two models (see just below [CompositeModel](https://lmfit.github.io/lmfit-py/model.html#lmfit.model.CompositeModel) in the docs for how to do this).

@@ -131,7 +131,7 @@ class Test_Gaussian(unittest.TestCase):
 class Test_MnKA(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.MnKAlphaFitter()
-        self.distrib = mass.calibration.fluorescence_lines.MnKAlpha()
+        self.distrib = mass.calibration.fluorescence_lines.MnKAlpha
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
         np.random.seed(96)
@@ -140,7 +140,7 @@ class Test_MnKA(unittest.TestCase):
                 nbins=150, vary_bg_slope=False, vary_tail=False):
         bmin, bmax = 5875, 5910
 
-        values = self.distrib.rvs(size=n)
+        values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
         sigma = resolution/2.3548
         values += sigma*np.random.standard_normal(size=n)
 
@@ -185,14 +185,14 @@ class Test_MnKA(unittest.TestCase):
 
     def test_plot_and_result_string(self):
         self.do_test()
-        self.fitter.plot(label="full", ph_units="arb", color=["r"])
+        self.fitter.plot(label="full", ph_units="arb", color="r")
         self.assertIsNotNone(self.fitter.result_string)
 
 
 class Test_MnKB(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.MnKBetaFitter()
-        self.distrib = mass.calibration.fluorescence_lines.MnKBeta()
+        self.distrib = mass.calibration.fluorescence_lines.MnKBeta
         np.random.seed(97)
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-beta fits stored to %s" % self.tempdir)
@@ -201,7 +201,7 @@ class Test_MnKB(unittest.TestCase):
                 bg=10, nbins=150, vary_bg_slope=False, vary_tail=False):
         bmin, bmax = 6460, 6510
 
-        values = self.distrib.rvs(size=n)
+        values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
         sigma = resolution/2.3548
         values += sigma*np.random.standard_normal(size=n)
 
@@ -246,7 +246,7 @@ class Test_MnKB(unittest.TestCase):
 
     def test_plot_and_result_string(self):
         self.do_test()
-        self.fitter.plot(label="full", ph_units="arb", color=["r"])
+        self.fitter.plot(label="full", ph_units="arb", color="r")
         self.assertIsNotNone(self.fitter.result_string)
 
 
@@ -325,25 +325,26 @@ class Test_Voigt(unittest.TestCase):
         self.singletest(bg=0)
 
 
-class Test_MnKA_lmfit(unittest.TestCase):
-    def test_lmfit(self):
+class TestMnKA_fitter_vs_model(unittest.TestCase):
+    def test_MnKA_lmfit(self):
         n = 10000
         resolution = 2.5
-        bin_edges = np.arange(5850, 5950, 1.0)
+        bin_edges = np.arange(5850, 5950, 0.5)
         # generate random x-ray pulse energies following MnKAlpha distribution
-        distrib = mass.calibration.fluorescence_lines.MnKAlpha()
+        line = mass.calibration.fluorescence_lines.MnKAlpha
         np.random.seed(154)
-        values = distrib.rvs(size=n)
+        values = line.rvs(size=n, instrument_gaussian_fwhm=0)
         # add gaussian oise to each x-ray energy
         sigma = resolution/2.3548
         values += sigma*np.random.standard_normal(size=n)
         # histogram
         counts, _ = np.histogram(values, bin_edges)
-        model = mass.make_line_model(distrib)
+        model = line.model()
         bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
         params = model.guess(counts, bin_centers=bin_centers)
         result = model.fit(counts, bin_centers=bin_centers, params=params)
         fitter = mass.MnKAlphaFitter()
+        fitter._have_warned = True
         fitter.fit(counts, bin_centers, plot=False)
         self.assertAlmostEqual(
             fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value, delta=2*result.params["fwhm"].stderr)
@@ -357,6 +358,164 @@ class Test_MnKA_lmfit(unittest.TestCase):
             fitter.last_fit_params_dict["bg_slope"][0], result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
         self.assertAlmostEqual(
             fitter.last_fit_params_dict["bg_slope"][1], result.params["bg_slope"].stderr, places=1)
+
+    def test_MnKA_float32(self):
+        """See issue 193: if the energies are float32, then the fit shouldn't be flummoxed."""
+        line = mass.calibration.fluorescence_lines.MnKAlpha
+        model = line.model()
+        N = 100000
+        np.random.seed(238)
+        energies = line.rvs(size=N, instrument_gaussian_fwhm=4.0)  # draw from the distribution
+        e32 = np.asarray(energies, dtype=np.float32)
+
+        # bin_edges will be float32 b/c e32 is.
+        sim, bin_edges = np.histogram(e32, 120, [5865, 5925])
+        binsize = bin_edges[1] - bin_edges[0]
+        bctr = bin_edges[:-1] + 0.5*binsize
+        params = model.guess(sim, bin_centers=bctr)
+        params["peak_ph"].set(value=5899)
+        result = model.fit(sim, params, bin_centers=bctr)
+        val1 = params["peak_ph"].value
+        val2 = result.params["peak_ph"].value
+        self.assertNotAlmostEqual(val1, val2, delta=0.1)
+
+    def test_MnKA_narrowbins(self):
+        """See issue 194: if dPH/dE >> 1, we should not automatically trigger the too-narrow-bins warning."""
+        line = mass.calibration.fluorescence_lines.MnKAlpha
+        model = line.model()
+        N = 10000
+        np.random.seed(238)
+        energies = line.rvs(size=N, instrument_gaussian_fwhm=4.0)  # draw from the distribution
+
+        for SCALE in (0.1, 1, 10.):
+            sim, bin_edges = np.histogram(energies*SCALE, 60, [5865*SCALE, 5925*SCALE])
+            binsize = bin_edges[1] - bin_edges[0]
+            bctr = bin_edges[:-1] + 0.5*binsize
+            params = model.guess(sim, bin_centers=bctr)
+            params["peak_ph"].set(value=5899*SCALE)
+            result = model.fit(sim, params, bin_centers=bctr)
+            # If the above never errors, then problem solved.
+
+
+class Test_Composites_lmfit(unittest.TestCase):
+    def setUp(self):
+        if 'dummy1' not in mass.spectrum_classes.keys():
+            mass.calibration.fluorescence_lines.addline(
+                element="dummy",
+                material="dummy_material",
+                linetype="1",
+                reference_short='NIST ASD',
+                fitter_type=mass.line_fits.GenericKBetaFitter,
+                reference_plot_instrument_gaussian_fwhm=0.5,
+                nominal_peak_energy=653.493657,
+                energies=np.array([653.493657]), lorentzian_fwhm=np.array([0.1]),
+                reference_amplitude=np.array([1]),
+                reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
+            )
+        if 'dummy2' not in mass.spectrum_classes.keys():
+            mass.calibration.fluorescence_lines.addline(
+                element="dummy",
+                material="dummy_material",
+                linetype="2",
+                reference_short='NIST ASD',
+                fitter_type=mass.line_fits.GenericKBetaFitter,
+                reference_plot_instrument_gaussian_fwhm=0.5,
+                nominal_peak_energy=653.679946,
+                energies=np.array([653.679946]), lorentzian_fwhm=np.array([0.1]),
+                reference_amplitude=np.array([1]),
+                reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
+            )
+        np.random.seed(131)
+        bin_edges = np.arange(600, 700, 0.4)
+        resolution = 4.0
+        sigma = resolution/2.3548
+        n1 = 10000
+        n2 = 20000
+        self.n = n1+n2
+        self.line1 = mass.spectrum_classes['dummy1']()
+        self.line2 = mass.spectrum_classes['dummy2']()
+        self.nominal_separation = self.line2.nominal_peak_energy - self.line1.nominal_peak_energy
+        values1 = self.line1.rvs(size=n1, instrument_gaussian_fwhm=resolution)
+        values2 = self.line2.rvs(size=n2, instrument_gaussian_fwhm=resolution)
+        self.counts1, _ = np.histogram(values1, bin_edges)
+        self.counts2, _ = np.histogram(values2, bin_edges)
+        self.counts = self.counts1 + self.counts2
+        self.bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+
+    def test_FitToModelWithoutPrefix(self):
+        model1_noprefix = self.line1.model()
+        assert(model1_noprefix.prefix == '')
+        params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers)
+        params1_noprefix['dph_de'].set(value=1.0, vary=False)
+        result1_noprefix = model1_noprefix.fit(
+            self.counts1, params=params1_noprefix, bin_centers=self.bin_centers)
+        for iComp in result1_noprefix.components:
+            assert(iComp.prefix == '')
+        result1_noprefix._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
+
+    def test_NonUniqueParamsFails(self):
+        model1_noprefix = self.line1.model()
+        model2_noprefix = self.line2.model()
+        with self.assertRaises(NameError):
+            composite_model = model1_noprefix + model2_noprefix
+
+    def test_CompositeModelFit_with_prefix_and_background(self):
+        prefix1 = 'p1_'
+        prefix2 = 'p2_'
+        model1 = self.line1.model(prefix=prefix1)
+        model2 = self.line2.model(prefix=prefix2, has_linear_background=False)
+        assert(model1.prefix == prefix1)
+        assert(model2.prefix == prefix2)
+        params1 = model1.guess(self.counts1, bin_centers=self.bin_centers)
+        params2 = model2.guess(self.counts2, bin_centers=self.bin_centers)
+        params1['{}dph_de'.format(prefix1)].set(value=1.0, vary=False)
+        params2['{}dph_de'.format(prefix2)].set(value=1.0, vary=False)
+        result1 = model1.fit(self.counts1, params=params1, bin_centers=self.bin_centers)
+        result2 = model2.fit(self.counts2, params=params2, bin_centers=self.bin_centers)
+        compositeModel = model1 + model2
+        modelComponentPrefixes = [iComp.prefix for iComp in compositeModel.components]
+        assert(np.logical_and(prefix1 in modelComponentPrefixes, prefix2 in modelComponentPrefixes))
+        compositeParams = result1.params + result2.params
+        compositeParams['{}fwhm'.format(prefix1)].expr = '{}fwhm'.format(prefix2)
+        compositeParams['{}peak_ph'.format(
+            prefix1)].expr = '{}peak_ph - {}'.format(prefix2, self.nominal_separation)
+        compositeParams.add(name='ampRatio', value=0.5, vary=False)
+        compositeParams['{}amplitude'.format(
+            prefix1)].expr = '{}amplitude * ampRatio'.format(prefix2)
+        compositeResult = compositeModel.fit(
+            self.counts, params=compositeParams, bin_centers=self.bin_centers)
+        resultComponentPrefixes = [iComp.prefix for iComp in compositeResult.components]
+        assert(np.logical_and(prefix1 in resultComponentPrefixes, prefix2 in resultComponentPrefixes))
+        compositeResult._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
+
+
+def test_BackgroundMLEModel():
+    class BackgroundMLEModel(mass.calibration.line_models.MLEModel):
+        def __init__(self, independent_vars=['bin_centers'], prefix='', nan_policy='raise', **kwargs):
+            def modelfunc(bin_centers, background, bg_slope):
+                bg = np.zeros_like(bin_centers) + background
+                bg += bg_slope * np.arange(len(bin_centers))
+                bg[bg < 0] = 0
+                if any(np.isnan(bg)) or any(bg < 0):
+                    raise ValueError("some entry in r is nan or negative")
+                return bg
+            kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
+                           'independent_vars': independent_vars})
+            super(BackgroundMLEModel, self).__init__(modelfunc, **kwargs)
+            self.set_param_hint('background', value=1, min=0)
+            self.set_param_hint('bg_slope', value=0)
+
+    test_model = BackgroundMLEModel(name='LinearTestModel', prefix='p1_')
+    test_params = test_model.make_params(background=1.0, bg_slope=0.0)
+    x_data = np.arange(1000, 2000, 1)
+    test_background = 127.3
+    test_background_error = np.sqrt(test_background)
+    test_bg_slope = 0.17
+    y_data = np.zeros_like(x_data) + test_background + \
+        np.random.normal(scale=test_background_error, size=len(x_data))
+    y_data += test_bg_slope * np.arange(len(x_data))
+    y_data[y_data < 0] = 0
+    test_result = test_model.fit(y_data, test_params, bin_centers=x_data)
 
 
 if __name__ == "__main__":

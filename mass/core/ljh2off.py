@@ -9,29 +9,33 @@ import h5py
 import progress.bar
 import argparse
 import logging
+import sys
 LOG = logging.getLogger("mass")
 
 # Intended for conversion of LJH files to OFF files, given some projectors and basis
 
-_OFF_VERSION = "0.2.0"
+_OFF_VERSION = "0.3.0"
 
 
 def off_header_dict_from_ljhfile(ljhfile, projectors, basis, h5_path):
     d = collections.OrderedDict()
-    d["FileFormatVersion"] = "0.2.0"
+    d["FileFormatVersion"] = "0.3.0"
     d["FramePeriodSeconds"] = ljhfile.timebase
     d["NumberOfBases"] = projectors.shape[0]
     d["FileFormat"] = "OFF"
     d["ModelInfo"] = collections.OrderedDict()
+    saved_msg = " ".join(
+        ["row-major float64 binary data after header and before records.",
+         "projectors first then basis, nbytes = rows*cols*8 for each projectors and basis"])
     d["ModelInfo"]["Projectors"] = {
         "Rows": projectors.shape[0],
         "Cols": projectors.shape[1],
-        "SavedAs": "row-major float64 binary data after header and before records. projectors first then basis, nbytes = rows*cols*8 for each projectors and basis"
+        "SavedAs": saved_msg
     }
     d["ModelInfo"]["Basis"] = {
         "Rows": basis.shape[0],
         "Cols": basis.shape[1],
-        "SavedAs": "row-major float64 binary data after header and before records. projectors first then basis, nbytes = rows*cols*8 for each projectors and basis"
+        "SavedAs": saved_msg
     }
     d["ModelInfo"]["ModelFile"] = h5_path
     d["PulseFile"] = ljhfile.filename
@@ -68,18 +72,26 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
             # print("i_lo {}, i_hi {}, i_segment {}, nnow {}, nsum {}".format(i_lo, i_hi, i_segment, data.shape[0], n))
             timestamps = ljhfile.datatimes_float
             rowcounts = ljhfile.rowcount
+            projector_record_length = projectors.shape[1]
+            data_record_length = data.shape[1]
+            assert projector_record_length == data_record_length, f"projectors are for records of length {projector_record_length}, but {ljhfile} has records of length {data_record_length}"
             mpc = np.matmul(projectors, data.T)  # modeled pulse coefs
             mp = np.matmul(basis, mpc)  # modeled pulse
             residuals = mp-data.T
             residual_std_dev = np.std(residuals, axis=0)
             pretrig_mean = data[:, :ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
             offdata = np.zeros(records_this_seg, dtype)
+            pfit_pt_delta = np.polyfit(np.arange(ljhfile.nPresamples-n_ignore_presamples),
+                                       data[:, :ljhfile.nPresamples-n_ignore_presamples].T, deg=1)
+            pt_delta = np.polyval(pfit_pt_delta, ljhfile.nPresamples
+                                  - n_ignore_presamples-1) - np.polyval(pfit_pt_delta, 0)
             if True:  # load data into offdata: implementation 1
                 offdata["recordSamples"] = ljhfile.nSamples
                 offdata["recordPreSamples"] = ljhfile.nPresamples
                 offdata["framecount"] = rowcounts//ljhfile.number_of_rows
                 offdata["unixnano"] = timestamps*1e9
                 offdata["pretriggerMean"] = pretrig_mean
+                offdata["pretriggerDelta"] = pt_delta
                 offdata["residualStdDev"] = residual_std_dev
                 offdata["coefs"] = mpc.T
             else:  # load data into offdata: implementation 2
@@ -87,7 +99,7 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
                     offdata[i] = (
                         ljhfile.nSamples, ljhfile.nPresamples, rowcounts[i]//ljhfile.number_of_rows,
                         np.int64(timestamps[i]*1e9),
-                        pretrig_mean[i], residual_std_dev[i],
+                        pretrig_mean[i], pt_delta[i], residual_std_dev[i],
                         mpc[:, i])
             # write offdata to file
             offdata.tofile(f)
@@ -155,9 +167,11 @@ def load_pulse_models(h5_path):
 def parse_args(fake):
     if fake:
         return FakeArgs()
-    example_usage = """ python ljh2off.py data/20190924/0010/20190924_run0010_chan1.ljh data/20190923/0003/20190923_run0003_model.hdf5 test_ljh2off -m 4 -r"""
+    example_usage = """ python ljh2off.py data/20190924/0010/20190924_run0010_chan1.ljh """
+    example_usage += """data/20190923/0003/20190923_run0003_model.hdf5 test_ljh2off -m 4 -r"""
     parser = argparse.ArgumentParser(
-        description="convert ljh files to off files, example:\n"+example_usage)
+        description="convert ljh files to off files, example:\n"+example_usage,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "ljh_path", help="path a a single ljh file, other channel numbers will be found automatically")
     parser.add_argument("h5_path", help="path to a hdf5 file with projectors and bases")
@@ -168,9 +182,25 @@ def parse_args(fake):
     parser.add_argument("-m", "--max_channels",
                         help="stop after processing this many channels", default=2**31, type=int)
     parser.add_argument("--n_ignore_presamples",
-                        help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=3, type=int)
+                        help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=0, type=int)
     args = parser.parse_args()
     return args
+
+
+def main():
+    print("starting ljh2off")
+    args = mass.ljh2off.parse_args(fake=False)
+    for k in sorted(vars(args).keys()):
+        print("{}: {}".format(k, vars(args)[k]))
+    if not os.path.isdir(args.output_dir):
+        os.mkdir(args.output_dir)
+    elif not args.replace_output:
+        print("dir {} exists, pass --replace_output to write into it anyway".format(args.output_dir))
+        sys.exit()
+    ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
+        args.ljh_path, args.h5_path, args.output_dir, args.max_channels, args.n_ignore_presamples)
+    print("full path to first off file:")
+    print(os.path.abspath(off_filenames[0]))
 
 
 class FakeArgs():

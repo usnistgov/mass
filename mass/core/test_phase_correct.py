@@ -23,9 +23,8 @@ class TestPhaseCorrect(ut.TestCase):
         ph_peaks = []
         line_names = ["MnKAlpha", "FeKAlpha", "CuKAlpha", "CrKAlpha"]
         for i, name in enumerate(line_names):
-            spect = mass.spectrum_classes[name]()
-            spect.set_gauss_fwhm(3)
-            energies[i*1000:(i+1)*1000] = spect.rvs(size=1000)
+            spect = mass.spectra[name]
+            energies[i*1000:(i+1)*1000] = spect.rvs(size=1000, instrument_gaussian_fwhm=3)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))
         np.random.shuffle(energies)
@@ -52,7 +51,7 @@ class TestPhaseCorrect(ut.TestCase):
 
         resolutions = []
         for name in line_names:
-            fitter = mass.make_line_fitter(mass.spectrum_classes[name]())
+            fitter = mass.make_line_fitter(mass.spectra[name])
             bin_edges = np.arange(-100, 100)+fitter.spect.peak_energy
             # bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
             counts, _ = np.histogram(ds.p_filt_value_phc, bin_edges)
@@ -82,9 +81,8 @@ class TestPhaseCorrect(ut.TestCase):
         ph_peaks = []
         line_names = ["MnKAlpha", "FeKAlpha", "CuKAlpha", "CrKAlpha"]
         for i, name in enumerate(line_names):
-            spect = mass.spectrum_classes[name]()
-            spect.set_gauss_fwhm(3)
-            energies[i*1000:(i+1)*1000] = spect.rvs(size=1000)
+            spect = mass.spectra[name]
+            energies[i*1000:(i+1)*1000] = spect.rvs(size=1000, instrument_gaussian_fwhm=3)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))
         np.random.shuffle(energies)
@@ -96,7 +94,7 @@ class TestPhaseCorrect(ut.TestCase):
 
         resolutions = []
         for name in line_names:
-            fitter = mass.make_line_fitter(mass.spectrum_classes[name]())
+            fitter = mass.make_line_fitter(mass.spectra[name])
             bin_edges = np.arange(-100, 100)+fitter.spect.peak_energy
             # bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
             counts, _ = np.histogram(corrected, bin_edges)

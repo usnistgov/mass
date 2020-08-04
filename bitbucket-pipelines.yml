@@ -9,18 +9,12 @@ pipelines:
   default:
     - parallel:
       - step:
-          name: python 2.7
-          image: python:2.7.12
-          script: # Modify the commands below to build your repository.
-            - pip install --upgrade pip # the pip with py27 is too old for pyproject.toml, so we need to upgrade
-            - pip install -e .
-            - pytest
-      - step:
           caches:
             - pip
           name: python 3.7
           image: python:3.7.2
           script: # Modify the commands below to build your repository.
+            - pip install --upgrade pip
             - pip install -e .
             - pytest
       - step:
@@ -28,6 +22,29 @@ pipelines:
             - pip
           name: python 3.8
           image: python:3.8.1
-          script: # Modify the commands below to build your repository.
+          script:
+            - git config --global user.email "galen.oneil@nist.gov"
+            - git config --global user.name "Bitbucket Pipeline Doc Deploy"
+            - pip install --upgrade pip
             - pip install -e .
+            - pip install recommonmark sphinx
+            - apt-get update
+            - apt-get install -y swig
+            - curl -O http://lvserver.ugent.be/xraylib/xraylib-4.0.0.tar.gz
+            - gunzip xraylib-4.0.0.tar.gz
+            - tar xvf xraylib-4.0.0.tar
+            - rm xraylib-4.0.0.tar
+            - cd xraylib-4.0.0
+            - ./configure --prefix=/usr/local --disable-fortran2003 --disable-perl
+            - make
+            - make install
+            - cd ..
+            - rm -rf xraylib-4.0.0
+            - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
             - pytest
+            # Below here: make and deploy documentation.
+            - cd doc
+            - make clean
+            - make doctest
+            - make html
+            - ./deploy_docs_bitbucket.sh $BITBUCKET_BRANCH

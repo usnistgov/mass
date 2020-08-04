@@ -22,7 +22,7 @@ plt.ion()
 
 # <demo> stop
 LOG.info("For fun, here is the Mn K-alpha complex.")
-mass.MnKAlpha().plot()
+mass.MnKAlpha.plot()
 
 # <demo> stop
 # Let's generate some data distributed as if from the Mn K-alpha complex, with
@@ -30,7 +30,7 @@ mass.MnKAlpha().plot()
 
 res_fwhm = 3.0
 res_sigma = res_fwhm / 2.3548
-distrib = mass.calibration.MnKAlpha()
+distrib = mass.calibration.MnKAlpha
 N = 10000
 energies = distrib.rvs(size=N)
 energies += np.random.standard_normal(N)*res_sigma

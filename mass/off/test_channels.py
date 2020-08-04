@@ -1,20 +1,29 @@
+# Normal imports
 import mass
-from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, Recipe
+from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, NoCutInds
 from mass.calibration import _highly_charged_ion_lines
-import h5py
-import os
 import numpy as np
 import pylab as plt
-import collections
+import lmfit
 
+# test only imports
+from mass.off import util
 import unittest as ut
+import pytest
+import collections
+import os
+
 
 # this is intented to be both a test and a tutorial script
-d = os.path.dirname(os.path.realpath(__file__))
+# in most cases you want to remove all _rethrow=True, its mostly for debugging mass
+try:
+    d = os.path.dirname(os.path.realpath(__file__))
+except NameError:
+    d = os.getcwd()
 
 filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
 data = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2),
-                    verbose=False, channelClass=Channel, excludeStates=["START", "END"])
+                    verbose=True, channelClass=Channel, excludeStates=["START", "END"])
 data.setOutputDir(baseDir=d, deleteAndRecreate=True)
 data.experimentStateFile.aliasState("B", "Ne")
 data.experimentStateFile.aliasState("C", "W 1")
@@ -24,19 +33,18 @@ data.experimentStateFile.aliasState("F", "Re")
 data.experimentStateFile.aliasState("G", "W 2")
 data.experimentStateFile.aliasState("H", "CO2")
 data.experimentStateFile.aliasState("I", "Ir")
-data.learnStdDevResThresholdUsingRatioToNoiseStd(ratioToNoiseStd=5, _rethrow=True)
-data.learnDriftCorrection(_rethrow=True)
+# creates "cutResidualStdDev" and sets it to default
+data.learnResidualStdDevCut(plot=True, _rethrow=True)
+data.setDefaultBinsize(0.5)
 ds = data.firstGoodChannel()
 ds.plotAvsB("relTimeSec", "residualStdDev",  includeBad=True)
 ds.plotAvsB("relTimeSec", "pretriggerMean", includeBad=True)
 ds.plotAvsB("relTimeSec", "filtValue", includeBad=False)
 ds.plotHist(np.arange(0, 40000, 4), "filtValue")
 ds.plotHist(np.arange(0, 40000, 4), "filtValue", coAddStates=False)
-ds.plotResidualStdDev()
-driftCorrectInfo = ds.learnDriftCorrection(states=["W 1", "W 2"])
-ds.plotCompareDriftCorrect()
 
-ds.calibrationPlanInit("filtValueDC")
+# set calibration points, and create attribute "energyRough"
+ds.calibrationPlanInit("filtValue")
 ds.calibrationPlanAddPoint(2128, "O He-Like 1s2s+1s2p", states="CO2")
 ds.calibrationPlanAddPoint(2421, "O H-Like 2p", states="CO2")
 ds.calibrationPlanAddPoint(2864, "O H-Like 3p", states="CO2")
@@ -51,8 +59,24 @@ ds.calibrationPlanAddPoint(11125, "Ar He-Like 1s2s+1s2p", states="Ar")
 ds.calibrationPlanAddPoint(11728, "Ar H-Like 2p", states="Ar")
 # at this point energyRough should work
 ds.plotHist(np.arange(0, 4000, 1), "energyRough", coAddStates=False)
-fitters = ds.calibrateFollowingPlan("filtValueDC", approximate=False)
-ds.linefit("Ne H-Like 2p", attr="energy", states="Ne")
+
+# align all channels to have calibration plans at the same peaks
+data.alignToReferenceChannel(referenceChannel=ds,
+                             binEdges=np.arange(500, 20000, 4), attr="filtValue", _rethrow=True)
+aligner = data[3].aligner
+aligner.samePeaksPlot()
+aligner.samePeaksPlotWithAlignmentCal()
+
+# create "filtValueDC" by drift correcting on data near some particular energy
+# to do so we first create a cut, but we do not set it as default
+data.cutAdd("cutForLearnDC", lambda energyRough: np.logical_and(
+    energyRough > 1000, energyRough < 3500), setDefault=False, _rethrow=True)
+# uses "cutForLearnDC" in place of the default, so far no easy way to use both
+data.learnDriftCorrection(states=["W 1", "W 2"], cutRecipeName="cutForLearnDC", _rethrow=True)
+ds.plotCompareDriftCorrect()
+
+# calibrate on filtValueDC, it's usually close enough to filtValue to use the same calibration plan
+results = ds.calibrateFollowingPlan("filtValueDC", approximate=False)
 ds.linefit("Ne He-Like 1s2s+1s2p", attr="energy", states="Ne")
 ds.linefit("W Ni-7", attr="energy", states=["W 1", "W 2"])
 ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
@@ -60,15 +84,9 @@ ds.plotHist(np.arange(0, 4000, 4), "energy", coAddStates=False)
 
 ds.diagnoseCalibration()
 
-ds3 = data[3]
-data.alignToReferenceChannel(referenceChannel=ds,
-                             binEdges=np.arange(500, 20000, 4), attr="filtValueDC", _rethrow=True)
-aligner = ds3.aligner
-aligner.samePeaksPlot()
-aligner.samePeaksPlotWithAlignmentCal()
 
-fitters = data.calibrateFollowingPlan(
-    "filtValueDC", _rethrow=False, dlo=10, dhi=10, approximate=False)
+results = data.calibrateFollowingPlan(
+    "filtValueDC", dlo=10, dhi=10, approximate=False, _rethrow=True, overwriteRecipe=True)
 data.qualityCheckDropOneErrors(
     thresholdAbsolute=2.5, thresholdSigmaFromMedianAbsoluteValue=6, _rethrow=True)
 
@@ -87,7 +105,7 @@ names = ["W Ni-{}".format(i) for i in range(1, 27)]
 n = collections.OrderedDict()
 # line = ax.lines[0]
 for name in names:
-    n[name] = mass.spectrum_classes[name].nominal_peak_energy
+    n[name] = mass.spectra[name].nominal_peak_energy
 labelPeak(ax, "W Ni-8", n["W Ni-8"])
 labelPeaks(axis=ax, names=n.keys(), energies=n.values(), line=ax.lines[0])
 nos = collections.OrderedDict()
@@ -102,12 +120,13 @@ nos["Os Ni-16"] = 3032
 nos["Os Ni-17"] = 3102
 labelPeaks(ax, names=nos.keys(), energies=nos.values(), line=ax.lines[1])
 
-data.fitterPlot("W Ni-20", states=["W 1"])
+data.resultPlot("W Ni-20", states=["W 1"])
 
+print(data.whyChanBad)
 
 h5 = data.outputHDF5  # dont use with here, it will hide errors
-fitters = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
-                                   worstAllowedFWHM=4.5, states="Ne", _rethrow=False,
+results = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
+                                   worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
                                    resolutionPlot=True, hdf5Group=h5)
 data.histsToHDF5(h5, np.arange(4000))
 # data.recipeToHDF5(h5)
@@ -124,12 +143,19 @@ ds.learnPhaseCorrection(uncorrectedName="filtValueDC")
 ds.learnTimeDriftCorrection(uncorrectedName="filtValueDCPC")
 ds.filtValueDCPCTC[0]  # this will error if the attr doesnt exist
 
+# test cutRecipes
+data.cutAdd("cutNearTiKAlpha", lambda energyRough: np.abs(
+    energyRough-mass.STANDARD_FEATURES["TiKAlpha"]) < 60)
+selectedEnergies = ds.energyRough[ds.cutNearTiKAlpha]
+assert len(selectedEnergies) == np.sum(
+    np.abs(ds.energyRough-mass.STANDARD_FEATURES["TiKAlpha"]) < 60)
+data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueDCCutTest",
+                          cutRecipeName="cutNearTiKAlpha", _rethrow=True)
+data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueDCCutTestInv",
+                          cutRecipeName="!cutNearTiKAlpha", _rethrow=True)
+
 
 class TestSummaries(ut.TestCase):
-    # def test_recipeFromHDF5(self):
-    #     self.assertTrue(newds.driftCorrection == ds.driftCorrection)
-    #     self.assertTrue(np.allclose(newds.filtValueDC, ds.filtValueDC))
-    #     self.assertTrue(np.allclose(newds.energy, ds.energy))
 
     def test_calibration_n_iter(self):
         ds.calibrateFollowingPlan("filtValue", calibratedName="energy2",
@@ -140,7 +166,7 @@ class TestSummaries(ut.TestCase):
         self.assertTrue(np.allclose(ds.energy, ds.energy2, rtol=1e-1))
 
     def test_repeatingTheSameCorrectionWithNewNameDoesntChangeTheOriginal(self):
-        # repeating the same correciton with new name doesnt change the orirignal
+        # repeating the same correciton with new name doesnt change the original
         orig = ds.filtValueDC[:]
         ds.learnDriftCorrection(uncorrectedName="filtValueDCPCTC")
         ds.filtValueDCPCTC[0]
@@ -171,25 +197,11 @@ class TestSummaries(ut.TestCase):
         e1 = ds.getAttr("energy", inds)  # index with inds from same list of states
         self.assertTrue(np.allclose(e0, e1))
 
-    def test_recipes(self):
-        def funa(x, y):
-            return x+y
-
-        def funb(a, z):
-            return a+z
-        ra = Recipe(funa)
-        rb = Recipe(funb)
-        rb.setArgToRecipe("a", ra)
-        args = {"x": 1, "y": 0, "z": 2}
-        self.assertEqual(rb(args), 3)
-        self.assertEqual(ra(args), 1)
-
     def test_refresh_from_files(self):
         # ds and data refers to the global variable from the script before the tests
         # while ds_local and data_local refer to the similar local variables
-        data_local = ChannelGroup([filename])
+        data_local = ChannelGroup([filename], verbose=False)
         ds_local = data_local.firstGoodChannel()
-        ds_local.stdDevResThreshold = ds.stdDevResThreshold
         experimentStateFile = data_local.experimentStateFile
         # reach inside offFile and experimentStateFile to make it look like the files were originally opened during state E
         # then we refresh to learn about states F-I
@@ -212,9 +224,11 @@ class TestSummaries(ut.TestCase):
         self.assertEqual(len(ds_local), len(ds))
         self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E", "F", "G", "H", "I"])
         states = ["B", "H", "I"]
-        _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue", states=states)
+        _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue",
+                                      states=states, cutRecipeName="cutNone")
         global_states = [data.experimentStateFile.labelAliasesDict[state] for state in states]
-        _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue", states=global_states)
+        _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue",
+                          states=global_states, cutRecipeName="cutNone")
         for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
             self.assertEqual(v_local, v)
         self.assertTrue(all(ds.filtValue == ds_local.filtValue))
@@ -228,7 +242,6 @@ class TestSummaries(ut.TestCase):
         data_local = ChannelGroup([filename])
         self.assertEqual(len(data_local.keys()), 1)
         ds_local = data_local.firstGoodChannel()
-        ds_local.stdDevResThreshold = 100
         _, hists_pre_bad = data_local.hists(np.arange(10), "filtValue")
         self.assertFalse(ds_local.markedBadBool)
         ds_local.markBad("testing")
@@ -249,7 +262,8 @@ class TestSummaries(ut.TestCase):
         self.assertEqual(n_exclude_bad, 0)
 
     def test_experiment_state_file_repeated_states(self):
-        # a better test would create an alternate experiment state file with repeated indicies and use that rather than reach into the internals of ExperimentStateFile
+        # A better test would create an alternate experiment state file with repeated indicies and use that
+        # rather than reach into the internals of ExperimentStateFile
         esf = mass.off.channels.ExperimentStateFile(_parse=False)
         # reach into the internals to simulate the results of parse with repeated states
         esf.allLabels = ["A", "B", "A", "B", "IGNORE", "A"]
@@ -267,14 +281,117 @@ class TestSummaries(ut.TestCase):
         ds_local = data_local.firstGoodChannel()
         ds_local.stdDevResThreshold = 100
         inds = ds_local.getStatesIndicies("A")
-        fv = ds_local.getAttr("filtValue", inds)
+        _ = ds_local.getAttr("filtValue", inds)
 
-    def test_getAttr_with_list_of_slice(self):
-        ind = [slice(0, 5), slice(5, 10)]
-        self.assertTrue(np.allclose(ds.getAttr("filtValue", ind),
-                                    ds.getAttr("filtValue", slice(0, 10))))
-        self.assertTrue(np.allclose(ds.getAttr(
-            "filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10))))
+def test_getAttr_with_list_of_slice():
+    ind = [slice(0, 5), slice(5, 10)]
+    assert np.allclose(ds.getAttr("filtValue", ind), ds.getAttr("filtValue", slice(0, 10)))
+    assert np.allclose(ds.getAttr("filtValue", [slice(0, 10)]), ds.getAttr("filtValue", slice(0, 10)))
+
+
+def test_HCI_loads():
+    assert "O He-Like 1s2p 1P1" in dir(_highly_charged_ion_lines.fluorescence_lines)
+
+def test_getAttr_and_recipes_with_coefs():
+    ind = [slice(0, 5), slice(5, 10)]
+    coefs = ds.getAttr("coefs", ind)
+    filtValue, coefs2 = ds.getAttr(["filtValue","coefs"], ind)   
+    assert np.allclose(coefs, coefs2) 
+    assert np.allclose(coefs[:,2], filtValue)
+    ds.recipes.add("coefsSum", lambda coefs: coefs.sum(axis=1))
+    assert np.allclose(ds.getAttr("coefsSum", ind), coefs.sum(axis=1))
+    ds.recipes.add("coefsSumPlusFiltvalue", lambda filtValue,coefs: coefs.sum(axis=1)+filtValue)
+    assert np.allclose(ds.getAttr("coefsSumPlusFiltvalue", ind), coefs.sum(axis=1)+filtValue)
+    # test access as with NoCutInds
+    ds.getAttr("coefs", NoCutInds())
+    ds.getAttr("coefsSum", NoCutInds())
+
+
+# pytest style test! way simpler to write
+def test_get_model():
+    m_127 = mass.off.util.get_model(127)
+    assert m_127.spect.peak_energy == 127
+    assert m_127.spect.shortname == "127eVquick_line"
+
+    m_au = mass.off.util.get_model("AuLAlpha")
+    assert m_au.spect.peak_energy == mass.STANDARD_FEATURES["AuLAlpha"]
+    assert m_au.spect.shortname == "AuLAlphaquick_line"
+
+    m_ti = mass.off.util.get_model("TiKAlpha")
+    assert m_ti.spect.shortname == "TiKAlpha"
+
+    ql = mass.SpectralLine.quick_monochromatic_line("test", 100, 0.001, 0)
+    m_ql = mass.off.util.get_model(ql.model())
+    assert m_ql.spect.shortname == "testquick_line"
+
+    with pytest.raises(mass.off.util.FailedToGetModelException):
+        mass.off.util.get_model("this is a str but not a standard feature")
+
+
+def test_recipes():
+    rb = util.RecipeBook(baseIngredients=["x", "y", "z"])
+
+    def funa(x, y):
+        return x+y
+
+    def funb(a, z):
+        return a+z
+
+    rb.add("a", funa)
+    rb.add("b", funb)
+    rb.add("c", lambda a, b: a+b)
+    with pytest.raises(AssertionError):
+        # should fail because f isn't in baseIngredients and hasn't been added
+        rb.add("e", lambda a, b, c, d, f: a)
+    with pytest.raises(AssertionError):
+        # should fail because ingredients is longer than argument list
+        rb.add("f", lambda a, b: a+b, ingredients=["a", "b", "c"])
+    args = {"x": 1, "y": 2, "z": 3}
+    assert rb.craft("a", args) == 3
+    assert rb.craft("b", args) == 6
+    assert rb.craft("c", args) == 9
+    assert rb.craft("c", args) == 9
+    assert rb._craftWithFunction(lambda a, b, c: a+b+c, args) == 18
+    assert rb.craft(lambda a, b, c: a+b+c, args) == 18
+
+
+def test_linefit_has_tail_and_has_linear_background():
+    result = ds.linefit("O H-Like 2p", states="CO2")
+    assert "tail_frac" not in result.params.keys()
+    result = ds.linefit("O H-Like 2p", states="CO2", has_tails=True)
+    assert result.params["tail_frac"].vary is True
+    assert result.params["tail_frac_hi"].vary is False
+    assert result.params["tail_frac_hi"].value == 0
+    params = lmfit.Parameters()
+    params.add("tail_frac_hi", value=0.01, vary=True, min=0, max=0.5)
+    params.add("tail_tau_hi", value=8, vary=True, min=0, max=100)
+    result = ds.linefit("O H-Like 2p", states="CO2", has_tails=True, params_update=params)
+    assert result.params["tail_frac"].vary is True
+    assert result.params["tail_frac_hi"].vary is True
+    assert result.params["tail_frac_hi"].value > 0
+    assert result.params["tail_tau_hi"].vary is True
+    assert result.params["tail_tau_hi"].value > 0
+
+    result = ds.linefit("O H-Like 2p", states="CO2", has_linear_background=False)
+    assert "background" not in result.params.keys()
+    assert "bg_slope" not in result.params.keys()
+
+def test_median_absolute_deviation():
+    mad, sigma_equiv, median = util.median_absolute_deviation([1, 1, 2, 3, 4])
+    assert mad == 1
+    assert median == 2
+
+def test_aliasState():
+    esf = mass.off.channels.ExperimentStateFile(data.experimentStateFile.filename)
+    esf.aliasState("B", "Ne")
+    esf.aliasState(["C", "G"], "W")
+    sd = esf.calcStatesDict(ds.unixnano)
+    for s in ["B", "C", "G"]:
+        assert s not in sd.keys() 
+    assert isinstance(sd["Ne"], slice)
+    assert isinstance(sd["W"], list) 
+    for x in sd["W"]:
+        assert isinstance(x, slice)
 
 
 if __name__ == '__main__':

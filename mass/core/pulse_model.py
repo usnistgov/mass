@@ -2,6 +2,7 @@ import pylab as plt
 import numpy as np
 import mass.mathstat
 
+
 class PulseModel():
     """Object to hold a "pulse model", meaning a low-dimensional linear basis to express "all" pulses,
     along with a projector such that projector.dot(basis) is the identity matrix.
@@ -9,21 +10,43 @@ class PulseModel():
     Also has the capacity to store to and restore from HDF5, and the ability to compute additional
     basis elements and corresponding projectors with method _additional_projectors_tsvd"""
 
-    version = 1
+    version = 2
 
-    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name):
+    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd, 
+            v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name, 
+            extra_n_basis_5lag, f_5lag, average_pulse_for_5lag, noise_psd, noise_psd_delta_f,
+            noise_autocorr, _from_hdf5=False):
         self.pulses_for_svd = pulses_for_svd
         self.n_basis = n_basis
-        if projectors_so_far.shape[0] < n_basis:
-            self.projectors, self.basis = self._additional_projectors_tsvd(projectors_so_far, basis_so_far, n_basis, pulses_for_svd)
-        elif projectors_so_far.shape[0] == n_basis:
+        if projectors_so_far.shape[0] < n_basis-extra_n_basis_5lag:
+            self.projectors, self.basis = self._additional_projectors_tsvd(
+                projectors_so_far, basis_so_far, n_basis-extra_n_basis_5lag, pulses_for_svd)
+        elif (projectors_so_far.shape[0] == n_basis-extra_n_basis_5lag) or _from_hdf5:
             self.projectors, self.basis = projectors_so_far, basis_so_far
-        else:
-            raise Exception("n_basis={} < projectors_so_far.shape[0] = {}".format(n_basis, projectors_so_far.shape[0]))
+        else: # dont throw error on
+            s = f"n_basis-extra_n_basis_5lag={n_basis-extra_n_basis_5lag} < projectors_so_far.shape[0] = {projectors_so_far.shape[0]}"
+            s += f", extra_n_basis_5lag={extra_n_basis_5lag}"
+            raise Exception(s)
+        if (not _from_hdf5) and (extra_n_basis_5lag > 0):
+            filters_5lag = np.zeros((len(f_5lag)+4, 5))
+            for i in range(5):
+                if i < 4:
+                    filters_5lag[i:-4+i, i] = projectors_so_far[2,2:-2]
+                else:
+                    filters_5lag[i:, i] = projectors_so_far[2,2:-2]
+            self.projectors, self.basis = self._additional_projectors_tsvd(
+                self.projectors, self.basis, n_basis, filters_5lag)
+
         self.v_dv = v_dv
         self.pretrig_rms_median = pretrig_rms_median
         self.pretrig_rms_sigma = pretrig_rms_sigma
         self.file_name = str(file_name)
+        self.extra_n_basis_5lag = extra_n_basis_5lag
+        self.f_5lag = f_5lag
+        self.average_pulse_for_5lag = average_pulse_for_5lag
+        self.noise_psd = noise_psd
+        self.noise_psd_delta_f = noise_psd_delta_f
+        self.noise_autocorr = noise_autocorr
 
     def toHDF5(self, hdf5_group, save_inverted):
         projectors, basis = self.projectors[()], self.basis[()]
@@ -43,6 +66,12 @@ class PulseModel():
         hdf5_group["svdbasis/pretrig_rms_sigma"] = self.pretrig_rms_sigma
         hdf5_group["svdbasis/version"] = self.version
         hdf5_group["svdbasis/file_name"] = self.file_name
+        hdf5_group["svdbasis/extra_n_basis_5lag"] = self.extra_n_basis_5lag
+        hdf5_group["svdbasis/5lag_filter"] = self.f_5lag
+        hdf5_group["svdbasis/average_pulse_for_5lag"] = self.average_pulse_for_5lag
+        hdf5_group["svdbasis/noise_psd"] = self.noise_psd
+        hdf5_group["svdbasis/noise_psd_delta_f"] = self.noise_psd_delta_f
+        hdf5_group["svdbasis/noise_autocorr"] = self.noise_autocorr
 
     @classmethod
     def fromHDF5(cls, hdf5_group):
@@ -55,9 +84,20 @@ class PulseModel():
         pretrig_rms_sigma = hdf5_group["svdbasis/pretrig_rms_sigma"][()]
         version = hdf5_group["svdbasis/version"][()]
         file_name = hdf5_group["svdbasis/file_name"][()]
-        if version != 1:
-            raise Exception("loading not implemented for other versions")
-        return cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name)
+        extra_n_basis_5lag = hdf5_group["svdbasis/extra_n_basis_5lag"][()]
+        f_5lag = hdf5_group["svdbasis/5lag_filter"][()]
+        average_pulse_for_5lag = hdf5_group["svdbasis/average_pulse_for_5lag"][()]
+        noise_psd = hdf5_group["svdbasis/noise_psd"][()]
+        noise_psd_delta_f = hdf5_group["svdbasis/noise_psd_delta_f"][()]
+        noise_autocorr = hdf5_group["svdbasis/noise_autocorr"][()]
+
+        if version != cls.version:
+            raise Exception(f"loading not implemented for other versions, version={self.version}")
+        return cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, 
+                   pretrig_rms_sigma, file_name, extra_n_basis_5lag, f_5lag, average_pulse_for_5lag,
+                   noise_psd, noise_psd_delta_f, noise_autocorr, _from_hdf5=True)
+
+
 
     def _additional_projectors_tsvd(self, projectors, basis, n_basis, pulses_for_svd):
         """
@@ -85,7 +125,7 @@ class PulseModel():
         mpc = np.matmul(projectors, pulses_for_svd)  # modeled pulse coefs
         mp = np.matmul(basis, mpc)  # modeled pulse
         residuals = pulses_for_svd - mp
-        Q = mass.mathstat.utilities.find_range_randomly(residuals, n_basis-3)
+        Q = mass.mathstat.utilities.find_range_randomly(residuals, n_basis-n_existing)
 
         projectors2 = np.linalg.pinv(Q)  # = Q.T, perhaps??
         projectors2 -= projectors2.dot(basis).dot(projectors)
@@ -95,35 +135,41 @@ class PulseModel():
 
         return projectors, basis
 
+    def labels(self):
+        labels = ["const", "deriv", "pulse"]
+        for i in range(self.n_basis-3):
+            if i > self.n_basis-3-self.extra_n_basis_5lag:
+                labels = labels + [f"5lag{i+2-self.extra_n_basis_5lag}"] 
+            else:
+                labels = labels + [f"svd{i}"]           
+        return labels
 
     def plot(self):
-        labels = ["pulse", "deriv", "mean"]
-        for i in range(self.n_basis-3):
-            labels = ["svd{}".format(i)] + labels
+        labels = self.labels()
         mpc = np.matmul(self.projectors, self.pulses_for_svd)
         mp = np.matmul(self.basis, mpc)
         residuals = self.pulses_for_svd-mp
 
-        fig=plt.figure(figsize=(10,14))
+        fig = plt.figure(figsize=(10, 14))
         plt.subplot(511)
-        projector_scale = np.amax(np.abs(self.projectors[2,:]))
-        plt.plot(self.projectors[::-1,:].T)
+        projector_scale = np.amax(np.abs(self.projectors[2, :]))
+        plt.plot(self.projectors[::-1, :].T)
         plt.title("projectors")
-        plt.ylim(-2*projector_scale,2*projector_scale)
-        plt.legend(labels)
+        # plt.ylim(-2*projector_scale, 2*projector_scale)
+        plt.legend(labels[::-1])
         plt.grid(True)
         plt.subplot(512)
-        plt.plot(self.basis[:,::-1])
+        plt.plot(self.basis[:, ::-1])
         plt.title("basis")
-        plt.legend(labels)
+        plt.legend(labels[::-1])
         plt.grid(True)
         plt.subplot(513)
-        plt.plot(self.pulses_for_svd[:,:10])
+        plt.plot(self.pulses_for_svd[:, :10])
         plt.title("from ljh")
         plt.legend(["{}".format(i) for i in range(10)])
         plt.grid(True)
         plt.subplot(514)
-        plt.plot(residuals[:,:10])
+        plt.plot(residuals[:, :10])
         plt.title("residuals")
         plt.legend(["{}".format(i) for i in range(10)])
         plt.grid(True)
@@ -137,7 +183,11 @@ class PulseModel():
         fig.suptitle(self.file_name)
 
         plt.figure()
-        plt.plot(self.pulses_for_svd[:,0], label="from ljh")
-        plt.plot(mp[:,0],label="modeled pulse")
+        plt.plot(self.pulses_for_svd[:, 0], label="from ljh index 0")
+        plt.plot(mp[:, 0], label="modeled pulse index 0")
         plt.legend()
         plt.title("modeled pulse vs true pulse")
+
+
+# how well are the the 5lag filters represented
+
