@@ -18,4 +18,3 @@ from .core import *
 from .calibration import *
 from .mathstat import *
 from .common import *
-from .materials import *
