@@ -23,10 +23,11 @@ We begin by importing ``efficiency_models`` and examining the EBIT efficiency mo
 .. testcode::
 
   import mass
+  import mass.materials # because of how hard x-raylib can be, you have to explicity import mass.materials
   import numpy as np
   import pylab as plt
 
-  EBIT_model = mass.filterstack_models['EBIT 2018']
+  EBIT_model = mass.materials.filterstack_models['EBIT 2018']
   print('{} components:'.format(EBIT_model.name), EBIT_model.components)
 
 .. testoutput::
@@ -146,11 +147,11 @@ instead of transmittance, as the efficiency.
 
 .. testcode::
 
-  custom_model = mass.FilterStack(name='My Filter Stack')
+  custom_model = mass.materials.FilterStack(name='My Filter Stack')
   custom_model.add_Film(name='My Bi Absorber', material='Bi', thickness_nm=4.0e3, absorber=True)
   custom_model.add_Film(name='My Al 50mK Filter', material='Al', thickness_nm=100.0)
   custom_model.add_Film(name='My Si 3K Filter', material='Si', thickness_nm=500.0)
-  custom_filter = mass.FilterStack(name='My meshed 50K Filter')
+  custom_filter = mass.materials.FilterStack(name='My meshed 50K Filter')
   custom_filter.add_Film(name='Al Film', material='Al', thickness_nm=100.0)
   custom_filter.add_Film(name='Ni Mesh', material='Ni', thickness_nm=10.0e3, fill_fraction=0.2)
   custom_model.add(custom_filter)
@@ -213,7 +214,7 @@ Usage examples and efficiency curves of these classes are shown below.
 
 .. testcode::
 
-  premade_filter_stack = mass.FilterStack(name='A Stack of Premade Filters')
+  premade_filter_stack = mass.materials.FilterStack(name='A Stack of Premade Filters')
   premade_filter_stack.add_AlFilmWithOxide(name='My Oxidized Al Filter', Al_thickness_nm=50.0)
   premade_filter_stack.add_AlFilmWithPolymer(name='My Polymer Backed Al Filter', Al_thickness_nm=100.0, polymer_thickness_nm=200.0)
   premade_filter_stack.add_LEX_HT(name='My LEX HT Filter')
