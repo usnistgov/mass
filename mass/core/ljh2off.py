@@ -57,83 +57,108 @@ def off_header_string_from_ljhfile(ljhfile, projectors, basis, h5_path):
 
 
 def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
-    ljhfile = mass.LJHFile(ljhpath)
+    return multi_ljh2off([ljhpath], offpath, projectors, basis, n_ignore_presamples, h5_path, off_version)
+    
+def multi_ljh2off(ljhpaths, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
+    ljhfile0 = mass.LJHFile(ljhpaths[0])
     nbasis = projectors.shape[0]
     dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
     with open(offpath, "wb") as f:  # opening in binary form prevents windows from messing up newlines
         f.write(off_header_string_from_ljhfile(
-            ljhfile, projectors, basis, h5_path).encode('utf-8'))
+            ljhfile0, projectors, basis, h5_path).encode('utf-8'))
         projectors.tofile(f)
         basis.tofile(f)
-        n = 0
-        for (i_lo, i_hi, i_segment, data) in ljhfile.iter_segments():
-            records_this_seg = data.shape[0]
-            n += records_this_seg
-            # print("i_lo {}, i_hi {}, i_segment {}, nnow {}, nsum {}".format(i_lo, i_hi, i_segment, data.shape[0], n))
-            timestamps = ljhfile.datatimes_float
-            rowcounts = ljhfile.rowcount
-            projector_record_length = projectors.shape[1]
-            data_record_length = data.shape[1]
-            assert projector_record_length == data_record_length, f"projectors are for records of length {projector_record_length}, but {ljhfile} has records of length {data_record_length}"
-            mpc = np.matmul(projectors, data.T)  # modeled pulse coefs
-            mp = np.matmul(basis, mpc)  # modeled pulse
-            residuals = mp-data.T
-            residual_std_dev = np.std(residuals, axis=0)
-            pretrig_mean = data[:, :ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
-            offdata = np.zeros(records_this_seg, dtype)
-            pfit_pt_delta = np.polyfit(np.arange(ljhfile.nPresamples-n_ignore_presamples),
-                                       data[:, :ljhfile.nPresamples-n_ignore_presamples].T, deg=1)
-            pt_delta = np.polyval(pfit_pt_delta, ljhfile.nPresamples
-                                  - n_ignore_presamples-1) - np.polyval(pfit_pt_delta, 0)
-            if True:  # load data into offdata: implementation 1
-                offdata["recordSamples"] = ljhfile.nSamples
-                offdata["recordPreSamples"] = ljhfile.nPresamples
-                offdata["framecount"] = rowcounts//ljhfile.number_of_rows
-                offdata["unixnano"] = timestamps*1e9
-                offdata["pretriggerMean"] = pretrig_mean
-                offdata["pretriggerDelta"] = pt_delta
-                offdata["residualStdDev"] = residual_std_dev
-                offdata["coefs"] = mpc.T
-            else:  # load data into offdata: implementation 2
-                for i in range(records_this_seg):
-                    offdata[i] = (
-                        ljhfile.nSamples, ljhfile.nPresamples, rowcounts[i]//ljhfile.number_of_rows,
-                        np.int64(timestamps[i]*1e9),
-                        pretrig_mean[i], pt_delta[i], residual_std_dev[i],
-                        mpc[:, i])
-            # write offdata to file
-            offdata.tofile(f)
+        n = ljh_records_to_off(ljhfile0, f, projectors, basis, n_ignore_presamples, dtype)
+        assert n == ljhfile0.nPulses, "wrong number of records written"
+        for ljhpath in ljhpaths[1:]:
+            ljhfile = mass.LJHFile(ljhpath)
+            n = ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype)
+            assert n == ljhfile.nPulses, "wrong number of records written"
 
 
-def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True,
+def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype):
+    """append to `f` off file formatted records based on the records in ljhfile
+
+    returns how many records were written"""
+    n = 0
+    for (i_lo, i_hi, i_segment, data) in ljhfile.iter_segments():
+        records_this_seg = data.shape[0]
+        n += records_this_seg
+        # print("i_lo {}, i_hi {}, i_segment {}, nnow {}, nsum {}".format(i_lo, i_hi, i_segment, data.shape[0], n))
+        timestamps = ljhfile.datatimes_float
+        rowcounts = ljhfile.rowcount
+        projector_record_length = projectors.shape[1]
+        data_record_length = data.shape[1]
+        assert projector_record_length == data_record_length, f"projectors are for records of length {projector_record_length}, but {ljhfile} has records of length {data_record_length}"
+        mpc = np.matmul(projectors, data.T)  # modeled pulse coefs
+        mp = np.matmul(basis, mpc)  # modeled pulse
+        residuals = mp-data.T
+        residual_std_dev = np.std(residuals, axis=0)
+        pretrig_mean = data[:, :ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
+        offdata = np.zeros(records_this_seg, dtype)
+        pfit_pt_delta = np.polyfit(np.arange(ljhfile.nPresamples-n_ignore_presamples),
+                                    data[:, :ljhfile.nPresamples-n_ignore_presamples].T, deg=1)
+        pt_delta = np.polyval(pfit_pt_delta, ljhfile.nPresamples
+                                - n_ignore_presamples-1) - np.polyval(pfit_pt_delta, 0)
+        if True:  # load data into offdata: implementation 1
+            offdata["recordSamples"] = ljhfile.nSamples
+            offdata["recordPreSamples"] = ljhfile.nPresamples
+            offdata["framecount"] = rowcounts//ljhfile.number_of_rows
+            offdata["unixnano"] = timestamps*1e9
+            offdata["pretriggerMean"] = pretrig_mean
+            offdata["pretriggerDelta"] = pt_delta
+            offdata["residualStdDev"] = residual_std_dev
+            offdata["coefs"] = mpc.T
+        else:  # load data into offdata: implementation 2
+            for i in range(records_this_seg):
+                offdata[i] = (
+                    ljhfile.nSamples, ljhfile.nPresamples, rowcounts[i]//ljhfile.number_of_rows,
+                    np.int64(timestamps[i]*1e9),
+                    pretrig_mean[i], pt_delta[i], residual_std_dev[i],
+                    mpc[:, i])
+        # write offdata to file
+        offdata.tofile(f)
+    return n
+
+def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_presamples, require_experiment_state=True,
                  show_progress=LOG.isEnabledFor(logging.WARN)):
     pulse_model_dict = load_pulse_models(h5_path)
-    basename, channum = mass.ljh_util.ljh_basename_channum(ljhpath)
-    ljhdir, file_basename = os.path.split(basename)
-    off_basename = os.path.join(output_dir, file_basename)
     n_channels = min(max_channels, len(pulse_model_dict))
     if show_progress:
         bar = progress.bar.Bar("processing ljh files to off files:", max=n_channels)
     off_filenames = []
-    ljh_filenames = []
+    ljh_filename_lists = []
     handled_channels = 0
     for channum, pulse_model in pulse_model_dict.items():
-        ljhpath = "{}_chan{}.ljh".format(basename, channum)
-        offpath = '{}_chan{}.off'.format(off_basename, channum)
-        if not os.path.isfile(ljhpath):
-            continue
+        ljhpaths = [f'{ljhbase}_chan{channum}.ljh' for ljhbase in ljhbases]
+        print(ljhpaths)
+        offpath = f'{off_basename}_chan{channum}.off'
+        if not any([os.path.isfile(ljhpath) for ljhpath in ljhpaths]):
+            continue  # make sure at least one of the desired files exists
         pulse_model = pulse_model_dict[channum]
-        ljh2off(ljhpath, offpath, pulse_model.projectors,
+        multi_ljh2off(ljhpaths, offpath, pulse_model.projectors,
                 pulse_model.basis, n_ignore_presamples, h5_path)
         if show_progress:
             bar.next()
         off_filenames.append(offpath)
-        ljh_filenames.append(ljhpath)
+        ljh_filename_lists.append(ljhpaths)
         handled_channels += 1
         if handled_channels == max_channels:
             break
     if show_progress:
-        bar.finish()
+        bar.finish()    
+    return ljh_filename_lists, off_filenames
+
+def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True,
+                 show_progress=LOG.isEnabledFor(logging.WARN)):
+    basename, channum = mass.ljh_util.ljh_basename_channum(ljhpath)
+    ljhdir, file_basename = os.path.split(basename)
+    off_basename = os.path.join(output_dir, file_basename)
+    ljh_filename_lists, off_filenames = multi_ljh2off_loop([basename], h5_path, off_basename,
+            max_channels, n_ignore_presamples, require_experiment_state, show_progress)
+    ljh_filenames = [l[0] for l in ljh_filename_lists]
+    for l in ljh_filename_lists:
+        assert len(l) == 1
     source_experiment_state_filename = "{}_experiment_state.txt".format(basename)
     sink_experiment_state_filename = "{}_experiment_state.txt".format(off_basename)
     if os.path.isfile(source_experiment_state_filename):

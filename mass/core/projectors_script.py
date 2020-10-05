@@ -68,6 +68,8 @@ def parse_args(fake):
                         action="store_true")
     parser.add_argument("--extra_n_basis_5lag", help="use this many basis components to improve 5 lag filter representation",
                         default=0, type=int)
+    parser.add_argument("--noise_weight_basis", help="pass false to not apply noise weighting when making projectors",
+    default=False, type=bool)
     args = parser.parse_args()
     return args
 
