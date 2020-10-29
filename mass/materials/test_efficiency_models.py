@@ -2,6 +2,7 @@ import unittest as ut
 import numpy as np
 import uncertainties
 from uncertainties import unumpy as unp
+from . import uncertainties_helpers
 
 import mass
 import mass.materials
@@ -21,20 +22,20 @@ def test_dict():
 
 
 def test_ensure_uncertain():
-    a = mass.materials.efficiency_models.ensure_uncertain(1.0) 
+    a = uncertainties_helpers.ensure_uncertain(1.0) 
     assert a.nominal_value == 1
     assert a.std_dev == 1
 
-    b = mass.materials.efficiency_models.ensure_uncertain(uncertainties.ufloat(1,1))
+    b = uncertainties_helpers.ensure_uncertain(uncertainties.ufloat(1,1))
     assert b.nominal_value == 1
     assert b.std_dev == 1
 
-    c = mass.materials.efficiency_models.ensure_uncertain(np.arange(5))
+    c = uncertainties_helpers.ensure_uncertain(np.arange(5))
     assert c[1].nominal_value == 1
     assert c[1].std_dev == 1
     assert len(c) == 5
 
-    d = mass.materials.efficiency_models.ensure_uncertain(unp.uarray(np.arange(5), .1*np.arange(5)))
+    d = uncertainties_helpers.ensure_uncertain(unp.uarray(np.arange(5), .1*np.arange(5)))
     assert d[1].nominal_value == 1
     assert d[1].std_dev == .1
     assert len(d) == 5

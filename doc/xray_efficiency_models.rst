@@ -102,10 +102,10 @@ Testing with energy range 100 to 20,000 eV, 1 eV steps.
   plt.savefig("img/EBIT_efficiency.png");plt.close()
 
 .. image:: img/EBIT_efficiency.png
-  :width: 45%
+  :width: 40%
 
 .. image:: img/filter_50K_efficiency.png
-  :width: 45%
+  :width: 40%
 
 Creating your own custom filter stack model using ``FilterStack`` objects
 -------------------------------------------------------------------------
@@ -126,6 +126,7 @@ instead of transmittance, as the efficiency.
 All numerical arguments can be passed with our without uncerainties, but the default assumption for numbers without uncerainties is
 100% relative uncerainty. This way, hopefully you will notice that your uncerainty is higher than you expect, and double check the inputs.
 Read up on the `uncerainties` package for more info about how it works.
+
 .. testcode::
 
   custom_model = mass.materials.FilterStack(name='My Filter Stack')
@@ -137,30 +138,12 @@ Read up on the `uncerainties` package for more info about how it works.
   custom_filter.add_Film(name='Ni Mesh', material='Ni', thickness_nm=ufloat(10.0e3, .1e3), fill_fraction=ufloat(0.2, 0.01))
   custom_model.add(custom_filter)
 
-  print(custom_model)
   custom_model.plot_efficiency(xray_energies_eV)
-
-.. testoutput::
-  :options: +NORMALIZE_WHITESPACE
-
-  <class 'mass.materials.efficiency_models.FilterStack'>(
-  My Bi Absorber: <class 'mass.materials.efficiency_models.Film'>(Bi 0.00390+/-0.00010 g/cm^2, fill_fraciton=1.000+/-0, absorber=True)
-  My Al 50mK Filter: <class 'mass.materials.efficiency_models.Film'>(Al (2.70+/-0.27)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
-  My Si 3K Filter: <class 'mass.materials.efficiency_models.Film'>(Si 0.000116+/-0.000000 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
-  My meshed 50K Filter: <class 'mass.materials.efficiency_models.FilterStack'>(
-  Al Film: <class 'mass.materials.efficiency_models.Film'>(Al (2.70+/-0.27)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
-  Ni Mesh: <class 'mass.materials.efficiency_models.Film'>(Ni 0.00890+/-0.00009 g/cm^2, fill_fraciton=0.200+/-0.010, absorber=False)
-  )
-  )
 
 .. testcode::
   :hide:
 
   plt.savefig("img/custom_filter_stack.png");plt.close()
-
-.. image:: img/custom_filter_stack.png
-  :width: 50%
-
 
 There are also some premade filter classes for filters that commonly show up in our instrument filter stacks.
 At the moment, the FilterStack subclasses listed below are implemented:
@@ -184,7 +167,10 @@ Usage examples and efficiency curves of these classes are shown below.
   plt.savefig("img/premade_stack.png");plt.close()
 
 .. image:: img/premade_stack.png
-  :width: 50%
+  :width: 40%
+
+.. image:: img/custom_filter_stack.png
+  :width: 40%
 
 .. testcode::
   :hide:
