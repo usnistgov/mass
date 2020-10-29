@@ -93,4 +93,8 @@ Otherwise will will just be in mass relative to where you run the pip command.
 The -e command makes development really easy, you can change python files, then the next time you import mass the new files will be used. If you change Cython files or other complied files you should install again. Either do `pip install -e .` from within the soure directory, or call `python setup.py develop` from within the directory.
 
 ## Working on docs + tests
-Change directory into `doc` then `make doctest; make html; open _build/html/index.html`. Read about RST format, it is weird, my most common mistake is forgetting the blank line between `.. blah` statements and the following text.
+Change directory into `doc` then 
+  * posix (mac/linux) `make doctest; make html; open _build/html/index.html`
+  * windows cmd shell `make doctest && make html && start _build/html/index.html`
+  * windows powershell `./make doctest;./make html;start _build/html/index.html`
+Read about RST format, it is weird, my most common mistake is forgetting the blank line between `.. blah` statements and the following text.
