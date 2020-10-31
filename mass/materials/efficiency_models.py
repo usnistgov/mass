@@ -219,7 +219,7 @@ class LEX_HT(FilterStack):
         # Set up Al + polyimide film
         film_material = ['C', 'H', 'N', 'O', 'Al']
         film_area_density_g_per_cm2_given = np.array([6.7e-5, 2.6e-6, 7.2e-6, 1.7e-5, 1.7e-5])
-        film_area_density_g_per_cm2 = with_fractional_uncertainty(film_area_density_g_per_cm2_given, 0.02)
+        film_area_density_g_per_cm2 = with_fractional_uncertainty(film_area_density_g_per_cm2_given, 0.03)
         self.add_Film(name='LEX_HT Film', material=film_material,
                       area_density_g_per_cm2=film_area_density_g_per_cm2)
         # Set up mesh
