@@ -41,16 +41,19 @@ class FilterStack():
         c = LEX_HT(name=name)
         self.components[c.name] = c
 
-    def get_efficiency(self, xray_energies_eV):
+    def get_efficiency(self, xray_energies_eV, uncertain=False):
         assert self.components != {
         }, '{} has no components of which to calculate efficiency'.format(self.name)
         individual_efficiency = np.array([iComponent.get_efficiency(
-            xray_energies_eV) for iComponent in list(self.components.values())])
+            xray_energies_eV, uncertain=uncertain) for iComponent in list(self.components.values())])
         efficiency = np.prod(individual_efficiency, axis=0)
-        return efficiency
+        if uncertain:
+            return efficiency
+        else:
+            return unp.nominal_values(efficiency)
 
-    def __call__(self, xray_energies_eV):
-        return self.get_efficiency(xray_energies_eV)
+    def __call__(self, xray_energies_eV, uncertain=False):
+        return self.get_efficiency(xray_energies_eV, uncertain=uncertain)
 
     def plot_efficiency(self, xray_energies_eV, ax=None):
         efficiency = unp.nominal_values(self.get_efficiency(xray_energies_eV))
@@ -65,7 +68,7 @@ class FilterStack():
         ax.set_title('{} Efficiency'.format(self.name))
 
         for k,v in self.components.items():
-            efficiency = unp.nominal_values(v.get_efficiency(xray_energies_eV))
+            efficiency = v.get_efficiency(xray_energies_eV)
             ax.plot(xray_energies_eV, efficiency*100.0, "--", label=v.name)
 
         ax.legend()
@@ -103,16 +106,20 @@ class Film(FilterStack):
        
         self.area_density_g_per_cm2 = ensure_uncertain(area_density_g_per_cm2)
 
-    def get_efficiency(self, xray_energies_eV):
+    def get_efficiency(self, xray_energies_eV, uncertain=False):
         num_materials = len(self.material)
         optical_depth = np.array([[xraylib.CS_Total_CP(iMaterial, iEnergy) * self.area_density_g_per_cm2[iMaterialIndex]
                                    for iEnergy in xray_energies_eV/1000.0] for iMaterialIndex, iMaterial in enumerate(self.material)])
         individual_transmittance = unp.exp(-optical_depth)
         transmittance = np.prod(individual_transmittance, axis=0)
         if self.absorber:
-            return (1.0 - transmittance) * self.fill_fraction
+            efficiency = (1.0 - transmittance) * self.fill_fraction
         else:
-            return (transmittance * self.fill_fraction) + (1.0 - self.fill_fraction)
+            efficiency = (transmittance * self.fill_fraction) + (1.0 - self.fill_fraction)
+        if uncertain:
+            return efficiency
+        else:
+            return unp.nominal_values(efficiency)
 
     def __repr__(self):
         s = f"{type(self)}("

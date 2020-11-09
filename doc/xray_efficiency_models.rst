@@ -48,11 +48,11 @@ The presence of unceratinties requires some special handling in a few places, th
   Ni Mesh: <class 'mass.materials.efficiency_models.Film'>(Ni 0.0134+/-0.0018 g/cm^2, fill_fraciton=0.170+/-0.010, absorber=False)
   )
   Luxel Window TES: <class 'mass.materials.efficiency_models.LEX_HT'>(
-  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.13)e-05 g/cm^2, H (2.60+/-0.05)e-06 g/cm^2, N (7.20+/-0.14)e-06 g/cm^2, O (1.70+/-0.03)e-05 g/cm^2, Al (1.70+/-0.03)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
+  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
   LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraciton=0.190+/-0.010, absorber=False)
   )
   Luxel Window EBIT: <class 'mass.materials.efficiency_models.LEX_HT'>(
-  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.13)e-05 g/cm^2, H (2.60+/-0.05)e-06 g/cm^2, N (7.20+/-0.14)e-06 g/cm^2, O (1.70+/-0.03)e-05 g/cm^2, Al (1.70+/-0.03)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
+  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
   LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraciton=0.190+/-0.010, absorber=False)
   )
   )
@@ -66,21 +66,27 @@ As an example, we look at the efficiency of the EBIT 2018 filter stack and the 5
 
   sparse_xray_energies_eV = np.arange(2000, 10000, 1000)
   stack_efficiency = EBIT_model.get_efficiency(sparse_xray_energies_eV)
+  stack_efficiency_uncertain = EBIT_model.get_efficiency(sparse_xray_energies_eV, uncertain=True) # you have to opt into getting uncertainties out
   filter50K_efficiency = EBIT_model.components['50K Filter'].get_efficiency(sparse_xray_energies_eV)
 
   print("stack efficiencies")
-  print([f"{x}" for x in stack_efficiency]) # this is a hack to get uarrays to print with auto chosen number of sig figs
+  print([f"{x}" for x in stack_efficiency_uncertain]) # this is a hack to get uarrays to print with auto chosen number of sig figs
+  print(stack_efficiency) # this is a hack to get uarrays to print with auto chosen number of sig figs
+  print(unp.nominal_values(stack_efficiency)) # you can easily strip uncertainties, see uncertains package docs for more info
+
   print("filter50K efficiencies")
-  print([f"{x}" for x in filter50K_efficiency]) # this is a hack to get uarrays to print with auto chosen number of sig figs
-  print(unp.nominal_values(filter50K_efficiency)) # if you want to remove the uncerainties, eg for plotting
+  print(filter50K_efficiency) # if you want to remove the uncerainties, eg for plotting
 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
   stack efficiencies
   ['0.34+/-0.04', '0.472+/-0.022', '0.456+/-0.014', '0.383+/-0.011', '0.307+/-0.009', '0.242+/-0.008', '0.192+/-0.006', '0.136+/-0.005']
+  [0.3355118  0.47199667 0.45574545 0.38331136 0.30710323 0.24222163
+    0.19158427 0.13593844]
+  [0.3355118  0.47199667 0.45574545 0.38331136 0.30710323 0.24222163
+    0.19158427 0.13593844]
   filter50K efficiencies
-  ['0.78+/-0.05', '0.811+/-0.021', '0.823+/-0.013', '0.841+/-0.011', '0.867+/-0.011', '0.894+/-0.011', '0.916+/-0.009', '0.834+/-0.010']
   [0.77676224 0.81109167 0.82339913 0.84075585 0.86674411 0.8936235
     0.91640249 0.83361448]
 
@@ -123,8 +129,8 @@ In addition, a meshed style filter can be modelled using the ``fill_fraction`` a
 Finally, most ``FilterStack`` subclasses can use the ``absorber`` argument (default False), which will cause the object to return absorption,
 instead of transmittance, as the efficiency.
 
-All numerical arguments can be passed with our without uncerainties, but the default assumption for numbers without uncerainties is
-100% relative uncerainty. This way, hopefully you will notice that your uncerainty is higher than you expect, and double check the inputs.
+All numerical arguments can be passed with our without uncerainties. If you don't have at least one number with specified uncertainty in 
+a particular Film, the code will add a +/- 100% uncertainty on that component. This way, hopefully you will notice that your uncerainty is higher than you expect, and double check the inputs.
 Read up on the `uncerainties` package for more info about how it works.
 
 .. testcode::
