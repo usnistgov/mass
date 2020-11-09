@@ -77,7 +77,7 @@ if __name__ == "__main__":
         url='https://bitbucket.org/joe_fowler/mass',
         description='Microcalorimeter Analysis Software Suite',
         packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
-                'mass.demo', 'mass.gui', 'mass.off'],
+                'mass.demo', 'mass.off'],
         ext_modules=cythonize([Extension('mass.core.cython_channel',
                                         [os.path.join(BASEDIR, 'mass',
                                                         'core', 'cython_channel.pyx')],
@@ -95,8 +95,7 @@ if __name__ == "__main__":
                                                         'mathstat', 'entropy.pyx')],
                                         include_dirs=[np.get_include()])
                                 ]),
-        package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
-                    'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat', 'nist_asd.pickle']
+        package_data={'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat', 'nist_asd.pickle']
                     },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
         package_dir={'mass': "mass"},
         install_requires=requirements,
