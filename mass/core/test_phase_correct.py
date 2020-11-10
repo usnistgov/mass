@@ -71,8 +71,10 @@ class TestPhaseCorrect(ut.TestCase):
         # load from hdf5
         phaseCorrectorLoaded = mass.core.phase_correct.PhaseCorrector.fromHDF5(ds.hdf5_group)
         self.assertTrue(all(ds.phaseCorrector(phase, ph) == phaseCorrectorLoaded(phase, ph)))
-        self.assertTrue(ds.phaseCorrector.indicatorName == phaseCorrectorLoaded.indicatorName)
-        self.assertTrue(ds.phaseCorrector.uncorrectedName == phaseCorrectorLoaded.uncorrectedName)
+        self.assertEqual(ds.phaseCorrector.indicatorName, phaseCorrectorLoaded.indicatorName)
+        print(ds.phaseCorrector.uncorrectedName)
+        print(phaseCorrectorLoaded.uncorrectedName)
+        self.assertEqual(ds.phaseCorrector.uncorrectedName, phaseCorrectorLoaded.uncorrectedName)
 
     def test_phase_correct(self, plot=False):
         # the final fit resolutions are quite sensitive to this, easily varying from 3 to 5 eV

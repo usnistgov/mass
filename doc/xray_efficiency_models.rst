@@ -12,13 +12,17 @@ Here, we attempt to model the effects that would cause the measured spectrum to 
 such as energy dependent losses in transmission due to IR blocking filters and vacuum windows.
 Energy dependent absorber efficiency can also be modeled.
 
-Exploring ``FilterStack`` class and subclass functions with premade efficiency models
+``FilterStack`` class and subclass functions with premade efficiency models
 -------------------------------------------------------------------------------------
-Here, we import the mass.efficiency_models module and demonstrate the functionality with some of the premade efficiency models.
+Here, we import the `mass.efficiency_models` module and demonstrate the functionality with some of the premade efficiency models.
 Generally, these premade models are put in place for TES instruments with well known absorber and filter stack compositions.
 To demonstrate, we work with the 'EBIT 2018' model, which models the TES spectrometer setup at the NIST EBIT, as it was commissioned in 2018.
 This model includes a ~1um thick absorber, 3 ~100nm thick Al IR blocking filters, and LEX HT vacuum windows for both the TES and EBIT vacuums.
 We begin by importing ``efficiency_models`` and examining the EBIT efficiency model components.
+
+We can see that the model is made of many submodels (aka components) and that all the parameters have uncertainties. 
+The EBIT system was particularly well characterized, so the unceratinties are fairly low.
+The presence of unceratinties requires some special handling in a few places, these docs will show some examples.
 
 .. testcode::
 
@@ -26,29 +30,32 @@ We begin by importing ``efficiency_models`` and examining the EBIT efficiency mo
   import mass.materials # because of how hard x-raylib can be, you have to explicity import mass.materials
   import numpy as np
   import pylab as plt
+  from uncertainties import unumpy as unp # useful for working with arrays with unceratinties aka uarray
+  from uncertainties import ufloat
 
   EBIT_model = mass.materials.filterstack_models['EBIT 2018']
-  print('{} components:'.format(EBIT_model.name), EBIT_model.components)
+  print(EBIT_model)
 
 .. testoutput::
+  :options: +NORMALIZE_WHITESPACE
 
-  EBIT 2018 components: {'Electroplated Au Absorber': Film, '50mK Filter': AlFilmWithOxide, '3K Filter': AlFilmWithOxide, '50K Filter': FilterStack, 'Luxel Window TES': LEX_HT, 'Luxel Window EBIT': LEX_HT}
-
-In this case, the components represented the various filters and absorbers within the filter stack.
-More complicated filters can be built up with components of an arbitrary number of layers.
-For example, a filter can consist of both a film and a support mesh backing the film.
-
-.. testcode::
-
-  for iComponent in list(EBIT_model.components.values()):
-    if iComponent.components != {}:
-      print('{} components:'.format(iComponent.name), iComponent.components)
-
-.. testoutput::
-
-  50K Filter components: {'Al Film': AlFilmWithOxide, 'Ni Mesh': Film}
-  Luxel Window TES components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Film}
-  Luxel Window EBIT components: {'LEX_HT Film': Film, 'LEX_HT Mesh': Film}
+  <class 'mass.materials.efficiency_models.FilterStack'>(
+  Electroplated Au Absorber: <class 'mass.materials.efficiency_models.Film'>(Au 0.00187+/-0.00006 g/cm^2, fill_fraciton=1.000+/-0, absorber=True)
+  50mK Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (3.04+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraciton=1.000+/-1.000, absorber=False)
+  3K Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.93+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraciton=1.000+/-1.000, absorber=False)
+  50K Filter: <class 'mass.materials.efficiency_models.FilterStack'>(
+  Al Film: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.77+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraciton=1.000+/-1.000, absorber=False)
+  Ni Mesh: <class 'mass.materials.efficiency_models.Film'>(Ni 0.0134+/-0.0018 g/cm^2, fill_fraciton=0.170+/-0.010, absorber=False)
+  )
+  Luxel Window TES: <class 'mass.materials.efficiency_models.LEX_HT'>(
+  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
+  LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraciton=0.190+/-0.010, absorber=False)
+  )
+  Luxel Window EBIT: <class 'mass.materials.efficiency_models.LEX_HT'>(
+  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
+  LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraciton=0.190+/-0.010, absorber=False)
+  )
+  )
 
 Next, we examine the function ``get_efficiency(xray_energies_eV)``, which is an attribute of ``FilterStack``.
 This can be called for the entire filter stack or for individual components in the filter stack.
@@ -59,25 +66,38 @@ As an example, we look at the efficiency of the EBIT 2018 filter stack and the 5
 
   sparse_xray_energies_eV = np.arange(2000, 10000, 1000)
   stack_efficiency = EBIT_model.get_efficiency(sparse_xray_energies_eV)
+  stack_efficiency_uncertain = EBIT_model.get_efficiency(sparse_xray_energies_eV, uncertain=True) # you have to opt into getting uncertainties out
   filter50K_efficiency = EBIT_model.components['50K Filter'].get_efficiency(sparse_xray_energies_eV)
 
-  print(stack_efficiency.round(decimals=2))
-  print(filter50K_efficiency.round(decimals=2))
+  print("stack efficiencies")
+  print([f"{x}" for x in stack_efficiency_uncertain]) # this is a hack to get uarrays to print with auto chosen number of sig figs
+  print(stack_efficiency) # this is a hack to get uarrays to print with auto chosen number of sig figs
+  print(unp.nominal_values(stack_efficiency)) # you can easily strip uncertainties, see uncertains package docs for more info
+
+  print("filter50K efficiencies")
+  print(filter50K_efficiency) # if you want to remove the uncerainties, eg for plotting
 
 .. testoutput::
+  :options: +NORMALIZE_WHITESPACE
 
-  [0.34 0.47 0.46 0.38 0.31 0.24 0.19 0.14]
-  [0.78 0.81 0.82 0.84 0.87 0.89 0.92 0.83]
+  stack efficiencies
+  ['0.34+/-0.04', '0.472+/-0.022', '0.456+/-0.014', '0.383+/-0.011', '0.307+/-0.009', '0.242+/-0.008', '0.192+/-0.006', '0.136+/-0.005']
+  [0.3355118  0.47199667 0.45574545 0.38331136 0.30710323 0.24222163
+    0.19158427 0.13593844]
+  [0.3355118  0.47199667 0.45574545 0.38331136 0.30710323 0.24222163
+    0.19158427 0.13593844]
+  filter50K efficiencies
+  [0.77676224 0.81109167 0.82339913 0.84075585 0.86674411 0.8936235
+    0.91640249 0.83361448]
 
-Instead of getting an array with efficiencies, we can create a plot of the efficiencies.
-Here, we use the function ``plot_efficiency(xray_energies_eV, ax)``.
+Here, we use the function ``plot_efficiency(xray_energies_eV, ax)`` to plot the efficiencies.
 ``ax`` defaults to None, but can be used to plot the efficiencies on a user provided axis.
 Just like ``get_efficiency``, ``plot_efficiency`` works with FilterStack and its subclasses.
 Testing with energy range 100 to 20,000 eV, 1 eV steps.
 
 .. testcode::
 
-  xray_energies_eV = np.arange(100,20000,1)
+  xray_energies_eV = np.arange(100,20000,10)
   EBIT_model.plot_efficiency(xray_energies_eV)
   EBIT_model.components['50K Filter'].plot_efficiency(xray_energies_eV)
 
@@ -88,46 +108,10 @@ Testing with energy range 100 to 20,000 eV, 1 eV steps.
   plt.savefig("img/EBIT_efficiency.png");plt.close()
 
 .. image:: img/EBIT_efficiency.png
-  :width: 45%
+  :width: 40%
 
 .. image:: img/filter_50K_efficiency.png
-  :width: 45%
-
-Alternatively, you could plot the individual component efficiencies of a filter.
-Here, we plot the efficiencies of the 6 components that make up the EBIT system's filter stack.
-
-.. testcode::
-
-  EBIT_model.plot_component_efficiencies(xray_energies_eV)
-
-.. testcode::
-  :hide:
-
-  plt.savefig("img/component_EBIT_window.png");plt.close()
-  plt.savefig("img/component_TES_window.png");plt.close()
-  plt.savefig("img/component_50K.png");plt.close()
-  plt.savefig("img/component_3K.png");plt.close()
-  plt.savefig("img/component_50mK.png");plt.close()
-  plt.savefig("img/component_absorber.png");plt.close()
-
-.. image:: img/component_absorber.png
-  :width: 30%
-
-.. image:: img/component_50mK.png
-  :width: 30%
-
-.. image:: img/component_3K.png
-  :width: 30%
-
-.. image:: img/component_50K.png
-  :width: 30%
-
-.. image:: img/component_TES_window.png
-  :width: 30%
-
-.. image:: img/component_EBIT_window.png
-  :width: 30%
-
+  :width: 40%
 
 Creating your own custom filter stack model using ``FilterStack`` objects
 -------------------------------------------------------------------------
@@ -145,65 +129,27 @@ In addition, a meshed style filter can be modelled using the ``fill_fraction`` a
 Finally, most ``FilterStack`` subclasses can use the ``absorber`` argument (default False), which will cause the object to return absorption,
 instead of transmittance, as the efficiency.
 
+All numerical arguments can be passed with our without uncerainties. If you don't have at least one number with specified uncertainty in 
+a particular Film, the code will add a +/- 100% uncertainty on that component. This way, hopefully you will notice that your uncerainty is higher than you expect, and double check the inputs.
+Read up on the `uncerainties` package for more info about how it works.
+
 .. testcode::
 
   custom_model = mass.materials.FilterStack(name='My Filter Stack')
-  custom_model.add_Film(name='My Bi Absorber', material='Bi', thickness_nm=4.0e3, absorber=True)
-  custom_model.add_Film(name='My Al 50mK Filter', material='Al', thickness_nm=100.0)
-  custom_model.add_Film(name='My Si 3K Filter', material='Si', thickness_nm=500.0)
+  custom_model.add_Film(name='My Bi Absorber', material='Bi', thickness_nm=ufloat(4.0e3, .1e3), absorber=True)
+  custom_model.add_Film(name='My Al 50mK Filter', material='Al', thickness_nm=ufloat(100.0, 10))
+  custom_model.add_Film(name='My Si 3K Filter', material='Si', thickness_nm=ufloat(500.0, 2))
   custom_filter = mass.materials.FilterStack(name='My meshed 50K Filter')
-  custom_filter.add_Film(name='Al Film', material='Al', thickness_nm=100.0)
-  custom_filter.add_Film(name='Ni Mesh', material='Ni', thickness_nm=10.0e3, fill_fraction=0.2)
+  custom_filter.add_Film(name='Al Film', material='Al', thickness_nm=ufloat(100.0, 10))
+  custom_filter.add_Film(name='Ni Mesh', material='Ni', thickness_nm=ufloat(10.0e3, .1e3), fill_fraction=ufloat(0.2, 0.01))
   custom_model.add(custom_filter)
 
-Let us look at the efficiency curves of the filter stack and its components.
-
-.. testcode::
-
   custom_model.plot_efficiency(xray_energies_eV)
-  custom_model.plot_component_efficiencies(xray_energies_eV)
 
 .. testcode::
   :hide:
 
-  plt.savefig("img/custom_50K.png");plt.close()
-  plt.savefig("img/custom_3K.png");plt.close()
-  plt.savefig("img/custom_50mK.png");plt.close()
-  plt.savefig("img/custom_absorber.png");plt.close()
   plt.savefig("img/custom_filter_stack.png");plt.close()
-
-.. image:: img/custom_filter_stack.png
-  :width: 30%
-
-.. image:: img/custom_absorber.png
-  :width: 30%
-
-.. image:: img/custom_50mK.png
-  :width: 30%
-
-.. image:: img/custom_3K.png
-  :width: 30%
-
-.. image:: img/custom_50K.png
-  :width: 30%
-
-We can also look more in depth at 50K filter component efficiencies.
-
-.. testcode::
-
-  custom_filter.plot_component_efficiencies(xray_energies_eV)
-
-.. testcode::
-  :hide:
-
-  plt.savefig("img/custom_Ni_mesh.png");plt.close()
-  plt.savefig("img/custom_Al_film.png");plt.close()
-
-.. image:: img/custom_Al_film.png
-  :width: 30%
-
-.. image:: img/custom_Ni_mesh.png
-  :width: 30%
 
 There are also some premade filter classes for filters that commonly show up in our instrument filter stacks.
 At the moment, the FilterStack subclasses listed below are implemented:
@@ -218,24 +164,19 @@ Usage examples and efficiency curves of these classes are shown below.
   premade_filter_stack.add_AlFilmWithOxide(name='My Oxidized Al Filter', Al_thickness_nm=50.0)
   premade_filter_stack.add_AlFilmWithPolymer(name='My Polymer Backed Al Filter', Al_thickness_nm=100.0, polymer_thickness_nm=200.0)
   premade_filter_stack.add_LEX_HT(name='My LEX HT Filter')
-  low_xray_energies_eV = np.arange(100,3000,1)
-  premade_filter_stack.plot_component_efficiencies(low_xray_energies_eV)
+  low_xray_energies_eV = np.arange(100,3000,5)
+  premade_filter_stack.plot_efficiency(low_xray_energies_eV)
 
 .. testcode::
   :hide:
 
-  plt.savefig("img/premade_LEX_HT.png");plt.close()
-  plt.savefig("img/premade_Al_polymer.png");plt.close()
-  plt.savefig("img/premade_Al_oxide.png");plt.close()
+  plt.savefig("img/premade_stack.png");plt.close()
 
-.. image:: img/premade_Al_oxide.png
-  :width: 30%
+.. image:: img/premade_stack.png
+  :width: 40%
 
-.. image:: img/premade_Al_polymer.png
-  :width: 30%
-
-.. image:: img/premade_LEX_HT.png
-  :width: 30%
+.. image:: img/custom_filter_stack.png
+  :width: 40%
 
 .. testcode::
   :hide:
