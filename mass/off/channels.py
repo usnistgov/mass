@@ -234,7 +234,7 @@ class CorG():
             x, y = self.hist(binEdges, attr, states=states, cutRecipeName=cutRecipeName)
             axis.plot(x, y, drawstyle="steps-mid", label=states)
         else:
-            for state in states:
+            for state in util.iterstates(states):
                 x, y = self.hist(binEdges, attr, states=state, cutRecipeName=cutRecipeName)
                 axis.plot(x, y, drawstyle="steps-mid", label=state)
         axis.set_xlabel(attr)
@@ -437,12 +437,10 @@ class Channel(CorG):
          the passed states
         this list is appropriate for passing to _indexOffWithCuts or getRecipeAttr
         """
-        if isinstance(states, str):
-            states = [states]
         if states is None:
             return [slice(0, len(self))]
         inds = []
-        for state in states:
+        for state in util.iterstates(states):
             v = self.statesDict[state]
             if isinstance(v, slice):
                 inds.append(v)
@@ -605,7 +603,7 @@ class Channel(CorG):
                 self._plotAvsB_single(nameA, nameB, axis, states, includeBad, cutRecipeName, prefix=nameB)
 
     def _plotAvsB_single(self, nameA, nameB, axis=None, states=None, includeBad=False, cutRecipeName=None, prefix=""):
-        for state in states:
+        for state in util.iterstates(states):
             A, B = self.getAttr([nameA, nameB], state, cutRecipeName)
             axis.plot(A, B, ".", label=prefix+state)
             if includeBad:
@@ -696,7 +694,7 @@ class Channel(CorG):
         assert recipe.i2a[uncorrectedName] == "uncorrected"
         if states is None:
             states = self.stateLabels
-        for state in states:
+        for state in util.iterstates(states):
             A, B, C = self.getAttr([indicatorName, uncorrectedName,
                                     "filtValueDC"], state, cutRecipeName)
             axis.plot(A, B, ".", label=state)
