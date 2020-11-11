@@ -189,7 +189,7 @@ def getfitter(name):
     return mass.calibration.GaussianFitter()
 
 
-def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
+def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph, hide_deprecation=False):
     """
     Args:
         ph (numpy.array(dtype=float)): list of pulse heights
@@ -198,6 +198,7 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
             edges of histograms for fitting
         binsize_ev (list[float]): list of binsizes in eV for calibration lines
         slopes_de_dph (list[float]): - list of slopes de_dph (e in eV)
+        hide_deprecation: whether to suppress deprecation warnings
     """
     name_e, e_e = line_names_and_energies(line_names)
     fitters = []
@@ -208,7 +209,7 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
         lo, hi = fit_lo_hi[i]
         dP_dE = 1/slopes_de_dph[i]
         binsize_ph = binsize_ev[i]*dP_dE
-        fitter = singlefit(ph, name, lo, hi, binsize_ph, dP_dE)
+        fitter = singlefit(ph, name, lo, hi, binsize_ph, dP_dE, hide_deprecation=hide_deprecation)
         fitters.append(fitter)
         peak_ph.append(fitter.last_fit_params[fitter.param_meaning["peak_ph"]])
         if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
@@ -220,9 +221,10 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
             "eres": eres, "line_names": name_e, "energies": e_e}
 
 
-def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
+def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE, hide_deprecation=False):
     counts, bin_edges = np.histogram(ph, np.arange(lo, hi, binsize_ph))
     fitter = getfitter(name)
+    fitter._have_warned = hide_deprecation
     guess_params = fitter.guess_starting_params(counts, bin_edges)
     if not isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
         guess_params[fitter.param_meaning["dP_dE"]] = approx_dP_dE
@@ -262,6 +264,7 @@ class EnergyCalibrationAutocal(object):
 
         self.binsize_ev = None
         self.ph = ph
+        self._hide_deprecation = False
 
     def guess_fit_params(self, smoothing_res_ph=20, fit_range_ev=200.0, binsize_ev=1.0,
                          nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
@@ -298,7 +301,7 @@ class EnergyCalibrationAutocal(object):
         self.line_names will be sored by energy after this method is finished.
         """
         mresult = multifit(self.ph, self.line_names, self.fit_lo_hi,
-                           self.binsize_ev, self.slopes_de_dph)
+                           self.binsize_ev, self.slopes_de_dph, hide_deprecation=self._hide_deprecation)
 
         for ph, e, n in zip(mresult["peak_ph"], mresult["energies"], mresult['line_names']):
             self.calibration.add_cal_point(ph, e, name=str(n))
@@ -388,5 +391,3 @@ class EnergyCalibrationAutocal(object):
         ax.set_ylabel('Energy (eV)')
 
         ax.set_xlim(lb - width / 10, ub + width / 10)
-
-        fig.show()
