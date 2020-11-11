@@ -7,7 +7,7 @@
                         November 2010-present
 
 # Installation
-Requires Python 3.
+Requires Python 3. You will probably need to add an ssh key to your bitbucket account to get the install to work.
 
 ```  
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass

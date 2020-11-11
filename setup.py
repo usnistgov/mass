@@ -66,43 +66,6 @@ def source_file(item=""):
         fp.write(code)
 
 
-class QtBuilder(basic_build):
-    """Subclass the usual distutils builder so that it can convert Qt Designer files
-    *.ui and *.rc to python files."""
-
-    @staticmethod
-    def compile_ui(ui_file, py_file=None):
-        # Search for pyuic4 in python bin dir, then in the $Path.
-        if py_file is None:
-            py_file = os.path.splitext(ui_file)[0] + "_ui.py"
-        try:
-            from PyQt4 import uic
-            fp = open(py_file, 'w')
-            uic.compileUi(ui_file, fp, indent=4)
-            fp.close()
-            print("Compiled '%s' into '%s'" % (ui_file, py_file))
-        except Exception as e:
-            print('Unable to compile user interface', e)
-            return
-
-    @staticmethod
-    def compile_rc(qrc_file, py_file=None):
-        # Search for pyuic4 in python bin dir, then in the $Path.
-        if py_file is None:
-            py_file = os.path.splitext(qrc_file)[0] + "_rc.py"
-        if os.system('pyrcc4 "%s" -o "%s"' % (qrc_file, py_file)) > 0:
-            print("Unable to generate python module for resource file", qrc_file)
-
-    def run(self):
-        # Compile the Qt files to Python files, then call the base class run() method
-        for dirpath, _, filenames in os.walk('mass'):
-            for filename in filenames:
-                if filename.endswith('.ui'):
-                    self.compile_ui(os.path.join(dirpath, filename))
-                elif filename.endswith('.qrc'):
-                    self.compile_rc(os.path.join(dirpath, filename))
-        basic_build.run(self)
-
 
 if __name__ == "__main__":
     generate_sourceroot_file()
@@ -114,7 +77,7 @@ if __name__ == "__main__":
         url='https://bitbucket.org/joe_fowler/mass',
         description='Microcalorimeter Analysis Software Suite',
         packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
-                'mass.demo', 'mass.gui', 'mass.off'],
+                'mass.demo', 'mass.off'],
         ext_modules=cythonize([Extension('mass.core.cython_channel',
                                         [os.path.join(BASEDIR, 'mass',
                                                         'core', 'cython_channel.pyx')],
@@ -132,10 +95,8 @@ if __name__ == "__main__":
                                                         'mathstat', 'entropy.pyx')],
                                         include_dirs=[np.get_include()])
                                 ]),
-        package_data={'mass.gui': ['*.ui'],   # Copy the Qt Designer user interface files
-                    'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat', 'nist_asd.pickle']
+        package_data={'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat', 'nist_asd.pickle']
                     },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
-        cmdclass={'build': QtBuilder},
         package_dir={'mass': "mass"},
         install_requires=requirements,
         scripts=["bin/ljh_truncate",  "bin/make_projectors"],
