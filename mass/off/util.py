@@ -372,3 +372,17 @@ class IngredientsWrapper():
 
     def view(self, coefs_dtype):
         return self.ingredient_source.view(coefs_dtype)
+
+
+def iterstates(states):
+    """
+    states can be a 
+    str
+    list of str
+    in either case return a list of str
+    """
+    if isinstance(states, str):
+        return [states]
+    else:
+        assert isinstance(states, list)
+        return states

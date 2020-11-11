@@ -404,6 +404,15 @@ def test_aliasState():
     for x in sd["W"]:
         assert isinstance(x, slice)
 
+def test_iterstates():
+    assert util.iterstates("ABC") == ["ABC"]
+    assert util.iterstates(["A", "B", "CC"]) == ["A", "B", "CC"]
+    assert util.iterstates([slice(0,1,1)]) == [slice(0,1,1)]
+
+    with pytest.raises(KeyError): # previously this would work due to being recognized as states "B" and "C"
+        # now it fails since state "BC" doesnt exist 
+        ds.plotHist(np.arange(100,2500,50), 'energy', states="BC", coAddStates=False)
+
 
 if __name__ == '__main__':
     ut.main()
