@@ -28,6 +28,7 @@ class Test_ratio_weighted_averages(unittest.TestCase):
 
         self.x = np.linspace(-1.98, 1.98, 100)
         self.fitter = mass.calibration.line_fits.GaussianFitter()
+        self.fitter._have_warned = True  # eliminate deprecation warnings
         self.guess = np.array([1.09, 0, 17.7, 0.0, 0.0, 0, 25])
 
     def test_weighted_averages_nobg(self):
@@ -101,6 +102,7 @@ class Test_gaussian(unittest.TestCase):
 
     def run_several_fits(self, N=1000, nfits=10, fwhm=1.0, ctr=0.0, nbins=100, N_bg=10, penalty=None):
         self.fitter = mass.calibration.line_fits.GaussianFitter()
+        self.fitter._have_warned = True  # eliminate deprecation warnings
         self.fitter.phscale_positive = False
         self.fitter.set_penalty(penalty)
         correct_params = (fwhm, ctr, .037535932*N, 0, 0, 0, 25)
@@ -212,6 +214,7 @@ class Test_fluorescence(unittest.TestCase):
     def setUp(self):
         np.random.seed(121312)
         self.fitter = mass.MnKAlphaFitter()
+        self.fitter._have_warned = True  # eliminate deprecation warnings
 
     def generate_and_fit_data(self, N, fwhm=1.0, nbins=100, N_bg=0):
         n_signal = np.random.poisson(N)
@@ -319,6 +322,7 @@ class Test_Issue_125(unittest.TestCase):
 
     def test_slowfit(self):
         fitter = mass.MnKAlphaFitter()
+        fitter._have_warned = True  # eliminate deprecation warnings
         x = np.linspace(5870.25, 5909.25, 80)
         contents = np.array([
             36,  49,  39,  41,  46,  46,  42,  42,  46,  52,  51,  53,  54,  48,  58,  46,  57,  51,
