@@ -127,12 +127,19 @@ class TestToeplitzSolver_512(unittest.TestCase):
                                    msg='Random vector trial gives rms diff=%sf' % (x_out-x_in).std())
 
 
-class TestToeplitzSpeed(object):
-    """Test the speed of the Toeplitz solver."""
+class toeplitzSpeed(object):
+    """Test the speed of the Toeplitz solver.
+
+    This is NOT a unit test. Usage:
+
+>>> from mass.mathstat.test import test_toeplitz
+>>> t=test_toeplitz.toeplitzSpeed()
+>>> t.plot()
+    """
 
     def __init__(self, maxsize=8192):
         self.sizes = numpy.hstack((100, 200, numpy.arange(500, 5500, 500), 6144, 8192, 10000,
-                                   15000, 20000, 30000, 50000, 100000))
+                                   20000, 30000, 50000))
         t = numpy.arange(100000)
         self.autocorr = 1.0+3.2*numpy.exp(-t/100.)
         self.autocorr[0] = 9
@@ -144,16 +151,11 @@ class TestToeplitzSpeed(object):
         self.lu_time = numpy.zeros_like(self.ts_time)
         for i, s in enumerate(self.sizes):
             times = self.test(s, maxsize)
-            if s == 10000:
-                times = [times[0], 32.2, 6.2, 58, 24.3]
             (self.ts_time[i], self.build_time[i], self.mult_time[i],
              self.solve_time[i], self.lu_time[i]) = times
 
     def test(self, size, maxsize=8192):
-        long_times = {50000: 23.770, 100000: 96.738}
-        if size in long_times:
-            return [long_times[size]] + 4*[numpy.NAN]
-        elif size > 150000:
+        if size > 150000:
             return 5*[numpy.NaN]
 
         ac = self.autocorr[:size]
