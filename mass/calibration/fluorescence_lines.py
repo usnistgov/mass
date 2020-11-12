@@ -58,16 +58,15 @@ class SpectralLine(sp.stats.rv_continuous):
         self.position_uncertainty = position_uncertainty
         self.reference_measurement_type = reference_measurement_type
         self.is_default_material = is_default_material
-        self.has_peak_energy = False
+        self._peak_energy = np.nan
         self.cumulative_amplitudes = self.normalized_lorentzian_integral_intensity.cumsum()
 
     @property
     def peak_energy(self):
         # lazily calculate peak energy
-        if not self.has_peak_energy:
+        if np.isnan(self._peak_energy):
             self._peak_energy = sp.optimize.brent(lambda x: -self.pdf(x, instrument_gaussian_fwhm=0),
                                                   brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
-            self.has_peak_energy = True
         return self._peak_energy
 
     def __call__(self, x, instrument_gaussian_fwhm):
@@ -75,7 +74,7 @@ class SpectralLine(sp.stats.rv_continuous):
         return self.pdf(x, instrument_gaussian_fwhm)
 
     def pdf(self, x, instrument_gaussian_fwhm):
-        """Spectrum (arb units) as a function of <x>, the energy in eV"""
+        """Spectrum (units of fraction per eV) as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         x = np.asarray(x, dtype=np.float)
         result = np.zeros_like(x)
