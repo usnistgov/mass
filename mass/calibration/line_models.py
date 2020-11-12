@@ -169,7 +169,7 @@ class CompositeMLEModel(MLEModel, lmfit.CompositeModel):
 
 class GenericLineModel(MLEModel):
     def __init__(self, spect, independent_vars=['bin_centers'], prefix='', nan_policy='raise',
-                 has_linear_background=True, has_tails=False, **kwargs):
+                 has_linear_background=True, has_tails=False, qemodel=None, **kwargs):
         self.spect = spect
         self._has_tails = has_tails
         self._has_linear_background = has_linear_background
@@ -190,7 +190,9 @@ class GenericLineModel(MLEModel):
                 r = line_fits._scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
-                return r
+                if qemodel is None:
+                    return r
+                return r*qemodel(energy)
         else:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral, background=0, bg_slope=0):
                 bin_centers = np.asarray(bin_centers, dtype=np.float)
@@ -201,7 +203,9 @@ class GenericLineModel(MLEModel):
                 r = line_fits._scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
-                return r
+                if qemodel is None:
+                    return r
+                return r*qemodel(energy)
         param_names = ["fwhm", "peak_ph", "dph_de", "integral"]
         if self._has_linear_background:
             param_names += ["background", "bg_slope"]

@@ -173,7 +173,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def __repr__(self):
         return "SpectralLine: {}".format(self.shortname)
 
-    def model(self, has_linear_background=True, has_tails=False, prefix=""):
+    def model(self, has_linear_background=True, has_tails=False, prefix="", qemodel=None):
         """Generate a LineModel instance from a SpectralLine"""
         if self.linetype == "KAlpha":
             model_class = line_models.GenericKAlphaModel
@@ -181,7 +181,7 @@ class SpectralLine(sp.stats.rv_continuous):
             model_class = line_models.GenericLineModel
         name = self.element+self.linetype
         m = model_class(name=name, spect=self, has_linear_background=has_linear_background,
-                        has_tails=has_tails, prefix=prefix)
+                        has_tails=has_tails, prefix=prefix, qemodel=qemodel)
         return m
 
     def fitter(self):

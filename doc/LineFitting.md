@@ -52,7 +52,7 @@ plt.clf()
 sim, bin_edges, _ = plt.hist(energies, 120, [5865, 5925], histtype="step");
 binsize = bin_edges[1] - bin_edges[0]
 e = bin_edges[:-1] + 0.5*binsize
-plt.plot(e, line(e)*N*binsize, "k")
+plt.plot(e, line(e, instrument_gaussian_fwhm=2.2)*N*binsize, "k")
 ```
 
 The `SpectralLine` object is useful to you if you need to generate simulated data, or to plot a line shape, as shown above. Both the new fitting "model" objects and the old "fitter" objects use the `SpectralLine` object to hold line shape information. You don't need to create a `SpectralLine` object for fitting, though; it will be done automatically.
@@ -77,6 +77,8 @@ resultB.plot()
 # and a dictionary of their values is resultB.best_values.
 # The parameters given as an argument to fit are unchanged.
 ```
+
+#### Fitting with exponential tails (to low or high energy)
 
 Notice when you report the fit (or check the contents of the `params` or `resultB.params` objects), there are no parameters referring to exponential tails of a Bortels response. That's because the default fitter assumes a Gaussian response. If you want tails, that's a constructor argument:
 
@@ -107,6 +109,38 @@ params["tail_tau"].set(vary=False)
 
 Adding or removing the `_hi` suffix to/from the parameter names in the examples above will allow you to fix the high-E tail (2 or 3) or to re-enable fitting of the low-E tail (1).
 
+#### Fitting with a quantum efficiency model
+
+If you want to multiply the line models by a model of the quantum efficiency, you can do that. You need a `qemodel` function or callable function object that takes an energy (scalar or vector) and returns the corresponding QE. For example, you can use the "Raven1 2019" QE model from `mass.materials`. The filter-stack models are not terribly fast to run, so it's best to compute once, spline the results, and pass that spline as the `qemodel` to `line.model(qemodel=qemodel)`.
+
+```python
+import mass.materials
+raven_filters = mass.materials.efficiency_models.filterstack_models["RAVEN1 2019"]
+eknots = np.linspace(100, 20000, 1991)
+qevalues = raven_filters(eknots)
+qemodel = mass.mathstat.interpolate.CubicSpline(eknots, qevalues)
+
+model = line.model(qemodel=qemodel)
+resultD = model.fit(sim, params, bin_centers=e)
+print(resultD.fit_report())
+resultD.plot()
+
+fit_counts = resultD.params["integral"].value
+localqe= qemodel(mass.STANDARD_FEATURES["MnKAlpha"])[0]
+fit_observed = fit_counts*localqe
+fit_err = resultD.params["integral"].stderr
+print("Fit finds {:.0f}±{:.0f} counts before QE or {:.0f}±{:.0f} observed. True value {:d}".format(
+    fit_counts, fit_err, fit_observed, fit_err*localqe, N))
+```
+
+When you fit with a non-trivial QE model, the fit parameters that refer to signal and background intensity all refer to a sensor with an ideal QE=1. These include:
+
+* `integral`
+* `background`
+* `bg_slope`
+
+That is, the fit values must be multiplied by the local QE to give the number of _observed_ signal counts, background counts per bin, or background slope.
+With or without a QE model, "integral" refers to the number of photons that would be seen across all energies (not just in the range being fit).
 
 ### How you can use the old, homemade fitters (but don't!)
 
@@ -120,6 +154,7 @@ print(paramA)
 ```
 
 Notice that it's on you to remember that the ordering of the `param` vector (and rows and columns of the `covar` matrix) is:
+
 0. Energy resolution (gaussian FWHM)
 1. Energy where the nominal peak is found
 1. dPH/dE input-to-energy stretch factor
@@ -161,6 +196,7 @@ An overview of how to convert is:
 1. Change starting values and toggle the `vary` attribute on parameters, as needed.
 1. Use `result=model.fit(data, p, bin_centers=e)` to perform the fit and store the result.
 1. The result holds many attributes and methods (see [MinimizerResult](https://lmfit.github.io/lmfit-py/fitting.html#minimizerresult-the-optimization-result) for full documentation). These include:
+
   * `result.params` = the model's best-fit parameters object
   * `result.best_values` = a dictionary of the best-fit parameter values
   * `result.best_fit` = the model's y-values at the best-fit parameter values
