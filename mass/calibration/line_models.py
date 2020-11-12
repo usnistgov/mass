@@ -182,9 +182,8 @@ class GenericLineModel(MLEModel):
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
                 # Convert tau values (in eV units) to
                 # lengths in bin units, which _smear_exponential_tail expects
-                binwidth = bin_centers[1]-bin_centers[0]
-                length_lo = tail_tau*dph_de/binwidth
-                length_hi = tail_tau_hi*dph_de/binwidth
+                length_lo = tail_tau*dph_de/bin_width
+                length_hi = tail_tau_hi*dph_de/bin_width
                 spectrum = line_fits._smear_exponential_tail(
                     cleanspectrum_fn, energy, fwhm, tail_frac, length_lo, tail_frac_hi, length_hi)
                 scale_factor = integral * bin_width * dph_de
@@ -234,7 +233,6 @@ class GenericLineModel(MLEModel):
         def percentiles(p):
             return bin_centers[(order_stat > p).argmax()]
         fwhm = 0.7*(percentiles(0.75) - percentiles(0.25))
-        # b could be an alternate guess for peak_ph
         peak_ph = bin_centers[data.argmax()]
         if len(data) > 20:
             # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
