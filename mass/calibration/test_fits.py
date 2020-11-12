@@ -402,7 +402,8 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
             # If the above never errors, then problem solved.
 
     def test_integral_parameter(self):
-        """See issue 202: parameter 'integral' should be the total number of counts."""
+        """See issue 202: parameter 'integral' should be the total number of counts.
+        See also issue 204: parameter 'integral' should scale inversely with a QE model."""
         line = mass.MnKAlpha
         bgperev = 50
         Nsignal = 10000
@@ -429,6 +430,15 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
             result = model.fit(s, params, bin_centers=rescaled_e)
             integral = result.best_values["integral"]
             self.assertAlmostEqual(integral, Nsignal, delta=3*np.sqrt(len(samples)))
+
+            # And check that integral _times QE_ = Nsignal for a nontrivial QE model.
+            QE = 0.4
+            def flat_qemodel(e): return QE+np.zeros_like(e)
+            model = line.model(qemodel=flat_qemodel)
+            params = model.guess(s, bin_centers=e)
+            result = model.fit(s, params, bin_centers=e)
+            integral = result.best_values["integral"]
+            self.assertAlmostEqual(integral*QE, Nsignal, delta=3*np.sqrt(len(samples)))
 
 
 class Test_Composites_lmfit(unittest.TestCase):
