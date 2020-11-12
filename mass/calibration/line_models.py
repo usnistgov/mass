@@ -177,6 +177,7 @@ class GenericLineModel(MLEModel):
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral,
                           background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_frac_hi=0, tail_tau_hi=8):
                 bin_centers = np.asarray(bin_centers, dtype=np.float)
+                bin_width = bin_centers[1]-bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
                 # Convert tau values (in eV units) to
@@ -186,16 +187,19 @@ class GenericLineModel(MLEModel):
                 length_hi = tail_tau_hi*dph_de/binwidth
                 spectrum = line_fits._smear_exponential_tail(
                     cleanspectrum_fn, energy, fwhm, tail_frac, length_lo, tail_frac_hi, length_hi)
-                r = line_fits._scale_add_bg(spectrum, integral, background, bg_slope)
+                scale_factor = integral * bin_width * dph_de
+                r = line_fits._scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
                 return r
         else:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral, background=0, bg_slope=0):
                 bin_centers = np.asarray(bin_centers, dtype=np.float)
+                bin_width = bin_centers[1]-bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 spectrum = self.spect.pdf(energy, fwhm)
-                r = line_fits._scale_add_bg(spectrum, integral, background, bg_slope)
+                scale_factor = integral * bin_width / dph_de
+                r = line_fits._scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
                 return r

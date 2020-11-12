@@ -356,9 +356,9 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         self.assertAlmostEqual(
             fitter.last_fit_params_dict["resolution"][1], result.params["fwhm"].stderr, places=1)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][0], result.params["integral"].value, delta=2*result.params["integral"].stderr)
+            fitter.last_fit_params_dict["amplitude"][0]/bin_width, result.params["integral"].value, delta=2*result.params["integral"].stderr)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][1], result.params["integral"].stderr, places=-3)
+            fitter.last_fit_params_dict["amplitude"][1]/bin_width, result.params["integral"].stderr, places=-3)
         self.assertAlmostEqual(
             fitter.last_fit_params_dict["bg_slope"][0], result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
         self.assertAlmostEqual(
@@ -416,8 +416,18 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
 
             model = line.model()
             params = model.guess(s, bin_centers=e)
-            resultA = model.fit(s, params, bin_centers=e)
-            integral = resultA.best_values["integral"]
+            result = model.fit(s, params, bin_centers=e)
+            integral = result.best_values["integral"]
+            self.assertAlmostEqual(integral, Nsignal, delta=3*np.sqrt(len(samples)))
+
+            # Now check that the integral still works even when dph_de = 2
+            if nbins > 100:  # only need to check once
+                continue
+            dph_de = 2
+            rescaled_e = e*dph_de
+            params = model.guess(s, bin_centers=rescaled_e)
+            result = model.fit(s, params, bin_centers=rescaled_e)
+            integral = result.best_values["integral"]
             self.assertAlmostEqual(integral, Nsignal, delta=3*np.sqrt(len(samples)))
 
 
