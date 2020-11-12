@@ -344,7 +344,8 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         # histogram
         counts, _ = np.histogram(values, bin_edges)
         model = line.model()
-        bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+        bin_width = bin_edges[1]-bin_edges[0]
+        bin_centers = 0.5*bin_width + bin_edges[:-1]
         params = model.guess(counts, bin_centers=bin_centers)
         result = model.fit(counts, bin_centers=bin_centers, params=params)
         fitter = mass.MnKAlphaFitter()
@@ -355,9 +356,9 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         self.assertAlmostEqual(
             fitter.last_fit_params_dict["resolution"][1], result.params["fwhm"].stderr, places=1)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][0], result.params["amplitude"].value, delta=2*result.params["amplitude"].stderr)
+            fitter.last_fit_params_dict["amplitude"][0]/bin_width, result.params["integral"].value, delta=2*result.params["integral"].stderr)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][1], result.params["amplitude"].stderr, places=-3)
+            fitter.last_fit_params_dict["amplitude"][1]/bin_width, result.params["integral"].stderr, places=-3)
         self.assertAlmostEqual(
             fitter.last_fit_params_dict["bg_slope"][0], result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
         self.assertAlmostEqual(
@@ -399,6 +400,35 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
             params["peak_ph"].set(value=5899*SCALE)
             result = model.fit(sim, params, bin_centers=bctr)
             # If the above never errors, then problem solved.
+
+    def test_integral_parameter(self):
+        """See issue 202: parameter 'integral' should be the total number of counts."""
+        line = mass.MnKAlpha
+        bgperev = 50
+        Nsignal = 10000
+        np.random.seed(3038)
+        sig = line.rvs(Nsignal, instrument_gaussian_fwhm=5)
+        bg = np.random.uniform(5850, 5950, 100*bgperev)
+        samples = np.hstack((bg, sig))
+        for nbins in (100, 200, 300):
+            s, b = np.histogram(samples, nbins, [5850, 5950])
+            e = b[:-1] + 0.5*(b[1]-b[0])
+
+            model = line.model()
+            params = model.guess(s, bin_centers=e)
+            result = model.fit(s, params, bin_centers=e)
+            integral = result.best_values["integral"]
+            self.assertAlmostEqual(integral, Nsignal, delta=3*np.sqrt(len(samples)))
+
+            # Now check that the integral still works even when dph_de = 2
+            if nbins > 100:  # only need to check once
+                continue
+            dph_de = 2
+            rescaled_e = e*dph_de
+            params = model.guess(s, bin_centers=rescaled_e)
+            result = model.fit(s, params, bin_centers=rescaled_e)
+            integral = result.best_values["integral"]
+            self.assertAlmostEqual(integral, Nsignal, delta=3*np.sqrt(len(samples)))
 
 
 class Test_Composites_lmfit(unittest.TestCase):
@@ -484,8 +514,8 @@ class Test_Composites_lmfit(unittest.TestCase):
         compositeParams['{}peak_ph'.format(
             prefix1)].expr = '{}peak_ph - {}'.format(prefix2, self.nominal_separation)
         compositeParams.add(name='ampRatio', value=0.5, vary=False)
-        compositeParams['{}amplitude'.format(
-            prefix1)].expr = '{}amplitude * ampRatio'.format(prefix2)
+        compositeParams['{}integral'.format(
+            prefix1)].expr = '{}integral * ampRatio'.format(prefix2)
         compositeResult = compositeModel.fit(
             self.counts, params=compositeParams, bin_centers=self.bin_centers)
         resultComponentPrefixes = [iComp.prefix for iComp in compositeResult.components]

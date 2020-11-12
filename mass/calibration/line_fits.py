@@ -6,12 +6,11 @@ Addded Joe Fowler 5 May, 2016
 Separated line fits (here) from the line shapes (still in fluorescence_lines.py)
 """
 
-import numpy as np
-import pylab as plt
-
-from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
-from mass.mathstat.utilities import plot_as_stepped_hist
 from mass.mathstat.special import voigt, voigt_approx_fwhm
+from mass.mathstat.utilities import plot_as_stepped_hist
+from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
+import pylab as plt
+import numpy as np
 
 
 def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau,
@@ -51,13 +50,13 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
     return smoothspectrum[nlow:nlow+len(x)]
 
 
-def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
+def _scale_add_bg(spectrum, P_integral, P_bg=0, P_bgslope=0):
     """Scale a spectrum and add a sloped background. BG<0 is replaced with BG=0."""
     bg = np.zeros_like(spectrum) + P_bg
     if P_bgslope != 0:
         bg += P_bgslope * np.arange(len(spectrum))
     bg[bg < 0] = 0
-    spectrum = spectrum * P_amplitude + bg  # Change in place and return changed vector
+    spectrum = spectrum * P_integral + bg  # Change in place and return changed vector
     return spectrum
 
 
