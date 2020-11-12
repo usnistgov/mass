@@ -294,6 +294,7 @@ class LineModelResult(lmfit.model.ModelResult):
                     sig_figs = max(1, sig_figs)
                     s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
             else:
+                sig_figs = 2
                 s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
         s += f"redchi  {self.redchi:.2g}"
         return s
