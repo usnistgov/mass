@@ -119,7 +119,7 @@ class TestAlgorithms(unittest.TestCase):
         _energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt, [], approxcal, 100)
         binsize_ev = 1.0
         fitters = multifit(ph, line_names, fit_lo_hi, np.ones_like(
-            slopes_de_dph)*binsize_ev, slopes_de_dph)
+            slopes_de_dph)*binsize_ev, slopes_de_dph, hide_deprecation=True)
         self.assertIsNotNone(fitters)
 
     def test_autocal(self):
@@ -142,6 +142,7 @@ class TestAlgorithms(unittest.TestCase):
 
         cal = EnergyCalibration()
         auto_cal = EnergyCalibrationAutocal(cal, ph, line_names)
+        auto_cal._hide_deprecation = True  # suppress deprecation warnings
         auto_cal.autocal()
         auto_cal.diagnose()
         cal.diagnose()

@@ -27,6 +27,7 @@ class Test_Gaussian(unittest.TestCase):
         np.random.seed(94)
         self.obs = np.array([np.random.poisson(lam=y0) for y0 in self.y])
         self.fitter = mass.calibration.GaussianFitter()
+        self.fitter._have_warned = True  # eliminate deprecation warnings
 
     def test_failed_fit(self):
         # pass nans
@@ -131,6 +132,7 @@ class Test_Gaussian(unittest.TestCase):
 class Test_MnKA(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.MnKAlphaFitter()
+        self.fitter._have_warned = True  # eliminate deprecation warnings
         self.distrib = mass.calibration.fluorescence_lines.MnKAlpha
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
@@ -192,6 +194,7 @@ class Test_MnKA(unittest.TestCase):
 class Test_MnKB(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.MnKBetaFitter()
+        self.fitter._have_warned = True  # eliminate deprecation warnings
         self.distrib = mass.calibration.fluorescence_lines.MnKBeta
         np.random.seed(97)
         self.tempdir = tempfile.gettempdir()
@@ -254,6 +257,7 @@ class Test_Voigt(unittest.TestCase):
 
     def setUp(self):
         self.fitter = mass.calibration.VoigtFitter()
+        self.fitter._have_warned = True  # eliminate deprecation warnings
 
     def singletest(self, gauss_fwhm=0.1, fwhm=5, center=100, ampl=5000,
                    bg=200, nbins=200, tailfrac=1e-9, tailtau=3,

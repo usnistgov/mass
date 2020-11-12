@@ -1,6 +1,7 @@
 import pylab as plt
 import numpy as np
 import mass.mathstat
+from mass.common import tostr
 
 
 class PulseModel():
@@ -12,10 +13,10 @@ class PulseModel():
 
     version = 2
 
-    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd, 
-            v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name, 
-            extra_n_basis_5lag, f_5lag, average_pulse_for_5lag, noise_psd, noise_psd_delta_f,
-            noise_autocorr, _from_hdf5=False):
+    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd,
+                 v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name,
+                 extra_n_basis_5lag, f_5lag, average_pulse_for_5lag, noise_psd, noise_psd_delta_f,
+                 noise_autocorr, _from_hdf5=False):
         self.pulses_for_svd = pulses_for_svd
         self.n_basis = n_basis
         if projectors_so_far.shape[0] < n_basis-extra_n_basis_5lag:
@@ -23,7 +24,7 @@ class PulseModel():
                 projectors_so_far, basis_so_far, n_basis-extra_n_basis_5lag, pulses_for_svd)
         elif (projectors_so_far.shape[0] == n_basis-extra_n_basis_5lag) or _from_hdf5:
             self.projectors, self.basis = projectors_so_far, basis_so_far
-        else: # dont throw error on
+        else:  # dont throw error on
             s = f"n_basis-extra_n_basis_5lag={n_basis-extra_n_basis_5lag} < projectors_so_far.shape[0] = {projectors_so_far.shape[0]}"
             s += f", extra_n_basis_5lag={extra_n_basis_5lag}"
             raise Exception(s)
@@ -31,9 +32,9 @@ class PulseModel():
             filters_5lag = np.zeros((len(f_5lag)+4, 5))
             for i in range(5):
                 if i < 4:
-                    filters_5lag[i:-4+i, i] = projectors_so_far[2,2:-2]
+                    filters_5lag[i:-4+i, i] = projectors_so_far[2, 2:-2]
                 else:
-                    filters_5lag[i:, i] = projectors_so_far[2,2:-2]
+                    filters_5lag[i:, i] = projectors_so_far[2, 2:-2]
             self.projectors, self.basis = self._additional_projectors_tsvd(
                 self.projectors, self.basis, n_basis, filters_5lag)
 
@@ -83,7 +84,7 @@ class PulseModel():
         pretrig_rms_median = hdf5_group["svdbasis/pretrig_rms_median"][()]
         pretrig_rms_sigma = hdf5_group["svdbasis/pretrig_rms_sigma"][()]
         version = hdf5_group["svdbasis/version"][()]
-        file_name = hdf5_group["svdbasis/file_name"][()]
+        file_name = tostr(hdf5_group["svdbasis/file_name"][()])
         extra_n_basis_5lag = hdf5_group["svdbasis/extra_n_basis_5lag"][()]
         f_5lag = hdf5_group["svdbasis/5lag_filter"][()]
         average_pulse_for_5lag = hdf5_group["svdbasis/average_pulse_for_5lag"][()]
@@ -93,11 +94,9 @@ class PulseModel():
 
         if version != cls.version:
             raise Exception(f"loading not implemented for other versions, version={self.version}")
-        return cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median, 
+        return cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median,
                    pretrig_rms_sigma, file_name, extra_n_basis_5lag, f_5lag, average_pulse_for_5lag,
                    noise_psd, noise_psd_delta_f, noise_autocorr, _from_hdf5=True)
-
-
 
     def _additional_projectors_tsvd(self, projectors, basis, n_basis, pulses_for_svd):
         """
@@ -139,9 +138,9 @@ class PulseModel():
         labels = ["const", "deriv", "pulse"]
         for i in range(self.n_basis-3):
             if i > self.n_basis-3-self.extra_n_basis_5lag:
-                labels = labels + [f"5lag{i+2-self.extra_n_basis_5lag}"] 
+                labels = labels + [f"5lag{i+2-self.extra_n_basis_5lag}"]
             else:
-                labels = labels + [f"svd{i}"]           
+                labels = labels + [f"svd{i}"]
         return labels
 
     def plot(self):
@@ -190,4 +189,3 @@ class PulseModel():
 
 
 # how well are the the 5lag filters represented
-

@@ -12,6 +12,7 @@ import fastdtw
 import h5py
 import lmfit
 import scipy.interpolate
+from mass.common import tostr
 
 # local imports
 import mass
@@ -26,7 +27,7 @@ LOG = logging.getLogger("mass")
 
 
 class ExperimentStateFile():
-    def __init__(self, filename: str=None, datasetFilename: str=None, excludeStates: str="auto", _parse: bool=True):
+    def __init__(self, filename: str = None, datasetFilename: str = None, excludeStates: str = "auto", _parse: bool = True):
         """
         excludeStates - when "auto" it either exclude no states when START is the only state or or excludes START, END and IGNORE otherwise pass a list of states to exclude
         _parse - is only for testing, can be used to prevent parsing on init
@@ -172,8 +173,8 @@ class DriftCorrection():
     version = 1
 
     def __init__(self, indicatorName, uncorrectedName, medianIndicator, slope):
-        self.indicatorName = indicatorName
-        self.uncorrectedName = uncorrectedName
+        self.indicatorName = tostr(indicatorName)
+        self.uncorrectedName = tostr(uncorrectedName)
         self.medianIndicator = medianIndicator
         self.slope = slope
 
@@ -193,8 +194,8 @@ class DriftCorrection():
 
     @classmethod
     def fromHDF5(cls, hdf5_group, name="driftCorrection"):
-        indicatorName = hdf5_group["{}/indicatorName".format(name)][()]
-        uncorrectedName = hdf5_group["{}/uncorrectedName".format(name)][()]
+        indicatorName = tostr(hdf5_group["{}/indicatorName".format(name)][()])
+        uncorrectedName = tostr(hdf5_group["{}/uncorrectedName".format(name)][()])
         medianIndicator = hdf5_group["{}/medianIndicator".format(name)][()]
         slope = hdf5_group["{}/slope".format(name)][()]
         version = hdf5_group["{}/version".format(name)][()]
@@ -265,7 +266,8 @@ class CorG():
         has_tails -- used when creating a model, will add both high and low energy tails to the model
         params_update -- after guessing params, call params.update(params_update)
         """
-        model = util.get_model(lineNameOrEnergy, has_linear_background=has_linear_background, has_tails=has_tails)
+        model = util.get_model(
+            lineNameOrEnergy, has_linear_background=has_linear_background, has_tails=has_tails)
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         if binEdges is None:
             if attr.startswith("energy") or calibration is not None:
@@ -330,8 +332,8 @@ class Channel(CorG):
         self._statesDict = None
         self.verbose = verbose
         self.learnChannumAndShortname()
-        self.recipes = RecipeBook(self._offAttrs, Channel, 
-            wrapper = lambda x: util.IngredientsWrapper(x, self.offFile._dtype_non_descriptive))
+        self.recipes = RecipeBook(self._offAttrs, Channel,
+                                  wrapper=lambda x: util.IngredientsWrapper(x, self.offFile._dtype_non_descriptive))
         # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
@@ -362,7 +364,7 @@ class Channel(CorG):
 
     @property
     def _offAttrs(self):
-        # adding ("coefs",) is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients       
+        # adding ("coefs",) is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
         return self.offFile.dtype.names+("coefs",)
 
     @property
@@ -430,7 +432,7 @@ class Channel(CorG):
             plt.plot(x, y, label=f"threshold", lw=3)
             plt.legend()
             plt.yscale("log")
-            plt.ylim(ymin/2,ymax*2)
+            plt.ylim(ymin/2, ymax*2)
 
     def getStatesIndicies(self, states=None):
         """return a list of slices corresponding to
@@ -515,7 +517,8 @@ class Channel(CorG):
             # I'd like to be able to do either r["coefs"] to get all projection coefficients
             # or r["filtValue"] to get only the filtValue
             # IngredientsWrapper lets that work within recipes.craft
-            g = self.recipes.craft(cutRecipeName, util.IngredientsWrapper(r, self.offFile._dtype_non_descriptive))
+            g = self.recipes.craft(cutRecipeName, util.IngredientsWrapper(
+                r, self.offFile._dtype_non_descriptive))
             output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
             # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
@@ -580,14 +583,13 @@ class Channel(CorG):
             raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(
                 attr, list(self._offAttrs), list(self._recipeAttrs)))
 
-
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, cutRecipeName=None):
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         if axis is None:
             plt.figure()
             axis = plt.gca()
         if states is None:
-            states = self.stateLabels    
+            states = self.stateLabels
         if isinstance(nameB, list):
             self._plotAvsB_list(nameA, nameB, axis, states, includeBad, cutRecipeName)
         else:
@@ -595,12 +597,13 @@ class Channel(CorG):
         plt.xlabel(nameA)
         plt.ylabel(nameB)
         plt.title(f"{self.shortName}\ncutRecipeName={cutRecipeName}")
-        plt.legend(title="states")       
+        plt.legend(title="states")
         return axis
 
     def _plotAvsB_list(self, nameA, nameBlist, axis, states, includeBad, cutRecipeName):
-            for nameB in nameBlist:
-                self._plotAvsB_single(nameA, nameB, axis, states, includeBad, cutRecipeName, prefix=nameB)
+        for nameB in nameBlist:
+            self._plotAvsB_single(nameA, nameB, axis, states, includeBad,
+                                  cutRecipeName, prefix=nameB)
 
     def _plotAvsB_single(self, nameA, nameB, axis=None, states=None, includeBad=False, cutRecipeName=None, prefix=""):
         for state in util.iterstates(states):
@@ -717,7 +720,7 @@ class Channel(CorG):
     def calibrationPlanAddPoint(self, uncalibratedVal, name, states=None, energy=None):
         if energy is None:
             if name in mass.spectra:
-                line = mass.spectra[name]    
+                line = mass.spectra[name]
             elif name in mass.STANDARD_FEATURES:
                 energy = mass.STANDARD_FEATURES[name]
                 line = mass.SpectralLine.quick_monochromatic_line(name, energy, 0.001, 0)
@@ -744,19 +747,19 @@ class Channel(CorG):
             calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
             calibration.uncalibratedName = uncalibratedName
             results = []
-            for (ph,line, states) in zip(plan.uncalibratedVals, plan.lines, plan.states):
+            for (ph, line, states) in zip(plan.uncalibratedVals, plan.lines, plan.states):
                 result = self.linefit(line, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                       plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
                                       method=method, params_update=params_update, has_tails=has_tails)
 
                 results.append(result)
                 if not result.success:
-                    self.markBad(f"calibrateFollowingPlan: failed fit {line}, states {states}", 
-                    extraInfo=result)
+                    self.markBad(f"calibrateFollowingPlan: failed fit {line}, states {states}",
+                                 extraInfo=result)
                     continue
                 if not result.errorbars:
                     self.markBad(f"calibrateFollowingPlan: {line} fit without error bars, states={states}",
-                    extraInfo=result)
+                                 extraInfo=result)
                     continue
                 ph = starting_cal.energy2ph(result.params["peak_ph"].value)
                 ph_uncertainty = result.params["peak_ph"].stderr / \
@@ -769,8 +772,8 @@ class Channel(CorG):
                 intermediate_calibrations.append(calibration)
                 starting_cal = calibration
         calibration.intermediate_calibrations = intermediate_calibrations
-        self.recipes.add(calibratedName, calibration, 
-            [calibration.uncalibratedName], overwrite=overwriteRecipe)
+        self.recipes.add(calibratedName, calibration,
+                         [calibration.uncalibratedName], overwrite=overwriteRecipe)
         return results
 
     def markBad(self, reason, extraInfo=None):
@@ -911,13 +914,16 @@ class Channel(CorG):
         plt.tight_layout()
 
     def add5LagRecipes(self, f):
-        filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(f, self.offFile.basis)
+        filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(
+            f, self.offFile.basis)
         self.recipes.add("cba5Lag", lambda coefs: np.matmul(coefs, filter_5lag_fit_in_basis))
         self.recipes.add("filtValue5Lag", lambda cba5Lag: fivelag.filtValue5Lag(cba5Lag))
         self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
 
+
 def normalize(x):
     return x/float(np.sum(x))
+
 
 def dtw_same_peaks(bin_edges, ph_a, ph_b, peak_inds_a, scale_by_median, normalize_before_dtw, plot=False):
     if scale_by_median:
@@ -928,8 +934,8 @@ def dtw_same_peaks(bin_edges, ph_a, ph_b, peak_inds_a, scale_by_median, normaliz
     counts_a, _ = np.histogram(ph_a, bin_edges)
     counts_b_median_scaled, _ = np.histogram(ph_b_median_scaled, bin_edges)
     if normalize_before_dtw:
-        distance, path = fastdtw.fastdtw(normalize(counts_a), 
-            normalize(counts_b_median_scaled))
+        distance, path = fastdtw.fastdtw(normalize(counts_a),
+                                         normalize(counts_b_median_scaled))
     else:
         distance, path = fastdtw.fastdtw(counts_a, counts_b_median_scaled)
     i_a = [x[0] for x in path]
@@ -959,7 +965,7 @@ def dtw_same_peaks(bin_edges, ph_a, ph_b, peak_inds_a, scale_by_median, normaliz
         plt.plot(bin_centers[peak_inds_a], counts_a[peak_inds_a], "o", label="a")
         plt.plot(bin_centers[peak_inds_b], counts_b[peak_inds_b], "s", label="b")
         plt.xlabel("bin_centers")
-    return peak_inds_b    
+    return peak_inds_b
 
 
 class AlignBToA():
@@ -988,7 +994,6 @@ class AlignBToA():
         ph_a = self.ds_a.getAttr(self.attr, self.states, cutRecipeName_a)
         ph_b = self.ds_b.getAttr(self.attr, self.states, cutRecipeName_b)
         return dtw_same_peaks(self.bin_edges, ph_a, ph_b, self.peak_inds_a, self.scale_by_median, self.normalize_before_dtw)
-
 
     def samePeaksPlot(self, cutRecipeName_a=None, cutRecipeName_b=None):
         if cutRecipeName_a is None:
@@ -1162,7 +1167,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         defaultCut = ds._default_cut_recipe_name
         for ds in self.values():
             if ds._default_cut_recipe_name != defaultCut:
-                raise Exception("you are tyring to use the default cut from a channel group, but not all channels have the same default cut")
+                raise Exception(
+                    "you are tyring to use the default cut from a channel group, but not all channels have the same default cut")
         return defaultCut
 
     @property
