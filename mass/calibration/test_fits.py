@@ -401,6 +401,25 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
             result = model.fit(sim, params, bin_centers=bctr)
             # If the above never errors, then problem solved.
 
+    def test_integral_parameter(self):
+        """See issue 202: parameter 'integral' should be the total number of counts."""
+        line = mass.MnKAlpha
+        bgperev = 50
+        Nsignal = 10000
+        np.random.seed(3038)
+        sig = line.rvs(Nsignal, instrument_gaussian_fwhm=5)
+        bg = np.random.uniform(5850, 5950, 100*bgperev)
+        samples = np.hstack((bg, sig))
+        for nbins in (100, 200, 300):
+            s, b = np.histogram(samples, nbins, [5850, 5950])
+            e = b[:-1] + 0.5*(b[1]-b[0])
+
+            model = line.model()
+            params = model.guess(s, bin_centers=e)
+            resultA = model.fit(s, params, bin_centers=e)
+            integral = resultA.best_values["integral"]
+            self.assertAlmostEqual(integral, Nsignal, delta=3*np.sqrt(len(samples)))
+
 
 class Test_Composites_lmfit(unittest.TestCase):
     def setUp(self):
