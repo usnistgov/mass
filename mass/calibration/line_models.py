@@ -174,7 +174,7 @@ class GenericLineModel(MLEModel):
         self._has_tails = has_tails
         self._has_linear_background = has_linear_background
         if has_tails:
-            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude,
+            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral,
                           background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_frac_hi=0, tail_tau_hi=8):
                 bin_centers = np.asarray(bin_centers, dtype=np.float)
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
@@ -186,20 +186,20 @@ class GenericLineModel(MLEModel):
                 length_hi = tail_tau_hi*dph_de/binwidth
                 spectrum = line_fits._smear_exponential_tail(
                     cleanspectrum_fn, energy, fwhm, tail_frac, length_lo, tail_frac_hi, length_hi)
-                r = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
+                r = line_fits._scale_add_bg(spectrum, integral, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
                 return r
         else:
-            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, amplitude, background=0, bg_slope=0):
+            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral, background=0, bg_slope=0):
                 bin_centers = np.asarray(bin_centers, dtype=np.float)
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 spectrum = self.spect.pdf(energy, fwhm)
-                r = line_fits._scale_add_bg(spectrum, amplitude, background, bg_slope)
+                r = line_fits._scale_add_bg(spectrum, integral, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
                 return r
-        param_names = ["fwhm", "peak_ph", "dph_de", "amplitude"]
+        param_names = ["fwhm", "peak_ph", "dph_de", "integral"]
         if self._has_linear_background:
             param_names += ["background", "bg_slope"]
         if self._has_tails:
@@ -213,7 +213,7 @@ class GenericLineModel(MLEModel):
         self.set_param_hint('fwhm', value=4, min=0)
         self.set_param_hint('peak_ph', min=0)
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
-        self.set_param_hint("amplitude", value=100, min=0)
+        self.set_param_hint("integral", value=100, min=0)
         if self._has_linear_background:
             self.set_param_hint('background', value=1, min=0)
             self.set_param_hint('bg_slope', value=0, vary=False)
@@ -224,20 +224,22 @@ class GenericLineModel(MLEModel):
             self.set_param_hint('tail_tau_hi', value=0, min=0, max=100, vary=False)
 
     def guess(self, data, bin_centers, **kwargs):
-        "Guess values for the peak_ph, amplitude, and background."
+        "Guess values for the peak_ph, integral, and background."
         order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+
         def percentiles(p):
             return bin_centers[(order_stat > p).argmax()]
         fwhm = 0.7*(percentiles(0.75) - percentiles(0.25))
         # b could be an alternate guess for peak_ph
         peak_ph = bin_centers[data.argmax()]
-        ampl = data.max() * 9.4  # this number is taken from the GenericKBetaFitter
         if len(data) > 20:
             # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
             baseline = max(data[0:10].mean(), 1.0/len(data))
         else:
             baseline = 0.1
-        pars = self.make_params(peak_ph=peak_ph, background=baseline, amplitude=ampl, fwhm=fwhm)
+        tcounts_above_bg = data.sum() - baseline*len(data)
+        pars = self.make_params(peak_ph=peak_ph, background=baseline,
+                                integral=tcounts_above_bg, fwhm=fwhm)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
 
@@ -245,7 +247,7 @@ class GenericKAlphaModel(GenericLineModel):
     "Overrides GenericLineModel.guess to make guesses appropriate for K-alpha lines."
 
     def guess(self, data, bin_centers=None, **kwargs):
-        "Guess values for the peak_ph, amplitude, and background, and dph_de"
+        "Guess values for the peak_ph, integral, and background, and dph_de"
         if data.sum() <= 0:
             raise ValueError("This histogram has no contents")
         # Heuristic: find the Ka1 line as the peak bin, and then make
@@ -260,13 +262,14 @@ class GenericKAlphaModel(GenericLineModel):
         ph_ka1 = peak_ph
         dph = 0.66 * (topqtr - lowqtr)
         dE = self.spect.ka12_energy_diff  # eV difference between KAlpha peaks
-        ampl = data.max() * 9.4
         if len(data) > 20:
             # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
             baseline = max(data[0:10].mean(), 1.0/len(data))
         else:
             baseline = 0.1
-        pars = self.make_params(peak_ph=ph_ka1, dph_de=dph/dE, background=baseline, amplitude=ampl)
+        tcounts_above_bg = data.sum() - baseline*len(data)
+        pars = self.make_params(peak_ph=ph_ka1, dph_de=dph/dE,
+                                background=baseline, integral=tcounts_above_bg)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
 
@@ -275,7 +278,7 @@ class LineModelResult(lmfit.model.ModelResult):
 
     def _compact_fit_report(self):
         s = ""
-        sn = {"background": "bg", "amplitude": "ampl", "bg_slope": "bg_slp"}
+        sn = {"background": "bg", "integral": "intgrl", "bg_slope": "bg_slp"}
         for k in sorted(self.params.keys()):
             v = self.params[k]
             if v.vary:
