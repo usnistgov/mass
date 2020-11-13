@@ -296,6 +296,158 @@ When you fit with a non-trivial QE model, the fit parameters that refer to signa
 That is, the fit values must be multiplied by the local QE to give the number of _observed_ signal counts, background counts per bin, or background slope.
 With or without a QE model, "integral" refers to the number of photons that would be seen across all energies (not just in the range being fit).
 
+Fitting a simple Gaussian, Lorentzian, or Voigt function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. testcode::
+
+  e_ctr = 1000.0
+  Nsig = 10000
+  Nbg = 1000
+
+  sigma = 1.0
+  x_gauss = np.random.standard_normal(Nsig)*sigma + e_ctr
+  hwhm = 1.0
+  x_lorentz = np.random.standard_cauchy(Nsig)*hwhm + e_ctr
+  x_voigt = np.random.standard_cauchy(Nsig)*hwhm + np.random.standard_normal(Nsig)*sigma + e_ctr
+  bg = np.random.uniform(e_ctr-5, e_ctr+5, size=Nbg)
+
+  # Gaussian fit
+  c, b = np.histogram(np.hstack([x_gauss, bg]), 50, [e_ctr-5, e_ctr+5])
+  bin_ctr = b[:-1] + (b[1]-b[0]) * 0.5
+  line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", e_ctr, 0, 0)
+  line.linetype = "Gaussian"
+  model = line.model()
+  params = model.guess(c, bin_centers=bin_ctr)
+  params["fwhm"].set(2.3548*sigma)
+  params["background"].set(Nbg/len(c))
+  resultG = model.fit(c, params, bin_centers=bin_ctr)
+  resultG.plotm()
+  print(resultG.fit_report())
+
+  # Lorentzian fit
+  c, b = np.histogram(np.hstack([x_lorentz, bg]), 50, [e_ctr-5, e_ctr+5])
+  bin_ctr = b[:-1] + (b[1]-b[0]) * 0.5
+  line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", e_ctr, hwhm*2, 0)
+  line.linetype = "Lorentzian"
+  model = line.model()
+  params = model.guess(c, bin_centers=bin_ctr)
+  params["fwhm"].set(2.3548*sigma)
+  params["background"].set(Nbg/len(c))
+  resultL = model.fit(c, params, bin_centers=bin_ctr)
+  resultL.plotm()
+  print(resultL.fit_report())
+
+  # Voigt fit
+  c, b = np.histogram(np.hstack([x_voigt, bg]), 50, [e_ctr-5, e_ctr+5])
+  bin_ctr = b[:-1] + (b[1]-b[0]) * 0.5
+  line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", e_ctr, hwhm*2, sigma)
+  line.linetype = "Voigt"
+  model = line.model()
+  params = model.guess(c, bin_centers=bin_ctr)
+  params["fwhm"].set(2.3548*sigma)
+  params["background"].set(Nbg/len(c))
+  resultV = model.fit(c, params, bin_centers=bin_ctr)
+  resultV.plotm()
+  print(resultV.fit_report())
+
+.. testoutput::
+  :options: +NORMALIZE_WHITESPACE
+
+  [[Model]]
+      GenericLineModel(testlineGaussian)
+  [[Fit Statistics]]
+      # fitting method   = least_squares
+      # function evals   = 10
+      # data points      = 50
+      # variables        = 5
+      chi-square         = 39.3487683
+      reduced chi-square = 0.87441707
+      Akaike info crit   = -1.97791658
+      Bayesian info crit = 7.58219844
+  [[Variables]]
+      fwhm:        2.35583437 +/- 6266.57891 (266002.53%) (init = 2.3548)
+      peak_ph:     999.985007 +/- 0.01029049 (0.00%) (init = 999.9)
+      dph_de:      0.99939017 +/- 2658.40410 (266002.63%) (init = 1)
+      integral:    10015.6229 +/- 103.453482 (1.03%) (init = 9965)
+      background:  19.6876509 +/- 0.95953678 (4.87%) (init = 20)
+      bg_slope:    0 (fixed)
+  [[Correlations]] (unreported correlations are < 0.100)
+      C(fwhm, dph_de)         = -1.000
+      C(integral, background) = -0.286
+      C(fwhm, integral)       =  0.218
+      C(dph_de, integral)     = -0.218
+      C(fwhm, peak_ph)        =  0.189
+      C(peak_ph, dph_de)      = -0.189
+  [[Model]]
+      GenericLineModel(testlineLorentzian)
+  [[Fit Statistics]]
+      # fitting method   = least_squares
+      # function evals   = 10
+      # data points      = 50
+      # variables        = 5
+      chi-square         = 40.9595256
+      reduced chi-square = 0.91021168
+      Akaike info crit   = 0.02806968
+      Bayesian info crit = 9.58818470
+  [[Variables]]
+      fwhm:        0.58170796 +/- 0.34660909 (59.58%) (init = 2.3548)
+      peak_ph:     999.987782 +/- 0.01414195 (0.00%) (init = 1000.1)
+      dph_de:      0.91557524 +/- 0.06397801 (6.99%) (init = 1)
+      integral:    9527.94919 +/- 299.127393 (3.14%) (init = 6699)
+      background:  27.0320674 +/- 3.71439321 (13.74%) (init = 20)
+      bg_slope:    0 (fixed)
+  [[Correlations]] (unreported correlations are < 0.100)
+      C(fwhm, dph_de)         = -0.939
+      C(integral, background) = -0.918
+      C(dph_de, integral)     =  0.888
+      C(dph_de, background)   = -0.871
+      C(fwhm, integral)       = -0.793
+      C(fwhm, background)     =  0.761
+  [[Model]]
+      GenericLineModel(testlineVoigt)
+  [[Fit Statistics]]
+      # fitting method   = least_squares
+      # function evals   = 16
+      # data points      = 50
+      # variables        = 5
+      chi-square         = 61.0628255
+      reduced chi-square = 1.35695168
+      Akaike info crit   = 19.9940128
+      Bayesian info crit = 29.5541278
+  [[Variables]]
+      fwhm:        1.3698e-06 +/- 13368.8966 (975978925292.51%) (init = 2.3548)
+      peak_ph:     999.985573 +/- 0.02673240 (0.00%) (init = 999.9)
+      dph_de:      0.97283578 +/- 0.02847194 (2.93%) (init = 1)
+      integral:    9703.20840 +/- 286.050093 (2.95%) (init = 6168)
+      background:  24.1814683 +/- 3.93585501 (16.28%) (init = 20)
+      bg_slope:    0 (fixed)
+  [[Correlations]] (unreported correlations are < 0.100)
+      C(integral, background) = -0.877
+      C(dph_de, integral)     =  0.771
+      C(dph_de, background)   = -0.771
+      C(fwhm, dph_de)         = -0.258
+      C(fwhm, integral)       = -0.163
+      C(fwhm, peak_ph)        =  0.157
+      C(fwhm, background)     =  0.105
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/mnka_fitV.png"); plt.close()
+  plt.savefig("img/mnka_fitL.png"); plt.close()
+  plt.savefig("img/mnka_fitG.png"); plt.close()
+
+.. image:: img/mnka_fitG.png
+  :width: 40%
+
+.. image:: img/mnka_fitL.png
+  :width: 40%
+
+.. image:: img/mnka_fitV.png
+  :width: 40%
+
+
 How you can use the old, homemade fitters (but don't!)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -312,8 +464,8 @@ Keep in mind that the code in this section is considered deprecated. You should 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  [2.21972269e+00 5.89880742e+03 1.00162906e+00 4.99750202e+04
-   1.69990256e-05 0.00000000e+00 0.00000000e+00 2.50000000e+01]
+  [3.67107914e+00 5.89481316e+03 2.49510554e+00 1.99050188e+04
+   6.07543272e-07 0.00000000e+00 0.00000000e+00 2.50000000e+01]
 
 Notice that it's on you to remember that the ordering of the ``param`` vector (and rows and columns of the ``covar`` matrix) is:
 
@@ -337,8 +489,8 @@ To hold a parameter fixed, say the dPH/dE, you need provide a parameter guess, a
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  [2.20388278e+00 5.89880222e+03 1.00000000e+00 5.00471835e+04
-   2.86619219e-06 0.00000000e+00 0.00000000e+00 2.50000000e+01]
+  [1.30706103e+01 5.89457241e+03 1.00000000e+00 4.96979060e+04
+   6.86416864e-02 0.00000000e+00 0.00000000e+00 2.50000000e+01]
 
 You can allow low-energy tail to exist by setting the last two guess parameters to nonzero values. You can allow it to vary with the `vary_tail` optional argument:
 
@@ -354,10 +506,10 @@ You can allow low-energy tail to exist by setting the last two guess parameters 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  [2.20388276e+00 5.89880222e+03 1.00000000e+00 5.00471836e+04
-   2.78365366e-08 0.00000000e+00 1.00000000e-01 3.00000000e+01]
-  [ 2.19431984e+00  5.89880548e+03  1.00000000e+00  5.00481804e+04
-   -7.62130989e+01  2.73814800e-01  2.98784149e-03  6.36729969e+00]
+  [1.30682997e+01 5.89457318e+03 1.00000000e+00 4.97008884e+04
+   1.43368611e-05 0.00000000e+00 1.00000000e-01 3.00000000e+01]
+  [ 4.33415543e-07  5.89862595e+03  1.00000000e+00  4.93995514e+04
+   -9.66319944e+01  6.39272193e-01  5.43569178e-01  8.29153285e+00]
 
 Did you get a ``LinAlgWarning`` when you performed that last fit? I did! This is part of what we're trying to avoid with the new fitters.
 
