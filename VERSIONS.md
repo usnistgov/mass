@@ -11,7 +11,11 @@
 * Fix issue 197: work around a problem opening certain noise HDF5 files.
 * Fix issue 199: remove Qt4 (a Python 2-only package) and GUIs based on it.
 * Fix issue 200: work with h5py version 3 (reads strings as bytes type).
+* Fix issue 201: add examples in line_fitting.rst to show how to fit Gauss, Lorentz, or Voigt
 * Fix issue 202: fluorescence models use parameter "integral" instead of ill-defined "amplitude".
+* Fix issue 204: add optional quantum efficiency model to line fits: now can fit line times QE.
+* Replace line fitting documentation with a doctest document.
+
 
 **0.7.5** March 31 2020
 
