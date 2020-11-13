@@ -49,11 +49,6 @@ Objects of the type ``SpectralLine`` encode the line shape of a fluorescence lin
   import numpy as np
   import pylab as plt
   import mass.materials
-  class happychecker(object):
-      def check_output(self, *args):
-          return True
-      def output_difference(self, *args):
-          return ""
 
 .. testcode::
 
@@ -316,7 +311,7 @@ Keep in mind that the code in this section is considered `deprecated`. You shoul
 .. testcode::
 
   # Fitters for known lines are instantiated by:
-  fitter = line.fitter()
+  fitter = mass.MnKAlpha.fitter()
   fitter._have_warned = True  # hide the deprecation warning
   paramA, covar = fitter.fit(sim, e)
   with np.printoptions(3, suppress=True): print(paramA)
@@ -324,7 +319,7 @@ Keep in mind that the code in this section is considered `deprecated`. You shoul
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  [    3.671  5894.813     2.495 19905.019     0.        0.        0.
+  [    2.22   5898.807     1.002 49975.02      0.        0.        0.
       25.   ]
 
 .. testcode::
@@ -358,7 +353,7 @@ To hold a parameter fixed, say the dPH/dE, you need provide a parameter guess, a
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  [   13.071  5894.572     1.    49697.906     0.069     0.        0.
+  [    2.204  5898.802     1.    50047.184     0.        0.        0.
       25.   ]
 
 .. testcode::
@@ -385,10 +380,10 @@ You can allow low-energy tail to exist by setting the last two guess parameters 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  [   13.068  5894.573     1.    49700.888     0.        0.        0.1
+  [    2.204  5898.802     1.    50047.184     0.        0.        0.1
       30.   ]
-  [    0.     5898.626     1.    49399.551   -96.632     0.639     0.544
-       8.292]
+  [    2.194  5898.805     1.    50048.18    -76.213     0.274     0.003
+       6.367]
 
 .. testcode::
  :hide:
