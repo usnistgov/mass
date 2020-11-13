@@ -65,8 +65,11 @@ class SpectralLine(sp.stats.rv_continuous):
     def peak_energy(self):
         # lazily calculate peak energy
         if np.isnan(self._peak_energy):
-            self._peak_energy = sp.optimize.brent(lambda x: -self.pdf(x, instrument_gaussian_fwhm=0),
-                                                  brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
+            try:
+                self._peak_energy = sp.optimize.brent(lambda x: -self.pdf(x, instrument_gaussian_fwhm=0),
+                                                      brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
+            except ValueError:
+                self._peak_energy = self.nominal_peak_energy
         return self._peak_energy
 
     def __call__(self, x, instrument_gaussian_fwhm):
@@ -204,6 +207,8 @@ class SpectralLine(sp.stats.rv_continuous):
         element = name
         material = "unknown: quick_line"
         energies = np.array([energy])
+        if lorentzian_fwhm <= 0 and intrinsic_sigma <= 0:
+            intrinsic_sigma = 1e-4
         lorentzian_fwhm = np.array([lorentzian_fwhm])
         intrinsic_sigma = intrinsic_sigma
         linetype = "quick_line"
