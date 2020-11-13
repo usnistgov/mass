@@ -52,13 +52,13 @@ def test_filter():
     assert qe[0].nominal_value == 0.07748992544643195 
 
     assert repr(m) == """<class 'mass.materials.efficiency_models.FilterStack'>(
-Electroplated Au Absorber: <class 'mass.materials.efficiency_models.Film'>(Au 0.00187+/-0.00187 g/cm^2, fill_fraciton=1.000+/-0, absorber=True)
-50mK Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al 0.00135+/-0.00135 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraciton=1.000+/-1.000, absorber=False)
-3K Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al 0.00135+/-0.00135 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraciton=1.000+/-1.000, absorber=False)
-50K Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al 0.00343+/-0.00343 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraciton=1.000+/-1.000, absorber=False)
+Electroplated Au Absorber: <class 'mass.materials.efficiency_models.Film'>(Au 0.00187+/-0.00187 g/cm^2, fill_fraction=1.000+/-0, absorber=True)
+50mK Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al 0.00135+/-0.00135 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
+3K Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al 0.00135+/-0.00135 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
+50K Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al 0.00343+/-0.00343 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
 Luxel Window TES: <class 'mass.materials.efficiency_models.LEX_HT'>(
-LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
-LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraciton=0.190+/-0.010, absorber=False)
+LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraction=1.000+/-0, absorber=False)
+LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraction=0.190+/-0.010, absorber=False)
 )
 )"""
 

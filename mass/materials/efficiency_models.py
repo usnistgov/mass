@@ -125,7 +125,7 @@ class Film(FilterStack):
         s = f"{type(self)}("
         for material, area_density in zip(self.material, self.area_density_g_per_cm2):
             s += f"{material} {area_density:.3g} g/cm^2, "
-        s += f"fill_fraciton={self.fill_fraction:.3f}, absorber={self.absorber})"
+        s += f"fill_fraction={self.fill_fraction:.3f}, absorber={self.absorber})"
         return s
 
 
