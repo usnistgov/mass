@@ -14,23 +14,23 @@ Energy dependent absorber efficiency can also be modeled.
 
 ``FilterStack`` class and subclass functions with premade efficiency models
 -------------------------------------------------------------------------------------
-Here, we import the `mass.efficiency_models` module and demonstrate the functionality with some of the premade efficiency models.
+Here, we import the ``mass.efficiency_models`` module and demonstrate the functionality with some of the premade efficiency models.
 Generally, these premade models are put in place for TES instruments with well known absorber and filter stack compositions.
 To demonstrate, we work with the 'EBIT 2018' model, which models the TES spectrometer setup at the NIST EBIT, as it was commissioned in 2018.
 This model includes a ~1um thick absorber, 3 ~100nm thick Al IR blocking filters, and LEX HT vacuum windows for both the TES and EBIT vacuums.
 We begin by importing ``efficiency_models`` and examining the EBIT efficiency model components.
 
-We can see that the model is made of many submodels (aka components) and that all the parameters have uncertainties. 
-The EBIT system was particularly well characterized, so the unceratinties are fairly low.
-The presence of unceratinties requires some special handling in a few places, these docs will show some examples.
+We can see that the model is made of many submodels (aka components) and that all the parameters have uncertainties.
+The EBIT system was particularly well characterized, so the uncertainties are fairly low.
+The presence of uncertainties requires some special handling in a few places, these docs will show some examples.
 
 .. testcode::
 
   import mass
-  import mass.materials # because of how hard x-raylib can be, you have to explicity import mass.materials
+  import mass.materials  # because of how hard xraylib can be, you have to explicitly import mass.materials
   import numpy as np
   import pylab as plt
-  from uncertainties import unumpy as unp # useful for working with arrays with unceratinties aka uarray
+  from uncertainties import unumpy as unp  # useful for working with arrays with uncertainties aka uarray
   from uncertainties import ufloat
 
   EBIT_model = mass.materials.filterstack_models['EBIT 2018']
@@ -40,20 +40,20 @@ The presence of unceratinties requires some special handling in a few places, th
   :options: +NORMALIZE_WHITESPACE
 
   <class 'mass.materials.efficiency_models.FilterStack'>(
-  Electroplated Au Absorber: <class 'mass.materials.efficiency_models.Film'>(Au 0.00187+/-0.00006 g/cm^2, fill_fraciton=1.000+/-0, absorber=True)
-  50mK Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (3.04+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraciton=1.000+/-1.000, absorber=False)
-  3K Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.93+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraciton=1.000+/-1.000, absorber=False)
+  Electroplated Au Absorber: <class 'mass.materials.efficiency_models.Film'>(Au 0.00187+/-0.00006 g/cm^2, fill_fraction=1.000+/-0, absorber=True)
+  50mK Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (3.04+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
+  3K Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.93+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
   50K Filter: <class 'mass.materials.efficiency_models.FilterStack'>(
-  Al Film: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.77+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraciton=1.000+/-1.000, absorber=False)
-  Ni Mesh: <class 'mass.materials.efficiency_models.Film'>(Ni 0.0134+/-0.0018 g/cm^2, fill_fraciton=0.170+/-0.010, absorber=False)
+  Al Film: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.77+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
+  Ni Mesh: <class 'mass.materials.efficiency_models.Film'>(Ni 0.0134+/-0.0018 g/cm^2, fill_fraction=0.170+/-0.010, absorber=False)
   )
   Luxel Window TES: <class 'mass.materials.efficiency_models.LEX_HT'>(
-  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
-  LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraciton=0.190+/-0.010, absorber=False)
+  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraction=1.000+/-0, absorber=False)
+  LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraction=0.190+/-0.010, absorber=False)
   )
   Luxel Window EBIT: <class 'mass.materials.efficiency_models.LEX_HT'>(
-  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraciton=1.000+/-0, absorber=False)
-  LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraciton=0.190+/-0.010, absorber=False)
+  LEX_HT Film: <class 'mass.materials.efficiency_models.Film'>(C (6.70+/-0.20)e-05 g/cm^2, H (2.60+/-0.08)e-06 g/cm^2, N (7.20+/-0.22)e-06 g/cm^2, O (1.70+/-0.05)e-05 g/cm^2, Al (1.70+/-0.05)e-05 g/cm^2, fill_fraction=1.000+/-0, absorber=False)
+  LEX_HT Mesh: <class 'mass.materials.efficiency_models.Film'>(Fe 0.0564+/-0.0011 g/cm^2, Cr 0.0152+/-0.0003 g/cm^2, Ni 0.00720+/-0.00014 g/cm^2, Mn 0.000800+/-0.000016 g/cm^2, Si 0.000400+/-0.000008 g/cm^2, fill_fraction=0.190+/-0.010, absorber=False)
   )
   )
 
@@ -75,7 +75,7 @@ As an example, we look at the efficiency of the EBIT 2018 filter stack and the 5
   print(unp.nominal_values(stack_efficiency)) # you can easily strip uncertainties, see uncertains package docs for more info
 
   print("filter50K efficiencies")
-  print(filter50K_efficiency) # if you want to remove the uncerainties, eg for plotting
+  print(filter50K_efficiency) # if you want to remove the uncertainties, eg for plotting
 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
@@ -129,9 +129,9 @@ In addition, a meshed style filter can be modelled using the ``fill_fraction`` a
 Finally, most ``FilterStack`` subclasses can use the ``absorber`` argument (default False), which will cause the object to return absorption,
 instead of transmittance, as the efficiency.
 
-All numerical arguments can be passed with our without uncerainties. If you don't have at least one number with specified uncertainty in 
-a particular Film, the code will add a +/- 100% uncertainty on that component. This way, hopefully you will notice that your uncerainty is higher than you expect, and double check the inputs.
-Read up on the `uncerainties` package for more info about how it works.
+All numerical arguments can be passed with our without uncertainties. If you don't have at least one number with specified uncertainty in
+a particular Film, the code will add a +/- 100% uncertainty on that component. This way, hopefully you will notice that your uncertainty is higher than you expect, and double check the inputs.
+Read up on the `uncertainties` package for more info about how it works.
 
 .. testcode::
 
