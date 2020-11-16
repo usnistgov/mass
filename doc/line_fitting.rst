@@ -96,7 +96,12 @@ The simplest case of line fitting requires only 3 steps: create a model instance
   params = resultA.params.copy()
   params["dph_de"].set(1.0, vary=False)
   resultB = model.fit(sim, params, bin_centers=e)
+
+  # There are two plotting methods. The first is an LMfit built-in; the other ("mass-style") puts the
+  # fit parameters on the plot.
   resultB.plot()
+  resultB.plotm()
+
   # The best-fit params are found in resultB.params
   # and a dictionary of their values is resultB.best_values.
   # The parameters given as an argument to fit are unchanged.
@@ -104,9 +109,13 @@ The simplest case of line fitting requires only 3 steps: create a model instance
 .. testcode::
   :hide:
 
+  plt.savefig("img/mnka_fit1m.png"); plt.close()
   plt.savefig("img/mnka_fit1.png"); plt.close()
 
 .. image:: img/mnka_fit1.png
+  :width: 40%
+
+.. image:: img/mnka_fit1m.png
   :width: 40%
 
 You can print a nicely formatted fit report with ``fit_report()``:
@@ -190,12 +199,12 @@ If you want to multiply the line models by a model of the quantum efficiency, yo
 .. testcode::
 
   raven_filters = mass.materials.efficiency_models.filterstack_models["RAVEN1 2019"]
-  eknots = np.linspace(100, 20000, 1991)
+  eknots = np.linspace(200, 20000, 991)
   qevalues = raven_filters(eknots)
   qemodel = mass.mathstat.interpolate.CubicSpline(eknots, qevalues)
 
   model = line.model(qemodel=qemodel)
-  resultD = model.fit(sim, params, bin_centers=e)
+  resultD = model.fit(sim, resultB.params, bin_centers=e)
   resultD.plotm()
   # print(resultD.fit_report())
 
@@ -203,15 +212,13 @@ If you want to multiply the line models by a model of the quantum efficiency, yo
   localqe= qemodel(mass.STANDARD_FEATURES["MnKAlpha"])[0]
   fit_observed = fit_counts*localqe
   fit_err = resultD.params["integral"].stderr
-  if fit_err is None:
-      fit_err = fit_counts / N**0.5
   print("Fit finds {:.0f}±{:.0f} counts before QE or {:.0f}±{:.0f} observed. True value {:d}".format(
       fit_counts, fit_err, fit_observed, fit_err*localqe, N))
 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  Fit finds 173065±547 counts before QE or 102670±325 observed. True value 100000
+  Fit finds 168779±549 counts before QE or 100128±325 observed. True value 100000
 
 .. testcode::
   :hide:
