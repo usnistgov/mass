@@ -47,7 +47,7 @@ General advice on updating/creating documentation files:
 * Again, poorly formatted markdown is better than no markdown.
 * [Here's a WYSIWIG online markdown editor/viewer.](https://dillinger.io/) Just copy and paste once it looks like you want it to.
 * Look in mass/doc for .md files and .rst files. The latter contain sphinx doctests. We should probably use these for all new documentation
-* If there's something worth updating in an existing .md file, then update it. Better yet, change it to an .rst file with doctests. 
+* If there's something worth updating in an existing .md file, then update it. Better yet, change it to an .rst file with doctests.
 
 
 # Intro
@@ -90,11 +90,13 @@ If you install in a virtual environment (a "venv"), the install location will be
 Otherwise will will just be in mass relative to where you run the pip command.
 
 ## -e
-The -e command makes development really easy, you can change python files, then the next time you import mass the new files will be used. If you change Cython files or other complied files you should install again. Either do `pip install -e .` from within the soure directory, or call `python setup.py develop` from within the directory.
+The -e command makes development really easy, you can change python files, then the next time you import mass the new files will be used. If you change Cython files or other complied files you should install again. Either do `pip install -e .` from within the source directory, or call `python setup.py develop` from within the directory.
 
 ## Working on docs + tests
-Change directory into `doc` then 
-  * posix (mac/linux) `make doctest; make html; open _build/html/index.html`
-  * windows cmd shell `make doctest && make html && start _build/html/index.html`
+Change directory into `doc` then
+
+  * posix (mac/linux) `make doctest html && open _build/html/index.html`
+  * windows cmd shell `make doctest html && start _build/html/index.html`
   * windows powershell `./make doctest;./make html;start _build/html/index.html`
-Read about RST format, it is weird, my most common mistake is forgetting the blank line between `.. blah` statements and the following text.
+
+Read about RST (reStructuredText) format. It is weird. My most common mistake is forgetting the blank line between `.. blah` statements and the following text. See the [Sphinx docs](https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html) for details about its syntax.

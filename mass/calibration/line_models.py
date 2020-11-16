@@ -169,7 +169,7 @@ class CompositeMLEModel(MLEModel, lmfit.CompositeModel):
 
 class GenericLineModel(MLEModel):
     def __init__(self, spect, independent_vars=['bin_centers'], prefix='', nan_policy='raise',
-                 has_linear_background=True, has_tails=False, **kwargs):
+                 has_linear_background=True, has_tails=False, qemodel=None, **kwargs):
         self.spect = spect
         self._has_tails = has_tails
         self._has_linear_background = has_linear_background
@@ -182,16 +182,17 @@ class GenericLineModel(MLEModel):
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
                 # Convert tau values (in eV units) to
                 # lengths in bin units, which _smear_exponential_tail expects
-                binwidth = bin_centers[1]-bin_centers[0]
-                length_lo = tail_tau*dph_de/binwidth
-                length_hi = tail_tau_hi*dph_de/binwidth
+                length_lo = tail_tau*dph_de/bin_width
+                length_hi = tail_tau_hi*dph_de/bin_width
                 spectrum = line_fits._smear_exponential_tail(
                     cleanspectrum_fn, energy, fwhm, tail_frac, length_lo, tail_frac_hi, length_hi)
                 scale_factor = integral * bin_width * dph_de
                 r = line_fits._scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
-                return r
+                if qemodel is None:
+                    return r
+                return r*qemodel(energy)
         else:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral, background=0, bg_slope=0):
                 bin_centers = np.asarray(bin_centers, dtype=np.float)
@@ -202,7 +203,9 @@ class GenericLineModel(MLEModel):
                 r = line_fits._scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
-                return r
+                if qemodel is None:
+                    return r
+                return r*qemodel(energy)
         param_names = ["fwhm", "peak_ph", "dph_de", "integral"]
         if self._has_linear_background:
             param_names += ["background", "bg_slope"]
@@ -234,7 +237,6 @@ class GenericLineModel(MLEModel):
         def percentiles(p):
             return bin_centers[(order_stat > p).argmax()]
         fwhm = 0.7*(percentiles(0.75) - percentiles(0.25))
-        # b could be an alternate guess for peak_ph
         peak_ph = bin_centers[data.argmax()]
         if len(data) > 20:
             # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
