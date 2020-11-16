@@ -199,7 +199,7 @@ If you want to multiply the line models by a model of the quantum efficiency, yo
 .. testcode::
 
   raven_filters = mass.materials.efficiency_models.filterstack_models["RAVEN1 2019"]
-  eknots = np.linspace(200, 20000, 991)
+  eknots = np.linspace(100, 20000, 1991)
   qevalues = raven_filters(eknots)
   qemodel = mass.mathstat.interpolate.CubicSpline(eknots, qevalues)
 
@@ -212,13 +212,14 @@ If you want to multiply the line models by a model of the quantum efficiency, yo
   localqe= qemodel(mass.STANDARD_FEATURES["MnKAlpha"])[0]
   fit_observed = fit_counts*localqe
   fit_err = resultD.params["integral"].stderr
-  print("Fit finds {:.0f}±{:.0f} counts before QE or {:.0f}±{:.0f} observed. True value {:d}".format(
-      fit_counts, fit_err, fit_observed, fit_err*localqe, N))
+  count_err = fit_err*localqe
+  print("Fit finds {:.0f}±{:.0f} counts before QE, or {:.0f}±{:.0f} observed. True value {:d}.".format(
+      round(fit_counts, -1), round(fit_err, -1), round(fit_observed, -1), round(count_err, -1), N))
 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  Fit finds 168779±549 counts before QE or 100128±325 observed. True value 100000
+  Fit finds 168780±550 counts before QE, or 100130±330 observed. True value 100000.
 
 .. testcode::
   :hide:
