@@ -15,7 +15,6 @@ import logging
 LOG = logging.getLogger("mass")
 
 
-
 class TestFiles(ut.TestCase):
 
     def test_ljh_copy_and_append_traces(self):
@@ -170,7 +169,8 @@ class TestTESGroup(ut.TestCase):
         data.calibrate("p_pulse_rms", [10000.], name_ext="abc")
         ds = data.first_good_dataset
 
-        data2 = self.load_data(hdf5_filename=data.hdf5_file.filename, hdf5_noisefilename=data.hdf5_noisefile.filename)
+        data2 = self.load_data(hdf5_filename=data.hdf5_file.filename,
+                               hdf5_noisefilename=data.hdf5_noisefile.filename)
         ds2 = data2.first_good_dataset
         self.assertTrue(all([k in ds.calibration.keys() for k in ds2.calibration.keys()]))
         self.assertEqual(len(ds.calibration.keys()), 2)
@@ -189,7 +189,8 @@ class TestTESGroup(ut.TestCase):
         self.assertLess(ngood, ds.nPulses)
         self.assertGreater(ngood, 0)
 
-        data2 = self.load_data(hdf5_filename=data.hdf5_file.filename, hdf5_noisefilename=data.hdf5_noisefile.filename)
+        data2 = self.load_data(hdf5_filename=data.hdf5_file.filename,
+                               hdf5_noisefilename=data.hdf5_noisefile.filename)
         for ds in data2:
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1], 0.)
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1], 0.)
@@ -340,7 +341,7 @@ class TestTESGroup(ut.TestCase):
                 self.invert_data = False
                 self.dont_optimize_dp_dt = True
                 self.extra_n_basis_5lag = 1
-                self.noise_weight_basis=True
+                self.noise_weight_basis = True
 
         mass.core.projectors_script.main(Args())
 
@@ -354,7 +355,8 @@ class TestTESHDF5Only(ut.TestCase):
         noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
         hdf5_filename = tempfile.mktemp(prefix='_mass.hdf5')
         hdf5_noisefilename = tempfile.mktemp(prefix='_mass_noise.hdf5')
-        data = mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename, hdf5_noisefilename=hdf5_noisefilename)
+        data = mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
+                             hdf5_noisefilename=hdf5_noisefilename)
 
         data2 = mass.TESGroupHDF5(hdf5_filename)
         LOG.info("Testing printing of a TESGroupHDF5")
