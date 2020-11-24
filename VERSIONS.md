@@ -13,6 +13,7 @@
 * Fix issue 200: work with h5py version 3 (reads strings as bytes type).
 * Fix issue 201: add examples in line_fitting.rst to show how to fit Gauss, Lorentz, or Voigt
 * Fix issue 202: fluorescence models use parameter "integral" instead of ill-defined "amplitude".
+* Fix issue 203: autocal uses new-style fits.
 * Fix issue 204: add optional quantum efficiency model to line fits: now can fit line times QE.
 * Replace line fitting documentation with a doctest document.
 
