@@ -6,11 +6,11 @@ Motivation
 Pulses from gamma spectromters often need to use "5 lag" filtering. This is believe to be due to the fact that
 gamma pixels (circa 2020) have significant 2 body effects, and therefore the rising edge of a pulse is much less
 sharp than for x-ray pixels. This results in much more variation in which sample a trigger occurs at as a function of
-energy. 
+energy.
 
-"5 lag" filtering has a long history, including being included in the Igor code that pre-dated mass. The idea is to 
-dot the pulse with 5 filters, each of which differs only by shifting all data over by one sample. Then you do a quadratic 
-fit to those five filtered values, and take the peak y value to be the filtered value, and the peak x value to be the estimate 
+"5 lag" filtering has a long history, including being included in the Igor code that pre-dated mass. The idea is to
+dot the pulse with 5 filters, each of which differs only by shifting all data over by one sample. Then you do a quadratic
+fit to those five filtered values, and take the peak y value to be the filtered value, and the peak x value to be the estimate
 of arrival time.
 
 Here we will analyze some "CoHo" data taken with a Roach uMux system at LANL in 2018. Coho refers to Co57 and Ho166m (a metastable state with 1200 year half-life). We first analyze it with "plain mass",
@@ -39,7 +39,7 @@ Imports and such
 Create a clean working directory, ensure all temp files go there. In principle I could hide this, but it is easier to debug if I leave it visible.
 
 .. testcode::
-  
+
   import shutil
   try:
       d0 = os.path.dirname(os.path.realpath(__file__))
@@ -60,7 +60,7 @@ Plain mass analysis
 Here we do "plain" mass analysis, basically we just use 5 lag filters, cuts, drift correction, and calibration.
 
 .. testcode::
-	
+
   pulse_files = ["../mass/off/data_for_test/20181018_144520/20181018_144520_chan3.ljh",
                  "../mass/off/data_for_test/20181018_144520/20181018_144520_chan13.ljh"]
   noise_files = ["../mass/off/data_for_test/20181018_144325/20181018_144325_chan3.noi",
@@ -78,26 +78,26 @@ Here we do "plain" mass analysis, basically we just use 5 lag filters, cuts, dri
   data_plain.apply_cuts(universal_cuts)
   # dan does a peak_index cut here, skipping for now
   data_plain.correct_flux_jumps(flux_quant=2**12)
-  data_plain.avg_pulses_auto_masks() 
+  data_plain.avg_pulses_auto_masks()
   data_plain.compute_noise_spectra(max_excursion=300)
   data_plain.compute_5lag_filter(f_3db=10e3)
   data_plain.filter_data()
   # here dan chooses a wide range around the highest peak
   # im skipping that since I get identical results without it
   data_plain.drift_correct()
-  data_plain.calibrate("p_filt_value_dc", ["ErKAlpha1", 'Ho166m_80', 'Co57_122', 'Ho166m_184'], fit_range_ev=600, 
+  data_plain.calibrate("p_filt_value_dc", ["ErKAlpha1", 'Ho166m_80', 'Co57_122', 'Ho166m_184'], fit_range_ev=600,
       bin_size_ev=10, diagnose=False, _rethrow=True)
 
 Making Projectors and ljh2off
 -----------------------------
-The script ``make_projectors`` will make projectors and write them to disk in a format ``dastardcommander`` and ``ljh2off`` can use. 
-The script ``ljh2off`` can generate off files from ljh files, so you can use this style of analysis on any data, or change your projectors. 
+The script ``make_projectors`` will make projectors and write them to disk in a format ``dastardcommander`` and ``ljh2off`` can use.
+The script ``ljh2off`` can generate off files from ljh files, so you can use this style of analysis on any data, or change your projectors.
 Call either with a ``-h`` flag for help, also all the functionality is available through functions in ``mass``.
 
 Here we will call the functions those scripts call rather than calling the scripts, because it's easier to write python code in the docs than call shell commands.
 
 I'm showing lots of the possible options with some comments.
-Most of the time the defaults should work fine. 
+Most of the time the defaults should work fine.
 
 .. testcode::
 
@@ -144,14 +144,14 @@ ljh2off
 Then we create off files from the ljh files and the pulse model.
 
 .. testcode::
-	
+
   output_dir = os.path.join(d, "20181018_144520_off")
   os.mkdir(output_dir)
   r = mass.ljh2off.ljh2off_loop(ljhpath = pulse_files[0],
-      h5_path = model_hdf5, 
+      h5_path = model_hdf5,
       output_dir = output_dir,
-      max_channels = 240, 
-      n_ignore_presamples = 0, 
+      max_channels = 240,
+      n_ignore_presamples = 0,
       require_experiment_state=False,
       show_progress=True)
   ljh_filenames, off_filenames = r
@@ -180,7 +180,7 @@ projector in the off file and mean subtract it, but I haven't dont a careful com
       # define recipes for "filtValue5Lag", "peakX5Lag" and "cba5Lag"
       # where cba refers to the coefficiencts of a polynomial fit to the 5 lags of the filter
       filter_5lag = models[channum].f_5lag
-      ds.add5LagRecipes(filter_5lag)   
+      ds.add5LagRecipes(filter_5lag)
       # this data has artificial offsets of n*2**12 added to pretriggerMean by the phase unwrap algorithm used
       # define a "pretriggerMeanCorrected" to remove these offsets
       ds.recipes.add("pretriggerMeanCorrected", lambda pretriggerMean: pretriggerMean%2**12)
@@ -222,10 +222,10 @@ Then we inspect a histogram of energyRough to make sure it seems reasonable.
 .. image:: img/gamma_energyrough_hist.png
   :width: 45%
 
-We learn cuts based on residualStdDev, the standard deviation of the residual between the reconstructed pulse and raw 
+We learn cuts based on residualStdDev, the standard deviation of the residual between the reconstructed pulse and raw
 pulse data. Then we make a few plots to check for needed corrections and sanity.
 
-.. testcode::  
+.. testcode::
 
   # i only want to plot one channel of this
   # there is currently no simpler way than this
@@ -237,16 +237,16 @@ pulse data. Then we make a few plots to check for needed corrections and sanity.
   # make a few plots to see if we need corrections
   ds.plotAvsB("peakX5Lag", "energyRough")
   plt.grid(True)
-  plt.xlim(-.8, 0.5)  
-  plt.ylim(80400, 80575)   
+  plt.xlim(-.8, 0.5)
+  plt.ylim(80400, 80575)
   ds.plotAvsB("pretriggerDelta", "energyRough")
   plt.grid(True)
-  plt.xlim(-40, 20)  
-  plt.ylim(80100, 80900)  
+  plt.xlim(-40, 20)
+  plt.ylim(80100, 80900)
   ds.plotAvsB("pretriggerMeanCorrected", "energyRough")
   plt.grid(True)
-  plt.xlim(3890, 3930)  
-  plt.ylim(80400, 80575)   
+  plt.xlim(3890, 3930)
+  plt.ylim(80400, 80575)
 
 .. testcode::
   :hide:
@@ -257,7 +257,7 @@ pulse data. Then we make a few plots to check for needed corrections and sanity.
   plt.savefig("img/gamma_cuts.png");plt.close()
 
 Various plots:
- - Top left: the filt value dependent threshold on residualStdDev for a particular channel. 
+ - Top left: the filt value dependent threshold on residualStdDev for a particular channel.
  - Top right: peakX5lag is an estimator of subsample arrival time, there is possibly some benefit to do further correction, but the 5 lag process has removed the majority of the arrival time effect
  - Lower left: pretrigger delta is a measure of the slope of the pretrigger region, here we see there are very few pulses with large pretrigger delta and therefore a correction is probably not useful
  - Lower right: pretriggerMeanCorrection vs energyRough shows a clear slope, in fact it appears to show two slopes or two populations. We will do a correction with a single slope, but it is probably possible to do better, the simplest way would be to cut out the population on the left.
@@ -274,10 +274,10 @@ Various plots:
 .. image:: img/gamma_ptmc.png
   :width: 45%
 
-Now we align data, which uses dynamic time warping to identify the peaks in our calibraiton plan in all other channels, 
-creates matching calibration plans for those channels. 
+Now we align data, which uses dynamic time warping to identify the peaks in our calibraiton plan in all other channels,
+creates matching calibration plans for those channels.
 
-We make a special cut for drift correction to only look at energies of interest. We could manually include the cut on 
+We make a special cut for drift correction to only look at energies of interest. We could manually include the cut on
 residualStdDev by adding it as an argument to the lambda and using another np.logical_and, but I have not done that here.
 We then learn a drift correction with entropy minimization.
 
@@ -288,7 +288,7 @@ a plot of all the fits used for the calibration of one channel.
 
   data.alignToReferenceChannel(ds, "filtValue5Lag", np.arange(0,30000,6))
   data.cutAdd("cutEnergyROI", lambda energyRough: np.logical_and(energyRough>40e3,energyRough<200e3), _rethrow=True)
-  data.learnDriftCorrection(indicatorName="pretriggerMeanCorrected", 
+  data.learnDriftCorrection(indicatorName="pretriggerMeanCorrected",
       uncorrectedName="filtValue5Lag", correctedName="filtValueDC", cutRecipeName="cutEnergyROI", _rethrow=True)
 
   params = lmfit.Parameters() # use this to adjust params after the guessing routine, eg to hold them fixed
@@ -343,7 +343,7 @@ it is illusory, if you run with different random seeds you can get off to appear
 been able to get identical results with off vs plain, just comparable. I believe OFF is just as good when you have
 enough projectors, not better or worse.
 
-We use ds.filtValueDC to access all filtValueDC values without any cuts applied. This may be removed in the future, let 
+We use ds.filtValueDC to access all filtValueDC values without any cuts applied. This may be removed in the future, let
 me know what you think about it.
 
 .. testcode::
@@ -378,10 +378,10 @@ me know what you think about it.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-    chan   3 fwhm=60.11+/-1.55 (off)
-    chan   3 fwhm=60.11+/-1.82 (ljh)
-    chan  13 fwhm=60.43+/-1.98 (off)
-    chan  13 fwhm=61.27+/-2.03 (ljh)
+    chan   3 fwhm=60.09+/-1.64 (off)
+    chan   3 fwhm=60.05+/-1.77 (ljh)
+    chan  13 fwhm=60.37+/-1.97 (off)
+    chan  13 fwhm=61.21+/-2.03 (ljh)
 
 We also plot one fit from one channel for plain and off style.
 
@@ -398,7 +398,7 @@ We also plot one fit from one channel for plain and off style.
 .. image:: img/gamma_off_fit.png
   :width: 45%
 
-Then we compare how many pulses are cut by each cutting approach, remember this would apply to the OFF style resolutions 
+Then we compare how many pulses are cut by each cutting approach, remember this would apply to the OFF style resolutions
 from the previous section, not the apples to apples comparison where we used the same cuts.
 
 .. testcode::
@@ -421,7 +421,7 @@ from the previous section, not the apples to apples comparison where we used the
 Looking into odd pulses
 -----------------------
 In the residualStdDev plot there is a cluser of pulses with residualStdDev of about 1000 and a second cluster around 5000.
-Also in the pretriggerMeanCorrected plot there is a large population of pulses with pretriggers of about 0-2000, seperate 
+Also in the pretriggerMeanCorrected plot there is a large population of pulses with pretriggers of about 0-2000, seperate
 from the main group at around 4000. Here we will isolate and plot some of those pulses.
 
 .. testcode::
@@ -450,15 +450,15 @@ from the main group at around 4000. Here we will isolate and plot some of those 
   inds2 = np.nonzero(ds.cutOddPTM)[0]
   plt.figure()
   plain_ds.plot_traces(inds2[:10], subtract_baseline=True)
-  plt.title("odd pretriggerMeanCorrected") 
+  plt.title("odd pretriggerMeanCorrected")
 
   ds.plotAvsB("pretriggerDelta","energy", cutRecipeName="cutOddPTDelta", includeBad=True)
   plt.xlim(-400,400)
-  plt.ylim(80100, 80900)  
+  plt.ylim(80100, 80900)
   inds3 = np.nonzero(ds.cutOddPTDelta)[0]
   plt.figure()
   plain_ds.plot_traces(inds3[:10], subtract_baseline=True)
-  plt.title("odd PTDelta") 
+  plt.title("odd PTDelta")
 
 .. testcode::
   :hide:
@@ -471,9 +471,9 @@ from the main group at around 4000. Here we will isolate and plot some of those 
   plt.savefig("img/gamma_odd1.png");plt.close()
 
 Dotted traces were cut by the plain mass analysis. So here we see all the but one of the pulses in the horizontal group of residualStdDev
-were cut by plain mass. The one that was not cut in plain mass has a phase slip on the rising edge, and should be cut. Many 
+were cut by plain mass. The one that was not cut in plain mass has a phase slip on the rising edge, and should be cut. Many
 of the others are pulse pile-up events. I suspect that a pulse of constant size causes a roughly
-constant sized residualStdDev, so the reason there are two bands is that those are the two strongest lines appearing as 
+constant sized residualStdDev, so the reason there are two bands is that those are the two strongest lines appearing as
 pileup.
 
 .. image:: img/gamma_odd1.png
@@ -482,7 +482,7 @@ pileup.
 .. image:: img/gamma_odd2.png
   :width: 45%
 
-Here we see that many of the odd pretriggerMeanCorrected values come from early triggers, and all were also cut in the 
+Here we see that many of the odd pretriggerMeanCorrected values come from early triggers, and all were also cut in the
 plain mass analysis.
 
 .. image:: img/gamma_odd3.png
@@ -550,8 +550,7 @@ Here the output is wrong because we loop in a way that doesnt re-define ds.
 
 .. testcode::
   :hide:
-  
+
   # will fail tests if any figs are open
   if (n := len(plt.get_fignums())) != 0:
       print(f"{n} figs left open")
-
