@@ -11,6 +11,7 @@ from mass.mathstat.utilities import plot_as_stepped_hist
 from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
 import pylab as plt
 import numpy as np
+import scipy
 
 
 def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau,
@@ -353,13 +354,14 @@ Please see mass/doc/LineFitting.md for how to use the new Model objects and LMFI
         if label == "full":
             slabel = self.result_string()
         elif label and pnum_res not in self.hold:
-            pnum_tf = self.param_meaning["tail_frac"]
             res = self.last_fit_params[pnum_res]
             err = self.last_fit_cov[pnum_res, pnum_res]**0.5
-            tf = self.last_fit_params[pnum_tf]
             slabel = "FWHM: %.2f +- %.2f" % (res, err)
-            if tf > 0.001:
-                slabel += "\nf$_\\mathrm{tail}$: %.1f%%" % (tf*100)
+            if "tail_frac" in self.param_meaning:
+                pnum_tf = self.param_meaning["tail_frac"]
+                tf = self.last_fit_params[pnum_tf]
+                if tf > 0.001:
+                    slabel += "\nf$_\\mathrm{tail}$: %.1f%%" % (tf*100)
         axis.plot(self.last_fit_bins, self.last_fit_result, color='#666666',
                   label=slabel)
         if slabel:
@@ -840,3 +842,201 @@ class _lowZ_KAlphaFitter(GenericKAlphaFitter):
         baseline, baseline_slope = 1.0, 0.0
         ampl = 4 * np.max(data)
         return [res, ph_ka1, dph_de, ampl, baseline, baseline_slope, 0.1, 25]
+
+
+class GammaGaussianFitter(LineFitter):
+    """Fit a single Gaussian line with a background that makes a (smoothed) step function decrease at the line.
+
+    Parameters are:
+    0 - Gaussian resolution (FWHM)
+    1 - Pulse height (x-value) of the line peak
+    2 - Amplitude (y-value) of the line peak
+    3 - Mean background counts per bin on low energy side
+    4 - Mean background counts per bin on high energy side
+
+    The units of 0, 1, 2, 3, and 4 are all whatsoever units are used for pulse heights.
+    """
+
+    param_meaning = {
+        "resolution": 0,
+        "peak_ph": 1,
+        "amplitude": 2,
+        "background_lo": 3,
+        "background_hi": 4,
+    }
+    nparam = 5
+
+    def __init__(self):
+        super(GammaGaussianFitter, self).__init__()
+
+    def fit(self, data, pulseheights=None, params=None, plot=True, axis=None,
+            color=None, label=True, vary_resolution=True, vary_bg_lo=True,
+            vary_bg_hi=True, hold=None, verbose=False, ph_units="arb",
+            rethrow=False):
+        """Attempt a fit to the spectrum <data>, a histogram of X-ray counts parameterized as the
+        set of histogram bins <pulseheights>.
+
+        On a succesful fit self.fit_success is set to True. You can use self.plot() after the fact
+        to make the same plot as if you passed plot=True.
+
+        On a failed fit, self.fit_success is set to False. self.failed_fit_exception contains the exception thrown.
+        self.plot will still work, and will indicate a failed fit. You can disable this behavior, and just have it throw an exception
+        if you pass rethrow=True.
+
+        Args:
+            pulseheights -- the histogram bin centers or bin edges.
+
+            params: see self.__doc__, because the group of parameters and their numbering
+                    depends on the exact line shape being fit.
+
+            plot:   Whether to make a plot.  If not, then the next few args are ignored
+            axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather than on the
+                    current figure.
+            color:  Color for drawing the histogram contents behind the fit.
+            label:  (True/False) Label for the fit line to go into the plot (usually used for
+                    resolution and uncertainty)
+                    "full" label with all fit params including reduced chi sqaured, followed by "H" if was held
+            ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
+
+            vary_resolution Whether to let the Gaussian resolution vary in the fit
+            vary_bg_lo:       Whether to let a constant background level on low end vary in the fit
+            vary_bg_hi:       Whether to let a constant background level on high end vary in the fit
+            hold:      A sequence of parameter numbers to keep fixed.  Resolution, BG low, or BG high
+                       will be held if relevant parameter number
+                       appears in the hold sequence OR if relevant boolean vary_* tests False.
+            rethrow: Throw any generated exceptions instead of catching them and setting fit_success=False.
+
+        Returns:
+            (fitparams, covariance)
+            fitparams has same format as input variable params.
+        """
+
+        # pulseheights = self._convert_to_bin_centers(data, pulseheights)
+        pulseheights = np.asarray(pulseheights)
+        if len(pulseheights) == len(data) + 1:
+            dp = pulseheights[1] - pulseheights[0]
+            pulseheights = 0.5 * dp + pulseheights[:-1]
+
+        # Pulseheights doesn't make sense as bin centers, either.
+        # So just use the integers starting at zero.
+        elif len(pulseheights) != len(data):
+            pulseheights = np.arange(len(data), dtype=np.float)
+
+
+        self.hold = hold
+        if self.hold is None:
+            self.hold = set([])
+        else:
+            self.hold = set(self.hold)
+        if not vary_resolution:
+            self.hold.add(self.param_meaning["resolution"])
+        if not vary_bg_lo:
+            self.hold.add(self.param_meaning["background_lo"])
+        if not vary_bg_hi:
+            self.hold.add(self.param_meaning["background_hi"])
+
+        if (params is not None) and (not len(params) == self.nparam):
+            raise ValueError("params has wrong length")
+
+        self.last_fit_bins = pulseheights.copy()
+        self.last_fit_contents = data.copy()
+        try:
+            if params is None:
+                params = self.guess_starting_params(data, pulseheights)
+
+            #print('params:', params)
+            # Max-likelihood histogram fitter
+            epsilon = self.stepsize(params)
+            #print('epsilon:', epsilon)
+            fitter = MaximumLikelihoodHistogramFitter(pulseheights, data, params,
+                                                      self.fitfunc, TOL=1e-4, epsilon=epsilon)
+            self.setbounds(params, pulseheights)
+            #print('bounds:', self.bounds)
+            for i, b in enumerate(self.bounds):
+                fitter.setbounds(i, b[0], b[1])
+
+            #print('hold:', self.hold)
+            for h in self.hold:
+                fitter.hold(h)
+
+            if self.penalty_function is not None:
+                fitter.set_penalty(self.penalty_function)
+
+            self.last_fit_params, self.last_fit_cov = fitter.fit(verbose=verbose)
+            self.fit_success = True
+            self.last_fit_chisq = fitter.chisq
+            self.last_fit_result = self.fitfunc(self.last_fit_params, self.last_fit_bins)
+        except Exception as e:
+            if rethrow:
+                raise e
+            self.fit_success = False
+            self.last_fit_params = np.ones(self.nparam)*np.nan
+            self.last_fit_cov = np.ones((self.nparam,self.nparam))*np.nan
+            self.last_fit_chisq = np.nan
+            self.last_fit_result = np.ones(self.nparam)*np.nan
+
+            self.failed_fit_exception = e
+            self.failed_fit_params = params
+            if params is None:
+                self.failed_fit_starting_fitfunc = np.ones(len(self.last_fit_contents))*np.nan
+            else:
+                self.failed_fit_starting_fitfunc = self.fitfunc(self.failed_fit_params, self.last_fit_bins)
+
+
+
+        if plot:
+            self.plot(color, axis, label, ph_units)
+
+        return self.last_fit_params, self.last_fit_cov
+
+    def guess_starting_params(self, data, binctrs):
+        order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+
+        def percentiles(p):
+            return binctrs[(order_stat > p).argmax()]
+
+        peak_loc = percentiles(0.5)
+        iqr = (percentiles(0.75) - percentiles(0.25))
+        res = iqr * 0.95
+        baseline_lo = max(data[:10].mean(), 1.0/len(data))
+        baseline_hi = max(data[-10:].mean(), 1.0/len(data))
+        ampl = (data.max() - 0.5*(baseline_lo + baseline_hi)) * np.pi
+        return [res, peak_loc, ampl, baseline_lo, baseline_hi]
+
+    def fitfunc(self, params, x):
+        """Return the line complex.
+
+        Args:
+            <params>  The 5 parameters of the fit (see self.__doc__ for details).
+            <x>       An array of pulse heights (params will scale them to energy).
+        Returns:
+            The line complex intensity, including resolution smearing.
+        """
+        (P_gaussfwhm, P_phpeak, P_amplitude, P_background_lo, P_background_hi) = params
+        sigma = P_gaussfwhm / (8 * np.log(2))**0.5
+
+        gauss_spec = P_amplitude*np.exp(-0.5*(x-P_phpeak)**2/(sigma**2))
+        back_spec = P_background_hi + 0.5*(P_background_lo - P_background_hi)*(1 - scipy.special.erf((x-P_phpeak)/np.sqrt(2)/sigma))
+        #back_spec = np.zeros_like(x)
+        #back_spec[x <= P_phpeak] = P_background_lo
+        #back_spec[x > P_phpeak] = P_background_hi
+
+        return gauss_spec + back_spec
+
+    def setbounds(self, params, ph):
+        # bin-0 background should be bounded IF the BG slope is held
+        self.bounds = []
+        DE = 10*(np.max(ph)-np.min(ph))
+        self.bounds.append((0, 10*DE))    # Gauss FWHM
+        if self.phscale_positive:
+            self.bounds.append((0, None)) # PH Center
+        else:
+            self.bounds.append((None, None))
+        self.bounds.append((0, None))     # Amplitude
+        self.bounds.append((0, None))  # Background level low end (bin 0)
+        self.bounds.append((0, None))  # Background level hi end (counts/bin)
+
+    def stepsize(self, params):
+        eps = np.ones(self.nparam, dtype=float)
+        eps = np.array((1e-3, params[0]/1e5, 1e-3, 1e-3, 1e-3))
+        return eps
