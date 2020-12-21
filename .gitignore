@@ -34,3 +34,4 @@ TAGS
 *.html
 mass/demo/sourceroot.py
 *.so
+*.pyd

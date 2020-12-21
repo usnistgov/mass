@@ -3,6 +3,7 @@ import scipy as sp
 
 import mass.mathstat.entropy
 from mass.mathstat.interpolate import CubicSpline
+from mass.common import tostr
 import logging
 LOG = logging.getLogger("mass")
 
@@ -14,8 +15,8 @@ class PhaseCorrector():
         self.corrections = corrections
         self.phase_uniformifier_x = np.array(phase_uniformifier_x)
         self.phase_uniformifier_y = np.array(phase_uniformifier_y)
-        self.indicatorName = indicatorName
-        self.uncorrectedName = uncorrectedName
+        self.indicatorName = tostr(indicatorName)
+        self.uncorrectedName = tostr(uncorrectedName)
         self.phase_uniformifier = CubicSpline(
             self.phase_uniformifier_x, self.phase_uniformifier_y)
 
@@ -55,8 +56,8 @@ class PhaseCorrector():
     def fromHDF5(cls, hdf5_group, name="phase_correction"):
         x = hdf5_group["{}/phase_uniformifier_x".format(name)][()]
         y = hdf5_group["{}/phase_uniformifier_y".format(name)][()]
-        uncorrectedName = hdf5_group["{}/uncorrected_name".format(name)][()]
-        indicatorName = hdf5_group["{}/indicator_name".format(name)][()]
+        uncorrectedName = tostr(hdf5_group["{}/uncorrected_name".format(name)][()])
+        indicatorName = tostr(hdf5_group["{}/indicator_name".format(name)][()])
         version = hdf5_group["{}/version".format(name)][()]
         i = 0
         corrections = []

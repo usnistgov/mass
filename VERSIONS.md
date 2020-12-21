@@ -1,14 +1,22 @@
 ## Note on version numbers of Mass
 
-**0.7.6** April 2020-July 2020
+**0.7.6** November 24, 2020
 
 * Fix issue 189: clean up top-level directory and pytest configuration.
-* Fix issue 191: typos in our CrKAlpha line and apparent typo in HÃ¶lzer on the FeKAlpha line.
+* Fix issue 191: typos in our CrKAlpha line and apparent typo in Hšlzer on the FeKAlpha line.
 * Fix issue 192: some problem with using `MLEModel` for fits that aren't spectral lines.
 * Fix issue 193: problem in fitting to histograms with `dtype=np.float32` for the bin edges.
 * Fix issue 194: triggers the too-narrow-bins fit error when it should not, if dPH/dE >> 1.
 * Fix issue 196: reorganize x-ray filter code; add Horton 2018 design.
 * Fix issue 197: work around a problem opening certain noise HDF5 files.
+* Fix issue 199: remove Qt4 (a Python 2-only package) and GUIs based on it.
+* Fix issue 200: work with h5py version 3 (reads strings as bytes type).
+* Fix issue 201: add examples in line_fitting.rst to show how to fit Gauss, Lorentz, or Voigt
+* Fix issue 202: fluorescence models use parameter "integral" instead of ill-defined "amplitude".
+* Fix issue 203: autocal uses new-style fits.
+* Fix issue 204: add optional quantum efficiency model to line fits: now can fit line times QE.
+* Replace line fitting documentation with a doctest document.
+
 
 **0.7.5** March 31 2020
 

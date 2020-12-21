@@ -1,7 +1,7 @@
 import unittest as ut
 import numpy as np
 
-from mass.common import isstr
+from mass.common import isstr, tostr
 
 
 class TestCommon(ut.TestCase):
@@ -13,6 +13,12 @@ class TestCommon(ut.TestCase):
             self.assertTrue(isstr(s), msg="isstr({}) returns False, want True".format(s))
         for n in notstrings:
             self.assertFalse(isstr(n), msg="isstr({}) returns True, want False".format(n))
+
+    def test_tostr(self):
+        inputs = ("text", b"text", u"text", r"text")
+        for inp in inputs:
+            t = tostr(inp)
+            self.assertTrue(t == "text", msg="tostr({}) returns {}, want 'text'".format(inp, t))
 
 
 if __name__ == '__main__':

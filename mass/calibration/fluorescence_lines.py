@@ -58,16 +58,18 @@ class SpectralLine(sp.stats.rv_continuous):
         self.position_uncertainty = position_uncertainty
         self.reference_measurement_type = reference_measurement_type
         self.is_default_material = is_default_material
-        self.has_peak_energy = False
+        self._peak_energy = np.nan
         self.cumulative_amplitudes = self.normalized_lorentzian_integral_intensity.cumsum()
 
     @property
     def peak_energy(self):
         # lazily calculate peak energy
-        if not self.has_peak_energy:
-            self._peak_energy = sp.optimize.brent(lambda x: -self.pdf(x, instrument_gaussian_fwhm=0),
-                                                  brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
-            self.has_peak_energy = True
+        if np.isnan(self._peak_energy):
+            try:
+                self._peak_energy = sp.optimize.brent(lambda x: -self.pdf(x, instrument_gaussian_fwhm=0),
+                                                      brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
+            except ValueError:
+                self._peak_energy = self.nominal_peak_energy
         return self._peak_energy
 
     def __call__(self, x, instrument_gaussian_fwhm):
@@ -75,7 +77,7 @@ class SpectralLine(sp.stats.rv_continuous):
         return self.pdf(x, instrument_gaussian_fwhm)
 
     def pdf(self, x, instrument_gaussian_fwhm):
-        """Spectrum (arb units) as a function of <x>, the energy in eV"""
+        """Spectrum (units of fraction per eV) as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         x = np.asarray(x, dtype=np.float)
         result = np.zeros_like(x)
@@ -174,7 +176,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def __repr__(self):
         return "SpectralLine: {}".format(self.shortname)
 
-    def model(self, has_linear_background=True, has_tails=False, prefix=""):
+    def model(self, has_linear_background=True, has_tails=False, prefix="", qemodel=None):
         """Generate a LineModel instance from a SpectralLine"""
         if self.linetype == "KAlpha":
             model_class = line_models.GenericKAlphaModel
@@ -182,7 +184,7 @@ class SpectralLine(sp.stats.rv_continuous):
             model_class = line_models.GenericLineModel
         name = self.element+self.linetype
         m = model_class(name=name, spect=self, has_linear_background=has_linear_background,
-                        has_tails=has_tails, prefix=prefix)
+                        has_tails=has_tails, prefix=prefix, qemodel=qemodel)
         return m
 
     def fitter(self):
@@ -205,6 +207,8 @@ class SpectralLine(sp.stats.rv_continuous):
         element = name
         material = "unknown: quick_line"
         energies = np.array([energy])
+        if lorentzian_fwhm <= 0 and intrinsic_sigma <= 0:
+            intrinsic_sigma = 1e-4
         lorentzian_fwhm = np.array([lorentzian_fwhm])
         intrinsic_sigma = intrinsic_sigma
         linetype = "quick_line"
