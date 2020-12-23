@@ -315,6 +315,9 @@ Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s pho
 https://doi.org/10.1103/PhysRevA.62.062508"""
 lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (2018) 125139
     https://doi.org/10.1103/PhysRevB.97.125139"""
+lineshape_references["Ito 2020"] = """Ito, Y., Tochio, T., Yamashita, M., Fukushima, S., Vlaicu, A. M.,
+Marques, J. P., ... Parente, F. (2020). Structure of Kα - and Kβ-emission x-ray spectra for Se, Y, and Zr.
+Physical Review A, 102(5), 052820. https://doi.org/10.1103/PhysRevA.102.052820"""
 
 spectra = OrderedDict()
 spectrum_classes = OrderedDict()  # for backwards compatability
@@ -782,6 +785,35 @@ addline(
 )
 
 addline(
+    element="Se",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Ito 2020",  # Table III
+    reference_plot_instrument_gaussian_fwhm=0.17,
+    nominal_peak_energy=11222.383,
+    energies=np.array((11222.380, 11217.573, 11181.48, 11178.55)),
+    lorentzian_fwhm=np.array((3.633, 3.53, 3.579, 3.02)),
+    reference_amplitude=np.array((100, 1.68, 50.83, 1.80)),
+    ka12_energy_diff=40.944,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Se",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Ito 2020",  # Table IV
+    reference_plot_instrument_gaussian_fwhm=0.17,
+    nominal_peak_energy=12495.911,
+    energies=np.array((12495.911, 12490.094, 12503.11, 12652.840)),
+    lorentzian_fwhm=np.array((4.285, 5.70, 6.25, 4.81)),
+    reference_amplitude=np.array((100, 63.3, 8.1, 5.24)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
     element="Br",
     material="metal",
     linetype="KAlpha",
@@ -793,6 +825,66 @@ addline(
     reference_amplitude=np.array((2, 1)),
     ka12_energy_diff=46.6,
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+)
+
+
+addline(
+    element="Y",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Ito 2020",  # Table III
+    reference_plot_instrument_gaussian_fwhm=0.21,
+    nominal_peak_energy=14958.389,
+    energies=np.array((14958.389, 14883.403)),
+    lorentzian_fwhm=np.array((5.464, 5.393)),
+    reference_amplitude=np.array((100, 52.23)),
+    ka12_energy_diff=74.986,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Y",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Ito 2020",  # Table IV
+    reference_plot_instrument_gaussian_fwhm=0.21,
+    nominal_peak_energy=16737.89,
+    energies=np.array((16737.88, 16726.02, 16746.2, 17010.57)),
+    lorentzian_fwhm=np.array((5.60, 5.53, 17.0, 5.80)),
+    reference_amplitude=np.array((100, 52.6, 1.80, 1.68)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Zr",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Ito 2020",  # Table III
+    reference_plot_instrument_gaussian_fwhm=0.22,
+    nominal_peak_energy=15774.87,
+    energies=np.array((15774.87, 15690.77)),
+    lorentzian_fwhm=np.array((5.865, 5.845)),
+    reference_amplitude=np.array((100, 52.53)),
+    ka12_energy_diff=84.10,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Zr",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Ito 2020",  # Table IV
+    reference_plot_instrument_gaussian_fwhm=0.22,
+    nominal_peak_energy=17667.78,
+    energies=np.array((17667.78, 17654.31, 17680)),
+    # The last (Kb'') energy is reported as 15774.87(31), which is clearly a typo.
+    # We estimate 17680 by reading Figure 2.
+    lorentzian_fwhm=np.array((6.171, 5.89, 10.8)),
+    reference_amplitude=np.array((100, 50.49, 5.2)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
 )
 
 
