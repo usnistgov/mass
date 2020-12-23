@@ -878,7 +878,7 @@ addline(
     linetype="KBeta",
     reference_short="Ito 2020",  # Table IV
     reference_plot_instrument_gaussian_fwhm=0.22,
-    nominal_peak_energy=17667.78,
+    nominal_peak_energy=17666.578,
     energies=np.array((17667.78, 17654.31, 17680)),
     # The last (Kb'') energy is reported as 15774.87(31), which is clearly a typo.
     # We estimate 17680 by reading Figure 2.
