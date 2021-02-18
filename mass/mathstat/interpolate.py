@@ -12,6 +12,11 @@ CubicSpline - Perform an exact cubic spline through the data, with either
 LinterpCubicSpline - Create a new CubicSpline that's the linear interpolation
     of two existing ones.
 
+GPRSpline - Create a smoothing spline based on the theory of Gaussian process regression.
+    Finds the curvature penalty by maximizing the Bayesian marginal likelihood.
+    Intended to supercede `SmoothingSpline`, but very similar. Differs in how the
+    curvature and data fidelity are balanced.
+
 SmoothingSpline - Create a smoothing spline that does not exactly interpolate
     the data, but finds the cubic spline with lowest "curvature
     energy" among all splines that meet the maximum allowed value
@@ -220,6 +225,140 @@ class LinterpCubicSpline(CubicSpline):
         self.yprimeN = wtsum(s1.yprimeN, s2.yprimeN, fraction)
         self.dx = wtsum(s1.dx, s2.dx, fraction)
         self.dy = wtsum(s1.dy, s2.dy, fraction)
+
+
+def k_spline(x, y):
+    """Compute the spline covariance kernel, R&W eq 6.28."""
+    v = np.minimum(x, y)
+    return v**3/3 + v**2/2*np.abs(x-y)
+
+
+class GPRSpline(CubicSpline):
+    """A callable object that performs a smoothing cubic spline operation
+
+    The smoothing spline is the cubic spline minimizing the "curvature
+    energy" subject to a constraint that the maximum allowed chi-squared is
+    equal to the number of data points. Here curvature energy is defined as
+    the integral of the square of the second derivative from the lowest to
+    the highest knots.
+
+    The value of `sigmaf` fixes the square root of the "function variance".
+    Small values of `sigmaf` correspond to large penalties on the curvature,
+    so they emphasize low curvature. Large `sigmaf` places emphasis on fidelity to
+    the data and will have relatively higher curvature (and a higher uncertainty on
+    the derived curve). Setting `sigmaf=None` (the default) will choose the value that
+    maximizes the Bayesian marginal likelihood of the data and is probably smart.
+
+    For further discussion, see Sections 2.2, 2.7, and 6.3 of
+    Rasmussen, C. E., & Williams, K. I. (2006). Gaussian Processes for Machine Learning.
+    Retrieved from http://www.gaussianprocess.org/gpml/chapters/
+
+    This object is very similar to `SmoothingSpline` in this module but is based on
+    Gaussian Process Regression theory. It improves on `SmoothingSpline` in that:
+    1. The curvature/data fidelity trade-off is chosen by more principaled, Bayesian means.
+    2. The uncertainty in the spline curve is estimated by GPR theory.
+    """
+
+    def __init__(self, x, y, dy, dx=None, sigmaf=None):
+        if dx is None:
+            err = np.array(np.abs(dy))
+        else:
+            roughfit = np.polyfit(x, y, 2)
+            slope = np.poly1d(np.polyder(roughfit, 1))(x)
+            err = np.sqrt((dx*slope)**2 + dy**2)
+
+        self.x = np.array(x)
+        self.y = np.array(y)
+        self.dx = np.array(dx)
+        self.dy = np.array(dy)
+        self.err = err
+        self.Nk = len(x)
+
+        if sigmaf is None:
+            sigmaf = self.best_sigmaf()
+        self.sigmaf = sigmaf
+
+        H = np.vstack((np.ones_like(self.x), self.x))
+        K = np.zeros((self.Nk, self.Nk), dtype=float)
+        sf2 = sigmaf**2
+        for i in range(self.Nk):
+            K[i, i] = sf2*k_spline(self.x[i], self.x[i])
+            for j in range(i+1, self.Nk):
+                K[i, j] = K[j, i] = sf2*k_spline(self.x[i], self.x[j])
+        Ky = K + np.diag(self.err**2)
+        L = np.linalg.cholesky(Ky)
+        LH = np.linalg.solve(L, H.T)
+        A = LH.T.dot(LH)
+        KinvHT = np.linalg.solve(L.T, LH)
+        self.L = L
+        self.A = A
+        self.KinvHT = KinvHT
+        beta = np.linalg.solve(A, KinvHT.T).dot(self.y)
+
+        # Compute at test points = self.x
+        # We know that these are the knots of a natural cubic spline
+        R = H-KinvHT.T.dot(K)
+        fbar = np.linalg.solve(L.T, np.linalg.solve(L, K)).T.dot(y)
+        gbar = fbar + R.T.dot(beta)
+        CubicSpline.__init__(self, self.x, gbar)
+
+    def best_sigmaf(self):
+        """Return the sigmaf value that maximizes the marginal Bayesian likelihood."""
+        guess = np.median((self.err/self.y))
+        result = sp.optimize.minimize_scalar(
+            lambda x: -self._marginal_like(x), [guess/1e4, guess*1e4])
+        if result.success:
+            return result.x
+        raise(ValueError("Could not maximimze the marginal likelihood"))
+
+    def _marginal_like(self, sigmaf):
+        H = np.vstack((np.ones_like(self.x), self.x))
+        K = np.zeros((self.Nk, self.Nk), dtype=float)
+        sf2 = sigmaf**2
+        for i in range(self.Nk):
+            K[i, i] = sf2*k_spline(self.x[i], self.x[i])
+            for j in range(i+1, self.Nk):
+                K[i, j] = K[j, i] = sf2*k_spline(self.x[i], self.x[j])
+        Ky = K + np.diag(self.err**2)
+        L = np.linalg.cholesky(Ky)
+        LH = np.linalg.solve(L, H.T)
+        A = LH.T.dot(LH)
+        KinvHT = np.linalg.solve(L.T, LH)
+        C = KinvHT.dot(np.linalg.solve(A, KinvHT.T))
+        yCy = self.y.dot(C.dot(self.y))
+        Linvy = np.linalg.solve(L, self.y)
+        yKinvy = Linvy.dot(Linvy)
+        return -0.5*((self.Nk-2)*np.log(2*np.pi)+np.linalg.slogdet(A)[1]+np.linalg.slogdet(Ky)[1]-yCy+yKinvy)
+
+    def variance(self, xtest):
+        """Returns the variance for function evaluations at the test points `xtest`.
+
+        This equals the diagonal of `self.covariance(xtest)`, but for large test sets,
+        this method computes only the diagonal and should therefore be faster."""
+        v = []
+        for x in np.asarray(xtest):
+            Ktest = self.sigmaf**2*k_spline(x, self.x)
+            LinvKtest = np.linalg.solve(self.L, Ktest)
+            cov_ftest = self.sigmaf**2*k_spline(x, x) - (LinvKtest**2).sum()
+            R = np.array((1, x)) - self.KinvHT.T.dot(Ktest)
+            v.append(cov_ftest + R.dot(np.linalg.solve(self.A, R)))
+        if np.isscalar(xtest):
+            return v[0]
+        return np.array(v)
+
+    def covariance(self, xtest):
+        """Returns the covariance between function evaluations at the test points `xtest`."""
+        if np.isscalar(xtest):
+            return self.variance(xtest)
+        xtest = np.asarray(xtest)
+
+        Ktest = self.sigmaf**2*np.vstack([k_spline(x, self.x) for x in xtest]).T
+        LinvKtest = np.linalg.solve(self.L, Ktest)
+        cov_ftest = self.sigmaf**2*np.vstack([k_spline(x, xtest) for x in xtest])
+        cov_ftest -= LinvKtest.T.dot(LinvKtest)
+        R = np.vstack((np.ones(len(xtest)), xtest))
+        R -= self.KinvHT.T.dot(Ktest)
+        return cov_ftest + R.T.dot(np.linalg.solve(self.A, R))
 
 
 class NaturalBsplineBasis(object):
