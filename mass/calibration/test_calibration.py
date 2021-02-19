@@ -81,7 +81,6 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
         self.assertFalse(all(drop1err == drop2err))
 
     def test_loglog_approx_diff(self):
-        # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
             curvetype1="loglog", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
@@ -90,7 +89,6 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
         self.assertFalse(all(drop1err == drop2err))
 
     def test_zerozero_exact_diff(self):
-        # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
             curvetype1="linear+0", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
@@ -99,7 +97,6 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
         self.assertFalse(all(drop1err == drop2err))
 
     def test_zerozero_approx_diff(self):
-        # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
             curvetype1="linear+0", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
@@ -197,7 +194,8 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
             with h5py.File(fname, "w") as h5:
                 grp = h5.require_group("calibration")
                 cal1.save_to_hdf5(grp, "cal1")
-                cal2 = mass.calibration.energy_calibration.EnergyCalibration.load_from_hdf5(grp, "cal1")
+                cal2 = mass.calibration.energy_calibration.EnergyCalibration.load_from_hdf5(
+                    grp, "cal1")
                 self.assertEqual(len(grp.keys()), 1)
             self.assertTrue(all(cal1._ph == cal2._ph))
             self.assertTrue(all(cal2._energies == cal2._energies))
