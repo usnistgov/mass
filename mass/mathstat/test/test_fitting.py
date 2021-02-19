@@ -106,8 +106,8 @@ class Test_gaussian(unittest.TestCase):
         self.fitter.phscale_positive = False
         self.fitter.set_penalty(penalty)
         correct_params = (fwhm, ctr, .037535932*N, 0, 0, 0, 25)
-        sigma_errors = np.zeros((7, nfits), dtype=np.float)
-        params = np.zeros((7, nfits), dtype=np.float)
+        sigma_errors = np.zeros((7, nfits), dtype=float)
+        params = np.zeros((7, nfits), dtype=float)
         for i in range(nfits):
             self.generate_data(N, fwhm, ctr, nbins, N_bg)
             try:

@@ -100,10 +100,10 @@ class ToeplitzSolver(object):
         n = self.n
         assert len(y) == n
 
-        x = np.zeros(n, dtype=np.float)
-        g = np.zeros(n, dtype=np.float)
-        h = np.zeros(n, dtype=np.float)
-        xh_denom = np.zeros(n, dtype=np.float)
+        x = np.zeros(n, dtype=float)
+        g = np.zeros(n, dtype=float)
+        h = np.zeros(n, dtype=float)
+        xh_denom = np.zeros(n, dtype=float)
 
         R0 = self.R[n-1]
         x[0] = y[0]/R0
@@ -134,11 +134,11 @@ class ToeplitzSolver(object):
         n = self.n
         assert self.symmetric
 
-        g = np.zeros(n, dtype=np.float)
+        g = np.zeros(n, dtype=float)
         # The constant denominator of the x_g computation
-        self.xg_denom = np.zeros(n, dtype=np.float)
+        self.xg_denom = np.zeros(n, dtype=float)
         # The constant leading value g[K] for each iteration K
-        self.gK_leading = np.zeros(n, dtype=np.float)
+        self.gK_leading = np.zeros(n, dtype=float)
 
         R = self.R.copy()
         R0 = R[0]
@@ -158,8 +158,8 @@ class ToeplitzSolver(object):
         assert len(y) == n
         assert self.symmetric
 
-        x = np.zeros(n, dtype=np.float)
-        g = np.zeros(n, dtype=np.float)
+        x = np.zeros(n, dtype=float)
+        g = np.zeros(n, dtype=float)
 
         R = self.R.copy()
         R0 = R[0]

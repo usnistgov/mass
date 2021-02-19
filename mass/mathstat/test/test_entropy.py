@@ -46,7 +46,7 @@ class Test_LaplaceEntropy(unittest.TestCase):
         y = [3, 5]
         m, is1 = _merge_orderedlists(x, y)
         expect_m = np.sort(np.hstack([x, y]))
-        expect_i = np.array([1, 1, 0, 1, 0, 1, 1, 1], dtype=np.bool)
+        expect_i = np.array([1, 1, 0, 1, 0, 1, 1, 1], dtype=bool)
 
         for a, b in zip(m, expect_m):
             self.assertEqual(a, b)
@@ -140,14 +140,16 @@ class Test_LaplaceEntropy(unittest.TestCase):
 
     def test_types(self):
         """Make sure entropy works when inputs are not float64."""
-        for t2 in (np.int, np.float, np.float32):
+        for t2 in (int, float, np.float32):
             e = laplace_entropy(np.array([1, 2, 3], dtype=t2), 1.0)
             self.assertAlmostEqual(e, 1.8865648057292637)
 
-            for t1 in (np.float, np.float32):
-                e = laplace_cross_entropy(np.linspace(1, 3, 30, dtype=t1), np.array([1, 2, 3], dtype=t2), .2)
+            for t1 in (float, np.float32):
+                e = laplace_cross_entropy(np.linspace(1, 3, 30, dtype=t1),
+                                          np.array([1, 2, 3], dtype=t2), .2)
                 self.assertAlmostEqual(e, 1.39061512214)
-                e = laplace_KL_divergence(np.linspace(1, 3, 30, dtype=t1), np.array([1, 2, 3], dtype=t2), .2)
+                e = laplace_KL_divergence(np.linspace(1, 3, 30, dtype=t1),
+                                          np.array([1, 2, 3], dtype=t2), .2)
                 self.assertAlmostEqual(e, 0.41768265864979814)
 
     def test_bug115(self):

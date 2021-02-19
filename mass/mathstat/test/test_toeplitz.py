@@ -27,7 +27,7 @@ class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
 
     def test_all_unit_vectors(self):
         for i in range(self.n):
-            x_in = numpy.zeros(self.n, dtype=numpy.float)
+            x_in = numpy.zeros(self.n, dtype=float)
             x_in[i] = 1.0
             y = numpy.dot(self.R, x_in)
             x_out = self.solver(y)
@@ -54,7 +54,7 @@ class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
 
     def test_all_unit_vectors(self):
         for i in range(self.n):
-            x_in = numpy.zeros(self.n, dtype=numpy.float)
+            x_in = numpy.zeros(self.n, dtype=float)
             x_in[i] = 1.0
             y = numpy.dot(self.R, x_in)
             x_out = self.solver(y)
@@ -87,7 +87,7 @@ class TestToeplitzSolver_32(unittest.TestCase):
 
     def test_all_unit_vectors(self):
         for i in range(self.n):
-            x_in = numpy.zeros(self.n, dtype=numpy.float)
+            x_in = numpy.zeros(self.n, dtype=float)
             x_in[i] = 1.0
             y = numpy.dot(self.R, x_in)
             x_out = self.solver(y)
@@ -109,7 +109,7 @@ class TestToeplitzSolver_512(unittest.TestCase):
 
     def test_some_unit_vectors(self):
         for i in (0, 20, 128, 256, 500, 512-1):
-            x_in = numpy.zeros(self.n, dtype=numpy.float)
+            x_in = numpy.zeros(self.n, dtype=float)
             x_in[i] = 1.0
             y = numpy.dot(self.R, x_in)
             x_out = self.solver(y)
@@ -144,7 +144,7 @@ class toeplitzSpeed(object):
         self.autocorr = 1.0+3.2*numpy.exp(-t/100.)
         self.autocorr[0] = 9
 
-        self.ts_time = numpy.zeros(len(self.sizes), dtype=numpy.float)
+        self.ts_time = numpy.zeros(len(self.sizes), dtype=float)
         self.build_time = numpy.zeros_like(self.ts_time)
         self.mult_time = numpy.zeros_like(self.ts_time)
         self.solve_time = numpy.zeros_like(self.ts_time)

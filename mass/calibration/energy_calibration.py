@@ -105,10 +105,10 @@ class EnergyCalibration(object):
         self._curvetype = 0
         self.set_curvetype(curvetype)
         self._ph2energy_anon = self.__default_ph2energy_anon
-        self._ph = np.zeros(0, dtype=np.float)
-        self._energies = np.zeros(0, dtype=np.float)
-        self._dph = np.zeros(0, dtype=np.float)
-        self._de = np.zeros(0, dtype=np.float)
+        self._ph = np.zeros(0, dtype=float)
+        self._energies = np.zeros(0, dtype=float)
+        self._dph = np.zeros(0, dtype=float)
+        self._de = np.zeros(0, dtype=float)
         self._names = []
         self.npts = 0
         self._use_approximation = approximate
@@ -131,7 +131,7 @@ class EnergyCalibration(object):
         Should return a scalar if passed a scalar, and a numpy array if passed a list or array
 
         Args:
-            pulse_ht (float or numpy.array(dtype=numpy.float)): pulse heights in an arbitrary unit.
+            pulse_ht (float or numpy.array(dtype=float)): pulse heights in an arbitrary unit.
             der (int): the order of derivative. `der` should be >= 0.
         """
         if self._model_is_stale:

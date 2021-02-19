@@ -79,7 +79,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def pdf(self, x, instrument_gaussian_fwhm):
         """Spectrum (units of fraction per eV) as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
-        x = np.asarray(x, dtype=np.float)
+        x = np.asarray(x, dtype=float)
         result = np.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
@@ -90,7 +90,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def components(self, x, instrument_gaussian_fwhm):
         """List of spectrum components as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
-        x = np.asarray(x, dtype=np.float)
+        x = np.asarray(x, dtype=float)
         components = []
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):

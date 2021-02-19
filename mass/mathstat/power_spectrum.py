@@ -76,7 +76,7 @@ class PowerSpectrum(object):
         self.m = m
         self.m2 = 2*m
         self.nsegments = 0
-        self.specsum = np.zeros(m+1, dtype=np.float)
+        self.specsum = np.zeros(m+1, dtype=float)
         self.dt = dt
         if dt is None:
             self.dt = 1.0
@@ -137,8 +137,8 @@ class PowerSpectrum(object):
         if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
 
-        newbin = np.asarray(0.5+np.arange(self.m+1, dtype=np.float)/(self.m+1)*nbins, dtype=np.int)
-        result = np.zeros(nbins+1, dtype=np.float)
+        newbin = np.asarray(0.5+np.arange(self.m+1, dtype=float)/(self.m+1)*nbins, dtype=int)
+        result = np.zeros(nbins+1, dtype=float)
         for i in range(nbins+1):
             result[i] = self.specsum[newbin == i].mean()
         return result/self.nsegments
@@ -153,7 +153,7 @@ class PowerSpectrum(object):
             nbins = self.m
         if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
-        return np.arange(nbins+1, dtype=np.float)/(2*self.dt*nbins)
+        return np.arange(nbins+1, dtype=float)/(2*self.dt*nbins)
 
 
 class PowerSpectrumOverlap(PowerSpectrum):
@@ -205,13 +205,13 @@ def bartlett(n):
 
 def welch(n):
     """A Welch window (parabolic) of length n"""
-    return 1 - (2*np.arange(n, dtype=np.float)/(n - 1.) - 1)**2
+    return 1 - (2*np.arange(n, dtype=float)/(n - 1.) - 1)**2
 
 
 def hann(n):
     """A Hann window (sine-squared) of length n"""
     # twopi = np.pi*2
-    # i = np.arange(n, dtype=np.float)
+    # i = np.arange(n, dtype=float)
     # return  0.5*(1.0-np.cos(i*twopi/(n-1)))
     return np.hanning(n)
 

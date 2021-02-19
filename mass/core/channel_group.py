@@ -531,7 +531,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         else:
             allowed_ranges = [r for r in ranges]
 
-        allowed_segnums = np.zeros(self.n_segments, dtype=np.bool)
+        allowed_segnums = np.zeros(self.n_segments, dtype=bool)
         for first, end in allowed_ranges:
             assert first <= end
             for sn in range(self.sample2segnum(first), self.sample2segnum(end - 1) + 1):
@@ -613,8 +613,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
         else:
             raise Exception("filter_type must be one of `ats` or `5lag`")
 
-    def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False, 
-                            maximum_n_pulses=4000, extra_n_basis_5lag=0, noise_weight_basis=True, 
+    def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False,
+                            maximum_n_pulses=4000, extra_n_basis_5lag=0, noise_weight_basis=True,
                             category={}, _rethrow=False):
         if hdf5_file is None:
             basename, _ = self.datasets[0].filename.split("chan")
@@ -626,7 +626,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             with h5py.File(hdf5_filename, "w") as hdf5_file:
                 self._pulse_model_to_hdf5(
                     hdf5_file, n_basis, pulses_for_svd=None,
-                    extra_n_basis_5lag=extra_n_basis_5lag, maximum_n_pulses=maximum_n_pulses, 
+                    extra_n_basis_5lag=extra_n_basis_5lag, maximum_n_pulses=maximum_n_pulses,
                     category=category, noise_weight_basis=noise_weight_basis, _rethrow=_rethrow)
                 LOG.info("writing pulse_model to {}".format(hdf5_filename))
         else:
@@ -863,7 +863,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     plt.subplot(ny_plots, 2, 2 + i * 2, sharex=axh_master)
 
             if limits is None:
-                in_limit = np.ones(len(vect), dtype=np.bool)
+                in_limit = np.ones(len(vect), dtype=bool)
             else:
                 in_limit = np.logical_and(vect > limits[0], vect < limits[1])
             if in_limit.sum() <= 0:
@@ -1413,7 +1413,7 @@ class CrosstalkVeto(object):
         if datagroup is None:
             return
 
-        window_ms = np.array(window_ms, dtype=np.int)
+        window_ms = np.array(window_ms, dtype=int)
         self.window_ms = window_ms
         self.n_channels = datagroup.n_channels
         self.n_pulses = datagroup.nPulses
@@ -1447,5 +1447,5 @@ class CrosstalkVeto(object):
     def veto(self, times_sec):
         """Return boolean vector for whether a given moment is vetoed.  Times are given in
         seconds.  Resolution is 1 ms for the veto."""
-        index = np.asarray(times_sec * 1e3 - self.time0 + 0.5, dtype=np.int)
+        index = np.asarray(times_sec * 1e3 - self.time0 + 0.5, dtype=int)
         return self.nhits[index] > 1
