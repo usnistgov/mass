@@ -315,7 +315,7 @@ def drift_correct(indicator, uncorrected, limit=None):
     indicator = np.array(indicator) - ptm_offset
 
     if limit is None:
-        pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
+        pct99 = np.percentile(uncorrected, 99)
         limit = 1.25 * pct99
 
     smoother = HistogramSmoother(0.5, [0, limit])
@@ -474,8 +474,8 @@ class FilterTimeCorrection(object):
             prompt = promptness[use]
             ptmean = trainingPulses[use, :self.nPresamples-1].mean(axis=1)
             med = np.median(prompt)
-            self.prompt_range[i] = np.array((sp.stats.scoreatpercentile(prompt, 1),
-                                             med, sp.stats.scoreatpercentile(prompt, 99)))
+            self.prompt_range[i] = np.array((np.percentile(prompt, 1),
+                                             med, np.percentile(prompt, 99)))
 
             later_order = min(self.max_poly_order, 3)
             for j in range(self.num_zeros, nSamp):

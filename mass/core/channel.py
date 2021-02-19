@@ -1275,7 +1275,7 @@ class MicrocalDataSet(object):
         prompt -= promptshift(prms)
 
         # Scale promptness quadratically to cover the range -0.5 to +0.5, approximately
-        x, y, z = sp.stats.scoreatpercentile(prompt[use], [10, 50, 90])
+        x, y, z = np.percentile(prompt[use], [10, 50, 90])
         A = np.array([[x*x, x, 1],
                       [y*y, y, 1],
                       [z*z, z, 1]])
@@ -2533,7 +2533,7 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
       polynomials, so that we can have more than 20 d.o.f. eventually, for long runs.
     """
     if limit is None:
-        pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
+        pct99 = np.percentile(uncorrected, 99)
         limit = [0, 1.25 * pct99]
 
     use = np.logical_and(uncorrected > limit[0], uncorrected < limit[1])

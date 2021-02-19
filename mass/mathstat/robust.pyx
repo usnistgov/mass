@@ -32,7 +32,6 @@ Created on Feb 9, 2012
 """
 
 import numpy as np
-import scipy.stats
 
 cimport cython
 
@@ -123,7 +122,7 @@ def trimean(x):
     If (q1,q2,q3) are the quartiles (i.e., the 25%ile, median, and 75 %ile),
     the trimean is (q1+q3)/4 + q2/2.
     """
-    q1, q2, q3 = [scipy.stats.scoreatpercentile(x, per) for per in (25, 50, 75)]
+    q1, q2, q3 = [np.percentile(x, per) for per in (25, 50, 75)]
     trimean = 0.25*(q1+q3) + 0.5*q2
     return trimean
 
