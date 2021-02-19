@@ -315,7 +315,7 @@ def drift_correct(indicator, uncorrected, limit=None):
     indicator = np.array(indicator) - ptm_offset
 
     if limit is None:
-        pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
+        pct99 = np.percentile(uncorrected, 99)
         limit = 1.25 * pct99
 
     smoother = HistogramSmoother(0.5, [0, limit])
@@ -465,7 +465,7 @@ class FilterTimeCorrection(object):
         Nlabels = 1+labels.max()
         for i in range(Nlabels):
             self.raw_fits[i] = np.zeros((nSamp - self.num_zeros,
-                                         self.max_poly_order+1), dtype=np.float)
+                                         self.max_poly_order+1), dtype=float)
 
             use = (labels == i)
             if self.verbose > 0:
@@ -474,8 +474,8 @@ class FilterTimeCorrection(object):
             prompt = promptness[use]
             ptmean = trainingPulses[use, :self.nPresamples-1].mean(axis=1)
             med = np.median(prompt)
-            self.prompt_range[i] = np.array((sp.stats.scoreatpercentile(prompt, 1),
-                                             med, sp.stats.scoreatpercentile(prompt, 99)))
+            self.prompt_range[i] = np.array((np.percentile(prompt, 1),
+                                             med, np.percentile(prompt, 99)))
 
             later_order = min(self.max_poly_order, 3)
             for j in range(self.num_zeros, nSamp):
@@ -509,14 +509,14 @@ class FilterTimeCorrection(object):
 
         # Loop over labels
         for i in range(Nlabels):
-            fit = np.zeros((self.nSamp, self.raw_fits[i].shape[1]), dtype=np.float)
+            fit = np.zeros((self.nSamp, self.raw_fits[i].shape[1]), dtype=float)
             fit[self.num_zeros:, :] = self.raw_fits[i]
 
             # These parameters fit a parabola to any 5 evenly-spaced points
             fit_array = np.array((
                     (-6, 24, 34, 24, -6),
                     (-14, -7, 0, 7, 14),
-                    (10, -5, -10, -5, 10)), dtype=np.float)/70.0
+                    (10, -5, -10, -5, 10)), dtype=float)/70.0
 
             pvalues = np.linspace(self.prompt_range[i][0]-.003, self.prompt_range[i][2]+.003, 60)
             med_prompt = self.prompt_range[i][1]
@@ -528,7 +528,7 @@ class FilterTimeCorrection(object):
                 pwrs_prompt = (prompt-med_prompt)**np.arange(self.max_poly_order, -0.5, -1)
                 model = np.dot(fit, pwrs_prompt)
 
-                conv = np.zeros(5, dtype=np.float)
+                conv = np.zeros(5, dtype=float)
                 conv[:4] = [np.dot(model[k:k-4], linearFilter) for k in range(4)]
                 conv[4] = np.dot(model[4:], linearFilter)
 

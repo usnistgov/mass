@@ -33,7 +33,7 @@ class Test_MnKA_distribution(unittest.TestCase):
         """Check that the quartiles of the generated energies are reasonable."""
         print(self.distrib.__dict__)
         values = self.distrib.rvs(size=100000, instrument_gaussian_fwhm=0)
-        quartiles = sp.stats.scoreatpercentile(values, [25, 50, 75])
+        quartiles = np.percentile(values, [25, 50, 75])
         self.assertAlmostEqual(quartiles[0], 5888.3, 0)
         self.assertAlmostEqual(quartiles[1] / 1000, 5896.9 / 1000, 2)
         self.assertAlmostEqual(quartiles[2], 5899.0, 0)

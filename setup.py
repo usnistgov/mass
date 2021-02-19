@@ -93,7 +93,8 @@ if __name__ == "__main__":
                                            [os.path.join(BASEDIR, 'mass',
                                                          'mathstat', 'entropy.pyx')],
                                            include_dirs=[np.get_include()])
-                                 ]),
+                                 ],
+                                compiler_directives={'language_level': "3"}),
           package_data={'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat', 'nist_asd.pickle']
                         },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
           package_dir={'mass': "mass"},

@@ -118,9 +118,9 @@ class VirtualFile(MicrocalFile):
         self.timebase = 0.0
 
         if times is None:
-            self.datatimes_float = np.zeros(self.nPulses, dtype=np.float)
+            self.datatimes_float = np.zeros(self.nPulses, dtype=float)
         else:
-            self.datatimes_float = np.asarray(times, dtype=np.float)
+            self.datatimes_float = np.asarray(times, dtype=float)
 
     def copy(self):
         """Return a copy of the object.  Handy for updating method definitions."""
@@ -312,7 +312,7 @@ class LJHFile(MicrocalFile):
         second_slice = slice(None, None)
 
         if isinstance(item, np.ndarray):
-            if item.ndim == 1 and item.dtype == np.bool:
+            if item.ndim == 1 and item.dtype == bool:
                 if item.shape[0] != self.nPulses:
                     raise ValueError("Shape doesn't match.")
                 trace_range = np.arange(self.nPulses, dtype=np.int64)[item]

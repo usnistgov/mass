@@ -28,7 +28,7 @@ class RawSpectrum(object):
         <pulses> a sequence of the pulse sizes (volts or similar instrument-referenced quantity).
                  Will be copied and stored internally as a np.ndarray.
         """
-        self.pulses = np.array(pulses, dtype=np.float)
+        self.pulses = np.array(pulses, dtype=float)
         self.pulses.sort()  # This might not be a good idea?
         self.energies = self.pulses.copy()
         self.npulses = len(self.pulses)

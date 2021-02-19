@@ -356,7 +356,7 @@ class Cuts(object):
         boolean_field = self.tes_group.boolean_cut_desc
         categorical_field = self.tes_group.categorical_cut_desc
 
-        if isinstance(cut_num, (int, np.uint, np.int)):
+        if isinstance(cut_num, (int, np.uint, int)):
             cut_num = int(cut_num)
             if (cut_num < 0) or (cut_num > 31):
                 raise ValueError(str(cut_num) + " is out of range.")
@@ -563,7 +563,7 @@ class Cuts(object):
             boolean_field_names = [str(name.decode()) for name, _ in boolean_field if name]
             categorical_field_names = [str(name.decode()) for name, _, in categorical_field]
 
-        mask_dtype = np.dtype([(name, np.bool) for name in boolean_field_names]
+        mask_dtype = np.dtype([(name, bool) for name in boolean_field_names]
                               + [(name, np.uint32) for name in categorical_field_names])
 
         cut_mask = np.zeros(self._mask.shape[0], dtype=mask_dtype)

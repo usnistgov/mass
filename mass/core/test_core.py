@@ -202,7 +202,7 @@ class TestTESGroup(ut.TestCase):
         ds = data.first_good_dataset
         data.summarize_data()
         ds.clear_cuts()
-        arbcut = np.zeros(ds.nPulses, dtype=np.bool)
+        arbcut = np.zeros(ds.nPulses, dtype=bool)
         arbcut[::30] = True
         ds.cuts.cut("postpeak_deriv", arbcut)
         cuts = ds.auto_cuts(forceNew=False, clearCuts=False)
