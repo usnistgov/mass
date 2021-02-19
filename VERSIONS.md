@@ -1,6 +1,12 @@
 ## Note on version numbers of Mass
 
-**0.7.6** November 24, 2020-
+**0.7.7** February 2021-
+
+* Fix issue 205: add line shapes of Se, Y, Zr K lines from Ito et al 2020.
+* Fix issue 206: update calibration curves: uncertainty and better smoothing spline theory.
+
+
+**0.7.6** November 24, 2020
 
 * Fix issue 189: clean up top-level directory and pytest configuration.
 * Fix issue 191: typos in our CrKAlpha line and apparent typo in Hölzer on the FeKAlpha line.
@@ -16,8 +22,6 @@
 * Fix issue 203: autocal uses new-style fits.
 * Fix issue 204: add optional quantum efficiency model to line fits: now can fit line times QE.
 * Replace line fitting documentation with a doctest document.
-* Fix issue 205: add line shapes of Se, Y, Zr K lines from Ito et al 2020.
-* Fix issue 206: update calibration curves: uncertainty and better smoothing spline theory.
 
 
 **0.7.5** March 31 2020
