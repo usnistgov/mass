@@ -17,7 +17,7 @@ October 13, 2010
 Usage:
 
 import power_spectrum as ps
-import pylab
+import pylab as plt
 N=1024
 M=N/4
 data=np.random.standard_normal(N)
@@ -25,17 +25,17 @@ spec = ps.PowerSpectrum(M, dt=1e-6)
 window = ps.hann(2*M)
 for i in range(3):
     spec.addDataSegment(data[i*M : (i+2)*M], window=window)
-pylab.plot(spec.frequencies(), spec.spectrum())
+plt.plot(spec.frequencies(), spec.spectrum())
 
 Or you can use the convenience function that hides the class objects
 from you and simply returns a (frequency,spectrum) pair of arrays:
 
 N=1024
 data=np.random.standard_normal(N)
-pylab.clf()
+plt.clf()
 for i in (2,4,8,1):
     f,s = ps.computeSpectrum(data, segfactor=i, dt=1e-6, window=np.hanning)
-    pylab.plot(f, s)
+    plt.plot(f, s)
 
 Window choices are:
 bartlett - Triangle shape
@@ -55,7 +55,7 @@ on different data segments, though honestly that would be really weird.
 """
 
 import numpy as np
-import matplotlib.pylab as pylab
+import pylab as plt
 
 __all__ = ['PowerSpectrum', 'PowerSpectrumOverlap',
            'bartlett', 'welch', 'hann', 'hamming',
@@ -266,7 +266,7 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
 
 def demo(N=1024, window=np.hanning):
     data = np.random.standard_normal(N)
-    pylab.clf()
+    plt.clf()
     for i in (2, 4, 8, 1):
         f, s = computeSpectrum(data, segfactor=i, dt=1e0, window=window)
-        pylab.plot(f, s)
+        plt.plot(f, s)

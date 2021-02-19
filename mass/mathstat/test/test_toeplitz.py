@@ -11,7 +11,7 @@ March 30, 2011
 
 from mass.mathstat.toeplitz import ToeplitzSolver
 import numpy as np
-import scipy.linalg
+import scipy.linalg as linalg
 import time
 import unittest
 
@@ -23,7 +23,7 @@ class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
         self.autocorr = np.array((6., 4., 2., 1., 0.))
         self.n = len(self.autocorr)
         self.solver = ToeplitzSolver(self.autocorr, symmetric=True)
-        self.R = scipy.linalg.toeplitz(self.autocorr)
+        self.R = linalg.toeplitz(self.autocorr)
 
     def test_all_unit_vectors(self):
         for i in range(self.n):
@@ -50,7 +50,7 @@ class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
         self.autocorr = np.asarray((-1, -2, 0, 3, 6., 4., 2., 1., 0.))
         self.n = (len(self.autocorr) + 1) // 2
         self.solver = ToeplitzSolver(self.autocorr, symmetric=False)
-        self.R = scipy.linalg.toeplitz(self.autocorr[self.n-1:], self.autocorr[self.n-1::-1])
+        self.R = linalg.toeplitz(self.autocorr[self.n-1:], self.autocorr[self.n-1::-1])
 
     def test_all_unit_vectors(self):
         for i in range(self.n):
@@ -83,7 +83,7 @@ class TestToeplitzSolver_32(unittest.TestCase):
         self.autocorr[0] = 1
         self.autocorr[:5] *= np.arange(5, .5, -1)
         self.solver = ToeplitzSolver(self.autocorr, symmetric=True)
-        self.R = scipy.linalg.toeplitz(self.autocorr)
+        self.R = linalg.toeplitz(self.autocorr)
 
     def test_all_unit_vectors(self):
         for i in range(self.n):
@@ -105,7 +105,7 @@ class TestToeplitzSolver_512(unittest.TestCase):
         self.autocorr = 1.0+3.2*np.exp(-t/100.)
         self.autocorr[0] = 9
         self.solver = ToeplitzSolver(self.autocorr, symmetric=True)
-        self.R = scipy.linalg.toeplitz(self.autocorr)
+        self.R = linalg.toeplitz(self.autocorr)
 
     def test_some_unit_vectors(self):
         for i in (0, 20, 128, 256, 500, 512-1):
@@ -169,7 +169,7 @@ class toeplitzSpeed(object):
         if size <= maxsize:
             # dt[1] = creating R time
             t0 = time.time()
-            R = scipy.linalg.toeplitz(ac)
+            R = linalg.toeplitz(ac)
             dt.append(time.time()-t0)
 
             # dt[2] = R * vector time
@@ -183,8 +183,8 @@ class toeplitzSpeed(object):
             dt.append(time.time()-t0)
 
             t0 = time.time()
-            lu_piv = scipy.linalg.lu_factor(R)
-            x3 = scipy.linalg.lu_solve(lu_piv, v, overwrite_b=False)
+            lu_piv = linalg.lu_factor(R)
+            x3 = linalg.lu_solve(lu_piv, v, overwrite_b=False)
             dt.append(time.time()-t0)
             print('rms rhs diff: %.3g, solution diff: %.3g %.3g' %
                   ((v-v2).std(), (x-x2).std(), (x-x3).std()))
@@ -195,18 +195,18 @@ class toeplitzSpeed(object):
         return dt
 
     def plot(self):
-        import pylab
-        pylab.clf()
-        pylab.plot(self.sizes, self.ts_time, label='Toeplitz solver')
-        pylab.plot(self.sizes, self.build_time, label='Matrix build')
-        pylab.plot(self.sizes, self.mult_time, label='Matrix-vector mult')
-        pylab.plot(self.sizes, self.solve_time, label='Matrix solve')
-        pylab.plot(self.sizes, self.lu_time, label='LU solve')
-        pylab.legend(loc='upper left')
-        pylab.xlabel('Vector size')
-        pylab.ylabel('Time (sec)')
-        pylab.grid()
-        pylab.loglog()
+        import pylab as plt
+        plt.clf()
+        plt.plot(self.sizes, self.ts_time, label='Toeplitz solver')
+        plt.plot(self.sizes, self.build_time, label='Matrix build')
+        plt.plot(self.sizes, self.mult_time, label='Matrix-vector mult')
+        plt.plot(self.sizes, self.solve_time, label='Matrix solve')
+        plt.plot(self.sizes, self.lu_time, label='LU solve')
+        plt.legend(loc='upper left')
+        plt.xlabel('Vector size')
+        plt.ylabel('Time (sec)')
+        plt.grid()
+        plt.loglog()
 
 
 if __name__ == '__main__':

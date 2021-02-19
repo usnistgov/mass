@@ -523,10 +523,10 @@ class EnergyCalibration(object):
         self._plot(axis, color, markercolor, plottype="loggain")
 
     def _plot(self, axis=None, color="blue", markercolor="red", plottype="gain", ph_rescale_power=0.0):
-        import pylab
+        import pylab as plt
         if axis is None:
-            pylab.clf()
-            axis = pylab.subplot(111)
+            plt.clf()
+            axis = plt.subplot(111)
             axis.set_xlim([0, self._ph.max()*1.1])
 
         # Plot smooth curve
