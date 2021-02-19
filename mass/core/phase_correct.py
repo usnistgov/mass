@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+import scipy.signal
 
 import mass.mathstat.entropy
 from mass.mathstat.interpolate import CubicSpline
