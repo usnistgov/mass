@@ -131,7 +131,7 @@ class EnergyCalibration(object):
         Should return a scalar if passed a scalar, and a numpy array if passed a list or array
 
         Args:
-            pulse_ht (float or numpy.array(dtype=float)): pulse heights in an arbitrary unit.
+            pulse_ht (float or np.array(dtype=float)): pulse heights in an arbitrary unit.
             der (int): the order of derivative. `der` should be >= 0.
         """
         if self._model_is_stale:
@@ -206,7 +206,8 @@ class EnergyCalibration(object):
 
     def set_curvetype(self, curvetype):
         if isstr(curvetype):
-            if isinstance(curvetype, bytes):  # Fix a behavior of h5py for writing in py2, reading in py3.
+            # Fix a behavior of h5py for writing in py2, reading in py3.
+            if isinstance(curvetype, bytes):
                 curvetype = curvetype.decode("utf-8")
             try:
                 curvetype = self.CURVETYPE.index(curvetype.lower())
