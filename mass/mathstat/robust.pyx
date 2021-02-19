@@ -234,9 +234,9 @@ def high_median(x, weights=None, return_index=False):
     sort_idx = x.argsort()  # now x[sort_idx] is sorted
     n = len(x)
     if weights is None:
-        weights = np.ones(n, dtype=np.float)
+        weights = np.ones(n, dtype=float)
     else:
-        weights = np.asarray(weights, dtype=np.float)
+        weights = np.asarray(weights, dtype=float)
 
     # If possible, use the Cython version _high_median, though it only speeds up
     # by 15 to 20%.
@@ -345,7 +345,7 @@ def _high_median(long long[:] sort_idx, double[:] weights, int n):
 
     imin, imax = 0, n  # The possible range of j will always be the half-open interval [imin,imax)
     left_weight = right_weight = 0  # Total weight in (...,imin) and in [imax,...)
-    itrial = n/2
+    itrial = n//2
 
     while imax-imin > 1:
         trial_left_weight = 0
@@ -363,7 +363,7 @@ def _high_median(long long[:] sort_idx, double[:] weights, int n):
             imin = itrial
         else:  # j == itrial
             break
-        itrial = (imin+imax)/2
+        itrial = (imin+imax)//2
 
     return sort_idx[itrial]
 
@@ -387,7 +387,7 @@ def _choose_trial_val(long long[:] left, long long[:] right, double[:] x, int n)
         weights[i] = right[i]+1-left[i]
         if left[i] > right[i]:
             weights[i] = 0
-        ctr_index = (left[i]+right[i])/2
+        ctr_index = (left[i]+right[i])//2
         if ctr_index >= n:
             ctr_index = n-1
         row_median[i] = x[ctr_index]-x[i]
@@ -397,7 +397,7 @@ def _choose_trial_val(long long[:] left, long long[:] right, double[:] x, int n)
 
     chosen_row = _high_median(row_sort_idx, weights, n-1)
     trial_val = row_median[chosen_row]
-    chosen_col = (left[chosen_row]+right[chosen_row])/2
+    chosen_col = (left[chosen_row]+right[chosen_row])//2
 
     if chosen_col >= n:
         chosen_col = n-1
