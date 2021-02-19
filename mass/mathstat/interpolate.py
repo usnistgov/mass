@@ -308,7 +308,8 @@ class GPRSpline(CubicSpline):
         result = sp.optimize.minimize_scalar(
             lambda x: -self._marginal_like(x), [guess/1e4, guess*1e4])
         if result.success:
-            return result.x
+            # _marginal_like depends only on the abs(argument), so take minimizer as positive.
+            return np.abs(result.x)
         raise(ValueError("Could not maximimze the marginal likelihood"))
 
     def _marginal_like(self, sigmaf):
