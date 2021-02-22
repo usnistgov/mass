@@ -572,21 +572,15 @@ class SmoothingSpline(object):
         return self.__eval(x, der=der)
 
 
-class SmoothingSplineFunction(SmoothingSpline, Function):
-    def __init__(self, x, y, dy, dx=None, maxchisq=None, der=0):
-        super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
-        self.x = x
-        self.y = y
-        self.dy = dy
-        self.dx = dx
-        self.maxchisq = maxchisq
+class SmoothingSplineFunction(GPRSpline, Function):
+    def __init__(self, x, y, dy, dx=None, der=0):
+        super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx)
         self.der = der
 
     def derivative(self, der=1):
         if self.der + der > 3:
             return ConstantFunction(0)
-
-        return SmoothingSplineFunction(self.x, self.y, self.dy, self.dx, self.maxchisq, der=self.der + der)
+        return SmoothingSplineFunction(self.x, self.y, self.dy, self.dx, der=self.der + der)
 
     def __call__(self, x, der=0):
         if self.der + der > 3:
@@ -598,12 +592,12 @@ class SmoothingSplineFunction(SmoothingSpline, Function):
 
 
 class SmoothingSplineLog(object):
-    def __init__(self, x, y, dy, dx=None, maxchisq=None):
+    def __init__(self, x, y, dy, dx=None):
         if np.any(x <= 0) or np.any(y <= 0):
             raise ValueError("The x and y data must all be positive to use a SmoothingSplineLog")
         if dx is not None:
             dx /= x
-        self.linear_model = SmoothingSpline(np.log(x), np.log(y), dy/y, dx, maxchisq=maxchisq)
+        self.linear_model = GPRSpline(np.log(x), np.log(y), dy/y, dx)
 
     def __call__(self, x, der=0):
         return np.exp(self.linear_model(np.log(x), der=der))
