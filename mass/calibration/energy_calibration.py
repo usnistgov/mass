@@ -583,7 +583,7 @@ class EnergyCalibration(object):
             ylabel = "%s slope removed" % ylabel
         axis.set_ylabel(ylabel)
         for pht, name, yval in zip(self._ph, self._names, y):
-            axis.text(pht, yval, name+'  ', ha='right')
+            axis.text(pht, yval-slope*pht, name+'  ', ha='right')
 
     def drop_one_errors(self):
         """For each calibration point, calculate the difference between the 'correct' energy
