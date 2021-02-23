@@ -262,19 +262,23 @@ class GPRSpline(CubicSpline):
     """
 
     def __init__(self, x, y, dy, dx=None, sigmaf=None):
-        if dx is None:
-            err = np.array(np.abs(dy))
-        else:
-            roughfit = np.polyfit(x, y, 2)
-            slope = np.poly1d(np.polyder(roughfit, 1))(x)
-            err = np.sqrt((dx*slope)**2 + dy**2)
-
         self.x = np.array(x)
         self.y = np.array(y)
-        self.dx = np.array(dx)
         self.dy = np.array(dy)
-        self.err = err
-        self.Nk = len(x)
+        self.Nk = len(self.x)
+        assert self.Nk == len(self.y)
+        assert self.Nk == len(self.dy)
+
+        if dx is None:
+            self.dx = np.zeros_like(dy)
+            self.err = np.array(np.abs(dy))
+        else:
+            self.dx = np.array(dx)
+            roughfit = np.polyfit(x, y, 2)
+            slope = np.poly1d(np.polyder(roughfit, 1))(x)
+            self.err = np.sqrt((dx*slope)**2 + dy**2)
+        assert self.Nk == len(self.dx)
+        assert self.Nk == len(self.err)
 
         if sigmaf is None:
             sigmaf = self.best_sigmaf()
@@ -590,7 +594,7 @@ class SmoothingSplineFunction(GPRSpline, Function):
         return super(SmoothingSplineFunction, self).__call__(x, der=self.der + der)
 
     def __repr__(self):
-        return "SmoothingSpline" + "'" * self.der + "(x)"
+        return "SmoothingSpline{}(x)".format("'" * self.der)
 
 
 class SmoothingSplineLog(object):
