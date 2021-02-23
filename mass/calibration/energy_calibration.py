@@ -178,10 +178,33 @@ class EnergyCalibration(object):
         result = [brentq(energy_residual, 1e-6, self._max_ph, args=(e,)) for e in energy]
         return np.array(result)
 
+    def ph2dedph(self, ph):
+        """Calculate the slope at pulse heights `ph`."""
+        if self._model_is_stale:
+            self._update_converters()
+        return self(ph, der=1)
+
     def energy2dedph(self, energy):
         """Calculate the slope at energy."""
-        ph = self.energy2ph(energy)
-        return self(ph, der=1)
+        return self.ph2dedph(self.energy2ph(energy))
+
+    def ph2uncertainty(self, ph):
+        """Cal uncertainty in eV at the given pulse heights."""
+        if not self._use_approximation:
+            raise ValueError(
+                "Cannot estimate uncertainty. First use cal.set_use_approximation(True)")
+        if self._model_is_stale:
+            self._update_converters()
+        return self._uncertainty(ph)
+
+    def energy2uncertainty(self, energies):
+        """Cal uncertainty in eV at the given pulse heights."""
+        ph = self.energy2ph(energies)
+        return self.ph2uncertainty(ph)
+
+    def e2ph(self, energy): return self.energy2ph(energy)
+    def e2dedph(self, energy): return self.energy2dedph(energy)
+    def e2uncertainty(self, energy): return self.energy2uncertainty(energy)
 
     def __str__(self):
         self._update_converters()  # To sort the points
@@ -193,8 +216,8 @@ class EnergyCalibration(object):
     def set_nonlinearity(self, powerlaw=1.15):
         """Update the power law index assumed when there's 1 data point and a loglog curve type."""
         if self.curvename() == "loglog" and powerlaw != self.nonlinearity:
-            self.nonlinearity = powerlaw
             self._model_is_stale = True
+        self.nonlinearity = powerlaw
 
     def set_use_approximation(self, useit):
         """Switch to using (or to NOT using) approximating splines with
@@ -385,9 +408,18 @@ class EnergyCalibration(object):
         # Find transformed data. For dy, assume that E and PH errors are uncorrelated.
         ph, dph, e, de = self._ph, self._dph, self._energies, self._de
 
+        # Compute cal curve variance at these points
+        var_ph = [np.linspace(0, ph[0], 51)[1:]]
+        for i in range(len(ph)-1):
+            npts = 2+int(0.5+(ph[i+1]/ph[i]-1)*100)
+            var_ph.append(np.linspace(ph[i], ph[i+1], npts)[1:])
+        var_ph.append(np.linspace(ph[-1], 2*ph[-1], 101)[1:])
+        var_ph = np.hstack(var_ph)
+
         if self.curvename() == "loglog":
-            cubic_spline = SmoothingSplineFunction(np.log(ph), np.log(e), de/e, dph/ph)
-            self._ph2energy_anon = ExponentialFunction() << cubic_spline << LogFunction()
+            underlying_spline = SmoothingSplineFunction(np.log(ph), np.log(e), de/e, dph/ph)
+            self._ph2energy_anon = ExponentialFunction() << underlying_spline << LogFunction()
+            cal_uncert = underlying_spline(var_ph) * underlying_spline.variance(np.log(var_ph))**0.5
 
         elif self.curvename().startswith("linear"):
             if ("+0" in self.curvename()) and (0.0 not in ph):
@@ -395,7 +427,9 @@ class EnergyCalibration(object):
                 e = np.hstack([[0], e])
                 de = np.hstack([[de.min()*0.1], de])
                 dph = np.hstack([[dph.min()*0.1], dph])
-            self._ph2energy_anon = SmoothingSplineFunction(ph, e, de, dph)
+            underlying_spline = SmoothingSplineFunction(ph, e, de, dph)
+            self._ph2energy_anon = underlying_spline
+            cal_uncert = underlying_spline.variance(var_ph)**0.5
 
         elif self.curvename() == "gain":
             g = ph/e
@@ -403,17 +437,19 @@ class EnergyCalibration(object):
             dg = g * ((dph/ph)**2+(de/e)**2)**0.5
             # self._underlying_spline = SmoothingSpline(ph/scale, g, dg, dph/scale)
             # self._ph2energy_anon = lambda p: p/self._underlying_spline(p/scale)
+            underlying_spline = SmoothingSplineFunction(ph, g, dg, dph)
             p = Identity()
-            underlying_spline = SmoothingSplineFunction(ph / scale, g, dg, dph / scale)
-            self._ph2energy_anon = p / (underlying_spline << (p / scale))
+            self._ph2energy_anon = p / (underlying_spline << p)
+            est_g = underlying_spline(var_ph)
+            est_e = var_ph/est_g
+            cal_uncert = underlying_spline.variance(var_ph)**0.5*est_e/est_g
 
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
             trial_phmax = 10 * self._ph.max()
             if underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
             else:
-                self._max_ph = scale*0.99*brentq(underlying_spline,
-                                                 self._ph.max()/scale, trial_phmax/scale)
+                self._max_ph = 0.99*brentq(underlying_spline, self._ph.max(), trial_phmax)
 
         elif self.curvename() == "invgain":
             ig = e/ph
@@ -424,6 +460,7 @@ class EnergyCalibration(object):
             p = Identity()
             underlying_spline = SmoothingSplineFunction(ph / scale, ig, dg, dph / scale)
             self._ph2energy_anon = p * (underlying_spline << (p / scale))
+            cal_uncert = underlying_spline.variance(var_ph/scale)**0.5*var_ph
 
         elif self.curvename() == "loggain":
             lg = np.log(ph/e)
@@ -435,6 +472,12 @@ class EnergyCalibration(object):
             underlying_spline = SmoothingSplineFunction(ph / scale, lg, dlg, dph / scale)
             self._ph2energy_anon = p * (ExponentialFunction()
                                         << (-underlying_spline << (p / scale)))
+            var_e = self._ph2energy_anon(var_ph)
+            dfdp = underlying_spline(var_ph/scale, der=1)
+            cal_uncert = underlying_spline.variance(var_ph/scale)**0.5*var_e*np.abs(dfdp)
+
+        self._underlying_spline = underlying_spline
+        self._uncertainty = CubicSplineFunction(var_ph, cal_uncert)
 
     def _update_exactcurves(self):
         """Update the E(P) curve assume exact interpolation of calibration data."""
