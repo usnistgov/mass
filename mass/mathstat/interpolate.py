@@ -80,10 +80,10 @@ class CubicSpline(object):
         self._compute_y2()
 
     def _compute_y2(self):
-        self.dy = self._y[1:]-self._y[:-1]
-        self.dx = self._x[1:] - self._x[:-1]
+        self.ystep = self._y[1:]-self._y[:-1]
+        self.xstep = self._x[1:] - self._x[:-1]
 
-        u = self.dy/self.dx
+        u = self.ystep/self.xstep
         u[1:] = u[1:] - u[:-1]
 
         # For natural boundary conditions, u[0]=y2[0]=0.
@@ -91,11 +91,11 @@ class CubicSpline(object):
             u[0] = 0
             self._y2[0] = 0
         else:
-            u[0] = (3.0/self.dx[0])*(self.dy[0]/self.dx[0]-self.yprime1)
+            u[0] = (3.0/self.xstep[0])*(self.ystep[0]/self.xstep[0]-self.yprime1)
             self._y2[0] = -0.5
 
         for i in range(1, self._n-1):
-            sig = self.dx[i-1]/(self._x[i+1]-self._x[i-1])
+            sig = self.xstep[i-1]/(self._x[i+1]-self._x[i-1])
             p = sig*self._y2[i-1]+2.0
             self._y2[i] = (sig-1.0)/p
             u[i] = (6*u[i]/(self._x[i+1]-self._x[i-1])-sig*u[i-1])/p
@@ -105,7 +105,7 @@ class CubicSpline(object):
             qn = un = 0.0
         else:
             qn = 0.5
-            un = (3.0/self.dx[-1])*(self.yprimeN-self.dy[-1]/self.dx[-1])
+            un = (3.0/self.xstep[-1])*(self.yprimeN-self.ystep[-1]/self.xstep[-1])
         self._y2[self._n-1] = (un-qn*u[self._n-2])/(qn*self._y2[self._n-2]+1.0)
 
         # Backsubstitution:
@@ -113,9 +113,11 @@ class CubicSpline(object):
             self._y2[k] = self._y2[k]*self._y2[k+1]+u[k]
 
         if self.yprime1 is None:
-            self.yprime1 = self.dy[0]/self.dx[0] - self.dx[0]*(self._y2[0]/3.+self._y2[1]/6.)
+            self.yprime1 = self.ystep[0]/self.xstep[0] - \
+                self.xstep[0]*(self._y2[0]/3.+self._y2[1]/6.)
         if self.yprimeN is None:
-            self.yprimeN = self.dy[-1]/self.dx[-1] + self.dx[-1]*(self._y2[-2]/6.+self._y2[-1]/3.)
+            self.yprimeN = self.ystep[-1]/self.xstep[-1] + \
+                self.xstep[-1]*(self._y2[-2]/6.+self._y2[-1]/3.)
 
     def __call__(self, x, der=0):
         scalar = np.isscalar(x)
@@ -155,7 +157,7 @@ class CubicSpline(object):
         if interp.any():
             klo = position[interp]
             khi = klo+1
-            dx = self.dx[klo]
+            dx = self.xstep[klo]
             a = (self._x[khi] - x[interp]) / dx
             b = (x[interp] - self._x[klo]) / dx
 
@@ -223,8 +225,8 @@ class LinterpCubicSpline(CubicSpline):
         self._y2 = wtsum(s1._y2, s2._y2, fraction)
         self.yprime1 = wtsum(s1.yprime1, s2.yprime1, fraction)
         self.yprimeN = wtsum(s1.yprimeN, s2.yprimeN, fraction)
-        self.dx = wtsum(s1.dx, s2.dx, fraction)
-        self.dy = wtsum(s1.dy, s2.dy, fraction)
+        self.xstep = wtsum(s1.xstep, s2.xstep, fraction)
+        self.ystep = wtsum(s1.ystep, s2.ystep, fraction)
 
 
 def k_spline(x, y):
