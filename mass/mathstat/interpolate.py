@@ -177,7 +177,7 @@ class CubicSpline(object):
                 result[interp] = .0
 
         if scalar:
-            result = result[()]
+            result = result[0]
         return result
 
 
