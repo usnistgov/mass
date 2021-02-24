@@ -6,7 +6,7 @@ Created on May 16, 2011
 import numpy as np
 from scipy.optimize import brentq
 
-from mass.mathstat.interpolate import CubicSplineFunction, SmoothingSplineFunction
+from mass.mathstat.interpolate import CubicSplineFunction, SmoothingSplineFunction, GPRSplineFunction
 from mass.mathstat.derivative import ExponentialFunction, Identity, LogFunction
 from mass.calibration.nist_xray_database import NISTXrayDBFile
 from ..common import isstr
@@ -91,7 +91,8 @@ class EnergyCalibration(object):
         "loggain",
     )
 
-    def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=False):
+    def __init__(self, nonlinearity=1.1, curvetype="loglog", approximate=False,
+                 useGPR=True):
         """Create an EnergyCalibration object for pulse-height-related field.
 
         Args:
@@ -101,6 +102,8 @@ class EnergyCalibration(object):
             approximate (boolean):  Whether to use approximate "smoothing splines". (If not, use splines
                 that go exactly through the data.) Default = False, because this works
                 poorly unless the user calls with sensible PH and Energy uncertainties.
+            useGPR (boolean): whether to use the new GPR-style choice for smoothing splines.
+                Default True, but set False to use the pre-2021 approximation method.
         """
         self._curvetype = 0
         self.set_curvetype(curvetype)
@@ -113,6 +116,7 @@ class EnergyCalibration(object):
         self._names = []
         self.npts = 0
         self._use_approximation = approximate
+        self._use_GPR = useGPR
         self._model_is_stale = False
         self._e2phwarned = False
         self.nonlinearity = nonlinearity
@@ -248,6 +252,11 @@ class EnergyCalibration(object):
             self._use_approximation = useit
             self._model_is_stale = True
 
+    def set_GPR(self, useit):
+        if useit != self._use_GPR:
+            self._use_GPR = useit
+            self._model_is_stale = True
+
     def set_curvetype(self, curvetype):
         if isstr(curvetype):
             # Fix a behavior of h5py for writing in py2, reading in py3.
@@ -276,6 +285,7 @@ class EnergyCalibration(object):
         ecal._dph = self._dph.copy()
         ecal._de = self._de.copy()
         ecal._use_approximation = self._use_approximation
+        ecal._use_GPR = self._use_GPR
         ecal._model_is_stale = True
         ecal._curvetype = self._curvetype
         return ecal
@@ -425,6 +435,10 @@ class EnergyCalibration(object):
 
     def _update_approximators(self, ph_pts):
         "Update approximating spline. Find and spline variance at points `ph_pts`"
+        PreferredSpline = GPRSplineFunction
+        if not self._use_GPR:
+            PreferredSpline = SmoothingSplineFunction
+
         # Make sure the errors in both dimensions are reasonable (positive)
         if (self._dph <= 0.0).any():
             if (self._dph > 0).any():
@@ -441,7 +455,7 @@ class EnergyCalibration(object):
         ph, dph, e, de = self._ph, self._dph, self._energies, self._de
 
         if self.curvename() == "loglog":
-            underlying_spline = SmoothingSplineFunction(np.log(ph), np.log(e), de/e, dph/ph)
+            underlying_spline = PreferredSpline(np.log(ph), np.log(e), de/e, dph/ph)
             self._ph2e = ExponentialFunction() << underlying_spline << LogFunction()
             cal_uncert = underlying_spline(ph_pts) * underlying_spline.variance(np.log(ph_pts))**0.5
 
@@ -451,7 +465,7 @@ class EnergyCalibration(object):
                 e = np.hstack([[0], e])
                 de = np.hstack([[de.min()*0.1], de])
                 dph = np.hstack([[dph.min()*0.1], dph])
-            underlying_spline = SmoothingSplineFunction(ph, e, de, dph)
+            underlying_spline = PreferredSpline(ph, e, de, dph)
             self._ph2e = underlying_spline
             cal_uncert = underlying_spline.variance(ph_pts)**0.5
 
@@ -460,7 +474,7 @@ class EnergyCalibration(object):
             dg = g * ((dph/ph)**2+(de/e)**2)**0.5
             # self._underlying_spline = SmoothingSpline(ph/scale, g, dg, dph/scale)
             # self._ph2e = lambda p: p/self._underlying_spline(p/scale)
-            underlying_spline = SmoothingSplineFunction(ph, g, dg, dph)
+            underlying_spline = PreferredSpline(ph, g, dg, dph)
             p = Identity()
             self._ph2e = p / (underlying_spline << p)
             est_g = underlying_spline(ph_pts)
@@ -481,7 +495,7 @@ class EnergyCalibration(object):
             # self._underlying_spline = SmoothingSpline(ph/scale, ig, dg, dph/scale)
             # self._ph2e = lambda p: p*self._underlying_spline(p/scale)
             p = Identity()
-            underlying_spline = SmoothingSplineFunction(ph / scale, ig, dg, dph / scale)
+            underlying_spline = PreferredSpline(ph / scale, ig, dg, dph / scale)
             self._ph2e = p * (underlying_spline << (p / scale))
             cal_uncert = underlying_spline.variance(ph_pts/scale)**0.5*ph_pts
 
@@ -492,7 +506,7 @@ class EnergyCalibration(object):
             # self._underlying_spline = SmoothingSpline(ph/scale, lg, dlg, dph/scale)
             # self._ph2e = lambda p: p*np.exp(-self._underlying_spline(p/scale))
             p = Identity()
-            underlying_spline = SmoothingSplineFunction(ph / scale, lg, dlg, dph / scale)
+            underlying_spline = PreferredSpline(ph / scale, lg, dlg, dph / scale)
             self._ph2e = p * (ExponentialFunction()
                               << (-underlying_spline << (p / scale)))
             var_e = self._ph2e(ph_pts)

@@ -512,9 +512,8 @@ class SmoothingSpline(object):
         """Choose the value of the curve at the knots so as to achieve the
         smallest possible curvature subject to the constraint that the
         sum over all {x,y} pairs S = [(y-f(x))/dy]^2 <= chisq """
-        Nk = self.Nk
         if chisq is None:
-            chisq = Nk
+            chisq = self.Nk
 
         Dinv = self.err**(-2)  # Vector but stands for diagonals of a diagonal matrix.
         NTDinv = self.N0.T * Dinv
@@ -539,6 +538,8 @@ class SmoothingSpline(object):
         pbest = sp.optimize.brentq(chisq_difference, mincurvature, 1, args=(chisq,))
         beta = best_params(pbest)
         self.coeff = self.basis.expand_coeff(beta)
+        ys = np.dot(self.N0, beta)
+        self.actualchisq = np.sum(((self.y-ys)/self.err)**2)
 
         # Store the linear extrapolation outside the knotted region.
         val = self.__eval([self.x[0], self.x[-1]], 0)
@@ -578,32 +579,55 @@ class SmoothingSpline(object):
         return self.__eval(x, der=der)
 
 
-class SmoothingSplineFunction(GPRSpline, Function):
-    def __init__(self, x, y, dy, dx=None, der=0):
-        super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx)
+class SmoothingSplineFunction(SmoothingSpline, Function):
+    def __init__(self, x, y, dy, dx=None, maxchisq=None, der=0):
+        super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
+        print(self.x-x, self.y)
         self.der = der
 
     def derivative(self, der=1):
         if self.der + der > 3:
             return ConstantFunction(0)
-        return SmoothingSplineFunction(self.x, self.y, self.dy, self.dx, der=self.der + der)
+        return SmoothingSplineFunction(self.x, self.y, self.dy, self.dx, maxchisq=maxchisq, der=self.der + der)
 
     def __call__(self, x, der=0):
         if self.der + der > 3:
             return np.zeros_like(x)
         return super(SmoothingSplineFunction, self).__call__(x, der=self.der + der)
 
+    def variance(self, xtest):
+        return np.zeros_like(xtest)+np.inf
+
     def __repr__(self):
         return "SmoothingSpline{}(x)".format("'" * self.der)
 
 
 class SmoothingSplineLog(object):
-    def __init__(self, x, y, dy, dx=None):
+    def __init__(self, x, y, dy, dx=None, maxchisq=None):
         if np.any(x <= 0) or np.any(y <= 0):
             raise ValueError("The x and y data must all be positive to use a SmoothingSplineLog")
         if dx is not None:
             dx /= x
-        self.linear_model = GPRSpline(np.log(x), np.log(y), dy/y, dx)
+        self.linear_model = SmoothingSpline(np.log(x), np.log(y), dy/y, dx, maxchisq=maxchisq)
 
     def __call__(self, x, der=0):
         return np.exp(self.linear_model(np.log(x), der=der))
+
+
+class GPRSplineFunction(GPRSpline, Function):
+    def __init__(self, x, y, dy, dx=None, der=0):
+        super(GPRSplineFunction, self).__init__(x, y, dy, dx=dx)
+        self.der = der
+
+    def derivative(self, der=1):
+        if self.der + der > 3:
+            return ConstantFunction(0)
+        return GPRSplineFunction(self.x, self.y, self.dy, self.dx, der=self.der + der)
+
+    def __call__(self, x, der=0):
+        if self.der + der > 3:
+            return np.zeros_like(x)
+        return super(GPRSplineFunction, self).__call__(x, der=self.der + der)
+
+    def __repr__(self):
+        return "GPRSpline{}(x)".format("'" * self.der)
