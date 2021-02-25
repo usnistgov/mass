@@ -245,8 +245,16 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
             cal._update_converters()
         self.assertTrue((np.abs(cal1(ph)-e)[:-2] < 0.5).all())
         self.assertTrue((np.abs(cal2(ph)-e)[:-2] < 0.3).all())
+
         # Be sure that the old-style (non-GPR) spline finds the right curvature
         self.assertAlmostEqual(cal1._underlying_spline.actualchisq, len(ph), 2)
+
+        # Test for a problem in extrapolated gain that I had: gain was extrapolated with zero slope!
+        for cal in (cal1, cal2):
+            g1k = 10000/cal(10000)
+            g4k = 40000/cal(40000)
+            self.assertGreater(g1k, 3.2)
+            self.assertLess(g4k, 2.9)
 
 
 if __name__ == "__main__":

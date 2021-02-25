@@ -546,7 +546,7 @@ class SmoothingSpline(object):
         # Store the linear extrapolation outside the knotted region.
         endpoints = np.array([self.x[0], self.x[-1]])*self.xscale
         val = self.__eval(endpoints, 0)
-        slope = self.__eval(endpoints, 1)
+        slope = self.__eval(endpoints, 1)*self.xscale
         self.lowline = np.poly1d([slope[0], val[0]])
         self.highline = np.poly1d([slope[1], val[1]])
 
