@@ -471,8 +471,10 @@ class SmoothingSpline(object):
             err = np.sqrt((dx*slope)**2 + dy*dy)
 
         self.x = np.array(x)
+        self.xscale = (x**2).mean()**0.5
+        self.x /= self.xscale
         self.y = np.array(y)
-        self.dx = np.array(dx)
+        self.dx = np.array(dx)/self.xscale
         self.dy = np.array(dy)
         self.err = err
         self.Nk = len(x)
@@ -542,8 +544,9 @@ class SmoothingSpline(object):
         self.actualchisq = np.sum(((self.y-ys)/self.err)**2)
 
         # Store the linear extrapolation outside the knotted region.
-        val = self.__eval([self.x[0], self.x[-1]], 0)
-        slope = self.__eval([self.x[0], self.x[-1]], 1)
+        endpoints = np.array([self.x[0], self.x[-1]])*self.xscale
+        val = self.__eval(endpoints, 0)
+        slope = self.__eval(endpoints, 1)
         self.lowline = np.poly1d([slope[0], val[0]])
         self.highline = np.poly1d([slope[1], val[1]])
 
@@ -551,7 +554,7 @@ class SmoothingSpline(object):
         """Return the value of (the `der`th derivative of) the smoothing spline
                 at data points `x`."""
         scalar = np.isscalar(x)
-        x = np.asarray(x)
+        x = np.asarray(x)/self.xscale
         splresult = splev(x, (self.basis.padknots, self.coeff, 3), der=der)
         low = x < self.x[0]
         high = x > self.x[-1]
@@ -569,6 +572,8 @@ class SmoothingSpline(object):
                 splresult[high] = self.highline.coeffs[0]
             elif der >= 2:
                 splresult[high] = 0.0
+        if der > 0:
+            splresult /= self.xscale**der
         if scalar:
             splresult = splresult[()]
         return splresult
