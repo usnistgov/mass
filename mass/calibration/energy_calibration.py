@@ -507,7 +507,7 @@ class EnergyCalibration(object):
         if self._use_GPR:
             self._uncertainty = CubicSplineFunction(ph_pts, cal_uncert)
         else:
-            self._uncertainty = CubicSplineFunction(ph_pts, 100*self._ph2e(ph_pts))
+            self._uncertainty = lambda x: np.zeros_like(x)
 
     def _update_exactcurves(self):
         """Update the E(P) curve; assume exact interpolation of calibration data."""
