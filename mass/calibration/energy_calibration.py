@@ -471,16 +471,13 @@ class EnergyCalibration(object):
 
         elif self.curvename() == "gain":
             g = ph/e
-            scale = ph.mean()
             dg = g * ((dph/ph)**2+(de/e)**2)**0.5
-            # self._underlying_spline = SmoothingSpline(ph/scale, g, dg, dph/scale)
-            # self._ph2e = lambda p: p/self._underlying_spline(p/scale)
-            underlying_spline = PreferredSpline(ph/scale, g, dg, dph/scale)
+            underlying_spline = PreferredSpline(ph, g, dg, dph)
             p = Identity()
-            self._ph2e = p / (underlying_spline << (p/scale))
+            self._ph2e = p / (underlying_spline << p)
             est_g = underlying_spline(ph_pts)
             est_e = ph_pts/est_g
-            cal_uncert = underlying_spline.variance(ph_pts/scale)**0.5*est_e/est_g
+            cal_uncert = underlying_spline.variance(ph_pts)**0.5*est_e/est_g
 
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
             trial_phmax = 10 * self._ph.max()
@@ -489,28 +486,22 @@ class EnergyCalibration(object):
 
         elif self.curvename() == "invgain":
             ig = e/ph
-            scale = ph.mean()
             dg = ig * ((dph/ph)**2+(de/e)**2)**0.5
-            # self._underlying_spline = SmoothingSpline(ph/scale, ig, dg, dph/scale)
-            # self._ph2e = lambda p: p*self._underlying_spline(p/scale)
             p = Identity()
-            underlying_spline = PreferredSpline(ph / scale, ig, dg, dph / scale)
-            self._ph2e = p * (underlying_spline << (p / scale))
-            cal_uncert = underlying_spline.variance(ph_pts/scale)**0.5*ph_pts
+            underlying_spline = PreferredSpline(ph, ig, dg, dph)
+            self._ph2e = p * (underlying_spline << p)
+            cal_uncert = underlying_spline.variance(ph_pts)**0.5*ph_pts
 
         elif self.curvename() == "loggain":
             lg = np.log(ph/e)
             dlg = ((dph/ph)**2+(de/e)**2)**0.5
-            scale = ph.mean()
-            # self._underlying_spline = SmoothingSpline(ph/scale, lg, dlg, dph/scale)
-            # self._ph2e = lambda p: p*np.exp(-self._underlying_spline(p/scale))
             p = Identity()
-            underlying_spline = PreferredSpline(ph / scale, lg, dlg, dph / scale)
+            underlying_spline = PreferredSpline(ph, lg, dlg, dph)
             self._ph2e = p * (ExponentialFunction()
-                              << (-underlying_spline << (p / scale)))
+                              << (-underlying_spline << p))
             e_pts = self._ph2e(ph_pts)
-            dfdp = underlying_spline(ph_pts/scale, der=1)
-            cal_uncert = underlying_spline.variance(ph_pts/scale)**0.5*e_pts*np.abs(dfdp)
+            dfdp = underlying_spline(ph_pts, der=1)
+            cal_uncert = underlying_spline.variance(ph_pts)**0.5*e_pts*np.abs(dfdp)
 
         self._underlying_spline = underlying_spline
         if self._use_GPR:
