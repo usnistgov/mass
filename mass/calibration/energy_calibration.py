@@ -485,8 +485,6 @@ class EnergyCalibration(object):
             trial_phmax = 10 * self._ph.max()
             if underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
-            else:
-                self._max_ph = 0.99*brentq(underlying_spline, self._ph.max(), trial_phmax)
 
         elif self.curvename() == "invgain":
             ig = e/ph
@@ -509,12 +507,15 @@ class EnergyCalibration(object):
             underlying_spline = PreferredSpline(ph / scale, lg, dlg, dph / scale)
             self._ph2e = p * (ExponentialFunction()
                               << (-underlying_spline << (p / scale)))
-            var_e = self._ph2e(ph_pts)
+            e_pts = self._ph2e(ph_pts)
             dfdp = underlying_spline(ph_pts/scale, der=1)
-            cal_uncert = underlying_spline.variance(ph_pts/scale)**0.5*var_e*np.abs(dfdp)
+            cal_uncert = underlying_spline.variance(ph_pts/scale)**0.5*e_pts*np.abs(dfdp)
 
         self._underlying_spline = underlying_spline
-        self._uncertainty = CubicSplineFunction(ph_pts, cal_uncert)
+        if self._use_GPR:
+            self._uncertainty = CubicSplineFunction(ph_pts, cal_uncert)
+        else:
+            self._uncertainty = CubicSplineFunction(ph_pts, 100*self._ph2e(ph_pts))
 
     def _update_exactcurves(self):
         """Update the E(P) curve; assume exact interpolation of calibration data."""
