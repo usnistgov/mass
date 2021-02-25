@@ -582,7 +582,6 @@ class SmoothingSpline(object):
 class SmoothingSplineFunction(SmoothingSpline, Function):
     def __init__(self, x, y, dy, dx=None, maxchisq=None, der=0):
         super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
-        print(self.x-x, self.y)
         self.der = der
 
     def derivative(self, der=1):

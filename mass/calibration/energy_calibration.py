@@ -471,15 +471,16 @@ class EnergyCalibration(object):
 
         elif self.curvename() == "gain":
             g = ph/e
+            scale = ph.mean()
             dg = g * ((dph/ph)**2+(de/e)**2)**0.5
             # self._underlying_spline = SmoothingSpline(ph/scale, g, dg, dph/scale)
             # self._ph2e = lambda p: p/self._underlying_spline(p/scale)
-            underlying_spline = PreferredSpline(ph, g, dg, dph)
+            underlying_spline = PreferredSpline(ph/scale, g, dg, dph/scale)
             p = Identity()
-            self._ph2e = p / (underlying_spline << p)
+            self._ph2e = p / (underlying_spline << (p/scale))
             est_g = underlying_spline(ph_pts)
             est_e = ph_pts/est_g
-            cal_uncert = underlying_spline.variance(ph_pts)**0.5*est_e/est_g
+            cal_uncert = underlying_spline.variance(ph_pts/scale)**0.5*est_e/est_g
 
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
             trial_phmax = 10 * self._ph.max()
