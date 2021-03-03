@@ -592,26 +592,27 @@ class EnergyCalibration(object):
         energy = STANDARD_FEATURES[name]
         return self.energy2ph(energy)
 
-    def plot(self, axis=None, ph_rescale_power=0.0, color="blue", markercolor="red", removeslope=False, energy_x=False):
-        self._plot(axis, color, markercolor, plottype="linear",
-                   ph_rescale_power=ph_rescale_power, removeslope=removeslope, energy_x=energy_x)
+    def plotgain(self, **kwargs):
+        kwargs["plottype"] = "gain"
+        self.plot(**kwargs)
 
-    def plotgain(self, axis=None, color="blue", markercolor="red", removeslope=False, energy_x=False):
-        self._plot(axis, color, markercolor, plottype="gain",
-                   removeslope=removeslope, energy_x=energy_x)
+    def plotinvgain(self, **kwargs):
+        kwargs["plottype"] = "invgain"
+        self.plot(**kwargs)
 
-    def plotinvgain(self, axis=None, color="blue", markercolor="red", removeslope=False, energy_x=False):
-        self._plot(axis, color, markercolor, plottype="invgain",
-                   removeslope=removeslope, energy_x=energy_x)
+    def plotloggain(self, **kwargs):
+        kwargs["plottype"] = "loggain"
+        self.plot(**kwargs)
 
-    def plotloggain(self, axis=None, color="blue", markercolor="red", removeslope=False, energy_x=False):
-        self._plot(axis, color, markercolor, plottype="loggain",
-                   removeslope=removeslope, energy_x=energy_x)
-
-    def _plot(self, axis=None, color="blue", markercolor="red", plottype="gain", ph_rescale_power=0.0,
-              removeslope=False, energy_x=False):
+    def plot(self, axis=None, color="blue", markercolor="red", plottype="linear", ph_rescale_power=0.0,
+             removeslope=False, energy_x=False, showtext=True, showerrors=True, min_energy=None, max_energy=None):
         # Plot smooth curve
-        phplot = np.linspace(self._ph.max()*.001, self._ph.max()*1.1, 1000)
+        minph, maxph = self._ph.max()*.001, self._ph.max()*1.1
+        if min_energy is not None:
+            minph = self.e2ph(min_energy)
+        if max_energy is not None:
+            maxph = self.e2ph(max_energy)
+        phplot = np.linspace(minph, maxph, 1000)
         eplot = self(phplot)
         gplot = phplot / eplot
         dyplot = None
@@ -629,7 +630,11 @@ class EnergyCalibration(object):
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)
-            axis.set_xlim([0, x[-1]*1.1])
+            # axis.set_xlim([x[0], x[-1]*1.1])
+        if energy_x:
+            axis.set_xlabel("Energy (eV)")
+        else:
+            axis.set_xlabel("Pulse height")
 
         if plottype == "linear":
             yplot = self(phplot) / (phplot**ph_rescale_power)
@@ -664,6 +669,17 @@ class EnergyCalibration(object):
             y = np.log(gains)
             ylabel = "Log Gain: log(eV/PH)"
             axis.set_title("Energy calibration curve, log gain")
+        elif plottype == "loglog":
+            yplot = np.log(eplot)
+            xplot = np.log(phplot)
+            if self._use_approximation:
+                dyplot = self.ph2uncertainty(phplot)/eplot
+            y = np.log(self._energies)
+            x = np.log(self._ph)
+            xerr = (self._dph/self._ph)
+            ylabel = "Log energy/1 eV"
+            axis.set_xlabel("log(Pulse height/arbs)")
+            axis.set_title("Energy calibration curve, log gain")
         else:
             raise ValueError("plottype must be one of ('linear', 'gain','loggain','invgain').")
 
@@ -672,7 +688,7 @@ class EnergyCalibration(object):
             yplot -= slope*xplot
 
         axis.plot(xplot, yplot, color=color)
-        if dyplot is not None:
+        if dyplot is not None and showerrors:
             axis.plot(xplot, yplot+dyplot, color=color, alpha=0.35)
             axis.plot(xplot, yplot-dyplot, color=color, alpha=0.35)
 
@@ -681,15 +697,12 @@ class EnergyCalibration(object):
         axis.errorbar(x, y-slope*x, yerr=dy, xerr=xerr, fmt='o',
                       mec='black', mfc=markercolor, capsize=0)
         axis.grid(True)
-        if energy_x:
-            axis.set_xlabel("Energy (eV)")
-        else:
-            axis.set_xlabel("Pulse height")
         if removeslope:
             ylabel = "%s slope removed" % ylabel
         axis.set_ylabel(ylabel)
-        for xval, name, yval in zip(x, self._names, y):
-            axis.text(xval, yval-slope*xval, name+'  ', ha='right')
+        if showtext:
+            for xval, name, yval in zip(x, self._names, y):
+                axis.text(xval, yval-slope*xval, name+'  ', ha='right')
 
     def drop_one_errors(self):
         """For each calibration point, calculate the difference between the 'correct' energy
