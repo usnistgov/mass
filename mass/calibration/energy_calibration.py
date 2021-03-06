@@ -471,8 +471,9 @@ class EnergyCalibration(object):
 
         elif self.curvename() == "gain":
             g = ph/e
-            dg = g * ((dph/ph)**2+(de/e)**2)**0.5
-            underlying_spline = PreferredSpline(ph, g, dg, dph)
+            m = np.polyfit(ph, g, 1)[0]
+            dg = g*(((m*ph/g-1)*dph/ph)**2+(de/e)**2)**0.5
+            underlying_spline = PreferredSpline(ph, g, dg)
             p = Identity()
             self._ph2e = p / (underlying_spline << p)
             est_g = underlying_spline(ph_pts)
@@ -486,19 +487,20 @@ class EnergyCalibration(object):
 
         elif self.curvename() == "invgain":
             ig = e/ph
-            dg = ig * ((dph/ph)**2+(de/e)**2)**0.5
+            m = np.polyfit(ph, ig, 1)[0]
+            d_ig = ig * (((1+m*ph/ig)*dph/ph)**2+(de/e)**2)**0.5
             p = Identity()
-            underlying_spline = PreferredSpline(ph, ig, dg, dph)
+            underlying_spline = PreferredSpline(ph, ig, d_ig)
             self._ph2e = p * (underlying_spline << p)
             cal_uncert = underlying_spline.variance(ph_pts)**0.5*ph_pts
 
         elif self.curvename() == "loggain":
             lg = np.log(ph/e)
-            dlg = ((dph/ph)**2+(de/e)**2)**0.5
+            m = np.polyfit(ph, lg, 1)[0]
+            d_lg = (((m*ph-1)*dph/ph)**2+(de/e)**2)**0.5
             p = Identity()
-            underlying_spline = PreferredSpline(ph, lg, dlg, dph)
-            self._ph2e = p * (ExponentialFunction()
-                              << (-underlying_spline << p))
+            underlying_spline = PreferredSpline(ph, lg, d_lg)
+            self._ph2e = p * (ExponentialFunction() << (-underlying_spline << p))
             e_pts = self._ph2e(ph_pts)
             dfdp = underlying_spline(ph_pts, der=1)
             cal_uncert = underlying_spline.variance(ph_pts)**0.5*e_pts*np.abs(dfdp)
