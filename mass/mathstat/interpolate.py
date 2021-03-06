@@ -465,6 +465,7 @@ class SmoothingSpline(object):
         """
         if dx is None:
             err = np.array(np.abs(dy))
+            dx = np.zeros_like(err)
         else:
             roughfit = np.polyfit(x, y, 2)
             slope = np.poly1d(np.polyder(roughfit, 1))(x)
