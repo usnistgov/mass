@@ -243,8 +243,8 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
             for a, b, c, d in zip(ph, e, dph, de):
                 cal.add_cal_point(a, b, pht_error=c, e_error=d, name="{:.3f} eV".format(b))
             cal._update_converters()
-        self.assertTrue((np.abs(cal1(ph)-e)[:-2] < 0.5).all())
-        self.assertTrue((np.abs(cal2(ph)-e)[:-2] < 0.3).all())
+        self.assertTrue((np.abs(cal1(ph)-e) < 1.2*dph).all())
+        self.assertTrue((np.abs(cal2(ph)-e) < 0.7*dph).all())
 
         # Be sure that the old-style (non-GPR) spline finds the right curvature
         self.assertAlmostEqual(cal1._underlying_spline.actualchisq, len(ph), 2)
