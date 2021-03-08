@@ -19,7 +19,7 @@ LOG = logging.getLogger("mass")
 FWHM_OVER_SIGMA = (8 * np.log(2))**0.5
 
 
-class SpectralLine(sp.stats.rv_continuous):
+class SpectralLine():
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 
@@ -134,8 +134,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def rvs(self, size, instrument_gaussian_fwhm):
         """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
         compute.  But it's easy enough to generate the random variates themselves, so we
-        override that method.  Don't call this directly!  Instead call .rvs(), which wraps this.
-        Takes gaussian_fwhm as a keyword argument."""
+        override that method."""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         # Choose from among the N Lorentzian lines in proportion to the line amplitudes
         iline = self.cumulative_amplitudes.searchsorted(
