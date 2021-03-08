@@ -435,8 +435,7 @@ class Channel(CorG):
             plt.ylim(ymin/2, ymax*2)
 
     def getStatesIndicies(self, states=None):
-        """return a list of slices corresponding to
-         the passed states
+        """return a list of slices corresponding to the passed states
         this list is appropriate for passing to _indexOffWithCuts or getRecipeAttr
         """
         if states is None:
@@ -1138,13 +1137,16 @@ def getOffFileListFromOneFile(filename, maxChans=None):
 
 class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
     """
-    ChannelGroup is an OrdredDict of Channels with some additional features
+    ChannelGroup is an OrdredDict of Channels with some additional features:
+
     1. Most functions on a Channel can be called on a ChannelGroup, eg data.learnDriftCorrection()
-    in this case it looks over all channels in the ChannelGroup, except those makred bad by ds.markBad("reason")
+       in this case it looks over all channels in the ChannelGroup, except those makred bad by ds.markBad("reason")
     2. If you want to iterate over all Channels, even those marked bad, do
-    with data.includeBad:
-        for (channum, ds) in data:
-            print(channum) # will include bad channels
+
+        with data.includeBad:
+            for (channum, ds) in data:
+                print(channum) # will include bad channels
+
     3. data.whyChanBad returns an OrderedDict of bad channel numbers and reason
     """
 
@@ -1362,14 +1364,13 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         """Set the output directory to which plots and hdf5 files will go
         baseDir -- the directory in which the output directory will exist
         deleteAndRecreate (required keyword arg) -- if True, will delete the whole directory if it already exists
-                (good for if you re-run the same script alot)
-                if False, will attempt to create the directory,
-                if it already exists (like if you rerun the same script), it will error
+        (good for if you re-run the same script alot)
+        if False, will attempt to create the directory,
+        if it already exists (like if you rerun the same script), it will error
         suffix -- added to the first part of shortName to create the output directory name
 
-        commonly called as
+        Commonly called as one of:
         data.setOutputDir(baseDir=os.getcwd(), deleteAndRecreate=True)
-        or
         data.setOutputDir(baseDir=os.path.realpath(__file__), deleteAndRecreate=True)
         """
         self._baseDir = baseDir
