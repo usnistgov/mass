@@ -121,7 +121,7 @@ class Filter(object):
         if len(q) == len(self.avg_signal):
             q *= 1 / np.dot(q, self.avg_signal)
         elif self.shorten >= 2:
-            conv = np.zeros(5, dtype=np.float)
+            conv = np.zeros(5, dtype=float)
             for i in range(5):
                 conv[i] = np.dot(q, self.avg_signal[i:i + len(q)])
             x = np.arange(-2, 2.1)
@@ -166,7 +166,7 @@ class Filter(object):
 
         # Band-limit
         if self.fmax is not None or self.f_3db is not None:
-            freq = np.arange(0, n - self.shorten, dtype=np.float) * \
+            freq = np.arange(0, n - self.shorten, dtype=float) * \
                 0.5 / ((n - 1) * self.sample_time)
             if self.fmax is not None:
                 sig_ft_weighted[freq > self.fmax] = 0.0
@@ -275,7 +275,7 @@ class Filter(object):
             raise ValueError("Vector q (length %d) cannot be longer than the noise (length %d)" %
                              (len(q), len(noise)))
         n = len(q)
-        r = np.zeros(2 * n - 1, dtype=np.float)
+        r = np.zeros(2 * n - 1, dtype=float)
         r[n - 1:] = noise[:n]
         r[n - 1::-1] = noise[:n]
         dot = 0.0
@@ -497,7 +497,7 @@ class ExperimentalFilter(Filter):
                 avg_signal = self.avg_signal
             assert len(self.noise_autocorr) >= n
 
-            expx = np.arange(n, dtype=np.float) * self.sample_time * 1e3  # in ms
+            expx = np.arange(n, dtype=float) * self.sample_time * 1e3  # in ms
             chebyx = np.linspace(-1, 1, n)
 
             R = self.noise_autocorr[:n] / self.peak_signal**2  # A *vector*, not a matrix
@@ -561,7 +561,7 @@ class ExperimentalFilter(Filter):
                     u = np.vstack((Rinv_sig, [eval('Rinv_%s' % v) for v in orthnames]))
                 else:
                     u = Rinv_sig.reshape((1, n))
-                M = np.zeros((1 + N_orth, 1 + N_orth), dtype=np.float)
+                M = np.zeros((1 + N_orth, 1 + N_orth), dtype=float)
                 for i in range(1 + N_orth):
                     M[0, i] = np.dot(avg_signal, u[i, :])
                     for j in range(1, 1 + N_orth):

@@ -176,7 +176,7 @@ class GenericLineModel(MLEModel):
         if has_tails:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral,
                           background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_frac_hi=0, tail_tau_hi=8):
-                bin_centers = np.asarray(bin_centers, dtype=np.float)
+                bin_centers = np.asarray(bin_centers, dtype=float)
                 bin_width = bin_centers[1]-bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
@@ -195,7 +195,7 @@ class GenericLineModel(MLEModel):
                 return r*qemodel(energy)
         else:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral, background=0, bg_slope=0):
-                bin_centers = np.asarray(bin_centers, dtype=np.float)
+                bin_centers = np.asarray(bin_centers, dtype=float)
                 bin_width = bin_centers[1]-bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 spectrum = self.spect.pdf(energy, fwhm)
@@ -232,7 +232,7 @@ class GenericLineModel(MLEModel):
 
     def guess(self, data, bin_centers, **kwargs):
         "Guess values for the peak_ph, integral, and background."
-        order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+        order_stat = np.array(data.cumsum(), dtype=float) / data.sum()
 
         def percentiles(p):
             return bin_centers[(order_stat > p).argmax()]

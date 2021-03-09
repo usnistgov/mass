@@ -43,7 +43,7 @@ class CDMGroup(BaseChannelGroup):
 #                (( 1, 1, 1, 1),
 #                 (-1, 1, 1,-1),
 #                 (-1,-1, 1, 1),
-#                 (-1, 1,-1, 1)), dtype=np.float)
+#                 (-1, 1,-1, 1)), dtype=float)
         assert demodulation.shape[0] == demodulation.shape[1]
         assert demodulation.shape[0] == self.n_cdm
         self.demodulation = demodulation
@@ -181,7 +181,7 @@ class CDMGroup(BaseChannelGroup):
                 assert dset.data.shape == (seg_size, self.nSamples)
                 dset.data.flat = 0.0
             except:
-                dset.data = np.zeros((seg_size, self.nSamples), dtype=np.float)
+                dset.data = np.zeros((seg_size, self.nSamples), dtype=float)
 
             # Multiply by the demodulation matrix
             for j in range(self.n_channels):
@@ -249,7 +249,7 @@ class CDMGroup(BaseChannelGroup):
         for i,nc in enumerate(self.noise_channels_demod):
             nc.set_fake_data()
             nc.nPulses = nrec
-            nc.data = np.zeros(shape, dtype=np.float)
+            nc.data = np.zeros(shape, dtype=float)
             for j,n in enumerate(self.noise_channels):
                 for first, end, _segnum, data in n.datafile.iter_segments():
                     if end > nrec:

@@ -123,7 +123,7 @@ class TestFilters(ut.TestCase):
         # Temporarily cut all pulses but the first 40. Try to build a filter.
         self.data.register_boolean_cut_fields("temporary")
         ds = self.data.channel[1]
-        c = np.ones(ds.nPulses, dtype=np.bool)
+        c = np.ones(ds.nPulses, dtype=bool)
         c[:40] = False
         ds.cuts.cut("temporary", c)
         ds.compute_ats_filter(f_3db=5000)
@@ -131,7 +131,7 @@ class TestFilters(ut.TestCase):
         self.assertFalse(np.any(np.isnan(f)))
 
         # Now un-do the temporary cut and re-build the filter
-        c = np.zeros(ds.nPulses, dtype=np.bool)
+        c = np.zeros(ds.nPulses, dtype=bool)
         ds.cuts.cut("temporary", c)
         ds.compute_ats_filter(f_3db=5000)
         self.assertFalse(np.any(np.isnan(f)))

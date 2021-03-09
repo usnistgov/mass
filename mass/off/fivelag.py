@@ -13,7 +13,7 @@ def calc_5lag_fit_matrix(filter_5lag, basis):
     fit_array = np.array((
         (-6, 24, 34, 24, -6),
         (-14, -7, 0, 7, 14),
-        (10, -5, -10, -5, 10)), dtype=np.float)/70.0
+        (10, -5, -10, -5, 10)), dtype=float)/70.0
     filter_5lag_fit_in_basis = np.matmul(fit_array, filter_5lag_in_basis).T
     return filter_5lag_in_basis, filter_5lag_fit_in_basis
 

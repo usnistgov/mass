@@ -30,7 +30,7 @@ cimport cython
 # DTYPE for this, which is assigned to the usual NumPy runtime
 # type info object.
 DTYPE = np.float64
-BYTPE = np.bool
+BYTPE = bool
 # "ctypedef" assigns a corresponding compile-time type to DTYPE_t. For
 # every type in the numpy module there's a corresponding compile-time
 # type with a _t-suffix.
@@ -152,12 +152,12 @@ cpdef _merge_orderedlists(x1_in, x2_in):
     if N2 == 0:
         if N1 == 0:
             raise ValueError("_merge_orderedlists(x,y) requires at least one list of positive length.")
-        return x1, np.ones(N1, dtype=np.bool)
+        return x1, np.ones(N1, dtype=bool)
     elif N1 == 0:
-        return x2, np.ones(N2, dtype=np.bool)
+        return x2, np.ones(N2, dtype=bool)
 
     out = np.zeros(N1+N2, dtype=DTYPE)
-    wasfirst = np.zeros(N1+N2, dtype=np.bool)
+    wasfirst = np.zeros(N1+N2, dtype=bool)
     _merge_orderedlists_arrays(out, wasfirst, x1, x2)
     return out, wasfirst
 

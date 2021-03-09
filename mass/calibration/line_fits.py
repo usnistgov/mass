@@ -156,7 +156,7 @@ Please see mass/doc/LineFitting.md for how to use the new Model objects and LMFI
         # Pulseheights doesn't make sense as bin centers, either.
         # So just use the integers starting at zero.
         elif len(pulseheights) != len(data):
-            pulseheights = np.arange(len(data), dtype=np.float)
+            pulseheights = np.arange(len(data), dtype=float)
 
         self.hold = hold
         if self.hold is None:
@@ -417,7 +417,7 @@ class VoigtFitter(LineFitter):
         return voigt_approx_fwhm(lw, res)
 
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
-        order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+        order_stat = np.array(data.cumsum(), dtype=float) / data.sum()
 
         def percentiles(p):
             return binctrs[(order_stat > p).argmax()]
@@ -605,7 +605,7 @@ class GaussianFitter(LineFitter):
         return params[self.param_meaning["resolution"]]
 
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
-        order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+        order_stat = np.array(data.cumsum(), dtype=float) / data.sum()
 
         def percentiles(p):
             return binctrs[(order_stat > p).argmax()]

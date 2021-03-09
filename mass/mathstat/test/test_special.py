@@ -6,7 +6,7 @@ Created on Feb 3, 2012
 Joe Fowler, NIST
 '''
 
-import numpy
+import numpy as np
 import unittest
 from mass.mathstat import special
 
@@ -18,11 +18,11 @@ class TestVoigtWidth(unittest.TestCase):
         """Verify Voigt function in Gaussian limit for a range of x and sigma."""
 
         def gaussian(x, sigma):
-            return numpy.exp(-0.5*(x/sigma)**2)/(sigma*numpy.sqrt(2*numpy.pi))
+            return np.exp(-0.5*(x/sigma)**2)/(sigma*np.sqrt(2*np.pi))
 
-        x = numpy.hstack(([0], 10**numpy.arange(-2, 2, .1)))
+        x = np.hstack(([0], 10**np.arange(-2, 2, .1)))
         for gauss_width in (.01, .1, .2, .5, 1, 2, 5, 10, 20):
-            sigma = gauss_width / (8*numpy.log(2))**.5
+            sigma = gauss_width / (8*np.log(2))**.5
             v = special.voigt(x, xctr=0, hwhm=0.0, sigma=sigma)
             for vi, xi in zip(v, x):
                 self.assertAlmostEqual(vi, gaussian(xi, sigma=sigma), 7)
@@ -31,9 +31,9 @@ class TestVoigtWidth(unittest.TestCase):
         """Verify Voigt function in Lorentzian limit for a range of x and FWHM."""
 
         def lorentzian(x, hwhm):
-            return (hwhm/numpy.pi)/(x*x+hwhm*hwhm)
+            return (hwhm/np.pi)/(x*x+hwhm*hwhm)
 
-        x = numpy.hstack(([0], 10**numpy.arange(-2, 2, .1)))
+        x = np.hstack(([0], 10**np.arange(-2, 2, .1)))
         for hwhm in (.01, .1, .2, .5, 1, 2, 5, 10, 20):
             v = special.voigt(x, xctr=0, hwhm=hwhm, sigma=0.0)
             for vi, xi in zip(v, x):
@@ -55,7 +55,7 @@ class TestVoigtWidth(unittest.TestCase):
         """Verify FWHM approximation of Voigt with function results."""
         lor_width = 1.0
         for gauss_width in (.01, .1, .2, .5, 1, 2, 5, 10, 20):
-            sigma = gauss_width / (8*numpy.log(2))**.5
+            sigma = gauss_width / (8*np.log(2))**.5
             vaf = special.voigt_approx_fwhm(lor_width, gauss_width)
             vhalf = special.voigt(x=vaf*.5, xctr=0, hwhm=0.5*lor_width, sigma=sigma)
             vpeak = special.voigt(x=0., xctr=0., hwhm=0.5*lor_width, sigma=sigma)

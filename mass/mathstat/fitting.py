@@ -151,8 +151,8 @@ class MaximumLikelihoodHistogramFitter(object):
         """
         self.mfit = self.nparam = len(params)
         self.params = np.array(params)
-        self.param_free = np.ones(self.nparam, dtype=np.bool)
-        self.covar = np.zeros((self.nparam, self.nparam), dtype=np.float)
+        self.param_free = np.ones(self.nparam, dtype=bool)
+        self.covar = np.zeros((self.nparam, self.nparam), dtype=float)
         self.chisq = 1e99
         # Force parameters into bounded range
         for pnum in range(self.nparam):
@@ -253,7 +253,7 @@ class MaximumLikelihoodHistogramFitter(object):
         """
         nx = len(x)
         npar = len(p)
-        dyda = np.zeros((npar, nx), dtype=np.float)
+        dyda = np.zeros((npar, nx), dtype=float)
         for i, dx in enumerate(self.epsilon):
             # Don't compute gradient on parameters being held fixed
             if not self.param_free[i]:
@@ -408,7 +408,7 @@ class MaximumLikelihoodHistogramFitter(object):
 
         beta = (y_resid*dyda_over_y).sum(axis=1)
 
-        alpha = np.zeros((self.mfit, self.mfit), dtype=np.float)
+        alpha = np.zeros((self.mfit, self.mfit), dtype=float)
         pfnz = self.param_free.nonzero()[0]
         for i in range(self.mfit):
             overallrow = pfnz[i]  # convert from the ith free row to the overall row #

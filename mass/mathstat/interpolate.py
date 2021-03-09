@@ -66,10 +66,10 @@ class CubicSpline(object):
         second derivative to zero at that boundary.
         """
         argsort = np.argsort(x)
-        self._x = np.array(x, dtype=np.float)[argsort]
-        self._y = np.array(y, dtype=np.float)[argsort]
+        self._x = np.array(x, dtype=float)[argsort]
+        self._y = np.array(y, dtype=float)[argsort]
         self._n = len(x)
-        self._y2 = np.zeros(self._n, dtype=np.float)
+        self._y2 = np.zeros(self._n, dtype=float)
         self.yprime1 = yprime1
         self.yprimeN = yprimeN
         self._compute_y2()
@@ -119,7 +119,7 @@ class CubicSpline(object):
             return np.array([])
         elif x.size == 1:
             x.shape = (1,)
-        result = np.zeros_like(x, dtype=np.float)
+        result = np.zeros_like(x, dtype=float)
 
         # Find which interval 0,...self._n-2 contains the points (or extrapolates to the points)
         position = np.searchsorted(self._x, x)-1

@@ -105,10 +105,10 @@ class EnergyCalibration(object):
         self._curvetype = 0
         self.set_curvetype(curvetype)
         self._ph2energy_anon = self.__default_ph2energy_anon
-        self._ph = np.zeros(0, dtype=np.float)
-        self._energies = np.zeros(0, dtype=np.float)
-        self._dph = np.zeros(0, dtype=np.float)
-        self._de = np.zeros(0, dtype=np.float)
+        self._ph = np.zeros(0, dtype=float)
+        self._energies = np.zeros(0, dtype=float)
+        self._dph = np.zeros(0, dtype=float)
+        self._de = np.zeros(0, dtype=float)
         self._names = []
         self.npts = 0
         self._use_approximation = approximate
@@ -131,7 +131,7 @@ class EnergyCalibration(object):
         Should return a scalar if passed a scalar, and a numpy array if passed a list or array
 
         Args:
-            pulse_ht (float or numpy.array(dtype=numpy.float)): pulse heights in an arbitrary unit.
+            pulse_ht (float or np.array(dtype=float)): pulse heights in an arbitrary unit.
             der (int): the order of derivative. `der` should be >= 0.
         """
         if self._model_is_stale:
@@ -206,7 +206,8 @@ class EnergyCalibration(object):
 
     def set_curvetype(self, curvetype):
         if isstr(curvetype):
-            if isinstance(curvetype, bytes):  # Fix a behavior of h5py for writing in py2, reading in py3.
+            # Fix a behavior of h5py for writing in py2, reading in py3.
+            if isinstance(curvetype, bytes):
                 curvetype = curvetype.decode("utf-8")
             try:
                 curvetype = self.CURVETYPE.index(curvetype.lower())
@@ -522,10 +523,10 @@ class EnergyCalibration(object):
         self._plot(axis, color, markercolor, plottype="loggain")
 
     def _plot(self, axis=None, color="blue", markercolor="red", plottype="gain", ph_rescale_power=0.0):
-        import pylab
+        import pylab as plt
         if axis is None:
-            pylab.clf()
-            axis = pylab.subplot(111)
+            plt.clf()
+            axis = plt.subplot(111)
             axis.set_xlim([0, self._ph.max()*1.1])
 
         # Plot smooth curve
