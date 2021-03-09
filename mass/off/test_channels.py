@@ -419,6 +419,15 @@ def test_iterstates():
         # now it fails since state "BC" doesnt exist 
         ds.plotHist(np.arange(100,2500,50), 'energy', states="BC", coAddStates=False)
 
+def test_save_load_recipe_book():
+    rb = ds.recipes
+    save_path = os.path.join(d, "recipe_book_save_test.rbpkl")
+    rb.to_file(save_path, overwrite=True)
+    rb2 = util.RecipeBook.from_file(save_path)
+    assert rb.craftedIngredients.keys() == rb2.craftedIngredients.keys()
+    args = {"pretriggerMean": 1, "filtValue": 2}
+    print(rb.craftedIngredients["energy"])
+    assert rb.craft("energy", args) == rb2.craft("energy", args)
 
 if __name__ == '__main__':
     ut.main()

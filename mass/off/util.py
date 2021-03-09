@@ -11,6 +11,7 @@ import numpy as np
 
 # user imports
 import mass
+import dill # use dill to allow recipe books to pickel lambdas
 
 LOG = logging.getLogger("mass")
 
@@ -135,6 +136,19 @@ class RecipeBook():
         ci = ", ".join(self.craftedIngredients.keys())
         s = f"RecipeBook: baseIngedients={bi}, craftedIngredeints={ci}"
         return s
+
+    def to_file(self, path, overwrite=False):
+        if not overwrite and os.path.isfile(path):
+            raise Exception(f"file {path} already exists, use overwrite=True if you want to clobber it")
+        with open(path, "wb") as f:
+            dill.dump(self,f)
+    
+    @classmethod
+    def from_file(cls, path):
+        with open(path, "rb") as f:
+            r = dill.load(f)
+        assert isinstance(r, cls)
+        return r
 
 
 class Recipe():
