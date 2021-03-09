@@ -6,13 +6,12 @@ Joe Fowler, NIST Boulder Labs
 """
 
 import os.path
-from distutils.command.build import build as basic_build
 import sys
 import numpy as np
-from Cython.Build import cythonize
 
 from setuptools import setup
 from setuptools.extension import Extension
+from Cython.Build import cythonize
 
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -99,7 +98,8 @@ if __name__ == "__main__":
                         },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
           package_dir={'mass': "mass"},
           install_requires=requirements,
-          scripts=["bin/ljh_truncate",  "bin/make_projectors"],
+          scripts=["bin/ljh_truncate"],
           entry_points={
-              'console_scripts': ['ljh2off=mass.core.ljh2off:main'], }
+              'console_scripts': ['ljh2off=mass.core.ljh2off:main',
+              'make_projectors=mass.core.projectors_script:main'], }
           )
