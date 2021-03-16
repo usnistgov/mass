@@ -127,7 +127,7 @@ class ExperimentStateFile():
             if label not in self.unaliasedLabels:
                 continue
             aliasedLabel = self.labelAliasesDict.get(label, label)
-            if i+1 == len(self.allLabels):
+            if i+1 >= len(inds):
                 s = slice(inds[i], len(unixnanos))
             else:
                 s = slice(inds[i], inds[i+1])
