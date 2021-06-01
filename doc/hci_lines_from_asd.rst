@@ -1,9 +1,6 @@
 Highly Charged Ion (HCI) Lines from NIST ASD
 ============================================
 
-.. warning:: This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.
-
-
 Motivation
 ----------
 We often find ourselves hard coding line center positions into mass, 
@@ -26,8 +23,7 @@ A custom pickle file can be used by passing in the ``pickleFilename`` argument d
 The methods of the ``NIST_ASD`` class are described below:
 
 .. autoclass:: mass.calibration.hci_lines.NIST_ASD
-  :members:
-  :undoc-members:
+  :members: 
 
 Usage examples
 --------------

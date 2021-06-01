@@ -1,7 +1,0 @@
-#!/usr/bin/env python
-
-import mass
-import mass.core.projectors_script
-
-if __name__ == "__main__":
-    mass.core.projectors_script.main()

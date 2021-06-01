@@ -50,11 +50,11 @@ def plot_as_stepped_hist(axis, data, bins, **kwargs):
     """
     if len(bins) == len(data)+1:
         bin_edges = bins
-        x = np.zeros(2*len(bin_edges), dtype=np.float)
+        x = np.zeros(2*len(bin_edges), dtype=float)
         x[0::2] = bin_edges
         x[1::2] = bin_edges
     else:
-        x = np.zeros(2+2*len(bins), dtype=np.float)
+        x = np.zeros(2+2*len(bins), dtype=float)
         dx = bins[1]-bins[0]
         x[0:-2:2] = bins-dx*.5
         x[1:-2:2] = bins-dx*.5

@@ -24,7 +24,8 @@ class TestPhaseCorrect(ut.TestCase):
         line_names = ["MnKAlpha", "FeKAlpha", "CuKAlpha", "CrKAlpha"]
         for i, name in enumerate(line_names):
             spect = mass.spectra[name]
-            energies[i*1000:(i+1)*1000] = spect.rvs(size=1000, instrument_gaussian_fwhm=3)
+            energies[i*1000:(i+1)*1000] = spect.rvs(size=1000,
+                                                    instrument_gaussian_fwhm=3)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))
         np.random.shuffle(energies)
@@ -37,7 +38,7 @@ class TestPhaseCorrect(ut.TestCase):
         ds.p_filt_value[:] = ph[:]
         ds.p_filt_phase[:] = phase[:]
         ds.phase_correct(ph_peaks=ph_peaks)
-        # there seems to be some sort of rounding issue of numpy.float32 vs hdf5 storage as float32
+        # there seems to be some sort of rounding issue of np.float32 vs hdf5 storage as np.float32
         # such that I don't get exactly the same value for this case, so loop with approximat comparison
         # I'm a bit disturbed and confused here, but just going with it for now
         for (a, b) in zip(ds.phaseCorrector(phase, ph), ds.p_filt_value_phc[:]):
@@ -51,18 +52,17 @@ class TestPhaseCorrect(ut.TestCase):
 
         resolutions = []
         for name in line_names:
-            fitter = mass.make_line_fitter(mass.spectra[name])
-            bin_edges = np.arange(-100, 100)+fitter.spect.peak_energy
-            # bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+            line = mass.spectra[name]
+            model = line.model()
+            bin_edges = np.arange(-100, 100)+line.peak_energy
+            bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
             counts, _ = np.histogram(ds.p_filt_value_phc, bin_edges)
-            params = fitter.guess_starting_params(counts, bin_edges)
-            params[fitter.param_meaning["dP_dE"]] = 1
-            hold = [fitter.param_meaning["dP_dE"]]
+            params = model.guess(counts, bin_centers=bin_centers)
+            params["dph_de"].set(1.0, vary=False)
+            result = model.fit(counts, params, bin_centers=bin_centers)
+            resolutions.append(result.best_values["fwhm"])
             if plot:
-                plt.figure()
-            fitter.fit(counts, bin_edges, params=params, label="full",
-                       axis=plt.gca(), hold=hold, plot=plot)
-            resolutions.append(fitter.last_fit_params_dict["resolution"][0])
+                result.plotm()
         self.assertLessEqual(resolutions[0], 4.3)
         self.assertLessEqual(resolutions[1], 4.4)
         self.assertLessEqual(resolutions[2], 5.0)
@@ -71,8 +71,10 @@ class TestPhaseCorrect(ut.TestCase):
         # load from hdf5
         phaseCorrectorLoaded = mass.core.phase_correct.PhaseCorrector.fromHDF5(ds.hdf5_group)
         self.assertTrue(all(ds.phaseCorrector(phase, ph) == phaseCorrectorLoaded(phase, ph)))
-        self.assertTrue(ds.phaseCorrector.indicatorName == phaseCorrectorLoaded.indicatorName)
-        self.assertTrue(ds.phaseCorrector.uncorrectedName == phaseCorrectorLoaded.uncorrectedName)
+        self.assertEqual(ds.phaseCorrector.indicatorName, phaseCorrectorLoaded.indicatorName)
+        print(ds.phaseCorrector.uncorrectedName)
+        print(phaseCorrectorLoaded.uncorrectedName)
+        self.assertEqual(ds.phaseCorrector.uncorrectedName, phaseCorrectorLoaded.uncorrectedName)
 
     def test_phase_correct(self, plot=False):
         # the final fit resolutions are quite sensitive to this, easily varying from 3 to 5 eV
@@ -94,18 +96,17 @@ class TestPhaseCorrect(ut.TestCase):
 
         resolutions = []
         for name in line_names:
-            fitter = mass.make_line_fitter(mass.spectra[name])
-            bin_edges = np.arange(-100, 100)+fitter.spect.peak_energy
-            # bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+            line = mass.spectra[name]
+            model = line.model()
+            bin_edges = np.arange(-100, 100)+line.peak_energy
+            bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
             counts, _ = np.histogram(corrected, bin_edges)
-            params = fitter.guess_starting_params(counts, bin_edges)
-            params[fitter.param_meaning["dP_dE"]] = 1
-            hold = [fitter.param_meaning["dP_dE"]]
+            params = model.guess(counts, bin_centers=bin_centers)
+            params["dph_de"].set(1.0, vary=False)
+            result = model.fit(counts, params, bin_centers=bin_centers)
+            resolutions.append(result.best_values["fwhm"])
             if plot:
-                plt.figure()
-            fitter.fit(counts, bin_edges, params=params, label="full",
-                       axis=plt.gca(), hold=hold, plot=plot)
-            resolutions.append(fitter.last_fit_params_dict["resolution"][0])
+                result.plotm()
         self.assertLessEqual(resolutions[0], 4.3)
         self.assertLessEqual(resolutions[1], 4.4)
         self.assertLessEqual(resolutions[2], 5.0)

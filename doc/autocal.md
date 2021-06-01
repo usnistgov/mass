@@ -18,7 +18,7 @@ from mass.calibration.algorithm import EnergyCalibrationAutocal
 
 #  Suppose we have a numpy array of pulse heights and know that the names of X-ray emission
 #  lines or energies of sharp peaks in X-ray spectrum that data consist of.
-#  pulse_heights (numpy.array(dtype=np.float)): a numpy array of pulse heights.
+#  pulse_heights (np.array(dtype=float)): a numpy array of pulse heights.
 #  line_names (list[str or float]): names of emission lines or energies of X-ray feature in eV unit.
 #  e.g. line_names = ['ScKAlpha', 4460.5, 'FeKAlpha', 'FeKBeta', 'AsKAlpha', 11726.2]
 

@@ -93,19 +93,16 @@ class TestAlgorithms(unittest.TestCase):
 
     def test_complete(self):
         # generate pulseheights from known spectrum
-        spect = {}
-        num_samples = {k: 1000*k for k in [1, 2, 3, 4, 5]}
-        spect[1] = mass.fluorescence_lines.MnKAlpha
-        spect[2] = mass.fluorescence_lines.MnKBeta
-        spect[3] = mass.fluorescence_lines.CuKAlpha
-        spect[4] = mass.fluorescence_lines.TiKAlpha
-        spect[5] = mass.fluorescence_lines.FeKAlpha
+        num_samples = {k: 1000*(k+1) for k in range(5)}
+        line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
+        spect = {i: mass.spectra[n] for (i, n) in enumerate(line_names)}
         e = []
-        for i, (k, s) in enumerate(spect.items()):
-            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=i+2))
+        for (k, s) in spect.items():
+            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=k+3.0))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
+
         smoothing_res_ph = 20
         lm, _lm_heights = find_local_maxima(ph, smoothing_res_ph)
         line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
@@ -118,27 +115,21 @@ class TestAlgorithms(unittest.TestCase):
 
         _energies, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(energies_opt, [], approxcal, 100)
         binsize_ev = 1.0
-        fitters = multifit(ph, line_names, fit_lo_hi, np.ones_like(
-            slopes_de_dph)*binsize_ev, slopes_de_dph)
-        self.assertIsNotNone(fitters)
+        results = multifit(ph, line_names, fit_lo_hi, np.ones_like(
+            slopes_de_dph)*binsize_ev, slopes_de_dph, hide_deprecation=True)
+        self.assertIsNotNone(results)
 
     def test_autocal(self):
         # generate pulseheights from known spectrum
-        spect = {}
-        num_samples = {k: 1000*k for k in [1, 2, 3, 4, 5]}
-        spect[1] = mass.fluorescence_lines.MnKAlpha
-        spect[2] = mass.fluorescence_lines.MnKBeta
-        spect[3] = mass.fluorescence_lines.CuKAlpha
-        spect[4] = mass.fluorescence_lines.TiKAlpha
-        spect[5] = mass.fluorescence_lines.FeKAlpha
+        num_samples = {k: 1000*(k+1) for k in range(5)}
+        line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
+        spect = {i: mass.spectra[n] for (i, n) in enumerate(line_names)}
         e = []
-        for i, (k, s) in enumerate(spect.items()):
-            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=i+2))
+        for (k, s) in spect.items():
+            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=k+3.0))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
-
-        line_names = ["MnKAlpha", "MnKBeta", "CuKAlpha", "TiKAlpha", "FeKAlpha"]
 
         cal = EnergyCalibration()
         auto_cal = EnergyCalibrationAutocal(cal, ph, line_names)
@@ -148,9 +139,9 @@ class TestAlgorithms(unittest.TestCase):
         self.assertTrue(hasattr(cal, "autocal"))
         # test fitters are correct type, and ordered by line energy
         e0 = 0
-        for f in auto_cal.fitters:
-            self.assertEqual(type(auto_cal.fitters[0]), mass.GenericKAlphaFitter)
-            peak = f.spect.peak_energy
+        for r in auto_cal.results:
+            self.assertTrue(isinstance(r.model, mass.calibration.line_models.GenericLineModel))
+            peak = r.model.spect.peak_energy
             self.assertLess(e0, peak)
             e0 = peak
 

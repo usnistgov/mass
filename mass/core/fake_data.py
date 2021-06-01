@@ -66,11 +66,11 @@ class FakeDataGenerator(object):
         pulse_times = np.random.exponential(1.0/rate, size=n_pulses).cumsum()
 
         if distributions is None:
-            scale = np.ones(n_pulses, dtype=np.float)
+            scale = np.ones(n_pulses, dtype=float)
         else:
-            weights = np.asarray(distribution_weights, dtype=np.float)
+            weights = np.asarray(distribution_weights, dtype=float)
             weights = n_pulses * weights/weights.sum()
-            weights = np.asarray(weights, dtype=np.int)
+            weights = np.asarray(weights, dtype=int)
             weights[weights.argmax()] += n_pulses - weights.sum()
             scale = []
             for n, distrib in zip(weights, distributions):
@@ -96,7 +96,7 @@ class FakeDataGenerator(object):
 
         print('Making fake noise')
         data = np.zeros((n_pulses, self.n_samples), dtype=np.uint16)
-        pulse_times = np.arange(n_pulses, dtype=np.float)*self.sample_time_us/1e6
+        pulse_times = np.arange(n_pulses, dtype=float)*self.sample_time_us/1e6
 
         raw_noise = np.random.standard_normal((n_pulses, self.n_samples))*self.white_noise
         for i in range(lowpass_kludge):

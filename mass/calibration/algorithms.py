@@ -43,7 +43,7 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
     pulses in peak) AND their peak values as: (peak_locations, peak_intensities)
 
     Args:
-        pulse_heights (numpy.array(dtype=np.float)): a list of pulse heights (eg p_filt_value)
+        pulse_heights (np.array(dtype=float)): a list of pulse heights (eg p_filt_value)
         gaussian_fwhm = fwhm of a gaussian that each pulse is smeared with, in same units as pulse heights
     """
     # kernel density estimation (with a gaussian kernel)
@@ -71,7 +71,7 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
     """Tries to find an assignment of peaks to line names that is reasonably self consistent and smooth
 
     Args:
-        peak_positions (numpy.array(dtype=numpy.float)): a list of peak locations in arb units,
+        peak_positions (np.array(dtype=float)): a list of peak locations in arb units,
             e.g. p_filt_value units
         line_names (list[str or float)]): a list of calibration lines either as number (which is
             energies in eV), or name to be looked up in STANDARD_FEATURES
@@ -164,43 +164,45 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     return e_e, fit_lo_hi_energy, slopes_de_dph
 
 
-class FailedFitter(object):
+class FailedFit(object):
     def __init__(self, hist, bins):
         self.hist = hist
         self.bins = bins
-        self.last_fit_params = [-1, np.sum(self.hist * bins[:-1]) / np.sum(self.hist)] + [None] * 4
-
-    def fitfunc(self, param, x):
-        self.last_fit_params = param
-        return np.zeros_like(x)
 
 
-def getfitter(name):
-    """Return a histogram model fitter by line name.
+def getmodel(name):
+    """Return a histogram model by line name.
 
     Args:
         name - a name like "MnKAlpha" or "1150"
-        "MnKAlpha" will return a MnKAlphaFitter
-        "1150" will return a GaussianFitter
+        "MnKAlpha" will return a MnKAlpha Model
+        "1150" will return a Gaussian fitting Model
     """
     if name in mass.calibration.spectra:
         line = mass.calibration.spectra[name]
-        return mass.make_line_fitter(line)
-    return mass.calibration.GaussianFitter()
+        return line.model()
+    try:
+        e_ctr = float(name)
+    except ValueError:
+        e_ctr = 1000.0
+    line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", e_ctr, 0, 0)
+    line.linetype = "Gaussian"
+    return line.model()
 
 
-def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
+def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph, hide_deprecation=False):
     """
     Args:
-        ph (numpy.array(dtype=float)): list of pulse heights
+        ph (np.array(dtype=float)): list of pulse heights
         line_names: names of calibration  lines
         fit_lo_hi (list[list[float]]): a list of (lo,hi) with units of ph, used as
             edges of histograms for fitting
         binsize_ev (list[float]): list of binsizes in eV for calibration lines
         slopes_de_dph (list[float]): - list of slopes de_dph (e in eV)
+        hide_deprecation: whether to suppress deprecation warnings
     """
     name_e, e_e = line_names_and_energies(line_names)
-    fitters = []
+    results = []
     peak_ph = []
     eres = []
 
@@ -208,30 +210,24 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph):
         lo, hi = fit_lo_hi[i]
         dP_dE = 1/slopes_de_dph[i]
         binsize_ph = binsize_ev[i]*dP_dE
-        fitter = singlefit(ph, name, lo, hi, binsize_ph, dP_dE)
-        fitters.append(fitter)
-        peak_ph.append(fitter.last_fit_params[fitter.param_meaning["peak_ph"]])
-        if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
-            eres.append(fitter.last_fit_params[fitter.param_meaning["resolution"]])
-            eres[-1] /= dP_dE  # gaussian fitter reports resolution in ph units
-        else:
-            eres.append(fitter.last_fit_params[fitter.param_meaning["resolution"]])
-    return {"fitters": fitters, "peak_ph": peak_ph,
+        result = singlefit(ph, name, lo, hi, binsize_ph, dP_dE)
+        results.append(result)
+        peak_ph.append(result.best_values["peak_ph"])
+        eres.append(result.best_values["fwhm"])
+    return {"results": results, "peak_ph": peak_ph,
             "eres": eres, "line_names": name_e, "energies": e_e}
 
 
 def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
     counts, bin_edges = np.histogram(ph, np.arange(lo, hi, binsize_ph))
-    fitter = getfitter(name)
-    guess_params = fitter.guess_starting_params(counts, bin_edges)
-    if not isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
-        guess_params[fitter.param_meaning["dP_dE"]] = approx_dP_dE
-        hold = [fitter.param_meaning["dP_dE"]]
-    else:
-        hold = []
-    fitter.fit(counts, bin_edges, guess_params, plot=False, hold=hold)
-
-    return fitter
+    e = bin_edges[:-1] + 0.5*(bin_edges[1]-bin_edges[0])
+    model = getmodel(name)
+    guess_params = model.guess(counts, bin_centers=e)
+    if "Gaussian" not in model.name:
+        guess_params["dph_de"].set(approx_dP_dE, vary=False)
+    result = model.fit(counts, guess_params, bin_centers=e, minimum_bins_per_fwhm=1.5)
+    result.energies = e
+    return result
 
 
 class EnergyCalibrationAutocal(object):
@@ -250,7 +246,7 @@ class EnergyCalibrationAutocal(object):
         # this isn't the best API, but I was able to add it without changing any APIs so nothing breaks
         self.calibration.autocal = self
         self.calibration.diagnose = self.diagnose
-        self.fitters = None
+        self.results = None
         self.energy_resolutions = None
         self.line_names = line_names
 
@@ -262,10 +258,11 @@ class EnergyCalibrationAutocal(object):
 
         self.binsize_ev = None
         self.ph = ph
+        self._hide_deprecation = False
 
     def guess_fit_params(self, smoothing_res_ph=20, fit_range_ev=200.0, binsize_ev=1.0,
                          nextra=2, nincrement=3, nextramax=8, maxacc=0.015):
-        """Calculate reasonable parameters for complex fitters or Gaussian fitters.
+        """Calculate reasonable parameters for complex models or Gaussian models.
 
          Args:
              binsize_ev (float or list[float]): bin sizes of the histograms of given calibration lines.
@@ -294,16 +291,16 @@ class EnergyCalibrationAutocal(object):
                                                                     approx_cal, self.fit_range_ev)
 
     def fit_lines(self):
-        """All calibration emission lines are fitted with ComplexFitter or GaussianFitter
+        """All calibration emission lines are fitted with appropriate model.
         self.line_names will be sored by energy after this method is finished.
         """
         mresult = multifit(self.ph, self.line_names, self.fit_lo_hi,
-                           self.binsize_ev, self.slopes_de_dph)
+                           self.binsize_ev, self.slopes_de_dph, hide_deprecation=self._hide_deprecation)
 
         for ph, e, n in zip(mresult["peak_ph"], mresult["energies"], mresult['line_names']):
             self.calibration.add_cal_point(ph, e, name=str(n))
 
-        self.fitters = mresult["fitters"]
+        self.results = mresult["results"]
         self.energy_resolutions = mresult["eres"]
         self.line_names = mresult["line_names"]
 
@@ -319,7 +316,7 @@ class EnergyCalibrationAutocal(object):
 
     @property
     def anyfailed(self):
-        return any([isinstance(cf, FailedFitter) for cf in self.fitters])
+        return any([isinstance(cf, FailedFit) for cf in self.results])
 
     def diagnose(self):
         fig = plt.figure(figsize=(16, 9))
@@ -327,38 +324,37 @@ class EnergyCalibrationAutocal(object):
         n = int(np.ceil(np.sqrt(len(self.line_names))))
 
         w, h, lm, bm, hs, vs = 0.6, 0.9, 0.05, 0.08, 0.1, 0.1
-        for i, (el, fitter, eres) in enumerate(zip(self.line_names, self.fitters, self.energy_resolutions)):
+        for i, (el, result, eres) in enumerate(zip(self.line_names, self.results, self.energy_resolutions)):
             ax = fig.add_axes([w * (i % n) / n + lm,
                                h * (i // n) / n + bm,
                                (w - hs) / n,
                                (h - vs) / n])
             ax.xaxis.set_major_locator(MaxNLocator(4, integer=True))
 
-            binsize = fitter.last_fit_bins[1]-fitter.last_fit_bins[0]
-            bin_edges = np.linspace(fitter.last_fit_bins[0] - binsize/2.0,
-                                    fitter.last_fit_bins[-1] + binsize/2.0, len(fitter.last_fit_bins)+1)
-            ax.fill(np.repeat(bin_edges, 2), np.hstack([[0], np.repeat(fitter.last_fit_contents, 2), [0]]),
+            binsize = result.energies[1]-result.energies[0]
+            bin_edges = np.linspace(result.energies[0] - binsize/2.0,
+                                    result.energies[-1] + binsize/2.0, len(result.energies)+1)
+            ax.fill(np.repeat(bin_edges, 2), np.hstack([[0], np.repeat(result.data, 2), [0]]),
                     lw=1, fc="#4c4ce6", ec="#1a1aff", alpha=0.8)
 
-            x = np.linspace(fitter.last_fit_bins[0], fitter.last_fit_bins[-1], 201)
-            if isinstance(fitter, mass.calibration.line_fits.GaussianFitter):
+            x = np.linspace(result.energies[0], result.energies[-1], 201)
+            if "Gaussian" in result.model.name:
                 ax.text(0.05, 0.97, str(el)
                         + ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(eres),
                         transform=ax.transAxes, ha='left', va='top')
-                # y = [np.median(fitter.theory_function(fitter.params, a)) for a in x]
             else:
                 ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
                         + '\n' + "Resolution: {0:.1f} (eV)".format(eres),
                         transform=ax.transAxes, ha='left', va='top')
-            y = fitter.fitfunc(fitter.last_fit_params, x)
+            y = result.model.eval(result.params, bin_centers=x)
             ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
             ax.set_xlim(np.min(x), np.max(x))
-            ax.set_ylim(0, np.max(fitter.last_fit_contents) * 1.3)
+            ax.set_ylim(0, np.max(result.data) * 1.3)
 
         ax = fig.add_axes([lm + w, bm, (1.0 - lm - w) - 0.06, h - 0.05])
 
-        for el, pht, fitter, energy in zip(self.line_names, self.calibration.cal_point_phs,
-                                           self.fitters, self.calibration.cal_point_energies):
+        for el, pht, energy in zip(self.line_names, self.calibration.cal_point_phs,
+                                   self.calibration.cal_point_energies):
             peak_name = 'Unknown'
             if isstr(el):
                 peak_name = el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
@@ -388,5 +384,3 @@ class EnergyCalibrationAutocal(object):
         ax.set_ylabel('Energy (eV)')
 
         ax.set_xlim(lb - width / 10, ub + width / 10)
-
-        fig.show()

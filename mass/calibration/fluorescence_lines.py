@@ -19,7 +19,7 @@ LOG = logging.getLogger("mass")
 FWHM_OVER_SIGMA = (8 * np.log(2))**0.5
 
 
-class SpectralLine(sp.stats.rv_continuous):
+class SpectralLine():
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 
@@ -58,16 +58,18 @@ class SpectralLine(sp.stats.rv_continuous):
         self.position_uncertainty = position_uncertainty
         self.reference_measurement_type = reference_measurement_type
         self.is_default_material = is_default_material
-        self.has_peak_energy = False
+        self._peak_energy = np.nan
         self.cumulative_amplitudes = self.normalized_lorentzian_integral_intensity.cumsum()
 
     @property
     def peak_energy(self):
         # lazily calculate peak energy
-        if not self.has_peak_energy:
-            self._peak_energy = sp.optimize.brent(lambda x: -self.pdf(x, instrument_gaussian_fwhm=0),
-                                                  brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
-            self.has_peak_energy = True
+        if np.isnan(self._peak_energy):
+            try:
+                self._peak_energy = sp.optimize.brent(lambda x: -self.pdf(x, instrument_gaussian_fwhm=0),
+                                                      brack=np.array((0.5, 1, 1.5))*self.nominal_peak_energy)
+            except ValueError:
+                self._peak_energy = self.nominal_peak_energy
         return self._peak_energy
 
     def __call__(self, x, instrument_gaussian_fwhm):
@@ -75,9 +77,9 @@ class SpectralLine(sp.stats.rv_continuous):
         return self.pdf(x, instrument_gaussian_fwhm)
 
     def pdf(self, x, instrument_gaussian_fwhm):
-        """Spectrum (arb units) as a function of <x>, the energy in eV"""
+        """Spectrum (units of fraction per eV) as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
-        x = np.asarray(x, dtype=np.float)
+        x = np.asarray(x, dtype=float)
         result = np.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
@@ -88,7 +90,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def components(self, x, instrument_gaussian_fwhm):
         """List of spectrum components as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
-        x = np.asarray(x, dtype=np.float)
+        x = np.asarray(x, dtype=float)
         components = []
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
@@ -132,8 +134,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def rvs(self, size, instrument_gaussian_fwhm):
         """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
         compute.  But it's easy enough to generate the random variates themselves, so we
-        override that method.  Don't call this directly!  Instead call .rvs(), which wraps this.
-        Takes gaussian_fwhm as a keyword argument."""
+        override that method."""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         # Choose from among the N Lorentzian lines in proportion to the line amplitudes
         iline = self.cumulative_amplitudes.searchsorted(
@@ -174,7 +175,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def __repr__(self):
         return "SpectralLine: {}".format(self.shortname)
 
-    def model(self, has_linear_background=True, has_tails=False, prefix=""):
+    def model(self, has_linear_background=True, has_tails=False, prefix="", qemodel=None):
         """Generate a LineModel instance from a SpectralLine"""
         if self.linetype == "KAlpha":
             model_class = line_models.GenericKAlphaModel
@@ -182,7 +183,7 @@ class SpectralLine(sp.stats.rv_continuous):
             model_class = line_models.GenericLineModel
         name = self.element+self.linetype
         m = model_class(name=name, spect=self, has_linear_background=has_linear_background,
-                        has_tails=has_tails, prefix=prefix)
+                        has_tails=has_tails, prefix=prefix, qemodel=qemodel)
         return m
 
     def fitter(self):
@@ -205,6 +206,8 @@ class SpectralLine(sp.stats.rv_continuous):
         element = name
         material = "unknown: quick_line"
         energies = np.array([energy])
+        if lorentzian_fwhm <= 0 and intrinsic_sigma <= 0:
+            intrinsic_sigma = 1e-4
         lorentzian_fwhm = np.array([lorentzian_fwhm])
         intrinsic_sigma = intrinsic_sigma
         linetype = "quick_line"
@@ -311,6 +314,9 @@ Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s pho
 https://doi.org/10.1103/PhysRevA.62.062508"""
 lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (2018) 125139
     https://doi.org/10.1103/PhysRevB.97.125139"""
+lineshape_references["Ito 2020"] = """Ito, Y., Tochio, T., Yamashita, M., Fukushima, S., Vlaicu, A. M.,
+Marques, J. P., ... Parente, F. (2020). Structure of Kα - and Kβ-emission x-ray spectra for Se, Y, and Zr.
+Physical Review A, 102(5), 052820. https://doi.org/10.1103/PhysRevA.102.052820"""
 
 spectra = OrderedDict()
 spectrum_classes = OrderedDict()  # for backwards compatability
@@ -778,6 +784,35 @@ addline(
 )
 
 addline(
+    element="Se",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Ito 2020",  # Table III
+    reference_plot_instrument_gaussian_fwhm=0.17,
+    nominal_peak_energy=11222.383,
+    energies=np.array((11222.380, 11217.573, 11181.48, 11178.55)),
+    lorentzian_fwhm=np.array((3.633, 3.53, 3.579, 3.02)),
+    reference_amplitude=np.array((100, 1.68, 50.83, 1.80)),
+    ka12_energy_diff=40.944,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Se",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Ito 2020",  # Table IV
+    reference_plot_instrument_gaussian_fwhm=0.17,
+    nominal_peak_energy=12495.911,
+    energies=np.array((12495.911, 12490.094, 12503.11, 12652.840)),
+    lorentzian_fwhm=np.array((4.285, 5.70, 6.25, 4.81)),
+    reference_amplitude=np.array((100, 63.3, 8.1, 5.24)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
     element="Br",
     material="metal",
     linetype="KAlpha",
@@ -789,6 +824,66 @@ addline(
     reference_amplitude=np.array((2, 1)),
     ka12_energy_diff=46.6,
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+)
+
+
+addline(
+    element="Y",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Ito 2020",  # Table III
+    reference_plot_instrument_gaussian_fwhm=0.21,
+    nominal_peak_energy=14958.389,
+    energies=np.array((14958.389, 14883.403)),
+    lorentzian_fwhm=np.array((5.464, 5.393)),
+    reference_amplitude=np.array((100, 52.23)),
+    ka12_energy_diff=74.986,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Y",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Ito 2020",  # Table IV
+    reference_plot_instrument_gaussian_fwhm=0.21,
+    nominal_peak_energy=16737.89,
+    energies=np.array((16737.88, 16726.02, 16746.2, 17010.57)),
+    lorentzian_fwhm=np.array((5.60, 5.53, 17.0, 5.80)),
+    reference_amplitude=np.array((100, 52.6, 1.80, 1.68)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Zr",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Ito 2020",  # Table III
+    reference_plot_instrument_gaussian_fwhm=0.22,
+    nominal_peak_energy=15774.87,
+    energies=np.array((15774.87, 15690.77)),
+    lorentzian_fwhm=np.array((5.865, 5.845)),
+    reference_amplitude=np.array((100, 52.53)),
+    ka12_energy_diff=84.10,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Zr",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Ito 2020",  # Table IV
+    reference_plot_instrument_gaussian_fwhm=0.22,
+    nominal_peak_energy=17666.578,
+    energies=np.array((17667.78, 17654.31, 17680)),
+    # The last (Kb'') energy is reported as 15774.87(31), which is clearly a typo.
+    # We estimate 17680 by reading Figure 2.
+    lorentzian_fwhm=np.array((6.171, 5.89, 10.8)),
+    reference_amplitude=np.array((100, 50.49, 5.2)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
 )
 
 

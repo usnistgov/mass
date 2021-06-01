@@ -5,6 +5,7 @@ import os.path
 import shutil
 import tempfile
 import unittest as ut
+import tempfile
 
 import mass
 from mass.core.ljh_modify import LJHFile, ljh_copy_traces, ljh_append_traces, ljh_truncate
@@ -137,32 +138,28 @@ class TestFiles(ut.TestCase):
 class TestTESGroup(ut.TestCase):
     """Basic tests of the TESGroup object."""
 
-    def load_data(self, clear_hdf5=True):
+    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None):
         src_name = 'mass/regression_test/regress_chan1.ljh'
         noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
-        if clear_hdf5:
-            for name in ['mass/regression_test/regress_mass.hdf5',
-                         'mass/regression_test/regress_noise_mass.hdf5']:
-                if os.path.isfile(name):
-                    os.remove(name)
-        return mass.TESGroup([src_name], [noi_name])
+        if hdf5_filename is None:
+            hdf5_filename = tempfile.mktemp(prefix='_mass.hdf5')
+        if hdf5_noisefilename is None:
+            hdf5_noisefilename = tempfile.mktemp(prefix='_mass_noise.hdf5')
+        return mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename, hdf5_noisefilename=hdf5_noisefilename)
 
     def test_all_channels_bad(self):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
         data = self.load_data()
         data.set_chan_bad(1, "testing all channels bad")
-        data.hdf5_file.close()
-        data.hdf5_noisefile.close()
+        hdf5_filename = data.hdf5_file.filename
+        hdf5_noisefilename = data.hdf5_noisefile.filename
         del data
 
-        try:
-            data = self.load_data(clear_hdf5=False)
-        except Exception:
-            self.fail("Opening a file with all channels bad raises and Exception.")
-        self.assertNotIn(1, data.good_channels)
-        data.set_chan_good(1)
+        data2 = self.load_data(hdf5_filename=hdf5_filename, hdf5_noisefilename=hdf5_noisefilename)
+        self.assertNotIn(1, data2.good_channels)
+        data2.set_chan_good(1)
         LOG.info("Testing printing of a TESGroup")
-        LOG.info(data)
+        LOG.info(data2)
 
     def test_save_hdf5_calibration_storage(self):
         "calibrate a dataset, make sure it saves to hdf5"
@@ -172,7 +169,8 @@ class TestTESGroup(ut.TestCase):
         data.calibrate("p_pulse_rms", [10000.], name_ext="abc")
         ds = data.first_good_dataset
 
-        data2 = self.load_data(clear_hdf5=False)
+        data2 = self.load_data(hdf5_filename=data.hdf5_file.filename,
+                               hdf5_noisefilename=data.hdf5_noisefile.filename)
         ds2 = data2.first_good_dataset
         self.assertTrue(all([k in ds.calibration.keys() for k in ds2.calibration.keys()]))
         self.assertEqual(len(ds.calibration.keys()), 2)
@@ -191,7 +189,8 @@ class TestTESGroup(ut.TestCase):
         self.assertLess(ngood, ds.nPulses)
         self.assertGreater(ngood, 0)
 
-        data2 = self.load_data(clear_hdf5=False)
+        data2 = self.load_data(hdf5_filename=data.hdf5_file.filename,
+                               hdf5_noisefilename=data.hdf5_noisefile.filename)
         for ds in data2:
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1], 0.)
             self.assertGreater(ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1], 0.)
@@ -203,7 +202,7 @@ class TestTESGroup(ut.TestCase):
         ds = data.first_good_dataset
         data.summarize_data()
         ds.clear_cuts()
-        arbcut = np.zeros(ds.nPulses, dtype=np.bool)
+        arbcut = np.zeros(ds.nPulses, dtype=bool)
         arbcut[::30] = True
         ds.cuts.cut("postpeak_deriv", arbcut)
         cuts = ds.auto_cuts(forceNew=False, clearCuts=False)
@@ -356,7 +355,7 @@ class TestTESGroup(ut.TestCase):
                 self.invert_data = False
                 self.dont_optimize_dp_dt = True
                 self.extra_n_basis_5lag = 1
-                self.noise_weight_basis=True
+                self.noise_weight_basis = True
 
         mass.core.projectors_script.main(Args())
 
@@ -364,21 +363,16 @@ class TestTESGroup(ut.TestCase):
 class TestTESHDF5Only(ut.TestCase):
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 
-    def test_all_channels_bad(self):
+    def test_basic_hdf5_only(self):
         """Make sure it mass can open a mass generated file in HDF5 Only mode."""
         src_name = 'mass/regression_test/regress_chan1.ljh'
         noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
-        for name in ['mass/regression_test/regress_mass.hdf5',
-                     'mass/regression_test/regress_noise_mass.hdf5']:
-            if os.path.isfile(name):
-                os.remove(name)
-        data = mass.TESGroup([src_name], [noi_name])
-        h5filename = data.hdf5_file.filename
-        data.hdf5_file.close()
-        data.hdf5_noisefile.close()
-        del data
+        hdf5_filename = tempfile.mktemp(prefix='_mass.hdf5')
+        hdf5_noisefilename = tempfile.mktemp(prefix='_mass_noise.hdf5')
+        data = mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
+                             hdf5_noisefilename=hdf5_noisefilename)
 
-        data2 = mass.TESGroupHDF5(h5filename)
+        data2 = mass.TESGroupHDF5(hdf5_filename)
         LOG.info("Testing printing of a TESGroupHDF5")
         LOG.info(data2)
 

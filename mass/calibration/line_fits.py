@@ -6,12 +6,11 @@ Addded Joe Fowler 5 May, 2016
 Separated line fits (here) from the line shapes (still in fluorescence_lines.py)
 """
 
-import numpy as np
-import pylab as plt
-
-from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
-from mass.mathstat.utilities import plot_as_stepped_hist
 from mass.mathstat.special import voigt, voigt_approx_fwhm
+from mass.mathstat.utilities import plot_as_stepped_hist
+from mass.mathstat.fitting import MaximumLikelihoodHistogramFitter
+import pylab as plt
+import numpy as np
 
 
 def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau,
@@ -51,13 +50,13 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
     return smoothspectrum[nlow:nlow+len(x)]
 
 
-def _scale_add_bg(spectrum, P_amplitude, P_bg=0, P_bgslope=0):
+def _scale_add_bg(spectrum, P_integral, P_bg=0, P_bgslope=0):
     """Scale a spectrum and add a sloped background. BG<0 is replaced with BG=0."""
     bg = np.zeros_like(spectrum) + P_bg
     if P_bgslope != 0:
         bg += P_bgslope * np.arange(len(spectrum))
     bg[bg < 0] = 0
-    spectrum = spectrum * P_amplitude + bg  # Change in place and return changed vector
+    spectrum = spectrum * P_integral + bg  # Change in place and return changed vector
     return spectrum
 
 
@@ -157,7 +156,7 @@ Please see mass/doc/LineFitting.md for how to use the new Model objects and LMFI
         # Pulseheights doesn't make sense as bin centers, either.
         # So just use the integers starting at zero.
         elif len(pulseheights) != len(data):
-            pulseheights = np.arange(len(data), dtype=np.float)
+            pulseheights = np.arange(len(data), dtype=float)
 
         self.hold = hold
         if self.hold is None:
@@ -418,7 +417,7 @@ class VoigtFitter(LineFitter):
         return voigt_approx_fwhm(lw, res)
 
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
-        order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+        order_stat = np.array(data.cumsum(), dtype=float) / data.sum()
 
         def percentiles(p):
             return binctrs[(order_stat > p).argmax()]
@@ -606,7 +605,7 @@ class GaussianFitter(LineFitter):
         return params[self.param_meaning["resolution"]]
 
     def guess_starting_params(self, data, binctrs, tailf=0.0, tailt=25.0):
-        order_stat = np.array(data.cumsum(), dtype=np.float) / data.sum()
+        order_stat = np.array(data.cumsum(), dtype=float) / data.sum()
 
         def percentiles(p):
             return binctrs[(order_stat > p).argmax()]

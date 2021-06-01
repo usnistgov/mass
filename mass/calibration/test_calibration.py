@@ -81,7 +81,6 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
         self.assertFalse(all(drop1err == drop2err))
 
     def test_loglog_approx_diff(self):
-        # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
             curvetype1="loglog", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
@@ -90,7 +89,6 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
         self.assertFalse(all(drop1err == drop2err))
 
     def test_zerozero_exact_diff(self):
-        # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
             curvetype1="linear+0", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
@@ -99,7 +97,6 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
         self.assertFalse(all(drop1err == drop2err))
 
     def test_zerozero_approx_diff(self):
-        # loglog=True makes use_zerozero not matter
         ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
             curvetype1="linear+0", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
@@ -197,7 +194,8 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
             with h5py.File(fname, "w") as h5:
                 grp = h5.require_group("calibration")
                 cal1.save_to_hdf5(grp, "cal1")
-                cal2 = mass.calibration.energy_calibration.EnergyCalibration.load_from_hdf5(grp, "cal1")
+                cal2 = mass.calibration.energy_calibration.EnergyCalibration.load_from_hdf5(
+                    grp, "cal1")
                 self.assertEqual(len(grp.keys()), 1)
             self.assertTrue(all(cal1._ph == cal2._ph))
             self.assertTrue(all(cal2._energies == cal2._energies))
@@ -222,6 +220,41 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
             e = cal(ph)
             self.assertFalse(any(np.isnan(e)))
             self.assertFalse(any(np.isinf(e)))
+
+    def test_pre_GPRcal(self):
+        "Test the pre-2021 calibration still works"
+        ph = np.array([17157.08056038, 18532.35241609, 18667.38206583, 19942.89858008,
+                       20181.77187566, 21382.23254964, 21727.54556571, 22848.99053659,
+                       23300.78419074, 24340.78447936, 24899.9448867, 25239.423792,
+                       26526.9605488, 28420.90655636, 29111.86088393])
+        e = np.array([5414.8045, 5898.801, 5946.823, 6404.0062, 6490.585, 6930.378,
+                      7058.175, 7478.2521, 7649.445, 8047.8227, 8264.775, 8398.242,
+                      8905.413, 9672.575, 9964.133])
+        dph = np.array([0.07974264, 0.12733291, 0.1818605, 0.10211174, 0.25735167,
+                        0.05803863, 0.28282476, 0.07275278, 0.17837849, 0.0820041,
+                        0.22199391, 0.54440676, 0.26877157, 2.36176241, 1.74482802])
+        de = np.array([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01,
+                       0.01, 0.01, 0.01, 0.01])
+        g = ph/e
+        dg = g*(dph/ph)
+        cal1 = mass.EnergyCalibration(curvetype="gain", approximate=True, useGPR=False)
+        cal2 = mass.EnergyCalibration(curvetype="gain", approximate=True, useGPR=True)
+        for cal in (cal1, cal2):
+            for a, b, c, d in zip(ph, e, dph, de):
+                cal.add_cal_point(a, b, pht_error=c, e_error=d, name="{:.3f} eV".format(b))
+            cal._update_converters()
+        self.assertTrue((np.abs(cal1(ph)-e) < 1.2*dph).all())
+        self.assertTrue((np.abs(cal2(ph)-e) < 0.7*dph).all())
+
+        # Be sure that the old-style (non-GPR) spline finds the right curvature
+        self.assertAlmostEqual(cal1._underlying_spline.actualchisq, len(ph), 2)
+
+        # Test for a problem in extrapolated gain that I had: gain was extrapolated with zero slope!
+        for cal in (cal1, cal2):
+            g1k = 10000/cal(10000)
+            g4k = 40000/cal(40000)
+            self.assertGreater(g1k, 3.2)
+            self.assertLess(g4k, 2.9)
 
 
 if __name__ == "__main__":

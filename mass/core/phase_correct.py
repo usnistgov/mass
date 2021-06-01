@@ -1,8 +1,10 @@
 import numpy as np
 import scipy as sp
+import scipy.signal
 
 import mass.mathstat.entropy
 from mass.mathstat.interpolate import CubicSpline
+from mass.common import tostr
 import logging
 LOG = logging.getLogger("mass")
 
@@ -14,8 +16,8 @@ class PhaseCorrector():
         self.corrections = corrections
         self.phase_uniformifier_x = np.array(phase_uniformifier_x)
         self.phase_uniformifier_y = np.array(phase_uniformifier_y)
-        self.indicatorName = indicatorName
-        self.uncorrectedName = uncorrectedName
+        self.indicatorName = tostr(indicatorName)
+        self.uncorrectedName = tostr(uncorrectedName)
         self.phase_uniformifier = CubicSpline(
             self.phase_uniformifier_x, self.phase_uniformifier_y)
 
@@ -55,8 +57,8 @@ class PhaseCorrector():
     def fromHDF5(cls, hdf5_group, name="phase_correction"):
         x = hdf5_group["{}/phase_uniformifier_x".format(name)][()]
         y = hdf5_group["{}/phase_uniformifier_y".format(name)][()]
-        uncorrectedName = hdf5_group["{}/uncorrected_name".format(name)][()]
-        indicatorName = hdf5_group["{}/indicator_name".format(name)][()]
+        uncorrectedName = tostr(hdf5_group["{}/uncorrected_name".format(name)][()])
+        indicatorName = tostr(hdf5_group["{}/indicator_name".format(name)][()])
         version = hdf5_group["{}/version".format(name)][()]
         i = 0
         corrections = []
@@ -109,7 +111,7 @@ def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=N
         # Too few peaks to spline, so just bin and take the median per bin, then
         # interpolated (approximating) spline through/near these points.
         NBINS = 10
-        top = min(pheight.max(), 1.2*sp.stats.scoreatpercentile(pheight, 98))
+        top = min(pheight.max(), 1.2*np.percentile(pheight, 98))
         bin = np.digitize(pheight, np.linspace(0, top, 1+NBINS))-1
         x = np.zeros(NBINS, dtype=float)
         y = np.zeros(NBINS, dtype=float)
@@ -156,7 +158,7 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
     use = np.logical_and(np.abs(pulse_heights[:]-peak) < delta_ph,
                          np.abs(phase_indicator) < 2)
     low_phase, median_phase, high_phase = \
-        sp.stats.scoreatpercentile(phase_indicator[use], [3, 50, 97])
+        np.percentile(phase_indicator[use], [3, 50, 97])
 
     if method2017:
         x = phase_indicator[use]
