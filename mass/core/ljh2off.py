@@ -131,7 +131,6 @@ def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_p
     handled_channels = 0
     for channum, pulse_model in pulse_model_dict.items():
         ljhpaths = [f'{ljhbase}_chan{channum}.ljh' for ljhbase in ljhbases]
-        print(ljhpaths)
         offpath = f'{off_basename}_chan{channum}.off'
         if not any([os.path.isfile(ljhpath) for ljhpath in ljhpaths]):
             continue  # make sure at least one of the desired files exists

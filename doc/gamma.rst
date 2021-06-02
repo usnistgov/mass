@@ -162,11 +162,6 @@ Then we create off files from the ljh files and the pulse model.
       f.write("# yo yo\n")
       f.write("0, START\n")
 
-.. testoutput::
-  :options: +NORMALIZE_WHITESPACE
-  ['../mass/off/data_for_test/20181018_144520/20181018_144520_chan3.ljh']
-  ['../mass/off/data_for_test/20181018_144520/20181018_144520_chan13.ljh']
-
 OFF Analysis
 ------------
 
