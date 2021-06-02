@@ -162,7 +162,6 @@ Then we create off files from the ljh files and the pulse model.
       f.write("# yo yo\n")
       f.write("0, START\n")
 
-
 OFF Analysis
 ------------
 

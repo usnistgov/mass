@@ -304,12 +304,26 @@ class TestTESGroup(ut.TestCase):
         mpc = pulse_model.projectors.dot(ds.read_trace(0))
         self.assertTrue(np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc))
 
-        # this test should pass, but it doesn'ts
         should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
         wrongness = np.abs(should_be_identity-np.identity(n_basis))
         # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
         self.assertTrue(np.amax(wrongness) < 4e-2)
         pulse_model.plot()
+
+        # test multi_ljh2off_loop with multiple ljhfiles
+        basename, channum = mass.ljh_util.ljh_basename_channum(ds.filename)
+        N = len(off)
+        ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
+            [basename]*2, hdf5_filename, output_dir, max_channels,
+            n_ignore_presamples, require_experiment_state=False
+        )
+        self.assertEqual(ds.filename, ljh_filename_lists[0][0])
+        self.assertEquals(ds.filename, ljh_filename_lists[0][1])
+        off_multi = mass.off.off.OffFile(off_filenames_multi[0])
+        self.assertEqual(2*N, len(off_multi))
+        self.assertEqual(off[7], off_multi[7])
+        self.assertEqual(off[7], off_multi[N+7])
+        self.assertNotEqual(off[7], off_multi[N+6])
 
         if False:  # left for debug purposes
             # also comment out the line in runtests.py that sets the backend to svg
