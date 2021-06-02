@@ -164,8 +164,8 @@ Then we create off files from the ljh files and the pulse model.
 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
-    ['../mass/off/data_for_test/20181018_144520/20181018_144520_chan3.ljh']
-    ['../mass/off/data_for_test/20181018_144520/20181018_144520_chan13.ljh']
+  ['../mass/off/data_for_test/20181018_144520/20181018_144520_chan3.ljh']
+  ['../mass/off/data_for_test/20181018_144520/20181018_144520_chan13.ljh']
 
 OFF Analysis
 ------------
