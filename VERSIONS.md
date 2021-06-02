@@ -1,9 +1,16 @@
 ## Note on version numbers of Mass
 
+**0.7.7** February 2021-
+
+* Fix issue 205: add line shapes of Se, Y, Zr K lines from Ito et al 2020.
+* Fix issue 206: update calibration curves: uncertainty and better smoothing spline theory.
+* Fix issue 207: update usage of numpy/Cython; standardize imports of numpy/scipy/pylab as np/sp/plt.
+
+
 **0.7.6** November 24, 2020
 
 * Fix issue 189: clean up top-level directory and pytest configuration.
-* Fix issue 191: typos in our CrKAlpha line and apparent typo in Hšlzer on the FeKAlpha line.
+* Fix issue 191: typos in our CrKAlpha line and apparent typo in HÃ¶lzer on the FeKAlpha line.
 * Fix issue 192: some problem with using `MLEModel` for fits that aren't spectral lines.
 * Fix issue 193: problem in fitting to histograms with `dtype=np.float32` for the bin edges.
 * Fix issue 194: triggers the too-narrow-bins fit error when it should not, if dPH/dE >> 1.

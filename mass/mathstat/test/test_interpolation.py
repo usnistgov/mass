@@ -10,6 +10,7 @@ Joe Fowler
 import unittest
 import numpy as np
 import mass
+from mass.mathstat.interpolate import *
 
 
 class Test_SmoothingSpline(unittest.TestCase):
@@ -37,6 +38,35 @@ class Test_SmoothingSpline(unittest.TestCase):
             cal.add_cal_point(ph, energy)
         # At time of issue #74, this crashed on next line for Galen, but not for Joe.
         cal.drop_one_errors()
+
+
+class Test_GPR(unittest.TestCase):
+
+    def test_spline_covar(self):
+        for x in np.linspace(0, 10):
+            self.assertEqual(x**3/3, k_spline(x, x))
+            self.assertEqual(k_spline(x, 5.5), k_spline(5.5, x))
+
+    def test_GPRSpline(self):
+        x = np.linspace(2, 10, 9)
+        s = 1.0
+        delta = np.array([-0.08414947,  0.25100057,  0.70287457, -0.9225354, -0.56127467,
+                          0.99469994,  0.50381756, -0.53460321, -0.49538835])
+
+        def actualf(x):
+            return 25 - 10*x + x*x
+        y = actualf(x) + s*delta
+        dy = np.ones_like(y)
+        spl = GPRSpline(x, y, dy)
+        yspl = spl(x)
+        self.assertLess(np.mean((yspl-y)**2), s**2)
+
+        xtest = np.array([0, 5, 7, 10, 12, 15])
+        var = spl.variance(xtest)
+        self.assertTrue((var[np.logical_and(xtest > x[0]-1, xtest < x[-1]+1)] < 2).all())
+        allowed_diff = 2*np.sqrt(var)
+        for x, ad in zip(xtest, allowed_diff):
+            self.assertLess(abs(spl(x)-actualf(x)), ad)
 
 
 if __name__ == "__main__":
