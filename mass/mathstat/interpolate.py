@@ -396,11 +396,11 @@ class NaturalBsplineBasis(object):
         for i in (0, 1, 2):
             scoef = np.zeros(Nk + 2, dtype=float)
             scoef[i] = 1.0
-            lowfpp[i] = splev(b, (padknots, scoef, 3), der=2)
+            lowfpp[i] = splev(b, sp.interpolate.BSpline(padknots, scoef, 3), der=2)
         for i in (0, 1, 2):
             scoef = np.zeros(Nk + 2, dtype=float)
             scoef[Nk + 1 - i] = 1.0  # go from last to 3rd-to-last
-            hifpp[i] = splev(e, (padknots, scoef, 3), der=2)
+            hifpp[i] = splev(e, sp.interpolate.BSpline(padknots, scoef, 3), der=2)
         self.coef_b = -lowfpp[1:3] / lowfpp[0]
         self.coef_e = -hifpp[1:3] / hifpp[0]
 
