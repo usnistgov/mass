@@ -329,7 +329,8 @@ VOIGT_PEAK_HEIGHT = 99999
 def addline(element, linetype, material, reference_short, reference_plot_instrument_gaussian_fwhm,
             nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
             reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
-            position_uncertainty=np.NaN, intrinsic_sigma=0, reference_measurement_type=None, is_default_material=True):
+            position_uncertainty=np.NaN, intrinsic_sigma=0, reference_measurement_type=None,
+            is_default_material=True, allow_replacement=False):
 
     # require exactly one method of specifying the amplitude of each component
     assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT,
@@ -378,7 +379,7 @@ def addline(element, linetype, material, reference_short, reference_plot_instrum
     if linetype.startswith("KAlpha"):
         line.ka12_energy_diff = ka12_energy_diff
     name = line.shortname
-    if name in spectra.keys():
+    if name in spectra.keys() and (not allow_replacement):
         raise ValueError("spectrum {} already exists".format(name))
 
     # Add this SpectralLine to spectra dict AND make it be a variable in the module
