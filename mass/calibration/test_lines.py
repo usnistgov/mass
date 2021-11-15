@@ -111,6 +111,7 @@ class TestAddFitter(unittest.TestCase):
 
     def test_some_lines_make_sense(self):
         self.assertTrue(mass.spectra["MnKAlpha"].nominal_peak_energy == 5898.802)
+        self.assertTrue(mass.spectra["AuLAlpha"].nominal_peak_energy == 9713.44)
 
 
 if __name__ == "__main__":

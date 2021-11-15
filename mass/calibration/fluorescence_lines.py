@@ -269,8 +269,8 @@ lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Frit
     Phys Rev A56 (#6) pages 4554ff (1997 December) model, with the numbers
     adjusted to get line energies of 8615.823, 8638.91 eV and widths 10% wider
     than for Cu. Those widths are based on Zschornack's book.
-
     The KBeta also appears to be a hack with scaled values."""
+lineshape_references["Zschornack"] = """Zschornack, Günter H. (2007). Handbook of X-Ray Data. Springer-Verlag, Berlin."""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 lineshape_references["Joe Fowler"] = """This is what Joe Fowler measured for tungsten L-lines in 2018."""
 lineshape_references["NIST ASD"] = """NIST Atomic Spectra Database
@@ -929,6 +929,140 @@ addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
+addline(
+    element="Ir",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=9175.2,
+    energies=np.array([9099.6, 9175.2]),
+    lorentzian_fwhm=np.array([7.34, 8.10]),
+    reference_amplitude=np.array([.123, 1.079]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Ir",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=10708.35,
+    energies=np.array([10708.35]),
+    lorentzian_fwhm=np.array((6.80,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+addline(
+    element="Pt",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=9442.39,
+    energies=np.array([9361.96, 9442.39]),
+    lorentzian_fwhm=np.array([7.3, 7.4]),
+    reference_amplitude=np.array([.130, 1.145]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Pt",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=11070.84,
+    energies=np.array([11070.84]),
+    lorentzian_fwhm=np.array((7.43,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+addline(
+    element="Au",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=9713.44,
+    energies=np.array([9628.05, 9713.44]),
+    lorentzian_fwhm=np.array([7.61, 8.60]),
+    reference_amplitude=np.array([.1377, 1.214]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Au",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=11442.5,
+    energies=np.array([11442.5]),
+    lorentzian_fwhm=np.array((8.5,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+addline(
+    element="Pb",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=10551.7,
+    energies=np.array([10449.6, 10551.6]),
+    lorentzian_fwhm=np.array([9.35, 9.50]),
+    reference_amplitude=np.array([.1633, 1.438]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Pb",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=12613.80,
+    energies=np.array([12613.80]),
+    lorentzian_fwhm=np.array((8.40,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+addline(
+    element="Bi",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=10838.94,
+    energies=np.array([10731.06, 10838.94]),
+    lorentzian_fwhm=np.array([8.67, 9.80]),
+    reference_amplitude=np.array([.1726, 1.519]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Bi",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=13023.65,
+    energies=np.array([13023.65]),
+    lorentzian_fwhm=np.array((9.603,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
 
 addline(
     element="Nb",
