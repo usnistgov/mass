@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.7.7** February 2021-
+**0.7.7** November 15, 2021
 
 * Fix issue 205: add line shapes of Se, Y, Zr K lines from Ito et al 2020.
 * Fix issue 206: update calibration curves: uncertainty and better smoothing spline theory.
@@ -26,13 +26,13 @@
 * Replace line fitting documentation with a doctest document.
 
 
-**0.7.5** March 31 2020
+**0.7.5** March 31, 2020
 
 * This is the last version that supports Python 2.7.
 * `mass.spectra` contains dictionary of class instances instead of class objects.
 * Fix long lines and other pep8 warnings. Fix the Make targets pep8 and lint for Python3.
 
-**0.7.4** March 26 2020
+**0.7.4** March 26, 2020
 
 * Make `mass` installable by pip.
 * Add entry points so some scripts are automatically installed.
