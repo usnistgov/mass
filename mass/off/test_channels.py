@@ -330,7 +330,7 @@ def test_get_model():
 
     m_au = mass.off.util.get_model("AuLAlpha")
     assert m_au.spect.peak_energy == mass.STANDARD_FEATURES["AuLAlpha"]
-    assert m_au.spect.shortname == "AuLAlphaquick_line"
+    assert m_au.spect.shortname == "AuLAlpha"
 
     m_ti = mass.off.util.get_model("TiKAlpha")
     assert m_ti.spect.shortname == "TiKAlpha"
@@ -410,14 +410,16 @@ def test_aliasState():
     for x in sd["W"]:
         assert isinstance(x, slice)
 
+
 def test_iterstates():
     assert util.iterstates("ABC") == ["ABC"]
     assert util.iterstates(["A", "B", "CC"]) == ["A", "B", "CC"]
-    assert util.iterstates([slice(0,1,1)]) == [slice(0,1,1)]
+    assert util.iterstates([slice(0, 1, 1)]) == [slice(0, 1, 1)]
 
-    with pytest.raises(KeyError): # previously this would work due to being recognized as states "B" and "C"
-        # now it fails since state "BC" doesnt exist 
-        ds.plotHist(np.arange(100,2500,50), 'energy', states="BC", coAddStates=False)
+    with pytest.raises(KeyError):  # previously this would work due to being recognized as states "B" and "C"
+        # now it fails since state "BC" doesnt exist
+        ds.plotHist(np.arange(100, 2500, 50), 'energy', states="BC", coAddStates=False)
+
 
 def test_save_load_recipe_book():
     rb = ds.recipes
@@ -428,6 +430,7 @@ def test_save_load_recipe_book():
     args = {"pretriggerMean": 1, "filtValue": 2}
     print(rb.craftedIngredients["energy"])
     assert rb.craft("energy", args) == rb2.craft("energy", args)
+
 
 if __name__ == '__main__':
     ut.main()

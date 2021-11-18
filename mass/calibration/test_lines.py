@@ -8,7 +8,6 @@ Joe Fowler
 """
 import unittest
 import numpy as np
-import scipy as sp
 import mass
 
 
@@ -67,37 +66,32 @@ class Test_MnKA_distribution(unittest.TestCase):
 
 class TestAddFitter(unittest.TestCase):
     def test_add_same_line_fails(self):
-        mass.calibration.fluorescence_lines.addline(
-            element="dummy",
-            material="dummy_material",
-            linetype="dummy",
-            reference_short='NIST ASD',
-            fitter_type=mass.line_fits.GenericKBetaFitter,
-            reference_plot_instrument_gaussian_fwhm=0.5,
-            nominal_peak_energy=(653.679946*2+653.493657*1)/3,
-            energies=np.array([653.493657, 653.679946]), lorentzian_fwhm=np.array([0.1, 0.1]),
-            reference_amplitude=np.array([1, 2]),
-            reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
-        )
-        with self.assertRaises(ValueError):
+        def addline_example(replace=False):
             mass.calibration.fluorescence_lines.addline(
                 element="dummy",
+                linetype="KBeta",
                 material="dummy_material",
-                linetype="dummy",
                 reference_short='NIST ASD',
                 fitter_type=mass.line_fits.GenericKBetaFitter,
                 reference_plot_instrument_gaussian_fwhm=0.5,
                 nominal_peak_energy=(653.679946*2+653.493657*1)/3,
                 energies=np.array([653.493657, 653.679946]), lorentzian_fwhm=np.array([0.1, 0.1]),
+                allow_replacement=replace,
                 reference_amplitude=np.array([1, 2]),
                 reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
             )
+        addline_example()
+        # It should be okay to re-add the dummyKBeta line if but only if replace=True.
+        addline_example(replace=True)
+        with self.assertRaises(ValueError):
+            addline_example()
+
         # test various ways I can get access to the new line
-        mass.spectra["dummydummy"].model()
-        mass.spectra["dummydummy"].model(has_tails=True)
-        mass.spectra["dummydummy"].fitter()
-        mass.spectrum_classes["dummydummy"]().model()
-        mass.make_line_fitter(mass.spectra["dummydummy"])
+        mass.spectra["dummyKBeta"].model()
+        mass.spectra["dummyKBeta"].model(has_tails=True)
+        mass.spectra["dummyKBeta"].fitter()
+        mass.spectrum_classes["dummyKBeta"]().model()
+        mass.make_line_fitter(mass.spectra["dummyKBeta"])
 
     def test_intrinsic_sigma(self):
         line = mass.calibration.fluorescence_lines.MnKAlpha
@@ -117,6 +111,7 @@ class TestAddFitter(unittest.TestCase):
 
     def test_some_lines_make_sense(self):
         self.assertTrue(mass.spectra["MnKAlpha"].nominal_peak_energy == 5898.802)
+        self.assertTrue(mass.spectra["AuLAlpha"].nominal_peak_energy == 9713.44)
 
 
 if __name__ == "__main__":
