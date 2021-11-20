@@ -780,8 +780,13 @@ class MicrocalDataSet(object):
             if filter_type == "ats":
                 # arrival time safe filter can be shorter than records by 1 sample, or equal in length
                 if version > 0:
-                    avg_signal, aterms = filter_group.attrs["avg_signal"][(
-                    )], filter_group["filt_aterms"][()]
+                    # Version 1 avg_signal was an attribute until Nov 2021, when we fixed #208.
+                    # Try to read as a dataset, then as attribute so that old HDF5 files still work.
+                    try:
+                        avg_signal = filter_group["avg_signal"][()]
+                    except KeyError:
+                        avg_signal = filter_group.attrs["avg_signal"][()]
+                    aterms = filter_group["filt_aterms"][()]
                 else:
                     # version 0 hdf5 files did not storage avg_signal, use truncated average_pulse instead
                     avg_signal, aterms = self.average_pulse[1:], filter_group["filt_aterms"][()]
@@ -1171,8 +1176,8 @@ class MicrocalDataSet(object):
         h5grp.attrs['peak'] = self.filter.peak_signal
         h5grp.attrs['shorten'] = self.filter.shorten
         h5grp.attrs['filter_type'] = self._filter_type
-        h5grp.attrs["avg_signal"] = self.filter.avg_signal
         h5grp.attrs["version"] = 1
+        h5grp.create_dataset("avg_signal", data=self.filter.avg_signal)
         for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                   "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
             if k in h5grp:
