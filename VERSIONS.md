@@ -5,6 +5,7 @@
 * Fix issue 205: add line shapes of Se, Y, Zr K lines from Ito et al 2020.
 * Fix issue 206: update calibration curves: uncertainty and better smoothing spline theory.
 * Fix issue 207: update usage of numpy/Cython; standardize imports of numpy/scipy/pylab as np/sp/plt.
+* Fix issue 209: replace dependency xraylib with xraydb.
 * Fix issue 210: add line shapes of Ir, Pt, Au, Pb, Bi L lines.
 
 

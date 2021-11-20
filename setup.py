@@ -17,13 +17,13 @@ BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
 requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn",
                 "h5py>=2.7", "palettable", "cycler", "fastdtw", "progress", "lmfit>=0.9.11", "pytest",
-                "uncertainties", "dill"]
+                "uncertainties", "dill", "xraydb"]
 if sys.version_info.major == 3:
     requirements += ["matplotlib>1.5", "statsmodels>0.8"]
 elif sys.version_info.major == 2:
     requirements += ["matplotlib<3.0", "statsmodels<0.10"]
 else:
-    raise Exception("seriously you have something other than python 2 or 3?")
+    raise Exception("Seriously? You have something other than python 2 or 3?")
 
 
 def parse_version_number(VERSIONFILE=None):
@@ -94,12 +94,14 @@ if __name__ == "__main__":
                                            include_dirs=[np.get_include()])
                                  ],
                                 compiler_directives={'language_level': "3"}),
+          # Installs non .py files that are needed. We could make tests pass in non-develop
+          # mode by installing test required files here.
           package_data={'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat', 'nist_asd.pickle']
-                        },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
+                        },
           package_dir={'mass': "mass"},
           install_requires=requirements,
           scripts=["bin/ljh_truncate"],
           entry_points={
               'console_scripts': ['ljh2off=mass.core.ljh2off:main',
-              'make_projectors=mass.core.projectors_script:main'], }
+                                  'make_projectors=mass.core.projectors_script:main'], }
           )

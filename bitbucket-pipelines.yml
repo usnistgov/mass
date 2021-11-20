@@ -37,19 +37,6 @@ pipelines:
             - pip install --upgrade pip
             - pip install -e .
             - pip install recommonmark sphinx
-            - apt-get update
-            - apt-get install -y swig
-            - curl -O http://lvserver.ugent.be/xraylib/xraylib-4.0.0.tar.gz
-            - gunzip xraylib-4.0.0.tar.gz
-            - tar xvf xraylib-4.0.0.tar
-            - rm xraylib-4.0.0.tar
-            - cd xraylib-4.0.0
-            - ./configure --prefix=/usr/local --disable-fortran2003 --disable-perl
-            - make
-            - make install
-            - cd ..
-            - rm -rf xraylib-4.0.0
-            - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
             - pytest
             # Below here: make and deploy documentation.
             - cd doc
