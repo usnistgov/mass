@@ -629,7 +629,7 @@ class Channel(CorG):
 
     @add_group_loop
     def learnDriftCorrection(self, indicatorName="pretriggerMean", uncorrectedName="filtValue",
-                             correctedName=None, states=None, cutRecipeName=None, overwriteRecipe=False):
+                             correctedName=None, states=None, cutRecipeName=None, overwrite=False):
         """do a linear correction between the indicator and uncorrected... """
         if correctedName is None:
             correctedName = uncorrectedName + "DC"
@@ -640,13 +640,16 @@ class Channel(CorG):
         driftCorrection = DriftCorrection(
             indicatorName, uncorrectedName, info["median_pretrig_mean"], slope)
         self.recipes.add(correctedName, driftCorrection, [
-            driftCorrection.indicatorName, driftCorrection.uncorrectedName], overwrite=overwriteRecipe)
+            driftCorrection.indicatorName, driftCorrection.uncorrectedName], overwrite=overwrite)
         return driftCorrection
 
     @add_group_loop
-    def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName=None, states=None,
-                             linePositionsFunc=None, cutRecipeName=None):
+    def learnPhaseCorrection(
+            self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName=None, states=None,
+            linePositions=None, linePositionsFunc=None, cutRecipeName=None, overwrite=False):
         """
+        linePositions - collection of the peaks in `uncorrectedName` used for the phase correction
+            algorithm. If None, then use `linePositionsFunc` to compute the peaks.
         linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
         otherwise try to call it with self as an argument... here is an example of how you could use all but one peak from calibrationRough:
         `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f._ph`
@@ -654,21 +657,25 @@ class Channel(CorG):
         # may need to generalize this to allow using a specific state for phase correction as a specfic line... with something like calibrationPlan
         if correctedName is None:
             correctedName = uncorrectedName + "PC"
-        if linePositionsFunc is None:
-            linePositions = self.recipes["energyRough"].f._ph
-        else:
-            linePositions = linePositionsFunc(self)
+        if linePositions is not None and linePositionsFunc is not None:
+            raise ValueError("Specify no more than one of (linePositions, linePositionsFunc)")
+        if linePositions is None:
+            if linePositionsFunc is None:
+                linePositions = self.recipes["energyRough"].f._ph
+            else:
+                linePositions = linePositionsFunc(self)
         indicator, uncorrected = self.getAttr(
             [indicatorName, uncorrectedName], states, cutRecipeName)
         phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
         self.recipes.add(correctedName, phaseCorrection.correct, [
-            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName])
+            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName], overwrite=overwrite)
 
     @add_group_loop
-    def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
-                                 states=None, cutRecipeName=None, kernel_width=1, sec_per_degree=2000,
-                                 pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
+    def learnTimeDriftCorrection(
+            self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
+            states=None, cutRecipeName=None, kernel_width=1, sec_per_degree=2000,
+            pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None, overwrite=False):
         """do a polynomial correction based on the indicator
         you are encouraged to change the settings that affect the degree of the polynomail
         see help in mass.core.channel.time_drift_correct for details on settings"""
@@ -683,7 +690,8 @@ class Channel(CorG):
             tnorm = info["normalize"](indicator)
             corrected = uncorrected*(1+info["model"](tnorm))
             return corrected
-        self.recipes.add(correctedName, time_drift_correct, [indicatorName, uncorrectedName])
+        self.recipes.add(correctedName, time_drift_correct, [
+                         indicatorName, uncorrectedName], overwrite=overwrite)
 
     def plotCompareDriftCorrect(self, axis=None, states=None, cutRecipeName=None, includeBad=False):
         if axis is None:
