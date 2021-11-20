@@ -1,10 +1,11 @@
 ## Note on version numbers of Mass
 
-**0.7.7** November 15, 2021
+**0.7.7** November 22, 2021
 
 * Fix issue 205: add line shapes of Se, Y, Zr K lines from Ito et al 2020.
 * Fix issue 206: update calibration curves: uncertainty and better smoothing spline theory.
 * Fix issue 207: update usage of numpy/Cython; standardize imports of numpy/scipy/pylab as np/sp/plt.
+* Fix issue 208: allow save/restore of filters to HDF5 even when too long for HDF5 attributes.
 * Fix issue 210: add line shapes of Ir, Pt, Au, Pb, Bi L lines.
 
 

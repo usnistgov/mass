@@ -1,6 +1,8 @@
+import h5py
 import numpy as np
 import glob
 import os
+import tempfile
 import unittest as ut
 
 import mass
@@ -135,6 +137,39 @@ class TestFilters(ut.TestCase):
         ds.cuts.cut("temporary", c)
         ds.compute_ats_filter(f_3db=5000)
         self.assertFalse(np.any(np.isnan(f)))
+
+    def test_long_filter(self):
+        """Be sure we can save and restore a long filter. See issue #208."""
+        outfile = tempfile.TemporaryFile(suffix=".hdf5")
+        with h5py.File(outfile, "w") as h:
+            g = h.require_group("blah")
+            pulserec = {
+                "nSamples": 20000,
+                "nPresamples": 5000,
+                "nPulses": 5,
+                "timebase": 10e-6,
+                "channum": 1,
+                "timestamp_offset": 0,
+            }
+            ds = mass.MicrocalDataSet(pulserec, hdf5_group=g)
+            nc = np.zeros(20000, dtype=float)
+            nc[0:3] = [1, .3, .1]
+            ds.noise_autocorr = nc
+            ds.average_pulse = np.ones(ds.nSamples, dtype=float)
+            ds.average_pulse[:ds.nPresamples] = 0.0
+            # ds.compute_ats_filter(f_3db=5000)
+            aterms = np.zeros_like(ds.average_pulse)
+            aterms[ds.nPresamples+1] = 1.0
+            model = np.vstack([ds.average_pulse, aterms]).T
+            modelpeak = np.max(ds.average_pulse)
+
+            f = mass.core.optimal_filtering.ArrivalTimeSafeFilter(
+                model, ds.nPresamples, ds.noise_autocorr,
+                sample_time=ds.timebase, peak=modelpeak)
+            f.compute(f_3db=5000)
+            ds.filter = f
+            ds._filter_type = "ats"
+            ds._filter_to_hdf5()
 
     def test_masked_filter(self):
         """Test that zero-weighting samples from the beginning and end works."""
