@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.7.7** November 22, 2021
+**0.7.7** November 29, 2021
 
 * Fix issue 205: add line shapes of Se, Y, Zr K lines from Ito et al 2020.
 * Fix issue 206: update calibration curves: uncertainty and better smoothing spline theory.
