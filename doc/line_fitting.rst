@@ -219,7 +219,7 @@ If you want to multiply the line models by a model of the quantum efficiency, yo
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  Fit finds 168780±550 counts before QE, or 100130±330 observed. True value 100000.
+  Fit finds 168990±550 counts before QE, or 100130±330 observed. True value 100000.
 
 .. testcode::
   :hide:

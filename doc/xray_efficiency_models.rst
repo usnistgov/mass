@@ -1,7 +1,7 @@
 Detector X-ray Efficiency Models
 ================================
 
-.. warning:: This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.
+.. warning:: This module requires the xraydb python package. You should be able to install with 'sudo pip install xraydb'.
 
 
 Motivation
@@ -27,7 +27,7 @@ The presence of uncertainties requires some special handling in a few places, th
 .. testcode::
 
   import mass
-  import mass.materials  # because of how hard xraylib can be, you have to explicitly import mass.materials
+  import mass.materials  # you have to explicitly import mass.materials
   import numpy as np
   import pylab as plt
   from uncertainties import unumpy as unp  # useful for working with arrays with uncertainties aka uarray
@@ -40,11 +40,11 @@ The presence of uncertainties requires some special handling in a few places, th
   :options: +NORMALIZE_WHITESPACE
 
   <class 'mass.materials.efficiency_models.FilterStack'>(
-  Electroplated Au Absorber: <class 'mass.materials.efficiency_models.Film'>(Au 0.00187+/-0.00006 g/cm^2, fill_fraction=1.000+/-0, absorber=True)
-  50mK Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (3.04+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
-  3K Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.93+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
+  Electroplated Au Absorber: <class 'mass.materials.efficiency_models.Film'>(Au 0.00186+/-0.00006 g/cm^2, fill_fraction=1.000+/-0, absorber=True)
+  50mK Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (3.04+/-0.06)e-05 g/cm^2, Al 1.27e-06 g/cm^2, O 1.13e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
+  3K Filter: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.93+/-0.06)e-05 g/cm^2, Al 1.27e-06 g/cm^2, O 1.13e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
   50K Filter: <class 'mass.materials.efficiency_models.FilterStack'>(
-  Al Film: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.77+/-0.06)e-05 g/cm^2, O (1.12+/-1.12)e-06 g/cm^2, Al (1.26+/-1.26)e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
+  Al Film: <class 'mass.materials.efficiency_models.AlFilmWithOxide'>(Al (2.77+/-0.06)e-05 g/cm^2, Al 1.27e-06 g/cm^2, O 1.13e-06 g/cm^2, fill_fraction=1.000+/-1.000, absorber=False)
   Ni Mesh: <class 'mass.materials.efficiency_models.Film'>(Ni 0.0134+/-0.0018 g/cm^2, fill_fraction=0.170+/-0.010, absorber=False)
   )
   Luxel Window TES: <class 'mass.materials.efficiency_models.LEX_HT'>(
@@ -81,14 +81,14 @@ As an example, we look at the efficiency of the EBIT 2018 filter stack and the 5
   :options: +NORMALIZE_WHITESPACE
 
   stack efficiencies
-  ['0.34+/-0.04', '0.472+/-0.022', '0.456+/-0.014', '0.383+/-0.011', '0.307+/-0.009', '0.242+/-0.008', '0.192+/-0.006', '0.136+/-0.005']
-  [0.3355118  0.47199667 0.45574545 0.38331136 0.30710323 0.24222163
-    0.19158427 0.13593844]
-  [0.3355118  0.47199667 0.45574545 0.38331136 0.30710323 0.24222163
-    0.19158427 0.13593844]
+  ['0.34+/-0.04', '0.472+/-0.022', '0.456+/-0.014', '0.383+/-0.011', '0.307+/-0.009', '0.242+/-0.008', '0.191+/-0.006', '0.136+/-0.005']
+  [0.33535662 0.4719283  0.45559501 0.38309458 0.30687859 0.24201976
+   0.19141294 0.13581482]
+  [0.33535662 0.4719283  0.45559501 0.38309458 0.30687859 0.24201976
+   0.19141294 0.13581482]
   filter50K efficiencies
-  [0.77676224 0.81109167 0.82339913 0.84075585 0.86674411 0.8936235
-    0.91640249 0.83361448]
+  [0.77672107 0.81107679 0.8233861  0.84072724 0.86670307 0.89357999
+   0.9163624  0.83360284]
 
 Here, we use the function ``plot_efficiency(xray_energies_eV, ax)`` to plot the efficiencies.
 ``ax`` defaults to None, but can be used to plot the efficiencies on a user provided axis.

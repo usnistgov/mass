@@ -7,21 +7,17 @@
 
 pipelines:
   default:
+    # Nov 29, 2021: our strategy is to test only the oldest and newest python we care about. Save
+    # build minutes by skipping any in-between versions. As of next month, Py 3.6 will be beyond its
+    # end-of-life, so we'll consider 3.7 the oldest supported version. Py 3.10 exists, but no MASS
+    # developer is using Py 3.10. When that changes (in 2022?), we should begin testing it.
+    # For now, stick to 3.9.
     - parallel:
       - step:
           caches:
             - pip
           name: python 3.7
           image: python:3.7.12
-          script: # Modify the commands below to build your repository.
-            - pip install --upgrade pip
-            - pip install -e .
-            - pytest
-      - step:
-          caches:
-            - pip
-          name: python 3.8
-          image: python:3.8.12
           script: # Modify the commands below to build your repository.
             - pip install --upgrade pip
             - pip install -e .
@@ -37,19 +33,6 @@ pipelines:
             - pip install --upgrade pip
             - pip install -e .
             - pip install recommonmark sphinx
-            - apt-get update
-            - apt-get install -y swig
-            - curl -O http://lvserver.ugent.be/xraylib/xraylib-4.0.0.tar.gz
-            - gunzip xraylib-4.0.0.tar.gz
-            - tar xvf xraylib-4.0.0.tar
-            - rm xraylib-4.0.0.tar
-            - cd xraylib-4.0.0
-            - ./configure --prefix=/usr/local --disable-fortran2003 --disable-perl
-            - make
-            - make install
-            - cd ..
-            - rm -rf xraylib-4.0.0
-            - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
             - pytest
             # Below here: make and deploy documentation.
             - cd doc

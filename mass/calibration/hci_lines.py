@@ -16,13 +16,11 @@ import mass
 from . import fluorescence_lines
 from . import line_fits
 from . import LORENTZIAN_PEAK_HEIGHT
-try:
-    import xraylib
-except ImportError:
-    raise ImportError('This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
+import xraydb
 
 INVCM_TO_EV = sp_const.c * sp_const.physical_constants['Planck constant in eV s'][0] * 100.0
 DEFAULT_PICKLE_NAME = 'nist_asd.pickle'
+
 
 class NIST_ASD():
     '''Class for working with a pickled atomic spectra database'''
@@ -36,7 +34,7 @@ class NIST_ASD():
 
         if pickleFilename is None:
             pickleFilename = os.path.join(os.path.split(__file__)[0], DEFAULT_PICKLE_NAME)
-        with open(pickleFilename, 'rb') as handle:            
+        with open(pickleFilename, 'rb') as handle:
             self.NIST_ASD_Dict = pickle.load(handle)
 
     def getAvailableElements(self):
@@ -46,15 +44,16 @@ class NIST_ASD():
 
     def getAvailableSpectralCharges(self, element):
         '''For a given element, returns a list of all available charge states from the ASD pickle file
-        
+
         Args:
             element: str representing atomic symbol of element, e.g. 'Ne'
         '''
 
         return list(self.NIST_ASD_Dict[element].keys())
 
-    def getAvailableLevels(self, element, spectralCharge, requiredConf=None, requiredTerm=None, requiredJVal=None, maxLevels=None, units='eV',
-    getUncertainty=True):
+    def getAvailableLevels(self, element, spectralCharge, requiredConf=None, requiredTerm=None,
+                           requiredJVal=None, maxLevels=None, units='eV',
+                           getUncertainty=True):
         '''For a given element and spectral charge state, return a dict of all known levels from the ASD pickle file
 
         Args:
@@ -67,9 +66,9 @@ class NIST_ASD():
             units: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values
         '''
 
-        spectralCharge=int(spectralCharge) 
-        levelsDict={}
-        numLevels=0
+        spectralCharge = int(spectralCharge)
+        levelsDict = {}
+        numLevels = 0
         for iLevel in list(self.NIST_ASD_Dict[element][spectralCharge].keys()):
             try:
                 # Check to see if we reached maximum number of levels to return
@@ -79,9 +78,9 @@ class NIST_ASD():
                 # If required, check to see if level matches search conf, term, JVal
                 includeConf = False
                 includeTerm = False
-                includeJVal = False            
+                includeJVal = False
                 conf, term, j_str = iLevel.split()
-                JVal= j_str.split('=')[1]            
+                JVal = j_str.split('=')[1]
                 if requiredConf is None:
                     includeConf = True
                 else:
@@ -99,7 +98,7 @@ class NIST_ASD():
                         includeJVal = True
                 # Include levels that match, in either cm-1 or eV
                 if includeConf and includeTerm and includeJVal:
-                    numLevels+=1
+                    numLevels += 1
                     if units == 'cm-1':
                         if getUncertainty:
                             levelsDict[iLevel] = self.NIST_ASD_Dict[element][spectralCharge][iLevel]
@@ -107,9 +106,11 @@ class NIST_ASD():
                             levelsDict[iLevel] = self.NIST_ASD_Dict[element][spectralCharge][iLevel][0]
                     elif units == 'eV':
                         if getUncertainty:
-                            levelsDict[iLevel] = [iValue * INVCM_TO_EV for iValue in self.NIST_ASD_Dict[element][spectralCharge][iLevel]]
+                            levelsDict[iLevel] = [
+                                iValue * INVCM_TO_EV for iValue in self.NIST_ASD_Dict[element][spectralCharge][iLevel]]
                         else:
-                            levelsDict[iLevel] = INVCM_TO_EV * self.NIST_ASD_Dict[element][spectralCharge][iLevel][0]
+                            levelsDict[iLevel] = INVCM_TO_EV * \
+                                self.NIST_ASD_Dict[element][spectralCharge][iLevel][0]
                     else:
                         levelsDict = None
                         print('Unit type not supported, please use eV or cm-1')
@@ -129,7 +130,7 @@ class NIST_ASD():
             units: (default 'eV') 'cm-1' or 'eV' for returned line position. If 'eV', converts from database 'cm-1' values
             getUncertainty: (default True) if True, includes uncertainties in list of levels
         '''
-        levelString=f'{conf} {term} J={JVal}'
+        levelString = f'{conf} {term} J={JVal}'
         if units == 'cm-1':
             if getUncertainty:
                 levelEnergy = self.NIST_ASD_Dict[element][spectralCharge][levelString]
@@ -137,7 +138,8 @@ class NIST_ASD():
                 levelEnergy = self.NIST_ASD_Dict[element][spectralCharge][levelString][0]
         elif units == 'eV':
             if getUncertainty:
-                levelEnergy = [iValue * INVCM_TO_EV for iValue in self.NIST_ASD_Dict[element][spectralCharge][levelString]]
+                levelEnergy = [
+                    iValue * INVCM_TO_EV for iValue in self.NIST_ASD_Dict[element][spectralCharge][levelString]]
             else:
                 levelEnergy = self.NIST_ASD_Dict[element][spectralCharge][levelString][0] * INVCM_TO_EV
         else:
@@ -148,54 +150,60 @@ class NIST_ASD():
 
 # Some non-class functions useful for integration with mass
 def add_hci_line(element, spectr_ch, line_identifier, energies, widths, ratios, nominal_peak_energy=None):
-    energies=np.array(energies)
-    widths=np.array(widths)
-    ratios=np.array(ratios)
+    energies = np.array(energies)
+    widths = np.array(widths)
+    ratios = np.array(ratios)
     if nominal_peak_energy == None:
         nominal_peak_energy = np.dot(energies, ratios)/np.sum(ratios)
     linetype = f"{int(spectr_ch)} {line_identifier}"
 
     spectrum_class = fluorescence_lines.addline(
-    element=element,
-    material="Highly Charged Ion",
-    linetype=linetype,
-    reference_short='NIST ASD',
-    fitter_type=line_fits.GenericKBetaFitter,
-    reference_plot_instrument_gaussian_fwhm=0.5,
-    nominal_peak_energy=nominal_peak_energy,
-    energies=energies,
-    lorentzian_fwhm=widths,
-    reference_amplitude=ratios,
-    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
-    ka12_energy_diff=None
-    )    
+        element=element,
+        material="Highly Charged Ion",
+        linetype=linetype,
+        reference_short='NIST ASD',
+        fitter_type=line_fits.GenericKBetaFitter,
+        reference_plot_instrument_gaussian_fwhm=0.5,
+        nominal_peak_energy=nominal_peak_energy,
+        energies=energies,
+        lorentzian_fwhm=widths,
+        reference_amplitude=ratios,
+        reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+        ka12_energy_diff=None
+    )
     return spectrum_class
 
+
 def add_H_like_lines_from_asd(asd, element, maxLevels=None):
-    spectr_ch = int(xraylib.SymbolToAtomicNumber(element))
-    added_lines=[]
+    spectr_ch = xraydb.atomic_number(element)
+    added_lines = []
     if maxLevels is not None:
-        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels+1)
+        levelsDict = asd.getAvailableLevels(
+            element, spectralCharge=spectr_ch, maxLevels=maxLevels+1)
     else:
-        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch)
+        levelsDict = asd.getAvailableLevels(element, spectralCharge=spectr_ch)
     for iLevel in list(levelsDict.keys()):
         lineEnergy = levelsDict[iLevel][0]
         if lineEnergy != 0.0:
-            iLine=add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=[lineEnergy], widths=[0.1], ratios=[1.0])
+            iLine = add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=[
+                                 lineEnergy], widths=[0.1], ratios=[1.0])
             added_lines.append(iLine)
     return added_lines
 
+
 def add_He_like_lines_from_asd(asd, element, maxLevels=None):
-    spectr_ch = int(xraylib.SymbolToAtomicNumber(element)-1)
-    added_lines=[]
+    spectr_ch = xraydb.atomic_number(element)-1
+    added_lines = []
     if maxLevels is not None:
-        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch, maxLevels=maxLevels+1)
+        levelsDict = asd.getAvailableLevels(
+            element, spectralCharge=spectr_ch, maxLevels=maxLevels+1)
     else:
-        levelsDict=asd.getAvailableLevels(element, spectralCharge=spectr_ch)
+        levelsDict = asd.getAvailableLevels(element, spectralCharge=spectr_ch)
     for iLevel in list(levelsDict.keys()):
         lineEnergy = levelsDict[iLevel][0]
         if lineEnergy != 0.0:
-            iLine = add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=[lineEnergy], widths=[0.1], ratios=[1.0])
+            iLine = add_hci_line(element=element, spectr_ch=spectr_ch, line_identifier=iLevel, energies=[
+                                 lineEnergy], widths=[0.1], ratios=[1.0])
             added_lines.append(iLine)
     return added_lines
 

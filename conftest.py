@@ -13,7 +13,7 @@ import matplotlib
 # matplotlib_axes_logger.setLevel('ERROR')
 
 matplotlib.use("svg")  # set to common backend so will run ci with fewer dependencies
-warnings.filterwarnings("ignore") # not sure what this does
+warnings.filterwarnings("ignore")  # not sure what this does
 
 # Raise the logging threshold, to reduce extraneous output during tests
 LOG = logging.getLogger("mass")
