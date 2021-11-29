@@ -1,7 +1,7 @@
 Detector X-ray Efficiency Models
 ================================
 
-.. warning:: This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.
+.. warning:: This module requires the xraydb python package. You should be able to install with 'sudo pip install xraydb'.
 
 
 Motivation
@@ -27,7 +27,7 @@ The presence of uncertainties requires some special handling in a few places, th
 .. testcode::
 
   import mass
-  import mass.materials  # because of how hard xraylib can be, you have to explicitly import mass.materials
+  import mass.materials  # you have to explicitly import mass.materials
   import numpy as np
   import pylab as plt
   from uncertainties import unumpy as unp  # useful for working with arrays with uncertainties aka uarray
