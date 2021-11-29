@@ -7,6 +7,7 @@
 * Fix issue 207: update usage of numpy/Cython; standardize imports of numpy/scipy/pylab as np/sp/plt.
 * Fix issue 208: allow save/restore of filters to HDF5 even when too long for HDF5 attributes.
 * Fix issue 210: add line shapes of Ir, Pt, Au, Pb, Bi L lines.
+* Fix issue 211: hide math warnings during pytest testing.
 
 
 **0.7.6** November 24, 2020

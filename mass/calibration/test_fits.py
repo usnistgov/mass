@@ -10,6 +10,7 @@ Joe Fowler
 import tempfile
 import os.path
 import unittest
+import pytest
 import numpy as np
 import pylab as plt
 import mass
@@ -174,6 +175,7 @@ class Test_MnKA(unittest.TestCase):
         self.do_test()
         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_mnka1.pdf"))
 
+    @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
     def test_tail(self):
         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=1)
         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_mnka2.pdf"))
@@ -236,6 +238,7 @@ class Test_MnKB(unittest.TestCase):
         self.do_test()
         plt.savefig(os.path.join(self.tempdir, "testfit_mnkb1.pdf"))
 
+    @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
     def test_tail(self):
         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=True)
         plt.savefig(os.path.join(self.tempdir, "testfit_mnkb2.pdf"))
