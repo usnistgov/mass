@@ -195,9 +195,6 @@ class OffFile(object):
     #         return self._mmap_with_coefs["coefs"]
     #     else:
     #         return self._mmap.__getitem__(*args)
-        
+
     def view(self, *args):
         return self._mmap.view(*args)
-
-
-

@@ -111,7 +111,7 @@ data.plotHists(np.arange(0, 4000, 1), "energy")
 plt.figure(figsize=(12, 6))
 ax = plt.gca()
 data.plotHist(np.arange(1000, 4000, 1), "energy", coAddStates=False, states=["W 1", "Os"], axis=ax)
-ax.set_ylim(0, 1.2*np.amax([np.amax(l.get_ydata()) for l in ax.lines]))
+ax.set_ylim(0, 1.2*np.amax([np.amax(line.get_ydata()) for line in ax.lines]))
 names = ["W Ni-{}".format(i) for i in range(1, 27)]
 n = collections.OrderedDict()
 # line = ax.lines[0]
