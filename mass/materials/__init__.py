@@ -1,10 +1,8 @@
 try:
-    import xraylib
-
+    import xraydb
     import mass.materials.efficiency_models
-
     from .efficiency_models import *
 
-except ModuleNotFoundError as e:
-    print('** Skipping module mass.materials, because it requires the "xraylib" python package.')
-    print('** Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
+except ModuleNotFoundError:
+    print('** Skipping module mass.materials, because it requires the "xraydb" python package.')
+    print('** Please see https://xraypy.github.io/XrayDB/installation.html for installation instructions.')

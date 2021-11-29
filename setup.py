@@ -2,11 +2,15 @@
 """
 setup.py  distutils build/install file for Mass, the Microcalorimeter Analysis Software Suite
 
-Joe Fowler, NIST Boulder Labs
+Python version note: this package contains some Python "f-strings", a system for string
+formatting that was introduced in Python 3.6. That means MASS won't work on Python 2 or any
+other version < 3.6. As of 13 September 2020, all versions of Python older than 3.6 were
+considered beyond end-of-life, so the authors of MASS think this a reasonable limitation.
+
+Joe Fowler and Galen O'Neil, NIST Boulder Labs
 """
 
 import os.path
-import sys
 import numpy as np
 
 from setuptools import setup
@@ -17,13 +21,7 @@ BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
 requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn",
                 "h5py>=2.7", "palettable", "cycler", "fastdtw", "progress", "lmfit>=0.9.11", "pytest",
-                "uncertainties", "dill"]
-if sys.version_info.major == 3:
-    requirements += ["matplotlib>1.5", "statsmodels>0.8"]
-elif sys.version_info.major == 2:
-    requirements += ["matplotlib<3.0", "statsmodels<0.10"]
-else:
-    raise Exception("seriously you have something other than python 2 or 3?")
+                "uncertainties", "dill", "xraydb", "matplotlib>1.5", "statsmodels>0.8"]
 
 
 def parse_version_number(VERSIONFILE=None):
@@ -74,8 +72,9 @@ if __name__ == "__main__":
           author_email='joe.fowler@nist.gov',
           url='https://bitbucket.org/joe_fowler/mass',
           description='Microcalorimeter Analysis Software Suite',
+          python_requires=">=3.6",  # See this file's docstring for discussion.
           packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
-                    'mass.demo', 'mass.off'],
+                    'mass.demo', 'mass.off', 'mass.materials'],
           ext_modules=cythonize([Extension('mass.core.cython_channel',
                                            [os.path.join(BASEDIR, 'mass',
                                                          'core', 'cython_channel.pyx')],
@@ -94,12 +93,14 @@ if __name__ == "__main__":
                                            include_dirs=[np.get_include()])
                                  ],
                                 compiler_directives={'language_level': "3"}),
+          # Installs non .py files that are needed. We could make tests pass in non-develop
+          # mode by installing test required files here.
           package_data={'mass.calibration': ['nist_xray_data.dat', 'low_z_xray_data.dat', 'nist_asd.pickle']
-                        },  # installs non .py files that are needed. we could make tests pass in non develop mode by installing test required files here
+                        },
           package_dir={'mass': "mass"},
           install_requires=requirements,
           scripts=["bin/ljh_truncate"],
           entry_points={
               'console_scripts': ['ljh2off=mass.core.ljh2off:main',
-              'make_projectors=mass.core.projectors_script:main'], }
+                                  'make_projectors=mass.core.projectors_script:main'], }
           )

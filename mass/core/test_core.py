@@ -5,7 +5,7 @@ import os.path
 import shutil
 import tempfile
 import unittest as ut
-import tempfile
+import pytest
 
 import mass
 from mass.core.ljh_modify import LJHFile, ljh_copy_traces, ljh_append_traces, ljh_truncate
@@ -221,6 +221,7 @@ class TestTESGroup(ut.TestCase):
         data.compute_5lag_filter()  # not enough pulses for ats filters
         data.plot_filters()
 
+    @pytest.mark.filterwarnings("ignore:divide by zero encountered")
     def test_time_drift_correct(self):
         "Check that time_drift_correct at least runs w/o error"
         data = self.load_data()
@@ -247,6 +248,7 @@ class TestTESGroup(ut.TestCase):
         raw2 = ds.data
         self.assertTrue(np.all(rawinv == raw2))
 
+    @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self):
         "Make sure phase_correct works when there are too few valid bins of pulse height"
         data = self.load_data()
@@ -318,7 +320,6 @@ class TestTESGroup(ut.TestCase):
             n_ignore_presamples, require_experiment_state=False
         )
         self.assertEqual(ds.filename, ljh_filename_lists[0][0])
-        self.assertEquals(ds.filename, ljh_filename_lists[0][1])
         off_multi = mass.off.off.OffFile(off_filenames_multi[0])
         self.assertEqual(2*N, len(off_multi))
         self.assertEqual(off[7], off_multi[7])
@@ -369,8 +370,8 @@ class TestTESHDF5Only(ut.TestCase):
         noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
         hdf5_filename = tempfile.mktemp(prefix='_mass.hdf5')
         hdf5_noisefilename = tempfile.mktemp(prefix='_mass_noise.hdf5')
-        data = mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
-                             hdf5_noisefilename=hdf5_noisefilename)
+        mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
+                      hdf5_noisefilename=hdf5_noisefilename)
 
         data2 = mass.TESGroupHDF5(hdf5_filename)
         LOG.info("Testing printing of a TESGroupHDF5")
