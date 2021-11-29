@@ -8,6 +8,7 @@
 * Fix issue 208: allow save/restore of filters to HDF5 even when too long for HDF5 attributes.
 * Fix issue 209: replace dependency xraylib with xraydb.
 * Fix issue 210: add line shapes of Ir, Pt, Au, Pb, Bi L lines.
+* Fix issue 211: hide math warnings during pytest testing.
 
 
 **0.7.6** November 24, 2020

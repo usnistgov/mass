@@ -6,6 +6,7 @@ Created on Jan 13, 2012
 @author: fowlerj
 '''
 import unittest
+import pytest
 import mass
 import numpy as np
 
@@ -320,6 +321,7 @@ class Test_Issue_125(unittest.TestCase):
     """Test that issue 125 is fixed. The following fit used to take infinte time/memory.
     If this returns, then consider that a passing test."""
 
+    @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
     def test_slowfit(self):
         fitter = mass.MnKAlphaFitter()
         fitter._have_warned = True  # eliminate deprecation warnings

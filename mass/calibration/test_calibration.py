@@ -6,6 +6,7 @@ Galen O'Neil
 """
 
 import unittest
+import pytest
 import numpy as np
 import mass
 import h5py
@@ -51,6 +52,7 @@ class TestLineDatabase(unittest.TestCase):
         self.assertGreater(E["MnKAlpha1"], E["MnKAlpha2"])
 
 
+@pytest.mark.filterwarnings("ignore:divide by zero encountered")
 class TestJoeStyleEnergyCalibration(unittest.TestCase):
 
     def test_copy_equality(self):
