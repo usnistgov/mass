@@ -4,6 +4,7 @@ import glob
 import os
 import tempfile
 import unittest as ut
+import pytest
 
 import mass
 
@@ -218,6 +219,7 @@ class TestFilters(ut.TestCase):
                 fL = filterL.filt_noconst[cut_pre:N-cut_post]
                 self.assertTrue(np.allclose(fS, fL))
 
+    @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_dc_insensitive(self):
         """When f_3db or fmax applied, filter should not become DC-sensitive.
         Tests for issue #176."""
