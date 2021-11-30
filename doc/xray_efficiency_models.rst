@@ -1,8 +1,6 @@
 Detector X-ray Efficiency Models
 ================================
 
-.. warning:: This module requires the xraydb python package. You should be able to install with 'sudo pip install xraydb'.
-
 
 Motivation
 ----------

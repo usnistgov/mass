@@ -8,12 +8,7 @@ import mass.materials
 import pylab as plt
 
 
-found_xraydb = "xraydb" in mass.materials.__dict__
-
-
 def test_dict():
-    if not found_xraydb:
-        return
     expected_models = ("EBIT 2018", "Horton 2018", "RAVEN1 2019")
     for k in expected_models:
         assert k in mass.materials.filterstack_models
@@ -44,8 +39,6 @@ def test_ensure_uncertain():
 
 def test_filter():
     """Make sure we can compute composite filter QE and that results are reasonable."""
-    if not found_xraydb:
-        return
     m = mass.materials.filterstack_models["Horton 2018"]
     e = np.linspace(4000, 9000, 6)
     qe = m(e, uncertain=True)
