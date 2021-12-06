@@ -400,7 +400,7 @@ class Channel(CorG):
             inds = np.logical_and(filtValue > lo, filtValue < hi)
             if len(inds) <= 4:
                 continue
-            mad, sigma_equiv, median = mass.off.util.median_absolute_deviation(residualStdDev[inds])
+            mad, sigma_equiv, median = util.median_absolute_deviation(residualStdDev[inds])
             sigmas.append(sigma_equiv)
             medians.append(median)
             fv_mids.append((lo+hi)/2)
