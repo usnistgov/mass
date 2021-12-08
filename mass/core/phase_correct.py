@@ -175,13 +175,18 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
 
         knots = np.zeros(NBINS, dtype=float)
         yknot = np.zeros(NBINS, dtype=float)
+        goodbins = np.ones(NBINS, dtype=bool)
         iter1 = 0
         for i in range(NBINS):
-            knots[i] = np.median(x[bins == i])
+            use = (bins == i)
+            if use.sum() <= 0:
+                goodbins[i] = False
+                continue
+            knots[i] = np.median(x[use])
 
             def target(shift):
                 yadj = y.copy()
-                yadj[bins == i] += shift
+                yadj[use] += shift
                 return mass.mathstat.entropy.laplace_entropy(yadj, kernel_width)
             brack = 0.003*np.array([-1, 1], dtype=float)
             sbest, KLbest, niter, _ = sp.optimize.brent(
@@ -189,13 +194,18 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
             iter1 += niter
             yknot[i] = sbest
 
-        yknot -= yknot.mean()
+        knots = knots[goodbins]
+        yknot = yknot[goodbins]
+        yknot -= np.mean(yknot)
         correction1 = CubicSpline(knots, yknot)
         ycorr = y + correction1(x)
 
         iter2 = 0
         yknot2 = np.zeros(NBINS, dtype=float)
         for i in range(NBINS):
+            if not goodbins[i]:
+                continue
+
             def target(shift):
                 yadj = ycorr.copy()
                 yadj[bins == i] += shift
@@ -205,6 +215,8 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
                 target, (), brack=brack, full_output=True, tol=1e-4)
             iter2 += niter
             yknot2[i] = sbest
+
+        yknot2 = yknot2[goodbins]
         correction = CubicSpline(knots, yknot+yknot2)
         H0 = mass.mathstat.entropy.laplace_entropy(y, kernel_width)
         H1 = mass.mathstat.entropy.laplace_entropy(ycorr, kernel_width)
