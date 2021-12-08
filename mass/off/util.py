@@ -309,7 +309,7 @@ def annotate_lines(axis, labelLines, labelLines_color2=[], color1="k", color2="r
 
 
 class SilenceBar(progress.bar.Bar):
-    "A progres bar that can be turned off by passing silence=True or by setting the log level higher than NOTSET"
+    "A progress bar that can be turned off by passing silence=True or by setting the log level higher than NOTSET"
 
     def __init__(self, message, max, silence):
         self.silence = silence

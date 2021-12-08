@@ -17,7 +17,7 @@ from mass.common import tostr
 # local imports
 import mass
 from .off import OffFile
-from .util import GroupLooper, add_group_loop, RecipeBook
+from .util import GroupLooper, add_group_loop, labelPeak, labelPeaks, Recipe, RecipeBook
 from .util import annotate_lines, SilenceBar, NoCutInds, InvalidStatesException
 from . import util
 from . import fivelag
@@ -668,8 +668,9 @@ class Channel(CorG):
             [indicatorName, uncorrectedName], states, cutRecipeName)
         phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
-        self.recipes.add(correctedName, phaseCorrection.correct, [
-            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName], overwrite=overwrite)
+        ingredients = [phaseCorrection.indicatorName, phaseCorrection.uncorrectedName]
+        self.recipes.add(correctedName, phaseCorrection.correct, ingredients, overwrite=overwrite)
+        return phaseCorrection
 
     @add_group_loop
     def learnTimeDriftCorrection(
