@@ -3,6 +3,7 @@
 **0.7.8** November 29, 2021 - ?
 
 * Put `mass.materials` in default sub-packages for pip installation.
+* Minor improvements to OFF processing.
 
 
 **0.7.7** November 29, 2021
