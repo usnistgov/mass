@@ -434,7 +434,7 @@ class Channel(CorG):
             plt.yscale("log")
             plt.ylim(ymin/2, ymax*2)
 
-    def getStatesIndicies(self, states=None):
+    def getStatesIndices(self, states=None):
         """return a list of slices corresponding to the passed states
         this list is appropriate for passing to _indexOffWithCuts or getRecipeAttr
         """
@@ -504,7 +504,7 @@ class Channel(CorG):
     def _indexOffWithCuts(self, inds, cutRecipeName=None, _listMethodSelect=2):
         """
         inds - a slice or list of slices to index into items with
-        _listMethodSelect - used for debugging and testing, chooses the implmentation of this method used for lists of indicies
+        _listMethodSelect - used for debugging and testing, chooses the implmentation of this method used for lists of indices
         _indexOffWithCuts(slice(0,10), f) is roughly equivalent to:
         g = f(offFile[0:10])
         offFile[0:10][g]
@@ -558,7 +558,7 @@ class Channel(CorG):
         if indsOrStates is None or isinstance(indsOrStates, str) or (isinstance(indsOrStates, list) and isinstance(indsOrStates[0], str)):
             # looks like states
             try:
-                inds = self.getStatesIndicies(indsOrStates)
+                inds = self.getStatesIndices(indsOrStates)
             except InvalidStatesException:
                 inds = indsOrStates
         else:

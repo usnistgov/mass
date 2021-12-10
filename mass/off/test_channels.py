@@ -192,7 +192,7 @@ class TestSummaries(ut.TestCase):
         self.assertAlmostEqual(ds.energy[3], ds.energyRough[3], delta=5)
 
     def test_indexOffWithCuts_with_list_of_inds(self):
-        inds = ds.getStatesIndicies(["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
+        inds = ds.getStatesIndices(["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
         v0 = ds._indexOffWithCuts(inds, _listMethodSelect=0)
         v2 = ds._indexOffWithCuts(inds, _listMethodSelect=2)
         self.assertTrue(np.allclose(v0["filtValue"], v2["filtValue"]))
@@ -204,7 +204,7 @@ class TestSummaries(ut.TestCase):
         ds.getAttr("energy", slice(0, 50))  # index with slice
         ds.getAttr("energy", "Ne")  # index with state
         e0 = ds.getAttr("energy", ["Ne", "W 1"])  # index with list of states
-        inds = ds.getStatesIndicies(["Ne", "W 1"])
+        inds = ds.getStatesIndices(["Ne", "W 1"])
         e1 = ds.getAttr("energy", inds)  # index with inds from same list of states
         self.assertTrue(np.allclose(e0, e1))
 
@@ -274,7 +274,7 @@ class TestSummaries(ut.TestCase):
         self.assertEqual(n_exclude_bad, 0)
 
     def test_experiment_state_file_repeated_states(self):
-        # A better test would create an alternate experiment state file with repeated indicies and use that
+        # A better test would create an alternate experiment state file with repeated indices and use that
         # rather than reach into the internals of ExperimentStateFile
         esf = mass.off.channels.ExperimentStateFile(_parse=False)
         # reach into the internals to simulate the results of parse with repeated states
@@ -292,7 +292,7 @@ class TestSummaries(ut.TestCase):
         data_local = ChannelGroup([filename], experimentStateFile=esf)
         ds_local = data_local.firstGoodChannel()
         ds_local.stdDevResThreshold = 100
-        inds = ds_local.getStatesIndicies("A")
+        inds = ds_local.getStatesIndices("A")
         _ = ds_local.getAttr("filtValue", inds)
 
 
