@@ -1166,12 +1166,10 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def _handleDefaultCut(self, cutRecipeName):
         ds = self.firstGoodChannel()
-        defaultCut = ds._default_cut_recipe_name
+        cutRecipeName = ds._handleDefaultCut(cutRecipeName)
         for ds in self.values():
-            if ds._default_cut_recipe_name != defaultCut:
-                raise Exception(
-                    "you are tyring to use the default cut from a channel group, but not all channels have the same default cut")
-        return defaultCut
+            assert cutRecipeName in ds.recipes.keys(), f"{ds} lacks cut recipe {cutRecipeName}"
+        return cutRecipeName
 
     @property
     def shortName(self):
