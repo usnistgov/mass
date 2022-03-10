@@ -249,6 +249,31 @@ class TestSummaries(ut.TestCase):
         n_new_labels_2, n_new_pulses_dict2 = data.refreshFromFiles()
         self.assertEqual(n_new_labels_2, 0)
 
+    @xfail_on_windows
+    def test_refresh_from_files_same_state(self):
+        # here we test the case where we're taking data in the same state
+        # and just get more pulses in and want to see them when we refresh from files
+        
+        # ds and data refers to the global variable from the script before the tests
+        # while ds_local and data_local refer to the similar local variables
+        data_local = ChannelGroup([filename], verbose=False)
+        ds_local = data_local.firstGoodChannel()
+        experimentStateFile = data_local.experimentStateFile
+        # reach inside offFile and experimentStateFile to make it look like the files were originally opened halfway through state I
+        # then we refresh to learn about the rest of I
+        # the numerical constants are chosen to make sense for this scenario... if you vary one you may need to vary all        
+        ds_local.offFile._updateMmap(_nRecords=19000)  # mmap only the first half of records
+        experimentStateFile.unaliasedLabels = experimentStateFile.applyExcludesToLabels(
+            experimentStateFile.allLabels)
+        assert ds_local.statesDict["I"] == slice(18639, 19000, None) # foces statesDict to be calculated
+        self.assertEqual(len(ds_local), 19000)
+        self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E", "F", "G", "H", "I"])
+        n_new_labels, n_new_pulses_dict = data_local.refreshFromFiles()
+        assert n_new_labels == 0
+        assert n_new_pulses_dict[ds.channum] == 445
+        assert ds_local.statesDict["I"] == slice(18639, 19445, None) # foces statesDict to be calculated
+
+
     def test_bad_channels_skipped(self):
         # try:
         data_local = ChannelGroup([filename])

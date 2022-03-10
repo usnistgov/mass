@@ -114,6 +114,14 @@ class ExperimentStateFile():
         if statesDict is None:
             statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
+        # print(f"""{unixnanos=} 
+        # {statesDict=} 
+        # {i0_allLabels=}
+        # {i0_unixnanos=}
+        # {len(self.unixnanos)=}
+        # {len(statesDict.keys())=}
+        # {len(inds)=}
+        # {inds=}""")
         # the state that was active last time calcStatesDict was called may need special handling
         if len(statesDict.keys()) > 0 and len(inds) > 0:
             assert i0_allLabels > 0
@@ -122,6 +130,12 @@ class ExperimentStateFile():
             s = statesDict[last_key]
             s2 = slice(s.start, inds[0])
             statesDict[k] = s2
+        elif len(inds) == 0:
+            for k in statesDict.keys():
+                last_key = k
+            s = statesDict[last_key]
+            s2 = slice(s.start, i0_unixnanos+len(unixnanos))
+            statesDict[k] = s2            
         # iterate over self.allLabels because it corresponds to self.unixnanos
         for i, label in enumerate(self.allLabels[i0_allLabels:]):
             if label not in self.unaliasedLabels:
