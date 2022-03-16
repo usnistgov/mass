@@ -19,7 +19,7 @@ LOG = logging.getLogger("mass")
 FWHM_OVER_SIGMA = (8 * np.log(2))**0.5
 
 
-class SpectralLine(sp.stats.rv_continuous):
+class SpectralLine():
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 
@@ -79,7 +79,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def pdf(self, x, instrument_gaussian_fwhm):
         """Spectrum (units of fraction per eV) as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
-        x = np.asarray(x, dtype=np.float)
+        x = np.asarray(x, dtype=float)
         result = np.zeros_like(x)
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
@@ -90,7 +90,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def components(self, x, instrument_gaussian_fwhm):
         """List of spectrum components as a function of <x>, the energy in eV"""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
-        x = np.asarray(x, dtype=np.float)
+        x = np.asarray(x, dtype=float)
         components = []
         for energy, fwhm, ampl in zip(self.energies, self.lorentzian_fwhm,
                                       self.normalized_lorentzian_integral_intensity):
@@ -134,8 +134,7 @@ class SpectralLine(sp.stats.rv_continuous):
     def rvs(self, size, instrument_gaussian_fwhm):
         """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
         compute.  But it's easy enough to generate the random variates themselves, so we
-        override that method.  Don't call this directly!  Instead call .rvs(), which wraps this.
-        Takes gaussian_fwhm as a keyword argument."""
+        override that method."""
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         # Choose from among the N Lorentzian lines in proportion to the line amplitudes
         iline = self.cumulative_amplitudes.searchsorted(
@@ -270,8 +269,8 @@ lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Frit
     Phys Rev A56 (#6) pages 4554ff (1997 December) model, with the numbers
     adjusted to get line energies of 8615.823, 8638.91 eV and widths 10% wider
     than for Cu. Those widths are based on Zschornack's book.
-
     The KBeta also appears to be a hack with scaled values."""
+lineshape_references["Zschornack"] = """Zschornack, Günter H. (2007). Handbook of X-Ray Data. Springer-Verlag, Berlin."""
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
 lineshape_references["Joe Fowler"] = """This is what Joe Fowler measured for tungsten L-lines in 2018."""
 lineshape_references["NIST ASD"] = """NIST Atomic Spectra Database
@@ -315,6 +314,9 @@ Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s pho
 https://doi.org/10.1103/PhysRevA.62.062508"""
 lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (2018) 125139
     https://doi.org/10.1103/PhysRevB.97.125139"""
+lineshape_references["Ito 2020"] = """Ito, Y., Tochio, T., Yamashita, M., Fukushima, S., Vlaicu, A. M.,
+Marques, J. P., ... Parente, F. (2020). Structure of Kα - and Kβ-emission x-ray spectra for Se, Y, and Zr.
+Physical Review A, 102(5), 052820. https://doi.org/10.1103/PhysRevA.102.052820"""
 
 spectra = OrderedDict()
 spectrum_classes = OrderedDict()  # for backwards compatability
@@ -327,7 +329,8 @@ VOIGT_PEAK_HEIGHT = 99999
 def addline(element, linetype, material, reference_short, reference_plot_instrument_gaussian_fwhm,
             nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
             reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
-            position_uncertainty=np.NaN, intrinsic_sigma=0, reference_measurement_type=None, is_default_material=True):
+            position_uncertainty=np.NaN, intrinsic_sigma=0, reference_measurement_type=None,
+            is_default_material=True, allow_replacement=False):
 
     # require exactly one method of specifying the amplitude of each component
     assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT,
@@ -376,7 +379,7 @@ def addline(element, linetype, material, reference_short, reference_plot_instrum
     if linetype.startswith("KAlpha"):
         line.ka12_energy_diff = ka12_energy_diff
     name = line.shortname
-    if name in spectra.keys():
+    if name in spectra.keys() and (not allow_replacement):
         raise ValueError("spectrum {} already exists".format(name))
 
     # Add this SpectralLine to spectra dict AND make it be a variable in the module
@@ -782,6 +785,35 @@ addline(
 )
 
 addline(
+    element="Se",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Ito 2020",  # Table III
+    reference_plot_instrument_gaussian_fwhm=0.17,
+    nominal_peak_energy=11222.383,
+    energies=np.array((11222.380, 11217.573, 11181.48, 11178.55)),
+    lorentzian_fwhm=np.array((3.633, 3.53, 3.579, 3.02)),
+    reference_amplitude=np.array((100, 1.68, 50.83, 1.80)),
+    ka12_energy_diff=40.944,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Se",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Ito 2020",  # Table IV
+    reference_plot_instrument_gaussian_fwhm=0.17,
+    nominal_peak_energy=12495.911,
+    energies=np.array((12495.911, 12490.094, 12503.11, 12652.840)),
+    lorentzian_fwhm=np.array((4.285, 5.70, 6.25, 4.81)),
+    reference_amplitude=np.array((100, 63.3, 8.1, 5.24)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
     element="Br",
     material="metal",
     linetype="KAlpha",
@@ -793,6 +825,66 @@ addline(
     reference_amplitude=np.array((2, 1)),
     ka12_energy_diff=46.6,
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+)
+
+
+addline(
+    element="Y",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Ito 2020",  # Table III
+    reference_plot_instrument_gaussian_fwhm=0.21,
+    nominal_peak_energy=14958.389,
+    energies=np.array((14958.389, 14883.403)),
+    lorentzian_fwhm=np.array((5.464, 5.393)),
+    reference_amplitude=np.array((100, 52.23)),
+    ka12_energy_diff=74.986,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Y",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Ito 2020",  # Table IV
+    reference_plot_instrument_gaussian_fwhm=0.21,
+    nominal_peak_energy=16737.89,
+    energies=np.array((16737.88, 16726.02, 16746.2, 17010.57)),
+    lorentzian_fwhm=np.array((5.60, 5.53, 17.0, 5.80)),
+    reference_amplitude=np.array((100, 52.6, 1.80, 1.68)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Zr",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Ito 2020",  # Table III
+    reference_plot_instrument_gaussian_fwhm=0.22,
+    nominal_peak_energy=15774.87,
+    energies=np.array((15774.87, 15690.77)),
+    lorentzian_fwhm=np.array((5.865, 5.845)),
+    reference_amplitude=np.array((100, 52.53)),
+    ka12_energy_diff=84.10,
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+)
+
+
+addline(
+    element="Zr",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Ito 2020",  # Table IV
+    reference_plot_instrument_gaussian_fwhm=0.22,
+    nominal_peak_energy=17666.578,
+    energies=np.array((17667.78, 17654.31, 17680)),
+    # The last (Kb'') energy is reported as 15774.87(31), which is clearly a typo.
+    # We estimate 17680 by reading Figure 2.
+    lorentzian_fwhm=np.array((6.171, 5.89, 10.8)),
+    reference_amplitude=np.array((100, 50.49, 5.2)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
 )
 
 
@@ -837,6 +929,140 @@ addline(
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
 )
 
+addline(
+    element="Ir",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=9175.2,
+    energies=np.array([9099.6, 9175.2]),
+    lorentzian_fwhm=np.array([7.34, 8.10]),
+    reference_amplitude=np.array([.123, 1.079]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Ir",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=10708.35,
+    energies=np.array([10708.35]),
+    lorentzian_fwhm=np.array((6.80,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+addline(
+    element="Pt",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=9442.39,
+    energies=np.array([9361.96, 9442.39]),
+    lorentzian_fwhm=np.array([7.3, 7.4]),
+    reference_amplitude=np.array([.130, 1.145]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Pt",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=11070.84,
+    energies=np.array([11070.84]),
+    lorentzian_fwhm=np.array((7.43,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+addline(
+    element="Au",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=9713.44,
+    energies=np.array([9628.05, 9713.44]),
+    lorentzian_fwhm=np.array([7.61, 8.60]),
+    reference_amplitude=np.array([.1377, 1.214]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Au",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=11442.5,
+    energies=np.array([11442.5]),
+    lorentzian_fwhm=np.array((8.5,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+addline(
+    element="Pb",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=10551.7,
+    energies=np.array([10449.6, 10551.6]),
+    lorentzian_fwhm=np.array([9.35, 9.50]),
+    reference_amplitude=np.array([.1633, 1.438]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Pb",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=12613.80,
+    energies=np.array([12613.80]),
+    lorentzian_fwhm=np.array((8.40,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+addline(
+    element="Bi",
+    linetype="LAlpha",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=10838.94,
+    energies=np.array([10731.06, 10838.94]),
+    lorentzian_fwhm=np.array([8.67, 9.80]),
+    reference_amplitude=np.array([.1726, 1.519]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Bi",
+    linetype="LBeta1",
+    material="metal",
+    reference_short='Zschornack',
+    nominal_peak_energy=13023.65,
+    energies=np.array([13023.65]),
+    lorentzian_fwhm=np.array((9.603,)),
+    reference_amplitude=np.array((1,)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
 
 addline(
     element="Nb",

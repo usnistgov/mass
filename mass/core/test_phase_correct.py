@@ -38,7 +38,7 @@ class TestPhaseCorrect(ut.TestCase):
         ds.p_filt_value[:] = ph[:]
         ds.p_filt_phase[:] = phase[:]
         ds.phase_correct(ph_peaks=ph_peaks)
-        # there seems to be some sort of rounding issue of numpy.float32 vs hdf5 storage as float32
+        # there seems to be some sort of rounding issue of np.float32 vs hdf5 storage as np.float32
         # such that I don't get exactly the same value for this case, so loop with approximat comparison
         # I'm a bit disturbed and confused here, but just going with it for now
         for (a, b) in zip(ds.phaseCorrector(phase, ph), ds.p_filt_value_phc[:]):

@@ -9,7 +9,6 @@ Single-channel classes:
 import h5py
 import numpy as np
 import scipy as sp
-import scipy.signal
 import matplotlib.pylab as plt
 import inspect
 import os
@@ -306,9 +305,9 @@ class NoiseRecords(object):
             # padded_data is what we do DFT/InvDFT on; ac is the unnormalized output.
             chunksize = CHUNK_MULTIPLE * n_lags
             padsize = n_lags
-            padded_data = np.zeros(padded_length(padsize+chunksize), dtype=np.float)
+            padded_data = np.zeros(padded_length(padsize+chunksize), dtype=float)
 
-            ac = np.zeros(n_lags, dtype=np.float)
+            ac = np.zeros(n_lags, dtype=float)
 
             entries = 0.0
 
@@ -360,7 +359,7 @@ class NoiseRecords(object):
                     "Apparently all chunks had excusions, so no autocorrelation was computed")
 
             ac /= entries
-            ac /= (np.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=np.float))
+            ac /= (np.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=float))
 
         # compute the full autocorrelation
         else:
@@ -397,7 +396,7 @@ class NoiseRecords(object):
             n_data = data_samples[1] - data_samples[0]
 
             records_used = samples_used = 0
-            ac = np.zeros(self.nSamples, dtype=np.float)
+            ac = np.zeros(self.nSamples, dtype=float)
             try:
                 for first_pnum, end_pnum, _seg_num, intdata in self.datafile.iter_segments():
                     if end_pnum <= data_samples[0]:
@@ -424,7 +423,7 @@ class NoiseRecords(object):
                 pass
 
             ac /= records_used
-            ac /= self.nSamples - np.arange(self.nSamples, dtype=np.float)
+            ac /= self.nSamples - np.arange(self.nSamples, dtype=float)
             if n_lags < self.nSamples:
                 ac = ac[:n_lags]
             self.autocorrelation[:] = ac
@@ -583,10 +582,12 @@ def _add_group_loop():
             ...
     """
     is_running_tests = "pytest" in sys.modules
+
     def decorator(method):
         method_name = method.__name__
+
         def wrapper(self, *args,  **kwargs):
-            rethrow = kwargs.pop("_rethrow", is_running_tests) # always throw errors when testing
+            rethrow = kwargs.pop("_rethrow", is_running_tests)  # always throw errors when testing
             for ds in self:
                 try:
                     method(ds, *args, **kwargs)
@@ -736,7 +737,7 @@ class MicrocalDataSet(object):
         for dtype, fieldnames in ((np.float64, float64_fields),
                                   (np.float32, float32_fields),
                                   (np.uint16, uint16_fields),
-                                  (np.bool, bool_fields),
+                                  (bool, bool_fields),
                                   (np.int64, int64_fields)):
             for field in fieldnames:
                 self.__dict__['p_%s' % field] = h5grp.require_dataset(field, shape=(npulses,),
@@ -779,8 +780,13 @@ class MicrocalDataSet(object):
             if filter_type == "ats":
                 # arrival time safe filter can be shorter than records by 1 sample, or equal in length
                 if version > 0:
-                    avg_signal, aterms = filter_group.attrs["avg_signal"][(
-                    )], filter_group["filt_aterms"][()]
+                    # Version 1 avg_signal was an attribute until Nov 2021, when we fixed #208.
+                    # Try to read as a dataset, then as attribute so that old HDF5 files still work.
+                    try:
+                        avg_signal = filter_group["avg_signal"][()]
+                    except KeyError:
+                        avg_signal = filter_group.attrs["avg_signal"][()]
+                    aterms = filter_group["filt_aterms"][()]
                 else:
                     # version 0 hdf5 files did not storage avg_signal, use truncated average_pulse instead
                     avg_signal, aterms = self.average_pulse[1:], filter_group["filt_aterms"][()]
@@ -1089,11 +1095,11 @@ class MicrocalDataSet(object):
             return
 
         pulse_count = 0
-        pulse_sum = np.zeros(self.nSamples, dtype=np.float)
+        pulse_sum = np.zeros(self.nSamples, dtype=float)
 
         # Compute a master mask to say whether ANY mask wants a pulse from each segment
         # This can speed up work a lot when the pulses being averaged are from certain times only.
-        segment_mask = np.zeros(self.pulse_records.n_segments, dtype=np.bool)
+        segment_mask = np.zeros(self.pulse_records.n_segments, dtype=bool)
         n = len(mask)
         ppseg = self.pulse_records.pulses_per_seg
         nseg = 1 + (n - 1) // ppseg
@@ -1170,8 +1176,8 @@ class MicrocalDataSet(object):
         h5grp.attrs['peak'] = self.filter.peak_signal
         h5grp.attrs['shorten'] = self.filter.shorten
         h5grp.attrs['filter_type'] = self._filter_type
-        h5grp.attrs["avg_signal"] = self.filter.avg_signal
         h5grp.attrs["version"] = 1
+        h5grp.create_dataset("avg_signal", data=self.filter.avg_signal)
         for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
                   "filt_baseline", "filt_baseline_pretrig", 'filt_aterms']:
             if k in h5grp:
@@ -1212,7 +1218,7 @@ class MicrocalDataSet(object):
                              spectrum, self.noise_autocorr, sample_time=self.timebase,
                              shorten=2, cut_pre=cut_pre, cut_post=cut_post)
         f.compute(fmax=fmax, f_3db=f_3db)
-        return f        
+        return f
 
     @_add_group_loop()
     def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0,
@@ -1273,7 +1279,7 @@ class MicrocalDataSet(object):
         prompt -= promptshift(prms)
 
         # Scale promptness quadratically to cover the range -0.5 to +0.5, approximately
-        x, y, z = sp.stats.scoreatpercentile(prompt[use], [10, 50, 90])
+        x, y, z = np.percentile(prompt[use], [10, 50, 90])
         A = np.array([[x*x, x, 1],
                       [y*y, y, 1],
                       [z*z, z, 1]])
@@ -1373,8 +1379,8 @@ class MicrocalDataSet(object):
         self.pulse_records.datafile.clear_cached_segment()
         self.hdf5_group.file.flush()
 
-    def get_pulse_model(self, f, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag=0, 
-            maximum_n_pulses=4000, noise_weight_basis=True, category={}):
+    def get_pulse_model(self, f, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag=0,
+                        maximum_n_pulses=4000, noise_weight_basis=True, category={}):
         assert n_basis >= 3
         assert isinstance(f, ArrivalTimeSafeFilter), "requires arrival time safe filter"
         deriv_like_model = f.pulsemodel[:, 1]
@@ -1413,7 +1419,7 @@ class MicrocalDataSet(object):
         return self.pulse_model
 
     @_add_group_loop()
-    def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None, extra_n_basis_5lag=0, 
+    def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None, extra_n_basis_5lag=0,
                              maximum_n_pulses=4000, noise_weight_basis=True, category={}):
         self.avg_pulses_auto_masks(forceNew=False, max_pulses_to_use=maximum_n_pulses)
         f_5lag = self._compute_5lag_filter_no_mutation(fmax=None, f_3db=None, cut_pre=0, cut_post=0)
@@ -1433,14 +1439,14 @@ class MicrocalDataSet(object):
         fit_array = np.array((
             (-6, 24, 34, 24, -6),
             (-14, -7, 0, 7, 14),
-            (10, -5, -10, -5, 10)), dtype=np.float)/70.0
+            (10, -5, -10, -5, 10)), dtype=float)/70.0
 
         assert len(filter_values) + 4 == self.nSamples
 
         seg_size = end - first
         assert seg_size == self.data.shape[0]
         data = self.data
-        conv = np.zeros((5, seg_size), dtype=np.float)
+        conv = np.zeros((5, seg_size), dtype=float)
         if transform is not None:
             ptmean = self.p_pretrig_mean[first:end]
             ptmean.shape = (seg_size, 1)
@@ -1577,7 +1583,7 @@ class MicrocalDataSet(object):
             # Histogram (right-hand panels)
             plt.subplot(len(plottables), 2, 2+i*2)
             if limits is None:
-                in_limit = np.ones(len(vect), dtype=np.bool)
+                in_limit = np.ones(len(vect), dtype=bool)
             else:
                 in_limit = np.logical_and(vect[:] > limits[0], vect[:] < limits[1])
             contents, _bins, _patches = plt.hist(vect[in_limit], 200, log=log,
@@ -2313,7 +2319,7 @@ class MicrocalDataSet(object):
             # Set up combined crosstalk flag array in hdf5 file
             h5grp = self.hdf5_group.require_group('crosstalk_flags')
 
-            crosstalk_array_dtype = np.bool
+            crosstalk_array_dtype = bool
             self.__dict__['p_%s' % crosstalk_key] = h5grp.require_dataset(
                 crosstalk_key, shape=(self.nPulses,), dtype=crosstalk_array_dtype)
 
@@ -2531,7 +2537,7 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
       polynomials, so that we can have more than 20 d.o.f. eventually, for long runs.
     """
     if limit is None:
-        pct99 = sp.stats.scoreatpercentile(uncorrected, 99)
+        pct99 = np.percentile(uncorrected, 99)
         limit = [0, 1.25 * pct99]
 
     use = np.logical_and(uncorrected > limit[0], uncorrected < limit[1])

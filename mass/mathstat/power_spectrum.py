@@ -17,7 +17,7 @@ October 13, 2010
 Usage:
 
 import power_spectrum as ps
-import pylab
+import pylab as plt
 N=1024
 M=N/4
 data=np.random.standard_normal(N)
@@ -25,17 +25,17 @@ spec = ps.PowerSpectrum(M, dt=1e-6)
 window = ps.hann(2*M)
 for i in range(3):
     spec.addDataSegment(data[i*M : (i+2)*M], window=window)
-pylab.plot(spec.frequencies(), spec.spectrum())
+plt.plot(spec.frequencies(), spec.spectrum())
 
 Or you can use the convenience function that hides the class objects
 from you and simply returns a (frequency,spectrum) pair of arrays:
 
 N=1024
 data=np.random.standard_normal(N)
-pylab.clf()
+plt.clf()
 for i in (2,4,8,1):
     f,s = ps.computeSpectrum(data, segfactor=i, dt=1e-6, window=np.hanning)
-    pylab.plot(f, s)
+    plt.plot(f, s)
 
 Window choices are:
 bartlett - Triangle shape
@@ -55,7 +55,7 @@ on different data segments, though honestly that would be really weird.
 """
 
 import numpy as np
-import matplotlib.pylab as pylab
+import pylab as plt
 
 __all__ = ['PowerSpectrum', 'PowerSpectrumOverlap',
            'bartlett', 'welch', 'hann', 'hamming',
@@ -76,7 +76,7 @@ class PowerSpectrum(object):
         self.m = m
         self.m2 = 2*m
         self.nsegments = 0
-        self.specsum = np.zeros(m+1, dtype=np.float)
+        self.specsum = np.zeros(m+1, dtype=float)
         self.dt = dt
         if dt is None:
             self.dt = 1.0
@@ -137,8 +137,8 @@ class PowerSpectrum(object):
         if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
 
-        newbin = np.asarray(0.5+np.arange(self.m+1, dtype=np.float)/(self.m+1)*nbins, dtype=np.int)
-        result = np.zeros(nbins+1, dtype=np.float)
+        newbin = np.asarray(0.5+np.arange(self.m+1, dtype=float)/(self.m+1)*nbins, dtype=int)
+        result = np.zeros(nbins+1, dtype=float)
         for i in range(nbins+1):
             result[i] = self.specsum[newbin == i].mean()
         return result/self.nsegments
@@ -153,7 +153,7 @@ class PowerSpectrum(object):
             nbins = self.m
         if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
-        return np.arange(nbins+1, dtype=np.float)/(2*self.dt*nbins)
+        return np.arange(nbins+1, dtype=float)/(2*self.dt*nbins)
 
 
 class PowerSpectrumOverlap(PowerSpectrum):
@@ -205,13 +205,13 @@ def bartlett(n):
 
 def welch(n):
     """A Welch window (parabolic) of length n"""
-    return 1 - (2*np.arange(n, dtype=np.float)/(n - 1.) - 1)**2
+    return 1 - (2*np.arange(n, dtype=float)/(n - 1.) - 1)**2
 
 
 def hann(n):
     """A Hann window (sine-squared) of length n"""
     # twopi = np.pi*2
-    # i = np.arange(n, dtype=np.float)
+    # i = np.arange(n, dtype=float)
     # return  0.5*(1.0-np.cos(i*twopi/(n-1)))
     return np.hanning(n)
 
@@ -266,7 +266,7 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
 
 def demo(N=1024, window=np.hanning):
     data = np.random.standard_normal(N)
-    pylab.clf()
+    plt.clf()
     for i in (2, 4, 8, 1):
         f, s = computeSpectrum(data, segfactor=i, dt=1e0, window=window)
-        pylab.plot(f, s)
+        plt.plot(f, s)

@@ -68,6 +68,8 @@ def parse_args(fake):
                         action="store_true")
     parser.add_argument("--extra_n_basis_5lag", help="use this many basis components to improve 5 lag filter representation",
                         default=0, type=int)
+    parser.add_argument("--noise_weight_basis", help="pass false to not apply noise weighting when making projectors",
+    default=False, type=bool)
     args = parser.parse_args()
     return args
 
@@ -110,7 +112,7 @@ def main(args=None):
                                     n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path,
                                     mass_hdf5_noise_path=args.mass_hdf5_noise_path, 
                                     invert_data=args.invert_data, optimize_dp_dt=not args.dont_optimize_dp_dt,
-                                    extra_n_basis_5lag=args.extra_n_basis_5lag, noise_weight_basis=args.noise_weight_basis)
+                                    extra_n_basis_5lag=args.extra_n_basis_5lag, noise_weight_basis=True)
     if not args.silent:
         if n_good == 0:
             print(f"all channels bad, could be because you need -i for inverted pulses")

@@ -43,7 +43,7 @@ def find_local_maxima(pulse_heights, gaussian_fwhm):
     pulses in peak) AND their peak values as: (peak_locations, peak_intensities)
 
     Args:
-        pulse_heights (numpy.array(dtype=np.float)): a list of pulse heights (eg p_filt_value)
+        pulse_heights (np.array(dtype=float)): a list of pulse heights (eg p_filt_value)
         gaussian_fwhm = fwhm of a gaussian that each pulse is smeared with, in same units as pulse heights
     """
     # kernel density estimation (with a gaussian kernel)
@@ -71,7 +71,7 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
     """Tries to find an assignment of peaks to line names that is reasonably self consistent and smooth
 
     Args:
-        peak_positions (numpy.array(dtype=numpy.float)): a list of peak locations in arb units,
+        peak_positions (np.array(dtype=float)): a list of peak locations in arb units,
             e.g. p_filt_value units
         line_names (list[str or float)]): a list of calibration lines either as number (which is
             energies in eV), or name to be looked up in STANDARD_FEATURES
@@ -193,7 +193,7 @@ def getmodel(name):
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph, hide_deprecation=False):
     """
     Args:
-        ph (numpy.array(dtype=float)): list of pulse heights
+        ph (np.array(dtype=float)): list of pulse heights
         line_names: names of calibration  lines
         fit_lo_hi (list[list[float]]): a list of (lo,hi) with units of ph, used as
             edges of histograms for fitting

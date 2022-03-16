@@ -209,7 +209,7 @@ If you want to multiply the line models by a model of the quantum efficiency, yo
   # print(resultD.fit_report())
 
   fit_counts = resultD.params["integral"].value
-  localqe= qemodel(mass.STANDARD_FEATURES["MnKAlpha"])[0]
+  localqe = qemodel(mass.STANDARD_FEATURES["MnKAlpha"])
   fit_observed = fit_counts*localqe
   fit_err = resultD.params["integral"].stderr
   count_err = fit_err*localqe
@@ -219,7 +219,7 @@ If you want to multiply the line models by a model of the quantum efficiency, yo
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  Fit finds 168780±550 counts before QE, or 100130±330 observed. True value 100000.
+  Fit finds 168990±550 counts before QE, or 100130±330 observed. True value 100000.
 
 .. testcode::
   :hide:

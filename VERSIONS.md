@@ -1,9 +1,20 @@
 ## Note on version numbers of Mass
 
+**0.7.7** November 29, 2021
+
+* Fix issue 205: add line shapes of Se, Y, Zr K lines from Ito et al 2020.
+* Fix issue 206: update calibration curves: uncertainty and better smoothing spline theory.
+* Fix issue 207: update usage of numpy/Cython; standardize imports of numpy/scipy/pylab as np/sp/plt.
+* Fix issue 208: allow save/restore of filters to HDF5 even when too long for HDF5 attributes.
+* Fix issue 209: replace dependency xraylib with xraydb.
+* Fix issue 210: add line shapes of Ir, Pt, Au, Pb, Bi L lines.
+* Fix issue 211: hide math warnings during pytest testing.
+
+
 **0.7.6** November 24, 2020
 
 * Fix issue 189: clean up top-level directory and pytest configuration.
-* Fix issue 191: typos in our CrKAlpha line and apparent typo in Hšlzer on the FeKAlpha line.
+* Fix issue 191: typos in our CrKAlpha line and apparent typo in HÃ¶lzer on the FeKAlpha line.
 * Fix issue 192: some problem with using `MLEModel` for fits that aren't spectral lines.
 * Fix issue 193: problem in fitting to histograms with `dtype=np.float32` for the bin edges.
 * Fix issue 194: triggers the too-narrow-bins fit error when it should not, if dPH/dE >> 1.
@@ -18,13 +29,13 @@
 * Replace line fitting documentation with a doctest document.
 
 
-**0.7.5** March 31 2020
+**0.7.5** March 31, 2020
 
 * This is the last version that supports Python 2.7.
 * `mass.spectra` contains dictionary of class instances instead of class objects.
 * Fix long lines and other pep8 warnings. Fix the Make targets pep8 and lint for Python3.
 
-**0.7.4** March 26 2020
+**0.7.4** March 26, 2020
 
 * Make `mass` installable by pip.
 * Add entry points so some scripts are automatically installed.
