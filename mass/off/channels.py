@@ -582,6 +582,23 @@ class Channel(CorG):
             raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(
                 attr, list(self._offAttrs), list(self._recipeAttrs)))
 
+    def plotAvsB2d(self, nameA, nameB, binEdgesAB, axis=None, states=None, cutRecipeName=None):
+        cutRecipeName = self._handleDefaultCut(cutRecipeName)
+        if axis is None:
+            plt.figure()
+            axis = plt.gca()
+        if states is None:
+            states = self.stateLabels
+        vA, vB = self.getAttr([nameA, nameB], states, cutRecipeName)
+        counts, binEdgesA, binEdgesB = np.histogram2d(vA, vB, binEdgesAB)
+        binCentersA = 0.5*(binEdgesA[1:]+binEdgesA[:-1])
+        binCentersB = 0.5*(binEdgesB[1:]+binEdgesB[:-1])
+        plt.contourf(binCentersA, binCentersB, counts.T)
+        plt.xlabel(nameA)
+        plt.ylabel(nameB)
+        plt.title(f"{self.shortName}\ncutRecipeName={cutRecipeName}")
+        return axis
+
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, cutRecipeName=None):
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         if axis is None:
