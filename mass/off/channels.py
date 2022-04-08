@@ -737,7 +737,7 @@ class Channel(CorG):
     @add_group_loop
     def calibrateFollowingPlan(self, uncalibratedName, calibratedName="energy", curvetype="gain", approximate=False,
                                dlo=50, dhi=50, binsize=None, plan=None, n_iter=1, method="leastsq_refit", overwriteRecipe=False,
-                               has_tails=False, params_update=lmfit.Parameters()):
+                               has_tails=False, params_update=lmfit.Parameters(), cutRecipeName=None):
         if plan is None:
             plan = self.calibrationPlan
         starting_cal = plan.getRoughCalibration()
@@ -749,7 +749,8 @@ class Channel(CorG):
             for (ph, line, states) in zip(plan.uncalibratedVals, plan.lines, plan.states):
                 result = self.linefit(line, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                       plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
-                                      method=method, params_update=params_update, has_tails=has_tails)
+                                      method=method, params_update=params_update, has_tails=has_tails,
+                                      cutRecipeName=cutRecipeName)
 
                 results.append(result)
                 if not result.success:
