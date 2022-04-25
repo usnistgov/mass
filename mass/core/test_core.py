@@ -357,6 +357,8 @@ class TestTESGroup(ut.TestCase):
                 self.dont_optimize_dp_dt = True
                 self.extra_n_basis_5lag = 1
                 self.noise_weight_basis = True
+                self.f_3db_ats = None
+                self.f_3db_5lag = None
 
         mass.core.projectors_script.main(Args())
 
