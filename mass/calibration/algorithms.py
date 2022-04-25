@@ -219,6 +219,9 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph, hide_deprecat
 
 
 def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
+    nbins = (hi-lo)/binsize_ph
+    if nbins > 5000:
+        raise Exception("too damn many bins, dont like running out of memory")
     counts, bin_edges = np.histogram(ph, np.arange(lo, hi, binsize_ph))
     e = bin_edges[:-1] + 0.5*(bin_edges[1]-bin_edges[0])
     model = getmodel(name)

@@ -1196,6 +1196,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                           color=cmap(float(i) / nplot))
             except Exception:
                 LOG.warning("WARNING: Could not plot channel %4d.", channum)
+                continue
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")
