@@ -615,7 +615,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False,
                             maximum_n_pulses=4000, extra_n_basis_5lag=0, noise_weight_basis=True,
-                            category={}, _rethrow=False):
+                            category={}, f_3db_5lag=None, _rethrow=False):
         if hdf5_file is None:
             basename, _ = self.datasets[0].filename.split("chan")
             hdf5_filename = basename+"model.hdf5"
@@ -627,14 +627,14 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 self._pulse_model_to_hdf5(
                     hdf5_file, n_basis, pulses_for_svd=None,
                     extra_n_basis_5lag=extra_n_basis_5lag, maximum_n_pulses=maximum_n_pulses,
-                    category=category, noise_weight_basis=noise_weight_basis, _rethrow=_rethrow)
+                    category=category, noise_weight_basis=noise_weight_basis, f_3db_5lag=f_3db_5lag, _rethrow=_rethrow)
                 LOG.info("writing pulse_model to {}".format(hdf5_filename))
         else:
             hdf5_filename = hdf5_file.filename
             LOG.info("writing pulse_model to {}".format(hdf5_filename))
             self._pulse_model_to_hdf5(
                 hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses,
-                extra_n_basis_5lag=extra_n_basis_5lag, category=category)
+                extra_n_basis_5lag=extra_n_basis_5lag, f_3db_5lag=f_3db_5lag, category=category)
         return hdf5_filename
 
     def calc_external_trigger_timing(self, after_last=False, until_next=False,

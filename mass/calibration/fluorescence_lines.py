@@ -203,6 +203,7 @@ class SpectralLine():
         Returns and instrance of SpectralLine with most fields having contents like "unknown: quick_line". The line will have
         a single lorentzian element with the given energy, fwhm, and intrinsic_sigma values.
         """
+        energy = float(energy)
         element = name
         material = "unknown: quick_line"
         energies = np.array([energy])

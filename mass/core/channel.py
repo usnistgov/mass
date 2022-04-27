@@ -1420,9 +1420,9 @@ class MicrocalDataSet(object):
 
     @_add_group_loop()
     def _pulse_model_to_hdf5(self, hdf5_file, n_basis, pulses_for_svd=None, extra_n_basis_5lag=0,
-                             maximum_n_pulses=4000, noise_weight_basis=True, category={}):
+                             maximum_n_pulses=4000, noise_weight_basis=True, f_3db_5lag=None, category={}):
         self.avg_pulses_auto_masks(forceNew=False, max_pulses_to_use=maximum_n_pulses)
-        f_5lag = self._compute_5lag_filter_no_mutation(fmax=None, f_3db=None, cut_pre=0, cut_post=0)
+        f_5lag = self._compute_5lag_filter_no_mutation(fmax=None, f_3db=f_3db_5lag, cut_pre=0, cut_post=0)
         pulse_model = self.get_pulse_model(
             self.filter, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag,
             maximum_n_pulses=maximum_n_pulses, noise_weight_basis=noise_weight_basis, category=category)
