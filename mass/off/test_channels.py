@@ -77,6 +77,9 @@ data.alignToReferenceChannel(referenceChannel=ds,
 aligner = data[3].aligner
 aligner.samePeaksPlot()
 aligner.samePeaksPlotWithAlignmentCal()
+for dsloop in data.values():
+    assert dsloop.calibrationPlan.lines == ds.calibrationPlan.lines
+
 
 # create "filtValueDC" by drift correcting on data near some particular energy
 # to do so we first create a cut, but we do not set it as default
@@ -296,6 +299,7 @@ class TestSummaries(ut.TestCase):
         ds_local.stdDevResThreshold = 100
         inds = ds_local.getStatesIndicies("A")
         _ = ds_local.getAttr("filtValue", inds)
+
 
 def test_we_get_different_histrograms_when_using_different_cuts_into_a_channelGroup_function():
     # check that we actually get different histograms when using different cuts

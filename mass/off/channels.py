@@ -734,7 +734,9 @@ class Channel(CorG):
         self.calibrationPlanAttr = attr
 
     def calibrationPlanAddPoint(self, uncalibratedVal, name, states=None, energy=None):
-        if energy is None:
+        if name in mass.spectra:
+            line = mass.spectra[name]
+        elif energy is None:
             if name in mass.spectra:
                 line = mass.spectra[name]
             elif name in mass.STANDARD_FEATURES:
@@ -825,10 +827,14 @@ class Channel(CorG):
         if _peakLocs is None and not (self is referenceChannel):
             self.calibrationPlanInit(referenceChannel.calibrationPlanAttr)
             refCalPlan = referenceChannel.calibrationPlan
-            for (ph, energy, name, states) in zip(refCalPlan.uncalibratedVals, refCalPlan.energies,
-                                                  refCalPlan.names, refCalPlan.states):
-                self.calibrationPlanAddPoint(self.calibrationArbsInRefChannelUnits.energy2ph(ph),
-                                             name, states, energy)
+            for (ph, energy, name, states, line) in zip(refCalPlan.uncalibratedVals, refCalPlan.energies,
+                                                  refCalPlan.names, refCalPlan.states, refCalPlan.lines):
+                self.calibrationPlan.addCalPoint(self.calibrationArbsInRefChannelUnits.energy2ph(ph), 
+                    states, line)
+        calibrationRough = self.calibrationPlan.getRoughCalibration()
+        calibrationRough.uncalibratedName = self.calibrationPlanAttr
+        self.recipes.add("energyRough", calibrationRough,
+            [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         self.recipes.add("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
             self.calibrationArbsInRefChannelUnits.uncalibratedName])
         return self.aligner
