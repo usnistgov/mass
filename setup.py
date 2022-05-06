@@ -74,7 +74,7 @@ if __name__ == "__main__":
           description='Microcalorimeter Analysis Software Suite',
           python_requires=">=3.6",  # See this file's docstring for discussion.
           packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
-                    'mass.demo', 'mass.off'],
+                    'mass.demo', 'mass.off', 'mass.materials'],
           ext_modules=cythonize([Extension('mass.core.cython_channel',
                                            [os.path.join(BASEDIR, 'mass',
                                                          'core', 'cython_channel.pyx')],

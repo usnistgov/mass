@@ -401,7 +401,7 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
             bctr = bin_edges[:-1] + 0.5*binsize
             params = model.guess(sim, bin_centers=bctr)
             params["peak_ph"].set(value=5899*SCALE)
-            result = model.fit(sim, params, bin_centers=bctr)
+            _ = model.fit(sim, params, bin_centers=bctr)
             # If the above never errors, then problem solved.
 
     def test_integral_parameter(self):
@@ -475,7 +475,6 @@ class Test_Composites_lmfit(unittest.TestCase):
         np.random.seed(131)
         bin_edges = np.arange(600, 700, 0.4)
         resolution = 4.0
-        sigma = resolution/2.3548
         n1 = 10000
         n2 = 20000
         self.n = n1+n2
@@ -504,7 +503,7 @@ class Test_Composites_lmfit(unittest.TestCase):
         model1_noprefix = self.line1.model()
         model2_noprefix = self.line2.model()
         with self.assertRaises(NameError):
-            composite_model = model1_noprefix + model2_noprefix
+            _ = model1_noprefix + model2_noprefix
 
     def test_CompositeModelFit_with_prefix_and_background(self):
         prefix1 = 'p1_'
@@ -562,7 +561,26 @@ def test_BackgroundMLEModel():
         np.random.normal(scale=test_background_error, size=len(x_data))
     y_data += test_bg_slope * np.arange(len(x_data))
     y_data[y_data < 0] = 0
-    test_result = test_model.fit(y_data, test_params, bin_centers=x_data)
+    test_model.fit(y_data, test_params, bin_centers=x_data)
+
+
+class Test_Regressions(unittest.TestCase):
+    def test_Negatives(self):
+        "Test for issue 217."
+        counts = np.array([2, 4, 2, 4], dtype=np.int64)
+        bin_centers = np.array([8009.07622011, 8009.57622011,
+                                8010.07622011, 8010.57622011])
+
+        model = mass.spectra["CuKAlpha"].model()
+        params = model.guess(bin_centers=bin_centers, data=counts)
+        params["dph_de"].set(1, min=0.1, max=10, vary=False)
+        params["fwhm"].set(4)
+        params["peak_ph"].set(8009.57622011)
+        params["integral"].set(0)
+        params["background"].set(2.0000000000000004)
+        params["bg_slope"].set(0)
+        r = model._residual(params=params, bin_centers=bin_centers, data=counts, weights=None)
+        assert not any(np.isnan(r))
 
 
 if __name__ == "__main__":
