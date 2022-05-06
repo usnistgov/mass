@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-setup.py  distutils build/install file for Mass, the Microcalorimeter Analysis Software Suite
+setup.py  Build/install file for Mass, the Microcalorimeter Analysis Software Suite
 
 Python version note: this package contains some Python "f-strings", a system for string
 formatting that was introduced in Python 3.6. That means MASS won't work on Python 2 or any

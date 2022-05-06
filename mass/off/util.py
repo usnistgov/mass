@@ -11,9 +11,11 @@ import numpy as np
 
 # user imports
 import mass
-import dill # use dill to allow recipe books to pickel lambdas
+import dill  # use dill to allow recipe books to pickel lambdas
+import os
 
 LOG = logging.getLogger("mass")
+
 
 class NoCutInds():
     pass
@@ -139,10 +141,11 @@ class RecipeBook():
 
     def to_file(self, path, overwrite=False):
         if not overwrite and os.path.isfile(path):
-            raise Exception(f"file {path} already exists, use overwrite=True if you want to clobber it")
+            raise Exception(
+                f"file {path} already exists, use overwrite=True if you want to clobber it")
         with open(path, "wb") as f:
-            dill.dump(self,f)
-    
+            dill.dump(self, f)
+
     @classmethod
     def from_file(cls, path):
         with open(path, "rb") as f:
@@ -222,9 +225,10 @@ def add_group_loop(method):
     """
     method_name = method.__name__
     is_running_tests = "pytest" in sys.modules
+
     def wrapper(self, *args, **kwargs):
         bar = SilenceBar(method_name, max=len(self.offFileNames), silence=not self.verbose)
-        rethrow = kwargs.pop("_rethrow", is_running_tests) # always rethrow during tests
+        rethrow = kwargs.pop("_rethrow", is_running_tests)  # always rethrow during tests
         returnVals = collections.OrderedDict()
         for (channum, ds) in self.items():
             try:
@@ -327,6 +331,7 @@ class SilenceBar(progress.bar.Bar):
 class FailedToGetModelException(Exception):
     pass
 
+
 def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
     if isinstance(lineNameOrEnergy, mass.GenericLineModel):
         line = lineNameOrEnergy.spect
@@ -334,12 +339,13 @@ def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
         line = lineNameOrEnergy
     elif isinstance(lineNameOrEnergy, str):
         if lineNameOrEnergy in mass.spectra:
-            line = mass.spectra[lineNameOrEnergy]    
+            line = mass.spectra[lineNameOrEnergy]
         elif lineNameOrEnergy in mass.STANDARD_FEATURES:
             energy = mass.STANDARD_FEATURES[lineNameOrEnergy]
             line = mass.SpectralLine.quick_monochromatic_line(lineNameOrEnergy, energy, 0.001, 0)
         else:
-            raise FailedToGetModelException(f"failed to get line from lineNameOrEnergy={lineNameOrEnergy}")
+            raise FailedToGetModelException(
+                f"failed to get line from lineNameOrEnergy={lineNameOrEnergy}")
     else:
         try:
             energy = float(lineNameOrEnergy)
@@ -374,10 +380,11 @@ class IngredientsWrapper():
     ingredient_source - an ndarray read from an off file with dtype that defined "filtValue"
     coefs_dtype - an alternate dtype that defines "coefs"
     """
+
     def __init__(self, ingredient_source, coefs_dtype):
         self.ingredient_source = ingredient_source
         self.coefs_dtype = coefs_dtype
-    
+
     def __getitem__(self, k):
         if k == "coefs":
             return self.ingredient_source.view(self.coefs_dtype)["coefs"]
@@ -390,7 +397,7 @@ class IngredientsWrapper():
 
 def iterstates(states):
     """
-    states can be a 
+    states can be a
     str
     list of str
     in either case return a list of str
