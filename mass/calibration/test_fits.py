@@ -565,5 +565,24 @@ def test_BackgroundMLEModel():
     test_result = test_model.fit(y_data, test_params, bin_centers=x_data)
 
 
+class Test_Regressions(unittest.TestCase):
+    def test_Negatives(self):
+        "Test for issue 217"
+        counts = np.array([2, 4, 2, 4], dtype=np.int64)
+        bin_centers = np.array([8009.07622011, 8009.57622011,
+                                8010.07622011, 8010.57622011])
+
+        model = mass.spectra["CuKAlpha"].model()
+        params = model.guess(bin_centers=bin_centers, data=counts)
+        params["dph_de"].set(1, min=0.1, max=10, vary=False)
+        params["fwhm"].set(4)
+        params["peak_ph"].set(8009.57622011)
+        params["integral"].set(0)
+        params["background"].set(2.0000000000000004)
+        params["bg_slope"].set(0)
+        r = model._residual(params=params, bin_centers=bin_centers, data=counts, weights=None)
+        assert not any(np.isnan(r))
+
+
 if __name__ == "__main__":
     unittest.main()
