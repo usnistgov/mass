@@ -28,7 +28,12 @@ class MLEModel(lmfit.Model):
         r2 = y-data
         nonzero = data > 0
         r2[nonzero] += data[nonzero]*np.log((data/y)[nonzero])
-        vals = (2*r2) ** 0.5
+
+        # Calculate the sqrt(2*r2) in place into vals.
+        # The mask for r2>0 avoids the problem found in MASS issue #217.
+        vals = np.zeros_like(r2)
+        nonneg = r2 > 0
+        vals[nonneg] = np.sqrt(2*r2[nonneg])
         vals[y < data] *= -1
         return vals
 
