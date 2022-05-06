@@ -115,7 +115,7 @@ data.plotHists(np.arange(0, 4000, 1), "energy")
 plt.figure(figsize=(12, 6))
 ax = plt.gca()
 data.plotHist(np.arange(1000, 4000, 1), "energy", coAddStates=False, states=["W 1", "Os"], axis=ax)
-ax.set_ylim(0, 1.2*np.amax([np.amax(l.get_ydata()) for l in ax.lines]))
+ax.set_ylim(0, 1.2*np.amax([np.amax(line.get_ydata()) for line in ax.lines]))
 names = ["W Ni-{}".format(i) for i in range(1, 27)]
 n = collections.OrderedDict()
 # line = ax.lines[0]
@@ -168,7 +168,6 @@ data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueD
                           cutRecipeName="cutNearTiKAlpha", _rethrow=True)
 data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueDCCutTestInv",
                           cutRecipeName="!cutNearTiKAlpha", _rethrow=True)
-
 
 
 class TestSummaries(ut.TestCase):
@@ -304,13 +303,14 @@ class TestSummaries(ut.TestCase):
 def test_we_get_different_histrograms_when_using_different_cuts_into_a_channelGroup_function():
     # check that we actually get different histograms when using different cuts
     # into a channel group
-    bc1, counts1 = data.hist(np.arange(500,5000,500), "energy", cutRecipeName="cutNearTiKAlpha")
-    bc2, counts2 = data.hist(np.arange(500,5000,500), "energy", cutRecipeName="!cutNearTiKAlpha")
-    bc3, counts3 = data.hist(np.arange(500,5000,500), "energy")
+    bc1, counts1 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="cutNearTiKAlpha")
+    bc2, counts2 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="!cutNearTiKAlpha")
+    bc3, counts3 = data.hist(np.arange(500, 5000, 500), "energy")
 
-    assert np.sum(counts1-counts2) !=0
-    assert np.sum(counts1-counts3) !=0
-    assert np.sum(counts2-counts3) !=0
+    assert np.sum(counts1-counts2) != 0
+    assert np.sum(counts1-counts3) != 0
+    assert np.sum(counts2-counts3) != 0
+
 
 def test_getAttr_with_list_of_slice():
     ind = [slice(0, 5), slice(5, 10)]
