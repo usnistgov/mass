@@ -23,7 +23,7 @@ Created on Feb 16, 2011
 
 import numpy as np
 import os
-from distutils.version import StrictVersion
+from packaging.version import Version
 import logging
 import collections
 LOG = logging.getLogger("mass")
@@ -196,7 +196,7 @@ class LJHFile(MicrocalFile):
                                            ('posix_usec', np.int64),
                                            ('data', np.uint16, self.nSamples)])
 
-        if StrictVersion(self.version_str.decode()) >= StrictVersion("2.2.0"):
+        if Version(self.version_str.decode()) >= Version("2.2.0"):
             self.__read_binary = self.__read_binary_post22
         else:
             self.__read_binary = self.__read_binary_pre22
@@ -259,7 +259,7 @@ class LJHFile(MicrocalFile):
         self.number_of_rows = int(header_dict.get(b"Number of rows", -1))
         self.timestamp_offset = float(header_dict.get(b"Timestamp offset (s)", b"-1"))
         self.version_str = header_dict[b'Save File Format Version']
-        if StrictVersion(self.version_str.decode()) >= StrictVersion("2.2.0"):
+        if Version(self.version_str.decode()) >= Version("2.2.0"):
             self.pulse_size_bytes = (16 + 2 * self.nSamples)
         else:
             self.pulse_size_bytes = (6 + 2 * self.nSamples)
