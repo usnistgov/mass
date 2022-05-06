@@ -12,7 +12,7 @@ LOG.setLevel(logging.DEBUG)
 
 def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_deriv,
                     n_basis, maximum_n_pulses, mass_hdf5_path, mass_hdf5_noise_path, invert_data, optimize_dp_dt,
-                    extra_n_basis_5lag, noise_weight_basis):
+                    extra_n_basis_5lag, noise_weight_basis, f_3db_ats=None, f_3db_5lag=None):
     data = mass.TESGroup(pulse_files, noise_files, overwrite_hdf5_file=True,
                          hdf5_filename=mass_hdf5_path,
                          hdf5_noisefilename=mass_hdf5_noise_path)
@@ -21,10 +21,10 @@ def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_de
     data.summarize_data()
     data.auto_cuts(nsigma_pt_rms=n_sigma_pt_rms, nsigma_max_deriv=n_sigma_max_deriv)
     data.compute_noise_spectra()
-    data.compute_ats_filter(shift1=False, optimize_dp_dt=optimize_dp_dt)
+    data.compute_ats_filter(shift1=False, optimize_dp_dt=optimize_dp_dt, f_3db=f_3db_ats)
     hdf5_filename = data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses,
                     extra_n_basis_5lag=extra_n_basis_5lag, noise_weight_basis=noise_weight_basis,
-                    _rethrow=True)
+                    f_3db_5lag = f_3db_5lag, _rethrow=True)
 
     return data.n_good_channels(), data.n_channels
 
@@ -46,6 +46,10 @@ def parse_args(fake):
                         help="pass this to overwrite off files with the same path", action="store_true", default=False)
     parser.add_argument("-m", "--max_channels",
                         help="stop after processing this many channels", default=2**31, type=int)
+    parser.add_argument("--f_3db_ats",
+                        help="cutoff frequency for ats filter", default=None, type=float)
+    parser.add_argument("--f_3db_5lag",
+                        help="cutoff frequency for 5lag filter", default=None, type=float)    
     parser.add_argument("--n_ignore_presamples",
                         help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=3, type=int)
     parser.add_argument("--n_sigma_pt_rms", type=float, default=10000,
@@ -112,7 +116,8 @@ def main(args=None):
                                     n_basis=args.n_basis, maximum_n_pulses=args.maximum_n_pulses, mass_hdf5_path=args.mass_hdf5_path,
                                     mass_hdf5_noise_path=args.mass_hdf5_noise_path, 
                                     invert_data=args.invert_data, optimize_dp_dt=not args.dont_optimize_dp_dt,
-                                    extra_n_basis_5lag=args.extra_n_basis_5lag, noise_weight_basis=True)
+                                    extra_n_basis_5lag=args.extra_n_basis_5lag, 
+                                    f_3db_ats = args.f_3db_ats, f_3db_5lag = args.f_3db_5lag, noise_weight_basis=True)
     if not args.silent:
         if n_good == 0:
             print(f"all channels bad, could be because you need -i for inverted pulses")

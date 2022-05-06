@@ -582,6 +582,23 @@ class Channel(CorG):
             raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(
                 attr, list(self._offAttrs), list(self._recipeAttrs)))
 
+    def plotAvsB2d(self, nameA, nameB, binEdgesAB, axis=None, states=None, cutRecipeName=None):
+        cutRecipeName = self._handleDefaultCut(cutRecipeName)
+        if axis is None:
+            plt.figure()
+            axis = plt.gca()
+        if states is None:
+            states = self.stateLabels
+        vA, vB = self.getAttr([nameA, nameB], states, cutRecipeName)
+        counts, binEdgesA, binEdgesB = np.histogram2d(vA, vB, binEdgesAB)
+        binCentersA = 0.5*(binEdgesA[1:]+binEdgesA[:-1])
+        binCentersB = 0.5*(binEdgesB[1:]+binEdgesB[:-1])
+        plt.contourf(binCentersA, binCentersB, counts.T)
+        plt.xlabel(nameA)
+        plt.ylabel(nameB)
+        plt.title(f"{self.shortName}\ncutRecipeName={cutRecipeName}")
+        return axis
+
     def plotAvsB(self, nameA, nameB, axis=None, states=None, includeBad=False, cutRecipeName=None):
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         if axis is None:
@@ -717,7 +734,9 @@ class Channel(CorG):
         self.calibrationPlanAttr = attr
 
     def calibrationPlanAddPoint(self, uncalibratedVal, name, states=None, energy=None):
-        if energy is None:
+        if name in mass.spectra:
+            line = mass.spectra[name]
+        elif energy is None:
             if name in mass.spectra:
                 line = mass.spectra[name]
             elif name in mass.STANDARD_FEATURES:
@@ -737,7 +756,7 @@ class Channel(CorG):
     @add_group_loop
     def calibrateFollowingPlan(self, uncalibratedName, calibratedName="energy", curvetype="gain", approximate=False,
                                dlo=50, dhi=50, binsize=None, plan=None, n_iter=1, method="leastsq_refit", overwriteRecipe=False,
-                               has_tails=False, params_update=lmfit.Parameters()):
+                               has_tails=False, params_update=lmfit.Parameters(), cutRecipeName=None):
         if plan is None:
             plan = self.calibrationPlan
         starting_cal = plan.getRoughCalibration()
@@ -749,7 +768,8 @@ class Channel(CorG):
             for (ph, line, states) in zip(plan.uncalibratedVals, plan.lines, plan.states):
                 result = self.linefit(line, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                       plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
-                                      method=method, params_update=params_update, has_tails=has_tails)
+                                      method=method, params_update=params_update, has_tails=has_tails,
+                                      cutRecipeName=cutRecipeName)
 
                 results.append(result)
                 if not result.success:
@@ -807,10 +827,14 @@ class Channel(CorG):
         if _peakLocs is None and not (self is referenceChannel):
             self.calibrationPlanInit(referenceChannel.calibrationPlanAttr)
             refCalPlan = referenceChannel.calibrationPlan
-            for (ph, energy, name, states) in zip(refCalPlan.uncalibratedVals, refCalPlan.energies,
-                                                  refCalPlan.names, refCalPlan.states):
-                self.calibrationPlanAddPoint(self.calibrationArbsInRefChannelUnits.energy2ph(ph),
-                                             name, states, energy)
+            for (ph, energy, name, states, line) in zip(refCalPlan.uncalibratedVals, refCalPlan.energies,
+                                                  refCalPlan.names, refCalPlan.states, refCalPlan.lines):
+                self.calibrationPlan.addCalPoint(self.calibrationArbsInRefChannelUnits.energy2ph(ph), 
+                    states, line)
+        calibrationRough = self.calibrationPlan.getRoughCalibration()
+        calibrationRough.uncalibratedName = self.calibrationPlanAttr
+        self.recipes.add("energyRough", calibrationRough,
+            [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         self.recipes.add("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
             self.calibrationArbsInRefChannelUnits.uncalibratedName])
         return self.aligner
@@ -1166,12 +1190,10 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def _handleDefaultCut(self, cutRecipeName):
         ds = self.firstGoodChannel()
-        defaultCut = ds._default_cut_recipe_name
+        cutRecipeName = ds._handleDefaultCut(cutRecipeName)
         for ds in self.values():
-            if ds._default_cut_recipe_name != defaultCut:
-                raise Exception(
-                    "you are tyring to use the default cut from a channel group, but not all channels have the same default cut")
-        return defaultCut
+            assert cutRecipeName in ds.recipes.keys(), f"{ds} lacks cut recipe {cutRecipeName}"
+        return cutRecipeName
 
     @property
     def shortName(self):

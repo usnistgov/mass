@@ -235,6 +235,8 @@ class FakeArgs():
         self.max_channels = 1
         self.replace_output = True
         self.n_ignore_presamples = 3
+        self.f_3db_ats = None
+        self.f_3db_5lag = None
 
     def __repr__(self):
         return "FakeArgs: change the script to have _TEST=False to use real args, this is just for testing from within ipython"
