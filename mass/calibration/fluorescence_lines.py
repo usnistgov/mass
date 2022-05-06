@@ -318,6 +318,11 @@ lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (201
 lineshape_references["Ito 2020"] = """Ito, Y., Tochio, T., Yamashita, M., Fukushima, S., Vlaicu, A. M.,
 Marques, J. P., ... Parente, F. (2020). Structure of Kα - and Kβ-emission x-ray spectra for Se, Y, and Zr.
 Physical Review A, 102(5), 052820. https://doi.org/10.1103/PhysRevA.102.052820"""
+lineshape_references["Menesguen 2022"] = """Ménesguen, Y., Lépy, M.-C., Ito, Y., Yamashita, M., Fukushima,
+S., Tochio, T., ... Parente, F. (2022). Structure of single KL0–, double KL1–, and triple KL2 − ionization
+in Mg, Al, and Si targets induced by photons, and their absorption spectra. Radiation Physics and Chemistry,
+110048. https://doi.org/10.1016/j.radphyschem.2022.110048
+"""
 
 spectra = OrderedDict()
 spectrum_classes = OrderedDict()  # for backwards compatability
@@ -417,6 +422,58 @@ addline(
     element="Mg",
     material="metal",
     linetype="KAlpha",
+    reference_short="Menesguen 2022",
+    nominal_peak_energy=1253.635,
+    energies=np.array((1253.666, 1253.401, 1253.422, 1258.457, 1261.887,
+                       1262.156, 1263.758, 1271.034, 1272.601, 1274.187)),
+    lorentzian_fwhm=np.array((.380, .374, .859, 1.006, .485,
+                              .585, .797, 1.213, .88, .852)),
+    reference_amplitude=np.array((100, 49.75, 19.7, 1.99, 8,
+                                  6, 8.32, 1.23, .23, .71)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=0.266,
+    reference_plot_instrument_gaussian_fwhm=0.2,  # a total guess
+)
+
+addline(
+    element="Al",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Menesguen 2022",
+    nominal_peak_energy=1486.690,
+    energies=np.array((1486.709, 1486.305, 1486.314, 1492.305, 1496.227,
+                       1496.635, 1498.397, 1506.719, 1510.212)),
+    lorentzian_fwhm=np.array((.392, .392, 1.12, 1.16, .647,
+                              .685, .932, 1.49, 1.07)),
+    reference_amplitude=np.array((100, 49.4, 16.1, 1.21, 7.54,
+                                  3.7, 5.77, 0.70, 0.51)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=0.404,
+    reference_plot_instrument_gaussian_fwhm=0.2,  # a total guess
+)
+
+addline(
+    element="Si",
+    material="Si wafer",
+    linetype="KAlpha",
+    reference_short="Menesguen 2022",
+    nominal_peak_energy=1739.961,
+    energies=np.array((1739.973, 1739.361, 1739.537, 1746.330, 1750.687,
+                       1751.276, 1753.113, 1762.677, 1766.607)),
+    lorentzian_fwhm=np.array((.441, .458, 1.12, 1.18, .80, .74, .931, 1.83, 1.07)),
+    reference_amplitude=np.array((100, 50.35, 12.41, .78, 5.65, 2.03, 4.45, 0.29, 0.18)),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=.612,
+    reference_plot_instrument_gaussian_fwhm=0.2,  # a total guess
+)
+
+
+# With the publication of Ménesguen 2022, we want to keep our previous line shapes around for
+# cross-checking. You can find them as, e.g., mass.MgKAlpha_v1
+addline(
+    element="Mg",
+    material="metal",
+    linetype="KAlpha_v1",
     reference_short="Klauber 1993",
     reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=1253.687,
@@ -425,12 +482,13 @@ addline(
     reference_amplitude=np.array((0.5, 1, .02099, .07868, .04712, .09071, .01129, .00538)),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=2.2,
+    is_default_material=False
 )
 
 addline(
     element="Al",
     material="metal",
-    linetype="KAlpha",
+    linetype="KAlpha_v1",
     reference_short="Schweppe 1992 Al",
     reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=1486.88931733,
@@ -440,6 +498,7 @@ addline(
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=3.0,
     position_uncertainty=0.010,
+    is_default_material=False
 )
 
 addline(
@@ -460,7 +519,7 @@ addline(
 addline(
     element="Si",
     material="Si crystal",
-    linetype="KAlpha",
+    linetype="KAlpha_v1",
     reference_short="Deslattes Notebook Si",
     reference_plot_instrument_gaussian_fwhm=0.245,
     nominal_peak_energy=1739.986,
@@ -469,7 +528,8 @@ addline(
     reference_amplitude=np.array((3.134e2, 6.121e3, 8e2)),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=.6,
-    position_uncertainty=0.040
+    position_uncertainty=0.040,
+    is_default_material=False
 )
 
 addline(

@@ -12,7 +12,6 @@ import numpy as np
 import pickle
 import scipy.constants as sp_const
 import os
-import mass
 from . import fluorescence_lines
 from . import line_fits
 from . import LORENTZIAN_PEAK_HEIGHT
@@ -153,7 +152,7 @@ def add_hci_line(element, spectr_ch, line_identifier, energies, widths, ratios, 
     energies = np.array(energies)
     widths = np.array(widths)
     ratios = np.array(ratios)
-    if nominal_peak_energy == None:
+    if nominal_peak_energy is None:
         nominal_peak_energy = np.dot(energies, ratios)/np.sum(ratios)
     linetype = f"{int(spectr_ch)} {line_identifier}"
 
