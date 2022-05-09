@@ -593,7 +593,7 @@ class SmoothingSplineFunction(SmoothingSpline, Function):
     def derivative(self, der=1):
         if self.der + der > 3:
             return ConstantFunction(0)
-        return SmoothingSplineFunction(self.x, self.y, self.dy, self.dx, maxchisq=maxchisq, der=self.der + der)
+        return SmoothingSplineFunction(self.x, self.y, self.dy, self.dx, der=self.der + der)
 
     def __call__(self, x, der=0):
         if self.der + der > 3:
