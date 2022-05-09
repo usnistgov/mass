@@ -300,7 +300,7 @@ class TestSummaries(ut.TestCase):
         _ = ds_local.getAttr("filtValue", inds)
 
 
-def test_we_get_different_histrograms_when_using_different_cuts_into_a_channelGroup_function():
+def test_we_get_different_histograms_when_using_different_cuts_into_a_channelGroup_function():
     # check that we actually get different histograms when using different cuts
     # into a channel group
     bc1, counts1 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="cutNearTiKAlpha")
@@ -357,6 +357,17 @@ def test_get_model():
 
     with pytest.raises(mass.off.util.FailedToGetModelException):
         mass.off.util.get_model("this is a str but not a standard feature")
+
+
+def test_duplicate_cuts():
+    "See issue 214: check that we can use `overwrite=True` to update a cut."
+    # Make some arbitrary cut.
+    data.cutAdd("deliberateduplicate", lambda energy: energy < 730)
+    # It's an error if you try to add another cut by the same name.
+    with pytest.raises(Exception):
+        data.cutAdd("deliberateduplicate", lambda energy: energy < 740)
+    # But it's not an error to reuse the same name WHEN you have `overwrite=True`.
+    data.cutAdd("deliberateduplicate", lambda energy: energy < 750, overwrite=True)
 
 
 def test_recipes():
