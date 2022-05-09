@@ -185,6 +185,17 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
             cal1.add_cal_point(ph, energy)
         cal1(np.array([2200, 4200, 4400], dtype=float))
 
+    def test_nonmonotonic_fail(self):
+        "Check that issue 216 is fixed: non-monotone {E,PH} pairs should cause exceptions."
+        cal1 = mass.calibration.energy_calibration.EnergyCalibration()
+        cal1.set_curvetype("gain")
+        cal1.set_use_approximation(True)
+        energies = np.array([6000, 3000, 4500, 4000], dtype=float)
+        phvec = np.array([3000, 6000, 4500, 5000], dtype=float)
+        with self.assertRaises(Exception):
+            for ph, energy in zip(phvec, energies):
+                cal1.add_cal_point(ph, energy)
+
     def test_save_and_load_to_hdf5(self):
         cal1 = mass.calibration.energy_calibration.EnergyCalibration()
         for energy in np.linspace(3000, 6000, 10):
@@ -237,8 +248,6 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
                         0.22199391, 0.54440676, 0.26877157, 2.36176241, 1.74482802])
         de = np.array([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01,
                        0.01, 0.01, 0.01, 0.01])
-        g = ph/e
-        dg = g*(dph/ph)
         cal1 = mass.EnergyCalibration(curvetype="gain", approximate=True, useGPR=False)
         cal2 = mass.EnergyCalibration(curvetype="gain", approximate=True, useGPR=True)
         for cal in (cal1, cal2):

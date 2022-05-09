@@ -389,6 +389,14 @@ class EnergyCalibration(object):
             self._de[update_index] = e_error
         self.npts = len(self._ph)
 
+        # Validate: ph and energies must be monotone increasing
+        order_ph = self._ph.argsort()
+        order_en = self._energies.argsort()
+        if not np.all(order_ph == order_en):
+            a = "PH:     {}".format(self._ph[order_ph])
+            b = "Energy: {}".format(self._energies[order_ph])
+            raise Exception("Calibration points are not monotone:\n{}\n{}".format(a, b))
+
     @property
     def cal_point_phs(self):
         return self._ph

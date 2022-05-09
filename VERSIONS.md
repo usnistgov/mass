@@ -1,7 +1,10 @@
 ## Note on version numbers of Mass
 
 **0.7.8** November 29, 2021 - ?
+* Fix issue 213: `ds.plot_summaries()` should accept `valid=b`, a boolean array.
+* Fix issue 214: verify that `cutAdd(...overwrite=True)` works for OFF analysis.
 * Fix issue 215: add Kα lines of magnesium, aluminum, silicon from Ménesguen 2022.
+* Fix issue 216: calibration should fail more obviously when data aren't monotonic.
 * Fix issue 217: problem with rounding error giving negative values in fit model.
 * Fix issue 218: `distutils.version` is deprecated.
 * Fix issue 219: should raise Exception when `MLEModel.fit(...weights=w)` for non-None weights.
