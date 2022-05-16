@@ -17,7 +17,7 @@ from mass.common import tostr
 # local imports
 import mass
 from .off import OffFile
-from .util import GroupLooper, add_group_loop, labelPeak, labelPeaks, Recipe, RecipeBook
+from .util import GroupLooper, add_group_loop, RecipeBook
 from .util import annotate_lines, SilenceBar, NoCutInds, InvalidStatesException
 from . import util
 from . import fivelag
@@ -429,7 +429,7 @@ class Channel(CorG):
             self.plotAvsB("filtValue", "residualStdDev", states=states, includeBad=True,
                           cutRecipeName=newCutRecipeName)  # creates a figure
             plt.plot(fv_mids, medians, "o-", label="median", lw=3)
-            plt.plot(x, y, label=f"threshold", lw=3)
+            plt.plot(x, y, label="threshold", lw=3)
             plt.legend()
             plt.yscale("log")
             plt.ylim(ymin/2, ymax*2)
@@ -827,14 +827,16 @@ class Channel(CorG):
         if _peakLocs is None and not (self is referenceChannel):
             self.calibrationPlanInit(referenceChannel.calibrationPlanAttr)
             refCalPlan = referenceChannel.calibrationPlan
-            for (ph, energy, name, states, line) in zip(refCalPlan.uncalibratedVals, refCalPlan.energies,
-                                                  refCalPlan.names, refCalPlan.states, refCalPlan.lines):
-                self.calibrationPlan.addCalPoint(self.calibrationArbsInRefChannelUnits.energy2ph(ph), 
+            for (ph, energy, name, states, line) in zip(
+                refCalPlan.uncalibratedVals, refCalPlan.energies,
+                    refCalPlan.names, refCalPlan.states, refCalPlan.lines):
+                self.calibrationPlan.addCalPoint(
+                    self.calibrationArbsInRefChannelUnits.energy2ph(ph),
                     states, line)
         calibrationRough = self.calibrationPlan.getRoughCalibration()
         calibrationRough.uncalibratedName = self.calibrationPlanAttr
         self.recipes.add("energyRough", calibrationRough,
-            [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
+                         [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         self.recipes.add("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
             self.calibrationArbsInRefChannelUnits.uncalibratedName])
         return self.aligner
