@@ -679,11 +679,10 @@ class MicrocalDataSet(object):
         self.row_number = None
         self.number_of_columns = None
         self.column_number = None
+        self.row_timebase = None
 
         self._external_trigger_rowcount = None
         self._filter_type = "ats"
-
-        self.row_timebase = None
 
         self.tes_group = tes_group
 
@@ -701,6 +700,7 @@ class MicrocalDataSet(object):
             self.hdf5_group = None
 
         self.__setup_vectors(npulses=self.nPulses)
+        self.__load_filters_from_hdf5()
         self.__load_cals_from_hdf5()
         self.__load_auto_cuts()
         self.__load_corrections()
@@ -754,74 +754,73 @@ class MicrocalDataSet(object):
         self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
                                                dtype=np.float64)
 
-        if 'filters' in h5grp:
-            filter_group = h5grp['filters']
-
-            fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
-            f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
-            shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
-
-            if "version" in filter_group.attrs:
-                version = filter_group.attrs["version"]
-            else:
-                version = 0  # older hdf5 files with filters have no version number, assign 0
-
-            if version > 0:
-                filter_type = filter_group.attrs["filter_type"]  # a string
-                if type(filter_type) == bytes:
-                    filter_type = filter_type.decode()
-            else:
-                if "newfilter" in filter_group.attrs:
-                    # version 0 hdf5 files either did or did not have the "newfilter" attribute, newfilter corresponds to ats filters
-                    filter_type = "ats"
-                else:
-                    filter_type = "5lag"
-
-            if filter_type == "ats":
-                # arrival time safe filter can be shorter than records by 1 sample, or equal in length
-                if version > 0:
-                    # Version 1 avg_signal was an attribute until Nov 2021, when we fixed #208.
-                    # Try to read as a dataset, then as attribute so that old HDF5 files still work.
-                    try:
-                        avg_signal = filter_group["avg_signal"][()]
-                    except KeyError:
-                        avg_signal = filter_group.attrs["avg_signal"][()]
-                    aterms = filter_group["filt_aterms"][()]
-                else:
-                    # version 0 hdf5 files did not storage avg_signal, use truncated average_pulse instead
-                    avg_signal, aterms = self.average_pulse[1:], filter_group["filt_aterms"][()]
-                model = np.vstack([avg_signal, aterms]).T
-                modelpeak = np.max(avg_signal)
-                self.filter = ArrivalTimeSafeFilter(model,
-                                                    self.nPresamples - self.pretrigger_ignore_samples,
-                                                    self.noise_autocorr,
-                                                    sample_time=self.timebase,
-                                                    peak=modelpeak)
-            elif filter_type == "5lag":
-                self.filter = Filter(self.average_pulse[...],
-                                     self.nPresamples - self.pretrigger_ignore_samples,
-                                     self.noise_psd[...],
-                                     self.noise_autocorr, sample_time=self.timebase,
-                                     shorten=shorten)
-            else:
-                raise Exception("filter_type={}, must be `ats` or `5lag`".format(filter_type))
-            self.filter.fmax = fmax
-            self.filter.f_3db = f_3db
-            self._filter_type = filter_type
-
-            for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
-                      "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
-                if k in filter_group:
-                    filter_ds = filter_group[k]
-                    setattr(self.filter, k, filter_ds[...])
-                    if 'variance' in filter_ds.attrs:
-                        self.filter.variances[k.split("filt_")[1]] = filter_ds.attrs['variance']
-                    if 'predicted_v_over_dv' in filter_ds.attrs:
-                        self.filter.predicted_v_over_dv[k.split(
-                            "filt_")[1]] = filter_ds.attrs['predicted_v_over_dv']
-
         grp = self.hdf5_group.require_group('cuts')
         self.cuts = Cuts(self.nPulses, self.tes_group, hdf5_group=grp)
+
+    def __load_filters_from_hdf5(self, overwrite=False):
+        if 'filters' not in self.hdf5_group:
+            return
+        filter_group = self.hdf5_group['filters']
+
+        fmax = filter_group.attrs['fmax'] if 'fmax' in filter_group.attrs else None
+        f_3db = filter_group.attrs['f_3db'] if 'f_3db' in filter_group.attrs else None
+        shorten = filter_group.attrs['shorten'] if 'shorten' in filter_group.attrs else None
+
+        version = 0  # older hdf5 files with filters have no version number, assign 0
+        if "version" in filter_group.attrs:
+            version = filter_group.attrs["version"]
+
+        filter_type = "5lag"
+        if version > 0:
+            filter_type = filter_group.attrs["filter_type"]  # a string
+            if type(filter_type) == bytes:
+                filter_type = filter_type.decode()
+        elif "newfilter" in filter_group.attrs:
+            # version 0 hdf5 files either did or did not have the "newfilter" attribute, newfilter corresponds to ats filters
+            filter_type = "ats"
+
+        if filter_type == "ats":
+            # arrival time safe filter can be shorter than records by 1 sample, or equal in length
+            if version > 0:
+                # Version 1 avg_signal was an attribute until Nov 2021, when we fixed #208.
+                # Try to read as a dataset, then as attribute so that old HDF5 files still work.
+                try:
+                    avg_signal = filter_group["avg_signal"][()]
+                except KeyError:
+                    avg_signal = filter_group.attrs["avg_signal"][()]
+                aterms = filter_group["filt_aterms"][()]
+            else:
+                # version 0 hdf5 files did not store avg_signal, use truncated average_pulse instead
+                avg_signal, aterms = self.average_pulse[1:], filter_group["filt_aterms"][()]
+            model = np.vstack([avg_signal, aterms]).T
+            modelpeak = np.max(avg_signal)
+            self.filter = ArrivalTimeSafeFilter(model,
+                                                self.nPresamples - self.pretrigger_ignore_samples,
+                                                self.noise_autocorr,
+                                                sample_time=self.timebase,
+                                                peak=modelpeak)
+        elif filter_type == "5lag":
+            self.filter = Filter(self.average_pulse[...],
+                                 self.nPresamples - self.pretrigger_ignore_samples,
+                                 self.noise_psd[...],
+                                 self.noise_autocorr, sample_time=self.timebase,
+                                 shorten=shorten)
+        else:
+            raise Exception("filter_type={}, must be `ats` or `5lag`".format(filter_type))
+        self.filter.fmax = fmax
+        self.filter.f_3db = f_3db
+        self._filter_type = filter_type
+
+        for k in ["filt_fourier", "filt_fourier_full", "filt_noconst",
+                  "filt_baseline", "filt_baseline_pretrig", "filt_aterms"]:
+            if k in filter_group:
+                filter_ds = filter_group[k]
+                setattr(self.filter, k, filter_ds[...])
+                if 'variance' in filter_ds.attrs:
+                    self.filter.variances[k.split("filt_")[1]] = filter_ds.attrs['variance']
+                if 'predicted_v_over_dv' in filter_ds.attrs:
+                    self.filter.predicted_v_over_dv[k.split(
+                        "filt_")[1]] = filter_ds.attrs['predicted_v_over_dv']
 
     def __load_cals_from_hdf5(self, overwrite=False):
         """Load all calibrations in self.hdf5_group["calibration"] into the dict
