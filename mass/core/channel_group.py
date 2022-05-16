@@ -205,6 +205,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 self.n_channels = len(self.noise_filenames)
 
         # Load up experiment state file
+        self.experimentStateFile = None
         if experimentStateFile is None:
             try:
                 self.experimentStateFile = mass.off.channels.ExperimentStateFile(
@@ -212,7 +213,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
             except IOError as e:
                 LOG.debug('Skipping loading of experiment state file because {}'.format(e))
         else:
-            self.experimentStateFile = experimentStateFile
+            self.experimentStateFile = mass.off.channels.ExperimentStateFile(
+                experimentStateFile, excludeStates=excludeStates)
+        if self.experimentStateFile is not None:
+            allstates = self.experimentStateFile.allLabels[1:]  # omit [0], "START"
+            self.register_categorical_cut_field("state", allstates)
 
         # Set up other aspects of the object
         self.nhits = None

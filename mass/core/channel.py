@@ -1001,6 +1001,7 @@ class MicrocalDataSet(object):
         self.pulse_records.datafile.clear_cached_segment()
         self.clear_cache()
         self.hdf5_group.file.flush()
+        self.__parse_expt_states()
 
     def _summarize_data_segment(self, segnum, doPretrigFit=False):
         """Summarize one segment of the data file, loading it into cache."""
@@ -1074,6 +1075,25 @@ class MicrocalDataSet(object):
         self.p_postpeak_deriv[first:end] = \
             mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post],
                                                             ignore_leading=self.peak_samplenumber-self.cut_pre)
+
+    def __parse_expt_states(self):
+        """
+        Load experiment states from the state file and store the slices found for each state
+        as a categorical cut.
+        """
+        esf = self.tes_group.experimentStateFile
+        if esf is None:
+            return
+        nano = self.p_timestamp[:]*1e9
+        slicedict = esf.calcStatesDict(nano)
+
+        state_codes = np.zeros(self.nPulses, dtype=np.uint32)
+        for id, state in enumerate(esf.allLabels):
+            if state == "START":
+                continue
+            slice = slicedict[state]
+            state_codes[slice.start:slice.stop] = id
+        self.cuts.cut("state", state_codes)
 
     @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):

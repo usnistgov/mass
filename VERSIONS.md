@@ -8,6 +8,7 @@
 * Fix issue 217: problem with rounding error giving negative values in fit model.
 * Fix issue 218: `distutils.version` is deprecated.
 * Fix issue 219: should raise Exception when `MLEModel.fit(...weights=w)` for non-None weights.
+* Fix issue 220: read any experiment_state.txt file and make into categorical cuts.
 * Put `mass.materials` in default sub-packages for pip installation.
 
 
