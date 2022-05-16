@@ -662,7 +662,7 @@ class Channel(CorG):
 
     @add_group_loop
     def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName=None, states=None,
-                             linePositionsFunc=None, cutRecipeName=None):
+                             linePositionsFunc=None, cutRecipeName=None, overwriteRecipe=False):
         """
         linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
         otherwise try to call it with self as an argument... here is an example of how you could use all but one peak from calibrationRough:
@@ -680,7 +680,7 @@ class Channel(CorG):
         phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
         self.recipes.add(correctedName, phaseCorrection.correct, [
-            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName])
+            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName], overwrite=overwriteRecipe)
 
     @add_group_loop
     def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
@@ -814,7 +814,17 @@ class Channel(CorG):
         return len(self.offFile)
 
     @add_group_loop
-    def alignToReferenceChannel(self, referenceChannel, attr, binEdges, cutRecipeName=None, _peakLocs=None, states=None):
+    def dlearnCalibrationPlanFromEnergiesAndPeaks(self, attr, states, ph_fwhm, line_names, maxacc):
+        peak_ph_vals, _peak_heights = algorithms.find_local_maxima(self.getAttr(attr, indsOrStates=states), ph_fwhm)
+        _name_e, energies_out, opt_assignments = algorithms.find_opt_assignment(peak_ph_vals, line_names, maxacc=maxacc)
+
+        self.calibrationPlanInit(attr)
+        for ph, name in zip(opt_assignments, _name_e):
+            self.calibrationPlanAddPoint(ph, name, states=states)
+
+    @add_group_loop
+    def alignToReferenceChannel(self, referenceChannel, attr, binEdges, cutRecipeName=None, _peakLocs=None, states=None,
+    overwriteRecipe=False):
         if _peakLocs is None:
             assert(len(referenceChannel.calibrationPlan.uncalibratedVals) > 0)
             peakLocs = referenceChannel.calibrationPlan.uncalibratedVals
@@ -836,7 +846,7 @@ class Channel(CorG):
         self.recipes.add("energyRough", calibrationRough,
             [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         self.recipes.add("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
-            self.calibrationArbsInRefChannelUnits.uncalibratedName])
+            self.calibrationArbsInRefChannelUnits.uncalibratedName], overwrite=overwriteRecipe)
         return self.aligner
 
     @add_group_loop
