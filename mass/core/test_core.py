@@ -145,7 +145,8 @@ class TestTESGroup(ut.TestCase):
             hdf5_filename = tempfile.mktemp(prefix='_mass.hdf5')
         if hdf5_noisefilename is None:
             hdf5_noisefilename = tempfile.mktemp(prefix='_mass_noise.hdf5')
-        return mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename, hdf5_noisefilename=hdf5_noisefilename)
+        return mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
+                             hdf5_noisefilename=hdf5_noisefilename)
 
     def test_all_channels_bad(self):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
@@ -361,6 +362,41 @@ class TestTESGroup(ut.TestCase):
                 self.f_3db_5lag = None
 
         mass.core.projectors_script.main(Args())
+
+    def test_expt_state_files(self):
+        """Check that experiment state files are loaded and turned into categorical cuts
+        with category "state" if the file exists."""
+        def make_data(have_esf):
+            src_name = 'mass/regression_test/regress_chan1.ljh'
+            dir = tempfile.TemporaryDirectory()
+            src_name = shutil.copy(src_name, dir.name)
+            hdf5_filename = os.path.join(dir.name, "blah_mass.hdf5")
+            if have_esf:
+                contents = """# unix time in nanoseconds, state label
+10476435385280, START
+10476891776960, A
+10491427707840, B
+"""
+                esfname = "{}/regress_experiment_state.txt".format(dir.name)
+                with open(esfname, "w") as fp:
+                    fp.write(contents)
+            return mass.TESGroup([src_name], hdf5_filename=hdf5_filename), dir
+
+        for have_esf in (False, True):
+            data, dir = make_data(have_esf)
+            # data.summarize_data()
+            ds = data.channel[1]
+            ds.good()
+            if have_esf:
+                ds.good(state="A")
+                ds.good(state="B")
+                ds.good(state="uncategorized")
+                with self.assertRaises(ValueError):
+                    ds.good(state="a state not listed in the file")
+            else:
+                with self.assertRaises(ValueError):
+                    ds.good(state="A")
+            dir.cleanup()
 
 
 class TestTESHDF5Only(ut.TestCase):
