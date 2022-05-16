@@ -20,67 +20,70 @@ class TestFiles(ut.TestCase):
     def test_ljh_copy_and_append_traces(self):
         """Test copying and appending traces to LJH files."""
         src_name = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
-        dest_name = os.path.join(tempfile.gettempdir(), 'foo_chan1.ljh')
         src = LJHFile(src_name)
+        with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
+            dest_name = destfile.name
+            source_traces = [20]
+            ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
+            dest = LJHFile(dest_name)
+            for i, st in enumerate(source_traces):
+                self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
-        source_traces = [20]
-        ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
-        dest = LJHFile(dest_name)
-        for i, st in enumerate(source_traces):
-            self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+            source_traces = [0, 30, 20, 10]
+            ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
+            dest = LJHFile(dest_name)
+            for i, st in enumerate(source_traces):
+                self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
-        source_traces = [0, 30, 20, 10]
-        ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
-        dest = LJHFile(dest_name)
-        for i, st in enumerate(source_traces):
-            self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+            source_traces.append(5)
+            ljh_append_traces(src_name, dest_name, [5])
+            dest = LJHFile(dest_name)
+            for i, st in enumerate(source_traces):
+                self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
-        source_traces.append(5)
-        ljh_append_traces(src_name, dest_name, [5])
-        dest = LJHFile(dest_name)
-        for i, st in enumerate(source_traces):
-            self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
-
-        new_traces = [15, 25, 3]
-        source_traces.extend(new_traces)
-        ljh_append_traces(src_name, dest_name, new_traces)
-        dest = LJHFile(dest_name)
-        for i, st in enumerate(source_traces):
-            self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+            new_traces = [15, 25, 3]
+            source_traces.extend(new_traces)
+            ljh_append_traces(src_name, dest_name, new_traces)
+            dest = LJHFile(dest_name)
+            for i, st in enumerate(source_traces):
+                self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
     def test_ljh_truncate_wrong_format(self):
         # First a file using LJH format 2.1.0 - should raise an exception
         src_name = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
-        dest_name = os.path.join(tempfile.mkdtemp(), 'foo_chan1.ljh')
+        with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
+            dest_name = destfile.name
 
-        def func():
-            ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054*500)
-        self.assertRaises(Exception, func)
+            def func():
+                ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054*500)
+            self.assertRaises(Exception, func)
 
     def run_test_ljh_truncate_timestamp(self, src_name, n_pulses_expected, timestamp, segmentsize):
-        dest_name = os.path.join(tempfile.mkdtemp(), 'foo_chan3.ljh')
-        ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
+        with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
+            dest_name = destfile.name
+            ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
 
-        src = LJHFile(src_name)
-        dest = LJHFile(dest_name)
-        self.assertEqual(n_pulses_expected, dest.nPulses)
-        for k in range(n_pulses_expected):
-            self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
-            self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
-            self.assertEqual(src.rowcount[k], dest.rowcount[k])
+            src = LJHFile(src_name)
+            dest = LJHFile(dest_name)
+            self.assertEqual(n_pulses_expected, dest.nPulses)
+            for k in range(n_pulses_expected):
+                self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
+                self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
+                self.assertEqual(src.rowcount[k], dest.rowcount[k])
 
     def run_test_ljh_truncate_n_pulses(self, src_name, n_pulses, segmentsize):
         # Tests with a file with 1230 pulses, each 1016 bytes long
-        dest_name = os.path.join(tempfile.mkdtemp(), 'foo_chan3.ljh')
-        ljh_truncate(src_name, dest_name, n_pulses=n_pulses, segmentsize=segmentsize)
+        with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
+            dest_name = destfile.name
+            ljh_truncate(src_name, dest_name, n_pulses=n_pulses, segmentsize=segmentsize)
 
-        src = LJHFile(src_name)
-        dest = LJHFile(dest_name)
-        self.assertEqual(n_pulses, dest.nPulses)
-        for k in range(n_pulses):
-            self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
-            self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
-            self.assertEqual(src.rowcount[k], dest.rowcount[k])
+            src = LJHFile(src_name)
+            dest = LJHFile(dest_name)
+            self.assertEqual(n_pulses, dest.nPulses)
+            for k in range(n_pulses):
+                self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
+                self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
+                self.assertEqual(src.rowcount[k], dest.rowcount[k])
 
     def test_ljh_truncate_n_pulses(self):
         # Want to make sure that we didn't screw something up with the
@@ -138,13 +141,28 @@ class TestFiles(ut.TestCase):
 class TestTESGroup(ut.TestCase):
     """Basic tests of the TESGroup object."""
 
+    def __init__(self, methodName="runTest"):
+        super().__init__(methodName=methodName)
+        self.__files_to_clean_up__ = []
+
+    def __del__(self):
+        for f in self.__files_to_clean_up__:
+            os.unlink(f)
+
+    def clean_up_later(self, filename):
+        self.__files_to_clean_up__.append(filename)
+
     def load_data(self, hdf5_filename=None, hdf5_noisefilename=None):
         src_name = 'mass/regression_test/regress_chan1.ljh'
         noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
         if hdf5_filename is None:
-            hdf5_filename = tempfile.mktemp(prefix='_mass.hdf5')
+            hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5', delete=False)
+            hdf5_filename = hdf5_file.name
+            self.clean_up_later(hdf5_filename)
         if hdf5_noisefilename is None:
-            hdf5_noisefilename = tempfile.mktemp(prefix='_mass_noise.hdf5')
+            hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5', delete=False)
+            hdf5_noisefilename = hdf5_noisefile.name
+            self.clean_up_later(hdf5_noisefilename)
         return mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
                              hdf5_noisefilename=hdf5_noisefilename)
 
@@ -289,50 +307,46 @@ class TestTESGroup(ut.TestCase):
         ds = data.datasets[0]
         n_basis = 5
         hdf5_filename = data.pulse_model_to_hdf5(replace_output=True, n_basis=n_basis)
-        output_dir = tempfile.mkdtemp()
-        max_channels = 100
-        n_ignore_presamples = 0
-        ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(ds.filename, hdf5_filename, output_dir, max_channels,
-                                                                 n_ignore_presamples, require_experiment_state=False)
-        off = mass.off.off.OffFile(off_filenames[0])
-        self.assertTrue(np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:]))
+        with tempfile.TemporaryDirectory() as output_dir:
+            max_channels = 100
+            n_ignore_presamples = 0
+            ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
+                ds.filename, hdf5_filename, output_dir, max_channels,
+                n_ignore_presamples, require_experiment_state=False)
+            off = mass.off.off.OffFile(off_filenames[0])
+            self.assertTrue(np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:]))
 
-        x, y = off.recordXY(0)
+            x, y = off.recordXY(0)
 
-        with h5py.File(hdf5_filename, "r") as h5:
-            group = h5["1"]
-            pulse_model = mass.PulseModel.fromHDF5(group)
-        self.assertEqual(pulse_model.projectors.shape, (n_basis, ds.nSamples))
-        self.assertEqual(pulse_model.basis.shape, pulse_model.projectors.shape[::-1])
-        mpc = pulse_model.projectors.dot(ds.read_trace(0))
-        self.assertTrue(np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc))
+            with h5py.File(hdf5_filename, "r") as h5:
+                group = h5["1"]
+                pulse_model = mass.PulseModel.fromHDF5(group)
+            self.assertEqual(pulse_model.projectors.shape, (n_basis, ds.nSamples))
+            self.assertEqual(pulse_model.basis.shape, pulse_model.projectors.shape[::-1])
+            mpc = pulse_model.projectors.dot(ds.read_trace(0))
+            self.assertTrue(np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc))
 
-        should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
-        wrongness = np.abs(should_be_identity-np.identity(n_basis))
-        # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
-        self.assertTrue(np.amax(wrongness) < 4e-2)
-        pulse_model.plot()
+            should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
+            wrongness = np.abs(should_be_identity-np.identity(n_basis))
+            # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
+            self.assertTrue(np.amax(wrongness) < 4e-2)
+            pulse_model.plot()
 
-        # test multi_ljh2off_loop with multiple ljhfiles
-        basename, channum = mass.ljh_util.ljh_basename_channum(ds.filename)
-        N = len(off)
-        ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
-            [basename]*2, hdf5_filename, output_dir, max_channels,
-            n_ignore_presamples, require_experiment_state=False
-        )
-        self.assertEqual(ds.filename, ljh_filename_lists[0][0])
-        off_multi = mass.off.off.OffFile(off_filenames_multi[0])
-        self.assertEqual(2*N, len(off_multi))
-        self.assertEqual(off[7], off_multi[7])
-        self.assertEqual(off[7], off_multi[N+7])
-        self.assertNotEqual(off[7], off_multi[N+6])
-
-        if False:  # left for debug purposes
-            # also comment out the line in runtests.py that sets the backend to svg
-            # and change line 34 to only run test_core
-            import pylab as plt
-            plt.show()
-            plt.pause(60)
+            # test multi_ljh2off_loop with multiple ljhfiles
+            basename, channum = mass.ljh_util.ljh_basename_channum(ds.filename)
+            N = len(off)
+            prefix = os.path.split(basename)[1]
+            offbase = f"{output_dir}/{prefix}"
+            ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
+                [basename]*2, hdf5_filename, offbase, max_channels,
+                n_ignore_presamples, require_experiment_state=False
+            )
+            self.assertEqual(ds.filename, ljh_filename_lists[0][0])
+            off_multi = mass.off.off.OffFile(off_filenames_multi[0])
+            self.assertEqual(2*N, len(off_multi))
+            self.assertEqual(off[7], off_multi[7])
+            self.assertEqual(off[7], off_multi[N+7])
+            self.assertNotEqual(off[7], off_multi[N+6])
 
     def test_projectors_script(self):
         import mass.core.projectors_script
@@ -406,36 +420,36 @@ class TestTESHDF5Only(ut.TestCase):
         """Make sure it mass can open a mass generated file in HDF5 Only mode."""
         src_name = 'mass/regression_test/regress_chan1.ljh'
         noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
-        hdf5_filename = tempfile.mktemp(prefix='_mass.hdf5')
-        hdf5_noisefilename = tempfile.mktemp(prefix='_mass_noise.hdf5')
-        mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
-                      hdf5_noisefilename=hdf5_noisefilename)
+        hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5')
+        hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5')
+        mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_file.name,
+                      hdf5_noisefilename=hdf5_noisefile.name)
 
-        data2 = mass.TESGroupHDF5(hdf5_filename)
+        data2 = mass.TESGroupHDF5(hdf5_file.name)
         LOG.info("Testing printing of a TESGroupHDF5")
         LOG.info(data2)
 
     def test_ordering_hdf5only(self):
         src_name = "mass/regression_test/regress_chan1.ljh"
-        dir = tempfile.mkdtemp()
-        dest_name = "%s/temporary_chan%d.ljh"
-        chan1_dest = dest_name % (dir, 1)
-        shutil.copy(src_name, chan1_dest)
-        cnums = (1, 3, 5, 11, 13, 15)
-        for c in cnums[1:]:
-            os.link(chan1_dest, dest_name % (dir, c))
+        with tempfile.TemporaryDirectory() as dir:
+            dest_name = "%s/temporary_chan%d.ljh"
+            chan1_dest = dest_name % (dir, 1)
+            shutil.copy(src_name, chan1_dest)
+            cnums = (1, 3, 5, 11, 13, 15)
+            for c in cnums[1:]:
+                os.link(chan1_dest, dest_name % (dir, c))
 
-        data1 = mass.TESGroup("%s/temporary_chan*.ljh" % dir)
-        # Make sure the usual TESGroup is in the right order
-        for i, ds in enumerate(data1):
-            self.assertEqual(ds.channum, cnums[i])
-        fname = data1.hdf5_file.filename
-        del data1
+            data1 = mass.TESGroup("%s/temporary_chan*.ljh" % dir)
+            # Make sure the usual TESGroup is in the right order
+            for i, ds in enumerate(data1):
+                self.assertEqual(ds.channum, cnums[i])
+            fname = data1.hdf5_file.filename
+            del data1
 
-        # Make sure the usual TESGroup is in the right order
-        data = mass.TESGroupHDF5(fname)
-        for i, ds in enumerate(data):
-            self.assertEqual(ds.channum, cnums[i])
+            # Make sure the usual TESGroup is in the right order
+            data = mass.TESGroupHDF5(fname)
+            for i, ds in enumerate(data):
+                self.assertEqual(ds.channum, cnums[i])
 
 
 if __name__ == '__main__':
