@@ -10,6 +10,7 @@
 * Fix issue 219: should raise Exception when `MLEModel.fit(...weights=w)` for non-None weights.
 * Fix issue 220: read any experiment_state.txt file and make into categorical cuts.
 * Fix issue 221: bug in plotting noise autocorrelation.
+* Fix issue 222: bug in re-making filters and overwriting in HDF5 backup file.
 * Put `mass.materials` in default sub-packages for pip installation.
 
 

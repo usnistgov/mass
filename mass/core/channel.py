@@ -1187,6 +1187,8 @@ class MicrocalDataSet(object):
 
     def _filter_to_hdf5(self):
         # Store all filters created to a new HDF5 group
+        if "filters" in self.hdf5_group:
+            del self.hdf5_group["filters"]
         h5grp = self.hdf5_group.require_group('filters')
         if self.filter.f_3db is not None:
             h5grp.attrs['f_3db'] = self.filter.f_3db
