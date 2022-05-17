@@ -429,7 +429,7 @@ class Channel(CorG):
             self.plotAvsB("filtValue", "residualStdDev", states=states, includeBad=True,
                           cutRecipeName=newCutRecipeName)  # creates a figure
             plt.plot(fv_mids, medians, "o-", label="median", lw=3)
-            plt.plot(x, y, label="threshold", lw=3)
+            plt.plot(x, y, label=f"{threshold}", lw=3)
             plt.legend()
             plt.yscale("log")
             plt.ylim(ymin/2, ymax*2)
