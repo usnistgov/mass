@@ -445,7 +445,7 @@ class NoiseRecords(object):
             plt.clf()
             axis = plt.subplot(111)
         t = self.timebase * 1e3 * np.arange(len(self.autocorrelation))
-        axis.plot(t, self.autocorrelation, label=label, color=color)
+        axis.plot(t, self.autocorrelation[:], label=label, color=color)
         axis.plot([0], [self.autocorrelation[0]], 'o', color=color)
         axis.set_xlabel("Lag (ms)")
         axis.set_ylabel(r"Autocorrelation (counts$^2$)")
