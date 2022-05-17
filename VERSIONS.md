@@ -1,6 +1,7 @@
 ## Note on version numbers of Mass
 
-**0.7.8** November 29, 2021 - ?
+**0.7.8** May 17, 2022
+
 * Fix issue 213: `ds.plot_summaries()` should accept `valid=b`, a boolean array.
 * Fix issue 214: verify that `cutAdd(...overwrite=True)` works for OFF analysis.
 * Fix issue 215: add Kα lines of magnesium, aluminum, silicon from Ménesguen 2022.
