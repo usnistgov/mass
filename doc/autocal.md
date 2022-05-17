@@ -1,5 +1,78 @@
-# Autocal
-## Automatic Energy Calibration
+# Automatic Energy Calibration
+
+## The `calibrate` interface
+
+When you need to calibrate a TES detector (`mass.core.channel.MicroDataSet`)
+with any of its fields such as `p_pulse_rms`, `p_filt_value`, or
+`p_filt_value_dc`, you can use the `mass.core.channel.MicrocalDataSet.calibrate(...)`
+method.  An important caution is that this method computes energies and fills the dataset vector `p_energy`,
+clobbering any pre-existing values there.
+
+```python
+line_names = ['ScKAlpha', 4460.2, 'TiKAlpha', 'TiKBeta']
+
+# Calibrate the MicrocalDataSet ds using its ds.p_filt_value_dc[ds.good()].
+fieldname = 'p_filt_value_dc'
+ds.calibrate(fieldname, line_names)
+```
+
+If you need to calibrate using only a certain category, such as `state="A"`, you can replace the calibrate line above with a call like
+```python
+fieldname = 'p_filt_value_dc'
+ds.calibrate(fieldname, line_names, category={"state": "A"})
+```
+This will calibrate using only data that would test True in the call `ds.good(state="A")`.
+
+
+If you want to customize histogram parameters before any of line fitters
+use these histograms, you need to supply a closure that modifies any of member
+variables of `mass.calibration.algorithm.EnergyCalibrationAutocal`, which will be
+called before `EnergyCalibrationAutocal.fit_lines` is called.
+```python
+def param_adjust_closure(ds, auto_cal):
+    gakb_idx = auto_cal.line_names.index("GaKBeta")
+    auto_cal.fit_lo_hi[gakb_idx] = (auto_cal.ph_opt[gakb_idx] * 0.9975, auto_cal.ph_opt[gakb_idx] * 1.0025)
+    aska_idx = auto_cal.line_names.index("AsKAlpha")
+    auto_cal.fit_lo_hi[aska_idx] = (auto_cal.ph_opt[aska_idx] * 0.99, auto_cal.ph_opt[aska_idx] * 1.007)
+    auto_cal.binsize_ev[aska_idx] = 3.0
+
+line_names = ['ScKAlpha', 4460.2, 'TiKAlpha', 'TiKBeta']
+
+# Calibrate the MicrocalDataSet ds using its ds.p_filt_value_dc[ds.good()].
+ds.calibrate('p_filt_value_dc', line_names, param_adjust_closure=param_adjust_closure)
+```
+
+You can calibrate *all* the good channels of `mass.core.channel_group.TESGroup`
+using `mass.core.channel_group.TESGroup.calibrate`. This method works just like
+`mass.core.channel.MicrocalDataSet.calibrate`. But there are a couple of
+differences. One is that it catches any of exceptions and set those channels bad
+and proceed with next channel.
+
+```python
+def param_adjust_closure(ds, auto_cal):
+    gakb_idx = auto_cal.line_names.index("GaKBeta")
+    auto_cal.fit_lo_hi[gakb_idx] = (auto_cal.ph_opt[gakb_idx] * 0.9975, auto_cal.ph_opt[gakb_idx] * 1.0025)
+    aska_idx = auto_cal.line_names.index("AsKAlpha")
+    auto_cal.fit_lo_hi[aska_idx] = (auto_cal.ph_opt[aska_idx] * 0.99, auto_cal.ph_opt[aska_idx] * 1.007)
+    auto_cal.binsize_ev[aska_idx] = 3.0
+
+line_names = ['ScKAlpha', 4460.2, 'TiKAlpha', 'TiKBeta']
+
+ # It calibrates the MicrocalDataSet ds using its ds.p_filt_value_dc[ds.good()].
+data.calibrate('p_filt_value_dc', line_names, param_adjust_closure=param_adjust_closure)
+
+data.why_chan_bad  # Any of failed channels are added into this dictionary.
+
+ds = data.channel[1]
+ds.p_energy[ds.good()]  # This field is populated unless ds.channum in data.why_chan_bad
+```
+
+
+## The Autocal object (deprecated?)
+
+**WARNING! Direct use of the Autocal object is not the current, preferred method to attempt automatic calibration.**
+Proceed at your own risk, but prefer `ds.calibrate(...)` if possible. Direct use of Autocal is deprecated, and its
+good features are supposed to be incorporated into the calibrate interface (above). If you want to use it anyway, read on....
 
 When you want to calibrate a TES detector using a series of X-ray emission lines
 of chemical elements or any sharp peaks in a X-ray spectrum, you can use
@@ -56,54 +129,4 @@ auto_cal.fit_lines()  # Histograms are constructed and fitted with corresponding
 
 auto_cal.diagnose()
 plt.show()
-```
-
-When you need to calibrate a TES detector (`mass.core.channel.MicroDataSet`)
-with any of its fields such as `p_pulse_rms`, `p_filt_value`, or
-`p_filt_value_dc`, you can use `mass.core.channel.MicrocalDataSet.calibrate`
-method. If you want to customize histogram parameters before any of line fitters
-use these histograms, you need to supply a closure that modifies any of member
-variables `mass.calibration.algorithm.EnergyCalibrationAutocal`, which will be
-called before `EnergyCalibrationAutocal.fit_lines` is called. Note that
-`mass.core.channel.MicrocalDataSet.calibrate` does not actually calculate
-`p_energy`. It only creates a calibration spline.
-
-```python
-def param_adjust_closure(ds, auto_cal):
-    gakb_idx = auto_cal.line_names.index("GaKBeta")
-    auto_cal.fit_lo_hi[gakb_idx] = (auto_cal.ph_opt[gakb_idx] * 0.9975, auto_cal.ph_opt[gakb_idx] * 1.0025)
-    aska_idx = auto_cal.line_names.index("AsKAlpha")
-    auto_cal.fit_lo_hi[aska_idx] = (auto_cal.ph_opt[aska_idx] * 0.99, auto_cal.ph_opt[aska_idx] * 1.007)
-    auto_cal.binsize_ev[aska_idx] = 3.0
-
-line_names = ['ScKAlpha', 4460.2, 'TiKAlpha', 'TiKBeta']
-
-# It calibrates the MicrocalDataSet ds using its ds.p_filt_value_dc[ds.good()].
-ds.calibrate('p_filt_value_dc', line_names, param_adjust_closure=param_adjust_closure)
-```
-
-You can calibrate all of good channels of `mass.core.channel_group.TESGroup`
-using `mass.core.channel_group.TESGroup.calibrate`. This method works just like
-`mass.core.channel.MicrocalDataSet.calibrate`. But there are a couple of
-differences. One is that it catches any of exceptions and set those channels bad
-and proceed with next channel. And the other is that it calculates energies and
-populates `MicrocalDataSet.p_energy` field.
-
-```python
-def param_adjust_closure(ds, auto_cal):
-    gakb_idx = auto_cal.line_names.index("GaKBeta")
-    auto_cal.fit_lo_hi[gakb_idx] = (auto_cal.ph_opt[gakb_idx] * 0.9975, auto_cal.ph_opt[gakb_idx] * 1.0025)
-    aska_idx = auto_cal.line_names.index("AsKAlpha")
-    auto_cal.fit_lo_hi[aska_idx] = (auto_cal.ph_opt[aska_idx] * 0.99, auto_cal.ph_opt[aska_idx] * 1.007)
-    auto_cal.binsize_ev[aska_idx] = 3.0
-
-line_names = ['ScKAlpha', 4460.2, 'TiKAlpha', 'TiKBeta']
-
- # It calibrates the MicrocalDataSet ds using its ds.p_filt_value_dc[ds.good()].
-data.calibrate('p_filt_value_dc', line_names, param_adjust_closure=param_adjust_closure)
-
-data.why_chan_bad  # Any of failed channels are added into this dictionary.
-
-ds = data.channel[1]
-ds.p_energy[ds.good()]  # This field is populated unless ds.channum in data.why_chan_bad
 ```
