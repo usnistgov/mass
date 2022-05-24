@@ -23,7 +23,7 @@ from . import phase_correct
 from .pulse_model import PulseModel
 
 from mass.core.cut import Cuts
-from mass.core.files import VirtualFile, LJHFile
+from mass.core.files import VirtualFile, LJHFile, MATFile
 from mass.core.optimal_filtering import Filter, ArrivalTimeSafeFilter
 from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
@@ -460,7 +460,7 @@ class PulseRecords(object):
     and so forth. It is meant to be only a file interface.
     """
 
-    ALLOWED_TYPES = ("ljh", "virtual")
+    ALLOWED_TYPES = ("ljh", "virtual", "mat")
 
     def __init__(self, filename, file_format=None):
         """Contain and analyze a noise records file.
@@ -493,6 +493,8 @@ class PulseRecords(object):
                 file_format = 'virtual'
             elif filename.endswith("ljh"):
                 file_format = "ljh"
+            elif filename.endswith("mat"):
+                file_format = "mat"
             else:
                 file_format = "ljh"
         if file_format not in self.ALLOWED_TYPES:
@@ -503,6 +505,8 @@ class PulseRecords(object):
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
+        elif file_format == "mat":
+            self.datafile = MATFile(filename)
         else:
             raise RuntimeError("It is a programming error to get here")
 

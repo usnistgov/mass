@@ -18,6 +18,10 @@ MicrocalFile.__init__ to verify that it has the required interface:
 * copy()
 
 Created on Feb 16, 2011
+
+Update, Mae Scott on 5/24/22
+
+I've added a new class to handle data taken from the TKIDShop MATLAB software. 
 """
 
 
@@ -26,6 +30,7 @@ import os
 from packaging.version import Version
 import logging
 import collections
+import scipy.io # Added this to work with .mat files.
 LOG = logging.getLogger("mass")
 
 
@@ -580,3 +585,42 @@ Discrimination level (%%): 1.000000
 #End of Header
 """ % header_dict
     return ljh_header.encode()
+
+
+class MATFile(MicrocalFile):
+    """A single MATLAB-format file.
+
+    All non-MAT-specific data and methods appear in the parent MicrocalFile class.
+    """
+
+    def __init__(self, filename, segmentsize=(2**23)):
+        """Open a MAT file for reading.
+
+        Set the standard segment size **in bytes** so that
+        read_segment() will always return segments of a fixed size.
+
+        Args:
+            <filename>   Path to the file to be read.
+            <segmentsize>  Size of each segment **in bytes** that will be returned in read_segment()
+                 The actual segmentsize will be rounded down to be an integer number of
+                 pulses.
+        """
+        super(MATFile, self).__init__()
+        self.filename = filename
+
+        mat = scipy.io.loadmat(filename)
+        self.timebase = mat['timebase']
+        self.data = mat['waveset'].T
+        self.nSamples = self.data.shape[1]
+        self.nPulses = self.data.shape[0]
+        
+        self.sample_usec = None
+        self.pulses_per_seg = None
+        self.segmentsize = None
+        self.n_segments = None
+        self.segment_pulses = None
+        self.pulse_size_bytes = None
+        self.__cached_segment = None
+        #self.set_segment_size(segmentsize)
+
+        self.timestamp_offset = None
