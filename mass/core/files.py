@@ -31,6 +31,7 @@ from packaging.version import Version
 import logging
 import collections
 import scipy.io # Added this to work with .mat files.
+import sys
 LOG = logging.getLogger("mass")
 
 
@@ -193,6 +194,8 @@ class LJHFile(MicrocalFile):
         self.__read_header(filename)
         self.set_segment_size(segmentsize)
 
+        self.detectortype = None
+
         self.datatimes_float = None
         self.datatimes_float_old = None
         self.rowcount = None
@@ -201,11 +204,20 @@ class LJHFile(MicrocalFile):
                                            ('posix_usec', np.int64),
                                            ('data', np.uint16, self.nSamples)])
 
+        self.tkid_data_dtype = np.dtype([('rowcount', np.int64),
+                                         ('posix_usec', np.int64),
+                                         ('data', np.float32, self.nSamples)])
+
+        
         if Version(self.version_str.decode()) >= Version("2.2.0"):
             self.__read_binary = self.__read_binary_post22
         else:
             self.__read_binary = self.__read_binary_pre22
 
+        if self.detectortype.decode().lower() in ['tkid']:
+            self.__read_binary = self.__read_binary_tkid
+
+            
     def copy(self):
         """Return a deep copy of the object."""
         self.clear_cache()
@@ -609,7 +621,7 @@ class MATFile(MicrocalFile):
         self.filename = filename
 
         mat = scipy.io.loadmat(filename)
-        self.timebase = mat['timebase']
+        self.timebase = mat['timebase'][0][0]
         self.data = mat['waveset'].T
         self.nSamples = self.data.shape[1]
         self.nPulses = self.data.shape[0]
@@ -619,8 +631,118 @@ class MATFile(MicrocalFile):
         self.segmentsize = None
         self.n_segments = None
         self.segment_pulses = None
-        self.pulse_size_bytes = None
+        
+        self.pulse_size_bytes = sys.getsizeof(self.data[0])
+        
         self.__cached_segment = None
-        #self.set_segment_size(segmentsize)
+        self.set_segment_size(segmentsize)
 
         self.timestamp_offset = None
+
+
+        
+    def copy(self):
+        """Return a deep copy of the object."""
+        self.clear_cache()
+        c = MATFile(self.filename, self.segmentsize)
+        c.__dict__.update(self.__dict__)
+        return c
+
+
+    def set_segment_size(self, segmentsize):
+        """Set the standard segmentsize used in the read_segment() method.
+
+        THis is for binary data, and is not actually applicable for the MATfile.
+        I have this here as a placeholder if we need it. 
+
+        This number will
+        be rounded down to equal an integer number of pulses.
+        Raises ValueError if segmentsize is smaller than a single pulse.
+        """
+        maxitems = segmentsize // self.pulse_size_bytes
+        if maxitems < 1:
+            raise ValueError("segmentsize=%d is not permitted to be smaller than pulse record (%d bytes)" %
+                             (segmentsize, self.pulse_size_bytes))
+        self.segmentsize = maxitems*self.pulse_size_bytes
+        self.pulses_per_seg = self.segmentsize // self.pulse_size_bytes
+        #self.n_segments = 1 + (self.binary_size - 1) // self.segmentsize
+        self.__cached_segment = None
+
+
+    def __getitem__(self, item):
+        try:
+            item = int(item)
+            if item < 0 or item >= self.nPulses:
+                raise ValueError("Out of range")
+            return self.read_trace(item)
+        except TypeError:
+            pass
+
+        first_slice = None
+        second_slice = slice(None, None)
+
+        if isinstance(item, np.ndarray):
+            if item.ndim == 1 and item.dtype == bool:
+                if item.shape[0] != self.nPulses:
+                    raise ValueError("Shape doesn't match.")
+                trace_range = np.arange(self.nPulses, dtype=np.int64)[item]
+                num_samples = self.nSamples
+        elif isinstance(item, list):
+            try:
+                trace_range = np.array(item, dtype=np.uint64)
+
+                if trace_range.ndim != 1:
+                    raise ValueError("Unsupported list type.")
+                num_samples = self.nSamples
+            except ValueError:
+                raise ValueError("Unsupported list type.")
+        else:
+            if isinstance(item, slice):
+                first_slice = item
+
+            if isinstance(item, tuple):
+                if len(item) != 2:
+                    raise ValueError("Not supported dimensions!")
+                first_slice = item[0]
+                second_slice = item[1]
+
+            trace_range = range(self.nPulses)[first_slice]
+            num_samples = len(range(self.nSamples)[second_slice])
+
+        num_traces = len(trace_range)
+
+        last_segment = trace_range[0] // self.pulses_per_seg
+        self.read_segment(last_segment)
+
+        traces = np.zeros((num_traces, num_samples), dtype=np.uint16)
+
+        for i, j in enumerate(trace_range):
+            segment_num = j // self.pulses_per_seg
+            trace_idx = j % self.pulses_per_seg
+
+            if segment_num is not last_segment:
+                self.read_segment(segment_num)
+                last_segment = segment_num
+
+            traces[i] = self.data[trace_idx][second_slice]
+
+        return traces
+
+    def read_trace(self, trace_num):
+        """Return a single data trace (number <trace_num>).
+
+        This comes either from cache or by reading off disk, if needed.
+        """
+        if trace_num >= self.nPulses:
+            raise ValueError("This VirtualFile has only %d pulses" % self.nPulses)
+
+        segment_num = trace_num // self.pulses_per_seg
+        self.read_segment(segment_num)
+        return self.data[trace_num % self.pulses_per_seg]
+
+
+    def clear_cached_segment(self):
+        super(MATFile, self).clear_cache()
+        self.datatimes_float = None
+        self.datatimes_float_old = None
+        self.rowcount = None
