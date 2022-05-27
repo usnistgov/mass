@@ -21,7 +21,7 @@ Created on Feb 16, 2011
 
 Update, Mae Scott on 5/24/22
 
-I've added a new class to handle data taken from the TKIDShop MATLAB software. 
+I've added a new class to handle data taken from the TKIDShop MATLAB software.
 """
 
 
@@ -185,6 +185,7 @@ class LJHFile(MicrocalFile):
         self.header_size = None
         self.pulse_size_bytes = None
         self.row_number = None
+        self.detectortype = None
         self.column_number = None
         self.number_of_rows = None
         self.number_of_columns = None
@@ -194,7 +195,7 @@ class LJHFile(MicrocalFile):
         self.__read_header(filename)
         self.set_segment_size(segmentsize)
 
-        self.detectortype = None
+
 
         self.datatimes_float = None
         self.datatimes_float_old = None
@@ -208,7 +209,7 @@ class LJHFile(MicrocalFile):
                                          ('posix_usec', np.int64),
                                          ('data', np.float32, self.nSamples)])
 
-        
+
         if Version(self.version_str.decode()) >= Version("2.2.0"):
             self.__read_binary = self.__read_binary_post22
         else:
@@ -217,7 +218,7 @@ class LJHFile(MicrocalFile):
         if self.detectortype.decode().lower() in ['tkid']:
             self.__read_binary = self.__read_binary_tkid
 
-            
+
     def copy(self):
         """Return a deep copy of the object."""
         self.clear_cache()
@@ -276,10 +277,15 @@ class LJHFile(MicrocalFile):
         self.number_of_rows = int(header_dict.get(b"Number of rows", -1))
         self.timestamp_offset = float(header_dict.get(b"Timestamp offset (s)", b"-1"))
         self.version_str = header_dict[b'Save File Format Version']
+        self.detectortype = header_dict[b'Detector Type']
         if Version(self.version_str.decode()) >= Version("2.2.0"):
             self.pulse_size_bytes = (16 + 2 * self.nSamples)
         else:
             self.pulse_size_bytes = (6 + 2 * self.nSamples)
+
+        if self.detectortype.decode().lower() in ['tkid']:
+            self.pulse_size_bytes = (16 + 4 * self.nSamples)
+
         self.binary_size = os.stat(filename).st_size - self.header_size
         self.header_dict = header_dict
         self.nPulses = self.binary_size // self.pulse_size_bytes
@@ -467,6 +473,35 @@ class LJHFile(MicrocalFile):
         self.datatimes_raw = np.uint64(array["posix_usec"].copy())
         self.data = array["data"]
 
+
+    def __read_binary_tkid(self, max_size=(2**26)):
+        """
+        Version 2.2 and later include two pieces of time information for each pulse.
+        8 bytes - Int64 row count number
+        8 bytes - Int64 posix microsecond time
+        Technically both could be read as uint64, but then you get overflows when differencing, so
+        we'll give up a factor of 2 to avoid that.
+        """
+
+        if error_on_partial_pulse and (max_size > 0) and (max_size % self.pulse_size_bytes != 0):
+            msg = "__read_binary(max_size=%d) requests a non-integer number of pulses" % max_size
+            raise ValueError(msg)
+
+        with open(self.filename, "rb") as fp:
+            if skip > 0:
+                fp.seek(skip)
+            maxitems = max_size // self.pulse_size_bytes
+            # should use a platform independent spec for the order of the bytes in the ints
+            array = np.fromfile(fp, dtype=self.tkid_data_dtype, sep="", count=maxitems)
+            # fromfile will read up to max items
+
+        self.rowcount = array["rowcount"]
+        # convert to floating point with units of seconds
+        self.datatimes_float = array["posix_usec"] * 1e-6
+        self.datatimes_raw = np.uint64(array["posix_usec"].copy())
+        self.data = array["data"]
+
+
     def __read_binary_pre22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
         """This is for LJH file versions 2.1 and earlier.
 
@@ -625,22 +660,22 @@ class MATFile(MicrocalFile):
         self.data = mat['waveset'].T
         self.nSamples = self.data.shape[1]
         self.nPulses = self.data.shape[0]
-        
+
         self.sample_usec = None
         self.pulses_per_seg = None
         self.segmentsize = None
         self.n_segments = None
         self.segment_pulses = None
-        
+
         self.pulse_size_bytes = sys.getsizeof(self.data[0])
-        
+
         self.__cached_segment = None
         self.set_segment_size(segmentsize)
 
         self.timestamp_offset = None
 
 
-        
+
     def copy(self):
         """Return a deep copy of the object."""
         self.clear_cache()
@@ -653,7 +688,7 @@ class MATFile(MicrocalFile):
         """Set the standard segmentsize used in the read_segment() method.
 
         THis is for binary data, and is not actually applicable for the MATfile.
-        I have this here as a placeholder if we need it. 
+        I have this here as a placeholder if we need it.
 
         This number will
         be rounded down to equal an integer number of pulses.

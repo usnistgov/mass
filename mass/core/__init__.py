@@ -8,7 +8,7 @@ import mass.core.fake_data
 import mass.core.files
 import mass.core.optimal_filtering
 import mass.core.pulse_model
-
+import mass.core.tkid
 
 from .analysis_algorithms import *
 from .channel_group import *
@@ -21,6 +21,7 @@ from .files import *
 from .optimal_filtering import *
 from .pulse_model import *
 from .projectors_script import make_projectors
+from .tkid import *
 
 # Don't import the contents of these at the top level
 import mass.core.ljh_util
