@@ -252,6 +252,8 @@ class TestTESGroup(ut.TestCase):
         data.set_chan_good(1)
         data.summarize_data()
         data.avg_pulses_auto_masks()
+        with self.assertWarns(DeprecationWarning):
+            data.compute_noise_spectra()
         data.compute_noise()
         data.compute_5lag_filter()  # not enough pulses for ats filters
         data.plot_filters()

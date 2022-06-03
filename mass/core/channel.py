@@ -1666,9 +1666,10 @@ class MicrocalDataSet(object):
 
     # Rename compute_noise_spectra -> compute_noise, because the latter is a better name!
     # But use deprecation to not immediately break all code.
-    @deprecated(version="0.7.9", reason="Use compute_noise(), which is equivalent but better named")
     @_add_group_loop()
+    @deprecated(version="0.7.9", reason="Use compute_noise(), which is equivalent but better named")
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
+        """Replaced by the equivalent compute_noise(...)"""
         return self.compute_noise(max_excursion=max_excursion, n_lags=n_lags, forceNew=forceNew)
 
     @_add_group_loop()
