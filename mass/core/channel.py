@@ -1617,6 +1617,25 @@ class MicrocalDataSet(object):
                 plt.ylim(ymin=contents.min())
 
     @_add_group_loop()
+    def assume_white_noise(self, noise_variance=1.0, forceNew=False):
+        """Set the noise variance to `noise_variance` and the spectrum to be white.
+
+        This is appropriate when no noise files were taken.
+        Though you may set `noise_variance` to a value other than 1, this will affect only the
+        predicted resolution, and will not change the optimal filters that get computed/used.
+
+        Args:
+            noise_variance(number): what to set as the lag-0 noise autocorrelation.
+            forceNew (bool): whether to update the noise autocorrelation if it's already
+                been set (default False).
+        """
+        if forceNew or all(self.noise_autocorr[:] == 0):
+            self.noise_autocorr[1:] = 0.0
+            self.noise_autocorr[0] = noise_variance
+            psd = 2.0*noise_variance*self.timebase
+            self.noise_psd[:] = psd
+
+    @_add_group_loop()
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """Compute the noise power spectrum of this channel.
 
