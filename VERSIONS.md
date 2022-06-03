@@ -1,5 +1,8 @@
 ## Note on version numbers of Mass
 
+**0.7.9** May 2022
+* Run bitbucket pipeline with python 3.7 and 3.10 instead of 3.7 and 3.9.
+
 **0.7.8** May 17, 2022
 
 * Fix issue 213: `ds.plot_summaries()` should accept `valid=b`, a boolean array.
