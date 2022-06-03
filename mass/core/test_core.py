@@ -152,9 +152,11 @@ class TestTESGroup(ut.TestCase):
     def clean_up_later(self, filename):
         self.__files_to_clean_up__.append(filename)
 
-    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None):
-        src_name = 'mass/regression_test/regress_chan1.ljh'
-        noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
+    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False):
+        src_name = ['mass/regression_test/regress_chan1.ljh']
+        noi_name = ['mass/regression_test/regress_noise_chan1.ljh']
+        if skip_noise:
+            noi_name = None
         if hdf5_filename is None:
             hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5', delete=False)
             hdf5_filename = hdf5_file.name
@@ -163,8 +165,22 @@ class TestTESGroup(ut.TestCase):
             hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5', delete=False)
             hdf5_noisefilename = hdf5_noisefile.name
             self.clean_up_later(hdf5_noisefilename)
-        return mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
+        return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
                              hdf5_noisefilename=hdf5_noisefilename)
+
+    def test_nonoise_data(self):
+        """Test behavior of a TESGroup without noise data."""
+        data = self.load_data(skip_noise=True)
+        with self.assertRaises(AttributeError):
+            data.channel[1].noise_records
+        with self.assertRaises(Exception):
+            data.compute_noise_spectra()
+        data.summarize_data()
+        data.avg_pulses_auto_masks()
+        with self.assertRaises(Exception):
+            data.compute_ats_filter()
+        data.assume_white_noise()
+        data.compute_ats_filter()
 
     def test_all_channels_bad(self):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
