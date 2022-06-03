@@ -79,7 +79,7 @@ Here we do "plain" mass analysis, basically we just use 5 lag filters, cuts, dri
   # dan does a peak_index cut here, skipping for now
   data_plain.correct_flux_jumps(flux_quant=2**12)
   data_plain.avg_pulses_auto_masks()
-  data_plain.compute_noise_spectra(max_excursion=300)
+  data_plain.compute_noise(max_excursion=300)
   data_plain.compute_5lag_filter(f_3db=10e3)
   data_plain.filter_data()
   # here dan chooses a wide range around the highest peak

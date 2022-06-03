@@ -1,7 +1,11 @@
 ## Note on version numbers of Mass
 
-**0.7.9** May 2022
+**0.7.9** May-June, 2022
+
 * Run bitbucket pipeline with python 3.7 and 3.10 instead of 3.7 and 3.9.
+* Fix issue 223: add `assume_white_noise` so data can be filtered w/o noise files.
+* Add `compute_noise()` replacing `compute_noise_spectra()`; deprecate the latter.
+
 
 **0.7.8** May 17, 2022
 

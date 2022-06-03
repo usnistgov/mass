@@ -70,7 +70,7 @@ g = ds.good()
 # <demo> --- stop ---
 
 # Here's the noise PSD
-data.compute_noise_spectra()
+data.compute_noise()
 data.plot_noise()
 # <demo> --- stop ---
 

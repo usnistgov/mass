@@ -174,7 +174,7 @@ class TestTESGroup(ut.TestCase):
         with self.assertRaises(AttributeError):
             data.channel[1].noise_records
         with self.assertRaises(Exception):
-            data.compute_noise_spectra()
+            data.compute_noise()
         data.summarize_data()
         data.avg_pulses_auto_masks()
         with self.assertRaises(Exception):
@@ -252,7 +252,7 @@ class TestTESGroup(ut.TestCase):
         data.set_chan_good(1)
         data.summarize_data()
         data.avg_pulses_auto_masks()
-        data.compute_noise_spectra()
+        data.compute_noise()
         data.compute_5lag_filter()  # not enough pulses for ats filters
         data.plot_filters()
 
@@ -263,7 +263,7 @@ class TestTESGroup(ut.TestCase):
         data.summarize_data()
         data.auto_cuts(forceNew=True, clearCuts=True)
         data.avg_pulses_auto_masks()
-        data.compute_noise_spectra()
+        data.compute_noise()
         data.compute_filters()
         data.filter_data()
         data.drift_correct()
@@ -310,12 +310,12 @@ class TestTESGroup(ut.TestCase):
         noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
         data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
         ds = data.channel[1]
-        ds.compute_noise_spectra()
+        ds.compute_noise()
 
     def test_pulse_model_and_ljh2off(self):
         np.random.seed(0)
         data = self.load_data()
-        data.compute_noise_spectra()
+        data.compute_noise()
         data.summarize_data()
         data.auto_cuts()
         data.compute_ats_filter(shift1=False)
