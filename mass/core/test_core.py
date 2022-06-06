@@ -152,9 +152,11 @@ class TestTESGroup(ut.TestCase):
     def clean_up_later(self, filename):
         self.__files_to_clean_up__.append(filename)
 
-    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None):
-        src_name = 'mass/regression_test/regress_chan1.ljh'
-        noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
+    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False):
+        src_name = ['mass/regression_test/regress_chan1.ljh']
+        noi_name = ['mass/regression_test/regress_noise_chan1.ljh']
+        if skip_noise:
+            noi_name = None
         if hdf5_filename is None:
             hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5', delete=False)
             hdf5_filename = hdf5_file.name
@@ -163,8 +165,22 @@ class TestTESGroup(ut.TestCase):
             hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5', delete=False)
             hdf5_noisefilename = hdf5_noisefile.name
             self.clean_up_later(hdf5_noisefilename)
-        return mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
+        return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
                              hdf5_noisefilename=hdf5_noisefilename)
+
+    def test_nonoise_data(self):
+        """Test behavior of a TESGroup without noise data."""
+        data = self.load_data(skip_noise=True)
+        with self.assertRaises(AttributeError):
+            data.channel[1].noise_records
+        with self.assertRaises(Exception):
+            data.compute_noise()
+        data.summarize_data()
+        data.avg_pulses_auto_masks()
+        with self.assertRaises(Exception):
+            data.compute_ats_filter()
+        data.assume_white_noise()
+        data.compute_ats_filter()
 
     def test_all_channels_bad(self):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
@@ -236,7 +252,9 @@ class TestTESGroup(ut.TestCase):
         data.set_chan_good(1)
         data.summarize_data()
         data.avg_pulses_auto_masks()
-        data.compute_noise_spectra()
+        with self.assertWarns(DeprecationWarning):
+            data.compute_noise_spectra()
+        data.compute_noise()
         data.compute_5lag_filter()  # not enough pulses for ats filters
         data.plot_filters()
 
@@ -247,7 +265,7 @@ class TestTESGroup(ut.TestCase):
         data.summarize_data()
         data.auto_cuts(forceNew=True, clearCuts=True)
         data.avg_pulses_auto_masks()
-        data.compute_noise_spectra()
+        data.compute_noise()
         data.compute_filters()
         data.filter_data()
         data.drift_correct()
@@ -294,12 +312,12 @@ class TestTESGroup(ut.TestCase):
         noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
         data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
         ds = data.channel[1]
-        ds.compute_noise_spectra()
+        ds.compute_noise()
 
     def test_pulse_model_and_ljh2off(self):
         np.random.seed(0)
         data = self.load_data()
-        data.compute_noise_spectra()
+        data.compute_noise()
         data.summarize_data()
         data.auto_cuts()
         data.compute_ats_filter(shift1=False)

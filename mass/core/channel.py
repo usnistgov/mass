@@ -13,6 +13,7 @@ import matplotlib.pylab as plt
 import inspect
 import os
 import sys
+from deprecated import deprecated
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -1617,8 +1618,27 @@ class MicrocalDataSet(object):
                 plt.ylim(ymin=contents.min())
 
     @_add_group_loop()
-    def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
-        """Compute the noise power spectrum of this channel.
+    def assume_white_noise(self, noise_variance=1.0, forceNew=False):
+        """Set the noise variance to `noise_variance` and the spectrum to be white.
+
+        This is appropriate when no noise files were taken.
+        Though you may set `noise_variance` to a value other than 1, this will affect only the
+        predicted resolution, and will not change the optimal filters that get computed/used.
+
+        Args:
+            noise_variance(number): what to set as the lag-0 noise autocorrelation.
+            forceNew (bool): whether to update the noise autocorrelation if it's already
+                been set (default False).
+        """
+        if forceNew or all(self.noise_autocorr[:] == 0):
+            self.noise_autocorr[1:] = 0.0
+            self.noise_autocorr[0] = noise_variance
+            psd = 2.0*noise_variance*self.timebase
+            self.noise_psd[:] = psd
+
+    @_add_group_loop()
+    def compute_noise(self, max_excursion=1000, n_lags=None, forceNew=False):
+        """Compute the noise autocorrelation and power spectrum of this channel.
 
         Args:
             max_excursion (number): the biggest excursion from the median allowed
@@ -1642,7 +1662,15 @@ class MicrocalDataSet(object):
             self.noise_psd[:] = self.noise_records.noise_psd[:len(self.noise_psd[:])]
             self.noise_psd.attrs['delta_f'] = self.noise_records.noise_psd.attrs['delta_f']
         else:
-            LOG.info("chan %d skipping compute_noise_spectra because already done", self.channum)
+            LOG.info("chan %d skipping compute_noise because already done", self.channum)
+
+    # Rename compute_noise_spectra -> compute_noise, because the latter is a better name!
+    # But use deprecation to not immediately break all code.
+    @_add_group_loop()
+    @deprecated(version="0.7.9", reason="Use compute_noise(), which is equivalent but better named")
+    def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
+        """Replaced by the equivalent compute_noise(...)"""
+        return self.compute_noise(max_excursion=max_excursion, n_lags=n_lags, forceNew=forceNew)
 
     @_add_group_loop()
     def apply_cuts(self, controls, clear=False, forceNew=True):

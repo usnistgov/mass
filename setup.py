@@ -22,7 +22,7 @@ BASEDIR = os.path.dirname(os.path.realpath(__file__))
 requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn",
                 "h5py>=2.7", "palettable", "cycler", "fastdtw", "progress", "lmfit>=0.9.11", "pytest",
                 "uncertainties", "dill", "xraydb", "matplotlib>1.5", "statsmodels>0.8",
-                "packaging"]
+                "packaging", "deprecated"]
 
 
 def parse_version_number(VERSIONFILE=None):
