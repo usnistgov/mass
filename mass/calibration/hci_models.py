@@ -10,10 +10,11 @@ Paul Szypryt
 import numpy as np
 import re
 import mass.calibration.hci_lines
-try:
-    from xraylib import SymbolToAtomicNumber
-except ImportError:
-    raise ImportError('This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
+import xraydb
+#try:
+#    from xraylib import SymbolToAtomicNumber
+#except ImportError:
+#    raise ImportError('This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
 
 def initialize_hci_line_model(line_name, has_linear_background=False, has_tails=False):
     '''Initializes a single lorentzian hci lmfit model. Reformats line_name to create a lmfit valid prefix.
@@ -83,7 +84,7 @@ def initialize_HLike_2P_model(element, conf, has_linear_background=False, has_ta
     '''
 
     # Set up line names and lmfit prefixes
-    charge = int(SymbolToAtomicNumber(element))
+    charge = int(xraydb.atomic_number(element))
     line_name_1_2 = '{}{} {} 2P* J=1/2'.format(element, charge, conf)
     line_name_3_2 = '{}{} {} 2P* J=3/2'.format(element, charge, conf)
     prefix_1_2 = '{}_'.format(line_name_1_2).replace(' ', '_').replace('J=', '').replace('/', '_').replace('*', '').replace('.', '')
@@ -114,7 +115,7 @@ def initialize_HeLike_complex_model(element, has_linear_background=False, has_ta
     '''
 
     # Set up line names
-    charge = int(SymbolToAtomicNumber(element) - 1)
+    charge = int(xraydb.atomic_number(element) - 1)
     line_name_1s2s_3S = '{}{} 1s.2s 3S J=1'.format(element, charge)
     line_name_1s2p_3P = '{}{} 1s.2p 3P* J=1'.format(element, charge)
     line_name_1s2p_1P = '{}{} 1s.2p 1P* J=1'.format(element, charge)
@@ -182,7 +183,7 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
     conf_Helike_1P_dict['Ne'] = ['1s.3p', '1s.4p', '1s.5p']
     conf_Helike_1P_dict['Ar'] = ['1s.3p', '1s.4p', '1s.5p']
     for i_element in list(conf_Helike_1P_dict.keys()):
-        i_charge = int(SymbolToAtomicNumber(i_element) - 1)
+        i_charge = int(xraydb.atomic_number(i_element) - 1)
         for i_conf in conf_Helike_1P_dict[i_element]:
             Helike_line_name = '{}{} {} 1P* J=1'.format(i_element, i_charge, i_conf)
             Helike_model = initialize_hci_line_model(Helike_line_name, has_linear_background=has_linear_background, has_tails=has_tails)
