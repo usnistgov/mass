@@ -11,10 +11,6 @@ import numpy as np
 import re
 import mass.calibration.hci_lines
 import xraydb
-#try:
-#    from xraylib import SymbolToAtomicNumber
-#except ImportError:
-#    raise ImportError('This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
 
 def initialize_hci_line_model(line_name, has_linear_background=False, has_tails=False):
     '''Initializes a single lorentzian hci lmfit model. Reformats line_name to create a lmfit valid prefix.
