@@ -103,7 +103,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                  noise_is_continuous=True, max_cachesize=None,
                  hdf5_filename=None, hdf5_noisefilename=None,
                  never_use=None, use_only=None, max_chans=None,
-                 experimentStateFile=None, excludeStates="auto", overwrite_hdf5_file=False):
+                 experimentStateFile=None, excludeStates=[], overwrite_hdf5_file=False):
         """Set up a group of related data sets by their filenames.
 
         Args:
