@@ -114,5 +114,19 @@ class TestAddFitter(unittest.TestCase):
         self.assertTrue(mass.spectra["AuLAlpha"].nominal_peak_energy == 9713.44)
 
 
+class TestFitterBehavior(unittest.TestCase):
+    def test_fitter_disallows_weights(self):
+        "Make sure that it's an exception to pass weights (other than None) to model.fit"
+        line = mass.calibration.fluorescence_lines.MnKAlpha
+        model = line.model()
+        Nbins = 100
+        e = np.linspace(5800, 5920, Nbins)
+        sim = np.random.poisson(lam=20, size=Nbins)
+        params = model.guess(sim, bin_centers=e)
+        model.fit(sim, params, bin_centers=e, weights=None)
+        with self.assertRaises(Exception):
+            model.fit(sim, params, bin_centers=e, weights=sim**1.5)
+
+
 if __name__ == "__main__":
     unittest.main()

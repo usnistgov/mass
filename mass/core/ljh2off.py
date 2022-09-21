@@ -58,7 +58,8 @@ def off_header_string_from_ljhfile(ljhfile, projectors, basis, h5_path):
 
 def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
     return multi_ljh2off([ljhpath], offpath, projectors, basis, n_ignore_presamples, h5_path, off_version)
-    
+
+
 def multi_ljh2off(ljhpaths, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
     ljhfile0 = mass.LJHFile(ljhpaths[0])
     nbasis = projectors.shape[0]
@@ -97,9 +98,9 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
         pretrig_mean = data[:, :ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
         offdata = np.zeros(records_this_seg, dtype)
         pfit_pt_delta = np.polyfit(np.arange(ljhfile.nPresamples-n_ignore_presamples),
-                                    data[:, :ljhfile.nPresamples-n_ignore_presamples].T, deg=1)
+                                   data[:, :ljhfile.nPresamples-n_ignore_presamples].T, deg=1)
         pt_delta = np.polyval(pfit_pt_delta, ljhfile.nPresamples
-                                - n_ignore_presamples-1) - np.polyval(pfit_pt_delta, 0)
+                              - n_ignore_presamples-1) - np.polyval(pfit_pt_delta, 0)
         if True:  # load data into offdata: implementation 1
             offdata["recordSamples"] = ljhfile.nSamples
             offdata["recordPreSamples"] = ljhfile.nPresamples
@@ -120,8 +121,10 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
         offdata.tofile(f)
     return n
 
-def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_presamples, require_experiment_state=True,
-                 show_progress=LOG.isEnabledFor(logging.WARN)):
+
+def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_presamples,
+                       require_experiment_state=True,
+                       show_progress=LOG.isEnabledFor(logging.WARN)):
     pulse_model_dict = load_pulse_models(h5_path)
     n_channels = min(max_channels, len(pulse_model_dict))
     if show_progress:
@@ -136,7 +139,7 @@ def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_p
             continue  # make sure at least one of the desired files exists
         pulse_model = pulse_model_dict[channum]
         multi_ljh2off(ljhpaths, offpath, pulse_model.projectors,
-                pulse_model.basis, n_ignore_presamples, h5_path)
+                      pulse_model.basis, n_ignore_presamples, h5_path)
         if show_progress:
             bar.next()
         off_filenames.append(offpath)
@@ -145,8 +148,9 @@ def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_p
         if handled_channels == max_channels:
             break
     if show_progress:
-        bar.finish()    
+        bar.finish()
     return ljh_filename_lists, off_filenames
+
 
 def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True,
                  show_progress=LOG.isEnabledFor(logging.WARN)):
@@ -154,7 +158,7 @@ def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples
     ljhdir, file_basename = os.path.split(basename)
     off_basename = os.path.join(output_dir, file_basename)
     ljh_filename_lists, off_filenames = multi_ljh2off_loop([basename], h5_path, off_basename,
-            max_channels, n_ignore_presamples, require_experiment_state, show_progress)
+                                                           max_channels, n_ignore_presamples, require_experiment_state, show_progress)
     ljh_filenames = [l[0] for l in ljh_filename_lists]
     for l in ljh_filename_lists:
         assert len(l) == 1
@@ -235,6 +239,8 @@ class FakeArgs():
         self.max_channels = 1
         self.replace_output = True
         self.n_ignore_presamples = 3
+        self.f_3db_ats = None
+        self.f_3db_5lag = None
 
     def __repr__(self):
         return "FakeArgs: change the script to have _TEST=False to use real args, this is just for testing from within ipython"

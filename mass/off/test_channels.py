@@ -77,11 +77,15 @@ data.alignToReferenceChannel(referenceChannel=ds,
 aligner = data[3].aligner
 aligner.samePeaksPlot()
 aligner.samePeaksPlotWithAlignmentCal()
+for dsloop in data.values():
+    assert dsloop.calibrationPlan.lines == ds.calibrationPlan.lines
+
 
 # create "filtValueDC" by drift correcting on data near some particular energy
 # to do so we first create a cut, but we do not set it as default
 data.cutAdd("cutForLearnDC", lambda energyRough: np.logical_and(
     energyRough > 1000, energyRough < 3500), setDefault=False, _rethrow=True)
+assert data._handleDefaultCut("cutForLearnDC") == "cutForLearnDC"
 # uses "cutForLearnDC" in place of the default, so far no easy way to use both
 data.learnDriftCorrection(states=["W 1", "W 2"], cutRecipeName="cutForLearnDC", _rethrow=True)
 ds.plotCompareDriftCorrect()
@@ -111,7 +115,7 @@ data.plotHists(np.arange(0, 4000, 1), "energy")
 plt.figure(figsize=(12, 6))
 ax = plt.gca()
 data.plotHist(np.arange(1000, 4000, 1), "energy", coAddStates=False, states=["W 1", "Os"], axis=ax)
-ax.set_ylim(0, 1.2*np.amax([np.amax(l.get_ydata()) for l in ax.lines]))
+ax.set_ylim(0, 1.2*np.amax([np.amax(line.get_ydata()) for line in ax.lines]))
 names = ["W Ni-{}".format(i) for i in range(1, 27)]
 n = collections.OrderedDict()
 # line = ax.lines[0]
@@ -296,6 +300,18 @@ class TestSummaries(ut.TestCase):
         _ = ds_local.getAttr("filtValue", inds)
 
 
+def test_we_get_different_histograms_when_using_different_cuts_into_a_channelGroup_function():
+    # check that we actually get different histograms when using different cuts
+    # into a channel group
+    bc1, counts1 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="cutNearTiKAlpha")
+    bc2, counts2 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="!cutNearTiKAlpha")
+    bc3, counts3 = data.hist(np.arange(500, 5000, 500), "energy")
+
+    assert np.sum(counts1-counts2) != 0
+    assert np.sum(counts1-counts3) != 0
+    assert np.sum(counts2-counts3) != 0
+
+
 def test_getAttr_with_list_of_slice():
     ind = [slice(0, 5), slice(5, 10)]
     assert np.allclose(ds.getAttr("filtValue", ind), ds.getAttr("filtValue", slice(0, 10)))
@@ -341,6 +357,17 @@ def test_get_model():
 
     with pytest.raises(mass.off.util.FailedToGetModelException):
         mass.off.util.get_model("this is a str but not a standard feature")
+
+
+def test_duplicate_cuts():
+    "See issue 214: check that we can use `overwrite=True` to update a cut."
+    # Make some arbitrary cut.
+    data.cutAdd("deliberateduplicate", lambda energy: energy < 730)
+    # It's an error if you try to add another cut by the same name.
+    with pytest.raises(Exception):
+        data.cutAdd("deliberateduplicate", lambda energy: energy < 740)
+    # But it's not an error to reuse the same name WHEN you have `overwrite=True`.
+    data.cutAdd("deliberateduplicate", lambda energy: energy < 750, overwrite=True)
 
 
 def test_recipes():

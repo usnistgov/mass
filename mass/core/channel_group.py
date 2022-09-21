@@ -205,6 +205,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 self.n_channels = len(self.noise_filenames)
 
         # Load up experiment state file
+        self.experimentStateFile = None
         if experimentStateFile is None:
             try:
                 self.experimentStateFile = mass.off.channels.ExperimentStateFile(
@@ -212,7 +213,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
             except IOError as e:
                 LOG.debug('Skipping loading of experiment state file because {}'.format(e))
         else:
-            self.experimentStateFile = experimentStateFile
+            self.experimentStateFile = mass.off.channels.ExperimentStateFile(
+                experimentStateFile, excludeStates=excludeStates)
+        if self.experimentStateFile is not None:
+            allstates = self.experimentStateFile.allLabels[1:]  # omit [0], "START"
+            self.register_categorical_cut_field("state", allstates)
 
         # Set up other aspects of the object
         self.nhits = None
@@ -615,7 +620,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False,
                             maximum_n_pulses=4000, extra_n_basis_5lag=0, noise_weight_basis=True,
-                            category={}, _rethrow=False):
+                            category={}, f_3db_5lag=None, _rethrow=False):
         if hdf5_file is None:
             basename, _ = self.datasets[0].filename.split("chan")
             hdf5_filename = basename+"model.hdf5"
@@ -627,14 +632,14 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 self._pulse_model_to_hdf5(
                     hdf5_file, n_basis, pulses_for_svd=None,
                     extra_n_basis_5lag=extra_n_basis_5lag, maximum_n_pulses=maximum_n_pulses,
-                    category=category, noise_weight_basis=noise_weight_basis, _rethrow=_rethrow)
+                    category=category, noise_weight_basis=noise_weight_basis, f_3db_5lag=f_3db_5lag, _rethrow=_rethrow)
                 LOG.info("writing pulse_model to {}".format(hdf5_filename))
         else:
             hdf5_filename = hdf5_file.filename
             LOG.info("writing pulse_model to {}".format(hdf5_filename))
             self._pulse_model_to_hdf5(
                 hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses,
-                extra_n_basis_5lag=extra_n_basis_5lag, category=category)
+                extra_n_basis_5lag=extra_n_basis_5lag, f_3db_5lag=f_3db_5lag, category=category)
         return hdf5_filename
 
     def calc_external_trigger_timing(self, after_last=False, until_next=False,
@@ -1196,6 +1201,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                           color=cmap(float(i) / nplot))
             except Exception:
                 LOG.warning("WARNING: Could not plot channel %4d.", channum)
+                continue
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
         axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
         axis.set_xlabel("Frequency (Hz)")

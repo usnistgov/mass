@@ -2,5 +2,9 @@ from . import off
 from .off import OffFile
 
 from . import channels
-from .channels import Channel, ChannelGroup, getOffFileListFromOneFile, labelPeak, labelPeaks, add_group_loop, Recipe
-from .util import NoCutInds
+from .channels import Channel, ChannelGroup, getOffFileListFromOneFile, add_group_loop
+from .util import NoCutInds, labelPeak, labelPeaks, Recipe
+
+__all__ = ["off", "OffFile", "channels", "Channel", "ChannelGroup",
+           "getOffFileListFromOneFile", "add_group_loop",
+           "NoCutInds", "labelPeak", "labelPeaks", "Recipe"]

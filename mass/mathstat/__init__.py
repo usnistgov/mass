@@ -5,5 +5,8 @@ Joe Fowler, NIST
 """
 
 from . import derivative, entropy, fitting, interpolate, power_spectrum, robust, \
-        special, toeplitz, utilities
+    special, toeplitz, utilities
 from . import patch_numpy_histogram
+
+__all__ = ["derivative", "entropy", "fitting", "interpolate", "power_spectrum", "robust",
+           "special", "toeplitz", "utilities", "patch_numpy_histogram"]

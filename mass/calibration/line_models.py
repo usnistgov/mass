@@ -28,7 +28,12 @@ class MLEModel(lmfit.Model):
         r2 = y-data
         nonzero = data > 0
         r2[nonzero] += data[nonzero]*np.log((data/y)[nonzero])
-        vals = (2*r2) ** 0.5
+
+        # Calculate the sqrt(2*r2) in place into vals.
+        # The mask for r2>0 avoids the problem found in MASS issue #217.
+        vals = np.zeros_like(r2)
+        nonneg = r2 > 0
+        vals[nonneg] = np.sqrt(2*r2[nonneg])
         vals[y < data] *= -1
         return vals
 
@@ -101,6 +106,9 @@ class MLEModel(lmfit.Model):
             minimum_bins_per_fwhm = kwargs["minimum_bins_per_fwhm"]
             # remove this argument before passwing kwargs to ._fit
             del kwargs["minimum_bins_per_fwhm"]
+        if "weights" in kwargs and kwargs["weights"] is not None:
+            msg = "MLEModel assumes Poisson-distributed data; cannot use weights other than None"
+            raise Exception(msg)
         result = self._fit(*args, **kwargs)
         result.__class__ = LineModelResult
         result._validate_bins_per_fwhm(minimum_bins_per_fwhm)

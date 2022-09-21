@@ -10,7 +10,7 @@ import time
 
 from mass.core.files import LJHFile, make_ljh_header
 from mass.core.utilities import InlineUpdater
-from distutils.version import StrictVersion
+from packaging.version import Version
 
 
 def LJHModify(input_filename, output_filename, callback, overwrite=False):
@@ -61,7 +61,7 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
         callback(segdata)
 
         # Write the modified segdata (and the unmodified row count and timestamps).
-        if StrictVersion(infile.version_str.decode()) >= StrictVersion("2.2.0"):
+        if Version(infile.version_str.decode()) >= Version("2.2.0"):
             x = np.zeros((last-first,), dtype=infile.post22_data_dtype)
             x["rowcount"] = infile.rowcount
             x["posix_usec"] = infile.datatimes_float*1e6
@@ -196,7 +196,7 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
     else:
         infile = LJHFile(input_filename, segmentsize)
 
-    if StrictVersion(infile.version_str.decode()) < StrictVersion("2.2.0"):
+    if Version(infile.version_str.decode()) < Version("2.2.0"):
         raise Exception("Don't know how to truncate this LJH version: %s" % (infile.version_str))
 
     with open(output_filename, "wb") as outfile:

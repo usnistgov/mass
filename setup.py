@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-setup.py  distutils build/install file for Mass, the Microcalorimeter Analysis Software Suite
+setup.py  Build/install file for Mass, the Microcalorimeter Analysis Software Suite
 
 Python version note: this package contains some Python "f-strings", a system for string
 formatting that was introduced in Python 3.6. That means MASS won't work on Python 2 or any
@@ -21,7 +21,8 @@ BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
 requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn",
                 "h5py>=2.7", "palettable", "cycler", "fastdtw", "progress", "lmfit>=0.9.11", "pytest",
-                "uncertainties", "dill", "xraydb", "matplotlib>1.5", "statsmodels>0.8"]
+                "uncertainties", "dill", "xraydb", "matplotlib>1.5", "statsmodels>0.8",
+                "packaging"]
 
 
 def parse_version_number(VERSIONFILE=None):
@@ -74,7 +75,7 @@ if __name__ == "__main__":
           description='Microcalorimeter Analysis Software Suite',
           python_requires=">=3.6",  # See this file's docstring for discussion.
           packages=['mass', 'mass.core', 'mass.mathstat', 'mass.calibration',
-                    'mass.demo', 'mass.off'],
+                    'mass.demo', 'mass.off', 'mass.materials'],
           ext_modules=cythonize([Extension('mass.core.cython_channel',
                                            [os.path.join(BASEDIR, 'mass',
                                                          'core', 'cython_channel.pyx')],
