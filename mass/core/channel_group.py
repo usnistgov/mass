@@ -217,7 +217,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             self.experimentStateFile = mass.off.channels.ExperimentStateFile(
                 experimentStateFile, excludeStates=excludeStates)
         if self.experimentStateFile is not None:
-            allstates = self.experimentStateFile.allLabels[1:]  # omit [0], "START"
+            allstates = self.experimentStateFile.allLabels
             self.register_categorical_cut_field("state", allstates)
 
         # Set up other aspects of the object

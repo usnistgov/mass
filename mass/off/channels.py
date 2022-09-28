@@ -29,7 +29,9 @@ LOG = logging.getLogger("mass")
 class ExperimentStateFile():
     def __init__(self, filename: str = None, datasetFilename: str = None, excludeStates: str = "auto", _parse: bool = True):
         """
-        excludeStates - when "auto" it either exclude no states when START is the only state or or excludes START, END and IGNORE otherwise pass a list of states to exclude
+        excludeStates - when "auto" it either exclude no states (if START and STOP are the only states)
+            or excludes START, STOP, END and IGNORE (if states other than START exist).
+            If not "auto", should be a list of states to exclude.
         _parse - is only for testing, can be used to prevent parsing on init
         """
         if filename is not None:
@@ -84,16 +86,21 @@ class ExperimentStateFile():
         self.parse_start = parse_end  # next call to parse, start from here
 
     def calculateAutoExcludes(self):
-        if len(self.allLabels) == 1:
-            return []
-        else:
-            return ["START", "END", "STOP", "IGNORE"]
+        """What labels should be excluded by the "auto" keyword?
+        In a normal experiment, where there are non-trivial experiment states, we want to exclude all
+        the start/end data, hence the list normally_ignore. If, however, there's only the normally
+        ignored states, then you only want to ignore the states explicitly named IGNORE."""
+        normally_ignore = ["START", "STOP", "END", "IGNORE"]
+        nontrivial_labels = set(self.allLabels) - set(normally_ignore)
+        if len(nontrivial_labels) == 0:
+            return ["IGNORE"]
+        return normally_ignore
 
     def applyExcludesToLabels(self, allLabels):
         """
         possible recalculate self.excludeStates
         return a list of state labels that is unique, and contains all entries in allLabels except those in self.excludeStates
-        order in the returned list is that of first appearance in allLables
+        order in the returned list is that of first appearance in allLabels
         """
         if self.excludeStates == "auto":
             self.excludeStates = self.calculateAutoExcludes()
