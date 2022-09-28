@@ -934,7 +934,7 @@ class MicrocalDataSet(object):
             self.read_segment(0)
         peak_idx = self.data[:, self.cut_pre:self.nSamples
                              - self.cut_post].argmax(axis=1)+self.cut_pre
-        self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
+        self.peak_samplenumber = int(sp.stats.mode(peak_idx, keepdims=False).mode)
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
 
