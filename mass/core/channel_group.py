@@ -209,7 +209,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         self.experimentStateFile = None
         if experimentStateFile is None:
             try:
-                self.experimentStateFile = mass.off.channels.ExperimentStateFile(
+                self.experimentStateFile = mass.off.ExperimentStateFile(
                     datasetFilename=self.filenames[0], excludeStates=excludeStates)
             except IOError as e:
                 LOG.debug('Skipping loading of experiment state file because {}'.format(e))
