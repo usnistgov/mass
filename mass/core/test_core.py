@@ -168,6 +168,12 @@ class TestTESGroup(ut.TestCase):
         return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
                              hdf5_noisefilename=hdf5_noisefilename)
 
+    def test_experiment_state(self):
+        data = self.load_data()
+        data.summarize_data()
+        # The following fails until issue 225 is fixed.
+        self.assertEqual(data.n_good_channels(), 1)
+
     def test_nonoise_data(self):
         """Test behavior of a TESGroup without noise data."""
         data = self.load_data(skip_noise=True)
