@@ -13,6 +13,7 @@ import matplotlib.pylab as plt
 import inspect
 import os
 import sys
+from packaging import version
 from deprecated import deprecated
 
 # MASS modules
@@ -934,7 +935,11 @@ class MicrocalDataSet(object):
             self.read_segment(0)
         peak_idx = self.data[:, self.cut_pre:self.nSamples
                              - self.cut_post].argmax(axis=1)+self.cut_pre
-        self.peak_samplenumber = int(sp.stats.mode(peak_idx, keepdims=False).mode)
+        if version.parse(sp.__version__) >= version.parse("1.9.0"):
+            self.peak_samplenumber = int(sp.stats.mode(peak_idx, keepdims=False).mode)
+        else:
+            # The old way of using sp.stats.mode is deprecated in sp 1.9.0 and will be removed.
+            self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
 

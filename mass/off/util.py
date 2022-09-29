@@ -319,6 +319,7 @@ class SilenceBar(progress.bar.Bar):
         if not self.silence:
             super().__init__(message, max=max)
         else:
+            # The following prevents an ugly warning in the base class destructor.
             self._hidden_cursor = False
 
     def next(self):
