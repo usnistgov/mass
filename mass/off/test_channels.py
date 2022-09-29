@@ -277,10 +277,28 @@ class TestSummaries(ut.TestCase):
                 n_exclude_bad += 1
         self.assertEqual(n_exclude_bad, 0)
 
+    def test_save_load_recipes(self):
+        data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
+        ds_local = data_local.firstGoodChannel()
+        try:
+            ds_local.energy
+            assert "ds_local should not have energy yet, we haven't defined that recipe"
+        except:
+            pass
+        pklfilename = "recipe_book_save_test2.rbpkl"
+        data.saveRecipeBooks(pklfilename)
+        ds = data.firstGoodChannel()
+        ds.add5LagRecipes(np.zeros(996))
+        data_local.loadRecipeBooks(pklfilename)
+        for ds in data.values():
+            ds_local = data_local[ds.channum]
+            assert all(ds.energy == ds_local.energy)
+
+
     def test_experiment_state_file_repeated_states(self):
         # A better test would create an alternate experiment state file with repeated indicies and use that
         # rather than reach into the internals of ExperimentStateFile
-        esf = mass.off.channels.ExperimentStateFile(_parse=False)
+        esf = mass.off.ExperimentStateFile(_parse=False)
         # reach into the internals to simulate the results of parse with repeated states
         esf.allLabels = ["A", "B", "A", "B", "IGNORE", "A"]
         esf.unixnanos = np.arange(len(esf.allLabels))*100
