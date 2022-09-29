@@ -13,6 +13,7 @@ import h5py
 import lmfit
 import scipy.interpolate
 from mass.common import tostr
+import dill
 
 # local imports
 import mass
@@ -797,10 +798,14 @@ class Channel(CorG):
 
     def add5LagRecipes(self, f):
         filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(
-            f, self.offFile.basis)
+            f[:], self.offFile.basis)
         self.recipes.add("cba5Lag", lambda coefs: np.matmul(coefs, filter_5lag_fit_in_basis))
-        self.recipes.add("filtValue5Lag", lambda cba5Lag: fivelag.filtValue5Lag(cba5Lag))
-        self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
+        # self.recipes.add("filtValue5Lag", lambda cba5Lag: fivelag.filtValue5Lag(cba5Lag))
+        self.recipes.add("filtValue5Lag", fivelag.filtValue5Lag, ingredients=["cba5Lag"])
+        # self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
+        self.recipes.add("peakX5Lag", fivelag.peakX5Lag, ingredients=["cba5Lag"])
+
+
 
 
 def normalize(x):
@@ -1333,3 +1338,16 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self._default_cut_recipe_name = cutRecipeName
         for ds in self.values():
             ds.cutSetDefault(cutRecipeName)
+
+    def saveRecipeBooks(self, filename):
+        with open(filename, "wb") as f:
+            d = {}
+            for ds in self.values():
+                d[ds.channum]=ds.recipes
+            dill.dump(d, f)
+
+    def loadRecipeBooks(self, filename):
+        with open(filename, "rb") as f:
+            d = dill.load(f)
+        for channum,recipes in d.items():
+            self[channum].recipes=recipes
