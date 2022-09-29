@@ -86,10 +86,12 @@ class ExperimentStateFile():
         self.parse_start = parse_end  # next call to parse, start from here
 
     def calculateAutoExcludes(self):
-        """What labels should be excluded by the "auto" keyword?
+        """
+        What labels should be excluded by the "auto" keyword?
         In a normal experiment, where there are non-trivial experiment states, we want to exclude all
-        the start/end data, hence the list normally_ignore. If, however, there's only the normally
-        ignored states, then you only want to ignore the states explicitly named IGNORE."""
+        the start/end data, hence the list normally_ignore. If, however, the normally ignored states
+        are the only oes, then you only want to ignore the states explicitly named IGNORE.
+        """
         normally_ignore = ["START", "STOP", "END", "IGNORE"]
         nontrivial_labels = set(self.allLabels) - set(normally_ignore)
         if len(nontrivial_labels) == 0:
@@ -98,8 +100,8 @@ class ExperimentStateFile():
 
     def applyExcludesToLabels(self, allLabels):
         """
-        possible recalculate self.excludeStates
-        return a list of state labels that is unique, and contains all entries in allLabels except those in self.excludeStates
+        Recalculate self.excludeStates (possibly).
+        Return a list of state labels that is unique, and contains all entries in allLabels except those in self.excludeStates
         order in the returned list is that of first appearance in allLabels
         """
         if self.excludeStates == "auto":
@@ -113,7 +115,7 @@ class ExperimentStateFile():
 
     def calcStatesDict(self, unixnanos, statesDict=None, i0_allLabels=0, i0_unixnanos=0):
         """
-        calculate statesDict, a dictionary mapping state name to EITHER a slice OR a list of slices
+        calculate statesDict, an ordered dictionary mapping state name to EITHER a slice OR a list of slices
         equal to unixnanos. Slices are used for unique states; list of slices are used for repeated states.
         When updating pass in the existing statesDict and i0 must be the first label in allLabels that wasn't
         used to calculate the existing statesDict.
@@ -139,7 +141,7 @@ class ExperimentStateFile():
             else:
                 s = slice(inds[i], inds[i+1])
             if aliasedLabel in statesDict:
-                # this label is unique, use a list of slices
+                # this label is not unique; use a list of slices
                 v = statesDict[aliasedLabel]
                 if isinstance(v, slice):
                     # this label was previously unique... create the list of slices

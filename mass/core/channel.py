@@ -1094,11 +1094,9 @@ class MicrocalDataSet(object):
         slicedict = esf.calcStatesDict(nano)
 
         state_codes = np.zeros(self.nPulses, dtype=np.uint32)
-        for id, state in enumerate(esf.allLabels):
-            if state == "START":
-                continue
+        for id, state in enumerate(slicedict.keys()):
             slice = slicedict[state]
-            state_codes[slice.start:slice.stop] = id
+            state_codes[slice.start:slice.stop] = id+1
         self.cuts.cut("state", state_codes)
 
     @show_progress("compute_average_pulse")
