@@ -152,7 +152,8 @@ class TestTESGroup(ut.TestCase):
     def clean_up_later(self, filename):
         self.__files_to_clean_up__.append(filename)
 
-    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False):
+    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
+        experimentStateFile=None):
         src_name = ['mass/regression_test/regress_chan1.ljh']
         noi_name = ['mass/regression_test/regress_noise_chan1.ljh']
         if skip_noise:
@@ -166,7 +167,32 @@ class TestTESGroup(ut.TestCase):
             hdf5_noisefilename = hdf5_noisefile.name
             self.clean_up_later(hdf5_noisefilename)
         return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
-                             hdf5_noisefilename=hdf5_noisefilename)
+                             hdf5_noisefilename=hdf5_noisefilename,
+                             experimentStateFile=experimentStateFile)
+
+    def test_experiment_state(self):
+        # First test with the default experimentStateFile
+        # It should have only the trivial START state, hence all 300 records
+        # will pass ds.good(state="START")
+        data = self.load_data()
+        data.summarize_data()
+        # The following fails until issue 225 is fixed.
+        self.assertEqual(data.n_good_channels(), 1)
+        ds = data.channel[1]
+        self.assertEqual(len(ds.good(state="START")), 300)
+
+        # Next test with an experimentStateFile that has a nontrivial state "funstate".
+        # In this case, START should not be a valid state, but funstate will have Only
+        # 252 of the 300 records valid because of their timestamps.
+        esf = "mass/regression_test/regress_experiment_state_v2.txt"
+        data = self.load_data(experimentStateFile=esf)
+        data.summarize_data()
+        self.assertEqual(data.n_good_channels(), 1)
+        ds = data.channel[1]
+        with self.assertRaises(ValueError):
+            ds.good(state="START")
+        nfun = np.sum(ds.good(state="funstate"))
+        self.assertEqual(nfun, 252)
 
     def test_nonoise_data(self):
         """Test behavior of a TESGroup without noise data."""
