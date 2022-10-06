@@ -1351,3 +1351,34 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             d = dill.load(f)
         for channum,recipes in d.items():
             self[channum].recipes=recipes
+
+
+class ChannelFromOldStyle(Channel):
+    def __init__(self, ds, experimentStateFile=None, verbose=True):
+        self.ds = ds
+        self.experimentStateFile = experimentStateFile
+        self.markedBadBool = False
+        self._statesDict = None
+        self.verbose = verbose
+        self.learnChannumAndShortname()
+        baseIngredients = [k for k in self.ds.__dict__ if k.startswith("p_")]
+        self.recipes = RecipeBook(baseIngredients, ChannelFromOldStyle,
+                                  wrapper=lambda self: self.ds.__dict__)
+        # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
+        self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
+
+    def _defineDefaultRecipesAndProperties(self):
+        assert(len(self.recipes) == 0)
+        t0 = self.ds.p_timestamp[0]
+        self.recipes.add("relTimeSec", lambda p_timestamp: (p_timestamp-t0))
+        self.recipes.add("unixnano", lambda p_timestamp: p_timestamp*1e9)
+        self.recipes.add("filtPhase", lambda p_filt_phase: p_filt_phase)
+        self.cutAdd("cutNone", lambda p_pretrig_mean: np.ones(
+            len(p_pretrig_mean), dtype="bool"), setDefault=True)
+
+    def learnChannumAndShortname(self):
+        basename, self.channum = mass.ljh_util.ljh_basename_channum(self.ds.filename)
+        self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
+
+    def __len__(self):
+        return self.ds.nPulses

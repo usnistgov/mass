@@ -31,6 +31,7 @@ from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
 from mass.mathstat.entropy import laplace_entropy
+import mass.off
 
 from mass.core import ljh_util
 import logging
@@ -707,6 +708,9 @@ class MicrocalDataSet(object):
         self.__load_auto_cuts()
         self.__load_corrections()
 
+    def toOffStyle(self):
+        return mass.off.channels.ChannelFromOldStyle(self)
+        
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
         about each pulse in memory.
@@ -2668,3 +2672,4 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     info["entropies"] = (H1, H2, H3)
     info["model"] = model
     return info
+
