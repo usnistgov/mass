@@ -106,7 +106,8 @@ class CorG():
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=None, binEdges=None, label="full", plot=True,
                 params_fixed=None, cutRecipeName=None, calibration=None, require_errorbars=True, method="leastsq_refit",
-                has_linear_background=True, has_tails=False, params_update=lmfit.Parameters()):
+                has_linear_background=True, has_tails=False, params_update=lmfit.Parameters(),
+                minimum_bins_per_fwhm=None):
         """Do a fit to `lineNameOrEnergy` and return the result. You can get the params results with result.params
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel", your you can pass in a model like a mass.MnKAlphaModel().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
@@ -123,12 +124,14 @@ class CorG():
         method -- fit method to use
         has_tails -- used when creating a model, will add both high and low energy tails to the model
         params_update -- after guessing params, call params.update(params_update)
+        minimum_bins_per_fwhm -- passed to model.fit
         """
         model = util.get_model(
             lineNameOrEnergy, has_linear_background=has_linear_background, has_tails=has_tails)
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
+        attr_is_energy = attr.startswith("energy") or attr.startswith("p_energy") or calibration is not None
         if binEdges is None:
-            if attr.startswith("energy") or calibration is not None:
+            if attr_is_energy:
                 pe = model.spect.peak_energy
                 binEdges = np.arange(pe-dlo, pe+dhi, self._handleDefaultBinsize(binsize))
             else:
@@ -143,7 +146,7 @@ class CorG():
             params = model.guess(counts, bin_centers=bin_centers)
         else:
             params = params_fixed
-        if attr.startswith("energy") or calibration is not None:
+        if attr_is_energy:
             params["dph_de"].set(1.0, vary=False)
             unit_str = "eV"
         if calibration is None:
@@ -154,7 +157,8 @@ class CorG():
             attr_str = attr
         params.update(params_update)
         # unit_str and attr_str are used by result.plotm to label the axes properly
-        result = model.fit(counts, params, bin_centers=bin_centers, method=method)
+        result = model.fit(counts, params, bin_centers=bin_centers, method=method,
+        minimum_bins_per_fwhm=minimum_bins_per_fwhm)
         if states is None:
             states_hint = "all states"
         elif isinstance(states, list):
@@ -1445,12 +1449,20 @@ class ChannelFromNpArray(Channel):
         return f"{self.__class__.__name__} with shortName={self.shortName}" 
 
 class ChannelGroupFromNpArrays(ChannelGroup):
-    def __init__(self, channels = [],
+    def __init__(self, channels, shortname,
     verbose=True, experimentStateFile=None):
         collections.OrderedDict.__init__(self)
+        self._shortName = shortname
         self.verbose = verbose
         self.experimentStateFile = experimentStateFile
         self._includeBad = False
         for ds in channels:
             self[ds.channum] = ds
         self._default_cut_recipe_name = self.firstGoodChannel()._default_cut_recipe_name
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} with shortName={self.shortName}" 
+
+    @property
+    def shortName(self):
+        return self._shortName

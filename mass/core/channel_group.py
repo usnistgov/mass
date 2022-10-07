@@ -249,7 +249,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     def toOffStyle(self):
         channels = [ds.toOffStyle() for ds in self]
-        g = mass.off.channels.ChannelGroupFromNpArrays(channels)
+        g = mass.off.channels.ChannelGroupFromNpArrays(channels,
+        shortname = self.shortname,
+        experimentStateFile = self.experimentStateFile)
         return g
 
     def _setup_per_channel_objects(self, noise_is_continuous=True):

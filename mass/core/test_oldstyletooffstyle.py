@@ -32,7 +32,16 @@ def test_oldstyletooffstyle():
     dsoffstyle.learnDriftCorrection("p_pretrig_mean", "p_filt_value")
     dsoffstyle.hist(np.arange(0,1000,10,), "p_filt_valueDC")
     dsoffstyle.plotAvsB("relTimeSec", "p_filt_valueDC")
+    model = mass.getmodel("FeKAlpha")
+    params = model.make_params()
+    dsoffstyle.linefit("FeKAlpha",attr="p_energy", 
+    minimum_bins_per_fwhm=0.1,
+    params_fixed = params) # p_energy is all zeros, passing
+    # minimum_bins_per_fwhm and params_fixed avoid errors from those zeros
 
     dataoffstyle = dataold.toOffStyle()
     dataoffstyle.hist(np.arange(0, 1000, 10), "p_filt_value")
-    
+    dataoffstyle.plotHist(np.arange(0,1000,10), "p_filt_value")
+    dataoffstyle.linefit("FeKAlpha",attr="p_energy", 
+    minimum_bins_per_fwhm=0.1,
+    params_fixed = params)
