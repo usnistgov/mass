@@ -709,8 +709,23 @@ class MicrocalDataSet(object):
         self.__load_corrections()
 
     def toOffStyle(self):
-        return mass.off.channels.ChannelFromOldStyle(self)
-        
+        a = self._makeNumpyArray()
+        return mass.off.channels.ChannelFromNpArray(a,
+        channum = self.channum,
+        shortname=self.shortname,
+        experimentStateFile=self.tes_group.experimentStateFile)
+
+    def _makeNumpyArray(self, fields=None, prefix="p_"):
+        if fields is None:
+            fields = [k for k in self.__dict__ if k.startswith(prefix)]
+        _dtypes = [self.__dict__[k].dtype for k in fields]
+        dtlist = list(zip(fields, _dtypes))
+        dtype = np.dtype(dtlist)
+        a = np.zeros(len(self.__dict__[fields[0]]), dtype)
+        for k in fields:
+            a[k] = self.__dict__[k][:]
+        return a
+
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
         about each pulse in memory.
@@ -1217,6 +1232,15 @@ class MicrocalDataSet(object):
                 vec.attrs['variance'] = self.filter.variances.get(shortname, 0.0)
                 vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv.get(
                     shortname, 0.0)
+
+    @property
+    def shortname(self):
+        """return a string containing part of the filename and the channel number, useful for labelling plots"""
+        s = os.path.split(self.filename)[-1]
+        chanstr = "chan%g"%self.channum
+        if not chanstr in s:
+            s+=chanstr
+        return s
 
     @_add_group_loop()
     def compute_5lag_filter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}, forceNew=False):

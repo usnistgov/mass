@@ -28,4 +28,9 @@ def test_oldstyletooffstyle():
     dataold.filter_data()
     dsold = dataold.first_good_dataset
     dsoffstyle = dsold.toOffStyle()
-    dsoffstyle.hist(np.arange(0,1000,10), "filtValue")
+    dsoffstyle.hist(np.arange(0,1000,10), "p_filt_value")
+    dsoffstyle.learnDriftCorrection("p_pretrig_mean", "p_filt_value")
+    dsoffstyle.hist(np.arange(0,1000,10,), "p_filt_valueDC")
+
+    dataoffstyle = dataold.toOffStyle()
+    dataold.hist(np.arange(0, 1000, 10), "p_filt_value")

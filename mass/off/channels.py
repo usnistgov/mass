@@ -1353,52 +1353,38 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             self[channum].recipes=recipes
 
 
-class ChannelFromOldStyle(Channel):
-    def __init__(self, ds, experimentStateFile=None, verbose=True):
-        self.ds = ds
+class ChannelFromNpArray(Channel):
+    def __init__(self, a, channum, shortname, experimentStateFile=None, verbose=True):
+        self.a = a
         self.experimentStateFile = experimentStateFile
+        self.shortName = shortname
+        self.channum = channum
         self.markedBadBool = False
         self._statesDict = None
         self.verbose = verbose
-        self.learnChannumAndShortname()
-        self._makeNumpyArray()
-        self.recipes = RecipeBook(self._names, ChannelFromOldStyle)
+        self.recipes = RecipeBook(list(self.a.dtype.fields.keys()), 
+        ChannelFromNpArray)
         # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
 
     def _defineDefaultRecipesAndProperties(self):
         assert(len(self.recipes) == 0)
-        t0 = self.ds.p_timestamp[0]
-        self.recipes.add("relTimeSec", lambda p_timestamp: (p_timestamp-t0))
-        self.recipes.add("unixnano", lambda p_timestamp: p_timestamp*1e9)
-        self.recipes.add("filtPhase", lambda p_filt_phase: p_filt_phase)
-        self.recipes.add("filtValue", lambda p_filt_value: p_filt_value)
-        self.cutAdd("cutNone", lambda p_pretrig_mean: np.ones(
-            len(p_pretrig_mean), dtype="bool"), setDefault=True)
-
-    def learnChannumAndShortname(self):
-        basename, self.channum = mass.ljh_util.ljh_basename_channum(self.ds.filename)
-        self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
+        if "p_timestamp" in self.a.dtype.names:
+            t0 = self.a[0]["p_timestamp"]
+            self.recipes.add("relTimeSec", lambda p_timestamp: (p_timestamp-t0))
+            self.cutAdd("cutNone", lambda p_timestamp: np.ones(
+                len(p_timestamp), dtype="bool"), setDefault=True)
+        else:
+            first_field = self.a.dtype.names[0]
+            self.cutAdd("cutNone", lambda x: np.ones(
+                len(x), dtype="bool"), [first_field], setDefault=True)            
 
     def __len__(self):
-        return self.ds.nPulses
+        return len(self.a)
 
     def refreshFromFiles(self):
         raise Exception(f"not implemented for {self.__class__.__name__}")
-
-    def _makeNumpyArray(self):
-        self._names = [k for k in self.ds.__dict__ if k.startswith("p_")]
-        self._dtypes = [self.ds.__dict__[k].dtype for k in self._names]
-        # self._np_dtlist = [("p_pretrig_mean", np.float32), ("p_framecount", np.int64),
-        #     ("p_timestamp", np.float64), ("p_filt_value", np.float32),
-        #     ]
-        dtlist = list(zip(self._names, self._dtypes))
-        dtype = np.dtype(dtlist)
-        self.a = np.zeros(len(self), dtype)
-        for k in self._names:
-            self.a[k] = self.ds.__dict__[k][:]
-        self.offFile = self.a
 
     def _indexOffWithCuts(self, inds, cutRecipeName=None, _listMethodSelect=2):
         """
@@ -1444,3 +1430,10 @@ class ChannelFromOldStyle(Channel):
         else:
             raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
         return output
+
+    @property
+    def _offAttrs(self):
+        return self.a.dtype.names
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} with shortName={self.shortName}" 
