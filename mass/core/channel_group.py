@@ -247,6 +247,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         self.updater = InlineUpdater
 
+    def toOffStyle(self):
+        channels = [ds.toOffStyle() for ds in self]
+        g = mass.off.channels.ChannelGroupFromNpArrays(channels)
+        return g
+
     def _setup_per_channel_objects(self, noise_is_continuous=True):
         pulse_list = []
         noise_list = []

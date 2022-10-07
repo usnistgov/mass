@@ -31,6 +31,8 @@ def test_oldstyletooffstyle():
     dsoffstyle.hist(np.arange(0,1000,10), "p_filt_value")
     dsoffstyle.learnDriftCorrection("p_pretrig_mean", "p_filt_value")
     dsoffstyle.hist(np.arange(0,1000,10,), "p_filt_valueDC")
+    dsoffstyle.plotAvsB("relTimeSec", "p_filt_valueDC")
 
     dataoffstyle = dataold.toOffStyle()
-    dataold.hist(np.arange(0, 1000, 10), "p_filt_value")
+    dataoffstyle.hist(np.arange(0, 1000, 10), "p_filt_value")
+    

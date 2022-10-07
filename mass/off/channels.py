@@ -318,7 +318,9 @@ class Channel(CorG):
     @property
     def statesDict(self):
         if self._statesDict is None:
-            self._statesDict = self.experimentStateFile.calcStatesDict(self.offFile["unixnano"])
+            unixnano = self.getAttr("unixnano", NoCutInds())
+            esf = self.experimentStateFile
+            self._statesDict = esf.calcStatesDict(unixnano)
         return self._statesDict
 
     @property
@@ -1356,9 +1358,10 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 class ChannelFromNpArray(Channel):
     def __init__(self, a, channum, shortname, experimentStateFile=None, verbose=True):
         self.a = a
-        self.experimentStateFile = experimentStateFile
+        self.offFile = a # to make methods from a normal channelGroup that access offFile as an array work         self.experimentStateFile = experimentStateFile
         self.shortName = shortname
         self.channum = channum
+        self.experimentStateFile = experimentStateFile
         self.markedBadBool = False
         self._statesDict = None
         self.verbose = verbose
@@ -1375,6 +1378,9 @@ class ChannelFromNpArray(Channel):
             self.recipes.add("relTimeSec", lambda p_timestamp: (p_timestamp-t0))
             self.cutAdd("cutNone", lambda p_timestamp: np.ones(
                 len(p_timestamp), dtype="bool"), setDefault=True)
+            if "unixnano" not in self.a.dtype.names:
+                #unixnano is needed for states to work
+                self.recipes.add("unixnano", lambda p_timestamp: np.array(p_timestamp, dtype=int)*10**9)
         else:
             first_field = self.a.dtype.names[0]
             self.cutAdd("cutNone", lambda x: np.ones(
@@ -1401,7 +1407,7 @@ class ChannelFromNpArray(Channel):
             # I'd like to be able to do either r["coefs"] to get all projection coefficients
             # or r["filtValue"] to get only the filtValue
             # IngredientsWrapper lets that work within recipes.craft
-            g = self.recipes.craft(cutRecipeName, self.a)
+            g = self.recipes.craft(cutRecipeName, r)
             output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
             # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
@@ -1437,3 +1443,14 @@ class ChannelFromNpArray(Channel):
 
     def __repr__(self):
         return f"{self.__class__.__name__} with shortName={self.shortName}" 
+
+class ChannelGroupFromNpArrays(ChannelGroup):
+    def __init__(self, channels = [],
+    verbose=True, experimentStateFile=None):
+        collections.OrderedDict.__init__(self)
+        self.verbose = verbose
+        self.experimentStateFile = experimentStateFile
+        self._includeBad = False
+        for ds in channels:
+            self[ds.channum] = ds
+        self._default_cut_recipe_name = self.firstGoodChannel()._default_cut_recipe_name
