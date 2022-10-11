@@ -1384,7 +1384,7 @@ class ChannelFromNpArray(Channel):
                 len(p_timestamp), dtype="bool"), setDefault=True)
             if "unixnano" not in self.a.dtype.names:
                 #unixnano is needed for states to work
-                self.recipes.add("unixnano", lambda p_timestamp: np.array(p_timestamp, dtype=int)*10**9)
+                self.recipes.add("unixnano", lambda p_timestamp: np.array(p_timestamp, dtype=np.int64)*10**9)
         else:
             first_field = self.a.dtype.names[0]
             self.cutAdd("cutNone", lambda x: np.ones(
