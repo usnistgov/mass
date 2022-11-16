@@ -248,6 +248,8 @@ class GenericLineModel(MLEModel):
         else:
             baseline = 0.1
         tcounts_above_bg = data.sum() - baseline*len(data)
+        if tcounts_above_bg < 0:
+            tcounts_above_bg = data.sum() # lets avoid negative estimates for the integral
         pars = self.make_params(peak_ph=peak_ph, background=baseline,
                                 integral=tcounts_above_bg, fwhm=fwhm)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
@@ -278,6 +280,8 @@ class GenericKAlphaModel(GenericLineModel):
         else:
             baseline = 0.1
         tcounts_above_bg = data.sum() - baseline*len(data)
+        if tcounts_above_bg < 0:
+            tcounts_above_bg = data.sum() # lets avoid negative estimates for the integral
         pars = self.make_params(peak_ph=ph_ka1, dph_de=dph/dE,
                                 background=baseline, integral=tcounts_above_bg)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
