@@ -433,6 +433,7 @@ addline(
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=0.266,
     reference_plot_instrument_gaussian_fwhm=0.2,  # a total guess
+    position_uncertainty=0.016
 )
 
 addline(
@@ -450,6 +451,7 @@ addline(
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=0.404,
     reference_plot_instrument_gaussian_fwhm=0.2,  # a total guess
+    position_uncertainty=0.005
 )
 
 addline(
@@ -465,6 +467,7 @@ addline(
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=.612,
     reference_plot_instrument_gaussian_fwhm=0.2,  # a total guess
+    position_uncertainty=0.010
 )
 
 
@@ -589,6 +592,7 @@ addline(
     reference_amplitude=np.array((8175, 878, 232, 287, 4290, 119)),  # Table I A_i
     reference_amplitude_type=VOIGT_PEAK_HEIGHT,
     ka12_energy_diff=5.1,
+    position_uncertainty=0.019 # table 3
 )
 
 addline(
@@ -604,6 +608,7 @@ addline(
     reference_amplitude=np.array((4549, 626, 236, 143, 2034, 54)),  # Table I A_i
     reference_amplitude_type=VOIGT_PEAK_HEIGHT,
     ka12_energy_diff=6.0,
+    position_uncertainty=0.003 # table 3, based on difference between two entries
 )
 
 addline(
@@ -617,6 +622,8 @@ addline(
     lorentzian_fwhm=np.array((16.3, 4.25, 0.42, 0.47)),
     reference_amplitude=np.array((199, 455, 326, 19.2)),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    position_uncertainty=0.022 # figure 6 and seciton 3.1 text
+
 )
 
 addline(
@@ -631,6 +638,7 @@ addline(
     reference_amplitude=np.array((25832, 5410, 1536, 956, 12971, 603)),  # Table I A_i
     reference_amplitude_type=VOIGT_PEAK_HEIGHT,
     ka12_energy_diff=7.5,
+    position_uncertainty=0.059 # table 3
 )
 
 addline(
@@ -658,6 +666,7 @@ addline(
     reference_amplitude=np.array((822, 237, 85, 45, 15, 386, 36)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=9.2,
+    position_uncertainty=0.010 # table 4
 )
 
 addline(
@@ -671,6 +680,7 @@ addline(
     lorentzian_fwhm=np.array((1.70, 15.98, 1.90, 6.69, 3.37)),  # Table III W_i
     reference_amplitude=np.array((670, 55, 337, 82, 151)),  # Table III I_I
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    position_uncertainty=0.010 # table 4
 )
 
 addline(
@@ -685,6 +695,7 @@ addline(
     reference_amplitude=np.array((790, 264, 68, 96, 71, 10, 372, 100)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=11.1,
+    position_uncertainty=0.010 # table 4
 )
 
 addline(
@@ -698,6 +709,7 @@ addline(
     lorentzian_fwhm=np.array((1.83, 9.40, 13.22, 1.81, 2.81)),  # Table III W_i
     reference_amplitude=np.array((608, 109, 77, 397, 176)),  # Table III I_I
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    position_uncertainty=0.010 # table 4
 )
 
 addline(
@@ -712,6 +724,7 @@ addline(
     reference_amplitude=np.array((697, 376, 88, 136, 339, 60, 102)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=13.0,
+    position_uncertainty=0.010 # table 4
 )
 # ERROR IN HOLZER PAPER:
 # The FWHM in the Table II of Holzer have the Kalpha_22 and _23 widths as 2.339 and 4.433, but
@@ -732,6 +745,7 @@ addline(
     lorentzian_fwhm=np.array((14.17, 3.12, 1.97, 6.38)),  # Table III W_i
     reference_amplitude=np.array((107, 448, 615, 141)),  # Table III I_I
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    position_uncertainty=0.030 # table 4
 )
 
 addline(
@@ -746,6 +760,7 @@ addline(
     reference_amplitude=np.array((809, 205, 107, 41, 314, 131, 43)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=15.0,
+    position_uncertainty=0.010 # table 4
 )
 # Notice that Co KAlpha in Holzer shows the 4th line as having integrated intensity of 0.088, but
 # this is probably a typo (should read 0.008). No effect on the data above, though, because it's a
@@ -762,6 +777,7 @@ addline(
     lorentzian_fwhm=np.array((3.05, 3.58, 9.78, 4.89, 13.59, 3.79)),  # Table III W_i
     reference_amplitude=np.array((798, 286, 85, 114, 33, 35)),  # Table III I_I
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    position_uncertainty=0.010 # table 4
 )
 
 addline(
@@ -776,6 +792,7 @@ addline(
     reference_amplitude=np.array((909, 136, 351, 79, 24)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=17.2,
+    position_uncertainty=0.010 # table 4
 )
 
 addline(
@@ -789,6 +806,7 @@ addline(
     lorentzian_fwhm=np.array((3.76, 4.34, 13.70, 5.18)),  # Table III W_i
     reference_amplitude=np.array((722, 358, 89, 104)),  # Table III I_I
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    position_uncertainty=0.010 # table 4
 )
 
 addline(
@@ -803,6 +821,7 @@ addline(
     reference_amplitude=np.array((957, 90, 334, 111)),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=20.0,
+    position_uncertainty=0.010 # table 4
 )
 
 addline(
@@ -816,6 +835,7 @@ addline(
     lorentzian_fwhm=np.array((3.52, 3.52, 3.55, 8.08, 5.31)),  # Table III W_i
     reference_amplitude=np.array((757, 388, 171, 68, 55)),  # Table III I_I
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    position_uncertainty=0.030 # table 4
 )
 
 addline(
