@@ -499,6 +499,28 @@ enough and the count rates low enough that we don't see many tails of previous p
 .. image:: img/gamma_odd6.png
   :width: 45%
 
+Example investigation - Plot energy vs time for good pulses in a narrow window
+------------------------------------------------------------------------------
+Lets say we want to look at stability of energy vs time, here are some different ways to do that.
+
+.. testcode::
+
+  ds.plotAvsB("relTimeSec", "energy")
+  plt.ylim(121.7e3, 122.4e3)
+  ds.plotAvsB2d("relTimeSec", "energy",  [np.arange(0,7000,300), np.arange(121.7e3,122.4e3,25)])
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/gamma_evt1.png");plt.close()
+  plt.savefig("img/gamma_evt2.png");plt.close()
+
+.. image:: img/gamma_evt1.png
+  :width: 45%
+
+.. image:: img/gamma_evt2.png
+  :width: 45%
+
 Warning about defining recipes and closure scope
 ------------------------------------------------
 
