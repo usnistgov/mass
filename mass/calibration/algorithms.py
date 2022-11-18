@@ -181,14 +181,11 @@ def getmodel(name):
     if name in mass.calibration.spectra:
         line = mass.calibration.spectra[name]
         return line.model()
-    elif name in mass.STANDARD_FEATURES:
-        e_ctr = mass.STANDARD_FEATURES[name]
-    else:
-        try:
-            e_ctr = float(name)
-        except ValueError:
-            raise Exception("not a known line or input to float")
-    line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line(str(name), e_ctr, 0, 0)
+    try:
+        e_ctr = float(name)
+    except ValueError:
+        e_ctr = 1000.0
+    line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", e_ctr, 0, 0)
     line.linetype = "Gaussian"
     return line.model()
 
