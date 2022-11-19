@@ -26,11 +26,6 @@ requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn"
                 # and https://bitbucket.org/joe_fowler/mass/pipelines/results/1033 which succeeds on the same commit 
                 "xraydb", "matplotlib>1.5", "statsmodels>0.8",
                  "packaging", "deprecated"]
- 
- 
- "xraydb", "matplotlib>1.5", "statsmodels>0.8",
-                "packaging", "deprecated"]
-
 
 def parse_version_number(VERSIONFILE=None):
     # Parse the version number out of the _version.py file without importing it
