@@ -410,3 +410,15 @@ def iterstates(states):
     else:
         assert isinstance(states, list)
         return states
+
+def logical_and(*x):
+    """
+    logical_and(a,b,c) is equialent to np.logical_and(a, np.logical_and(b,c))
+    but is generalized to multiple arguments
+    """
+    assert len(x) >= 2
+    out = np.logical_and(x[0],x[1])
+    for i in range(2,len(x)):
+        out = np.logical_and(out, x[i])
+    return out
+
