@@ -23,7 +23,7 @@ def test_oldstyletooffstyle():
     dataold = load_data()
     dataold.summarize_data()
     dataold.auto_cuts()
-    dataold.compute_noise_spectra()
+    dataold.compute_noise()
     dataold.compute_ats_filter()
     dataold.filter_data()
     dsold = dataold.first_good_dataset
