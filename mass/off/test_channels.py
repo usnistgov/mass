@@ -51,6 +51,8 @@ ds = data.firstGoodChannel()
 ds.plotAvsB("relTimeSec", "residualStdDev",  includeBad=True)
 ds.plotAvsB("relTimeSec", "pretriggerMean", includeBad=True)
 ds.plotAvsB("relTimeSec", "filtValue", includeBad=False)
+ds.plotAvsB2d("relTimeSec", "filtValue",  
+[np.arange(0,3600*2,300), np.arange(0,40000,500)])
 ds.plotHist(np.arange(0, 40000, 4), "filtValue")
 ds.plotHist(np.arange(0, 40000, 4), "filtValue", coAddStates=False)
 
