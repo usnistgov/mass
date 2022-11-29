@@ -592,7 +592,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     @property
     def shortname(self):
-        """return a string containning part of the filename and the number of good channels"""
+        """Return a string containing part of the filename and the number of good channels"""
         ngoodchan = len([ds for ds in self])
         return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0]+", %g chans"%ngoodchan
 

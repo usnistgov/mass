@@ -23,7 +23,7 @@ def test_oldstyletooffstyle():
     dataold = load_data()
     dataold.summarize_data()
     dataold.auto_cuts()
-    dataold.compute_noise_spectra()
+    dataold.compute_noise()
     dataold.compute_ats_filter()
     dataold.filter_data()
     dsold = dataold.first_good_dataset
@@ -42,7 +42,7 @@ def test_oldstyletooffstyle():
 
     dataoffstyle = dataold.toOffStyle()
     dataoffstyle.hist(np.arange(0, 1000, 10), "p_filt_value")
-    dataoffstyle.plotHist(np.arange(0,1000,10), "p_filt_value")
-    dataoffstyle.linefit("FeKAlpha",attr="p_energy", 
-    minimum_bins_per_fwhm=0.1,
-    params_fixed = params)
+    dataoffstyle.plotHist(np.arange(0, 1000, 10), "p_filt_value")
+    dataoffstyle.linefit("FeKAlpha", attr="p_energy",
+                         minimum_bins_per_fwhm=0.1,
+                         params_fixed=params)
