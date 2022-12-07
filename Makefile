@@ -9,7 +9,7 @@ PYFILES = $(shell find mass -name "*.py")
 CYFILES = $(shell find mass -name "*.pyx")
 FORMFILES := $(shell find mass -name "*_form_ui.py")
 
-.PHONY: lint archive all build develop install clean test report_install_location pep8
+.PHONY: archive all build develop install clean test report_install_location
 
 all: build develop test
 
@@ -34,12 +34,16 @@ archive: $(TARGET_ZIP)
 $(TARGET_ZIP): $(PYFILES) $(CYFILES) Makefile
 	python setup.py sdist --format=gztar,zip
 
+.PHONY: autopep8 pep8 lint
+autopep8:
+	autopep8 --in-place --recursive --max-line-length=110 .
+
 PEPFILES := $(PYFILES)  # Don't pep8 the Cython files $(CYFILES)
 PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))
 
 pep8: pep8-report.txt
 pep8-report.txt: $(PEPFILES) MAKEFILE
-	pycodestyle --statistics --max-line-length=150 $(PEPFILES) > $@
+	pycodestyle --statistics --max-line-length=110 $(PEPFILES) > $@
 
 lint: lint-report.txt
 lint-report.txt: pylintrc $(PYFILES) MAKEFILE
