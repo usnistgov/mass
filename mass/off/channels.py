@@ -27,6 +27,7 @@ from .experiment_state import ExperimentStateFile
 
 LOG = logging.getLogger("mass")
 
+
 class DriftCorrection():
     version = 1
 
@@ -57,7 +58,7 @@ class DriftCorrection():
         medianIndicator = hdf5_group["{}/medianIndicator".format(name)][()]
         slope = hdf5_group["{}/slope".format(name)][()]
         version = hdf5_group["{}/version".format(name)][()]
-        assert(version == cls.version)
+        assert (version == cls.version)
         return cls(indicatorName, uncorrectedName, medianIndicator, slope)
 
     def __eq__(self, other):
@@ -196,7 +197,7 @@ class Channel(CorG):
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
     def _defineDefaultRecipesAndProperties(self):
-        assert(len(self.recipes) == 0)
+        assert (len(self.recipes) == 0)
         t0 = self.offFile["unixnano"][0]
         self.recipes.add("relTimeSec", lambda unixnano: (unixnano-t0)*1e-9, ["unixnano"])
         self.recipes.add("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
@@ -674,7 +675,7 @@ class Channel(CorG):
     @add_group_loop
     def alignToReferenceChannel(self, referenceChannel, attr, binEdges, cutRecipeName=None, _peakLocs=None, states=None):
         if _peakLocs is None:
-            assert(len(referenceChannel.calibrationPlan.uncalibratedVals) > 0)
+            assert (len(referenceChannel.calibrationPlan.uncalibratedVals) > 0)
             peakLocs = referenceChannel.calibrationPlan.uncalibratedVals
         else:
             peakLocs = _peakLocs
@@ -804,8 +805,6 @@ class Channel(CorG):
         self.recipes.add("filtValue5Lag", fivelag.filtValue5Lag, ingredients=["cba5Lag"])
         # self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
         self.recipes.add("peakX5Lag", fivelag.peakX5Lag, ingredients=["cba5Lag"])
-
-
 
 
 def normalize(x):
@@ -1343,11 +1342,11 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         with open(filename, "wb") as f:
             d = {}
             for ds in self.values():
-                d[ds.channum]=ds.recipes
+                d[ds.channum] = ds.recipes
             dill.dump(d, f)
 
     def loadRecipeBooks(self, filename):
         with open(filename, "rb") as f:
             d = dill.load(f)
-        for channum,recipes in d.items():
-            self[channum].recipes=recipes
+        for channum, recipes in d.items():
+            self[channum].recipes = recipes

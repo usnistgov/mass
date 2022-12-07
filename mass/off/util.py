@@ -235,7 +235,7 @@ def add_group_loop(method):
                 z = method(ds, *args, **kwargs)
                 returnVals[channum] = z
             except KeyboardInterrupt as e:
-                raise(e)
+                raise (e)
             except Exception as e:
                 ds.markBad("{} during {}".format(e, method_name), e)
                 if rethrow:

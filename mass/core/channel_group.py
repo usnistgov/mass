@@ -292,7 +292,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                         "WARNING: TESGroup did not add data: channums don't match %s, %s", fname, nf)
                     continue
                 dset.noise_records = noise
-                assert(dset.channum == dset.noise_records.channum)
+                assert (dset.channum == dset.noise_records.channum)
                 noise_list.append(noise)
 
             pulse_list.append(pulse)

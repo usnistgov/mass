@@ -2,8 +2,10 @@ import uncertainties
 from uncertainties import unumpy as unp
 import numpy as np
 
+
 def is_uncertain_scalar(x):
     return hasattr(x, "nominal_value")
+
 
 def ensure_uncertain(x):
     """if give a scalar, returns a ufloat
@@ -23,6 +25,7 @@ def ensure_uncertain(x):
         return x
     else:
         raise Exception(f"{x} of type {type(x)} not supported")
+
 
 def with_fractional_uncertainty(x, fractional_uncertainty):
     if isinstance(x, float):

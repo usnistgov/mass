@@ -142,7 +142,7 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     _excl_names, excl_e_e = line_names_and_energies(excluded_line_names)
     half_width_ev = fit_width_ev/2.0
     all_e = np.sort(np.hstack((e_e, excl_e_e)))
-    assert(len(all_e) == len(np.unique(all_e)))
+    assert (len(all_e) == len(np.unique(all_e)))
     fit_lo_hi_energy = []
     slopes_de_dph = []
 

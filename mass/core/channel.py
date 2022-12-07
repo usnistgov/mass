@@ -1371,7 +1371,7 @@ class MicrocalDataSet(object):
                 before filtering (default None)
             forceNew: Whether to recompute when already exists (default False)
         """
-        if not(forceNew or all(self.p_filt_value[:] == 0)):
+        if not (forceNew or all(self.p_filt_value[:] == 0)):
             LOG.info('\nchan %d did not filter because results were already loaded', self.channum)
             return
 

@@ -351,7 +351,7 @@ class Cuts(object):
         Raises:
             ValueError: if cut_num or mask don't make sense.
         """
-        assert(mask.size == self._mask.size)
+        assert (mask.size == self._mask.size)
 
         boolean_field = self.tes_group.boolean_cut_desc
         categorical_field = self.tes_group.categorical_cut_desc

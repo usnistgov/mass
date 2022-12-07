@@ -9,6 +9,7 @@ future use within mass.
 LANLFile and translation added June 2011 by Doug Bennett and Joe Fowler
 """
 
+
 class LANLFile(MicrocalFile):
     """Process a LANL ROOT file using pyROOT. """
 
@@ -122,7 +123,7 @@ class LANLFile(MicrocalFile):
 
         # Keys include record_length, pretrig_length, basetime, dac_offset, yscale,
         # sample_rate, clocks_per_sec, npts_to_average, start_time, end_time
-        find_root_quantity = lambda name : self.root_header_file_object.Get(name).GetVal()
+        def find_root_quantity(name): return self.root_header_file_object.Get(name).GetVal()
 
         self.nSamples = find_root_quantity("record_length")
         self.nPresamples = find_root_quantity("pretrig_length")

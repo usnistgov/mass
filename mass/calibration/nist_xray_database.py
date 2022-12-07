@@ -85,7 +85,7 @@ class NISTXrayDBFile(object):
         'LB1': 'L2M4',
         'LB2': 'L3N5',
         'LG1': 'L2N4',
-        }
+    }
 
     def get_lines_by_type(self, linetype):
         """Return a tuple containing all lines of a certain type, e.g., "KL3".

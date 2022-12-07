@@ -67,7 +67,7 @@ class PhaseCorrector():
             _y = hdf5_group["{}/correction_{}_y".format(name, i)][()]
             corrections.append(CubicSpline(_x, _y))
             i += 1
-        assert(version == cls.version)
+        assert (version == cls.version)
         return cls(x, y, corrections, indicatorName, uncorrectedName)
 
     def __repr__(self):

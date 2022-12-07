@@ -3,6 +3,7 @@ from typing import List, Dict, Union
 import mass
 import numpy as np
 
+
 class ExperimentStateFile():
     def __init__(self, filename: str = None, datasetFilename: str = None, excludeStates: str = "auto", _parse: bool = True):
         """
