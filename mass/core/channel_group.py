@@ -247,6 +247,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         self.updater = InlineUpdater
 
+    def toOffStyle(self):
+        channels = [ds.toOffStyle() for ds in self]
+        g = mass.off.channels.ChannelGroupFromNpArrays(channels,
+        shortname = self.shortname,
+        experimentStateFile = self.experimentStateFile)
+        return g
+
     def _setup_per_channel_objects(self, noise_is_continuous=True):
         pulse_list = []
         noise_list = []
@@ -582,6 +589,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     continue  # Don't need anything in this segment.  Sweet!
             first_rnum, end_rnum = self.read_segment(i)
             yield first_rnum, end_rnum
+
+    @property
+    def shortname(self):
+        """Return a string containing part of the filename and the number of good channels"""
+        ngoodchan = len([ds for ds in self])
+        return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0]+", %g chans"%ngoodchan
+
 
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
