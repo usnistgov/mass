@@ -39,9 +39,9 @@ PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))  # Remove the UI forms
 
 pep8: pep8-report.txt
 pep8-report.txt: $(PEPFILES) Makefile
-	pycodestyle $(PEPFILES) > $@ || true
+	pycodestyle . > $@ || true
 
-autopep8:
+autopep8: $(PEPFILES) Makefile
 	autopep8 --verbose --in-place --recursive .
 
 lint: lint-report.txt
