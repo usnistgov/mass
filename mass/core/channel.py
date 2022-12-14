@@ -711,9 +711,9 @@ class MicrocalDataSet(object):
     def toOffStyle(self):
         a = self._makeNumpyArray()
         return mass.off.channels.ChannelFromNpArray(a,
-        channum = self.channum,
-        shortname=self.shortname,
-        experimentStateFile=self.tes_group.experimentStateFile)
+                                                    channum=self.channum,
+                                                    shortname=self.shortname,
+                                                    experimentStateFile=self.tes_group.experimentStateFile)
 
     def _makeNumpyArray(self, fields=None, prefix="p_"):
         if fields is None:
@@ -1237,9 +1237,9 @@ class MicrocalDataSet(object):
     def shortname(self):
         """return a string containing part of the filename and the channel number, useful for labelling plots"""
         s = os.path.split(self.filename)[-1]
-        chanstr = "chan%g"%self.channum
+        chanstr = "chan%g" % self.channum
         if not chanstr in s:
-            s+=chanstr
+            s += chanstr
         return s
 
     @_add_group_loop()
@@ -2696,4 +2696,3 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     info["entropies"] = (H1, H2, H3)
     info["model"] = model
     return info
-

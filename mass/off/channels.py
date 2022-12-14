@@ -159,7 +159,7 @@ class CorG():
         params.update(params_update)
         # unit_str and attr_str are used by result.plotm to label the axes properly
         result = model.fit(counts, params, bin_centers=bin_centers, method=method,
-        minimum_bins_per_fwhm=minimum_bins_per_fwhm)
+                           minimum_bins_per_fwhm=minimum_bins_per_fwhm)
         if states is None:
             states_hint = "all states"
         elif isinstance(states, list):
@@ -1361,33 +1361,32 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 class ChannelFromNpArray(Channel):
     def __init__(self, a, channum, shortname, experimentStateFile=None, verbose=True):
         self.a = a
-        self.offFile = a # to make methods from a normal channelGroup that access offFile as an array work         self.experimentStateFile = experimentStateFile
+        self.offFile = a  # to make methods from a normal channelGroup that access offFile as an array work         self.experimentStateFile = experimentStateFile
         self.shortName = shortname
         self.channum = channum
         self.experimentStateFile = experimentStateFile
         self.markedBadBool = False
         self._statesDict = None
         self.verbose = verbose
-        self.recipes = RecipeBook(list(self.a.dtype.fields.keys()), 
-        ChannelFromNpArray)
+        self.recipes = RecipeBook(list(self.a.dtype.fields.keys()),
+                                  ChannelFromNpArray)
         # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
-
     def _defineDefaultRecipesAndProperties(self):
-        assert(len(self.recipes) == 0)
+        assert (len(self.recipes) == 0)
         if "p_timestamp" in self.a.dtype.names:
             t0 = self.a[0]["p_timestamp"]
             self.recipes.add("relTimeSec", lambda p_timestamp: (p_timestamp-t0))
             self.cutAdd("cutNone", lambda p_timestamp: np.ones(
                 len(p_timestamp), dtype="bool"), setDefault=True)
             if "unixnano" not in self.a.dtype.names:
-                #unixnano is needed for states to work
+                # unixnano is needed for states to work
                 self.recipes.add("unixnano", lambda p_timestamp: np.array(p_timestamp, dtype=np.int64)*10**9)
         else:
             first_field = self.a.dtype.names[0]
             self.cutAdd("cutNone", lambda x: np.ones(
-                len(x), dtype="bool"), [first_field], setDefault=True)            
+                len(x), dtype="bool"), [first_field], setDefault=True)
 
     def __len__(self):
         return len(self.a)
@@ -1445,11 +1444,12 @@ class ChannelFromNpArray(Channel):
         return self.a.dtype.names
 
     def __repr__(self):
-        return f"{self.__class__.__name__} with shortName={self.shortName}" 
+        return f"{self.__class__.__name__} with shortName={self.shortName}"
+
 
 class ChannelGroupFromNpArrays(ChannelGroup):
     def __init__(self, channels, shortname,
-    verbose=True, experimentStateFile=None):
+                 verbose=True, experimentStateFile=None):
         collections.OrderedDict.__init__(self)
         self._shortName = shortname
         self.verbose = verbose
@@ -1460,7 +1460,7 @@ class ChannelGroupFromNpArrays(ChannelGroup):
         self._default_cut_recipe_name = self.firstGoodChannel()._default_cut_recipe_name
 
     def __repr__(self):
-        return f"{self.__class__.__name__} with shortName={self.shortName}" 
+        return f"{self.__class__.__name__} with shortName={self.shortName}"
 
     @property
     def shortName(self):

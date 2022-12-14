@@ -88,7 +88,7 @@ class MLEModel(lmfit.Model):
     #     c.eval = blah
     #     return c
 
-    def fit(self, *args, minimum_bins_per_fwhm = 3, **kwargs):
+    def fit(self, *args, minimum_bins_per_fwhm=3, **kwargs):
         """as lmfit.Model.fit except
         1. the default method is "least_squares because it gives error bars more often at 1.5-2.0X speed penalty
         2. supports "leastsq_refit" which uses "leastsq" to fit, but if there are no error bars, refits with "least_squares"
@@ -249,7 +249,7 @@ class GenericLineModel(MLEModel):
             baseline = 0.1
         tcounts_above_bg = data.sum() - baseline*len(data)
         if tcounts_above_bg < 0:
-            tcounts_above_bg = data.sum() # lets avoid negative estimates for the integral
+            tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
         pars = self.make_params(peak_ph=peak_ph, background=baseline,
                                 integral=tcounts_above_bg, fwhm=fwhm)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
@@ -281,7 +281,7 @@ class GenericKAlphaModel(GenericLineModel):
             baseline = 0.1
         tcounts_above_bg = data.sum() - baseline*len(data)
         if tcounts_above_bg < 0:
-            tcounts_above_bg = data.sum() # lets avoid negative estimates for the integral
+            tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
         pars = self.make_params(peak_ph=ph_ka1, dph_de=dph/dE,
                                 background=baseline, integral=tcounts_above_bg)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
