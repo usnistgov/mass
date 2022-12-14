@@ -2297,8 +2297,8 @@ class MicrocalDataSet(object):
 
         # Step 3: make the cuts
         cuts = mass.core.controller.AnalysisControl(
-            peak_time_ms=(0, peak_time_ms*1.25),
-            rise_time_ms=(0, peak_time_ms*1.10),
+            peak_time_ms=(peak_time_ms*0.25, peak_time_ms*1.25),
+            rise_time_ms=(0.1*peak_time_ms, peak_time_ms*1.10),
             pretrigger_rms=(None, pt_max),
             postpeak_deriv=(None, md_max),
         )
