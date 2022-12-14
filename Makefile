@@ -2,7 +2,6 @@
 # J. Fowler, NIST
 # June 16, 2011
 
-
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
 PYFILES = $(shell find mass -name "*.py")
@@ -35,16 +34,16 @@ $(TARGET_ZIP): $(PYFILES) $(CYFILES) Makefile
 	python setup.py sdist --format=gztar,zip
 
 .PHONY: autopep8 pep8 lint
-autopep8:
-	autopep8 --in-place --recursive --max-line-length=110 .
-
 PEPFILES := $(PYFILES)  # Don't pep8 the Cython files $(CYFILES)
-PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))
+PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))  # Remove the UI forms
 
 pep8: pep8-report.txt
-pep8-report.txt: $(PEPFILES) MAKEFILE
-	pycodestyle --statistics --max-line-length=110 $(PEPFILES) > $@
+pep8-report.txt: $(PEPFILES) Makefile
+	pycodestyle $(PEPFILES) > $@ || true
+
+autopep8:
+	autopep8 --verbose --in-place --recursive .
 
 lint: lint-report.txt
-lint-report.txt: pylintrc $(PYFILES) MAKEFILE
+lint-report.txt: pylintrc $(PYFILES) Makefile
 	pylint --rcfile=$< mass > $@
