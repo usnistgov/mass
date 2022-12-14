@@ -9,6 +9,7 @@ from mass.calibration import _highly_charged_ion_lines
 import numpy as np
 import pylab as plt
 import lmfit
+import tempfile
 
 # Remove a warning message
 import matplotlib as mpl
@@ -254,6 +255,33 @@ class TestSummaries(ut.TestCase):
         # refresh again without updating the files, make sure it doesnt crash
         n_new_labels_2, n_new_pulses_dict2 = data.refreshFromFiles()
         self.assertEqual(n_new_labels_2, 0)
+
+    @xfail_on_windows  # we don't need refresh to disk to work on windows, so I didnt investigate why it fails very carefully
+    def test_refresh_from_files2(self):
+        tempname = "/tmp/test_refresh_from_files2"
+        with open(tempname, "w") as f:
+            f.write("""# unix time in nanoseconds, state label
+            10, START
+            20, A
+            30, B""")
+        esf = mass.off.ExperimentStateFile(tempname,
+        "dummy dataset filename",
+        )
+        unixnanos = np.arange(35)
+        statesDict = esf.calcStatesDict(unixnanos)
+        assert list(statesDict.keys()) == ["A", "B"]
+        assert list(statesDict.values()) == [slice(20, 30,None), slice(30, 35, None)]
+        esf.parse()
+        statesDict = esf.calcStatesDict(unixnanos)
+        assert list(statesDict.keys()) == ["A", "B"]
+        assert list(statesDict.values()) == [slice(20, 30,None), slice(30, 35, None)]
+        with open(tempname, "a") as f:
+            f.write("""40, C""")
+        esf.parse()
+        unixnanos2 = np.arange(45)
+        statesDict = esf.calcStatesDict(unixnanos2)
+        assert list(statesDict.keys()) == ["A", "B", "C"]
+        assert list(statesDict.values()) == [slice(20, 30,None), slice(30, 40, None), slice(40, 45, None)]
 
     def test_bad_channels_skipped(self):
         # try:

@@ -90,10 +90,10 @@ class ExperimentStateFile():
             r.append(label)
         return r
 
-    def calcStatesDict(self, unixnanos, statesDict=None, i0_allLabels=0, i0_unixnanos=0):
+    def calcStatesDict(self, unixnanos, statesDict=None, i0_allLabels=0, i0_unixnanos=0, debug=False):
         """
         calculate statesDict, an ordered dictionary mapping state name to EITHER a slice OR a list of slices
-        equal to unixnanos. Slices are used for unique states; list of slices are used for repeated states.
+        Slices are used for unique states; list of slices are used for repeated states.
         When updating pass in the existing statesDict and i0 must be the first label in allLabels that wasn't
         used to calculate the existing statesDict.
         """

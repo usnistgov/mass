@@ -1103,8 +1103,9 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         for ds in self.values():
             i0_unixnanos = len(ds)
             ds.offFile._updateMmap()  # will update nRecords by mmapping more data in the offFile if available
-            ds._statesDict = self.experimentStateFile.calcStatesDict(
-                ds.unixnano[i0_unixnanos:], ds.statesDict, i0_allLabels, i0_unixnanos)
+            # ds._statesDict = self.experimentStateFile.calcStatesDict(
+            #     ds.unixnano[i0_unixnanos:], ds.statesDict, i0_allLabels, i0_unixnanos)
+            ds._statesDict = self.experimentStateFile.calcStatesDict(ds.unixnano)
             n_new_pulses_dict[ds.channum] = len(ds)-i0_unixnanos
         return n_new_labels, n_new_pulses_dict
 
