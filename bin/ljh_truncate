@@ -27,7 +27,7 @@ if __name__ == '__main__':
     filenames = filename_glob_expand(pattern)
 
     for in_fname in filenames:
-        ch = re.search("chan(\d+)\.ljh", in_fname).groups()[0]
+        ch = re.search(r"chan(\d+)\.ljh", in_fname).groups()[0]
         out_fname = "%s_%s_chan%s.ljh" % (args.pattern, args.out, ch)
         mass.core.ljh_modify.ljh_truncate(
             in_fname, out_fname, n_pulses=args.npulses, timestamp=args.timestamp)
