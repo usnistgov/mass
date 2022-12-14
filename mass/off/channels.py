@@ -107,7 +107,8 @@ class CorG():
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=None, binEdges=None, label="full", plot=True,
                 params_fixed=None, cutRecipeName=None, calibration=None, require_errorbars=True, method="leastsq_refit",
-                has_linear_background=True, has_tails=False, params_update=lmfit.Parameters()):
+                has_linear_background=True, has_tails=False, params_update=lmfit.Parameters(),
+                minimum_bins_per_fwhm=None):
         """Do a fit to `lineNameOrEnergy` and return the result. You can get the params results with result.params
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel", your you can pass in a model like a mass.MnKAlphaModel().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
@@ -124,12 +125,14 @@ class CorG():
         method -- fit method to use
         has_tails -- used when creating a model, will add both high and low energy tails to the model
         params_update -- after guessing params, call params.update(params_update)
+        minimum_bins_per_fwhm -- passed to model.fit
         """
         model = util.get_model(
             lineNameOrEnergy, has_linear_background=has_linear_background, has_tails=has_tails)
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
+        attr_is_energy = attr.startswith("energy") or attr.startswith("p_energy") or calibration is not None
         if binEdges is None:
-            if attr.startswith("energy") or calibration is not None:
+            if attr_is_energy:
                 pe = model.spect.peak_energy
                 binEdges = np.arange(pe-dlo, pe+dhi, self._handleDefaultBinsize(binsize))
             else:
@@ -144,7 +147,7 @@ class CorG():
             params = model.guess(counts, bin_centers=bin_centers)
         else:
             params = params_fixed
-        if attr.startswith("energy") or calibration is not None:
+        if attr_is_energy:
             params["dph_de"].set(1.0, vary=False)
             unit_str = "eV"
         if calibration is None:
@@ -155,7 +158,8 @@ class CorG():
             attr_str = attr
         params.update(params_update)
         # unit_str and attr_str are used by result.plotm to label the axes properly
-        result = model.fit(counts, params, bin_centers=bin_centers, method=method)
+        result = model.fit(counts, params, bin_centers=bin_centers, method=method,
+        minimum_bins_per_fwhm=minimum_bins_per_fwhm)
         if states is None:
             states_hint = "all states"
         elif isinstance(states, list):
@@ -319,7 +323,9 @@ class Channel(CorG):
     @property
     def statesDict(self):
         if self._statesDict is None:
-            self._statesDict = self.experimentStateFile.calcStatesDict(self.offFile["unixnano"])
+            unixnano = self.getAttr("unixnano", NoCutInds())
+            esf = self.experimentStateFile
+            self._statesDict = esf.calcStatesDict(unixnano)
         return self._statesDict
 
     @property
@@ -1350,3 +1356,112 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             d = dill.load(f)
         for channum, recipes in d.items():
             self[channum].recipes = recipes
+
+
+class ChannelFromNpArray(Channel):
+    def __init__(self, a, channum, shortname, experimentStateFile=None, verbose=True):
+        self.a = a
+        self.offFile = a # to make methods from a normal channelGroup that access offFile as an array work         self.experimentStateFile = experimentStateFile
+        self.shortName = shortname
+        self.channum = channum
+        self.experimentStateFile = experimentStateFile
+        self.markedBadBool = False
+        self._statesDict = None
+        self.verbose = verbose
+        self.recipes = RecipeBook(list(self.a.dtype.fields.keys()), 
+        ChannelFromNpArray)
+        # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
+        self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
+
+
+    def _defineDefaultRecipesAndProperties(self):
+        assert(len(self.recipes) == 0)
+        if "p_timestamp" in self.a.dtype.names:
+            t0 = self.a[0]["p_timestamp"]
+            self.recipes.add("relTimeSec", lambda p_timestamp: (p_timestamp-t0))
+            self.cutAdd("cutNone", lambda p_timestamp: np.ones(
+                len(p_timestamp), dtype="bool"), setDefault=True)
+            if "unixnano" not in self.a.dtype.names:
+                #unixnano is needed for states to work
+                self.recipes.add("unixnano", lambda p_timestamp: np.array(p_timestamp, dtype=np.int64)*10**9)
+        else:
+            first_field = self.a.dtype.names[0]
+            self.cutAdd("cutNone", lambda x: np.ones(
+                len(x), dtype="bool"), [first_field], setDefault=True)            
+
+    def __len__(self):
+        return len(self.a)
+
+    def refreshFromFiles(self):
+        raise Exception(f"not implemented for {self.__class__.__name__}")
+
+    def _indexOffWithCuts(self, inds, cutRecipeName=None, _listMethodSelect=2):
+        """
+        inds - a slice or list of slices to index into items with
+        _listMethodSelect - used for debugging and testing, chooses the implmentation of this method used for lists of indicies
+        _indexOffWithCuts(slice(0,10), f) is roughly equivalent to:
+        g = f(offFile[0:10])
+        offFile[0:10][g]
+        """
+        cutRecipeName = self._handleDefaultCut(cutRecipeName)
+        # offAttr can be a list of offAttr names
+        if isinstance(inds, slice):
+            r = self.a[inds]
+            # I'd like to be able to do either r["coefs"] to get all projection coefficients
+            # or r["filtValue"] to get only the filtValue
+            # IngredientsWrapper lets that work within recipes.craft
+            g = self.recipes.craft(cutRecipeName, r)
+            output = r[g]
+        elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
+            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
+            # and about 2x fatster than temporary bool index, which can be found in commit 063bcce
+            # make sure s.step is None so my simple length calculation will work
+            assert all([isinstance(s, slice) and s.step is None for s in inds])
+            max_length = np.sum([s.stop-s.start for s in inds])
+            output_dtype = self.a.dtype  # get the dtype to preallocate with
+            output_prealloc = np.zeros(max_length, output_dtype)
+            ilo, ihi = 0, 0
+            for s in inds:
+                tmp = self._indexOffWithCuts(s, cutRecipeName)
+                ilo = ihi
+                ihi = ilo+len(tmp)
+                output_prealloc[ilo:ihi] = tmp
+            output = output_prealloc[0:ihi]
+        elif isinstance(inds, list) and _listMethodSelect == 0:  # repeated hstack
+            # this could be removed, along with the _listMethodSelect argument
+            # this is only left in because it is useful for correctness testing for preallocate and truncate method since this is simpler
+            assert all([isinstance(_inds, slice) for _inds in inds])
+            output = self._indexOffWithCuts(inds[0], cutRecipeName)
+            for i in range(1, len(inds)):
+                output = np.hstack((output, self._indexOffWithCuts(inds[i], cutRecipeName)))
+        elif isinstance(inds, NoCutInds):
+            output = self.offFile
+        else:
+            raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
+        return output
+
+    @property
+    def _offAttrs(self):
+        return self.a.dtype.names
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} with shortName={self.shortName}" 
+
+class ChannelGroupFromNpArrays(ChannelGroup):
+    def __init__(self, channels, shortname,
+    verbose=True, experimentStateFile=None):
+        collections.OrderedDict.__init__(self)
+        self._shortName = shortname
+        self.verbose = verbose
+        self.experimentStateFile = experimentStateFile
+        self._includeBad = False
+        for ds in channels:
+            self[ds.channum] = ds
+        self._default_cut_recipe_name = self.firstGoodChannel()._default_cut_recipe_name
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} with shortName={self.shortName}" 
+
+    @property
+    def shortName(self):
+        return self._shortName
