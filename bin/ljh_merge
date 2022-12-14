@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+"""
+Merge all LJH files that match a pattern to a single output file.
+
+The idea is that all such files come from a single TES and could have been
+(but were not) written as a single continuous file.
+
+The pattern should be of the form "Blah_blah_*_chan1.ljh" or something.
+The output will then be "merged_chan1.ljh" in the directory of the first file found
+(or alter the directory with the --outdir argument).
+"""
+
+import argparse
+import os
+import mass
+from mass.core.ljh_util import filename_glob_expand
+from mass.core.ljh_modify import ljh_copy_traces, ljh_append_traces
+
+
+def merge(out_path, filenames, overwrite):
+    ljh_copy_traces(filenames[0], out_path, [], overwrite=overwrite)
+    channum = None
+    for in_fname in filenames:
+        f = mass.LJHFile(in_fname)
+        if channum is None:
+            channum = f.channum
+            print(f"Combining {len(filenames)} LJH files from channel {channum}")
+        if f.channum != channum:
+            raise RuntimeError(f"file '{in_fname}' channel={f.channum}, but want {channum}")
+        print(f"-- {in_fname}")
+        ljh_append_traces(in_fname, out_path)
+
+    size = os.stat(out_path).st_size
+    print(f"Wrote file {out_path} size: {size} bytes.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Merge a set of LJH files")
+    parser.add_argument("pattern",
+                        type=str,
+                        help='pattern of files to process, e.g. "20171116_*_chan1.ljh"')
+
+    parser.add_argument(
+        "-d", "--outdir",
+        type=str, default="",
+        help="directory to place output file (default: same as directory of first file to be merged")
+    # TODO: add way to control the output _filename_
+    parser.add_argument(
+        "-F", "--force",
+        action="store_true",
+        help="force overwrite of existing target? (default: False)")
+    args = parser.parse_args()
+
+    filenames = filename_glob_expand(args.pattern)
+    assert len(filenames) > 0
+    f = mass.LJHFile(filenames[0])
+    channum = f.channum
+
+    out_dir = args.outdir
+    if out_dir == "":
+        out_dir = os.path.split(filenames[0])[0]
+    out_path = os.path.join(out_dir, f"merged_chan{channum}.ljh")
+
+    merge(out_path, filenames, overwrite=args.force)
+
+
+if __name__ == "__main__":
+    main()
