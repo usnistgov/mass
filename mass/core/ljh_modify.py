@@ -139,7 +139,7 @@ def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
             trace.tofile(dest_fp, sep="")
 
 
-def ljh_append_traces(src_name, dest_name, pulses):
+def ljh_append_traces(src_name, dest_name, pulses=None):
     """Append traces from one LJH file onto another. The destination file is
     assumed to be version 2.2.0.
 
@@ -148,10 +148,12 @@ def ljh_append_traces(src_name, dest_name, pulses):
     Args:
         src_name: the name of the source file
         dest_name: the name of the destination file
-        pulses: indices of the pulses to copy
+        pulses: indices of the pulses to copy (default: None, meaning copy all)
     """
 
     src = LJHFile(src_name)
+    if pulses is None:
+        pulses = range(src.nPulses)
     with open(dest_name, "ab") as dest_fp:
         for i in pulses:
             trace = src.read_trace(i)

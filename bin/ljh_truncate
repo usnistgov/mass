@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+"""
+Truncate all LJH files that match a pattern to contain only the first N pulse records.
+Write the truncated data to a new (set of) LJH file(s).
+"""
+
 import argparse
 import re
 import mass
