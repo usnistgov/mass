@@ -51,7 +51,7 @@ def initialize_hci_composite_model(composite_name, individual_models, has_linear
     # Workaround for energy calibration using composite models, pick 1st GenericLineModel component
     line_model_components = [i_comp for i_comp in composite_model.components if isinstance(
         i_comp, mass.calibration.line_models.GenericLineModel)]
-    if peak_component_name == None:
+    if peak_component_name is None:
         peak_component_name = line_model_components[0]._name
     peak_component_index = [i_comp._name for i_comp in line_model_components].index(peak_component_name)
     peak_component = line_model_components[peak_component_index]

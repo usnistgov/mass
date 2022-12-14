@@ -285,7 +285,7 @@ class TestSummaries(ut.TestCase):
         try:
             ds_local.energy
             assert "ds_local should not have energy yet, we haven't defined that recipe"
-        except:
+        except Exception:
             pass
         pklfilename = "recipe_book_save_test2.rbpkl"
         data.saveRecipeBooks(pklfilename)

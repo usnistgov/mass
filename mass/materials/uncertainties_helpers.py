@@ -11,7 +11,7 @@ def ensure_uncertain(x):
     """if give a scalar, returns a ufloat
     if given a numpy array of scalars, return a uarray
     if given a ufloat or uarray return it unchanged
-    default uncertainty will be 100%, so people will know not to take it seriously until they've 
+    default uncertainty will be 100%, so people will know not to take it seriously until they've
     put it in manually
     """
     if isinstance(x, np.ndarray):

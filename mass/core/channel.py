@@ -1238,7 +1238,7 @@ class MicrocalDataSet(object):
         """return a string containing part of the filename and the channel number, useful for labelling plots"""
         s = os.path.split(self.filename)[-1]
         chanstr = "chan%g" % self.channum
-        if not chanstr in s:
+        if chanstr not in s:
             s += chanstr
         return s
 
