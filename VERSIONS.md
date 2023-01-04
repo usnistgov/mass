@@ -8,6 +8,7 @@
 * Fix issue 225: bug in using LJH files where no non-trivial experiment state was set.
 * Fix issue 226: repair some warnings appearing in the test suite.
 * Run autopep8 (and add autopep8 target to Makefile)
+* Make a new script `bin/ljh_merge` to merge multiple LJH files into one.
 
 
 **0.7.8** May 17, 2022
