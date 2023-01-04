@@ -153,7 +153,7 @@ class TestTESGroup(ut.TestCase):
         self.__files_to_clean_up__.append(filename)
 
     def load_data(self, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
-        experimentStateFile=None):
+                  experimentStateFile=None):
         src_name = ['mass/regression_test/regress_chan1.ljh']
         noi_name = ['mass/regression_test/regress_noise_chan1.ljh']
         if skip_noise:

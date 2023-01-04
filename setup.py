@@ -21,9 +21,10 @@ BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
 requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn",
                 "h5py>=2.7", "palettable", "cycler", "fastdtw", "progress", "lmfit>=0.9.11", "pytest",
-                "uncertainties", "dill==0.3.5.1", # 0.3.6 breaks our recipebook saving test
-                # see https://bitbucket.org/joe_fowler/mass/pipelines/results/1037 which fails
-                # and https://bitbucket.org/joe_fowler/mass/pipelines/results/1033 which succeeds on the same commit
+                "uncertainties", "dill==0.3.5.1",  # 0.3.6 breaks our recipebook saving test
+                # see https://bitbucket.org/joe_fowler/mass/pipelines/results/1037, which fails
+                # and https://bitbucket.org/joe_fowler/mass/pipelines/results/1033,
+                # which succeeds on the same commit
                 "xraydb", "matplotlib>1.5", "statsmodels>0.8",
                 "packaging", "deprecated"]
 
@@ -48,7 +49,9 @@ MASS_VERSION = parse_version_number()
 
 
 def generate_sourceroot_file():
-    """We need a file to point back to the root of the source directory. This is needed only for the demos, and it wouldn't be neccesary when installed with `pip -e`."""
+    """We need a file to point back to the root of the source directory. This is needed only
+    for the demos, and it wouldn't be neccesary when installed with `pip -e`.
+    """
 
     root = os.path.dirname(os.path.abspath(__file__))
     code = """

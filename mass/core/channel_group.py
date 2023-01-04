@@ -250,8 +250,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def toOffStyle(self):
         channels = [ds.toOffStyle() for ds in self]
         g = mass.off.channels.ChannelGroupFromNpArrays(channels,
-        shortname = self.shortname,
-        experimentStateFile = self.experimentStateFile)
+                                                       shortname=self.shortname,
+                                                       experimentStateFile=self.experimentStateFile)
         return g
 
     def _setup_per_channel_objects(self, noise_is_continuous=True):
@@ -299,7 +299,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                         "WARNING: TESGroup did not add data: channums don't match %s, %s", fname, nf)
                     continue
                 dset.noise_records = noise
-                assert(dset.channum == dset.noise_records.channum)
+                assert (dset.channum == dset.noise_records.channum)
                 noise_list.append(noise)
 
             pulse_list.append(pulse)
@@ -594,8 +594,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def shortname(self):
         """Return a string containing part of the filename and the number of good channels"""
         ngoodchan = len([ds for ds in self])
-        return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0]+", %g chans"%ngoodchan
-
+        return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0]+", %g chans" % ngoodchan
 
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,

@@ -77,6 +77,7 @@ def BaseChannelGroup_filter_data_tdm(self, filter_name='filt_noconst', transform
 
 try:
     from numba import autojit
+
     @autojit
     def summarize_numba(data, nPresamples, pretrigger_ignore_samples):
         # this is faster mainly because it only loops through each pulse once,

@@ -699,7 +699,9 @@ class MultiLorentzianComplexFitter(LineFitter):
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
 
         energy = (x - P_phpeak) / P_dphde + self.spect.peak_energy
-        def cleanspectrum_fn(x): return self.spect.pdf(x, P_gaussfwhm)
+
+        def cleanspectrum_fn(x):
+            return self.spect.pdf(x, P_gaussfwhm)
         spectrum = _smear_exponential_tail(
             cleanspectrum_fn, energy, P_gaussfwhm, P_tailfrac, P_tailtau)
         retval = _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)

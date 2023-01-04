@@ -49,6 +49,7 @@ def find_features_with_mouse(self, channame='p_filt_value', nclicks=1, prange=No
     xvalues.shape = (self.n_channels, nclicks)
     return xvalues
 
+
 def find_named_features_with_mouse(self, name='Mn Ka1', channame='p_filt_value',
                                    prange=None, trange=None, energy=None):
 

@@ -7,6 +7,7 @@
 * Fix issue 223: add `assume_white_noise` so data can be filtered w/o noise files.
 * Fix issue 225: bug in using LJH files where no non-trivial experiment state was set.
 * Fix issue 226: repair some warnings appearing in the test suite.
+* Run autopep8 (and add autopep8 target to Makefile)
 
 
 **0.7.8** May 17, 2022

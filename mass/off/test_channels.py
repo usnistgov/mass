@@ -51,8 +51,8 @@ ds = data.firstGoodChannel()
 ds.plotAvsB("relTimeSec", "residualStdDev",  includeBad=True)
 ds.plotAvsB("relTimeSec", "pretriggerMean", includeBad=True)
 ds.plotAvsB("relTimeSec", "filtValue", includeBad=False)
-ds.plotAvsB2d("relTimeSec", "filtValue",  
-[np.arange(0,3600*2,300), np.arange(0,40000,500)])
+ds.plotAvsB2d("relTimeSec", "filtValue",
+              [np.arange(0, 3600*2, 300), np.arange(0, 40000, 500)])
 ds.plotHist(np.arange(0, 40000, 4), "filtValue")
 ds.plotHist(np.arange(0, 40000, 4), "filtValue", coAddStates=False)
 
@@ -285,7 +285,7 @@ class TestSummaries(ut.TestCase):
         try:
             ds_local.energy
             assert "ds_local should not have energy yet, we haven't defined that recipe"
-        except:
+        except Exception:
             pass
         pklfilename = "recipe_book_save_test2.rbpkl"
         data.saveRecipeBooks(pklfilename)
@@ -295,7 +295,6 @@ class TestSummaries(ut.TestCase):
         for ds in data.values():
             ds_local = data_local[ds.channum]
             assert all(ds.energy == ds_local.energy)
-
 
     def test_experiment_state_file_repeated_states(self):
         # A better test would create an alternate experiment state file with repeated indicies and use that
