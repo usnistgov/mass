@@ -1,10 +1,14 @@
 import os
 import os.path
+import shutil
+import subprocess
+import tempfile
 import unittest as ut
 
 from mass.core.ljh_util import ljh_channum, filename_glob_expand, \
     remove_unpaired_channel_files, ljh_sort_filenames_numerically, \
     ljh_chan_names, ljh_basename_channum
+from mass.core.ljh_modify import LJHFile
 
 
 class TestFilenameHandling(ut.TestCase):
@@ -96,6 +100,39 @@ class TestFilenameHandling(ut.TestCase):
         rnames = ljh_sort_filenames_numerically([bname % c for c in channels])
         for x, y in zip(rnames, snames):
             self.assertEqual(x, y)
+
+    def test_ljh_merge(self):
+        """Make sure the LJH merge script works."""
+        with tempfile.TemporaryDirectory() as destdir:
+            dest1_name = os.path.join(destdir, "test1_chan3.ljh")
+            dest2_name = os.path.join(destdir, "test2_chan3.ljh")
+            src_name = os.path.join('mass', 'regression_test', 'regress_chan3.ljh')
+            src = LJHFile(src_name)
+            Npulses = min(20, src.nPulses)
+            wordsize = 2
+            timing_size = 16
+            truncated_length = src.header_size + Npulses*(src.nSamples*wordsize+timing_size)
+
+            shutil.copy(src_name, dest1_name)
+            os.truncate(dest1_name, truncated_length)
+            shutil.copy(dest1_name, dest2_name)
+
+            cmd = ["python", "bin/ljh_merge", f"{destdir}/*_chan3.ljh"]
+            ps = subprocess.run(cmd, capture_output=True)
+            self.assertEqual(ps.returncode, 0)
+
+            result_name = os.path.join(destdir, "merged_chan3.ljh")
+            result = LJHFile(result_name)
+            self.assertEqual(2*Npulses, result.nPulses)
+            self.assertEqual(src.nSamples, result.nSamples)
+
+            # Make sure we can't run another merge w/o the --force flag
+            ps = subprocess.run(cmd, capture_output=True)
+            self.assertNotEqual(ps.returncode, 0)
+
+            # Make sure we CAN run another merge with the --force flag
+            ps = subprocess.run(cmd+["--force"], capture_output=True)
+            self.assertEqual(ps.returncode, 0)
 
 
 if __name__ == '__main__':

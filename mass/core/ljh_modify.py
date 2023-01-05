@@ -156,11 +156,11 @@ def ljh_append_traces(src_name, dest_name, pulses=None):
         pulses = range(src.nPulses)
     with open(dest_name, "ab") as dest_fp:
         for i in pulses:
-            trace = src.read_trace(i)
             prefix = struct.pack('<Q', int(1))
             dest_fp.write(prefix)
             prefix = struct.pack('<Q', int(1244))
             dest_fp.write(prefix)
+            trace = src.read_trace(i)
             trace.tofile(dest_fp, sep="")
 
 
