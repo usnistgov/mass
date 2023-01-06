@@ -131,7 +131,8 @@ class TestFilenameHandling(ut.TestCase):
             self.assertNotEqual(ps.returncode, 0)
 
             # Make sure we CAN run another merge with the --force flag
-            ps = subprocess.run(cmd+["--force"], capture_output=True)
+            cmdF = ["python", "bin/ljh_merge", "--force", f"{destdir}/*_chan3.ljh"]
+            ps = subprocess.run(cmdF, capture_output=True)
             self.assertEqual(ps.returncode, 0)
 
 
