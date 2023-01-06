@@ -117,7 +117,7 @@ class TestFilenameHandling(ut.TestCase):
             os.truncate(dest1_name, truncated_length)
             shutil.copy(dest1_name, dest2_name)
 
-            cmd = ["python", "bin/ljh_merge", f"{destdir}/*_chan3.ljh"]
+            cmd = ["bin/ljh_merge", f"{destdir}/*_chan3.ljh"]
             ps = subprocess.run(cmd, capture_output=True)
             self.assertEqual(ps.returncode, 0)
 
@@ -131,9 +131,8 @@ class TestFilenameHandling(ut.TestCase):
             self.assertNotEqual(ps.returncode, 0)
 
             # Make sure we CAN run another merge with the --force flag
-            cmdF = ["python", "bin/ljh_merge", "--force", f"{destdir}/*_chan3.ljh"]
-            ps = subprocess.run(cmdF, capture_output=True)
-            print(ps.stdout)
+            cmdF = ["bin/ljh_merge", "--force", f"{destdir}/*_chan3.ljh"]
+            ps = subprocess.run(cmdF) #  , capture_output=True)
             self.assertEqual(ps.returncode, 0)
 
 
