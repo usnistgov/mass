@@ -133,6 +133,7 @@ class TestFilenameHandling(ut.TestCase):
             # Make sure we CAN run another merge with the --force flag
             cmdF = ["python", "bin/ljh_merge", "--force", f"{destdir}/*_chan3.ljh"]
             ps = subprocess.run(cmdF, capture_output=True)
+            print(ps.stdout)
             self.assertEqual(ps.returncode, 0)
 
 
