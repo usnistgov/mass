@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.7.9** May 2022-
+**0.7.9** January 11, 2023
 
 * Run bitbucket pipeline with python 3.7 and 3.10 instead of 3.7 and 3.9.
 * Add `compute_noise()` replacing `compute_noise_spectra()`; deprecate the latter.
