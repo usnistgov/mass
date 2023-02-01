@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.7.9** May 2022-
+**0.7.9** January 11, 2023
 
 * Run bitbucket pipeline with python 3.7 and 3.10 instead of 3.7 and 3.9.
 * Add `compute_noise()` replacing `compute_noise_spectra()`; deprecate the latter.
@@ -8,6 +8,7 @@
 * Fix issue 225: bug in using LJH files where no non-trivial experiment state was set.
 * Fix issue 226: repair some warnings appearing in the test suite.
 * Run autopep8 (and add autopep8 target to Makefile)
+* Make a new script `bin/ljh_merge` to merge multiple LJH files into one.
 
 
 **0.7.8** May 17, 2022
