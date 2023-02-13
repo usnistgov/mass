@@ -189,7 +189,6 @@ class LJHFile(MicrocalFile):
         self.set_segment_size(segmentsize)
 
         self.datatimes_float = None
-        self.datatimes_float_old = None
         self.rowcount = None
 
         self.post22_data_dtype = np.dtype([('rowcount', np.int64),
@@ -398,7 +397,6 @@ class LJHFile(MicrocalFile):
     def clear_cached_segment(self):
         super(LJHFile, self).clear_cache()
         self.datatimes_float = None
-        self.datatimes_float_old = None
         self.rowcount = None
 
     def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
@@ -502,13 +500,6 @@ class LJHFile(MicrocalFile):
         # this is integer division but rounding up
         frame_count = (datatime_4usec_tics*NS_PER_4USEC_TICK - 1) // NS_PER_FRAME + 1
         frame_count += 3  # account for 4 point triggering algorithm
-        # leave in the old calculation for comparison, later this should be removed
-        SECONDS_PER_4MICROSECOND_TICK = (4.0/1e6)
-        SECONDS_PER_MILLISECOND = 1e-3
-        self.datatimes_float_old = np.array(
-            self.data[:, 0], dtype=np.double)*SECONDS_PER_4MICROSECOND_TICK
-        self.datatimes_float_old += self.data[:, 1]*SECONDS_PER_MILLISECOND
-        self.datatimes_float_old += self.data[:, 2]*(SECONDS_PER_MILLISECOND*65536.)
 
         self.rowcount = np.array(frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
         self.datatimes_float = (frame_count+self.row_number
