@@ -188,6 +188,7 @@ class LJHFile(MicrocalFile):
         self.__read_header(filename)
         self.set_segment_size(segmentsize)
 
+        self.datatimes_raw = None
         self.datatimes_float = None
         self.rowcount = None
 
@@ -389,6 +390,7 @@ class LJHFile(MicrocalFile):
 
             self.__read_binary(self.header_size + segment_num*self.segmentsize, self.segmentsize,
                                error_on_partial_pulse=True)
+            self.datatimes_raw = np.uint64(1e6*self.datatimes_float.copy())
             self.__cached_segment = segment_num
         first = segment_num * self.pulses_per_seg
         end = first + self.data.shape[0]
@@ -396,6 +398,7 @@ class LJHFile(MicrocalFile):
 
     def clear_cached_segment(self):
         super(LJHFile, self).clear_cache()
+        self.datatimes_raw = None
         self.datatimes_float = None
         self.rowcount = None
 
@@ -445,7 +448,6 @@ class LJHFile(MicrocalFile):
         self.rowcount = array["rowcount"]
         # convert to floating point with units of seconds
         self.datatimes_float = array["posix_usec"] * 1e-6
-        self.datatimes_raw = np.uint64(array["posix_usec"].copy())
         self.data = array["data"]
 
     def __read_binary_pre22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
