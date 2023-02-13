@@ -1,5 +1,10 @@
 ## Note on version numbers of Mass
 
+**0.7.10** February 2023-
+
+* Fix issue 229: bug in writing `bin/ljh_merge`; was not writing timestamp and row count.
+
+
 **0.7.9** January 11, 2023
 
 * Run bitbucket pipeline with python 3.7 and 3.10 instead of 3.7 and 3.9.
