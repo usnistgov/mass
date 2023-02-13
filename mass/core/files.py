@@ -358,9 +358,10 @@ class LJHFile(MicrocalFile):
 
         return traces
 
-    def read_trace(self, trace_num):
+    def read_trace(self, trace_num, with_timing=False):
         """Return a single data trace (number <trace_num>).
 
+        If `with_timing` is True, return (rowcount, posix_usec, pulse_record), otherwise just pulse_record.
         This comes either from cache or by reading off disk, if needed.
         """
         if trace_num >= self.nPulses:
@@ -368,7 +369,11 @@ class LJHFile(MicrocalFile):
 
         segment_num = trace_num // self.pulses_per_seg
         self.read_segment(segment_num)
-        return self.data[trace_num % self.pulses_per_seg]
+        record_idx = trace_num % self.pulses_per_seg
+        pulse_record = self.data[record_idx]
+        if with_timing:
+            return (self.rowcount[record_idx], self.datatimes_raw[record_idx], pulse_record)
+        return pulse_record
 
     def read_segment(self, segment_num=0):
         """Read a section of the binary data of the given number (0,1,...) and size.
