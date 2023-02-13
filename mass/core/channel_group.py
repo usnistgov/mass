@@ -1000,7 +1000,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             axis = plt.subplot(111)
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("nipy_spectral")
+            cmap = plt.cm.nipy_spectral
 
         dt = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e3
 
@@ -1045,7 +1045,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             channels.sort()
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("nipy_spectral")
+            cmap = plt.cm.nipy_spectral
 
         axis.grid(True)
         for ds_num, channum in enumerate(channels):
@@ -1108,7 +1108,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             channels.sort()
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("nipy_spectral")
+            cmap = plt.cm.nipy_spectral
 
         axis.grid(True)
         for ds_num, channum in enumerate(channels):
@@ -1202,7 +1202,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         nplot = len(dsets)
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("nipy_spectral")
+            cmap = plt.cm.nipy_spectral
 
         if scale_factor == 1.0:
             units = "Counts"
