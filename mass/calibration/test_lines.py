@@ -39,8 +39,6 @@ class Test_MnKA_distribution(unittest.TestCase):
 
     def test_location_against_STANDARD_FEATUES(self):
         for (name, spectrum) in mass.spectra.items():
-            if spectrum.element == "AlOx":
-                continue
             if spectrum.reference_short in ["NIST ASD", "Clementson 2010", "Nilsen 1995"]:
                 continue
             if not spectrum.is_default_material:
