@@ -499,8 +499,8 @@ addline(
 # cross-checking. You can find them as, e.g., mass.MgKAlpha_v1
 addline(
     element="Mg",
-    material="metal",
-    linetype="KAlpha_v1",
+    material="metal_v1",
+    linetype="KAlpha",
     reference_short="Klauber 1993",
     reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=1253.687,
@@ -514,8 +514,8 @@ addline(
 
 addline(
     element="Al",
-    material="metal",
-    linetype="KAlpha_v1",
+    material="metal_v1992",
+    linetype="KAlpha",
     reference_short="Schweppe 1992 Al",
     reference_plot_instrument_gaussian_fwhm=None,
     nominal_peak_energy=1486.88931733,
@@ -546,7 +546,7 @@ addline(
 addline(
     element="Si",
     material="Si crystal",
-    linetype="KAlpha_v1",
+    linetype="KAlpha",
     reference_short="Deslattes Notebook Si",
     reference_plot_instrument_gaussian_fwhm=0.245,
     nominal_peak_energy=1739.986,
@@ -623,8 +623,9 @@ addline(
 # by up to ±10% on either wing of the doublet (around 4082 and 4094 eV).
 addline(
     element="Sc",
-    material="metal",
-    linetype="KAlpha_2006",
+    material="metal_2006",
+    linetype="KAlpha",
+    is_default_material=False,
     reference_short="Chantler 2006",
     reference_plot_instrument_gaussian_fwhm=0.52,
     nominal_peak_energy=4090.735,
