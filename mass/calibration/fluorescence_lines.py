@@ -619,6 +619,23 @@ addline(
     position_uncertainty=0.010
 )
 
+# Keep Chantler 2006 version of scandium in MASS just in case. At resolution 1.9 eV, it differs
+# by up to ±10% on either wing of the doublet (around 4082 and 4094 eV).
+addline(
+    element="Sc",
+    material="metal",
+    linetype="KAlpha_2006",
+    reference_short="Chantler 2006",
+    reference_plot_instrument_gaussian_fwhm=0.52,
+    nominal_peak_energy=4090.735,
+    energies=np.array((4090.745, 4089.452, 4087.782, 4093.547, 4085.941, 4083.976)),  # Table I C_i
+    lorentzian_fwhm=np.array((1.17, 2.65, 1.41, 2.09, 1.53, 3.49)),  # Table I W_i
+    reference_amplitude=np.array((8175, 878, 232, 287, 4290, 119)),  # Table I A_i
+    reference_amplitude_type=VOIGT_PEAK_HEIGHT,
+    ka12_energy_diff=5.1,
+    position_uncertainty=0.019  # table 3
+)
+
 addline(
     element="Sc",
     material="metal",
