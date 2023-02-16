@@ -121,9 +121,8 @@ class SpectralLine():
         axis.set_ylabel("Counts per {:.2} eV bin".format(float(x[1]-x[0])))
         axis.set_xlim(x[0], x[-1])
         if setylim:
-            axis.set_ylim(np.amin(pdf)*0.1, np.amax(pdf))
-        axis.set_title("{} with resolution {:.2f} eV FWHM".format(self.shortname,
-                                                                  instrument_gaussian_fwhm))
+            axis.set_ylim(0, np.amax(pdf)*1.05)
+        axis.set_title(f"{self.shortname} with resolution {instrument_gaussian_fwhm:.2f} eV FWHM")
         return axis
 
     def plot_like_reference(self, axis=None):
@@ -242,6 +241,7 @@ lineshape_references["Klauber 1993"] = """Data are from C. Klauber, Applied Surf
 lineshape_references["Wollman 2000"] = """Data are from Wollman, Nam, Newbury, Hilton, Irwin, Berfren, Deiker, Rudman,
     and Martinis, NIM A 444 (2000) page 145. They come from combining 8 earlier
     references dated 1965 - 1993."""
+
 lineshape_references["Chantler 2006"] = """Chantler, C., Kinnane, M., Su, C.-H., & Kimpton, J. (2006).
     "Characterization of K spectral profiles for vanadium, component redetermination for
     scandium, titanium, chromium, and manganese, and development of satellite structure
@@ -249,8 +249,10 @@ lineshape_references["Chantler 2006"] = """Chantler, C., Kinnane, M., Su, C.-H.,
     url: http://link.aps.org/doi/10.1103/PhysRevA.73.012508
 
     Be sure to look at Table I, not the very similar Table II which lists parameters in different parameterization."""
+
 lineshape_references["Chantler 2013"] = """C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
 http://iopscience.iop.org/0953-4075/46/14/145601"""
+
 lineshape_references["Chantler 2013, Section 5"] = """C Chantler, L Smale, J Kimpton, et al., J Phys B 46, 145601 (2013).
 http://iopscience.iop.org/0953-4075/46/14/145601
 We were originally using L Smale, C Chantler, M Kinnane, J Kimpton, et al., Phys
@@ -261,35 +263,45 @@ BUT these were adjusted in C Chantler, L Smale, J Kimpton, et al., J Phys B
 (see Section 5 "Redefinition of vanadium K-beta standard")  Both papers are
 by the same group, of course.
 """
+
 lineshape_references["Hoelzer 1997, NISTfits.ipf"] = """Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December), ***as corrected***
     by someone at LANL: see 11/30/2004 corrections in NISTfits.ipf (Igor code)."""
+
 lineshape_references["Hoelzer 1997"] = """Data are from Hoelzer, Fritsch, Deutsch, Haertwig, Foerster in
     Phys Rev A56 (#6) pages 4554ff (1997 December)."""
+
 lineshape_references["Zn Hack"] = """This is a hack, a copy of the Hoelzer, Fritsch, Deutsch, Haertwig, Foerster
     Phys Rev A56 (#6) pages 4554ff (1997 December) model, with the numbers
     adjusted to get line energies of 8615.823, 8638.91 eV and widths 10% wider
     than for Cu. Those widths are based on Zschornack's book.
     The KBeta also appears to be a hack with scaled values."""
+
 lineshape_references["Zschornack"] = """Zschornack, Günter H. (2007). Handbook of X-Ray Data. Springer-Verlag, Berlin."""
+
 lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
+
 lineshape_references["Joe Fowler"] = """This is what Joe Fowler measured for tungsten L-lines in 2018."""
+
 lineshape_references["NIST ASD"] = """NIST Atomic Spectra Database
 Kramida, A., Ralchenko, Yu., Reader, J., and NIST ASD Team (2018). NIST Atomic Spectra Database (ver. 5.6.1),
 [Online]. Available: https://physics.nist.gov/asd [2018, December 12]. National Institute of Standards and
 Technology, Gaithersburg, MD. DOI: https://doi.org/10.18434/T4W30F"""
+
 lineshape_references["Clementson 2010"] = """J. Clementson, P. Beiersdorfer, G. V. Brown, and M. F. Gu,
     "Spectroscopy of M-shell x-ray transitions in Zn-like through Co-like W,"
     Physica Scripta 81, 015301 (2010). https://iopscience.iop.org/article/10.1088/0031-8949/81/01/015301/meta"""
-lineshape_references["Steve Smith"] = """This is what Steve Smith at NASA GSFC uses for Br K-alpha."""
+
 lineshape_references["Nilsen 1995"] = """Elliott, S. R., Beiersdorfer, P., Macgowan, B. J., & Nilsen, J. (1995).
 Measurements of line overlap for resonant spoiling of x-ray lasing transitions in nickel-like tungsten, 52(4),
 2689–2692. https://doi.org/10.1103/PhysRevA.52.2689"""
+
 lineshape_references["Deslattes Notebook Si"] = """Scanned pages from Deslattes/Mooney's notebook provided by Csilla Szabo-Foster.
 Added by GCO Oct 7 2019. Used the postion and width values from the from the lowest listed fit, the one in energy units.
 Used the intensities from the Second lowest fit, the one labeled PLUS-POSITION SCAN (best-fit Voight profile).
 Also the notebook only included the Ka1 and Ka2, not the higher energy satellites, so I made up numbers for the
 small feature at higher energy"""
+
 lineshape_references["Schweppe 1992 Al"] = """J. Schweppe, R. D. Deslattes, T. Mooney, and C. J. Powell
 in J. Electron Spectroscopy and Related Phenomena 67
 (1994) 463-478 titled "Accurate measurement of Mg and Al Kalpha_{1,2} X-ray energy profiles". See Table 5
@@ -299,8 +311,10 @@ value 0.43 eV from the 2nd to last paragraph The higher energy satellite feature
 Schweppe, and instead taken from an email from Caroline Kilbourne to Joel Ullom dated 28 Sept 2010 We expect
 these higher energy satellites do not affect the fitting of the peak location very much.
 """
+
 lineshape_references["Mendenhall 2019"] = """Marcus H. Mendenhall et al., J. Phys B in press (2019).
     https://doi.org/10.1088/1361-6455/ab45d6"""
+
 lineshape_references["Deslattes Notebook S, Cl, K"] = """Scanned pages from Deslattes/Mooney's notebook
 provided by Csilla Szabo-Foster. Added by GCO Oct 30 2019. Used
 the postion and width values from the from the lowest listed fit, the one in energy units. Used the
@@ -313,16 +327,26 @@ higher energy or estimated them from data in Mauron, O., Dousse, J. C., Hoszowsk
 Parente, F., & Polasik, M. (2000). L-shell shake processes resulting from 1s photoionization in elements
 11≤Z≤17. Physical Review A - Atomic, Molecular, and Optical Physics, 62(6), 062508–062501.
 https://doi.org/10.1103/PhysRevA.62.062508"""
+
 lineshape_references["Ravel 2018"] = """Bruce Ravel et al., Phys. Rev. B 97 (2018) 125139
     https://doi.org/10.1103/PhysRevB.97.125139"""
+
 lineshape_references["Ito 2020"] = """Ito, Y., Tochio, T., Yamashita, M., Fukushima, S., Vlaicu, A. M.,
 Marques, J. P., ... Parente, F. (2020). Structure of Kα - and Kβ-emission x-ray spectra for Se, Y, and Zr.
 Physical Review A, 102(5), 052820. https://doi.org/10.1103/PhysRevA.102.052820"""
+
 lineshape_references["Menesguen 2022"] = """Ménesguen, Y., Lépy, M.-C., Ito, Y., Yamashita, M., Fukushima,
 S., Tochio, T., ... Parente, F. (2022). Structure of single KL0–, double KL1–, and triple KL2 − ionization
 in Mg, Al, and Si targets induced by photons, and their absorption spectra. Radiation Physics and Chemistry,
-110048. https://doi.org/10.1016/j.radphyschem.2022.110048
-"""
+110048. https://doi.org/10.1016/j.radphyschem.2022.110048"""
+
+lineshape_references["Dean 2019"] = """Dean, J. W., Melia, H. A., Chantler, C. T., Smale, L. F. (2019)
+High accuracy characterisation for the absolute energy of scandium Kα. J. Phys. B: At. Mol. Opt. Phys. 52 165002
+https://doi.org/10.1088/1361-6455/ab29b1"""
+
+lineshape_references["Dean 2020"] = """Dean, J. W., Chantler, C. T., Smale, L. F., Melia, H. A. (2020)
+An absolute energy characterisation of scandium Kβ to 2 parts per million. J. Phys. B: At. Mol. Opt. Phys. 53 205004.
+https://doi.org/10.1088/1361-6455/abb1ff"""
 
 spectra = OrderedDict()
 spectrum_classes = OrderedDict()  # for backwards compatability
@@ -584,15 +608,29 @@ addline(
     element="Sc",
     material="metal",
     linetype="KAlpha",
-    reference_short="Chantler 2006",
-    reference_plot_instrument_gaussian_fwhm=0.52,
-    nominal_peak_energy=4090.735,
-    energies=np.array((4090.745, 4089.452, 4087.782, 4093.547, 4085.941, 4083.976)),  # Table I C_i
-    lorentzian_fwhm=np.array((1.17, 2.65, 1.41, 2.09, 1.53, 3.49)),  # Table I W_i
-    reference_amplitude=np.array((8175, 878, 232, 287, 4290, 119)),  # Table I A_i
-    reference_amplitude_type=VOIGT_PEAK_HEIGHT,
-    ka12_energy_diff=5.1,
-    position_uncertainty=0.019  # table 3
+    reference_short="Dean 2019",
+    reference_plot_instrument_gaussian_fwhm=1.9,
+    nominal_peak_energy=4090.699,
+    energies=np.array((4090.709, 4089.418, 4087.752, 4093.508, 4085.918, 4083.926)),  # Table 4 C_i
+    lorentzian_fwhm=np.array((1.15, 2.89, 1.02, 2.01, 1.40, 3.86)),  # Table 4 W_i
+    reference_amplitude=np.array((501, 107, 15, 43, 321, 14)),  # Table 4 Fraction
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=4.773,
+    position_uncertainty=0.010
+)
+
+addline(
+    element="Sc",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Dean 2020",
+    reference_plot_instrument_gaussian_fwhm=1.97,
+    nominal_peak_energy=4460.845,
+    energies=np.array((4460.972, 4459.841, 4458.467, 4455.979, 4463.544)),  # Table 3 C_i
+    lorentzian_fwhm=np.array((1.22, 1.58, 2.51, 4.64, 2.10)),  # Table 3 W_i
+    reference_amplitude=np.array((530, 234, 149, 43, 42)),  # Table 3 Fraction
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    position_uncertainty=0.0092
 )
 
 addline(
