@@ -126,8 +126,12 @@ class SpectralLine():
         return axis
 
     def plot_like_reference(self, axis=None):
+        if self.reference_plot_instrument_gaussian_fwhm is None:
+            fwhm = 0.001
+        else:
+            fwhm = self.reference_plot_instrument_gaussian_fwhm
         axis = self.plot(
-            axis=axis, instrument_gaussian_fwhm=self.reference_plot_instrument_gaussian_fwhm)
+            axis=axis, instrument_gaussian_fwhm=fwhm)
         return axis
 
     def rvs(self, size, instrument_gaussian_fwhm):
