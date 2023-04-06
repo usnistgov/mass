@@ -4,6 +4,7 @@
 
 * Fix issue 229: bug in writing `bin/ljh_merge`; was not writing timestamp and row count.
 * Fix issue 230: add Sc Kα and Kβ data from 2019-2020 publications by Dean et al.
+* Fix issue 231: document LJH files; other requests need no changes.
 
 
 **0.7.9** January 11, 2023
