@@ -45,7 +45,7 @@ Channel: 12
 ChannelIndex (in dastard): 12
 ```
 
-Dastard inserts this information to help downstream analysis tools understand the array being used when this file was acquired. 
+Dastard inserts this information to help downstream analysis tools understand the array being used when this file was acquired.
 
 ```
 Digitized Word Size in Bytes: 2
@@ -123,6 +123,7 @@ Total samples is the actual record length in samples. The trigger point will be 
 If you read an LJH file until the characters `#End of Header`, then the remainder of the file is the binary section. It consists of a sequence of data records.
 
 Each record starts with a 16-byte time marker. The record's waveform data consists of the next L*M bytes, where L is the number of samples (`Total Samples:` value from the header) and M is the number of bytes per sample (`Digitized Word Size in Bytes:` from the header). M is always 2 bytes per sample, in practice.
+
 * The full record's length is **16+L*M** .
 * All values in the data record are little endian.
 * The first 8-byte word is the row counter. It counts the number of _row_ times read out since the server started. If the server has to resynchronize on the raw data, then the row counter will be incremented by an _estimate_ to account for the time missed.
@@ -135,10 +136,11 @@ Each record starts with a 16-byte time marker. The record's waveform data consis
 **Version 2.1.0 follows. Warning! You probably want 2.2.0.**
 
 Each record starts with a 6-byte time marker. The record's waveform data consists of the next L*M bytes, where L is the number of samples (`Total Samples:` value from the header) and M is the number of bytes per sample (`Digitized Word Size in Bytes:` from the header). M is always 2 bytes per sample, in practice.
+
 * The full record's length is **6+L*M** .
 * All values in the data record are little endian.
-* The first byte is a "4 microsecond tick".  That is, it counts microseconds past the millisecond counter and records the count divided by 4.  Beware that previous versions of LJH used the first byte to signify something about the type of data.  Igor seems to ignore this byte, though, so I think we're okay to stuff timing information into it. 
-* The second byte used to signify a channel number N, which corresponds to the Nth channel described in the header. Channel number 255 is reserved for temperature readout with the DMM. Since 2010, this has always been meaningless. 
+* The first byte is a "4 microsecond tick".  That is, it counts microseconds past the millisecond counter and records the count divided by 4.  Beware that previous versions of LJH used the first byte to signify something about the type of data.  Igor seems to ignore this byte, though, so I think we're okay to stuff timing information into it.
+* The second byte used to signify a channel number N, which corresponds to the Nth channel described in the header. Channel number 255 is reserved for temperature readout with the DMM. Since 2010, this has always been meaningless.
 * The next 4 bytes are an unsigned 32-bit number that is the value of a millisecond counter on the digitizing computer.
 * The next L words (of M bytes each) are the data record, as a signed or unsigned integer. (Typically, we use signed for the TDM error signal and unsigned for the TDM feedback.)
 
@@ -146,8 +148,8 @@ Each record starts with a 6-byte time marker. The record's waveform data consist
 
 * **Version 2.2.0 (6 Aug 2015)** Changed the binary definition to include 8 bytes each record for pulse timing (microsecond precision) and frame number.
 * **Version 2.1.0 (23 Sep 2011)**  Used the first byte of each record to get 4 microsec timing resolution instead of 1 ms.
-* **Version 2.0.0 (27 Mar 2011)** Defined inversion and offset more clearly 
-* **Version 2.0.0 (5 Jan 2001)** Changed definition of discrimination level 
-* **Version 2.0.0 (24 May 2000)** since most PCs have least significant byte first, the binary information has been changed to default 
-* **Version 1.1.0 (8 May 2000)** added a few more user and channel parameters as well as provisions for temperature monitoring 
-* **Initial 1.0.0 (5 Aug 1999)** definition by Larry J. Hiller 
+* **Version 2.0.0 (27 Mar 2011)** Defined inversion and offset more clearly
+* **Version 2.0.0 (5 Jan 2001)** Changed definition of discrimination level
+* **Version 2.0.0 (24 May 2000)** since most PCs have least significant byte first, the binary information has been changed to default
+* **Version 1.1.0 (8 May 2000)** added a few more user and channel parameters as well as provisions for temperature monitoring
+* **Initial 1.0.0 (5 Aug 1999)** definition by Larry J. Hiller
