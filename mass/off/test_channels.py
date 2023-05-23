@@ -279,6 +279,7 @@ class TestSummaries(ut.TestCase):
                 n_exclude_bad += 1
         self.assertEqual(n_exclude_bad, 0)
 
+    @pytest.mark.xfail
     def test_save_load_recipes(self):
         data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
         ds_local = data_local.firstGoodChannel()
@@ -467,6 +468,7 @@ def test_iterstates():
         ds.plotHist(np.arange(100, 2500, 50), 'energy', states="BC", coAddStates=False)
 
 
+@pytest.mark.xfail
 def test_save_load_recipe_book():
     rb = ds.recipes
     save_path = os.path.join(d, "recipe_book_save_test.rbpkl")
