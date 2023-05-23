@@ -9,7 +9,7 @@ pipelines:
   default:
     # May 23, 2023: our strategy is to test only the oldest and newest python we care about. Save
     # build minutes by skipping any in-between versions. As of June 27, 2023, Py 3.7 will be beyond its
-    # end-of-life, so we'll consider 3.8 the oldest supported version. Py 3.11 exists and is being used.
+    # end-of-life, so we'll consider 3.8 the oldest supported version.
     #
     # For info about available versions, see https://hub.docker.com/_/python/ and
     # https://support.atlassian.com/bitbucket-cloud/docs/use-docker-images-as-build-environments/.
@@ -27,8 +27,8 @@ pipelines:
       - step:
           caches:
             - pip
-          name: python 3.11
-          image: python:3.11
+          name: python 3.10
+          image: python:3.10
           script:
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
