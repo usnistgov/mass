@@ -27,8 +27,8 @@ pipelines:
       - step:
           caches:
             - pip
-          name: python 3.10
-          image: python:3.10
+          name: python 3.11
+          image: python:3.11
           script:
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"

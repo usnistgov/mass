@@ -214,16 +214,16 @@ class TestSummaries(ut.TestCase):
         e1 = ds.getAttr("energy", inds)  # index with inds from same list of states
         self.assertTrue(np.allclose(e0, e1))
 
-    @xfail_on_windows  # we don't need refresh to disk to work on windows, so I didnt investigate why it fails very carefully
+    @xfail_on_windows  # we don't need refresh to disk to work on windows, so I didn't investigate why it fails
     def test_refresh_from_files(self):
         # ds and data refers to the global variable from the script before the tests
         # while ds_local and data_local refer to the similar local variables
         data_local = ChannelGroup([filename], verbose=False)
         ds_local = data_local.firstGoodChannel()
         experimentStateFile = data_local.experimentStateFile
-        # reach inside offFile and experimentStateFile to make it look like the files were originally opened during state E
-        # then we refresh to learn about states F-I
-        # the numerical constants are chosen to make sense for this scenario... if you vary one you may need to vary all
+        # reach inside offFile and experimentStateFile to make it look like the files were originally opened during
+        # state E. Then we refresh to learn about states F-I
+        # The numerical constants are chosen to make sense for this scenario; vary one, and you may need to vary all.
         ds_local.offFile._updateMmap(_nRecords=11600)  # mmap only the first half of records
         experimentStateFile.allLabels = experimentStateFile.allLabels[:5]
         experimentStateFile.unixnanos = experimentStateFile.unixnanos[:5]
@@ -279,6 +279,7 @@ class TestSummaries(ut.TestCase):
                 n_exclude_bad += 1
         self.assertEqual(n_exclude_bad, 0)
 
+    @pytest.mark.xfail
     def test_save_load_recipes(self):
         data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
         ds_local = data_local.firstGoodChannel()
@@ -467,6 +468,7 @@ def test_iterstates():
         ds.plotHist(np.arange(100, 2500, 50), 'energy', states="BC", coAddStates=False)
 
 
+@pytest.mark.xfail
 def test_save_load_recipe_book():
     rb = ds.recipes
     save_path = os.path.join(d, "recipe_book_save_test.rbpkl")

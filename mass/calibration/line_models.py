@@ -91,8 +91,8 @@ class MLEModel(lmfit.Model):
     def fit(self, *args, minimum_bins_per_fwhm=3, **kwargs):
         """as lmfit.Model.fit except
         1. the default method is "least_squares because it gives error bars more often at 1.5-2.0X speed penalty
-        2. supports "leastsq_refit" which uses "leastsq" to fit, but if there are no error bars, refits with "least_squares"
-        call result.set_label_hints(...) then result.plotm() for a nice plot
+        2. supports "leastsq_refit" which uses "leastsq" to fit, but if there are no error bars, refits with
+        "least_squares" call result.set_label_hints(...) then result.plotm() for a nice plot.
         """
         if "method" not in kwargs:
             # change default method
