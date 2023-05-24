@@ -46,7 +46,6 @@ class TestOff(ut.TestCase):
                 self.assertGreater(f.nRecords, 0)
                 files.append(f)
                 f.close()
-                print(len(files), " open files so far.")
 
         # Use the try...finally to ensure that the gc can close files at the end of this test,
         # preventing a cascade of meaningless test failures if this one fails.

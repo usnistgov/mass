@@ -80,11 +80,17 @@ class OffFile(object):
             self.header["FileFormatVersion"], self.header["NumberOfBases"], descriptive_coefs_names=False)
         self.framePeriodSeconds = float(self.header["FramePeriodSeconds"])
         self.validateHeader()
+        self._mmap = None
+        self.projectors = None
+        self.basis = None
         self._decodeModelInfo()  # calculates afterHeaderPos used by _updateMmap
         self._updateMmap()
 
     def close(self):
-        pass
+        del self._mmap
+        del self.projectors
+        del self.basis
+
 
     def validateHeader(self):
         with open(self.filename, "rb") as f:
