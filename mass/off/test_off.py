@@ -29,18 +29,23 @@ class TestOff(ut.TestCase):
         self.assertIsNotNone(OffFile(filename))
 
     def test_mmap_many_files(self):
-        """Open 1 more OFF file objects than the system allows. Test that close method closes them."""
+        """Open more OFF file objects than the system allows. Test that close method closes them."""
+
+        # First, LOWER the systems limit on number of open files, to make the test smaller
+        request_maxfiles = 30
+        resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, request_maxfiles))
         maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
-        N = maxfiles//2 + 1
+        NFilesToOpen = maxfiles//3 + 10
 
         filename = os.path.join(d, "data_for_test/off_with_binary_projectors_and_basis.off")
         files = []  # hold on to the OffFile objects so the garbage collector doesn't close them.
-        for _ in range(N):
+        for _ in range(NFilesToOpen):
             f = OffFile(filename)
             self.assertGreater(f.nRecords, 0)
             files.append(f)
             f.close()
             print(len(files), " open files so far.")
+
 
 if __name__ == '__main__':
     ut.main()
