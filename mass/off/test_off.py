@@ -30,21 +30,30 @@ class TestOff(ut.TestCase):
 
     def test_mmap_many_files(self):
         """Open more OFF file objects than the system allows. Test that close method closes them."""
-
-        # First, LOWER the systems limit on number of open files, to make the test smaller
-        request_maxfiles = 30
-        resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, request_maxfiles))
-        maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
-        NFilesToOpen = maxfiles//3 + 10
-
-        filename = os.path.join(d, "data_for_test/off_with_binary_projectors_and_basis.off")
         files = []  # hold on to the OffFile objects so the garbage collector doesn't close them.
-        for _ in range(NFilesToOpen):
-            f = OffFile(filename)
-            self.assertGreater(f.nRecords, 0)
-            files.append(f)
-            f.close()
-            print(len(files), " open files so far.")
+
+        # LOWER the system's limit on number of open files, to make the test smaller
+        soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+        request_maxfiles = max(30, soft_limit)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
+        try:
+            maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+            NFilesToOpen = maxfiles//3 + 10
+
+            filename = os.path.join(d, "data_for_test/off_with_binary_projectors_and_basis.off")
+            for _ in range(NFilesToOpen):
+                f = OffFile(filename)
+                self.assertGreater(f.nRecords, 0)
+                files.append(f)
+                f.close()
+                print(len(files), " open files so far.")
+
+        # Use the try...finally to ensure that the gc can close files at the end of this test,
+        # preventing a cascade of meaningless test failures if this one fails.
+        # Also undo our reduction in the limit on number of open files.
+        finally:
+            del files
+            resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
 
 if __name__ == '__main__':
