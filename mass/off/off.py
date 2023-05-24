@@ -83,6 +83,9 @@ class OffFile(object):
         self._decodeModelInfo()  # calculates afterHeaderPos used by _updateMmap
         self._updateMmap()
 
+    def close(self):
+        pass
+
     def validateHeader(self):
         with open(self.filename, "rb") as f:
             f.seek(self.headerStringLength-2)
