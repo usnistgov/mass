@@ -185,9 +185,8 @@ class CorG():
             return binsize
 
 
-# wrap up an off file with some conviencine functions
-# like a TESChannel
 class Channel(CorG):
+    """Wrap up an OFF file with some convience functions like a TESChannel"""
     def __init__(self, offFile, experimentStateFile, verbose=True):
         self.offFile = offFile
         self.experimentStateFile = experimentStateFile
@@ -207,6 +206,11 @@ class Channel(CorG):
         self.recipes.add("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
         self.cutAdd("cutNone", lambda filtValue: np.ones(
             len(filtValue), dtype="bool"), setDefault=True)
+
+    @add_group_loop
+    def close(self):
+        self.offFile.close()
+        self.offFile = None
 
     @add_group_loop
     def cutAdd(self, cutRecipeName, f, ingredients=None, overwrite=False, setDefault=False):

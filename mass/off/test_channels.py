@@ -9,6 +9,7 @@ from mass.calibration import _highly_charged_ion_lines
 import numpy as np
 import pylab as plt
 import lmfit
+import resource
 
 # Remove a warning message
 import matplotlib as mpl
@@ -478,6 +479,34 @@ def test_save_load_recipe_book():
     args = {"pretriggerMean": 1, "filtValue": 2}
     print(rb.craftedIngredients["energy"])
     assert rb.craft("energy", args) == rb2.craft("energy", args)
+
+
+def test_open_many_OFF_files():
+    """Open more OFF ChannelGroup objects than the system allows. Test that close method closes them."""
+    files = []  # hold on to the OffFile objects so the garbage collector doesn't close them.
+
+    # LOWER the system's limit on number of open files, to make the test smaller
+    soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    request_maxfiles = max(30, soft_limit)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
+    try:
+        maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+        NFilesToOpen = maxfiles//2 + 10
+
+        filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
+        filelist = getOffFileListFromOneFile(filename, maxChans=2)
+        for _ in range(NFilesToOpen):
+            data = ChannelGroup(filelist, verbose=True, channelClass=Channel,
+                                excludeStates=["START", "END"])
+            files.append(data)
+            data.close()
+
+    # Use the try...finally to ensure that the gc can close files at the end of this test,
+    # preventing a cascade of meaningless test failures if this one fails.
+    # Also undo our reduction in the limit on number of open files.
+    finally:
+        del files
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
 
 if __name__ == '__main__':
