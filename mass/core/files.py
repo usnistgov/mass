@@ -204,6 +204,7 @@ class LJHFile(MicrocalFile):
         self.number_of_columns = None
         self.version_str = None
         self._parse_header()
+        self._set_segment_size()
 
     def _parse_header(self):
         filename = self.filename
@@ -251,6 +252,20 @@ class LJHFile(MicrocalFile):
         # Record the sample times in microseconds
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
+    def _set_segment_size(self, segmentsize=None):
+        # Segments are no longer a critical part of how MASS handles memory, but it still makes
+        # sense to offer mid-sized data chunks for data processing.
+        if segmentsize is None:
+            segmentsize = 2**24
+        maxitems = segmentsize // self.pulse_size_bytes
+        if maxitems < 1:
+            raise ValueError("segmentsize=%d is not permitted to be smaller than pulse record (%d bytes)" %
+                             (segmentsize, self.pulse_size_bytes))
+        self.segmentsize = maxitems*self.pulse_size_bytes
+        self.pulses_per_seg = self.segmentsize // self.pulse_size_bytes
+        self.n_segments = 1 + (self.binary_size - 1) // self.segmentsize
+        self.segment_pulses = None
+
     def _open_mm(self):
         self._mm = np.memmap(self.filename, offset=self.header_size,
                              dtype=self.dtype, mode="r")
@@ -279,6 +294,25 @@ class LJHFile(MicrocalFile):
         if with_timing:
             return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
         return pulse_record
+
+    def read_segment(self, segment_num=0):
+        """Map segment `segment_num` to `self.data`, as it was before we started using a
+        `np.memmap` to store the `self.alldata`.
+
+        Return (first, end, data) where first is the pulse number of the first pulse read,
+        end is 1+the number of the last one read, and data is the full array.
+
+        Args:
+            <segment_num> Number of the segment to read.
+        """
+        if segment_num > self.n_segments:
+            raise ValueError("File %s has only %d segments;\n\tcannot open segment %d" %
+                             (self.filename, self.n_segments, segment_num))
+
+        first = segment_num * self.pulses_per_seg
+        end = min(first+self.pulses_per_seg, self.nPulses)
+        self.data = self.alldata[first:end]
+        return first, end, self.data
 
 
 class LJHFile2_1(LJHFile):
