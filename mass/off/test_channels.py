@@ -9,6 +9,7 @@ from mass.calibration import _highly_charged_ion_lines
 import numpy as np
 import pylab as plt
 import lmfit
+import resource
 
 # Remove a warning message
 import matplotlib as mpl
@@ -478,6 +479,36 @@ def test_save_load_recipe_book():
     args = {"pretriggerMean": 1, "filtValue": 2}
     print(rb.craftedIngredients["energy"])
     assert rb.craft("energy", args) == rb2.craft("energy", args)
+
+
+def test_open_many_OFF_files():
+    """Open more OFF ChannelGroup objects than the system allows. Test that close method closes them."""
+
+    # LOWER the system's limit on number of open files, to make the test smaller
+    soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    request_maxfiles = min(60, soft_limit)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
+    try:
+        maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+        NFilesToOpen = maxfiles//2 + 10
+
+        filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
+        filelist = getOffFileListFromOneFile(filename, maxChans=2)
+        for _ in range(NFilesToOpen):
+            data = ChannelGroup(filelist, verbose=True, channelClass=Channel,
+                                excludeStates=["START", "END"])
+
+        # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
+        # only open it once, not twice.
+        NFilePairsToOpen = (maxfiles-12)//6
+        filelist = NFilePairsToOpen*filelist
+        for _ in range(3):
+            data = ChannelGroup(filelist, verbose=True, channelClass=Channel,
+                                excludeStates=["START", "END"])
+
+    # Use the try...finally to undo our reduction in the limit on number of open files.
+    finally:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
 
 if __name__ == '__main__':
