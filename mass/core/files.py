@@ -175,7 +175,7 @@ def read_ljh_header(filename):
     return header_dict, header_size
 
 
-class LJHFile():
+class LJHFile(MicrocalFile):
 
     @classmethod
     def open(cls, filename):
@@ -256,7 +256,7 @@ class LJHFile():
                              dtype=self.dtype, mode="r")
 
     @property
-    def data(self):
+    def alldata(self):
         return self._mm["data"]
 
     # def copy(self):
@@ -267,7 +267,7 @@ class LJHFile():
     #     return c
 
     def __getitem__(self, item):
-        return self.data[item]
+        return self.alldata[item]
 
     def read_trace(self, trace_num, with_timing=False):
         """Return a single data trace (number <trace_num>).
@@ -275,7 +275,7 @@ class LJHFile():
         If `with_timing` is True, return (rowcount, posix_usec, pulse_record), otherwise just pulse_record.
         This comes either from cache or by reading off disk, if needed.
         """
-        pulse_record = self.data[trace_num]
+        pulse_record = self.alldata[trace_num]
         if with_timing:
             return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
         return pulse_record
@@ -362,7 +362,7 @@ class LJHFile2_2(LJHFile):
 
     @property
     def datatimes_float(self):
-        return self.datatimes/1e6
+        return self.datatimes_raw/1e6
 
 
 def make_ljh_header(header_dict):
