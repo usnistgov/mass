@@ -498,6 +498,14 @@ def test_open_many_OFF_files():
             data = ChannelGroup(filelist, verbose=True, channelClass=Channel,
                                 excludeStates=["START", "END"])
 
+        # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
+        # only open it once, not twice.
+        NFilePairsToOpen = (maxfiles-5)//6
+        filelist = NFilePairsToOpen*filelist
+        for _ in range(3):
+            data = ChannelGroup(filelist, verbose=True, channelClass=Channel,
+                                excludeStates=["START", "END"])
+
     # Use the try...finally to undo our reduction in the limit on number of open files.
     finally:
         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))

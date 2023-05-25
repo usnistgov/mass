@@ -7,7 +7,7 @@
 * Fix issue 231: document LJH files; other requests need no changes.
 * Fix issue 234: `make doctest` fails in our pipeline tests.
 * Fix issue 228+235: skip test of pickling recipe books, which pins dill and Python versions.
-* Fix issue 212: use Python `mmap` package to allow memmap files to close.
+* Fix issue 212: call garbage collector to close memmap files when deleting `off.ChannelGroup`.
 
 
 **0.7.9** January 11, 2023
