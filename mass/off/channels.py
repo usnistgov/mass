@@ -14,6 +14,7 @@ import lmfit
 import scipy.interpolate
 from mass.common import tostr
 import dill
+import gc
 
 # local imports
 import mass
@@ -206,11 +207,6 @@ class Channel(CorG):
         self.recipes.add("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
         self.cutAdd("cutNone", lambda filtValue: np.ones(
             len(filtValue), dtype="bool"), setDefault=True)
-
-    @add_group_loop
-    def close(self):
-        self.offFile.close()
-        self.offFile = None
 
     @add_group_loop
     def cutAdd(self, cutRecipeName, f, ingredients=None, overwrite=False, setDefault=False):
@@ -1060,6 +1056,19 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self._channelClass = channelClass
         self.loadChannels()
         self._default_cut_recipe_name = self.firstGoodChannel()._default_cut_recipe_name
+
+    def __del__(self):
+        # We need to recover the limited resource of system file descriptors when we are done with an
+        # off.ChannelGroup object. One way in practice that seems to make a difference is to run the
+        # garbage collector when each one is deleted, to clean up the `np.memmap` objects held by the
+        # `OffFile` objects in the `self.values()` list of `off.Channel` objects.
+
+        # The step can take something like 1 second to run. This seems a reasonable price to pay in
+        # standard usage. If a use-case arises where it's not, then we can make this step conditional?
+        # See issue #212 and PR 200 for discussion.
+
+        # Consider this a partial or temporary solution to a nagging problem.
+        gc.collect()
 
     def _handleDefaultCut(self, cutRecipeName):
         ds = self.firstGoodChannel()

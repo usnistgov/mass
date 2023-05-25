@@ -483,7 +483,6 @@ def test_save_load_recipe_book():
 
 def test_open_many_OFF_files():
     """Open more OFF ChannelGroup objects than the system allows. Test that close method closes them."""
-    files = []  # hold on to the OffFile objects so the garbage collector doesn't close them.
 
     # LOWER the system's limit on number of open files, to make the test smaller
     soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -498,14 +497,9 @@ def test_open_many_OFF_files():
         for _ in range(NFilesToOpen):
             data = ChannelGroup(filelist, verbose=True, channelClass=Channel,
                                 excludeStates=["START", "END"])
-            files.append(data)
-            data.close()
 
-    # Use the try...finally to ensure that the gc can close files at the end of this test,
-    # preventing a cascade of meaningless test failures if this one fails.
-    # Also undo our reduction in the limit on number of open files.
+    # Use the try...finally to undo our reduction in the limit on number of open files.
     finally:
-        del files
         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
 
