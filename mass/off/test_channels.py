@@ -486,7 +486,7 @@ def test_open_many_OFF_files():
 
     # LOWER the system's limit on number of open files, to make the test smaller
     soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
-    request_maxfiles = min(30, soft_limit)
+    request_maxfiles = min(60, soft_limit)
     resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
     try:
         maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -500,7 +500,7 @@ def test_open_many_OFF_files():
 
         # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
         # only open it once, not twice.
-        NFilePairsToOpen = (maxfiles-5)//6
+        NFilePairsToOpen = (maxfiles-12)//6
         filelist = NFilePairsToOpen*filelist
         for _ in range(3):
             data = ChannelGroup(filelist, verbose=True, channelClass=Channel,
