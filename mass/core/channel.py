@@ -104,7 +104,7 @@ class NoiseRecords(object):
             raise ValueError("file_format must be None or one of %s" % ",".join(self.ALLOWED_TYPES))
 
         if file_format == "ljh":
-            self.datafile = LJHFile(filename, segmentsize=self.maxsegmentsize)
+            self.datafile = LJHFile.open(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
@@ -502,7 +502,7 @@ class PulseRecords(object):
             raise ValueError("file_format must be None or one of %s" % ",".join(self.ALLOWED_TYPES))
 
         if file_format == "ljh":
-            self.datafile = LJHFile(filename)
+            self.datafile = LJHFile.open(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile

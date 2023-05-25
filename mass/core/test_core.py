@@ -20,31 +20,31 @@ class TestFiles(ut.TestCase):
     def test_ljh_copy_and_append_traces(self):
         """Test copying and appending traces to LJH files."""
         src_name = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
-        src = LJHFile(src_name)
+        src = LJHFile.open(src_name)
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
             source_traces = [20]
             ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
-            dest = LJHFile(dest_name)
+            dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
                 self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
             source_traces = [0, 30, 20, 10]
             ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
-            dest = LJHFile(dest_name)
+            dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
                 self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
             source_traces.append(5)
             ljh_append_traces(src_name, dest_name, [5])
-            dest = LJHFile(dest_name)
+            dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
                 self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
             new_traces = [15, 25, 3]
             source_traces.extend(new_traces)
             ljh_append_traces(src_name, dest_name, new_traces)
-            dest = LJHFile(dest_name)
+            dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
                 self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
@@ -63,8 +63,8 @@ class TestFiles(ut.TestCase):
             dest_name = destfile.name
             ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
 
-            src = LJHFile(src_name)
-            dest = LJHFile(dest_name)
+            src = LJHFile.open(src_name)
+            dest = LJHFile.open(dest_name)
             self.assertEqual(n_pulses_expected, dest.nPulses)
             for k in range(n_pulses_expected):
                 self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
@@ -77,8 +77,8 @@ class TestFiles(ut.TestCase):
             dest_name = destfile.name
             ljh_truncate(src_name, dest_name, n_pulses=n_pulses, segmentsize=segmentsize)
 
-            src = LJHFile(src_name)
-            dest = LJHFile(dest_name)
+            src = LJHFile.open(src_name)
+            dest = LJHFile.open(dest_name)
             self.assertEqual(n_pulses, dest.nPulses)
             for k in range(n_pulses):
                 self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))

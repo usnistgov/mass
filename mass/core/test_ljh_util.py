@@ -108,7 +108,7 @@ class TestFilenameHandling(ut.TestCase):
             dest1_name = os.path.join(destdir, "test1_chan3.ljh")
             dest2_name = os.path.join(destdir, "test2_chan3.ljh")
             src_name = os.path.join('mass', 'regression_test', 'regress_chan3.ljh')
-            src = LJHFile(src_name)
+            src = LJHFile.open(src_name)
             Npulses = min(20, src.nPulses)
             wordsize = 2
             timing_size = 16
@@ -123,7 +123,7 @@ class TestFilenameHandling(ut.TestCase):
             self.assertEqual(ps.returncode, 0)
 
             result_name = os.path.join(destdir, "merged_chan3.ljh")
-            result = LJHFile(result_name)
+            result = LJHFile.open(result_name)
             self.assertEqual(2*Npulses, result.nPulses)
             self.assertEqual(src.nSamples, result.nSamples)
             src.read_segment(0)

@@ -146,101 +146,68 @@ class VirtualFile(MicrocalFile):
         return 0, self.nPulses, self.data
 
 
-class LJHFile(MicrocalFile):
-    """A single LJH-format file.
+def read_ljh_header(filename):
+    TOO_LONG_HEADER = 256  # headers with more than this many lines are ridiculous and an error
 
-    All non-LJH-specific data and methods appear in the parent MicrocalFile class.
-    """
+    header_dict = collections.OrderedDict()
+    with open(filename, "rb") as fp:
+        i = 0
+        while True:
+            i += 1
+            line = fp.readline()
+            if line.startswith(b"#End of Header"):
+                break
+            elif line == b"":
+                raise Exception("reached EOF before #End of Header")
+            elif i > TOO_LONG_HEADER:
+                raise IOError("header is too long--seems not to contain '#End of Header'\n"
+                              + "in file %s" % filename)
+            elif b":" in line:
+                a, b = line.split(b":", 1)  # maxsplits=1, py27 doesnt support keyword
+                a = a.strip()
+                b = b.strip()
+                if a in header_dict and a != b"Dummy":
+                    print("repeated header entry {}".format(a))
+                header_dict[a.strip()] = b.strip()
+            else:
+                continue  # ignore lines without ":"
+        header_size = fp.tell()
+    return header_dict, header_size
 
-    TOO_LONG_HEADER = 100  # headers can't contain this many lines, or they are insane!
 
-    def __init__(self, filename, segmentsize=(2**23)):
-        """Open an LJH file for reading.
+class LJHFile():
 
-        Read its header.  Set the standard segment size **in bytes** so that
-        read_segment() will always return segments of a fixed size.
+    @classmethod
+    def open(cls, filename):
+        """A factory-like function. Read the LJH header and return a subclass of the appropriate type."""
+        header_dict, header_size = read_ljh_header(filename)
+        version_str = header_dict[b'Save File Format Version']
 
-        Args:
-            <filename>   Path to the file to be read.
-            <segmentsize>  Size of each segment **in bytes** that will be returned in read_segment()
-                 The actual segmentsize will be rounded down to be an integer number of
-                 pulses.
-        """
-        super(LJHFile, self).__init__()
+        if Version(version_str.decode()) < Version("2.2.0"):
+            return LJHFile2_1(filename, header_dict, header_size)
+        else:
+            return LJHFile2_2(filename, header_dict, header_size)
+
+    def __init__(self, filename, header_dict, header_size):
+        super().__init__()
         self.filename = filename
+        self.header_dict = header_dict
+        self.header_size = header_size
         self.client = None
         self.channum = int(filename.split("_chan")[1].split(".")[0])
         self.sample_usec = None
         self.timestamp_offset = None
-        self.pulses_per_seg = None
-        self.segmentsize = None
-        self.n_segments = None
-        self.segment_pulses = None
-        self.header_size = None
         self.pulse_size_bytes = None
         self.row_number = None
         self.column_number = None
         self.number_of_rows = None
         self.number_of_columns = None
-        self.data = None
         self.version_str = None
-        self.__cached_segment = None
-        self.__read_header(filename)
-        self.set_segment_size(segmentsize)
+        self._parse_header()
 
-        self.datatimes_raw = None
-        self.datatimes_float = None
-        self.rowcount = None
-
-        self.post22_data_dtype = np.dtype([('rowcount', np.int64),
-                                           ('posix_usec', np.int64),
-                                           ('data', np.uint16, self.nSamples)])
-
-        if Version(self.version_str.decode()) >= Version("2.2.0"):
-            self.__read_binary = self.__read_binary_post22
-        else:
-            self.__read_binary = self.__read_binary_pre22
-
-    def copy(self):
-        """Return a deep copy of the object."""
-        self.clear_cache()
-        c = LJHFile(self.filename, self.segmentsize)
-        c.__dict__.update(self.__dict__)
-        return c
-
-    def __read_header(self, filename):
-        """Read in the text header of an LJH file.
-
-        On success, several attributes will be set: self.timebase, .nSamples,
-        and .nPresamples
-
-        Args:
-            filename: path to the file to be opened.
-        """
-        # parse header into a dictionary
-        header_dict = collections.OrderedDict()
-        with open(filename, "rb") as fp:
-            i = 0
-            while True:
-                i += 1
-                line = fp.readline()
-                if line.startswith(b"#End of Header"):
-                    break
-                elif line == b"":
-                    raise Exception("reached EOF before #End of Header")
-                elif i > self.TOO_LONG_HEADER:
-                    raise IOError("header is too long--seems not to contain '#End of Header'\n"
-                                  + "in file %s" % filename)
-                elif b":" in line:
-                    a, b = line.split(b":", 1)  # maxsplits=1, py27 doesnt support keyword
-                    a = a.strip()
-                    b = b.strip()
-                    if a in header_dict and a != b"Dummy":
-                        LOG.warning("repeated header entry {}".format(a))
-                    header_dict[a.strip()] = b.strip()
-                else:
-                    continue  # ignore lines without ":"
-            self.header_size = fp.tell()
+    def _parse_header(self):
+        filename = self.filename
+        header_dict = self.header_dict
 
         # extract required values from header_dict
         # use header_dict.get for default values
@@ -266,6 +233,7 @@ class LJHFile(MicrocalFile):
         self.binary_size = os.stat(filename).st_size - self.header_size
         self.header_dict = header_dict
         self.nPulses = self.binary_size // self.pulse_size_bytes
+
         # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
         # It adds 3 to the "true value" of nPresamples. For now, assume that only
         # DASTARD clients have this figure correct.
@@ -283,80 +251,23 @@ class LJHFile(MicrocalFile):
         # Record the sample times in microseconds
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
-    def set_segment_size(self, segmentsize):
-        """Set the standard segmentsize used in the read_segment() method.
+    def _open_mm(self):
+        self._mm = np.memmap(self.filename, offset=self.header_size,
+                             dtype=self.dtype, mode="r")
 
-        This number will
-        be rounded down to equal an integer number of pulses.
-        Raises ValueError if segmentsize is smaller than a single pulse.
-        """
-        maxitems = segmentsize // self.pulse_size_bytes
-        if maxitems < 1:
-            raise ValueError("segmentsize=%d is not permitted to be smaller than pulse record (%d bytes)" %
-                             (segmentsize, self.pulse_size_bytes))
-        self.segmentsize = maxitems*self.pulse_size_bytes
-        self.pulses_per_seg = self.segmentsize // self.pulse_size_bytes
-        self.n_segments = 1 + (self.binary_size - 1) // self.segmentsize
-        self.__cached_segment = None
+    @property
+    def data(self):
+        return self._mm["data"]
+
+    # def copy(self):
+    #     """Return a deep copy of the object."""
+    #     self.clear_cache()
+    #     c = LJHFile(self.filename, self.header_dict, self.header_size)
+    #     c.__dict__.update(self.__dict__)
+    #     return c
 
     def __getitem__(self, item):
-        try:
-            item = int(item)
-            if item < 0 or item >= self.nPulses:
-                raise ValueError("Out of range")
-            return self.read_trace(item)
-        except TypeError:
-            pass
-
-        first_slice = None
-        second_slice = slice(None, None)
-
-        if isinstance(item, np.ndarray):
-            if item.ndim == 1 and item.dtype == bool:
-                if item.shape[0] != self.nPulses:
-                    raise ValueError("Shape doesn't match.")
-                trace_range = np.arange(self.nPulses, dtype=np.int64)[item]
-                num_samples = self.nSamples
-        elif isinstance(item, list):
-            try:
-                trace_range = np.array(item, dtype=np.uint64)
-
-                if trace_range.ndim != 1:
-                    raise ValueError("Unsupported list type.")
-                num_samples = self.nSamples
-            except ValueError:
-                raise ValueError("Unsupported list type.")
-        else:
-            if isinstance(item, slice):
-                first_slice = item
-
-            if isinstance(item, tuple):
-                if len(item) != 2:
-                    raise ValueError("Not supported dimensions!")
-                first_slice = item[0]
-                second_slice = item[1]
-
-            trace_range = range(self.nPulses)[first_slice]
-            num_samples = len(range(self.nSamples)[second_slice])
-
-        num_traces = len(trace_range)
-
-        last_segment = trace_range[0] // self.pulses_per_seg
-        self.read_segment(last_segment)
-
-        traces = np.zeros((num_traces, num_samples), dtype=np.uint16)
-
-        for i, j in enumerate(trace_range):
-            segment_num = j // self.pulses_per_seg
-            trace_idx = j % self.pulses_per_seg
-
-            if segment_num is not last_segment:
-                self.read_segment(segment_num)
-                last_segment = segment_num
-
-            traces[i] = self.data[trace_idx][second_slice]
-
-        return traces
+        return self.data[item]
 
     def read_trace(self, trace_num, with_timing=False):
         """Return a single data trace (number <trace_num>).
@@ -364,130 +275,30 @@ class LJHFile(MicrocalFile):
         If `with_timing` is True, return (rowcount, posix_usec, pulse_record), otherwise just pulse_record.
         This comes either from cache or by reading off disk, if needed.
         """
-        if trace_num >= self.nPulses:
-            raise ValueError("This VirtualFile has only %d pulses" % self.nPulses)
-
-        segment_num = trace_num // self.pulses_per_seg
-        self.read_segment(segment_num)
-        record_idx = trace_num % self.pulses_per_seg
-        pulse_record = self.data[record_idx]
+        pulse_record = self.data[trace_num]
         if with_timing:
-            return (self.rowcount[record_idx], self.datatimes_raw[record_idx], pulse_record)
+            return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
         return pulse_record
 
-    def read_segment(self, segment_num=0):
-        """Read a section of the binary data of the given number (0,1,...) and size.
-        It is okay to call this out of order.  The last segment might be shorter than others.
 
-        Raises ValueError if there is no such section number.
+class LJHFile2_1(LJHFile):
+    def __init__(self, filename, header_dict, header_size):
+        super().__init__(filename, header_dict, header_size)
 
-        Return (first, end, data) where first is the pulse number of the first pulse read,
-        end is 1+the number of the last one read, and data is the full array.
+        # This is for LJH file versions 2.1 (and earlier).
+        # The key distinction is how pulse arrival time data is encoded. Each pulse has a
+        # timestamp encoded in a weird way that contains arrival time at 4 µs resolution.
+        # If the frame time is at least 4 µs, the exact frame number can be recovered.
+        self.dtype = [
+            ("internal_us", np.uint8),
+            ("internal_unused", np.uint8),
+            ("internal_ms", np.uint32),
+            ("data", np.uint16, (self.nSamples,))
+        ]
+        self.frame_count = None
+        self._open_mm()
 
-        Args:
-            <segment_num> Number of the segment to read.
-        """
-        # Use cached data, if possible
-        if segment_num != self.__cached_segment or self.data is None:
-            if segment_num * self.segmentsize > self.binary_size:
-                raise ValueError("File %s has only %d segments;\n\tcannot open segment %d" %
-                                 (self.filename, self.n_segments, segment_num))
-
-            self.__read_binary(self.header_size + segment_num*self.segmentsize, self.segmentsize,
-                               error_on_partial_pulse=True)
-            self.datatimes_raw = np.uint64(1e6*self.datatimes_float.copy())
-            self.__cached_segment = segment_num
-        first = segment_num * self.pulses_per_seg
-        end = first + self.data.shape[0]
-        return first, end, self.data
-
-    def clear_cached_segment(self):
-        super(LJHFile, self).clear_cache()
-        self.datatimes_raw = None
-        self.datatimes_float = None
-        self.rowcount = None
-
-    def __read_binary(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
-        """Read the binary section of an LJH file.
-
-        Also, interpret it, and store the results in self.data and
-        self.datatimes_float.  This can potentially be less than the full file
-        if <max_size> is non-negative and smaller than (binary section of) the
-        file.
-
-        The binary section consists of an unspecified number of records,
-        each with the same size: 6 bytes plus 2 bytes per sample.  The six contain two null bytes
-        and a 4-byte (little endian) timestamp in milliseconds since the timebase (which is
-        given in the text header).
-
-        Args:
-            skip: Leading bytes to seek past.  Normally this should be the header length, but it
-                can be greater.
-            max_size: Maximum section size to read (in bytes).  If negative, then the entire file
-                will be read.  (Beware: memory filling danger if <max_size> is negative!)
-            error_on_partial_pulse: Whether to raise an error when caller requests non-integer
-                number of pulses.
-        """
-        raise NotImplementedError("The method needs to be substituted by " + self.version_str)
-
-    def __read_binary_post22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
-        """
-        Version 2.2 and later include two pieces of time information for each pulse.
-        8 bytes - Int64 row count number
-        8 bytes - Int64 posix microsecond time
-        Technically both could be read as uint64, but then you get overflows when differencing, so
-        we'll give up a factor of 2 to avoid that.
-        """
-        if error_on_partial_pulse and (max_size > 0) and (max_size % self.pulse_size_bytes != 0):
-            msg = "__read_binary(max_size=%d) requests a non-integer number of pulses" % max_size
-            raise ValueError(msg)
-
-        with open(self.filename, "rb") as fp:
-            if skip > 0:
-                fp.seek(skip)
-            maxitems = max_size // self.pulse_size_bytes
-            # should use a platform independent spec for the order of the bytes in the ints
-            array = np.fromfile(fp, dtype=self.post22_data_dtype, sep="", count=maxitems)
-            # fromfile will read up to max items
-
-        self.rowcount = array["rowcount"]
-        # convert to floating point with units of seconds
-        self.datatimes_float = array["posix_usec"] * 1e-6
-        self.data = array["data"]
-
-    def __read_binary_pre22(self, skip=0, max_size=(2**26), error_on_partial_pulse=True):
-        """This is for LJH file versions 2.1 and earlier.
-
-        The key distinction is how pulse arrival time data is encoded. Pre 2.2
-        each pulse has a timestamp encoded in a weird way that contains arrival
-        time at 4 usec resolution.  If the frame time is greater than or equal
-        to 4 usec, the exact frame number can be recovered.
-        """
-        if max_size >= 0:
-            maxitems = max_size // self.pulse_size_bytes
-            BYTES_PER_WORD = 2
-            wordcount = maxitems*self.pulse_size_bytes//BYTES_PER_WORD
-            if error_on_partial_pulse and wordcount*BYTES_PER_WORD != max_size:
-                msg = "__read_binary(max_size=%d) requests a non-integer number of pulses" % max_size
-                raise ValueError(msg)
-        else:
-            wordcount = -1
-
-        with open(self.filename, "rb") as fp:
-            if skip > 0:
-                fp.seek(skip)
-            array = np.fromfile(fp, dtype=np.uint16, sep="", count=wordcount)
-
-        # If data has a fractional record at the end, truncate to make it go away.
-        self.segment_pulses = len(array) // (self.pulse_size_bytes // 2)
-        array = array[:self.segment_pulses * (self.pulse_size_bytes // 2)]
-
-        try:
-            self.data = array.reshape([self.segment_pulses, self.pulse_size_bytes // 2])
-        except ValueError as ex:
-            LOG.debug(skip, max_size, self.segment_pulses, self.pulse_size_bytes, len(array))
-            raise ex
-
+    def _parse_times(self):
         # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,
         # where u is a byte giving microseconds/4, x is a reserved byte, and mmmm is a 4-byte
         # little-ending giving milliseconds.  The uu should always be in [0,999]
@@ -495,25 +306,63 @@ class LJHFile(MicrocalFile):
 
         # The old way was to store the time as a 32-bit int.  New way: double float
         # Store times as seconds in floating point.  Max value is 2^32 ms = 4.3x10^6
-        datatime_4usec_tics = np.array(self.data[:, 0], dtype=np.uint64)
-        datatime_4usec_tics += 250*(np.array(self.data[:, 1], dtype=np.uint64)
-                                    + 65536 * np.array(self.data[:, 2], dtype=np.uint64))
         NS_PER_4USEC_TICK = 4000
-        NS_PER_FRAME = np.int64(self.timebase*1e9)
-        # since the timestamps is stored in 4 us units, which are not commensurate with the actual frame rate,
+        NS_PER_MSEC = 1000000
+        datatime_ns = NS_PER_4USEC_TICK*np.asarray(self._mm["internal_us"], dtype=np.int64)
+        datatime_ns[:] += NS_PER_MSEC*np.asarray(self._mm["internal_ms"], dtype=np.int64)
+        # since the timestamps is stored in 4 µs units, which are not commensurate with the actual frame rate,
         # we can be more precise if we convert to frame number, then back to time
-        # this should as long as the frame rate is greater than or equal to 4 us
+        # this should as long as the frame rate is greater than or equal to 4 µs
 
         # this is integer division but rounding up
-        frame_count = (datatime_4usec_tics*NS_PER_4USEC_TICK - 1) // NS_PER_FRAME + 1
-        frame_count += 3  # account for 4 point triggering algorithm
+        NS_PER_FRAME = np.int64(self.timebase*1e9)
+        FOURPOINT = 3  # account for 4-point triggering algorithm
+        self.frame_count = (datatime_ns - 1) // NS_PER_FRAME + 1 + FOURPOINT
 
-        self.rowcount = np.array(frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
-        self.datatimes_float = (frame_count+self.row_number
-                                / float(self.number_of_rows))*self.timebase
+    @property
+    def rowcount(self):
+        if self.frame_count is None:
+            self._parse_times()
+        return np.array(self.frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
 
-        # Cut out zeros and the timestamp, which are 3 uint16 words @ start of each pulse
-        self.data = self.data[:, 3:]
+    @property
+    def datatimes_float(self):
+        if self.frame_count is None:
+            self._parse_times()
+        return (self.frame_count + self.row_number / float(self.number_of_rows))*self.timebase
+
+    @property
+    def datatimes_raw(self):
+        return np.asarray(self.datatimes_float / 1e-6 + 0.5, dtype=int)
+
+
+class LJHFile2_2(LJHFile):
+    def __init__(self, filename, header_dict, header_size):
+        super().__init__(filename, header_dict, header_size)
+
+        # Version 2.2 and later include two pieces of time-like information for each pulse.
+        # 8 bytes - Int64 row count number
+        # 8 bytes - Int64 posix microsecond time
+        # Technically both could be read as uint64, but then you get overflows when differencing;
+        # we'll give up a factor of 2 to avoid that.
+        self.dtype = [
+            ("rowcount", np.int64),
+            ("posix_usec", np.int64),
+            ("data", np.uint16, (self.nSamples,))
+        ]
+        self._open_mm()
+
+    @property
+    def rowcount(self):
+        return self._mm["rowcount"]
+
+    @property
+    def datatimes_raw(self):
+        return self._mm["posix_usec"]
+
+    @property
+    def datatimes_float(self):
+        return self.datatimes/1e6
 
 
 def make_ljh_header(header_dict):
