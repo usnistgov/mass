@@ -26,7 +26,7 @@ def MicrocalDataSet_summarize_data_tdm(self, peak_time_microsec=220.0, pretrigge
              self.p_max_posttrig_deriv[first:last]) = mass.nonstandard.summarize_and_filter.summarize_old(self.pulse_records.data,
                                                                                                           self.nPresamples, self.pretrigger_ignore_samples, self.timebase, peak_time_microsec)
             printUpdater.update((s+1)/float(self.pulse_records.n_segments))
-        self.pulse_records.datafile.clear_cached_segment()
+        self.pulse_records.datafile.clear_cache()
         if self.auto_pickle:
             self.pickle(verbose=False)
     else:
@@ -47,7 +47,7 @@ def MicrocalDataSet_filter_data_tdm(self, filter_name='filt_noconst', transform=
                 filter_values, self.pulse_records.data, transform, self.p_pretrig_mean[first:last])
             printUpdater.update((s+1)/float(self.pulse_records.n_segments))
 
-        self.pulse_records.datafile.clear_cached_segment()
+        self.pulse_records.datafile.clear_cache()
         if self.auto_pickle:
             self.pickle(verbose=False)
     else:
