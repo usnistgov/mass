@@ -39,7 +39,7 @@ PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))  # Remove the UI forms
 
 pep8: pep8-report.txt
 pep8-report.txt: $(PEPFILES) Makefile
-	pycodestyle . > $@ || true
+	pycodestyle --exclude=build,nonstandard . > $@ || true
 
 autopep8: $(PEPFILES) Makefile
 	autopep8 --verbose --in-place --recursive .

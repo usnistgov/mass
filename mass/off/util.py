@@ -63,7 +63,8 @@ class RecipeBook():
             # learn ingredient names from signature of f
             for argName in inspectedArgNames:
                 ingredient = argName
-                assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients, f"ingredient='{ingredient}' must be in baseIngredients={self.baseIngredients} or craftedIngredients.keys()={list(self.craftedIngredients.keys())}"
+                assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients, \
+                    f"ingredient='{ingredient}' must be in baseIngredients={self.baseIngredients} or craftedIngredients.keys()={list(self.craftedIngredients.keys())}"
                 i2a[ingredient] = argName
         else:
             # i would like to do == here, but i'd need to handle optional arguments better
@@ -78,7 +79,8 @@ class RecipeBook():
                 recipe._setIngredientToRecipe(ingredient, self.craftedIngredients[ingredient])
         if recipeName == "__temp__":
             return recipe
-        assert recipeName not in self.craftedIngredients or overwrite, f"recipeName={recipeName} already in self.craftedIngredients with keys={list(self.craftedIngredients.keys())}"
+        assert recipeName not in self.craftedIngredients or overwrite, \
+            f"recipeName={recipeName} already in self.craftedIngredients with keys={list(self.craftedIngredients.keys())}"
         assert not recipeName.startswith("!")
         self.craftedIngredients[recipeName] = recipe
         # recipes are added to the class, so only do it once per recipeName
