@@ -176,10 +176,27 @@ def read_ljh_header(filename):
 
 
 class LJHFile(MicrocalFile):
+    """Read a single LJH file of version 2.2 or 2.1.
+
+    The class is not meant to be created directly. Instead, use the class method
+    `open(filename)` to return an instance of the appropriate subclass (either
+    `LJHFile2_2` or `LJHFile2_1`), determined by reading the LJH header before
+    creating the instance.
+
+    usage:
+    filename = "path/to/my/file_chan1.ljh"
+    ljh = mass.LJHFile.open(filename)
+    """
 
     @classmethod
     def open(cls, filename):
-        """A factory-like function. Read the LJH header and return a subclass of the appropriate type."""
+        """A factory-like function.
+
+        Read the LJH header and return an instance of the appropriate subclass of `LJHFile`
+        based on contents of the LJH version string.
+
+        This is the appropriate way to create an `LJHFile` in normal usage.
+        """
         header_dict, header_size = read_ljh_header(filename)
         version_str = header_dict[b'Save File Format Version']
 
@@ -189,6 +206,7 @@ class LJHFile(MicrocalFile):
             return LJHFile2_2(filename, header_dict, header_size)
 
     def __init__(self, filename, header_dict, header_size):
+        """Users shouldn't call this method directly; call class method `open` instead."""
         super().__init__()
         self.filename = filename
         self.header_dict = header_dict
@@ -197,7 +215,6 @@ class LJHFile(MicrocalFile):
         self.channum = int(filename.split("_chan")[1].split(".")[0])
         self.sample_usec = None
         self.timestamp_offset = None
-        self.pulse_size_bytes = None
         self.row_number = None
         self.column_number = None
         self.number_of_rows = None
@@ -207,6 +224,7 @@ class LJHFile(MicrocalFile):
         self._set_segment_size()
 
     def _parse_header(self):
+        """Parse the complete `self.header_dict`, filling key attributes from it."""
         filename = self.filename
         header_dict = self.header_dict
 
@@ -226,13 +244,9 @@ class LJHFile(MicrocalFile):
         self.number_of_columns = int(header_dict.get(b"Number of columns", -1))
         self.number_of_rows = int(header_dict.get(b"Number of rows", -1))
         self.timestamp_offset = float(header_dict.get(b"Timestamp offset (s)", b"-1"))
+
         self.version_str = header_dict[b'Save File Format Version']
-        if Version(self.version_str.decode()) >= Version("2.2.0"):
-            self.pulse_size_bytes = (16 + 2 * self.nSamples)
-        else:
-            self.pulse_size_bytes = (6 + 2 * self.nSamples)
         self.binary_size = os.stat(filename).st_size - self.header_size
-        self.header_dict = header_dict
         self.nPulses = self.binary_size // self.pulse_size_bytes
 
         # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
@@ -324,6 +338,10 @@ class LJHFile2_1(LJHFile):
         self.frame_count = None
         self._open_mm()
 
+    @property
+    def pulse_size_bytes(self):
+        return 6 + 2 * self.nSamples
+
     def _parse_times(self):
         # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,
         # where u is a byte giving microseconds/4, x is a reserved byte, and mmmm is a 4-byte
@@ -377,6 +395,10 @@ class LJHFile2_2(LJHFile):
             ("data", np.uint16, (self.nSamples,))
         ]
         self._open_mm()
+
+    @property
+    def pulse_size_bytes(self):
+        return 16 + 2 * self.nSamples
 
     @property
     def rowcount(self):

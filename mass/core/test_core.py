@@ -128,7 +128,7 @@ class TestFiles(ut.TestCase):
         self.assertTrue(b"DASTARD" in ds2.pulse_records.datafile.client)
         self.assertEqual(int(ds1.pulse_records.datafile.header_dict[b"Presamples"]), 512)
         self.assertEqual(int(ds2.pulse_records.datafile.header_dict[b"Presamples"]), 515)
-        self.assertEqual(515, ds1.nPresamples)
+        self.assertEqual(515, ds1.nPresamples)  # b/c LJHFile2_1 adds +3 to what's in the file
         self.assertEqual(515, ds2.nPresamples)
         v1 = ds1.data[0]
         v2 = ds2.data[0]
