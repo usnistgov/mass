@@ -356,13 +356,6 @@ class TestTESGroup(ut.TestCase):
         np.random.seed(0)
         data = self.load_data()
 
-        # Reduce the segment size, so we test that this works with LJH files having
-        # 2 or more segments. Here choose 3 segments
-        bsize = np.max([ds.pulse_records.datafile.binary_size for ds in data])
-        segsize = (bsize+3*4096)//3
-        segsize -= segsize % 4096
-        data.set_segment_size(segsize)
-
         data.compute_noise()
         data.summarize_data()
         data.auto_cuts()
@@ -411,6 +404,34 @@ class TestTESGroup(ut.TestCase):
             self.assertEqual(off[7], off_multi[7])
             self.assertEqual(off[7], off_multi[N+7])
             self.assertNotEqual(off[7], off_multi[N+6])
+
+    def test_ljh_records_to_off(self):
+        """Be sure ljh_records_to_off works with ljh files of 2 or more segments."""
+        np.random.seed(0)
+        data = self.load_data()
+        data.compute_noise()
+        data.summarize_data()
+        data.auto_cuts()
+        data.compute_ats_filter(shift1=False)
+        data.filter_data()
+        ds = data.datasets[0]
+
+        # Reduce the segment size, so we test that this works with LJH files having
+        # 2 or more segments. Here choose 3 segments
+        bsize = np.max([ds.pulse_records.datafile.binary_size for ds in data])
+        segsize = (bsize+3*4096)//3
+        segsize -= segsize % 4096
+
+        ljhfile = LJHFile.open(data.channel[1].filename)
+        ljhfile.set_segment_size(segsize)
+        with tempfile.NamedTemporaryFile(suffix='_dummy.off') as f:
+            n_ignore_presamples = 0
+            nbasis = 4
+            projectors = np.zeros((nbasis, data.nSamples), dtype=float)
+            basis = projectors.T
+            off_version = "0.3.0"
+            dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
+            mass.ljh2off.ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype)
 
     def test_projectors_script(self):
         import mass.core.projectors_script
