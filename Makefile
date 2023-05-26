@@ -1,6 +1,6 @@
-# Build mass into a zip or a gzipped tar archive for distribution.
+# Build mass
 # J. Fowler, NIST
-# June 16, 2011
+# Updated May 2023
 
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
@@ -8,18 +8,12 @@ PYFILES = $(shell find mass -name "*.py")
 CYFILES = $(shell find mass -name "*.pyx")
 FORMFILES := $(shell find mass -name "*_form_ui.py")
 
-.PHONY: archive all build develop install clean test report_install_location
+.PHONY: all build clean test pep8 autopep8 lint
 
-all: build develop test
+all: build test
 
 build:
-	python setup.py build
-
-develop: build
-	sudo python setup.py develop
-
-install: build
-	sudo python setup.py install
+	python -m build
 
 clean:
 	rm -rf build || sudo rm -rf build
@@ -34,8 +28,8 @@ $(TARGET_ZIP): $(PYFILES) $(CYFILES) Makefile
 	python setup.py sdist --format=gztar,zip
 
 .PHONY: autopep8 pep8 lint
-PEPFILES := $(PYFILES)  # Don't pep8 the Cython files $(CYFILES)
-PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))  # Remove the UI forms
+PEPFILES := $(PYFILES)  # Don't pep8 the $(CYFILES)
+PEPFILES := $(filter-out $(FORMFILES), $(PEPFILES))  # Remove the UI.py forms
 
 pep8: pep8-report.txt
 pep8-report.txt: $(PEPFILES) Makefile
