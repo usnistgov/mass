@@ -22,7 +22,7 @@ BASEDIR = os.path.dirname(os.path.realpath(__file__))
 requirements = [
     "cycler",
     "Cython>=0.28",
-    "deprecated"
+    "deprecated",
     "dill",
     "fastdtw",
     "h5py>=2.7",
