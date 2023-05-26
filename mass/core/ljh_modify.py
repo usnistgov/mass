@@ -195,7 +195,7 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
 
     infile = LJHFile.open(input_filename)
     if segmentsize is not None:
-        infile._set_segment_size(segmentsize)
+        infile.set_segment_size(segmentsize)
 
     if Version(infile.version_str.decode()) < Version("2.2.0"):
         raise Exception(f"Don't know how to truncate this LJH version [{infile.version_str}]")

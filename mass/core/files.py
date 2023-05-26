@@ -221,7 +221,7 @@ class LJHFile(MicrocalFile):
         self.number_of_columns = None
         self.version_str = None
         self._parse_header()
-        self._set_segment_size()
+        self.set_segment_size()
 
     def _parse_header(self):
         """Parse the complete `self.header_dict`, filling key attributes from it."""
@@ -266,7 +266,7 @@ class LJHFile(MicrocalFile):
         # Record the sample times in microseconds
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
-    def _set_segment_size(self, segmentsize=None):
+    def set_segment_size(self, segmentsize=None):
         # Segments are no longer a critical part of how MASS handles memory, but it still makes
         # sense to offer mid-sized data chunks for data processing.
         if segmentsize is None:
