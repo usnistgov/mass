@@ -267,7 +267,7 @@ class LJHFile(MicrocalFile):
         self.segment_pulses = None
 
     def _open_mm(self):
-        self._mm = np.memmap(self.filename, offset=self.header_size,
+        self._mm = np.memmap(self.filename, offset=self.header_size, shape=(self.nPulses,),
                              dtype=self.dtype, mode="r")
 
     @property

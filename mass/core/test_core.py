@@ -136,6 +136,10 @@ class TestFiles(ut.TestCase):
         self.assertEqual(ds1.p_pretrig_mean[0], ds2.p_pretrig_mean[0])
         self.assertEqual(ds1.p_pretrig_rms[0], ds2.p_pretrig_rms[0])
         self.assertEqual(ds1.p_pulse_average[0], ds2.p_pulse_average[0])
+    
+    def test_ragged_size_file(self):
+        "Make sure we can open a file that was truncated during a pulse record."
+        e = mass.LJHFile.open("mass/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh")
 
 
 class TestTESGroup(ut.TestCase):
