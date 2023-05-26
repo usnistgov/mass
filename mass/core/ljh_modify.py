@@ -211,12 +211,12 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
         for (start, end, segnum, segdata) in infile.iter_segments():
             for i in range(start, end):
                 if (n_pulses is not None and i < n_pulses) or \
-                        (timestamp is not None and infile.datatimes_float[i-start] <= timestamp):
-                    prefix = struct.pack('<Q', np.uint64(infile.rowcount[i-start]))
+                        (timestamp is not None and infile.datatimes_float[i] <= timestamp):
+                    prefix = struct.pack('<Q', np.uint64(infile.rowcount[i]))
                     outfile.write(prefix)
-                    prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i-start]))
+                    prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i]))
                     outfile.write(prefix)
-                    trace = infile.data[i-start, :]
+                    trace = infile.alldata[i, :]
                     trace.tofile(outfile, sep="")
                 else:
                     finished = True
