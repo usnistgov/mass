@@ -1,5 +1,10 @@
 ## Note on version numbers of Mass
 
+**0.8.0** May 2023-
+
+* Start to use `setup.cfg` instead of Python code to configure build/install (issue 238).
+
+
 **0.7.10** February 2023-
 
 * Fix issue 229: bug in writing `bin/ljh_merge`; was not writing timestamp and row count.
