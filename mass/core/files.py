@@ -264,7 +264,6 @@ class LJHFile(MicrocalFile):
         self.segmentsize = maxitems*self.pulse_size_bytes
         self.pulses_per_seg = self.segmentsize // self.pulse_size_bytes
         self.n_segments = 1 + (self.binary_size - 1) // self.segmentsize
-        self.segment_pulses = None
 
     def _open_mm(self):
         self._mm = np.memmap(self.filename, offset=self.header_size, shape=(self.nPulses,),
@@ -273,13 +272,6 @@ class LJHFile(MicrocalFile):
     @property
     def alldata(self):
         return self._mm["data"]
-
-    # def copy(self):
-    #     """Return a deep copy of the object."""
-    #     self.clear_cache()
-    #     c = LJHFile(self.filename, self.header_dict, self.header_size)
-    #     c.__dict__.update(self.__dict__)
-    #     return c
 
     def __getitem__(self, item):
         return self.alldata[item]

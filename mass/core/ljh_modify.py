@@ -181,23 +181,24 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
     Exactly one of n_pulses and timestamp must be specified.
     """
 
-    if (n_pulses is None and timestamp is None) or (n_pulses is not None and timestamp is not None):
-        msg = "Must specify exactly one of n_pulses, timestamp. Values were %s and %s" % (
-            str(n_pulses), str(timestamp))
+    if (n_pulses is None and timestamp is None) or \
+            (n_pulses is not None and timestamp is not None):
+        msg = "Must specify exactly one of n_pulses, timestamp."
+        msg = msg+f" Values were {str(n_pulses)}, {str(timestamp)}"
         raise Exception(msg)
 
     # Check for file problems, then open the input and output LJH files.
     if os.path.exists(output_filename):
         if os.path.samefile(input_filename, output_filename):
-            raise ValueError("Input '%s' and output '%s' are the same file, which is not allowed." %
-                             (input_filename, output_filename))
+            msg = f"Input '{input_filename}' and output '{output_filename}' are the same file, which is not allowed"
+            raise ValueError(msg)
 
     infile = LJHFile.open(input_filename)
     if segmentsize is not None:
         infile._set_segment_size(segmentsize)
 
     if Version(infile.version_str.decode()) < Version("2.2.0"):
-        raise Exception("Don't know how to truncate this LJH version: %s" % (infile.version_str))
+        raise Exception(f"Don't know how to truncate this LJH version [{infile.version_str}]")
 
     with open(output_filename, "wb") as outfile:
         # write the header as a single string.
