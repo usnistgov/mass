@@ -19,10 +19,27 @@ from Cython.Build import cythonize
 
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
-requirements = ["numpy>=1.11", "scipy>=0.19", "Cython", "pandas", "scikit-learn",
-                "h5py>=2.7", "palettable", "cycler", "fastdtw", "progress", "lmfit>=0.9.11", "pytest",
-                "uncertainties", "dill", "xraydb", "matplotlib>1.5", "statsmodels>0.8",
-                "packaging", "deprecated"]
+requirements = [
+    "cycler",
+    "Cython>=0.28",
+    "deprecated"
+    "dill",
+    "fastdtw",
+    "h5py>=2.7",
+    "lmfit>=0.9.11",
+    "matplotlib>1.5",
+    "numpy>=1.11",
+    "packaging",
+    "palettable",
+    "pandas",
+    "progress",
+    "pytest",
+    "scikit-learn",
+    "scipy>=0.19",
+    "statsmodels>0.8",
+    "uncertainties",
+    "xraydb",
+    ]
 
 # dill 0.3.6 breaks our recipebook saving test, so for a while we pinned to 0.3.5.1
 # See https://bitbucket.org/joe_fowler/mass/pipelines/results/1037, which fails
