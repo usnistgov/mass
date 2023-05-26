@@ -174,6 +174,14 @@ class TestTESGroup(ut.TestCase):
                              hdf5_noisefilename=hdf5_noisefilename,
                              experimentStateFile=experimentStateFile)
 
+    def test_cython_readonly_view(self):
+        "Make sure cython summarize_data() runs with a readonly memory view"
+        data = self.load_data()
+        ds = data.channel[1]
+        ds.summarize_data(forceNew=True)
+        self.assertTrue(np.all(ds.p_pretrig_mean[:] > 0))
+        self.assertTrue(np.all(ds.p_pulse_rms[:] > 0))
+
     def test_experiment_state(self):
         # First test with the default experimentStateFile
         # It should have only the trivial START state, hence all 300 records

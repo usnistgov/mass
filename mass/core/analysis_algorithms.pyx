@@ -158,8 +158,8 @@ def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None
         double f0, f1, f2, f3, f4
         double t0, t1, t2, t3, t_max_deriv
         Py_ssize_t i, j
-        unsigned short[:, :] pulse_view
-        unsigned short[:] pulses
+        const unsigned short[:, :] pulse_view
+        const unsigned short[:] pulses
         double[:] max_deriv
 
     # If pulse_data is a 1D array, turn it into 2
