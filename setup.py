@@ -4,7 +4,7 @@ from setuptools.extension import Extension
 from Cython.Build import cythonize
 
 # See https://stackoverflow.com/a/60751886/3251234 for how this could be configured
-# to install numpy and/or Cython on a system that lacks them. One provides a 
+# to install numpy and/or Cython on a system that lacks them. One provides a
 # cmdclass={"build": build}, to setup, where `build` is a subclass that imports
 # these packages only after they have been installed.
 
