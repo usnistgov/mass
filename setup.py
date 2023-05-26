@@ -37,7 +37,7 @@ requirements = [
     "recommonmark",
     "scikit-learn",
     "scipy>=0.19",
-    "sphinx"
+    "sphinx",
     "statsmodels>0.8",
     "uncertainties",
     "xraydb",
