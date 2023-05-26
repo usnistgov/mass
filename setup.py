@@ -34,8 +34,10 @@ requirements = [
     "pandas",
     "progress",
     "pytest",
+    "recommonmark",
     "scikit-learn",
     "scipy>=0.19",
+    "sphinx"
     "statsmodels>0.8",
     "uncertainties",
     "xraydb",
