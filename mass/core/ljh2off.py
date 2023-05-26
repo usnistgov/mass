@@ -85,9 +85,8 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
     for (i_lo, i_hi, i_segment, data) in ljhfile.iter_segments():
         records_this_seg = data.shape[0]
         n += records_this_seg
-        # print("i_lo {}, i_hi {}, i_segment {}, nnow {}, nsum {}".format(i_lo, i_hi, i_segment, data.shape[0], n))
-        timestamps = ljhfile.datatimes_float
-        rowcounts = ljhfile.rowcount
+        timestamps = ljhfile.datatimes_float[i_lo:i_hi]
+        rowcounts = ljhfile.rowcount[i_lo:i_hi]
         projector_record_length = projectors.shape[1]
         data_record_length = data.shape[1]
         assert projector_record_length == data_record_length, f"projectors are for records of length {projector_record_length}, but {ljhfile} has records of length {data_record_length}"
