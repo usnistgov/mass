@@ -355,6 +355,14 @@ class TestTESGroup(ut.TestCase):
     def test_pulse_model_and_ljh2off(self):
         np.random.seed(0)
         data = self.load_data()
+
+        # Reduce the segment size, so we test that this works with LJH files having
+        # 2 or more segments. Here choose 3 segments
+        bsize = np.max([ds.pulse_records.datafile.binary_size for ds in data])
+        segsize = (bsize+3*4096)//3
+        segsize -= segsize % 4096
+        data.set_segment_size(segsize)
+
         data.compute_noise()
         data.summarize_data()
         data.auto_cuts()
