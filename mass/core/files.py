@@ -317,8 +317,7 @@ class LJHFile(MicrocalFile):
 
         first = segment_num * self.pulses_per_seg
         end = min(first+self.pulses_per_seg, self.nPulses)
-        self.data = self.alldata[first:end]
-        return first, end, self.data
+        return first, end, self.alldata[first:end]
 
 
 class LJHFile2_1(LJHFile):

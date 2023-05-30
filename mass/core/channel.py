@@ -2026,8 +2026,8 @@ class MicrocalDataSet(object):
     def read_segment(self, n):
         first, end = self.pulse_records.read_segment(n)
         self.data = self.pulse_records.data
-        self.times = self.pulse_records.times
-        self.rowcount = self.pulse_records.rowcount
+        self.times = self.pulse_records.times[first:end]
+        self.rowcount = self.pulse_records.rowcount[first:end]
 
         # If you want to invert all data on read, then set self.invert_data=True.
         if self.__dict__.get("invert_data", False):
