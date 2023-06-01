@@ -208,6 +208,11 @@ class TestTESGroup(ut.TestCase):
         data.assume_white_noise()
         data.compute_ats_filter()
 
+    def test_noise_only(self):
+        """Test behavior of a TESGroup without pulse data."""
+        pattern = "mass/regression_test/regress_noise_*.ljh"
+        data = mass.TESGroup(pattern, noise_only=True)
+
     def test_all_channels_bad(self):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
         data = self.load_data()
