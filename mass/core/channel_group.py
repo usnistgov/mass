@@ -145,7 +145,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # even if there is only one result from the pattern matching.
         pattern = filenames
         filenames = filename_glob_expand(filenames)
-        if filenames is None or len(filenames) == 0:
+        if (filenames is None or len(filenames) == 0) and (not noise_only):
             raise ValueError("Pulse filename pattern '%s' expanded to no files" % pattern)
         if noise_filenames is not None:
             pattern = noise_filenames
@@ -207,18 +207,19 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         # Load up experiment state file
         self.experimentStateFile = None
-        if experimentStateFile is None:
-            try:
-                self.experimentStateFile = mass.off.ExperimentStateFile(
-                    datasetFilename=self.filenames[0], excludeStates=excludeStates)
-            except IOError as e:
-                LOG.debug('Skipping loading of experiment state file because {}'.format(e))
-        else:
-            self.experimentStateFile = mass.off.channels.ExperimentStateFile(
-                experimentStateFile, excludeStates=excludeStates)
-        if self.experimentStateFile is not None:
-            valid_state_labels = self.experimentStateFile.labels
-            self.register_categorical_cut_field("state", valid_state_labels)
+        if not noise_only:
+            if experimentStateFile is None:
+                try:
+                    self.experimentStateFile = mass.off.ExperimentStateFile(
+                        datasetFilename=self.filenames[0], excludeStates=excludeStates)
+                except IOError as e:
+                    LOG.debug('Skipping loading of experiment state file because {}'.format(e))
+            else:
+                self.experimentStateFile = mass.off.channels.ExperimentStateFile(
+                    experimentStateFile, excludeStates=excludeStates)
+            if self.experimentStateFile is not None:
+                valid_state_labels = self.experimentStateFile.labels
+                self.register_categorical_cut_field("state", valid_state_labels)
 
         # Set up other aspects of the object
         self.nhits = None

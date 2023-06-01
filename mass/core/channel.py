@@ -73,6 +73,7 @@ class NoiseRecords(object):
         self.nSamples = self.nPresamples = self.nPulses = 0
         self.n_segments = 0
         self.timebase = 0.0
+        self.timestamp_offset = 0
 
         self.datafile = None
         self.data = None
@@ -479,7 +480,7 @@ class PulseRecords(object):
         self.segmentsize = 0
         self.pulses_per_seg = 0
         self.timebase = None
-        self.timestamp_offset = None
+        self.timestamp_offset = 0
 
         self.datafile = None
         self.__open_file(filename, file_format=file_format)
