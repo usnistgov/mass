@@ -565,29 +565,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
     Will use %d segments and ignore %d.""", self.pulses_per_seg, self._allowed_segnums.sum(),
                         self.n_segments - self._allowed_segnums.sum())
 
-    def iter_segments(self, first_seg=0, end_seg=-1, sample_mask=None, segment_mask=None):
-        if self._allowed_segnums is None:
-            self.set_data_use_ranges(None)
-
-        if end_seg < 0:
-            end_seg = self.n_segments
-        for i in range(first_seg, end_seg):
-            if not self._allowed_segnums[i]:
-                continue
-            a, b = self.segnum2sample_range(i)
-            if sample_mask is not None:
-                if b > len(sample_mask):
-                    b = len(sample_mask)
-                if not sample_mask[a:b].any():
-                    LOG.info('We can skip segment %4d', i)
-                    continue  # Don't need anything in this segment.  Sweet!
-            if segment_mask is not None:
-                if not segment_mask[i]:
-                    LOG.info('We can skip segment %4d', i)
-                    continue  # Don't need anything in this segment.  Sweet!
-            first_rnum, end_rnum = self.read_segment(i)
-            yield first_rnum, end_rnum
-
     @property
     def shortname(self):
         """Return a string containing part of the filename and the number of good channels"""

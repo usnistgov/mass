@@ -82,7 +82,7 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
 
     returns how many records were written"""
     n = 0
-    for (i_lo, i_hi, i_segment, data) in ljhfile.iter_segments():
+    for (i_lo, i_hi, _, data) in ljhfile.iter_segments():
         records_this_seg = data.shape[0]
         n += records_this_seg
         timestamps = ljhfile.datatimes_float[i_lo:i_hi]
@@ -100,23 +100,15 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
                                    data[:, :ljhfile.nPresamples-n_ignore_presamples].T, deg=1)
         pt_delta = np.polyval(pfit_pt_delta, ljhfile.nPresamples
                               - n_ignore_presamples-1) - np.polyval(pfit_pt_delta, 0)
-        if True:  # load data into offdata: implementation 1
-            offdata["recordSamples"] = ljhfile.nSamples
-            offdata["recordPreSamples"] = ljhfile.nPresamples
-            offdata["framecount"] = rowcounts//ljhfile.number_of_rows
-            offdata["unixnano"] = timestamps*1e9
-            offdata["pretriggerMean"] = pretrig_mean
-            offdata["pretriggerDelta"] = pt_delta
-            offdata["residualStdDev"] = residual_std_dev
-            offdata["coefs"] = mpc.T
-        else:  # load data into offdata: implementation 2
-            for i in range(records_this_seg):
-                offdata[i] = (
-                    ljhfile.nSamples, ljhfile.nPresamples, rowcounts[i]//ljhfile.number_of_rows,
-                    np.int64(timestamps[i]*1e9),
-                    pretrig_mean[i], pt_delta[i], residual_std_dev[i],
-                    mpc[:, i])
-        # write offdata to file
+
+        offdata["recordSamples"] = ljhfile.nSamples
+        offdata["recordPreSamples"] = ljhfile.nPresamples
+        offdata["framecount"] = rowcounts // ljhfile.number_of_rows
+        offdata["unixnano"] = timestamps*1e9
+        offdata["pretriggerMean"] = pretrig_mean
+        offdata["pretriggerDelta"] = pt_delta
+        offdata["residualStdDev"] = residual_std_dev
+        offdata["coefs"] = mpc.T
         offdata.tofile(f)
     return n
 
