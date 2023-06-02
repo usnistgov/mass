@@ -292,8 +292,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     hdf5_noisegroup.attrs['filename'] = nf
                 except Exception:
                     hdf5_noisegroup = None
-                noise = NoiseRecords(nf, records_are_continuous=noise_is_continuous,
-                                     hdf5_group=hdf5_noisegroup)
+                noise = NoiseRecords(nf, records_are_continuous=noise_is_continuous)
+                noise.set_hdf5_group(hdf5_noisegroup)
 
                 if pulse.channum != noise.channum:
                     LOG.warning(
@@ -341,12 +341,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for fname in self.noise_filenames:
 
             noise = NoiseRecords(fname, records_are_continuous=noise_is_continuous)
-            try:
-                hdf5_group = self.hdf5_noisefile.require_group("chan%d" % noise.channum)
-                hdf5_group.attrs['filename'] = fname
-                noise.hdf5_group = hdf5_group
-            except Exception:
-                hdf5_group = None
+            hdf5_group = self.hdf5_noisefile.require_group("chan%d" % noise.channum)
+            hdf5_group.attrs['filename'] = fname
+            noise.set_hdf5_group(hdf5_group)
 
             dset = MicrocalDataSet(noise.__dict__, hdf5_group=hdf5_group)
             dset.noise_records = noise

@@ -48,7 +48,7 @@ class NoiseRecords(object):
     ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, records_are_continuous=False, use_records=None,
-                 maxsegmentsize=None, hdf5_group=None):
+                 maxsegmentsize=None):
         """Contain and analyze a noise records file.
 
         Args:
@@ -60,16 +60,14 @@ class NoiseRecords(object):
                 before end.
             maxsegmentsize: the number of bytes to be read at once in a segment
                 (default self.DEFAULT_MAXSEGMENTSIZE)
-            hdf5_group: the HDF5 group to be associated with this noise (default None)
         """
-        self.hdf5_group = hdf5_group
 
         if maxsegmentsize is not None:
             self.maxsegmentsize = maxsegmentsize
         else:
             self.maxsegmentsize = self.DEFAULT_MAXSEGMENTSIZE
 
-        self.channum = None
+        self.channum = ljh_util.ljh_channum(filename)
         self.nSamples = self.nPresamples = self.nPulses = 0
         self.n_segments = 0
         self.timebase = 0.0
@@ -82,21 +80,30 @@ class NoiseRecords(object):
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
         self.noise_psd = None
-        if self.hdf5_group is not None:
-            self.autocorrelation = self.hdf5_group.require_dataset(
-                "autocorrelation", shape=(self.nSamples,),
-                dtype=np.float64)
-            nfreq = 1 + self.nSamples // 2
-            self.noise_psd = self.hdf5_group.require_dataset(
-                'noise_psd', shape=(nfreq,),
-                dtype=np.float64)
+    
+    def set_hdf5_group(self, hdf5_group):
+        if hdf5_group is None:
+            raise ValueError("hdf5_group should not be None")
+
+        self.hdf5_group = hdf5_group
+
+        # Copy up some of the most important attributes
+        for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum", "n_segments"):
+            self.__dict__[attr] = self.datafile.__dict__[attr]
+            self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
+
+        self.autocorrelation = self.hdf5_group.require_dataset(
+            "autocorrelation", shape=(self.nSamples,), dtype=np.float64)
+        nfreq = 1 + self.nSamples // 2
+        self.noise_psd = self.hdf5_group.require_dataset(
+            "noise_psd", shape=(nfreq,), dtype=np.float64)
 
     def __open_file(self, filename, use_records=None, file_format=None):
         """Detect the filetype and open it."""
 
         if file_format is None:
             if isinstance(filename, VirtualFile):
-                file_format = 'virtual'
+                file_format = "virtual"
             elif filename.endswith("ljh"):
                 file_format = "ljh"
             else:
@@ -110,7 +117,7 @@ class NoiseRecords(object):
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
             self.datafile.segmentsize = vfile.nPulses*(6+2*vfile.nSamples)
-            filename = 'Virtual file'
+            filename = "Virtual file"
         else:
             raise RuntimeError("It is a programming error to get here")
         self.filename = filename
@@ -120,12 +127,6 @@ class NoiseRecords(object):
             if use_records < self.datafile.nPulses:
                 self.datafile.nPulses = use_records
                 self.datafile.n_segments = use_records // self.records_per_segment
-
-        # Copy up some of the most important attributes
-        for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum", "n_segments"):
-            self.__dict__[attr] = self.datafile.__dict__[attr]
-            if self.hdf5_group is not None:
-                self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
 
     def clear_cache(self):
         self.datafile.clear_cache()
@@ -203,7 +204,7 @@ class NoiseRecords(object):
         psd = spectrum.spectrum()
         if self.hdf5_group is not None:
             self.noise_psd[:] = psd
-            self.noise_psd.attrs['delta_f'] = freq[1] - freq[0]
+            self.noise_psd.attrs["delta_f"] = freq[1] - freq[0]
         else:
             self.noise_psd = psd
         return spectrum
@@ -475,12 +476,12 @@ class PulseRecords(object):
         self.nSamples = 0
         self.nPresamples = 0
         self.nPulses = 0
-        self.channum = 0
         self.n_segments = 0
         self.segmentsize = 0
         self.pulses_per_seg = 0
         self.timebase = None
         self.timestamp_offset = 0
+        self.channum = ljh_util.ljh_channum(filename)
 
         self.datafile = None
         self.__open_file(filename, file_format=file_format)
