@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.7.10** February 2023-
+**0.7.10** June 2, 2023
 
 * Fix issue 229: bug in writing `bin/ljh_merge`; was not writing timestamp and row count.
 * Fix issue 230: add Sc Kα and Kβ data from 2019-2020 publications by Dean et al.
