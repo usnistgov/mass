@@ -1,16 +1,11 @@
 """
 The mass.files module contains classes required for handling the various types
-of pulse data files.  In principle, there are several data file types:
-* LJH files
-* PLS files
-* LANL files
-
-...but in practice, we are not ever using PLS files, and LANLFile is deprecated.
-Therefore, this module contains only three concrete classes, the VirtualFile,
-LJHFile, and the LANLFile (along with the abstract base class MicrocalFile).
+of pulse data files.  In principle, there could be multiple data file types.
+Therefore, this module contains only three concrete classes, the VirtualFile and
+the LJHFile (along with the abstract base class MicrocalFile).
 VirtualFile is for treating an array of data as if it were a file.
 
-If you find yourself wanting to read PLS (or other?) file types,
+If you find yourself wanting to read other file types in the future,
 then make a new class that inherits from MicrocalFile and calls
 MicrocalFile.__init__ to verify that it has the required interface:
 * read_segment(segment_num)
@@ -33,7 +28,7 @@ class MicrocalFile(object):
     """A set of data on disk containing triggered records from a microcalorimeter.
 
     The pulses can be noise or X-rays.  This is meant to be
-    an abstract class.  Use files.LJHFile() or VirtualFile(). In the future,
+    an abstract class.  Use `LJHFile.open()` or `VirtualFile()`. In the future,
     other derived classes could implement read_segment, copy, and read_trace to
     process other file types.
     """
