@@ -3,6 +3,7 @@
 **0.8.0** May 2023-
 
 * Start to use `setup.cfg` instead of Python code to configure build/install (issue 238).
+* Move tests out of the installed mass package (issue 242).
 
 
 **0.7.10** February 2023-

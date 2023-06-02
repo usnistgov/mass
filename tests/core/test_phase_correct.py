@@ -8,10 +8,10 @@ import pylab as plt
 
 class TestPhaseCorrect(ut.TestCase):
     def load_data(self, clear_hdf5=True):
-        name = 'mass/regression_test/phase_correct_test_data_4k_pulses_mass.hdf5'
+        name = 'tests/regression_test/phase_correct_test_data_4k_pulses_mass.hdf5'
         if os.path.isfile(name):
             os.remove(name)
-        new_src_name = 'mass/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh'
+        new_src_name = 'tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh'
         data = mass.TESGroup([new_src_name], [new_src_name])
         ds = data.channel[1]
         return ds
