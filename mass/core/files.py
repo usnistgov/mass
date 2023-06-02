@@ -42,7 +42,6 @@ class MicrocalFile(object):
         self.timebase = 0.0
         self.n_segments = 0
         self.data = None
-        self.__cached_segment = None
 
     def __str__(self):
         """Summary for the print function"""
@@ -65,13 +64,6 @@ class MicrocalFile(object):
     def copy(self):
         """Make a usable copy of self."""
         raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
-
-    def clear_cache(self):
-        """File objects can cache one "segment" of raw data.  Sometimes it's nice to delete
-        this from memory in order to free up unneeded cache, especially before copying a
-        MicrocalFile object."""
-        self.data = None
-        self.__cached_segment = None
 
 
 class VirtualFile(MicrocalFile):

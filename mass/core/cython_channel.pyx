@@ -320,5 +320,4 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             self.p_filt_phase[first:end] = filt_phase_array[:seg_size]
             yield (end+1) / float(self.nPulses)
 
-        self.clear_cache()
         self.hdf5_group.file.flush()

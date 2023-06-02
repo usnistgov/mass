@@ -128,9 +128,6 @@ class NoiseRecords(object):
                 self.datafile.nPulses = use_records
                 self.datafile.n_segments = use_records // self.records_per_segment
 
-    def clear_cache(self):
-        self.datafile.clear_cache()
-
     def set_fake_data(self):
         """Use when this does not correspond to a real datafile."""
         self.datafile = VirtualFile(np.zeros((0, 0)))
@@ -510,12 +507,6 @@ class PulseRecords(object):
         except AttributeError:
             self.times = self.datafile.datatimes/1e3
         return first_pnum, end_pnum
-
-    def clear_cache(self):
-        self.data = None
-        self.rowcount = None
-        self.times = None
-        self.datafile.clear_cache()
 
     def copy(self):
         """Return a copy of the object.

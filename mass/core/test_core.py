@@ -323,7 +323,6 @@ class TestTESGroup(ut.TestCase):
         raw = ds.data
         rawinv = 0xffff - raw
 
-        ds.clear_cache()
         ds.invert_data = True
         _ = ds.read_segment(0)
         raw2 = ds.data

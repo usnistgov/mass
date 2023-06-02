@@ -230,8 +230,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
         self.nSamples = 0
         self.timebase = 0.0
 
-        self._cached_segment = None
-        self._cached_pnum_range = None
         self._allowed_pnum_ranges = None
         self._allowed_segnums = None
         self.pulses_per_seg = None
