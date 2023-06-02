@@ -8,7 +8,6 @@ VirtualFile is for treating an array of data as if it were a file.
 If you find yourself wanting to read other file types in the future,
 then make a new class that inherits from MicrocalFile and calls
 MicrocalFile.__init__ to verify that it has the required interface:
-* read_segment(segment_num)
 * read_trace(trace_num)
 * copy()
 
@@ -29,7 +28,7 @@ class MicrocalFile(object):
 
     The pulses can be noise or X-rays.  This is meant to be
     an abstract class.  Use `LJHFile.open()` or `VirtualFile()`. In the future,
-    other derived classes could implement read_segment, copy, and read_trace to
+    other derived classes could implement copy, and read_trace to
     process other file types.
     """
 
@@ -52,10 +51,6 @@ class MicrocalFile(object):
     def __repr__(self):
         """Compact representation of how to construct from a filename."""
         return "%s('%s')" % (self.__class__.__name__, self.filename)
-
-    def read_segment(self, segment_num=0):
-        """Read a segment of the binary data of the given number (0,1,...)."""
-        raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
 
     def read_trace(self, trace_num=0):
         """Read a single pulse record from the binary data."""
@@ -107,17 +102,6 @@ class VirtualFile(MicrocalFile):
         if trace_num >= self.nPulses:
             raise ValueError("This VirtualFile has only %d pulses" % self.nPulses)
         return self.data[trace_num]
-
-    def read_segment(self, segment_num=0):
-        """
-        Returns:
-            (first, end, data) for segment number <segment_num>, where
-            <first> is the first pulse number in that segment, <end>-1 is the last,
-            and <data> is a 2-d array of shape [pulses_this_segment, self.nSamples].
-        """
-        if segment_num > 0:
-            raise ValueError("VirtualFile objects have only one segment")
-        return 0, self.nPulses, self.data
 
 
 def read_ljh_header(filename):
@@ -274,24 +258,6 @@ class LJHFile(MicrocalFile):
         if with_timing:
             return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
         return pulse_record
-
-    def read_segment(self, segment_num=0):
-        """Map segment `segment_num` to `self.data`, as it was before we started using a
-        `np.memmap` to store the `self.alldata`.
-
-        Return (first, end, data) where first is the pulse number of the first pulse read,
-        end is 1+the number of the last one read, and data is the full array.
-
-        Args:
-            <segment_num> Number of the segment to read.
-        """
-        if segment_num > self.n_segments:
-            raise ValueError("File %s has only %d segments;\n\tcannot open segment %d" %
-                             (self.filename, self.n_segments, segment_num))
-
-        first = segment_num * self.pulses_per_seg
-        end = min(first+self.pulses_per_seg, self.nPulses)
-        return first, end, self.alldata[first:end]
 
 
 class LJHFile2_1(LJHFile):

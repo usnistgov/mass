@@ -492,22 +492,6 @@ class PulseRecords(object):
         self.pulses_per_seg = self.datafile.pulses_per_seg
         self.segmentsize = self.datafile.segmentsize
 
-    def read_segment(self, segment_num):
-        """Read the requested segment of the raw data file and return  (first,end)
-        meaning: the first record number, 1 more than the last record number,
-        and the nPulse x nSamples array."""
-        if segment_num >= self.n_segments:
-            return -1, -1
-        first_pnum, end_pnum, data = self.datafile.read_segment(segment_num)
-
-        self.data = data
-        self.rowcount = self.datafile.rowcount
-        try:
-            self.times = self.datafile.datatimes_float
-        except AttributeError:
-            self.times = self.datafile.datatimes/1e3
-        return first_pnum, end_pnum
-
     def copy(self):
         """Return a copy of the object.
 
@@ -978,8 +962,6 @@ class MicrocalDataSet(object):
                 MicrocalDataSet._summarize_data_segment(self, segnum, doPretrigFit=doPretrigFit)
             yield (segnum+1.0) / self.pulse_records.n_segments
 
-        self.pulse_records.datafile.clear_cache()
-        self.clear_cache()
         self.hdf5_group.file.flush()
         self.__parse_expt_states()
 
@@ -1384,7 +1366,6 @@ class MicrocalDataSet(object):
                 filterfunction(filter_values, filter_AT, first, end, transform)
             yield (end+1)/float(self.nPulses)
 
-        self.pulse_records.datafile.clear_cache()
         self.hdf5_group.file.flush()
 
     def get_pulse_model(self, f, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag=0,
@@ -1641,7 +1622,6 @@ class MicrocalDataSet(object):
                 max_excursion=max_excursion, seg_length=n_lags)
             self.noise_records.compute_autocorrelation(
                 n_lags=n_lags, plot=False, max_excursion=max_excursion)
-            self.noise_records.clear_cache()
 
             self.noise_autocorr[:] = self.noise_records.autocorrelation[:len(
                 self.noise_autocorr[:])]
@@ -1988,12 +1968,6 @@ class MicrocalDataSet(object):
         if self.__dict__.get("invert_data", False):
             self.data = ~self.data
         return first, end
-
-    def clear_cache(self):
-        self.data = None
-        self.rowcount = None
-        self.times = None
-        self.pulse_records.clear_cache()
 
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None, shift1=False,

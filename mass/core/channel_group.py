@@ -100,7 +100,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     """The interface for a group of one or more microcalorimeters."""
 
     def __init__(self, filenames, noise_filenames=None, noise_only=False,
-                 noise_is_continuous=True, max_cachesize=None,
+                 noise_is_continuous=True,
                  hdf5_filename=None, hdf5_noisefilename=None,
                  never_use=None, use_only=None, max_chans=None,
                  experimentStateFile=None, excludeStates="auto", overwrite_hdf5_file=False):
@@ -116,8 +116,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 and take filenames to be a list of noise files (default False)
             noise_is_continuous (bool): whether to treat sequential noise records
                 as continuous in time (default True)
-            max_cachesize: the maximum number of bytes to read when reading and
-                caching raw data. If None, use the default of ??.
             hdf5_filename: if not None, the filename to use for backing the
                 analyzed data in HDF5 (default None). If None, choose a sensible
                 filename based on the input data filenames.
@@ -239,10 +237,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
         else:
             self._setup_per_channel_objects(noise_is_continuous)
-
-        if max_cachesize is not None:
-            if max_cachesize < self.n_channels * self.channels[0].segmentsize:
-                self.set_segment_size(max_cachesize // self.n_channels)
 
         self.updater = InlineUpdater
 
@@ -507,19 +501,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # and hand them up.
         for ds in self:
             ds.compute_noise(max_excursion=max_excursion, n_lags=n_lags, forceNew=forceNew)
-
-    def clear_cache(self):
-        """Invalidate any cached raw data."""
-        self._cached_segment = None
-        self._cached_pnum_range = None
-        for ds in self.datasets:
-            ds.data = None
-        if 'raw_channels' in self.__dict__:
-            for rc in self.raw_channels:
-                rc.data = None
-        if 'noise_channels' in self.__dict__:
-            for nc in self.noise_channels:
-                nc.datafile.clear_cache()
 
     def sample2segnum(self, samplenum):
         """Returns the segment number of sample number <samplenum>."""
@@ -1106,14 +1087,12 @@ class TESGroup(CutFieldMixin, GroupLooper):
         np.savetxt(filename, energy, fmt='%.10e')
 
     def copy(self):
-        self.clear_cache()
         g = TESGroup(self.filenames, self.noise_filenames)
         g.__dict__.update(self.__dict__)
         g.datasets = tuple([d.copy() for d in self.datasets])
         return g
 
     def set_segment_size(self, seg_size):
-        self.clear_cache()
         self.n_segments = 0
         for ds in self:
             ds.pulse_records.set_segment_size(seg_size)
@@ -1121,36 +1100,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
         self.pulses_per_seg = self.first_good_dataset.pulse_records.pulses_per_seg
         for ds in self:
             assert ds.pulse_records.pulses_per_seg == self.pulses_per_seg
-
-    def read_segment(self, segnum, use_cache=True):
-        """Read segment number <segnum> into memory for each of the
-        channels in the group.
-
-        Args:
-            use_cache (bool): if True, use the cached value when possible.
-
-        Returns:
-            (first,end) where these are the number of the first record in
-                that segment and 1 more than the number of the last record.
-        """
-        if segnum == self._cached_segment and use_cache:
-            return self._cached_pnum_range
-
-        first_pnum, end_pnum = -1, -1
-        for ds in self.datasets:
-            a, b = ds.read_segment(segnum)
-
-            # Possibly some channels are shorter than others (in TDM data)
-            # Make sure to return first_pnum,end_pnum for longest VALID channel only
-            if a >= 0:
-                if first_pnum >= 0:
-                    assert a == first_pnum
-                first_pnum = a
-            if b >= end_pnum:
-                end_pnum = b
-        self._cached_segment = segnum
-        self._cached_pnum_range = first_pnum, end_pnum
-        return first_pnum, end_pnum
 
     def plot_noise(self, axis=None, channels=None, cmap=None, scale_factor=1.0,
                    sqrt_psd=False, legend=True, include_badchan=False):
