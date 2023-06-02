@@ -208,18 +208,14 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
 
         # Write pulses. Stop reading segments from the original file as soon as possible.
         finished = False
-        for (start, end, segnum, segdata) in infile.iter_segments():
-            for i in range(start, end):
-                if (n_pulses is not None and i < n_pulses) or \
-                        (timestamp is not None and infile.datatimes_float[i] <= timestamp):
-                    prefix = struct.pack('<Q', np.uint64(infile.rowcount[i]))
-                    outfile.write(prefix)
-                    prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i]))
-                    outfile.write(prefix)
-                    trace = infile.alldata[i, :]
-                    trace.tofile(outfile, sep="")
-                else:
-                    finished = True
-                    break
-            if finished:
+        for i in range(infile.nPulses):
+            if (n_pulses is not None and i < n_pulses) or \
+                    (timestamp is not None and infile.datatimes_float[i] <= timestamp):
+                prefix = struct.pack('<Q', np.uint64(infile.rowcount[i]))
+                outfile.write(prefix)
+                prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i]))
+                outfile.write(prefix)
+                trace = infile.alldata[i, :]
+                trace.tofile(outfile, sep="")
+            else:
                 break
