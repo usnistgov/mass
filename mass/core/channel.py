@@ -186,19 +186,16 @@ class NoiseRecords(object):
         else:
             window = window(seg_length)
 
-        for _first_pnum, _end_pnum, _seg_num, data in self.datafile.iter_segments():
-            if self.continuous and seg_length is not None:
-                data = data.ravel()
-                n = len(data)
+        data = self.datafile.alldata
+        if self.continuous and seg_length is not None:
+            n = np.prod(data.shape)
+            n -= n % seg_length
+            data = data[:n].reshape((n // seg_length, seg_length))
 
-                # Would it be a problem if n % seg_length is non-zero?
-                n -= n % seg_length
-                data = data[:n].reshape((n // seg_length, seg_length))
-
-            for d in data:
-                y = d-d.mean()
-                if y.max() - y.min() < max_excursion and len(y) == spectrum.m2:
-                    spectrum.addDataSegment(y, window=window)
+        for d in data:
+            y = d-d.mean()
+            if y.max() - y.min() < max_excursion and len(y) == spectrum.m2:
+                spectrum.addDataSegment(y, window=window)
 
         freq = spectrum.frequencies()
         psd = spectrum.spectrum()
