@@ -78,18 +78,28 @@ def multi_ljh2off(ljhpaths, offpath, projectors, basis, n_ignore_presamples, h5_
 
 
 def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype):
-    """append to `f` off file formatted records based on the records in ljhfile
+    """append to `f` off file formatted records based on the records in ljhfile.
+    
+    Returns how many records were written"""
 
-    returns how many records were written"""
-    n = 0
-    for (i_lo, i_hi, _, data) in ljhfile.iter_segments():
-        records_this_seg = data.shape[0]
-        n += records_this_seg
-        timestamps = ljhfile.datatimes_float[i_lo:i_hi]
-        rowcounts = ljhfile.rowcount[i_lo:i_hi]
+    # To keep linear algebra sizes manageable, loop over the file in segments
+    seg_bytes = 2**21
+    rec_per_seg = seg_bytes // ljhfile.binary_size
+    if rec_per_seg < 1:
+        rec_per_seg = 1
+    records_written = 0
+    for idx_lo in np.arange(0, ljhfile.nPulses, rec_per_seg):
+        idx_hi = min(idx_lo + rec_per_seg, ljhfile.nPulses)
+        records_this_seg = idx_hi - idx_lo
+        records_written += records_this_seg
+
+        data = ljhfile.alldata[idx_lo:idx_lo+rec_per_seg]
+        timestamps = ljhfile.datatimes_float[idx_lo:idx_hi]
+        rowcounts = ljhfile.rowcount[idx_lo:idx_hi]
         projector_record_length = projectors.shape[1]
         data_record_length = data.shape[1]
-        assert projector_record_length == data_record_length, f"projectors are for records of length {projector_record_length}, but {ljhfile} has records of length {data_record_length}"
+        assert projector_record_length == data_record_length, \
+            f"projectors are for records of length {projector_record_length}, but {ljhfile} has records of length {data_record_length}"
         mpc = np.matmul(projectors, data.T)  # modeled pulse coefs
         mp = np.matmul(basis, mpc)  # modeled pulse
         residuals = mp-data.T
@@ -110,7 +120,7 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
         offdata["residualStdDev"] = residual_std_dev
         offdata["coefs"] = mpc.T
         offdata.tofile(f)
-    return n
+    return records_written
 
 
 def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_presamples,

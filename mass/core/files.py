@@ -66,19 +66,6 @@ class MicrocalFile(object):
         """Make a usable copy of self."""
         raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
 
-    def iter_segments(self, first=0, end=-1):
-        """An iterator over all segments.  Read in segments one at a time and yield triplet:
-        (first pulse number, 1+last pulse number, the segment number just read, the data).
-
-        <first> The first segment to read.
-        <end>   One past the last segment to read, or -1 to read through the last segment."""
-
-        if end <= first:
-            end = self.n_segments
-        for segment_num in range(first, end):
-            first_pnum, end_pnum, data = self.read_segment(segment_num)
-            yield first_pnum, end_pnum, segment_num, data
-
     def clear_cache(self):
         """File objects can cache one "segment" of raw data.  Sometimes it's nice to delete
         this from memory in order to free up unneeded cache, especially before copying a
