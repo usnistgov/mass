@@ -378,7 +378,7 @@ class NoiseRecords(object):
         records_used = samples_used = 0
         ac = np.zeros(self.nSamples, dtype=float)
         first = data_samples[0]
-        idx_first = first // data.nSamples
+        idx_first = first // self.nSamples
         if first % data.nSamples > 0:
             idx_first += 1
         idx_last = data_samples[1] // self.nSamples
