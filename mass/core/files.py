@@ -381,33 +381,40 @@ def make_ljh_header(header_dict):
         header_dict (dict): should contain at least the following keys:
             asctime, timebase, nPresamples, nSamples
     """
-    hd = header_dict
-    ljh_header = f"""#LJH Memorial File Format
-Save File Format Version: {hd["version_str"]}
-Software Version: MASS-generated LJH file, MASS version {__version__}
-Software Driver Version: n/a
-Date: {hd["asctime"]} GMT
-Acquisition Mode: 0
-Digitized Word Size in bytes: 2
-Operator: Unknown
-SYSTEM DESCRIPTION OF THIS FILE:
-USER DESCRIPTION OF THIS FILE:
-#End of description
-Number of Digitizers: 1
-Number of Active Channels: 1
-Timestamp offset (s): {1.0e9:.6f}
-Digitizer: 1
-Master: Yes
-Bits: 16
-Timebase: {hd["timebase"]:.4e}
-Number of samples per point: 1
-Presamples: {hd["nPresamples"]}
-Total Samples: {hd["nSamples"]}
-Channel: 1.0
-Description: A (Voltage)
-Range: 0.500000
-Offset: -0.000122
-Inverted: No
-#End of Header
-"""
+    version_str = header_dict["version_str"]
+    asctime = header_dict["asctime"]
+    timebase = header_dict["timebase"]
+    nSamples = header_dict["nSamples"]
+    nPresamples = header_dict["nPresamples"]
+    header_lines = [
+        "#LJH Memorial File Format",
+        f"Save File Format Version: {version_str}",
+        f"Software Version: MASS-generated LJH file, MASS version {__version__}",
+        "Software Driver Version: n/a",
+        f"Date: {asctime} GMT",
+        "Acquisition Mode: 0",
+        "Digitized Word Size in bytes: 2",
+        "Operator: Unknown",
+        "SYSTEM DESCRIPTION OF THIS FILE:",
+        "USER DESCRIPTION OF THIS FILE:",
+        "#End of description",
+        "Number of Digitizers: 1",
+        "Number of Active Channels: 1",
+        f"Timestamp offset (s): {1.0e9:.6f}",
+        "Digitizer: 1",
+        "Master: Yes",
+        "Bits: 16",
+        f"Timebase: {timebase:.4e}",
+        "Number of samples per point: 1",
+        f"Presamples: {nPresamples}",
+        f"Total Samples: {nSamples}",
+        "Channel: 1.0",
+        "Description: A (Voltage)",
+        "Range: 0.500000",
+        "Offset: -0.000122",
+        "Inverted: No",
+        "#End of Header",
+        ""  # need this to get a newline at the end of the list
+    ]
+    ljh_header = "\n".join(header_lines)
     return ljh_header.encode()
