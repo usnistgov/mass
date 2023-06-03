@@ -7,19 +7,15 @@ This module defines classes that handle one or more TES data streams together.
 """
 
 import os
-import h5py
 import logging
+import re
+from collections.abc import Iterable
+from functools import reduce
+from deprecated import deprecated
 
 import numpy as np
 import matplotlib.pylab as plt
-from deprecated import deprecated
-
-try:
-    from collections.abc import Iterable  # Python 3
-except ImportError:
-    from collections import Iterable
-
-from functools import reduce
+import h5py
 
 import mass.core.analysis_algorithms
 import mass.calibration.energy_calibration
@@ -29,8 +25,7 @@ from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, Group
 from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
 from mass.core.utilities import InlineUpdater, show_progress, plot_multipage
-from mass.core.ljh_util import remove_unpaired_channel_files, \
-    filename_glob_expand
+from mass.core.ljh_util import remove_unpaired_channel_files, filename_glob_expand
 from ..common import isstr
 
 LOG = logging.getLogger("mass")
@@ -41,7 +36,6 @@ def _generate_hdf5_filename(rawname):
 
     Takes /path/to/data_chan33.ljh --> /path/to/data_mass.hdf5
     """
-    import re
     fparts = re.split(r"_chan\d+", rawname)
     prefix_path = fparts[0]
     if rawname.endswith("noi"):
@@ -75,18 +69,18 @@ def RestoreTESGroup(hdf5filename, hdf5noisename=None):
                 if generated_noise_hdf5_name is None:
                     generated_noise_hdf5_name = _generate_hdf5_filename(fname)
                 elif generated_noise_hdf5_name != _generate_hdf5_filename(fname):
-                    raise RuntimeError("""The implied HDF5 noise files names are not the same for all channels.
-                    The first channel implies '%s'
-                    and another implies '%s'.
-                    Instead, you should run RestoreTESGroup with an explicit hdf5noisename argument.""" %
-                                       (generated_noise_hdf5_name, _generate_hdf5_filename(fname)))
+                    msg = f"""The implied HDF5 noise files names are not the same for all channels.
+The first channel implies '{generated_noise_hdf5_name}'
+and another implies '{_generate_hdf5_filename(fname)}'.
+Instead, you should run RestoreTESGroup with an explicit hdf5noisename argument."""
+                    raise RuntimeError(msg)
                 noisefiles.append(fname)
         h5file.close()
 
     if hdf5noisename is not None:
         with h5py.File(hdf5noisename, "r") as h5file:
             for ch in channum:
-                group = h5file['chan%d' % ch]
+                group = h5file[f'chan{ch}']
                 noisefiles.append(group.attrs['filename'])
             h5file.close()
     else:
@@ -144,12 +138,12 @@ class TESGroup(CutFieldMixin, GroupLooper):
         pattern = filenames
         filenames = filename_glob_expand(filenames)
         if (filenames is None or len(filenames) == 0) and (not noise_only):
-            raise ValueError("Pulse filename pattern '%s' expanded to no files" % pattern)
+            raise ValueError(f"Pulse filename pattern {pattern} expanded to no files")
         if noise_filenames is not None:
             pattern = noise_filenames
             noise_filenames = filename_glob_expand(noise_filenames)
             if noise_filenames is None or len(noise_filenames) == 0:
-                raise ValueError("Noise filename pattern '%s' expanded to no files" % pattern)
+                raise ValueError(f"Noise filename pattern {pattern} expanded to no files")
 
         # If using a glob pattern especially, we have to be careful to eliminate files that are
         # missing a partner, either noise without pulse or pulse without noise.
@@ -211,7 +205,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     self.experimentStateFile = mass.off.ExperimentStateFile(
                         datasetFilename=self.filenames[0], excludeStates=excludeStates)
                 except IOError as e:
-                    LOG.debug('Skipping loading of experiment state file because {}'.format(e))
+                    LOG.debug('Skipping loading of experiment state file because %s', e)
             else:
                 self.experimentStateFile = mass.off.channels.ExperimentStateFile(
                     experimentStateFile, excludeStates=excludeStates)
@@ -230,7 +224,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         self._allowed_pnum_ranges = None
         self.pulses_per_seg = None
-        self._bad_channums = dict()
+        self._bad_channums = {}
 
         if self.noise_only:
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
@@ -259,7 +253,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 LOG.info("TESGroup is skipping a file that has zero pulses: %s", fname)
                 continue  # don't load files with zero pulses
 
-            hdf5_group = self.hdf5_file.require_group("chan%d" % pulse.channum)
+            hdf5_group = self.hdf5_file.require_group(f"chan{pulse.channum}")
             hdf5_group.attrs['filename'] = fname
 
             dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
@@ -279,7 +273,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 nf = self.noise_filenames[i]
                 hdf5_group.attrs['noise_filename'] = nf
                 try:
-                    hdf5_noisegroup = self.hdf5_noisefile.require_group("chan%d" % pulse.channum)
+                    hdf5_noisegroup = self.hdf5_noisefile.require_group(f"chan{pulse.channum}")
                     hdf5_noisegroup.attrs['filename'] = nf
                 except Exception:
                     hdf5_noisegroup = None
@@ -303,8 +297,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             else:
                 for attr in ("nSamples", "nPresamples", "timebase"):
                     if self.__dict__[attr] != pulse.__dict__[attr]:
-                        raise ValueError("Unequal values of %s: %f != %f" % (attr, float(self.__dict__[attr]),
-                                                                             float(pulse.__dict__[attr])))
+                        msg = f"Unequal values of '{attr}': {float(self.__dict__[attr])} != {float(pulse.__dict__[attr])}"
+                        raise ValueError(msg)
             self.n_segments = max(self.n_segments, pulse.n_segments)
             self.nPulses = max(self.nPulses, pulse.nPulses)
 
@@ -335,7 +329,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for fname in self.noise_filenames:
 
             noise = NoiseRecords(fname, records_are_continuous=noise_is_continuous)
-            hdf5_group = self.hdf5_noisefile.require_group("chan%d" % noise.channum)
+            hdf5_group = self.hdf5_noisefile.require_group(f"chan{noise.channum}")
             hdf5_group.attrs['filename'] = fname
             noise.set_hdf5_group(hdf5_group)
 
@@ -350,9 +344,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             else:
                 for attr in ("nSamples", "nPresamples", "timebase"):
                     if self.__dict__[attr] != noise.__dict__[attr]:
-                        raise ValueError(
-                            "Unequal values of %s: %f != %f" % (attr, float(self.__dict__[attr]),
-                                                                float(noise.__dict__[attr])))
+                        msg = f"Unequal values of '{attr}': {float(self.__dict__[attr])} != {float(noise.__dict__[attr])}"
+                        raise ValueError(msg)
             self.n_segments = max(self.n_segments, noise.n_segments)
             self.nPulses = max(self.nPulses, noise.nPulses)
 
@@ -372,16 +365,16 @@ class TESGroup(CutFieldMixin, GroupLooper):
             ds.index = index
 
     def __repr__(self):
+        clname = self.__class__.__name__
+        if self.noise_filenames is None:
+            pname = os.path.dirname(self.filenames[0])
+            return f"{clname}(pulse={pname}, noise=None)"
+
+        nname = os.path.dirname(self.noise_filenames[0])
         if self.noise_only:
-            return "{0:s}(noise={1:s}, noise_only=True)".format(self.__class__.__name__,
-                                                                os.path.dirname(self.noise_filenames[0]))
-        elif self.noise_filenames is not None:
-            return "{0:s}(pulse={1:s}, noise={2:s})".format(self.__class__.__name__,
-                                                            os.path.dirname(self.filenames[0]),
-                                                            os.path.dirname(self.noise_filenames[0]))
-        else:
-            return "{0:s}(pulse={1:s}, noise=None)".format(self.__class__.__name__,
-                                                           os.path.dirname(self.filenames[0]))
+            return f"{clname}(noise={nname}, noise_only=True)"
+        pname = os.path.dirname(self.filenames[0])
+        return f"{clname}(pulse={pname}, noise={nname})"
 
     def __iter__(self):
         """Iterator over the self.datasets in channel number order"""
@@ -425,7 +418,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for channum in added_to_list:
             if channum in self._bad_channums:
                 comment = self._bad_channums.pop(channum)
-                del self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad']
+                del self.hdf5_file[f"chan{channum}"].attrs['why_bad']
                 LOG.info("chan %d set good, had previously been set bad for %s", channum, str(comment))
             else:
                 LOG.info("chan %d not set good because it was not set bad", channum)
@@ -451,13 +444,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
             new_comment = self._bad_channums.get(channum, []) + [comment]
             self._bad_channums[channum] = new_comment
             LOG.warning('WARNING: Chan %s flagged bad because %s', channum, comment)
-            self.hdf5_file["chan{0:d}".format(channum)].attrs['why_bad'] =  \
+            self.hdf5_file[f"chan{channum}"].attrs['why_bad'] =  \
                 np.asarray(new_comment, dtype=np.bytes_)
 
     def set_all_chan_good(self):
         """Set all channels to be good."""
-        # Must do it this way so that you aren't iterating over a list while
-        # also changing that list
+        # Must do it this way (copying the list) so that you aren't iterating over a list
+        # while also changing that list
         bad_chan_list = [ch for ch in self._bad_channums]
         for channum in bad_chan_list:
             self.set_chan_good(channum)
@@ -470,8 +463,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         ts = set([ds.timestamp_offset for ds in self if ds.channum not in self._bad_channums])
         if len(ts) == 1:
             return ts.pop()
-        else:
-            return None
+        return None
 
     @property
     def channel(self):
@@ -487,10 +479,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     @property
     def first_good_dataset(self):
-        if self.num_good_channels > 0:
-            return self.channel[self.good_channels[0]]
-        else:
+        if self.num_good_channels <= 0:
             raise IndexError("WARNING: All datasets flagged bad, most things won't work.")
+        return self.channel[self.good_channels[0]]
 
     @property
     def why_chan_bad(self):
@@ -519,7 +510,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def shortname(self):
         """Return a string containing part of the filename and the number of good channels"""
         ngoodchan = len([ds for ds in self])
-        return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0]+", %g chans" % ngoodchan
+        return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0]+f", {ngoodchan} chans"
 
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
@@ -547,9 +538,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 yield (i + 1.0) / nchan
                 self.hdf5_file.flush()
             except Exception as e:
-                self.set_chan_bad(ds.channum, "summarize_data failed with %s" % e)
+                self.set_chan_bad(ds.channum, f"summarize_data failed with {e}")
 
-    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category={}, filter_type="ats"):
+    def compute_filters(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, forceNew=False, category=None, filter_type="ats"):
+        if category is None:
+            category = {}
         LOG.warning(
             'compute_filters is deprecated and will eventually be removed, please use compute_ats_filter or compute_5lag_filter directly')
         for ds in self.datasets:
@@ -567,23 +560,25 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     def pulse_model_to_hdf5(self, hdf5_file=None, n_basis=6, replace_output=False,
                             maximum_n_pulses=4000, extra_n_basis_5lag=0, noise_weight_basis=True,
-                            category={}, f_3db_5lag=None, _rethrow=False):
+                            category=None, f_3db_5lag=None, _rethrow=False):
+        if category is None:
+            category = {}
         if hdf5_file is None:
             basename, _ = self.datasets[0].filename.split("chan")
             hdf5_filename = basename+"model.hdf5"
             if os.path.isfile(hdf5_filename):
                 if not replace_output:
                     raise Exception(
-                        "file {} already exists, pass replace_output = True to overwrite".format(hdf5_filename))
+                        f"file {hdf5_filename} already exists, pass replace_output = True to overwrite")
             with h5py.File(hdf5_filename, "w") as hdf5_file:
                 self._pulse_model_to_hdf5(
                     hdf5_file, n_basis, pulses_for_svd=None,
                     extra_n_basis_5lag=extra_n_basis_5lag, maximum_n_pulses=maximum_n_pulses,
                     category=category, noise_weight_basis=noise_weight_basis, f_3db_5lag=f_3db_5lag, _rethrow=_rethrow)
-                LOG.info("writing pulse_model to {}".format(hdf5_filename))
+                LOG.info("writing pulse_model to %s", hdf5_filename)
         else:
             hdf5_filename = hdf5_file.filename
-            LOG.info("writing pulse_model to {}".format(hdf5_filename))
+            LOG.info("writing pulse_model to %s", hdf5_filename)
             self._pulse_model_to_hdf5(
                 hdf5_file, n_basis, maximum_n_pulses=maximum_n_pulses,
                 extra_n_basis_5lag=extra_n_basis_5lag, f_3db_5lag=f_3db_5lag, category=category)
@@ -601,10 +596,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         for ds in self:
             try:
-                if forceNew or\
-                        ("rows_after_last_external_trigger" not in ds.hdf5_group and after_last) or\
-                        ("rows_until_next_external_trigger" not in ds.hdf5_group and until_next) or\
-                        ("rows_from_nearest_external_trigger" not in ds.hdf5_group and from_nearest):
+                if "rows_after_last_external_trigger" not in ds.hdf5_group and after_last:
+                    forceNew=True
+                if "rows_until_next_external_trigger" not in ds.hdf5_group and until_next:
+                    forceNew=True
+                if "rows_from_nearest_external_trigger" not in ds.hdf5_group and from_nearest:
+                    forceNew=True
+                if forceNew:
                     rows_after_last_external_trigger, rows_until_next_external_trigger = \
                         mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:],
                                                                        external_trigger_rowcount)
@@ -730,7 +728,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         MAX_TO_PLOT = 16
         if channel_numbers is None:
             if dataset_numbers is None:
-                datasets = [ds for ds in self]
+                datasets = list(self)
                 if len(datasets) > MAX_TO_PLOT:
                     datasets = datasets[:MAX_TO_PLOT]
             else:
@@ -752,13 +750,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
             if isstr(valid):
                 if "uncut" in valid.lower():
                     valid_mask = ds.cuts.good()
-                    LOG.info("Plotting only uncut data"),
+                    LOG.info("Plotting only uncut data")
                 elif "cut" in valid.lower():
                     valid_mask = ds.cuts.bad()
-                    LOG.info("Plotting only cut data"),
+                    LOG.info("Plotting only cut data")
                 elif 'all' in valid.lower():
                     valid_mask = None
-                    LOG.info("Plotting all data, cut or uncut"),
+                    LOG.info("Plotting all data, cut or uncut")
                 else:
                     raise ValueError(
                         "If valid is a string, it must contain 'all', 'uncut' or 'cut'.")
@@ -766,16 +764,12 @@ class TESGroup(CutFieldMixin, GroupLooper):
             if valid_mask is not None:
                 nrecs = valid_mask.sum()
                 if downsample is None:
-                    downsample = nrecs // 10000
-                    if downsample < 1:
-                        downsample = 1
+                    downsample = max(nrecs // 10000, 1)
                 hour = ds.p_timestamp[valid_mask][::downsample] / 3600.0
             else:
                 nrecs = ds.nPulses
                 if downsample is None:
-                    downsample = ds.nPulses // 10000
-                    if downsample < 1:
-                        downsample = 1
+                    downsample = max(ds.nPulses // 10000, 1)
                 hour = ds.p_timestamp[::downsample] / 3600.0
             LOG.info("Chan %3d (%d records; %d in scatter plots)", channum, nrecs, hour.shape[0])
 
@@ -786,7 +780,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 limits = hist_limits
 
             # Vectors are being sampled and multiplied, so eval() is needed.
-            vect = eval("ds.%s" % vect)[valid_mask]
+            vect = eval(f"ds.{vect}")[valid_mask]
 
             # Scatter plots on left half of figure
             if i == 0:
@@ -801,7 +795,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                          transform=plt.gca().transAxes)
             if i == 0:
                 plt.title(label)
-            plt.ylabel("Ch %d" % channum)
+            plt.ylabel(f"Ch {channum}")
             if i == ny_plots - 1:
                 plt.xlabel("Time since last UT midnight (hours)")
 
@@ -872,7 +866,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if nranges == 0:
             raise ValueError("Call make_masks with one of pulse_avg_range"
                              " pulse_rms_range, or pulse_peak_range specified.")
-        elif nranges > 1:
+        if nranges > 1:
             LOG.warning(
                 "Warning: make_masks uses only one range argument.  Checking only '%s'.", vectname)
 
@@ -904,7 +898,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # Make sure that masks is a sequence of 1D arrays of the right shape
         for i, m in enumerate(masks):
             if not isinstance(m, np.ndarray):
-                raise ValueError("masks[%d] is not a np.ndarray" % i)
+                raise ValueError(f"masks[{i}] is not a np.ndarray")
 
         for (mask, ds) in zip(masks, self.datasets):
             if ds.channum not in self.good_channels:
@@ -930,7 +924,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         dt = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e3
 
         if channels is None:
-            dsets = [ds for ds in self.iter_channels(include_badchan=include_badchan)]
+            dsets = list(self.iter_channels(include_badchan=include_badchan))
         else:
             dsets = [self.channel[c] for c in channels]
         nplot = len(dsets)
@@ -940,7 +934,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             if fcut is not None:
                 avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(
                     avg_pulse, 1./self.timebase, fcut)
-            plt.plot(dt, avg_pulse, label="Chan %d" % ds.channum, color=cmap(float(i) / nplot))
+            plt.plot(dt, avg_pulse, label=f"Chan {ds.channum}", color=cmap(float(i) / nplot))
 
         plt.title("Average pulse for each channel when it is hit")
 
@@ -979,7 +973,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             ds = self.channel[channum]
             if ds.filter is None:
                 continue
-            plt.plot(ds.filter.__dict__[filtname], label="Chan %d" % channum,
+            plt.plot(ds.filter.__dict__[filtname], label=f"Chan {ds.channum}",
                      color=cmap(float(ds_num) / len(channels)))
 
         plt.xlabel("Sample number")
@@ -997,7 +991,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 if ds.filter is not None:
                     rms = ds.filter.variances[filter_name]**0.5
                 else:
-                    rms = ds.hdf5_group['filters/filt_%s' % filter_name].attrs['variance']**0.5
+                    rms = ds.hdf5_group[f'filters/filt_{filter_name}'].attrs['variance']**0.5
                 v_dv = (1 / rms) / rms_fwhm
                 LOG.info("Chan %3d filter %-15s Predicted V/dV %6.1f  Predicted res at %.1f eV: %6.1f eV",
                          ds.channum, filter_name, v_dv, std_energy, std_energy / v_dv)
@@ -1013,8 +1007,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             dt = (ds.p_timestamp[good][-1] * 1.0 - ds.p_timestamp[good][0])  # seconds
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse - 1.0) / dt
-            print('chan %2d %6d pulses (%6.3f Hz over %6.4f hr) %6.3f%% good' %
-                  (ds.channum, npulse, rate, dt / 3600., 100.0 * ng / npulse))
+            print(f'chan {ds.channum:3d} {npulse:6d} pulses ({rate:6.3f} Hz over {dt/3600.:6.4f} hr) {100.*ng/npulse:6.3f}% good')
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None,
                                    legend=True):
@@ -1041,7 +1034,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 continue
             ds = self.channel[channum]
             noise = ds.noise_records
-            noise.plot_autocorrelation(axis=axis, label='Chan %d' % channum,
+            noise.plot_autocorrelation(axis=axis, label=f'Chan {channum}',
                                        color=cmap(float(ds_num) / len(channels)))
         plt.xlabel("Time lag (ms)")
         if legend:
@@ -1089,7 +1082,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             axis = plt.subplot(111)
 
         if channels is None:
-            dsets = [ds for ds in self.iter_channels(include_badchan=include_badchan)]
+            dsets = list(self.iter_channels(include_badchan=include_badchan))
         else:
             dsets = [self.channel[c] for c in channels]
         nplot = len(dsets)
@@ -1108,17 +1101,17 @@ class TESGroup(CutFieldMixin, GroupLooper):
             yvalue = ds.noise_psd[:] * scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
-                axis.set_ylabel("PSD$^{1/2}$ (%s/Hz$^{1/2}$)" % units)
+                axis.set_ylabel(f"PSD$^{1/2}$ ({units}/Hz$^{1/2}$)")
             try:
                 df = ds.noise_psd.attrs['delta_f']
                 freq = np.arange(1, 1 + len(yvalue)) * df
-                axis.plot(freq, yvalue, label='Chan %d' % channum,
+                axis.plot(freq, yvalue, label=f'Chan {channum}',
                           color=cmap(float(i) / nplot))
             except Exception:
                 LOG.warning("WARNING: Could not plot channel %4d.", channum)
                 continue
         axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
-        axis.set_ylabel("Power Spectral Density (%s^2/Hz)" % units)
+        axis.set_ylabel(f"Power Spectral Density ({units}^2/Hz)")
         axis.set_xlabel("Frequency (Hz)")
         axis.loglog()
         if legend:
@@ -1152,7 +1145,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for ds in self:
             ds.cuts.cut("filt_phase", np.abs(ds.p_filt_phase[:]) > 2)
 
-    def plot_count_rate(self, bin_s=60, title=""):
+    def plot_count_rate(self, bin_s=60):
         bin_edge = np.arange(self.first_good_dataset.p_timestamp[0],
                              np.amax(self.first_good_dataset.p_timestamp), bin_s)
         bin_centers = bin_edge[:-1] + 0.5 * (bin_edge[1] - bin_edge[0])
@@ -1180,7 +1173,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plt.legend()
 
     def plot_summary_pages(self, x_attr, y_attr, x_range=None, y_range=None, subplot_shape=(3, 4),
-                           suffix=None, lines=None, down=10, format='png', one_file=False):
+                           suffix=None, lines=None, down=10, fileformat='png', one_file=False):
         '''Make scatter plots of summary quantities for all channels.
 
         This creates the plots for each good channel, placing multiple plots on
@@ -1205,7 +1198,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                    dashed horizontal line is plotted for each value in this list.
                    Defaults to None.
           down -- downsample by this factor. Defaults to 10
-          format -- output format ('png', 'pdf', etc). Must be a value supported by
+          fileformat -- output format ('png', 'pdf', etc). Must be a value supported by
                     your installation of matplotlib.
           one_file -- If True, combine all pages to one pdf file. If False, use
                       separate files for all pages. Defaults to False. If format is
@@ -1216,9 +1209,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if suffix is None:
             suffix = os.path.basename(self.channels[0].datafile.filename)[:15]
 
-        filename_template_per_file = '%s.vs.%s-%s-%%03d.%s' % (y_attr, x_attr, suffix, format)
-        filename_template_glob = '%s.vs.%s-%s-[0-9][0-9][0-9].%s' % (y_attr, x_attr, suffix, format)
-        filename_one_file = '%s.vs.%s-%s.pdf' % (y_attr, x_attr, suffix)
+        filename_template_per_file = f'{y_attr}.vs.{x_attr}-{suffix}-%%03d.{fileformat}'
+        filename_template_glob = f'{y_attr}.vs.{x_attr}-{suffix}-[0-9][0-9][0-9].{fileformat}'
+        filename_one_file = f'{y_attr}.vs.{x_attr}-{suffix}.pdf' % (y_attr, x_attr, suffix)
 
         def helper(ds, ax):
             ch = ds.channum
@@ -1259,8 +1252,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)
 
-    def plot_histogram_pages(self, attr, range, bins, y_range=None, subplot_shape=(3, 4),
-                             suffix=None, lines=None, format='png', one_file=False):
+    def plot_histogram_pages(self, attr, valrange, bins, y_range=None, subplot_shape=(3, 4),
+                             suffix=None, lines=None, fileformat='png', one_file=False):
         '''Make plots of histograms for all channels.
 
         This creates the plots for each good channel, placing multiple plots on
@@ -1271,7 +1264,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         Arguments:
           attr -- string containing name of attribute to plot
-          range -- range of value over which to histogram (passed into histogram function)
+          valrange -- range of value over which to histogram (passed into histogram function)
           bins -- number of bins (passed into histogram function)
           y_range -- if not None, values to use for y limits. Defaults to None.
           subplot_shape -- tuple indicating shape of subplots. First element is
@@ -1284,7 +1277,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                    number. The value for each channel is a list of numbers. A
                    dashed horizontal line is plotted for each value in this list.
                    Defaults to None.
-          format -- output format ('png', 'pdf', etc). Must be a value supported by
+          fileformat -- output format ('png', 'pdf', etc). Must be a value supported by
                     your installation of matplotlib.
           one_file -- If True, combine all pages to one pdf file. If False, use
                       separate files for all pages. Defaults to False. If format is
@@ -1295,9 +1288,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if suffix is None:
             suffix = os.path.basename(self.channels[0].datafile.filename)[:15]
 
-        filename_template_per_file = '%s-hist-%s-%%03d.%s' % (attr, suffix, format)
-        filename_template_glob = '%s-hist-%s-[0-9][0-9][0-9].%s' % (attr, suffix, format)
-        filename_one_file = '%s-hist-%s.pdf' % (attr, suffix)
+        filename_template_per_file = f'{attr}-hist-{suffix}-%%03d.{fileformat}'
+        filename_template_glob = f'{attr}-hist-{suffix}-[0-9][0-9][0-9].{fileformat}'
+        filename_one_file = f'{attr}-hist-{suffix}.pdf'
 
         def helper(ds, ax):
             g = ds.good()
@@ -1321,13 +1314,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
             plt.xlabel(attr, fontsize=8)
             plt.ylabel('Counts / bin', fontsize=8)
             ax.tick_params(axis='both', labelsize=8)
-            plt.title('MATTER Ch%d' % ds.channum, fontsize=10)
+            plt.title(f'MATTER Ch{ds.channum}', fontsize=10)
 
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)
 
 
-class CrosstalkVeto(object):
+class CrosstalkVeto():
     """An object to allow vetoing of data in 1 channel when another is hit."""
 
     def __init__(self, datagroup=None, window_ms=(-10, 3), pileup_limit=100):
