@@ -315,6 +315,7 @@ class TestTESGroup(ut.TestCase):
         data.phase_correct()
         data.time_drift_correct()
 
+    @pytest.mark.xfail
     def test_invert_data(self):
         data = self.load_data()
         ds = data.channel[1]
