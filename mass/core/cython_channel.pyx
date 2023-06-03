@@ -65,7 +65,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             long s0, s1, s2, s3, s4
             long t0, t1, t2, t3, t_max_deriv
 
-        first, end = self.read_segment(segnum)
+        first, end = np.array([segnum, segnum+1])*self.pulse_records.pulses_per_seg
         if end >= self.nPulses:
             end = self.nPulses
         if first >= self.nPulses or end <= first:
@@ -97,7 +97,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
         peak_samplenumber = self.peak_samplenumber
 
         for j in range(seg_size):
-            pulse = self.data[j, :]
+            pulse = self.data[j+first, :]
             pretrig_sum = 0.0
             pretrig_rms_sum = 0.0
             pulse_sum = 0.0
@@ -279,11 +279,11 @@ class CythonMicrocalDataSet(MicrocalDataSet):
         filt_value_array = np.zeros(pulses_per_seg, dtype=np.float64)
 
         for i in range(n_segments):
-            first, end = self.read_segment(i)  # this reloads self.data to contain new pulses
+            first, end = np.array([i, i+1])*self.pulse_records.pulses_per_seg
             seg_size = end - first
 
             for j in range(seg_size):
-                pulse = self.data[j, :]
+                pulse = self.data[j+first, :]
 
                 f0, f1, f2, f3 = filter_values[0], filter_values[1], filter_values[2], filter_values[3]
 

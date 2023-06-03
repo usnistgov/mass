@@ -229,7 +229,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
         self.timebase = 0.0
 
         self._allowed_pnum_ranges = None
-        self._allowed_segnums = None
         self.pulses_per_seg = None
         self._bad_channums = dict()
 
@@ -322,6 +321,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         for index, (pr, ds) in enumerate(zip(self.channels, self.datasets)):
             ds.pulse_records = pr
+            ds.data = pr.datafile.alldata
+            ds.times = pr.datafile.datatimes_float
+            ds.rowcount = pr.datafile.rowcount
             ds.index = index
 
         if len(pulse_list) > 0:
@@ -512,37 +514,6 @@ class TESGroup(CutFieldMixin, GroupLooper):
         """Return the (first,end) sample numbers of the segment numbered <segnum>.
         Note that <end> is 1 beyond the last sample number in that segment."""
         return segnum * self.pulses_per_seg, (segnum + 1) * self.pulses_per_seg
-
-    def set_data_use_ranges(self, ranges=None):
-        """Set the range of sample numbers that this object will use when iterating over
-        raw data.
-
-        <ranges> can be None (which causes all samples to be used, the default);
-                or a 2-element sequence (a,b), which causes only a through b-1 inclusive to be used;
-                or a sequence of 2-element sequences, which is like the previous
-                but with multiple sample ranges allowed.
-        """
-        if ranges is None:
-            allowed_ranges = [[0, self.nPulses]]
-        elif len(ranges) == 2 and np.isscalar(ranges[0]) and np.isscalar(ranges[1]):
-            allowed_ranges = [[ranges[0], ranges[1]]]
-        else:
-            allowed_ranges = [r for r in ranges]
-
-        allowed_segnums = np.zeros(self.n_segments, dtype=bool)
-        for first, end in allowed_ranges:
-            assert first <= end
-            for sn in range(self.sample2segnum(first), self.sample2segnum(end - 1) + 1):
-                allowed_segnums[sn] = True
-
-        self._allowed_pnum_ranges = allowed_ranges
-        self._allowed_segnums = allowed_segnums
-
-        if ranges is not None:
-            LOG.warning("""Warning!  This feature is only half-complete.  Currently, granularity is limited.
-    Only full "segments" of size %d records can be ignored.
-    Will use %d segments and ignore %d.""", self.pulses_per_seg, self._allowed_segnums.sum(),
-                        self.n_segments - self._allowed_segnums.sum())
 
     @property
     def shortname(self):

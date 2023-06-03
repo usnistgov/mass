@@ -121,7 +121,6 @@ class TestFiles(ut.TestCase):
         data2 = mass.TESGroup(src_name2)
         for d in (data1, data2):
             d.summarize_data()
-            d.read_segment(0)
         ds1 = data1.channel[1]
         ds2 = data2.channel[1]
         self.assertTrue(b"MATTER" in ds1.pulse_records.datafile.client)
@@ -319,12 +318,10 @@ class TestTESGroup(ut.TestCase):
     def test_invert_data(self):
         data = self.load_data()
         ds = data.channel[1]
-        _ = ds.read_segment(0)
         raw = ds.data
         rawinv = 0xffff - raw
 
         ds.invert_data = True
-        _ = ds.read_segment(0)
         raw2 = ds.data
         self.assertTrue(np.all(rawinv == raw2))
 

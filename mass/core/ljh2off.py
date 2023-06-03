@@ -79,7 +79,7 @@ def multi_ljh2off(ljhpaths, offpath, projectors, basis, n_ignore_presamples, h5_
 
 def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype):
     """append to `f` off file formatted records based on the records in ljhfile.
-    
+
     Returns how many records were written"""
 
     # To keep linear algebra sizes manageable, loop over the file in segments

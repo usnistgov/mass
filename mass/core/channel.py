@@ -122,6 +122,7 @@ class NoiseRecords(object):
             raise RuntimeError("It is a programming error to get here")
         self.filename = filename
         self.records_per_segment = self.datafile.segmentsize // (6+2*self.datafile.nSamples)
+        self.data = self.datafile.alldata
 
         if use_records is not None:
             if use_records < self.datafile.nPulses:
@@ -210,8 +211,6 @@ class NoiseRecords(object):
         """
         assert self.continuous
 
-        # Does it assume that all data fit into a single segment?
-        self.datafile.read_segment(0)
         n = np.prod(self.datafile.data.shape)
         if seglength_choices is None:
             longest_seg = 1
@@ -382,7 +381,7 @@ class NoiseRecords(object):
         idx_first = first // data.nSamples
         if first % data.nSamples > 0:
             idx_first += 1
-        idx_last = data_samples[1] // data.nSamples
+        idx_last = data_samples[1] // self.nSamples
 
         for i in range(idx_first, idx_last):
             data = 1.0*self.datafile.alldata[i]
@@ -444,10 +443,6 @@ class PulseRecords(object):
 
         self.datafile = None
         self.__open_file(filename, file_format=file_format)
-
-        self.data = np.array([], ndmin=2)
-        self.times = np.array([], ndmin=2)
-        self.rowcount = None
 
     def __open_file(self, filename, file_format=None):
         """Detect the filetype and open it."""
@@ -889,8 +884,6 @@ class MicrocalDataSet(object):
         return c
 
     def _compute_peak_samplenumber(self):
-        if self.data is None:
-            self.read_segment(0)
         peak_idx = self.data[:, self.cut_pre:self.nSamples
                              - self.cut_post].argmax(axis=1)+self.cut_pre
         if version.parse(sp.__version__) >= version.parse("1.9.0"):
@@ -956,18 +949,19 @@ class MicrocalDataSet(object):
         self.cut_post = cut_post
 
         for segnum in range(self.pulse_records.n_segments):
+            idx_range = np.array([segnum, segnum+1])*self.pulse_records.pulses_per_seg
             if use_cython:
                 self._summarize_data_segment(segnum)
             else:
-                MicrocalDataSet._summarize_data_segment(self, segnum, doPretrigFit=doPretrigFit)
+                MicrocalDataSet._summarize_data_segment(self, idx_range, doPretrigFit=doPretrigFit)
             yield (segnum+1.0) / self.pulse_records.n_segments
 
         self.hdf5_group.file.flush()
         self.__parse_expt_states()
 
-    def _summarize_data_segment(self, segnum, doPretrigFit=False):
+    def _summarize_data_segment(self, idx_range, doPretrigFit=False):
         """Summarize one segment of the data file, loading it into cache."""
-        first, end = self.read_segment(segnum)  # this reloads self.data to contain new pulses
+        first, end = idx_range
         if first >= self.nPulses:
             return
         if end > self.nPulses:
@@ -989,7 +983,7 @@ class MicrocalDataSet(object):
         if doPretrigFit:
             presampleNumbers = np.arange(self.cut_pre, self.nPresamples
                                          - self.pretrigger_ignore_samples)
-            ydata = self.data[:seg_size, self.cut_pre:self.nPresamples
+            ydata = self.data[first:end, self.cut_pre:self.nPresamples
                               - self.pretrigger_ignore_samples].T
             self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
                 np.polyfit(presampleNumbers, ydata, deg=1)
@@ -1055,7 +1049,6 @@ class MicrocalDataSet(object):
             state_codes[slice.start:slice.stop] = id+1
         self.cuts.cut("state", state_codes)
 
-    @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
         """Compute the average pulse this channel.
 
@@ -1073,45 +1066,7 @@ class MicrocalDataSet(object):
             LOG.info("skipping compute average pulse on chan %d", self.channum)
             return
 
-        pulse_count = 0
-        pulse_sum = np.zeros(self.nSamples, dtype=float)
-
-        # Compute a master mask to say whether ANY mask wants a pulse from each segment
-        # This can speed up work a lot when the pulses being averaged are from certain times only.
-        segment_mask = np.zeros(self.pulse_records.n_segments, dtype=bool)
-        n = len(mask)
-        ppseg = self.pulse_records.pulses_per_seg
-        nseg = 1 + (n - 1) // ppseg
-        for i in range(nseg):
-            a = i * ppseg
-            b = a + ppseg
-            if b >= len(mask):
-                b = len(mask) - 1
-            if mask[a:b].any():
-                segment_mask[i] = True
-
-        for iseg in range(nseg):
-            if not segment_mask[iseg]:
-                continue
-            first, end = self.read_segment(iseg)
-            yield end / float(self.nPulses)
-            valid = mask[first:end]
-
-            if mask.shape != (self.nPulses,):
-                raise ValueError("\nmasks[chan %d] has shape %s, but it needs to be (%d,)" %
-                                 (self.channum, mask.shape, self.nPulses))
-            if len(valid) > self.data.shape[0]:
-                good_pulses = self.data[valid[:self.data.shape[0]], :]
-            else:
-                good_pulses = self.data[valid, :]
-            pulse_count += good_pulses.shape[0]
-            pulse_sum[:] += good_pulses.sum(axis=0)
-
-        # Rescale and store result to each MicrocalDataSet
-
-        average_pulse = pulse_sum
-        if pulse_count > 0:
-            average_pulse /= pulse_count
+        average_pulse = self.data[mask, :].mean(axis=0)
         if subtract_mean:
             average_pulse -= np.mean(average_pulse[:self.nPresamples
                                                    - self.pretrigger_ignore_samples])
@@ -1360,7 +1315,7 @@ class MicrocalDataSet(object):
             raise Exception("filter_type={}, must be `ats` or `5lag`".format(self._filter_type))
 
         for s in range(self.pulse_records.n_segments):
-            first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
+            first, end = np.array([s, s+1])*self.pulse_records.pulses_per_seg
             (self.p_filt_phase[first:end],
              self.p_filt_value[first:end]) = \
                 filterfunction(filter_values, filter_AT, first, end, transform)
@@ -1434,8 +1389,7 @@ class MicrocalDataSet(object):
         assert len(filter_values) + 4 == self.nSamples
 
         seg_size = end - first
-        assert seg_size == self.data.shape[0]
-        data = self.data
+        data = self.data[first:end]
         conv = np.zeros((5, seg_size), dtype=float)
         if transform is not None:
             ptmean = self.p_pretrig_mean[first:end]
@@ -1460,9 +1414,8 @@ class MicrocalDataSet(object):
         assert len(filter_values) + 1 == self.nSamples
 
         seg_size = end - first
-        assert seg_size == self.data.shape[0]
         ptmean = self.p_pretrig_mean[first:end]
-        data = self.data
+        data = self.data[first:end]
         if transform is not None:
             ptmean.shape = (seg_size, 1)
             data = transform(self.data - ptmean)
@@ -1843,16 +1796,11 @@ class MicrocalDataSet(object):
         return ds.data[ds.cuts.good()][:n], np.nonzero(ds.cuts.good())[0][:n]
         """
         g = self.cuts.good(**category)
+        if g.sum() > n:
+            dont_use = np.nonzero(g)[0][n:]
+            g[dont_use] = False
 
-        first, end = self.read_segment(0)
-        data = self.data[g[first:end]]
-        for j in range(1, self.pulse_records.n_segments):
-            if data.shape[0] > n:
-                break
-            first, end = self.read_segment(j)
-            data = np.vstack((data, self.data[g[first:end], :]))
-        nrecords = np.amin([n, data.shape[0]])
-        return data[:nrecords], np.nonzero(g)[0][:nrecords]
+        return self.data[g], np.nonzero(g)[0]
 
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha',
                           nbins=200, plot=True, **kwargs):
@@ -1958,17 +1906,6 @@ class MicrocalDataSet(object):
         self.p_energy[:] = cal.ph2energy(getattr(self, attr))
         self.last_used_calibration = cal
 
-    def read_segment(self, n):
-        first, end = self.pulse_records.read_segment(n)
-        self.data = self.pulse_records.data
-        self.times = self.pulse_records.times[first:end]
-        self.rowcount = self.pulse_records.rowcount[first:end]
-
-        # If you want to invert all data on read, then set self.invert_data=True.
-        if self.__dict__.get("invert_data", False):
-            self.data = ~self.data
-        return first, end
-
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None, shift1=False,
                     subtract_baseline=False, fcut=None):
@@ -2069,9 +2006,7 @@ class MicrocalDataSet(object):
 
     def read_trace(self, record_num):
         """Read (from cache or disk) and return the pulse numbered `record_num`."""
-        seg_num = record_num // self.pulse_records.pulses_per_seg
-        self.read_segment(seg_num)
-        return self.data[record_num % self.pulse_records.pulses_per_seg, :]
+        return self.data[record_num, :]
 
     @_add_group_loop()
     def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree=2000,
