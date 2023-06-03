@@ -1,7 +1,7 @@
 """
-The mass.files module contains classes required for handling the various types
+The `mass.core.files` module contains classes required for handling the various types
 of pulse data files.  In principle, there could be multiple data file types.
-Therefore, this module contains only three concrete classes, the VirtualFile and
+But this module contains only two concrete classes, the VirtualFile and
 the LJHFile (along with the abstract base class MicrocalFile).
 VirtualFile is for treating an array of data as if it were a file.
 
@@ -14,26 +14,31 @@ MicrocalFile.__init__ to verify that it has the required interface:
 Created on Feb 16, 2011
 """
 
+__all__ = [
+    "MicrocalFile",
+    "LJHFile",
+    "VirtualFile"
+]
 
 import numpy as np
 import os
 from packaging.version import Version
 import logging
 import collections
+from mass import __version__
 LOG = logging.getLogger("mass")
 
 
 class MicrocalFile(object):
     """A set of data on disk containing triggered records from a microcalorimeter.
 
-    The pulses can be noise or X-rays.  This is meant to be
-    an abstract class.  Use `LJHFile.open()` or `VirtualFile()`. In the future,
-    other derived classes could implement copy, and read_trace to
+    The pulses can be noise or X-rays.  This is meant to be an abstract class.
+    Use `LJHFile.open()` or `VirtualFile()` to create one.
+    In the future, other derived classes could implement copy() and read_trace() to
     process other file types.
     """
 
     def __init__(self):
-        # Filename of the data file
         self.filename = None
         self.channum = 99999
         self.nSamples = 0
@@ -105,6 +110,15 @@ class VirtualFile(MicrocalFile):
 
 
 def read_ljh_header(filename):
+    """Read an LJH file's ASCII header (any LJH file version).
+
+    Opens and closes the file.
+
+    Return `(hd, hs)`
+    * `hd` is the dictionary of header information
+    * `hs` is the size (bytes) of the ASCII header. Binary data starts at this offset
+      in the file.
+    """
     TOO_LONG_HEADER = 256  # headers with more than this many lines are ridiculous and an error
 
     header_dict = collections.OrderedDict()
@@ -137,7 +151,7 @@ class LJHFile(MicrocalFile):
     """Read a single LJH file of version 2.2 or 2.1.
 
     The class is not meant to be created directly. Instead, use the class method
-    `open(filename)` to return an instance of the appropriate subclass (either
+    `LJHFile.open(filename)` to return an instance of the appropriate subclass (either
     `LJHFile2_2` or `LJHFile2_1`), determined by reading the LJH header before
     creating the instance.
 
@@ -208,23 +222,31 @@ class LJHFile(MicrocalFile):
         self.nPulses = self.binary_size // self.pulse_size_bytes
 
         # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
-        # It adds 3 to the "true value" of nPresamples. For now, assume that only
-        # DASTARD clients have this figure correct.
+        # It adds 3 to the nominal value of nPresamples to get the "true" value.
+        # For now, assume that only DASTARD clients have this figure correct.
+        # So when there are 500 samples before the first non-trivial (triggered) data
+        # sample, DASTARD will say nPresamples=500, but earlier clients will say
+        # nPresamples=497 in the LJH file. Correct the latter here.
         if b"DASTARD" not in self.client:
             self.nPresamples += 3
 
-        # This used to be fatal. It prevented opening files cut short by
-        # a crash of the DAQ software, so we made it just a warning.
+        # Files cut short by a crash of the DAQ software (or whatever) will generate
+        # a warning here (unless they happened to cut off at a record boundary).
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
             LOG.warning("Warning: The binary size "
                         + "(%d) is not an integer multiple of the pulse size %d bytes" %
                         (self.binary_size, self.pulse_size_bytes))
             LOG.warning("%06s" % filename)
 
-        # Record the sample times in microseconds
+        # It's handy to precompute the times of each sample in a record (in µs)
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
     def set_segment_size(self, segmentsize=None):
+        """Set the `segmentsize` in bytes.
+
+        Segments are not an intrinsic part of handling MASS memory, but they can be convenient
+        as a way to offer modestly sized chunks of data for certain processing.
+        """
         # Segments are no longer a critical part of how MASS handles memory, but it still makes
         # sense to offer mid-sized data chunks for data processing.
         if segmentsize is None:
@@ -252,7 +274,6 @@ class LJHFile(MicrocalFile):
         """Return a single data trace (number <trace_num>).
 
         If `with_timing` is True, return (rowcount, posix_usec, pulse_record), otherwise just pulse_record.
-        This comes either from cache or by reading off disk, if needed.
         """
         pulse_record = self.alldata[trace_num]
         if with_timing:
@@ -261,6 +282,8 @@ class LJHFile(MicrocalFile):
 
 
 class LJHFile2_1(LJHFile):
+    """Class to handle LJH version 2.1 files."""
+
     def __init__(self, filename, header_dict, header_size):
         super().__init__(filename, header_dict, header_size)
 
@@ -282,6 +305,7 @@ class LJHFile2_1(LJHFile):
         return 6 + 2 * self.nSamples
 
     def _parse_times(self):
+        "Call this only on-demand, when row counts or record times are asked for."
         # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,
         # where u is a byte giving microseconds/4, x is a reserved byte, and mmmm is a 4-byte
         # little-ending giving milliseconds.  The uu should always be in [0,999]
@@ -293,14 +317,10 @@ class LJHFile2_1(LJHFile):
         NS_PER_MSEC = 1000000
         datatime_ns = NS_PER_4USEC_TICK*np.asarray(self._mm["internal_us"], dtype=np.int64)
         datatime_ns[:] += NS_PER_MSEC*np.asarray(self._mm["internal_ms"], dtype=np.int64)
-        # since the timestamps is stored in 4 µs units, which are not commensurate with the actual frame rate,
-        # we can be more precise if we convert to frame number, then back to time
-        # this should as long as the frame rate is greater than or equal to 4 µs
 
-        # this is integer division but rounding up
         NS_PER_FRAME = np.int64(self.timebase*1e9)
         FOURPOINT = 3  # account for 4-point triggering algorithm
-        self.frame_count = (datatime_ns - 1) // NS_PER_FRAME + 1 + FOURPOINT
+        self.frame_count = (1 + FOURPOINT) + (datatime_ns - 1) // NS_PER_FRAME
 
     @property
     def rowcount(self):
@@ -320,14 +340,16 @@ class LJHFile2_1(LJHFile):
 
 
 class LJHFile2_2(LJHFile):
+    """Class to handle LJH version 2.2 files."""
+
     def __init__(self, filename, header_dict, header_size):
         super().__init__(filename, header_dict, header_size)
 
         # Version 2.2 and later include two pieces of time-like information for each pulse.
         # 8 bytes - Int64 row count number
-        # 8 bytes - Int64 posix microsecond time
+        # 8 bytes - Int64 posix microsecond time since the epoch 1970.
         # Technically both could be read as uint64, but then you get overflows when differencing;
-        # we'll give up a factor of 2 to avoid that.
+        # we'll happily give up a factor of 2 in dynamic range to avoid that.
         self.dtype = [
             ("rowcount", np.int64),
             ("posix_usec", np.int64),
@@ -356,61 +378,36 @@ def make_ljh_header(header_dict):
     """Returns a string containing an LJH header (version 2.2.0).
 
     Args:
-        header_dict (dict): should contain the following keys: asctime, timebase,
-            nPresamples, nSamples
+        header_dict (dict): should contain at least the following keys:
+            asctime, timebase, nPresamples, nSamples
     """
-
-    ljh_header = """#LJH Memorial File Format
-Save File Format Version: %(version_str)s
-Software Version: Fake LJH file
+    hd = header_dict
+    ljh_header = f"""#LJH Memorial File Format
+Save File Format Version: {hd["version_str"]}
+Software Version: MASS-generated LJH file, MASS version {__version__}
 Software Driver Version: n/a
-Date: %(asctime)s GMT
+Date: {hd["asctime"]} GMT
 Acquisition Mode: 0
 Digitized Word Size in bytes: 2
-Location: LANL, presumably
-Cryostat: Unknown
-Thermometer: Unknown
-Temperature (mK): 100.0000
-Bridge range: 20000
-Magnetic field (mGauss): 100.0000
-Detector:
-Sample:
-Excitation/Source:
 Operator: Unknown
 SYSTEM DESCRIPTION OF THIS FILE:
 USER DESCRIPTION OF THIS FILE:
 #End of description
 Number of Digitizers: 1
 Number of Active Channels: 1
-Timestamp offset (s): 1304449182.876200
+Timestamp offset (s): {1.0e9:.6f}
 Digitizer: 1
-Description: CS1450-1 1M ver 1.16
 Master: Yes
 Bits: 16
-Effective Bits: 0
-Anti-alias low-pass cutoff frequency (Hz): 0.000
-Timebase: %(timebase).4e
+Timebase: {hd["timebase"]:.4e}
 Number of samples per point: 1
-Presamples: %(nPresamples)d
-Total Samples: %(nSamples)d
-Trigger (V): 250.000000
-Tigger Hysteresis: 0
-Trigger Slope: +
-Trigger Coupling: DC
-Trigger Impedance: 1 MOhm
-Trigger Source: CH A
-Trigger Mode: 0 Normal
-Trigger Time out: 351321
-Use discrimination: No
+Presamples: {hd["nPresamples"]}
+Total Samples: {hd["nSamples"]}
 Channel: 1.0
 Description: A (Voltage)
 Range: 0.500000
 Offset: -0.000122
-Coupling: DC
-Impedance: 1 Ohms
 Inverted: No
-Preamp gain: 1.000000
-Discrimination level (%%): 1.000000
 #End of Header
-""" % header_dict
+"""
     return ljh_header.encode()

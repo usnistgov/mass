@@ -3,6 +3,7 @@
 **0.8.0** May 2023-
 
 * Use `np.memmap` on LJH files as well as OFF (issue 160).
+* Remove `iter_segments()` and internal use of `read_segment()`.
 * Start to use `setup.cfg` instead of Python code to configure build/install (issue 238).
 
 
