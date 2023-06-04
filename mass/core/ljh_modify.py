@@ -102,7 +102,7 @@ class callback_shift(object):
 
 
 def helper_write_pulse(dest, src, i):
-    rowcount, timestamp_usec, trace = src.read_trace(i, with_timing=True)
+    rowcount, timestamp_usec, trace = src.read_trace_with_timing(i)
     prefix = struct.pack('<Q', int(rowcount))
     dest.write(prefix)
     prefix = struct.pack('<Q', int(timestamp_usec))

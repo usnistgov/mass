@@ -20,16 +20,17 @@ __all__ = [
     "VirtualFile"
 ]
 
-import numpy as np
 import os
-from packaging.version import Version
 import logging
 import collections
+
+import numpy as np
+from packaging.version import Version
 from mass import __version__
 LOG = logging.getLogger("mass")
 
 
-class MicrocalFile(object):
+class MicrocalFile:
     """A set of data on disk containing triggered records from a microcalorimeter.
 
     The pulses can be noise or X-rays.  This is meant to be an abstract class.
@@ -49,21 +50,20 @@ class MicrocalFile(object):
 
     def __str__(self):
         """Summary for the print function"""
-        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
-            self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
-            1e6*self.timebase)
+        return f"{self.__class__.__name__} path '{self.filename}'\n"\
+            f"{self.nSamples} samples ({self.nPresamples} pretrigger) at {1e6*self.timebase:.2f} µs sample time"
 
     def __repr__(self):
         """Compact representation of how to construct from a filename."""
-        return "%s('%s')" % (self.__class__.__name__, self.filename)
+        return f"{self.__class__.__name__}('{self.filename}')"
 
-    def read_trace(self, trace_num=0):
+    def read_trace(self, trace_num):
         """Read a single pulse record from the binary data."""
-        raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
+        raise NotImplementedError(f"{self.__class__.__name__} is an abstract class.")
 
     def copy(self):
         """Make a usable copy of self."""
-        raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
+        raise NotImplementedError(f"{self.__class__.__name__} is an abstract class.")
 
 
 class VirtualFile(MicrocalFile):
@@ -79,7 +79,7 @@ class VirtualFile(MicrocalFile):
             times: a 1d array of pulse times (or default None)
             presamples: number samples considered presamples (default 0)
         """
-        super(VirtualFile, self).__init__()
+        super().__init__()
         self.data = np.asarray(data, dtype=np.int16)
         self.nSamples = data.shape[1]
         self.nPulses = data.shape[0]
@@ -105,7 +105,7 @@ class VirtualFile(MicrocalFile):
     def read_trace(self, trace_num):
         """Return the data for pulse number <trace_num>"""
         if trace_num >= self.nPulses:
-            raise ValueError("This VirtualFile has only %d pulses" % self.nPulses)
+            raise ValueError(f"This VirtualFile has only {self.nPulses} pulses")
         return self.data[trace_num]
 
 
@@ -129,17 +129,17 @@ def read_ljh_header(filename):
             line = fp.readline()
             if line.startswith(b"#End of Header"):
                 break
-            elif line == b"":
+            if line == b"":
                 raise Exception("reached EOF before #End of Header")
-            elif i > TOO_LONG_HEADER:
+            if i > TOO_LONG_HEADER:
                 raise IOError("header is too long--seems not to contain '#End of Header'\n"
-                              + "in file %s" % filename)
-            elif b":" in line:
+                              f"in file {filename}")
+            if b":" in line:
                 a, b = line.split(b":", 1)  # maxsplits=1, py27 doesnt support keyword
                 a = a.strip()
                 b = b.strip()
                 if a in header_dict and a != b"Dummy":
-                    print("repeated header entry {}".format(a))
+                    print(f"repeated header entry {a}")
                 header_dict[a.strip()] = b.strip()
             else:
                 continue  # ignore lines without ":"
@@ -174,8 +174,7 @@ class LJHFile(MicrocalFile):
 
         if Version(version_str.decode()) < Version("2.2.0"):
             return LJHFile2_1(filename, header_dict, header_size)
-        else:
-            return LJHFile2_2(filename, header_dict, header_size)
+        return LJHFile2_2(filename, header_dict, header_size)
 
     def __init__(self, filename, header_dict, header_size):
         """Users shouldn't call this method directly; call class method `open` instead."""
@@ -192,8 +191,19 @@ class LJHFile(MicrocalFile):
         self.number_of_rows = None
         self.number_of_columns = None
         self.version_str = None
+        self._mm = None
         self._parse_header()
         self.set_segment_size()
+
+    def copy(self):
+        """Return a copy of the object.  Handy for updating method definitions."""
+        c = self.__class__(self.filename, self.header_dict, self.header_size)
+        c.__dict__.update(self.__dict__)
+        return c
+
+    def __repr__(self):
+        """Compact representation of how to construct from a filename."""
+        return f"LJHFile.open('{self.filename}')"
 
     def _parse_header(self):
         """Parse the complete `self.header_dict`, filling key attributes from it."""
@@ -234,9 +244,9 @@ class LJHFile(MicrocalFile):
         # a warning here (unless they happened to cut off at a record boundary).
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
             LOG.warning("Warning: The binary size "
-                        + "(%d) is not an integer multiple of the pulse size %d bytes" %
-                        (self.binary_size, self.pulse_size_bytes))
-            LOG.warning("%06s" % filename)
+                        "(%d) is not an integer multiple of the pulse size %d bytes",
+                        self.binary_size, self.pulse_size_bytes)
+            LOG.warning("%06s", filename)
 
         # It's handy to precompute the times of each sample in a record (in µs)
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
@@ -270,15 +280,14 @@ class LJHFile(MicrocalFile):
     def __getitem__(self, item):
         return self.alldata[item]
 
-    def read_trace(self, trace_num, with_timing=False):
-        """Return a single data trace (number <trace_num>).
+    def read_trace(self, trace_num):
+        """Return a single data trace (number <trace_num>)."""
+        return self.alldata[trace_num]
 
-        If `with_timing` is True, return (rowcount, posix_usec, pulse_record), otherwise just pulse_record.
-        """
+    def read_trace_with_timing(self, trace_num):
+        """Return a single data trace as (rowcount, posix_usec, pulse_record)."""
         pulse_record = self.alldata[trace_num]
-        if with_timing:
-            return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
-        return pulse_record
+        return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
 
 
 class LJHFile2_1(LJHFile):
