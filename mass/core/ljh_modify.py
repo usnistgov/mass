@@ -3,14 +3,14 @@ Functions ljh_copy_traces and ljh_append_traces and class LJHModify, all of
 which can modify existing LJH files.
 """
 
-import numpy as np
 import os
 import struct
 import time
+import numpy as np
+from packaging.version import Version
 
 from mass.core.files import LJHFile, make_ljh_header
 from mass.core.utilities import InlineUpdater
-from packaging.version import Version
 
 
 def LJHModify(input_filename, output_filename, callback, overwrite=False):
@@ -33,20 +33,20 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
     # Check for file problems, then open the input and output LJH files.
     if os.path.exists(output_filename):
         if os.path.samefile(input_filename, output_filename):
-            raise ValueError("Input '%s' and output '%s' are the same file, which is not allowed." %
-                             (input_filename, output_filename))
+            raise ValueError(f"Input '{input_filename}' and output '{output_filename}' "
+                             "are the same file, which is not allowed.")
         if overwrite:
-            print("WARNING: overwriting output file '%s'" % output_filename)
+            print(f"WARNING: overwriting output file '{output_filename}'")
         else:
-            raise ValueError("Output file '%s' exists. Call with overwrite=True to proceed anyway."
-                             % output_filename)
+            raise ValueError(f"Output file '{output_filename}' exists. "
+                             "Call with overwrite=True to proceed anyway.")
 
     infile = LJHFile.open(input_filename)
     with open(output_filename, "wb") as outfile:
         # Copy the header as a single string.
         outfile.write("".join(infile.header_lines))
 
-        # TODO: For now, we are not modifying the times and row #s
+        # For now, we are not modifying the times and row #s
         # If we wanted to, that would require a fancier callback, I guess.
 
         # Write the modified segdata (and the unmodified row count and timestamps).
@@ -93,7 +93,7 @@ def callback_invert(record):
 # This creates a "function object", which is callable but also stores internally
 # the number that you wanted to add to every raw data value.
 
-class callback_shift(object):
+class callback_shift():
     def __init__(self, shiftby):
         self.shift = shiftby
 
@@ -126,7 +126,7 @@ def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
     """
 
     if os.path.exists(dest_name) and not overwrite:
-        raise IOError("The ljhfile '%s' exists and overwrite was not set to True" % dest_name)
+        raise IOError(f"The ljhfile '{dest_name}' exists and overwrite was not set to True")
 
     src = LJHFile.open(src_name)
 
@@ -205,15 +205,14 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
         outfile.write(b"#End of Header\r\n")
 
         # Write pulses. Stop reading segments from the original file as soon as possible.
-        finished = False
-        for i in range(infile.nPulses):
-            if (n_pulses is not None and i < n_pulses) or \
-                    (timestamp is not None and infile.datatimes_float[i] <= timestamp):
-                prefix = struct.pack('<Q', np.uint64(infile.rowcount[i]))
-                outfile.write(prefix)
-                prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i]))
-                outfile.write(prefix)
-                trace = infile.alldata[i, :]
-                trace.tofile(outfile, sep="")
-            else:
+        if n_pulses is None:
+            n_pulses = infile.nPulses
+        for i in range(n_pulses):
+            if (timestamp is not None and infile.datatimes_float[i] > timestamp):
                 break
+            prefix = struct.pack('<Q', np.uint64(infile.rowcount[i]))
+            outfile.write(prefix)
+            prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i]))
+            outfile.write(prefix)
+            trace = infile.alldata[i, :]
+            trace.tofile(outfile, sep="")

@@ -1,18 +1,21 @@
 #!/usr/bin/python
-import mass
-import mass.off
+
+"""
+A script for conversion of LJH files to OFF files, given some projectors and basis.
+"""
+
 import os
 import json
+import argparse
+import logging
+import sys
 import collections
 import numpy as np
 import h5py
 import progress.bar
-import argparse
-import logging
-import sys
+import mass
+import mass.off
 LOG = logging.getLogger("mass")
-
-# Intended for conversion of LJH files to OFF files, given some projectors and basis
 
 _OFF_VERSION = "0.3.0"
 
@@ -84,9 +87,8 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
 
     # To keep linear algebra sizes manageable, loop over the file in segments
     seg_bytes = 2**21
-    rec_per_seg = seg_bytes // ljhfile.binary_size
-    if rec_per_seg < 1:
-        rec_per_seg = 1
+    rec_per_seg = max(seg_bytes // ljhfile.binary_size, 1)
+
     records_written = 0
     for idx_lo in np.arange(0, ljhfile.nPulses, rec_per_seg):
         idx_hi = min(idx_lo + rec_per_seg, ljhfile.nPulses)
@@ -99,7 +101,8 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
         projector_record_length = projectors.shape[1]
         data_record_length = data.shape[1]
         assert projector_record_length == data_record_length, \
-            f"projectors are for records of length {projector_record_length}, but {ljhfile} has records of length {data_record_length}"
+            f"projectors are for records of length {projector_record_length}, " \
+            f"but {ljhfile} has records of length {data_record_length}"
         mpc = np.matmul(projectors, data.T)  # modeled pulse coefs
         mp = np.matmul(basis, mpc)  # modeled pulse
         residuals = mp-data.T
@@ -124,12 +127,11 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
 
 
 def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_presamples,
-                       require_experiment_state=True,
                        show_progress=LOG.isEnabledFor(logging.WARN)):
     pulse_model_dict = load_pulse_models(h5_path)
     n_channels = min(max_channels, len(pulse_model_dict))
     if show_progress:
-        bar = progress.bar.Bar("processing ljh files to off files:", max=n_channels)
+        progbar = progress.bar.Bar("processing ljh files to off files:", max=n_channels)
     off_filenames = []
     ljh_filename_lists = []
     handled_channels = 0
@@ -138,47 +140,46 @@ def multi_ljh2off_loop(ljhbases, h5_path, off_basename, max_channels, n_ignore_p
         offpath = f'{off_basename}_chan{channum}.off'
         if not any([os.path.isfile(ljhpath) for ljhpath in ljhpaths]):
             continue  # make sure at least one of the desired files exists
-        pulse_model = pulse_model_dict[channum]
         multi_ljh2off(ljhpaths, offpath, pulse_model.projectors,
                       pulse_model.basis, n_ignore_presamples, h5_path)
         if show_progress:
-            bar.next()
+            progbar.next()
         off_filenames.append(offpath)
         ljh_filename_lists.append(ljhpaths)
         handled_channels += 1
         if handled_channels == max_channels:
             break
     if show_progress:
-        bar.finish()
+        progbar.finish()
     return ljh_filename_lists, off_filenames
 
 
 def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples, require_experiment_state=True,
                  show_progress=LOG.isEnabledFor(logging.WARN)):
-    basename, channum = mass.ljh_util.ljh_basename_channum(ljhpath)
-    ljhdir, file_basename = os.path.split(basename)
+    basename, _channum = mass.ljh_util.ljh_basename_channum(ljhpath)
+    _ljhdir, file_basename = os.path.split(basename)
     off_basename = os.path.join(output_dir, file_basename)
     ljh_filename_lists, off_filenames = multi_ljh2off_loop([basename], h5_path, off_basename,
-                                                           max_channels, n_ignore_presamples, require_experiment_state, show_progress)
+                                                           max_channels, n_ignore_presamples, show_progress)
     ljh_filenames = [fname[0] for fname in ljh_filename_lists]
     for fname in ljh_filename_lists:
         assert len(fname) == 1
-    source_experiment_state_filename = "{}_experiment_state.txt".format(basename)
-    sink_experiment_state_filename = "{}_experiment_state.txt".format(off_basename)
+    source_experiment_state_filename = f"{basename}_experiment_state.txt"
+    sink_experiment_state_filename = f"{off_basename}_experiment_state.txt"
     if os.path.isfile(source_experiment_state_filename):
         if source_experiment_state_filename != sink_experiment_state_filename:
-            with open(source_experiment_state_filename, "r") as f_source:
-                with open(sink_experiment_state_filename, "w") as f_sink:
+            with open(source_experiment_state_filename, "r", encoding="utf8") as f_source:
+                with open(sink_experiment_state_filename, "w", encoding="utf8") as f_sink:
                     for line in f_source:
                         f_sink.write(line)
-                    print("wrote experiment state file to : {}".format(
-                        os.path.abspath(sink_experiment_state_filename)))
+                    outfile = os.path.abspath(sink_experiment_state_filename)
+                    print(f"Wrote experiment state file to : {outfile}")
         else:
-            print("not copying experiment state file {} because the source and destination are the same".format(
-                source_experiment_state_filename))
+            print(f"not copying experiment state file {source_experiment_state_filename}"
+                  " because the source and destination are the same")
     elif require_experiment_state:
-        raise Exception("{} does not exist, and require_experiment_state=True".format(
-            source_experiment_state_filename))
+        raise Exception(f"{source_experiment_state_filename} does not exist,"
+                        " and require_experiment_state=True")
 
     return ljh_filenames, off_filenames
 
@@ -188,7 +189,7 @@ def load_pulse_models(h5_path):
     with h5py.File(h5_path, "r") as h5:
         channel_numbers = sorted(map(int, h5.keys()))
         for channum in channel_numbers:
-            pulse_model = mass.PulseModel.fromHDF5(h5["{}".format(channum)])
+            pulse_model = mass.PulseModel.fromHDF5(h5[f"{channum}"])
             pulse_model_dict[channum] = pulse_model
     return pulse_model_dict
 
@@ -211,7 +212,8 @@ def parse_args(fake):
     parser.add_argument("-m", "--max_channels",
                         help="stop after processing this many channels", default=2**31, type=int)
     parser.add_argument("--n_ignore_presamples",
-                        help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=0, type=int)
+                        help="ignore this many presample before the rising edge when calculating pretrigger_mean",
+                        default=0, type=int)
     args = parser.parse_args()
     return args
 
@@ -220,13 +222,13 @@ def main():
     print("starting ljh2off")
     args = mass.ljh2off.parse_args(fake=False)
     for k in sorted(vars(args).keys()):
-        print("{}: {}".format(k, vars(args)[k]))
+        print(f"{k}: {vars(args)[k]}")
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir)
     elif not args.replace_output:
-        print("dir {} exists, pass --replace_output to write into it anyway".format(args.output_dir))
+        print(f"dir {args.output_dir} exists, pass --replace_output to write into it anyway")
         sys.exit()
-    ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
+    _, off_filenames = mass.ljh2off.ljh2off_loop(
         args.ljh_path, args.h5_path, args.output_dir, args.max_channels, args.n_ignore_presamples)
     print("full path to first off file:")
     print(os.path.abspath(off_filenames[0]))
@@ -244,4 +246,5 @@ class FakeArgs():
         self.f_3db_5lag = None
 
     def __repr__(self):
-        return "FakeArgs: change the script to have _TEST=False to use real args, this is just for testing from within ipython"
+        return "FakeArgs: change the script to have _TEST=False to use real args;" \
+            " this is just for testing from within ipython"

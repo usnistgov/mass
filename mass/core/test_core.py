@@ -399,8 +399,7 @@ class TestTESGroup(ut.TestCase):
             offbase = f"{output_dir}/{prefix}"
             ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
                 [basename]*2, hdf5_filename, offbase, max_channels,
-                n_ignore_presamples, require_experiment_state=False
-            )
+                n_ignore_presamples)
             self.assertEqual(ds.filename, ljh_filename_lists[0][0])
             off_multi = mass.off.off.OffFile(off_filenames_multi[0])
             self.assertEqual(2*N, len(off_multi))

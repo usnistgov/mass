@@ -6,9 +6,9 @@ number from the name, sorting names by channel number, and so on).
 import glob
 import os
 import re
+from os import path
 import numpy as np
 
-from os import path
 from ..common import isstr
 
 __all__ = ["ljh_basename_channum", "ljh_chan_names", "ljh_get_channels",
@@ -19,10 +19,10 @@ __all__ = ["ljh_basename_channum", "ljh_chan_names", "ljh_get_channels",
 
 def ljh_get_channels(fname):
     basename, chan = ljh_basename_channum(fname)
-    dir, ljhname = path.split(basename)
+    filedir, ljhname = path.split(basename)
     chans = []
-    for f in os.listdir(dir):
-        if not os.path.isfile(os.path.join(dir, f)):
+    for f in os.listdir(filedir):
+        if not os.path.isfile(os.path.join(filedir, f)):
             continue
         bname, chan = ljh_basename_channum(f)
         if bname == ljhname and isinstance(chan, int):
@@ -55,7 +55,7 @@ def ljh_basename_channum(fname):
     for last_chan_match in chanmatches:
         pass
     if last_chan_match is None:
-        basename, ext = path.splitext(fname)
+        basename, _ = path.splitext(fname)
         chan = None
     else:
         basename = fname[:last_chan_match.start()]
@@ -71,20 +71,20 @@ def ljh_channum(name):
 def ljh_chan_names(fname, chans):
     basename, _ = ljh_basename_channum(fname)
     ext = path.splitext(fname)[1]
-    return [basename+"_chan%d%s" % (chan, ext) for chan in chans]
+    return [basename+f"_chan{chan}{ext}" for chan in chans]
 
 
 def ljh_get_extern_trig_fname(fname):
-    basename, chan = ljh_basename_channum(fname)
+    basename, _ = ljh_basename_channum(fname)
     return basename+"_extern_trig.hdf5"
 
 
 def output_basename_from_ljh_fname(ljh):
-    basename, chan = ljh_basename_channum(ljh)
-    dir, fname = path.split(basename)
-    if not path.isdir(dir):
-        raise ("ValueError %s is not valid directory" % dir)
-    outputdir = path.join(dir, "mass_output")
+    basename, _ = ljh_basename_channum(ljh)
+    ljhdir, fname = path.split(basename)
+    if not path.isdir(ljhdir):
+        raise (f"ValueError {ljhdir} is not valid directory")
+    outputdir = path.join(ljhdir, "mass_output")
     if not path.isdir(outputdir):
         os.mkdir(outputdir)
     output_basefname = path.join(outputdir, fname)
@@ -92,11 +92,11 @@ def output_basename_from_ljh_fname(ljh):
 
 
 def mass_folder_from_ljh_fname(ljh, filename=""):
-    basename, chan = ljh_basename_channum(ljh)
-    dir, fname = path.split(basename)
-    if not path.isdir(dir):
-        raise ValueError("%s is not valid directory" % dir)
-    outputdir = path.join(dir, "mass")
+    basename, _ = ljh_basename_channum(ljh)
+    ljhdir, _ = path.split(basename)
+    if not path.isdir(ljhdir):
+        raise ValueError(f"{ljhdir} is not valid directory")
+    outputdir = path.join(ljhdir, "mass")
     if not path.isdir(outputdir):
         os.mkdir(outputdir)
     return path.join(outputdir, filename)
@@ -194,7 +194,7 @@ def filename_glob_expand(pattern):
 # was created in late 2014.
 
 def ljh_get_aux_fname(fname):
-    basename, chan = ljh_basename_channum(fname)
+    basename, _ = ljh_basename_channum(fname)
     return basename+".timing_aux"
 
 
