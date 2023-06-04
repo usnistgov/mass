@@ -171,7 +171,7 @@ class NoiseRecords(object):
         uncertainty on each PSD estimate.  No free lunch, know what I mean?
         """
 
-        if not self.continuous and seg_length is not None:
+        if not self.continuous and seg_length is not None and seg_length != self.nSamples:
             raise ValueError(
                 "This NoiseRecords doesn't have continuous noise; it can't be resegmented.")
 
@@ -1567,7 +1567,7 @@ class MicrocalDataSet(object):
                 (default None).
             forceNew (bool): whether to recompute if it already exists (default False).
         """
-        if n_lags is None and self.noise_records.continuous:
+        if n_lags is None:
             n_lags = self.noise_records.nSamples
         if forceNew or all(self.noise_autocorr[:] == 0):
             self.noise_records.compute_power_spectrum_reshape(
