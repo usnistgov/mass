@@ -4,9 +4,11 @@
 
 * Use `np.memmap` on LJH files as well as OFF (issue 160).
 * Start to use `setup.cfg` instead of Python code to configure build/install (issue 238).
+* Clean out code from the `nonstandard` directory (issue 241).
+* Move tests out of the installed mass package (issue 242).
 
 
-**0.7.10** February 2023-
+**0.7.10** June 2, 2023
 
 * Fix issue 229: bug in writing `bin/ljh_merge`; was not writing timestamp and row count.
 * Fix issue 230: add Sc Kα and Kβ data from 2019-2020 publications by Dean et al.

@@ -1,7 +1,7 @@
 import numpy as np
 import uncertainties
 from uncertainties import unumpy as unp
-from . import uncertainties_helpers
+from mass.materials import uncertainties_helpers
 
 import mass
 import mass.materials
