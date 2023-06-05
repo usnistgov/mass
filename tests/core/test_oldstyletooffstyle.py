@@ -6,8 +6,8 @@ import numpy as np
 
 def load_data(hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
               experimentStateFile=None):
-    src_name = ['mass/regression_test/regress_chan1.ljh']
-    noi_name = ['mass/regression_test/regress_noise_chan1.ljh']
+    src_name = ['tests/regression_test/regress_chan1.ljh']
+    noi_name = ['tests/regression_test/regress_noise_chan1.ljh']
     if skip_noise:
         noi_name = None
     if hdf5_filename is None:

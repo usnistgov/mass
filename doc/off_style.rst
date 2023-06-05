@@ -40,7 +40,7 @@ Here we open an OFF file and plot a reconstructed record.
   import numpy as np 
   import pylab as plt
 
-  off = mass.off.OffFile("../mass/off/data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
+  off = mass.off.OffFile("../tests/off/data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
   x,y = off.recordXY(0)
   
   plt.figure()
@@ -105,7 +105,7 @@ name any particular channel ``ds``. There are convenience functions for many plo
 .. testcode::
 
   from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks
-  data = ChannelGroup(getOffFileListFromOneFile("../mass/off/data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off", maxChans=2))
+  data = ChannelGroup(getOffFileListFromOneFile("../tests/off/data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off", maxChans=2))
 
 I typically just label states alphabetically while taking data, but it can be convenient to alias them with some meaningful name for analysis.
 Currently this must be done before you access any data from the OFF file.
@@ -261,9 +261,9 @@ Data
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  Channel based on <OFF file> ../mass/off/data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off, 19445 records, 5 length basis
+  Channel based on <OFF file> ../tests/off/data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off, 19445 records, 5 length basis
 
-  Channel based on <OFF file> ../mass/off/data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan3.off, 27369 records, 5 length basis
+  Channel based on <OFF file> ../tests/off/data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan3.off, 27369 records, 5 length basis
 
 
 
