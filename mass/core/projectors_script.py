@@ -52,8 +52,11 @@ def parse_args(fake):
                         help="cutoff frequency for 5lag filter", default=None, type=float)
     parser.add_argument("--n_ignore_presamples",
                         help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=3, type=int)
+    help_sigma_pt_rms = """passed to autocuts to determine pulses used to generate pulse model;
+the default large value basically disables this cut, which causes the projectors to
+be able to model the non-flat pretrigger region better"""
     parser.add_argument("--n_sigma_pt_rms", type=float, default=10000,
-                        help="passed to autocuts to determine pulses used to generate pulse model, the default large value basically disables this cut, which causes the projectors to be able to model the non-flat pretrigger region better")
+                        help=help_sigma_pt_rms)
     parser.add_argument("--n_sigma_max_deriv", type=float, default=8,
                         help="passed to autocuts to determine pulses used to generate pulse model")
     parser.add_argument("-n", "--n_basis", type=int, default=5,

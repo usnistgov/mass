@@ -28,8 +28,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
         """Summarize one segment of the data file, loading it into cache."""
         cdef:
             Py_ssize_t i, j, k
-            unsigned short[:, :] pulse_data
-            unsigned short[:] pulse
+            const unsigned short[:] pulse
             long seg_size
             long first, end, pulses_per_seg
 
@@ -97,10 +96,8 @@ class CythonMicrocalDataSet(MicrocalDataSet):
         e_nPresamples = nPresamples - self.pretrigger_ignore_samples
         peak_samplenumber = self.peak_samplenumber
 
-        pulse_data = self.data
-
         for j in range(seg_size):
-            pulse = pulse_data[j]
+            pulse = self.data[j, :]
             pretrig_sum = 0.0
             pretrig_rms_sum = 0.0
             pulse_sum = 0.0
@@ -249,8 +246,7 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             int n_segments, pulses_per_seg, seg_size, nSamples, filter_length
             double conv0, conv1, conv2, conv3, conv4
             double[:] filt_phase_array, filt_value_array, filter_values
-            unsigned short[:, :] pulse_data
-            unsigned short[:] pulse
+            const unsigned short[:] pulse
             unsigned short sample
             double f0, f1, f2, f3, f4
             double p0, p1, p2
@@ -286,10 +282,8 @@ class CythonMicrocalDataSet(MicrocalDataSet):
             first, end = self.read_segment(i)  # this reloads self.data to contain new pulses
             seg_size = end - first
 
-            pulse_data = self.data
-
             for j in range(seg_size):
-                pulse = pulse_data[j]
+                pulse = self.data[j, :]
 
                 f0, f1, f2, f3 = filter_values[0], filter_values[1], filter_values[2], filter_values[3]
 

@@ -61,7 +61,7 @@ def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, o
 
 
 def multi_ljh2off(ljhpaths, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
-    ljhfile0 = mass.LJHFile(ljhpaths[0])
+    ljhfile0 = mass.LJHFile.open(ljhpaths[0])
     nbasis = projectors.shape[0]
     dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
     with open(offpath, "wb") as f:  # opening in binary form prevents windows from messing up newlines
@@ -72,7 +72,7 @@ def multi_ljh2off(ljhpaths, offpath, projectors, basis, n_ignore_presamples, h5_
         n = ljh_records_to_off(ljhfile0, f, projectors, basis, n_ignore_presamples, dtype)
         assert n == ljhfile0.nPulses, "wrong number of records written"
         for ljhpath in ljhpaths[1:]:
-            ljhfile = mass.LJHFile(ljhpath)
+            ljhfile = mass.LJHFile.open(ljhpath)
             n = ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype)
             assert n == ljhfile.nPulses, "wrong number of records written"
 
@@ -85,9 +85,8 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
     for (i_lo, i_hi, i_segment, data) in ljhfile.iter_segments():
         records_this_seg = data.shape[0]
         n += records_this_seg
-        # print("i_lo {}, i_hi {}, i_segment {}, nnow {}, nsum {}".format(i_lo, i_hi, i_segment, data.shape[0], n))
-        timestamps = ljhfile.datatimes_float
-        rowcounts = ljhfile.rowcount
+        timestamps = ljhfile.datatimes_float[i_lo:i_hi]
+        rowcounts = ljhfile.rowcount[i_lo:i_hi]
         projector_record_length = projectors.shape[1]
         data_record_length = data.shape[1]
         assert projector_record_length == data_record_length, f"projectors are for records of length {projector_record_length}, but {ljhfile} has records of length {data_record_length}"

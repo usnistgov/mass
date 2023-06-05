@@ -47,7 +47,7 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
             raise ValueError("Output file '%s' exists. Call with overwrite=True to proceed anyway."
                              % output_filename)
 
-    infile = LJHFile(input_filename)
+    infile = LJHFile.open(input_filename)
     outfile = open(output_filename, "wb")
 
     # Copy the header as a single string.
@@ -62,7 +62,7 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
 
         # Write the modified segdata (and the unmodified row count and timestamps).
         if Version(infile.version_str.decode()) >= Version("2.2.0"):
-            x = np.zeros((last-first,), dtype=infile.post22_data_dtype)
+            x = np.zeros((last-first,), dtype=infile.dtype)
             x["rowcount"] = infile.rowcount
             x["posix_usec"] = infile.datatimes_float*1e6
             x["data"] = segdata
@@ -130,7 +130,7 @@ def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
     if os.path.exists(dest_name) and not overwrite:
         raise IOError("The ljhfile '%s' exists and overwrite was not set to True" % dest_name)
 
-    src = LJHFile(src_name)
+    src = LJHFile.open(src_name)
 
     header_dict = src.__dict__.copy()
     header_dict['asctime'] = time.asctime(time.gmtime())
@@ -155,7 +155,7 @@ def ljh_append_traces(src_name, dest_name, pulses=None):
         pulses: indices of the pulses to copy (default: None, meaning copy all)
     """
 
-    src = LJHFile(src_name)
+    src = LJHFile.open(src_name)
     if pulses is None:
         pulses = range(src.nPulses)
     with open(dest_name, "ab") as dest_fp:
@@ -181,24 +181,24 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
     Exactly one of n_pulses and timestamp must be specified.
     """
 
-    if (n_pulses is None and timestamp is None) or (n_pulses is not None and timestamp is not None):
-        msg = "Must specify exactly one of n_pulses, timestamp. Values were %s and %s" % (
-            str(n_pulses), str(timestamp))
+    if (n_pulses is None and timestamp is None) or \
+            (n_pulses is not None and timestamp is not None):
+        msg = "Must specify exactly one of n_pulses, timestamp."
+        msg = msg+f" Values were {str(n_pulses)}, {str(timestamp)}"
         raise Exception(msg)
 
     # Check for file problems, then open the input and output LJH files.
     if os.path.exists(output_filename):
         if os.path.samefile(input_filename, output_filename):
-            raise ValueError("Input '%s' and output '%s' are the same file, which is not allowed." %
-                             (input_filename, output_filename))
+            msg = f"Input '{input_filename}' and output '{output_filename}' are the same file, which is not allowed"
+            raise ValueError(msg)
 
-    if segmentsize is None:
-        infile = LJHFile(input_filename)
-    else:
-        infile = LJHFile(input_filename, segmentsize)
+    infile = LJHFile.open(input_filename)
+    if segmentsize is not None:
+        infile.set_segment_size(segmentsize)
 
     if Version(infile.version_str.decode()) < Version("2.2.0"):
-        raise Exception("Don't know how to truncate this LJH version: %s" % (infile.version_str))
+        raise Exception(f"Don't know how to truncate this LJH version [{infile.version_str}]")
 
     with open(output_filename, "wb") as outfile:
         # write the header as a single string.
@@ -211,12 +211,12 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
         for (start, end, segnum, segdata) in infile.iter_segments():
             for i in range(start, end):
                 if (n_pulses is not None and i < n_pulses) or \
-                        (timestamp is not None and infile.datatimes_float[i-start] <= timestamp):
-                    prefix = struct.pack('<Q', np.uint64(infile.rowcount[i-start]))
+                        (timestamp is not None and infile.datatimes_float[i] <= timestamp):
+                    prefix = struct.pack('<Q', np.uint64(infile.rowcount[i]))
                     outfile.write(prefix)
-                    prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i-start]))
+                    prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i]))
                     outfile.write(prefix)
-                    trace = infile.data[i-start, :]
+                    trace = infile.alldata[i, :]
                     trace.tofile(outfile, sep="")
                 else:
                     finished = True

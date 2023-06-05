@@ -112,7 +112,7 @@ class NoiseRecords(object):
             raise ValueError("file_format must be None or one of %s" % ",".join(self.ALLOWED_TYPES))
 
         if file_format == "ljh":
-            self.datafile = LJHFile(filename, segmentsize=self.maxsegmentsize)
+            self.datafile = LJHFile.open(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
@@ -504,7 +504,7 @@ class PulseRecords(object):
             raise ValueError("file_format must be None or one of %s" % ",".join(self.ALLOWED_TYPES))
 
         if file_format == "ljh":
-            self.datafile = LJHFile(filename)
+            self.datafile = LJHFile.open(filename)
         elif file_format == "virtual":
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
@@ -553,7 +553,7 @@ class PulseRecords(object):
         self.data = None
         self.rowcount = None
         self.times = None
-        self.datafile.clear_cached_segment()
+        self.datafile.clear_cache()
 
     def copy(self):
         """Return a copy of the object.
@@ -1025,7 +1025,7 @@ class MicrocalDataSet(object):
                 MicrocalDataSet._summarize_data_segment(self, segnum, doPretrigFit=doPretrigFit)
             yield (segnum+1.0) / self.pulse_records.n_segments
 
-        self.pulse_records.datafile.clear_cached_segment()
+        self.pulse_records.datafile.clear_cache()
         self.clear_cache()
         self.hdf5_group.file.flush()
         self.__parse_expt_states()
@@ -1431,7 +1431,7 @@ class MicrocalDataSet(object):
                 filterfunction(filter_values, filter_AT, first, end, transform)
             yield (end+1)/float(self.nPulses)
 
-        self.pulse_records.datafile.clear_cached_segment()
+        self.pulse_records.datafile.clear_cache()
         self.hdf5_group.file.flush()
 
     def get_pulse_model(self, f, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag=0,
@@ -2028,8 +2028,8 @@ class MicrocalDataSet(object):
     def read_segment(self, n):
         first, end = self.pulse_records.read_segment(n)
         self.data = self.pulse_records.data
-        self.times = self.pulse_records.times
-        self.rowcount = self.pulse_records.rowcount
+        self.times = self.pulse_records.times[first:end]
+        self.rowcount = self.pulse_records.rowcount[first:end]
 
         # If you want to invert all data on read, then set self.invert_data=True.
         if self.__dict__.get("invert_data", False):

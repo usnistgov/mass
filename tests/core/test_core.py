@@ -20,31 +20,31 @@ class TestFiles(ut.TestCase):
     def test_ljh_copy_and_append_traces(self):
         """Test copying and appending traces to LJH files."""
         src_name = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
-        src = LJHFile(src_name)
+        src = LJHFile.open(src_name)
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
             source_traces = [20]
             ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
-            dest = LJHFile(dest_name)
+            dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
                 self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
             source_traces = [0, 30, 20, 10]
             ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
-            dest = LJHFile(dest_name)
+            dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
                 self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
             source_traces.append(5)
             ljh_append_traces(src_name, dest_name, [5])
-            dest = LJHFile(dest_name)
+            dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
                 self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
             new_traces = [15, 25, 3]
             source_traces.extend(new_traces)
             ljh_append_traces(src_name, dest_name, new_traces)
-            dest = LJHFile(dest_name)
+            dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
                 self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
 
@@ -63,8 +63,8 @@ class TestFiles(ut.TestCase):
             dest_name = destfile.name
             ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
 
-            src = LJHFile(src_name)
-            dest = LJHFile(dest_name)
+            src = LJHFile.open(src_name)
+            dest = LJHFile.open(dest_name)
             self.assertEqual(n_pulses_expected, dest.nPulses)
             for k in range(n_pulses_expected):
                 self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
@@ -77,8 +77,8 @@ class TestFiles(ut.TestCase):
             dest_name = destfile.name
             ljh_truncate(src_name, dest_name, n_pulses=n_pulses, segmentsize=segmentsize)
 
-            src = LJHFile(src_name)
-            dest = LJHFile(dest_name)
+            src = LJHFile.open(src_name)
+            dest = LJHFile.open(dest_name)
             self.assertEqual(n_pulses, dest.nPulses)
             for k in range(n_pulses):
                 self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
@@ -128,7 +128,7 @@ class TestFiles(ut.TestCase):
         self.assertTrue(b"DASTARD" in ds2.pulse_records.datafile.client)
         self.assertEqual(int(ds1.pulse_records.datafile.header_dict[b"Presamples"]), 512)
         self.assertEqual(int(ds2.pulse_records.datafile.header_dict[b"Presamples"]), 515)
-        self.assertEqual(515, ds1.nPresamples)
+        self.assertEqual(515, ds1.nPresamples)  # b/c LJHFile2_1 adds +3 to what's in the file
         self.assertEqual(515, ds2.nPresamples)
         v1 = ds1.data[0]
         v2 = ds2.data[0]
@@ -136,6 +136,10 @@ class TestFiles(ut.TestCase):
         self.assertEqual(ds1.p_pretrig_mean[0], ds2.p_pretrig_mean[0])
         self.assertEqual(ds1.p_pretrig_rms[0], ds2.p_pretrig_rms[0])
         self.assertEqual(ds1.p_pulse_average[0], ds2.p_pulse_average[0])
+
+    def test_ragged_size_file(self):
+        "Make sure we can open a file that was truncated during a pulse record."
+        e = mass.LJHFile.open("tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh")
 
 
 class TestTESGroup(ut.TestCase):
@@ -169,6 +173,14 @@ class TestTESGroup(ut.TestCase):
         return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
                              hdf5_noisefilename=hdf5_noisefilename,
                              experimentStateFile=experimentStateFile)
+
+    def test_cython_readonly_view(self):
+        "Make sure cython summarize_data() runs with a readonly memory view"
+        data = self.load_data()
+        ds = data.channel[1]
+        ds.summarize_data(forceNew=True)
+        self.assertTrue(np.all(ds.p_pretrig_mean[:] > 0))
+        self.assertTrue(np.all(ds.p_pulse_rms[:] > 0))
 
     def test_experiment_state(self):
         # First test with the default experimentStateFile
@@ -349,6 +361,7 @@ class TestTESGroup(ut.TestCase):
     def test_pulse_model_and_ljh2off(self):
         np.random.seed(0)
         data = self.load_data()
+
         data.compute_noise()
         data.summarize_data()
         data.auto_cuts()
@@ -397,6 +410,34 @@ class TestTESGroup(ut.TestCase):
             self.assertEqual(off[7], off_multi[7])
             self.assertEqual(off[7], off_multi[N+7])
             self.assertNotEqual(off[7], off_multi[N+6])
+
+    def test_ljh_records_to_off(self):
+        """Be sure ljh_records_to_off works with ljh files of 2 or more segments."""
+        np.random.seed(0)
+        data = self.load_data()
+        data.compute_noise()
+        data.summarize_data()
+        data.auto_cuts()
+        data.compute_ats_filter(shift1=False)
+        data.filter_data()
+        ds = data.datasets[0]
+
+        # Reduce the segment size, so we test that this works with LJH files having
+        # 2 or more segments. Here choose 3 segments
+        bsize = np.max([ds.pulse_records.datafile.binary_size for ds in data])
+        segsize = (bsize+3*4096)//3
+        segsize -= segsize % 4096
+
+        ljhfile = LJHFile.open(data.channel[1].filename)
+        ljhfile.set_segment_size(segsize)
+        with tempfile.NamedTemporaryFile(suffix='_dummy.off') as f:
+            n_ignore_presamples = 0
+            nbasis = 4
+            projectors = np.zeros((nbasis, data.nSamples), dtype=float)
+            basis = projectors.T
+            off_version = "0.3.0"
+            dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
+            mass.ljh2off.ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype)
 
     def test_projectors_script(self):
         import mass.core.projectors_script

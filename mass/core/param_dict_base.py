@@ -29,17 +29,19 @@ class PrmDictBase(object):
 
     Data dicts whose keys are fixed (non-extensible):
       self.*_prm
+
     These are filled in subclasses by, e.g.,
       self.physical_prm['someprm'] = value
     or
       self.physical_prm.update({'someprm': value,
                                 'another': other_value})
+
     The dictionary with all legal keys should be defined in the subclass.
 
     List of the dictionaries with fixed keys:
       self._prm_list = [self.physical_prm, self.numerical_prm]
-    Subclasses define any self._*_prm dicts and append
-    them to self._prm_list.
+
+    Subclasses define any self._*_prm dicts and append them to self._prm_list.
 
     Meta data given by the user can be stored in self.user_prm.
     This attribute is None if meta data are not allowed,
