@@ -1,78 +1,11 @@
+"""
+Not currently working (June 2, 2023), but might be a good reference for
+trying a speed test comparison for Numba?
+"""
+
 import numpy as np
-import mass
-from mass.core.utilities import InlineUpdater
 
 __all__ = ['summarize_old']
-
-
-def MicrocalDataSet_summarize_data_tdm(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, forceNew=False):
-    """summarized the complete data file one chunk at a time
-    this version does the whole dataset at once (instead of previous segment at a time for all datasets)
-    """
-    if len(self.p_timestamp) < self.pulse_records.nPulses:
-        self.__setup_vectors(nPulses=self.pulse_records.nPulses)
-    elif forceNew or all(self.p_timestamp == 0):
-        self.pretrigger_ignore_samples = int(pretrigger_ignore_microsec*1e-6/self.timebase)
-        # consider setting segment size first
-        printUpdater = InlineUpdater('channel.summarize_data_tdm chan %d' % self.channum)
-
-        for s in range(self.pulse_records.n_segments):
-            # this reloads self.data to contain new pulses
-            first, last = self.pulse_records.read_segment(s)
-            self.p_timestamp[first:last] = self.pulse_records.datafile.datatimes_float
-            (self.p_pretrig_mean[first:last], self.p_pretrig_rms[first:last],
-             self.p_peak_index[first:last], self.p_peak_value[first:last], self.p_min_value[first:last],
-             self.p_pulse_average[first:last], self.p_rise_time[first:last],
-             self.p_max_posttrig_deriv[first:last]) = mass.nonstandard.summarize_and_filter.summarize_old(self.pulse_records.data,
-                                                                                                          self.nPresamples, self.pretrigger_ignore_samples, self.timebase, peak_time_microsec)
-            printUpdater.update((s+1)/float(self.pulse_records.n_segments))
-        self.pulse_records.datafile.clear_cache()
-        if self.auto_pickle:
-            self.pickle(verbose=False)
-    else:
-        print('\nchan %d did not summarize because results were already preloaded' % self.channum)
-
-
-def MicrocalDataSet_filter_data_tdm(self, filter_name='filt_noconst', transform=None, forceNew=False):
-    """filter the complete data file one chunk at a time
-    this version does the whole dataset at once (instead of previous segment at a time for all datasets)
-    """
-    filter_values = self.filter.__dict__[filter_name]
-    if forceNew or all(self.p_filt_value == 0):  # determine if we need to do anything
-        printUpdater = InlineUpdater('channel.filter_data_tdm chan %d' % self.channum)
-        for s in range(self.pulse_records.n_segments):
-            # this reloads self.data to contain new pulses
-            first, last = self.pulse_records.read_segment(s)
-            (self.p_filt_phase[first:last], self.p_filt_value[first:last]) = mass.nonstandard.summarize_and_filter.filter_data_old(
-                filter_values, self.pulse_records.data, transform, self.p_pretrig_mean[first:last])
-            printUpdater.update((s+1)/float(self.pulse_records.n_segments))
-
-        self.pulse_records.datafile.clear_cache()
-        if self.auto_pickle:
-            self.pickle(verbose=False)
-    else:
-        print('\nchan %d did not filter because results were already loaded' % self.channum)
-
-
-def BaseChannelGroup_summarize_data_tdm(self, peak_time_microsec=220.0, pretrigger_ignore_microsec=20.0, include_badchan=False, forceNew=False):
-    printUpdater = InlineUpdater('summarize_data_tdm')
-    for chan in self.iter_channel_numbers(include_badchan):
-        self.channel[chan].summarize_data_tdm(
-            peak_time_microsec, pretrigger_ignore_microsec, forceNew)
-        if include_badchan:
-            printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
-        else:
-            printUpdater.update((chan/2+1)/float(self.num_good_channels))
-
-
-def BaseChannelGroup_filter_data_tdm(self, filter_name='filt_noconst', transform=None, include_badchan=False, forceNew=False):
-    printUpdater = InlineUpdater('filter_data_tdm')
-    for chan in self.iter_channel_numbers(include_badchan):
-        self.channel[chan].filter_data_tdm(filter_name, transform, forceNew)
-        if include_badchan:
-            printUpdater.update((chan/2+1)/float(len(self.channel.keys())))
-        else:
-            printUpdater.update((chan/2+1)/float(self.num_good_channels))
 
 
 try:
@@ -101,8 +34,8 @@ try:
         argmax = np.zeros(numPulses)
         argmin = np.zeros(numPulses)
 
-        for p in xrange(numPulses):
-            for j in xrange(pretrig_end_average_index):
+        for p in range(numPulses):
+            for j in range(pretrig_end_average_index):
                 d = data[p, j]
                 pretrig_sum[p] += d
                 pretrig_sumsq[p] += d*d
@@ -112,14 +45,14 @@ try:
                 elif d < min[p]:
                     min[p] = d
                     argmin[p] = j
-            for j in xrange(pretrig_end_average_index, nPresamples):
+            for j in range(pretrig_end_average_index, nPresamples):
                 d = data[p, j]
                 if d > max[p]:
                     max[p] = d
                     argmax[p] = j
                 elif d < min[p]:
                     min[p] = d
-            for j in xrange(nPresamples, pulseLength):
+            for j in range(nPresamples, pulseLength):
                 d = data[p, j]
                 posttrig_sum[p] += d
                 if d > max[p]:
@@ -167,11 +100,8 @@ def summarize_old(data, nPresamples, pretrigger_ignore_samples, timebase, peak_t
         p_rise_time[pulsenum] = estimateRiseTime(pulse, dt=timebase, nPretrig=nPresamples)
         p_max_posttrig_deriv[pulsenum] = compute_max_deriv(
             pulse[nPresamples + maxderiv_holdoff_samples:])
-#        self.p_timestamp[first:last], self.p_pretrig_mean[first:last], self.p_pretrig_rms[first:last],
-#        self.p_peak_index[first:last], self.p_peak_value[first:last], self.p_min_value[first:last],
-#        self.p_pulse_average[first:last], self.p_rise_time[first:last],
-#        self.p_max_posttrig_deriv[first:last]
-    return p_pretrig_mean, p_pretrig_rms, p_peak_index, p_peak_value, p_min_value, p_pulse_average, p_rise_time, p_max_posttrig_deriv
+    return p_pretrig_mean, p_pretrig_rms, p_peak_index, p_peak_value, p_min_value, \
+        p_pulse_average, p_rise_time, p_max_posttrig_deriv
 
 
 def compare_summarize(data, nPresamples, pretrigger_ignore_samples):
@@ -269,35 +199,6 @@ def compute_max_deriv(ts, return_index_too=False):
     return conv.max()
 
 
-def filter_data_old(filter_values, data, transform=None, ptmean=None):
-    # These parameters fit a parabola to any 5 evenly-spaced points
-    fit_array = np.array((
-        (-6, 24, 34, 24, -6),
-        (-14, -7,  0, 7, 14),
-        (10, -5, -10, -5, 10)), dtype=float)/70.0
-
-    assert len(filter_values)+4 == data.shape[1]
-
-    conv = np.zeros((5, data.shape[0]), dtype=np.float32)
-    if transform is not None:
-        ptmean.shape = (len(ptmean), 1)
-        data = transform(data-ptmean)
-    for i in range(5):
-        if i-4 == 0:
-            # previous method in comments, converted to dot product based on ~30% speed boost in tests
-            #                    conv[i,:] = (filter_values*self.data[:seg_size,i:]).sum(axis=1)
-            conv[i, :] = np.dot(data[:, i:], filter_values)
-        else:
-            #                    conv[i,:] = (filter_values*self.data[:seg_size,i:i-4]).sum(axis=1)
-            conv[i, :] = np.dot(data[:, i:i-4], filter_values)
-
-    param = np.dot(fit_array, conv)
-    peak_x = -0.5*param[1, :]/param[2, :]  # phase
-    peak_y = param[0, :] - 0.25*param[1, :]**2 / param[2, :]  # amplitude
-    return peak_x, peak_y
-
-
 if __name__ == '__main__':
     data = np.array(np.random.rand(10000, 500)*16363, dtype='int16')
-#    data= np.random.rand(10000, 500)
     compare_summarize(data[2000:6000, :], nPresamples=200, pretrigger_ignore_samples=4)

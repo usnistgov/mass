@@ -16,10 +16,10 @@ class TestFilenameHandling(ut.TestCase):
     """Test various functions that handle LJH filenames."""
 
     def test_glob(self):
-        self.assertIn(os.path.join("mass", "regression_test", "regress_chan1.ljh"),
-                      filename_glob_expand(os.path.join("mass", "regression_test", "regress_chan*.ljh")))
-        self.assertIn(os.path.join("mass", "regression_test", "regress_noise_chan1.ljh"),
-                      filename_glob_expand(os.path.join("mass", "regression_test", "regress_noise_chan*.ljh")))
+        self.assertIn(os.path.join("tests", "regression_test", "regress_chan1.ljh"),
+                      filename_glob_expand(os.path.join("tests", "regression_test", "regress_chan*.ljh")))
+        self.assertIn(os.path.join("tests", "regression_test", "regress_noise_chan1.ljh"),
+                      filename_glob_expand(os.path.join("tests", "regression_test", "regress_noise_chan*.ljh")))
 
     def test_extract_channum(self):
         self.assertEqual(1, ljh_channum("dummy_chan1.ljh"))
@@ -107,7 +107,7 @@ class TestFilenameHandling(ut.TestCase):
         with tempfile.TemporaryDirectory() as destdir:
             dest1_name = os.path.join(destdir, "test1_chan3.ljh")
             dest2_name = os.path.join(destdir, "test2_chan3.ljh")
-            src_name = os.path.join('mass', 'regression_test', 'regress_chan3.ljh')
+            src_name = os.path.join('tests', 'regression_test', 'regress_chan3.ljh')
             src = LJHFile.open(src_name)
             Npulses = min(20, src.nPulses)
             wordsize = 2
