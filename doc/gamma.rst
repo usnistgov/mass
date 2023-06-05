@@ -61,10 +61,10 @@ Here we do "plain" mass analysis, basically we just use 5 lag filters, cuts, dri
 
 .. testcode::
 
-  pulse_files = ["../mass/off/data_for_test/20181018_144520/20181018_144520_chan3.ljh",
-                 "../mass/off/data_for_test/20181018_144520/20181018_144520_chan13.ljh"]
-  noise_files = ["../mass/off/data_for_test/20181018_144325/20181018_144325_chan3.noi",
-                 "../mass/off/data_for_test/20181018_144325/20181018_144325_chan13.noi"]
+  pulse_files = ["../tests/off/data_for_test/20181018_144520/20181018_144520_chan3.ljh",
+                 "../tests/off/data_for_test/20181018_144520/20181018_144520_chan13.ljh"]
+  noise_files = ["../tests/off/data_for_test/20181018_144325/20181018_144325_chan3.noi",
+                 "../tests/off/data_for_test/20181018_144325/20181018_144325_chan13.noi"]
   data_plain = mass.TESGroup(filenames = pulse_files,
           noise_filenames = noise_files,
           hdf5_filename = mass_hdf5,

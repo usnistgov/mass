@@ -116,38 +116,6 @@ mass\.core\.param\_dict\_base module
     :undoc-members:
     :show-inheritance:
 
-mass\.core\.test\_core module
------------------------------
-
-.. automodule:: mass.core.test_core
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-mass\.core\.test\_filtering module
-----------------------------------
-
-.. automodule:: mass.core.test_filtering
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-mass\.core\.test\_ljh\_util module
-----------------------------------
-
-.. automodule:: mass.core.test_ljh_util
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-mass\.core\.test\_time\_drift\_correction module
-------------------------------------------------
-
-.. automodule:: mass.core.test_time_drift_correction
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 mass\.core\.utilities module
 ----------------------------
 
