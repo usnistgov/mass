@@ -26,5 +26,5 @@ ignore = [
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-# Assume Python 3.8.
+# Assume Python 3.8 [end of life will be 14 October 2024. See https://endoflife.date/python]
 target-version = "py38"
