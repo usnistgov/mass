@@ -10,7 +10,7 @@ Joe Fowler
 import unittest
 import numpy as np
 import mass
-from mass.mathstat.interpolate import *
+from mass.mathstat.interpolate import k_spline, GPRSpline
 
 
 class Test_SmoothingSpline(unittest.TestCase):

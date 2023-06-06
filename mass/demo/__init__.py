@@ -15,8 +15,6 @@ try:
 except ImportError:
     from IPython.demo import Demo
 
-from . import sourceroot
-
 
 this_dir, this_file = os.path.split(__file__)
 

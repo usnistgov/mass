@@ -16,8 +16,6 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-import sys
 from recommonmark.transform import AutoStructify
 from mass import __version__
 # from better import better_theme_path
