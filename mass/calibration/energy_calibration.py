@@ -55,7 +55,7 @@ def LineEnergies():
 STANDARD_FEATURES = LineEnergies()
 
 
-class EnergyCalibration(object):
+class EnergyCalibration:
     """Object to store information relevant to one detector's absolute energy
     calibration and to offer conversions between pulse height and energy.
 

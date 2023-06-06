@@ -58,7 +58,7 @@ def readJsonString(f):
             raise Exception("""reached end of file without finding a line "}\\n" """)
 
 
-class OffFile(object):
+class OffFile:
     """
     Working with an OFF file:
     off = OffFile("filename")

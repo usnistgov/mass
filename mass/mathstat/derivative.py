@@ -10,7 +10,7 @@ import six
 import numpy as np
 
 
-class Function(object):
+class Function:
     """Base class for classes representing a mathematical function.
     This class provides some basic algebraic operations between Functions.
 

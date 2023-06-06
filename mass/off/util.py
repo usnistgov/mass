@@ -205,7 +205,7 @@ class Recipe():
         return s
 
 
-class GroupLooper(object):
+class GroupLooper:
     """A mixin class to allow ChannelGroup objects to hold methods that loop over
     their constituent channels. (Has to be a mixin, in order to break the import
     cycle that would otherwise occur.)"""

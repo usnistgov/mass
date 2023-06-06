@@ -18,7 +18,7 @@ LOG = logging.getLogger("mass")
 __all__ = ['MaximumLikelihoodHistogramFitter', 'kink_model', 'fit_kink_model']
 
 
-class MaximumLikelihoodHistogramFitter(object):
+class MaximumLikelihoodHistogramFitter:
     """Object to fit a theory having 1 or more free parameters to a histogram,
     using the proper likelihood.  That is, assume that events in each bin are
     independent and are Poisson-distributed with an expectation equal to the

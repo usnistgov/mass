@@ -45,7 +45,7 @@ class CategoryList(np.ndarray):
         return "\n".join([header, spacer] + rows)
 
 
-class CutFieldMixin(object):
+class CutFieldMixin:
     """A mixin object that gives a class access to lots of features involving
     boolean per-pulse cuts and per-pulse categorization.
     """
@@ -317,7 +317,7 @@ class CutFieldMixin(object):
         self.cut_used_bit_flags &= ~clear_mask
 
 
-class Cuts(object):
+class Cuts:
     """Object to hold a 32-bit cut mask for each triggered record."""
 
     def __init__(self, n, tes_group, hdf5_group=None):

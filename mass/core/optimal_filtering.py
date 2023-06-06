@@ -33,7 +33,7 @@ def band_limit(modelmatrix, sample_time, fmax, f_3db):
         # n=filt_length is needed when filt_length is ODD
 
 
-class Filter(object):
+class Filter:
     """A set of optimal filters based on a single signal and noise set."""
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
@@ -631,7 +631,7 @@ class ExperimentalFilter(Filter):
             pass
 
 
-class ToeplitzWhitener(object):
+class ToeplitzWhitener:
     """An object that can perform approximate noise whitening.
 
     For an ARMA(p,q) noise model, mutliply by (or solve) the matrix W (or its

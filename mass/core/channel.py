@@ -38,7 +38,7 @@ import logging
 LOG = logging.getLogger("mass")
 
 
-class NoiseRecords(object):
+class NoiseRecords:
     """Encapsulate a set of noise records.
 
     The noise records can either be assumed continuous or arbitrarily separated in time.
@@ -414,7 +414,7 @@ class NoiseRecords(object):
         axis.set_ylabel(r"Autocorrelation (counts$^2$)")
 
 
-class PulseRecords(object):
+class PulseRecords:
     """
     Encapsulate a set of data containing multiple triggered pulse traces.
     The pulses should not be noise records.
@@ -498,7 +498,7 @@ class PulseRecords(object):
         return c
 
 
-class GroupLooper(object):
+class GroupLooper:
     """A mixin class to allow TESGroup objects to hold methods that loop over
     their constituent channels. (Has to be a mixin, in order to break the import
     cycle that would otherwise occur.)"""
@@ -562,7 +562,7 @@ def _add_group_loop():
     return decorator
 
 
-class MicrocalDataSet(object):
+class MicrocalDataSet:
     """Represent a single microcalorimeter's PROCESSED data."""
 
     # Attributes that all such objects must have.

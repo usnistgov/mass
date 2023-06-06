@@ -184,7 +184,7 @@ class Test_gaussian(unittest.TestCase):
         self.assertTrue(params[1, :].mean() < -0.05)
 
 
-class SimplePenalty(object):
+class SimplePenalty:
     """Function object to penalize param[1] exceeding pmax."""
 
     def __init__(self, pmax, pscale, amplitude):

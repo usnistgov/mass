@@ -127,7 +127,7 @@ class TestToeplitzSolver_512(unittest.TestCase):
                                    msg='Random vector trial gives rms diff=%sf' % (x_out-x_in).std())
 
 
-class toeplitzSpeed(object):
+class toeplitzSpeed:
     """Test the speed of the Toeplitz solver.
 
     This is NOT a unit test. Usage:

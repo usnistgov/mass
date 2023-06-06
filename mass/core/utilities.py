@@ -17,7 +17,7 @@ import logging
 import matplotlib.pylab as plt
 
 
-class MouseClickReader(object):
+class MouseClickReader:
     """A callback for reading mouse clicks in data coordinates in pylab plots.
 
     Stores self.b, .x, .y giving the button pressed, and the x,y data
@@ -52,7 +52,7 @@ class MouseClickReader(object):
         self.fig.canvas.mpl_disconnect(self.cid)
 
 
-class InlineUpdater(object):
+class InlineUpdater:
 
     def __init__(self, baseString):
         self.fracDone = 0.0
@@ -101,7 +101,7 @@ class InlineUpdater(object):
         return '%.1f min' % (self.elapsedTimeSec / 60.0)
 
 
-class NullUpdater(object):
+class NullUpdater:
     def update(self, f):
         pass
 

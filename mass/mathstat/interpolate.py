@@ -37,7 +37,7 @@ from scipy.interpolate import splev
 from mass.mathstat.derivative import Function, ConstantFunction
 
 
-class CubicSpline(object):
+class CubicSpline:
     """An exact cubic spline, with either a specified slope or 'natural boundary
     conditions' (y''=0) at ends of interval.
 
@@ -368,7 +368,7 @@ class GPRSpline(CubicSpline):
         return cov_ftest + R.T.dot(np.linalg.solve(self.A, R))
 
 
-class NaturalBsplineBasis(object):
+class NaturalBsplineBasis:
     """Represent a cubic B-spline basis in 1D with natural boundary conditions.
 
     That is, f''(x)=0 at the first and last knots. This constraint reduces the
@@ -434,7 +434,7 @@ class NaturalBsplineBasis(object):
         return c
 
 
-class SmoothingSpline(object):
+class SmoothingSpline:
     """A callable object that performs a smoothing cubic spline operation, using
     the NaturalBsplineBasis object for the basis representation of splines.
 
@@ -607,7 +607,7 @@ class SmoothingSplineFunction(SmoothingSpline, Function):
         return "SmoothingSpline{}(x)".format("'" * self.der)
 
 
-class SmoothingSplineLog(object):
+class SmoothingSplineLog:
     def __init__(self, x, y, dy, dx=None, maxchisq=None):
         if np.any(x <= 0) or np.any(y <= 0):
             raise ValueError("The x and y data must all be positive to use a SmoothingSplineLog")

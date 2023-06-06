@@ -60,7 +60,7 @@ def _scale_add_bg(spectrum, P_integral, P_bg=0, P_bgslope=0):
     return spectrum
 
 
-class LineFitter(object):
+class LineFitter:
     """Abstract base class for line fitting objects."""
 
     def __init__(self):

@@ -164,7 +164,7 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     return e_e, fit_lo_hi_energy, slopes_de_dph
 
 
-class FailedFit(object):
+class FailedFit:
     def __init__(self, hist, bins):
         self.hist = hist
         self.bins = bins
@@ -236,7 +236,7 @@ def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
     return result
 
 
-class EnergyCalibrationAutocal(object):
+class EnergyCalibrationAutocal:
     def __init__(self, calibration, ph=None, line_names=None):
         """
         Args:

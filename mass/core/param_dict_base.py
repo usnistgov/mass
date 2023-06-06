@@ -23,7 +23,7 @@ def message(m):
         print(m)
 
 
-class PrmDictBase(object):
+class PrmDictBase:
     """
     Base class for solvers with parameters stored in dictionaries.
 

@@ -32,7 +32,7 @@ ELEMENTS = ('', 'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg'
 ATOMIC_NUMBERS = dict((ELEMENTS[i], i) for i in range(len(ELEMENTS)))
 
 
-class NISTXrayDBFile(object):
+class NISTXrayDBFile:
     DEFAULT_FILENAMES = "nist_xray_data.dat", "low_z_xray_data.dat"
 
     def __init__(self, *filenames):
@@ -122,7 +122,7 @@ class NISTXrayDBFile(object):
         raise KeyError("%s is not a known line or line nickname" % key)
 
 
-class NISTXrayLine(object):
+class NISTXrayLine:
     DEFAULT_COLUMN_DEFS = {'element': (1, 4),
                            'transition': (10, 16),
                            'peak': (45, 59),
