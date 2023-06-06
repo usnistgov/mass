@@ -1330,8 +1330,8 @@ class MicrocalDataSet:
         deriv_like_model = f.pulsemodel[:, 1]
         pulse_like_model = f.pulsemodel[:, 0]
         if not len(pulse_like_model) == self.nSamples:
-            raise Exception("filter length {} and nSamples {} don't match, you likely need to use shift1=False in compute_filters".format(
-                len(pulse_like_model), self.nSamples))
+            raise Exception(f"filter length {len(pulse_like_model)} and nSamples {self.nSamples} don't match, "
+                            "you likely need to use shift1=False in compute_filters")
         projectors1 = np.vstack([f.filt_baseline,
                                  f.filt_aterms[0],
                                  f.filt_noconst])

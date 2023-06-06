@@ -543,7 +543,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if category is None:
             category = {}
         LOG.warning(
-            'compute_filters is deprecated and will eventually be removed, please use compute_ats_filter or compute_5lag_filter directly')
+            'compute_filters is deprecated and will eventually be removed, please '
+            'use compute_ats_filter or compute_5lag_filter directly')
         for ds in self.datasets:
             if hasattr(ds, "_use_new_filters"):
                 raise Exception(
@@ -596,11 +597,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for ds in self:
             try:
                 if "rows_after_last_external_trigger" not in ds.hdf5_group and after_last:
-                    forceNew=True
+                    forceNew = True
                 if "rows_until_next_external_trigger" not in ds.hdf5_group and until_next:
-                    forceNew=True
+                    forceNew = True
                 if "rows_from_nearest_external_trigger" not in ds.hdf5_group and from_nearest:
-                    forceNew=True
+                    forceNew = True
                 if forceNew:
                     rows_after_last_external_trigger, rows_until_next_external_trigger = \
                         mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:],

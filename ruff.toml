@@ -1,8 +1,10 @@
-line-length = 140
+line-length = 135
 
 # select = ["F", "E", "W", "PLE", "PLW", "PLR", "PLC"]
 select = [
   "E",  # pycodestyle
+  "W",  # pycodestyle
+  "E225",  # pycodestyle missing whitespace around operator
   "F",  # pyflakes
   "UP",  # pyupgrade
   "PLE",  # pylint errors

@@ -358,7 +358,8 @@ def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
             energy = float(lineNameOrEnergy)
         except Exception:
             raise FailedToGetModelException(
-                f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
+                f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or "
+                "a str in mass.spectra or mass.STANDARD_FEATURES")
         line = mass.SpectralLine.quick_monochromatic_line(
             f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
     return line.model(has_linear_background=has_linear_background, has_tails=has_tails)

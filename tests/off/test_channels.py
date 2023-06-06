@@ -500,7 +500,7 @@ def test_open_many_OFF_files():
         NFilePairsToOpen = (maxfiles-12)//6
         filelist = NFilePairsToOpen*filelist
         for _ in range(3):
-            _ = ChannelGroup(filelist, verbose=True, channelClass=Channel, 
+            _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
                              excludeStates=["START", "END"])
 
     # Use the try...finally to undo our reduction in the limit on number of open files.

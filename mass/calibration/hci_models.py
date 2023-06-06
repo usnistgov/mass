@@ -135,8 +135,9 @@ def initialize_HeLike_complex_model(element, has_linear_background=False, has_ta
         i_line_name, has_linear_background=False, has_tails=has_tails) for i_line_name in line_names]
     # Set up composite model
     composite_name = f'{element}{charge} 1s2s_2p Complex'
-    composite_model = initialize_hci_composite_model(composite_name=composite_name, individual_models=individual_models,
-                                                     has_linear_background=has_linear_background, peak_component_name=line_name_1s2p_1P)
+    composite_model = initialize_hci_composite_model(
+        composite_name=composite_name, individual_models=individual_models,
+        has_linear_background=has_linear_background, peak_component_name=line_name_1s2p_1P)
     return composite_model
 
 

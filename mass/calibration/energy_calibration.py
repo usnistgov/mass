@@ -761,10 +761,10 @@ class EnergyCalibration:
         return cal
 
     def __repr__(self):
-        s = """mass.EnergyCalibration with {} entries
-        _ph: {}
-        _energies: {}
-        _names: {}
-        _curvetype: {}
-        _use_approximation: {}""".format(len(self._names), self._ph, self._energies, self._names, self._curvetype, self._use_approximation)
+        s = f"""mass.EnergyCalibration with {len(self._names)} entries
+        _ph: {self._ph}
+        _energies: {self._energies}
+        _names: {self._names}
+        _curvetype: {self._curvetype}
+        _use_approximation: {self._use_approximation}"""
         return s

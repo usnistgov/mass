@@ -110,16 +110,18 @@ class CorG():
                 has_linear_background=True, has_tails=False, params_update=lmfit.Parameters(),
                 minimum_bins_per_fwhm=None):
         """Do a fit to `lineNameOrEnergy` and return the result. You can get the params results with result.params
-        lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel", your you can pass in a model like a mass.MnKAlphaModel().
+        lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel"; you
+            can pass in a model like a mass.MnKAlphaModel().
+
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
         states -- will be passed to hist, coAddStates will be True
         axis -- if axis is None and plot==True, will create a new figure, otherwise plot onto this axis
-        dlo and dhi and binsize -- by default it tries to fit with bin edges given by 
+        dlo and dhi and binsize -- by default it tries to fit with bin edges given by
             np.arange(model.spect.peak_energy-dlo, model.spect.peak_energy+dhi, binsize)
         binEdges -- pass the binEdges you want as a numpy array
         label -- passed to model.plot
         plot -- passed to model.fit, determine if plot happens
-        params_fixed -- passed to model.fit, model.fit will guess the params on its own if this is None, 
+        params_fixed -- passed to model.fit, model.fit will guess the params on its own if this is None,
             in either case it will update with params_update
         cutRecipeName -- a function a function taking a MicrocalDataSet and returning a vector like ds.good() would return
         calbration -- a calibration to be passed to hist - will error if used with an "energy..." attr
@@ -253,7 +255,8 @@ class Channel(CorG):
         that is robust to outliers as a function of filt Value, then uses that to set an upper limit based on n_sigma_equiv
         highly reccomend that you call it with plot=True on at least a few datasets first
         """
-        # the code currently only works for a single threshold, but has some parts in place for implementing a filtValue dependent threshold
+        # the code currently only works for a single threshold, but has some parts in place for
+        # implementing a filtValue dependent threshold
         filtValue, residualStdDev = self.getAttr(
             ["filtValue", "residualStdDev"], indsOrStates=states, cutRecipeName=cutRecipeName)
         # binEdges = np.percentile(filtValue, np.linspace(0, 100, N+1))
@@ -405,7 +408,8 @@ class Channel(CorG):
             output = output_prealloc[0:ihi]
         elif isinstance(inds, list) and _listMethodSelect == 0:  # repeated hstack
             # this could be removed, along with the _listMethodSelect argument
-            # this is only left in because it is useful for correctness testing for preallocate and truncate method since this is simpler
+            # this is only left in because it is useful for correctness testing
+            # for preallocate and truncate method since this is simpler.
             assert all([isinstance(_inds, slice) for _inds in inds])
             output = self._indexOffWithCuts(inds[0], cutRecipeName)
             for i in range(1, len(inds)):
@@ -424,7 +428,8 @@ class Channel(CorG):
         """
         # first
         # relies on short circuiting to not evaluate last clause unless indsOrStates is a list
-        if indsOrStates is None or isinstance(indsOrStates, str) or (isinstance(indsOrStates, list) and isinstance(indsOrStates[0], str)):
+        if indsOrStates is None or isinstance(indsOrStates, str) or \
+                (isinstance(indsOrStates, list) and isinstance(indsOrStates[0], str)):
             # looks like states
             try:
                 inds = self.getStatesIndicies(indsOrStates)
@@ -499,7 +504,9 @@ class Channel(CorG):
                 axis.plot(A, B, "x", label=prefix+state+" bad")
 
     def hist(self, binEdges, attr, states=None, cutRecipeName=None, calibration=None):
-        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
+        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute).
+        automatically filtes out nan values
+
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
         cutRecipeName -- a function taking a 1d array of vales of type self.offFile.dtype and returning a vector of bool
@@ -534,7 +541,8 @@ class Channel(CorG):
                              linePositionsFunc=None, cutRecipeName=None):
         """
         linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
-        otherwise try to call it with self as an argument... here is an example of how you could use all but one peak from calibrationRough:
+        otherwise try to call it with self as an argument...
+        Here is an example of how you could use all but one peak from calibrationRough:
         `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f._ph`
         """
         # may need to generalize this to allow using a specific state for phase correction as
@@ -1126,7 +1134,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         return n_new_labels, n_new_pulses_dict
 
     def hist(self, binEdges, attr, states=None, cutRecipeName=None, calibration=None):
-        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
+        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute).
+            Automatically filters out nan values
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
         calibration -- will throw an exception if this is not None
@@ -1448,7 +1457,8 @@ class ChannelFromNpArray(Channel):
             output = output_prealloc[0:ihi]
         elif isinstance(inds, list) and _listMethodSelect == 0:  # repeated hstack
             # this could be removed, along with the _listMethodSelect argument
-            # this is only left in because it is useful for correctness testing for preallocate and truncate method since this is simpler
+            # this is only left in because it is useful for correctness testing for
+            # preallocate and truncate method since this is simpler
             assert all([isinstance(_inds, slice) for _inds in inds])
             output = self._indexOffWithCuts(inds[0], cutRecipeName)
             for i in range(1, len(inds)):
