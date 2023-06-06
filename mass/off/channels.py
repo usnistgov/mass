@@ -192,6 +192,7 @@ class CorG():
 
 class Channel(CorG):
     """Wrap up an OFF file with some convience functions like a TESChannel"""
+
     def __init__(self, offFile, experimentStateFile, verbose=True):
         self.offFile = offFile
         self.experimentStateFile = experimentStateFile

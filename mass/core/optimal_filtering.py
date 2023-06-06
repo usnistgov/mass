@@ -593,8 +593,9 @@ class ExperimentalFilter(Filter):
 
                 self.variances[shortname] = self.bracketR(filt, R)
                 fw = np.sqrt(8 * np.log(2))
-                print('Res={:6.3f} eV = {:.5f}'.format(5898.801 * fw * self.variances[shortname]**.5,
-                                               (self.variances[shortname] / self.variances['full'])**.5))
+                res = 5898.801 * fw * self.variances[shortname]**.5
+                eV = (self.variances[shortname] / self.variances['full'])**.5
+                print(f'Res={res:6.3f} eV = {eV:.5f}')
 
             self.filt_baseline = np.dot(avg_signal, Rinv_sig) * \
                 Rinv_unit - Rinv_sig.sum() * Rinv_sig

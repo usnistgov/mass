@@ -144,7 +144,7 @@ class NISTXrayLine:
 
     def __str__(self):
         return '{} {} line: {:.3f} +- {:.3f} eV'.format(self.element, self.transition,
-                                                self.peak, self.peak_unc)
+                                                        self.peak, self.peak_unc)
 
     def __repr__(self):
         return self.raw
