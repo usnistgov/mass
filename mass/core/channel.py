@@ -1519,19 +1519,20 @@ class MicrocalDataSet:
             # Time series scatter plots (left-hand panels)
             plt.subplot(len(plottables), 2, 1+i*2)
             plt.ylabel(label)
+            use_vect = vect
             if valid is not None:
-                vect = vect[valid]
-            plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
+                use_vect = vect[valid]
+            plt.plot(hour-hour_offset, use_vect[::downsample], '.', ms=1, color=color)
             if i == len(plottables) - 1:
                 plt.xlabel("Time since last UT midnight (hours)")
 
             # Histogram (right-hand panels)
             plt.subplot(len(plottables), 2, 2+i*2)
             if limits is None:
-                in_limit = np.ones(len(vect), dtype=bool)
+                in_limit = np.ones(len(use_vect), dtype=bool)
             else:
-                in_limit = np.logical_and(vect[:] > limits[0], vect[:] < limits[1])
-            contents, _bins, _patches = plt.hist(vect[in_limit], 200, log=log,
+                in_limit = np.logical_and(use_vect[:] > limits[0], use_vect[:] < limits[1])
+            contents, _bins, _patches = plt.hist(use_vect[in_limit], 200, log=log,
                                                  histtype='stepfilled', fc=color, alpha=0.5)
             if log:
                 plt.ylim(ymin=contents.min())

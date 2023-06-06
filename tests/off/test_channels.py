@@ -284,11 +284,8 @@ class TestSummaries(ut.TestCase):
     def test_save_load_recipes(self):
         data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
         ds_local = data_local.firstGoodChannel()
-        try:
-            ds_local.energy
-            assert "ds_local should not have energy yet, we haven't defined that recipe"
-        except Exception:
-            pass
+        assert "energy" not in ds_local.__dict__, \
+            "ds_local should not have energy yet, we haven't defined that recipe"
         pklfilename = "recipe_book_save_test2.rbpkl"
         data.saveRecipeBooks(pklfilename)
         ds = data.firstGoodChannel()

@@ -629,7 +629,7 @@ class Channel(CorG):
             calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
             calibration.uncalibratedName = uncalibratedName
             results = []
-            for (ph, line, states) in zip(plan.uncalibratedVals, plan.lines, plan.states):
+            for (line, states) in zip(plan.lines, plan.states):
                 result = self.linefit(line, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                       plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
                                       method=method, params_update=params_update, has_tails=has_tails,

@@ -4,8 +4,9 @@ line-length = 120
 select = [
   "E",   # pycodestyle
   "F",   # pyflakes
-  "UP"
-#   "UP",  # pyupgrade
+  "UP",  # pyupgrade
+  "PLE",  # pylint errors
+  "PLW",  # pylint warnings
 #   "D",   # pydocstyle
 ]
 

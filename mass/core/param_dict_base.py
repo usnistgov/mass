@@ -174,9 +174,9 @@ class PrmDictBase:
             d = eval('self.' + ds)
             for prm in d:
                 # properties cannot have whitespace:
-                prm = prm.replace(' ', '_')
-                cmd = f"{self.__class__.__name__}.{prm} = property(fget=lambda self: " \
-                    f"self.{ds}['{prm}'], doc='read-only property')"
+                prm_spaced = prm.replace(' ', '_')
+                cmd = f"{self.__class__.__name__}.{prm_spaced} = property(fget=lambda self: " \
+                    f"self.{ds}['{prm_spaced}'], doc='read-only property')"
                 print(cmd)
                 exec(cmd, global_namespace, locals())
 
