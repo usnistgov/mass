@@ -10,7 +10,6 @@ Paul Szypryt
 import re
 import ast
 import numpy as np
-import h5py
 import pickle
 import argparse
 
@@ -27,7 +26,7 @@ def write_asd_pickle(inputFilename, outputFilename):
             if line.startswith(createTableString):
                 tableName = re.search(valueSearchString, line).groups()[0]
                 fieldNamesDict[tableName] = []
-            elif tableName is not '' and line.strip().startswith('`'):
+            elif tableName != '' and line.strip().startswith('`'):
                 fieldName = re.search(valueSearchString, line).groups()[0]
                 fieldNamesDict[tableName].append(fieldName)
             # Parse Levels portion

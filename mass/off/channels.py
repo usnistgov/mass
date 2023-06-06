@@ -3,7 +3,6 @@ import os
 import shutil
 import logging
 import collections
-from typing import List, Dict, Union
 
 # pkg imports
 import numpy as np
@@ -689,7 +688,7 @@ class Channel(CorG):
                                  peak_xs_a=peakLocs, bin_edges=binEdges, attr=attr, states=states,
                                  cutRecipeName=cutRecipeName)
         self.calibrationArbsInRefChannelUnits = self.aligner.getCalBtoA()
-        if _peakLocs is None and not (self is referenceChannel):
+        if _peakLocs is None and (self is not referenceChannel):
             self.calibrationPlanInit(referenceChannel.calibrationPlanAttr)
             refCalPlan = referenceChannel.calibrationPlan
             for (ph, energy, name, states, line) in zip(

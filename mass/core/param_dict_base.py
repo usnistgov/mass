@@ -148,8 +148,8 @@ class PrmDictBase(object):
                     if isinstance(value, self._type_check[prm]):
                         can_set = True
                     else:
-                        raise TypeError('\n\n%s=%s has type %s, not %s or None\nself._type_check=%s' %
-                                        (prm, value, type(d[prm], self._type_check[prm], self._type_check)))
+                        msg = f"{prm}={value} has type {type(d[prm])}, not {self._type_check[prm]} or None"
+                        raise TypeError(msg)
                 else:
                     raise TypeError('self._type_check["%s"] must be int/book or type (float,int,...) values, not %s' %
                                     (prm, type(self._type_check[prm])))
@@ -175,10 +175,8 @@ class PrmDictBase(object):
             for prm in d:
                 # properties cannot have whitespace:
                 prm = prm.replace(' ', '_')
-                cmd = '%s.%s = property(fget='\
-                      'lambda self: self.%s["%s"], %s)' % \
-                      (self.__class__.__name__, prm, ds, prm,
-                       ' doc="read-only property"')
+                cmd = f"{self.__class__.__name__}.{prm} = property(fget=lambda self: " \
+                    f"self.{ds}['{prm}'], doc='read-only property')"
                 print(cmd)
                 exec(cmd, global_namespace, locals())
 

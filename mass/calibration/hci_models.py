@@ -8,7 +8,6 @@ Paul Szypryt
 """
 
 import numpy as np
-import re
 import mass.calibration.hci_lines
 try:
     from xraylib import SymbolToAtomicNumber
@@ -130,7 +129,7 @@ def initialize_HeLike_complex_model(element, has_linear_background=False, has_ta
     line_name_1s2p_1P = '{}{} 1s.2p 1P* J=1'.format(element, charge)
     line_names = np.hstack([[line_name_1s2s_3S, line_name_1s2p_3P, line_name_1s2p_1P], additional_line_names])
     # Set up lines and models based on line_names
-    individual_lines = [mass.spectrum_classes[i_line_name]() for i_line_name in line_names]
+    # individual_lines = [mass.spectrum_classes[i_line_name]() for i_line_name in line_names]
     individual_models = [initialize_hci_line_model(
         i_line_name, has_linear_background=False, has_tails=has_tails) for i_line_name in line_names]
     # Set up composite model

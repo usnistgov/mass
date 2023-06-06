@@ -22,9 +22,9 @@ def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_de
     data.auto_cuts(nsigma_pt_rms=n_sigma_pt_rms, nsigma_max_deriv=n_sigma_max_deriv)
     data.compute_noise()
     data.compute_ats_filter(shift1=False, optimize_dp_dt=optimize_dp_dt, f_3db=f_3db_ats)
-    hdf5_filename = data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses,
-                                             extra_n_basis_5lag=extra_n_basis_5lag, noise_weight_basis=noise_weight_basis,
-                                             f_3db_5lag=f_3db_5lag, _rethrow=True)
+    _ = data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses,
+                                 extra_n_basis_5lag=extra_n_basis_5lag, noise_weight_basis=noise_weight_basis,
+                                 f_3db_5lag=f_3db_5lag, _rethrow=True)
 
     return data.n_good_channels(), data.n_channels
 
@@ -123,6 +123,6 @@ def main(args=None):
                                     f_3db_ats=args.f_3db_ats, f_3db_5lag=args.f_3db_5lag, noise_weight_basis=True)
     if not args.silent:
         if n_good == 0:
-            print(f"all channels bad, could be because you need -i for inverted pulses")
+            print("all channels bad, could be because you need -i for inverted pulses")
         print(f"made projectors for {n_good} of {n} channels")
         print(f"written to {args.output_path}")
