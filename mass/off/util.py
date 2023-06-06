@@ -64,7 +64,8 @@ class RecipeBook():
             for argName in inspectedArgNames:
                 ingredient = argName
                 assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients, \
-                    f"ingredient='{ingredient}' must be in baseIngredients={self.baseIngredients} or craftedIngredients.keys()={list(self.craftedIngredients.keys())}"
+                    f"ingredient='{ingredient}' must be in baseIngredients={self.baseIngredients} or "\
+                    f"craftedIngredients.keys()={list(self.craftedIngredients.keys())}"
                 i2a[ingredient] = argName
         else:
             # i would like to do == here, but i'd need to handle optional arguments better

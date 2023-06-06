@@ -114,11 +114,13 @@ class CorG():
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
         states -- will be passed to hist, coAddStates will be True
         axis -- if axis is None and plot==True, will create a new figure, otherwise plot onto this axis
-        dlo and dhi and binsize -- by default it tries to fit with bin edges given by np.arange(model.spect.peak_energy-dlo, model.spect.peak_energy+dhi, binsize)
+        dlo and dhi and binsize -- by default it tries to fit with bin edges given by 
+            np.arange(model.spect.peak_energy-dlo, model.spect.peak_energy+dhi, binsize)
         binEdges -- pass the binEdges you want as a numpy array
         label -- passed to model.plot
         plot -- passed to model.fit, determine if plot happens
-        params_fixed -- passed to model.fit, model.fit will guess the params on its own if this is None, in either case it will update with params_update
+        params_fixed -- passed to model.fit, model.fit will guess the params on its own if this is None, 
+            in either case it will update with params_update
         cutRecipeName -- a function a function taking a MicrocalDataSet and returning a vector like ds.good() would return
         calbration -- a calibration to be passed to hist - will error if used with an "energy..." attr
         require_errorbars -- throw an error if lmfit doesn't return errorbars
@@ -137,7 +139,8 @@ class CorG():
                 binEdges = np.arange(pe-dlo, pe+dhi, self._handleDefaultBinsize(binsize))
             else:
                 raise Exception(
-                    "must pass binEdges if attr does not start with energy and you don't pass a calibration, also don't use energy and calibration at the same time")
+                    "must pass binEdges if attr does not start with energy and you don't pass a calibration; "
+                    "also, don't use energy and calibration at the same time")
         # print(f"binEdges.size={binEdges.size}, binEdges.mean()={binEdges.mean()}")
         # print(f"attr={attr},states={states}")
         bin_centers, counts = self.hist(
@@ -276,7 +279,8 @@ class Channel(CorG):
         threshold_func = scipy.interpolate.interp1d(fv_mids, threshold, kind="next", bounds_error=False,
                                                     fill_value=(-1, threshold[-1]))
         # the threshold for all filtValues below minFv will be -1
-        # filtValues just above binFv should look to the next point since kind="next", so the precise chioce of median and sigma to pair with binFv shouldn't matter
+        # filtValues just above binFv should look to the next point since kind="next", so the precise
+        # choice of median and sigma to pair with binFv shouldn't matter.
         # filtValues above the maximum filtValue should use the same threshold as the maximum filtValue
         self.cutAdd(newCutRecipeName,
                     lambda filtValue, residualStdDev: residualStdDev < threshold_func(filtValue),
@@ -1373,7 +1377,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 class ChannelFromNpArray(Channel):
     def __init__(self, a, channum, shortname, experimentStateFile=None, verbose=True):
         self.a = a
-        self.offFile = a  # to make methods from a normal channelGroup that access offFile as an array work         self.experimentStateFile = experimentStateFile
+        self.offFile = a  # to make methods from a normal channelGroup that access offFile as an array work
+        self.experimentStateFile = experimentStateFile
         self.shortName = shortname
         self.channum = channum
         self.experimentStateFile = experimentStateFile

@@ -102,7 +102,9 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
         if acc > maxacc * np.sqrt(len(energies)):
             n_sel_pp += nincrement
             if n_sel_pp > nmax:
-                raise ValueError("no peak assignment succeeded: acc {:g}, maxacc*sqrt(len(energies)) {:g}".format(acc, maxacc * np.sqrt(len(energies))))
+                msg = f"no peak assignment succeeded: acc {acc:g}, maxacc*sqrt(len(energies)) "\
+                    f"{maxacc * np.sqrt(len(energies)):g}"
+                raise ValueError(msg)
             else:
                 continue
         else:
