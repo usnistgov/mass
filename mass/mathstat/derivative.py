@@ -208,9 +208,8 @@ class ExprMeta(type):
                     return a
                 elif a.v == 1:
                     return b
-                else:
-                    if isinstance(b, Multiplication) and isinstance(b.g, ConstantFunction):
-                        return Multiplication(ConstantFunction(a.v * b.g.v), b.h)
+                elif isinstance(b, Multiplication) and isinstance(b.g, ConstantFunction):
+                    return Multiplication(ConstantFunction(a.v * b.g.v), b.h)
             if isinstance(a, PowerFunction):
                 if isinstance(b, PowerFunction):
                     return PowerFunction(a.n + b.n)

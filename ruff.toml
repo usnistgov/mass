@@ -7,6 +7,7 @@ select = [
   "UP",  # pyupgrade
   "PLE",  # pylint errors
   "PLW",  # pylint warnings
+  "PLR",  # pylint refactor
 #   "D",   # pydocstyle
 ]
 
@@ -15,6 +16,11 @@ ignore = [
     "UP015",  # Unneccessary open mode parameters ("r" is now the default, I guess)
     "UP031",  # use f-string instead of percent format
     "UP032",  # use f-string instead of format
+    "PLR2004",  # Magic value used in comparison
+    "PLR0911",  # too many return statements
+    "PLR0912",  # too many branches
+    "PLR0913",  # too many arguments
+    "PLR0915",  # too many statements
 ]
 
 # Allow unused variables when underscore-prefixed.

@@ -343,10 +343,9 @@ class LineModelResult(lmfit.model.ModelResult):
                     ylabel += f"\nstates={self._states_hint}: {self._cut_hint}"
             if xlabel is None:
                 xlabel = f"{self._attr_str} ({self._unit_str})"
-        else:
-            if ylabel is None and "bin_centers" in self.userkws:
-                binsize = self.userkws["bin_centers"][1]-self.userkws["bin_centers"][0]
-                ylabel = f"counts per {binsize:g} unit bin"
+        elif ylabel is None and "bin_centers" in self.userkws:
+            binsize = self.userkws["bin_centers"][1]-self.userkws["bin_centers"][0]
+            ylabel = f"counts per {binsize:g} unit bin"
         return title, xlabel, ylabel
 
     def _validate_bins_per_fwhm(self, minimum_bins_per_fwhm):

@@ -11,7 +11,7 @@ March 30, 2011
 
 from mass.mathstat.toeplitz import ToeplitzSolver
 import numpy as np
-import scipy.linalg as linalg
+from scipy import linalg
 import time
 import unittest
 

@@ -801,11 +801,10 @@ class TESGroup(CutFieldMixin, GroupLooper):
             # Histograms on right half of figure
             if i == 0:
                 axh_master = plt.subplot(ny_plots, 2, 2 + i * 2)
+            elif 'Pretrig Mean' == label:
+                plt.subplot(ny_plots, 2, 2 + i * 2)
             else:
-                if 'Pretrig Mean' == label:
-                    plt.subplot(ny_plots, 2, 2 + i * 2)
-                else:
-                    plt.subplot(ny_plots, 2, 2 + i * 2, sharex=axh_master)
+                plt.subplot(ny_plots, 2, 2 + i * 2, sharex=axh_master)
 
             if limits is None:
                 in_limit = np.ones(len(vect), dtype=bool)
