@@ -1179,7 +1179,8 @@ class MicrocalDataSet:
                 (default None)
             transform: a callable object that will be called on all data records
                 before filtering (default None)
-            optimize_dp_dt: bool, try a more elaborate approach to dp_dt than just the finite difference (works well for x-ray, bad for gamma rays)
+            optimize_dp_dt: bool, try a more elaborate approach to dp_dt than just the finite
+                difference (works well for x-ray, bad for gamma rays)
             cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
             cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
             shift1: Potentially shift each pulse by one sample based on ds.shift1 value,

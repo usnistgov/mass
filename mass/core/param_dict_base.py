@@ -150,7 +150,8 @@ class PrmDictBase:
                         msg = f"{prm}={value} has type {type(d[prm])}, not {self._type_check[prm]} or None"
                         raise TypeError(msg)
                 else:
-                    raise TypeError(f'self._type_check["{prm}"] must be int/book or type (float,int,...) values, not {type(self._type_check[prm])}')
+                    raise TypeError(f'self._type_check["{prm}"] must be int/book or type (float,int,...) '
+                                    f'values, not {type(self._type_check[prm])}')
             else:
                 can_set = True
         else:

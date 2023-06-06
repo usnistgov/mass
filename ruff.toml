@@ -1,9 +1,9 @@
-line-length = 150
+line-length = 140
 
 # select = ["F", "E", "W", "PLE", "PLW", "PLR", "PLC"]
 select = [
-  "E",   # pycodestyle
-  "F",   # pyflakes
+  "E",  # pycodestyle
+  "F",  # pyflakes
   "UP",  # pyupgrade
   "PLE",  # pylint errors
   "PLW",  # pylint warnings

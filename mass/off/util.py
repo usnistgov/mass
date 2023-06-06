@@ -29,7 +29,8 @@ class RecipeBook():
     def __init__(self, baseIngredients, propertyClass=None, wrapper=lambda x: x):
         """
         propertyClass - which class to add properties to, if they are to be added
-        wrapper - used in Recipe.craft to allow both "coefs" and "filtValue" to be ingredeints, while "filtValue" refers to a sub-array of "coefs"
+        wrapper - used in Recipe.craft to allow both "coefs" and "filtValue" to be ingredients,
+            while "filtValue" refers to a sub-array of "coefs"
         """
         self.craftedIngredients = collections.OrderedDict()
         self.baseIngredients = baseIngredients  # list of names of base ingredients that will be passed to craft

@@ -355,17 +355,22 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         fitter._have_warned = True
         fitter.fit(counts, bin_centers, plot=False)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value, delta=2*result.params["fwhm"].stderr)
+            fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value,
+            delta=2*result.params["fwhm"].stderr)
         self.assertAlmostEqual(
             fitter.last_fit_params_dict["resolution"][1], result.params["fwhm"].stderr, places=1)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][0]/bin_width, result.params["integral"].value, delta=2*result.params["integral"].stderr)
+            fitter.last_fit_params_dict["amplitude"][0]/bin_width, result.params["integral"].value,
+            delta=2*result.params["integral"].stderr)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][1]/bin_width, result.params["integral"].stderr, places=-3)
+            fitter.last_fit_params_dict["amplitude"][1]/bin_width,
+            result.params["integral"].stderr, places=-3)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["bg_slope"][0], result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
+            fitter.last_fit_params_dict["bg_slope"][0],
+            result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["bg_slope"][1], result.params["bg_slope"].stderr, places=1)
+            fitter.last_fit_params_dict["bg_slope"][1],
+            result.params["bg_slope"].stderr, places=1)
 
     def test_MnKA_float32(self):
         """See issue 193: if the energies are float32, then the fit shouldn't be flummoxed."""

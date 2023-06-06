@@ -13,7 +13,8 @@ try:
     from xraylib import SymbolToAtomicNumber
 except ImportError:
     raise ImportError(
-        'This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
+        'This module requires the xraylib python package. '
+        'Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
 
 
 def initialize_hci_line_model(line_name, has_linear_background=False, has_tails=False):
@@ -166,7 +167,8 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
         has_linear_background: (default False) include a single linear background on top of the 2 Lorentzians
         has_tails: (default False) include low energy tail in the model
         vary_Hlike_amp_ratio: (default False) allow the ratio of the J=3/2 to J=1/2 H-like states to vary
-        additional_Helike_complex_lines: (default []) additional line names to include inHe-like complex model, e.g. low level Li/Be-like features
+            additional_Helike_complex_lines: (default []) additional line names to include inHe-like complex
+            model, e.g. low level Li/Be-like features
     '''
 
     models_dict = {}
@@ -186,8 +188,9 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
     # He-like lines
     Helike_complex_elements = ['N', 'O', 'Ne', 'Ar']
     for i_element in Helike_complex_elements:
-        Helike_model = initialize_HeLike_complex_model(i_element, has_linear_background=has_linear_background,
-                                                       has_tails=has_tails, additional_line_names=additional_Helike_complex_lines)
+        Helike_model = initialize_HeLike_complex_model(
+            i_element, has_linear_background=has_linear_background,
+            has_tails=has_tails, additional_line_names=additional_Helike_complex_lines)
         models_dict[Helike_model._name] = Helike_model
     # 1s.np 1P* lines for n>=3
     conf_Helike_1P_dict = {}

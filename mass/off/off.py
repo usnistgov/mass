@@ -147,8 +147,9 @@ class OffFile:
         self.basis = np.frombuffer(basisData, np.float64)
         self.basis = self.basis.reshape((basisRows, basisCols))
         if basisRows != projectorsCols or basisCols != projectorsRows or self.header["NumberOfBases"] != projectorsRows:
-            raise Exception("basis shape should be transpose of projectors shape. have basis ({},{}), projectors ({},{}), NumberOfBases {}".format(
-                basisCols, basisRows, projectorsCols, projectorsRows, self.header["NumberOfBases"]))
+            raise Exception("basis shape should be transpose of projectors shape. have basis "
+                            f"({basisCols},{basisRows}), projectors ({projectorsCols},{projectorsRows}), "
+                            f"NumberOfBases {self.header['NumberOfBases']}")
         self.afterHeaderPos = self.headerStringLength
 
     def _decodeModelInfoMmap(self):
@@ -166,8 +167,9 @@ class OffFile:
         self.basis = np.memmap(self.filename, np.float64, mode="r",
                                offset=basisPos, shape=(basisRows, basisCols))
         if basisRows != projectorsCols or basisCols != projectorsRows or self.header["NumberOfBases"] != projectorsRows:
-            raise Exception("basis shape should be transpose of projectors shape. have basis ({},{}), projectors ({},{}), NumberOfBases {}".format(
-                basisCols, basisRows, projectorsCols, projectorsRows, self.header["NumberOfBases"]))
+            raise Exception("basis shape should be transpose of projectors shape. have basis "
+                            f"({basisCols},{basisRows}), projectors ({projectorsCols},{projectorsRows}), "
+                            f"NumberOfBases {self.header['NumberOfBases']}")
 
     def __repr__(self):
         return "<OFF file> {}, {} records, {} length basis\n".format(

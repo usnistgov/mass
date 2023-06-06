@@ -388,8 +388,9 @@ class Channel(CorG):
                 r, self.offFile._dtype_non_descriptive))
             output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
-            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
-            # and about 2x fatster than temporary bool index, which can be found in commit 063bcce
+            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this
+            # method to be more than 10x faster than repeated hstack
+            # and about 2x faster than temporary bool index, which can be found in commit 063bcce
             # make sure s.step is None so my simple length calculation will work
             assert all([isinstance(s, slice) and s.step is None for s in inds])
             max_length = np.sum([s.stop-s.start for s in inds])
@@ -536,7 +537,8 @@ class Channel(CorG):
         otherwise try to call it with self as an argument... here is an example of how you could use all but one peak from calibrationRough:
         `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f._ph`
         """
-        # may need to generalize this to allow using a specific state for phase correction as a specfic line... with something like calibrationPlan
+        # may need to generalize this to allow using a specific state for phase correction as
+        # a specfic line... with something like calibrationPlan
         if correctedName is None:
             correctedName = uncorrectedName + "PC"
         if linePositionsFunc is None:
@@ -1429,8 +1431,9 @@ class ChannelFromNpArray(Channel):
             g = self.recipes.craft(cutRecipeName, r)
             output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
-            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
-            # and about 2x fatster than temporary bool index, which can be found in commit 063bcce
+            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this
+            # method to be more than 10x faster than repeated hstack
+            # and about 2x faster than temporary bool index, which can be found in commit 063bcce
             # make sure s.step is None so my simple length calculation will work
             assert all([isinstance(s, slice) and s.step is None for s in inds])
             max_length = np.sum([s.stop-s.start for s in inds])
