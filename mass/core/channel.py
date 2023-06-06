@@ -857,7 +857,7 @@ class MicrocalDataSet:
         return "%s('%s')" % (self.__class__.__name__, self.filename)
 
     def updater(self, name):
-        return self.tes_group.updater(name + " chan {0:d}".format(self.channum))
+        return self.tes_group.updater(name + " chan {:d}".format(self.channum))
 
     def good(self, *args, **kwargs):
         """Returns a boolean vector, one per pulse record, saying whether record is good"""

@@ -310,7 +310,7 @@ class GPRSpline(CubicSpline):
 
     def best_sigmaf(self):
         """Return the sigmaf value that maximizes the marginal Bayesian likelihood."""
-        guess = np.median((self.err/self.y))
+        guess = np.median(self.err/self.y)
         result = sp.optimize.minimize_scalar(
             lambda x: -self._marginal_like(x), [guess/1e4, guess*1e4])
         if result.success:

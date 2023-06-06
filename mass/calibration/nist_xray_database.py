@@ -52,7 +52,7 @@ class NISTXrayDBFile:
         for filename in filenames:
             try:
                 fp = open(filename, "r")
-            except IOError:
+            except OSError:
                 print("'%s' is not a readable file with X-ray database info! Continuing..." % filename)
                 continue
 

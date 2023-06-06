@@ -204,7 +204,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 try:
                     self.experimentStateFile = mass.off.ExperimentStateFile(
                         datasetFilename=self.filenames[0], excludeStates=excludeStates)
-                except IOError as e:
+                except OSError as e:
                     LOG.debug('Skipping loading of experiment state file because %s', e)
             else:
                 self.experimentStateFile = mass.off.channels.ExperimentStateFile(
@@ -378,8 +378,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     def __iter__(self):
         """Iterator over the self.datasets in channel number order"""
-        for ds in self.iter_channels():
-            yield ds
+        yield from self.iter_channels()
 
     def iter_channels(self, include_badchan=False):
         """Iterator over the self.datasets in channel number order

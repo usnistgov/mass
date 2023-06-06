@@ -129,7 +129,7 @@ class PowerFunction(Function):
         return self.derivative(der=der)(x, der=0)
 
     def __repr__(self):
-        return str("x") + "^" + str(self.n)
+        return f"x^{self.n}"
 
 
 class Identity(PowerFunction):

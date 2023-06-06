@@ -4,13 +4,14 @@ line-length = 120
 select = [
   "E",   # pycodestyle
   "F",   # pyflakes
-  "UP025"
+  "UP"
 #   "UP",  # pyupgrade
 #   "D",   # pydocstyle
 ]
 
 ignore = [
     "E501",  # line too long
+    "UP015",  # Unneccessary open mode parameters ("r" is now the default, I guess)
     "UP031",  # use f-string instead of percent format
     "UP032",  # use f-string instead of format
 ]
