@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # mass documentation build configuration file, created by
 # sphinx-quickstart on Mon Nov 13 09:32:39 2017.
 #
@@ -59,9 +57,9 @@ source_suffix = ['.rst', '.md']
 master_doc = 'index'
 
 # General information about the project.
-project = u'mass'
-copyright = u'2017, Joe Fowler, Galen O\'Neil'
-author = u'Joe Fowler, Galen O\'Neil'
+project = 'mass'
+copyright = '2017, Joe Fowler, Galen O\'Neil'
+author = 'Joe Fowler, Galen O\'Neil'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -165,8 +163,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'mass.tex', u'mass Documentation',
-     u'Joe Fowler, Galen O\'Neil, Young Il Joe, Dan Becker', 'manual'),
+    (master_doc, 'mass.tex', 'mass Documentation',
+     'Joe Fowler, Galen O\'Neil, Young Il Joe, Dan Becker', 'manual'),
 ]
 
 
@@ -175,7 +173,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'mass', u'mass Documentation',
+    (master_doc, 'mass', 'mass Documentation',
      [author], 1)
 ]
 
@@ -186,7 +184,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'mass', u'mass Documentation',
+    (master_doc, 'mass', 'mass Documentation',
      author, 'mass', 'One line description of project.',
      'Miscellaneous'),
 ]

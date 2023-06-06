@@ -252,7 +252,7 @@ class Composition(BinaryOperation, Function):
 
     def __repr__(self):
         if six.PY2:
-            return ("(" + str(self.g) + u" \u2022 " + str(self.h) + ")").encode("utf8")
+            return ("(" + str(self.g) + " \u2022 " + str(self.h) + ")").encode("utf8")
         elif six.PY3:
             return "(" + str(self.g) + " \u2022 " + str(self.h) + ")"
 

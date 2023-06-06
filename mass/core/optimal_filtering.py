@@ -310,7 +310,7 @@ class Filter:
 
         # Handle <filters> is a single string --> convert to tuple of 1 string
         def isstr(x):
-            return isinstance(x, ("".__class__, u"".__class__))
+            return isinstance(x, ("".__class__, "".__class__))
 
         if isstr(filters):
             filters = (filters,)

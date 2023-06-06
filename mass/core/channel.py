@@ -1463,7 +1463,7 @@ class MicrocalDataSet:
 
         # Convert "uncut" or "cut" to array of all good or all bad data
         def isstr(x):
-            return isinstance(x, ("".__class__, u"".__class__))
+            return isinstance(x, ("".__class__, "".__class__))
 
         status = "Plotting selected data"
         if valid is None:
