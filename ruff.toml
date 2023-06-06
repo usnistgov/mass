@@ -1,0 +1,19 @@
+line-length = 120
+
+# select = ["F", "E", "W", "PLE", "PLW", "PLR", "PLC"]
+select = [
+  "E",   # pycodestyle
+  "F",   # pyflakes
+#   "UP",  # pyupgrade
+#   "D",   # pydocstyle
+]
+
+ignore = [
+    "E501"
+]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Assume Python 3.10.
+target-version = "py310"

@@ -36,7 +36,7 @@ def logo(seed=4):
         x = np.zeros_like(t)
         for _ in range(n):
             t0 = np.random.uniform(-25, 110)
-            print t0,
+            print(t0,)
             x[t > t0] += exp(-(t[t > t0]-t0)/fall_time)-exp(-(t[t > t0]-t0)/rise_time)
         x *= ph_other/normalize
         plt.plot(t, x-.1*i-.35, color=cm(i/(ndets-.5)))
