@@ -134,7 +134,7 @@ class PowerFunction(Function):
 
 class Identity(PowerFunction):
     def __init__(self):
-        super(Identity, self).__init__(1)
+        super().__init__(1)
 
     def __repr__(self):
         return "x"
@@ -232,7 +232,7 @@ class ExprMeta(type):
 
 class BinaryOperation(six.with_metaclass(ExprMeta)):
     def __init__(self, g, h):
-        super(BinaryOperation, self).__init__()
+        super().__init__()
         self.g = g
         self.h = h
 

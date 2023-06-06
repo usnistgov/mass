@@ -185,7 +185,7 @@ class CubicSplineFunction(CubicSpline, Function):
     """A dubious class which lets you take derivatives of a cubic spline."""
 
     def __init__(self, x, y, yprime1=None, yprimeN=None, der=0):
-        super(CubicSplineFunction, self).__init__(x, y, yprime1=yprime1, yprimeN=yprimeN)
+        super().__init__(x, y, yprime1=yprime1, yprimeN=yprimeN)
         self.der = der
 
     def derivative(self, der=1):
@@ -199,7 +199,7 @@ class CubicSplineFunction(CubicSpline, Function):
     def __call__(self, x, der=0):
         if self.der + der > 3:
             return np.zeros_like(x)
-        return super(CubicSplineFunction, self).__call__(x, der=self.der + der)
+        return super().__call__(x, der=self.der + der)
 
     def __repr__(self):
         return "CubicSpline" + "'" * self.der + "(x)"
@@ -587,7 +587,7 @@ class SmoothingSpline:
 
 class SmoothingSplineFunction(SmoothingSpline, Function):
     def __init__(self, x, y, dy, dx=None, maxchisq=None, der=0):
-        super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
+        super().__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
         self.der = der
 
     def derivative(self, der=1):
@@ -598,7 +598,7 @@ class SmoothingSplineFunction(SmoothingSpline, Function):
     def __call__(self, x, der=0):
         if self.der + der > 3:
             return np.zeros_like(x)
-        return super(SmoothingSplineFunction, self).__call__(x, der=self.der + der)
+        return super().__call__(x, der=self.der + der)
 
     def variance(self, xtest):
         return np.zeros_like(xtest)+np.inf
@@ -621,7 +621,7 @@ class SmoothingSplineLog:
 
 class GPRSplineFunction(GPRSpline, Function):
     def __init__(self, x, y, dy, dx=None, der=0):
-        super(GPRSplineFunction, self).__init__(x, y, dy, dx=dx)
+        super().__init__(x, y, dy, dx=dx)
         self.der = der
 
     def derivative(self, der=1):
@@ -632,7 +632,7 @@ class GPRSplineFunction(GPRSpline, Function):
     def __call__(self, x, der=0):
         if self.der + der > 3:
             return np.zeros_like(x)
-        return super(GPRSplineFunction, self).__call__(x, der=self.der + der)
+        return super().__call__(x, der=self.der + der)
 
     def __repr__(self):
         return "GPRSpline{}(x)".format("'" * self.der)

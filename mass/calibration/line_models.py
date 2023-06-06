@@ -217,7 +217,7 @@ class GenericLineModel(MLEModel):
             param_names += ["tail_frac", "tail_tau", "tail_frac_hi", "tail_tau_hi"]
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
                        'independent_vars': independent_vars, "param_names": param_names})
-        super(GenericLineModel, self).__init__(modelfunc, **kwargs)
+        super().__init__(modelfunc, **kwargs)
         self._set_paramhints_prefix()
 
     def _set_paramhints_prefix(self):

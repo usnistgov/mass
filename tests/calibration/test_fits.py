@@ -547,7 +547,7 @@ def test_BackgroundMLEModel():
                 return bg
             kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
                            'independent_vars': independent_vars})
-            super(BackgroundMLEModel, self).__init__(modelfunc, **kwargs)
+            super().__init__(modelfunc, **kwargs)
             self.set_param_hint('background', value=1, min=0)
             self.set_param_hint('bg_slope', value=0)
 

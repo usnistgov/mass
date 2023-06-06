@@ -410,7 +410,7 @@ class VoigtFitter(LineFitter):
     nparam = 8
 
     def __init__(self):
-        super(VoigtFitter, self).__init__()
+        super().__init__()
 
     def feature_scale(self, params):
         res = params[self.param_meaning["resolution"]]
@@ -490,7 +490,7 @@ class NVoigtFitter(LineFitter):
         """This fitter will have `Nlines` Lorentzian lines."""
         self.Nlines = Nlines
         assert Nlines >= 1
-        super(NVoigtFitter, self).__init__()
+        super().__init__()
         self.nparam = 5+3*Nlines
         self.param_meaning = {
             "resolution": 0,
@@ -600,7 +600,7 @@ class GaussianFitter(LineFitter):
     nparam = 7
 
     def __init__(self):
-        super(GaussianFitter, self).__init__()
+        super().__init__()
 
     def feature_scale(self, params):
         return params[self.param_meaning["resolution"]]
@@ -682,7 +682,7 @@ class MultiLorentzianComplexFitter(LineFitter):
     nparam = 8
 
     def __init__(self):
-        super(MultiLorentzianComplexFitter, self).__init__()
+        super().__init__()
 
     def feature_scale(self, params):
         return params[self.param_meaning["resolution"]]
@@ -772,7 +772,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         spectrumDef -- should be mass.fluorescence_lines.MnKAlpha, or similar
             subclasses of SpectralLine.
         """
-        super(GenericKAlphaFitter, self).__init__()
+        super().__init__()
 
     def guess_starting_params(self, data, binctrs):
         """A decent heuristic for guessing the inital values, though your informed
@@ -810,7 +810,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
     def __init__(self):
         """Subclasses must define a SpectralLine in self.spect
         """
-        super(GenericKBetaFitter, self).__init__()
+        super().__init__()
 
     def guess_starting_params(self, data, binctrs):
         """Hard to estimate dph/de from a K-beta line. Have to guess scale=1 and

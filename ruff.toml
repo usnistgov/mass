@@ -4,7 +4,7 @@ line-length = 120
 select = [
   "E",   # pycodestyle
   "F",   # pyflakes
-  "UP004"
+  "UP008"
 #   "UP",  # pyupgrade
 #   "D",   # pydocstyle
 ]
