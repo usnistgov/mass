@@ -100,7 +100,7 @@ class NISTXrayDBFile:
         linetype = self.LINE_NICKNAMES.get(linetype, linetype)
         lines = []
         for element in ELEMENTS:
-            linename = '%s %s' % (element, linetype)
+            linename = f'{element} {linetype}'
             if linename in self.lines:
                 lines.append(self.lines[linename])
         return tuple(lines)
@@ -109,7 +109,7 @@ class NISTXrayDBFile:
         element, line = key.split()[:2]
         element = element.capitalize()
         line = line.upper()
-        key = '%s %s' % (element, line)
+        key = f'{element} {line}'
         if key in self.lines:
             return self.lines[key]
         lcline = line.lower()
@@ -117,7 +117,7 @@ class NISTXrayDBFile:
         lcline = lcline.replace('beta', 'b')
         lcline = lcline.replace('gamma', 'g')
         if lcline in self.LINE_NICKNAMES:
-            key = "%s %s" % (element, self.LINE_NICKNAMES[lcline])
+            key = f"{element} {self.LINE_NICKNAMES[lcline]}"
             return self.lines[key]
         raise KeyError("%s is not a known line or line nickname" % key)
 
@@ -139,11 +139,11 @@ class NISTXrayLine:
             self.__dict__[name] = textline[a:b].rstrip()
         self.peak = float(self.peak)
         self.peak_unc = float(self.peak_unc)
-        self.name = '%s %s' % (self.element, self.transition)
+        self.name = f'{self.element} {self.transition}'
         self.raw = textline.rstrip()
 
     def __str__(self):
-        return '%s %s line: %.3f +- %.3f eV' % (self.element, self.transition,
+        return '{} {} line: {:.3f} +- {:.3f} eV'.format(self.element, self.transition,
                                                 self.peak, self.peak_unc)
 
     def __repr__(self):
@@ -229,9 +229,9 @@ def _NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
             'units': 'eV',
             'lower': str(min_E),
             'upper': str(max_E)}
-    joined_args = '&'.join(['%s=%s' % (k, v) for (k, v) in args.items()])
+    joined_args = '&'.join([f'{k}={v}' for (k, v) in args.items()])
     joined_lines = '&'.join(['trans=%s' % name for name in line_names])
-    get = '%s%s&%s' % (form, joined_args, joined_lines)
+    get = f'{form}{joined_args}&{joined_lines}'
     print('Grabbing %s' % get)
 
     import urllib

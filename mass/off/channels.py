@@ -45,19 +45,19 @@ class DriftCorrection():
         return gain*uncorrected
 
     def toHDF5(self, hdf5_group, name="driftCorrection"):
-        hdf5_group["{}/indicatorName".format(name)] = self.indicatorName
-        hdf5_group["{}/uncorrectedName".format(name)] = self.uncorrectedName
-        hdf5_group["{}/medianIndicator".format(name)] = self.medianIndicator
-        hdf5_group["{}/slope".format(name)] = self.slope
-        hdf5_group["{}/version".format(name)] = self.version
+        hdf5_group[f"{name}/indicatorName"] = self.indicatorName
+        hdf5_group[f"{name}/uncorrectedName"] = self.uncorrectedName
+        hdf5_group[f"{name}/medianIndicator"] = self.medianIndicator
+        hdf5_group[f"{name}/slope"] = self.slope
+        hdf5_group[f"{name}/version"] = self.version
 
     @classmethod
     def fromHDF5(cls, hdf5_group, name="driftCorrection"):
-        indicatorName = tostr(hdf5_group["{}/indicatorName".format(name)][()])
-        uncorrectedName = tostr(hdf5_group["{}/uncorrectedName".format(name)][()])
-        medianIndicator = hdf5_group["{}/medianIndicator".format(name)][()]
-        slope = hdf5_group["{}/slope".format(name)][()]
-        version = hdf5_group["{}/version".format(name)][()]
+        indicatorName = tostr(hdf5_group[f"{name}/indicatorName"][()])
+        uncorrectedName = tostr(hdf5_group[f"{name}/uncorrectedName"][()])
+        medianIndicator = hdf5_group[f"{name}/medianIndicator"][()]
+        slope = hdf5_group[f"{name}/slope"][()]
+        version = hdf5_group[f"{name}/version"][()]
         assert (version == cls.version)
         return cls(indicatorName, uncorrectedName, medianIndicator, slope)
 
@@ -313,7 +313,7 @@ class Channel(CorG):
                     inds.append(vv)
             else:
                 raise InvalidStatesException(
-                    "v should be a list of slices or a slice, but is a {}".format(type(v)))
+                    f"v should be a list of slices or a slice, but is a {type(v)}")
         return inds
 
     def __repr__(self):
@@ -408,7 +408,7 @@ class Channel(CorG):
         elif isinstance(inds, NoCutInds):
             output = self.offFile
         else:
-            raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
+            raise Exception(f"type(inds)={type(inds)}, should be slice or list or slices")
         return output
 
     def getAttr(self, attr, indsOrStates, cutRecipeName=None):
@@ -663,9 +663,9 @@ class Channel(CorG):
         self.markedBadReason = reason
         self.markedBadExtraInfo = extraInfo
         self.markedBadBool = True
-        s = "\nMARK BAD {}: reason={}".format(self.shortName, reason)
+        s = f"\nMARK BAD {self.shortName}: reason={reason}"
         if extraInfo is not None:
-            s += "\nextraInfo: {}".format(extraInfo)
+            s += f"\nextraInfo: {extraInfo}"
         if self.verbose:
             LOG.warning(s)
 
@@ -741,8 +741,8 @@ class Channel(CorG):
         grp = h5File.require_group(str(self.channum))
         for state in self.stateLabels:  # hist for each state
             binCenters, counts = self.hist(binEdges, attr, state, cutRecipeName)
-            grp["{}/bin_centers".format(state)] = binCenters
-            grp["{}/counts".format(state)] = counts
+            grp[f"{state}/bin_centers"] = binCenters
+            grp[f"{state}/counts"] = counts
         binCenters, counts = self.hist(
             binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
         grp["bin_centers_ev"] = binCenters
@@ -755,13 +755,13 @@ class Channel(CorG):
         if len(self.stateLabels) > 0:
             for state in self.stateLabels:
                 energy, unixnano = self.getAttr(["energy", "unixnano"], state, cutRecipeName)
-                grp["{}/energy".format(state)] = energy
-                grp["{}/unixnano".format(state)] = unixnano
+                grp[f"{state}/energy"] = energy
+                grp[f"{state}/unixnano"] = unixnano
         else:
             energy, unixnano = self.getAttr(
                 ["energy", "unixnano"], slice(None), cutRecipeName)
-            grp["{}/energy".format(state)] = energy
-            grp["{}/unixnano".format(state)] = unixnano
+            grp[f"{state}/energy"] = energy
+            grp[f"{state}/unixnano"] = unixnano
 
     @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute=None, thresholdSigmaFromMedianAbsoluteValue=None):
@@ -788,7 +788,7 @@ class Channel(CorG):
         n_intermediate = len(calibration.intermediate_calibrations)
         plt.figure(figsize=(20, 12))
         plt.suptitle(
-            self.shortName+", cal diagnose for '{}'\n with {} intermediate calibrations".format(calibratedName, n_intermediate))
+            self.shortName+f", cal diagnose for '{calibratedName}'\n with {n_intermediate} intermediate calibrations")
         n = int(np.ceil(np.sqrt(len(results)+2)))
         for i, result in enumerate(results):
             ax = plt.subplot(n, n, i+1)
@@ -931,7 +931,7 @@ class AlignBToA():
         for i, pi in enumerate(self.peak_inds_a):
             plt.plot(self.bin_centers[pi], counts_b[pi], "o",
                      color=self.cm(float(i)/len(self.peak_inds_a)))
-        plt.xlabel("arbsInRefChannelUnits (ref channel = {})".format(self.ds_a.channum))
+        plt.xlabel(f"arbsInRefChannelUnits (ref channel = {self.ds_a.channum})")
         plt.ylabel("counts per %0.2f unit bin" % (self.bin_centers[1]-self.bin_centers[0]))
         plt.legend()
 
@@ -1079,7 +1079,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
     @property
     def shortName(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFileNames[0])
-        return os.path.split(basename)[-1] + " {} chans".format(len(self))
+        return os.path.split(basename)[-1] + f" {len(self)} chans"
 
     def loadChannels(self):
         bar = SilenceBar('Parse OFF File Headers', max=len(
@@ -1092,7 +1092,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         bar.finish()
 
     def __repr__(self):
-        return "ChannelGroup with {} channels".format(len(self))
+        return f"ChannelGroup with {len(self)} channels"
 
     def firstGoodChannel(self):
         for ds in self.values():
@@ -1167,10 +1167,10 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             ds = self[channum]
             ds.plotHist(binEdges, attr, axis, [], states, cutRecipeName)
             line = axis.lines[-1]
-            line.set_label("{}".format(channum))
+            line.set_label(f"{channum}")
             if ds.markedBadBool:
                 line.set_dashes([2, 2, 10, 2])
-        axis.set_title(self.shortName + ", states = {}".format(states))
+        axis.set_title(self.shortName + f", states = {states}")
         axis.legend(title="channel")
         annotate_lines(axis, labelLines)
 
@@ -1216,8 +1216,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         grp = h5File.require_group("all_channels")
         for state in self.stateLabels:  # hist for each state
             binCenters, counts = self.hist(binEdges, attr, state, cutRecipeName)
-            grp["{}/bin_centers".format(state)] = binCenters
-            grp["{}/counts".format(state)] = counts
+            grp[f"{state}/bin_centers"] = binCenters
+            grp[f"{state}/counts"] = counts
         binCenters, counts = self.hist(
             binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
         grp["bin_centers_ev"] = binCenters
@@ -1248,11 +1248,11 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             axis.hist(resolutions, bins=np.arange(0, np.amax(resolutions)+0.25, 0.25))
             axis.set_xlabel("energy resoluiton fwhm (eV)")
             axis.set_ylabel("# of channels / 0.25 eV bin")
-            plt.title(self.shortName+" at {}".format(line))
+            plt.title(self.shortName+f" at {line}")
         if hdf5Group is not None:
             with self.includeBad():
                 for (channum, ds) in self.items():
-                    grp = hdf5Group.require_group("{}/fits/{}".format(channum, line))
+                    grp = hdf5Group.require_group(f"{channum}/fits/{line}")
                     if ds.markedBadBool:
                         grp["markedBadReason"] = ds.markedBadReason
                     else:
@@ -1284,7 +1284,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                 "deleteAndRecreate should be True or False, you can't use the default value")
         if deleteAndRecreate:
             if self.verbose:
-                print("deleting and recreating directory {}".format(self.outputDir))
+                print(f"deleting and recreating directory {self.outputDir}")
             try:
                 shutil.rmtree(self.outputDir)
             except Exception:
@@ -1312,7 +1312,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                    for ds in self.values()]
         result = self.linefit(lineName, plot=False, states=states, binsize=binsize)
         fig = plt.figure(figsize=(12, 12))
-        fig.suptitle("{} fits to {} with states = {}".format(self.shortName, lineName, states))
+        fig.suptitle(f"{self.shortName} fits to {lineName} with states = {states}")
         result.plotm(ax=plt.subplot(2, 2, 3))
         plt.xlabel("energy (eV)")
         plt.ylabel("counts per bin")
@@ -1323,7 +1323,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         plt.hist(resolutions)
         plt.xlabel("resolution (eV fwhm)")
         plt.ylabel("channels per bin")
-        plt.text(0.5, 0.9, "median = {:.2f}".format(np.median(resolutions)), transform=ax.transAxes)
+        plt.text(0.5, 0.9, f"median = {np.median(resolutions):.2f}", transform=ax.transAxes)
         plt.vlines(np.median(resolutions), plt.ylim()[0], plt.ylim()[1], label="median")
         ax = plt.subplot(2, 2, 2)
         plt.hist(positions)
@@ -1448,7 +1448,7 @@ class ChannelFromNpArray(Channel):
         elif isinstance(inds, NoCutInds):
             output = self.offFile
         else:
-            raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
+            raise Exception(f"type(inds)={type(inds)}, should be slice or list or slices")
         return output
 
     @property

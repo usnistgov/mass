@@ -477,7 +477,7 @@ class TestTESGroup(ut.TestCase):
 10476891776960, A
 10491427707840, B
 """
-                esfname = "{}/regress_experiment_state.txt".format(dir.name)
+                esfname = f"{dir.name}/regress_experiment_state.txt"
                 with open(esfname, "w") as fp:
                     fp.write(contents)
             return mass.TESGroup([src_name], hdf5_filename=hdf5_filename), dir

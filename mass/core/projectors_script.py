@@ -87,29 +87,29 @@ def main(args=None):
     if not args.silent:
         print("starting make_projectors")
     for k in sorted(vars(args).keys()):
-        print("{}: {}".format(k, vars(args)[k]))
+        print(f"{k}: {vars(args)[k]}")
     # find files
     channums = mass.ljh_util.ljh_get_channels_both(args.pulse_path, args.noise_path)
     if not args.silent:
-        print("found these {} channels with both pulse and noise files: {}".format(len(channums), channums))
+        print(f"found these {len(channums)} channels with both pulse and noise files: {channums}")
     nchan = len(channums)
     if args.max_channels < nchan:
         channums = channums[:args.max_channels]
         if not args.silent:
-            print("chose first max_channels={} channels".format(args.max_channels))
+            print(f"chose first max_channels={args.max_channels} channels")
     if len(channums) == 0:
         raise Exception("no channels found for files matching {} and {}".format(
             args.pulse_path, args.noise_path))
     pulse_basename, _ = mass.ljh_util.ljh_basename_channum(args.pulse_path)
     noise_basename, _ = mass.ljh_util.ljh_basename_channum(args.noise_path)
-    pulse_files = [pulse_basename+"_chan{}.ljh".format(channum) for channum in channums]
-    noise_files = [noise_basename+"_chan{}.ljh".format(channum) for channum in channums]
+    pulse_files = [pulse_basename+f"_chan{channum}.ljh" for channum in channums]
+    noise_files = [noise_basename+f"_chan{channum}.ljh" for channum in channums]
     # handle output filename
     if args.output_path is None:
         args.output_path = pulse_basename+"_model.hdf5"
     # handle replace_output
     if os.path.isfile(args.output_path) and not args.replace_output:
-        print("output: {} already exists, pass --replace_output or -r to overwrite".format(args.output_path))
+        print(f"output: {args.output_path} already exists, pass --replace_output or -r to overwrite")
         print("aborting")
         sys.exit(1)
     # create output file

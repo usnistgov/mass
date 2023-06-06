@@ -66,7 +66,7 @@ class InlineUpdater:
             return
         self.fracDone = fracDone
         sys.stdout.write('\r' + self.baseString
-                         + ' %.1f%% done, estimated %s left' % (self.fracDone * 100.0, self.timeRemainingStr))
+                         + ' {:.1f}% done, estimated {} left'.format(self.fracDone * 100.0, self.timeRemainingStr))
         sys.stdout.flush()
         if fracDone >= 1:
             sys.stdout.write('\n' + self.baseString + ' finished in %s' %

@@ -514,20 +514,20 @@ class Test_Composites_lmfit(unittest.TestCase):
         assert (model2.prefix == prefix2)
         params1 = model1.guess(self.counts1, bin_centers=self.bin_centers)
         params2 = model2.guess(self.counts2, bin_centers=self.bin_centers)
-        params1['{}dph_de'.format(prefix1)].set(value=1.0, vary=False)
-        params2['{}dph_de'.format(prefix2)].set(value=1.0, vary=False)
+        params1[f'{prefix1}dph_de'].set(value=1.0, vary=False)
+        params2[f'{prefix2}dph_de'].set(value=1.0, vary=False)
         result1 = model1.fit(self.counts1, params=params1, bin_centers=self.bin_centers)
         result2 = model2.fit(self.counts2, params=params2, bin_centers=self.bin_centers)
         compositeModel = model1 + model2
         modelComponentPrefixes = [iComp.prefix for iComp in compositeModel.components]
         assert (np.logical_and(prefix1 in modelComponentPrefixes, prefix2 in modelComponentPrefixes))
         compositeParams = result1.params + result2.params
-        compositeParams['{}fwhm'.format(prefix1)].expr = '{}fwhm'.format(prefix2)
+        compositeParams[f'{prefix1}fwhm'].expr = f'{prefix2}fwhm'
         compositeParams['{}peak_ph'.format(
-            prefix1)].expr = '{}peak_ph - {}'.format(prefix2, self.nominal_separation)
+            prefix1)].expr = f'{prefix2}peak_ph - {self.nominal_separation}'
         compositeParams.add(name='ampRatio', value=0.5, vary=False)
         compositeParams['{}integral'.format(
-            prefix1)].expr = '{}integral * ampRatio'.format(prefix2)
+            prefix1)].expr = f'{prefix2}integral * ampRatio'
         compositeResult = compositeModel.fit(
             self.counts, params=compositeParams, bin_centers=self.bin_centers)
         resultComponentPrefixes = [iComp.prefix for iComp in compositeResult.components]

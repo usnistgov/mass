@@ -239,7 +239,7 @@ def add_group_loop(method):
             except KeyboardInterrupt as e:
                 raise (e)
             except Exception as e:
-                ds.markBad("{} during {}".format(e, method_name), e)
+                ds.markBad(f"{e} during {method_name}", e)
                 if rethrow:
                     raise
             bar.next()
@@ -256,9 +256,9 @@ def add_group_loop(method):
         arginfo = inspect.getargspec(method)
         argtext = inspect.formatargspec(*arginfo)
     if method.__doc__ is None:
-        lines.append("\n%s%s has no docstring" % (method_name, argtext))
+        lines.append(f"\n{method_name}{argtext} has no docstring")
     else:
-        lines.append("\n%s%s docstring reads:" % (method_name, argtext))
+        lines.append(f"\n{method_name}{argtext} docstring reads:")
         lines.append(method.__doc__)
     wrapper.__doc__ = "\n".join(lines)
 

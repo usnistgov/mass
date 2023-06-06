@@ -246,17 +246,17 @@ class TestFilters(ut.TestCase):
             std = np.median(np.abs(test_filter.filt_noconst))
             mean = test_filter.filt_noconst.mean()
             self.assertLess(
-                mean, 1e-10*std, msg="{} failed DC test w/o lowpass".format(test_filter.name))
+                mean, 1e-10*std, msg=f"{test_filter.name} failed DC test w/o lowpass")
 
             test_filter.compute(f_3db=1e4, fmax=None)
             mean = test_filter.filt_noconst.mean()
             self.assertLess(
-                mean, 1e-10*std, msg="{} failed DC test w/ f_3db".format(test_filter.name))
+                mean, 1e-10*std, msg=f"{test_filter.name} failed DC test w/ f_3db")
 
             test_filter.compute(f_3db=None, fmax=1e4)
             mean = test_filter.filt_noconst.mean()
             self.assertLess(
-                mean, 1e-10*std, msg="{} failed DC test w/ fmax".format(test_filter.name))
+                mean, 1e-10*std, msg=f"{test_filter.name} failed DC test w/ fmax")
 
 
 class TestWhitener(ut.TestCase):

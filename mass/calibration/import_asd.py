@@ -60,7 +60,7 @@ def write_asd_pickle(inputFilename, outputFilename):
                             energyLevelsDict[element] = {}
                         if spectr_charge not in energyLevelsDict[element].keys():
                             energyLevelsDict[element][spectr_charge] = {}
-                        levelName = '{} {} J={}'.format(conf, term, j_val)
+                        levelName = f'{conf} {term} J={j_val}'
                         energyLevelsDict[element][spectr_charge][levelName] = [energy_inv_cm, unc_inv_cm]
     # Sort levels within an element/charge state by energy
     outputDict = {}
@@ -86,6 +86,6 @@ if __name__ == "__main__":
     requiredNamed.add_argument('-i', '--input', required=True, help='Input sql dump file name')
     requiredNamed.add_argument('-o', '--output', required=True, help='Output pickle file name')
     args = parser.parse_args()
-    print('Reading from file {}'.format(args.input))
-    print('Writing to file {}'.format(args.output))
+    print(f'Reading from file {args.input}')
+    print(f'Writing to file {args.output}')
     write_asd_pickle(inputFilename=args.input, outputFilename=args.output)

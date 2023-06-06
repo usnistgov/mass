@@ -118,7 +118,7 @@ class SpectralLine():
         pdf = self.pdf(x, instrument_gaussian_fwhm)
         axis.plot(x, pdf, "k", lw=2, label=label)
         axis.set_xlabel("Energy (eV)")
-        axis.set_ylabel("Counts per {:.2} eV bin".format(float(x[1]-x[0])))
+        axis.set_ylabel(f"Counts per {float(x[1]-x[0]):.2} eV bin")
         axis.set_xlim(x[0], x[-1])
         if setylim:
             axis.set_ylim(0, np.amax(pdf)*1.05)
@@ -161,9 +161,9 @@ class SpectralLine():
     @property
     def shortname(self):
         if self.is_default_material:
-            return "{}{}".format(self.element, self.linetype)
+            return f"{self.element}{self.linetype}"
         else:
-            return "{}{}_{}".format(self.element, self.linetype, self.material)
+            return f"{self.element}{self.linetype}_{self.material}"
 
     @property
     def reference(self):
@@ -176,7 +176,7 @@ class SpectralLine():
         return ((instrument_gaussian_fwhm/FWHM_OVER_SIGMA)**2 + self.intrinsic_sigma**2)**0.5
 
     def __repr__(self):
-        return "SpectralLine: {}".format(self.shortname)
+        return f"SpectralLine: {self.shortname}"
 
     def model(self, has_linear_background=True, has_tails=False, prefix="", qemodel=None):
         """Generate a LineModel instance from a SpectralLine"""
@@ -414,7 +414,7 @@ def addline(element, linetype, material, reference_short, reference_plot_instrum
         line.ka12_energy_diff = ka12_energy_diff
     name = line.shortname
     if name in spectra.keys() and (not allow_replacement):
-        raise ValueError("spectrum {} already exists".format(name))
+        raise ValueError(f"spectrum {name} already exists")
 
     # Add this SpectralLine to spectra dict AND make it be a variable in the module
     spectra[name] = line
@@ -439,7 +439,7 @@ def make_line_fitter(line):
     elif line.linetype.startswith("KBeta") or "LBeta" in line.linetype:
         fitter_class = line_fits.GenericKBetaFitter
     else:
-        raise ValueError("no generic fitter for {}".format(line))
+        raise ValueError(f"no generic fitter for {line}")
     f = fitter_class()
     f.spect = line
     f.name = line.element+line.linetype

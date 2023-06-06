@@ -32,7 +32,7 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
                    ("unixnano", np.int64), ("pretriggerMean", np.float32), ("pretriggerDelta", np.float32),
                    ("residualStdDev", np.float32)]
     else:
-        raise Exception("dtype for OFF version {} not implemented".format(offVersion))
+        raise Exception(f"dtype for OFF version {offVersion} not implemented")
 
     if descriptive_coefs_names:
         dt_list += [("pulseMean", np.float32), ("derivativeLike",

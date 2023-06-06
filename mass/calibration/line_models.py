@@ -48,9 +48,9 @@ class MLEModel(lmfit.Model):
             opts.append("prefix='%s'" % (self._prefix))
         if long:
             for k, v in self.opts.items():
-                opts.append("%s='%s'" % (k, v))
+                opts.append(f"{k}='{v}'")
         if len(opts) > 0:
-            out = "%s, %s" % (out, ', '.join(opts))
+            out = "{}, {}".format(out, ', '.join(opts))
         return f"{type(self).__name__}({out})"
 
     def __add__(self, other):
@@ -357,8 +357,8 @@ class LineModelResult(lmfit.model.ModelResult):
         bin_size = bin_centers[1]-bin_centers[0]
         for iComp in self.components:
             prefix = iComp.prefix
-            dphde = "{}dph_de".format(prefix)
-            fwhm = "{}fwhm".format(prefix)
+            dphde = f"{prefix}dph_de"
+            fwhm = f"{prefix}fwhm"
             if (dphde in self.params) and (fwhm in self.params):
                 bin_size_energy = bin_size/self.params[dphde]
                 instrument_gaussian_fwhm = self.params[fwhm].value

@@ -91,7 +91,7 @@ class PrmDictBase:
         for d in self._prm_list:
             keys = sorted(d.keys(), key=lambda x: x.lower())
             for prm in keys:
-                print('%s = %s' % (prm, d[prm]))
+                print(f'{prm} = {d[prm]}')
 
     def set(self, **kwargs):
         """Set kwargs data in parameter dictionaries."""
@@ -117,8 +117,7 @@ class PrmDictBase:
                 if isinstance(self.user_prm, dict):
                     # not a registered parameter:
                     self.user_prm[prm] = kwargs[prm]
-                    message('%s=%s assigned in self.user_prm' %
-                            (prm, kwargs[prm]))
+                    message(f'{prm}={kwargs[prm]} assigned in self.user_prm')
                 else:
                     raise NameError('parameter "%s" not registered' % prm)
         self._update()
@@ -151,15 +150,14 @@ class PrmDictBase:
                         msg = f"{prm}={value} has type {type(d[prm])}, not {self._type_check[prm]} or None"
                         raise TypeError(msg)
                 else:
-                    raise TypeError('self._type_check["%s"] must be int/book or type (float,int,...) values, not %s' %
-                                    (prm, type(self._type_check[prm])))
+                    raise TypeError(f'self._type_check["{prm}"] must be int/book or type (float,int,...) values, not {type(self._type_check[prm])}')
             else:
                 can_set = True
         else:
-            message('%s is not registered in\n%s' % (prm, d))
+            message(f'{prm} is not registered in\n{d}')
         if can_set:
             d[prm] = value
-            message('%s=%s is assigned' % (prm, value))
+            message(f'{prm}={value} is assigned')
             return True
         return False
 
@@ -198,7 +196,7 @@ class PrmDictBase:
         # can be tuned in subclasses
         for d in dicts:
             for key in d:
-                exec('%s=%s' % (key, repr(d[key])), globals(), namespace)
+                exec(f'{key}={repr(d[key])}', globals(), namespace)
 
     def namespace2dicts(self, namespace, dicts):
         """Update dicts from variables in a namespace."""

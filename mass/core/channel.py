@@ -478,7 +478,7 @@ class PulseRecords:
             1e6*self.timebase)
 
     def __repr__(self):
-        return "%s('%s')" % (self.__class__.__name__, self.filename)
+        return f"{self.__class__.__name__}('{self.filename}')"
 
     def set_segment_size(self, seg_size):
         """Update the underlying file's segment size in bytes."""
@@ -537,8 +537,7 @@ def _add_group_loop():
                     s = traceback.format_exception(exc_type, exc_value, exc_traceback)
                     if rethrow:
                         raise
-                    self.set_chan_bad(ds.channum, "failed %s with %s\ntraceback:\n%s" %
-                                      (method_name, e, s))
+                    self.set_chan_bad(ds.channum, f"failed {method_name} with {e}\ntraceback:\n{s}")
 
         wrapper.__name__ = method_name
 
@@ -551,9 +550,9 @@ def _add_group_loop():
             argtext = inspect.formatargspec(*arginfo)
 
         if method.__doc__ is None:
-            lines.append("\n%s%s has no docstring" % (method_name, argtext))
+            lines.append(f"\n{method_name}{argtext} has no docstring")
         else:
-            lines.append("\n%s%s docstring reads:" % (method_name, argtext))
+            lines.append(f"\n{method_name}{argtext} docstring reads:")
             lines.append(method.__doc__)
         wrapper.__doc__ = "\n".join(lines)
 
@@ -761,7 +760,7 @@ class MicrocalDataSet:
                                  self.noise_autocorr, sample_time=self.timebase,
                                  shorten=shorten)
         else:
-            raise Exception("filter_type={}, must be `ats` or `5lag`".format(filter_type))
+            raise Exception(f"filter_type={filter_type}, must be `ats` or `5lag`")
         self.filter.fmax = fmax
         self.filter.f_3db = f_3db
         self._filter_type = filter_type
@@ -810,7 +809,7 @@ class MicrocalDataSet:
                 self._external_trigger_rowcount = h5[ds_name]
             else:
                 basename, _ = ljh_util.ljh_basename_channum(self.filename)
-                filename = "{}_external_trigger.bin".format(basename)
+                filename = f"{basename}_external_trigger.bin"
                 with open(filename, "r") as f:
                     f.readline()  # read the header comments line
                     self._external_trigger_rowcount = np.fromfile(f, dtype="int64")
@@ -854,10 +853,10 @@ class MicrocalDataSet:
             1e6*self.timebase)
 
     def __repr__(self):
-        return "%s('%s')" % (self.__class__.__name__, self.filename)
+        return f"{self.__class__.__name__}('{self.filename}')"
 
     def updater(self, name):
-        return self.tes_group.updater(name + " chan {:d}".format(self.channum))
+        return self.tes_group.updater(name + f" chan {self.channum:d}")
 
     def good(self, *args, **kwargs):
         """Returns a boolean vector, one per pulse record, saying whether record is good"""
@@ -1138,7 +1137,7 @@ class MicrocalDataSet:
     def compute_5lag_filter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}, forceNew=False):
         """Requires that compute_noise has been run and that average pulse has been computed"""
         if "filters" in self.hdf5_group and not forceNew:
-            LOG.info("ch {} skpping comput 5lag filter because it is already done".format(self.channum))
+            LOG.info(f"ch {self.channum} skpping comput 5lag filter because it is already done")
             return
         if all(self.noise_autocorr[:] == 0):
             raise Exception("compute noise first")
@@ -1197,7 +1196,7 @@ class MicrocalDataSet:
         the pulse average to get the arrival-time dependence.
         """
         if "filters" in self.hdf5_group and not forceNew:
-            LOG.info("ch {} skipping compute_ats_filter because it is already done".format(self.channum))
+            LOG.info(f"ch {self.channum} skipping compute_ats_filter because it is already done")
             return
         if all(self.noise_autocorr[:] == 0):
             raise Exception("compute noise first")
@@ -1207,7 +1206,7 @@ class MicrocalDataSet:
         # The raw training data, which is shifted (trigger-aligned)
         data, pulsenums = self.first_n_good_pulses(maximum_n_pulses, category=category)
         if len(pulsenums) < minimum_n_pulses:
-            raise Exception("too few good pulses, ngood={}".format(len(pulsenums)))
+            raise Exception(f"too few good pulses, ngood={len(pulsenums)}")
         if shift1:
             raw = data[:, 1:]
             _shift1 = self.p_shift1[:][pulsenums]
@@ -1312,7 +1311,7 @@ class MicrocalDataSet:
             filterfunction = self._filter_data_segment_5lag
             filter_AT = None
         else:
-            raise Exception("filter_type={}, must be `ats` or `5lag`".format(self._filter_type))
+            raise Exception(f"filter_type={self._filter_type}, must be `ats` or `5lag`")
 
         for s in range(self.pulse_records.n_segments):
             first, end = np.array([s, s+1])*self.pulse_records.pulses_per_seg
@@ -1372,7 +1371,7 @@ class MicrocalDataSet:
             self.filter, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag,
             maximum_n_pulses=maximum_n_pulses, noise_weight_basis=noise_weight_basis, category=category)
         save_inverted = self.__dict__.get("invert_data", False)
-        hdf5_group = hdf5_file.create_group("{}".format(self.channum))
+        hdf5_group = hdf5_file.create_group(f"{self.channum}")
         pulse_model.toHDF5(hdf5_group, save_inverted)
 
     def _filter_data_segment_5lag(self, filter_values, _filter_AT, first, end, transform=None):
@@ -1825,18 +1824,18 @@ class MicrocalDataSet:
         try:
             energy = float(line)
             module = 'mass.calibration.gaussian_lines'
-            fittername = '%s.GaussianFitter(%s.GaussianLine())' % (module, module)
+            fittername = f'{module}.GaussianFitter({module}.GaussianLine())'
             fitter = eval(fittername)
         except ValueError:
             energy = None
             try:
                 module = 'mass.calibration.fluorescence_lines'
-                fittername = '%s.%sFitter()' % (module, line)
+                fittername = f'{module}.{line}Fitter()'
                 fitter = eval(fittername)
             except AttributeError:
                 try:
                     module = 'mass.calibration.gaussian_lines'
-                    fittername = '%s.%sFitter()' % (module, line)
+                    fittername = f'{module}.{line}Fitter()'
                     fitter = eval(fittername)
                 except AttributeError:
                     raise ValueError(

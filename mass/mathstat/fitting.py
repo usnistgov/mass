@@ -365,14 +365,12 @@ class MaximumLikelihoodHistogramFitter:
                 self.internal = atry.copy()
                 self.params = np.array([f(p) for f, p in zip(self.internal2bounded, self.internal)])
                 if verbose:
-                    print("Improved: chisq=%9.4e->%9.4e l=%.1e params=%s..." %
-                          (trial_chisq, prev_chisq, lambda_coef, self.params[:2]))
+                    print(f"Improved: chisq={trial_chisq:9.4e}->{prev_chisq:9.4e} l={lambda_coef:.1e} params={self.params[:2]}...")
                 self.chisq = prev_chisq = trial_chisq
             else:   # failure.  Increase lambda and return to previous starting point.
                 lambda_coef *= 10.0
                 if verbose:
-                    print("No imprv: chisq=%9.4e >= %9.4e l=%.1e params=%s..." %
-                          (trial_chisq, prev_chisq, lambda_coef, self.params[:2]))
+                    print(f"No imprv: chisq={trial_chisq:9.4e} >= {prev_chisq:9.4e} l={lambda_coef:.1e} params={self.params[:2]}...")
                 self.chisq = prev_chisq
 
             dt = time.time()-t_start
@@ -480,7 +478,7 @@ def kink_model(k, x, y):
     if len(xi) == 0 or len(xj) == 0:
         xmin = x.min()
         xmax = x.max()
-        raise ValueError("k=%g should be in range [xmin,xmax], or [%g,%g]." % (k, xmin, xmax))
+        raise ValueError(f"k={k:g} should be in range [xmin,xmax], or [{xmin:g},{xmax:g}].")
 
     dxi = xi-k
     dxj = xj-k

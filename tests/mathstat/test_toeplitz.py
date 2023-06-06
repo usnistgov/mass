@@ -186,8 +186,7 @@ class toeplitzSpeed:
             lu_piv = linalg.lu_factor(R)
             x3 = linalg.lu_solve(lu_piv, v, overwrite_b=False)
             dt.append(time.time()-t0)
-            print('rms rhs diff: %.3g, solution diff: %.3g %.3g' %
-                  ((v-v2).std(), (x-x2).std(), (x-x3).std()))
+            print(f'rms rhs diff: {(v-v2).std():.3g}, solution diff: {(x-x2).std():.3g} {(x-x3).std():.3g}')
 
         else:
             dt.extend(4*[np.NaN])

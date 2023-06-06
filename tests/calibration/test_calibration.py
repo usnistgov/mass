@@ -252,7 +252,7 @@ class TestJoeStyleEnergyCalibration(unittest.TestCase):
         cal2 = mass.EnergyCalibration(curvetype="gain", approximate=True, useGPR=True)
         for cal in (cal1, cal2):
             for a, b, c, d in zip(ph, e, dph, de):
-                cal.add_cal_point(a, b, pht_error=c, e_error=d, name="{:.3f} eV".format(b))
+                cal.add_cal_point(a, b, pht_error=c, e_error=d, name=f"{b:.3f} eV")
             cal._update_converters()
         self.assertTrue((np.abs(cal1(ph)-e) < 1.2*dph).all())
         self.assertTrue((np.abs(cal2(ph)-e) < 0.7*dph).all())

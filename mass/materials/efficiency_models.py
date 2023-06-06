@@ -40,7 +40,7 @@ class FilterStack():
 
     def get_efficiency(self, xray_energies_eV, uncertain=False):
         assert self.components != {
-        }, '{} has no components of which to calculate efficiency'.format(self.name)
+        }, f'{self.name} has no components of which to calculate efficiency'
         individual_efficiency = np.array([iComponent.get_efficiency(
             xray_energies_eV, uncertain=uncertain) for iComponent in list(self.components.values())])
         efficiency = np.prod(individual_efficiency, axis=0)
@@ -62,7 +62,7 @@ class FilterStack():
         ax.set_xlabel('Energy (keV)')
         ax.set_ylabel('Efficiency (%)')
         ax.set_title(self.name)
-        ax.set_title('{} Efficiency'.format(self.name))
+        ax.set_title(f'{self.name} Efficiency')
 
         for k, v in self.components.items():
             efficiency = v.get_efficiency(xray_energies_eV)
