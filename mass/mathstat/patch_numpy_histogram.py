@@ -36,7 +36,7 @@ def histogram(a, bins=10, range=None, normed=False, weights=None,
     if a_corrected.dtype in (np.float32, np.float16):
         if isinstance(bins, str) or range is None:
             # For automatic bin computation, convert all values to float
-            a_corrected = a_corrected.astype(np.float)
+            a_corrected = a_corrected.astype(float)
         else:
             # When bins or bin number+range is given, convert only the in-bounds
             # values to float.
@@ -46,7 +46,7 @@ def histogram(a, bins=10, range=None, normed=False, weights=None,
             else:
                 keep = a_corrected >= range[0]
                 keep &= a_corrected < range[1]
-            a_corrected = a_corrected[keep].astype(np.float)
+            a_corrected = a_corrected[keep].astype(float)
     return np._old_histogram(a_corrected, bins=bins, range=range, normed=normed,
                              weights=weights, density=density)
 

@@ -146,8 +146,8 @@ def savitzky_golay(y, window_size, order, deriv=0):
        Cambridge University Press ISBN-13: 9780521880688
     """
     try:
-        window_size = np.abs(np.int(window_size))
-        order = np.abs(np.int(order))
+        window_size = np.abs(int(window_size))
+        order = np.abs(int(order))
     except ValueError as _msg:
         raise ValueError("window_size and order have to be of type int: %s" % _msg)
     if window_size % 2 != 1 or window_size < 1:
