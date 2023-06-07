@@ -1,3 +1,5 @@
+# Configuration file for ruff, the one lint tool to rule them all.
+
 line-length = 135
 
 # select = ["F", "E", "W", "PLE", "PLW", "PLR", "PLC"]
@@ -10,6 +12,7 @@ select = [
   "PLE",  # pylint errors
   "PLW",  # pylint warnings
   "PLR",  # pylint refactor
+  "PLC",  # pylint conventions
 #   "D",   # pydocstyle
 ]
 

@@ -364,7 +364,7 @@ class EnergyCalibration:
             e_error = 0.01  # Assume 0.01 eV error if none given
 
         update_index = None
-        if name != "" and name in self._names:  # Update an existing point by name
+        if name and name in self._names:  # Update an existing point by name
             if not overwrite:
                 raise ValueError(
                     "Calibration point '%s' is already known and overwrite is False" % name)

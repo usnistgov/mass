@@ -495,13 +495,13 @@ class Test_Composites_lmfit(unittest.TestCase):
 
     def test_FitToModelWithoutPrefix(self):
         model1_noprefix = self.line1.model()
-        assert (model1_noprefix.prefix == '')
+        assert len(model1_noprefix.prefix) == 0
         params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers)
         params1_noprefix['dph_de'].set(value=1.0, vary=False)
         result1_noprefix = model1_noprefix.fit(
             self.counts1, params=params1_noprefix, bin_centers=self.bin_centers)
         for iComp in result1_noprefix.components:
-            assert (iComp.prefix == '')
+            assert len(iComp.prefix) == 0
         result1_noprefix._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
     def test_NonUniqueParamsFails(self):

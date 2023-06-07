@@ -339,7 +339,7 @@ class LineModelResult(lmfit.model.ModelResult):
                 title = f"{self._ds_shortname}: {self.model.spect.shortname}"
             if ylabel is None:
                 ylabel = f"counts per {self._binsize:g} {self._unit_str} bin"
-                if self._states_hint != "":
+                if len(self._states_hint) > 0:
                     ylabel += f"\nstates={self._states_hint}: {self._cut_hint}"
             if xlabel is None:
                 xlabel = f"{self._attr_str} ({self._unit_str})"

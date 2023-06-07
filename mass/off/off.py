@@ -48,14 +48,14 @@ def readJsonString(f):
     """look in file f for a line "}\\n" and return all contents up to that point
     for an OFF file this can be parsed by json.dumps
     and all remaining data is records"""
-    s = ""
+    lines = []
     while True:
         line = f.readline().decode("utf-8")
-        s += line
+        lines += line
         if line == "}\n":
-            return s
-        elif line == "":
-            raise Exception("""reached end of file without finding a line "}\\n" """)
+            return "".join(lines)
+        if len(line) == 0:
+            raise Exception("""reached end of file without finding an end-of-JSON line "}\\n" """)
 
 
 class OffFile:

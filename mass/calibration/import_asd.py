@@ -26,7 +26,7 @@ def write_asd_pickle(inputFilename, outputFilename):
             if line.startswith(createTableString):
                 tableName = re.search(valueSearchString, line).groups()[0]
                 fieldNamesDict[tableName] = []
-            elif tableName != '' and line.strip().startswith('`'):
+            elif tableName and line.strip().startswith('`'):
                 fieldName = re.search(valueSearchString, line).groups()[0]
                 fieldNamesDict[tableName].append(fieldName)
             # Parse Levels portion
@@ -54,7 +54,7 @@ def write_asd_pickle(inputFilename, outputFilename):
                         unc_inv_cm = float(unc)  # cm^-1
                     except ValueError:
                         unc_inv_cm = np.nan
-                    if (conf != '') and (term != '' and term != '*'):
+                    if conf and term and term != '*':
                         # Set up upper level dictionary
                         if element not in energyLevelsDict.keys():
                             energyLevelsDict[element] = {}
