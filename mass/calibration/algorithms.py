@@ -8,10 +8,7 @@ import itertools
 import operator
 import numpy as np
 
-try:
-    from collections.abc import Iterable  # Python 3
-except ImportError:
-    from collections import Iterable
+from collections.abc import Iterable
 
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
@@ -105,8 +102,9 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
         if acc > maxacc * np.sqrt(len(energies)):
             n_sel_pp += nincrement
             if n_sel_pp > nmax:
-                raise ValueError("no peak assignment succeeded: acc %g, maxacc*sqrt(len(energies)) %g" %
-                                 (acc, maxacc * np.sqrt(len(energies))))
+                msg = f"no peak assignment succeeded: acc {acc:g}, maxacc*sqrt(len(energies)) "\
+                    f"{maxacc * np.sqrt(len(energies)):g}"
+                raise ValueError(msg)
             else:
                 continue
         else:
@@ -164,7 +162,7 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     return e_e, fit_lo_hi_energy, slopes_de_dph
 
 
-class FailedFit(object):
+class FailedFit:
     def __init__(self, hist, bins):
         self.hist = hist
         self.bins = bins
@@ -236,7 +234,7 @@ def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
     return result
 
 
-class EnergyCalibrationAutocal(object):
+class EnergyCalibrationAutocal:
     def __init__(self, calibration, ph=None, line_names=None):
         """
         Args:
@@ -346,11 +344,11 @@ class EnergyCalibrationAutocal(object):
             x = np.linspace(result.energies[0], result.energies[-1], 201)
             if "Gaussian" in result.model.name:
                 ax.text(0.05, 0.97, str(el)
-                        + ' (eV)\n' + "Resolution: {0:.1f} (eV)".format(eres),
+                        + ' (eV)\n' + f"Resolution: {eres:.1f} (eV)",
                         transform=ax.transAxes, ha='left', va='top')
             else:
                 ax.text(0.05, 0.97, el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
-                        + '\n' + "Resolution: {0:.1f} (eV)".format(eres),
+                        + '\n' + f"Resolution: {eres:.1f} (eV)",
                         transform=ax.transAxes, ha='left', va='top')
             y = result.model.eval(result.params, bin_centers=x)
             ax.plot(x, y, '-', color=(0.9, 0.1, 0.1), lw=2)
@@ -365,7 +363,7 @@ class EnergyCalibrationAutocal(object):
             if isstr(el):
                 peak_name = el.replace('Alpha', r'$_{\alpha}$').replace('Beta', r'$_{\beta}$')
             elif isinstance(el, (int, float)):
-                peak_name = "{0:.1f} (eV)".format(energy)
+                peak_name = f"{energy:.1f} (eV)"
             ax.text(pht, energy,
                     peak_name,
                     ha='left', va='top',

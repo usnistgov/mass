@@ -42,5 +42,5 @@ autopep8: $(PEPFILES) Makefile
 	autopep8 --verbose --in-place --recursive .
 
 lint: lint-report.txt
-lint-report.txt: pylintrc $(PYFILES) Makefile
-	pylint --rcfile=$< mass > $@
+lint-report.txt: $(PYFILES) Makefile
+	ruff check mass doc tests > $@

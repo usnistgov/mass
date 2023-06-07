@@ -138,7 +138,7 @@ class TestFiles(ut.TestCase):
 
     def test_ragged_size_file(self):
         "Make sure we can open a file that was truncated during a pulse record."
-        e = mass.LJHFile.open("tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh")
+        mass.LJHFile.open("tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh")
 
 
 class TestTESGroup(ut.TestCase):
@@ -416,7 +416,6 @@ class TestTESGroup(ut.TestCase):
         data.auto_cuts()
         data.compute_ats_filter(shift1=False)
         data.filter_data()
-        ds = data.datasets[0]
 
         # Reduce the segment size, so we test that this works with LJH files having
         # 2 or more segments. Here choose 3 segments
@@ -478,7 +477,7 @@ class TestTESGroup(ut.TestCase):
 10476891776960, A
 10491427707840, B
 """
-                esfname = "{}/regress_experiment_state.txt".format(dir.name)
+                esfname = f"{dir.name}/regress_experiment_state.txt"
                 with open(esfname, "w") as fp:
                     fp.write(contents)
             return mass.TESGroup([src_name], hdf5_filename=hdf5_filename), dir

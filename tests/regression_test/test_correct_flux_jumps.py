@@ -73,7 +73,7 @@ def add_jumps(vals):
 def run_tests(N):
     sz = 10000
     g = np.full(sz, True, dtype=bool)
-    for k in xrange(N):
+    for k in range(N):
         noise = np.abs(100*np.random.randn(sz))
         vals_orig = make_trend_poly_plus_sine(sz, 2) + noise
         vals = add_jumps(vals_orig.copy())

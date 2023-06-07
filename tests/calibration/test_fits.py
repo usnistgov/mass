@@ -355,17 +355,22 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         fitter._have_warned = True
         fitter.fit(counts, bin_centers, plot=False)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value, delta=2*result.params["fwhm"].stderr)
+            fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value,
+            delta=2*result.params["fwhm"].stderr)
         self.assertAlmostEqual(
             fitter.last_fit_params_dict["resolution"][1], result.params["fwhm"].stderr, places=1)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][0]/bin_width, result.params["integral"].value, delta=2*result.params["integral"].stderr)
+            fitter.last_fit_params_dict["amplitude"][0]/bin_width, result.params["integral"].value,
+            delta=2*result.params["integral"].stderr)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][1]/bin_width, result.params["integral"].stderr, places=-3)
+            fitter.last_fit_params_dict["amplitude"][1]/bin_width,
+            result.params["integral"].stderr, places=-3)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["bg_slope"][0], result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
+            fitter.last_fit_params_dict["bg_slope"][0],
+            result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
         self.assertAlmostEqual(
-            fitter.last_fit_params_dict["bg_slope"][1], result.params["bg_slope"].stderr, places=1)
+            fitter.last_fit_params_dict["bg_slope"][1],
+            result.params["bg_slope"].stderr, places=1)
 
     def test_MnKA_float32(self):
         """See issue 193: if the energies are float32, then the fit shouldn't be flummoxed."""
@@ -490,13 +495,13 @@ class Test_Composites_lmfit(unittest.TestCase):
 
     def test_FitToModelWithoutPrefix(self):
         model1_noprefix = self.line1.model()
-        assert (model1_noprefix.prefix == '')
+        assert len(model1_noprefix.prefix) == 0
         params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers)
         params1_noprefix['dph_de'].set(value=1.0, vary=False)
         result1_noprefix = model1_noprefix.fit(
             self.counts1, params=params1_noprefix, bin_centers=self.bin_centers)
         for iComp in result1_noprefix.components:
-            assert (iComp.prefix == '')
+            assert len(iComp.prefix) == 0
         result1_noprefix._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
     def test_NonUniqueParamsFails(self):
@@ -514,20 +519,20 @@ class Test_Composites_lmfit(unittest.TestCase):
         assert (model2.prefix == prefix2)
         params1 = model1.guess(self.counts1, bin_centers=self.bin_centers)
         params2 = model2.guess(self.counts2, bin_centers=self.bin_centers)
-        params1['{}dph_de'.format(prefix1)].set(value=1.0, vary=False)
-        params2['{}dph_de'.format(prefix2)].set(value=1.0, vary=False)
+        params1[f'{prefix1}dph_de'].set(value=1.0, vary=False)
+        params2[f'{prefix2}dph_de'].set(value=1.0, vary=False)
         result1 = model1.fit(self.counts1, params=params1, bin_centers=self.bin_centers)
         result2 = model2.fit(self.counts2, params=params2, bin_centers=self.bin_centers)
         compositeModel = model1 + model2
         modelComponentPrefixes = [iComp.prefix for iComp in compositeModel.components]
         assert (np.logical_and(prefix1 in modelComponentPrefixes, prefix2 in modelComponentPrefixes))
         compositeParams = result1.params + result2.params
-        compositeParams['{}fwhm'.format(prefix1)].expr = '{}fwhm'.format(prefix2)
+        compositeParams[f'{prefix1}fwhm'].expr = f'{prefix2}fwhm'
         compositeParams['{}peak_ph'.format(
-            prefix1)].expr = '{}peak_ph - {}'.format(prefix2, self.nominal_separation)
+            prefix1)].expr = f'{prefix2}peak_ph - {self.nominal_separation}'
         compositeParams.add(name='ampRatio', value=0.5, vary=False)
         compositeParams['{}integral'.format(
-            prefix1)].expr = '{}integral * ampRatio'.format(prefix2)
+            prefix1)].expr = f'{prefix2}integral * ampRatio'
         compositeResult = compositeModel.fit(
             self.counts, params=compositeParams, bin_centers=self.bin_centers)
         resultComponentPrefixes = [iComp.prefix for iComp in compositeResult.components]
@@ -547,7 +552,7 @@ def test_BackgroundMLEModel():
                 return bg
             kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
                            'independent_vars': independent_vars})
-            super(BackgroundMLEModel, self).__init__(modelfunc, **kwargs)
+            super().__init__(modelfunc, **kwargs)
             self.set_param_hint('background', value=1, min=0)
             self.set_param_hint('bg_slope', value=0)
 

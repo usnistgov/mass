@@ -126,7 +126,7 @@ def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
     """
 
     if os.path.exists(dest_name) and not overwrite:
-        raise IOError(f"The ljhfile '{dest_name}' exists and overwrite was not set to True")
+        raise OSError(f"The ljhfile '{dest_name}' exists and overwrite was not set to True")
 
     src = LJHFile.open(src_name)
 

@@ -11,7 +11,7 @@ March 30, 2011
 
 from mass.mathstat.toeplitz import ToeplitzSolver
 import numpy as np
-import scipy.linalg as linalg
+from scipy import linalg
 import time
 import unittest
 
@@ -127,7 +127,7 @@ class TestToeplitzSolver_512(unittest.TestCase):
                                    msg='Random vector trial gives rms diff=%sf' % (x_out-x_in).std())
 
 
-class toeplitzSpeed(object):
+class toeplitzSpeed:
     """Test the speed of the Toeplitz solver.
 
     This is NOT a unit test. Usage:
@@ -186,8 +186,7 @@ class toeplitzSpeed(object):
             lu_piv = linalg.lu_factor(R)
             x3 = linalg.lu_solve(lu_piv, v, overwrite_b=False)
             dt.append(time.time()-t0)
-            print('rms rhs diff: %.3g, solution diff: %.3g %.3g' %
-                  ((v-v2).std(), (x-x2).std(), (x-x3).std()))
+            print(f'rms rhs diff: {(v-v2).std():.3g}, solution diff: {(x-x2).std():.3g} {(x-x3).std():.3g}')
 
         else:
             dt.extend(4*[np.NaN])

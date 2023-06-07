@@ -37,7 +37,7 @@ from scipy.interpolate import splev
 from mass.mathstat.derivative import Function, ConstantFunction
 
 
-class CubicSpline(object):
+class CubicSpline:
     """An exact cubic spline, with either a specified slope or 'natural boundary
     conditions' (y''=0) at ends of interval.
 
@@ -185,7 +185,7 @@ class CubicSplineFunction(CubicSpline, Function):
     """A dubious class which lets you take derivatives of a cubic spline."""
 
     def __init__(self, x, y, yprime1=None, yprimeN=None, der=0):
-        super(CubicSplineFunction, self).__init__(x, y, yprime1=yprime1, yprimeN=yprimeN)
+        super().__init__(x, y, yprime1=yprime1, yprimeN=yprimeN)
         self.der = der
 
     def derivative(self, der=1):
@@ -199,7 +199,7 @@ class CubicSplineFunction(CubicSpline, Function):
     def __call__(self, x, der=0):
         if self.der + der > 3:
             return np.zeros_like(x)
-        return super(CubicSplineFunction, self).__call__(x, der=self.der + der)
+        return super().__call__(x, der=self.der + der)
 
     def __repr__(self):
         return "CubicSpline" + "'" * self.der + "(x)"
@@ -310,7 +310,7 @@ class GPRSpline(CubicSpline):
 
     def best_sigmaf(self):
         """Return the sigmaf value that maximizes the marginal Bayesian likelihood."""
-        guess = np.median((self.err/self.y))
+        guess = np.median(self.err/self.y)
         result = sp.optimize.minimize_scalar(
             lambda x: -self._marginal_like(x), [guess/1e4, guess*1e4])
         if result.success:
@@ -368,7 +368,7 @@ class GPRSpline(CubicSpline):
         return cov_ftest + R.T.dot(np.linalg.solve(self.A, R))
 
 
-class NaturalBsplineBasis(object):
+class NaturalBsplineBasis:
     """Represent a cubic B-spline basis in 1D with natural boundary conditions.
 
     That is, f''(x)=0 at the first and last knots. This constraint reduces the
@@ -434,7 +434,7 @@ class NaturalBsplineBasis(object):
         return c
 
 
-class SmoothingSpline(object):
+class SmoothingSpline:
     """A callable object that performs a smoothing cubic spline operation, using
     the NaturalBsplineBasis object for the basis representation of splines.
 
@@ -587,7 +587,7 @@ class SmoothingSpline(object):
 
 class SmoothingSplineFunction(SmoothingSpline, Function):
     def __init__(self, x, y, dy, dx=None, maxchisq=None, der=0):
-        super(SmoothingSplineFunction, self).__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
+        super().__init__(x, y, dy, dx=dx, maxchisq=maxchisq)
         self.der = der
 
     def derivative(self, der=1):
@@ -598,7 +598,7 @@ class SmoothingSplineFunction(SmoothingSpline, Function):
     def __call__(self, x, der=0):
         if self.der + der > 3:
             return np.zeros_like(x)
-        return super(SmoothingSplineFunction, self).__call__(x, der=self.der + der)
+        return super().__call__(x, der=self.der + der)
 
     def variance(self, xtest):
         return np.zeros_like(xtest)+np.inf
@@ -607,7 +607,7 @@ class SmoothingSplineFunction(SmoothingSpline, Function):
         return "SmoothingSpline{}(x)".format("'" * self.der)
 
 
-class SmoothingSplineLog(object):
+class SmoothingSplineLog:
     def __init__(self, x, y, dy, dx=None, maxchisq=None):
         if np.any(x <= 0) or np.any(y <= 0):
             raise ValueError("The x and y data must all be positive to use a SmoothingSplineLog")
@@ -621,7 +621,7 @@ class SmoothingSplineLog(object):
 
 class GPRSplineFunction(GPRSpline, Function):
     def __init__(self, x, y, dy, dx=None, der=0):
-        super(GPRSplineFunction, self).__init__(x, y, dy, dx=dx)
+        super().__init__(x, y, dy, dx=dx)
         self.der = der
 
     def derivative(self, der=1):
@@ -632,7 +632,7 @@ class GPRSplineFunction(GPRSpline, Function):
     def __call__(self, x, der=0):
         if self.der + der > 3:
             return np.zeros_like(x)
-        return super(GPRSplineFunction, self).__call__(x, der=self.der + der)
+        return super().__call__(x, der=self.der + der)
 
     def __repr__(self):
         return "GPRSpline{}(x)".format("'" * self.der)

@@ -1,0 +1,38 @@
+# Configuration file for ruff, the one lint tool to rule them all.
+
+line-length = 135
+
+# select = ["F", "E", "W", "PLE", "PLW", "PLR", "PLC"]
+select = [
+  "E",  # pycodestyle
+  "W",  # pycodestyle
+  "E225",  # pycodestyle missing whitespace around operator
+  "F",  # pyflakes
+  "UP",  # pyupgrade
+  "PLE",  # pylint errors
+  "PLW",  # pylint warnings
+  "PLR",  # pylint refactor
+  "PLC",  # pylint conventions
+  "NPY",  # numpy-specific
+  # "N",  # pep8-naming
+  # "D",   # pydocstyle
+]
+
+ignore = [
+    # "E501",  # line too long
+    "UP015",  # Unneccessary open mode parameters ("r" is now the default, I guess)
+    # "UP031",  # use f-string instead of percent format
+    # "UP032",  # use f-string instead of format
+    "PLR2004",  # Magic value used in comparison
+    "PLR0911",  # too many return statements
+    "PLR0912",  # too many branches
+    "PLR0913",  # too many arguments
+    "PLR0915",  # too many statements
+    # "NPY002"
+]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Assume Python 3.8 [end of life will be 14 October 2024. See https://endoflife.date/python]
+target-version = "py38"

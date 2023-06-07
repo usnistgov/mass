@@ -60,7 +60,7 @@ def _scale_add_bg(spectrum, P_integral, P_bg=0, P_bgslope=0):
     return spectrum
 
 
-class LineFitter(object):
+class LineFitter:
     """Abstract base class for line fitting objects."""
 
     def __init__(self):
@@ -86,7 +86,7 @@ class LineFitter(object):
         self.name = "UnknownLine"
 
     def __repr__(self):
-        return "mass.LineFitter({})".format(self.name)
+        return f"mass.LineFitter({self.name})"
 
     def set_penalty(self, penalty):
         """Set a regularizer, or penalty function, for the fitter. For its requirements,
@@ -320,7 +320,7 @@ Please see mass/doc/LineFitting.md for how to use the new Model objects and LMFI
         axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize,
                        self.last_fit_bins[-1] + 0.5 * ph_binsize])
         axis.set_xlabel("energy (%s)" % ph_units)
-        axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
+        axis.set_ylabel(f"counts per {ph_binsize:0.2f} {ph_units} bin")
         axis.set_title("failed fit")
         axis.legend(loc="best", frameon=False)
 
@@ -347,7 +347,7 @@ Please see mass/doc/LineFitting.md for how to use the new Model objects and LMFI
         axis.set_xlim([self.last_fit_bins[0] - 0.5 * ph_binsize,
                        self.last_fit_bins[-1] + 0.5 * ph_binsize])
         axis.set_xlabel("energy (%s)" % ph_units)
-        axis.set_ylabel("counts per %0.2f %s bin" % (ph_binsize, ph_units))
+        axis.set_ylabel(f"counts per {ph_binsize:0.2f} {ph_units} bin")
 
         pnum_res = self.param_meaning["resolution"]
         slabel = ""
@@ -358,7 +358,7 @@ Please see mass/doc/LineFitting.md for how to use the new Model objects and LMFI
             res = self.last_fit_params[pnum_res]
             err = self.last_fit_cov[pnum_res, pnum_res]**0.5
             tf = self.last_fit_params[pnum_tf]
-            slabel = "FWHM: %.2f +- %.2f" % (res, err)
+            slabel = f"FWHM: {res:.2f} +- {err:.2f}"
             if tf > 0.001:
                 slabel += "\nf$_\\mathrm{tail}$: %.1f%%" % (tf*100)
         axis.plot(self.last_fit_bins, self.last_fit_result, color='#666666',
@@ -410,7 +410,7 @@ class VoigtFitter(LineFitter):
     nparam = 8
 
     def __init__(self):
-        super(VoigtFitter, self).__init__()
+        super().__init__()
 
     def feature_scale(self, params):
         res = params[self.param_meaning["resolution"]]
@@ -490,7 +490,7 @@ class NVoigtFitter(LineFitter):
         """This fitter will have `Nlines` Lorentzian lines."""
         self.Nlines = Nlines
         assert Nlines >= 1
-        super(NVoigtFitter, self).__init__()
+        super().__init__()
         self.nparam = 5+3*Nlines
         self.param_meaning = {
             "resolution": 0,
@@ -600,7 +600,7 @@ class GaussianFitter(LineFitter):
     nparam = 7
 
     def __init__(self):
-        super(GaussianFitter, self).__init__()
+        super().__init__()
 
     def feature_scale(self, params):
         return params[self.param_meaning["resolution"]]
@@ -682,7 +682,7 @@ class MultiLorentzianComplexFitter(LineFitter):
     nparam = 8
 
     def __init__(self):
-        super(MultiLorentzianComplexFitter, self).__init__()
+        super().__init__()
 
     def feature_scale(self, params):
         return params[self.param_meaning["resolution"]]
@@ -744,14 +744,13 @@ class MultiLorentzianComplexFitter(LineFitter):
             axis = plt.subplot(111)
             plt.xlabel('pulseheight (arb) - %s' % self.spect.name)
             plt.ylabel('counts per %.3f unit bin' % ph_binsize)
-            plt.title(('resolution %.3f, amplitude %.3f, dph/de %.3f\n amp %.3f, '
-                       'bg %.3f, bg_slope %.3f. T=%.3f $\\tau$=%.3f') %
-                      tuple(self.last_fit_params))
+            plt.title(('resolution {:.3f}, amplitude {:.3f}, dph/de {:.3f}\n amp {:.3f}, '
+                       'bg {:.3f}, bg_slope {:.3f}. T={:.3f} $\\tau$={:.3f}').format(*tuple(self.last_fit_params)))
         plot_as_stepped_hist(axis, data, bins, color=color)
         axis.set_xlim([bins[0] - 0.5 * ph_binsize, bins[-1] + 0.5 * ph_binsize])
         de = np.sqrt(self.last_fit_cov[0, 0])
         axis.plot(bins, self.last_fit_result, color='#666666',
-                  label="%.2f +- %.2f eV %s" % (self.last_fit_params[0], de, label))
+                  label=f"{self.last_fit_params[0]:.2f} +- {de:.2f} eV {label}")
         axis.legend(loc='upper left')
 
 
@@ -772,7 +771,7 @@ class GenericKAlphaFitter(MultiLorentzianComplexFitter):
         spectrumDef -- should be mass.fluorescence_lines.MnKAlpha, or similar
             subclasses of SpectralLine.
         """
-        super(GenericKAlphaFitter, self).__init__()
+        super().__init__()
 
     def guess_starting_params(self, data, binctrs):
         """A decent heuristic for guessing the inital values, though your informed
@@ -810,7 +809,7 @@ class GenericKBetaFitter(MultiLorentzianComplexFitter):
     def __init__(self):
         """Subclasses must define a SpectralLine in self.spect
         """
-        super(GenericKBetaFitter, self).__init__()
+        super().__init__()
 
     def guess_starting_params(self, data, binctrs):
         """Hard to estimate dph/de from a K-beta line. Have to guess scale=1 and

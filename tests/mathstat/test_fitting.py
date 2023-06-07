@@ -184,7 +184,7 @@ class Test_gaussian(unittest.TestCase):
         self.assertTrue(params[1, :].mean() < -0.05)
 
 
-class SimplePenalty(object):
+class SimplePenalty:
     """Function object to penalize param[1] exceeding pmax."""
 
     def __init__(self, pmax, pscale, amplitude):
@@ -234,23 +234,23 @@ class Test_fluorescence(unittest.TestCase):
         d_res, d_ectr, d_scale = covar.diagonal()[:3]**0.5
         expect_d_res = 5.0*fwhm/(N**0.5)
         self.assertLessEqual(d_res, 2*expect_d_res,
-                             "dres=%.4f not less than 2*expected (%.4f)" % (d_res, expect_d_res))
+                             f"dres={d_res:.4f} not less than 2*expected ({expect_d_res:.4f})")
         expect_d_ectr = 1.5*fwhm/(N**0.5)
         self.assertLessEqual(d_ectr, 2*expect_d_ectr,
-                             "dectr=%.4f not less than 2*expected (%.4f)" % (d_ectr, expect_d_ectr))
+                             f"dectr={d_ectr:.4f} not less than 2*expected ({expect_d_ectr:.4f})")
         expect_d_scale = 1.0/(N**0.5)
         self.assertLessEqual(d_scale, 2*expect_d_scale,
-                             "dscale=%.4f not less than 2*expected (%.4f)" % (d_scale, expect_d_scale))
+                             f"dscale={d_scale:.4f} not less than 2*expected ({expect_d_scale:.4f})")
 
         # Check data consistent with uncertainties
         res, ectr, scale = params[:3]
-        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit fwhm: %.4f  actual: %.4f; expect unc %.4f" % (
+        msg = "fhwm: {:0.2f}, nbins {:g}, N_bg {:g}: Disagree at 4-sigma: Fit fwhm: {:.4f}  actual: {:.4f}; expect unc {:.4f}".format(
             fwhm, nbins, N_bg, res, fwhm, d_res)
         self.assertLessEqual(abs(res-fwhm), 4*d_res, msg)
-        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit Ectr: %.4f  actual: %.4f; expect unc %.4f" % (
+        msg = "fhwm: {:0.2f}, nbins {:g}, N_bg {:g}: Disagree at 4-sigma: Fit Ectr: {:.4f}  actual: {:.4f}; expect unc {:.4f}".format(
             fwhm, nbins, N_bg, ectr, 5898.802, d_ectr)
         self.assertLessEqual(abs(ectr-5898.802), 4*d_ectr, msg)
-        msg = "fhwm: %0.2f, nbins %g, N_bg %g: Disagree at 4-sigma: Fit scale: %.4f  actual: %.4f; expect unc %.4f" % (
+        msg = "fhwm: {:0.2f}, nbins {:g}, N_bg {:g}: Disagree at 4-sigma: Fit scale: {:.4f}  actual: {:.4f}; expect unc {:.4f}".format(
             fwhm, nbins, N_bg, scale, 1.0, d_scale)
         self.assertLessEqual(abs(scale-1.0), 4*d_scale, msg)
 

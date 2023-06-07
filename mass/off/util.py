@@ -29,7 +29,8 @@ class RecipeBook():
     def __init__(self, baseIngredients, propertyClass=None, wrapper=lambda x: x):
         """
         propertyClass - which class to add properties to, if they are to be added
-        wrapper - used in Recipe.craft to allow both "coefs" and "filtValue" to be ingredeints, while "filtValue" refers to a sub-array of "coefs"
+        wrapper - used in Recipe.craft to allow both "coefs" and "filtValue" to be ingredients,
+            while "filtValue" refers to a sub-array of "coefs"
         """
         self.craftedIngredients = collections.OrderedDict()
         self.baseIngredients = baseIngredients  # list of names of base ingredients that will be passed to craft
@@ -64,7 +65,8 @@ class RecipeBook():
             for argName in inspectedArgNames:
                 ingredient = argName
                 assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients, \
-                    f"ingredient='{ingredient}' must be in baseIngredients={self.baseIngredients} or craftedIngredients.keys()={list(self.craftedIngredients.keys())}"
+                    f"ingredient='{ingredient}' must be in baseIngredients={self.baseIngredients} or "\
+                    f"craftedIngredients.keys()={list(self.craftedIngredients.keys())}"
                 i2a[ingredient] = argName
         else:
             # i would like to do == here, but i'd need to handle optional arguments better
@@ -205,7 +207,7 @@ class Recipe():
         return s
 
 
-class GroupLooper(object):
+class GroupLooper:
     """A mixin class to allow ChannelGroup objects to hold methods that loop over
     their constituent channels. (Has to be a mixin, in order to break the import
     cycle that would otherwise occur.)"""
@@ -239,7 +241,7 @@ def add_group_loop(method):
             except KeyboardInterrupt as e:
                 raise (e)
             except Exception as e:
-                ds.markBad("{} during {}".format(e, method_name), e)
+                ds.markBad(f"{e} during {method_name}", e)
                 if rethrow:
                     raise
             bar.next()
@@ -256,9 +258,9 @@ def add_group_loop(method):
         arginfo = inspect.getargspec(method)
         argtext = inspect.formatargspec(*arginfo)
     if method.__doc__ is None:
-        lines.append("\n%s%s has no docstring" % (method_name, argtext))
+        lines.append(f"\n{method_name}{argtext} has no docstring")
     else:
-        lines.append("\n%s%s docstring reads:" % (method_name, argtext))
+        lines.append(f"\n{method_name}{argtext} docstring reads:")
         lines.append(method.__doc__)
     wrapper.__doc__ = "\n".join(lines)
 
@@ -356,7 +358,8 @@ def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
             energy = float(lineNameOrEnergy)
         except Exception:
             raise FailedToGetModelException(
-                f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
+                f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or "
+                "a str in mass.spectra or mass.STANDARD_FEATURES")
         line = mass.SpectralLine.quick_monochromatic_line(
             f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
     return line.model(has_linear_background=has_linear_background, has_tails=has_tails)

@@ -18,7 +18,7 @@ LOG = logging.getLogger("mass")
 __all__ = ['MaximumLikelihoodHistogramFitter', 'kink_model', 'fit_kink_model']
 
 
-class MaximumLikelihoodHistogramFitter(object):
+class MaximumLikelihoodHistogramFitter:
     """Object to fit a theory having 1 or more free parameters to a histogram,
     using the proper likelihood.  That is, assume that events in each bin are
     independent and are Poisson-distributed with an expectation equal to the
@@ -365,14 +365,12 @@ class MaximumLikelihoodHistogramFitter(object):
                 self.internal = atry.copy()
                 self.params = np.array([f(p) for f, p in zip(self.internal2bounded, self.internal)])
                 if verbose:
-                    print("Improved: chisq=%9.4e->%9.4e l=%.1e params=%s..." %
-                          (trial_chisq, prev_chisq, lambda_coef, self.params[:2]))
+                    print(f"Improved: chisq={trial_chisq:9.4e}->{prev_chisq:9.4e} l={lambda_coef:.1e} params={self.params[:2]}...")
                 self.chisq = prev_chisq = trial_chisq
             else:   # failure.  Increase lambda and return to previous starting point.
                 lambda_coef *= 10.0
                 if verbose:
-                    print("No imprv: chisq=%9.4e >= %9.4e l=%.1e params=%s..." %
-                          (trial_chisq, prev_chisq, lambda_coef, self.params[:2]))
+                    print(f"No imprv: chisq={trial_chisq:9.4e} >= {prev_chisq:9.4e} l={lambda_coef:.1e} params={self.params[:2]}...")
                 self.chisq = prev_chisq
 
             dt = time.time()-t_start
@@ -480,7 +478,7 @@ def kink_model(k, x, y):
     if len(xi) == 0 or len(xj) == 0:
         xmin = x.min()
         xmax = x.max()
-        raise ValueError("k=%g should be in range [xmin,xmax], or [%g,%g]." % (k, xmin, xmax))
+        raise ValueError(f"k={k:g} should be in range [xmin,xmax], or [{xmin:g},{xmax:g}].")
 
     dxi = xi-k
     dxj = xj-k
@@ -538,9 +536,8 @@ def fit_kink_model(x, y, kbounds=None):
 
     if kbounds is None:
         kbounds = (x.min(), x.max())
-    else:
-        if kbounds[0] < x.min() or kbounds[1] > x.max():
-            raise ValueError("kbounds (%s) must be within the range of x data" % kbounds)
+    elif kbounds[0] < x.min() or kbounds[1] > x.max():
+        raise ValueError("kbounds (%s) must be within the range of x data" % kbounds)
     optimum = sp.optimize.minimize_scalar(penalty, args=(x, y), method="Bounded",
                                           bounds=kbounds)
     kbest = optimum.x

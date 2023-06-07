@@ -16,7 +16,7 @@ class AnalysisControl(PrmDictBase):
         """Build a set of cuts, plans, and analysis dictionaries with default
         values.
         """
-        super(AnalysisControl, self).__init__()
+        super().__init__()
 
         # Not clear what we'll use this for (placeholder).
         self.experiment_plan_prm = {}

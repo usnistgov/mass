@@ -2,9 +2,6 @@
 build
 dist
 *.egg-info
-# Eclipse
-.project
-.pydevproject
 # PyCharm
 .idea
 # Spyder
@@ -36,3 +33,6 @@ TAGS
 mass/demo/sourceroot.py
 *.so
 *.pyd
+
+__pycache__
+.*_cache

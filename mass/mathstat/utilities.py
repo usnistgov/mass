@@ -18,7 +18,7 @@ __all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky
            'find_svd_randomly', 'find_range_randomly']
 
 
-class CheckForMissingLibrary(object):
+class CheckForMissingLibrary:
     """Class to raise ImportError only after python tries to use the import.
 
     Intended for use with shared objects built from Fortran or Cython source.

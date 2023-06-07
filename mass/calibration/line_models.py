@@ -48,9 +48,9 @@ class MLEModel(lmfit.Model):
             opts.append("prefix='%s'" % (self._prefix))
         if long:
             for k, v in self.opts.items():
-                opts.append("%s='%s'" % (k, v))
+                opts.append(f"{k}='{v}'")
         if len(opts) > 0:
-            out = "%s, %s" % (out, ', '.join(opts))
+            out = "{}, {}".format(out, ', '.join(opts))
         return f"{type(self).__name__}({out})"
 
     def __add__(self, other):
@@ -217,7 +217,7 @@ class GenericLineModel(MLEModel):
             param_names += ["tail_frac", "tail_tau", "tail_frac_hi", "tail_tau_hi"]
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
                        'independent_vars': independent_vars, "param_names": param_names})
-        super(GenericLineModel, self).__init__(modelfunc, **kwargs)
+        super().__init__(modelfunc, **kwargs)
         self._set_paramhints_prefix()
 
     def _set_paramhints_prefix(self):
@@ -339,14 +339,13 @@ class LineModelResult(lmfit.model.ModelResult):
                 title = f"{self._ds_shortname}: {self.model.spect.shortname}"
             if ylabel is None:
                 ylabel = f"counts per {self._binsize:g} {self._unit_str} bin"
-                if self._states_hint != "":
+                if len(self._states_hint) > 0:
                     ylabel += f"\nstates={self._states_hint}: {self._cut_hint}"
             if xlabel is None:
                 xlabel = f"{self._attr_str} ({self._unit_str})"
-        else:
-            if ylabel is None and "bin_centers" in self.userkws:
-                binsize = self.userkws["bin_centers"][1]-self.userkws["bin_centers"][0]
-                ylabel = f"counts per {binsize:g} unit bin"
+        elif ylabel is None and "bin_centers" in self.userkws:
+            binsize = self.userkws["bin_centers"][1]-self.userkws["bin_centers"][0]
+            ylabel = f"counts per {binsize:g} unit bin"
         return title, xlabel, ylabel
 
     def _validate_bins_per_fwhm(self, minimum_bins_per_fwhm):
@@ -358,8 +357,8 @@ class LineModelResult(lmfit.model.ModelResult):
         bin_size = bin_centers[1]-bin_centers[0]
         for iComp in self.components:
             prefix = iComp.prefix
-            dphde = "{}dph_de".format(prefix)
-            fwhm = "{}fwhm".format(prefix)
+            dphde = f"{prefix}dph_de"
+            fwhm = f"{prefix}fwhm"
             if (dphde in self.params) and (fwhm in self.params):
                 bin_size_energy = bin_size/self.params[dphde]
                 instrument_gaussian_fwhm = self.params[fwhm].value

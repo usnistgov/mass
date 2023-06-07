@@ -33,7 +33,7 @@ def band_limit(modelmatrix, sample_time, fmax, f_3db):
         # n=filt_length is needed when filt_length is ODD
 
 
-class Filter(object):
+class Filter:
     """A set of optimal filters based on a single signal and noise set."""
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
@@ -310,7 +310,7 @@ class Filter(object):
 
         # Handle <filters> is a single string --> convert to tuple of 1 string
         def isstr(x):
-            return isinstance(x, ("".__class__, u"".__class__))
+            return isinstance(x, ("".__class__, "".__class__))
 
         if isstr(filters):
             filters = (filters,)
@@ -593,8 +593,9 @@ class ExperimentalFilter(Filter):
 
                 self.variances[shortname] = self.bracketR(filt, R)
                 fw = np.sqrt(8 * np.log(2))
-                print('Res=%6.3f eV = %.5f' % (5898.801 * fw * self.variances[shortname]**.5,
-                                               (self.variances[shortname] / self.variances['full'])**.5))
+                res = 5898.801 * fw * self.variances[shortname]**.5
+                eV = (self.variances[shortname] / self.variances['full'])**.5
+                print(f'Res={res:6.3f} eV = {eV:.5f}')
 
             self.filt_baseline = np.dot(avg_signal, Rinv_sig) * \
                 Rinv_unit - Rinv_sig.sum() * Rinv_sig
@@ -631,7 +632,7 @@ class ExperimentalFilter(Filter):
             pass
 
 
-class ToeplitzWhitener(object):
+class ToeplitzWhitener:
     """An object that can perform approximate noise whitening.
 
     For an ARMA(p,q) noise model, mutliply by (or solve) the matrix W (or its

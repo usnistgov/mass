@@ -15,7 +15,7 @@ from mass.core.channel_group import TESGroup
 __all__ = ['FakeDataGenerator']
 
 
-class FakeDataGenerator(object):
+class FakeDataGenerator:
     """An object to create fake data in memory.
 
     Can generate a single mass.MicrocalDataSet or a 1+channel mass.TESGroup.

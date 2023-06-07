@@ -93,7 +93,7 @@ class PulseModel():
         noise_autocorr = hdf5_group["svdbasis/noise_autocorr"][()]
 
         if version != cls.version:
-            raise Exception(f"loading not implemented for other versions, version={self.version}")
+            raise Exception(f"loading not implemented for other versions, version={version}")
         return cls(projectors, basis, n_basis, pulses_for_svd, v_dv, pretrig_rms_median,
                    pretrig_rms_sigma, file_name, extra_n_basis_5lag, f_5lag, average_pulse_for_5lag,
                    noise_psd, noise_psd_delta_f, noise_autocorr, _from_hdf5=True)
@@ -151,9 +151,9 @@ class PulseModel():
 
         fig = plt.figure(figsize=(10, 14))
         plt.subplot(511)
-        projector_scale = np.amax(np.abs(self.projectors[2, :]))
         plt.plot(self.projectors[::-1, :].T)
         plt.title("projectors")
+        # projector_scale = np.amax(np.abs(self.projectors[2, :]))
         # plt.ylim(-2*projector_scale, 2*projector_scale)
         plt.legend(labels[::-1])
         plt.grid(True)
@@ -165,12 +165,12 @@ class PulseModel():
         plt.subplot(513)
         plt.plot(self.pulses_for_svd[:, :10])
         plt.title("from ljh")
-        plt.legend(["{}".format(i) for i in range(10)])
+        plt.legend([f"{i}" for i in range(10)])
         plt.grid(True)
         plt.subplot(514)
         plt.plot(residuals[:, :10])
         plt.title("residuals")
-        plt.legend(["{}".format(i) for i in range(10)])
+        plt.legend([f"{i}" for i in range(10)])
         plt.grid(True)
         should_be_identity = np.matmul(self.projectors, self.basis)
         identity = np.identity(self.n_basis)

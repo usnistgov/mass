@@ -132,7 +132,7 @@ def read_ljh_header(filename):
             if line == b"":
                 raise Exception("reached EOF before #End of Header")
             if i > TOO_LONG_HEADER:
-                raise IOError("header is too long--seems not to contain '#End of Header'\n"
+                raise OSError("header is too long--seems not to contain '#End of Header'\n"
                               f"in file {filename}")
             if b":" in line:
                 a, b = line.split(b":", 1)  # maxsplits=1, py27 doesnt support keyword

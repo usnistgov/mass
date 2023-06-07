@@ -62,7 +62,7 @@ __all__ = ['PowerSpectrum', 'PowerSpectrumOverlap',
            'computeSpectrum']
 
 
-class PowerSpectrum(object):
+class PowerSpectrum:
     """Object for accumulating power spectrum estimates from one or more data segments.
 
     If you want to use multiple overlapping segments, use class

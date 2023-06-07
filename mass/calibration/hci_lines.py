@@ -82,19 +82,16 @@ class NIST_ASD():
                 JVal = j_str.split('=')[1]
                 if requiredConf is None:
                     includeConf = True
-                else:
-                    if conf == requiredConf:
-                        includeConf = True
+                elif conf == requiredConf:
+                    includeConf = True
                 if requiredTerm is None:
                     includeTerm = True
-                else:
-                    if term == requiredTerm:
-                        includeTerm = True
+                elif term == requiredTerm:
+                    includeTerm = True
                 if requiredJVal is None:
                     includeJVal = True
-                else:
-                    if JVal == requiredJVal:
-                        includeJVal = True
+                elif JVal == requiredJVal:
+                    includeJVal = True
                 # Include levels that match, in either cm-1 or eV
                 if includeConf and includeTerm and includeJVal:
                     numLevels += 1

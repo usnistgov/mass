@@ -7,6 +7,7 @@
 * Start to use `setup.cfg` instead of Python code to configure build/install (issue 238).
 * Clean out code from the `nonstandard` directory (issue 241).
 * Move tests out of the installed mass package (issue 242).
+* Use ruff instead of very slow pylint (issue 243).
 
 
 **0.7.10** June 2, 2023

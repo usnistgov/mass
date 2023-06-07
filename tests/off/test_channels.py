@@ -119,7 +119,7 @@ plt.figure(figsize=(12, 6))
 ax = plt.gca()
 data.plotHist(np.arange(1000, 4000, 1), "energy", coAddStates=False, states=["W 1", "Os"], axis=ax)
 ax.set_ylim(0, 1.2*np.amax([np.amax(line.get_ydata()) for line in ax.lines]))
-names = ["W Ni-{}".format(i) for i in range(1, 27)]
+names = [f"W Ni-{i}" for i in range(1, 27)]
 n = collections.OrderedDict()
 # line = ax.lines[0]
 for name in names:
@@ -284,11 +284,8 @@ class TestSummaries(ut.TestCase):
     def test_save_load_recipes(self):
         data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
         ds_local = data_local.firstGoodChannel()
-        try:
-            ds_local.energy
-            assert "ds_local should not have energy yet, we haven't defined that recipe"
-        except Exception:
-            pass
+        assert "energy" not in ds_local.__dict__, \
+            "ds_local should not have energy yet, we haven't defined that recipe"
         pklfilename = "recipe_book_save_test2.rbpkl"
         data.saveRecipeBooks(pklfilename)
         ds = data.firstGoodChannel()
@@ -495,16 +492,16 @@ def test_open_many_OFF_files():
         filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
         filelist = getOffFileListFromOneFile(filename, maxChans=2)
         for _ in range(NFilesToOpen):
-            data = ChannelGroup(filelist, verbose=True, channelClass=Channel,
-                                excludeStates=["START", "END"])
+            _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
+                             excludeStates=["START", "END"])
 
         # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
         # only open it once, not twice.
         NFilePairsToOpen = (maxfiles-12)//6
         filelist = NFilePairsToOpen*filelist
         for _ in range(3):
-            data = ChannelGroup(filelist, verbose=True, channelClass=Channel,
-                                excludeStates=["START", "END"])
+            _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
+                             excludeStates=["START", "END"])
 
     # Use the try...finally to undo our reduction in the limit on number of open files.
     finally:

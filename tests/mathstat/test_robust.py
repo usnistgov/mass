@@ -154,11 +154,10 @@ class Test_Qscale(unittest.TestCase):
         prefactor = 2.2219
         if n <= 9:
             prefactor *= [0, 0, 0.399, 0.994, 0.512, 0.844, 0.611, 0.857, 0.669, 0.872][n]
+        elif n % 2 == 1:
+            prefactor *= n/(n+1.4)
         else:
-            if n % 2 == 1:
-                prefactor *= n/(n+1.4)
-            else:
-                prefactor *= n/(n+3.8)
+            prefactor *= n/(n+3.8)
 
         dist = np.hstack([x[j]-x[:j] for j in range(1, n)])
         dist.sort()

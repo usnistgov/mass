@@ -204,7 +204,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 try:
                     self.experimentStateFile = mass.off.ExperimentStateFile(
                         datasetFilename=self.filenames[0], excludeStates=excludeStates)
-                except IOError as e:
+                except OSError as e:
                     LOG.debug('Skipping loading of experiment state file because %s', e)
             else:
                 self.experimentStateFile = mass.off.channels.ExperimentStateFile(
@@ -378,8 +378,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     def __iter__(self):
         """Iterator over the self.datasets in channel number order"""
-        for ds in self.iter_channels():
-            yield ds
+        yield from self.iter_channels()
 
     def iter_channels(self, include_badchan=False):
         """Iterator over the self.datasets in channel number order
@@ -544,7 +543,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if category is None:
             category = {}
         LOG.warning(
-            'compute_filters is deprecated and will eventually be removed, please use compute_ats_filter or compute_5lag_filter directly')
+            'compute_filters is deprecated and will eventually be removed, please '
+            'use compute_ats_filter or compute_5lag_filter directly')
         for ds in self.datasets:
             if hasattr(ds, "_use_new_filters"):
                 raise Exception(
@@ -597,11 +597,11 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for ds in self:
             try:
                 if "rows_after_last_external_trigger" not in ds.hdf5_group and after_last:
-                    forceNew=True
+                    forceNew = True
                 if "rows_until_next_external_trigger" not in ds.hdf5_group and until_next:
-                    forceNew=True
+                    forceNew = True
                 if "rows_from_nearest_external_trigger" not in ds.hdf5_group and from_nearest:
-                    forceNew=True
+                    forceNew = True
                 if forceNew:
                     rows_after_last_external_trigger, rows_until_next_external_trigger = \
                         mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:],
@@ -802,11 +802,10 @@ class TESGroup(CutFieldMixin, GroupLooper):
             # Histograms on right half of figure
             if i == 0:
                 axh_master = plt.subplot(ny_plots, 2, 2 + i * 2)
+            elif 'Pretrig Mean' == label:
+                plt.subplot(ny_plots, 2, 2 + i * 2)
             else:
-                if 'Pretrig Mean' == label:
-                    plt.subplot(ny_plots, 2, 2 + i * 2)
-                else:
-                    plt.subplot(ny_plots, 2, 2 + i * 2, sharex=axh_master)
+                plt.subplot(ny_plots, 2, 2 + i * 2, sharex=axh_master)
 
             if limits is None:
                 in_limit = np.ones(len(vect), dtype=bool)
