@@ -125,7 +125,7 @@ class TestFitterBehavior(unittest.TestCase):
         model = line.model()
         Nbins = 100
         e = np.linspace(5800, 5920, Nbins)
-        sim = np.random.default_rng().poisson(lam=20, size=Nbins)
+        sim = np.random.default_rng(2934).poisson(lam=20, size=Nbins)
         params = model.guess(sim, bin_centers=e)
         model.fit(sim, params, bin_centers=e, weights=None)
         with self.assertRaises(Exception):
