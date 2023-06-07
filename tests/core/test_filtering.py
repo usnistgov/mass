@@ -176,7 +176,6 @@ class TestFilters(ut.TestCase):
         """Test that zero-weighting samples from the beginning and end works."""
         ds = self.data.channel[1]
         ds.compute_ats_filter(f_3db=5000)
-        ds.read_segment(0)
         NP = 50
         d = np.array(ds.data[:NP, 1:])  # NP pulses, cutting first sample
         self.assertIsNotNone(ds.filter.filt_noconst)

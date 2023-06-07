@@ -1,45 +1,45 @@
 """
-The mass.files module contains classes required for handling the various types
-of pulse data files.  In principle, there are several data file types:
-* LJH files
-* PLS files
-* LANL files
-
-...but in practice, we are not ever using PLS files, and LANLFile is deprecated.
-Therefore, this module contains only three concrete classes, the VirtualFile,
-LJHFile, and the LANLFile (along with the abstract base class MicrocalFile).
+The `mass.core.files` module contains classes required for handling the various types
+of pulse data files.  In principle, there could be multiple data file types.
+But this module contains only two concrete classes, the VirtualFile and
+the LJHFile (along with the abstract base class MicrocalFile).
 VirtualFile is for treating an array of data as if it were a file.
 
-If you find yourself wanting to read PLS (or other?) file types,
+If you find yourself wanting to read other file types in the future,
 then make a new class that inherits from MicrocalFile and calls
 MicrocalFile.__init__ to verify that it has the required interface:
-* read_segment(segment_num)
 * read_trace(trace_num)
 * copy()
 
 Created on Feb 16, 2011
 """
 
+__all__ = [
+    "MicrocalFile",
+    "LJHFile",
+    "VirtualFile"
+]
 
-import numpy as np
 import os
-from packaging.version import Version
 import logging
 import collections
+
+import numpy as np
+from packaging.version import Version
+from mass import __version__
 LOG = logging.getLogger("mass")
 
 
-class MicrocalFile(object):
+class MicrocalFile:
     """A set of data on disk containing triggered records from a microcalorimeter.
 
-    The pulses can be noise or X-rays.  This is meant to be
-    an abstract class.  Use files.LJHFile() or VirtualFile(). In the future,
-    other derived classes could implement read_segment, copy, and read_trace to
+    The pulses can be noise or X-rays.  This is meant to be an abstract class.
+    Use `LJHFile.open()` or `VirtualFile()` to create one.
+    In the future, other derived classes could implement copy() and read_trace() to
     process other file types.
     """
 
     def __init__(self):
-        # Filename of the data file
         self.filename = None
         self.channum = 99999
         self.nSamples = 0
@@ -47,49 +47,23 @@ class MicrocalFile(object):
         self.timebase = 0.0
         self.n_segments = 0
         self.data = None
-        self.__cached_segment = None
 
     def __str__(self):
         """Summary for the print function"""
-        return "%s path '%s'\n%d samples (%d pretrigger) at %.2f microsecond sample time" % (
-            self.__class__.__name__, self.filename, self.nSamples, self.nPresamples,
-            1e6*self.timebase)
+        return f"{self.__class__.__name__} path '{self.filename}'\n"\
+            f"{self.nSamples} samples ({self.nPresamples} pretrigger) at {1e6*self.timebase:.2f} µs sample time"
 
     def __repr__(self):
         """Compact representation of how to construct from a filename."""
-        return "%s('%s')" % (self.__class__.__name__, self.filename)
+        return f"{self.__class__.__name__}('{self.filename}')"
 
-    def read_segment(self, segment_num=0):
-        """Read a segment of the binary data of the given number (0,1,...)."""
-        raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
-
-    def read_trace(self, trace_num=0):
+    def read_trace(self, trace_num):
         """Read a single pulse record from the binary data."""
-        raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
+        raise NotImplementedError(f"{self.__class__.__name__} is an abstract class.")
 
     def copy(self):
         """Make a usable copy of self."""
-        raise NotImplementedError("%s is an abstract class." % self.__class__.__name__)
-
-    def iter_segments(self, first=0, end=-1):
-        """An iterator over all segments.  Read in segments one at a time and yield triplet:
-        (first pulse number, 1+last pulse number, the segment number just read, the data).
-
-        <first> The first segment to read.
-        <end>   One past the last segment to read, or -1 to read through the last segment."""
-
-        if end <= first:
-            end = self.n_segments
-        for segment_num in range(first, end):
-            first_pnum, end_pnum, data = self.read_segment(segment_num)
-            yield first_pnum, end_pnum, segment_num, data
-
-    def clear_cache(self):
-        """File objects can cache one "segment" of raw data.  Sometimes it's nice to delete
-        this from memory in order to free up unneeded cache, especially before copying a
-        MicrocalFile object."""
-        self.data = None
-        self.__cached_segment = None
+        raise NotImplementedError(f"{self.__class__.__name__} is an abstract class.")
 
 
 class VirtualFile(MicrocalFile):
@@ -105,7 +79,7 @@ class VirtualFile(MicrocalFile):
             times: a 1d array of pulse times (or default None)
             presamples: number samples considered presamples (default 0)
         """
-        super(VirtualFile, self).__init__()
+        super().__init__()
         self.data = np.asarray(data, dtype=np.int16)
         self.nSamples = data.shape[1]
         self.nPulses = data.shape[0]
@@ -131,22 +105,20 @@ class VirtualFile(MicrocalFile):
     def read_trace(self, trace_num):
         """Return the data for pulse number <trace_num>"""
         if trace_num >= self.nPulses:
-            raise ValueError("This VirtualFile has only %d pulses" % self.nPulses)
+            raise ValueError(f"This VirtualFile has only {self.nPulses} pulses")
         return self.data[trace_num]
-
-    def read_segment(self, segment_num=0):
-        """
-        Returns:
-            (first, end, data) for segment number <segment_num>, where
-            <first> is the first pulse number in that segment, <end>-1 is the last,
-            and <data> is a 2-d array of shape [pulses_this_segment, self.nSamples].
-        """
-        if segment_num > 0:
-            raise ValueError("VirtualFile objects have only one segment")
-        return 0, self.nPulses, self.data
 
 
 def read_ljh_header(filename):
+    """Read an LJH file's ASCII header (any LJH file version).
+
+    Opens and closes the file.
+
+    Return `(hd, hs)`
+    * `hd` is the dictionary of header information
+    * `hs` is the size (bytes) of the ASCII header. Binary data starts at this offset
+      in the file.
+    """
     TOO_LONG_HEADER = 256  # headers with more than this many lines are ridiculous and an error
 
     header_dict = collections.OrderedDict()
@@ -157,17 +129,17 @@ def read_ljh_header(filename):
             line = fp.readline()
             if line.startswith(b"#End of Header"):
                 break
-            elif line == b"":
+            if line == b"":
                 raise Exception("reached EOF before #End of Header")
-            elif i > TOO_LONG_HEADER:
+            if i > TOO_LONG_HEADER:
                 raise IOError("header is too long--seems not to contain '#End of Header'\n"
-                              + "in file %s" % filename)
-            elif b":" in line:
+                              f"in file {filename}")
+            if b":" in line:
                 a, b = line.split(b":", 1)  # maxsplits=1, py27 doesnt support keyword
                 a = a.strip()
                 b = b.strip()
                 if a in header_dict and a != b"Dummy":
-                    print("repeated header entry {}".format(a))
+                    print(f"repeated header entry {a}")
                 header_dict[a.strip()] = b.strip()
             else:
                 continue  # ignore lines without ":"
@@ -179,7 +151,7 @@ class LJHFile(MicrocalFile):
     """Read a single LJH file of version 2.2 or 2.1.
 
     The class is not meant to be created directly. Instead, use the class method
-    `open(filename)` to return an instance of the appropriate subclass (either
+    `LJHFile.open(filename)` to return an instance of the appropriate subclass (either
     `LJHFile2_2` or `LJHFile2_1`), determined by reading the LJH header before
     creating the instance.
 
@@ -202,8 +174,7 @@ class LJHFile(MicrocalFile):
 
         if Version(version_str.decode()) < Version("2.2.0"):
             return LJHFile2_1(filename, header_dict, header_size)
-        else:
-            return LJHFile2_2(filename, header_dict, header_size)
+        return LJHFile2_2(filename, header_dict, header_size)
 
     def __init__(self, filename, header_dict, header_size):
         """Users shouldn't call this method directly; call class method `open` instead."""
@@ -220,8 +191,19 @@ class LJHFile(MicrocalFile):
         self.number_of_rows = None
         self.number_of_columns = None
         self.version_str = None
+        self._mm = None
         self._parse_header()
         self.set_segment_size()
+
+    def copy(self):
+        """Return a copy of the object.  Handy for updating method definitions."""
+        c = self.__class__(self.filename, self.header_dict, self.header_size)
+        c.__dict__.update(self.__dict__)
+        return c
+
+    def __repr__(self):
+        """Compact representation of how to construct from a filename."""
+        return f"LJHFile.open('{self.filename}')"
 
     def _parse_header(self):
         """Parse the complete `self.header_dict`, filling key attributes from it."""
@@ -250,23 +232,31 @@ class LJHFile(MicrocalFile):
         self.nPulses = self.binary_size // self.pulse_size_bytes
 
         # Fix long-standing bug in LJH files made by MATTER or XCALDAQ_client:
-        # It adds 3 to the "true value" of nPresamples. For now, assume that only
-        # DASTARD clients have this figure correct.
+        # It adds 3 to the nominal value of nPresamples to get the "true" value.
+        # For now, assume that only DASTARD clients have this figure correct.
+        # So when there are 500 samples before the first non-trivial (triggered) data
+        # sample, DASTARD will say nPresamples=500, but earlier clients will say
+        # nPresamples=497 in the LJH file. Correct the latter here.
         if b"DASTARD" not in self.client:
             self.nPresamples += 3
 
-        # This used to be fatal. It prevented opening files cut short by
-        # a crash of the DAQ software, so we made it just a warning.
+        # Files cut short by a crash of the DAQ software (or whatever) will generate
+        # a warning here (unless they happened to cut off at a record boundary).
         if self.nPulses * self.pulse_size_bytes != self.binary_size:
             LOG.warning("Warning: The binary size "
-                        + "(%d) is not an integer multiple of the pulse size %d bytes" %
-                        (self.binary_size, self.pulse_size_bytes))
-            LOG.warning("%06s" % filename)
+                        "(%d) is not an integer multiple of the pulse size %d bytes",
+                        self.binary_size, self.pulse_size_bytes)
+            LOG.warning("%06s", filename)
 
-        # Record the sample times in microseconds
+        # It's handy to precompute the times of each sample in a record (in µs)
         self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
 
     def set_segment_size(self, segmentsize=None):
+        """Set the `segmentsize` in bytes.
+
+        Segments are not an intrinsic part of handling MASS memory, but they can be convenient
+        as a way to offer modestly sized chunks of data for certain processing.
+        """
         # Segments are no longer a critical part of how MASS handles memory, but it still makes
         # sense to offer mid-sized data chunks for data processing.
         if segmentsize is None:
@@ -290,37 +280,19 @@ class LJHFile(MicrocalFile):
     def __getitem__(self, item):
         return self.alldata[item]
 
-    def read_trace(self, trace_num, with_timing=False):
-        """Return a single data trace (number <trace_num>).
+    def read_trace(self, trace_num):
+        """Return a single data trace (number <trace_num>)."""
+        return self.alldata[trace_num]
 
-        If `with_timing` is True, return (rowcount, posix_usec, pulse_record), otherwise just pulse_record.
-        This comes either from cache or by reading off disk, if needed.
-        """
+    def read_trace_with_timing(self, trace_num):
+        """Return a single data trace as (rowcount, posix_usec, pulse_record)."""
         pulse_record = self.alldata[trace_num]
-        if with_timing:
-            return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
-        return pulse_record
-
-    def read_segment(self, segment_num=0):
-        """Map segment `segment_num` to `self.data`, as it was before we started using a
-        `np.memmap` to store the `self.alldata`.
-
-        Return (first, end, data) where first is the pulse number of the first pulse read,
-        end is 1+the number of the last one read, and data is the full array.
-
-        Args:
-            <segment_num> Number of the segment to read.
-        """
-        if segment_num > self.n_segments:
-            raise ValueError("File %s has only %d segments;\n\tcannot open segment %d" %
-                             (self.filename, self.n_segments, segment_num))
-
-        first = segment_num * self.pulses_per_seg
-        end = min(first+self.pulses_per_seg, self.nPulses)
-        return first, end, self.alldata[first:end]
+        return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
 
 
 class LJHFile2_1(LJHFile):
+    """Class to handle LJH version 2.1 files."""
+
     def __init__(self, filename, header_dict, header_size):
         super().__init__(filename, header_dict, header_size)
 
@@ -342,6 +314,7 @@ class LJHFile2_1(LJHFile):
         return 6 + 2 * self.nSamples
 
     def _parse_times(self):
+        "Call this only on-demand, when row counts or record times are asked for."
         # Time format is ugly.  From bytes 0-5 of a pulse, the bytes are uxmmmm,
         # where u is a byte giving microseconds/4, x is a reserved byte, and mmmm is a 4-byte
         # little-ending giving milliseconds.  The uu should always be in [0,999]
@@ -353,14 +326,10 @@ class LJHFile2_1(LJHFile):
         NS_PER_MSEC = 1000000
         datatime_ns = NS_PER_4USEC_TICK*np.asarray(self._mm["internal_us"], dtype=np.int64)
         datatime_ns[:] += NS_PER_MSEC*np.asarray(self._mm["internal_ms"], dtype=np.int64)
-        # since the timestamps is stored in 4 µs units, which are not commensurate with the actual frame rate,
-        # we can be more precise if we convert to frame number, then back to time
-        # this should as long as the frame rate is greater than or equal to 4 µs
 
-        # this is integer division but rounding up
         NS_PER_FRAME = np.int64(self.timebase*1e9)
         FOURPOINT = 3  # account for 4-point triggering algorithm
-        self.frame_count = (datatime_ns - 1) // NS_PER_FRAME + 1 + FOURPOINT
+        self.frame_count = (1 + FOURPOINT) + (datatime_ns - 1) // NS_PER_FRAME
 
     @property
     def rowcount(self):
@@ -380,14 +349,16 @@ class LJHFile2_1(LJHFile):
 
 
 class LJHFile2_2(LJHFile):
+    """Class to handle LJH version 2.2 files."""
+
     def __init__(self, filename, header_dict, header_size):
         super().__init__(filename, header_dict, header_size)
 
         # Version 2.2 and later include two pieces of time-like information for each pulse.
         # 8 bytes - Int64 row count number
-        # 8 bytes - Int64 posix microsecond time
+        # 8 bytes - Int64 posix microsecond time since the epoch 1970.
         # Technically both could be read as uint64, but then you get overflows when differencing;
-        # we'll give up a factor of 2 to avoid that.
+        # we'll happily give up a factor of 2 in dynamic range to avoid that.
         self.dtype = [
             ("rowcount", np.int64),
             ("posix_usec", np.int64),
@@ -416,61 +387,43 @@ def make_ljh_header(header_dict):
     """Returns a string containing an LJH header (version 2.2.0).
 
     Args:
-        header_dict (dict): should contain the following keys: asctime, timebase,
-            nPresamples, nSamples
+        header_dict (dict): should contain at least the following keys:
+            asctime, timebase, nPresamples, nSamples
     """
-
-    ljh_header = """#LJH Memorial File Format
-Save File Format Version: %(version_str)s
-Software Version: Fake LJH file
-Software Driver Version: n/a
-Date: %(asctime)s GMT
-Acquisition Mode: 0
-Digitized Word Size in bytes: 2
-Location: LANL, presumably
-Cryostat: Unknown
-Thermometer: Unknown
-Temperature (mK): 100.0000
-Bridge range: 20000
-Magnetic field (mGauss): 100.0000
-Detector:
-Sample:
-Excitation/Source:
-Operator: Unknown
-SYSTEM DESCRIPTION OF THIS FILE:
-USER DESCRIPTION OF THIS FILE:
-#End of description
-Number of Digitizers: 1
-Number of Active Channels: 1
-Timestamp offset (s): 1304449182.876200
-Digitizer: 1
-Description: CS1450-1 1M ver 1.16
-Master: Yes
-Bits: 16
-Effective Bits: 0
-Anti-alias low-pass cutoff frequency (Hz): 0.000
-Timebase: %(timebase).4e
-Number of samples per point: 1
-Presamples: %(nPresamples)d
-Total Samples: %(nSamples)d
-Trigger (V): 250.000000
-Tigger Hysteresis: 0
-Trigger Slope: +
-Trigger Coupling: DC
-Trigger Impedance: 1 MOhm
-Trigger Source: CH A
-Trigger Mode: 0 Normal
-Trigger Time out: 351321
-Use discrimination: No
-Channel: 1.0
-Description: A (Voltage)
-Range: 0.500000
-Offset: -0.000122
-Coupling: DC
-Impedance: 1 Ohms
-Inverted: No
-Preamp gain: 1.000000
-Discrimination level (%%): 1.000000
-#End of Header
-""" % header_dict
+    version_str = header_dict["version_str"]
+    asctime = header_dict["asctime"]
+    timebase = header_dict["timebase"]
+    nSamples = header_dict["nSamples"]
+    nPresamples = header_dict["nPresamples"]
+    header_lines = [
+        "#LJH Memorial File Format",
+        f"Save File Format Version: {version_str}",
+        f"Software Version: MASS-generated LJH file, MASS version {__version__}",
+        "Software Driver Version: n/a",
+        f"Date: {asctime} GMT",
+        "Acquisition Mode: 0",
+        "Digitized Word Size in bytes: 2",
+        "Operator: Unknown",
+        "SYSTEM DESCRIPTION OF THIS FILE:",
+        "USER DESCRIPTION OF THIS FILE:",
+        "#End of description",
+        "Number of Digitizers: 1",
+        "Number of Active Channels: 1",
+        f"Timestamp offset (s): {1.0e9:.6f}",
+        "Digitizer: 1",
+        "Master: Yes",
+        "Bits: 16",
+        f"Timebase: {timebase:.4e}",
+        "Number of samples per point: 1",
+        f"Presamples: {nPresamples}",
+        f"Total Samples: {nSamples}",
+        "Channel: 1.0",
+        "Description: A (Voltage)",
+        "Range: 0.500000",
+        "Offset: -0.000122",
+        "Inverted: No",
+        "#End of Header",
+        ""  # need this to get a newline at the end of the list
+    ]
+    ljh_header = "\n".join(header_lines)
     return ljh_header.encode()

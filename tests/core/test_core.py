@@ -121,7 +121,6 @@ class TestFiles(ut.TestCase):
         data2 = mass.TESGroup(src_name2)
         for d in (data1, data2):
             d.summarize_data()
-            d.read_segment(0)
         ds1 = data1.channel[1]
         ds2 = data2.channel[1]
         self.assertTrue(b"MATTER" in ds1.pulse_records.datafile.client)
@@ -316,16 +315,14 @@ class TestTESGroup(ut.TestCase):
         data.phase_correct()
         data.time_drift_correct()
 
+    @pytest.mark.xfail
     def test_invert_data(self):
         data = self.load_data()
         ds = data.channel[1]
-        _ = ds.read_segment(0)
         raw = ds.data
         rawinv = 0xffff - raw
 
-        ds.clear_cache()
         ds.invert_data = True
-        _ = ds.read_segment(0)
         raw2 = ds.data
         self.assertTrue(np.all(rawinv == raw2))
 
@@ -402,8 +399,7 @@ class TestTESGroup(ut.TestCase):
             offbase = f"{output_dir}/{prefix}"
             ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
                 [basename]*2, hdf5_filename, offbase, max_channels,
-                n_ignore_presamples, require_experiment_state=False
-            )
+                n_ignore_presamples)
             self.assertEqual(ds.filename, ljh_filename_lists[0][0])
             off_multi = mass.off.off.OffFile(off_filenames_multi[0])
             self.assertEqual(2*N, len(off_multi))

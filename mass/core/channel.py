@@ -80,7 +80,7 @@ class NoiseRecords(object):
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
         self.noise_psd = None
-    
+
     def set_hdf5_group(self, hdf5_group):
         if hdf5_group is None:
             raise ValueError("hdf5_group should not be None")
@@ -122,14 +122,12 @@ class NoiseRecords(object):
             raise RuntimeError("It is a programming error to get here")
         self.filename = filename
         self.records_per_segment = self.datafile.segmentsize // (6+2*self.datafile.nSamples)
+        self.data = self.datafile.alldata
 
         if use_records is not None:
             if use_records < self.datafile.nPulses:
                 self.datafile.nPulses = use_records
                 self.datafile.n_segments = use_records // self.records_per_segment
-
-    def clear_cache(self):
-        self.datafile.clear_cache()
 
     def set_fake_data(self):
         """Use when this does not correspond to a real datafile."""
@@ -173,7 +171,7 @@ class NoiseRecords(object):
         uncertainty on each PSD estimate.  No free lunch, know what I mean?
         """
 
-        if not self.continuous and seg_length is not None:
+        if not self.continuous and seg_length is not None and seg_length != self.nSamples:
             raise ValueError(
                 "This NoiseRecords doesn't have continuous noise; it can't be resegmented.")
 
@@ -186,19 +184,16 @@ class NoiseRecords(object):
         else:
             window = window(seg_length)
 
-        for _first_pnum, _end_pnum, _seg_num, data in self.datafile.iter_segments():
-            if self.continuous and seg_length is not None:
-                data = data.ravel()
-                n = len(data)
+        data = self.datafile.alldata
+        if self.continuous and seg_length is not None:
+            n = np.prod(data.shape)
+            n -= n % seg_length
+            data = data[:n].reshape((n // seg_length, seg_length))
 
-                # Would it be a problem if n % seg_length is non-zero?
-                n -= n % seg_length
-                data = data[:n].reshape((n // seg_length, seg_length))
-
-            for d in data:
-                y = d-d.mean()
-                if y.max() - y.min() < max_excursion and len(y) == spectrum.m2:
-                    spectrum.addDataSegment(y, window=window)
+        for d in data:
+            y = d-d.mean()
+            if y.max() - y.min() < max_excursion and len(y) == spectrum.m2:
+                spectrum.addDataSegment(y, window=window)
 
         freq = spectrum.frequencies()
         psd = spectrum.spectrum()
@@ -216,8 +211,6 @@ class NoiseRecords(object):
         """
         assert self.continuous
 
-        # Does it assume that all data fit into a single segment?
-        self.datafile.read_segment(0)
         n = np.prod(self.datafile.data.shape)
         if seglength_choices is None:
             longest_seg = 1
@@ -304,73 +297,47 @@ class NoiseRecords(object):
         # in memory.  Instead, compute it on chunks several times the length of the desired
         # correlation, and average.
         CHUNK_MULTIPLE = 15
-        if n_data >= (1 + CHUNK_MULTIPLE) * n_lags:
-            # Be sure to pad chunksize samples by AT LEAST n_lags zeros, to prevent
-            # unwanted wraparound in the autocorrelation.
-            # padded_data is what we do DFT/InvDFT on; ac is the unnormalized output.
-            chunksize = CHUNK_MULTIPLE * n_lags
-            padsize = n_lags
-            padded_data = np.zeros(padded_length(padsize+chunksize), dtype=float)
+        if n_data < CHUNK_MULTIPLE * n_lags:
+            n_lags = n_data // CHUNK_MULTIPLE
+            if n_lags < self.nSamples:
+                msg = f"There are not enough data to compute at least {self.nSamples} lags."
+                msg += f"\nn_data={n_data}, n_lags * {CHUNK_MULTIPLE} = {CHUNK_MULTIPLE * n_lags}"
+                raise ValueError(msg)
 
-            ac = np.zeros(n_lags, dtype=float)
+        # Be sure to pad chunksize samples by AT LEAST n_lags zeros, to prevent
+        # unwanted wraparound in the autocorrelation.
+        # padded_data is what we do DFT/InvDFT on; ac is the unnormalized output.
+        chunksize = CHUNK_MULTIPLE * n_lags
+        padsize = n_lags
+        padded_data = np.zeros(padded_length(padsize+chunksize), dtype=float)
 
-            entries = 0.0
+        ac = np.zeros(n_lags, dtype=float)
 
-            for first_pnum, end_pnum, _seg_num, data in self.datafile.iter_segments():
-                data_consumed = 0
-                data = data.ravel()
-                samples_this_segment = len(data)
-                if data_samples[0] > self.nSamples*first_pnum:
-                    data_consumed = data_samples[0]-self.nSamples*first_pnum
-                if data_samples[1] < self.nSamples*end_pnum:
-                    samples_this_segment = data_samples[1]-self.nSamples*first_pnum
+        entries = 0.0
 
-                #
-                # umux data will "slip" flux quanta when pulses with a very
-                # fast leading edge occur. When this happens the baseline level
-                # that is returned to after a pulse may be an integer number of
-                # flux quanta different from the baseline level before the
-                # pulse. If this happens to noise data within a segment, the
-                # excursions algorithm will needlessly reject the entire segment.
-                #
-                # Ideally we would recognize and "correct" these flux jumps.
-                # But for now, I am calculating `data_mean` at the chunk level
-                # instead of the segment level. This means that a jump will
-                # cause data for just that chunk to be thrown away, instead of
-                # for the entire segment containing the chunk.
-                #
+        first, last = data_samples
+        data = self.datafile.alldata[first:last]
+        Nchunks = np.prod(data.shape) // chunksize
+        datachunks = data[:Nchunks*chunksize].reshape(Nchunks, chunksize)
+        for data in datachunks:
+            padded_data[:chunksize] = data - data.mean()
+            padded_data[chunksize:] = 0.0
+            if np.abs(padded_data).max() > max_excursion:
+                continue
 
-                # Notice that the following loop might ignore the last data values, up to as many
-                # as (chunksize-1) values, unless the data are an exact multiple of chunksize.
-                while data_consumed+chunksize <= samples_this_segment:
-                    data_mean = data[data_consumed:data_consumed+chunksize].mean()
-                    padded_data[:chunksize] = data[data_consumed:data_consumed+chunksize] - data_mean
-                    data_consumed += chunksize
-                    padded_data[chunksize:] = 0.0
-                    if np.abs(padded_data).max() > max_excursion:
-                        continue
+            ft = np.fft.rfft(padded_data)
+            ft[0] = 0  # this redundantly removes the mean of the data set
+            power = (ft*ft.conj()).real
+            acsum = np.fft.irfft(power)
+            ac += acsum[:n_lags]
+            entries += 1.0
 
-                    ft = np.fft.rfft(padded_data)
-                    ft[0] = 0  # this redundantly removes the mean of the data set
-                    power = (ft*ft.conj()).real
-                    acsum = np.fft.irfft(power)
-                    ac += acsum[:n_lags]
-                    entries += 1.0
-                    if entries*chunksize > n_data:
-                        break
+        if entries == 0:
+            raise Exception(
+                "Apparently all chunks had excusions, so no autocorrelation was computed")
 
-            if entries == 0:
-                raise Exception(
-                    "Apparently all chunks had excusions, so no autocorrelation was computed")
-
-            ac /= entries
-            ac /= (np.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=float))
-
-        # compute the full autocorrelation
-        else:
-            raise NotImplementedError("Now that Joe has chunkified the noise, we can "
-                                      "no longer compute full continuous autocorrelations")
-
+        ac /= entries
+        ac /= (np.arange(chunksize, chunksize-n_lags+0.5, -1.0, dtype=float))
         self.autocorrelation[:] = ac
 
     def compute_autocorrelation(self, n_lags=None, data_samples=None, plot=True, max_excursion=1000):
@@ -386,52 +353,8 @@ class NoiseRecords(object):
                                                      max_excursion=max_excursion)
 
         else:
-            if n_lags is None:
-                n_lags = self.nSamples
-            if n_lags > self.nSamples:
-                raise ValueError("The autocorrelation requires "
-                                 "n_lags<=%d when data are not continuous" % self.nSamples)
-
-            class TooMuchData(StopIteration):
-                """Use to signal that the computation loop is done"""
-                pass
-
-            if data_samples is None:
-                data_samples = [0, self.nSamples*self.nPulses]
-            n_data = data_samples[1] - data_samples[0]
-
-            records_used = samples_used = 0
-            ac = np.zeros(self.nSamples, dtype=float)
-            try:
-                for first_pnum, end_pnum, _seg_num, intdata in self.datafile.iter_segments():
-                    if end_pnum <= data_samples[0]:
-                        continue
-                    if first_pnum >= data_samples[1]:
-                        break
-                    for i in range(first_pnum, end_pnum):
-                        if i < data_samples[0]:
-                            continue
-                        if i >= data_samples[1]:
-                            break
-
-                        data = 1.0*(intdata[i-first_pnum, :])
-                        if data.max() - data.min() > max_excursion:
-                            continue
-                        data -= data.mean()
-
-                        ac += np.correlate(data, data, 'full')[self.nSamples-1:]
-                        samples_used += self.nSamples
-                        records_used += 1
-                        if n_data is not None and samples_used >= n_data:
-                            raise TooMuchData()
-            except TooMuchData:
-                pass
-
-            ac /= records_used
-            ac /= self.nSamples - np.arange(self.nSamples, dtype=float)
-            if n_lags < self.nSamples:
-                ac = ac[:n_lags]
-            self.autocorrelation[:] = ac
+            self._compute_broken_autocorrelation(n_lags=n_lags, data_samples=data_samples,
+                                                 max_excursion=max_excursion)
 
         if self.hdf5_group is not None:
             grp = self.hdf5_group.require_group("reclen%d" % n_lags)
@@ -440,6 +363,41 @@ class NoiseRecords(object):
 
         if plot:
             self.plot_autocorrelation()
+
+    def _compute_broken_autocorrelation(self, n_lags=None, data_samples=None,
+                                        max_excursion=1000):
+        if n_lags is None:
+            n_lags = self.nSamples
+        if n_lags > self.nSamples:
+            raise ValueError("The autocorrelation can't be computed for "
+                             f"n_lags>nsamp={self.nSamples} when data are not continuous")
+
+        if data_samples is None:
+            data_samples = [0, self.nSamples*self.nPulses]
+
+        records_used = samples_used = 0
+        ac = np.zeros(self.nSamples, dtype=float)
+        first = data_samples[0]
+        idx_first = first // self.nSamples
+        if first % self.nSamples > 0:
+            idx_first += 1
+        idx_last = data_samples[1] // self.nSamples
+
+        for i in range(idx_first, idx_last):
+            data = 1.0*self.datafile.alldata[i]
+            if data.max() - data.min() > max_excursion:
+                continue
+            data -= data.mean()
+
+            ac += np.correlate(data, data, 'full')[self.nSamples-1:]
+            samples_used += self.nSamples
+            records_used += 1
+
+        ac /= records_used
+        ac /= self.nSamples - np.arange(self.nSamples, dtype=float)
+        if n_lags < self.nSamples:
+            ac = ac[:n_lags]
+        self.autocorrelation[:] = ac
 
     def plot_autocorrelation(self, axis=None, color='blue', label=None):
         """Plot the autocorrelation function."""
@@ -486,10 +444,6 @@ class PulseRecords(object):
         self.datafile = None
         self.__open_file(filename, file_format=file_format)
 
-        self.data = np.array([], ndmin=2)
-        self.times = np.array([], ndmin=2)
-        self.rowcount = None
-
     def __open_file(self, filename, file_format=None):
         """Detect the filetype and open it."""
 
@@ -532,28 +486,6 @@ class PulseRecords(object):
         self.n_segments = self.datafile.n_segments
         self.pulses_per_seg = self.datafile.pulses_per_seg
         self.segmentsize = self.datafile.segmentsize
-
-    def read_segment(self, segment_num):
-        """Read the requested segment of the raw data file and return  (first,end)
-        meaning: the first record number, 1 more than the last record number,
-        and the nPulse x nSamples array."""
-        if segment_num >= self.n_segments:
-            return -1, -1
-        first_pnum, end_pnum, data = self.datafile.read_segment(segment_num)
-
-        self.data = data
-        self.rowcount = self.datafile.rowcount
-        try:
-            self.times = self.datafile.datatimes_float
-        except AttributeError:
-            self.times = self.datafile.datatimes/1e3
-        return first_pnum, end_pnum
-
-    def clear_cache(self):
-        self.data = None
-        self.rowcount = None
-        self.times = None
-        self.datafile.clear_cache()
 
     def copy(self):
         """Return a copy of the object.
@@ -952,8 +884,6 @@ class MicrocalDataSet(object):
         return c
 
     def _compute_peak_samplenumber(self):
-        if self.data is None:
-            self.read_segment(0)
         peak_idx = self.data[:, self.cut_pre:self.nSamples
                              - self.cut_post].argmax(axis=1)+self.cut_pre
         if version.parse(sp.__version__) >= version.parse("1.9.0"):
@@ -1019,20 +949,19 @@ class MicrocalDataSet(object):
         self.cut_post = cut_post
 
         for segnum in range(self.pulse_records.n_segments):
+            idx_range = np.array([segnum, segnum+1])*self.pulse_records.pulses_per_seg
             if use_cython:
                 self._summarize_data_segment(segnum)
             else:
-                MicrocalDataSet._summarize_data_segment(self, segnum, doPretrigFit=doPretrigFit)
+                MicrocalDataSet._summarize_data_segment(self, idx_range, doPretrigFit=doPretrigFit)
             yield (segnum+1.0) / self.pulse_records.n_segments
 
-        self.pulse_records.datafile.clear_cache()
-        self.clear_cache()
         self.hdf5_group.file.flush()
         self.__parse_expt_states()
 
-    def _summarize_data_segment(self, segnum, doPretrigFit=False):
+    def _summarize_data_segment(self, idx_range, doPretrigFit=False):
         """Summarize one segment of the data file, loading it into cache."""
-        first, end = self.read_segment(segnum)  # this reloads self.data to contain new pulses
+        first, end = idx_range
         if first >= self.nPulses:
             return
         if end > self.nPulses:
@@ -1054,7 +983,7 @@ class MicrocalDataSet(object):
         if doPretrigFit:
             presampleNumbers = np.arange(self.cut_pre, self.nPresamples
                                          - self.pretrigger_ignore_samples)
-            ydata = self.data[:seg_size, self.cut_pre:self.nPresamples
+            ydata = self.data[first:end, self.cut_pre:self.nPresamples
                               - self.pretrigger_ignore_samples].T
             self.p_pretrig_deriv[first:end], self.p_pretrig_offset[first:end] = \
                 np.polyfit(presampleNumbers, ydata, deg=1)
@@ -1120,7 +1049,6 @@ class MicrocalDataSet(object):
             state_codes[slice.start:slice.stop] = id+1
         self.cuts.cut("state", state_codes)
 
-    @show_progress("compute_average_pulse")
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
         """Compute the average pulse this channel.
 
@@ -1138,45 +1066,7 @@ class MicrocalDataSet(object):
             LOG.info("skipping compute average pulse on chan %d", self.channum)
             return
 
-        pulse_count = 0
-        pulse_sum = np.zeros(self.nSamples, dtype=float)
-
-        # Compute a master mask to say whether ANY mask wants a pulse from each segment
-        # This can speed up work a lot when the pulses being averaged are from certain times only.
-        segment_mask = np.zeros(self.pulse_records.n_segments, dtype=bool)
-        n = len(mask)
-        ppseg = self.pulse_records.pulses_per_seg
-        nseg = 1 + (n - 1) // ppseg
-        for i in range(nseg):
-            a = i * ppseg
-            b = a + ppseg
-            if b >= len(mask):
-                b = len(mask) - 1
-            if mask[a:b].any():
-                segment_mask[i] = True
-
-        for iseg in range(nseg):
-            if not segment_mask[iseg]:
-                continue
-            first, end = self.read_segment(iseg)
-            yield end / float(self.nPulses)
-            valid = mask[first:end]
-
-            if mask.shape != (self.nPulses,):
-                raise ValueError("\nmasks[chan %d] has shape %s, but it needs to be (%d,)" %
-                                 (self.channum, mask.shape, self.nPulses))
-            if len(valid) > self.data.shape[0]:
-                good_pulses = self.data[valid[:self.data.shape[0]], :]
-            else:
-                good_pulses = self.data[valid, :]
-            pulse_count += good_pulses.shape[0]
-            pulse_sum[:] += good_pulses.sum(axis=0)
-
-        # Rescale and store result to each MicrocalDataSet
-
-        average_pulse = pulse_sum
-        if pulse_count > 0:
-            average_pulse /= pulse_count
+        average_pulse = self.data[mask, :].mean(axis=0)
         if subtract_mean:
             average_pulse -= np.mean(average_pulse[:self.nPresamples
                                                    - self.pretrigger_ignore_samples])
@@ -1425,13 +1315,12 @@ class MicrocalDataSet(object):
             raise Exception("filter_type={}, must be `ats` or `5lag`".format(self._filter_type))
 
         for s in range(self.pulse_records.n_segments):
-            first, end = self.read_segment(s)  # this reloads self.data to contain new pulses
+            first, end = np.array([s, s+1])*self.pulse_records.pulses_per_seg
             (self.p_filt_phase[first:end],
              self.p_filt_value[first:end]) = \
                 filterfunction(filter_values, filter_AT, first, end, transform)
             yield (end+1)/float(self.nPulses)
 
-        self.pulse_records.datafile.clear_cache()
         self.hdf5_group.file.flush()
 
     def get_pulse_model(self, f, f_5lag, n_basis, pulses_for_svd, extra_n_basis_5lag=0,
@@ -1500,8 +1389,7 @@ class MicrocalDataSet(object):
         assert len(filter_values) + 4 == self.nSamples
 
         seg_size = end - first
-        assert seg_size == self.data.shape[0]
-        data = self.data
+        data = self.data[first:end]
         conv = np.zeros((5, seg_size), dtype=float)
         if transform is not None:
             ptmean = self.p_pretrig_mean[first:end]
@@ -1526,9 +1414,8 @@ class MicrocalDataSet(object):
         assert len(filter_values) + 1 == self.nSamples
 
         seg_size = end - first
-        assert seg_size == self.data.shape[0]
         ptmean = self.p_pretrig_mean[first:end]
-        data = self.data
+        data = self.data[first:end]
         if transform is not None:
             ptmean.shape = (seg_size, 1)
             data = transform(self.data - ptmean)
@@ -1547,12 +1434,11 @@ class MicrocalDataSet(object):
         # when using a zero threshold trigger (eg dastard using the kink-model) no shift is neccesary
         assert len(filter_values == self.nSamples)
         seg_size = end - first
-        assert seg_size == self.data.shape[0]
         ptmean = self.p_pretrig_mean[first:end]
-        data = self.data
+        data = self.data[first:end, :]
         if transform is not None:
             ptmean.shape = (seg_size, 1)
-            data = transform(self.data - ptmean)
+            data = transform(data - ptmean)
             ptmean.shape = (seg_size,)
         conv0 = np.dot(data, filter_values)
         conv1 = np.dot(data, filter_AT)
@@ -1681,14 +1567,13 @@ class MicrocalDataSet(object):
                 (default None).
             forceNew (bool): whether to recompute if it already exists (default False).
         """
-        if n_lags is None and self.noise_records.continuous:
+        if n_lags is None:
             n_lags = self.noise_records.nSamples
         if forceNew or all(self.noise_autocorr[:] == 0):
             self.noise_records.compute_power_spectrum_reshape(
                 max_excursion=max_excursion, seg_length=n_lags)
             self.noise_records.compute_autocorrelation(
                 n_lags=n_lags, plot=False, max_excursion=max_excursion)
-            self.noise_records.clear_cache()
 
             self.noise_autocorr[:] = self.noise_records.autocorrelation[:len(
                 self.noise_autocorr[:])]
@@ -1910,16 +1795,11 @@ class MicrocalDataSet(object):
         return ds.data[ds.cuts.good()][:n], np.nonzero(ds.cuts.good())[0][:n]
         """
         g = self.cuts.good(**category)
+        if g.sum() > n:
+            dont_use = np.nonzero(g)[0][n:]
+            g[dont_use] = False
 
-        first, end = self.read_segment(0)
-        data = self.data[g[first:end]]
-        for j in range(1, self.pulse_records.n_segments):
-            if data.shape[0] > n:
-                break
-            first, end = self.read_segment(j)
-            data = np.vstack((data, self.data[g[first:end], :]))
-        nrecords = np.amin([n, data.shape[0]])
-        return data[:nrecords], np.nonzero(g)[0][:nrecords]
+        return self.data[g], np.nonzero(g)[0]
 
     def fit_spectral_line(self, prange, mask=None, times=None, fit_type='dc', line='MnKAlpha',
                           nbins=200, plot=True, **kwargs):
@@ -2025,23 +1905,6 @@ class MicrocalDataSet(object):
         self.p_energy[:] = cal.ph2energy(getattr(self, attr))
         self.last_used_calibration = cal
 
-    def read_segment(self, n):
-        first, end = self.pulse_records.read_segment(n)
-        self.data = self.pulse_records.data
-        self.times = self.pulse_records.times[first:end]
-        self.rowcount = self.pulse_records.rowcount[first:end]
-
-        # If you want to invert all data on read, then set self.invert_data=True.
-        if self.__dict__.get("invert_data", False):
-            self.data = ~self.data
-        return first, end
-
-    def clear_cache(self):
-        self.data = None
-        self.rowcount = None
-        self.times = None
-        self.pulse_records.clear_cache()
-
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None, shift1=False,
                     subtract_baseline=False, fcut=None):
@@ -2142,9 +2005,7 @@ class MicrocalDataSet(object):
 
     def read_trace(self, record_num):
         """Read (from cache or disk) and return the pulse numbered `record_num`."""
-        seg_num = record_num // self.pulse_records.pulses_per_seg
-        self.read_segment(seg_num)
-        return self.data[record_num % self.pulse_records.pulses_per_seg, :]
+        return self.data[record_num, :]
 
     @_add_group_loop()
     def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree=2000,
@@ -2276,10 +2137,10 @@ class MicrocalDataSet(object):
         # Step 2: analyze *noise* so we know how to cut on pretrig rms postpeak_deriv
         max_deriv = np.zeros(self.noise_records.nPulses)
         pretrigger_rms = np.zeros(self.noise_records.nPulses)
-        for first_pnum, end_pnum, _seg_num, data_seg in self.noise_records.datafile.iter_segments():
-            max_deriv[first_pnum:end_pnum] = mass.analysis_algorithms.compute_max_deriv(
-                data_seg, ignore_leading=0)
-            pretrigger_rms[first_pnum:end_pnum] = data_seg[:, :self.nPresamples].std(axis=1)
+        for i in range(self.nPulses):
+            data = self.pulse_records.datafile.alldata[i]
+            pretrigger_rms[i] = data[:self.nPresamples].std()
+            max_deriv[i] = mass.analysis_algorithms.compute_max_deriv(data, ignore_leading=0)
 
         # Multiply MAD by 1.4826 to get into terms of sigma, if distribution were Gaussian.
         md_med = np.median(max_deriv)

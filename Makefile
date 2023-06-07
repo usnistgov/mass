@@ -8,18 +8,21 @@ PYFILES = $(shell find mass -name "*.py")
 CYFILES = $(shell find mass -name "*.pyx")
 FORMFILES := $(shell find mass -name "*_form_ui.py")
 
-.PHONY: all build clean test pep8 autopep8 lint
+.PHONY: all build clean clean_hdf5 test pep8 autopep8 lint
 
 all: build test
 
 build:
 	python -m build
 
-clean:
+clean: clean_hdf5
 	rm -rf build || sudo rm -rf build
 	rm -f `find . -name "*.pyc"`
 
-test:
+clean_hdf5:
+	rm -f */regression_test/*_mass.hdf5
+
+test: clean_hdf5
 	pytest
 
 archive: $(TARGET_ZIP)

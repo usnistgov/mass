@@ -3,14 +3,14 @@ Functions ljh_copy_traces and ljh_append_traces and class LJHModify, all of
 which can modify existing LJH files.
 """
 
-import numpy as np
 import os
 import struct
 import time
+import numpy as np
+from packaging.version import Version
 
 from mass.core.files import LJHFile, make_ljh_header
 from mass.core.utilities import InlineUpdater
-from packaging.version import Version
 
 
 def LJHModify(input_filename, output_filename, callback, overwrite=False):
@@ -18,18 +18,12 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
     with the identical header, but with the raw data records transformed in-place
     by the function (or other callable object) `callback`.
 
-    The function `callback` should be of the form `callback(pulsearray)`, where
-    `pulsearray` is an array of raw data records of shape (Nrecords, Nsamples).
+    The function `callback` should be of the form `modified=callback(record)`, where
+    `record` is an array of raw data records of shape (Nsamples, ).
     The callback might take the following form, if you need it to loop over records:
 
-    def mycallback(pulsearray):
-        for record in pulsearray:
-             record[:] = 1000 + (record/2)   # or whatever operations you need.
-
-    In the above example, the index `[:]` is required. It instructs the array
-    `record` to change the values it contains *in place*. If you omit the `[:]`,
-    then you'd be asking the name `record` to be re-used for some other purpose,
-    and thus `pulsearray` would not be changed.
+    def mycallback(record):
+        return 1000 + (record/2)   # or whatever operations you need.
 
     NOT IMPLEMENTED: this version of LJHModify does *not* allow the caller to
     modify the per-pulse row counter or posix time. Please file an issue if this
@@ -39,46 +33,50 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
     # Check for file problems, then open the input and output LJH files.
     if os.path.exists(output_filename):
         if os.path.samefile(input_filename, output_filename):
-            raise ValueError("Input '%s' and output '%s' are the same file, which is not allowed." %
-                             (input_filename, output_filename))
+            raise ValueError(f"Input '{input_filename}' and output '{output_filename}' "
+                             "are the same file, which is not allowed.")
         if overwrite:
-            print("WARNING: overwriting output file '%s'" % output_filename)
+            print(f"WARNING: overwriting output file '{output_filename}'")
         else:
-            raise ValueError("Output file '%s' exists. Call with overwrite=True to proceed anyway."
-                             % output_filename)
+            raise ValueError(f"Output file '{output_filename}' exists. "
+                             "Call with overwrite=True to proceed anyway.")
 
     infile = LJHFile.open(input_filename)
-    outfile = open(output_filename, "wb")
+    with open(output_filename, "wb") as outfile:
+        # Copy the header as a single string.
+        outfile.write("".join(infile.header_lines))
 
-    # Copy the header as a single string.
-    outfile.write("".join(infile.header_lines))
-    updater = InlineUpdater("LJHModify")
-
-    # Loop over data in segments
-    for (first, last, segnum, segdata) in infile.iter_segments():
         # For now, we are not modifying the times and row #s
         # If we wanted to, that would require a fancier callback, I guess.
-        callback(segdata)
 
         # Write the modified segdata (and the unmodified row count and timestamps).
+        updater = InlineUpdater("LJHModify")
         if Version(infile.version_str.decode()) >= Version("2.2.0"):
-            x = np.zeros((last-first,), dtype=infile.dtype)
-            x["rowcount"] = infile.rowcount
-            x["posix_usec"] = infile.datatimes_float*1e6
-            x["data"] = segdata
-            x.tofile(outfile)
-        else:
-            x = np.zeros((last-first, 3+infile.nSamples), dtype=np.uint16)
-            x[:, 3:] = segdata
-            x.tofile(outfile)
-        updater.update(float(segnum+1)/infile.n_segments)
+            for i in range(infile.nPulses):
+                data = callback(infile.alldata[i])
+                x = np.zeros((1,), dtype=infile.dtype)
+                x["rowcount"] = infile.rowcount
+                x["posix_usec"] = infile.datatimes_float*1e6
+                x["data"] = data
+                x.tofile(outfile)
+                if i % 100 == 0:
+                    updater.update(float(i+1)/infile.nPulses)
 
-    outfile.close()
+        else:
+            for i in range(infile.nPulses):
+                data = callback(infile.alldata[i])
+                x = np.zeros((1, 3+infile.nSamples), dtype=np.uint16)
+                x[:, 3:] = data
+                x.tofile(outfile)
+                if i % 100 == 0:
+                    updater.update(float(i+1)/infile.nPulses)
+
+        updater.update(1.0)
 
 
 # A callback that does nothing
-def dummy_callback(segdata):
-    pass
+def dummy_callback(data):
+    return data
 
 # Here's how you supply a simple callback without any free parameters.
 # This function will invert every data value. For an unsigned int, it might
@@ -86,25 +84,25 @@ def dummy_callback(segdata):
 # ever 1 with 0xfffe, and so on.
 
 
-def callback_invert(segdata):
-    assert segdata.dtype == np.uint16
-    segdata = 0xffff-segdata
+def callback_invert(record):
+    assert record.dtype == np.uint16
+    return 0xffff-record
 
 
 # Here's how to supply a callback with a free parameter (some kind of "state").
 # This creates a "function object", which is callable but also stores internally
 # the number that you wanted to add to every raw data value.
 
-class callback_shift(object):
+class callback_shift():
     def __init__(self, shiftby):
         self.shift = shiftby
 
     def __call__(self, segdata):
-        segdata += self.shift
+        return segdata + self.shift
 
 
 def helper_write_pulse(dest, src, i):
-    rowcount, timestamp_usec, trace = src.read_trace(i, with_timing=True)
+    rowcount, timestamp_usec, trace = src.read_trace_with_timing(i)
     prefix = struct.pack('<Q', int(rowcount))
     dest.write(prefix)
     prefix = struct.pack('<Q', int(timestamp_usec))
@@ -128,7 +126,7 @@ def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
     """
 
     if os.path.exists(dest_name) and not overwrite:
-        raise IOError("The ljhfile '%s' exists and overwrite was not set to True" % dest_name)
+        raise IOError(f"The ljhfile '{dest_name}' exists and overwrite was not set to True")
 
     src = LJHFile.open(src_name)
 
@@ -207,19 +205,14 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
         outfile.write(b"#End of Header\r\n")
 
         # Write pulses. Stop reading segments from the original file as soon as possible.
-        finished = False
-        for (start, end, segnum, segdata) in infile.iter_segments():
-            for i in range(start, end):
-                if (n_pulses is not None and i < n_pulses) or \
-                        (timestamp is not None and infile.datatimes_float[i] <= timestamp):
-                    prefix = struct.pack('<Q', np.uint64(infile.rowcount[i]))
-                    outfile.write(prefix)
-                    prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i]))
-                    outfile.write(prefix)
-                    trace = infile.alldata[i, :]
-                    trace.tofile(outfile, sep="")
-                else:
-                    finished = True
-                    break
-            if finished:
+        if n_pulses is None:
+            n_pulses = infile.nPulses
+        for i in range(n_pulses):
+            if (timestamp is not None and infile.datatimes_float[i] > timestamp):
                 break
+            prefix = struct.pack('<Q', np.uint64(infile.rowcount[i]))
+            outfile.write(prefix)
+            prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i]))
+            outfile.write(prefix)
+            trace = infile.alldata[i, :]
+            trace.tofile(outfile, sep="")

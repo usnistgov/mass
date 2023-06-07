@@ -126,8 +126,6 @@ class TestFilenameHandling(ut.TestCase):
             result = LJHFile.open(result_name)
             self.assertEqual(2*Npulses, result.nPulses)
             self.assertEqual(src.nSamples, result.nSamples)
-            src.read_segment(0)
-            result.read_segment(0)
             self.assertTrue(np.all(result.datatimes_raw >= src.datatimes_raw[0]))
             self.assertTrue(np.all(result.rowcount >= src.rowcount[0]))
 
