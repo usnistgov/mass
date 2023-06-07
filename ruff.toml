@@ -13,7 +13,9 @@ select = [
   "PLW",  # pylint warnings
   "PLR",  # pylint refactor
   "PLC",  # pylint conventions
-#   "D",   # pydocstyle
+  "NPY",  # numpy-specific
+  # "N",  # pep8-naming
+  # "D",   # pydocstyle
 ]
 
 ignore = [
@@ -26,6 +28,7 @@ ignore = [
     "PLR0912",  # too many branches
     "PLR0913",  # too many arguments
     "PLR0915",  # too many statements
+    # "NPY002"
 ]
 
 # Allow unused variables when underscore-prefixed.
