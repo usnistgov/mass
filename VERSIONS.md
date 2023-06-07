@@ -9,6 +9,7 @@
 * Move tests out of the installed mass package (issue 242).
 * Use ruff instead of very slow pylint (issue 243).
 * Use numpy's new API for random numbers (issue 244).
+* Remove the `CythonMicrocalDataSet` class; replace with pure Cython functions (issue 245).
 
 
 **0.7.10** June 2, 2023
@@ -221,7 +222,7 @@
 
 **0.4.3** May 2016
 
-* Reorganized code that fits spectral line models (Voigt, Gaussian, and specific K&alpha; or K&beta; lines).
+* Reorganized code that fits spectral line models (Voigt, Gaussian, and specific Kα or Kβ lines).
 * Added low-E tails to the Voigt and Gaussian fitters.
 * Fixed issues #45-51, except for 48.
 

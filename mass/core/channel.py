@@ -1281,7 +1281,7 @@ class MicrocalDataSet:
 
     @_add_group_loop()
     @show_progress("channel.filter_data_tdm")
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=None):
         """Filter the complete data file one chunk at a time.
 
         Args:
@@ -1294,6 +1294,9 @@ class MicrocalDataSet:
         if not (forceNew or all(self.p_filt_value[:] == 0)):
             LOG.info('\nchan %d did not filter because results were already loaded', self.channum)
             return
+    
+        if use_cython is None:
+            use_cython = self._filter_type == "5lag"
 
         if self.filter is not None:
             filter_values = self.filter.__dict__[filter_name]
@@ -1308,11 +1311,18 @@ class MicrocalDataSet:
                 # this code path should be followed when filters are created with the shift1=False argument
                 filterfunction = self._filter_data_segment_ats_dont_shift1
             filter_AT = self.filter.filt_aterms[0]
+            if use_cython:
+                raise ValueError("Cannot perform Arrival-Time-Safe filtering in Cython yet")
         elif self._filter_type == "5lag":
+            if use_cython:
+                fdata = mass.core.analysis_algorithms.filter_data_5lag_cython
+                fdata(self.p_filt_value, self.p_filt_phase, self.data, filter_values)
+                self.hdf5_group.file.flush()
+                return
             filterfunction = self._filter_data_segment_5lag
             filter_AT = None
         else:
-            raise Exception(f"filter_type={self._filter_type}, must be `ats` or `5lag`")
+            raise ValueError(f"filter_type={self._filter_type}, must be `ats` or `5lag`")
 
         for s in range(self.pulse_records.n_segments):
             first, end = np.array([s, s+1])*self.pulse_records.pulses_per_seg
