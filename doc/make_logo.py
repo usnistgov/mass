@@ -2,7 +2,7 @@ import numpy as np
 import pylab as plt
 
 
-def logo(seed=4):
+def logo(seed=46):
     trace_color = '#002288'
     text_color = '#cc2222'
     ndets = 15
@@ -27,14 +27,15 @@ def logo(seed=4):
     plt.yticks([])
     plt.text(110, .75, 'Mass', ha='right', size=18, color=text_color)
 
+    rg = np.random.default_rng(seed)
+
     # Other dets
-    np.random.seed(seed)
     cm = plt.cm.Spectral_r
     for i in range(ndets):
-        n = np.random.poisson(.8, size=1)
+        n = rg.poisson(0.8, size=1)
         x = np.zeros_like(t)
         for _ in range(int(n)):
-            t0 = np.random.uniform(-25, 110)
+            t0 = rg.uniform(-25, 110)
             print(t0,)
             x[t > t0] += np.exp(-(t[t > t0]-t0)/fall_time)-np.exp(-(t[t > t0]-t0)/rise_time)
         x *= ph_other/normalize
