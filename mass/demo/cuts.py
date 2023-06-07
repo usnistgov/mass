@@ -114,7 +114,7 @@ data.plot_traces(recnums, channum=1)
 data.register_categorical_cut_field("source", ["calibration", "pumped", "unpumped"])
 
 # Let's just assign randomly to the 3 named categories and the uncategorized group:
-category = np.random.randint(4, size=ds.nPulses)
+category = np.random.default_rng().randint(4, size=ds.nPulses)
 
 ds.cuts.cut("source", category)
 

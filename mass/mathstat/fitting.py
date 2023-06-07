@@ -78,7 +78,7 @@ class MaximumLikelihoodHistogramFitter:
     ITMAX = 1000
 
     def __init__(self, x, nobs, params, theory_function, theory_gradient=None,
-                 epsilon=1e-5, TOL=1e-5, timeout=30.0):
+                 epsilon=1e-5, TOL=1e-5, timeout=30.0, seed=None):
         """Initialize the fitter, making copies of the input data.
 
         Args:
@@ -97,6 +97,7 @@ class MaximumLikelihoodHistogramFitter:
                 much (absolutely or fractionally), then fitting will return successfully.
             timeout: Fail if the fitting takes more than this many seconds.
         """
+        self.rng = np.random.default_rng(seed)
         self.x = np.array(x)
         self.ndat = len(x)
         self.nobs = np.array(nobs)
@@ -305,12 +306,12 @@ class MaximumLikelihoodHistogramFitter:
                     if self.lowerbound[i] > self.params[i]:
                         self.params[i] = self.lowerbound[i]
                     if self.lowerbound[i] == self.params[i]:
-                        self.params[i] += np.random.uniform(0, self.epsilon[i])
+                        self.params[i] += self.rng.uniform(0, self.epsilon[i])
                 if self.upperbound[i] is not None:
                     if self.upperbound[i] < self.params[i]:
                         self.params[i] = self.upperbound[i]
                     if self.upperbound[i] == self.params[i]:
-                        self.params[i] -= np.random.uniform(0, self.epsilon[i])
+                        self.params[i] -= self.rng.uniform(0, self.epsilon[i])
 
         no_change_counter = 0
         lambda_coef = 0.01
@@ -520,7 +521,7 @@ def fit_kink_model(x, y, kbounds=None):
     y = np.array(x)
     truek = 4.6
     y[x>truek] = truek
-    y += np.random.standard_normal(len(x))*.15
+    y += np.random.default_rng().standard_normal(len(x))*.15
     model, (kbest,a,b,c), X2 = fit_kink_model(x, y, kbounds=(3,6))
     plt.clf()
     plt.plot(x, y, "or", label="Noisy data to be fit")

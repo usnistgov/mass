@@ -128,7 +128,7 @@ def savitzky_golay(y, window_size, order, deriv=0):
     Examples
     --------
     t = np.linspace(-4, 4, 500)
-    y = np.exp( -t**2 ) + np.random.normal(0, 0.05, t.shape)
+    y = np.exp( -t**2 ) + np.random.default_rng().normal(0, 0.05, t.shape)
     ysg = savitzky_golay(y, window_size=31, order=4)
     import matplotlib.pyplot as plt
     plt.plot(t, y, label='Noisy signal')
@@ -184,7 +184,7 @@ def find_range_randomly(A, nl, q=1):
         raise ValueError(msg)
     A = np.asarray(A)
     m, n = A.shape
-    Omega = np.random.standard_normal((n, nl))
+    Omega = np.random.default_rng().standard_normal((n, nl))
     Y = np.dot(A, Omega)
     for _ in range(q):
         Y = np.dot(A.T, Y)

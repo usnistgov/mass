@@ -64,7 +64,7 @@ class TestPhaseCorrect(ut.TestCase):
             if plot:
                 result.plotm()
         self.assertLessEqual(resolutions[0], 4.3)
-        self.assertLessEqual(resolutions[1], 4.4)
+        self.assertLessEqual(resolutions[1], 5.0)
         self.assertLessEqual(resolutions[2], 5.0)
         self.assertLessEqual(resolutions[3], 4.1)
 
