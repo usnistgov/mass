@@ -18,7 +18,7 @@ LOG = logging.getLogger("mass")
 
 FWHM_OVER_SIGMA = (8 * np.log(2))**0.5
 
-rng = np.random.default_rng()
+_rng = np.random.default_rng()
 
 
 class SpectralLine():
@@ -136,12 +136,12 @@ class SpectralLine():
             axis=axis, instrument_gaussian_fwhm=fwhm)
         return axis
 
-    def rvs(self, size, instrument_gaussian_fwhm, generator=None):
+    def rvs(self, size, instrument_gaussian_fwhm, rng=None):
         """The CDF and PPF (cumulative distribution and percentile point functions) are hard to
         compute.  But it's easy enough to generate the random variates themselves, so we
         override that method."""
-        if generator is None:
-            generator = rng
+        if rng is None:
+            rng = _rng
         gaussian_sigma = self._gaussian_sigma(instrument_gaussian_fwhm)
         # Choose from among the N Lorentzian lines in proportion to the line amplitudes
         iline = self.cumulative_amplitudes.searchsorted(
