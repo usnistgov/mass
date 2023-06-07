@@ -5,7 +5,7 @@ import mass
 import logging
 LOG = logging.getLogger("mass")
 
-np.random.seed(19324234)  # make tests not fail randomly
+rng = np.random.default_rng(19324234)  # make tests not fail randomly
 
 
 def make_arrival_times(cps, duration_s):
@@ -15,7 +15,7 @@ def make_arrival_times(cps, duration_s):
     """
     nmult = 2
     while True:
-        tdiffs = np.random.exponential(1/float(cps), int(np.ceil(nmult*cps*duration_s)))
+        tdiffs = rng.exponential(1/float(cps), int(np.ceil(nmult*cps*duration_s)))
         t = np.cumsum(np.hstack((0, tdiffs)))
         if t[-1] > duration_s:
             return t[t < duration_s]
@@ -29,9 +29,9 @@ def make_drifting_data(distrib, res_fwhm_ev, cps, duration_s, gain_of_t):
     """
     res_sigma = res_fwhm_ev / 2.3548
     t = make_arrival_times(cps, duration_s)
-    energies0 = distrib.rvs(size=len(t), instrument_gaussian_fwhm=0)
+    energies0 = distrib.rvs(size=len(t), instrument_gaussian_fwhm=0, rng=rng)
     gain = gain_of_t(t)
-    energies = gain*energies0 + np.random.standard_normal(len(t))*res_sigma
+    energies = gain*energies0 + rng.standard_normal(len(t))*res_sigma
     return t, energies
 
 

@@ -14,7 +14,6 @@ import pylab as plt
 
 class Test_MnKA_distribution(unittest.TestCase):
     def setUp(self):
-        np.random.seed(44)
         self.distrib = mass.calibration.fluorescence_lines.MnKAlpha
 
     def test_for_negative_energies(self):
@@ -25,8 +24,9 @@ class Test_MnKA_distribution(unittest.TestCase):
         self.assertLess(0, values.min())
 
         # This seed definitely caused errors at the time of issue #112.
-        np.random.seed(134)
-        values = self.distrib.rvs(size=100000, instrument_gaussian_fwhm=0)
+        # But numpy has changed since, so this might be a meaningless test
+        rng = np.random.default_rng(134)
+        values = self.distrib.rvs(size=100000, instrument_gaussian_fwhm=0, rng=rng)
         self.assertLess(0, values.min())
 
     def test_quartiles(self):
@@ -125,7 +125,7 @@ class TestFitterBehavior(unittest.TestCase):
         model = line.model()
         Nbins = 100
         e = np.linspace(5800, 5920, Nbins)
-        sim = np.random.poisson(lam=20, size=Nbins)
+        sim = np.random.default_rng().poisson(lam=20, size=Nbins)
         params = model.guess(sim, bin_centers=e)
         model.fit(sim, params, bin_centers=e, weights=None)
         with self.assertRaises(Exception):
