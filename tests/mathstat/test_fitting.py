@@ -78,17 +78,17 @@ class Test_gaussian(unittest.TestCase):
     """
 
     def setUp(self):
-        np.random.seed(12348)
+        self.rng = np.random.default_rng(12348)
 
     def generate_data(self, N, fwhm=1.0, ctr=0.0, nbins=100, N_bg=0):
         self.x = x = np.arange(.5, nbins)*4.0/nbins-2.0
 
-        n_signal = np.random.poisson(N)
-        n_bg = np.random.poisson(N_bg)
+        n_signal = self.rng.poisson(N)
+        n_bg = self.rng.poisson(N_bg)
 
-        data = np.random.standard_normal(size=n_signal)*fwhm/np.sqrt(8*np.log(2))
+        data = self.rng.standard_normal(size=n_signal)*fwhm/np.sqrt(8*np.log(2))
         if N_bg > 0:
-            data = np.hstack((data, np.random.uniform(size=n_bg)*4.0-2.0))
+            data = np.hstack((data, self.rng.uniform(size=n_bg)*4.0-2.0))
         nobs, _bins = np.histogram(data, np.linspace(-2, 2, nbins+1))
         self.sum = nobs.sum()
         self.mean = (x*nobs).sum()/nobs.sum()
@@ -213,18 +213,18 @@ class Test_fluorescence(unittest.TestCase):
     """
 
     def setUp(self):
-        np.random.seed(121312)
+        self.rng = np.random.default_rng(121312)
         self.fitter = mass.MnKAlphaFitter()
         self.fitter._have_warned = True  # eliminate deprecation warnings
 
     def generate_and_fit_data(self, N, fwhm=1.0, nbins=100, N_bg=0):
-        n_signal = np.random.poisson(N)
-        n_bg = np.random.poisson(N_bg)
+        n_signal = self.rng.poisson(N)
+        n_bg = self.rng.poisson(N_bg)
 
         distrib = mass.calibration.fluorescence_lines.MnKAlpha
         data = distrib.rvs(size=n_signal, instrument_gaussian_fwhm=fwhm)
         if N_bg > 0:
-            data = np.hstack((data, np.random.uniform(size=n_bg)*4.0-2.0))
+            data = np.hstack((data, self.rng.uniform(size=n_bg)*4.0-2.0))
         nobs, bin_edges = np.histogram(data, nbins, range=[5850, 5950])
         bins = bin_edges[1:]-0.5*(bin_edges[1]-bin_edges[0])
         params, covar = self.fitter.fit(nobs, bins, params=(
@@ -258,16 +258,16 @@ class Test_fluorescence(unittest.TestCase):
         """Test that we can do Mn K-alpha fits without background"""
         N_bg = 0
         for _ in range(10):
-            fwhm = np.random.uniform(1.8, 6.5, size=1)[0]
-            nbins = int(np.random.uniform(50, 200, size=1)[0])
+            fwhm = self.rng.uniform(1.8, 6.5, size=1)[0]
+            nbins = int(self.rng.uniform(50, 200, size=1)[0])
             self.generate_and_fit_data(3000, fwhm, nbins, N_bg)
 
     def test_mn_k_alpha_with_background(self):
         """Test that we can do Mn K-alpha fits without background"""
         for _ in range(10):
-            fwhm = np.random.uniform(1.8, 6.5, size=1)[0]
-            nbins = int(np.random.uniform(50, 200, size=1)[0])
-            N_bg = int(np.random.uniform(0, 200, size=1)[0])
+            fwhm = self.rng.uniform(1.8, 6.5, size=1)[0]
+            nbins = int(self.rng.uniform(50, 200, size=1)[0])
+            N_bg = int(self.rng.uniform(0, 200, size=1)[0])
             self.generate_and_fit_data(3000, fwhm, nbins, N_bg)
 
 
@@ -306,8 +306,8 @@ class Test_fit_kink(unittest.TestCase):
 
     def test_noisy_fit(self):
         """Make sure fit_kink_model gets close enough to exact answer with noise."""
-        np.random.seed(7474)
-        noisy_y = self.y + np.random.standard_normal(len(self.x))*.2
+        rng = np.random.default_rng(9090)
+        noisy_y = self.y + rng.standard_normal(len(self.x))*.2
         model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
             self.x, noisy_y, kbounds=(3, 6))
         self.assertLessEqual(X2, 1.0)

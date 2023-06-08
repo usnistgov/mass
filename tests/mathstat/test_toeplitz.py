@@ -15,6 +15,8 @@ from scipy import linalg
 import time
 import unittest
 
+rng = np.random.default_rng()
+
 
 class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
     """Test ToeplitzSolver on a 5x5 symmetric matrix."""
@@ -36,7 +38,7 @@ class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
 
     def test_arb_vectors(self):
         for _i in range(self.n):
-            x_in = 5*np.random.standard_normal(self.n)
+            x_in = 5*rng.standard_normal(self.n)
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
@@ -63,7 +65,7 @@ class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
 
     def test_arb_vectors(self):
         for _i in range(self.n):
-            x_in = 5*np.random.standard_normal(self.n)
+            x_in = 5*rng.standard_normal(self.n)
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
@@ -119,7 +121,7 @@ class TestToeplitzSolver_512(unittest.TestCase):
 
     def test_arb_vectors(self):
         for _i in range(5):
-            x_in = 5*np.random.standard_normal(self.n)
+            x_in = 5*rng.standard_normal(self.n)
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
@@ -159,7 +161,7 @@ class toeplitzSpeed:
             return 5*[np.NaN]
 
         ac = self.autocorr[:size]
-        v = np.random.standard_normal(size)
+        v = rng.standard_normal(size)
 
         t0 = time.time()
         solver = ToeplitzSolver(ac, symmetric=True)

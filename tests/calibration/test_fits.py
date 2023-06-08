@@ -25,8 +25,8 @@ class Test_Gaussian(unittest.TestCase):
         self.params = [2.3548*sigma, center, ampl, 0.1, 0, 1e-9, 10]
         self.x = np.linspace(10, 20, 200)
         self.y = ampl * np.exp(-0.5*(self.x-center)**2/(sigma**2))
-        np.random.seed(94)
-        self.obs = np.array([np.random.poisson(lam=y0) for y0 in self.y])
+        self.rng = np.random.default_rng(94)
+        self.obs = np.array([self.rng.poisson(lam=y0) for y0 in self.y])
         self.fitter = mass.calibration.GaussianFitter()
         self.fitter._have_warned = True  # eliminate deprecation warnings
 
@@ -97,7 +97,7 @@ class Test_Gaussian(unittest.TestCase):
             N = 10000
             w = np.zeros(nsim, dtype=float)
             for i in range(nsim):
-                x = np.random.standard_normal(N)*sigma
+                x = self.rng.standard_normal(N)*sigma
                 c, b = np.histogram(x, 100, [-50, 50])
                 param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
                                                plot=False, hold=(3, 4, 5, 6))
@@ -114,7 +114,7 @@ class Test_Gaussian(unittest.TestCase):
         for npoints in (1, 3, 5, 7):
             w = np.zeros(nsim, dtype=float)
             for i in range(nsim):
-                x = np.random.standard_normal(N)*sigma
+                x = self.rng.standard_normal(N)*sigma
                 c, b = np.histogram(x, 100, [-50, 50])
                 param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
                                                plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
@@ -137,7 +137,7 @@ class Test_MnKA(unittest.TestCase):
         self.distrib = mass.calibration.fluorescence_lines.MnKAlpha
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
-        np.random.seed(96)
+        self.rng = np.random.default_rng(96)
 
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17, bg=10,
                 nbins=150, vary_bg_slope=False, vary_tail=False):
@@ -145,18 +145,18 @@ class Test_MnKA(unittest.TestCase):
 
         values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
         sigma = resolution/2.3548
-        values += sigma*np.random.standard_normal(size=n)
+        values += sigma*self.rng.standard_normal(size=n)
 
-        tweak = np.random.uniform(0, 1, size=n) < tailfrac
+        tweak = self.rng.uniform(0, 1, size=n) < tailfrac
         ntweak = tweak.sum()
         if ntweak > 0:
-            values[tweak] -= np.random.standard_exponential(size=ntweak)*tailtau
+            values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
         obs, bins = np.histogram(values, nbins, [bmin, bmax])
-        obs += np.random.poisson(size=nbins, lam=bg)
+        obs += self.rng.poisson(size=nbins, lam=bg)
 
         params = np.array([resolution, 5898.8, 1.0, n, bg, 0, tailfrac, tailtau])
-        twiddle = np.random.standard_normal(len(params))*[.05, .2, .001, n/1e3, 1,
-                                                          0.001, .001, 0.1]
+        twiddle = self.rng.standard_normal(len(params))*[.05, .2, .001, n/1e3, 1,
+                                                         0.001, .001, 0.1]
         if not vary_bg_slope:
             twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
             twiddle[-3] = 0.0
@@ -198,7 +198,7 @@ class Test_MnKB(unittest.TestCase):
         self.fitter = mass.calibration.MnKBetaFitter()
         self.fitter._have_warned = True  # eliminate deprecation warnings
         self.distrib = mass.calibration.fluorescence_lines.MnKBeta
-        np.random.seed(97)
+        self.rng = np.random.default_rng(97)
         self.tempdir = tempfile.gettempdir()
         mass.logging.log(mass.logging.INFO, "K-beta fits stored to %s" % self.tempdir)
 
@@ -208,18 +208,18 @@ class Test_MnKB(unittest.TestCase):
 
         values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
         sigma = resolution/2.3548
-        values += sigma*np.random.standard_normal(size=n)
+        values += sigma*self.rng.standard_normal(size=n)
 
-        tweak = np.random.uniform(0, 1, size=n) < tailfrac
+        tweak = self.rng.uniform(0, 1, size=n) < tailfrac
         ntweak = tweak.sum()
         if ntweak > 0:
-            values[tweak] -= np.random.standard_exponential(size=ntweak)*tailtau
+            values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
         obs, bins = np.histogram(values, nbins, [bmin, bmax])
-        obs += np.random.poisson(size=nbins, lam=bg)
+        obs += self.rng.poisson(size=nbins, lam=bg)
 
         params = np.array([resolution, 6490.5, 1.0, n, bg, 0, tailfrac, tailtau])
-        twiddle = np.random.standard_normal(len(params))*[.0, .2, 0, n/1e3, 1,
-                                                          0.001, .001, 0.1]
+        twiddle = self.rng.standard_normal(len(params))*[.0, .2, 0, n/1e3, 1,
+                                                         0.001, .001, 0.1]
         if not vary_bg_slope:
             twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
             twiddle[-3] = 0.0
@@ -261,6 +261,7 @@ class Test_Voigt(unittest.TestCase):
     def setUp(self):
         self.fitter = mass.calibration.VoigtFitter()
         self.fitter._have_warned = True  # eliminate deprecation warnings
+        self.rng = np.random.default_rng()
 
     def singletest(self, gauss_fwhm=0.1, fwhm=5, center=100, ampl=5000,
                    bg=200, nbins=200, tailfrac=1e-9, tailtau=3,
@@ -275,16 +276,16 @@ class Test_Voigt(unittest.TestCase):
         bmax = self.x[-1]+0.5*db
         self.y = ampl/(1+((self.x-center)/(0.5*fwhm))**2)
         n = int(self.y.sum())
-        values = np.random.standard_cauchy(size=n)*fwhm*0.5 + center
-        values += sigma*np.random.standard_normal(size=n)
-        tweak = np.random.uniform(0, 1, size=n) < tailfrac
+        values = self.rng.standard_cauchy(size=n)*fwhm*0.5 + center
+        values += sigma*self.rng.standard_normal(size=n)
+        tweak = self.rng.uniform(0, 1, size=n) < tailfrac
         ntweak = tweak.sum()
         if ntweak > 0:
-            values[tweak] -= np.random.standard_exponential(size=ntweak)*tailtau
+            values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
 
         self.obs, _ = np.histogram(values, nbins, [bmin, bmax])
-        self.obs += np.random.poisson(size=nbins, lam=bg)
-        twiddle = np.random.standard_normal(len(params))*0.03+1
+        self.obs += self.rng.poisson(size=nbins, lam=bg)
+        twiddle = self.rng.standard_normal(len(params))*0.03+1
         if hold is None:
             hold = []
         hold = list(hold)
@@ -339,11 +340,11 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         bin_edges = np.arange(5850, 5950, 0.5)
         # generate random x-ray pulse energies following MnKAlpha distribution
         line = mass.calibration.fluorescence_lines.MnKAlpha
-        np.random.seed(154)
+        self.rng = np.random.default_rng(154)
         values = line.rvs(size=n, instrument_gaussian_fwhm=0)
         # add gaussian oise to each x-ray energy
         sigma = resolution/2.3548
-        values += sigma*np.random.standard_normal(size=n)
+        values += sigma*self.rng.standard_normal(size=n)
         # histogram
         counts, _ = np.histogram(values, bin_edges)
         model = line.model()
@@ -377,8 +378,8 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         line = mass.calibration.fluorescence_lines.MnKAlpha
         model = line.model()
         N = 100000
-        np.random.seed(238)
-        energies = line.rvs(size=N, instrument_gaussian_fwhm=4.0)  # draw from the distribution
+        rng = np.random.default_rng(238)
+        energies = line.rvs(size=N, instrument_gaussian_fwhm=4.0, rng=rng)  # draw from the distribution
         e32 = np.asarray(energies, dtype=np.float32)
 
         # bin_edges will be float32 b/c e32 is.
@@ -397,8 +398,8 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         line = mass.calibration.fluorescence_lines.MnKAlpha
         model = line.model()
         N = 10000
-        np.random.seed(238)
-        energies = line.rvs(size=N, instrument_gaussian_fwhm=4.0)  # draw from the distribution
+        rng = np.random.default_rng(238)
+        energies = line.rvs(size=N, instrument_gaussian_fwhm=4.0, rng=rng)  # draw from the distribution
 
         for SCALE in (0.1, 1, 10.):
             sim, bin_edges = np.histogram(energies*SCALE, 60, [5865*SCALE, 5925*SCALE])
@@ -415,9 +416,9 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         line = mass.MnKAlpha
         bgperev = 50
         Nsignal = 10000
-        np.random.seed(3038)
-        sig = line.rvs(Nsignal, instrument_gaussian_fwhm=5)
-        bg = np.random.uniform(5850, 5950, 100*bgperev)
+        rng = np.random.default_rng(3038)
+        sig = line.rvs(Nsignal, instrument_gaussian_fwhm=5, rng=rng)
+        bg = rng.uniform(5850, 5950, 100*bgperev)
         samples = np.hstack((bg, sig))
         for nbins in (100, 200, 300):
             s, b = np.histogram(samples, nbins, [5850, 5950])
@@ -477,7 +478,7 @@ class Test_Composites_lmfit(unittest.TestCase):
                 reference_amplitude=np.array([1]),
                 reference_amplitude_type=mass.LORENTZIAN_PEAK_HEIGHT, ka12_energy_diff=None
             )
-        np.random.seed(131)
+        rng = np.random.default_rng(131)
         bin_edges = np.arange(600, 700, 0.4)
         resolution = 4.0
         n1 = 10000
@@ -486,8 +487,8 @@ class Test_Composites_lmfit(unittest.TestCase):
         self.line1 = mass.spectrum_classes['dummy1']()
         self.line2 = mass.spectrum_classes['dummy2']()
         self.nominal_separation = self.line2.nominal_peak_energy - self.line1.nominal_peak_energy
-        values1 = self.line1.rvs(size=n1, instrument_gaussian_fwhm=resolution)
-        values2 = self.line2.rvs(size=n2, instrument_gaussian_fwhm=resolution)
+        values1 = self.line1.rvs(size=n1, instrument_gaussian_fwhm=resolution, rng=rng)
+        values2 = self.line2.rvs(size=n2, instrument_gaussian_fwhm=resolution, rng=rng)
         self.counts1, _ = np.histogram(values1, bin_edges)
         self.counts2, _ = np.histogram(values2, bin_edges)
         self.counts = self.counts1 + self.counts2
@@ -562,8 +563,9 @@ def test_BackgroundMLEModel():
     test_background = 127.3
     test_background_error = np.sqrt(test_background)
     test_bg_slope = 0.17
+    rng = np.random.default_rng()
     y_data = np.zeros_like(x_data) + test_background + \
-        np.random.normal(scale=test_background_error, size=len(x_data))
+        rng.normal(scale=test_background_error, size=len(x_data))
     y_data += test_bg_slope * np.arange(len(x_data))
     y_data[y_data < 0] = 0
     test_model.fit(y_data, test_params, bin_centers=x_data)

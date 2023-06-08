@@ -190,9 +190,9 @@ class TestFilters(ut.TestCase):
 
                 d2 = np.array(d)
                 if pre > 0:
-                    d2[:, :pre] = np.random.standard_normal((NP, pre))
+                    d2[:, :pre] = np.random.default_rng().standard_normal((NP, pre))
                 if post > 0:
-                    d2[:, -post:] = np.random.standard_normal((NP, post))
+                    d2[:, -post:] = np.random.default_rng().standard_normal((NP, post))
                 resultsB = np.dot(d2, f)
                 self.assertTrue(np.allclose(resultsA, resultsB))
 
@@ -231,7 +231,7 @@ class TestFilters(ut.TestCase):
         deriv_like = np.append(np.zeros(nPresamples), -np.ones(nPost))
         model = np.column_stack((pulse_like, deriv_like))
 
-        fake_noise = np.random.randn(nSamples)
+        fake_noise = np.random.default_rng().standard_normal(nSamples)
         fake_noise[0] = 10.0
         whitener = None
         dt = 6.72e-6
@@ -265,7 +265,7 @@ class TestWhitener(ut.TestCase):
     def test_trivial(self):
         """Be sure that the trivial whitener does nothing."""
         w = mass.ToeplitzWhitener([1.0], [1.0])  # the trivial whitener
-        r = np.random.standard_normal(100)
+        r = np.random.default_rng().standard_normal(100)
         self.assertTrue(np.allclose(r, w(r)))
         self.assertTrue(np.allclose(r, w.solveW(r)))
         self.assertTrue(np.allclose(r, w.applyWT(r)))
@@ -274,7 +274,7 @@ class TestWhitener(ut.TestCase):
     def test_reversible(self):
         """Use a nontrivial whitener, and make sure that inverse operations are inverses."""
         w = mass.ToeplitzWhitener([1.0, -1.7, 0.72], [1.0, .95])
-        r = np.random.standard_normal(100)
+        r = np.random.default_rng().standard_normal(100)
         self.assertTrue(np.allclose(r, w.solveW(w(r))))
         self.assertTrue(np.allclose(r, w(w.solveW(r))))
         self.assertTrue(np.allclose(r, w.solveWT(w.applyWT(r))))
@@ -298,7 +298,7 @@ class TestWhitener(ut.TestCase):
         w = mass.ToeplitzWhitener([1.0, -1.7, 0.72], [1.0, .95])
         Nzero = 100
         z = np.zeros(Nzero, dtype=float)
-        r = np.hstack([z, np.random.standard_normal(100), z])
+        r = np.hstack([z, np.random.default_rng().standard_normal(100), z])
 
         # Applying and solving W are causal operations.
         wr = w(r)

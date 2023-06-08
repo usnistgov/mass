@@ -9,7 +9,7 @@ from mass.calibration.algorithms import find_opt_assignment, find_local_maxima, 
     build_fit_ranges_ph, multifit, EnergyCalibration, EnergyCalibrationAutocal
 import itertools
 
-np.random.seed(2)
+rng = np.random.default_rng(2)
 
 
 class TestAlgorithms(unittest.TestCase):
@@ -30,10 +30,10 @@ class TestAlgorithms(unittest.TestCase):
         self.assertTrue(passes > tries*0.9)
 
     def test_find_local_maxima(self):
-        np.random.seed(100)
-        ph = np.random.randn(10000)+7000
-        ph = np.hstack((ph, np.random.randn(5000)+4000))
-        ph = np.hstack((ph, np.random.randn(1000)+1000))
+        rng = np.random.default_rng(100)
+        ph = rng.standard_normal(10000)+7000
+        ph = np.hstack((ph, rng.standard_normal(5000)+4000))
+        ph = np.hstack((ph, rng.standard_normal(1000)+1000))
         local_maxima, _ = find_local_maxima(ph, 10)
         local_maxima, _peak_heights = find_local_maxima(ph, 10)
         rounded = np.round(local_maxima)
@@ -98,7 +98,7 @@ class TestAlgorithms(unittest.TestCase):
         spect = {i: mass.spectra[n] for (i, n) in enumerate(line_names)}
         e = []
         for (k, s) in spect.items():
-            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=k+3.0))
+            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=k+3.0, rng=rng))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9
@@ -126,7 +126,7 @@ class TestAlgorithms(unittest.TestCase):
         spect = {i: mass.spectra[n] for (i, n) in enumerate(line_names)}
         e = []
         for (k, s) in spect.items():
-            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=k+3.0))
+            e.extend(s.rvs(size=num_samples[k], instrument_gaussian_fwhm=k+3.0, rng=rng))
         e = np.array(e)
         e = e[e > 0]   # The wide-tailed distributions will occasionally produce negative e. Bad!
         ph = 2*e**0.9

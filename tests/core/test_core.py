@@ -334,7 +334,8 @@ class TestTESGroup(ut.TestCase):
         ds.clear_cuts()
         ds.p_filt_value_dc[:150] = np.linspace(1, 6000.0, 150)
         ds.p_filt_value_dc[150:] = 5898.8
-        ds.p_filt_phase[:] = np.random.standard_normal(ds.nPulses)
+        rng = np.random.default_rng(9823)
+        ds.p_filt_phase[:] = rng.standard_normal(ds.nPulses)
         NBINS = 10
         for lowestbin in range(5, 10):
             data.set_chan_good(1)
@@ -356,7 +357,6 @@ class TestTESGroup(ut.TestCase):
         ds.compute_noise()
 
     def test_pulse_model_and_ljh2off(self):
-        np.random.seed(0)
         data = self.load_data()
 
         data.compute_noise()
@@ -370,7 +370,7 @@ class TestTESGroup(ut.TestCase):
         with tempfile.TemporaryDirectory() as output_dir:
             max_channels = 100
             n_ignore_presamples = 0
-            ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
+            _ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
                 ds.filename, hdf5_filename, output_dir, max_channels,
                 n_ignore_presamples, require_experiment_state=False)
             off = mass.off.off.OffFile(off_filenames[0])
@@ -409,7 +409,6 @@ class TestTESGroup(ut.TestCase):
 
     def test_ljh_records_to_off(self):
         """Be sure ljh_records_to_off works with ljh files of 2 or more segments."""
-        np.random.seed(0)
         data = self.load_data()
         data.compute_noise()
         data.summarize_data()
