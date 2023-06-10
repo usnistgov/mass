@@ -1327,6 +1327,14 @@ class MicrocalDataSet:
         else:
             filter_values = self.hdf5_group['filters/%s' % filter_name][()]
 
+        if use_cython:
+            if self._filter_type == "ats":
+                raise ValueError("Cannot perform Arrival-Time-Safe filtering in Cython yet")
+            fdata = mass.core.analysis_algorithms.filter_data_5lag_cython
+            fdata(self.p_filt_value, self.p_filt_phase, self.data, filter_values)
+            self.hdf5_group.file.flush()
+            return
+
         if self._filter_type == "ats":
             if len(filter_values) == self.nSamples - 1:
                 filterfunction = self._filter_data_segment_ats
@@ -1335,14 +1343,7 @@ class MicrocalDataSet:
                 # this code path should be followed when filters are created with the shift1=False argument
                 filterfunction = self._filter_data_segment_ats_dont_shift1
             filter_AT = self.filter.filt_aterms[0]
-            if use_cython:
-                raise ValueError("Cannot perform Arrival-Time-Safe filtering in Cython yet")
         elif self._filter_type == "5lag":
-            if use_cython:
-                fdata = mass.core.analysis_algorithms.filter_data_5lag_cython
-                fdata(self.p_filt_value, self.p_filt_phase, self.data, filter_values)
-                self.hdf5_group.file.flush()
-                return
             filterfunction = self._filter_data_segment_5lag
             filter_AT = None
         else:

@@ -4,14 +4,11 @@ add a much faster, Cython version of .summarize_data_segment().
 """
 
 import numpy as np
-import logging
 
 from libc.math cimport sqrt
 cimport cython
 cimport numpy as np
 cimport libc.limits
-
-LOG = logging.getLogger("mass")
 
 
 @cython.embedsignature(True)
@@ -28,7 +25,7 @@ def summarize_data_cython(
 ):
     """Summarize one segment of the data file, loading it into cache."""
     cdef:
-        Py_ssize_t i, j, k
+        Py_ssize_t j, k
         const unsigned short[:] pulse
 
         float[::1] p_pretrig_mean_array,
@@ -49,20 +46,18 @@ def summarize_data_cython(
         double ptm
         unsigned short peak_value, peak_index, min_value
         unsigned short signal
-        unsigned short nPulses, nSamples, peak_time, seg_size
+        unsigned short nPulses, nSamples, seg_size
         unsigned short e_nPresamples, s_prompt, e_prompt
 
         unsigned short low_th, high_th
-        unsigned short log_value, high_value
+        unsigned short high_value
         unsigned short low_idx, high_idx
 
         long f0 = 2, f1 = 1, f3 = -1, f4 = -2
         long s0, s1, s2, s3, s4
         long t0, t1, t2, t3, t_max_deriv
-
         dict results
 
-    print("shape: ", rawdata.shape, timebase, peak_samplenumber, pretrigger_ignore, nPresamples, first, end)
     nPulses = rawdata.shape[0]
     nSamples = rawdata.shape[1]
 
@@ -71,7 +66,6 @@ def summarize_data_cython(
     seg_size = end-first
 
     e_nPresamples = nPresamples - pretrigger_ignore
-    print("nPulses, Samples:", nPulses, nSamples, first, end, seg_size, e_nPresamples)
 
     # Buffers for a single segment calculation.
     p_pretrig_mean_array = np.empty(seg_size, dtype=np.float32)
