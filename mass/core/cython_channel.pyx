@@ -6,8 +6,6 @@ add a much faster, Cython version of .summarize_data_segment().
 import numpy as np
 import logging
 
-from mass.core.channel import MicrocalDataSet
-
 from libc.math cimport sqrt
 cimport cython
 cimport numpy as np
@@ -25,26 +23,25 @@ def summarize_data_cython(
     long peak_samplenumber,
     long pretrigger_ignore,
     long nPresamples,
-    dict hdf5_datasets,
     long first=0,
-    long end=-1,
+    long end=0,
 ):
     """Summarize one segment of the data file, loading it into cache."""
     cdef:
         Py_ssize_t i, j, k
         const unsigned short[:] pulse
 
-        float[:] p_pretrig_mean_array,
-        float[:] p_pretrig_rms_array,
-        float[:] p_pulse_average_array,
-        float[:] p_pulse_rms_array,
-        float[:] p_promptness_array,
-        float[:] p_rise_times_array,
-        float[:] p_postpeak_deriv_array,
-        unsigned short[:] p_peak_index_array,
-        unsigned short[:] p_peak_value_array,
-        unsigned short[:] p_min_value_array,
-        unsigned short[:] p_shift1_array,
+        float[::1] p_pretrig_mean_array,
+        float[::1] p_pretrig_rms_array,
+        float[::1] p_pulse_average_array,
+        float[::1] p_pulse_rms_array,
+        float[::1] p_promptness_array,
+        float[::1] p_rise_times_array,
+        float[::1] p_postpeak_deriv_array,
+        unsigned short[::1] p_peak_index_array,
+        unsigned short[::1] p_peak_value_array,
+        unsigned short[::1] p_min_value_array,
+        unsigned short[::1] p_shift1_array,
 
         double pretrig_sum, pretrig_rms_sum
         double pulse_sum, pulse_rms_sum
@@ -52,7 +49,7 @@ def summarize_data_cython(
         double ptm
         unsigned short peak_value, peak_index, min_value
         unsigned short signal
-        unsigned short nPulses, nSamples, peak_time
+        unsigned short nPulses, nSamples, peak_time, seg_size
         unsigned short e_nPresamples, s_prompt, e_prompt
 
         unsigned short low_th, high_th
@@ -63,28 +60,48 @@ def summarize_data_cython(
         long s0, s1, s2, s3, s4
         long t0, t1, t2, t3, t_max_deriv
 
-    if end < 0:
-        end = nPulses
+        dict results
 
+    print("shape: ", rawdata.shape, timebase, peak_samplenumber, pretrigger_ignore, nPresamples, first, end)
     nPulses = rawdata.shape[0]
     nSamples = rawdata.shape[1]
+
+    if end <= 0:
+        end = nPulses
+    seg_size = end-first
+
     e_nPresamples = nPresamples - pretrigger_ignore
+    print("nPulses, Samples:", nPulses, nSamples, first, end, seg_size, e_nPresamples)
 
-    # Unwrap the dictionary with the hdf5 datasets.
-    p_pretrig_mean_array = hdf5_datasets["pretrig_mean"]
-    p_pretrig_rms_array = hdf5_datasets["pretrig_rms"]
-    p_pulse_average_array = hdf5_datasets["pulse_average"]
-    p_pulse_rms_array = hdf5_datasets["pulse_rms"]
-    p_promptness_array = hdf5_datasets["promptness"]
-    p_postpeak_deriv_array = hdf5_datasets["postpeak_deriv"]
-    p_peak_index_array = hdf5_datasets["peak_index"]
-    p_peak_value_array = hdf5_datasets["peak_value"]
-    p_min_value_array = hdf5_datasets["min_value"]
-    p_rise_times_array = hdf5_datasets["rise_times"]
-    p_shift1_array = hdf5_datasets["shift1"]
+    # Buffers for a single segment calculation.
+    p_pretrig_mean_array = np.empty(seg_size, dtype=np.float32)
+    p_pretrig_rms_array = np.empty(seg_size, dtype=np.float32)
+    p_pulse_average_array = np.empty(seg_size, dtype=np.float32)
+    p_pulse_rms_array = np.empty(seg_size, dtype=np.float32)
+    p_promptness_array = np.empty(seg_size, dtype=np.float32)
+    p_rise_times_array = np.empty(seg_size, dtype=np.float32)
+    p_postpeak_deriv_array = np.empty(seg_size, dtype=np.float32)
+    p_peak_index_array = np.empty(seg_size, dtype=np.uint16)
+    p_peak_value_array = np.empty(seg_size, dtype=np.uint16)
+    p_min_value_array = np.empty(seg_size, dtype=np.uint16)
+    p_shift1_array = np.empty(seg_size, dtype=np.uint16)
+    results = {}
+    results["pretrig_mean"] = p_pretrig_mean_array
+    results["pretrig_rms"] = p_pretrig_rms_array
+    results["pulse_average"] = p_pulse_average_array
+    results["pulse_rms"] = p_pulse_rms_array
+    results["promptness"] = p_promptness_array
+    results["rise_times"] = p_rise_times_array
+    results["postpeak_deriv"] = p_postpeak_deriv_array
+    results["peak_index"] = p_peak_index_array
+    results["peak_value"] = p_peak_value_array
+    results["min_value"] = p_min_value_array
+    results["shift1"] = p_shift1_array
+    print(p_shift1_array)
+    print(p_shift1_array.shape)
 
-    for j in range(first, end):
-        pulse = rawdata[j, :]
+    for j in range(seg_size):
+        pulse = rawdata[j+first, :]
         pretrig_sum = 0.0
         pretrig_rms_sum = 0.0
         pulse_sum = 0.0
@@ -122,9 +139,9 @@ def summarize_data_cython(
                 if signal - ptm > 4.3 * ptrms:
                     e_prompt -= 1
                     s_prompt -= 1
-                    p_shift1_array[j] = True
+                    p_shift1_array[j] = <unsigned short>True
                 else:
-                    p_shift1_array[j] = False
+                    p_shift1_array[j] = <unsigned short>False
 
             if k >= nPresamples - 1:
                 pulse_sum += signal
@@ -134,15 +151,16 @@ def summarize_data_cython(
         p_pretrig_rms_array[j] = <float>ptrms
         if ptm < peak_value:
             peak_value -= <unsigned short>(ptm+0.5)
-            p_promptness_array[j] = (promptness_sum / 6.0 - ptm) / peak_value
-            p_peak_value_array[j] = peak_value
-            p_peak_index_array[j] = peak_index
+            p_promptness_array[j] = <float>((promptness_sum / 6.0 - ptm) / peak_value)
+            p_peak_value_array[j] = <unsigned short>peak_value
+            p_peak_index_array[j] = <unsigned short>peak_index
         else:
             # Basically a nonsense pulse: the pretrigger mean exceeds the highest post-trigger value.
             # This would normally happen only if the crate's re-lock mechanism fires during a record.
-            p_promptness_array[j] = 0
-            p_peak_value_array[j] = 0
-            p_peak_index_array[j] = 0
+            p_promptness_array[j] = <float>0.0
+            p_peak_value_array[j] = <unsigned short>0
+            p_peak_index_array[j] = <unsigned short>0
+        print("prompt, PV, Pidx: ", p_promptness_array[j], p_peak_value_array[j], p_peak_index_array[j])
         p_min_value_array[j] = min_value
         pulse_avg = pulse_sum / (nSamples - nPresamples + 1) - ptm
         p_pulse_average_array[j] = <float>pulse_avg
@@ -205,4 +223,9 @@ def summarize_data_cython(
 
             t0, t1 = t1, t2
 
-        p_postpeak_deriv_array[j] = 0.1 * t_max_deriv
+        p_postpeak_deriv_array[j] = <float>(0.1 * t_max_deriv)
+
+    print("At the end!", p_shift1_array)
+    print(p_shift1_array.shape)
+
+    return results

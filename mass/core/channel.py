@@ -950,28 +950,28 @@ class MicrocalDataSet:
         if use_cython:
             if self.peak_samplenumber is None:
                 self._compute_peak_samplenumber()
-            hdf5_datasets = {}
-            hdf5_datasets["pretrig_mean"] = self.p_pretrig_mean
-            hdf5_datasets["pretrig_rms"] = self.p_pretrig_rms
-            hdf5_datasets["pulse_average"] = self.p_pulse_average
-            hdf5_datasets["pulse_rms"] = self.p_pulse_rms
-            hdf5_datasets["promptness"] = self.p_promptness
-            hdf5_datasets["postpeak_deriv"] = self.p_postpeak_deriv
-            hdf5_datasets["peak_index"] = self.p_peak_index
-            hdf5_datasets["peak_value"] = self.p_peak_value
-            hdf5_datasets["min_value"] = self.p_min_value
-            hdf5_datasets["rise_times"] = self.p_rise_times
-            hdf5_datasets["shift1"] = self.p_shift1
             self.p_timestamp[:] = self.times[:]
             self.p_rowcount[:] = self.rowcount[:]
 
-            sumdata = mass.core.analysis_algorithms.summarize_data_cython
+            sumdata = mass.core.cython_channel.summarize_data_cython
             for segnum in range(self.pulse_records.n_segments):
                 first = segnum*self.pulse_records.pulses_per_seg
-                end = first + self.pulse_records.pulses_per_seg
-                sumdata(self.data, self.timebase, self.peak_samplenumber,
-                        self.pretrigger_ignore_samples, self.nPresamples,
-                        hdf5_datasets, first, end)
+                end = min(first + self.pulse_records.pulses_per_seg, self.nPulses)
+                results = sumdata(self.data, self.timebase, self.peak_samplenumber,
+                                  self.pretrigger_ignore_samples, self.nPresamples,
+                                  first, end)
+                self.p_pretrig_mean[first:end] = results["pretrig_mean"][:]
+                self.p_pretrig_rms[first:end] = results["pretrig_rms"][:]
+                self.p_pulse_average[first:end] = results["pulse_average"][:]
+                self.p_pulse_rms[first:end] = results["pulse_rms"][:]
+                self.p_promptness[first:end] = results["promptness"][:]
+                self.p_postpeak_deriv[first:end] = results["postpeak_deriv"][:]
+                self.p_peak_index[first:end] = results["peak_index"][:]
+                self.p_peak_value[first:end] = results["peak_value"][:]
+                self.p_min_value[first:end] = results["min_value"][:]
+                self.p_rise_time[first:end] = results["rise_times"][:]
+                self.p_shift1[first:end] = results["shift1"][:]
+
                 yield (segnum+1.0) / self.pulse_records.n_segments
         else:
             for segnum in range(self.pulse_records.n_segments):
