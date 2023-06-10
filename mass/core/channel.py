@@ -947,13 +947,37 @@ class MicrocalDataSet:
         self.cut_pre = cut_pre
         self.cut_post = cut_post
 
-        for segnum in range(self.pulse_records.n_segments):
-            idx_range = np.array([segnum, segnum+1])*self.pulse_records.pulses_per_seg
-            if use_cython:
-                self._summarize_data_segment(segnum)
-            else:
+        if use_cython:
+            if self.peak_samplenumber is None:
+                self._compute_peak_samplenumber()
+            hdf5_datasets = {}
+            hdf5_datasets["pretrig_mean"] = self.p_pretrig_mean
+            hdf5_datasets["pretrig_rms"] = self.p_pretrig_rms
+            hdf5_datasets["pulse_average"] = self.p_pulse_average
+            hdf5_datasets["pulse_rms"] = self.p_pulse_rms
+            hdf5_datasets["promptness"] = self.p_promptness
+            hdf5_datasets["postpeak_deriv"] = self.p_postpeak_deriv
+            hdf5_datasets["peak_index"] = self.p_peak_index
+            hdf5_datasets["peak_value"] = self.p_peak_value
+            hdf5_datasets["min_value"] = self.p_min_value
+            hdf5_datasets["rise_times"] = self.p_rise_times
+            hdf5_datasets["shift1"] = self.p_shift1
+            self.p_timestamp[:] = self.times[:]
+            self.p_rowcount[:] = self.rowcount[:]
+
+            sumdata = mass.core.analysis_algorithms.summarize_data_cython
+            for segnum in range(self.pulse_records.n_segments):
+                first = segnum*self.pulse_records.pulses_per_seg
+                end = first + self.pulse_records.pulses_per_seg
+                sumdata(self.data, self.timebase, self.peak_samplenumber,
+                        self.pretrigger_ignore_samples, self.nPresamples,
+                        hdf5_datasets, first, end)
+                yield (segnum+1.0) / self.pulse_records.n_segments
+        else:
+            for segnum in range(self.pulse_records.n_segments):
+                idx_range = np.array([segnum, segnum+1])*self.pulse_records.pulses_per_seg
                 MicrocalDataSet._summarize_data_segment(self, idx_range, doPretrigFit=doPretrigFit)
-            yield (segnum+1.0) / self.pulse_records.n_segments
+                yield (segnum+1.0) / self.pulse_records.n_segments
 
         self.hdf5_group.file.flush()
         self.__parse_expt_states()
@@ -1294,7 +1318,7 @@ class MicrocalDataSet:
         if not (forceNew or all(self.p_filt_value[:] == 0)):
             LOG.info('\nchan %d did not filter because results were already loaded', self.channum)
             return
-    
+
         if use_cython is None:
             use_cython = self._filter_type == "5lag"
 
