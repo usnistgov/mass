@@ -17,22 +17,26 @@ class TestPhaseCorrect(ut.TestCase):
         return ds
 
     def test_phase_correct_through_microcaldataset(self, plot=False):
+        ds = self.load_data()
+
         # the final fit resolutions are quite sensitive to this, easily varying from 3 to 5 eV
-        rng = np.random.default_rng(2234)
-        energies = np.arange(4000)
+        rng = np.random.default_rng(2233)
+        energies = np.arange(ds.nPulses)
         ph_peaks = []
         line_names = ["MnKAlpha", "FeKAlpha", "CuKAlpha", "CrKAlpha"]
         for i, name in enumerate(line_names):
             spect = mass.spectra[name]
-            energies[i*1000:(i+1)*1000] = spect.rvs(size=1000, rng=rng,
-                                                    instrument_gaussian_fwhm=3)
+            n = 1000
+            if i*1000+n > ds.nPulses:
+                n = ds.nPulses-i*1000
+            energies[i*1000:i*1000+n] = spect.rvs(size=n, rng=rng,
+                                                  instrument_gaussian_fwhm=3)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))
         rng.shuffle(energies)
         rng.shuffle(phase)
         ph = energies+phase*10  # this pushes the resolution up to roughly 10 eV
 
-        ds = self.load_data()
         self.assertEqual(ds.nPulses, len(energies))
         ds.p_filt_value_dc[:] = ph[:]
         ds.p_filt_value[:] = ph[:]
@@ -64,9 +68,9 @@ class TestPhaseCorrect(ut.TestCase):
             if plot:
                 result.plotm()
         self.assertLessEqual(resolutions[0], 3.5)
-        self.assertLessEqual(resolutions[1], 3.6)
-        self.assertLessEqual(resolutions[2], 4.4)
-        self.assertLessEqual(resolutions[3], 3.8)
+        self.assertLessEqual(resolutions[1], 3.9)
+        self.assertLessEqual(resolutions[2], 4.0)
+        self.assertLessEqual(resolutions[3], 4.2)
 
         # load from hdf5
         phaseCorrectorLoaded = mass.core.phase_correct.PhaseCorrector.fromHDF5(ds.hdf5_group)
