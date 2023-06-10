@@ -903,19 +903,19 @@ class MicrocalDataSet:
         Store results in the HDF5 datasets p_pretrig_mean and similar.
 
         Args:
-            peak_time_microsec: the time in microseconds at which this channel's
-                pulses typically peak (default None). You should leave this as None,
-                and let the value be estimated from the data.
-            pretrigger_ignore_microsec: how much time before the trigger to ignore
-                when computing pretrigger mean (default None). If None, it will
-                be chosen sensibly.
-            cut_pre: Cut this many samples from the start of a pulse record when calculating summary values
-            cut_post: Cut this many samples from the end of the a record when calculating summary values
-            forceNew: whether to re-compute summaries if they exist (default False)
-            use_cython: whether to use cython for summarizing the data (default True).
-                If this object is not a CythonMicrocalDataSet, then Cython cannot
-                be used, and this value is ignored.
-            doPretrigFit: whether to do a linear fit of the pretrigger data
+        peak_time_microsec: the time in microseconds at which this channel's
+            pulses typically peak (default None). You should leave this as None,
+            and let the value be estimated from the data.
+
+        pretrigger_ignore_microsec: how much time before the trigger to ignore
+            when computing pretrigger mean (default None). If None, it will
+            be chosen sensibly.
+
+        cut_pre: Cut this many samples from the start of a pulse record when calculating summary values
+        cut_post: Cut this many samples from the end of the a record when calculating summary values
+        forceNew: whether to re-compute summaries if they exist (default False)
+        use_cython: whether to use cython for summarizing the data (default True).
+        doPretrigFit: whether to do a linear fit of the pretrigger data
         """
         # Don't proceed if not necessary and not forced
         self.number_of_rows = self.pulse_records.datafile.number_of_rows
