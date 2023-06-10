@@ -115,5 +115,39 @@ class TestPhaseCorrect(ut.TestCase):
         self.assertLessEqual(resolutions[3], 4.4)
 
 
+def fix_screwed_up_LJH_file():
+    """File tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh
+
+    This file has been screwed up since Galen added it to the repository.
+    It seems like the first 300 records are LJH 2.1 data, but the remaining 3683
+    records are LJH 2.2 data. Oops! This function should be run ONCE ONLY and
+    used to update the file into an LJH 2.2-compatible form.
+
+    Run on June 10, 2023. Function left here to document what was done.
+    """
+    infile = "tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh"
+    outfile = "tests/regression_test/REPAIRED_chan1.ljh"
+    ljh = mass.LJHFile.open(infile)
+    header_length = ljh.header_size
+    binary_length = ljh.pulse_size_bytes
+    with open(infile, "rb") as fin:
+        header = fin.read(header_length)
+        newheader = header.replace(b"Save File Format Version: 2.1.0",
+                                   b"Save File Format Version: 2.2.0")
+        newheader = newheader.replace(b"Dummy: 0\r\n", b"")
+        with open(outfile, "wb") as fout:
+            fout.write(newheader)
+            padding = b"deadbeef.."
+            for recnum in range(300):
+                data = fin.read(binary_length)
+                fout.write(padding)
+                fout.write(data)
+            while True:
+                data = fin.read(binary_length+10)
+                if len(data) < binary_length+10:
+                    break
+                fout.write(data)
+
+
 if __name__ == '__main__':
     ut.main()
