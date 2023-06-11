@@ -154,7 +154,6 @@ def summarize_data_cython(
             p_promptness_array[j] = <float>0.0
             p_peak_value_array[j] = <unsigned short>0
             p_peak_index_array[j] = <unsigned short>0
-        print("prompt, PV, Pidx: ", p_promptness_array[j], p_peak_value_array[j], p_peak_index_array[j])
         p_min_value_array[j] = min_value
         pulse_avg = pulse_sum / (nSamples - nPresamples + 1) - ptm
         p_pulse_average_array[j] = <float>pulse_avg
