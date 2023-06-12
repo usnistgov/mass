@@ -111,12 +111,10 @@ def remove_unpaired_channel_files(filenames1, filenames2, never_use=None, use_on
     If either `filenames1` or `filenames2` is empty, do nothing.
 
     Args:
-        filenames1: a list of filenames containing channel #s in the form "blah_chan15".
-            Will be modified.
-        filenames2: a list of filenames containing channel #s in the form "blah_chan15".
-            Will be modified.
-        never_use: a sequence of channel numbers to exclude even if found in both lists (default None)
-        use_only: if a sequence of channel numbers, exclude any channels not in it (default None)
+    filenames1: a list of filenames containing channel #s in the form "blah_chan15".
+    filenames2: a list of filenames containing channel #s in the form "blah_chan15".
+    never_use: a sequence of channel numbers to exclude even if found in both lists (default None)
+    use_only: if a sequence of channel numbers, exclude any channels not in it (default None)
     """
     # If one list is empty, then matching is not required or expected.
     if filenames1 is None or len(filenames1) == 0 \
@@ -150,10 +148,10 @@ def ljh_sort_filenames_numerically(fnames, inclusion_list=None):
     sorted according to the numerical value of channel number XXX.
 
     Args:
-        fnames: A sequence of filenames of the form '*_chan*.*'
-        inclusion_list: If not None, a container with channel numbers. All files
-            whose channel numbers are not on this list will be omitted from the
-            output (default None).
+    fnames: A sequence of filenames of the form '*_chan*.*'
+    inclusion_list: If not None, a container with channel numbers. All files
+        whose channel numbers are not on this list will be omitted from the
+        output (default None).
 
     Returns:
         A list containg the same filenames, sorted

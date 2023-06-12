@@ -16,7 +16,8 @@ import numpy as np
 def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau,
                             P_tailfrac_hi=0.0, P_tailtau_hi=1):
     """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E and/or
-    high-E tail."""
+    high-E tail.
+    """
     if P_tailfrac <= 1e-6 and P_tailfrac_hi <= 1e-6:
         return cleanspectrum_fn(x)
 
@@ -31,7 +32,7 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
     nlow = max(nlow, nhi)
     x_wide = np.arange(-nlow, nhi+len(x)) * dx + x[0]
     if len(x_wide) > 100000:
-        msg = "you're trying to fft data of length %i (bad fit param?)" % len(x_wide)
+        msg = "you're trying to FFT data of length %i (bad fit param?)" % len(x_wide)
         raise ValueError(msg)
 
     freq = np.fft.rfftfreq(len(x_wide), d=dx)
@@ -108,38 +109,37 @@ class LineFitter:
         this behavior, and just have it throw an exception if you pass rethrow=True.
 
         Args:
-            pulseheights -- the histogram bin centers or bin edges.
+        pulseheights -- the histogram bin centers or bin edges.
 
-            params: see self.__doc__, because the group of parameters and their numbering
-                    depends on the exact line shape being fit.
+        params: see self.__doc__, because the group of parameters and their numbering
+                depends on the exact line shape being fit.
 
-            plot:   Whether to make a plot.  If not, then the next few args are ignored
-            axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather
-                    than on the current figure.
+        plot:   Whether to make a plot.  If not, then the next few args are ignored
+        axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather
+                than on the current figure.
 
-            label:  (True/False) Label for the fit line to go into the plot (usually used for
-                    resolution and uncertainty)
-                    "full" label with all fit params including chi sqaured (w/ an "H" if it was held)
+        label:  (True/False) Label for the fit line to go into the plot (usually used for
+                resolution and uncertainty)
+                "full" label with all fit params including chi sqaured (w/ an "H" if it was held)
 
-            color:  Color for drawing the histogram contents behind the fit.
-            ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
-            vary_resolution: Whether to let the Gaussian resolution vary in the fit
-            vary_bg:       Whether to let a constant background level vary in the fit
-            vary_bg_slope: Whether to let a slope on the background level vary in the fit
-            vary_tail:     Whether to let a low-energy exponential tail to vary.
-            rethrow: Throw any generated exceptions instead of catching them and setting fit_success=False.
-            hold:  A sequence of parameter numbers to keep fixed.  Resolution, BG
-                    BG slope, or tail will be held if relevant parameter number
-                    appears in the hold sequence OR if relevant boolean vary_* tests False.
+        color:  Color for drawing the histogram contents behind the fit.
+        ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
+        vary_resolution: Whether to let the Gaussian resolution vary in the fit
+        vary_bg:       Whether to let a constant background level vary in the fit
+        vary_bg_slope: Whether to let a slope on the background level vary in the fit
+        vary_tail:     Whether to let a low-energy exponential tail to vary.
+        rethrow: Throw any generated exceptions instead of catching them and setting fit_success=False.
+        hold:  A sequence of parameter numbers to keep fixed.  Resolution, BG
+                BG slope, or tail will be held if relevant parameter number
+                appears in the hold sequence OR if relevant boolean vary_* tests False.
 
-            integrate_n_points: Perform numerical integration across each bin with this many points
-                    per bin. Default: None means use a heuristic to decide. For narrow bins,
-                    generally this will choose 1, i.e., the midpoint method. For wide ones,
-                    Simpson's method for 3, 5, or more will be appropriate
+        integrate_n_points: Perform numerical integration across each bin with this many points
+                per bin. Default: None means use a heuristic to decide. For narrow bins,
+                generally this will choose 1, i.e., the midpoint method. For wide ones,
+                Simpson's method for 3, 5, or more will be appropriate
 
-        Returns:
-            (fitparams, covariance)
-            fitparams has same format as input variable params.
+        Returns: (fitparams, covariance)
+        fitparams has same format as input variable params.
         """
         if not self._have_warned:
             import warnings
@@ -443,8 +443,9 @@ class VoigtFitter(LineFitter):
 
         <params>  The 8 parameters of the fit (see self.__doc__ for details).
         <x>       An array of pulse heights (params will scale them to energy).
+
         Returns:
-            The line complex intensity, including resolution smearing.
+        The line complex intensity, including resolution smearing.
         """
         (P_gaussfwhm, P_phpeak, P_lorenzfwhm, P_amplitude,
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
