@@ -1136,11 +1136,12 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def hist(self, binEdges, attr, states=None, cutRecipeName=None, calibration=None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute).
-            Automatically filters out nan values
+        Automatically filters out nan values.
+
         binEdges -- edges of bins unsed for histogram
-        attr -- which attribute to histogram eg "filt_value"
+        attr -- which attribute to histogram, e.g. "filt_value"
         calibration -- will throw an exception if this is not None
-         """
+        """
         if calibration is not None:
             raise Exception(
                 "calibration is an argument only to match the api of Channel.hist, but is not valid for ChannelGroup.hist")
