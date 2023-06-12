@@ -824,12 +824,9 @@ def correct_flux_jumps(vals, g, flux_quant):
 @cython.embedsignature(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
-@show_progress("filter_data_tdm")
 def filter_data_5lag_cython(
-    float[:] p_filt_value,
-    float[:] p_filt_phase, 
-    const unsigned short[:,:] rawdata, 
-    double[:] filter_values, 
+    const unsigned short[:,:] rawdata,
+    double[:] filter_values,
     int pulses_per_seg=0):
     """Filter the complete data file one chunk at a time."""
     cdef:
@@ -851,48 +848,40 @@ def filter_data_5lag_cython(
         pulses_per_seg = max(bigblock // pulse_size_bytes, 1)
     n_segments = 1+(nPulses-1) // pulses_per_seg
 
-    filt_phase_scratch_array = np.zeros(pulses_per_seg, dtype=np.float64)
-    filt_value_scratch_array = np.zeros(pulses_per_seg, dtype=np.float64)
+    filt_phase = np.zeros(nPulses, dtype=np.float64)
+    filt_value = np.zeros(nPulses, dtype=np.float64)
 
-    for i in range(n_segments):
-        first = i*pulses_per_seg
-        end = first + pulses_per_seg
-        seg_size = end - first
+    for i in range(nPulses):
+        pulse = rawdata[i, :]
 
-        for j in range(seg_size):
-            pulse = rawdata[j+first, :]
+        f0, f1, f2, f3 = filter_values[0], filter_values[1], filter_values[2], filter_values[3]
 
-            f0, f1, f2, f3 = filter_values[0], filter_values[1], filter_values[2], filter_values[3]
+        conv0 = pulse[0] * f0 + pulse[1] * f1 + pulse[2] * f2 + pulse[3] * f3
+        conv1 = pulse[1] * f0 + pulse[2] * f1 + pulse[3] * f2
+        conv2 = pulse[2] * f0 + pulse[3] * f1
+        conv3 = pulse[3] * f0
+        conv4 = 0.0
 
-            conv0 = pulse[0] * f0 + pulse[1] * f1 + pulse[2] * f2 + pulse[3] * f3
-            conv1 = pulse[1] * f0 + pulse[2] * f1 + pulse[3] * f2
-            conv2 = pulse[2] * f0 + pulse[3] * f1
-            conv3 = pulse[3] * f0
-            conv4 = 0.0
+        for k in range(4, nSamples - 4):
+            f4 = filter_values[k]
+            sample = pulse[k]
+            conv0 += sample * f4
+            conv1 += sample * f3
+            conv2 += sample * f2
+            conv3 += sample * f1
+            conv4 += sample * f0
+            f0, f1, f2, f3 = f1, f2, f3, f4
 
-            for k in range(4, nSamples - 4):
-                f4 = filter_values[k]
-                sample = pulse[k]
-                conv0 += sample * f4
-                conv1 += sample * f3
-                conv2 += sample * f2
-                conv3 += sample * f1
-                conv4 += sample * f0
-                f0, f1, f2, f3 = f1, f2, f3, f4
+        conv4 += pulse[nSamples-4] * f0 + pulse[nSamples-3] * f1 +\
+            pulse[nSamples-2] * f2 + pulse[nSamples-1] * f3
+        conv3 += pulse[nSamples-4] * f1 + pulse[nSamples-3] * f2 + pulse[nSamples-2] * f3
+        conv2 += pulse[nSamples-4] * f2 + pulse[nSamples-3] * f3
+        conv1 += pulse[nSamples-4] * f3
 
-            conv4 += pulse[nSamples-4] * f0 + pulse[nSamples-3] * f1 +\
-                pulse[nSamples-2] * f2 + pulse[nSamples-1] * f3
-            conv3 += pulse[nSamples-4] * f1 + pulse[nSamples-3] * f2 + pulse[nSamples-2] * f3
-            conv2 += pulse[nSamples-4] * f2 + pulse[nSamples-3] * f3
-            conv1 += pulse[nSamples-4] * f3
+        p0 = conv0*(-6.0/70) + conv1*(24.0/70) + conv2*(34.0/70) + conv3*(24.0/70) + conv4*(-6.0/70)
+        p1 = conv0*(-14.0/70) + conv1*(-7.0/70) + conv3*(7.0/70) + conv4*(14.0/70)
+        p2 = conv0*(10.0/70) + conv1*(-5.0/70) + conv2*(-10.0/70) + conv3*(-5.0/70) + conv4*(10.0/70)
 
-            p0 = conv0*(-6.0/70) + conv1*(24.0/70) + conv2*(34.0/70) + conv3*(24.0/70) + conv4*(-6.0/70)
-            p1 = conv0*(-14.0/70) + conv1*(-7.0/70) + conv3*(7.0/70) + conv4*(14.0/70)
-            p2 = conv0*(10.0/70) + conv1*(-5.0/70) + conv2*(-10.0/70) + conv3*(-5.0/70) + conv4*(10.0/70)
-
-            filt_phase_scratch_array[j] = -0.5*p1 / p2
-            filt_value_scratch_array[j] = p0 - 0.25*p1**2 / p2
-
-        p_filt_value[first:end] = filt_value_scratch_array[:seg_size]
-        p_filt_phase[first:end] = filt_phase_scratch_array[:seg_size]
-        yield (end+1) / float(nPulses)
+        filt_phase[i] = -0.5*p1 / p2
+        filt_value[i] = p0 - 0.25*p1**2 / p2
+    return filt_value, filt_phase

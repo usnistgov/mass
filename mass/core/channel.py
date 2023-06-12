@@ -316,7 +316,7 @@ class NoiseRecords:
         entries = 0.0
 
         first, last = data_samples
-        data = self.datafile.alldata[first:last]
+        data = self.datafile.alldata[first:last].ravel()
         Nchunks = np.prod(data.shape) // chunksize
         datachunks = data[:Nchunks*chunksize].reshape(Nchunks, chunksize)
         for data in datachunks:
@@ -1304,7 +1304,6 @@ class MicrocalDataSet:
         return f
 
     @_add_group_loop()
-    @show_progress("channel.filter_data_tdm")
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=None):
         """Filter the complete data file one chunk at a time.
 
@@ -1331,10 +1330,16 @@ class MicrocalDataSet:
             if self._filter_type == "ats":
                 raise ValueError("Cannot perform Arrival-Time-Safe filtering in Cython yet")
             fdata = mass.core.analysis_algorithms.filter_data_5lag_cython
-            fdata(self.p_filt_value, self.p_filt_phase, self.data, filter_values)
+            fv, fp = fdata(self.data, filter_values)
+            self.p_filt_value[:] = fv[:]
+            self.p_filt_phase[:] = fp[:]
             self.hdf5_group.file.flush()
             return
 
+        self._filter_data_nocython(filter_values, transform=transform)
+
+    @show_progress("channel.filter_data_tdm")
+    def _filter_data_nocython(self, filter_values, transform=None):
         if self._filter_type == "ats":
             if len(filter_values) == self.nSamples - 1:
                 filterfunction = self._filter_data_segment_ats
@@ -1350,7 +1355,8 @@ class MicrocalDataSet:
             raise ValueError(f"filter_type={self._filter_type}, must be `ats` or `5lag`")
 
         for s in range(self.pulse_records.n_segments):
-            first, end = np.array([s, s+1])*self.pulse_records.pulses_per_seg
+            first = s*self.pulse_records.pulses_per_seg
+            end = min(self.nPulses, first+self.pulse_records.pulses_per_seg)
             (self.p_filt_phase[first:end],
              self.p_filt_value[first:end]) = \
                 filterfunction(filter_values, filter_AT, first, end, transform)

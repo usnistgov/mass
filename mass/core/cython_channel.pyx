@@ -91,8 +91,6 @@ def summarize_data_cython(
     results["peak_value"] = p_peak_value_array
     results["min_value"] = p_min_value_array
     results["shift1"] = p_shift1_array
-    print(p_shift1_array)
-    print(p_shift1_array.shape)
 
     for j in range(seg_size):
         pulse = rawdata[j+first, :]
@@ -217,8 +215,5 @@ def summarize_data_cython(
             t0, t1 = t1, t2
 
         p_postpeak_deriv_array[j] = <float>(0.1 * t_max_deriv)
-
-    print("At the end!", p_shift1_array)
-    print(p_shift1_array.shape)
 
     return results
