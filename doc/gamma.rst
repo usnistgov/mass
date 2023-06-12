@@ -29,7 +29,9 @@ Imports and such
   import numpy as np
   import lmfit
 
-  np.random.seed(2)  # the projector creation process uses a random algorithm for svds, this ensures we get the same answer each time
+  # The projector creation process uses a random algorithm for svds, this ensures we get the same answer each time
+  np.random.seed(2)
+  rng = np.random.default_rng(2)
 
   # add the lines we will use for calibraiton
   mass.STANDARD_FEATURES['Ho166m_80'] = 80.574e3
@@ -325,12 +327,12 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  energy:
-      20181018_144520 chan3  Ho166m_80 fwhm=60.19+/-1.93
-      20181018_144520 chan13 Ho166m_80 fwhm=62.51+/-2.03
-  energyNoDC:
-      20181018_144520 chan3  Ho166m_80 fwhm=64.12+/-2.46
-      20181018_144520 chan13 Ho166m_80 fwhm=70.69+/-2.62
+    energy:
+    	20181018_144520 chan3  Ho166m_80 fwhm=60.00+/-1.81
+    	20181018_144520 chan13 Ho166m_80 fwhm=62.46+/-1.95
+    energyNoDC:
+    	20181018_144520 chan3  Ho166m_80 fwhm=64.18+/-2.47
+    	20181018_144520 chan13 Ho166m_80 fwhm=70.71+/-2.62
 
 OFF vs Plain Comparision
 ------------------------
