@@ -76,7 +76,7 @@ class TestAddFitter(unittest.TestCase):
                 linetype="KBeta",
                 material="dummy_material",
                 reference_short='NIST ASD',
-                fitter_type=mass.line_fits.GenericKBetaFitter,
+                fitter_type=mass.GenericLineModel,
                 reference_plot_instrument_gaussian_fwhm=0.5,
                 nominal_peak_energy=(653.679946*2+653.493657*1)/3,
                 energies=np.array([653.493657, 653.679946]), lorentzian_fwhm=np.array([0.1, 0.1]),

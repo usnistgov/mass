@@ -16,323 +16,332 @@ import pylab as plt
 import mass
 
 
-class Test_Gaussian(unittest.TestCase):
+# class Test_Gaussian(unittest.TestCase):
 
-    def setUp(self):
-        sigma = 1.5
-        center = 15
-        ampl = 1000
-        self.params = [2.3548*sigma, center, ampl, 0.1, 0, 1e-9, 10]
-        self.x = np.linspace(10, 20, 200)
-        self.y = ampl * np.exp(-0.5*(self.x-center)**2/(sigma**2))
-        self.rng = np.random.default_rng(94)
-        self.obs = np.array([self.rng.poisson(lam=y0) for y0 in self.y])
-        self.fitter = mass.calibration.GaussianFitter()
-        self.fitter._have_warned = True  # eliminate deprecation warnings
+#     def setUp(self):
+#         sigma = 1.5
+#         center = 15
+#         ampl = 1000
+#         Nbg = 0
+#         self.x = np.linspace(10, 20, 200)
+#         self.y = ampl * np.exp(-0.5*(self.x-center)**2/(sigma**2))
 
-    def test_failed_fit(self):
-        # pass nans
-        param, covar = self.fitter.fit(
-            np.array([np.nan]*len(self.obs)), self.x, self.params, plot=True)
-        self.assertFalse(self.fitter.fit_success)
-        self.assertTrue(np.isnan(self.fitter.last_fit_params[0]))
-        self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][0]))
-        self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][1]))
-        self.assertTrue(isinstance(self.fitter.failed_fit_exception, Exception))
-        self.assertTrue(all([self.params[i] == self.fitter.failed_fit_params[i]
-                             for i in range(len(self.params))]))
+#         line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", self.x, 0, 0)
+#         line.linetype = "Gaussian"
+#         model = line.model()
+#         params = model.guess(self.y, bin_centers=self.x)
+#         params["fwhm"].set(2.3548*sigma)
+#         params["background"].set(Nbg/len(self.y))
+#         resultG = model.fit(self.y, params, bin_centers=self.x)
+#         resultG.plotm()
+#         # self.params = [2.3548*sigma, center, ampl, 0.1, 0, 1e-9, 10]
+#         # self.rng = np.random.default_rng(94)
+#         # self.obs = np.array([self.rng.poisson(lam=y0) for y0 in self.y])
+#         # self.fitter = mass.calibration.GaussianFitter()
 
-    def test_fit(self):
-        self.fitter.phscale_positive = True
-        param, covar = self.fitter.fit(self.obs, self.x, self.params, plot=True)
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian1.pdf"))
-        self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
-        self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
-        self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
-        self.assertAlmostEqual(param[0], self.fitter.last_fit_params_dict["resolution"][0], 1)
-        self.assertAlmostEqual(param[1], self.fitter.last_fit_params_dict["peak_ph"][0], 1)
-        self.assertAlmostEqual(param[2], self.fitter.last_fit_params_dict["amplitude"][0], 1)
-        self.assertTrue(self.fitter.fit_success)
+#     def test_failed_fit(self):
+#         # pass nans
+#         param, covar = self.fitter.fit(
+#             np.array([np.nan]*len(self.obs)), self.x, self.params, plot=True)
+#         self.assertFalse(self.fitter.fit_success)
+#         self.assertTrue(np.isnan(self.fitter.last_fit_params[0]))
+#         self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][0]))
+#         self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][1]))
+#         self.assertTrue(isinstance(self.fitter.failed_fit_exception, Exception))
+#         self.assertTrue(all([self.params[i] == self.fitter.failed_fit_params[i]
+#                              for i in range(len(self.params))]))
 
-    def test_fit_offset(self):
-        center = self.params[1]
-        self.fitter.phscale_positive = False
-        guess = np.array(self.params)
-        guess[1] = 0
-        param, covar = self.fitter.fit(self.obs, self.x-center, guess, plot=True)
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian2.pdf"))
-        self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
-        self.assertAlmostEqual(param[1], 0, 1)  # Center
-        self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
-        self.assertTrue(self.fitter.fit_success)
+#     def test_fit(self):
+#         self.fitter.phscale_positive = True
+#         param, covar = self.fitter.fit(self.obs, self.x, self.params, plot=True)
+#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian1.pdf"))
+#         self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
+#         self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
+#         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
+#         self.assertAlmostEqual(param[0], self.fitter.last_fit_params_dict["resolution"][0], 1)
+#         self.assertAlmostEqual(param[1], self.fitter.last_fit_params_dict["peak_ph"][0], 1)
+#         self.assertAlmostEqual(param[2], self.fitter.last_fit_params_dict["amplitude"][0], 1)
+#         self.assertTrue(self.fitter.fit_success)
 
-    def test_fit_zero_bg(self):
-        param_guess = self.params[:]
-        param_guess[self.fitter.param_meaning["background"]] = 0
-        self.fitter.phscale_positive = True
-        param, covar = self.fitter.fit(self.obs, self.x, param_guess, plot=True)
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian1.pdf"))
-        self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
-        self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
-        self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
+#     def test_fit_offset(self):
+#         center = self.params[1]
+#         self.fitter.phscale_positive = False
+#         guess = np.array(self.params)
+#         guess[1] = 0
+#         param, covar = self.fitter.fit(self.obs, self.x-center, guess, plot=True)
+#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian2.pdf"))
+#         self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
+#         self.assertAlmostEqual(param[1], 0, 1)  # Center
+#         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
+#         self.assertTrue(self.fitter.fit_success)
 
-    def test_negative_background_issue126(self):
-        """This fit gives negative BG in all bins before the fix of issue #126."""
-        obs = np.exp(-0.5*(self.x-self.params[1])**2/(self.params[0]/2.3548)**2) + 0
-        param, covar = self.fitter.fit(obs, self.x, self.params, plot=True)
-        bg_bin0 = self.fitter.last_fit_params[-4]
-        bg_binEnd = bg_bin0 + (len(self.x)-1)*self.fitter.last_fit_params[-3]
-        self.assertTrue(bg_bin0 >= 0)
-        self.assertTrue(bg_binEnd >= 0)
+#     def test_fit_zero_bg(self):
+#         param_guess = self.params[:]
+#         param_guess[self.fitter.param_meaning["background"]] = 0
+#         self.fitter.phscale_positive = True
+#         param, covar = self.fitter.fit(self.obs, self.x, param_guess, plot=True)
+#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian1.pdf"))
+#         self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
+#         self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
+#         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
 
-    @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
-    def test_wide_bins_issue162(self):
-        """Does Gaussian fit give unbiased width when bin width = Gaussian width?
+#     def test_negative_background_issue126(self):
+#         """This fit gives negative BG in all bins before the fix of issue #126."""
+#         obs = np.exp(-0.5*(self.x-self.params[1])**2/(self.params[0]/2.3548)**2) + 0
+#         param, covar = self.fitter.fit(obs, self.x, self.params, plot=True)
+#         bg_bin0 = self.fitter.last_fit_params[-4]
+#         bg_binEnd = bg_bin0 + (len(self.x)-1)*self.fitter.last_fit_params[-3]
+#         self.assertTrue(bg_bin0 >= 0)
+#         self.assertTrue(bg_binEnd >= 0)
 
-        Fit where bins and Gaussian have approximately equal width is biased. It
-        used to overestimate the Gaussian's width, as shown in issue 162.
-        Test that it's been fixed."""
-        for fwhm in [0.7, 1.0, 1.5]:
-            sigma = fwhm/2.3548
-            nsim = 30
-            N = 10000
-            w = np.zeros(nsim, dtype=float)
-            for i in range(nsim):
-                x = self.rng.standard_normal(N)*sigma
-                c, b = np.histogram(x, 100, [-50, 50])
-                param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
-                                               plot=False, hold=(3, 4, 5, 6))
-                w[i] = param[0]
-            typical_width = mass.robust.trimean(w)
-            self.assertLess(typical_width/fwhm, 1.05)  # was typically ~1.18 before fix
+#     @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
+#     def test_wide_bins_issue162(self):
+#         """Does Gaussian fit give unbiased width when bin width = Gaussian width?
 
-    @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
-    def test_numerical_integration(self):
-        """Test that the integrate_n_points argument works as expected."""
-        fwhm = 1.0
-        sigma = fwhm/2.3548
-        nsim = 30
-        N = 10000
-        for npoints in (1, 3, 5, 7):
-            w = np.zeros(nsim, dtype=float)
-            for i in range(nsim):
-                x = self.rng.standard_normal(N)*sigma
-                c, b = np.histogram(x, 100, [-50, 50])
-                param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
-                                               plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
-                w[i] = param[0]
-            typical_width = mass.robust.trimean(w)
-            if npoints > 1:
-                self.assertLess(typical_width/fwhm, 1.05)
-            self.assertAlmostEqual(typical_width/fwhm, 1.0, delta=1.0)
+#         Fit where bins and Gaussian have approximately equal width is biased. It
+#         used to overestimate the Gaussian's width, as shown in issue 162.
+#         Test that it's been fixed."""
+#         for fwhm in [0.7, 1.0, 1.5]:
+#             sigma = fwhm/2.3548
+#             nsim = 30
+#             N = 10000
+#             w = np.zeros(nsim, dtype=float)
+#             for i in range(nsim):
+#                 x = self.rng.standard_normal(N)*sigma
+#                 c, b = np.histogram(x, 100, [-50, 50])
+#                 param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
+#                                                plot=False, hold=(3, 4, 5, 6))
+#                 w[i] = param[0]
+#             typical_width = mass.robust.trimean(w)
+#             self.assertLess(typical_width/fwhm, 1.05)  # was typically ~1.18 before fix
 
-        for npoints in (-5, 0, 2):
-            with self.assertRaises(ValueError):
-                self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25], rethrow=True,
-                                plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
+#     @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
+#     def test_numerical_integration(self):
+#         """Test that the integrate_n_points argument works as expected."""
+#         fwhm = 1.0
+#         sigma = fwhm/2.3548
+#         nsim = 30
+#         N = 10000
+#         for npoints in (1, 3, 5, 7):
+#             w = np.zeros(nsim, dtype=float)
+#             for i in range(nsim):
+#                 x = self.rng.standard_normal(N)*sigma
+#                 c, b = np.histogram(x, 100, [-50, 50])
+#                 param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
+#                                                plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
+#                 w[i] = param[0]
+#             typical_width = mass.robust.trimean(w)
+#             if npoints > 1:
+#                 self.assertLess(typical_width/fwhm, 1.05)
+#             self.assertAlmostEqual(typical_width/fwhm, 1.0, delta=1.0)
 
-
-class Test_MnKA(unittest.TestCase):
-    def setUp(self):
-        self.fitter = mass.calibration.MnKAlphaFitter()
-        self.fitter._have_warned = True  # eliminate deprecation warnings
-        self.distrib = mass.calibration.fluorescence_lines.MnKAlpha
-        self.tempdir = tempfile.gettempdir()
-        mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
-        self.rng = np.random.default_rng(96)
-
-    def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17, bg=10,
-                nbins=150, vary_bg_slope=False, vary_tail=False):
-        bmin, bmax = 5875, 5910
-
-        values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
-        sigma = resolution/2.3548
-        values += sigma*self.rng.standard_normal(size=n)
-
-        tweak = self.rng.uniform(0, 1, size=n) < tailfrac
-        ntweak = tweak.sum()
-        if ntweak > 0:
-            values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
-        obs, bins = np.histogram(values, nbins, [bmin, bmax])
-        obs += self.rng.poisson(size=nbins, lam=bg)
-
-        params = np.array([resolution, 5898.8, 1.0, n, bg, 0, tailfrac, tailtau])
-        twiddle = self.rng.standard_normal(len(params))*[.05, .2, .001, n/1e3, 1,
-                                                         0.001, .001, 0.1]
-        if not vary_bg_slope:
-            twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
-            twiddle[-3] = 0.0
-        if not vary_tail:
-            twiddle[-2:] = 0.0
-        guess = params + twiddle
-        plt.clf()
-        ax = plt.subplot(111)
-        pfit, covar = self.fitter.fit(obs, bins, guess, plot=True, axis=ax,
-                                      vary_bg_slope=vary_bg_slope, vary_tail=vary_tail)
-        plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
-        plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
-        self.assertTrue(self.fitter.fit_success)
-
-    def test_basic(self):
-        self.do_test()
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_mnka1.pdf"))
-
-    @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
-    def test_tail(self):
-        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=1)
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_mnka2.pdf"))
-
-    def test_bg_slope(self):
-        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=False, vary_bg_slope=True)
-        plt.savefig(os.path.join(self.tempdir, "testfit_mnkb3.pdf"))
-
-    def test_zero_bg(self):
-        self.do_test(bg=0)
-
-    def test_plot_and_result_string(self):
-        self.do_test()
-        self.fitter.plot(label="full", ph_units="arb", color="r")
-        self.assertIsNotNone(self.fitter.result_string)
+#         for npoints in (-5, 0, 2):
+#             with self.assertRaises(ValueError):
+#                 self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25], rethrow=True,
+#                                 plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
 
 
-class Test_MnKB(unittest.TestCase):
-    def setUp(self):
-        self.fitter = mass.calibration.MnKBetaFitter()
-        self.fitter._have_warned = True  # eliminate deprecation warnings
-        self.distrib = mass.calibration.fluorescence_lines.MnKBeta
-        self.rng = np.random.default_rng(97)
-        self.tempdir = tempfile.gettempdir()
-        mass.logging.log(mass.logging.INFO, "K-beta fits stored to %s" % self.tempdir)
+# class Test_MnKA(unittest.TestCase):
+#     def setUp(self):
+#         self.fitter = mass.calibration.MnKAlphaFitter()
+#         self.fitter._have_warned = True  # eliminate deprecation warnings
+#         self.distrib = mass.calibration.fluorescence_lines.MnKAlpha
+#         self.tempdir = tempfile.gettempdir()
+#         mass.logging.log(mass.logging.INFO, "K-alpha fits stored to %s" % self.tempdir)
+#         self.rng = np.random.default_rng(96)
 
-    def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
-                bg=10, nbins=150, vary_bg_slope=False, vary_tail=False):
-        bmin, bmax = 6460, 6510
+#     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17, bg=10,
+#                 nbins=150, vary_bg_slope=False, vary_tail=False):
+#         bmin, bmax = 5875, 5910
 
-        values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
-        sigma = resolution/2.3548
-        values += sigma*self.rng.standard_normal(size=n)
+#         values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
+#         sigma = resolution/2.3548
+#         values += sigma*self.rng.standard_normal(size=n)
 
-        tweak = self.rng.uniform(0, 1, size=n) < tailfrac
-        ntweak = tweak.sum()
-        if ntweak > 0:
-            values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
-        obs, bins = np.histogram(values, nbins, [bmin, bmax])
-        obs += self.rng.poisson(size=nbins, lam=bg)
+#         tweak = self.rng.uniform(0, 1, size=n) < tailfrac
+#         ntweak = tweak.sum()
+#         if ntweak > 0:
+#             values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
+#         obs, bins = np.histogram(values, nbins, [bmin, bmax])
+#         obs += self.rng.poisson(size=nbins, lam=bg)
 
-        params = np.array([resolution, 6490.5, 1.0, n, bg, 0, tailfrac, tailtau])
-        twiddle = self.rng.standard_normal(len(params))*[.0, .2, 0, n/1e3, 1,
-                                                         0.001, .001, 0.1]
-        if not vary_bg_slope:
-            twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
-            twiddle[-3] = 0.0
-        if not vary_tail:
-            twiddle[-2:] = 0.0
-        guess = params + twiddle
-        plt.clf()
-        ax = plt.subplot(111)
-        pfit, covar = self.fitter.fit(obs, bins, guess, plot=True, axis=ax,
-                                      hold=(0, 2,), vary_tail=vary_tail,
-                                      vary_bg_slope=vary_bg_slope)
-        plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
-        plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
+#         params = np.array([resolution, 5898.8, 1.0, n, bg, 0, tailfrac, tailtau])
+#         twiddle = self.rng.standard_normal(len(params))*[.05, .2, .001, n/1e3, 1,
+#                                                          0.001, .001, 0.1]
+#         if not vary_bg_slope:
+#             twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
+#             twiddle[-3] = 0.0
+#         if not vary_tail:
+#             twiddle[-2:] = 0.0
+#         guess = params + twiddle
+#         plt.clf()
+#         ax = plt.subplot(111)
+#         pfit, covar = self.fitter.fit(obs, bins, guess, plot=True, axis=ax,
+#                                       vary_bg_slope=vary_bg_slope, vary_tail=vary_tail)
+#         plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
+#         plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
+#         self.assertTrue(self.fitter.fit_success)
 
-    def test_basic(self):
-        self.do_test()
-        plt.savefig(os.path.join(self.tempdir, "testfit_mnkb1.pdf"))
+#     def test_basic(self):
+#         self.do_test()
+#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_mnka1.pdf"))
 
-    @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
-    def test_tail(self):
-        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=True)
-        plt.savefig(os.path.join(self.tempdir, "testfit_mnkb2.pdf"))
+#     @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
+#     def test_tail(self):
+#         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=1)
+#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_mnka2.pdf"))
 
-    def test_bg_slope(self):
-        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=False, vary_bg_slope=True)
-        plt.savefig(os.path.join(self.tempdir, "testfit_mnkb3.pdf"))
+#     def test_bg_slope(self):
+#         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=False, vary_bg_slope=True)
+#         plt.savefig(os.path.join(self.tempdir, "testfit_mnkb3.pdf"))
 
-    def test_zero_bg(self):
-        self.do_test(bg=0)
+#     def test_zero_bg(self):
+#         self.do_test(bg=0)
 
-    def test_plot_and_result_string(self):
-        self.do_test()
-        self.fitter.plot(label="full", ph_units="arb", color="r")
-        self.assertIsNotNone(self.fitter.result_string)
+#     def test_plot_and_result_string(self):
+#         self.do_test()
+#         self.fitter.plot(label="full", ph_units="arb", color="r")
+#         self.assertIsNotNone(self.fitter.result_string)
 
 
-class Test_Voigt(unittest.TestCase):
+# class Test_MnKB(unittest.TestCase):
+#     def setUp(self):
+#         self.fitter = mass.calibration.MnKBetaFitter()
+#         self.fitter._have_warned = True  # eliminate deprecation warnings
+#         self.distrib = mass.calibration.fluorescence_lines.MnKBeta
+#         self.rng = np.random.default_rng(97)
+#         self.tempdir = tempfile.gettempdir()
+#         mass.logging.log(mass.logging.INFO, "K-beta fits stored to %s" % self.tempdir)
 
-    def setUp(self):
-        self.fitter = mass.calibration.VoigtFitter()
-        self.fitter._have_warned = True  # eliminate deprecation warnings
-        self.rng = np.random.default_rng()
+#     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17,
+#                 bg=10, nbins=150, vary_bg_slope=False, vary_tail=False):
+#         bmin, bmax = 6460, 6510
 
-    def singletest(self, gauss_fwhm=0.1, fwhm=5, center=100, ampl=5000,
-                   bg=200, nbins=200, tailfrac=1e-9, tailtau=3,
-                   vary_resolution=False, vary_tail=False, hold=None):
-        sigma = gauss_fwhm/2.3548
+#         values = self.distrib.rvs(size=n, instrument_gaussian_fwhm=0)
+#         sigma = resolution/2.3548
+#         values += sigma*self.rng.standard_normal(size=n)
 
-        params = [gauss_fwhm, center, fwhm, ampl, bg, 0, tailfrac, tailtau]
-        throw = 3.5*fwhm+6*gauss_fwhm
-        self.x = np.linspace(center-throw, center+throw, nbins)
-        db = self.x[1]-self.x[0]
-        bmin = self.x[0]-0.5*db
-        bmax = self.x[-1]+0.5*db
-        self.y = ampl/(1+((self.x-center)/(0.5*fwhm))**2)
-        n = int(self.y.sum())
-        values = self.rng.standard_cauchy(size=n)*fwhm*0.5 + center
-        values += sigma*self.rng.standard_normal(size=n)
-        tweak = self.rng.uniform(0, 1, size=n) < tailfrac
-        ntweak = tweak.sum()
-        if ntweak > 0:
-            values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
+#         tweak = self.rng.uniform(0, 1, size=n) < tailfrac
+#         ntweak = tweak.sum()
+#         if ntweak > 0:
+#             values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
+#         obs, bins = np.histogram(values, nbins, [bmin, bmax])
+#         obs += self.rng.poisson(size=nbins, lam=bg)
 
-        self.obs, _ = np.histogram(values, nbins, [bmin, bmax])
-        self.obs += self.rng.poisson(size=nbins, lam=bg)
-        twiddle = self.rng.standard_normal(len(params))*0.03+1
-        if hold is None:
-            hold = []
-        hold = list(hold)
-        if not vary_resolution:
-            hold.append(0)
-        if not vary_tail:
-            hold.extend([6, 7])
-        for h in hold:
-            twiddle[h] = 1.0
-        plt.clf()
-        ax = plt.subplot(111)
-        pfit, covar = self.fitter.fit(self.obs, self.x, params*twiddle,
-                                      plot=True, vary_resolution=vary_resolution,
-                                      vary_tail=vary_tail, hold=hold, axis=ax)
-        plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
-        plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
-        return pfit, covar, params
+#         params = np.array([resolution, 6490.5, 1.0, n, bg, 0, tailfrac, tailtau])
+#         twiddle = self.rng.standard_normal(len(params))*[.0, .2, 0, n/1e3, 1,
+#                                                          0.001, .001, 0.1]
+#         if not vary_bg_slope:
+#             twiddle[-4] = abs(twiddle[-4])  # non-negative BG guess
+#             twiddle[-3] = 0.0
+#         if not vary_tail:
+#             twiddle[-2:] = 0.0
+#         guess = params + twiddle
+#         plt.clf()
+#         ax = plt.subplot(111)
+#         pfit, covar = self.fitter.fit(obs, bins, guess, plot=True, axis=ax,
+#                                       hold=(0, 2,), vary_tail=vary_tail,
+#                                       vary_bg_slope=vary_bg_slope)
+#         plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
+#         plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
 
-    def test_fit(self):
-        pfit, covar, params = self.singletest(ampl=20000, tailfrac=0)
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_voigt1.pdf"))
-        self.assertAlmostEqual(pfit[0], params[0], 1)  # Gauss FWHM
-        self.assertAlmostEqual(pfit[1], params[1], 1)  # Center
-        self.assertAlmostEqual(pfit[2], params[2], 0)  # Lorentz FWHM
+#     def test_basic(self):
+#         self.do_test()
+#         plt.savefig(os.path.join(self.tempdir, "testfit_mnkb1.pdf"))
 
-    def xxtest_fit_tail(self):
-        pfit, covar, params = self.singletest(ampl=40000, tailfrac=0.20,
-                                              tailtau=25, vary_tail=True)
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_voigt2.pdf"))
-        self.assertAlmostEqual(pfit[0], params[0], 1)  # Gauss FWHM
-        self.assertAlmostEqual(pfit[1], params[1], 1)  # Center
-        self.assertAlmostEqual(pfit[2], params[2], 0)  # Lorentz FWHM
-        self.assertAlmostEqual(pfit[6], params[6], 1)  # Tail frac
-        self.assertAlmostEqual(pfit[7], params[7], -1)  # Tail tau
+#     @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
+#     def test_tail(self):
+#         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=True)
+#         plt.savefig(os.path.join(self.tempdir, "testfit_mnkb2.pdf"))
 
-    def test_fit_vary_res(self):
-        pfit, covar, params = self.singletest(ampl=100000, gauss_fwhm=2, fwhm=2.5,
-                                              bg=100, tailfrac=0, vary_resolution=True)
-        plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_voigt3.pdf"))
-        self.assertAlmostEqual(pfit[0], params[0], 0)  # Gauss FWHM
-        self.assertAlmostEqual(pfit[1], params[1], 1)  # Center
-        self.assertAlmostEqual(pfit[2], params[2], 0)  # Lorentz FWHM
+#     def test_bg_slope(self):
+#         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=False, vary_bg_slope=True)
+#         plt.savefig(os.path.join(self.tempdir, "testfit_mnkb3.pdf"))
 
-    def test_zero_bg(self):
-        self.singletest(bg=0)
+#     def test_zero_bg(self):
+#         self.do_test(bg=0)
+
+#     def test_plot_and_result_string(self):
+#         self.do_test()
+#         self.fitter.plot(label="full", ph_units="arb", color="r")
+#         self.assertIsNotNone(self.fitter.result_string)
+
+
+# class Test_Voigt(unittest.TestCase):
+
+#     def setUp(self):
+#         self.fitter = mass.calibration.VoigtFitter()
+#         self.fitter._have_warned = True  # eliminate deprecation warnings
+#         self.rng = np.random.default_rng()
+
+#     def singletest(self, gauss_fwhm=0.1, fwhm=5, center=100, ampl=5000,
+#                    bg=200, nbins=200, tailfrac=1e-9, tailtau=3,
+#                    vary_resolution=False, vary_tail=False, hold=None):
+#         sigma = gauss_fwhm/2.3548
+
+#         params = [gauss_fwhm, center, fwhm, ampl, bg, 0, tailfrac, tailtau]
+#         throw = 3.5*fwhm+6*gauss_fwhm
+#         self.x = np.linspace(center-throw, center+throw, nbins)
+#         db = self.x[1]-self.x[0]
+#         bmin = self.x[0]-0.5*db
+#         bmax = self.x[-1]+0.5*db
+#         self.y = ampl/(1+((self.x-center)/(0.5*fwhm))**2)
+#         n = int(self.y.sum())
+#         values = self.rng.standard_cauchy(size=n)*fwhm*0.5 + center
+#         values += sigma*self.rng.standard_normal(size=n)
+#         tweak = self.rng.uniform(0, 1, size=n) < tailfrac
+#         ntweak = tweak.sum()
+#         if ntweak > 0:
+#             values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
+
+#         self.obs, _ = np.histogram(values, nbins, [bmin, bmax])
+#         self.obs += self.rng.poisson(size=nbins, lam=bg)
+#         twiddle = self.rng.standard_normal(len(params))*0.03+1
+#         if hold is None:
+#             hold = []
+#         hold = list(hold)
+#         if not vary_resolution:
+#             hold.append(0)
+#         if not vary_tail:
+#             hold.extend([6, 7])
+#         for h in hold:
+#             twiddle[h] = 1.0
+#         plt.clf()
+#         ax = plt.subplot(111)
+#         pfit, covar = self.fitter.fit(self.obs, self.x, params*twiddle,
+#                                       plot=True, vary_resolution=vary_resolution,
+#                                       vary_tail=vary_tail, hold=hold, axis=ax)
+#         plt.text(.05, .76, "Actual: %s" % params, transform=ax.transAxes)
+#         plt.text(.05, .66, "Fit   : %s" % pfit, transform=ax.transAxes)
+#         return pfit, covar, params
+
+#     def test_fit(self):
+#         pfit, covar, params = self.singletest(ampl=20000, tailfrac=0)
+#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_voigt1.pdf"))
+#         self.assertAlmostEqual(pfit[0], params[0], 1)  # Gauss FWHM
+#         self.assertAlmostEqual(pfit[1], params[1], 1)  # Center
+#         self.assertAlmostEqual(pfit[2], params[2], 0)  # Lorentz FWHM
+
+#     def xxtest_fit_tail(self):
+#         pfit, covar, params = self.singletest(ampl=40000, tailfrac=0.20,
+#                                               tailtau=25, vary_tail=True)
+#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_voigt2.pdf"))
+#         self.assertAlmostEqual(pfit[0], params[0], 1)  # Gauss FWHM
+#         self.assertAlmostEqual(pfit[1], params[1], 1)  # Center
+#         self.assertAlmostEqual(pfit[2], params[2], 0)  # Lorentz FWHM
+#         self.assertAlmostEqual(pfit[6], params[6], 1)  # Tail frac
+#         self.assertAlmostEqual(pfit[7], params[7], -1)  # Tail tau
+
+#     def test_fit_vary_res(self):
+#         pfit, covar, params = self.singletest(ampl=100000, gauss_fwhm=2, fwhm=2.5,
+#                                               bg=100, tailfrac=0, vary_resolution=True)
+#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_voigt3.pdf"))
+#         self.assertAlmostEqual(pfit[0], params[0], 0)  # Gauss FWHM
+#         self.assertAlmostEqual(pfit[1], params[1], 1)  # Center
+#         self.assertAlmostEqual(pfit[2], params[2], 0)  # Lorentz FWHM
+
+#     def test_zero_bg(self):
+#         self.singletest(bg=0)
 
 
 class TestMnKA_fitter_vs_model(unittest.TestCase):
@@ -342,11 +351,11 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         bin_edges = np.arange(5850, 5950, 0.5)
         # generate random x-ray pulse energies following MnKAlpha distribution
         line = mass.calibration.fluorescence_lines.MnKAlpha
-        self.rng = np.random.default_rng(154)
+        rng = np.random.default_rng(154)
         values = line.rvs(size=n, instrument_gaussian_fwhm=0)
         # add gaussian oise to each x-ray energy
         sigma = resolution/2.3548
-        values += sigma*self.rng.standard_normal(size=n)
+        values += sigma*rng.standard_normal(size=n)
         # histogram
         counts, _ = np.histogram(values, bin_edges)
         model = line.model()
@@ -354,26 +363,16 @@ class TestMnKA_fitter_vs_model(unittest.TestCase):
         bin_centers = 0.5*bin_width + bin_edges[:-1]
         params = model.guess(counts, bin_centers=bin_centers)
         result = model.fit(counts, bin_centers=bin_centers, params=params)
-        fitter = mass.MnKAlphaFitter()
-        fitter._have_warned = True
-        fitter.fit(counts, bin_centers, plot=False)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["resolution"][0], result.params["fwhm"].value,
-            delta=2*result.params["fwhm"].stderr)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["resolution"][1], result.params["fwhm"].stderr, places=1)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][0]/bin_width, result.params["integral"].value,
-            delta=2*result.params["integral"].stderr)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["amplitude"][1]/bin_width,
-            result.params["integral"].stderr, places=-3)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["bg_slope"][0],
-            result.params["bg_slope"].value, delta=2*result.params["bg_slope"].stderr)
-        self.assertAlmostEqual(
-            fitter.last_fit_params_dict["bg_slope"][1],
-            result.params["bg_slope"].stderr, places=1)
+        expect = {
+            "fwhm": (2.516, 0.1),
+            "peak_ph": (line.peak_energy, 0.033),
+            "integral": (n, n**0.5),
+            "bg_slope": (0, 0),
+            "background": (0, 0.12),
+        }
+        for k, (val, err) in expect.items():
+            self.assertAlmostEqual(val, result.params[k].value, delta=2*err)
+            self.assertAlmostEqual(err, result.params[k].stderr, delta=0.2*err)
 
     def test_MnKA_float32(self):
         """See issue 193: if the energies are float32, then the fit shouldn't be flummoxed."""
@@ -460,7 +459,7 @@ class Test_Composites_lmfit(unittest.TestCase):
                 material="dummy_material",
                 linetype="1",
                 reference_short='NIST ASD',
-                fitter_type=mass.line_fits.GenericKBetaFitter,
+                fitter_type=mass.GenericLineModel,
                 reference_plot_instrument_gaussian_fwhm=0.5,
                 nominal_peak_energy=653.493657,
                 energies=np.array([653.493657]), lorentzian_fwhm=np.array([0.1]),
@@ -473,7 +472,7 @@ class Test_Composites_lmfit(unittest.TestCase):
                 material="dummy_material",
                 linetype="2",
                 reference_short='NIST ASD',
-                fitter_type=mass.line_fits.GenericKBetaFitter,
+                fitter_type=mass.GenericLineModel,
                 reference_plot_instrument_gaussian_fwhm=0.5,
                 nominal_peak_energy=653.679946,
                 energies=np.array([653.679946]), lorentzian_fwhm=np.array([0.1]),

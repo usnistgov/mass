@@ -7,9 +7,55 @@ import lmfit
 import numpy as np
 import pylab as plt
 
-from . import line_fits
-
 VALIDATE_BIN_SIZE = True
+
+
+def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau,
+                            P_tailfrac_hi=0.0, P_tailtau_hi=1):
+    """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E and/or
+    high-E tail.
+    """
+    if P_tailfrac <= 1e-6 and P_tailfrac_hi <= 1e-6:
+        return cleanspectrum_fn(x)
+
+    # Compute the low-E-tailed spectrum. This is done by
+    # convolution, which is computed using DFT methods.
+    # A wider energy range must be used, or wrap-around effects of
+    # tails will corrupt the model.
+    dx = x[1] - x[0]
+    nlow = int(min(P_tailtau*6, P_tailtau_hi, 100) / dx + 0.5)
+    nhi = int((P_resolution + min(P_tailtau, P_tailtau_hi*6, 100)) / dx + 0.5)
+    nhi = min(1000, nhi)  # A practical limit
+    nlow = max(nlow, nhi)
+    x_wide = np.arange(-nlow, nhi+len(x)) * dx + x[0]
+    if len(x_wide) > 100000:
+        msg = "you're trying to FFT data of length %i (bad fit param?)" % len(x_wide)
+        raise ValueError(msg)
+
+    freq = np.fft.rfftfreq(len(x_wide), d=dx)
+    rawspectrum = cleanspectrum_fn(x_wide)
+    ft = np.fft.rfft(rawspectrum)
+    rescale = np.ones_like(ft)
+    if P_tailfrac > 1e-6:
+        rescale += P_tailfrac * (1.0 / (1 - 2j*np.pi*freq*P_tailtau) - 1)
+    if P_tailfrac_hi > 1e-6:
+        rescale += P_tailfrac_hi * (1.0 / (1 + 2j*np.pi*freq*P_tailtau_hi) - 1)
+    ft *= rescale
+    smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
+    # In pathological cases, convolution can cause negative values.
+    # Here is a hacky way to protect against that.
+    smoothspectrum[smoothspectrum < 0] = 0
+    return smoothspectrum[nlow:nlow+len(x)]
+
+
+def _scale_add_bg(spectrum, P_integral, P_bg=0, P_bgslope=0):
+    """Scale a spectrum and add a sloped background. BG<0 is replaced with BG=0."""
+    bg = np.zeros_like(spectrum) + P_bg
+    if P_bgslope != 0:
+        bg += P_bgslope * np.arange(len(spectrum))
+    bg[bg < 0] = 0
+    spectrum = spectrum * P_integral + bg  # Change in place and return changed vector
+    return spectrum
 
 
 class MLEModel(lmfit.Model):
@@ -113,11 +159,13 @@ class MLEModel(lmfit.Model):
     def _fit(self, *args, **kwargs):
         """internal implementation of fit to add support for "leastsq_refit" method"""
         if kwargs["method"] == "leastsq_refit":
-            # fit fit with leastsq, then if we dont have unceratinties, fit again with least_squares
+            # First fit with leastsq (the fastest method)
             kwargs["method"] = "leastsq"
             result0 = lmfit.Model.fit(self, *args, **kwargs)
             if result0.success and result0.errorbars:
                 return result0
+
+            # If we didn't get uncertainties, fit again with least_squares
             kwargs["method"] = "least_squares"
             if "params" in kwargs:
                 kwargs["params"] = result0.params
@@ -188,10 +236,10 @@ class GenericLineModel(MLEModel):
                 # lengths in bin units, which _smear_exponential_tail expects
                 length_lo = tail_tau*dph_de/bin_width
                 length_hi = tail_tau_hi*dph_de/bin_width
-                spectrum = line_fits._smear_exponential_tail(
+                spectrum = _smear_exponential_tail(
                     cleanspectrum_fn, energy, fwhm, tail_frac, length_lo, tail_frac_hi, length_hi)
                 scale_factor = integral * bin_width * dph_de
-                r = line_fits._scale_add_bg(spectrum, scale_factor, background, bg_slope)
+                r = _scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
                 if qemodel is None:
@@ -204,7 +252,7 @@ class GenericLineModel(MLEModel):
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 spectrum = self.spect.pdf(energy, fwhm)
                 scale_factor = integral * bin_width / dph_de
-                r = line_fits._scale_add_bg(spectrum, scale_factor, background, bg_slope)
+                r = _scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
                     raise ValueError("some entry in r is nan or negative")
                 if qemodel is None:

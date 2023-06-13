@@ -6,6 +6,5 @@ mass.calibration - Collection of tools related to energy calibration.
 
 from .energy_calibration import *
 from .fluorescence_lines import *
-from .line_fits import *
 from .algorithms import *
 from .line_models import *
