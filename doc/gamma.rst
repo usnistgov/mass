@@ -321,17 +321,17 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
           result = ds.linefit(line, attr, dlo=200, dhi=200, plot=False, params_update = params)
           if result.params["fwhm"].stderr is None:
               result.params["fwhm"].stderr = 100000
-          print(f"""\t{ds.shortName:22} {line} fwhm={result.params["fwhm"].value:.2f}+/-{result.params["fwhm"].stderr:.2f}""")
+          print(f"""\t{ds.shortName:22} {line} fwhm={result.params["fwhm"].value:.1f} ± {result.params["fwhm"].stderr:.1f}""")
 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
   energy:
-      20181018_144520 chan3  Ho166m_80 fwhm=60.00+/-1.81
-      20181018_144520 chan13 Ho166m_80 fwhm=62.32+/-2.03
+      20181018_144520 chan3  Ho166m_80 fwhm=60.0 ± 1.8
+      20181018_144520 chan13 Ho166m_80 fwhm=62.3 ± 2.0
   energyNoDC:
-      20181018_144520 chan3  Ho166m_80 fwhm=64.13+/-2.47
-      20181018_144520 chan13 Ho166m_80 fwhm=70.71+/-2.62
+      20181018_144520 chan3  Ho166m_80 fwhm=64.1 ± 2.5
+      20181018_144520 chan13 Ho166m_80 fwhm=70.7 ± 2.6
 
 OFF vs Plain Comparision
 ------------------------
@@ -362,7 +362,7 @@ me know what you think about it.
       params["dph_de"].set(1,vary=False)
       result = model.fit(counts, bin_centers=bin_centers, params=params)
       fwhm, unc = result.params["fwhm"].value, result.params["fwhm"].stderr
-      print(f"\tchan {ds.channum:3d} fwhm={fwhm:.2f}+/-{unc:.2f} (off)")
+      print(f"\tchan {ds.channum:3d} fwhm={fwhm:.1f} ± {unc:.1f} (off)")
 
       plain_counts, _ = np.histogram(cal(plain_ds.p_filt_value_dc[g]), bin_edges)
       plain_model = mass.off.util.get_model(line)
@@ -370,7 +370,7 @@ me know what you think about it.
       plain_params["dph_de"].set(1,vary=False)
       plain_result = plain_model.fit(plain_counts, bin_centers=bin_centers, params=plain_params)
       plain_fwhm, plain_unc = plain_result.params["fwhm"].value, plain_result.params["fwhm"].stderr
-      print(f"\tchan {ds.channum:3d} fwhm={plain_fwhm:.2f}+/-{plain_unc:.2f} (ljh)")
+      print(f"\tchan {ds.channum:3d} fwhm={plain_fwhm:.1f} ± {plain_unc:.1f} (ljh)")
 
   result.plotm(title="off "+ds.shortName)
   plain_result.plotm(title="ljh "+ds.shortName)
@@ -378,10 +378,10 @@ me know what you think about it.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-    chan   3 fwhm=60.22+/-1.55 (off)
-    chan   3 fwhm=60.05+/-1.77 (ljh)
-    chan  13 fwhm=60.86+/-2.00 (off)
-    chan  13 fwhm=61.21+/-2.03 (ljh)
+      chan   3 fwhm=60.2 ± 1.5 (off)
+      chan   3 fwhm=60.1 ± 1.8 (ljh)
+      chan  13 fwhm=60.9 ± 2.0 (off)
+      chan  13 fwhm=61.2 ± 2.0 (ljh)
 
 We also plot one fit from one channel for plain and off style.
 
