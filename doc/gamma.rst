@@ -29,10 +29,6 @@ Imports and such
   import numpy as np
   import lmfit
 
-  # The projector creation process uses a random algorithm for svds, this ensures we get the same answer each time
-  np.random.seed(2)
-  rng = np.random.default_rng(2)
-
   # add the lines we will use for calibraiton
   mass.STANDARD_FEATURES['Ho166m_80'] = 80.574e3
   mass.STANDARD_FEATURES['Co57_122'] = 122.06065e3
@@ -102,6 +98,9 @@ I'm showing lots of the possible options with some comments.
 Most of the time the defaults should work fine.
 
 .. testcode::
+
+  # The projector creation process uses a random algorithm for svds, this ensures we get the same answer each time
+  mass.mathstat.utilities.rng = np.random.default_rng(200)
 
   with h5py.File(model_hdf5,"w") as h5:
       mass.make_projectors(pulse_files=pulse_files,
@@ -329,9 +328,9 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
 
     energy:
     	20181018_144520 chan3  Ho166m_80 fwhm=60.00+/-1.81
-    	20181018_144520 chan13 Ho166m_80 fwhm=62.46+/-1.95
+    	20181018_144520 chan13 Ho166m_80 fwhm=62.32+/-2.03
     energyNoDC:
-    	20181018_144520 chan3  Ho166m_80 fwhm=64.18+/-2.47
+    	20181018_144520 chan3  Ho166m_80 fwhm=64.13+/-2.47
     	20181018_144520 chan13 Ho166m_80 fwhm=70.71+/-2.62
 
 OFF vs Plain Comparision
@@ -379,10 +378,10 @@ me know what you think about it.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-    chan   3 fwhm=60.09+/-1.64 (off)
-    chan   3 fwhm=60.05+/-1.77 (ljh)
-    chan  13 fwhm=60.37+/-1.97 (off)
-    chan  13 fwhm=61.21+/-2.03 (ljh)
+    	chan   3 fwhm=60.22+/-1.55 (off)
+    	chan   3 fwhm=60.05+/-1.77 (ljh)
+    	chan  13 fwhm=60.86+/-2.00 (off)
+    	chan  13 fwhm=61.21+/-2.03 (ljh)
 
 We also plot one fit from one channel for plain and off style.
 
@@ -413,9 +412,9 @@ from the previous section, not the apples to apples comparison where we used the
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  ch 3off   ngood=22118 ntot=22930
+  ch 3off   ngood=22116 ntot=22930
   ch 3plain ngood=21959 ntot=22930
-  ch 13off   ngood=21503 ntot=22406
+  ch 13off   ngood=21505 ntot=22406
   ch 13plain ngood=21320 ntot=22406
 
 

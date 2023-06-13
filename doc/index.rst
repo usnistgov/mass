@@ -2,7 +2,7 @@ Mass
 ======
 
 .. image:: mass_logo_128.png
-  :width: 600
+  :width: 128
   :alt: Wicked sweet mass logo
 
 .. toctree::
