@@ -25,22 +25,22 @@ pipelines:
             - pip install -e .
             - pytest
       # TEMPORARILY COMMENT OUT Py 3.11 pipeline--too many errors!
-      # - step:
-      #     caches:
-      #       - pip
-      #     name: python 3.11
-      #     image: python:3.11
-      #     script:
-      #       - git config --global user.email "galen.oneil@nist.gov"
-      #       - git config --global user.name "Bitbucket Pipeline Doc Deploy"
-      #       - pip install --upgrade pip
-      #       - pip install -e .
-      #       - pytest
-      #       # Below here: make and deploy documentation.
-      #       - pip install recommonmark sphinx
-      #       - cd doc
-      #       - make clean
-      #       - make doctest
-      #       - make html
+      - step:
+          caches:
+            - pip
+          name: python 3.11
+          image: python:3.11
+          script:
+            - pip install --upgrade pip
+            - pip install -e .
+            - pytest
+            # Below here: make and deploy documentation.
+            - pip install recommonmark sphinx
+            - cd doc
+            - make clean
+            - make doctest
+            - make html
             # TEMPORARILY COMMENT OUT THE DEPLOYMENT OF DOCS, until we fix issue #236.
+            # - git config --global user.email "galen.oneil@nist.gov"
+            # - git config --global user.name "Bitbucket Pipeline Doc Deploy"
             # - ./deploy_docs_bitbucket.sh $BITBUCKET_BRANCH
