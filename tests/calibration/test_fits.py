@@ -7,12 +7,12 @@ Test that Maximum Likelihood Fits work
 Joe Fowler
 """
 
-import tempfile
-import os.path
+# import tempfile
+# import os.path
 import unittest
-import pytest
+# import pytest
 import numpy as np
-import pylab as plt
+# import pylab as plt
 import mass
 
 
