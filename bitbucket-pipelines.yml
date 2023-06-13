@@ -38,8 +38,8 @@ pipelines:
             - pip install recommonmark sphinx
             - cd doc
             - make clean
-            - make doctest
             - make html
+            - make doctest
             # TEMPORARILY COMMENT OUT THE DEPLOYMENT OF DOCS, until we fix issue #236.
             # - git config --global user.email "galen.oneil@nist.gov"
             # - git config --global user.name "Bitbucket Pipeline Doc Deploy"
