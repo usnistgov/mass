@@ -363,7 +363,7 @@ class TestTESGroup(ut.TestCase):
         ds = data.datasets[0]
         n_basis = 5
         hdf5_filename = data.pulse_model_to_hdf5(replace_output=True, n_basis=n_basis)
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as output_dir:
+        with tempfile.TemporaryDirectory() as output_dir:
             max_channels = 100
             n_ignore_presamples = 0
             ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
@@ -490,7 +490,7 @@ class TestTESHDF5Only(ut.TestCase):
     @xfail_on_windows
     def test_ordering_hdf5only(self):
         src_name = "mass/regression_test/regress_chan1.ljh"
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as dir:
+        with tempfile.TemporaryDirectory() as dir:
             dest_name = "%s/temporary_chan%d.ljh"
             chan1_dest = dest_name % (dir, 1)
             shutil.copy(src_name, chan1_dest)
