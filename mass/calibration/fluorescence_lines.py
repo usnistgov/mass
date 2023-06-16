@@ -603,9 +603,9 @@ addline(
     reference_short="Deslattes Notebook S, Cl, K",
     reference_plot_instrument_gaussian_fwhm=0.266,
     nominal_peak_energy=2622.44,
-    energies=np.array((2622.44, 2620.85, 2640)),
-    lorentzian_fwhm=np.array((0.925, 0.945, 5)),
-    reference_amplitude=np.array((0.15153e5, 0.82429e4, 0.15153e5/8.0)),
+    energies=np.array((2622.44, 2620.85)),
+    lorentzian_fwhm=np.array((0.925, 0.945)),
+    reference_amplitude=np.array((0.15153e5, 0.82429e4)),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=1.6,
     position_uncertainty=0.040
