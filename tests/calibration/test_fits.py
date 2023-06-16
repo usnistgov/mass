@@ -85,6 +85,7 @@ class Test_Gaussian(unittest.TestCase):
         self.assertTrue(bg_bin0 >= 0)
         self.assertTrue(bg_binEnd >= 0)
 
+    @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
     def test_wide_bins_issue162(self):
         """Does Gaussian fit give unbiased width when bin width = Gaussian width?
 
@@ -105,6 +106,7 @@ class Test_Gaussian(unittest.TestCase):
             typical_width = mass.robust.trimean(w)
             self.assertLess(typical_width/fwhm, 1.05)  # was typically ~1.18 before fix
 
+    @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
     def test_numerical_integration(self):
         """Test that the integrate_n_points argument works as expected."""
         fwhm = 1.0

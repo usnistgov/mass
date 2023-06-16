@@ -316,7 +316,7 @@ class NoiseRecords:
         entries = 0.0
 
         first, last = data_samples
-        data = self.datafile.alldata[first:last]
+        data = self.datafile.alldata[first:last].ravel()
         Nchunks = np.prod(data.shape) // chunksize
         datachunks = data[:Nchunks*chunksize].reshape(Nchunks, chunksize)
         for data in datachunks:
@@ -903,19 +903,19 @@ class MicrocalDataSet:
         Store results in the HDF5 datasets p_pretrig_mean and similar.
 
         Args:
-            peak_time_microsec: the time in microseconds at which this channel's
-                pulses typically peak (default None). You should leave this as None,
-                and let the value be estimated from the data.
-            pretrigger_ignore_microsec: how much time before the trigger to ignore
-                when computing pretrigger mean (default None). If None, it will
-                be chosen sensibly.
-            cut_pre: Cut this many samples from the start of a pulse record when calculating summary values
-            cut_post: Cut this many samples from the end of the a record when calculating summary values
-            forceNew: whether to re-compute summaries if they exist (default False)
-            use_cython: whether to use cython for summarizing the data (default True).
-                If this object is not a CythonMicrocalDataSet, then Cython cannot
-                be used, and this value is ignored.
-            doPretrigFit: whether to do a linear fit of the pretrigger data
+        peak_time_microsec: the time in microseconds at which this channel's
+            pulses typically peak (default None). You should leave this as None,
+            and let the value be estimated from the data.
+
+        pretrigger_ignore_microsec: how much time before the trigger to ignore
+            when computing pretrigger mean (default None). If None, it will
+            be chosen sensibly.
+
+        cut_pre: Cut this many samples from the start of a pulse record when calculating summary values
+        cut_post: Cut this many samples from the end of the a record when calculating summary values
+        forceNew: whether to re-compute summaries if they exist (default False)
+        use_cython: whether to use cython for summarizing the data (default True).
+        doPretrigFit: whether to do a linear fit of the pretrigger data
         """
         # Don't proceed if not necessary and not forced
         self.number_of_rows = self.pulse_records.datafile.number_of_rows
@@ -947,13 +947,37 @@ class MicrocalDataSet:
         self.cut_pre = cut_pre
         self.cut_post = cut_post
 
-        for segnum in range(self.pulse_records.n_segments):
-            idx_range = np.array([segnum, segnum+1])*self.pulse_records.pulses_per_seg
-            if use_cython:
-                self._summarize_data_segment(segnum)
-            else:
+        if use_cython:
+            if self.peak_samplenumber is None:
+                self._compute_peak_samplenumber()
+            self.p_timestamp[:] = self.times[:]
+            self.p_rowcount[:] = self.rowcount[:]
+
+            sumdata = mass.core.cython_channel.summarize_data_cython
+            for segnum in range(self.pulse_records.n_segments):
+                first = segnum*self.pulse_records.pulses_per_seg
+                end = min(first + self.pulse_records.pulses_per_seg, self.nPulses)
+                results = sumdata(self.data, self.timebase, self.peak_samplenumber,
+                                  self.pretrigger_ignore_samples, self.nPresamples,
+                                  first, end)
+                self.p_pretrig_mean[first:end] = results["pretrig_mean"][:]
+                self.p_pretrig_rms[first:end] = results["pretrig_rms"][:]
+                self.p_pulse_average[first:end] = results["pulse_average"][:]
+                self.p_pulse_rms[first:end] = results["pulse_rms"][:]
+                self.p_promptness[first:end] = results["promptness"][:]
+                self.p_postpeak_deriv[first:end] = results["postpeak_deriv"][:]
+                self.p_peak_index[first:end] = results["peak_index"][:]
+                self.p_peak_value[first:end] = results["peak_value"][:]
+                self.p_min_value[first:end] = results["min_value"][:]
+                self.p_rise_time[first:end] = results["rise_times"][:]
+                self.p_shift1[first:end] = results["shift1"][:]
+
+                yield (segnum+1.0) / self.pulse_records.n_segments
+        else:
+            for segnum in range(self.pulse_records.n_segments):
+                idx_range = np.array([segnum, segnum+1])*self.pulse_records.pulses_per_seg
                 MicrocalDataSet._summarize_data_segment(self, idx_range, doPretrigFit=doPretrigFit)
-            yield (segnum+1.0) / self.pulse_records.n_segments
+                yield (segnum+1.0) / self.pulse_records.n_segments
 
         self.hdf5_group.file.flush()
         self.__parse_expt_states()
@@ -1280,8 +1304,7 @@ class MicrocalDataSet:
         return f
 
     @_add_group_loop()
-    @show_progress("channel.filter_data_tdm")
-    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False):
+    def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=None):
         """Filter the complete data file one chunk at a time.
 
         Args:
@@ -1295,11 +1318,28 @@ class MicrocalDataSet:
             LOG.info('\nchan %d did not filter because results were already loaded', self.channum)
             return
 
+        if use_cython is None:
+            use_cython = self._filter_type == "5lag"
+
         if self.filter is not None:
             filter_values = self.filter.__dict__[filter_name]
         else:
             filter_values = self.hdf5_group['filters/%s' % filter_name][()]
 
+        if use_cython:
+            if self._filter_type == "ats":
+                raise ValueError("Cannot perform Arrival-Time-Safe filtering in Cython yet")
+            fdata = mass.core.analysis_algorithms.filter_data_5lag_cython
+            fv, fp = fdata(self.data, filter_values)
+            self.p_filt_value[:] = fv[:]
+            self.p_filt_phase[:] = fp[:]
+            self.hdf5_group.file.flush()
+            return
+
+        self._filter_data_nocython(filter_values, transform=transform)
+
+    @show_progress("channel.filter_data_tdm")
+    def _filter_data_nocython(self, filter_values, transform=None):
         if self._filter_type == "ats":
             if len(filter_values) == self.nSamples - 1:
                 filterfunction = self._filter_data_segment_ats
@@ -1312,10 +1352,11 @@ class MicrocalDataSet:
             filterfunction = self._filter_data_segment_5lag
             filter_AT = None
         else:
-            raise Exception(f"filter_type={self._filter_type}, must be `ats` or `5lag`")
+            raise ValueError(f"filter_type={self._filter_type}, must be `ats` or `5lag`")
 
         for s in range(self.pulse_records.n_segments):
-            first, end = np.array([s, s+1])*self.pulse_records.pulses_per_seg
+            first = s*self.pulse_records.pulses_per_seg
+            end = min(self.nPulses, first+self.pulse_records.pulses_per_seg)
             (self.p_filt_phase[first:end],
              self.p_filt_value[first:end]) = \
                 filterfunction(filter_values, filter_AT, first, end, transform)
@@ -2138,8 +2179,8 @@ class MicrocalDataSet:
         # Step 2: analyze *noise* so we know how to cut on pretrig rms postpeak_deriv
         max_deriv = np.zeros(self.noise_records.nPulses)
         pretrigger_rms = np.zeros(self.noise_records.nPulses)
-        for i in range(self.nPulses):
-            data = self.pulse_records.datafile.alldata[i]
+        for i in range(self.noise_records.nPulses):
+            data = self.noise_records.datafile.alldata[i]
             pretrigger_rms[i] = data[:self.nPresamples].std()
             max_deriv[i] = mass.analysis_algorithms.compute_max_deriv(data, ignore_leading=0)
 

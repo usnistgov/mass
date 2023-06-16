@@ -17,6 +17,10 @@ import numpy as np
 __all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky_golay',
            'find_svd_randomly', 'find_range_randomly']
 
+# Create a module-local RNG. If you need to seed it to achieve repeatable tests,
+# you can replace this.
+rng = np.random.default_rng()
+
 
 class CheckForMissingLibrary:
     """Class to raise ImportError only after python tries to use the import.
@@ -184,7 +188,7 @@ def find_range_randomly(A, nl, q=1):
         raise ValueError(msg)
     A = np.asarray(A)
     m, n = A.shape
-    Omega = np.random.default_rng().standard_normal((n, nl))
+    Omega = rng.standard_normal((n, nl))
     Y = np.dot(A, Omega)
     for _ in range(q):
         Y = np.dot(A.T, Y)

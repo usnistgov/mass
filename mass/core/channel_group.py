@@ -22,7 +22,6 @@ import mass.calibration.energy_calibration
 
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper
-from mass.core.cython_channel import CythonMicrocalDataSet
 from mass.core.cut import CutFieldMixin
 from mass.core.utilities import InlineUpdater, show_progress, plot_multipage
 from mass.core.ljh_util import remove_unpaired_channel_files, filename_glob_expand
@@ -256,7 +255,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             hdf5_group = self.hdf5_file.require_group(f"chan{pulse.channum}")
             hdf5_group.attrs['filename'] = fname
 
-            dset = CythonMicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
+            dset = MicrocalDataSet(pulse.__dict__, tes_group=self, hdf5_group=hdf5_group)
 
             if 'calibration' in hdf5_group:
                 hdf5_cal_grp = hdf5_group['calibration']

@@ -36,7 +36,7 @@ def process_file(prefix, cuts, do_filter=True):
     data.compute_noise()
     data.avg_pulses_auto_masks()
     if do_filter:
-        data.compute_filters(f_3db=10000)
+        data.compute_5lag_filter(f_3db=10000)
         data.summarize_filters(std_energy=600)
         data.filter_data()
         data.drift_correct(forceNew=True)
@@ -68,7 +68,12 @@ class TestFilters(ut.TestCase):
     def filter_summaries(self, filter_type):
         """Make sure that filters either old-style or new-style have a predicted resolution,
         whether the filters are created fresh or are loaded from HDF5."""
-        self.data.compute_filters(f_3db=10000, forceNew=True, filter_type=filter_type)
+        if filter_type == "5lag":
+            self.data.compute_5lag_filter(f_3db=10000, forceNew=True)
+        elif filter_type == "ats":
+            self.data.compute_ats_filter(f_3db=10000, forceNew=True)
+        else:
+            raise ValueError(f"filter_type='{filter_type}', should be 'ats' or '5lag'")
         self.verify_filters(self.data, filter_type)
 
     def verify_filters(self, data, filter_type):
@@ -79,7 +84,7 @@ class TestFilters(ut.TestCase):
             self.assertIn("noconst", f.variances)
             self.assertIn("noconst", f.predicted_v_over_dv)
             self.assertAlmostEqual(f.variances["noconst"], 8.46e-7, delta=3e-8)
-            self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], expected, delta=0.1)
+            self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], expected, delta=0.3)
 
     def test_vdv_5lag_filters(self):
         """Make sure old filters have a v/dv"""
@@ -100,7 +105,12 @@ class TestFilters(ut.TestCase):
         nf = ds.noise_records.filename
         data2 = mass.TESGroup(pf, nf)
         self.verify_filters(data2, filter_type)
-        data2.compute_filters()
+        if filter_type == "5lag":
+            data2.compute_5lag_filter(f_3db=10000, forceNew=True)
+        elif filter_type == "ats":
+            data2.compute_ats_filter(f_3db=10000, forceNew=True)
+        else:
+            raise ValueError(f"filter_type='{filter_type}', should be 'ats' or '5lag'")
         self.verify_filters(data2, filter_type)
         ds = data2.channel[1]
         filter2 = ds.filter

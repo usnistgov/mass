@@ -44,38 +44,6 @@ mass\.calibration\.nist\_xray\_database module
     :undoc-members:
     :show-inheritance:
 
-mass\.calibration\.test\_algorithms module
-------------------------------------------
-
-.. automodule:: mass.calibration.test_algorithms
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-mass\.calibration\.test\_calibration module
--------------------------------------------
-
-.. automodule:: mass.calibration.test_calibration
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-mass\.calibration\.test\_fits module
-------------------------------------
-
-.. automodule:: mass.calibration.test_fits
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-mass\.calibration\.test\_lines module
--------------------------------------
-
-.. automodule:: mass.calibration.test_lines
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 
 Module contents
 ---------------
