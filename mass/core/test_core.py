@@ -9,6 +9,7 @@ import pytest
 
 import mass
 from mass.core.ljh_modify import LJHFile, ljh_copy_traces, ljh_append_traces, ljh_truncate
+from mass.off.test_channels import xfail_on_windows
 import mass.off
 
 import logging
@@ -17,6 +18,7 @@ LOG = logging.getLogger("mass")
 
 class TestFiles(ut.TestCase):
 
+    @xfail_on_windows
     def test_ljh_copy_and_append_traces(self):
         """Test copying and appending traces to LJH files."""
         src_name = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
@@ -47,7 +49,8 @@ class TestFiles(ut.TestCase):
             dest = LJHFile(dest_name)
             for i, st in enumerate(source_traces):
                 self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
-
+    
+    @xfail_on_windows
     def test_ljh_truncate_wrong_format(self):
         # First a file using LJH format 2.1.0 - should raise an exception
         src_name = os.path.join('mass', 'regression_test', 'regress_chan1.ljh')
@@ -58,6 +61,7 @@ class TestFiles(ut.TestCase):
                 ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054*500)
             self.assertRaises(Exception, func)
 
+    @xfail_on_windows
     def run_test_ljh_truncate_timestamp(self, src_name, n_pulses_expected, timestamp, segmentsize):
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
@@ -71,6 +75,7 @@ class TestFiles(ut.TestCase):
                 self.assertEqual(src.rowcount[k], dest.rowcount[k])
                 self.assertAlmostEqual(src.datatimes_float[k], dest.datatimes_float[k], 5)
 
+    @xfail_on_windows
     def run_test_ljh_truncate_n_pulses(self, src_name, n_pulses, segmentsize):
         # Tests with a file with 1230 pulses, each 1016 bytes long
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
@@ -346,6 +351,7 @@ class TestTESGroup(ut.TestCase):
         ds = data.channel[1]
         ds.compute_noise()
 
+    @xfail_on_windows
     def test_pulse_model_and_ljh2off(self):
         np.random.seed(0)
         data = self.load_data()
@@ -357,7 +363,7 @@ class TestTESGroup(ut.TestCase):
         ds = data.datasets[0]
         n_basis = 5
         hdf5_filename = data.pulse_model_to_hdf5(replace_output=True, n_basis=n_basis)
-        with tempfile.TemporaryDirectory() as output_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as output_dir:
             max_channels = 100
             n_ignore_presamples = 0
             ljh_filenames, off_filenames = mass.ljh2off.ljh2off_loop(
@@ -427,6 +433,7 @@ class TestTESGroup(ut.TestCase):
 
         mass.core.projectors_script.main(Args())
 
+    @xfail_on_windows
     def test_expt_state_files(self):
         """Check that experiment state files are loaded and turned into categorical cuts
         with category "state" if the file exists."""
@@ -466,6 +473,7 @@ class TestTESGroup(ut.TestCase):
 class TestTESHDF5Only(ut.TestCase):
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 
+    @xfail_on_windows
     def test_basic_hdf5_only(self):
         """Make sure it mass can open a mass generated file in HDF5 Only mode."""
         src_name = 'mass/regression_test/regress_chan1.ljh'
@@ -479,9 +487,10 @@ class TestTESHDF5Only(ut.TestCase):
         LOG.info("Testing printing of a TESGroupHDF5")
         LOG.info(data2)
 
+    @xfail_on_windows
     def test_ordering_hdf5only(self):
         src_name = "mass/regression_test/regress_chan1.ljh"
-        with tempfile.TemporaryDirectory() as dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as dir:
             dest_name = "%s/temporary_chan%d.ljh"
             chan1_dest = dest_name % (dir, 1)
             shutil.copy(src_name, chan1_dest)

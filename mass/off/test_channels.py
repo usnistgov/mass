@@ -9,7 +9,8 @@ from mass.calibration import _highly_charged_ion_lines
 import numpy as np
 import pylab as plt
 import lmfit
-import resource
+if not os.name == "nt": # resource doesn't work on windows
+    import resource
 
 # Remove a warning message
 import matplotlib as mpl
@@ -480,7 +481,7 @@ def test_save_load_recipe_book():
     print(rb.craftedIngredients["energy"])
     assert rb.craft("energy", args) == rb2.craft("energy", args)
 
-
+@xfail_on_windows
 def test_open_many_OFF_files():
     """Open more OFF ChannelGroup objects than the system allows. Test that close method closes them."""
 
@@ -510,6 +511,3 @@ def test_open_many_OFF_files():
     finally:
         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
-
-if __name__ == '__main__':
-    ut.main()

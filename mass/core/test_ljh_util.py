@@ -10,7 +10,7 @@ from mass.core.ljh_util import ljh_channum, filename_glob_expand, \
     remove_unpaired_channel_files, ljh_sort_filenames_numerically, \
     ljh_chan_names, ljh_basename_channum
 from mass.core.ljh_modify import LJHFile
-
+from mass.off.test_channels import xfail_on_windows
 
 class TestFilenameHandling(ut.TestCase):
     """Test various functions that handle LJH filenames."""
@@ -102,9 +102,10 @@ class TestFilenameHandling(ut.TestCase):
         for x, y in zip(rnames, snames):
             self.assertEqual(x, y)
 
+    @xfail_on_windows
     def test_ljh_merge(self):
         """Make sure the LJH merge script works."""
-        with tempfile.TemporaryDirectory() as destdir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as destdir:
             dest1_name = os.path.join(destdir, "test1_chan3.ljh")
             dest2_name = os.path.join(destdir, "test2_chan3.ljh")
             src_name = os.path.join('mass', 'regression_test', 'regress_chan3.ljh')

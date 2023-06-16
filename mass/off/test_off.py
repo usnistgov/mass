@@ -2,7 +2,9 @@ import os
 import mass.off
 from mass.off import OffFile
 import unittest as ut
-import resource
+if not os.name == "nt": # resource doesn't work on windows
+    import resource
+from .test_channels import xfail_on_windows
 
 d = os.path.dirname(os.path.realpath(__file__))
 
@@ -10,6 +12,7 @@ filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI
 
 
 class TestOff(ut.TestCase):
+    
     def test_off_imports(self):
         self.assertIsNotNone(mass.off)
 
@@ -28,6 +31,7 @@ class TestOff(ut.TestCase):
         filename = os.path.join(d, "data_for_test/20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
         self.assertIsNotNone(OffFile(filename))
 
+    @xfail_on_windows
     def test_mmap_many_files(self):
         """Open more OFF file objects than the system allows. Test that close method closes them."""
         files = []  # hold on to the OffFile objects so the garbage collector doesn't close them.
@@ -55,5 +59,3 @@ class TestOff(ut.TestCase):
             resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
 
-if __name__ == '__main__':
-    ut.main()
