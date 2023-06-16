@@ -36,3 +36,4 @@ TAGS
 mass/demo/sourceroot.py
 *.so
 *.pyd
+*.code-workspace
