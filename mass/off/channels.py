@@ -527,7 +527,7 @@ class Channel(CorG):
 
     @add_group_loop
     def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName=None, states=None,
-                             linePositionsFunc=None, cutRecipeName=None):
+                             linePositionsFunc=None, cutRecipeName=None, overwriteRecipe=False):
         """
         linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
         otherwise try to call it with self as an argument... here is an example of how you could use all but one peak from calibrationRough:
@@ -545,12 +545,12 @@ class Channel(CorG):
         phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
         self.recipes.add(correctedName, phaseCorrection.correct, [
-            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName])
+            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName], overwrite=overwriteRecipe)
 
     @add_group_loop
     def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
                                  states=None, cutRecipeName=None, kernel_width=1, sec_per_degree=2000,
-                                 pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
+                                 pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None, overwriteRecipe=False):
         """do a polynomial correction based on the indicator
         you are encouraged to change the settings that affect the degree of the polynomail
         see help in mass.core.channel.time_drift_correct for details on settings"""
@@ -565,7 +565,7 @@ class Channel(CorG):
             tnorm = info["normalize"](indicator)
             corrected = uncorrected*(1+info["model"](tnorm))
             return corrected
-        self.recipes.add(correctedName, time_drift_correct, [indicatorName, uncorrectedName])
+        self.recipes.add(correctedName, time_drift_correct, [indicatorName, uncorrectedName], overwrite=overwriteRecipe)
 
     def plotCompareDriftCorrect(self, axis=None, states=None, cutRecipeName=None, includeBad=False):
         if axis is None:
