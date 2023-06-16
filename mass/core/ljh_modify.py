@@ -103,6 +103,15 @@ class callback_shift(object):
         segdata += self.shift
 
 
+def helper_write_pulse(dest, src, i):
+    rowcount, timestamp_usec, trace = src.read_trace(i, with_timing=True)
+    prefix = struct.pack('<Q', int(rowcount))
+    dest.write(prefix)
+    prefix = struct.pack('<Q', int(timestamp_usec))
+    dest.write(prefix)
+    trace.tofile(dest, sep="")
+
+
 def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
     """
     Copy traces from one ljh file to another. The destination file will be of
@@ -131,12 +140,7 @@ def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
     with open(dest_name, "wb") as dest_fp:
         dest_fp.write(ljh_header)
         for i in pulses:
-            trace = src.read_trace(i)
-            prefix = struct.pack('<Q', int(1))
-            dest_fp.write(prefix)
-            prefix = struct.pack('<Q', int(1244))
-            dest_fp.write(prefix)
-            trace.tofile(dest_fp, sep="")
+            helper_write_pulse(dest_fp, src, i)
 
 
 def ljh_append_traces(src_name, dest_name, pulses=None):
@@ -156,12 +160,7 @@ def ljh_append_traces(src_name, dest_name, pulses=None):
         pulses = range(src.nPulses)
     with open(dest_name, "ab") as dest_fp:
         for i in pulses:
-            prefix = struct.pack('<Q', int(1))
-            dest_fp.write(prefix)
-            prefix = struct.pack('<Q', int(1244))
-            dest_fp.write(prefix)
-            trace = src.read_trace(i)
-            trace.tofile(dest_fp, sep="")
+            helper_write_pulse(dest_fp, src, i)
 
 
 def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None, segmentsize=None):

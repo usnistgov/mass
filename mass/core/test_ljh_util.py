@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest as ut
+import numpy as np
 
 from mass.core.ljh_util import ljh_channum, filename_glob_expand, \
     remove_unpaired_channel_files, ljh_sort_filenames_numerically, \
@@ -125,6 +126,10 @@ class TestFilenameHandling(ut.TestCase):
             result = LJHFile(result_name)
             self.assertEqual(2*Npulses, result.nPulses)
             self.assertEqual(src.nSamples, result.nSamples)
+            src.read_segment(0)
+            result.read_segment(0)
+            self.assertTrue(np.all(result.datatimes_raw >= src.datatimes_raw[0]))
+            self.assertTrue(np.all(result.rowcount >= src.rowcount[0]))
 
             # Make sure we can't run another merge w/o the --force flag
             ps = subprocess.run(cmd, capture_output=True)

@@ -145,7 +145,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # even if there is only one result from the pattern matching.
         pattern = filenames
         filenames = filename_glob_expand(filenames)
-        if filenames is None or len(filenames) == 0:
+        if (filenames is None or len(filenames) == 0) and (not noise_only):
             raise ValueError("Pulse filename pattern '%s' expanded to no files" % pattern)
         if noise_filenames is not None:
             pattern = noise_filenames
@@ -207,18 +207,19 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         # Load up experiment state file
         self.experimentStateFile = None
-        if experimentStateFile is None:
-            try:
-                self.experimentStateFile = mass.off.ExperimentStateFile(
-                    datasetFilename=self.filenames[0], excludeStates=excludeStates)
-            except IOError as e:
-                LOG.debug('Skipping loading of experiment state file because {}'.format(e))
-        else:
-            self.experimentStateFile = mass.off.channels.ExperimentStateFile(
-                experimentStateFile, excludeStates=excludeStates)
-        if self.experimentStateFile is not None:
-            valid_state_labels = self.experimentStateFile.labels
-            self.register_categorical_cut_field("state", valid_state_labels)
+        if not noise_only:
+            if experimentStateFile is None:
+                try:
+                    self.experimentStateFile = mass.off.ExperimentStateFile(
+                        datasetFilename=self.filenames[0], excludeStates=excludeStates)
+                except IOError as e:
+                    LOG.debug('Skipping loading of experiment state file because {}'.format(e))
+            else:
+                self.experimentStateFile = mass.off.channels.ExperimentStateFile(
+                    experimentStateFile, excludeStates=excludeStates)
+            if self.experimentStateFile is not None:
+                valid_state_labels = self.experimentStateFile.labels
+                self.register_categorical_cut_field("state", valid_state_labels)
 
         # Set up other aspects of the object
         self.nhits = None
@@ -291,8 +292,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     hdf5_noisegroup.attrs['filename'] = nf
                 except Exception:
                     hdf5_noisegroup = None
-                noise = NoiseRecords(nf, records_are_continuous=noise_is_continuous,
-                                     hdf5_group=hdf5_noisegroup)
+                noise = NoiseRecords(nf, records_are_continuous=noise_is_continuous)
+                noise.set_hdf5_group(hdf5_noisegroup)
 
                 if pulse.channum != noise.channum:
                     LOG.warning(
@@ -340,12 +341,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for fname in self.noise_filenames:
 
             noise = NoiseRecords(fname, records_are_continuous=noise_is_continuous)
-            try:
-                hdf5_group = self.hdf5_noisefile.require_group("chan%d" % noise.channum)
-                hdf5_group.attrs['filename'] = fname
-                noise.hdf5_group = hdf5_group
-            except Exception:
-                hdf5_group = None
+            hdf5_group = self.hdf5_noisefile.require_group("chan%d" % noise.channum)
+            hdf5_group.attrs['filename'] = fname
+            noise.set_hdf5_group(hdf5_group)
 
             dset = MicrocalDataSet(noise.__dict__, hdf5_group=hdf5_group)
             dset.noise_records = noise
@@ -1000,7 +998,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             axis = plt.subplot(111)
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("nipy_spectral")
+            cmap = plt.cm.nipy_spectral
 
         dt = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e3
 
@@ -1045,7 +1043,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             channels.sort()
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("nipy_spectral")
+            cmap = plt.cm.nipy_spectral
 
         axis.grid(True)
         for ds_num, channum in enumerate(channels):
@@ -1108,7 +1106,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             channels.sort()
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("nipy_spectral")
+            cmap = plt.cm.nipy_spectral
 
         axis.grid(True)
         for ds_num, channum in enumerate(channels):
@@ -1202,7 +1200,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         nplot = len(dsets)
 
         if cmap is None:
-            cmap = plt.cm.get_cmap("nipy_spectral")
+            cmap = plt.cm.nipy_spectral
 
         if scale_factor == 1.0:
             units = "Counts"

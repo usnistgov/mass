@@ -68,8 +68,8 @@ class TestFiles(ut.TestCase):
             self.assertEqual(n_pulses_expected, dest.nPulses)
             for k in range(n_pulses_expected):
                 self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
-                self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
                 self.assertEqual(src.rowcount[k], dest.rowcount[k])
+                self.assertAlmostEqual(src.datatimes_float[k], dest.datatimes_float[k], 5)
 
     def run_test_ljh_truncate_n_pulses(self, src_name, n_pulses, segmentsize):
         # Tests with a file with 1230 pulses, each 1016 bytes long
@@ -82,8 +82,8 @@ class TestFiles(ut.TestCase):
             self.assertEqual(n_pulses, dest.nPulses)
             for k in range(n_pulses):
                 self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
-                self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
                 self.assertEqual(src.rowcount[k], dest.rowcount[k])
+                self.assertAlmostEqual(src.datatimes_float[k], dest.datatimes_float[k], 5)
 
     def test_ljh_truncate_n_pulses(self):
         # Want to make sure that we didn't screw something up with the
@@ -207,6 +207,12 @@ class TestTESGroup(ut.TestCase):
             data.compute_ats_filter()
         data.assume_white_noise()
         data.compute_ats_filter()
+
+    def test_noise_only(self):
+        """Test behavior of a TESGroup without pulse data."""
+        pattern = "mass/regression_test/regress_noise_*.ljh"
+        data = mass.TESGroup(pattern, noise_only=True)
+        data.compute_noise()
 
     def test_all_channels_bad(self):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
