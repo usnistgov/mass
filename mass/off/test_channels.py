@@ -320,9 +320,10 @@ class TestSummaries(ut.TestCase):
         inds = ds_local.getStatesIndicies("A")
         _ = ds_local.getAttr("filtValue", inds)
 
-def test_experiment_state_file_add_to_same_state():
+def test_experiment_state_file_add_to_same_state_fake_esf():
     #First, we create a dummy experiment state file, esf, with state labels A and B. Then, more records
     #are added to state B. This test verifies that the slice defining state B gets properly updated.
+    #this test simulates an experiment state file instead of using an actual file.
     esf = mass.off.ExperimentStateFile(_parse=False)
     # reach into the internals to simulate the results of parse with repeated states
     esf.allLabels = ["A", "B"]
@@ -344,6 +345,41 @@ def test_experiment_state_file_add_to_same_state():
     ds_local.stdDevResThreshold = 100
     inds = ds_local.getStatesIndicies("A")
     _ = ds_local.getAttr("filtValue", inds)
+
+def test_experiment_state_file_add_to_same_state():
+    #First, we create an experiment state file, esf, with state labels A and B. Then, more records
+    #are added to state B. This test verifies that the slice defining state B gets properly updated.
+    #This uses a temporary file f just like a regular experiment state file.
+    import tempfile
+
+    f = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    f.write('#\n') #header
+    f.write('0, A\n')
+    f.write('100, B\n')
+    f.close()
+    esf = mass.off.ExperimentStateFile(filename=f.name)
+    
+    # reach into the internals to simulate the results of parse with repeated states
+    #esf.allLabels = ["A", "B"]
+    # esf.unixnanos = np.arange(len(esf.allLabels))*100
+    # esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
+    unixnanos = np.arange(2*len(esf.allLabels))*50  # two entires per label
+    d = esf.calcStatesDict(unixnanos)
+    slice_before_update = d["B"] #state B will be updated with new records. We need to make sure the slice gets changed properly.
+    last_timestamp = unixnanos[-1] #the timestamp of the last photon added to the statesDict
+
+    update_unixnanos = np.arange(last_timestamp, last_timestamp+3) #new records start just after the last photon
+    d_updated = esf.calcStatesDict(update_unixnanos, statesDict=d, i0_allLabels=len(esf.allLabels), i0_unixnanos=len(unixnanos)+len(update_unixnanos))
+
+    slice_after_update = d_updated["B"]
+    assert slice_after_update.stop == slice_before_update.stop + len(update_unixnanos)
+
+    data_local = ChannelGroup([filename], experimentStateFile=esf)
+    ds_local = data_local.firstGoodChannel()
+    ds_local.stdDevResThreshold = 100
+    inds = ds_local.getStatesIndicies("A")
+    _ = ds_local.getAttr("filtValue", inds)
+    os.remove(f.name)
 
 def test_we_get_different_histograms_when_using_different_cuts_into_a_channelGroup_function():
     # check that we actually get different histograms when using different cuts
