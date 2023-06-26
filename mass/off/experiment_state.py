@@ -103,7 +103,7 @@ class ExperimentStateFile():
         if statesDict is None:
             statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
-        if not any(inds): #if searchsorted returns an empty array, inds+i0_unixnanos will also be empty
+        if len(inds) == 0: #if searchsorted returns an empty array, inds+i0_unixnanos will also be empty
             inds = np.array([i0_unixnanos])
         # the state that was active last time calcStatesDict was called may need special handling
         if len(statesDict.keys()) > 0 and len(inds) > 0:
