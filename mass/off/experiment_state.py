@@ -99,7 +99,7 @@ class ExperimentStateFile():
         used to calculate the existing statesDict.
         """
         #unixnanos = timestamps of new records
-        #i0_unixnanos is how records exist in total (so, including ones that haven't been assigned to a state)
+        #i0_unixnanos is how many records exist in total (so, including ones that haven't been assigned to a state)
         if statesDict is None:
             statesDict = collections.OrderedDict()
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
