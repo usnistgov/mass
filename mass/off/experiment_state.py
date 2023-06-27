@@ -99,14 +99,29 @@ class ExperimentStateFile():
         used to calculate the existing statesDict.
         """
         #unixnanos = timestamps of new records
-        #i0_unixnanos is how many records exist in total (so, including ones that haven't been assigned to a state)
+        #i0_unixnanos is how many records have been state-indexed
         if statesDict is None:
             statesDict = collections.OrderedDict()
+
+        newLabels = self.allLabels[i0_allLabels:]
+
+        if statesDict is None:
+            statesDict = collections.OrderedDict()
+
+        #if the statesDict already exists, and there are no new states, update the active state and return the statesDict.
+        if len(statesDict.keys()) > 0 and len(newLabels) == 0:
+            print('no new states')
+            assert i0_allLabels > 0
+            for k in statesDict.keys():
+                last_key = k
+            s = statesDict[last_key]
+            s2 = slice(s.start, i0_unixnanos+len(unixnanos)) #set the slice from the start of the state to the last new record
+            statesDict[k] = s2
+            return statesDict
+        
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
-        if len(inds) == 0: #if searchsorted returns an empty array, inds+i0_unixnanos will also be empty
-            inds = np.array([i0_unixnanos])
         # the state that was active last time calcStatesDict was called may need special handling
-        if len(statesDict.keys()) > 0 and len(inds) > 0:
+        if len(statesDict.keys()) > 0 and len(newLabels) > 0:
             assert i0_allLabels > 0
             for k in statesDict.keys():
                 last_key = k
@@ -114,7 +129,7 @@ class ExperimentStateFile():
             s2 = slice(s.start, inds[0])
             statesDict[k] = s2
         # iterate over self.allLabels because it corresponds to self.unixnanos
-        for i, label in enumerate(self.allLabels[i0_allLabels:]):
+        for i, label in enumerate(newLabels):
             if label not in self.unaliasedLabels:
                 continue
             aliasedLabel = self.labelAliasesDict.get(label, label)
