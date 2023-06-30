@@ -110,7 +110,6 @@ class ExperimentStateFile():
 
         #if the statesDict already exists, and there are no new states, update the active state and return the statesDict.
         if len(statesDict.keys()) > 0 and len(newLabels) == 0:
-            print('no new states')
             assert i0_allLabels > 0
             for k in statesDict.keys():
                 last_key = k
