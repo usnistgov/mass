@@ -782,12 +782,15 @@ class Channel(CorG):
                 self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdAbsolute)".format(
                     maxAbsError, thresholdAbsolute))
 
-    def diagnoseCalibration(self, calibratedName="energy"):
+    def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges = np.arange(0, 16000, 4)):
         calibration = self.recipes[calibratedName].f
         uncalibratedName = calibration.uncalibratedName
         results = calibration.results
         n_intermediate = len(calibration.intermediate_calibrations)
-        plt.figure(figsize=(20, 12))
+        if fig is not None: #fig can be a matplotlib.figure.Figure object or an index ("num") of the current figures (see plt.get_fignums())
+            plt.figure(fig)
+        else:
+            plt.figure(figsize=(20, 12))
         plt.suptitle(
             self.shortName+", cal diagnose for '{}'\n with {} intermediate calibrations".format(calibratedName, n_intermediate))
         n = int(np.ceil(np.sqrt(len(results)+2)))
@@ -798,7 +801,7 @@ class Channel(CorG):
         ax = plt.subplot(n, n, i+2)
         calibration.plot(axis=ax)
         ax = plt.subplot(n, n, i+3)
-        self.plotHist(np.arange(0, 16000, 4), uncalibratedName,
+        self.plotHist(filtValuePlotBinEdges, uncalibratedName,
                       axis=ax, coAddStates=False)
         plt.vlines(self.calibrationPlan.uncalibratedVals, 0, plt.ylim()[1])
         plt.tight_layout()
