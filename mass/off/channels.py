@@ -28,7 +28,7 @@ from .experiment_state import ExperimentStateFile
 LOG = logging.getLogger("mass")
 
 
-class DriftCorrection():
+class DriftCorrection:
     version = 1
 
     def __init__(self, indicatorName, uncorrectedName, medianIndicator, slope):
@@ -69,7 +69,7 @@ class DriftCorrection():
             return False
 
 
-class CorG():
+class CorG:
     """
     implments methods that are shared across Channel and ChannelGroup
     """
@@ -874,7 +874,7 @@ def dtw_same_peaks(bin_edges, ph_a, ph_b, peak_inds_a, scale_by_median, normaliz
     return peak_inds_b
 
 
-class AlignBToA():
+class AlignBToA:
     cm = plt.cm.gist_ncar
 
     def __init__(self, ds_a, ds_b, peak_xs_a, bin_edges, attr, cutRecipeName, states=None,
@@ -998,7 +998,7 @@ class AlignBToA():
 
 
 # calibration
-class CalibrationPlan():
+class CalibrationPlan:
     def __init__(self):
         self.uncalibratedVals = np.zeros(0)
         self.states = []

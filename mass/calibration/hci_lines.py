@@ -21,7 +21,7 @@ INVCM_TO_EV = sp_const.c * sp_const.physical_constants['Planck constant in eV s'
 DEFAULT_PICKLE_NAME = 'nist_asd.pickle'
 
 
-class NIST_ASD():
+class NIST_ASD:
     '''Class for working with a pickled atomic spectra database'''
 
     def __init__(self, pickleFilename=None):

@@ -7,7 +7,7 @@ import xraydb
 from collections import OrderedDict
 
 
-class FilterStack():
+class FilterStack:
     def __init__(self, name):
         self.name = name
         self.components = OrderedDict()

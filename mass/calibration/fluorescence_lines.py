@@ -20,7 +20,7 @@ FWHM_OVER_SIGMA = (8 * np.log(2))**0.5
 _rng = np.random.default_rng()
 
 
-class SpectralLine():
+class SpectralLine:
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 

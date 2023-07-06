@@ -4,7 +4,7 @@ import mass.mathstat
 from mass.common import tostr
 
 
-class PulseModel():
+class PulseModel:
     """Object to hold a "pulse model", meaning a low-dimensional linear basis to express "all" pulses,
     along with a projector such that projector.dot(basis) is the identity matrix.
 

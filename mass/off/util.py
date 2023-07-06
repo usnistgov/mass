@@ -17,7 +17,7 @@ import os
 LOG = logging.getLogger("mass")
 
 
-class NoCutInds():
+class NoCutInds:
     pass
 
 
@@ -25,7 +25,7 @@ class InvalidStatesException(Exception):
     pass
 
 
-class RecipeBook():
+class RecipeBook:
     def __init__(self, baseIngredients, propertyClass=None, wrapper=lambda x: x):
         """
         propertyClass - which class to add properties to, if they are to be added
@@ -158,7 +158,7 @@ class RecipeBook():
         return r
 
 
-class Recipe():
+class Recipe:
     """
     If `r` is a Recipe, it is a wrapper around a function `f` and the names of its arguments.
     Arguments can either be names to be provided in a dictionary `d` when `r(d)` is called, or
@@ -378,7 +378,7 @@ def median_absolute_deviation(x):
     return mad, sigma_equiv, median
 
 
-class IngredientsWrapper():
+class IngredientsWrapper:
     """
     I'd like to be able to do either ingredient_source["coefs"] to get all projection coefficients
     or ingredient_source["filtValue"] to get only the filtValue
