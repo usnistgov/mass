@@ -6,70 +6,76 @@ Created on Jan 13, 2012
 @author: fowlerj
 '''
 import unittest
-# import pytest
+import pytest
+from pytest import approx
 import mass
 import numpy as np
 
+
+rng = np.random.default_rng(34234)
 
 def weightavg(a, w):
     return (a*w).sum() / w.sum()
 
 
-# class Test_ratio_weighted_averages(unittest.TestCase):
-#     """Run test with a known, constant histogram"""
 
-#     def setUp(self):
-#         self.nobs = np.array([
-#             0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  1,  0,  0,
-#             0,  0,  1,  1,  0,  2,  0,  2,  1,  1,  3,  2,  2,  6,  2,  5,  3,
-#             6,  5, 15, 17,  9, 18, 12,  9, 17, 17, 14, 11, 22, 28, 21, 16, 14,
-#             19, 16, 14, 24, 16, 7, 15,  8,  5, 15, 12, 13,  6,  8,  6,  6,  7,
-#             7,  4,  2,  3,  5,  2,  1,  1,  1,  1,  0,  0,  1,  2,  0,  0,  0,
-#             0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0])
+class Test_ratio_weighted_averages:
+    """Run test with a known, constant histogram. Verify the weighted-average ratio=1 of
+    maxmimum-likelihood fitters."""
 
-#         self.x = np.linspace(-1.98, 1.98, 100)
-#         self.fitter = mass.calibration.line_fits.GaussianFitter()
-#         self.fitter._have_warned = True  # eliminate deprecation warnings
-#         self.guess = np.array([1.09, 0, 17.7, 0.0, 0.0, 0, 25])
+    @pytest.fixture(autouse=True)
+    def set_up_weighted_average_tests(self):
+        self.nobs = np.array([
+            0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  1,  0,  0,
+            0,  0,  1,  1,  0,  2,  0,  2,  1,  1,  3,  2,  2,  6,  2,  5,  3,
+            6,  5, 15, 17,  9, 18, 12,  9, 17, 17, 14, 11, 22, 28, 21, 16, 14,
+            19, 16, 14, 24, 16, 7, 15,  8,  5, 15, 12, 13,  6,  8,  6,  6,  7,
+            7,  4,  2,  3,  5,  2,  1,  1,  1,  1,  0,  0,  1,  2,  0,  0,  0,
+            0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0])
+        self.x = np.linspace(-1.98, 1.98, 100)
+        line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", 0.0, 0.0, 0.0)
+        line.linetype = "Gaussian"
+        self.model = line.model()
+        self.params = self.model.guess(self.nobs, bin_centers=self.x)
+        self.params["fwhm"].set(1.09)
+        self.params["peak_ph"].set(0)
+        self.params["integral"].set(self.nobs.sum())
+        self.params["dph_de"].set(1, vary=False)
+        self.params["background"].set(0, vary=False)
+        self.params["bg_slope"].set(0, vary=False)
 
-#     def test_weighted_averages_nobg(self):
-#         """Check that wt avg (data/model)==1 for weight = model when the model has no
-#         background. This property should be guaranteed when using a Maximum-Likelihood fitter.
-#         """
-#         self.guess[3:] = 0
-#         params, _ = self.fitter.fit(self.nobs, self.x, self.guess, hold=(3, 4, 5, 6), plot=False)
+    def test_weighted_averages_nobg(self):
+        results = self.model.fit(self.nobs, self.params, bin_centers=self.x)
+        pfit = results.best_values
+        assert pfit["fwhm"] == approx(1.09, 0.01)
+        assert pfit["peak_ph"] == approx(0.0, abs=1e-6)
+        assert pfit["integral"] == approx(self.nobs.sum(), rel=1e-4)
+        y = results.best_fit
+        ratio = self.nobs / y
+        assert weightavg(ratio, y) == approx(1.0, abs=0.1)
 
-#         self.assertAlmostEqual(params[0], 1.09, 2)
-#         self.assertAlmostEqual(params[1], 0, 2)
-#         self.assertAlmostEqual(params[2], 17.7115968, 1)
+    def test_weighted_averages_constbg(self):
+        """Check that wt avg (data/model)=1 for weight = either one of {constant, model}
+        when the model has a constant background.
+        This property should be guaranteed when using a Maximum Likelihood fitter.
+        """
+        self.params["background"].set(0, vary=True)
+        results = self.model.fit(self.nobs, self.params, bin_centers=self.x)
+        y = results.best_fit
+        ratio = self.nobs / y
+        assert weightavg(ratio, y) == approx(1.0, abs=0.1)
 
-#         y = self.fitter.last_fit_result
-#         ratio = self.nobs/y
-#         self.assertAlmostEqual(weightavg(ratio, y), 1.0, 1)
-
-#     def test_weighted_averages_constbg(self):
-#         """Check that wt avg (data/model)=1 for weight = either one of {constant, model}
-#         when the model has a constant background.
-#         This property should be guaranteed when using a Maximum Likelihood fitter.
-#         """
-#         self.guess[3:] = 0
-#         self.fitter.fit(self.nobs, self.x, self.guess, hold=(4, 5, 6), plot=False)
-#         y = self.fitter.last_fit_result
-#         ratio = self.nobs/y
-#         self.assertAlmostEqual(weightavg(ratio, y), 1.0, 1)
-
-#     def test_weighted_averages_slopedbg(self):
-#         """Check that wt avg (data/model)=1 for weight = any one of {constant, model, x}
-#         when the model has a linear background.
-#         This property should be guaranteed when using a Maximum Likelihood fitter.
-#         """
-#         self.guess[3:] = 0
-#         params, _ = self.fitter.fit(self.nobs, self.x, self.guess, hold=(5, 6), plot=False)
-#         params[3] = 0
-#         params, _ = self.fitter.fit(self.nobs, self.x, params, hold=(5, 6), plot=False)
-#         y = self.fitter.last_fit_result
-#         ratio = self.nobs/y
-#         self.assertAlmostEqual(weightavg(ratio, y), 1.0, 1)
+    def test_weighted_averages_slopedbg(self):
+        """Check that wt avg (data/model)=1 for weight = any one of {constant, model, x}
+        when the model has a linear background.
+        This property should be guaranteed when using a Maximum Likelihood fitter.
+        """
+        self.params["background"].set(0, vary=True)
+        self.params["bg_slope"].set(0, vary=True)
+        results = self.model.fit(self.nobs, self.params, bin_centers=self.x)
+        y = results.best_fit
+        ratio = self.nobs / y
+        assert weightavg(ratio, y) == approx(1.0, abs=0.1)
 
 
 # class Test_gaussian(unittest.TestCase):
