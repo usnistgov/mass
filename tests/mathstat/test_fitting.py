@@ -77,139 +77,67 @@ class Test_ratio_weighted_averages:
         assert weightavg(ratio, y) == approx(1.0, abs=0.1)
 
 
-# class Test_gaussian(unittest.TestCase):
-#     """Simulate some Gaussian data, fit the histograms, and make sure that the results are
-#     consistent with the expectation at the 2-sigma level.
-#     """
+class Test_gaussian:
+    """Simulate some Gaussian data, fit the histograms, and make sure that the results are
+    consistent with the expectation at the 2-sigma level.
+    """
 
-#     def setUp(self):
-#         self.rng = np.random.default_rng(12348)
+    def generate_data(self, N, fwhm=1.0, ctr=0.0, nbins=100, expected_bg=0):
+        n_signal = rng.poisson(N)
+        n_bg = rng.poisson(expected_bg)
 
-#     def generate_data(self, N, fwhm=1.0, ctr=0.0, nbins=100, N_bg=0):
-#         self.x = x = np.arange(.5, nbins)*4.0/nbins-2.0
+        data = rng.standard_normal(size=n_signal)*fwhm/np.sqrt(8*np.log(2))
+        if n_bg > 0:
+            data = np.hstack((data, rng.uniform(size=n_bg)*4.0-2.0))
+        nobs, _ = np.histogram(data, np.linspace(-2, 2, nbins+1))
+        self.sum = nobs.sum()
+        self.mean = (nobs*self.x).sum()/nobs.sum()
+        self.var = (nobs*self.x**2).sum()/nobs.sum() - self.mean**2
+        self.nobs = nobs
 
-#         n_signal = self.rng.poisson(N)
-#         n_bg = self.rng.poisson(N_bg)
+        self.true_params = (fwhm, self.mean, N/fwhm*4.0/nbins/1.06, expected_bg*1.0/nbins, 0, 0, 25)
+        self.guess = np.array([1.09, 0, 17.7, 0.0, 0.0, 0, 25])
 
-#         data = self.rng.standard_normal(size=n_signal)*fwhm/np.sqrt(8*np.log(2))
-#         if N_bg > 0:
-#             data = np.hstack((data, self.rng.uniform(size=n_bg)*4.0-2.0))
-#         nobs, _bins = np.histogram(data, np.linspace(-2, 2, nbins+1))
-#         self.sum = nobs.sum()
-#         self.mean = (x*nobs).sum()/nobs.sum()
-#         self.var = (x*x*nobs).sum()/nobs.sum() - self.mean**2
-#         self.nobs = nobs
+    def run_several_fits(self, N=1000, nfits=10, fwhm=1.0, ctr=0.0, nbins=100, N_bg=10):
+        bin_edges = np.linspace(-2, 2, nbins+1)
+        self.x = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
-#         self.true_params = (fwhm, self.mean, N/fwhm*4.0/nbins/1.06, N_bg*1.0/nbins, 0, 0, 25)
-#         self.guess = np.array([1.09, 0, 17.7, 0.0, 0.0, 0, 25])
-#         self.hold = [4, 5, 6]
-#         if N_bg <= 0:
-#             self.hold.append(3)
+        for _ in range(nfits):
+            self.generate_data(N, fwhm, ctr, nbins, N_bg)
+            params = self.model.guess(self.nobs, bin_centers=self.x)
+            params["fwhm"].set(1.09)
+            params["peak_ph"].set(0)
+            params["integral"].set(self.nobs.sum())
+            params["dph_de"].set(1, vary=False)
+            varybg = N_bg > 0
+            params["background"].set(0, vary=varybg)
+            params["bg_slope"].set(0, vary=False)
+            results = self.model.fit(self.nobs, params, bin_centers=self.x)
 
-#     def run_several_fits(self, N=1000, nfits=10, fwhm=1.0, ctr=0.0, nbins=100, N_bg=10, penalty=None):
-#         self.fitter = mass.calibration.line_fits.GaussianFitter()
-#         self.fitter._have_warned = True  # eliminate deprecation warnings
-#         self.fitter.phscale_positive = False
-#         self.fitter.set_penalty(penalty)
-#         correct_params = (fwhm, ctr, .037535932*N, 0, 0, 0, 25)
-#         sigma_errors = np.zeros((7, nfits), dtype=float)
-#         params = np.zeros((7, nfits), dtype=float)
-#         for i in range(nfits):
-#             self.generate_data(N, fwhm, ctr, nbins, N_bg)
-#             try:
-#                 p, covar = self.fitter.fit(self.nobs, self.x, self.true_params,
-#                                            hold=self.hold, plot=False)
-#                 params[:, i] = p
+            assert results.params["fwhm"] == approx(fwhm, rel=5/N**0.5)
+            assert results.params["peak_ph"] == approx(ctr, abs=3*fwhm/N**0.5)
+            assert results.params["integral"] == approx(N, abs=3*N**0.5)
+            assert results.params["fwhm"].stderr < 2*fwhm/N**0.5
+            assert results.params["peak_ph"].stderr < 2*fwhm/N**0.5
+            assert results.params["integral"].stderr < 2*N**0.5
+            if N_bg > 0:
+                assert results.params["background"] == approx(N_bg/nbins, abs=10*N**0.5)
+                assert results.params["background"].stderr < 10*N**0.5
 
-#             except np.linalg.LinAlgError:
-#                 continue
+    def test_gauss(self):
+        "Run 30 fits apiece with 3 background levels; verify consistent parameters"
+        line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", 0.0, 0.0, 0.0)
+        line.linetype = "Gaussian"
+        self.model = line.model()
 
-#             invcovar = np.array(covar.diagonal())
-#             invcovar[invcovar <= 0.0] = 1.0
-#             invcovar = 1.0/invcovar
-#             sigma_errors[:, i] = (p-correct_params)*(invcovar**0.5)
-
-#         sigma_errors[4, :] = 0
-#         maxparam = 4
-#         if N_bg <= 0:
-#             sigma_errors[3, :] = 0
-#             maxparam = 3
-#         self.assertTrue(np.all(sigma_errors[:maxparam].std(axis=1) < 1+2/nfits**0.5))
-#         return params
-
-#     def test_30fits_with_bg(self):
-#         "Run 30 fits with nonzero background and verify consistent parameters"
-#         fwhm = 1.0
-#         ctr = 0.0
-#         nbins = 100
-#         nfits = 30
-#         N_bg = 100
-#         self.run_several_fits(1000, nfits, fwhm, ctr, nbins, N_bg)
-
-#     def test_30fits_small_bg(self):
-#         "Run 30 fits with one background event and verify consistent parameters"
-#         fwhm = 1.0
-#         ctr = 0.0
-#         nbins = 100
-#         nfits = 30
-#         N_bg = 1
-#         self.run_several_fits(1000, nfits, fwhm, ctr, nbins, N_bg)
-
-#     def test_fits_zero_bg(self):
-#         "Run 50 fits with one background event and verify consistent parameters"
-#         fwhm = 1.0
-#         ctr = 0.0
-#         nbins = 100
-#         nfits = 50
-#         N_bg = 0
-#         self.run_several_fits(1000, nfits, fwhm, ctr, nbins, N_bg)
-
-#     def test_penalty_noeffect(self):
-#         "Test the regularization penalty in case where it has no effect"
-#         fwhm = 1.0
-#         ctr = 0.0
-#         nbins = 100
-#         nfits = 50
-#         N_bg = 0
-#         penalty = SimplePenalty(10, 0.2, 10)
-#         params = self.run_several_fits(1000, nfits, fwhm, ctr, nbins, N_bg, penalty=penalty)
-#         # Be sure that the center is -.05 < c < +.05
-#         self.assertTrue(abs(params[1, :].mean()) < 0.05)
-
-#     def test_penalty_haseffect(self):
-#         "Test the regularization penalty in case where it has an effect"
-#         fwhm = 1.0
-#         ctr = 0.0
-#         nbins = 100
-#         nfits = 40
-#         N_bg = 0
-#         penalty = SimplePenalty(-1, 0.3, 30)
-#         params = self.run_several_fits(1000, nfits, fwhm, ctr, nbins, N_bg, penalty=penalty)
-#         # Be sure that the center is c < -.05, because of the penalty
-#         self.assertTrue(params[1, :].mean() < -0.05)
-
-
-# class SimplePenalty:
-#     """Function object to penalize param[1] exceeding pmax."""
-
-#     def __init__(self, pmax, pscale, amplitude):
-#         self.pmax = pmax
-#         self.pscale = pscale
-#         self.amplitude = amplitude
-
-#     def __call__(self, param):
-#         Npar = len(param)
-#         grad = np.zeros(Npar, dtype=float)
-#         hess = np.zeros((Npar, Npar), dtype=float)
-#         p = param[1]
-#         if p < self.pmax:
-#             return 0.0, grad, hess
-
-#         ae = self.amplitude*np.exp((p-self.pmax)/self.pscale)
-#         B = ae-self.amplitude
-#         grad[1] = ae/self.pscale
-#         hess[1, 1] = ae/self.pscale**2
-#         return B, grad, hess
+        Nsignal = 1000
+        fwhm = 1.0
+        ctr = 0.0
+        nbins = 100
+        nfits = 30
+        self.run_several_fits(Nsignal, nfits, fwhm, ctr, nbins, N_bg=100)
+        self.run_several_fits(Nsignal, nfits, fwhm, ctr, nbins, N_bg=1)
+        self.run_several_fits(Nsignal, nfits, fwhm, ctr, nbins, N_bg=0)
 
 
 # class Test_fluorescence(unittest.TestCase):
