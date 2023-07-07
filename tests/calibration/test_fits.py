@@ -1,10 +1,7 @@
 """
 test_fits.py
 
-Test that Maximum Likelihood Fits work
-
-5 May 2016
-Joe Fowler
+Test that line work correctly.
 """
 
 import pytest
@@ -78,7 +75,7 @@ class Test_ratio_weighted_averages:
         assert weightavg(ratio, y) == approx(1.0, abs=0.1)
 
 
-class Test_gaussian:
+class Test_gaussian_basic:
     """Simulate some Gaussian data, fit the histograms, and make sure that the results are
     consistent with the expectation at the 2-sigma level.
     """
@@ -141,129 +138,109 @@ class Test_gaussian:
         self.run_several_fits(Nsignal, nfits, fwhm, ctr, nbins, N_bg=0)
 
 
-# class Test_Gaussian(unittest.TestCase):
+class Test_Gaussian:
 
-#     def setUp(self):
-#         sigma = 1.5
-#         center = 15
-#         ampl = 1000
-#         Nbg = 0
-#         self.x = np.linspace(10, 20, 200)
-#         self.y = ampl * np.exp(-0.5*(self.x-center)**2/(sigma**2))
+    @pytest.fixture(autouse=True)
+    def setUp(self):
+        sigma = 1.5
+        self.fwhm = sigma*(8*np.log(2))**0.5
+        self.center = 15
+        self.integral = 1000
+        Nbg = 0
+        self.x = np.linspace(10, 20, 200)
+        self.y = np.exp(-0.5*(self.x-self.center)**2/(sigma**2))
+        self.y *= self.integral/self.y.sum()
 
-#         line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", self.x, 0, 0)
-#         line.linetype = "Gaussian"
-#         model = line.model()
-#         params = model.guess(self.y, bin_centers=self.x)
-#         params["fwhm"].set(2.3548*sigma)
-#         params["background"].set(Nbg/len(self.y))
-#         resultG = model.fit(self.y, params, bin_centers=self.x)
-#         resultG.plotm()
-#         # self.params = [2.3548*sigma, center, ampl, 0.1, 0, 1e-9, 10]
-#         # self.rng = np.random.default_rng(94)
-#         # self.obs = np.array([self.rng.poisson(lam=y0) for y0 in self.y])
-#         # self.fitter = mass.calibration.GaussianFitter()
+        line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", self.center, 0, 0)
+        line.linetype = "Gaussian"
+        self.model = line.model()
+        self.params = self.model.guess(self.y, bin_centers=self.x)
+        self.params["fwhm"].set(2.3548*sigma)
+        self.params["background"].set(Nbg/len(self.y))
 
-#     def test_failed_fit(self):
-#         # pass nans
-#         param, covar = self.fitter.fit(
-#             np.array([np.nan]*len(self.obs)), self.x, self.params, plot=True)
-#         self.assertFalse(self.fitter.fit_success)
-#         self.assertTrue(np.isnan(self.fitter.last_fit_params[0]))
-#         self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][0]))
-#         self.assertTrue(np.isnan(self.fitter.last_fit_params_dict["peak_ph"][1]))
-#         self.assertTrue(isinstance(self.fitter.failed_fit_exception, Exception))
-#         self.assertTrue(all([self.params[i] == self.fitter.failed_fit_params[i]
-#                              for i in range(len(self.params))]))
+    def test_fit(self):
+        result = self.model.fit(self.y, self.params, bin_centers=self.x)
+        param = result.best_values
+        assert result.success
+        assert param["fwhm"] == approx(self.fwhm, abs=1)
+        assert param["peak_ph"] == approx(self.center, abs=1)
+        assert param["integral"] == approx(self.integral, abs=1)
 
-#     def test_fit(self):
-#         self.fitter.phscale_positive = True
-#         param, covar = self.fitter.fit(self.obs, self.x, self.params, plot=True)
-#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian1.pdf"))
-#         self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
-#         self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
-#         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
-#         self.assertAlmostEqual(param[0], self.fitter.last_fit_params_dict["resolution"][0], 1)
-#         self.assertAlmostEqual(param[1], self.fitter.last_fit_params_dict["peak_ph"][0], 1)
-#         self.assertAlmostEqual(param[2], self.fitter.last_fit_params_dict["amplitude"][0], 1)
-#         self.assertTrue(self.fitter.fit_success)
+    def test_fit_offset(self):
+        self.params["peak_ph"].set(0)
+        result = self.model.fit(self.y, self.params, bin_centers=self.x-self.center)
+        param = result.best_values
+        assert result.success
+        assert param["fwhm"] == approx(self.fwhm, abs=1)
+        assert param["peak_ph"] == approx(0, abs=1)
+        assert param["integral"] == approx(self.integral, abs=1)
 
-#     def test_fit_offset(self):
-#         center = self.params[1]
-#         self.fitter.phscale_positive = False
-#         guess = np.array(self.params)
-#         guess[1] = 0
-#         param, covar = self.fitter.fit(self.obs, self.x-center, guess, plot=True)
-#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian2.pdf"))
-#         self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
-#         self.assertAlmostEqual(param[1], 0, 1)  # Center
-#         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
-#         self.assertTrue(self.fitter.fit_success)
+    def test_fit_zero_bg(self):
+        self.params["peak_ph"].set(self.center)
+        self.params["background"].set(0)
+        result = self.model.fit(self.y, self.params, bin_centers=self.x)
+        param = result.best_values
+        assert result.success
+        assert param["fwhm"] == approx(self.fwhm, abs=1)
+        assert param["peak_ph"] == approx(self.center, abs=1)
+        assert param["integral"] == approx(self.integral, abs=1)
 
-#     def test_fit_zero_bg(self):
-#         param_guess = self.params[:]
-#         param_guess[self.fitter.param_meaning["background"]] = 0
-#         self.fitter.phscale_positive = True
-#         param, covar = self.fitter.fit(self.obs, self.x, param_guess, plot=True)
-#         plt.savefig(os.path.join(tempfile.gettempdir(), "testfit_gaussian1.pdf"))
-#         self.assertAlmostEqual(param[0], self.params[0], 1)  # FWHM
-#         self.assertAlmostEqual(param[1], self.params[1], 1)  # Center
-#         self.assertAlmostEqual(param[2]/self.params[2], 1, 1)  # Amplitude
+    def test_negative_background_issue126(self):
+        """This fit gives negative BG in all bins before the fix of issue #126."""
+        obs = np.exp(-0.5*(self.x-self.center)**2/(self.fwhm/2.3548)**2) + 0
+        result = self.model.fit(obs, self.params, bin_centers=self.x)
+        param = result.best_values
+        assert result.success
+        bg_bin0 = param["background"]
+        bg_binEnd = bg_bin0 + (len(self.x)-1)*param["bg_slope"]
+        assert bg_bin0 >= 0
+        assert bg_binEnd >= 0
 
-#     def test_negative_background_issue126(self):
-#         """This fit gives negative BG in all bins before the fix of issue #126."""
-#         obs = np.exp(-0.5*(self.x-self.params[1])**2/(self.params[0]/2.3548)**2) + 0
-#         param, covar = self.fitter.fit(obs, self.x, self.params, plot=True)
-#         bg_bin0 = self.fitter.last_fit_params[-4]
-#         bg_binEnd = bg_bin0 + (len(self.x)-1)*self.fitter.last_fit_params[-3]
-#         self.assertTrue(bg_bin0 >= 0)
-#         self.assertTrue(bg_binEnd >= 0)
+    # @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
+    # def test_wide_bins_issue162(self):
+    #     """Does Gaussian fit give unbiased width when bin width = Gaussian width?
 
-#     @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
-#     def test_wide_bins_issue162(self):
-#         """Does Gaussian fit give unbiased width when bin width = Gaussian width?
+    #     Fit where bins and Gaussian have approximately equal width is biased. It
+    #     used to overestimate the Gaussian's width, as shown in issue 162.
+    #     Test that it's been fixed."""
+    #     for fwhm in [0.7, 1.0, 1.5]:
+    #         sigma = fwhm/2.3548
+    #         nsim = 30
+    #         N = 10000
+    #         w = np.zeros(nsim, dtype=float)
+    #         for i in range(nsim):
+    #             x = self.rng.standard_normal(N)*sigma
+    #             c, b = np.histogram(x, 100, [-50, 50])
+    #             param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
+    #                                            plot=False, hold=(3, 4, 5, 6))
+    #             w[i] = param[0]
+    #         typical_width = mass.robust.trimean(w)
+    #         self.assertLess(typical_width/fwhm, 1.05)  # was typically ~1.18 before fix
 
-#         Fit where bins and Gaussian have approximately equal width is biased. It
-#         used to overestimate the Gaussian's width, as shown in issue 162.
-#         Test that it's been fixed."""
-#         for fwhm in [0.7, 1.0, 1.5]:
-#             sigma = fwhm/2.3548
-#             nsim = 30
-#             N = 10000
-#             w = np.zeros(nsim, dtype=float)
-#             for i in range(nsim):
-#                 x = self.rng.standard_normal(N)*sigma
-#                 c, b = np.histogram(x, 100, [-50, 50])
-#                 param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
-#                                                plot=False, hold=(3, 4, 5, 6))
-#                 w[i] = param[0]
-#             typical_width = mass.robust.trimean(w)
-#             self.assertLess(typical_width/fwhm, 1.05)  # was typically ~1.18 before fix
+    # @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
+    # def test_numerical_integration(self):
+    #     """Test that the integrate_n_points argument works as expected."""
+    #     fwhm = 1.0
+    #     sigma = fwhm/2.3548
+    #     nsim = 30
+    #     N = 10000
+    #     for npoints in (1, 3, 5, 7):
+    #         w = np.zeros(nsim, dtype=float)
+    #         for i in range(nsim):
+    #             x = self.rng.standard_normal(N)*sigma
+    #             c, b = np.histogram(x, 100, [-50, 50])
+    #             param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
+    #                                            plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
+    #             w[i] = param[0]
+    #         typical_width = mass.robust.trimean(w)
+    #         if npoints > 1:
+    #             self.assertLess(typical_width/fwhm, 1.05)
+    #         self.assertAlmostEqual(typical_width/fwhm, 1.0, delta=1.0)
 
-#     @pytest.mark.filterwarnings("ignore:Ill-conditioned matrix")
-#     def test_numerical_integration(self):
-#         """Test that the integrate_n_points argument works as expected."""
-#         fwhm = 1.0
-#         sigma = fwhm/2.3548
-#         nsim = 30
-#         N = 10000
-#         for npoints in (1, 3, 5, 7):
-#             w = np.zeros(nsim, dtype=float)
-#             for i in range(nsim):
-#                 x = self.rng.standard_normal(N)*sigma
-#                 c, b = np.histogram(x, 100, [-50, 50])
-#                 param, covar = self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25],
-#                                                plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
-#                 w[i] = param[0]
-#             typical_width = mass.robust.trimean(w)
-#             if npoints > 1:
-#                 self.assertLess(typical_width/fwhm, 1.05)
-#             self.assertAlmostEqual(typical_width/fwhm, 1.0, delta=1.0)
-
-#         for npoints in (-5, 0, 2):
-#             with pytest.raises(ValueError):
-#                 self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25], rethrow=True,
-#                                 plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
+    #     for npoints in (-5, 0, 2):
+    #         with pytest.raises(ValueError):
+    #             self.fitter.fit(c, b, [fwhm, 0, c.max(), 0, 0, 0, 25], rethrow=True,
+    #                             plot=False, hold=(3, 4, 5, 6), integrate_n_points=npoints)
 
 
 # class Test_MnKA(unittest.TestCase):
