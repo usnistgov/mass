@@ -5,7 +5,6 @@ Created on Jan 13, 2012
 
 @author: fowlerj
 '''
-import unittest
 import pytest
 from pytest import approx
 import mass
@@ -277,9 +276,10 @@ class Test_ratio_weighted_averages:
 #             self.generate_and_fit_data(3000, fwhm, nbins, N_bg)
 
 
-class Test_fit_kink(unittest.TestCase):
+class Test_fit_kink:
     """Test the mass.mathstat.fitting.fit_kink_model() function."""
 
+    @pytest.fixture(autouse=True)
     def setUp(self):
         x = np.arange(10, dtype=float)
         y = np.array(x)
@@ -291,36 +291,36 @@ class Test_fit_kink(unittest.TestCase):
 
     def test_noisless_fit(self):
         """Make sure fit_kink_model gets very close to exact answer without noise."""
-        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
+        _, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
             self.x, self.y, kbounds=(3, 6))
-        self.assertLessEqual(X2, 1e-8)
-        self.assertLessEqual(abs(kbest-self.truek), 1e-5)
-        self.assertLessEqual(abs(a-self.truek), 1e-5)
-        self.assertLessEqual(abs(b-1), 1e-5)
-        self.assertLessEqual(abs(c), 1e-5)
+        assert X2 < 1e-8
+        assert abs(kbest-self.truek) < 1e-5
+        assert abs(a-self.truek) < 1e-5
+        assert abs(b-1) < 1e-5
+        assert abs(c) < 1e-5
 
     def test_noisless_fit_no_bounds(self):
         """Make sure fit_kink_model gets very close to exact answer without noise and
         using maximal bounds."""
-        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
+        _, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
             self.x, self.y, kbounds=None)
-        self.assertLessEqual(X2, 1e-8)
-        self.assertLessEqual(abs(kbest-self.truek), 1e-5)
-        self.assertLessEqual(abs(a-self.truek), 1e-5)
-        self.assertLessEqual(abs(b-1), 1e-5)
-        self.assertLessEqual(abs(c), 1e-5)
+        assert X2 < 1e-8
+        assert abs(kbest-self.truek) < 1e-5
+        assert abs(a-self.truek) < 1e-5
+        assert abs(b-1) < 1e-5
+        assert abs(c) < 1e-5
 
     def test_noisy_fit(self):
         """Make sure fit_kink_model gets close enough to exact answer with noise."""
         rng = np.random.default_rng(9090)
         noisy_y = self.y + rng.standard_normal(len(self.x))*.2
-        model, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
+        _, (kbest, a, b, c), X2 = mass.mathstat.fitting.fit_kink_model(
             self.x, noisy_y, kbounds=(3, 6))
-        self.assertLessEqual(X2, 1.0)
-        self.assertLessEqual(abs(kbest-self.truek), 0.3)
-        self.assertLessEqual(abs(a-self.truek), 0.3)
-        self.assertLessEqual(abs(b-1), 0.1)
-        self.assertLessEqual(abs(c), 0.1)
+        assert X2 < 1.0
+        assert abs(kbest-self.truek) < 0.3
+        assert abs(a-self.truek) < 0.3
+        assert abs(b-1) < 0.1
+        assert abs(c) < 0.1
 
 
 def Test_Issue_125():
@@ -351,7 +351,3 @@ def Test_Issue_125():
     params["background"].set(20.0)
     params["tail_frac"].set(.1)
     _ = model.fit(contents, params, bin_centers=e)
-
-
-if __name__ == "__main__":
-    unittest.main()
