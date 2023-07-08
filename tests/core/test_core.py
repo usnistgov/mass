@@ -182,11 +182,14 @@ class TestTESGroup:
         # In this case, START should not be a valid state, but funstate will have Only
         # 252 of the 300 records valid because of their timestamps.
         esf = "tests/regression_test/regress_experiment_state_v2.txt"
-        # This test fails unless we put its hdf5 files in a new directory. (We could probably
-        # just delete the old ones, but this is easier.)
-        newdir = tmp_path / "new_subdir"
-        newdir.mkdir()
-        data = self.load_data(experimentStateFile=esf, hdf5dir=newdir)
+
+        # This test fails unless we remove its HDF5 files, so do that.
+        del ds
+        del data
+        for h5file in tmp_path.glob("*.hdf5"):
+            h5file.unlink()
+
+        data = self.load_data(experimentStateFile=esf, hdf5dir=tmp_path)
         data.summarize_data()
         assert data.n_good_channels() == 1
         ds = data.channel[1]
