@@ -238,16 +238,17 @@ class TestMnKA_fitter:
             "background": (bg, 60*n**-0.5),
         }
         for k, (val, err) in expect.items():
+            allowed_err = err
             if vary_tail and k == "background":
-                err *= 10
+                allowed_err *= 10
             if vary_bg_slope:
-                err *= 10
+                allowed_err *= 10
 
             print(k, result.params[k])
             if not vary_bg_slope and not k.startswith("b"):
-                assert val == approx(result.params[k].value, abs=2*err)
+                assert val == approx(result.params[k].value, abs=2*allowed_err)
             if not vary_tail and not vary_bg_slope and not k.startswith("b"):
-                assert err == approx(result.params[k].stderr, abs=0.5*err)
+                assert err == approx(result.params[k].stderr, abs=0.5*allowed_err)
 
     def test_MnKA_lmfit(self):
         self.rng = np.random.default_rng(154)
