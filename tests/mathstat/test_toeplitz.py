@@ -9,19 +9,19 @@ J. Fowler, NIST
 March 30, 2011
 """
 
+import pytest
 from mass.mathstat.toeplitz import ToeplitzSolver
 import numpy as np
 from scipy import linalg
 import time
-import unittest
 
 rng = np.random.default_rng()
 
 
-class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
+class TestToeplitzSolverSmallSymmetric:
     """Test ToeplitzSolver on a 5x5 symmetric matrix."""
 
-    def setUp(self):
+    def setup_method(self):
         self.autocorr = np.array((6., 4., 2., 1., 0.))
         self.n = len(self.autocorr)
         self.solver = ToeplitzSolver(self.autocorr, symmetric=True)
@@ -34,7 +34,7 @@ class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
-            self.assertAlmostEqual(0, big_dif, 12)
+            assert 0 == pytest.approx(big_dif, abs=1e-12)
 
     def test_arb_vectors(self):
         for _i in range(self.n):
@@ -42,13 +42,13 @@ class TestToeplitzSolverSmallSymmetric(unittest.TestCase):
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
-            self.assertAlmostEqual(0, big_dif, 12)
+            assert 0 == pytest.approx(big_dif, abs=1e-12)
 
 
-class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
+class TestToeplitzSolverSmallAsymmetric:
     """Test ToeplitzSolver on a 5x5 non-symmetric matrix."""
 
-    def setUp(self):
+    def setup_method(self):
         self.autocorr = np.asarray((-1, -2, 0, 3, 6., 4., 2., 1., 0.))
         self.n = (len(self.autocorr) + 1) // 2
         self.solver = ToeplitzSolver(self.autocorr, symmetric=False)
@@ -61,7 +61,7 @@ class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
-            self.assertAlmostEqual(0, big_dif, 12)
+            assert 0 == pytest.approx(big_dif, abs=1e-12)
 
     def test_arb_vectors(self):
         for _i in range(self.n):
@@ -69,13 +69,13 @@ class TestToeplitzSolverSmallAsymmetric(unittest.TestCase):
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
-            self.assertAlmostEqual(0, big_dif, 12)
+            assert 0 == pytest.approx(big_dif, abs=1e-12)
 
 
-class TestToeplitzSolver_32(unittest.TestCase):
+class TestToeplitzSolver_32:
     """Test ToeplitzSolver on a 32x32 symmetric matrix."""
 
-    def setUp(self):
+    def setup_method(self):
         self.n = 32
         t = np.arange(self.n)
         t[0] = 1
@@ -94,14 +94,13 @@ class TestToeplitzSolver_32(unittest.TestCase):
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
-            self.assertAlmostEqual(
-                0, big_dif, 10, msg='Unit vector trial i=%2d gives x_out=%s' % (i, x_out))
+            assert 0 == pytest.approx(big_dif, abs=1e-10), f'Unit vector trial i={i:2d} gives x_out={x_out}'
 
 
-class TestToeplitzSolver_512(unittest.TestCase):
+class TestToeplitzSolver_512:
     """Test ToeplitzSolver on a 512x512 symmetric matrix."""
 
-    def setUp(self):
+    def setup_method(self):
         self.n = 512
         t = np.arange(self.n)
         self.autocorr = 1.0+3.2*np.exp(-t/100.)
@@ -116,8 +115,7 @@ class TestToeplitzSolver_512(unittest.TestCase):
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
-            self.assertAlmostEqual(
-                0, big_dif, 10, msg='Unit vector trial i=%2d gives x_out=%s' % (i, x_out))
+            assert 0 == pytest.approx(big_dif, abs=1e-10), f'Unit vector trial i={i:2d} gives x_out={x_out}'
 
     def test_arb_vectors(self):
         for _i in range(5):
@@ -125,8 +123,8 @@ class TestToeplitzSolver_512(unittest.TestCase):
             y = np.dot(self.R, x_in)
             x_out = self.solver(y)
             big_dif = np.abs(x_out-x_in).max()
-            self.assertAlmostEqual(0, big_dif, 10,
-                                   msg='Random vector trial gives rms diff=%sf' % (x_out-x_in).std())
+            assert 0 == pytest.approx(big_dif, abs=1e-10), \
+                f'Random vector trial gives rms diff={(x_out-x_in).std()}'
 
 
 class toeplitzSpeed:
@@ -208,7 +206,3 @@ class toeplitzSpeed:
         plt.ylabel('Time (sec)')
         plt.grid()
         plt.loglog()
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -4,7 +4,6 @@ import os
 import os.path
 import shutil
 import tempfile
-import unittest as ut
 import pytest
 
 import mass
@@ -15,7 +14,7 @@ import logging
 LOG = logging.getLogger("mass")
 
 
-class TestFiles(ut.TestCase):
+class TestFiles:
 
     def test_ljh_copy_and_append_traces(self):
         """Test copying and appending traces to LJH files."""
@@ -27,26 +26,26 @@ class TestFiles(ut.TestCase):
             ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
             dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
-                self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+                assert np.all(src.read_trace(st) == dest.read_trace(i))
 
             source_traces = [0, 30, 20, 10]
             ljh_copy_traces(src_name, dest_name, source_traces, overwrite=True)
             dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
-                self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+                assert np.all(src.read_trace(st) == dest.read_trace(i))
 
             source_traces.append(5)
             ljh_append_traces(src_name, dest_name, [5])
             dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
-                self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+                assert np.all(src.read_trace(st) == dest.read_trace(i))
 
             new_traces = [15, 25, 3]
             source_traces.extend(new_traces)
             ljh_append_traces(src_name, dest_name, new_traces)
             dest = LJHFile.open(dest_name)
             for i, st in enumerate(source_traces):
-                self.assertTrue(np.all(src.read_trace(st) == dest.read_trace(i)))
+                assert np.all(src.read_trace(st) == dest.read_trace(i))
 
     def test_ljh_truncate_wrong_format(self):
         # First a file using LJH format 2.1.0 - should raise an exception
@@ -56,7 +55,7 @@ class TestFiles(ut.TestCase):
 
             def func():
                 ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054*500)
-            self.assertRaises(Exception, func)
+            pytest.raises(Exception, func)
 
     def run_test_ljh_truncate_timestamp(self, src_name, n_pulses_expected, timestamp, segmentsize):
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
@@ -65,11 +64,11 @@ class TestFiles(ut.TestCase):
 
             src = LJHFile.open(src_name)
             dest = LJHFile.open(dest_name)
-            self.assertEqual(n_pulses_expected, dest.nPulses)
+            assert n_pulses_expected == dest.nPulses
             for k in range(n_pulses_expected):
-                self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
-                self.assertEqual(src.rowcount[k], dest.rowcount[k])
-                self.assertAlmostEqual(src.datatimes_float[k], dest.datatimes_float[k], 5)
+                assert np.all(src.read_trace(k) == dest.read_trace(k))
+                assert src.rowcount[k] == dest.rowcount[k]
+                assert src.datatimes_float[k] == pytest.approx(dest.datatimes_float[k], abs=1e-5)
 
     def run_test_ljh_truncate_n_pulses(self, src_name, n_pulses, segmentsize):
         # Tests with a file with 1230 pulses, each 1016 bytes long
@@ -79,11 +78,11 @@ class TestFiles(ut.TestCase):
 
             src = LJHFile.open(src_name)
             dest = LJHFile.open(dest_name)
-            self.assertEqual(n_pulses, dest.nPulses)
+            assert n_pulses == dest.nPulses
             for k in range(n_pulses):
-                self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
-                self.assertEqual(src.rowcount[k], dest.rowcount[k])
-                self.assertAlmostEqual(src.datatimes_float[k], dest.datatimes_float[k], 5)
+                assert np.all(src.read_trace(k) == dest.read_trace(k))
+                assert src.rowcount[k] == dest.rowcount[k]
+                assert src.datatimes_float[k] == pytest.approx(dest.datatimes_float[k], abs=1e-5)
 
     def test_ljh_truncate_n_pulses(self):
         # Want to make sure that we didn't screw something up with the
@@ -123,37 +122,26 @@ class TestFiles(ut.TestCase):
             d.summarize_data()
         ds1 = data1.channel[1]
         ds2 = data2.channel[1]
-        self.assertTrue(b"MATTER" in ds1.pulse_records.datafile.client)
-        self.assertTrue(b"DASTARD" in ds2.pulse_records.datafile.client)
-        self.assertEqual(int(ds1.pulse_records.datafile.header_dict[b"Presamples"]), 512)
-        self.assertEqual(int(ds2.pulse_records.datafile.header_dict[b"Presamples"]), 515)
-        self.assertEqual(515, ds1.nPresamples)  # b/c LJHFile2_1 adds +3 to what's in the file
-        self.assertEqual(515, ds2.nPresamples)
+        assert b"MATTER" in ds1.pulse_records.datafile.client
+        assert b"DASTARD" in ds2.pulse_records.datafile.client
+        assert int(ds1.pulse_records.datafile.header_dict[b"Presamples"]) == 512
+        assert int(ds2.pulse_records.datafile.header_dict[b"Presamples"]) == 515
+        assert 515 == ds1.nPresamples# b/c LJHFile2_1 adds +3 to what's in the file
+        assert 515 == ds2.nPresamples
         v1 = ds1.data[0]
         v2 = ds2.data[0]
-        self.assertTrue((v1 == v2).all())
-        self.assertEqual(ds1.p_pretrig_mean[0], ds2.p_pretrig_mean[0])
-        self.assertEqual(ds1.p_pretrig_rms[0], ds2.p_pretrig_rms[0])
-        self.assertEqual(ds1.p_pulse_average[0], ds2.p_pulse_average[0])
+        assert (v1 == v2).all()
+        assert ds1.p_pretrig_mean[0] == ds2.p_pretrig_mean[0]
+        assert ds1.p_pretrig_rms[0] == ds2.p_pretrig_rms[0]
+        assert ds1.p_pulse_average[0] == ds2.p_pulse_average[0]
 
     def test_ragged_size_file(self):
         "Make sure we can open a file that was truncated during a pulse record."
         mass.LJHFile.open("tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh")
 
 
-class TestTESGroup(ut.TestCase):
+class TestTESGroup:
     """Basic tests of the TESGroup object."""
-
-    def __init__(self, methodName="runTest"):
-        super().__init__(methodName=methodName)
-        self.__files_to_clean_up__ = []
-
-    def __del__(self):
-        for f in self.__files_to_clean_up__:
-            os.unlink(f)
-
-    def clean_up_later(self, filename):
-        self.__files_to_clean_up__.append(filename)
 
     def load_data(self, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
                   experimentStateFile=None):
@@ -162,13 +150,11 @@ class TestTESGroup(ut.TestCase):
         if skip_noise:
             noi_name = None
         if hdf5_filename is None:
-            hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5', delete=False)
-            hdf5_filename = hdf5_file.name
-            self.clean_up_later(hdf5_filename)
+            self.hdf5_file = tempfile.NamedTemporaryFile(suffix=".hdf5")
+            hdf5_filename = self.hdf5_file.name
         if hdf5_noisefilename is None:
-            hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5', delete=False)
-            hdf5_noisefilename = hdf5_noisefile.name
-            self.clean_up_later(hdf5_noisefilename)
+            self.hdf5_noisefile = tempfile.NamedTemporaryFile(suffix=".hdf5")
+            hdf5_noisefilename = self.hdf5_noisefile.name
         return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
                              hdf5_noisefilename=hdf5_noisefilename,
                              experimentStateFile=experimentStateFile)
@@ -178,8 +164,8 @@ class TestTESGroup(ut.TestCase):
         data = self.load_data()
         ds = data.channel[1]
         ds.summarize_data(forceNew=True)
-        self.assertTrue(np.all(ds.p_pretrig_mean[:] > 0))
-        self.assertTrue(np.all(ds.p_pulse_rms[:] > 0))
+        assert np.all(ds.p_pretrig_mean[:] > 0)
+        assert np.all(ds.p_pulse_rms[:] > 0)
 
     def test_experiment_state(self):
         # First test with the default experimentStateFile
@@ -188,9 +174,9 @@ class TestTESGroup(ut.TestCase):
         data = self.load_data()
         data.summarize_data()
         # The following fails until issue 225 is fixed.
-        self.assertEqual(data.n_good_channels(), 1)
+        assert data.n_good_channels() == 1
         ds = data.channel[1]
-        self.assertEqual(len(ds.good(state="START")), 300)
+        assert len(ds.good(state="START")) == 300
 
         # Next test with an experimentStateFile that has a nontrivial state "funstate".
         # In this case, START should not be a valid state, but funstate will have Only
@@ -198,23 +184,23 @@ class TestTESGroup(ut.TestCase):
         esf = "tests/regression_test/regress_experiment_state_v2.txt"
         data = self.load_data(experimentStateFile=esf)
         data.summarize_data()
-        self.assertEqual(data.n_good_channels(), 1)
+        assert data.n_good_channels() == 1
         ds = data.channel[1]
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             ds.good(state="START")
         nfun = np.sum(ds.good(state="funstate"))
-        self.assertEqual(nfun, 252)
+        assert nfun == 252
 
     def test_nonoise_data(self):
         """Test behavior of a TESGroup without noise data."""
         data = self.load_data(skip_noise=True)
-        with self.assertRaises(AttributeError):
+        with pytest.raises(AttributeError):
             data.channel[1].noise_records
-        with self.assertRaises(Exception):
+        with pytest.raises(Exception):
             data.compute_noise()
         data.summarize_data()
         data.avg_pulses_auto_masks()
-        with self.assertRaises(Exception):
+        with pytest.raises(Exception):
             data.compute_ats_filter()
         data.assume_white_noise()
         data.compute_ats_filter()
@@ -234,7 +220,7 @@ class TestTESGroup(ut.TestCase):
         del data
 
         data2 = self.load_data(hdf5_filename=hdf5_filename, hdf5_noisefilename=hdf5_noisefilename)
-        self.assertNotIn(1, data2.good_channels)
+        assert 1 not in data2.good_channels
         data2.set_chan_good(1)
         LOG.info("Testing printing of a TESGroup")
         LOG.info(data2)
@@ -250,12 +236,12 @@ class TestTESGroup(ut.TestCase):
         data2 = self.load_data(hdf5_filename=data.hdf5_file.filename,
                                hdf5_noisefilename=data.hdf5_noisefile.filename)
         ds2 = data2.first_good_dataset
-        self.assertTrue(all([k in ds.calibration.keys() for k in ds2.calibration.keys()]))
-        self.assertEqual(len(ds.calibration.keys()), 2)
+        assert all([k in ds.calibration.keys() for k in ds2.calibration.keys()])
+        assert len(ds.calibration.keys()) == 2
 
         # These 2 checks test issue #102.
-        self.assertIsNotNone(ds2.peak_samplenumber)
-        self.assertEqual(ds2.peak_samplenumber, ds.peak_samplenumber)
+        assert ds2.peak_samplenumber is not None
+        assert ds2.peak_samplenumber == ds.peak_samplenumber
 
     def test_make_auto_cuts(self):
         """Make sure that non-trivial auto-cuts are generated and reloadable from file."""
@@ -264,14 +250,14 @@ class TestTESGroup(ut.TestCase):
         data.summarize_data()
         data.auto_cuts(forceNew=True, clearCuts=True)
         ngood = ds.cuts.good().sum()
-        self.assertLess(ngood, ds.nPulses)
-        self.assertGreater(ngood, 0)
+        assert ngood < ds.nPulses
+        assert ngood > 0
 
         data2 = self.load_data(hdf5_filename=data.hdf5_file.filename,
                                hdf5_noisefilename=data.hdf5_noisefile.filename)
         for ds in data2:
-            self.assertGreater(ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1], 0.)
-            self.assertGreater(ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1], 0.)
+            assert ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1] > 0.
+            assert ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1] > 0.
 
     def test_auto_cuts_after_others(self):
         """Make sure that non-trivial auto-cuts are generated even if other cuts are made first.
@@ -284,10 +270,10 @@ class TestTESGroup(ut.TestCase):
         arbcut[::30] = True
         ds.cuts.cut("postpeak_deriv", arbcut)
         cuts = ds.auto_cuts(forceNew=False, clearCuts=False)
-        self.assertIsNotNone(cuts, msg="auto_cuts not run after other cuts (issue 147)")
+        assert cuts is not None, "auto_cuts not run after other cuts (issue 147)"
         ngood = ds.good().sum()
-        self.assertLess(ngood, ds.nPulses-arbcut.sum())
-        self.assertGreater(ngood, 0)
+        assert ngood < ds.nPulses-arbcut.sum()
+        assert ngood > 0
 
     def test_plot_filters(self):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
@@ -295,7 +281,7 @@ class TestTESGroup(ut.TestCase):
         data.set_chan_good(1)
         data.summarize_data()
         data.avg_pulses_auto_masks()
-        with self.assertWarns(DeprecationWarning):
+        with pytest.warns(DeprecationWarning):
             data.compute_noise_spectra()
         data.compute_noise()
         data.compute_5lag_filter()  # not enough pulses for ats filters
@@ -324,7 +310,7 @@ class TestTESGroup(ut.TestCase):
 
         ds.invert_data = True
         raw2 = ds.data
-        self.assertTrue(np.all(rawinv == raw2))
+        assert np.all(rawinv == raw2)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self):
@@ -374,24 +360,24 @@ class TestTESGroup(ut.TestCase):
                 ds.filename, hdf5_filename, output_dir, max_channels,
                 n_ignore_presamples, require_experiment_state=False)
             off = mass.off.off.OffFile(off_filenames[0])
-            self.assertTrue(np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:]))
+            assert np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:])
 
             x, y = off.recordXY(0)
 
             with h5py.File(hdf5_filename, "r") as h5:
                 group = h5["1"]
                 pulse_model = mass.PulseModel.fromHDF5(group)
-            self.assertEqual(pulse_model.projectors.shape, (n_basis, ds.nSamples))
-            self.assertEqual(pulse_model.basis.shape, pulse_model.projectors.shape[::-1])
+            assert pulse_model.projectors.shape == (n_basis, ds.nSamples)
+            assert pulse_model.basis.shape == pulse_model.projectors.shape[::-1]
             mpc = pulse_model.projectors.dot(ds.read_trace(0))
-            self.assertTrue(np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc))
+            assert np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc)
 
             should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
             wrongness = np.abs(should_be_identity-np.identity(n_basis))
             # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
             print(wrongness)
             print(np.amax(wrongness))
-            self.assertTrue(np.amax(wrongness) < 0.07)
+            assert np.amax(wrongness) < 0.07
             pulse_model.plot()
 
             # test multi_ljh2off_loop with multiple ljhfiles
@@ -402,12 +388,12 @@ class TestTESGroup(ut.TestCase):
             ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
                 [basename]*2, hdf5_filename, offbase, max_channels,
                 n_ignore_presamples)
-            self.assertEqual(ds.filename, ljh_filename_lists[0][0])
+            assert ds.filename == ljh_filename_lists[0][0]
             off_multi = mass.off.off.OffFile(off_filenames_multi[0])
-            self.assertEqual(2*N, len(off_multi))
-            self.assertEqual(off[7], off_multi[7])
-            self.assertEqual(off[7], off_multi[N+7])
-            self.assertNotEqual(off[7], off_multi[N+6])
+            assert 2*N == len(off_multi)
+            assert off[7] == off_multi[7]
+            assert off[7] == off_multi[N+7]
+            assert off[7] != off_multi[N+6]
 
     def test_ljh_records_to_off(self):
         """Be sure ljh_records_to_off works with ljh files of 2 or more segments."""
@@ -492,15 +478,15 @@ class TestTESGroup(ut.TestCase):
                 ds.good(state="A")
                 ds.good(state="B")
                 ds.good(state="uncategorized")
-                with self.assertRaises(ValueError):
+                with pytest.raises(ValueError):
                     ds.good(state="a state not listed in the file")
             else:
-                with self.assertRaises(ValueError):
+                with pytest.raises(ValueError):
                     ds.good(state="A")
             dir.cleanup()
 
 
-class TestTESHDF5Only(ut.TestCase):
+class TestTESHDF5Only:
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 
     def test_basic_hdf5_only(self):
@@ -529,15 +515,11 @@ class TestTESHDF5Only(ut.TestCase):
             data1 = mass.TESGroup("%s/temporary_chan*.ljh" % dir)
             # Make sure the usual TESGroup is in the right order
             for i, ds in enumerate(data1):
-                self.assertEqual(ds.channum, cnums[i])
+                assert ds.channum == cnums[i]
             fname = data1.hdf5_file.filename
             del data1
 
             # Make sure the usual TESGroup is in the right order
             data = mass.TESGroupHDF5(fname)
             for i, ds in enumerate(data):
-                self.assertEqual(ds.channum, cnums[i])
-
-
-if __name__ == '__main__':
-    ut.main()
+                assert ds.channum == cnums[i]

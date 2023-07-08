@@ -1,8 +1,6 @@
 '''
 Tests for fit_kink_model
 '''
-import pytest
-from pytest import approx
 import mass
 import numpy as np
 
@@ -10,8 +8,7 @@ import numpy as np
 class Test_fit_kink:
     """Test the mass.mathstat.fitting.fit_kink_model() function."""
 
-    @pytest.fixture(autouse=True)
-    def setUp(self):
+    def setup_method(self):
         x = np.arange(10, dtype=float)
         y = np.array(x)
         truek = 4.6

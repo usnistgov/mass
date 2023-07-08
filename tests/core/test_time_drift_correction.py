@@ -1,5 +1,4 @@
 import numpy as np
-import unittest as ut
 
 import mass
 import logging
@@ -35,17 +34,17 @@ def make_drifting_data(distrib, res_fwhm_ev, cps, duration_s, gain_of_t):
     return t, energies
 
 
-class TestTimeDriftCorrection(ut.TestCase):
+class TestTimeDriftCorrection:
 
     def test_make_arrival_times(self):
         for cps in [0.1, 1, 10, 100]:
             for duration_s in [10, 100, 1000, 10000]:
                 t = make_arrival_times(cps, duration_s)
-                self.assertTrue(t[-1] < duration_s)
+                assert t[-1] < duration_s
                 # t should have N=cps*duration_s entries with std deviation sqrt(N)
                 # assert that it is within 10 stdevs
                 Nexpected = cps*duration_s
-                self.assertTrue(np.abs(len(t)-Nexpected) < 10*np.sqrt(Nexpected))
+                assert np.abs(len(t)-Nexpected) < 10*np.sqrt(Nexpected)
 
     def gain_of_t(self, t):
         return 1+0.005*np.sin(2*np.pi*t/10000.)
@@ -58,7 +57,3 @@ class TestTimeDriftCorrection(ut.TestCase):
 
         t, energy = make_drifting_data(distrib, res_fwhm_ev, cps, duration_s,
                                        self.gain_of_t)
-
-
-if __name__ == '__main__':
-    ut.main()

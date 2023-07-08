@@ -3,7 +3,6 @@ import numpy as np
 import glob
 import os
 import tempfile
-import unittest as ut
 import pytest
 
 import mass
@@ -46,10 +45,10 @@ def process_file(prefix, cuts, do_filter=True):
     return data
 
 
-class TestFilters(ut.TestCase):
+class TestFilters:
     """Test optimal filtering."""
 
-    def setUp(self):
+    def setup_method(self):
         cuts = mass.core.controller.AnalysisControl(
             pulse_average=(0.0, None),
             pretrigger_rms=(None, 70),
@@ -61,7 +60,7 @@ class TestFilters(ut.TestCase):
         )
         self.data = process_file("regress", cuts, do_filter=False)
 
-    def tearDown(self):
+    def teardown_method(self):
         self.data.hdf5_file.close()
         self.data.hdf5_noisefile.close()
 
@@ -81,10 +80,10 @@ class TestFilters(ut.TestCase):
         expected = {"ats": 461.57, "5lag": 456.7}[filter_type]
         for ds in data:
             f = ds.filter
-            self.assertIn("noconst", f.variances)
-            self.assertIn("noconst", f.predicted_v_over_dv)
-            self.assertAlmostEqual(f.variances["noconst"], 8.46e-7, delta=3e-8)
-            self.assertAlmostEqual(f.predicted_v_over_dv["noconst"], expected, delta=0.3)
+            assert "noconst" in f.variances
+            assert "noconst" in f.predicted_v_over_dv
+            assert f.variances["noconst"] == pytest.approx(8.46e-7, abs=3e-8)
+            assert f.predicted_v_over_dv["noconst"] == pytest.approx(expected, abs=0.3)
 
     def test_vdv_5lag_filters(self):
         """Make sure old filters have a v/dv"""
@@ -98,7 +97,7 @@ class TestFilters(ut.TestCase):
         """Make sure filters can be reloaded, whether new or old-style."""
         self.filter_summaries(filter_type=filter_type)
         ds = self.data.channel[1]
-        self.assertEqual(filter_type, ds._filter_type)
+        assert filter_type == ds._filter_type
         filter1 = ds.filter
 
         pf = ds.filename
@@ -114,11 +113,11 @@ class TestFilters(ut.TestCase):
         self.verify_filters(data2, filter_type)
         ds = data2.channel[1]
         filter2 = ds.filter
-        self.assertEqual(filter_type, ds._filter_type)
-        self.assertEqual(type(filter1), type(filter2))
+        assert filter_type == ds._filter_type
+        assert type(filter1) == type(filter2)
         if filter_type == "ats":
             for ds in self.data:
-                self.assertIsNotNone(ds.filter.filt_aterms)
+                assert ds.filter.filt_aterms is not None
         data2.hdf5_file.close()
         data2.hdf5_noisefile.close()
 
@@ -141,13 +140,13 @@ class TestFilters(ut.TestCase):
         ds.cuts.cut("temporary", c)
         ds.compute_ats_filter(f_3db=5000)
         f = ds.filter.filt_noconst
-        self.assertFalse(np.any(np.isnan(f)))
+        assert not np.any(np.isnan(f))
 
         # Now un-do the temporary cut and re-build the filter
         c = np.zeros(ds.nPulses, dtype=bool)
         ds.cuts.cut("temporary", c)
         ds.compute_ats_filter(f_3db=5000)
-        self.assertFalse(np.any(np.isnan(f)))
+        assert not np.any(np.isnan(f))
 
     def test_long_filter(self):
         """Be sure we can save and restore a long filter. See issue #208."""
@@ -188,7 +187,7 @@ class TestFilters(ut.TestCase):
         ds.compute_ats_filter(f_3db=5000)
         NP = 50
         d = np.array(ds.data[:NP, 1:])  # NP pulses, cutting first sample
-        self.assertIsNotNone(ds.filter.filt_noconst)
+        assert ds.filter.filt_noconst is not None
 
         # Test that filters actually have zero weight where they are supposed to.
         PREMAX, POSTMAX = 50, 200
@@ -204,7 +203,7 @@ class TestFilters(ut.TestCase):
                 if post > 0:
                     d2[:, -post:] = np.random.default_rng().standard_normal((NP, post))
                 resultsB = np.dot(d2, f)
-                self.assertTrue(np.allclose(resultsA, resultsB))
+                assert np.allclose(resultsA, resultsB)
 
         # Test that filters are the same whether made from short or long pulse models,
         # at least after they are forced to be the same size.
@@ -226,7 +225,7 @@ class TestFilters(ut.TestCase):
 
                 filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
                 fL = filterL.filt_noconst[cut_pre:N-cut_post]
-                self.assertTrue(np.allclose(fS, fL))
+                assert np.allclose(fS, fL)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_dc_insensitive(self):
@@ -255,52 +254,49 @@ class TestFilters(ut.TestCase):
             test_filter.compute(f_3db=None, fmax=None)
             std = np.median(np.abs(test_filter.filt_noconst))
             mean = test_filter.filt_noconst.mean()
-            self.assertLess(
-                mean, 1e-10*std, msg=f"{test_filter.name} failed DC test w/o lowpass")
+            assert mean < 1e-10*std, f"{test_filter.name} failed DC test w/o lowpass"
 
             test_filter.compute(f_3db=1e4, fmax=None)
             mean = test_filter.filt_noconst.mean()
-            self.assertLess(
-                mean, 1e-10*std, msg=f"{test_filter.name} failed DC test w/ f_3db")
+            assert mean < 1e-10*std, f"{test_filter.name} failed DC test w/ f_3db"
 
             test_filter.compute(f_3db=None, fmax=1e4)
             mean = test_filter.filt_noconst.mean()
-            self.assertLess(
-                mean, 1e-10*std, msg=f"{test_filter.name} failed DC test w/ fmax")
+            assert mean < 1e-10*std, f"{test_filter.name} failed DC test w/ fmax"
 
 
-class TestWhitener(ut.TestCase):
+class TestWhitener:
     """Test ToeplitzWhitener."""
 
     def test_trivial(self):
         """Be sure that the trivial whitener does nothing."""
         w = mass.ToeplitzWhitener([1.0], [1.0])  # the trivial whitener
         r = np.random.default_rng().standard_normal(100)
-        self.assertTrue(np.allclose(r, w(r)))
-        self.assertTrue(np.allclose(r, w.solveW(r)))
-        self.assertTrue(np.allclose(r, w.applyWT(r)))
-        self.assertTrue(np.allclose(r, w.solveWT(r)))
+        assert np.allclose(r, w(r))
+        assert np.allclose(r, w.solveW(r))
+        assert np.allclose(r, w.applyWT(r))
+        assert np.allclose(r, w.solveWT(r))
 
     def test_reversible(self):
         """Use a nontrivial whitener, and make sure that inverse operations are inverses."""
         w = mass.ToeplitzWhitener([1.0, -1.7, 0.72], [1.0, .95])
         r = np.random.default_rng().standard_normal(100)
-        self.assertTrue(np.allclose(r, w.solveW(w(r))))
-        self.assertTrue(np.allclose(r, w(w.solveW(r))))
-        self.assertTrue(np.allclose(r, w.solveWT(w.applyWT(r))))
-        self.assertTrue(np.allclose(r, w.applyWT(w.solveWT(r))))
+        assert np.allclose(r, w.solveW(w(r)))
+        assert np.allclose(r, w(w.solveW(r)))
+        assert np.allclose(r, w.solveWT(w.applyWT(r)))
+        assert np.allclose(r, w.applyWT(w.solveWT(r)))
 
         # Also check that w isn't trivial
-        self.assertFalse(np.allclose(r, w(r)))
-        self.assertFalse(np.allclose(r, w.solveW(r)))
-        self.assertFalse(np.allclose(r, w.applyWT(r)))
-        self.assertFalse(np.allclose(r, w.solveWT(r)))
+        assert not np.allclose(r, w(r))
+        assert not np.allclose(r, w.solveW(r))
+        assert not np.allclose(r, w.applyWT(r))
+        assert not np.allclose(r, w.solveWT(r))
 
         # Check that no operations applied twice cancel out.
-        self.assertFalse(np.allclose(r, w(w(r))))
-        self.assertFalse(np.allclose(r, w.solveW(w.solveW(r))))
-        self.assertFalse(np.allclose(r, w.applyWT(w.applyWT(r))))
-        self.assertFalse(np.allclose(r, w.solveWT(w.solveWT(r))))
+        assert not np.allclose(r, w(w(r)))
+        assert not np.allclose(r, w.solveW(w.solveW(r)))
+        assert not np.allclose(r, w.applyWT(w.applyWT(r)))
+        assert not np.allclose(r, w.solveWT(w.solveWT(r)))
 
     def test_causal(self):
         """Make sure that the whitener and its inverse are causal,
@@ -313,21 +309,17 @@ class TestWhitener(ut.TestCase):
         # Applying and solving W are causal operations.
         wr = w(r)
         wir = w.solveW(r)
-        self.assertTrue(np.all(r[:Nzero] == 0))
-        self.assertTrue(np.all(wr[:Nzero] == 0))
-        self.assertTrue(np.all(wir[:Nzero] == 0))
-        self.assertFalse(np.all(wr[Nzero:] == 0))
-        self.assertFalse(np.all(wir[Nzero:] == 0))
+        assert np.all(r[:Nzero] == 0)
+        assert np.all(wr[:Nzero] == 0)
+        assert np.all(wir[:Nzero] == 0)
+        assert not np.all(wr[Nzero:] == 0)
+        assert not np.all(wir[Nzero:] == 0)
 
         # Applying and solving WT are anti-causal operations.
         wtr = w.applyWT(r)
         wtir = w.solveWT(r)
-        self.assertTrue(np.all(r[-Nzero:] == 0))
-        self.assertTrue(np.all(wtr[-Nzero:] == 0))
-        self.assertTrue(np.all(wtir[-Nzero:] == 0))
-        self.assertFalse(np.all(wtr[:-Nzero] == 0))
-        self.assertFalse(np.all(wtir[:-Nzero] == 0))
-
-
-if __name__ == '__main__':
-    ut.main()
+        assert np.all(r[-Nzero:] == 0)
+        assert np.all(wtr[-Nzero:] == 0)
+        assert np.all(wtir[-Nzero:] == 0)
+        assert not np.all(wtr[:-Nzero] == 0)
+        assert not np.all(wtir[:-Nzero] == 0)

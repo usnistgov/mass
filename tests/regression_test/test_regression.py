@@ -4,7 +4,6 @@ from os import path
 
 import numpy as np
 import numpy.testing as nt
-import unittest as ut
 
 import mass
 
@@ -44,9 +43,9 @@ def process_file(prefix, cuts, do_filter=True):
     return data
 
 
-class TestSummaries(ut.TestCase):
+class TestSummaries:
     @classmethod
-    def setUpClass(cls):
+    def setup_class(cls):
         cuts = mass.core.controller.AnalysisControl(
             pulse_average=(0.0, None),
             pretrigger_rms=(None, 70),
@@ -60,7 +59,7 @@ class TestSummaries(ut.TestCase):
         cls.d = np.load(path.join(ljhdir, "regress_ds0.npz"))
 
     @classmethod
-    def tearDownClass(cls):
+    def teardown_class(cls):
         cls.data.hdf5_file.close()
         cls.data.hdf5_noisefile.close()
 
@@ -94,15 +93,11 @@ class TestSummaries(ut.TestCase):
         nt.assert_allclose(ppd1, ppd2)
 
 
-class TestStoredFilters(ut.TestCase):
+class TestStoredFilters:
     """Make sure we can read filters stored by MASS v0.7.0"""
 
     def test_filters_in_old_hdf5_files(self):
         fname = f"{ljhdir}/regress_mass_v0_7_0.hdf5"
         # The following will error if cannot read pre-v0.7.1 filters.
         data = mass.TESGroupHDF5(fname, read_only=True)
-        self.assertIsInstance(data, mass.core.channel_group_hdf5_only.TESGroupHDF5)
-
-
-if __name__ == '__main__':
-    ut.main()
+        assert isinstance(data, mass.core.channel_group_hdf5_only.TESGroupHDF5)
