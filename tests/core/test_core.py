@@ -144,34 +144,34 @@ class TestTESGroup:
     """Basic tests of the TESGroup object."""
 
     def load_data(self, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
-                  experimentStateFile=None):
+                  experimentStateFile=None, hdf5dir=None):
+        if hdf5_filename is None or hdf5_noisefilename is None:
+            assert hdf5dir is not None
         src_name = ['tests/regression_test/regress_chan1.ljh']
         noi_name = ['tests/regression_test/regress_noise_chan1.ljh']
         if skip_noise:
             noi_name = None
         if hdf5_filename is None:
-            self.hdf5_file = tempfile.NamedTemporaryFile(suffix=".hdf5")
-            hdf5_filename = self.hdf5_file.name
+            hdf5_filename = hdf5dir / "data_mass.hdf5"
         if hdf5_noisefilename is None:
-            self.hdf5_noisefile = tempfile.NamedTemporaryFile(suffix=".hdf5")
-            hdf5_noisefilename = self.hdf5_noisefile.name
+            hdf5_noisefilename = hdf5dir / "data_noise.hdf5"
         return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
                              hdf5_noisefilename=hdf5_noisefilename,
                              experimentStateFile=experimentStateFile)
 
-    def test_cython_readonly_view(self):
+    def test_cython_readonly_view(self, tmp_path):
         "Make sure cython summarize_data() runs with a readonly memory view"
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         ds = data.channel[1]
         ds.summarize_data(forceNew=True)
         assert np.all(ds.p_pretrig_mean[:] > 0)
         assert np.all(ds.p_pulse_rms[:] > 0)
 
-    def test_experiment_state(self):
+    def test_experiment_state(self, tmp_path):
         # First test with the default experimentStateFile
         # It should have only the trivial START state, hence all 300 records
         # will pass ds.good(state="START")
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         data.summarize_data()
         # The following fails until issue 225 is fixed.
         assert data.n_good_channels() == 1
@@ -182,7 +182,11 @@ class TestTESGroup:
         # In this case, START should not be a valid state, but funstate will have Only
         # 252 of the 300 records valid because of their timestamps.
         esf = "tests/regression_test/regress_experiment_state_v2.txt"
-        data = self.load_data(experimentStateFile=esf)
+        # This test fails unless we put its hdf5 files in a new directory. (We could probably
+        # just delete the old ones, but this is easier.)
+        newdir = tmp_path / "new_subdir"
+        newdir.mkdir()
+        data = self.load_data(experimentStateFile=esf, hdf5dir=newdir)
         data.summarize_data()
         assert data.n_good_channels() == 1
         ds = data.channel[1]
@@ -191,9 +195,9 @@ class TestTESGroup:
         nfun = np.sum(ds.good(state="funstate"))
         assert nfun == 252
 
-    def test_nonoise_data(self):
+    def test_nonoise_data(self, tmp_path):
         """Test behavior of a TESGroup without noise data."""
-        data = self.load_data(skip_noise=True)
+        data = self.load_data(skip_noise=True, hdf5dir=tmp_path)
         with pytest.raises(AttributeError):
             data.channel[1].noise_records
         with pytest.raises(Exception):
@@ -211,9 +215,9 @@ class TestTESGroup:
         data = mass.TESGroup(pattern, noise_only=True)
         data.compute_noise()
 
-    def test_all_channels_bad(self):
+    def test_all_channels_bad(self, tmp_path):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         data.set_chan_bad(1, "testing all channels bad")
         hdf5_filename = data.hdf5_file.filename
         hdf5_noisefilename = data.hdf5_noisefile.filename
@@ -225,9 +229,9 @@ class TestTESGroup:
         LOG.info("Testing printing of a TESGroup")
         LOG.info(data2)
 
-    def test_save_hdf5_calibration_storage(self):
+    def test_save_hdf5_calibration_storage(self, tmp_path):
         "calibrate a dataset, make sure it saves to hdf5"
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         data.summarize_data()
         data.calibrate("p_pulse_rms", [10000.])
         data.calibrate("p_pulse_rms", [10000.], name_ext="abc")
@@ -243,9 +247,9 @@ class TestTESGroup:
         assert ds2.peak_samplenumber is not None
         assert ds2.peak_samplenumber == ds.peak_samplenumber
 
-    def test_make_auto_cuts(self):
+    def test_make_auto_cuts(self, tmp_path):
         """Make sure that non-trivial auto-cuts are generated and reloadable from file."""
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         ds = data.first_good_dataset
         data.summarize_data()
         data.auto_cuts(forceNew=True, clearCuts=True)
@@ -259,10 +263,10 @@ class TestTESGroup:
             assert ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1] > 0.
             assert ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1] > 0.
 
-    def test_auto_cuts_after_others(self):
+    def test_auto_cuts_after_others(self, tmp_path):
         """Make sure that non-trivial auto-cuts are generated even if other cuts are made first.
         Tests for issue 147 being fixed."""
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         ds = data.first_good_dataset
         data.summarize_data()
         ds.clear_cuts()
@@ -275,9 +279,9 @@ class TestTESGroup:
         assert ngood < ds.nPulses-arbcut.sum()
         assert ngood > 0
 
-    def test_plot_filters(self):
+    def test_plot_filters(self, tmp_path):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         data.set_chan_good(1)
         data.summarize_data()
         data.avg_pulses_auto_masks()
@@ -288,9 +292,9 @@ class TestTESGroup:
         data.plot_filters()
 
     @pytest.mark.filterwarnings("ignore:divide by zero encountered")
-    def test_time_drift_correct(self):
+    def test_time_drift_correct(self, tmp_path):
         "Check that time_drift_correct at least runs w/o error"
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         data.summarize_data()
         data.auto_cuts(forceNew=True, clearCuts=True)
         data.avg_pulses_auto_masks()
@@ -302,8 +306,8 @@ class TestTESGroup:
         data.time_drift_correct()
 
     @pytest.mark.xfail
-    def test_invert_data(self):
-        data = self.load_data()
+    def test_invert_data(self, tmp_path):
+        data = self.load_data(hdf5dir=tmp_path)
         ds = data.channel[1]
         raw = ds.data
         rawinv = 0xffff - raw
@@ -313,9 +317,9 @@ class TestTESGroup:
         assert np.all(rawinv == raw2)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
-    def test_issue156(self):
+    def test_issue156(self, tmp_path):
         "Make sure phase_correct works when there are too few valid bins of pulse height"
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         ds = data.channel[1]
         ds.clear_cuts()
         ds.p_filt_value_dc[:150] = np.linspace(1, 6000.0, 150)
@@ -342,8 +346,8 @@ class TestTESGroup:
         ds = data.channel[1]
         ds.compute_noise()
 
-    def test_pulse_model_and_ljh2off(self):
-        data = self.load_data()
+    def test_pulse_model_and_ljh2off(self, tmp_path):
+        data = self.load_data(hdf5dir=tmp_path)
 
         data.compute_noise()
         data.summarize_data()
@@ -395,9 +399,9 @@ class TestTESGroup:
             assert off[7] == off_multi[N+7]
             assert off[7] != off_multi[N+6]
 
-    def test_ljh_records_to_off(self):
+    def test_ljh_records_to_off(self, tmp_path):
         """Be sure ljh_records_to_off works with ljh files of 2 or more segments."""
-        data = self.load_data()
+        data = self.load_data(hdf5dir=tmp_path)
         data.compute_noise()
         data.summarize_data()
         data.auto_cuts()
