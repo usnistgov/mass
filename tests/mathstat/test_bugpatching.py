@@ -3,13 +3,13 @@ import pylab as plt
 
 
 class TestNumpyHistogramBug:
-    """There's a bug in numpy 1.13 that can arise when one passes float32 data
-    to np.histogram, and a value is just below the lowest bin edge but appears
-    to be equal to the edge if tested as a float32. See numpy issues 9189 and
-    10319 (https://github.com/numpy/numpy/issues/10319).
+    """There was a bug in numpy 1.13 (and earlier?) that can arise when
+    one passes float32 data to np.histogram, and a value is just below the
+    lowest bin edge but appears to be equal to the edge if tested as a float32.
+    See numpy issues 9189 and 10319 (https://github.com/numpy/numpy/issues/10319).
 
-    This tests whether the bug exists. MASS attempts to monkey-patch np.histogram
-    to prevent the bug from arising, and we are effectively checking that here.
+    This tests whether the bug exists. (We require numpy 1.14+, so bug should
+    not still be present.)
     """
 
     def test_histogram_precision_bug(self):
