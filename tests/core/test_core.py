@@ -438,7 +438,7 @@ class TestTESGroup(ut.TestCase):
     def test_projectors_script(self):
         import mass.core.projectors_script
 
-        class Args():
+        class Args:
             def __init__(self):
                 self.pulse_path = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
                 self.noise_path = os.path.join('tests', 'regression_test', 'regress_noise_chan1.ljh')

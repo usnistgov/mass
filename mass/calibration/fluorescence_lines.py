@@ -8,7 +8,6 @@ Tools for fitting and simulating X-ray fluorescence lines.
 import numpy as np
 import scipy as sp
 import pylab as plt
-from . import line_fits
 from . import line_models
 from collections import OrderedDict
 
@@ -21,7 +20,7 @@ FWHM_OVER_SIGMA = (8 * np.log(2))**0.5
 _rng = np.random.default_rng()
 
 
-class SpectralLine():
+class SpectralLine:
     """An abstract base class for modeling spectral lines as a sum
     of Voigt profiles (i.e., Gaussian-convolved Lorentzians).
 
@@ -225,7 +224,7 @@ class SpectralLine():
         reference_amplitude_type = "unkown: quick_line"
         normalized_lorentzian_integral_intensity = np.array([1])
         nominal_peak_energy = energy
-        fitter_type = line_fits.GenericKBetaFitter  # dont float dph_de
+        fitter_type = line_models.GenericLineModel  # dont float dph_de
         position_uncertainty = "unknown: quick_line"
         reference_measurement_type = "unkown: quick_line"
         is_default_material = True
@@ -439,15 +438,14 @@ def make_line_fitter(line):
         fitter_class = line.fitter_type
     elif line.linetype == "KAlpha" or line.linetype == "LAlpha":
         if line.element in ["Al", "Mg"]:
-            fitter_class = line_fits._lowZ_KAlphaFitter
+            fitter_class = line_models.GenericLineModel
         else:
-            fitter_class = line_fits.GenericKAlphaFitter
+            fitter_class = line_models.GenericKAlphaModel
     elif line.linetype.startswith("KBeta") or "LBeta" in line.linetype:
-        fitter_class = line_fits.GenericKBetaFitter
+        fitter_class = line_models.GenericLineModel
     else:
         raise ValueError(f"no generic fitter for {line}")
-    f = fitter_class()
-    f.spect = line
+    f = fitter_class(line)
     f.name = line.element+line.linetype
     return f
 

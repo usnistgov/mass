@@ -9,7 +9,7 @@ import logging
 LOG = logging.getLogger("mass")
 
 
-class PhaseCorrector():
+class PhaseCorrector:
     version = 1
 
     def __init__(self, phase_uniformifier_x, phase_uniformifier_y, corrections, indicatorName, uncorrectedName):

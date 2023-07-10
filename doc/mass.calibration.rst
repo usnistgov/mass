@@ -28,14 +28,6 @@ mass\.calibration\.fluorescence\_lines module
     :undoc-members:
     :show-inheritance:
 
-mass\.calibration\.line\_fits module
-------------------------------------
-
-.. automodule:: mass.calibration.line_fits
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 mass\.calibration\.nist\_xray\_database module
 ----------------------------------------------
 

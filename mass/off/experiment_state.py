@@ -4,7 +4,7 @@ import mass
 import numpy as np
 
 
-class ExperimentStateFile():
+class ExperimentStateFile:
     def __init__(self, filename: str = None, datasetFilename: str = None, excludeStates: str = "auto", _parse: bool = True):
         """
         excludeStates - when "auto" it either exclude no states (if START and STOP are the only states)

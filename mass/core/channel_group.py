@@ -1318,7 +1318,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                        filename_template_glob, filename_one_file, format, one_file)
 
 
-class CrosstalkVeto():
+class CrosstalkVeto:
     """An object to allow vetoing of data in 1 channel when another is hit."""
 
     def __init__(self, datagroup=None, window_ms=(-10, 3), pileup_limit=100):

@@ -93,7 +93,7 @@ def callback_invert(record):
 # This creates a "function object", which is callable but also stores internally
 # the number that you wanted to add to every raw data value.
 
-class callback_shift():
+class callback_shift:
     def __init__(self, shiftby):
         self.shift = shiftby
 

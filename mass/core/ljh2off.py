@@ -234,7 +234,7 @@ def main():
     print(os.path.abspath(off_filenames[0]))
 
 
-class FakeArgs():
+class FakeArgs:
     def __init__(self):
         self.ljh_path = "/Users/oneilg/Documents/EBIT/data/20190924/0010/20190924_run0010_chan1.ljh"
         self.h5_path = "/Users/oneilg/Documents/EBIT/data/20190923/0003/20190923_run0003_model.hdf5"
