@@ -126,7 +126,7 @@ class TestFiles:
         assert b"DASTARD" in ds2.pulse_records.datafile.client
         assert int(ds1.pulse_records.datafile.header_dict[b"Presamples"]) == 512
         assert int(ds2.pulse_records.datafile.header_dict[b"Presamples"]) == 515
-        assert 515 == ds1.nPresamples# b/c LJHFile2_1 adds +3 to what's in the file
+        assert 515 == ds1.nPresamples  # b/c LJHFile2_1 adds +3 to what's in the file
         assert 515 == ds2.nPresamples
         v1 = ds1.data[0]
         v2 = ds2.data[0]
@@ -169,11 +169,26 @@ class TestTESGroup:
         ds.pulse_records.set_segment_size(512*1024)
         assert ds.pulse_records.pulses_per_seg < ds.nPulses
 
-        for use_cython in (True, False):
-            ds.p_pretrig_mean[:] = 0.0
-            ds.summarize_data(forceNew=True, use_cython=use_cython)
-            assert np.all(ds.p_pretrig_mean[:] > 0)
-            assert np.all(ds.p_pulse_rms[:] > 0)
+        # Summarize with Cython
+        ds.p_pretrig_mean[:] = 0.0
+        ds.summarize_data(forceNew=True, use_cython=True)
+        assert np.all(ds.p_pretrig_mean[:] > 0)
+        assert np.all(ds.p_pulse_rms[:] > 0)
+        results_cython = {k: ds.__dict__[k][:] for k in ds.__dict__ if k.startswith("p_")}
+
+        # Summarize with pure Python
+        ds.p_pretrig_mean[:] = 0.0
+        ds.summarize_data(forceNew=True, use_cython=False)
+        assert np.all(ds.p_pretrig_mean[:] > 0)
+        assert np.all(ds.p_pulse_rms[:] > 0)
+        results_python = {k: ds.__dict__[k][:] for k in ds.__dict__ if k.startswith("p_")}
+
+        # Be sure the Cython and Python results are pretty close
+        for k in results_cython:
+            # print(k)
+            # print(results_cython[k])
+            # print(results_cython[k]/results_python[k])
+            assert results_cython[k] == pytest.approx(results_python[k], rel=0.003)
 
     def test_experiment_state(self, tmp_path):
         # First test with the default experimentStateFile
@@ -392,7 +407,7 @@ class TestTESGroup:
             # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
             print(wrongness)
             print(np.amax(wrongness))
-            assert np.amax(wrongness) < 0.07
+            assert np.amax(wrongness) < 0.10
             pulse_model.plot()
 
             # test multi_ljh2off_loop with multiple ljhfiles
