@@ -15,6 +15,7 @@ import os
 import sys
 from packaging import version
 from deprecated import deprecated
+import time
 
 # MASS modules
 import mass.mathstat.power_spectrum

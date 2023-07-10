@@ -159,13 +159,21 @@ class TestTESGroup:
                              hdf5_noisefilename=hdf5_noisefilename,
                              experimentStateFile=experimentStateFile)
 
-    def test_cython_readonly_view(self, tmp_path):
-        "Make sure cython summarize_data() runs with a readonly memory view"
+    def test_readonly_view(self, tmp_path):
+        """Make sure summarize_data() runs with a readonly memory view and small 'segments'.
+        Check both cython and non-cython."""
         data = self.load_data(hdf5dir=tmp_path)
         ds = data.channel[1]
-        ds.summarize_data(forceNew=True)
-        assert np.all(ds.p_pretrig_mean[:] > 0)
-        assert np.all(ds.p_pulse_rms[:] > 0)
+
+        # Make segments be short enough that even this small test file contains > 1 of them.
+        ds.pulse_records.set_segment_size(512*1024)
+        assert ds.pulse_records.pulses_per_seg < ds.nPulses
+
+        for use_cython in (True, False):
+            ds.p_pretrig_mean[:] = 0.0
+            ds.summarize_data(forceNew=True, use_cython=use_cython)
+            assert np.all(ds.p_pretrig_mean[:] > 0)
+            assert np.all(ds.p_pulse_rms[:] > 0)
 
     def test_experiment_state(self, tmp_path):
         # First test with the default experimentStateFile
