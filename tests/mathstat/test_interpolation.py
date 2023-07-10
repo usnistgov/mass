@@ -7,13 +7,12 @@ Test that interpolation code works.
 Joe Fowler
 """
 
-import unittest
 import numpy as np
 import mass
 from mass.mathstat.interpolate import k_spline, GPRSpline
 
 
-class Test_SmoothingSpline(unittest.TestCase):
+class Test_SmoothingSpline:
 
     def test_issue74(self):
         """This is a regression test to ensure that issue #74 is fixed and
@@ -40,14 +39,14 @@ class Test_SmoothingSpline(unittest.TestCase):
         cal.drop_one_errors()
 
 
-class Test_GPR(unittest.TestCase):
+class Test_GPR:
 
     def test_spline_covar(self):
         for x in np.linspace(0, 10):
-            self.assertEqual(x**3/3, k_spline(x, x))
-            self.assertEqual(k_spline(x, 5.5), k_spline(5.5, x))
+            assert x**3/3 == k_spline(x, x)
+            assert k_spline(x, 5.5) == k_spline(5.5, x)
 
-    def test_GPRSpline(self):
+    def test_gprspline(self):
         x = np.linspace(2, 10, 9)
         s = 1.0
         delta = np.array([-0.08414947,  0.25100057,  0.70287457, -0.9225354, -0.56127467,
@@ -59,15 +58,11 @@ class Test_GPR(unittest.TestCase):
         dy = np.ones_like(y)
         spl = GPRSpline(x, y, dy)
         yspl = spl(x)
-        self.assertLess(np.mean((yspl-y)**2), s**2)
+        assert np.mean((yspl-y)**2) < s**2
 
         xtest = np.array([0, 5, 7, 10, 12, 15])
         var = spl.variance(xtest)
-        self.assertTrue((var[np.logical_and(xtest > x[0]-1, xtest < x[-1]+1)] < 2).all())
+        assert (var[np.logical_and(xtest > x[0]-1, xtest < x[-1]+1)] < 2).all()
         allowed_diff = 2*np.sqrt(var)
         for x, ad in zip(xtest, allowed_diff):
-            self.assertLess(abs(spl(x)-actualf(x)), ad)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert abs(spl(x)-actualf(x)) < ad

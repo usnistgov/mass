@@ -2,7 +2,7 @@
 Test code for mass.calibration.algorithms.
 """
 
-import unittest
+from pytest import approx
 import numpy as np
 import mass
 from mass.calibration.algorithms import find_opt_assignment, find_local_maxima, build_fit_ranges, \
@@ -12,7 +12,7 @@ import itertools
 rng = np.random.default_rng(2)
 
 
-class TestAlgorithms(unittest.TestCase):
+class TestAlgorithms:
 
     def test_find_opt_assignment(self):
         known_energies = np.array([3100, 3200, 3300, 3600, 4000, 4500, 5200, 5800,
@@ -27,7 +27,7 @@ class TestAlgorithms(unittest.TestCase):
             _name_e, energies_out, opt_assignments = find_opt_assignment(ph, known_energies[inds])
             if all(energies_out == known_energies[inds]) and all(opt_assignments == ph[inds]):
                 passes += 1
-        self.assertTrue(passes > tries*0.9)
+        assert passes > tries*0.9
 
     def test_find_local_maxima(self):
         rng = np.random.default_rng(100)
@@ -37,7 +37,7 @@ class TestAlgorithms(unittest.TestCase):
         local_maxima, _ = find_local_maxima(ph, 10)
         local_maxima, _peak_heights = find_local_maxima(ph, 10)
         rounded = np.round(local_maxima)
-        self.assertTrue(all(rounded[:3] == np.array([7000, 4000, 1000])))
+        assert all(rounded[:3] == np.array([7000, 4000, 1000]))
 
     def test_build_fit_ranges(self):
         known_energies = np.array([1000, 2000, 2050, 3000])
@@ -50,20 +50,20 @@ class TestAlgorithms(unittest.TestCase):
         # this call asks for fit ranges at each known energy, and asks to avoid the line at 3050,
         # uses cal1 for the apprixmate calibraiton and asks for 100 eV wide fit ranges
         eout, fit_lo_hi_energy, slopes_de_dph = build_fit_ranges(known_energies, [3050], cal1, 100)
-        self.assertTrue(all(eout == known_energies))
-        self.assertEqual(len(fit_lo_hi_energy), len(known_energies))
+        assert all(eout == known_energies)
+        assert len(fit_lo_hi_energy) == len(known_energies)
         lo, hi = fit_lo_hi_energy[0]
-        self.assertAlmostEqual(lo, 950)
-        self.assertAlmostEqual(hi, 1050)
+        assert lo == approx(950)
+        assert hi == approx(1050)
         lo, hi = fit_lo_hi_energy[1]
-        self.assertAlmostEqual(lo, 1950)
-        self.assertAlmostEqual(hi, 2025)
+        assert lo == approx(1950)
+        assert hi == approx(2025)
         lo, hi = fit_lo_hi_energy[2]
-        self.assertAlmostEqual(lo, 2025)
-        self.assertAlmostEqual(hi, 2100)
+        assert lo == approx(2025)
+        assert hi == approx(2100)
         lo, hi = fit_lo_hi_energy[3]
-        self.assertAlmostEqual(lo, 2950)
-        self.assertAlmostEqual(hi, 3025)
+        assert lo == approx(2950)
+        assert hi == approx(3025)
 
     def test_build_fit_ranges_ph(self):
         known_energies = np.array([1000, 2000, 2050, 3000])
@@ -75,21 +75,21 @@ class TestAlgorithms(unittest.TestCase):
 
         # this call asks for fit ranges at each known energy, and asks to avoid the line at 3050,
         # uses cal1 for the apprixmate calibraiton and asks for 100 eV wide fit ranges
-        eout, fit_lo_hi, slopes_de_dph = build_fit_ranges_ph(known_energies, [3050], cal1, 100)
-        self.assertTrue(all(eout == known_energies))
-        self.assertEqual(len(fit_lo_hi), len(known_energies))
-        lo, hi = fit_lo_hi[0]
-        self.assertAlmostEqual(lo, 950*0.1)
-        self.assertAlmostEqual(hi, 1050*0.1)
-        lo, hi = fit_lo_hi[1]
-        self.assertAlmostEqual(lo, 1950*0.1)
-        self.assertAlmostEqual(hi, 2025*0.1)
-        lo, hi = fit_lo_hi[2]
-        self.assertAlmostEqual(lo, 2025*0.1)
-        self.assertAlmostEqual(hi, 2100*0.1)
-        lo, hi = fit_lo_hi[3]
-        self.assertAlmostEqual(lo, 2950*0.1)
-        self.assertAlmostEqual(hi, 3025*0.1)
+        eout, fit_lo_hi_energy, slopes_de_dph = build_fit_ranges_ph(known_energies, [3050], cal1, 100)
+        assert all(eout == known_energies)
+        assert len(fit_lo_hi_energy) == len(known_energies)
+        lo, hi = fit_lo_hi_energy[0]
+        assert lo == approx(950*0.1)
+        assert hi == approx(1050*0.1)
+        lo, hi = fit_lo_hi_energy[1]
+        assert lo == approx(1950*0.1)
+        assert hi == approx(2025*0.1)
+        lo, hi = fit_lo_hi_energy[2]
+        assert lo == approx(2025*0.1)
+        assert hi == approx(2100*0.1)
+        lo, hi = fit_lo_hi_energy[3]
+        assert lo == approx(2950*0.1)
+        assert hi == approx(3025*0.1)
 
     def test_complete(self):
         # generate pulseheights from known spectrum
@@ -117,7 +117,7 @@ class TestAlgorithms(unittest.TestCase):
         binsize_ev = 1.0
         results = multifit(ph, line_names, fit_lo_hi, np.ones_like(
             slopes_de_dph)*binsize_ev, slopes_de_dph, hide_deprecation=True)
-        self.assertIsNotNone(results)
+        assert results is not None
 
     def test_autocal(self):
         # generate pulseheights from known spectrum
@@ -136,15 +136,11 @@ class TestAlgorithms(unittest.TestCase):
         auto_cal.autocal()
         auto_cal.diagnose()
         cal.diagnose()
-        self.assertTrue(hasattr(cal, "autocal"))
+        assert hasattr(cal, "autocal")
         # test fitters are correct type, and ordered by line energy
         e0 = 0
         for r in auto_cal.results:
-            self.assertTrue(isinstance(r.model, mass.calibration.line_models.GenericLineModel))
+            assert isinstance(r.model, mass.calibration.line_models.GenericLineModel)
             peak = r.model.spect.peak_energy
-            self.assertLess(e0, peak)
+            assert e0 < peak
             e0 = peak
-
-
-if __name__ == "__main__":
-    unittest.main()

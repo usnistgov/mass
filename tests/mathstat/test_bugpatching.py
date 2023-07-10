@@ -1,9 +1,8 @@
 import numpy as np
 import pylab as plt
-import unittest as ut
 
 
-class TestNumpyHistogramBug(ut.TestCase):
+class TestNumpyHistogramBug:
     """There's a bug in numpy 1.13 that can arise when one passes float32 data
     to np.histogram, and a value is just below the lowest bin edge but appears
     to be equal to the edge if tested as a float32. See numpy issues 9189 and
@@ -19,7 +18,7 @@ class TestNumpyHistogramBug(ut.TestCase):
         # Make a histogram from these two values. Put the lower bin limit just above the lower value.
         bin_limits = (a64[0]+0.0005, 26200)
         counts, binedges = np.histogram(a64, 10, bin_limits)
-        self.assertEqual(counts[0], 0)
+        assert counts[0] == 0
 
         # That worked, but histogram again with the data converted to lower precision.
         a32 = a64.astype(np.float32)
@@ -28,7 +27,3 @@ class TestNumpyHistogramBug(ut.TestCase):
         # the mass patch fails to fix it.
         counts, binedges = np.histogram(a32, 10, bin_limits)
         counts, binedges, patches = plt.hist(a32, 10, bin_limits)
-
-
-if __name__ == '__main__':
-    ut.main()

@@ -1,12 +1,12 @@
+import pytest
 import mass
 import numpy as np
-import unittest as ut
 import os
 
 import pylab as plt
 
 
-class TestPhaseCorrect(ut.TestCase):
+class TestPhaseCorrect:
     def load_data(self, clear_hdf5=True):
         name = 'tests/regression_test/phase_correct_test_data_4k_pulses_mass.hdf5'
         if os.path.isfile(name):
@@ -37,7 +37,7 @@ class TestPhaseCorrect(ut.TestCase):
         rng.shuffle(phase)
         ph = energies+phase*10  # this pushes the resolution up to roughly 10 eV
 
-        self.assertEqual(ds.nPulses, len(energies))
+        assert ds.nPulses == len(energies)
         ds.p_filt_value_dc[:] = ph[:]
         ds.p_filt_value[:] = ph[:]
         ds.p_filt_phase[:] = phase[:]
@@ -46,7 +46,7 @@ class TestPhaseCorrect(ut.TestCase):
         # such that I don't get exactly the same value for this case, so loop with approximat comparison
         # I'm a bit disturbed and confused here, but just going with it for now
         for (a, b) in zip(ds.phaseCorrector(phase, ph), ds.p_filt_value_phc[:]):
-            self.assertAlmostEqual(a, b, 2)
+            assert a == pytest.approx(b, abs=0.01)
 
         if plot:
             plt.figure()
@@ -67,18 +67,18 @@ class TestPhaseCorrect(ut.TestCase):
             resolutions.append(result.best_values["fwhm"])
             if plot:
                 result.plotm()
-        self.assertLessEqual(resolutions[0], 3.5)
-        self.assertLessEqual(resolutions[1], 3.9)
-        self.assertLessEqual(resolutions[2], 4.0)
-        self.assertLessEqual(resolutions[3], 4.2)
+        assert resolutions[0] <= 3.5
+        assert resolutions[1] <= 3.9
+        assert resolutions[2] <= 4.0
+        assert resolutions[3] <= 4.2
 
         # load from hdf5
         phaseCorrectorLoaded = mass.core.phase_correct.PhaseCorrector.fromHDF5(ds.hdf5_group)
-        self.assertTrue(all(ds.phaseCorrector(phase, ph) == phaseCorrectorLoaded(phase, ph)))
-        self.assertEqual(ds.phaseCorrector.indicatorName, phaseCorrectorLoaded.indicatorName)
+        assert all(ds.phaseCorrector(phase, ph) == phaseCorrectorLoaded(phase, ph))
+        assert ds.phaseCorrector.indicatorName == phaseCorrectorLoaded.indicatorName
         print(ds.phaseCorrector.uncorrectedName)
         print(phaseCorrectorLoaded.uncorrectedName)
-        self.assertEqual(ds.phaseCorrector.uncorrectedName, phaseCorrectorLoaded.uncorrectedName)
+        assert ds.phaseCorrector.uncorrectedName == phaseCorrectorLoaded.uncorrectedName
 
     def test_phase_correct(self, plot=False):
         # the final fit resolutions are quite sensitive to this, easily varying from 3 to 5 eV
@@ -113,10 +113,10 @@ class TestPhaseCorrect(ut.TestCase):
             if plot:
                 result.plotm()
         print(resolutions)
-        self.assertLessEqual(resolutions[0], 4.5)
-        self.assertLessEqual(resolutions[1], 4.4)
-        self.assertLessEqual(resolutions[2], 4.0)
-        self.assertLessEqual(resolutions[3], 4.4)
+        assert resolutions[0] <= 4.5
+        assert resolutions[1] <= 4.4
+        assert resolutions[2] <= 4.0
+        assert resolutions[3] <= 4.4
 
 
 def fix_screwed_up_LJH_file():
@@ -151,7 +151,3 @@ def fix_screwed_up_LJH_file():
                 if len(data) < binary_length+10:
                     break
                 fout.write(data)
-
-
-if __name__ == '__main__':
-    ut.main()

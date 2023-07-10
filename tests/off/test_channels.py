@@ -1,7 +1,6 @@
 import os
 import collections
 import pytest
-import unittest as ut
 from mass.off import util
 import mass
 from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, NoCutInds
@@ -173,47 +172,47 @@ data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueD
                           cutRecipeName="!cutNearTiKAlpha", _rethrow=True)
 
 
-class TestSummaries(ut.TestCase):
+class TestSummaries:
 
     def test_calibration_n_iter(self):
         ds.calibrateFollowingPlan("filtValue", calibratedName="energy2",
                                   n_iter=2, approximate=False)
         # it should be a little different from energy
-        self.assertNotEqual(0, np.mean(np.abs(ds.energy-ds.energy2)))
+        assert 0 != np.mean(np.abs(ds.energy-ds.energy2))
         # but should also be similar... though I had to set rtol higher than I expected for this to pass
-        self.assertTrue(np.allclose(ds.energy, ds.energy2, rtol=1e-1))
+        assert np.allclose(ds.energy, ds.energy2, rtol=1e-1)
 
-    def test_repeatingTheSameCorrectionWithNewNameDoesntChangeTheOriginal(self):
+    def test_repeating_the_same_correction_with_new_name_doesnt_change_the_original(self):
         # repeating the same correciton with new name doesnt change the original
         orig = ds.filtValueDC[:]
         ds.learnDriftCorrection(uncorrectedName="filtValueDCPCTC")
         ds.filtValueDCPCTC[0]
-        self.assertTrue(np.allclose(orig, ds.filtValueDC))
+        assert np.allclose(orig, ds.filtValueDC)
 
-    def test_fixedBehaviors(self):
-        self.assertEqual(ds.stateLabels, ["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
+    def test_fixed_behaviors(self):
+        assert ds.stateLabels == ["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"]
 
     def test_reading_some_items(self):
-        self.assertEqual(ds.relTimeSec[0], 0)
-        self.assertLess(np.abs(np.median(ds.filtPhase)), 0.5)
-        self.assertAlmostEqual(ds.energy[3], ds.energyRough[3], delta=5)
+        assert ds.relTimeSec[0] == 0
+        assert np.abs(np.median(ds.filtPhase)) < 0.5
+        assert ds.energy[3] == pytest.approx(ds.energyRough[3], abs=5)
 
-    def test_indexOffWithCuts_with_list_of_inds(self):
+    def test_index_off_with_cuts_with_list_of_inds(self):
         inds = ds.getStatesIndicies(["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
         v0 = ds._indexOffWithCuts(inds, _listMethodSelect=0)
         v2 = ds._indexOffWithCuts(inds, _listMethodSelect=2)
-        self.assertTrue(np.allclose(v0["filtValue"], v2["filtValue"]))
+        assert np.allclose(v0["filtValue"], v2["filtValue"])
         # this is a test of correctness because
         # the implementation of method 0 is simpler than method 2
         # method 2 is the default because it is much faster
 
-    def test_getAttr(self):
+    def test_get_attr(self):
         ds.getAttr("energy", slice(0, 50))  # index with slice
         ds.getAttr("energy", "Ne")  # index with state
         e0 = ds.getAttr("energy", ["Ne", "W 1"])  # index with list of states
         inds = ds.getStatesIndicies(["Ne", "W 1"])
         e1 = ds.getAttr("energy", inds)  # index with inds from same list of states
-        self.assertTrue(np.allclose(e0, e1))
+        assert np.allclose(e0, e1)
 
     @xfail_on_windows  # we don't need refresh to disk to work on windows, so I didn't investigate why it fails
     def test_refresh_from_files(self):
@@ -231,17 +230,17 @@ class TestSummaries(ut.TestCase):
         experimentStateFile.unaliasedLabels = experimentStateFile.applyExcludesToLabels(
             experimentStateFile.allLabels)
         experimentStateFile.parse_start = 159
-        self.assertEqual(len(ds_local), 11600)
-        self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E"])
+        assert len(ds_local) == 11600
+        assert ds_local.stateLabels == ["B", "C", "D", "E"]
         # use the global ds a the source of truth
         for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
             if k_local == "E":  # since we stoppe data aquisition during E, it won't equal it's final value
-                self.assertNotEqual(v_local, v)
+                assert v_local != v
             else:
-                self.assertEqual(v_local, v)
+                assert v_local == v
         n_new_labels, n_new_pulses_dict = data_local.refreshFromFiles()
-        self.assertEqual(len(ds_local), len(ds))
-        self.assertEqual(ds_local.stateLabels, ["B", "C", "D", "E", "F", "G", "H", "I"])
+        assert len(ds_local) == len(ds)
+        assert ds_local.stateLabels == ["B", "C", "D", "E", "F", "G", "H", "I"]
         states = ["B", "H", "I"]
         _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue",
                                       states=states, cutRecipeName="cutNone")
@@ -249,36 +248,36 @@ class TestSummaries(ut.TestCase):
         _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue",
                           states=global_states, cutRecipeName="cutNone")
         for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
-            self.assertEqual(v_local, v)
-        self.assertTrue(all(ds.filtValue == ds_local.filtValue))
-        self.assertTrue(all(hist_local == hist))
+            assert v_local == v
+        assert all(ds.filtValue == ds_local.filtValue)
+        assert all(hist_local == hist)
         # refresh again without updating the files, make sure it doesnt crash
         n_new_labels_2, n_new_pulses_dict2 = data.refreshFromFiles()
-        self.assertEqual(n_new_labels_2, 0)
+        assert n_new_labels_2 == 0
 
     def test_bad_channels_skipped(self):
         # try:
         data_local = ChannelGroup([filename])
-        self.assertEqual(len(data_local.keys()), 1)
+        assert len(data_local.keys()) == 1
         ds_local = data_local.firstGoodChannel()
         _, hists_pre_bad = data_local.hists(np.arange(10), "filtValue")
-        self.assertFalse(ds_local.markedBadBool)
+        assert not ds_local.markedBadBool
         ds_local.markBad("testing")
         _, hists_post_bad = data_local.hists(np.arange(10), "filtValue")
-        self.assertEqual(len(hists_pre_bad), 1)
-        self.assertEqual(len(hists_post_bad), 0)
-        self.assertEqual(len(data_local.keys()), 0)
-        self.assertTrue(ds_local.markedBadBool)
+        assert len(hists_pre_bad) == 1
+        assert len(hists_post_bad) == 0
+        assert len(data_local.keys()) == 0
+        assert ds_local.markedBadBool
         n_include_bad = 0
         with data_local.includeBad():
             for ds in data_local:
                 n_include_bad += 1
-        self.assertEqual(n_include_bad, 1)
+        assert n_include_bad == 1
         n_exclude_bad = 0
         with data_local.includeBad(False):
             for ds in data_local:
                 n_exclude_bad += 1
-        self.assertEqual(n_exclude_bad, 0)
+        assert n_exclude_bad == 0
 
     @pytest.mark.xfail
     def test_save_load_recipes(self):
@@ -305,11 +304,11 @@ class TestSummaries(ut.TestCase):
         esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
         unixnanos = np.arange(2*len(esf.allLabels))*50  # two entires per label
         d = esf.calcStatesDict(unixnanos)
-        self.assertEqual(len(d["A"]), esf.allLabels.count("A"))
-        self.assertEqual(len(d["B"]), esf.allLabels.count("B"))
-        self.assertFalse("IGNORE" in d.keys())
+        assert len(d["A"]) == esf.allLabels.count("A")
+        assert len(d["B"]) == esf.allLabels.count("B")
+        assert "IGNORE" not in d.keys()
         for s in d["A"]+d["B"]:
-            self.assertEqual(s.stop-s.start, 2)
+            assert s.stop-s.start == 2
 
         data_local = ChannelGroup([filename], experimentStateFile=esf)
         ds_local = data_local.firstGoodChannel()
@@ -506,7 +505,3 @@ def test_open_many_OFF_files():
     # Use the try...finally to undo our reduction in the limit on number of open files.
     finally:
         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
-
-
-if __name__ == '__main__':
-    ut.main()

@@ -64,7 +64,7 @@ class Test_MnKA_distribution:
             v = spectrum.rvs(1, instrument_gaussian_fwhm=0)
             v = spectrum(spectrum.peak_energy, instrument_gaussian_fwhm=0)
             assert v is not None
-            assert spectrum.reference is not ""
+            assert spectrum.reference != ""
             # check that normalize intensities sum to 1
             assert spectrum.normalized_lorentzian_integral_intensity.sum() == approx(1)
 
