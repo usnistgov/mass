@@ -344,12 +344,12 @@ def test_experiment_state_file_add_to_same_state():
     #are added to state B. This test verifies that the slice defining state B gets properly updated.
     #This uses a temporary file f just like a regular experiment state file.
     import tempfile
-
     f = tempfile.NamedTemporaryFile(mode='w', delete=False)
     f.write('#\n') #header
     f.write('0, A\n')   #state A starts at 0 unixnanos
     f.write('100, B\n') #state B starts at 100 unixnanos
-    f.close()
+    f.flush()
+    os.fsync(f.fileno())
     esf = mass.off.ExperimentStateFile(filename=f.name)
 
     unixnanos = [25, 75, 125, 175]  # four timestamps representing four records. two records per state.
@@ -357,11 +357,24 @@ def test_experiment_state_file_add_to_same_state():
     slice_before_update = d["B"] #state B will be updated with new records. We need to make sure the slice gets changed properly.
     new_unixnanos = [225, 275] #new records are collected
     d_updated = esf.calcStatesDict(new_unixnanos, statesDict=d, i0_allLabels=len(esf.allLabels), i0_unixnanos=len(unixnanos))
-
     slice_after_update = d_updated["B"]
-    #print(f'{slice_before_update=}, {slice_after_update=}')
     assert slice_after_update.stop == slice_before_update.stop + len(new_unixnanos)
 
+    #now, add state C with two records and look at the indices
+    f.write('300, C\n')
+    f.flush()
+    os.fsync(f.fileno())
+    old_states_len = len(esf.allLabels)
+    esf.parse()
+
+    d_empty_state = esf.calcStatesDict([301, 302], statesDict=d_updated, 
+                                    i0_allLabels = old_states_len, 
+                                    i0_unixnanos = len(unixnanos)+len(new_unixnanos))
+
+    assert d_empty_state['A'] == slice(0, 2, None)
+    assert d_empty_state['B'] == slice(2, 6, None)
+    assert d_empty_state['C'] == slice(6, 8, None)
+    f.close()
     os.remove(f.name)
 
 def test_we_get_different_histograms_when_using_different_cuts_into_a_channelGroup_function():
