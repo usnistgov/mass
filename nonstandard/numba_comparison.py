@@ -9,9 +9,9 @@ __all__ = ['summarize_old']
 
 
 try:
-    from numba import autojit
+    from numba import njit
 
-    @autojit
+    @njit
     def summarize_numba(data, nPresamples, pretrigger_ignore_samples):
         # this is faster mainly because it only loops through each pulse once,
         # instead of six times with the 6 separate numpy functions
@@ -83,7 +83,7 @@ def summarize_old(data, nPresamples, pretrigger_ignore_samples, timebase, peak_t
     p_pretrig_mean = data[:, :nPresamples-pretrigger_ignore_samples].mean(axis=1, dtype=np.float32)
     p_pretrig_rms = data[:, :nPresamples-pretrigger_ignore_samples].std(axis=1, dtype=np.float32)
     p_peak_index = np.array(data.argmax(axis=1), dtype=np.uint16)
-    p_peak_value = data.max(axis=1)
+    p_peak_value = np.asarray(data.max(axis=1), dtype=np.float32)
     p_min_value = data.min(axis=1)
     p_pulse_average = data[:, nPresamples:].mean(axis=1, dtype=np.float32)
 
@@ -113,7 +113,9 @@ def compare_summarize(data, nPresamples, pretrigger_ignore_samples):
     out_numba = summarize_numba(data, nPresamples, pretrigger_ignore_samples)
     t_numba = time.time()-t0
     t0 = time.time()
-    out_old = summarize_old(data, nPresamples, pretrigger_ignore_samples)
+    timebase = 5.0e-6
+    peak_time_microsec = 90.0
+    out_old = summarize_old(data, nPresamples, pretrigger_ignore_samples, timebase, peak_time_microsec)
     t_old = time.time()-t0
 
     print('for data.shape=(%d, %d), nPresamples = %d, pretrigger_ignore_samples = %d' %
@@ -150,7 +152,7 @@ def estimateRiseTime(pulse_data, dt=1.0, nPretrig=0):
 
     try:
         rising_data = (pulse_data[nPretrig:idxpk+1] - baseline_value) / value_at_peak
-        idx = np.arange(len(rising_data), dtype=np.int)
+        idx = np.arange(len(rising_data), dtype=int)
         last_idx = idx[rising_data < MAXTHRESH].max()
         first_idx = idx[rising_data > MINTHRESH].min()
         y_diff = rising_data[last_idx]-rising_data[first_idx]
