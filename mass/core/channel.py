@@ -15,7 +15,6 @@ import os
 import sys
 from packaging import version
 from deprecated import deprecated
-import time
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -999,7 +998,7 @@ class MicrocalDataSet:
         if self.peak_samplenumber is None:
             self._compute_peak_samplenumber()
 
-        seg_size = end-first
+        end-first
         self.p_timestamp[first:end] = self.times[first:end]
         self.p_rowcount[first:end] = self.rowcount[first:end]
 

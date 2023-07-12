@@ -363,8 +363,8 @@ def test_experiment_state_file_add_to_same_state():
     old_states_len = len(esf.allLabels)
     esf.parse()
 
-    d_empty_state = esf.calcStatesDict([301, 302], statesDict=d_updated, 
-                                    i0_allLabels = old_states_len, 
+    d_empty_state = esf.calcStatesDict([301, 302], statesDict=d_updated,
+                                    i0_allLabels = old_states_len,
                                     i0_unixnanos = len(unixnanos)+len(new_unixnanos))
 
     assert d_empty_state['A'] == slice(0, 2, None)

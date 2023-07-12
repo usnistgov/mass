@@ -117,11 +117,11 @@ class ExperimentStateFile:
             s2 = slice(s.start, i0_unixnanos+len(unixnanos)) #set the slice from the start of the state to the last new record
             statesDict[k] = s2
             return statesDict
-        
+
         #unixnanos = new record timestamps
         #self.unixnanos[i0_allLabels] is the state start times of the new states
         #i0_unixnanos is how many records were alraedy indexed
-        #inds is an np.array of the indices where the new states fit 
+        #inds is an np.array of the indices where the new states fit
         #   in with the new records
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
         # the state that was active last time calcStatesDict was called may need special handling

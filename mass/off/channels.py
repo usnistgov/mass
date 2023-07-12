@@ -796,12 +796,13 @@ class Channel(CorG):
                 self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdAbsolute)".format(
                     maxAbsError, thresholdAbsolute))
 
-    def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges = np.arange(0, 16000, 4)):
+    def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges=np.arange(0, 16000, 4)):
         calibration = self.recipes[calibratedName].f
         uncalibratedName = calibration.uncalibratedName
         results = calibration.results
         n_intermediate = len(calibration.intermediate_calibrations)
-        if fig is not None: #fig can be a matplotlib.figure.Figure object or an index ("num") of the current figures (see plt.get_fignums())
+        # fig can be a matplotlib.figure.Figure object or an index ("num") of the current figures (see plt.get_fignums())
+        if fig is not None:
             plt.figure(fig)
         else:
             plt.figure(figsize=(20, 12))
