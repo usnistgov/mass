@@ -36,3 +36,4 @@ mass/demo/sourceroot.py
 
 __pycache__
 .*_cache
+*.code-workspace

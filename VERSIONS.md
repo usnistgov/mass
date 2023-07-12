@@ -17,6 +17,13 @@
 * Improved/updated documentation file `Cuts.md`, which has always bugged me.
 
 
+**0.7.11** June 2023
+
+* Add `overwrite` parameter to phase and time-drift corrections.
+* Update line shapes: Fe L line, ClKAlpha.
+* Realtime state slice fix
+
+
 **0.7.10** June 2, 2023
 
 * Fix issue 229: bug in writing `bin/ljh_merge`; was not writing timestamp and row count.

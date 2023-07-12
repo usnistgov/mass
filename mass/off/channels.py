@@ -539,7 +539,7 @@ class Channel(CorG):
 
     @add_group_loop
     def learnPhaseCorrection(self, indicatorName="filtPhase", uncorrectedName="filtValue", correctedName=None, states=None,
-                             linePositionsFunc=None, cutRecipeName=None):
+                             linePositionsFunc=None, cutRecipeName=None, overwriteRecipe=False):
         """
         linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
         otherwise try to call it with self as an argument...
@@ -559,12 +559,12 @@ class Channel(CorG):
         phaseCorrection = mass.core.phase_correct.phase_correct(
             indicator, uncorrected, linePositions, indicatorName=indicatorName, uncorrectedName=uncorrectedName)
         self.recipes.add(correctedName, phaseCorrection.correct, [
-            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName])
+            phaseCorrection.indicatorName, phaseCorrection.uncorrectedName], overwrite=overwriteRecipe)
 
     @add_group_loop
     def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
                                  states=None, cutRecipeName=None, kernel_width=1, sec_per_degree=2000,
-                                 pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
+                                 pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None, overwriteRecipe=False):
         """do a polynomial correction based on the indicator
         you are encouraged to change the settings that affect the degree of the polynomail
         see help in mass.core.channel.time_drift_correct for details on settings"""
@@ -579,7 +579,7 @@ class Channel(CorG):
             tnorm = info["normalize"](indicator)
             corrected = uncorrected*(1+info["model"](tnorm))
             return corrected
-        self.recipes.add(correctedName, time_drift_correct, [indicatorName, uncorrectedName])
+        self.recipes.add(correctedName, time_drift_correct, [indicatorName, uncorrectedName], overwrite=overwriteRecipe)
 
     def plotCompareDriftCorrect(self, axis=None, states=None, cutRecipeName=None, includeBad=False):
         if axis is None:
@@ -796,12 +796,15 @@ class Channel(CorG):
                 self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdAbsolute)".format(
                     maxAbsError, thresholdAbsolute))
 
-    def diagnoseCalibration(self, calibratedName="energy"):
+    def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges = np.arange(0, 16000, 4)):
         calibration = self.recipes[calibratedName].f
         uncalibratedName = calibration.uncalibratedName
         results = calibration.results
         n_intermediate = len(calibration.intermediate_calibrations)
-        plt.figure(figsize=(20, 12))
+        if fig is not None: #fig can be a matplotlib.figure.Figure object or an index ("num") of the current figures (see plt.get_fignums())
+            plt.figure(fig)
+        else:
+            plt.figure(figsize=(20, 12))
         plt.suptitle(
             self.shortName+f", cal diagnose for '{calibratedName}'\n with {n_intermediate} intermediate calibrations")
         n = int(np.ceil(np.sqrt(len(results)+2)))
@@ -812,7 +815,7 @@ class Channel(CorG):
         ax = plt.subplot(n, n, i+2)
         calibration.plot(axis=ax)
         ax = plt.subplot(n, n, i+3)
-        self.plotHist(np.arange(0, 16000, 4), uncalibratedName,
+        self.plotHist(filtValuePlotBinEdges, uncalibratedName,
                       axis=ax, coAddStates=False)
         plt.vlines(self.calibrationPlan.uncalibratedVals, 0, plt.ylim()[1])
         plt.tight_layout()
