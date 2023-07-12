@@ -118,6 +118,11 @@ class ExperimentStateFile():
             statesDict[k] = s2
             return statesDict
         
+        #unixnanos = new record timestamps
+        #self.unixnanos[i0_allLabels] is the state start times of the new states
+        #i0_unixnanos is how many records were alraedy indexed
+        #inds is an np.array of the indices where the new states fit 
+        #   in with the new records
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
         # the state that was active last time calcStatesDict was called may need special handling
         if len(statesDict.keys()) > 0 and len(newLabels) > 0:
@@ -133,7 +138,7 @@ class ExperimentStateFile():
                 continue
             aliasedLabel = self.labelAliasesDict.get(label, label)
             if i+1 >= len(inds):
-                s = slice(inds[i], len(unixnanos))
+                s = slice(inds[i], len(unixnanos)+i0_unixnanos)
             else:
                 s = slice(inds[i], inds[i+1])
             if aliasedLabel in statesDict:
