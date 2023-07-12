@@ -12,7 +12,8 @@
 * Remove the `CythonMicrocalDataSet` class; replace with pure Cython functions (issue 245).
 * Remove the deprecated non-LMfit-based `MaximumLikelihoodFitter` (issue 246).
 * Replace all `unittest` with `pytest`-based testing (issue 247).
-* Remove the monkey-patch to `np.histogram` required by numpy 1.13 (issue 248).
+* Remove the monkey-patch to `np.histogram` required by numpy 1.13 (issue 248)
+* Fix error in `summarize_data(..., use_cython=False)` for multi-segment LJH files (issue 249)
 * Improved/updated documentation file `Cuts.md`, which has always bugged me.
 
 

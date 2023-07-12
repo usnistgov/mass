@@ -15,6 +15,7 @@ import os
 import sys
 from packaging import version
 from deprecated import deprecated
+import time
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -999,8 +1000,8 @@ class MicrocalDataSet:
             self._compute_peak_samplenumber()
 
         seg_size = end-first
-        self.p_timestamp[first:end] = self.times[:seg_size]
-        self.p_rowcount[first:end] = self.rowcount[:seg_size]
+        self.p_timestamp[first:end] = self.times[first:end]
+        self.p_rowcount[first:end] = self.rowcount[first:end]
 
         # Fit line to pretrigger and save the derivative and offset
         if doPretrigFit:
@@ -1012,18 +1013,18 @@ class MicrocalDataSet:
                 np.polyfit(presampleNumbers, ydata, deg=1)
 
         self.p_pretrig_mean[first:end] = \
-            self.data[:seg_size, self.cut_pre:self.nPresamples
+            self.data[first:end, self.cut_pre:self.nPresamples
                       - self.pretrigger_ignore_samples].mean(axis=1)
         self.p_pretrig_rms[first:end] = \
-            self.data[:seg_size, self.cut_pre:self.nPresamples
+            self.data[first:end, self.cut_pre:self.nPresamples
                       - self.pretrigger_ignore_samples].std(axis=1)
-        self.p_peak_index[first:end] = self.data[:seg_size,
+        self.p_peak_index[first:end] = self.data[first:end,
                                                  self.cut_pre:self.nSamples-self.cut_post].argmax(axis=1)+self.cut_pre
-        self.p_peak_value[first:end] = self.data[:seg_size,
+        self.p_peak_value[first:end] = self.data[first:end,
                                                  self.cut_pre:self.nSamples-self.cut_post].max(axis=1)
-        self.p_min_value[first:end] = self.data[:seg_size,
+        self.p_min_value[first:end] = self.data[first:end,
                                                 self.cut_pre:self.nSamples-self.cut_post].min(axis=1)
-        self.p_pulse_average[first:end] = self.data[:seg_size,
+        self.p_pulse_average[first:end] = self.data[first:end,
                                                     self.nPresamples:self.nSamples-self.cut_post].mean(axis=1)
 
         # Remove the pretrigger mean from the peak value and the pulse average figures.
@@ -1031,28 +1032,28 @@ class MicrocalDataSet:
         self.p_pulse_average[first:end] -= ptm
         self.p_peak_value[first:end] -= np.asarray(ptm, dtype=self.p_peak_value.dtype)
         self.p_pulse_rms[first:end] = np.sqrt(
-            (self.data[:seg_size, self.nPresamples:self.nSamples-self.cut_post]**2.0).mean(axis=1)
+            (self.data[first:end, self.nPresamples:self.nSamples-self.cut_post]**2.0).mean(axis=1)
             - ptm*(ptm + 2*self.p_pulse_average[first:end]))
 
-        shift1 = (self.data[:seg_size, self.nPresamples-1]-ptm
+        shift1 = (self.data[first:end, self.nPresamples-1]-ptm
                   > 4.3*self.p_pretrig_rms[first:end])
         self.p_shift1[first:end] = shift1
 
         halfidx = (self.nPresamples+2+self.peak_samplenumber)//2
         pkval = self.p_peak_value[first:end]
-        prompt = (self.data[:seg_size, self.nPresamples+2:halfidx].mean(axis=1)
+        prompt = (self.data[first:end, self.nPresamples+2:halfidx].mean(axis=1)
                   - ptm) / pkval
-        prompt[shift1] = (self.data[shift1, self.nPresamples+1:halfidx-1].mean(axis=1)
+        prompt[shift1] = (self.data[first:end, self.nPresamples+1:halfidx-1][shift1, :].mean(axis=1)
                           - ptm[shift1]) / pkval[shift1]
         self.p_promptness[first:end] = prompt
 
         self.p_rise_time[first:end] = \
-            mass.core.analysis_algorithms.estimateRiseTime(self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post],
+            mass.core.analysis_algorithms.estimateRiseTime(self.data[first:end, self.cut_pre:self.nSamples-self.cut_post],
                                                            timebase=self.timebase,
                                                            nPretrig=self.nPresamples-self.cut_pre)
 
         self.p_postpeak_deriv[first:end] = \
-            mass.core.analysis_algorithms.compute_max_deriv(self.data[:seg_size, self.cut_pre:self.nSamples-self.cut_post],
+            mass.core.analysis_algorithms.compute_max_deriv(self.data[first:end, self.cut_pre:self.nSamples-self.cut_post],
                                                             ignore_leading=self.peak_samplenumber-self.cut_pre)
 
     def __parse_expt_states(self):
