@@ -1,9 +1,21 @@
 # Cuts
-In Sept 2015 Young introduced a new API for cuts that is both more functional, and faster in many cases than the previous API.
 
-There are two types of cut fields, _boolean_ and _categorical_.
+In mass, the "cuts" objects handle two distinct concepts:
+* **Boolean cuts** handle yes/no decisions about whether a certain triggered record is "valid", high enough quality to be used for analysis.
+* **Categories**--also known as _categorical cuts_--divide records into multiple, named groups of records. These are used to handle a series of "experiment states", or any other mutually exclusive categories.
 
 ### Boolean cuts
+
+If boolean cuts have already been computed based on data-quality tests, then the basic usage is as simples as using `ds.good()` to index any vectors that have a length of `ds.nPulses`. Like this:
+```python
+ds = data.channel[13]
+g = ds.good()
+plt.clf()
+plt.hist(ds.p_filt_value[g], 1000, histtype="step")
+```
+
+Here are some more complicated examples:
+
 ```python
 # The following return boolean vectors, with one value per pulse:
 ds.good()  # works as normal; returns True is good by *all* boolean crieteria.
@@ -33,10 +45,11 @@ array([('pretrigger_rms', 1L), ('pretrigger_mean', 2L),
 data.register_boolean_cut_fields("gut_feeling")
 failscut = ds.p_gut_feeling_figure_of_merit[:] > 3500
 ds.cuts.cut("gut_feeling", failscut)
-# Note that you passed True to cut, or to mark the pulse bad.
 ```
+Careful! You pass `True` to cut (to mark the pulse bad), not `False`!
 
-You should never need to look up or use a cut number again, just always use the name for the field.
+Internally, cuts have code numbers, but you shouldn't ever have to use them. The name interface is a lot clearer.
+
 
 ### Categorical cuts
 Categorical cuts are used when you want to label your pulses as belonging to one of several, mutually exclusive groups (categories).
