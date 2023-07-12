@@ -7,8 +7,8 @@ Joe Fowler, January 2020.
 
 Previously, we wrote our own modification to the Levenberg-Marquardt optimizer in order to reach maximum-likelihood (not least-squares) fits. This appears in mass as the ``LineFitter`` class and its subclasses. In its place, we want to use the `LMFIT package <https://lmfit.github.io/lmfit-py/>`_ and the new MASS class ``GenericLineModel`` and its subclasses.
 
-LMFit vs Scipy vs our homemade method
--------------------------------------
+LMFit vs Scipy
+--------------
 
 LMFIT has numerous advantages over the basic ``scipy.optimize`` module. Quoting from the LMFIT documentation, the user can:
 
@@ -19,7 +19,7 @@ LMFIT has numerous advantages over the basic ``scipy.optimize`` module. Quoting 
 
 Only some of these are implemented in the original MASS fitters, and even they are not all implemented in the most robust possible way. The one disadvantage of the core LMFIT package is that it minimizes the sum of squares of a vector instead of maximizing the Poisson likelihood. This is easily remedied, however, by replacing the usual computation of residuals with one that computes the square root of the Poisson likelihood contribution from each bin. Voilá! A maximum likelihood fitter for histograms.
 
-Advantages of LMFIT over the homemade method of the ``LineFitter`` include:
+Advantages of LMFIT over the earlier, homemade method of the ``LineFitter`` include:
 
 * Users can forget about the order of variables and refer to Parameters by meaningful names.
 * Users can place algebraic constraints on Parameters.
@@ -81,8 +81,8 @@ Objects of the type ``SpectralLine`` encode the line shape of a fluorescence lin
 The ``SpectralLine`` object is useful to you if you need to generate simulated data, or to plot a line shape, as shown above. Both the new fitting "model" objects and the old "fitter" objects use the ``SpectralLine`` object to hold line shape information. You don't need to create a ``SpectralLine`` object for fitting, though; it will be done automatically.
 
 
-How to use the new, LMFIT-based models for fitting
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+How to use the LMFIT-based models for fitting
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The simplest case of line fitting requires only 3 steps: create a model instance from a ``SpectralLine``, guess its parameters from the data, and perform a fit with this guess. Unlike the old fitters, plotting is not done as part of the fit--you have to do that separately.
 
