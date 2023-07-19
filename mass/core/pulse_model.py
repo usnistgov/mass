@@ -143,13 +143,22 @@ class PulseModel():
                 labels = labels + [f"svd{i}"]
         return labels
 
-    def plot(self):
+    def plot(self, fig1=None, fig2=None):
+        #plots information about a pulse model
+        #fig1 and fig2 are optional matplotlib.pyplot (plt) figures if you need to embed the plots.
+        #you can pass in the reference like fig=plt.figure() call or the figure's number, e.g. fig.number
+        #   fig1 has modeled pulse vs true pulse
+        #   fig2 has projectors, basis, "from ljh", residuals, and a measure of "wrongness"
+        
         labels = self.labels()
         mpc = np.matmul(self.projectors, self.pulses_for_svd)
         mp = np.matmul(self.basis, mpc)
         residuals = self.pulses_for_svd-mp
 
-        fig = plt.figure(figsize=(10, 14))
+        if fig1==None:
+            fig = plt.figure(figsize=(10, 14))
+        else:
+            fig = plt.figure(fig1)
         plt.subplot(511)
         projector_scale = np.amax(np.abs(self.projectors[2, :]))
         plt.plot(self.projectors[::-1, :].T)
@@ -181,7 +190,10 @@ class PulseModel():
         plt.colorbar()
         fig.suptitle(self.file_name)
 
-        plt.figure()
+        if fig2==None:
+            plt.figure(figsize=(10, 14))
+        else:
+            plt.figure(fig2)
         plt.plot(self.pulses_for_svd[:, 0], label="from ljh index 0")
         plt.plot(mp[:, 0], label="modeled pulse index 0")
         plt.legend()
