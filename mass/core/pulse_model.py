@@ -149,13 +149,13 @@ class PulseModel:
         #you can pass in the reference like fig=plt.figure() call or the figure's number, e.g. fig.number
         #   fig1 has modeled pulse vs true pulse
         #   fig2 has projectors, basis, "from ljh", residuals, and a measure of "wrongness"
-        
+
         labels = self.labels()
         mpc = np.matmul(self.projectors, self.pulses_for_svd)
         mp = np.matmul(self.basis, mpc)
         residuals = self.pulses_for_svd-mp
 
-        if fig1==None:
+        if fig1 is None:
             fig = plt.figure(figsize=(10, 14))
         else:
             fig = plt.figure(fig1)
@@ -190,7 +190,7 @@ class PulseModel:
         plt.colorbar()
         fig.suptitle(self.file_name)
 
-        if fig2==None:
+        if fig2 is None:
             plt.figure(figsize=(10, 14))
         else:
             plt.figure(fig2)
