@@ -744,11 +744,9 @@ class Channel(CorG):
         else:
             tolerance = np.inf
         if np.abs(fitPos-result.model.spect.peak_energy) > tolerance:
-            self.markBad("qualityCheckLinefit: for {}, want {} within {}, got {}".format(
-                line, result.model.spect.peak_energy, tolerance, fitPos))
+            self.markBad(f"qualityCheckLinefit: for {line}, want {result.model.spect.peak_energy} within {tolerance}, got {fitPos}")
         if worstAllowedFWHM is not None and resolution > worstAllowedFWHM:
-            self.markBad("qualityCheckLinefit: for {}, fit resolution {} > threshold {}".format(
-                line, resolution, worstAllowedFWHM))
+            self.markBad(f"qualityCheckLinefit: for {line}, fit resolution {resolution} > threshold {worstAllowedFWHM}")
         return result
 
     @add_group_loop
@@ -1350,8 +1348,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         plt.hist(positions)
         plt.xlabel("fit position (eV)")
         plt.ylabel("channels per bin")
-        plt.text(0.5, 0.9, "median = {:.2f}\ndb position = {:.3f}".format(np.median(positions),
-                                                                          result.model.spect.peak_energy), transform=ax.transAxes)
+        message = f"median = {np.median(positions):.2f}\ndb position = {result.model.spect.peak_energy:.3f}"
+        plt.text(0.5, 0.9, message, transform=ax.transAxes)
         plt.vlines(result.model.spect.peak_energy, plt.ylim()
                    [0], plt.ylim()[1], label="db position")
         ax = plt.subplot(2, 2, 4)

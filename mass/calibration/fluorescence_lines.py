@@ -217,7 +217,6 @@ class SpectralLine:
         if lorentzian_fwhm <= 0 and intrinsic_sigma <= 0:
             intrinsic_sigma = 1e-4
         lorentzian_fwhm = np.array([lorentzian_fwhm])
-        intrinsic_sigma = intrinsic_sigma
         linetype = "quick_line"
         reference_plot_instrument_gaussian_fwhm = "unkown: quick_line"
         reference_short = "unkown: quick_line"
@@ -439,7 +438,7 @@ def make_line_fitter(line):
     """Generate a LineFitter instance from a SpectralLine (deprecated)"""
     if line.fitter_type is not None:
         fitter_class = line.fitter_type
-    elif line.linetype == "KAlpha" or line.linetype == "LAlpha":
+    elif line.linetype in ["KAlpha", "LAlpha"]:
         if line.element in ["Al", "Mg"]:
             fitter_class = line_models.GenericLineModel
         else:

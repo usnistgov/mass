@@ -107,8 +107,7 @@ def initialize_HLike_2P_model(element, conf, has_linear_background=False, has_ta
                                                      has_linear_background=has_linear_background, peak_component_name=line_name_3_2)
     amp_ratio_param_name = f'{element}{charge}_{conf}_amp_ratio'
     composite_model.set_param_hint(name=amp_ratio_param_name, value=0.5, min=0.0, vary=vary_amp_ratio)
-    composite_model.set_param_hint('{}amplitude'.format(
-        prefix_1_2), expr=f'{prefix_3_2}amplitude * {amp_ratio_param_name}')
+    composite_model.set_param_hint(f'{prefix_1_2}amplitude', expr=f'{prefix_3_2}amplitude * {amp_ratio_param_name}')
     return composite_model
 
 

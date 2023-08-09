@@ -417,11 +417,9 @@ class Test_Composites_lmfit:
         assert (np.logical_and(prefix1 in modelComponentPrefixes, prefix2 in modelComponentPrefixes))
         compositeParams = result1.params + result2.params
         compositeParams[f'{prefix1}fwhm'].expr = f'{prefix2}fwhm'
-        compositeParams['{}peak_ph'.format(
-            prefix1)].expr = f'{prefix2}peak_ph - {self.nominal_separation}'
+        compositeParams[f'{prefix1}peak_ph'].expr = f'{prefix2}peak_ph - {self.nominal_separation}'
         compositeParams.add(name='ampRatio', value=0.5, vary=False)
-        compositeParams['{}integral'.format(
-            prefix1)].expr = f'{prefix2}integral * ampRatio'
+        compositeParams[f'{prefix1}integral'].expr = f'{prefix2}integral * ampRatio'
         compositeResult = compositeModel.fit(
             self.counts, params=compositeParams, bin_centers=self.bin_centers)
         resultComponentPrefixes = [iComp.prefix for iComp in compositeResult.components]

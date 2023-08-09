@@ -143,8 +143,7 @@ class NISTXrayLine:
         self.raw = textline.rstrip()
 
     def __str__(self):
-        return '{} {} line: {:.3f} +- {:.3f} eV'.format(self.element, self.transition,
-                                                        self.peak, self.peak_unc)
+        return f'{self.element} {self.transition} line: {self.peak:.3f} +- {self.peak_unc:.3f} eV'
 
     def __repr__(self):
         return self.raw
