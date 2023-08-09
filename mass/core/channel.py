@@ -2013,7 +2013,7 @@ class MicrocalDataSet:
                 data[0] = 0
             elif residual:
                 model = self.p_filt_value[pn] * self.average_pulse[:] / np.max(self.average_pulse)
-                data -= model
+                data = data - model
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
             if fcut is not None:
