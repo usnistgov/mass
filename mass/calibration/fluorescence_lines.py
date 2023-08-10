@@ -9,6 +9,7 @@ import numpy as np
 import scipy as sp
 import pylab as plt
 from . import line_models
+from .energy_calibration import STANDARD_FEATURES
 from collections import OrderedDict
 
 from mass.mathstat.special import voigt
@@ -216,7 +217,6 @@ class SpectralLine:
         if lorentzian_fwhm <= 0 and intrinsic_sigma <= 0:
             intrinsic_sigma = 1e-4
         lorentzian_fwhm = np.array([lorentzian_fwhm])
-        intrinsic_sigma = intrinsic_sigma
         linetype = "quick_line"
         reference_plot_instrument_gaussian_fwhm = "unkown: quick_line"
         reference_short = "unkown: quick_line"
@@ -355,6 +355,8 @@ lineshape_references["Dean 2020"] = """Dean, J. W., Chantler, C. T., Smale, L. F
 An absolute energy characterisation of scandium Kβ to 2 parts per million. J. Phys. B: At. Mol. Opt. Phys. 53 205004.
 https://doi.org/10.1088/1361-6455/abb1ff"""
 
+lineshape_references["Rough Estimate"] = "Line energies from the stanard database, relative intensities and widths are guesses."
+
 spectra = OrderedDict()
 spectrum_classes = OrderedDict()  # for backwards compatability
 
@@ -436,7 +438,7 @@ def make_line_fitter(line):
     """Generate a LineFitter instance from a SpectralLine (deprecated)"""
     if line.fitter_type is not None:
         fitter_class = line.fitter_type
-    elif line.linetype == "KAlpha" or line.linetype == "LAlpha":
+    elif line.linetype in ["KAlpha", "LAlpha"]:
         if line.element in ["Al", "Mg"]:
             fitter_class = line_models.GenericLineModel
         else:
@@ -449,6 +451,21 @@ def make_line_fitter(line):
     f.name = line.element+line.linetype
     return f
 
+
+addline(
+    element="Fe",
+    material="metal",
+    linetype="LAlpha",
+    reference_short="Rough Estimate",
+    nominal_peak_energy=STANDARD_FEATURES["FeLAlpha"],
+    energies=np.array([STANDARD_FEATURES["FeLAlpha"], STANDARD_FEATURES["FeLBeta"]]),
+    lorentzian_fwhm=np.array(np.array([3, 3])),
+    reference_amplitude=np.array(np.array([2,1])),
+    reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
+    ka12_energy_diff=np.abs(STANDARD_FEATURES["FeLAlpha"]-STANDARD_FEATURES["FeLBeta"]),
+    reference_plot_instrument_gaussian_fwhm=0.2,  # a total guess
+    position_uncertainty=1.5
+)
 
 addline(
     element="Mg",
@@ -589,9 +606,9 @@ addline(
     reference_short="Deslattes Notebook S, Cl, K",
     reference_plot_instrument_gaussian_fwhm=0.266,
     nominal_peak_energy=2622.44,
-    energies=np.array((2622.44, 2620.85, 2640)),
-    lorentzian_fwhm=np.array((0.925, 0.945, 5)),
-    reference_amplitude=np.array((0.15153e5, 0.82429e4, 0.15153e5/8.0)),
+    energies=np.array((2622.44, 2620.85)),
+    lorentzian_fwhm=np.array((0.925, 0.945)),
+    reference_amplitude=np.array((0.15153e5, 0.82429e4)),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     ka12_energy_diff=1.6,
     position_uncertainty=0.040

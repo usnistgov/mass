@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.8.0** May 2023-
+**0.8.0** August 10, 2023
 
 * Use `np.memmap` on LJH files as well as OFF (issue 160).
 * Remove `iter_segments()` and internal use of `read_segment()`.
@@ -15,6 +15,13 @@
 * Remove the monkey-patch to `np.histogram` required by numpy 1.13 (issue 248)
 * Fix error in `summarize_data(..., use_cython=False)` for multi-segment LJH files (issue 249)
 * Improved/updated documentation file `Cuts.md`, which has always bugged me.
+
+
+**0.7.11** June 2023
+
+* Add `overwrite` parameter to phase and time-drift corrections.
+* Update line shapes: Fe L line, ClKAlpha.
+* Realtime state slice fix
 
 
 **0.7.10** June 2, 2023

@@ -344,7 +344,6 @@ class ArrivalTimeSafeFilter(Filter):
             raise ValueError("%s requires either noise_autocorr or whitener to be set" %
                              (self.__class__.__name__))
         noise_psd = None
-        sample_time = sample_time
 
         avg_signal = pulsemodel[:, 0]
         self.pulsemodel = pulsemodel

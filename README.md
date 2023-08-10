@@ -113,3 +113,6 @@ Change directory into `doc` then
   * windows powershell `./make doctest;./make html;start _build/html/index.html`
 
 Read about RST (reStructuredText) format. It is weird. My most common mistake is forgetting the blank line between `.. blah` statements and the following text. See the [Sphinx docs](https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html) for details about its syntax.
+
+# massGui, the GUI for Mass
+massGui is an attempt to bring the core features of Mass into a graphical user interface (GUI). You can find more information and install it [here](https://github.com/gmondee/massGui).

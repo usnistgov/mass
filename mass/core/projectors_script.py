@@ -98,8 +98,7 @@ def main(args=None):
         if not args.silent:
             print(f"chose first max_channels={args.max_channels} channels")
     if len(channums) == 0:
-        raise Exception("no channels found for files matching {} and {}".format(
-            args.pulse_path, args.noise_path))
+        raise Exception(f"no channels found for files matching {args.pulse_path} and {args.noise_path}")
     pulse_basename, _ = mass.ljh_util.ljh_basename_channum(args.pulse_path)
     noise_basename, _ = mass.ljh_util.ljh_basename_channum(args.noise_path)
     pulse_files = [pulse_basename+f"_chan{channum}.ljh" for channum in channums]

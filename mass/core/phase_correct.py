@@ -71,13 +71,12 @@ class PhaseCorrector:
         return cls(x, y, corrections, indicatorName, uncorrectedName)
 
     def __repr__(self):
-        s = """PhaseCorrector with
-        splines at this many levels: {}
-        phase_uniformifier_x: {}
-        phase_uniformifier_y: {}
-        uncorrectedName: {}
-        """.format(len(self.corrections), self.phase_uniformifier_x,
-                   self.phase_uniformifier_y, self.uncorrectedName)
+        s = f"""PhaseCorrector with
+        splines at this many levels: {len(self.corrections)}
+        phase_uniformifier_x: {self.phase_uniformifier_x}
+        phase_uniformifier_y: {self.phase_uniformifier_y}
+        uncorrectedName: {self.uncorrectedName}
+        """
         return s
 
 
