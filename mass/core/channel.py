@@ -998,7 +998,6 @@ class MicrocalDataSet:
         if self.peak_samplenumber is None:
             self._compute_peak_samplenumber()
 
-        end-first
         self.p_timestamp[first:end] = self.times[first:end]
         self.p_rowcount[first:end] = self.rowcount[first:end]
 
@@ -2013,6 +2012,9 @@ class MicrocalDataSet:
                 data[0] = 0
             elif residual:
                 model = self.p_filt_value[pn] * self.average_pulse[:] / np.max(self.average_pulse)
+                # Careful! The following was `data -= model`, but that fails because data
+                # is now a read-only memmap.
+                # `data = data - model` rebinds data to a numpy vector, which is allowed.
                 data = data - model
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
