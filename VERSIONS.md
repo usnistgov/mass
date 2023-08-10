@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.8.0** August 9, 2023
+**0.8.0** August 10, 2023
 
 * Use `np.memmap` on LJH files as well as OFF (issue 160).
 * Remove `iter_segments()` and internal use of `read_segment()`.
