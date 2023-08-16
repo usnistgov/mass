@@ -8,13 +8,13 @@ Paul Szypryt
 """
 
 import numpy as np
-import re
 import mass.calibration.hci_lines
 try:
     from xraylib import SymbolToAtomicNumber
 except ImportError:
     raise ImportError(
-        'This module requires the xraylib python package. Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
+        'This module requires the xraylib python package. '
+        'Please see https://github.com/tschoonj/xraylib/wiki for installation instructions.')
 
 
 def initialize_hci_line_model(line_name, has_linear_background=False, has_tails=False):
@@ -27,7 +27,7 @@ def initialize_hci_line_model(line_name, has_linear_background=False, has_tails=
     '''
 
     line = mass.spectrum_classes[line_name]()
-    prefix = '{}_'.format(line_name).replace(' ', '_').replace(
+    prefix = f'{line_name}_'.replace(' ', '_').replace(
         'J=', '').replace('/', '_').replace('*', '').replace('.', '')
     line_model = line.model(has_linear_background=has_linear_background, has_tails=has_tails, prefix=prefix)
     line_model.shortname = line_name
@@ -64,14 +64,14 @@ def initialize_hci_composite_model(composite_name, individual_models, has_linear
     for i in np.arange(num_line_components):
         if i != peak_component_index:
             # Single fwhm across model
-            composite_model.set_param_hint('{}fwhm'.format(line_component_prefixes[i]),
-                                           expr='{}fwhm'.format(composite_model.peak_prefix))
+            composite_model.set_param_hint(f'{line_component_prefixes[i]}fwhm',
+                                           expr=f'{composite_model.peak_prefix}fwhm')
             # Single dph_de across model
-            composite_model.set_param_hint('{}dph_de'.format(line_component_prefixes[i]),
-                                           expr='{}dph_de'.format(composite_model.peak_prefix))
+            composite_model.set_param_hint(f'{line_component_prefixes[i]}dph_de',
+                                           expr=f'{composite_model.peak_prefix}dph_de')
             # Fixed energy separation based on database values
             separation = line_component_energies[i] - composite_model.peak_energy
-            composite_model.set_param_hint('{}peak_ph'.format(line_component_prefixes[i]),
+            composite_model.set_param_hint(f'{line_component_prefixes[i]}peak_ph',
                                            expr='({0} * {1}dph_de) + {1}peak_ph'.format(separation, composite_model.peak_prefix))
     composite_model.shortname = composite_name
     return composite_model
@@ -90,11 +90,11 @@ def initialize_HLike_2P_model(element, conf, has_linear_background=False, has_ta
 
     # Set up line names and lmfit prefixes
     charge = int(SymbolToAtomicNumber(element))
-    line_name_1_2 = '{}{} {} 2P* J=1/2'.format(element, charge, conf)
-    line_name_3_2 = '{}{} {} 2P* J=3/2'.format(element, charge, conf)
-    prefix_1_2 = '{}_'.format(line_name_1_2).replace(' ', '_').replace(
+    line_name_1_2 = f'{element}{charge} {conf} 2P* J=1/2'
+    line_name_3_2 = f'{element}{charge} {conf} 2P* J=3/2'
+    prefix_1_2 = f'{line_name_1_2}_'.replace(' ', '_').replace(
         'J=', '').replace('/', '_').replace('*', '').replace('.', '')
-    prefix_3_2 = '{}_'.format(line_name_3_2).replace(' ', '_').replace(
+    prefix_3_2 = f'{line_name_3_2}_'.replace(' ', '_').replace(
         'J=', '').replace('/', '_').replace('*', '').replace('.', '')
     # Initialize individual lines and models
     line_1_2 = mass.spectrum_classes[line_name_1_2]()
@@ -102,13 +102,12 @@ def initialize_HLike_2P_model(element, conf, has_linear_background=False, has_ta
     model_1_2 = line_1_2.model(has_linear_background=False, has_tails=has_tails, prefix=prefix_1_2)
     model_3_2 = line_3_2.model(has_linear_background=False, has_tails=has_tails, prefix=prefix_3_2)
     # Initialize composite model and set addition H-like constraints
-    composite_name = '{}{} {}'.format(element, charge, conf)
+    composite_name = f'{element}{charge} {conf}'
     composite_model = initialize_hci_composite_model(composite_name=composite_name, individual_models=[model_1_2, model_3_2],
                                                      has_linear_background=has_linear_background, peak_component_name=line_name_3_2)
-    amp_ratio_param_name = '{}{}_{}_amp_ratio'.format(element, charge, conf)
+    amp_ratio_param_name = f'{element}{charge}_{conf}_amp_ratio'
     composite_model.set_param_hint(name=amp_ratio_param_name, value=0.5, min=0.0, vary=vary_amp_ratio)
-    composite_model.set_param_hint('{}amplitude'.format(
-        prefix_1_2), expr='{}amplitude * {}'.format(prefix_3_2, amp_ratio_param_name))
+    composite_model.set_param_hint(f'{prefix_1_2}amplitude', expr=f'{prefix_3_2}amplitude * {amp_ratio_param_name}')
     return composite_model
 
 
@@ -125,18 +124,19 @@ def initialize_HeLike_complex_model(element, has_linear_background=False, has_ta
 
     # Set up line names
     charge = int(SymbolToAtomicNumber(element) - 1)
-    line_name_1s2s_3S = '{}{} 1s.2s 3S J=1'.format(element, charge)
-    line_name_1s2p_3P = '{}{} 1s.2p 3P* J=1'.format(element, charge)
-    line_name_1s2p_1P = '{}{} 1s.2p 1P* J=1'.format(element, charge)
+    line_name_1s2s_3S = f'{element}{charge} 1s.2s 3S J=1'
+    line_name_1s2p_3P = f'{element}{charge} 1s.2p 3P* J=1'
+    line_name_1s2p_1P = f'{element}{charge} 1s.2p 1P* J=1'
     line_names = np.hstack([[line_name_1s2s_3S, line_name_1s2p_3P, line_name_1s2p_1P], additional_line_names])
     # Set up lines and models based on line_names
-    individual_lines = [mass.spectrum_classes[i_line_name]() for i_line_name in line_names]
+    # individual_lines = [mass.spectrum_classes[i_line_name]() for i_line_name in line_names]
     individual_models = [initialize_hci_line_model(
         i_line_name, has_linear_background=False, has_tails=has_tails) for i_line_name in line_names]
     # Set up composite model
-    composite_name = '{}{} 1s2s_2p Complex'.format(element, charge)
-    composite_model = initialize_hci_composite_model(composite_name=composite_name, individual_models=individual_models,
-                                                     has_linear_background=has_linear_background, peak_component_name=line_name_1s2p_1P)
+    composite_name = f'{element}{charge} 1s2s_2p Complex'
+    composite_model = initialize_hci_composite_model(
+        composite_name=composite_name, individual_models=individual_models,
+        has_linear_background=has_linear_background, peak_component_name=line_name_1s2p_1P)
     return composite_model
 
 
@@ -149,10 +149,10 @@ def add_bg_model(generic_model, vary_slope=False):
     '''
 
     composite_name = generic_model._name
-    bg_prefix = '{}_'.format(composite_name).replace(' ', '_').replace(
+    bg_prefix = f'{composite_name}_'.replace(' ', '_').replace(
         'J=', '').replace('/', '_').replace('*', '').replace('.', '')
     background_model = mass.calibration.line_models.LinearBackgroundModel(
-        name='{} Background'.format(composite_name), prefix=bg_prefix)
+        name=f'{composite_name} Background', prefix=bg_prefix)
     background_model.set_param_hint('bg_slope', vary=vary_slope)
     composite_model = generic_model + background_model
     composite_model.name = composite_name
@@ -167,7 +167,8 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
         has_linear_background: (default False) include a single linear background on top of the 2 Lorentzians
         has_tails: (default False) include low energy tail in the model
         vary_Hlike_amp_ratio: (default False) allow the ratio of the J=3/2 to J=1/2 H-like states to vary
-        additional_Helike_complex_lines: (default []) additional line names to include inHe-like complex model, e.g. low level Li/Be-like features
+            additional_Helike_complex_lines: (default []) additional line names to include inHe-like complex
+            model, e.g. low level Li/Be-like features
     '''
 
     models_dict = {}
@@ -187,8 +188,9 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
     # He-like lines
     Helike_complex_elements = ['N', 'O', 'Ne', 'Ar']
     for i_element in Helike_complex_elements:
-        Helike_model = initialize_HeLike_complex_model(i_element, has_linear_background=has_linear_background,
-                                                       has_tails=has_tails, additional_line_names=additional_Helike_complex_lines)
+        Helike_model = initialize_HeLike_complex_model(
+            i_element, has_linear_background=has_linear_background,
+            has_tails=has_tails, additional_line_names=additional_Helike_complex_lines)
         models_dict[Helike_model._name] = Helike_model
     # 1s.np 1P* lines for n>=3
     conf_Helike_1P_dict = {}
@@ -199,7 +201,7 @@ def models(has_linear_background=False, has_tails=False, vary_Hlike_amp_ratio=Fa
     for i_element in list(conf_Helike_1P_dict.keys()):
         i_charge = int(SymbolToAtomicNumber(i_element) - 1)
         for i_conf in conf_Helike_1P_dict[i_element]:
-            Helike_line_name = '{}{} {} 1P* J=1'.format(i_element, i_charge, i_conf)
+            Helike_line_name = f'{i_element}{i_charge} {i_conf} 1P* J=1'
             Helike_model = initialize_hci_line_model(
                 Helike_line_name, has_linear_background=has_linear_background, has_tails=has_tails)
             models_dict[Helike_model._name] = Helike_model

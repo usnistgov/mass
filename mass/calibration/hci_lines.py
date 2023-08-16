@@ -13,7 +13,7 @@ import pickle
 import scipy.constants as sp_const
 import os
 from . import fluorescence_lines
-from . import line_fits
+from . import line_models
 from . import LORENTZIAN_PEAK_HEIGHT
 import xraydb
 
@@ -21,7 +21,7 @@ INVCM_TO_EV = sp_const.c * sp_const.physical_constants['Planck constant in eV s'
 DEFAULT_PICKLE_NAME = 'nist_asd.pickle'
 
 
-class NIST_ASD():
+class NIST_ASD:
     '''Class for working with a pickled atomic spectra database'''
 
     def __init__(self, pickleFilename=None):
@@ -82,19 +82,16 @@ class NIST_ASD():
                 JVal = j_str.split('=')[1]
                 if requiredConf is None:
                     includeConf = True
-                else:
-                    if conf == requiredConf:
-                        includeConf = True
+                elif conf == requiredConf:
+                    includeConf = True
                 if requiredTerm is None:
                     includeTerm = True
-                else:
-                    if term == requiredTerm:
-                        includeTerm = True
+                elif term == requiredTerm:
+                    includeTerm = True
                 if requiredJVal is None:
                     includeJVal = True
-                else:
-                    if JVal == requiredJVal:
-                        includeJVal = True
+                elif JVal == requiredJVal:
+                    includeJVal = True
                 # Include levels that match, in either cm-1 or eV
                 if includeConf and includeTerm and includeJVal:
                     numLevels += 1
@@ -161,7 +158,7 @@ def add_hci_line(element, spectr_ch, line_identifier, energies, widths, ratios, 
         material="Highly Charged Ion",
         linetype=linetype,
         reference_short='NIST ASD',
-        fitter_type=line_fits.GenericKBetaFitter,
+        fitter_type=line_models.GenericLineModel,
         reference_plot_instrument_gaussian_fwhm=0.5,
         nominal_peak_energy=nominal_peak_energy,
         energies=energies,

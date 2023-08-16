@@ -18,14 +18,14 @@ LOG = logging.getLogger("mass")
 
 wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
-np.random.seed(2384792)  # avoid NaN errors on galen's computer
+rng = np.random.default_rng(3241)  # Arbitrary seed--change if needed
 # <demo> stop
 
 # First, let's work with a simple Gaussian fit. We'll make some data to fit
 FWHM_SIGMA_RATIO = (8*np.log(2))**0.5
 N, mu, sigma = 4000, 400.0, 20.0
 fwhm = FWHM_SIGMA_RATIO*sigma
-d = np.random.standard_normal(size=N)*sigma + mu
+d = rng.standard_normal(size=N)*sigma + mu
 
 # We are going to fit histograms, not raw data vectors:
 hist, bin_edges = np.histogram(d, 100, [mu-4*sigma, mu+4*sigma])
@@ -80,7 +80,7 @@ fitter.plot(color="r", label="full", ph_units="arb in this demo")
 # Note that we get a poor fit when there IS a background but we don't let it be fit for,
 # as in fit (1) here.
 
-hist += np.random.poisson(lam=12.0, size=len(hist))
+hist += rng.poisson(lam=12.0, size=len(hist))
 
 plt.clf()
 axis = plt.subplot(111)
@@ -116,7 +116,7 @@ plt.legend()
 # a Lorentzian fit.
 
 mu, fullwidth = 100.0, 6.0
-dc = np.random.standard_cauchy(size=N)*fullwidth*0.5 + mu
+dc = rng.standard_cauchy(size=N)*fullwidth*0.5 + mu
 histc, bin_edges = np.histogram(dc, 200, [mu-10-4*fullwidth, mu+10+4*fullwidth])
 bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
@@ -132,7 +132,7 @@ for i, tp in enumerate(true_params):
 
 # Finally, put real Gaussian smearing on the data and use the Voigt fitter again.
 sigma = 3.0
-dv = dc + np.random.standard_normal(size=N)*sigma
+dv = dc + rng.standard_normal(size=N)*sigma
 histv, bin_edges = np.histogram(dv, 200, [mu-10-4*fullwidth, mu+10+4*fullwidth])
 bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 
@@ -147,10 +147,10 @@ for i, tp in enumerate(true_params):
 # Now let's fit two Voigt functions.
 N1, N2, Nbg = 3000, 2000, 1000
 mu1, mu2, sigma = 100.0, 105.0, 0.8
-dc1 = np.random.standard_cauchy(size=N1)+mu1
-dc2 = np.random.standard_cauchy(size=N2)+mu2
+dc1 = rng.standard_cauchy(size=N1)+mu1
+dc2 = rng.standard_cauchy(size=N2)+mu2
 dc = np.hstack([dc1, dc2])
-dc += np.random.standard_normal(size=N1+N2)*sigma
+dc += rng.standard_normal(size=N1+N2)*sigma
 
 histc, bin_edges = np.histogram(dc, 200, [mu1-10-4*sigma, mu2+10+4*sigma])
 bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
@@ -158,7 +158,7 @@ bin_ctr = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
 fitter = mass.calibration.NVoigtFitter(2)
 true_params = np.array([sigma*2.3548, mu1, 2, N1*.15, mu2, 2, N2*.15, .1, 0, 0, 25])
 # Those are the correct values.  Let's mess with them by 3% (more or less):
-param_guess = true_params * 1+np.random.standard_normal(11)*0.03
+param_guess = true_params * 1+rng.standard_normal(11)*0.03
 
 params, covariance = fitter.fit(histc, bin_ctr, param_guess)
 for i, tp in enumerate(true_params):

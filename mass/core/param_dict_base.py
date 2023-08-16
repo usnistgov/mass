@@ -23,23 +23,25 @@ def message(m):
         print(m)
 
 
-class PrmDictBase(object):
+class PrmDictBase:
     """
     Base class for solvers with parameters stored in dictionaries.
 
     Data dicts whose keys are fixed (non-extensible):
       self.*_prm
+
     These are filled in subclasses by, e.g.,
       self.physical_prm['someprm'] = value
     or
       self.physical_prm.update({'someprm': value,
                                 'another': other_value})
+
     The dictionary with all legal keys should be defined in the subclass.
 
     List of the dictionaries with fixed keys:
       self._prm_list = [self.physical_prm, self.numerical_prm]
-    Subclasses define any self._*_prm dicts and append
-    them to self._prm_list.
+
+    Subclasses define any self._*_prm dicts and append them to self._prm_list.
 
     Meta data given by the user can be stored in self.user_prm.
     This attribute is None if meta data are not allowed,
@@ -89,7 +91,7 @@ class PrmDictBase(object):
         for d in self._prm_list:
             keys = sorted(d.keys(), key=lambda x: x.lower())
             for prm in keys:
-                print('%s = %s' % (prm, d[prm]))
+                print(f'{prm} = {d[prm]}')
 
     def set(self, **kwargs):
         """Set kwargs data in parameter dictionaries."""
@@ -115,8 +117,7 @@ class PrmDictBase(object):
                 if isinstance(self.user_prm, dict):
                     # not a registered parameter:
                     self.user_prm[prm] = kwargs[prm]
-                    message('%s=%s assigned in self.user_prm' %
-                            (prm, kwargs[prm]))
+                    message(f'{prm}={kwargs[prm]} assigned in self.user_prm')
                 else:
                     raise NameError('parameter "%s" not registered' % prm)
         self._update()
@@ -146,18 +147,18 @@ class PrmDictBase(object):
                     if isinstance(value, self._type_check[prm]):
                         can_set = True
                     else:
-                        raise TypeError('\n\n%s=%s has type %s, not %s or None\nself._type_check=%s' %
-                                        (prm, value, type(d[prm], self._type_check[prm], self._type_check)))
+                        msg = f"{prm}={value} has type {type(d[prm])}, not {self._type_check[prm]} or None"
+                        raise TypeError(msg)
                 else:
-                    raise TypeError('self._type_check["%s"] must be int/book or type (float,int,...) values, not %s' %
-                                    (prm, type(self._type_check[prm])))
+                    raise TypeError(f'self._type_check["{prm}"] must be int/book or type (float,int,...) '
+                                    f'values, not {type(self._type_check[prm])}')
             else:
                 can_set = True
         else:
-            message('%s is not registered in\n%s' % (prm, d))
+            message(f'{prm} is not registered in\n{d}')
         if can_set:
             d[prm] = value
-            message('%s=%s is assigned' % (prm, value))
+            message(f'{prm}={value} is assigned')
             return True
         return False
 
@@ -172,11 +173,9 @@ class PrmDictBase(object):
             d = eval('self.' + ds)
             for prm in d:
                 # properties cannot have whitespace:
-                prm = prm.replace(' ', '_')
-                cmd = '%s.%s = property(fget='\
-                      'lambda self: self.%s["%s"], %s)' % \
-                      (self.__class__.__name__, prm, ds, prm,
-                       ' doc="read-only property"')
+                prm_spaced = prm.replace(' ', '_')
+                cmd = f"{self.__class__.__name__}.{prm_spaced} = property(fget=lambda self: " \
+                    f"self.{ds}['{prm_spaced}'], doc='read-only property')"
                 print(cmd)
                 exec(cmd, global_namespace, locals())
 
@@ -198,7 +197,7 @@ class PrmDictBase(object):
         # can be tuned in subclasses
         for d in dicts:
             for key in d:
-                exec('%s=%s' % (key, repr(d[key])), globals(), namespace)
+                exec(f'{key}={repr(d[key])}', globals(), namespace)
 
     def namespace2dicts(self, namespace, dicts):
         """Update dicts from variables in a namespace."""

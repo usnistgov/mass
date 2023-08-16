@@ -1,5 +1,22 @@
 ## Note on version numbers of Mass
 
+**0.8.0** August 10, 2023
+
+* Use `np.memmap` on LJH files as well as OFF (issue 160).
+* Remove `iter_segments()` and internal use of `read_segment()`.
+* Start to use `setup.cfg` instead of Python code to configure build/install (issue 238).
+* Clean out code from the `nonstandard` directory (issue 241).
+* Move tests out of the installed mass package (issue 242).
+* Use ruff instead of very slow pylint (issue 243).
+* Use numpy's new API for random numbers (issue 244).
+* Remove the `CythonMicrocalDataSet` class; replace with pure Cython functions (issue 245).
+* Remove the deprecated non-LMfit-based `MaximumLikelihoodFitter` (issue 246).
+* Replace all `unittest` with `pytest`-based testing (issue 247).
+* Remove the monkey-patch to `np.histogram` required by numpy 1.13 (issue 248)
+* Fix error in `summarize_data(..., use_cython=False)` for multi-segment LJH files (issue 249)
+* Improved/updated documentation file `Cuts.md`, which has always bugged me.
+
+
 **0.7.11** June 2023
 
 * Add `overwrite` parameter to phase and time-drift corrections.
@@ -217,7 +234,7 @@
 
 **0.4.3** May 2016
 
-* Reorganized code that fits spectral line models (Voigt, Gaussian, and specific K&alpha; or K&beta; lines).
+* Reorganized code that fits spectral line models (Voigt, Gaussian, and specific Kα or Kβ lines).
 * Added low-E tails to the Voigt and Gaussian fitters.
 * Fixed issues #45-51, except for 48.
 

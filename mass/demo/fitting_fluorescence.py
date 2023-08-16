@@ -28,12 +28,13 @@ mass.MnKAlpha.plot()
 # Let's generate some data distributed as if from the Mn K-alpha complex, with
 # a nonzero Gaussian smearing
 
+rng = np.random.default_rng()
 res_fwhm = 3.0
 res_sigma = res_fwhm / 2.3548
 distrib = mass.calibration.MnKAlpha
 N = 10000
 energies = distrib.rvs(size=N)
-energies += np.random.standard_normal(N)*res_sigma
+energies += rng.standard_normal(N)*res_sigma
 
 plt.clf()
 hist, bin_edges, _ = plt.hist(energies, 200, [5865, 5915], histtype="step", color="g")
@@ -62,7 +63,7 @@ param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, label="full")
 # <demo> stop
 # Now let's add a sloped background
 expected_bg = (bin_ctr-5860)*0.4
-hist += np.random.poisson(lam=expected_bg, size=len(hist))
+hist += rng.poisson(lam=expected_bg, size=len(hist))
 
 param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, vary_bg_slope=True, label="full")
 
@@ -70,7 +71,7 @@ param, covar = fitter.fit(hist, bin_ctr, param_guess, hold=hold, vary_bg_slope=T
 # Now let there be a 20% low-energy tail.
 Naffected = N//5
 tail_len = 10.0
-energies[:Naffected] -= np.random.exponential(tail_len, size=Naffected)
+energies[:Naffected] -= rng.exponential(tail_len, size=Naffected)
 hist, _ = np.histogram(energies, 200, [5865, 5915])
 param_guess = [res_fwhm, 5898.9, 1.0, param_guess[3], 0, 0, 0.2, tail_len]
 

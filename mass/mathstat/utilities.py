@@ -17,8 +17,12 @@ import numpy as np
 __all__ = ['plot_as_stepped_hist', 'plot_stepped_hist_poisson_errors', 'savitzky_golay',
            'find_svd_randomly', 'find_range_randomly']
 
+# Create a module-local RNG. If you need to seed it to achieve repeatable tests,
+# you can replace this.
+rng = np.random.default_rng()
 
-class CheckForMissingLibrary(object):
+
+class CheckForMissingLibrary:
     """Class to raise ImportError only after python tries to use the import.
 
     Intended for use with shared objects built from Fortran or Cython source.
@@ -128,7 +132,7 @@ def savitzky_golay(y, window_size, order, deriv=0):
     Examples
     --------
     t = np.linspace(-4, 4, 500)
-    y = np.exp( -t**2 ) + np.random.normal(0, 0.05, t.shape)
+    y = np.exp( -t**2 ) + np.random.default_rng().normal(0, 0.05, t.shape)
     ysg = savitzky_golay(y, window_size=31, order=4)
     import matplotlib.pyplot as plt
     plt.plot(t, y, label='Noisy signal')
@@ -146,8 +150,8 @@ def savitzky_golay(y, window_size, order, deriv=0):
        Cambridge University Press ISBN-13: 9780521880688
     """
     try:
-        window_size = np.abs(np.int(window_size))
-        order = np.abs(np.int(order))
+        window_size = np.abs(int(window_size))
+        order = np.abs(int(order))
     except ValueError as _msg:
         raise ValueError("window_size and order have to be of type int: %s" % _msg)
     if window_size % 2 != 1 or window_size < 1:
@@ -184,7 +188,7 @@ def find_range_randomly(A, nl, q=1):
         raise ValueError(msg)
     A = np.asarray(A)
     m, n = A.shape
-    Omega = np.random.standard_normal((n, nl))
+    Omega = rng.standard_normal((n, nl))
     Y = np.dot(A, Omega)
     for _ in range(q):
         Y = np.dot(A.T, Y)

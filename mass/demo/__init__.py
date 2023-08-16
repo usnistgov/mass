@@ -15,8 +15,6 @@ try:
 except ImportError:
     from IPython.demo import Demo
 
-from . import sourceroot
-
 
 this_dir, this_file = os.path.split(__file__)
 
@@ -33,11 +31,11 @@ demos = {}
 for f in demo_files:
     demos[f] = Demo(fullpath(f))
 
-helptxt = """
+helptxt = f"""
 This package (mass.demo) consist of several demonstration scripts.
 To run one as an IPython demo, you say:
 
-massdemo = mass.demo.demos['%s']
+massdemo = mass.demo.demos['{demo_files[0]}']
 massdemo()
 massdemo() # Each call to the Demo object moves forward 1 more block in the demo.
 #      The basic intro.py has close to a dozen blocks to step through.
@@ -45,7 +43,7 @@ massdemo() # Each call to the Demo object moves forward 1 more block in the demo
 massdemo.reset()
 
 The full list of available demos is:
-%s
-""" % (demo_files[0], demo_files)
+{demo_files}
+"""
 
 print(helptxt)

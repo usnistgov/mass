@@ -1,16 +1,20 @@
 
 
-          MASS: The Microcalorimeter Analysis Software System
+# MASS: The Microcalorimeter Analysis Software System
 
-                    Joe Fowler, NIST Boulder Labs
+MASS is the work of [Joe Fowler](https://bitbucket.org/joe_fowler/) and [Galen O'Neil](https://bitbucket.org/oneilg/) of NIST Boulder Labs, with substantial contributions from:
+* Dan Becker
+* Young-Il Joe
+* Jamie Titus
+* Many collaborators, who have made many bug reports, bug fixes, and feature requests.
 
-                        November 2010-present
+November 2010-present
 
-# Installation
-Requires Python 3. You will probably need to add an ssh key to your bitbucket account to get the install to work.
+## Installation
+Mass requires Python version 3.8 or higher. You will probably need to add an ssh key to your bitbucket account to get the installation to work.
 
 ```
-cd ~/somewhere/to/install/code  
+cd ~/somewhere/to/install/code
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass
 ```
 In the above instance, mass will be installed as `~/somewhere/to/install/code/src/mass`, with that penultimate directory `src/` as part of pip's rules.
@@ -28,22 +32,18 @@ It's possible that the above would also help you to re-install if you do somethi
 
 See [`nist-qsp-tdm`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) README for instructions to install all tdm python software simultaneously, and how to setup venv.
 
-## Windows
-You may need to install Visual Studio Community Edition.
+You may need to install Visual Studio Community Edition in order to run on Windows.
 
-## Sudo
-Try installing without `sudo` first, though I find on NIST macs that I can't get away without sudo.
-
-## Scripts
+### Scripts
 Mass installs 3 scripts (as of March 2020). These are `ljh_truncate`, `make_projectors`, and `ljh2off`. You can check `setup.py` and look for either `scripts` or `console_scripts` to see if any others have been added. These should be executable from your terminal from anywhere without typing `python` before them, though you may need to add something to your path. Please update this if you need to add something to your path. They all have help accessible via eg `ljh2off --help`.
 
 ### Python 2.7
 If you really want to use Python 2.7, version 0.7.5 is the last version tested on Python 2.7, you can install it with the following command:
-```  
+```
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@versions/0.7.5#egg=mass
 ```
 
-# Documentation
+## Documentation
 
 * [Docs for master](https://oneilg.bitbucket.io/mass/)
 * [Docs for latest push to any non master branch](https://oneilg.bitbucket.io/mass_non_master/)
@@ -63,9 +63,9 @@ General advice on updating/creating documentation files:
 * If there's something worth updating in an existing .md file, then update it. Better yet, change it to an .rst file with doctests.
 
 
-# Intro
+## Intro
 
-Mass is a software suite to analyze data from microcalorimeters.  It is meant to be exactly as general as NIST users and their collaborators require, without being any more general than that.  
+Mass is a software suite to analyze data from microcalorimeters.  It is meant to be exactly as general as NIST users and their collaborators require, without being any more general than that.
 
 With Mass and a little bit of Python knowledge, you can:
 
@@ -77,7 +77,7 @@ With Mass and a little bit of Python knowledge, you can:
 
 As of this writing (September 28, 2012), it is 22,000 lines of Python. It has some extension modules in Cython.
 
-# Realtime Analysis
+## Realtime Analysis
 Realtime analysis is implemented by writing filtered values as well as "svd components" represting the shape of each pulse to a `.off` file. This requires a substanial change is how things in mass work, thus there is a new interface that replaces larges parts of mass in `mass.off`. Look at `mass/off/test_channels.py` for a test script that shows basic usage.
 
 ## Tests

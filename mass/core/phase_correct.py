@@ -9,7 +9,7 @@ import logging
 LOG = logging.getLogger("mass")
 
 
-class PhaseCorrector():
+class PhaseCorrector:
     version = 1
 
     def __init__(self, phase_uniformifier_x, phase_uniformifier_y, corrections, indicatorName, uncorrectedName):
@@ -38,8 +38,8 @@ class PhaseCorrector():
         h5group_update("indicator_name", self.indicatorName)
         h5group_update("version", self.version)
         for (i, correction) in enumerate(self.corrections):
-            h5group_update("correction_{}_x".format(i), correction._x)
-            h5group_update("correction_{}_y".format(i), correction._y)
+            h5group_update(f"correction_{i}_x", correction._x)
+            h5group_update(f"correction_{i}_y", correction._y)
 
     def correct(self, phase, ph):
         # attempt to force phases to fall between X and X
@@ -55,29 +55,28 @@ class PhaseCorrector():
 
     @classmethod
     def fromHDF5(cls, hdf5_group, name="phase_correction"):
-        x = hdf5_group["{}/phase_uniformifier_x".format(name)][()]
-        y = hdf5_group["{}/phase_uniformifier_y".format(name)][()]
-        uncorrectedName = tostr(hdf5_group["{}/uncorrected_name".format(name)][()])
-        indicatorName = tostr(hdf5_group["{}/indicator_name".format(name)][()])
-        version = hdf5_group["{}/version".format(name)][()]
+        x = hdf5_group[f"{name}/phase_uniformifier_x"][()]
+        y = hdf5_group[f"{name}/phase_uniformifier_y"][()]
+        uncorrectedName = tostr(hdf5_group[f"{name}/uncorrected_name"][()])
+        indicatorName = tostr(hdf5_group[f"{name}/indicator_name"][()])
+        version = hdf5_group[f"{name}/version"][()]
         i = 0
         corrections = []
-        while "{}/correction_{}_x".format(name, i) in hdf5_group:
-            _x = hdf5_group["{}/correction_{}_x".format(name, i)][()]
-            _y = hdf5_group["{}/correction_{}_y".format(name, i)][()]
+        while f"{name}/correction_{i}_x" in hdf5_group:
+            _x = hdf5_group[f"{name}/correction_{i}_x"][()]
+            _y = hdf5_group[f"{name}/correction_{i}_y"][()]
             corrections.append(CubicSpline(_x, _y))
             i += 1
         assert (version == cls.version)
         return cls(x, y, corrections, indicatorName, uncorrectedName)
 
     def __repr__(self):
-        s = """PhaseCorrector with
-        splines at this many levels: {}
-        phase_uniformifier_x: {}
-        phase_uniformifier_y: {}
-        uncorrectedName: {}
-        """.format(len(self.corrections), self.phase_uniformifier_x,
-                   self.phase_uniformifier_y, self.uncorrectedName)
+        s = f"""PhaseCorrector with
+        splines at this many levels: {len(self.corrections)}
+        phase_uniformifier_x: {self.phase_uniformifier_x}
+        phase_uniformifier_y: {self.phase_uniformifier_y}
+        uncorrectedName: {self.uncorrectedName}
+        """
         return s
 
 

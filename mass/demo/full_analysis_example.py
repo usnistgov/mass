@@ -51,9 +51,10 @@ before you proceed to try running the rest of this demo.
 # <demo> --- stop ---
 
 # Load up the data
-assert (os.path.isdir(DIR))
-pulse_pattern = os.path.join(DIR, "ljh", "20150707_D_chan13.ljh")
-noise_pattern = os.path.join(DIR, "ljh", "20150707_C_chan13.noi")
+# Comment   # noqa: F821 means "QA system should ignore the undefined name DIR in these lines"
+assert (os.path.isdir(DIR))  # noqa: F821
+pulse_pattern = os.path.join(DIR, "ljh", "20150707_D_chan13.ljh")  # noqa: F821
+noise_pattern = os.path.join(DIR, "ljh", "20150707_C_chan13.noi")  # noqa: F821
 print(pulse_pattern)
 print(noise_pattern)
 

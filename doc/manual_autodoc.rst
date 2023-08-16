@@ -10,9 +10,9 @@ MicrocalDataSet
   :members:
   :undoc-members:
 
-LineFitter (base class of fitters like MnKAlphaFitter)
-=======================================================
-.. autoclass:: mass.LineFitter
+SpectralLine (base class of line models)
+========================================
+.. autoclass:: mass.SpectralLine
   :members:
   :undoc-members:
 

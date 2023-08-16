@@ -3,7 +3,6 @@ import os
 import shutil
 import logging
 import collections
-from typing import List, Dict, Union
 
 # pkg imports
 import numpy as np
@@ -29,7 +28,7 @@ from .experiment_state import ExperimentStateFile
 LOG = logging.getLogger("mass")
 
 
-class DriftCorrection():
+class DriftCorrection:
     version = 1
 
     def __init__(self, indicatorName, uncorrectedName, medianIndicator, slope):
@@ -46,19 +45,19 @@ class DriftCorrection():
         return gain*uncorrected
 
     def toHDF5(self, hdf5_group, name="driftCorrection"):
-        hdf5_group["{}/indicatorName".format(name)] = self.indicatorName
-        hdf5_group["{}/uncorrectedName".format(name)] = self.uncorrectedName
-        hdf5_group["{}/medianIndicator".format(name)] = self.medianIndicator
-        hdf5_group["{}/slope".format(name)] = self.slope
-        hdf5_group["{}/version".format(name)] = self.version
+        hdf5_group[f"{name}/indicatorName"] = self.indicatorName
+        hdf5_group[f"{name}/uncorrectedName"] = self.uncorrectedName
+        hdf5_group[f"{name}/medianIndicator"] = self.medianIndicator
+        hdf5_group[f"{name}/slope"] = self.slope
+        hdf5_group[f"{name}/version"] = self.version
 
     @classmethod
     def fromHDF5(cls, hdf5_group, name="driftCorrection"):
-        indicatorName = tostr(hdf5_group["{}/indicatorName".format(name)][()])
-        uncorrectedName = tostr(hdf5_group["{}/uncorrectedName".format(name)][()])
-        medianIndicator = hdf5_group["{}/medianIndicator".format(name)][()]
-        slope = hdf5_group["{}/slope".format(name)][()]
-        version = hdf5_group["{}/version".format(name)][()]
+        indicatorName = tostr(hdf5_group[f"{name}/indicatorName"][()])
+        uncorrectedName = tostr(hdf5_group[f"{name}/uncorrectedName"][()])
+        medianIndicator = hdf5_group[f"{name}/medianIndicator"][()]
+        slope = hdf5_group[f"{name}/slope"][()]
+        version = hdf5_group[f"{name}/version"][()]
         assert (version == cls.version)
         return cls(indicatorName, uncorrectedName, medianIndicator, slope)
 
@@ -70,7 +69,7 @@ class DriftCorrection():
             return False
 
 
-class CorG():
+class CorG:
     """
     implments methods that are shared across Channel and ChannelGroup
     """
@@ -111,15 +110,19 @@ class CorG():
                 has_linear_background=True, has_tails=False, params_update=lmfit.Parameters(),
                 minimum_bins_per_fwhm=None):
         """Do a fit to `lineNameOrEnergy` and return the result. You can get the params results with result.params
-        lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel", your you can pass in a model like a mass.MnKAlphaModel().
+        lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel"; you
+            can pass in a model like a mass.MnKAlphaModel().
+
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
         states -- will be passed to hist, coAddStates will be True
         axis -- if axis is None and plot==True, will create a new figure, otherwise plot onto this axis
-        dlo and dhi and binsize -- by default it tries to fit with bin edges given by np.arange(model.spect.peak_energy-dlo, model.spect.peak_energy+dhi, binsize)
+        dlo and dhi and binsize -- by default it tries to fit with bin edges given by
+            np.arange(model.spect.peak_energy-dlo, model.spect.peak_energy+dhi, binsize)
         binEdges -- pass the binEdges you want as a numpy array
         label -- passed to model.plot
         plot -- passed to model.fit, determine if plot happens
-        params_fixed -- passed to model.fit, model.fit will guess the params on its own if this is None, in either case it will update with params_update
+        params_fixed -- passed to model.fit, model.fit will guess the params on its own if this is None,
+            in either case it will update with params_update
         cutRecipeName -- a function a function taking a MicrocalDataSet and returning a vector like ds.good() would return
         calbration -- a calibration to be passed to hist - will error if used with an "energy..." attr
         require_errorbars -- throw an error if lmfit doesn't return errorbars
@@ -138,7 +141,8 @@ class CorG():
                 binEdges = np.arange(pe-dlo, pe+dhi, self._handleDefaultBinsize(binsize))
             else:
                 raise Exception(
-                    "must pass binEdges if attr does not start with energy and you don't pass a calibration, also don't use energy and calibration at the same time")
+                    "must pass binEdges if attr does not start with energy and you don't pass a calibration; "
+                    "also, don't use energy and calibration at the same time")
         # print(f"binEdges.size={binEdges.size}, binEdges.mean()={binEdges.mean()}")
         # print(f"attr={attr},states={states}")
         bin_centers, counts = self.hist(
@@ -188,6 +192,7 @@ class CorG():
 
 class Channel(CorG):
     """Wrap up an OFF file with some convience functions like a TESChannel"""
+
     def __init__(self, offFile, experimentStateFile, verbose=True):
         self.offFile = offFile
         self.experimentStateFile = experimentStateFile
@@ -251,7 +256,8 @@ class Channel(CorG):
         that is robust to outliers as a function of filt Value, then uses that to set an upper limit based on n_sigma_equiv
         highly reccomend that you call it with plot=True on at least a few datasets first
         """
-        # the code currently only works for a single threshold, but has some parts in place for implementing a filtValue dependent threshold
+        # the code currently only works for a single threshold, but has some parts in place for
+        # implementing a filtValue dependent threshold
         filtValue, residualStdDev = self.getAttr(
             ["filtValue", "residualStdDev"], indsOrStates=states, cutRecipeName=cutRecipeName)
         # binEdges = np.percentile(filtValue, np.linspace(0, 100, N+1))
@@ -277,7 +283,8 @@ class Channel(CorG):
         threshold_func = scipy.interpolate.interp1d(fv_mids, threshold, kind="next", bounds_error=False,
                                                     fill_value=(-1, threshold[-1]))
         # the threshold for all filtValues below minFv will be -1
-        # filtValues just above binFv should look to the next point since kind="next", so the precise chioce of median and sigma to pair with binFv shouldn't matter
+        # filtValues just above binFv should look to the next point since kind="next", so the precise
+        # choice of median and sigma to pair with binFv shouldn't matter.
         # filtValues above the maximum filtValue should use the same threshold as the maximum filtValue
         self.cutAdd(newCutRecipeName,
                     lambda filtValue, residualStdDev: residualStdDev < threshold_func(filtValue),
@@ -314,7 +321,7 @@ class Channel(CorG):
                     inds.append(vv)
             else:
                 raise InvalidStatesException(
-                    "v should be a list of slices or a slice, but is a {}".format(type(v)))
+                    f"v should be a list of slices or a slice, but is a {type(v)}")
         return inds
 
     def __repr__(self):
@@ -385,8 +392,9 @@ class Channel(CorG):
                 r, self.offFile._dtype_non_descriptive))
             output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
-            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
-            # and about 2x fatster than temporary bool index, which can be found in commit 063bcce
+            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this
+            # method to be more than 10x faster than repeated hstack
+            # and about 2x faster than temporary bool index, which can be found in commit 063bcce
             # make sure s.step is None so my simple length calculation will work
             assert all([isinstance(s, slice) and s.step is None for s in inds])
             max_length = np.sum([s.stop-s.start for s in inds])
@@ -401,7 +409,8 @@ class Channel(CorG):
             output = output_prealloc[0:ihi]
         elif isinstance(inds, list) and _listMethodSelect == 0:  # repeated hstack
             # this could be removed, along with the _listMethodSelect argument
-            # this is only left in because it is useful for correctness testing for preallocate and truncate method since this is simpler
+            # this is only left in because it is useful for correctness testing
+            # for preallocate and truncate method since this is simpler.
             assert all([isinstance(_inds, slice) for _inds in inds])
             output = self._indexOffWithCuts(inds[0], cutRecipeName)
             for i in range(1, len(inds)):
@@ -409,7 +418,7 @@ class Channel(CorG):
         elif isinstance(inds, NoCutInds):
             output = self.offFile
         else:
-            raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
+            raise Exception(f"type(inds)={type(inds)}, should be slice or list or slices")
         return output
 
     def getAttr(self, attr, indsOrStates, cutRecipeName=None):
@@ -420,7 +429,8 @@ class Channel(CorG):
         """
         # first
         # relies on short circuiting to not evaluate last clause unless indsOrStates is a list
-        if indsOrStates is None or isinstance(indsOrStates, str) or (isinstance(indsOrStates, list) and isinstance(indsOrStates[0], str)):
+        if indsOrStates is None or isinstance(indsOrStates, str) or \
+                (isinstance(indsOrStates, list) and isinstance(indsOrStates[0], str)):
             # looks like states
             try:
                 inds = self.getStatesIndicies(indsOrStates)
@@ -495,7 +505,9 @@ class Channel(CorG):
                 axis.plot(A, B, "x", label=prefix+state+" bad")
 
     def hist(self, binEdges, attr, states=None, cutRecipeName=None, calibration=None):
-        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
+        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute).
+        automatically filtes out nan values
+
         binEdges -- edges of bins unsed for histogram
         attr -- which attribute to histogram eg "filt_value"
         cutRecipeName -- a function taking a 1d array of vales of type self.offFile.dtype and returning a vector of bool
@@ -530,10 +542,12 @@ class Channel(CorG):
                              linePositionsFunc=None, cutRecipeName=None, overwriteRecipe=False):
         """
         linePositionsFunc - if None, then use self.calibrationRough._ph as the peak locations
-        otherwise try to call it with self as an argument... here is an example of how you could use all but one peak from calibrationRough:
+        otherwise try to call it with self as an argument...
+        Here is an example of how you could use all but one peak from calibrationRough:
         `data.learnPhaseCorrection(linePositionsFunc = lambda ds: ds.recipes["energyRough"].f._ph`
         """
-        # may need to generalize this to allow using a specific state for phase correction as a specfic line... with something like calibrationPlan
+        # may need to generalize this to allow using a specific state for phase correction as
+        # a specfic line... with something like calibrationPlan
         if correctedName is None:
             correctedName = uncorrectedName + "PC"
         if linePositionsFunc is None:
@@ -630,7 +644,7 @@ class Channel(CorG):
             calibration = mass.EnergyCalibration(curvetype=curvetype, approximate=approximate)
             calibration.uncalibratedName = uncalibratedName
             results = []
-            for (ph, line, states) in zip(plan.uncalibratedVals, plan.lines, plan.states):
+            for (line, states) in zip(plan.lines, plan.states):
                 result = self.linefit(line, uncalibratedName, states, dlo=dlo, dhi=dhi,
                                       plot=False, binsize=binsize, calibration=starting_cal, require_errorbars=False,
                                       method=method, params_update=params_update, has_tails=has_tails,
@@ -664,9 +678,9 @@ class Channel(CorG):
         self.markedBadReason = reason
         self.markedBadExtraInfo = extraInfo
         self.markedBadBool = True
-        s = "\nMARK BAD {}: reason={}".format(self.shortName, reason)
+        s = f"\nMARK BAD {self.shortName}: reason={reason}"
         if extraInfo is not None:
-            s += "\nextraInfo: {}".format(extraInfo)
+            s += f"\nextraInfo: {extraInfo}"
         if self.verbose:
             LOG.warning(s)
 
@@ -689,7 +703,7 @@ class Channel(CorG):
                                  peak_xs_a=peakLocs, bin_edges=binEdges, attr=attr, states=states,
                                  cutRecipeName=cutRecipeName)
         self.calibrationArbsInRefChannelUnits = self.aligner.getCalBtoA()
-        if _peakLocs is None and not (self is referenceChannel):
+        if _peakLocs is None and (self is not referenceChannel):
             self.calibrationPlanInit(referenceChannel.calibrationPlanAttr)
             refCalPlan = referenceChannel.calibrationPlan
             for (ph, energy, name, states, line) in zip(
@@ -730,11 +744,9 @@ class Channel(CorG):
         else:
             tolerance = np.inf
         if np.abs(fitPos-result.model.spect.peak_energy) > tolerance:
-            self.markBad("qualityCheckLinefit: for {}, want {} within {}, got {}".format(
-                line, result.model.spect.peak_energy, tolerance, fitPos))
+            self.markBad(f"qualityCheckLinefit: for {line}, want {result.model.spect.peak_energy} within {tolerance}, got {fitPos}")
         if worstAllowedFWHM is not None and resolution > worstAllowedFWHM:
-            self.markBad("qualityCheckLinefit: for {}, fit resolution {} > threshold {}".format(
-                line, resolution, worstAllowedFWHM))
+            self.markBad(f"qualityCheckLinefit: for {line}, fit resolution {resolution} > threshold {worstAllowedFWHM}")
         return result
 
     @add_group_loop
@@ -742,8 +754,8 @@ class Channel(CorG):
         grp = h5File.require_group(str(self.channum))
         for state in self.stateLabels:  # hist for each state
             binCenters, counts = self.hist(binEdges, attr, state, cutRecipeName)
-            grp["{}/bin_centers".format(state)] = binCenters
-            grp["{}/counts".format(state)] = counts
+            grp[f"{state}/bin_centers"] = binCenters
+            grp[f"{state}/counts"] = counts
         binCenters, counts = self.hist(
             binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
         grp["bin_centers_ev"] = binCenters
@@ -756,13 +768,13 @@ class Channel(CorG):
         if len(self.stateLabels) > 0:
             for state in self.stateLabels:
                 energy, unixnano = self.getAttr(["energy", "unixnano"], state, cutRecipeName)
-                grp["{}/energy".format(state)] = energy
-                grp["{}/unixnano".format(state)] = unixnano
+                grp[f"{state}/energy"] = energy
+                grp[f"{state}/unixnano"] = unixnano
         else:
             energy, unixnano = self.getAttr(
                 ["energy", "unixnano"], slice(None), cutRecipeName)
-            grp["{}/energy".format(state)] = energy
-            grp["{}/unixnano".format(state)] = unixnano
+            grp[f"{state}/energy"] = energy
+            grp[f"{state}/unixnano"] = unixnano
 
     @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute=None, thresholdSigmaFromMedianAbsoluteValue=None):
@@ -782,17 +794,18 @@ class Channel(CorG):
                 self.markBad("qualityCheckDropOneErrors: maximum absolute drop one error {} > theshold {} (thresholdAbsolute)".format(
                     maxAbsError, thresholdAbsolute))
 
-    def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges = np.arange(0, 16000, 4)):
+    def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges=np.arange(0, 16000, 4)):
         calibration = self.recipes[calibratedName].f
         uncalibratedName = calibration.uncalibratedName
         results = calibration.results
         n_intermediate = len(calibration.intermediate_calibrations)
-        if fig is not None: #fig can be a matplotlib.figure.Figure object or an index ("num") of the current figures (see plt.get_fignums())
+        # fig can be a matplotlib.figure.Figure object or an index ("num") of the current figures (see plt.get_fignums())
+        if fig is not None:
             plt.figure(fig)
         else:
             plt.figure(figsize=(20, 12))
         plt.suptitle(
-            self.shortName+", cal diagnose for '{}'\n with {} intermediate calibrations".format(calibratedName, n_intermediate))
+            self.shortName+f", cal diagnose for '{calibratedName}'\n with {n_intermediate} intermediate calibrations")
         n = int(np.ceil(np.sqrt(len(results)+2)))
         for i, result in enumerate(results):
             ax = plt.subplot(n, n, i+1)
@@ -863,7 +876,7 @@ def dtw_same_peaks(bin_edges, ph_a, ph_b, peak_inds_a, scale_by_median, normaliz
     return peak_inds_b
 
 
-class AlignBToA():
+class AlignBToA:
     cm = plt.cm.gist_ncar
 
     def __init__(self, ds_a, ds_b, peak_xs_a, bin_edges, attr, cutRecipeName, states=None,
@@ -935,7 +948,7 @@ class AlignBToA():
         for i, pi in enumerate(self.peak_inds_a):
             plt.plot(self.bin_centers[pi], counts_b[pi], "o",
                      color=self.cm(float(i)/len(self.peak_inds_a)))
-        plt.xlabel("arbsInRefChannelUnits (ref channel = {})".format(self.ds_a.channum))
+        plt.xlabel(f"arbsInRefChannelUnits (ref channel = {self.ds_a.channum})")
         plt.ylabel("counts per %0.2f unit bin" % (self.bin_centers[1]-self.bin_centers[0]))
         plt.legend()
 
@@ -987,7 +1000,7 @@ class AlignBToA():
 
 
 # calibration
-class CalibrationPlan():
+class CalibrationPlan:
     def __init__(self):
         self.uncalibratedVals = np.zeros(0)
         self.states = []
@@ -1083,7 +1096,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
     @property
     def shortName(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFileNames[0])
-        return os.path.split(basename)[-1] + " {} chans".format(len(self))
+        return os.path.split(basename)[-1] + f" {len(self)} chans"
 
     def loadChannels(self):
         bar = SilenceBar('Parse OFF File Headers', max=len(
@@ -1096,7 +1109,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         bar.finish()
 
     def __repr__(self):
-        return "ChannelGroup with {} channels".format(len(self))
+        return f"ChannelGroup with {len(self)} channels"
 
     def firstGoodChannel(self):
         for ds in self.values():
@@ -1124,11 +1137,13 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         return n_new_labels, n_new_pulses_dict
 
     def hist(self, binEdges, attr, states=None, cutRecipeName=None, calibration=None):
-        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
+        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute).
+        Automatically filters out nan values.
+
         binEdges -- edges of bins unsed for histogram
-        attr -- which attribute to histogram eg "filt_value"
+        attr -- which attribute to histogram, e.g. "filt_value"
         calibration -- will throw an exception if this is not None
-         """
+        """
         if calibration is not None:
             raise Exception(
                 "calibration is an argument only to match the api of Channel.hist, but is not valid for ChannelGroup.hist")
@@ -1171,10 +1186,10 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             ds = self[channum]
             ds.plotHist(binEdges, attr, axis, [], states, cutRecipeName)
             line = axis.lines[-1]
-            line.set_label("{}".format(channum))
+            line.set_label(f"{channum}")
             if ds.markedBadBool:
                 line.set_dashes([2, 2, 10, 2])
-        axis.set_title(self.shortName + ", states = {}".format(states))
+        axis.set_title(self.shortName + f", states = {states}")
         axis.legend(title="channel")
         annotate_lines(axis, labelLines)
 
@@ -1220,8 +1235,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         grp = h5File.require_group("all_channels")
         for state in self.stateLabels:  # hist for each state
             binCenters, counts = self.hist(binEdges, attr, state, cutRecipeName)
-            grp["{}/bin_centers".format(state)] = binCenters
-            grp["{}/counts".format(state)] = counts
+            grp[f"{state}/bin_centers"] = binCenters
+            grp[f"{state}/counts"] = counts
         binCenters, counts = self.hist(
             binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
         grp["bin_centers_ev"] = binCenters
@@ -1252,11 +1267,11 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             axis.hist(resolutions, bins=np.arange(0, np.amax(resolutions)+0.25, 0.25))
             axis.set_xlabel("energy resoluiton fwhm (eV)")
             axis.set_ylabel("# of channels / 0.25 eV bin")
-            plt.title(self.shortName+" at {}".format(line))
+            plt.title(self.shortName+f" at {line}")
         if hdf5Group is not None:
             with self.includeBad():
                 for (channum, ds) in self.items():
-                    grp = hdf5Group.require_group("{}/fits/{}".format(channum, line))
+                    grp = hdf5Group.require_group(f"{channum}/fits/{line}")
                     if ds.markedBadBool:
                         grp["markedBadReason"] = ds.markedBadReason
                     else:
@@ -1288,7 +1303,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                 "deleteAndRecreate should be True or False, you can't use the default value")
         if deleteAndRecreate:
             if self.verbose:
-                print("deleting and recreating directory {}".format(self.outputDir))
+                print(f"deleting and recreating directory {self.outputDir}")
             try:
                 shutil.rmtree(self.outputDir)
             except Exception:
@@ -1316,7 +1331,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                    for ds in self.values()]
         result = self.linefit(lineName, plot=False, states=states, binsize=binsize)
         fig = plt.figure(figsize=(12, 12))
-        fig.suptitle("{} fits to {} with states = {}".format(self.shortName, lineName, states))
+        fig.suptitle(f"{self.shortName} fits to {lineName} with states = {states}")
         result.plotm(ax=plt.subplot(2, 2, 3))
         plt.xlabel("energy (eV)")
         plt.ylabel("counts per bin")
@@ -1327,14 +1342,14 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         plt.hist(resolutions)
         plt.xlabel("resolution (eV fwhm)")
         plt.ylabel("channels per bin")
-        plt.text(0.5, 0.9, "median = {:.2f}".format(np.median(resolutions)), transform=ax.transAxes)
+        plt.text(0.5, 0.9, f"median = {np.median(resolutions):.2f}", transform=ax.transAxes)
         plt.vlines(np.median(resolutions), plt.ylim()[0], plt.ylim()[1], label="median")
         ax = plt.subplot(2, 2, 2)
         plt.hist(positions)
         plt.xlabel("fit position (eV)")
         plt.ylabel("channels per bin")
-        plt.text(0.5, 0.9, "median = {:.2f}\ndb position = {:.3f}".format(np.median(positions),
-                                                                          result.model.spect.peak_energy), transform=ax.transAxes)
+        message = f"median = {np.median(positions):.2f}\ndb position = {result.model.spect.peak_energy:.3f}"
+        plt.text(0.5, 0.9, message, transform=ax.transAxes)
         plt.vlines(result.model.spect.peak_energy, plt.ylim()
                    [0], plt.ylim()[1], label="db position")
         ax = plt.subplot(2, 2, 4)
@@ -1377,7 +1392,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 class ChannelFromNpArray(Channel):
     def __init__(self, a, channum, shortname, experimentStateFile=None, verbose=True):
         self.a = a
-        self.offFile = a  # to make methods from a normal channelGroup that access offFile as an array work         self.experimentStateFile = experimentStateFile
+        self.offFile = a  # to make methods from a normal channelGroup that access offFile as an array work
+        self.experimentStateFile = experimentStateFile
         self.shortName = shortname
         self.channum = channum
         self.experimentStateFile = experimentStateFile
@@ -1428,8 +1444,9 @@ class ChannelFromNpArray(Channel):
             g = self.recipes.craft(cutRecipeName, r)
             output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
-            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
-            # and about 2x fatster than temporary bool index, which can be found in commit 063bcce
+            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this
+            # method to be more than 10x faster than repeated hstack
+            # and about 2x faster than temporary bool index, which can be found in commit 063bcce
             # make sure s.step is None so my simple length calculation will work
             assert all([isinstance(s, slice) and s.step is None for s in inds])
             max_length = np.sum([s.stop-s.start for s in inds])
@@ -1444,7 +1461,8 @@ class ChannelFromNpArray(Channel):
             output = output_prealloc[0:ihi]
         elif isinstance(inds, list) and _listMethodSelect == 0:  # repeated hstack
             # this could be removed, along with the _listMethodSelect argument
-            # this is only left in because it is useful for correctness testing for preallocate and truncate method since this is simpler
+            # this is only left in because it is useful for correctness testing for
+            # preallocate and truncate method since this is simpler
             assert all([isinstance(_inds, slice) for _inds in inds])
             output = self._indexOffWithCuts(inds[0], cutRecipeName)
             for i in range(1, len(inds)):
@@ -1452,7 +1470,7 @@ class ChannelFromNpArray(Channel):
         elif isinstance(inds, NoCutInds):
             output = self.offFile
         else:
-            raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
+            raise Exception(f"type(inds)={type(inds)}, should be slice or list or slices")
         return output
 
     @property

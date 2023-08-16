@@ -11,7 +11,7 @@ import numpy as np
 __all__ = ['ToeplitzSolver']
 
 
-class ToeplitzSolver(object):
+class ToeplitzSolver:
     """Solve a Toeplitz matrix for one or more vectors.
 
     A Toeplitz matrix is an NxN square matrix where T_ij = R_(i-j) for some

@@ -12,7 +12,9 @@ import mass.mathstat.toeplitz
 
 def band_limit(modelmatrix, sample_time, fmax, f_3db):
     """Band-limit the column-vectors in a model matrix with a hard and/or
-    1-pole low-pass filter."""
+    1-pole low-pass filter.
+    """
+
     assert len(modelmatrix.shape) <= 2
     if len(modelmatrix.shape) == 2:
         for i in range(modelmatrix.shape[1]):
@@ -31,7 +33,7 @@ def band_limit(modelmatrix, sample_time, fmax, f_3db):
         # n=filt_length is needed when filt_length is ODD
 
 
-class Filter(object):
+class Filter:
     """A set of optimal filters based on a single signal and noise set."""
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
@@ -40,30 +42,31 @@ class Filter(object):
 
         Note that you now have to call Filter.compute() yourself to compute the filters.
 
-        Args:
-            <avg_signal>     The average signal shape.  Filters will be rescaled so that the output
-                 upon putting this signal into the filter equals the *peak value* of this
-                 filter (that is, peak value relative to the baseline level).
-            <n_pretrigger>   The number of leading samples in the average signal that are considered
-                 to be pre-trigger samples.  The avg_signal in this section is replaced by
-                 its constant averaged value before creating filters.  Also, one filter
-                 (filt_baseline_pretrig) is designed to infer the baseline using only
-                 <n_pretrigger> samples at the start of a record.
-            <noise_psd>      The noise power spectral density.  If None, then filt_fourier won't be
-                 computed.  If not None, then it must be of length (2N+1), where N is the
-                 length of <avg_signal>, and its values are assumed to cover the non-negative
-                 frequencies from 0, 1/Delta, 2/Delta,.... up to the Nyquist frequency.
-            <noise_autocorr> The autocorrelation function of the noise, where the lag spacing is
-                 assumed to be the same as the sample period of <avg_signal>.  If None,
-                 then several filters won't be computed.  (One of <noise_psd> or
-                 <noise_autocorr> must be a valid array, or <whitener> must be given.)
-            <whitener>       An optional function object which, when called, whitens a vector or the
-                 columns of a matrix. Supersedes <noise_autocorr> if both are given.
-            <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
-                 This must be given if <fmax> or <f_3db> are ever to be used.
-            <shorten>        The time-domain filters should be shortened by removing this many
-                 samples from each end.  (Do this for convenience of convolution over
-                 multiple lags.)
+        Arguments:
+
+        <avg_signal>     The average signal shape.  Filters will be rescaled so that the output
+                upon putting this signal into the filter equals the *peak value* of this
+                filter (that is, peak value relative to the baseline level).
+        <n_pretrigger>   The number of leading samples in the average signal that are considered
+                to be pre-trigger samples.  The avg_signal in this section is replaced by
+                its constant averaged value before creating filters.  Also, one filter
+                (filt_baseline_pretrig) is designed to infer the baseline using only
+                <n_pretrigger> samples at the start of a record.
+        <noise_psd>      The noise power spectral density.  If None, then filt_fourier won't be
+                computed.  If not None, then it must be of length (2N+1), where N is the
+                length of <avg_signal>, and its values are assumed to cover the non-negative
+                frequencies from 0, 1/Delta, 2/Delta,.... up to the Nyquist frequency.
+        <noise_autocorr> The autocorrelation function of the noise, where the lag spacing is
+                assumed to be the same as the sample period of <avg_signal>.  If None,
+                then several filters won't be computed.  (One of <noise_psd> or
+                <noise_autocorr> must be a valid array, or <whitener> must be given.)
+        <whitener>       An optional function object which, when called, whitens a vector or the
+                columns of a matrix. Supersedes <noise_autocorr> if both are given.
+        <sample_time>    The time step between samples in <avg_signal> and <noise_autocorr>
+                This must be given if <fmax> or <f_3db> are ever to be used.
+        <shorten>        The time-domain filters should be shortened by removing this many
+                samples from each end.  (Do this for convenience of convolution over
+                multiple lags.)
         """
         self.sample_time = sample_time
         self.shorten = shorten
@@ -197,11 +200,12 @@ class Filter(object):
     def compute(self, fmax=None, f_3db=None):
         """Compute a single filter.
 
-        <fmax>   The strict maximum frequency to be passed in all filters.
-        <f_3db>  The 3 dB point for a one-pole low-pass filter to be applied to all filters.
-             Either or both of <fmax> and <f_3db> are allowed.
+        <fmax>  The strict maximum frequency to be passed in all filters.
+        <f_3db> The 3 dB point for a one-pole low-pass filter to be applied to all filters.
         <cut_pre> Cut this many samples from the start of the filter, giving them 0 weight.
         <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
+
+        Either or both of <fmax> and <f_3db> are allowed.
         """
         if self.sample_time is None and not (fmax is None and f_3db is None):
             raise ValueError(
@@ -269,7 +273,8 @@ class Filter(object):
         """Return the dot product (q^T R q) for vector <q> and matrix R constructed from
         the vector <noise> by R_ij = noise_|i-j|.  We don't want to construct the full matrix
         R because for records as long as 10,000 samples, the matrix will consist of 10^8 floats
-        (800 MB of memory)."""
+        (800 MB of memory).
+        """
 
         if len(noise) < len(q):
             raise ValueError("Vector q (length %d) cannot be longer than the noise (length %d)" %
@@ -298,13 +303,14 @@ class Filter(object):
         Args:
             <filters>   Either the name of one filter or a sequence of names.  If not given, then all filters
                 not starting with "baseline" will be reported.
+
             <std_energy> Energy (in eV) of a "standard" pulse.  Resolution will be given in eV at this energy,
                 assuming linear devices.
         """
 
         # Handle <filters> is a single string --> convert to tuple of 1 string
         def isstr(x):
-            return isinstance(x, ("".__class__, u"".__class__))
+            return isinstance(x, ("".__class__, "".__class__))
 
         if isstr(filters):
             filters = (filters,)
@@ -329,7 +335,8 @@ class Filter(object):
 class ArrivalTimeSafeFilter(Filter):
     """Compute a filter for pulses given a pulse model expressed as a
     polynomial in "arrival time". The filter will be insensitive to the
-    linear (and any higher-order) terms."""
+    linear (and any higher-order) terms.
+    """
 
     def __init__(self, pulsemodel, n_pretrigger, noise_autocorr=None,
                  whitener=None, sample_time=None, peak=1.0):
@@ -337,7 +344,6 @@ class ArrivalTimeSafeFilter(Filter):
             raise ValueError("%s requires either noise_autocorr or whitener to be set" %
                              (self.__class__.__name__))
         noise_psd = None
-        sample_time = sample_time
 
         avg_signal = pulsemodel[:, 0]
         self.pulsemodel = pulsemodel
@@ -351,9 +357,10 @@ class ArrivalTimeSafeFilter(Filter):
 
         <fmax>   The strict maximum frequency to be passed in all filters.
         <f_3db>  The 3 dB point for a one-pole low-pass filter to be applied to all filters.
-             Either or both of <fmax> and <f_3db> are allowed.
         <cut_pre> Cut this many samples from the start of the filter, giving them 0 weight.
         <cut_post> Cut this many samples from the end of the filter, giving them 0 weight.
+
+        Either or both of <fmax> and <f_3db> are allowed.
         """
         if self.sample_time is None and not (fmax is None and f_3db is None):
             raise ValueError(
@@ -424,7 +431,8 @@ class ExperimentalFilter(Filter):
     <noise_autocorr>, and an expected time constant <tau> for decaying exponentials.
     Shorten the filters w.r.t. the avgpulse function by <shorten> samples on each end.
 
-    CAUTION: THESE ARE EXPERIMENTAL!  Don't use yet if you don't know what you're doing!"""
+    CAUTION: THESE ARE EXPERIMENTAL!  Don't use yet if you don't know what you're doing!
+    """
 
     def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
                  sample_time=None, shorten=0, tau=2.0):
@@ -584,8 +592,9 @@ class ExperimentalFilter(Filter):
 
                 self.variances[shortname] = self.bracketR(filt, R)
                 fw = np.sqrt(8 * np.log(2))
-                print('Res=%6.3f eV = %.5f' % (5898.801 * fw * self.variances[shortname]**.5,
-                                               (self.variances[shortname] / self.variances['full'])**.5))
+                res = 5898.801 * fw * self.variances[shortname]**.5
+                eV = (self.variances[shortname] / self.variances['full'])**.5
+                print(f'Res={res:6.3f} eV = {eV:.5f}')
 
             self.filt_baseline = np.dot(avg_signal, Rinv_sig) * \
                 Rinv_unit - Rinv_sig.sum() * Rinv_sig
@@ -622,7 +631,7 @@ class ExperimentalFilter(Filter):
             pass
 
 
-class ToeplitzWhitener(object):
+class ToeplitzWhitener:
     """An object that can perform approximate noise whitening.
 
     For an ARMA(p,q) noise model, mutliply by (or solve) the matrix W (or its
@@ -638,12 +647,14 @@ class ToeplitzWhitener(object):
 
     * `tw.whiten(v)` returns Wv, equivalent to `tw(v)`
     * `tw.solveWT(v)` returns inv(W')*v
-    * `tw.applyWT(v)` returns W'*v
-    * `tw.solveW(v)` returns inv(W)*v (_not implemented yet_)"""
+    * `tw.applyWT(v)` returns W'v
+    * `tw.solveW(v)` returns inv(W)*v
+    """
 
     def __init__(self, thetacoef, phicoef):
         """Initialize using the coefficients `thetacoef` of the MA process
-        and `phicoef` of the AR process."""
+        and `phicoef` of the AR process.
+        """
         self.theta = np.array(thetacoef)
         self.phi = np.array(phicoef)
         self.p = len(phicoef)-1
@@ -733,7 +744,7 @@ class ToeplitzWhitener(object):
         return np.correlate(y, self.theta, "full")[self.q:]
 
     def applyWT(self, v):
-        "Return vector (or matrix of column vectors) W'*v"
+        """Return vector (or matrix of column vectors) W'v"""
         if v.ndim > 3:
             raise ValueError("v must be dimension 1 or 2")
         elif v.ndim == 2:
@@ -755,7 +766,8 @@ class ToeplitzWhitener(object):
         """Return the full whitening matrix.
 
         Normally the full W is large and slow to use. But it's here so you can
-        easily test that W(len(v))*v == whiten(v), and similar."""
+        easily test that W(len(v))*v == whiten(v), and similar.
+        """
         AR = np.zeros((N, N), dtype=float)
         MA = np.zeros((N, N), dtype=float)
         for i in range(N):

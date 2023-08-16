@@ -23,8 +23,8 @@ wasinteractive = plt.isinteractive()  # So we can go back to initial state later
 plt.ion()
 
 DIR = tempfile.mkdtemp()
-srcname = sourceroot.source_file("mass/regression_test/regress_chan1.ljh")
-noiname = sourceroot.source_file("mass/regression_test/regress_noise_chan1.ljh")
+srcname = sourceroot.source_file("tests/regression_test/regress_chan1.ljh")
+noiname = sourceroot.source_file("tests/regression_test/regress_noise_chan1.ljh")
 shutil.copy(srcname, DIR)
 shutil.copy(noiname, DIR)
 
@@ -114,7 +114,7 @@ data.plot_traces(recnums, channum=1)
 data.register_categorical_cut_field("source", ["calibration", "pumped", "unpumped"])
 
 # Let's just assign randomly to the 3 named categories and the uncategorized group:
-category = np.random.randint(4, size=ds.nPulses)
+category = np.random.default_rng().randint(4, size=ds.nPulses)
 
 ds.cuts.cut("source", category)
 

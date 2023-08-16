@@ -20,7 +20,7 @@ import power_spectrum as ps
 import pylab as plt
 N=1024
 M=N/4
-data=np.random.standard_normal(N)
+data=np.random.default_rng().standard_normal(N)
 spec = ps.PowerSpectrum(M, dt=1e-6)
 window = ps.hann(2*M)
 for i in range(3):
@@ -31,7 +31,7 @@ Or you can use the convenience function that hides the class objects
 from you and simply returns a (frequency,spectrum) pair of arrays:
 
 N=1024
-data=np.random.standard_normal(N)
+data=np.random.default_rng().standard_normal(N)
 plt.clf()
 for i in (2,4,8,1):
     f,s = ps.computeSpectrum(data, segfactor=i, dt=1e-6, window=np.hanning)
@@ -62,7 +62,7 @@ __all__ = ['PowerSpectrum', 'PowerSpectrumOverlap',
            'computeSpectrum']
 
 
-class PowerSpectrum(object):
+class PowerSpectrum:
     """Object for accumulating power spectrum estimates from one or more data segments.
 
     If you want to use multiple overlapping segments, use class
@@ -265,7 +265,7 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
 
 
 def demo(N=1024, window=np.hanning):
-    data = np.random.standard_normal(N)
+    data = np.random.default_rng().standard_normal(N)
     plt.clf()
     for i in (2, 4, 8, 1):
         f, s = computeSpectrum(data, segfactor=i, dt=1e0, window=window)

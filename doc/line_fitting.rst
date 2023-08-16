@@ -7,8 +7,8 @@ Joe Fowler, January 2020.
 
 Previously, we wrote our own modification to the Levenberg-Marquardt optimizer in order to reach maximum-likelihood (not least-squares) fits. This appears in mass as the ``LineFitter`` class and its subclasses. In its place, we want to use the `LMFIT package <https://lmfit.github.io/lmfit-py/>`_ and the new MASS class ``GenericLineModel`` and its subclasses.
 
-LMFit vs Scipy vs our homemade method
--------------------------------------
+LMFit vs Scipy
+--------------
 
 LMFIT has numerous advantages over the basic ``scipy.optimize`` module. Quoting from the LMFIT documentation, the user can:
 
@@ -19,7 +19,7 @@ LMFIT has numerous advantages over the basic ``scipy.optimize`` module. Quoting 
 
 Only some of these are implemented in the original MASS fitters, and even they are not all implemented in the most robust possible way. The one disadvantage of the core LMFIT package is that it minimizes the sum of squares of a vector instead of maximizing the Poisson likelihood. This is easily remedied, however, by replacing the usual computation of residuals with one that computes the square root of the Poisson likelihood contribution from each bin. Voilá! A maximum likelihood fitter for histograms.
 
-Advantages of LMFIT over the homemade method of the ``LineFitter`` include:
+Advantages of LMFIT over the earlier, homemade method of the ``LineFitter`` include:
 
 * Users can forget about the order of variables and refer to Parameters by meaningful names.
 * Users can place algebraic constraints on Parameters.
@@ -58,9 +58,9 @@ Objects of the type ``SpectralLine`` encode the line shape of a fluorescence lin
   # But the following is a shortcut for many lines:
   line = mass.MnKAlpha
 
-  np.random.seed(1066)
+  rng = np.random.default_rng(1066)
   N = 100000
-  energies = line.rvs(size=N, instrument_gaussian_fwhm=2.2)  # draw from the distribution
+  energies = line.rvs(size=N, instrument_gaussian_fwhm=2.2, rng=rng)  # draw from the distribution
   plt.clf()
   sim, bin_edges, _ = plt.hist(energies, 120, [5865, 5925], histtype="step");
   binsize = bin_edges[1] - bin_edges[0]
@@ -81,8 +81,8 @@ Objects of the type ``SpectralLine`` encode the line shape of a fluorescence lin
 The ``SpectralLine`` object is useful to you if you need to generate simulated data, or to plot a line shape, as shown above. Both the new fitting "model" objects and the old "fitter" objects use the ``SpectralLine`` object to hold line shape information. You don't need to create a ``SpectralLine`` object for fitting, though; it will be done automatically.
 
 
-How to use the new, LMFIT-based models for fitting
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+How to use the LMFIT-based models for fitting
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The simplest case of line fitting requires only 3 steps: create a model instance from a ``SpectralLine``, guess its parameters from the data, and perform a fit with this guess. Unlike the old fitters, plotting is not done as part of the fit--you have to do that separately.
 
@@ -130,23 +130,24 @@ You can print a nicely formatted fit report with ``fit_report()``:
       GenericKAlphaModel(MnKAlpha)
   [[Fit Statistics]]
       # fitting method   = least_squares
-      # function evals   = 4
+      # function evals   = 15
       # data points      = 120
       # variables        = 4
-      chi-square         = 107.219686
-      reduced chi-square = 0.92430764
-      Akaike info crit   = -5.51342425
-      Bayesian info crit = 5.63654272
+      chi-square         = 100.565947
+      reduced chi-square = 0.86694782
+      Akaike info crit   = -13.2013653
+      Bayesian info crit = -2.05139830
+      R-squared          = 0.99999953
   [[Variables]]
-      fwhm:        2.22986459 +/- 0.02771088 (1.24%) (init = 2.219625)
-      peak_ph:     5898.80222 +/- 0.00816914 (0.00%) (init = 5898.807)
+      fwhm:        2.21558094 +/- 0.02687437 (1.21%) (init = 2.217155)
+      peak_ph:     5898.79525 +/- 0.00789761 (0.00%) (init = 5898.794)
       dph_de:      1 (fixed)
-      integral:    100091.321 +/- 324.744927 (0.32%) (init = 100096)
-      background:  6.4245e-19 +/- 0.82673575 (128685082661343789056.00%) (init = 2.052403e-13)
+      integral:    99986.5425 +/- 314.455266 (0.31%) (init = 99985.8)
+      background:  5.0098e-16 +/- 0.80578112 (160842446370819488.00%) (init = 2.791565e-09)
       bg_slope:    0 (fixed)
   [[Correlations]] (unreported correlations are < 0.100)
-      C(integral, background) = -0.314
-      C(fwhm, peak_ph)        = -0.111
+      C(integral, background) = -0.3147
+      C(fwhm, peak_ph)        = -0.1121
 
 
 Fitting with exponential tails (to low or high energy)
@@ -219,7 +220,7 @@ If you want to multiply the line models by a model of the quantum efficiency, yo
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  Fit finds 168990±550 counts before QE, or 100130±330 observed. True value 100000.
+  Fit finds 168810±530 counts before QE, or 100020±310 observed. True value 100000.
 
 .. testcode::
   :hide:
@@ -249,11 +250,11 @@ Fitting a simple Gaussian, Lorentzian, or Voigt function
   Nbg = 1000
 
   sigma = 1.0
-  x_gauss = np.random.standard_normal(Nsig)*sigma + e_ctr
+  x_gauss = rng.standard_normal(Nsig)*sigma + e_ctr
   hwhm = 1.0
-  x_lorentz = np.random.standard_cauchy(Nsig)*hwhm + e_ctr
-  x_voigt = np.random.standard_cauchy(Nsig)*hwhm + np.random.standard_normal(Nsig)*sigma + e_ctr
-  bg = np.random.uniform(e_ctr-5, e_ctr+5, size=Nbg)
+  x_lorentz = rng.standard_cauchy(Nsig)*hwhm + e_ctr
+  x_voigt = rng.standard_cauchy(Nsig)*hwhm + rng.standard_normal(Nsig)*sigma + e_ctr
+  bg = rng.uniform(e_ctr-5, e_ctr+5, size=Nbg)
 
   # Gaussian fit
   c, b = np.histogram(np.hstack([x_gauss, bg]), 50, [e_ctr-5, e_ctr+5])
@@ -311,103 +312,12 @@ Fitting a simple Gaussian, Lorentzian, or Voigt function
   :width: 40%
 
 
-How you can use the old, homemade fitters (but don't!)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Keep in mind that the code in this section is considered `deprecated`. You should replace it (see the next section for how) in your own scripts. This explanation is here simply for reference and to help you replace.
-
-.. testcode::
-
-  # Fitters for known lines are instantiated by:
-  fitter = mass.MnKAlpha.fitter()
-  fitter._have_warned = True  # hide the deprecation warning
-  paramA, covar = fitter.fit(sim, e)
-  with np.printoptions(3, suppress=True): print(paramA)
-
-.. testoutput::
-  :options: +NORMALIZE_WHITESPACE
-
-  [    2.22   5898.807     1.002 49975.02      0.        0.        0.
-      25.   ]
-
-.. testcode::
-  :hide:
-
-  plt.savefig("img/mnka_fitdeprecated1.png"); plt.close()
-
-.. image:: img/mnka_fitdeprecated1.png
-  :width: 40%
-
-
-Notice that it's on you to remember that the ordering of the ``param`` vector (and rows and columns of the ``covar`` matrix) is:
-
-0. Energy resolution (gaussian FWHM)
-1. Energy where the nominal peak is found
-2. dPH/dE input-to-energy stretch factor
-3. Amplitude (= integrated number of photons times bin width)
-4. Mean BG level (counts per bin)
-5. BG slope (counts per bin per bin)
-6. Tail fraction (0-1, but by default doesn't vary)
-7. Tail length (in bins)
-
-To hold a parameter fixed, say the dPH/dE, you need provide a parameter guess, and also remember its code number:
-
-.. testcode::
-
-  paramA[2] = 1.0
-  paramB, covarB = fitter.fit(sim, e, paramA, hold=[2])
-  with np.printoptions(3, suppress=True): print(paramB)
-
-.. testoutput::
-  :options: +NORMALIZE_WHITESPACE
-
-  [    2.204  5898.802     1.    50047.184     0.        0.        0.
-      25.   ]
-
-.. testcode::
-  :hide:
-
-  plt.savefig("img/mnka_fitdeprecated2.png"); plt.close()
-
-.. image:: img/mnka_fitdeprecated2.png
-  :width: 40%
-
-
-
-You can allow low-energy tail to exist by setting the last two guess parameters to nonzero values. You can allow it to vary with the `vary_tail` optional argument:
-
-.. testcode::
-
-  paramB[-2:] = 0.1, 30
-  paramC, covarC = fitter.fit(sim, e, paramB, hold=[2], plot=False)
-  paramD, covarD = fitter.fit(sim, e, paramC, hold=[2], vary_tail=True, vary_bg_slope=True)
-  with np.printoptions(3, suppress=True):
-      print(paramC)
-      print(paramD)
-
-.. testoutput::
-  :options: +NORMALIZE_WHITESPACE
-
-  [    2.204  5898.802     1.    50047.184     0.        0.        0.1
-      30.   ]
-  [    2.194  5898.805     1.    50048.18    -76.213     0.274     0.003
-       6.367]
-
-.. testcode::
- :hide:
-
- plt.savefig("img/mnka_fitdeprecated3.png"); plt.close()
-
-.. image:: img/mnka_fitdeprecated3.png
- :width: 40%
-
-
-Did you get a ``LinAlgWarning`` when you performed that last fit? I did! This is part of what we're trying to avoid with the new fitters.
-
 How to convert your personal analysis code from the old to the new method
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Notice how the old "Fitter" methods are very simple to use in the usual case, but increasingly klunky if you want to vary what usually doesn't vary, to hold what usually isn't held, and to skip plotting, etc etc?
+The old "Fitter" methods are very simple to use in the usual case, but they were increasingly klunky if you want to vary
+what usually doesn't vary, to hold what usually isn't held, and to skip plotting, etc. The `fitter = mass.MnKAlpha.fitter()`
+is an example of using the old fitters. Don't do that!
 
 An overview of how to convert is:
 
@@ -437,4 +347,4 @@ To do
 * [x] Add to ``GenericLineModel`` one or more methods to make plots comparing data and fit with parameter values printed on the plot.
 * [x] The LMFIT view of models is such that we would probably find it easy to fit one histogram for the sum of (say) a Mn Kα and a Cr Kβ line simultaneously. Add features to our object, as needed, and document the procedure here.
 * [ ] We could implement convolution between two models (see just below `CompositeModel <https://lmfit.github.io/lmfit-py/model.html#lmfit.model.CompositeModel>`_ in the docs for how to do this).
-* [ ] At some point, we ought to remove the deprecated ``LineFitter`` object and subclasses thereof.
+* [x] At some point, we ought to remove the deprecated ``LineFitter`` object and subclasses thereof.

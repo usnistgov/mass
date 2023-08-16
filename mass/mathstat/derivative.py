@@ -10,7 +10,7 @@ import six
 import numpy as np
 
 
-class Function(object):
+class Function:
     """Base class for classes representing a mathematical function.
     This class provides some basic algebraic operations between Functions.
 
@@ -129,12 +129,12 @@ class PowerFunction(Function):
         return self.derivative(der=der)(x, der=0)
 
     def __repr__(self):
-        return str("x") + "^" + str(self.n)
+        return f"x^{self.n}"
 
 
 class Identity(PowerFunction):
     def __init__(self):
-        super(Identity, self).__init__(1)
+        super().__init__(1)
 
     def __repr__(self):
         return "x"
@@ -208,9 +208,8 @@ class ExprMeta(type):
                     return a
                 elif a.v == 1:
                     return b
-                else:
-                    if isinstance(b, Multiplication) and isinstance(b.g, ConstantFunction):
-                        return Multiplication(ConstantFunction(a.v * b.g.v), b.h)
+                elif isinstance(b, Multiplication) and isinstance(b.g, ConstantFunction):
+                    return Multiplication(ConstantFunction(a.v * b.g.v), b.h)
             if isinstance(a, PowerFunction):
                 if isinstance(b, PowerFunction):
                     return PowerFunction(a.n + b.n)
@@ -232,7 +231,7 @@ class ExprMeta(type):
 
 class BinaryOperation(six.with_metaclass(ExprMeta)):
     def __init__(self, g, h):
-        super(BinaryOperation, self).__init__()
+        super().__init__()
         self.g = g
         self.h = h
 
@@ -252,7 +251,7 @@ class Composition(BinaryOperation, Function):
 
     def __repr__(self):
         if six.PY2:
-            return ("(" + str(self.g) + u" \u2022 " + str(self.h) + ")").encode("utf8")
+            return ("(" + str(self.g) + " \u2022 " + str(self.h) + ")").encode("utf8")
         elif six.PY3:
             return "(" + str(self.g) + " \u2022 " + str(self.h) + ")"
 

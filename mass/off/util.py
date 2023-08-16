@@ -17,7 +17,7 @@ import os
 LOG = logging.getLogger("mass")
 
 
-class NoCutInds():
+class NoCutInds:
     pass
 
 
@@ -25,11 +25,12 @@ class InvalidStatesException(Exception):
     pass
 
 
-class RecipeBook():
+class RecipeBook:
     def __init__(self, baseIngredients, propertyClass=None, wrapper=lambda x: x):
         """
         propertyClass - which class to add properties to, if they are to be added
-        wrapper - used in Recipe.craft to allow both "coefs" and "filtValue" to be ingredeints, while "filtValue" refers to a sub-array of "coefs"
+        wrapper - used in Recipe.craft to allow both "coefs" and "filtValue" to be ingredients,
+            while "filtValue" refers to a sub-array of "coefs"
         """
         self.craftedIngredients = collections.OrderedDict()
         self.baseIngredients = baseIngredients  # list of names of base ingredients that will be passed to craft
@@ -63,7 +64,9 @@ class RecipeBook():
             # learn ingredient names from signature of f
             for argName in inspectedArgNames:
                 ingredient = argName
-                assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients, f"ingredient='{ingredient}' must be in baseIngredients={self.baseIngredients} or craftedIngredients.keys()={list(self.craftedIngredients.keys())}"
+                assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients, \
+                    f"ingredient='{ingredient}' must be in baseIngredients={self.baseIngredients} or "\
+                    f"craftedIngredients.keys()={list(self.craftedIngredients.keys())}"
                 i2a[ingredient] = argName
         else:
             # i would like to do == here, but i'd need to handle optional arguments better
@@ -78,7 +81,8 @@ class RecipeBook():
                 recipe._setIngredientToRecipe(ingredient, self.craftedIngredients[ingredient])
         if recipeName == "__temp__":
             return recipe
-        assert recipeName not in self.craftedIngredients or overwrite, f"recipeName={recipeName} already in self.craftedIngredients with keys={list(self.craftedIngredients.keys())}"
+        assert recipeName not in self.craftedIngredients or overwrite, \
+            f"recipeName={recipeName} already in self.craftedIngredients with keys={list(self.craftedIngredients.keys())}"
         assert not recipeName.startswith("!")
         self.craftedIngredients[recipeName] = recipe
         # recipes are added to the class, so only do it once per recipeName
@@ -154,7 +158,7 @@ class RecipeBook():
         return r
 
 
-class Recipe():
+class Recipe:
     """
     If `r` is a Recipe, it is a wrapper around a function `f` and the names of its arguments.
     Arguments can either be names to be provided in a dictionary `d` when `r(d)` is called, or
@@ -203,7 +207,7 @@ class Recipe():
         return s
 
 
-class GroupLooper(object):
+class GroupLooper:
     """A mixin class to allow ChannelGroup objects to hold methods that loop over
     their constituent channels. (Has to be a mixin, in order to break the import
     cycle that would otherwise occur.)"""
@@ -237,7 +241,7 @@ def add_group_loop(method):
             except KeyboardInterrupt as e:
                 raise (e)
             except Exception as e:
-                ds.markBad("{} during {}".format(e, method_name), e)
+                ds.markBad(f"{e} during {method_name}", e)
                 if rethrow:
                     raise
             bar.next()
@@ -254,9 +258,9 @@ def add_group_loop(method):
         arginfo = inspect.getargspec(method)
         argtext = inspect.formatargspec(*arginfo)
     if method.__doc__ is None:
-        lines.append("\n%s%s has no docstring" % (method_name, argtext))
+        lines.append(f"\n{method_name}{argtext} has no docstring")
     else:
-        lines.append("\n%s%s docstring reads:" % (method_name, argtext))
+        lines.append(f"\n{method_name}{argtext} docstring reads:")
         lines.append(method.__doc__)
     wrapper.__doc__ = "\n".join(lines)
 
@@ -354,7 +358,8 @@ def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
             energy = float(lineNameOrEnergy)
         except Exception:
             raise FailedToGetModelException(
-                f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or a str in mass.spectra or mass.STANDARD_FEATURES")
+                f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or "
+                "a str in mass.spectra or mass.STANDARD_FEATURES")
         line = mass.SpectralLine.quick_monochromatic_line(
             f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
     return line.model(has_linear_background=has_linear_background, has_tails=has_tails)
@@ -373,7 +378,7 @@ def median_absolute_deviation(x):
     return mad, sigma_equiv, median
 
 
-class IngredientsWrapper():
+class IngredientsWrapper:
     """
     I'd like to be able to do either ingredient_source["coefs"] to get all projection coefficients
     or ingredient_source["filtValue"] to get only the filtValue

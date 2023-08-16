@@ -45,7 +45,7 @@ class CategoryList(np.ndarray):
         return "\n".join([header, spacer] + rows)
 
 
-class CutFieldMixin(object):
+class CutFieldMixin:
     """A mixin object that gives a class access to lots of features involving
     boolean per-pulse cuts and per-pulse categorization.
     """
@@ -218,7 +218,7 @@ class CutFieldMixin(object):
 
         for name in enc_names:
             if not name or name not in boolean_fields['name']:
-                raise KeyError("{0:s} is not a registered boolean field.".format(name.decode()))
+                raise KeyError(f"{name.decode():s} is not a registered boolean field.")
 
         clear_mask = np.uint32(0)
 
@@ -280,7 +280,7 @@ class CutFieldMixin(object):
         # Updates the 'cut_category_list' attribute
         new_list = []
         for i, category in enumerate(category_list):
-            digits = map(np.uint32, "{0:032b}".format(i)[-num_bits:])
+            digits = map(np.uint32, f"{i:032b}"[-num_bits:])
             code = np.sum([a * b for a, b in zip(individual_bit_masks, digits)])
             new_list.append((name.encode(), category.encode(), code >> lowest_bit_pos))
 
@@ -306,7 +306,7 @@ class CutFieldMixin(object):
         category_list = self.cut_category_list
 
         if not np.any(categorical_fields['name'] == name.encode()):
-            raise KeyError("{0:s} field is not a registered categorical field.".format(name))
+            raise KeyError(f"{name:s} field is not a registered categorical field.")
 
         new_categorical_fields = categorical_fields[categorical_fields['name'] != name.encode()]
         new_category_list = category_list[category_list['field'] != name.encode()]
@@ -317,7 +317,7 @@ class CutFieldMixin(object):
         self.cut_used_bit_flags &= ~clear_mask
 
 
-class Cuts(object):
+class Cuts:
     """Object to hold a 32-bit cut mask for each triggered record."""
 
     def __init__(self, n, tes_group, hdf5_group=None):
@@ -360,7 +360,7 @@ class Cuts(object):
             cut_num = int(cut_num)
             if (cut_num < 0) or (cut_num > 31):
                 raise ValueError(str(cut_num) + " is out of range.")
-            if boolean_field[cut_num]['name'] == ''.encode():
+            if boolean_field[cut_num]['name'] == b'':
                 raise ValueError(str(cut_num) + " is not a registered boolean cut.")
             _, bit_mask = boolean_field[cut_num]
             self._mask[mask] |= bit_mask

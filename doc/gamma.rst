@@ -29,8 +29,6 @@ Imports and such
   import numpy as np
   import lmfit
 
-  np.random.seed(2)  # the projector creation process uses a random algorithm for svds, this ensures we get the same answer each time
-
   # add the lines we will use for calibraiton
   mass.STANDARD_FEATURES['Ho166m_80'] = 80.574e3
   mass.STANDARD_FEATURES['Co57_122'] = 122.06065e3
@@ -61,10 +59,10 @@ Here we do "plain" mass analysis, basically we just use 5 lag filters, cuts, dri
 
 .. testcode::
 
-  pulse_files = ["../mass/off/data_for_test/20181018_144520/20181018_144520_chan3.ljh",
-                 "../mass/off/data_for_test/20181018_144520/20181018_144520_chan13.ljh"]
-  noise_files = ["../mass/off/data_for_test/20181018_144325/20181018_144325_chan3.noi",
-                 "../mass/off/data_for_test/20181018_144325/20181018_144325_chan13.noi"]
+  pulse_files = ["../tests/off/data_for_test/20181018_144520/20181018_144520_chan3.ljh",
+                 "../tests/off/data_for_test/20181018_144520/20181018_144520_chan13.ljh"]
+  noise_files = ["../tests/off/data_for_test/20181018_144325/20181018_144325_chan3.noi",
+                 "../tests/off/data_for_test/20181018_144325/20181018_144325_chan13.noi"]
   data_plain = mass.TESGroup(filenames = pulse_files,
           noise_filenames = noise_files,
           hdf5_filename = mass_hdf5,
@@ -101,6 +99,9 @@ Most of the time the defaults should work fine.
 
 .. testcode::
 
+  # The projector creation process uses a random algorithm for svds, this ensures we get the same answer each time
+  mass.mathstat.utilities.rng = np.random.default_rng(200)
+
   with h5py.File(model_hdf5,"w") as h5:
       mass.make_projectors(pulse_files=pulse_files,
           noise_files=noise_files,
@@ -128,8 +129,8 @@ so the formatting looks odd.
 .. testcode::
   :hide:
 
-  plt.savefig("img/gamma_model1.png");plt.close()
-  plt.savefig("img/gamma_model2.png");plt.close()
+  plt.savefig("img/gamma_model1.png"); plt.close()
+  plt.savefig("img/gamma_model2.png"); plt.close()
 
 .. image:: img/gamma_model1.png
   :width: 45%
@@ -204,9 +205,9 @@ filtValue5Lag and manually identify lines to add to the calibrationPlan.
 .. testcode::
   :hide:
 
-  plt.savefig("img/gamma_energyrough_hist.png");plt.close()
-  plt.savefig("img/gamma_fv_hist.png");plt.close()
-  plt.savefig("img/gamma_ptm_check.png");plt.close()
+  plt.savefig("img/gamma_energyrough_hist.png"); plt.close()
+  plt.savefig("img/gamma_fv_hist.png"); plt.close()
+  plt.savefig("img/gamma_ptm_check.png"); plt.close()
 
 
 
@@ -250,10 +251,10 @@ pulse data. Then we make a few plots to check for needed corrections and sanity.
 .. testcode::
   :hide:
 
-  plt.savefig("img/gamma_ptmc.png");plt.close()
-  plt.savefig("img/gamma_ptdelta.png");plt.close()
-  plt.savefig("img/gamma_arrival.png");plt.close()
-  plt.savefig("img/gamma_cuts.png");plt.close()
+  plt.savefig("img/gamma_ptmc.png"); plt.close()
+  plt.savefig("img/gamma_ptdelta.png"); plt.close()
+  plt.savefig("img/gamma_arrival.png"); plt.close()
+  plt.savefig("img/gamma_cuts.png"); plt.close()
 
 Various plots:
  - Top left: the filt value dependent threshold on residualStdDev for a particular channel.
@@ -303,7 +304,7 @@ a plot of all the fits used for the calibration of one channel.
 .. testcode::
   :hide:
 
-  plt.savefig("img/gamma_diagnose.png");plt.close()
+  plt.savefig("img/gamma_diagnose.png"); plt.close()
 
 .. image:: img/gamma_diagnose.png
   :width: 80%
@@ -317,20 +318,20 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
   for attr in ["energy", "energyNoDC"][:]:
       print(f"{attr}:")
       for ds in data.values():
-          result = ds.linefit(line, attr, dlo=200, dhi=200, plot=False, params_update = params)
+          result = ds.linefit(line, attr, dlo=200, dhi=200, plot=False, params_update=params)
           if result.params["fwhm"].stderr is None:
               result.params["fwhm"].stderr = 100000
-          print(f"""\t{ds.shortName:22} {line} fwhm={result.params["fwhm"].value:.2f}+/-{result.params["fwhm"].stderr:.2f}""")
+          print(f"""\t{ds.shortName:22} {line} fwhm={result.params["fwhm"].value:.0f} ± {result.params["fwhm"].stderr:.1f}""")
 
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
   energy:
-      20181018_144520 chan3  Ho166m_80 fwhm=60.19+/-1.93
-      20181018_144520 chan13 Ho166m_80 fwhm=62.51+/-2.03
+      20181018_144520 chan3  Ho166m_80 fwhm=60 ± 1.8
+      20181018_144520 chan13 Ho166m_80 fwhm=62 ± 2.0
   energyNoDC:
-      20181018_144520 chan3  Ho166m_80 fwhm=64.12+/-2.46
-      20181018_144520 chan13 Ho166m_80 fwhm=70.69+/-2.62
+      20181018_144520 chan3  Ho166m_80 fwhm=64 ± 2.5
+      20181018_144520 chan13 Ho166m_80 fwhm=71 ± 2.6
 
 OFF vs Plain Comparision
 ------------------------
@@ -361,7 +362,7 @@ me know what you think about it.
       params["dph_de"].set(1,vary=False)
       result = model.fit(counts, bin_centers=bin_centers, params=params)
       fwhm, unc = result.params["fwhm"].value, result.params["fwhm"].stderr
-      print(f"\tchan {ds.channum:3d} fwhm={fwhm:.2f}+/-{unc:.2f} (off)")
+      print(f"\tchan {ds.channum:3d} fwhm={fwhm:.1f} ± {unc:.1f} (off)")
 
       plain_counts, _ = np.histogram(cal(plain_ds.p_filt_value_dc[g]), bin_edges)
       plain_model = mass.off.util.get_model(line)
@@ -369,7 +370,7 @@ me know what you think about it.
       plain_params["dph_de"].set(1,vary=False)
       plain_result = plain_model.fit(plain_counts, bin_centers=bin_centers, params=plain_params)
       plain_fwhm, plain_unc = plain_result.params["fwhm"].value, plain_result.params["fwhm"].stderr
-      print(f"\tchan {ds.channum:3d} fwhm={plain_fwhm:.2f}+/-{plain_unc:.2f} (ljh)")
+      print(f"\tchan {ds.channum:3d} fwhm={plain_fwhm:.1f} ± {plain_unc:.1f} (ljh)")
 
   result.plotm(title="off "+ds.shortName)
   plain_result.plotm(title="ljh "+ds.shortName)
@@ -377,18 +378,18 @@ me know what you think about it.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-    chan   3 fwhm=60.09+/-1.64 (off)
-    chan   3 fwhm=60.05+/-1.77 (ljh)
-    chan  13 fwhm=60.37+/-1.97 (off)
-    chan  13 fwhm=61.21+/-2.03 (ljh)
+      chan   3 fwhm=60.2 ± 1.5 (off)
+      chan   3 fwhm=60.1 ± 1.8 (ljh)
+      chan  13 fwhm=60.9 ± 2.0 (off)
+      chan  13 fwhm=61.2 ± 2.0 (ljh)
 
 We also plot one fit from one channel for plain and off style.
 
 .. testcode::
   :hide:
 
-  plt.savefig("img/gamma_plain_fit.png");plt.close()
-  plt.savefig("img/gamma_off_fit.png");plt.close()
+  plt.savefig("img/gamma_plain_fit.png"); plt.close()
+  plt.savefig("img/gamma_off_fit.png"); plt.close()
 
 
 .. image:: img/gamma_plain_fit.png
@@ -411,9 +412,9 @@ from the previous section, not the apples to apples comparison where we used the
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  ch 3off   ngood=22118 ntot=22930
+  ch 3off   ngood=22116 ntot=22930
   ch 3plain ngood=21959 ntot=22930
-  ch 13off   ngood=21503 ntot=22406
+  ch 13off   ngood=21505 ntot=22406
   ch 13plain ngood=21320 ntot=22406
 
 
@@ -462,12 +463,12 @@ from the main group at around 4000. Here we will isolate and plot some of those 
 .. testcode::
   :hide:
 
-  plt.savefig("img/gamma_odd6.png");plt.close()
-  plt.savefig("img/gamma_odd5.png");plt.close()
-  plt.savefig("img/gamma_odd4.png");plt.close()
-  plt.savefig("img/gamma_odd3.png");plt.close()
-  plt.savefig("img/gamma_odd2.png");plt.close()
-  plt.savefig("img/gamma_odd1.png");plt.close()
+  plt.savefig("img/gamma_odd6.png"); plt.close()
+  plt.savefig("img/gamma_odd5.png"); plt.close()
+  plt.savefig("img/gamma_odd4.png"); plt.close()
+  plt.savefig("img/gamma_odd3.png"); plt.close()
+  plt.savefig("img/gamma_odd2.png"); plt.close()
+  plt.savefig("img/gamma_odd1.png"); plt.close()
 
 Dotted traces were cut by the plain mass analysis. So here we see all the but one of the pulses in the horizontal group of residualStdDev
 were cut by plain mass. The one that was not cut in plain mass has a phase slip on the rising edge, and should be cut. Many
@@ -512,8 +513,8 @@ Lets say we want to look at stability of energy vs time, here are some different
 .. testcode::
   :hide:
 
-  plt.savefig("img/gamma_evt1.png");plt.close()
-  plt.savefig("img/gamma_evt2.png");plt.close()
+  plt.savefig("img/gamma_evt1.png"); plt.close()
+  plt.savefig("img/gamma_evt2.png"); plt.close()
 
 .. image:: img/gamma_evt1.png
   :width: 45%

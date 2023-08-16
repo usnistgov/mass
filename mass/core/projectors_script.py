@@ -22,9 +22,9 @@ def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_de
     data.auto_cuts(nsigma_pt_rms=n_sigma_pt_rms, nsigma_max_deriv=n_sigma_max_deriv)
     data.compute_noise()
     data.compute_ats_filter(shift1=False, optimize_dp_dt=optimize_dp_dt, f_3db=f_3db_ats)
-    hdf5_filename = data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses,
-                                             extra_n_basis_5lag=extra_n_basis_5lag, noise_weight_basis=noise_weight_basis,
-                                             f_3db_5lag=f_3db_5lag, _rethrow=True)
+    _ = data.pulse_model_to_hdf5(h5, n_basis=n_basis, maximum_n_pulses=maximum_n_pulses,
+                                 extra_n_basis_5lag=extra_n_basis_5lag, noise_weight_basis=noise_weight_basis,
+                                 f_3db_5lag=f_3db_5lag, _rethrow=True)
 
     return data.n_good_channels(), data.n_channels
 
@@ -40,7 +40,7 @@ def parse_args(fake):
     parser.add_argument(
         "noise_path", help="path a a single ljh file with noise records, other channel numbers will be found automatically")
     parser.add_argument("-o", "--output_path",
-                        help="output filename (should be .hdf5), the default behavior will place it in the same directory as pulse_path",
+                        help="output filename (should be .hdf5); default will place it in the same directory as pulse_path",
                         default=None, type=str)
     parser.add_argument("-r", "--replace_output",
                         help="pass this to overwrite off files with the same path", action="store_true", default=False)
@@ -52,8 +52,11 @@ def parse_args(fake):
                         help="cutoff frequency for 5lag filter", default=None, type=float)
     parser.add_argument("--n_ignore_presamples",
                         help="ignore this many presample before the rising edge when calculating pretrigger_mean", default=3, type=int)
+    help_sigma_pt_rms = """passed to autocuts to determine pulses used to generate pulse model;
+the default large value basically disables this cut, which causes the projectors to
+be able to model the non-flat pretrigger region better"""
     parser.add_argument("--n_sigma_pt_rms", type=float, default=10000,
-                        help="passed to autocuts to determine pulses used to generate pulse model, the default large value basically disables this cut, which causes the projectors to be able to model the non-flat pretrigger region better")
+                        help=help_sigma_pt_rms)
     parser.add_argument("--n_sigma_max_deriv", type=float, default=8,
                         help="passed to autocuts to determine pulses used to generate pulse model")
     parser.add_argument("-n", "--n_basis", type=int, default=5,
@@ -84,29 +87,28 @@ def main(args=None):
     if not args.silent:
         print("starting make_projectors")
     for k in sorted(vars(args).keys()):
-        print("{}: {}".format(k, vars(args)[k]))
+        print(f"{k}: {vars(args)[k]}")
     # find files
     channums = mass.ljh_util.ljh_get_channels_both(args.pulse_path, args.noise_path)
     if not args.silent:
-        print("found these {} channels with both pulse and noise files: {}".format(len(channums), channums))
+        print(f"found these {len(channums)} channels with both pulse and noise files: {channums}")
     nchan = len(channums)
     if args.max_channels < nchan:
         channums = channums[:args.max_channels]
         if not args.silent:
-            print("chose first max_channels={} channels".format(args.max_channels))
+            print(f"chose first max_channels={args.max_channels} channels")
     if len(channums) == 0:
-        raise Exception("no channels found for files matching {} and {}".format(
-            args.pulse_path, args.noise_path))
+        raise Exception(f"no channels found for files matching {args.pulse_path} and {args.noise_path}")
     pulse_basename, _ = mass.ljh_util.ljh_basename_channum(args.pulse_path)
     noise_basename, _ = mass.ljh_util.ljh_basename_channum(args.noise_path)
-    pulse_files = [pulse_basename+"_chan{}.ljh".format(channum) for channum in channums]
-    noise_files = [noise_basename+"_chan{}.ljh".format(channum) for channum in channums]
+    pulse_files = [pulse_basename+f"_chan{channum}.ljh" for channum in channums]
+    noise_files = [noise_basename+f"_chan{channum}.ljh" for channum in channums]
     # handle output filename
     if args.output_path is None:
         args.output_path = pulse_basename+"_model.hdf5"
     # handle replace_output
     if os.path.isfile(args.output_path) and not args.replace_output:
-        print("output: {} already exists, pass --replace_output or -r to overwrite".format(args.output_path))
+        print(f"output: {args.output_path} already exists, pass --replace_output or -r to overwrite")
         print("aborting")
         sys.exit(1)
     # create output file
@@ -120,6 +122,6 @@ def main(args=None):
                                     f_3db_ats=args.f_3db_ats, f_3db_5lag=args.f_3db_5lag, noise_weight_basis=True)
     if not args.silent:
         if n_good == 0:
-            print(f"all channels bad, could be because you need -i for inverted pulses")
+            print("all channels bad, could be because you need -i for inverted pulses")
         print(f"made projectors for {n_good} of {n} channels")
         print(f"written to {args.output_path}")

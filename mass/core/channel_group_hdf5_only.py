@@ -96,5 +96,4 @@ class TESGroupHDF5(channel_group.TESGroup):
                 ds.p_timestamp = grp["timestamp_posix_usec"][:]*1e-6
 
     def __repr__(self):
-        return "{0:s}(hdf5_file={1:s})".format(self.__class__.__name__,
-                                               os.path.realpath(self.hdf5_file.filename))
+        return f"{self.__class__.__name__:s}(hdf5_file={os.path.realpath(self.hdf5_file.filename):s})"

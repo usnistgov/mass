@@ -55,7 +55,7 @@ def LineEnergies():
 STANDARD_FEATURES = LineEnergies()
 
 
-class EnergyCalibration(object):
+class EnergyCalibration:
     """Object to store information relevant to one detector's absolute energy
     calibration and to offer conversions between pulse height and energy.
 
@@ -235,7 +235,7 @@ class EnergyCalibration(object):
         self._update_converters()  # To sort the points
         seq = ["EnergyCalibration()"]
         for name, pulse_ht, energy in zip(self._names, self._ph, self._energies):
-            seq.append("  energy(ph=%7.2f) --> %9.2f eV (%s)" % (pulse_ht, energy, name))
+            seq.append(f"  energy(ph={pulse_ht:7.2f}) --> {energy:9.2f} eV ({name})")
         return "\n".join(seq)
 
     def set_nonlinearity(self, powerlaw=1.15):
@@ -364,7 +364,7 @@ class EnergyCalibration(object):
             e_error = 0.01  # Assume 0.01 eV error if none given
 
         update_index = None
-        if name != "" and name in self._names:  # Update an existing point by name
+        if name and name in self._names:  # Update an existing point by name
             if not overwrite:
                 raise ValueError(
                     "Calibration point '%s' is already known and overwrite is False" % name)
@@ -393,9 +393,9 @@ class EnergyCalibration(object):
         order_ph = self._ph.argsort()
         order_en = self._energies.argsort()
         if not np.all(order_ph == order_en):
-            a = "PH:     {}".format(self._ph[order_ph])
-            b = "Energy: {}".format(self._energies[order_ph])
-            raise Exception("Calibration points are not monotone:\n{}\n{}".format(a, b))
+            a = f"PH:     {self._ph[order_ph]}"
+            b = f"Energy: {self._energies[order_ph]}"
+            raise Exception(f"Calibration points are not monotone:\n{a}\n{b}")
 
     @property
     def cal_point_phs(self):
@@ -538,7 +538,7 @@ class EnergyCalibration(object):
             elif self.curvename() in ["gain", "invgain"]:
                 self._ph2e = (e1/p1)*Identity()
             else:
-                raise Exception("curvename={} not implemented for npts=1".format(self.curvename()))
+                raise Exception(f"curvename={self.curvename()} not implemented for npts=1")
 
         elif self.curvename() == "loglog":
             x = np.log(self._ph)
@@ -761,10 +761,10 @@ class EnergyCalibration(object):
         return cal
 
     def __repr__(self):
-        s = """mass.EnergyCalibration with {} entries
-        _ph: {}
-        _energies: {}
-        _names: {}
-        _curvetype: {}
-        _use_approximation: {}""".format(len(self._names), self._ph, self._energies, self._names, self._curvetype, self._use_approximation)
+        s = f"""mass.EnergyCalibration with {len(self._names)} entries
+        _ph: {self._ph}
+        _energies: {self._energies}
+        _names: {self._names}
+        _curvetype: {self._curvetype}
+        _use_approximation: {self._use_approximation}"""
         return s

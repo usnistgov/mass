@@ -15,7 +15,7 @@ from mass.core.channel_group import TESGroup
 __all__ = ['FakeDataGenerator']
 
 
-class FakeDataGenerator(object):
+class FakeDataGenerator:
     """An object to create fake data in memory.
 
     Can generate a single mass.MicrocalDataSet or a 1+channel mass.TESGroup.
@@ -26,7 +26,8 @@ class FakeDataGenerator(object):
     gain variation, baseline drift.  Pulse pileup should definitely be added.
     """
 
-    def __init__(self, sample_time, n_samples, n_presamples=None, model_peak=None):
+    def __init__(self, sample_time, n_samples, n_presamples=None, model_peak=None, seed=None):
+        self.rng = np.random.default_rng(seed)
         # Some defaults that can be overridden before generating fake data
         self.pretrig_level = 1000
         self.rise_speed_us = 200.  # in us
@@ -63,7 +64,7 @@ class FakeDataGenerator(object):
         """
 
         data = np.zeros((n_pulses, self.n_samples), dtype=np.uint16)
-        pulse_times = np.random.exponential(1.0/rate, size=n_pulses).cumsum()
+        pulse_times = self.rng.exponential(1.0/rate, size=n_pulses).cumsum()
 
         if distributions is None:
             scale = np.ones(n_pulses, dtype=float)
@@ -76,11 +77,11 @@ class FakeDataGenerator(object):
             for n, distrib in zip(weights, distributions):
                 scale.append(distrib.rvs(size=n))
             scale = np.hstack(scale)
-            np.random.shuffle(scale)
+            self.rng.shuffle(scale)
 
         for i in range(n_pulses):
             data[i, :] = self.model*scale[i] + self.pretrig_level + \
-                0.5+np.random.standard_normal(self.n_samples)*self.white_noise
+                0.5+self.rng.standard_normal(self.n_samples)*self.white_noise
         vfile = VirtualFile(data, times=pulse_times)
         vfile.filename = "virtual_file_chan%d.vtf" % channum
         vfile.timebase = self.sample_time_us/1e6
@@ -98,7 +99,7 @@ class FakeDataGenerator(object):
         data = np.zeros((n_pulses, self.n_samples), dtype=np.uint16)
         pulse_times = np.arange(n_pulses, dtype=float)*self.sample_time_us/1e6
 
-        raw_noise = np.random.standard_normal((n_pulses, self.n_samples))*self.white_noise
+        raw_noise = self.rng.standard_normal((n_pulses, self.n_samples))*self.white_noise
         for i in range(lowpass_kludge):
             raw_noise = 0.5*(raw_noise + np.roll(raw_noise, 2**i))
 

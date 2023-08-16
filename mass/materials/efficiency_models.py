@@ -7,7 +7,7 @@ import xraydb
 from collections import OrderedDict
 
 
-class FilterStack():
+class FilterStack:
     def __init__(self, name):
         self.name = name
         self.components = OrderedDict()
@@ -22,12 +22,14 @@ class FilterStack():
                  thickness_nm=thickness_nm, density_g_per_cm3=density_g_per_cm3, fill_fraction=fill_fraction, absorber=absorber)
         self.components[c.name] = c
 
-    def add_AlFilmWithOxide(self, name, Al_thickness_nm, Al_density_g_per_cm3=None, num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
+    def add_AlFilmWithOxide(self, name, Al_thickness_nm, Al_density_g_per_cm3=None,
+                            num_oxidized_surfaces=2, oxide_density_g_per_cm3=None):
         c = AlFilmWithOxide(name=name, Al_thickness_nm=Al_thickness_nm, Al_density_g_per_cm3=Al_density_g_per_cm3,
                             num_oxidized_surfaces=num_oxidized_surfaces, oxide_density_g_per_cm3=oxide_density_g_per_cm3)
         self.components[c.name] = c
 
-    def add_AlFilmWithPolymer(self, name, Al_thickness_nm, polymer_thickness_nm, polymer_fractions=None, polymer_density_g_per_cm3=None,
+    def add_AlFilmWithPolymer(self, name, Al_thickness_nm, polymer_thickness_nm, polymer_fractions=None,
+                              polymer_density_g_per_cm3=None,
                               num_oxidized_surfaces=1, oxide_density_g_per_cm3=None):
         c = AlFilmWithPolymer(name=name, Al_thickness_nm=Al_thickness_nm, polymer_thickness_nm=polymer_thickness_nm,
                               polymer_fractions=polymer_fractions, polymer_density_g_per_cm3=polymer_density_g_per_cm3,
@@ -40,7 +42,7 @@ class FilterStack():
 
     def get_efficiency(self, xray_energies_eV, uncertain=False):
         assert self.components != {
-        }, '{} has no components of which to calculate efficiency'.format(self.name)
+        }, f'{self.name} has no components of which to calculate efficiency'
         individual_efficiency = np.array([iComponent.get_efficiency(
             xray_energies_eV, uncertain=uncertain) for iComponent in list(self.components.values())])
         efficiency = np.prod(individual_efficiency, axis=0)
@@ -62,7 +64,7 @@ class FilterStack():
         ax.set_xlabel('Energy (keV)')
         ax.set_ylabel('Efficiency (%)')
         ax.set_title(self.name)
-        ax.set_title('{} Efficiency'.format(self.name))
+        ax.set_title(f'{self.name} Efficiency')
 
         for k, v in self.components.items():
             efficiency = v.get_efficiency(xray_energies_eV)

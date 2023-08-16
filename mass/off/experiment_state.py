@@ -4,7 +4,7 @@ import mass
 import numpy as np
 
 
-class ExperimentStateFile():
+class ExperimentStateFile:
     def __init__(self, filename: str = None, datasetFilename: str = None, excludeStates: str = "auto", _parse: bool = True):
         """
         excludeStates - when "auto" it either exclude no states (if START and STOP are the only states)
@@ -117,11 +117,11 @@ class ExperimentStateFile():
             s2 = slice(s.start, i0_unixnanos+len(unixnanos)) #set the slice from the start of the state to the last new record
             statesDict[k] = s2
             return statesDict
-        
+
         #unixnanos = new record timestamps
         #self.unixnanos[i0_allLabels] is the state start times of the new states
         #i0_unixnanos is how many records were alraedy indexed
-        #inds is an np.array of the indices where the new states fit 
+        #inds is an np.array of the indices where the new states fit
         #   in with the new records
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
         # the state that was active last time calcStatesDict was called may need special handling
