@@ -428,7 +428,7 @@ def test_get_model():
     m_ql = mass.get_model(ql.model())
     assert m_ql.spect.shortname == "testquick_line"
 
-    with pytest.raises(mass.off.util.FailedToGetModelException):
+    with pytest.raises(mass.FailedToGetModelException):
         mass.get_model("this is a str but not a standard feature")
 
 
