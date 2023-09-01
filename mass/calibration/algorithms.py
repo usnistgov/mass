@@ -167,29 +167,35 @@ class FailedFit:
         self.hist = hist
         self.bins = bins
 
+class FailedToGetModelException(Exception):
+    pass
 
-def getmodel(name):
-    """Return a histogram model by line name.
-
-    Args:
-        name - a name like "MnKAlpha" or "1150"
-        "MnKAlpha" will return a MnKAlpha Model
-        "1150" will return a Gaussian fitting Model
-    """
-    if name in mass.calibration.spectra:
-        line = mass.calibration.spectra[name]
-        return line.model()
-    elif name in mass.STANDARD_FEATURES:
-        e_ctr = mass.STANDARD_FEATURES[name]
+def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
+    if isinstance(lineNameOrEnergy, mass.GenericLineModel):
+        line = lineNameOrEnergy.spect
+    elif isinstance(lineNameOrEnergy, mass.SpectralLine):
+        line = lineNameOrEnergy
+    elif isinstance(lineNameOrEnergy, str):
+        if lineNameOrEnergy in mass.spectra:
+            line = mass.spectra[lineNameOrEnergy]
+        elif lineNameOrEnergy in mass.STANDARD_FEATURES:
+            energy = mass.STANDARD_FEATURES[lineNameOrEnergy]
+            line = mass.SpectralLine.quick_monochromatic_line(lineNameOrEnergy, energy, 0.001, 0)
+        else:
+            raise FailedToGetModelException(
+                f"failed to get line from lineNameOrEnergy={lineNameOrEnergy}")
     else:
         try:
-            e_ctr = float(name)
-        except ValueError:
-            raise Exception("not a known line or input to float")
-    line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line(str(name), e_ctr, 0, 0)
-    line.linetype = "Gaussian"
-    return line.model()
-
+            energy = float(lineNameOrEnergy)
+        except Exception:
+            raise FailedToGetModelException(
+                f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or "
+                "a str in mass.spectra or mass.STANDARD_FEATURES")
+        line = mass.SpectralLine.quick_monochromatic_line(
+            f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
+    return line.model(has_linear_background=has_linear_background, has_tails=has_tails)
+# support both names as they were both used historically
+getmodel = get_model
 
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph, hide_deprecation=False):
     """

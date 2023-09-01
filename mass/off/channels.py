@@ -131,7 +131,7 @@ class CorG:
         params_update -- after guessing params, call params.update(params_update)
         minimum_bins_per_fwhm -- passed to model.fit
         """
-        model = util.get_model(
+        model = mass.get_model(
             lineNameOrEnergy, has_linear_background=has_linear_background, has_tails=has_tails)
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         attr_is_energy = attr.startswith("energy") or attr.startswith("p_energy") or calibration is not None

@@ -357,7 +357,7 @@ me know what you think about it.
       g = plain_ds.good()
       cal = plain_ds.calibration["p_filt_value_dc"]
       counts, _ = np.histogram(cal(ds.filtValueDC[g]), bin_edges)
-      model = mass.off.util.get_model(line)
+      model = mass.get_model(line)
       params = model.guess(counts, bin_centers)
       params["dph_de"].set(1,vary=False)
       result = model.fit(counts, bin_centers=bin_centers, params=params)
@@ -365,7 +365,7 @@ me know what you think about it.
       print(f"\tchan {ds.channum:3d} fwhm={fwhm:.1f} ± {unc:.1f} (off)")
 
       plain_counts, _ = np.histogram(cal(plain_ds.p_filt_value_dc[g]), bin_edges)
-      plain_model = mass.off.util.get_model(line)
+      plain_model = mass.get_model(line)
       plain_params = model.guess(plain_counts, bin_centers)
       plain_params["dph_de"].set(1,vary=False)
       plain_result = plain_model.fit(plain_counts, bin_centers=bin_centers, params=plain_params)
