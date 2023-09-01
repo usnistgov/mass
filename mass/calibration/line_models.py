@@ -22,17 +22,20 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
     # convolution, which is computed using DFT methods.
     # A wider energy range must be used, or wrap-around effects of
     # tails will corrupt the model.
-    dx = x[1] - x[0]
-    nlow = int(min(P_tailtau*6, P_tailtau_hi, 100) / dx + 0.5)
-    nhi = int((P_resolution + min(P_tailtau, P_tailtau_hi*6, 100)) / dx + 0.5)
-    nhi = min(1000, nhi)  # A practical limit
-    nlow = max(nlow, nhi)
-    x_wide = np.arange(-nlow, nhi+len(x)) * dx + x[0]
+    energy_step = x[1] - x[0]
+    energy_range = x[-1] - x[0]
+    
+    nlow = int((P_resolution + max(P_tailtau*6, P_tailtau_hi)) / energy_step + 0.5)
+    nhi = int((P_resolution + max(P_tailtau, P_tailtau_hi*6)) / energy_step + 0.5)
+    # Don't extend WAY past the input energy bins, for practical reasons
+    nlow = min(10*len(x), nlow)
+    nhi = min(10*len(x), nhi)
+    x_wide = np.arange(-nlow, nhi+len(x)) * energy_step + x[0]
     if len(x_wide) > 100000:
         msg = "you're trying to FFT data of length %i (bad fit param?)" % len(x_wide)
         raise ValueError(msg)
 
-    freq = np.fft.rfftfreq(len(x_wide), d=dx)
+    freq = np.fft.rfftfreq(len(x_wide), d=energy_step)
     rawspectrum = cleanspectrum_fn(x_wide)
     ft = np.fft.rfft(rawspectrum)
     rescale = np.ones_like(ft)

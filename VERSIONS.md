@@ -1,5 +1,10 @@
 ## Note on version numbers of Mass
 
+**0.8.1** September 2023
+
+* Fix bug in fits where E-response has exponential tails (issue 250).
+
+
 **0.8.0** August 10, 2023
 
 * Use `np.memmap` on LJH files as well as OFF (issue 160).
