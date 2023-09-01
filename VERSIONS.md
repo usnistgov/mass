@@ -1,5 +1,8 @@
 ## Note on version numbers of Mass
 
+**master**
+ * Ensure `tail_tau` has consistent meaning indepdenent of energy scale. Eg keV scale lines like MnKAlpha have same tail_tau meaning as MeV lines as used in TrueBq.
+
 **0.8.0** August 10, 2023
 
 * Use `np.memmap` on LJH files as well as OFF (issue 160).
