@@ -334,36 +334,6 @@ class SilenceBar(progress.bar.Bar):
         if not self.silence:
             progress.bar.Bar.finish(self)
 
-
-# class FailedToGetModelException(Exception):
-#     pass
-
-
-# def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
-#     if isinstance(lineNameOrEnergy, mass.GenericLineModel):
-#         line = lineNameOrEnergy.spect
-#     elif isinstance(lineNameOrEnergy, mass.SpectralLine):
-#         line = lineNameOrEnergy
-#     elif isinstance(lineNameOrEnergy, str):
-#         if lineNameOrEnergy in mass.spectra:
-#             line = mass.spectra[lineNameOrEnergy]
-#         elif lineNameOrEnergy in mass.STANDARD_FEATURES:
-#             energy = mass.STANDARD_FEATURES[lineNameOrEnergy]
-#             line = mass.SpectralLine.quick_monochromatic_line(lineNameOrEnergy, energy, 0.001, 0)
-#         else:
-#             raise FailedToGetModelException(
-#                 f"failed to get line from lineNameOrEnergy={lineNameOrEnergy}")
-#     else:
-#         try:
-#             energy = float(lineNameOrEnergy)
-#         except Exception:
-#             raise FailedToGetModelException(
-#                 f"lineNameOrEnergy = {lineNameOrEnergy} is not convertable to float or "
-#                 "a str in mass.spectra or mass.STANDARD_FEATURES")
-#         line = mass.SpectralLine.quick_monochromatic_line(
-#             f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
-#     return line.model(has_linear_background=has_linear_background, has_tails=has_tails)
-
 #ratio between standard deviation and median absolute deviation for a gaussian distribution
 SIGMA_OVER_MAD = 1/0.67449
 
