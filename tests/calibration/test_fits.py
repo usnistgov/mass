@@ -199,7 +199,7 @@ class Test_Gaussian:
 
 class TestMnKA_fitter:
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17, bg=10,
-                nbins=150, vary_bg_slope=False, vary_tail=False, expect_good_fit=True):
+                nbins=150, vary_bg_slope=False, vary_tail=False, expect_good_redchi=True, shift_peak_ev = 0):
         bin_edges = np.arange(5850, 5950, 0.5)
         # generate random x-ray pulse energies following MnKAlpha distribution
         line = mass.calibration.fluorescence_lines.MnKAlpha
@@ -214,6 +214,7 @@ class TestMnKA_fitter:
         ntweak = tweak.sum()
         if ntweak > 0:
             values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
+        values += shift_peak_ev
 
         # histogram
         counts, _ = np.histogram(values, bin_edges)
@@ -229,12 +230,12 @@ class TestMnKA_fitter:
             params["bg_slope"].set(0, vary=True)
 
         result = model.fit(counts, bin_centers=bin_centers, params=params)
-        if expect_good_fit:
+        if expect_good_redchi:
             assert result.redchi < 1.5, "redcued chi squared too high for good fit"
             assert result.redchi > 0.5, "reducec chi squared too low for good fit"
         expect = {
             "fwhm": (2.516, 3.73*resolution*n**-0.5),
-            "peak_ph": (line.peak_energy, 3.3*n**-0.5),
+            "peak_ph": (line.peak_energy+shift_peak_ev, 3.3*n**-0.5),
             "integral": (n, n**0.5),
             "bg_slope": (0, 0.5),
             "background": (bg, 60*n**-0.5),
@@ -256,9 +257,12 @@ class TestMnKA_fitter:
     def test_MnKA_lmfit(self):
         self.rng = np.random.default_rng(154)
         self.do_test()
-        self.do_test(bg=0, tailfrac=0, expect_good_fit=True)
-        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=True, expect_good_fit=True)
-        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=False, vary_bg_slope=True, expect_good_fit=False)
+        self.do_test(bg=0, tailfrac=0, expect_good_redchi=True)
+        self.do_test(bg=30, tailfrac=0, expect_good_redchi=True)
+        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=True, expect_good_redchi=True)
+        self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=False, vary_bg_slope=True, expect_good_redchi=False)
+        self.do_test(n=200000, tailtau=10, tailfrac=0.08, shift_peak_ev=1.5, vary_tail=True, vary_bg_slope=True, expect_good_redchi=True)
+
 
 
 def test_MnKA_float32():
