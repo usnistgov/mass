@@ -303,37 +303,38 @@ class GenericLineModel(MLEModel):
 
 
 class GenericKAlphaModel(GenericLineModel):
-    "Overrides GenericLineModel.guess to make guesses appropriate for K-alpha lines."
+    pass
+#     "Overrides GenericLineModel.guess to make guesses appropriate for K-alpha lines."
 
-    def guess(self, data, bin_centers, dph_de=None, **kwargs):
-        """Guess values for the peak_ph, integral, and background, and dph_de
-        dph_de is an accepted argument for consitency with non-kalpha line models...
-            but here we can learn dph_de, so it is just ignored"""
-        if data.sum() <= 0:
-            raise ValueError("This histogram has no contents")
-        # Heuristic: find the Ka1 line as the peak bin, and then make
-        # assumptions about the full width (from 1/4-peak to 1/4-peak) and
-        # how that relates to the PH spacing between Ka1 and Ka2
-        peak_val = data.max()
-        peak_ph = bin_centers[data.argmax()]
-        lowqtr = bin_centers[(data > peak_val * 0.25).argmax()]
-        N = len(data)
-        topqtr = bin_centers[N - 1 - (data > peak_val * 0.25)[::-1].argmax()]
+#     def guess(self, data, bin_centers, dph_de=None, **kwargs):
+#         """Guess values for the peak_ph, integral, and background, and dph_de
+#         dph_de is an accepted argument for consitency with non-kalpha line models...
+#             but here we can learn dph_de, so it is just ignored"""
+#         if data.sum() <= 0:
+#             raise ValueError("This histogram has no contents")
+#         # Heuristic: find the Ka1 line as the peak bin, and then make
+#         # assumptions about the full width (from 1/4-peak to 1/4-peak) and
+#         # how that relates to the PH spacing between Ka1 and Ka2
+#         peak_val = data.max()
+#         peak_ph = bin_centers[data.argmax()]
+#         lowqtr = bin_centers[(data > peak_val * 0.25).argmax()]
+#         N = len(data)
+#         topqtr = bin_centers[N - 1 - (data > peak_val * 0.25)[::-1].argmax()]
 
-        ph_ka1 = peak_ph
-        dph = 0.66 * (topqtr - lowqtr)
-        dE = self.spect.ka12_energy_diff  # eV difference between KAlpha peaks
-        if len(data) > 20:
-            # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
-            baseline = max(data[0:10].mean(), 1.0/len(data))
-        else:
-            baseline = 0.1
-        tcounts_above_bg = data.sum() - baseline*len(data)
-        if tcounts_above_bg < 0:
-            tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
-        pars = self.make_params(peak_ph=ph_ka1, dph_de=dph/dE,
-                                background=baseline, integral=tcounts_above_bg)
-        return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
+#         ph_ka1 = peak_ph
+#         dph = 0.66 * (topqtr - lowqtr)
+#         dE = self.spect.ka12_energy_diff  # eV difference between KAlpha peaks
+#         if len(data) > 20:
+#             # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
+#             baseline = max(data[0:10].mean(), 1.0/len(data))
+#         else:
+#             baseline = 0.1
+#         tcounts_above_bg = data.sum() - baseline*len(data)
+#         if tcounts_above_bg < 0:
+#             tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
+#         pars = self.make_params(peak_ph=ph_ka1, dph_de=dph/dE,
+#                                 background=baseline, integral=tcounts_above_bg)
+#         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
 
 class LineModelResult(lmfit.model.ModelResult):
