@@ -251,9 +251,12 @@ class GenericLineModel(MLEModel):
                 bin_width = bin_centers[1]-bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
-                # tail_tau should{{ be in the same units as energy, so it gets passed as is
+
+                # tail_tau* is in energy units but has to be converted to the same units as `bin_centers`
+                tail_arbs_lo = tail_tau*dph_de
+                tail_arbs_hi = tail_tau_hi*dph_de
                 spectrum = _smear_exponential_tail(
-                    cleanspectrum_fn, energy, fwhm, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi)
+                    cleanspectrum_fn, energy, fwhm, tail_frac, tail_arbs_lo, tail_frac_hi, tail_arbs_hi)
                 scale_factor = integral * bin_width * dph_de
                 r = _scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
