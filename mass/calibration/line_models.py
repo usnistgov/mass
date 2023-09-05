@@ -235,12 +235,9 @@ class GenericLineModel(MLEModel):
                 bin_width = bin_centers[1]-bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
-                # Convert tau values (in eV units) to
-                # lengths in bin units, which _smear_exponential_tail expects
-                length_lo = tail_tau*dph_de/bin_width
-                length_hi = tail_tau_hi*dph_de/bin_width
+                # tail_tau should{{ be in the same units as energy, so it gets passed as is
                 spectrum = _smear_exponential_tail(
-                    cleanspectrum_fn, energy, fwhm, tail_frac, length_lo, tail_frac_hi, length_hi)
+                    cleanspectrum_fn, energy, fwhm, tail_frac, tail_tau, tail_frac_hi, tail_tau_hi)
                 scale_factor = integral * bin_width * dph_de
                 r = _scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
@@ -272,8 +269,9 @@ class GenericLineModel(MLEModel):
         self._set_paramhints_prefix()
 
     def _set_paramhints_prefix(self):
-        self.set_param_hint('fwhm', value=4, min=0)
-        self.set_param_hint('peak_ph', min=0)
+        nominal_peak_energy = self.spect.nominal_peak_energy
+        self.set_param_hint('fwhm', value=nominal_peak_energy/1500, min=0)
+        self.set_param_hint('peak_ph',value=nominal_peak_energy, min=0)
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
         self.set_param_hint("integral", value=100, min=0)
         if self._has_linear_background:
@@ -281,9 +279,9 @@ class GenericLineModel(MLEModel):
             self.set_param_hint('bg_slope', value=0, vary=False)
         if self._has_tails:
             self.set_param_hint('tail_frac', value=0.05, min=0, max=1, vary=True)
-            self.set_param_hint('tail_tau', value=30, min=0, max=100, vary=True)
+            self.set_param_hint('tail_tau', value=nominal_peak_energy/200, min=0, max=nominal_peak_energy/10, vary=True)
             self.set_param_hint('tail_frac_hi', value=0, min=0, max=1, vary=False)
-            self.set_param_hint('tail_tau_hi', value=0, min=0, max=100, vary=False)
+            self.set_param_hint('tail_tau_hi', value=nominal_peak_energy/200, min=0, max=nominal_peak_energy/10, vary=False)
 
     def guess(self, data, bin_centers, **kwargs):
         "Guess values for the peak_ph, integral, and background."
