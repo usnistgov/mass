@@ -111,18 +111,20 @@ def helper_write_pulse(dest, src, i):
 
 
 def ljh_copy_traces(src_name, dest_name, pulses, overwrite=False):
-    """
-    Copy traces from one ljh file to another. The destination file will be of
-    LJH version 2.2.0.
+    """Copy traces from one ljh file to another. The destination file will be LJH version 2.2.0.
 
     Can be used to grab specific traces from some other ljh file, and put them into a new file
 
-    Args:
-        src_name: the name of the source file
-        dest_name: the name of the destination file
-        pulses: indices of the pulses to copy
-        overwrite: If the destination file exists and overwrite is not True,
-            then the copy fails (default False).
+    :param src_name: the name of the source file
+    :type src_name: string
+    :param dest_name: the name of the destination file
+    :type dest_name: string
+    :param pulses: indices of the pulses to copy
+    :type pulses: ndarray, or other sequence
+    :param overwrite: whether to overwrite the destination. If the destination file exists and
+        overwrite is not True, then the copy fails, defaults to False
+    :type overwrite: bool, optional
+    :raises OSError: when the destination file exists and `overwrite` is not True
     """
 
     if os.path.exists(dest_name) and not overwrite:
@@ -164,26 +166,31 @@ def ljh_append_traces(src_name, dest_name, pulses=None):
 def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None, segmentsize=None):
     """Truncate an LJH file.
 
-    Writes a new copy of an LJH file, with
-    with the identical header, but with a smaller number of raw data pulses.
+    Writes a new copy of an LJH file, with with the identical header, but with a smaller number
+    of raw data pulses.
 
-    Arguments:
-    input_filename  -- name of file to truncate
-    output_filename -- filename for truncated file
-    n_pulses        -- truncate to include only this many pulses (default None)
-    timestamp       -- truncate to include only pulses with timestamp earlier
-                       than this number (default None)
-    segmentsize     -- number of bytes per segment; this is primarily here to
-                       facilitate testing (defaults to same value as in LJHFile)
-
-    Exactly one of n_pulses and timestamp must be specified.
+    :param input_filename: name of file to truncate
+    :type input_filename: string
+    :param output_filename: filename for truncated file
+    :type output_filename: string
+    :param n_pulses: truncate to include only this many pulses, defaults to None (meaning: use `timestamp`)
+    :type n_pulses: int, optional
+    :param timestamp: truncate to include only pulses with timestamp earlier
+        than this number, defaults to None (meaning: use `n_pulses`)
+    :type timestamp: int, optional
+    :param segmentsize: number of bytes per segment; this is primarily here to
+        facilitate testing, defaults to None (meaning: use same value as in LJHFile)
+    :type segmentsize: int, optional
+    :raises ValueError: when neither or both of `n_pulses` and `timestamp` are given
+    :raises ValueError: when the input and output LJHFile are the same
+    :raises Exception: when the input LJHFile is not at least version 2.2.0
     """
 
     if (n_pulses is None and timestamp is None) or \
             (n_pulses is not None and timestamp is not None):
         msg = "Must specify exactly one of n_pulses, timestamp."
         msg = msg+f" Values were {str(n_pulses)}, {str(timestamp)}"
-        raise Exception(msg)
+        raise ValueError(msg)
 
     # Check for file problems, then open the input and output LJH files.
     if os.path.exists(output_filename):

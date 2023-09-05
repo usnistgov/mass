@@ -144,21 +144,20 @@ def remove_unpaired_channel_files(filenames1, filenames2, never_use=None, use_on
 
 
 def ljh_sort_filenames_numerically(fnames, inclusion_list=None):
-    """Return a sorted sequence of filenames of the form '*_chanXXX.*',
+    """Return a sorted list of filenames of the form '*_chanXXX.*',
     sorted according to the numerical value of channel number XXX.
 
-    Args:
-    fnames: A sequence of filenames of the form '*_chan*.*'
-    inclusion_list: If not None, a container with channel numbers. All files
+    :param fnames: Filenames of the form '*_chan*.*'
+    :type fnames: list, or other sequence
+    :param inclusion_list: If not None, a container with channel numbers. All files
         whose channel numbers are not on this list will be omitted from the
-        output (default None).
-
-    Returns:
-        A list containg the same filenames, sorted
-        according to the numerical value of channel number.
+        output, defaults to None
+    :type inclusion_list: list, optional
+    :return: A list of sorted filenames, a rearrangement of `fnames`
+    :rtype: list
     """
     if fnames is None or len(fnames) == 0:
-        return None
+        return []
 
     if inclusion_list is not None:
         fnames = filter(lambda n: ljh_channum(n) in inclusion_list, fnames)
