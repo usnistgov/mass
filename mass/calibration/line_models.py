@@ -290,7 +290,7 @@ class GenericLineModel(MLEModel):
     def _set_paramhints_prefix(self):
         nominal_peak_energy = self.spect.nominal_peak_energy
         self.set_param_hint('fwhm', value=nominal_peak_energy/1500, min=0)
-        self.set_param_hint('peak_ph',value=nominal_peak_energy, min=0)
+        self.set_param_hint('peak_ph', value=nominal_peak_energy, min=0)
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
         self.set_param_hint("integral", value=100, min=0)
         if self._has_linear_background:
