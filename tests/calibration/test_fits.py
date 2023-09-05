@@ -530,4 +530,4 @@ def test_tail_tau_behaves_same_vs_energy_scale():
 
     spect1 = get_spectrum_with_tail(escale=1)
     spect2 = get_spectrum_with_tail(escale=1000)
-    assert np.allclose(spect1, spect1, rtol=1e-3, atol=0)
+    assert np.allclose(spect1, spect2, rtol=3e-3, atol=0)
