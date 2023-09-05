@@ -305,8 +305,10 @@ class GenericLineModel(MLEModel):
 class GenericKAlphaModel(GenericLineModel):
     "Overrides GenericLineModel.guess to make guesses appropriate for K-alpha lines."
 
-    def guess(self, data, bin_centers=None, **kwargs):
-        "Guess values for the peak_ph, integral, and background, and dph_de"
+    def guess(self, data, bin_centers, dph_de=None, **kwargs):
+        """Guess values for the peak_ph, integral, and background, and dph_de
+        dph_de is an accepted argument for consitency with non-kalpha line models...
+            but here we can learn dph_de, so it is just ignored"""
         if data.sum() <= 0:
             raise ValueError("This histogram has no contents")
         # Heuristic: find the Ka1 line as the peak bin, and then make
