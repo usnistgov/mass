@@ -34,7 +34,7 @@ class Test_ratio_weighted_averages:
                                     energy=10, lorentzian_fwhm=0.0, intrinsic_sigma=0.0)
         line.linetype = "Gaussian"
         self.model = line.model()
-        self.params = self.model.guess(self.counts, bin_centers=self.x)
+        self.params = self.model.guess(self.counts, bin_centers=self.x, dph_de=1)
         self.params["fwhm"].set(1.09)
         self.params["peak_ph"].set(10)
         self.params["integral"].set(self.counts.sum())
@@ -103,7 +103,7 @@ class Test_gaussian_basic:
 
         for _ in range(nfits):
             self.generate_data(N, fwhm, ctr, nbins, N_bg)
-            params = self.model.guess(self.counts, bin_centers=self.x)
+            params = self.model.guess(self.counts, bin_centers=self.x, dph_de=1)
             params["fwhm"].set(1.09)
             params["peak_ph"].set(ctr)
             params["integral"].set(self.counts.sum())
@@ -157,7 +157,7 @@ class Test_Gaussian:
         line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", self.center, 0, 0)
         line.linetype = "Gaussian"
         self.model = line.model()
-        self.params = self.model.guess(self.y, bin_centers=self.x)
+        self.params = self.model.guess(self.y, bin_centers=self.x, dph_de=1)
         self.params["fwhm"].set(2.3548*sigma)
         self.params["background"].set(Nbg/len(self.y))
 
@@ -250,7 +250,6 @@ class TestMnKA_fitter:
             if vary_bg_slope: # we really want to increase all allowed errors if bg slope is varied?
                 inflated_error *= 10
 
-            print(param_name, result.params[param_name])
             if not vary_bg_slope and not param_name.startswith("b"):
                 assert expected_value == approx(result.params[param_name].value, abs=2*inflated_error)
             if not vary_tail and not vary_bg_slope and not param_name.startswith("b"):
@@ -395,7 +394,7 @@ class Test_Composites_lmfit:
     def test_FitToModelWithoutPrefix(self):
         model1_noprefix = self.line1.model()
         assert len(model1_noprefix.prefix) == 0
-        params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers)
+        params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers, dph_de=1)
         params1_noprefix['dph_de'].set(value=1.0, vary=False)
         result1_noprefix = model1_noprefix.fit(
             self.counts1, params=params1_noprefix, bin_centers=self.bin_centers)
@@ -416,8 +415,8 @@ class Test_Composites_lmfit:
         model2 = self.line2.model(prefix=prefix2, has_linear_background=False)
         assert (model1.prefix == prefix1)
         assert (model2.prefix == prefix2)
-        params1 = model1.guess(self.counts1, bin_centers=self.bin_centers)
-        params2 = model2.guess(self.counts2, bin_centers=self.bin_centers)
+        params1 = model1.guess(self.counts1, bin_centers=self.bin_centers, dph_de=1)
+        params2 = model2.guess(self.counts2, bin_centers=self.bin_centers, dph_de=1)
         params1[f'{prefix1}dph_de'].set(value=1.0, vary=False)
         params2[f'{prefix2}dph_de'].set(value=1.0, vary=False)
         result1 = model1.fit(self.counts1, params=params1, bin_centers=self.bin_centers)
@@ -557,7 +556,7 @@ def test_a_fit_that_was_failing_with_too_small_a_fwhm():
        4388.49080397, 4389.39944687, 4390.30808977, 4391.21673267,
        4392.12537557, 4393.03401847, 4393.94266137])
     model = mass.get_model(49127.24)
-    params = model.guess(counts, bin_centers=bin_centers)
-    params.pretty_print()
+    dph_de_guess = np.mean(bin_centers)/model.spect.nominal_peak_energy
+    params = model.guess(counts, bin_centers=bin_centers, dph_de=dph_de_guess)
     params["dph_de"].set( 0.09086, vary=False)
     result = model.fit(counts, params, bin_centers=bin_centers, minimum_bins_per_fwhm=1.5)

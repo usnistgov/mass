@@ -280,14 +280,13 @@ class GenericLineModel(MLEModel):
             self.set_param_hint('tail_frac_hi', value=0, min=0, max=1, vary=False)
             self.set_param_hint('tail_tau_hi', value=nominal_peak_energy/200, min=0, max=nominal_peak_energy/10, vary=False)
 
-    def guess(self, data, bin_centers, **kwargs):
+    def guess(self, data, bin_centers, dph_de, **kwargs):
         "Guess values for the peak_ph, integral, and background."
         order_stat = np.array(data.cumsum(), dtype=float) / data.sum()
 
         def percentiles(p):
             return bin_centers[(order_stat > p).argmax()]
-        # note that this guesses fwhm in arbs, but we actually want fwhm in eV
-        fwhm = 0.7*(percentiles(0.75) - percentiles(0.25))
+        fwhm_arb = 0.7*(percentiles(0.75) - percentiles(0.25))
         peak_ph = bin_centers[data.argmax()]
         if len(data) > 20:
             # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
@@ -298,7 +297,8 @@ class GenericLineModel(MLEModel):
         if tcounts_above_bg < 0:
             tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
         pars = self.make_params(peak_ph=peak_ph, background=baseline,
-                                integral=tcounts_above_bg, fwhm=fwhm)
+                                integral=tcounts_above_bg, fwhm=fwhm_arb/dph_de,
+                                dph_de=dph_de)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
 
