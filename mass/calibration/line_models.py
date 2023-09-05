@@ -12,19 +12,33 @@ VALIDATE_BIN_SIZE = True
 
 def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau,
                             P_tailfrac_hi=0.0, P_tailtau_hi=1):
-    """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E and/or
-    high-E tail.
     """
+    Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E and/or high-E tail.
+
+    This is done by convolution, which is computed using DFT methods. The spectrum is padded
+    by some reasonable (?) amount to reduce wrap-around effects.
+
+    x - Independent variable of the spectrum function (typically in energy units)
+    P_resolution - resolution (FWHM)
+    P_tailfrac - fraction of events in the low-E tail
+    P_tailtau - exponential scale length for the low-E tail
+    P_tailfrac_hi - fraction of events in the high-E tail
+    P_tailtau_hi - exponential scale length for the high-E tail
+
+    The tail fractions are unitless. The scale lengths tailtau are in the same units as x, NOT in bins.
+    """
+    # TODO: I wanted to ensure that the total of low+high tail fractions was always <= 1, but
+    # we decided to save that for a next step. Leave this as a reminder...
+    # if P_tailfrac + P_tailfrac_hi > 1.0:
+    #     s = P_tailfrac + P_tailfrac_hi
+    #     raise ValueError(f"P_tailfrac+P_tailfrac_hi = {P_tailfrac}+{P_tailfrac_hi} = {s} > 1")
+
     if P_tailfrac <= 1e-6 and P_tailfrac_hi <= 1e-6:
         return cleanspectrum_fn(x)
 
-    # Compute the low-E-tailed spectrum. This is done by
-    # convolution, which is computed using DFT methods.
     # A wider energy range must be used, or wrap-around effects of
     # tails will corrupt the model.
     energy_step = x[1] - x[0]
-    energy_range = x[-1] - x[0]
-    
     nlow = int((P_resolution + max(P_tailtau*6, P_tailtau_hi)) / energy_step + 0.5)
     nhi = int((P_resolution + max(P_tailtau, P_tailtau_hi*6)) / energy_step + 0.5)
     # Don't extend WAY past the input energy bins, for practical reasons
@@ -35,18 +49,20 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
         msg = "you're trying to FFT data of length %i (bad fit param?)" % len(x_wide)
         raise ValueError(msg)
 
-    freq = np.fft.rfftfreq(len(x_wide), d=energy_step)
+    freq = np.fft.rfftfreq(len(x_wide), d=energy_step)  # Units of 1/energy
     rawspectrum = cleanspectrum_fn(x_wide)
     ft = np.fft.rfft(rawspectrum)
-    rescale = np.ones_like(ft)
+
+    filter_effect_fourier = np.ones_like(ft) - (P_tailfrac + P_tailfrac_hi)
     if P_tailfrac > 1e-6:
-        rescale += P_tailfrac * (1.0 / (1 - 2j*np.pi*freq*P_tailtau) - 1)
+        filter_effect_fourier += P_tailfrac / (1 - 2j*np.pi*freq*P_tailtau)
     if P_tailfrac_hi > 1e-6:
-        rescale += P_tailfrac_hi * (1.0 / (1 + 2j*np.pi*freq*P_tailtau_hi) - 1)
-    ft *= rescale
+        filter_effect_fourier += P_tailfrac_hi / (1 + 2j*np.pi*freq*P_tailtau_hi)
+    ft *= filter_effect_fourier
     smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
+
     # In pathological cases, convolution can cause negative values.
-    # Here is a hacky way to protect against that.
+    # Here is a hacky way to prevent that.
     smoothspectrum[smoothspectrum < 0] = 0
     return smoothspectrum[nlow:nlow+len(x)]
 
