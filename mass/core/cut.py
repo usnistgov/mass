@@ -49,22 +49,24 @@ class CutFieldMixin:
     """A mixin object that gives a class access to lots of features involving
     boolean per-pulse cuts and per-pulse categorization.
     """
-    BUILTIN_BOOLEAN_CUT_FIELDS = ['pretrigger_rms',
-                                  'pretrigger_mean',
-                                  'pretrigger_mean_departure_from_median',
-                                  'peak_time_ms',
-                                  'rise_time_ms',
-                                  'postpeak_deriv',
-                                  'pulse_average',
-                                  'min_value',
-                                  'timestamp_sec',
-                                  'timestamp_diff_sec',
-                                  'rowcount_diff_sec',
-                                  'peak_value',
-                                  'energy',
-                                  'timing',
-                                  "p_filt_phase",
-                                  'smart_cuts']
+    BUILTIN_BOOLEAN_CUT_FIELDS = [
+        'pretrigger_rms',
+        'pretrigger_mean',
+        'pretrigger_mean_departure_from_median',
+        'peak_time_ms',
+        'rise_time_ms',
+        'postpeak_deriv',
+        'pulse_average',
+        'min_value',
+        'timestamp_sec',
+        'timestamp_diff_sec',
+        'rowcount_diff_sec',
+        'peak_value',
+        'energy',
+        'timing',
+        "p_filt_phase",
+        'smart_cuts'
+        ]
 
     # Categorical cut field item format
     # [name of field, list of categories, default category]
@@ -233,11 +235,13 @@ class CutFieldMixin:
     def register_categorical_cut_field(self, name, categories, default="uncategorized"):
         """Register one categorical cut field.
 
-        Args:
-            name (str): the name of a new categorical cut field.
-            categories (list[str]): the list of the names of categories of the cut field.
-                "uncategorized" category will be added if it doesn't have already.
-            default (str): the name of default category.
+        :param name: the name of a new categorical cut field
+        :type name: str
+        :param categories: the list of the names of categories of the cut field.
+                "uncategorized" category will also be added if it doesn't exist already.
+        :type categories: list of str
+        :param default: he name of default category, defaults to "uncategorized"
+        :type default: str, optional
         """
         categorical_fields = self.categorical_cut_desc
         cut_used_bit_flags = self.cut_used_bit_flags
@@ -390,13 +394,12 @@ class Cuts:
     def cut_categorical(self, field, booldict):
         """Set the value of one categorical cut.
 
-        Args:
-            field (str): the name of category
-            booldict (dict{str: np.array(dtype=bool)}): Keys are categories of the field and
-                entries are bool vectors of length equal to mask indicating belongingness.
-
-        Raises:
-            ValueError: if any pulse is assigned to more than one category.
+        :param field: the name of category to set values
+        :type field: string
+        :param booldict: keys are categories of the field and values are boolean
+            ndarrays of length equal to mask (True values mean belong to that category)
+        :type booldict: dict{string: ndarray(dtype=bool)}
+        :raises ValueError: when any pulse is assigned to two or more categories
         """
         category_names = self.tes_group.cut_field_categories(field)
         labels = np.zeros(len(self._mask), dtype=np.uint32)
@@ -410,19 +413,20 @@ class Cuts:
     def cut_parameter(self, data, allowed, cut_id):
         """Apply a cut on some per-pulse parameter.
 
-        Args:
-            <data>    The per-pulse parameter to cut on.  It can be an attribute of self, or it
-                      can be computed from one or more arrays,
-                      but it must be an array of length self.nPulses
-            <allowed> The cut to apply (see below).
-            <cut_id>  The bit number (range [0,31]) to identify this cut or (as a
-                      string) the name of the cut.
-
-        <allowed> is a 2-element sequence (a,b), then the cut requires a < data < b.
-        Either a or b may be None, indicating no cut.
-        OR
-        <allowed> is a sequence of 2-element sequences (a,b), then the cut cuts data that does not
-        meet a <= data <=b for any of the two element sequences.
+        :param data: The per-pulse parameter to cut on.  It can be an attribute of self, or it
+            can be computed from one or more arrays, but it must be an array of length `self.nPulses`
+        :type data: ndarray
+        :param allowed: the range of values that are allowed. Range is either in the form `(a,b)`, where we cut
+            unless the value satisfies both `a <= data` and `data <= b`, or `(a,None)` or `(None,b)`, where we
+            do only the first or the second test, respectively.
+            `allowed` can also be a sequence of sequences, in which case data are cut only if it is cut by all
+            of the two-element sequences
+        :type allowed: sequence, or sequence of sequences
+        :param cut_id: The bit number (range [0,31]) to identify this cut or the name of the cut.
+        :type cut_id: int or stringS
+        :raises ValueError: `cut_id` not in [0,31]
+        :raises ValueError: `cut_id` (as a string) is not registered as a boolean cut
+        :raises ValueError: `allowed` is not a 2-element sequence or a sequence of them
         """
 
         if allowed is None:  # no cut here!
@@ -579,12 +583,11 @@ class Cuts:
     def clear_cut(self, *args):
         """Clear one or more boolean fields.
 
-        Args:
-            *args: one or more args giving the names to clear. If no name is
+        :param args: one or more args giving the names to clear. If no name is
                 given, clear all boolean fields.
+        :type args: sequence of string, optional
         """
         bit_mask = self._boolean_fields_bit_mask(args)
-
         self._mask[:] &= ~bit_mask
 
     def _boolean_fields_bit_mask(self, names):
