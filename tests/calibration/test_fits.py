@@ -225,7 +225,7 @@ class TestMnKA_fitter:
             counts += rng.poisson(lam=bg, size=len(counts))
         bin_width = bin_edges[1]-bin_edges[0]
         bin_centers = 0.5*bin_width + bin_edges[:-1]
-        params = model.guess(counts, bin_centers=bin_centers)
+        params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
         if vary_tail:
             params["tail_frac"].set(.1, vary=True)
             params["tail_tau"].set(30, vary=True)
@@ -280,7 +280,7 @@ def test_MnKA_float32():
     sim, bin_edges = np.histogram(e32, 120, [5865, 5925])
     binsize = bin_edges[1] - bin_edges[0]
     bctr = bin_edges[:-1] + 0.5*binsize
-    params = model.guess(sim, bin_centers=bctr)
+    params = model.guess(sim, bin_centers=bctr, dph_de=1)
     params["peak_ph"].set(value=5899)
     result = model.fit(sim, params, bin_centers=bctr)
     val1 = params["peak_ph"].value
@@ -300,7 +300,7 @@ def test_MnKA_narrowbins():
         sim, bin_edges = np.histogram(energies*SCALE, 60, [5865*SCALE, 5925*SCALE])
         binsize = bin_edges[1] - bin_edges[0]
         bctr = bin_edges[:-1] + 0.5*binsize
-        params = model.guess(sim, bin_centers=bctr)
+        params = model.guess(sim, bin_centers=bctr, dph_de=1)
         params["peak_ph"].set(value=5899*SCALE)
         _ = model.fit(sim, params, bin_centers=bctr)
         # If the above never errors, then problem solved.
@@ -321,7 +321,7 @@ def test_integral_parameter():
         e = b[:-1] + 0.5*(b[1]-b[0])
 
         model = line.model()
-        params = model.guess(s, bin_centers=e)
+        params = model.guess(s, bin_centers=e, dph_de=1)
         result = model.fit(s, params, bin_centers=e)
         integral = result.best_values["integral"]
         assert integral == approx(Nsignal, abs=3*np.sqrt(len(samples)))
@@ -473,7 +473,7 @@ def test_negatives():
                             8010.07622011, 8010.57622011])
 
     model = mass.spectra["CuKAlpha"].model()
-    params = model.guess(bin_centers=bin_centers, data=counts)
+    params = model.guess(bin_centers=bin_centers, data=counts, dph_de=1)
     params["dph_de"].set(1, min=0.1, max=10, vary=False)
     params["fwhm"].set(4)
     params["peak_ph"].set(8009.57622011)
@@ -498,7 +498,7 @@ def test_issue_125():
         80,   71,  77,  89,  83,  81,  59])
     line = mass.MnKAlpha
     model = line.model()
-    params = model.guess(contents, bin_centers=e)
+    params = model.guess(contents, bin_centers=e, dph_de=1)
     params["fwhm"].set(20)
     params["peak_ph"].set(5898)
     params["dph_de"].set(1.0)
@@ -506,7 +506,7 @@ def test_issue_125():
     _ = model.fit(contents, params, bin_centers=e)
 
     model = line.model(has_tails=True)
-    params = model.guess(contents, bin_centers=e)
+    params = model.guess(contents, bin_centers=e, dph_de=1)
     params["fwhm"].set(20)
     params["peak_ph"].set(5898)
     params["dph_de"].set(1.0, vary=False)
