@@ -657,10 +657,10 @@ class TESGroup(CutFieldMixin, GroupLooper):
             or just raw data, defaults to False
         :type residual: bool, optional
         :param valid_status: if None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
-                that have been cut.  If "cut", show only those that have been cut, defaults to None
+            that have been cut.  If "cut", show only those that have been cut, defaults to None
         :type valid_status: str, optional
         :param shift1: whether to take pulses with p_shift1==True and delay them by
-                1 sample (if False, show the pure raw data w/o shifting), defaults to False
+            1 sample (if False, show the pure raw data w/o shifting), defaults to False
         :type shift1: bool, optional
         """
 

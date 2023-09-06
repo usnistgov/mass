@@ -95,7 +95,20 @@ def estimateRiseTime(pulse_data, timebase, nPretrig):
 
 @cython.embedsignature(True)
 def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
-    """Equivalent to compute_max_deriv(...)"""
+    """Compute the maximum derivative in each pulse
+
+    :param pulse_data: pulse data
+    :type pulse_data: ndarray
+    :param ignore_leading: ignore this many samples (presumably, samples where usual pulses are rising)
+    :type ignore_leading: int
+    :param spike_reject: whether to use the spike-reject algorithm, defaults to True
+    :type spike_reject: bool, optional
+    :param kernel: convolution kernel for estimating derivatives, defaults to None (in which case it uses (+.2, +.1, 0, -.1, -.2))
+    :type kernel: various, optional
+    :raises ValueError: input `pulse_data` should be a 1d or 2d array
+    :return: the maximum derivative for each record in `pulse_data`
+    :rtype: ndarray
+    """
     # If pulse_data is a 1D array, turn it into 2
     pulse_data = np.asarray(pulse_data)
     ndim = len(pulse_data.shape)
@@ -135,27 +148,31 @@ def python_compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kern
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def compute_max_deriv(pulse_data, ignore_leading, spike_reject=True, kernel=None):
-    """Computes the maximum derivative in timeseries <pulse_data>.
+    """Compute the maximum derivative in each pulse
+
     <pulse_data> can be a 2D array where each row is a different pulse record, in which case
     the return value will be an array last long as the number of rows in <pulse_data>.
-
-    Args:
-        pulse_data:
-        ignore_leading:
-        spike_reject: (default True)
-        kernel: the linear filter against which the signals will be convolved
-            (CONVOLED, not correlated, so reverse the filter as needed). If None,
-            then the default kernel of [+.2 +.1 0 -.1 -.2] will be used. If
-            "SG", then the cubic 5-point Savitzky-Golay filter will be used (see
-            below). Otherwise, kernel needs to be a (short) array which will
-            be converted to a 1xN 2-dimensional np.ndarray. (default None)
-
-    Returns:
-        An np.ndarray, dimension 1: the value of the maximum derivative (units of <pulse_data units> per sample).
 
     When kernel=="SG", then we estimate the derivative by Savitzky-Golay filtering
     (with 1 point before/3 points after the point in question and fitting polynomial
     of order 3).  Find the right general area by first doing a simple difference.
+
+    :param pulse_data: pulse data
+    :type pulse_data: ndarray
+    :param ignore_leading: ignore this many samples (presumably, samples where usual pulses are rising)
+    :type ignore_leading: int
+    :param spike_reject: whether to use the spike-reject algorithm, defaults to True
+    :type spike_reject: bool, optional
+    :param kernel:the linear filter against which the signals will be convolved
+            (CONVOLED, not correlated, so reverse the filter as needed). If None,
+            then the default kernel of [+.2 +.1 0 -.1 -.2] will be used. If
+            "SG", then the cubic 5-point Savitzky-Golay filter will be used (see
+            below). Otherwise, kernel needs to be a (short) array which will
+            be converted to a 1xN 2-dimensional np.ndarray, defaults to None
+    :type kernel: various, optional
+    :raises ValueError: input `pulse_data` should be a 1d or 2d array
+    :return: the maximum derivative for each record in `pulse_data`
+    :rtype: ndarray
     """
     cdef:
         double f0, f1, f2, f3, f4
@@ -270,19 +287,20 @@ class HistogramSmoother:
 
 @cython.embedsignature(True)
 def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
-    """Convert a vector of arbitrary <values> info a smoothed histogram by
-    histogramming it and smoothing.
+    """Convert a vector of arbitrary <values> info a smoothed histogram by histogramming it and smoothing.
 
     This is a convenience function using the HistogramSmoother class.
 
-    Args:
-        values: The vector of data to be histogrammed.
-        smooth_sigma: The smoothing Gaussian's width (FWHM)
-        limit, upper_limit: The histogram limits are [limit,upper_limit] or
-            [0,limit] if upper_limit is None.
-
-    Returns:
-        The smoothed histogram as an array.
+    :param values: The vector of data to be histogrammed
+    :type values: ndarray
+    :param smooth_sigma: The smoothing Gaussian's width (FWHM)
+    :type smooth_sigma: float
+    :param limit: The histogram limits are [limit,upper_limit] or [0,limit] if upper_limit is None.
+    :type limit: float
+    :param upper_limit: histogram upper limit, defaults to None
+    :type upper_limit: float, optional
+    :return: The smoothed histogram as an array.
+    :rtype: ndarray
     """
     if upper_limit is None:
         limit, upper_limit = 0, limit
@@ -292,13 +310,6 @@ def make_smooth_histogram(values, smooth_sigma, limit, upper_limit=None):
 @cython.embedsignature(True)
 def drift_correct(indicator, uncorrected, limit=None):
     """Compute a drift correction that minimizes the spectral entropy.
-
-    Args:
-        indicator: The "x-axis", which indicates the size of the correction.
-        uncorrected: A filtered pulse height vector. Same length as indicator.
-            Assumed to have some gain that is linearly related to indicator.
-        limit: The upper limit of uncorrected values over which entropy is
-            computed (default None).
 
     Generally indicator will be the pretrigger mean of the pulses, but you can
     experiment with other choices.
@@ -313,6 +324,16 @@ def drift_correct(indicator, uncorrected, limit=None):
     difference between each record's pretrigger mean and the median value of all
     pretrigger means. (Or replace "pretrigger mean" with whatever quantity you
     passed in as <indicator>.)
+
+    :param indicator: The "x-axis", which indicates the size of the correction.
+    :type indicator: ndarray
+    :param uncorrected: A filtered pulse height vector. Same length as indicator.
+        Assumed to have some gain that is linearly related to indicator.
+    :type uncorrected: ndarray
+    :param limit: The upper limit of uncorrected values over which entropy is computed, defaults to None
+    :type limit: _type_, optional
+    :return: _description_
+    :rtype: _type_
     """
     ptm_offset = np.median(indicator)
     indicator = np.array(indicator) - ptm_offset
@@ -662,14 +683,6 @@ def python_nearest_arrivals(reference_times, other_times):
 def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigger_timestamps):
     """Find the external trigger time immediately before and after each pulse timestamp
 
-    Args:
-        pulse_timestamps - 1d array of pulse timestamps whose nearest neighbors
-            need to be found.
-        external_trigger_timestamps - 1d array of possible nearest neighbors.
-
-    Returns:
-        (before_times, after_times)
-
     before_times is an ndarray of the same size as pulse_timestamps.
     before_times[i] contains the difference between the closest lesser time
     contained in external_trigger_timestamps and pulse_timestamps[i]  or inf if there was no
@@ -680,6 +693,14 @@ def nearest_arrivals(long long[:] pulse_timestamps, long long[:] external_trigge
     after_times[i] contains the difference between pulse_timestamps[i] and the
     closest greater time contained in other_times or a inf number if there was
     no later time in external_trigger_timestamps.
+
+    :param pulse_timestamps: 1d array of pulse timestamps whose nearest neighbors
+            need to be found
+    :type pulse_timestamps: ndarray
+    :param external_trigger_timestamps: d array of possible nearest neighbors
+    :type external_trigger_timestamps: ndarray
+    :return: (before_times, after_times)
+    :rtype: (ndarray, ndarray)
     """
     cdef:
         Py_ssize_t num_pulses, num_triggers

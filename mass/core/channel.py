@@ -509,14 +509,17 @@ def _add_group_loop():
     """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
 
     This is a decorator to add before method definitions inside class MicrocalDataSet.
-    Usage is:
+    Usage is::
 
-    class MicrocalDataSet(...):
-        ...
+    | class MicrocalDataSet(...):
+    |     ...
+    |    @_add_group_loop()
+    |     def awesome_fuction(self, ...):
+    |         ...
 
-        @_add_group_loop()
-        def awesome_fuction(self, ...):
-            ...
+    :raises e: KeyboardInterrupt, or any Exception raised in decorated function
+    :return: decorated function
+    :rtype: fun
     """
     is_running_tests = "pytest" in sys.modules
 
@@ -536,7 +539,7 @@ def _add_group_loop():
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     s = traceback.format_exception(exc_type, exc_value, exc_traceback)
                     if rethrow:
-                        raise
+                        raise e
                     self.set_chan_bad(ds.channum, f"failed {method_name} with {e}\ntraceback:\n{s}")
 
         wrapper.__name__ = method_name
@@ -902,20 +905,25 @@ class MicrocalDataSet:
 
         Store results in the HDF5 datasets p_pretrig_mean and similar.
 
-        Args:
-        peak_time_microsec: the time in microseconds at which this channel's
-            pulses typically peak (default None). You should leave this as None,
-            and let the value be estimated from the data.
-
-        pretrigger_ignore_microsec: how much time before the trigger to ignore
-            when computing pretrigger mean (default None). If None, it will
-            be chosen sensibly.
-
-        cut_pre: Cut this many samples from the start of a pulse record when calculating summary values
-        cut_post: Cut this many samples from the end of the a record when calculating summary values
-        forceNew: whether to re-compute summaries if they exist (default False)
-        use_cython: whether to use cython for summarizing the data (default True).
-        doPretrigFit: whether to do a linear fit of the pretrigger data
+        :param peak_time_microsec: the time in microseconds at which this channel's
+            pulses typically peak. You should leave this as None,
+            and let the value be estimated from the data. defaults to None
+        :type peak_time_microsec: float, optional
+        :param pretrigger_ignore_microsec: how much time before the trigger to ignore
+            when computing pretrigger mean. If None, it will
+            be chosen sensibly. defaults to None
+        :type pretrigger_ignore_microsec: float, optional
+        :param cut_pre: Cut this many samples from the start of a pulse record when calculating summary values, defaults to 0
+        :type cut_pre: int, optional
+        :param cut_post: Cut this many samples from the end of the a record when calculating summary values, defaults to 0
+        :type cut_post: int, optional
+        :param forceNew: whether to re-compute summaries if they exist, defaults to False
+        :type forceNew: bool, optional
+        :param use_cython: whether to use cython for summarizing the data, defaults to True
+        :type use_cython: bool, optional
+        :param doPretrigFit: whether to do a linear fit of the pretrigger data, defaults to False
+        :type doPretrigFit: bool, optional
+        :yield: for the `show_progress` decorator
         """
         # Don't proceed if not necessary and not forced
         self.number_of_rows = self.pulse_records.datafile.number_of_rows
@@ -1055,8 +1063,7 @@ class MicrocalDataSet:
                                                             ignore_leading=self.peak_samplenumber-self.cut_pre)
 
     def __parse_expt_states(self):
-        """
-        Load experiment states from the state file and store the slices found for each state
+        """Load experiment states from the state file and store the slices found for each state
         as a categorical cut.
         """
         esf = self.tes_group.experimentStateFile
@@ -1074,13 +1081,15 @@ class MicrocalDataSet:
     def compute_average_pulse(self, mask, subtract_mean=True, forceNew=False):
         """Compute the average pulse this channel.
 
-        Store as self.average_pulse
+        Store it as self.average_pulse
 
-        Args:
-            mask -- A boolean array saying which records to average.
-            subtract_mean -- Whether to subtract the pretrigger mean and set the
-                pretrigger period to strictly zero (default True).
-            forceNew -- Whether to recompute when already exists (default False)
+        :param mask: A boolean array saying which records to average.
+        :type mask: ndarray(dtype=bool)
+        :param subtract_mean: Whether to subtract the pretrigger mean and set the
+                pretrigger period to strictly zero, defaults to True
+        :type subtract_mean: bool, optional
+        :param forceNew: Whether to recompute when already exists, defaults to False
+        :type forceNew: bool, optional
         """
         # Don't proceed if not necessary and not forced
         already_done = self.average_pulse[-1] != 0
@@ -1098,13 +1107,15 @@ class MicrocalDataSet:
     def avg_pulses_auto_masks(self, max_pulses_to_use=7000, subtract_mean=True, forceNew=False):
         """Compute an average pulse.
 
-        Compute average pulse using an automatically generated mask of
-        +- 5%% around the median pulse_average value.
+       Use an automatically generated mask of ±5% around the median pulse_average value.
 
-        Args:
-            max_pulses_to_use (int): Use no more than
-                the first this many good pulses (default 7000).
-            forceNew (bool): whether to re-compute if results already exist (default False)
+        :param max_pulses_to_use: Use no more than the first this many good pulses, defaults to 7000
+        :type max_pulses_to_use: int, optional
+        :param subtract_mean: whether to subtract a per-pulse pretrigger mean, defaults to True
+        :type subtract_mean: bool, optional
+        :param forceNew: whether to re-compute if results already exist, defaults to False
+        :type forceNew: bool, optional
+        :raises ValueError: No good pulses within ±5% of the median size
         """
         use = self.good()
         if use.sum() <= 0:
@@ -1192,32 +1203,48 @@ class MicrocalDataSet:
                            category={}, shift1=True, forceNew=False, minimum_n_pulses=20,
                            maximum_n_pulses=4000, optimize_dp_dt=True):
         """Compute a arrival-time-safe filter to model the pulse and its time-derivative.
+
         Requires that `compute_noise` has been run.
-
-        Args:
-            fmax: if not None, the hard cutoff in frequency space, above which
-                the DFT of the filter will be set to zero (default None)
-            f_3db: if not None, the 3 dB rolloff point in frequency space, above which
-                the DFT of the filter will rolled off with a 1-pole filter
-                (default None)
-            transform: a callable object that will be called on all data records
-                before filtering (default None)
-            optimize_dp_dt: bool, try a more elaborate approach to dp_dt than just the finite
-                difference (works well for x-ray, bad for gamma rays)
-            cut_pre: Cut this many samples from the start of the filter, giving them 0 weight.
-            cut_post: Cut this many samples from the end of the filter, giving them 0 weight.
-            shift1: Potentially shift each pulse by one sample based on ds.shift1 value,
-            resulting filter is one sample shorter than pulse records.
-            If you used a zero threshold trigger (eg dastard egdeMulti you can likely use shift1=False)
-
-        Returns:
-            the filter (an ndarray)
 
         Modified in April 2017 to make the model for the rising edge and the rest of
         the pulse differently. For the rising edge, we use entropy minimization to understand
         the pulse shape dependence on arrival-time. For the rest of the pulse, it
         is less noisy and in fact more robust to rely on the finite-difference of
         the pulse average to get the arrival-time dependence.
+
+        :param fmax: if not None, the hard cutoff in frequency space, above which
+            the DFT of the filter will be set to zero, defaults to None
+        :type fmax: float, optional
+        :param f_3db: if not None, the 3 dB rolloff point in frequency space, above which
+            the DFT of the filter will rolled off with a 1-pole filter, defaults to None
+        :type f_3db: float, optional
+        :param transform: a callable object that will be called on all data records
+            before filtering, defaults to None
+        :type transform: func, optional
+        :param cut_pre:  Cut this many samples from the start of the filter, giving them 0 weight, defaults to 0
+        :type cut_pre: int, optional
+        :param cut_post:  Cut this many samples from the end of the filter, giving them 0 weight, defaults to 0
+        :type cut_post: int, optional
+        :param category: _description_, defaults to {}
+        :type category: dict, optional
+        :param shift1: Potentially shift each pulse by one sample based on ds.shift1 value,
+            resulting filter is one sample shorter than pulse records.
+            If you used a zero threshold trigger (eg dastard egdeMulti you can likely use shift1=False), defaults to True
+        :type shift1: bool, optional
+        :param forceNew: _description_, defaults to False
+        :type forceNew: bool, optional
+        :param minimum_n_pulses: require at least this many pulse records, defaults to 20
+        :type minimum_n_pulses: int, optional
+        :param maximum_n_pulses: use only this many pulse records, ignoring any excess, defaults to 4000
+        :type maximum_n_pulses: int, optional
+        :param optimize_dp_dt: try a more elaborate approach to dp_dt than just the finite
+                difference (works well for x-ray, bad for gamma rays), defaults to True
+        :type optimize_dp_dt: bool, optional
+        :raises Exception: must compute noise first
+        :raises Exception: too few good pulse
+        :raises Exception: NaN values
+        :return: the optimal filter
+        :rtype: ndarray
         """
         if "filters" in self.hdf5_group and not forceNew:
             LOG.info(f"ch {self.channum} skipping compute_ats_filter because it is already done")
@@ -1306,12 +1333,17 @@ class MicrocalDataSet:
     def filter_data(self, filter_name='filt_noconst', transform=None, forceNew=False, use_cython=None):
         """Filter the complete data file one chunk at a time.
 
-        Args:
-            filter_name: the object under self.filter to use for filtering the
-                data records (default 'filt_noconst')
-            transform: a callable object that will be called on all data records
-                before filtering (default None)
-            forceNew: Whether to recompute when already exists (default False)
+        :param filter_name: the object under self.filter to use for filtering the
+                data records, defaults to 'filt_noconst'
+        :type filter_name: str, optional
+        :param transform: a callable object that will be called on all data records
+                before filtering, defaults to None
+        :type transform: func, optional
+        :param forceNew: whether to recompute when filtered values already exist, defaults to False
+        :type forceNew: bool, optional
+        :param use_cython: whether to use Cython filter code, or decide based on implemented codes, defaults to None
+        :type use_cython: bool, optional
+        :raises ValueError: Cannot perform Arrival-Time-Safe filtering in Cython yet
         """
         if not (forceNew or all(self.p_filt_value[:] == 0)):
             LOG.info('\nchan %d did not filter because results were already loaded', self.channum)
@@ -1585,10 +1617,10 @@ class MicrocalDataSet:
         Though you may set `noise_variance` to a value other than 1, this will affect only the
         predicted resolution, and will not change the optimal filters that get computed/used.
 
-        Args:
-            noise_variance(number): what to set as the lag-0 noise autocorrelation.
-            forceNew (bool): whether to update the noise autocorrelation if it's already
-                been set (default False).
+        :param noise_variance: what to set as the lag-0 noise autocorrelation, defaults to 1.0
+        :type noise_variance: float, optional
+        :param forceNew: whether to update the noise autocorrelation if it's already been set, defaults to False
+        :type forceNew: bool, optional
         """
         if forceNew or all(self.noise_autocorr[:] == 0):
             self.noise_autocorr[1:] = 0.0
@@ -1600,13 +1632,14 @@ class MicrocalDataSet:
     def compute_noise(self, max_excursion=1000, n_lags=None, forceNew=False):
         """Compute the noise autocorrelation and power spectrum of this channel.
 
-        Args:
-            max_excursion (number): the biggest excursion from the median allowed
-                in each data segment, or else it will be ignored (default 1000).
-            n_lags: if not None, the number of lags in each noise spectrum and the max lag
-                for the autocorrelation.  If None, the record length is used
-                (default None).
-            forceNew (bool): whether to recompute if it already exists (default False).
+        :param max_excursion: the biggest excursion from the median allowed
+            in each data segment, or else it will be ignored, defaults to 1000
+        :type max_excursion: int, optional
+        :param n_lags: if not None, the number of lags in each noise spectrum and the max lag
+            for the autocorrelation.  If None, the record length is used. defaults to None
+        :type n_lags: int, optional
+        :param forceNew: whether to recompute if it already exists, defaults to False
+        :type forceNew: bool, optional
         """
         if n_lags is None:
             n_lags = self.noise_records.nSamples
@@ -1742,17 +1775,21 @@ class MicrocalDataSet:
 
         For more notes, do help(mass.core.analysis_algorithms.FilterTimeCorrection)
 
-        Args:
-            typical_resolution (number): should be an estimated energy resolution in UNITS OF
-                self.p_pulse_rms. This helps the peak-finding (clustering) algorithm decide
-                which pulses go together into a single peak.  Be careful to use a semi-reasonable
-                quantity here.
-            maximum_num_records (int): don't use more than this many records to learn
-                the correction (default 50000).
-            plot (bool): whether to make a relevant plot
-            forceNew (bool): whether to recompute if it already exists (default False).
-            category (dict): if not None, then a dict giving a category name and the
-                required category label.
+        :param typical_resolution: should be an estimated energy resolution in UNITS OF
+            self.p_pulse_rms. This helps the peak-finding (clustering) algorithm decide
+            which pulses go together into a single peak.  Be careful to use a semi-reasonable
+            quantity here.
+        :type typical_resolution: float
+        :param maximum_num_records: don't use more than this many records to learn
+            the correction, defaults to 50000
+        :type maximum_num_records: int, optional
+        :param plot: whether to make a relevant plot, defaults to False
+        :type plot: bool, optional
+        :param forceNew: whether to recompute if it already exists, defaults to False
+        :type forceNew: bool, optional
+        :param category: if not None, then a dict giving a category name and the
+                required category label, defaults to {}
+        :type category: dict, optional
         """
         doesnt_exist = all(self.p_filt_value_phc[:] == 0) or all(
             self.p_filt_value_phc[:] == self.p_filt_value_dc[:])
@@ -1790,14 +1827,22 @@ class MicrocalDataSet:
                       method2017=True, kernel_width=None, save_to_hdf5=True):
         """Apply the 2017 or 2015 phase correction method.
 
-        Args:
-            forceNew (bool): whether to recompute if it already exists (default False).
-            category (dict): if not None, then a dict giving a category name and the
-                required category label.
-            ph_peaks:  Peaks to use for alignment. If None, then use _find_peaks_heuristic()
-            kernel_width: Width (in PH units) of the kernel-smearing function. If None, use a heuristic.
+        :param forceNew: whether to recompute if it already exists, defaults to False
+        :type forceNew: bool, optional
+        :param category: if not None, then a dict giving a category name and the
+                required category label, defaults to {}
+        :type category: dict, optional
+        :param ph_peaks: Peaks to use for alignment. If None, then use _find_peaks_heuristic(), defaults to None
+        :type ph_peaks: ndarray, optional
+        :param method2017: whether to use the 2017 phase correct method (alternative is 2015 method), defaults to True
+        :type method2017: bool, optional
+        :param kernel_width: width (in PH units) of the kernel-smearing function. If None, use a heuristic., defaults to None
+        :type kernel_width: float, optional
+        :param save_to_hdf5: whether to save phase-corrected data to HDF5, defaults to True
+        :type save_to_hdf5: bool, optional
+        :return: a phase corrector object that computes the correction for each pulse
+        :rtype: func
         """
-
         doesnt_exist = not hasattr(self, "phaseCorrector")
         if not (forceNew or doesnt_exist):
             LOG.info("channel %d skipping phase_correct", self.channum)
@@ -1949,21 +1994,31 @@ class MicrocalDataSet:
     def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
                     residual=False, valid_status=None, shift1=False,
                     subtract_baseline=False, fcut=None):
-        """Plot some example pulses, given by sample number.
+        """Plot some example pulses, given by pulse number.
 
-        Args:
-            <pulsenums>   A sequence of sample numbers, or a single one.
-            <pulse_summary> Whether to put text about the first few pulses on the plot
-            <axis>       A plt axis to plot on.
-            <difference> Whether to show successive differences (that is, d(pulse)/dt) or the raw data
-            <residual>   Whether to show the residual between data and opt filtered model, or just raw data.
-            <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
-                         that have been cut.  If "cut", show only those that have been cut.
-            <shift1>     Whether to take pulses with p_shift1==True and delay them by 1 sample
-            <subtract_baseline>  Whether to subtract pretrigger mean prior to plotting the pulse
-            <fcut>  If not none, apply a lowpass filter with this cutoff frequency prior to plotting
+        :param pulsenums: A sequence of pulse numbers, or a single one.
+        :type pulsenums: int or ndarray
+        :param pulse_summary: Whether to put text about the first few pulses on the plot, defaults to True
+        :type pulse_summary: bool, optional
+        :param axis: A plt axis to plot on., defaults to None
+        :type axis: plt.Axis, optional
+        :param difference: Whether to show successive differences (that is, d(pulse)/dt) or the raw data, defaults to False
+        :type difference: bool, optional
+        :param residual: Whether to show the residual between data and opt filtered model, or just raw data, defaults to False
+        :type residual: bool, optional
+        :param valid_status: if None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
+            that have been cut.  If "cut", show only those that have been cut, defaults to None
+        :type valid_status: str, optional
+        :param shift1: whether to take pulses with p_shift1==True and delay them by
+            1 sample (if False, show the pure raw data w/o shifting), defaults to False
+        :type shift1: bool, optional
+        :param subtract_baseline: Whether to subtract pretrigger mean prior to plotting the pulse, defaults to False
+        :type subtract_baseline: bool, optional
+        :param fcut: If not none, apply a lowpass filter with this cutoff frequency prior to plotting, defaults to None
+        :type fcut: float, optional
+        :raises ValueError: valid_status must be one of [None, 'valid', or 'cut']
+        :raises ValueError: Only one of residual and difference can be True
         """
-
         if isinstance(pulsenums, int):
             pulsenums = (pulsenums,)
         pulsenums = np.asarray(pulsenums)
@@ -2055,17 +2110,25 @@ class MicrocalDataSet:
     def time_drift_correct(self, attr="p_filt_value_phc", sec_per_degree=2000,
                            pulses_per_degree=2000, max_degrees=20, forceNew=False,
                            category={}):
-        """Drift correct over long times with an entropy-minimizing algorithm.
+        """"Drift correct over long times with an entropy-minimizing algorithm.
+
         Here we correct as a low-ish-order Legendre polynomial in time.
 
-        attr: the attribute of self that is to be corrected. (The result
-                will be stored in self.p_filt_value_tdc[:]).
-        sec_per_degree: assign as many as one polynomial degree per this many seconds
-        pulses_per_degree: assign as many as one polynomial degree per this many pulses
-        max_degrees: never use more than this many degrees of Legendre polynomial.
-
-        forceNew: whether to do this step, if it appears already to have been done.
-        category: choices for categorical cuts
+        :param attr: the attribute of self that is to be corrected. (The result
+            will be stored in self.p_filt_value_tdc[:]), defaults to "p_filt_value_phc"
+        :type attr: str, optional
+        :param sec_per_degree: assign as many as one polynomial degree per this many seconds, defaults to 2000
+        :type sec_per_degree: int, optional
+        :param pulses_per_degree: assign as many as one polynomial degree per this many pulses, defaults to 2000
+        :type pulses_per_degree: int, optional
+        :param max_degrees: never use more than this many degrees of Legendre polynomial, defaults to 20
+        :type max_degrees: int, optional
+        :param forceNew: whether to do this step, if it appears already to have been done, defaults to False
+        :type forceNew: bool, optional
+        :param category: choices for categorical cuts, defaults to {}
+        :type category: dict, optional
+        :return: the corrected pulse heights, a dictionary of correction information
+        :rtype: (ndarray, dict)
         """
         if all(self.p_filt_value_tdc[:] == 0.0) or forceNew:
             LOG.info("chan %d doing time_drift_correct", self.channum)
@@ -2139,29 +2202,26 @@ class MicrocalDataSet:
         The pulse RMS and postpeak-derivative cuts are based on what's observed in
         the (presumably) pulse-free noise file associated with this data file.
 
-        Args:
-            nsigma_pt_rms (float):  How big an excursion is allowed in pretrig RMS
-                (default 8.0).
-            nsigma_max_deriv (float): How big an excursion is allowed in max
-                post-peak derivative (default 8.0).
-            pretrig_rms_percentile (float): Make upper limit for pretrig_rms at
-                least as large as this percentile of the data. I.e., if you
-                pass in 99, then the upper limit for pretrig_rms will exclude
-                no more than the 1 % largest values. This number is a
-                percentage, *not* a fraction. This should not be routinely used
-                - it is intended to help auto_cuts work even if there is a
-                problem during a data acquisition that causes large drifts in
-                noise properties.
-            forceNew (bool): Whether to perform auto-cuts even if cuts already exist.
-            clearCuts (bool): Whether to clear any existing cuts first (default
-                True).
-
         The two excursion limits are given in units of equivalent sigma from the
         noise file. "Equivalent" meaning that the noise file was assessed not for
         RMS but for median absolute deviation, normalized to Gaussian distributions.
 
-        Returns:
-            The cut object that was applied.
+        :param nsigma_pt_rms:  How big an excursion is allowed in pretrig RMS, defaults to 8.0
+        :type nsigma_pt_rms: float, optional
+        :param nsigma_max_deriv: How big an excursion is allowed in max post-peak derivative, defaults to 8.0
+        :type nsigma_max_deriv: float, optional
+        :param pretrig_rms_percentile: Make upper limit for pretrig_rms at least as large as this percentile
+            of the data. I.e., if you pass in 99, then the upper limit for pretrig_rms will exclude
+            no more than the 1 % largest values. This number is a percentage, *not* a fraction. This should not
+            be routinely used; it is intended to help auto_cuts work even if there is a problem during a data
+            acquisition that causes large drifts in noise properties., defaults to None
+        :type pretrig_rms_percentile: float, optional
+        :param forceNew: Whether to perform auto-cuts even if cuts already exist, defaults to False
+        :type forceNew: bool, optional
+        :param clearCuts: Whether to clear any existing cuts first, defaults to True
+        :type clearCuts: bool, optional
+        :return: the cuts that were applied
+        :rtype: AnalysisControl
         """
         if self.saved_auto_cuts is None:
             forceNew = True
@@ -2266,17 +2326,24 @@ class MicrocalDataSet:
     def flag_crosstalking_pulses(self, priorTime, postTime, combineCategories=True,
                                  nearestNeighborsDistances=1, crosstalk_key='is_crosstalking',
                                  forceNew=False):
-        ''' Uses a list of nearest neighbor channels to flag pulses in current channel based
-            on arrival times of pulses in neighboring channels
+        """Flag pulses in current channel based on arrival times of pulses in neighboring channels.
 
-            Args:
-            priorTime (float): amount of time to check, in ms, before the pulse arrival time
-            postTime (float): amount of time to check, in ms, after the pulse arrival time
-            combineChannels (bool): whether to combine all neighboring channel pulses for flagging crosstalk
-            nearestNeighborDistances (int or int array): nearest neighbor distances to use for flagging,
-                i.e. 1 = 1st nearest neighbors, 2 = 2nd nearest neighbors, etc.
-            forceNew (bool): whether to re-compute the crosstalk cuts (default False)
-        '''
+        Uses a list of nearest neighbor channels to do this.
+
+        :param priorTime: amount of time to check, in ms, before the pulse arrival time
+        :type priorTime: float
+        :param postTime: amount of time to check, in ms, after the pulse arrival time
+        :type postTime: float
+        :param combineCategories: whether to combine all neighboring channel pulses for flagging crosstalk, defaults to True
+        :type combineCategories: bool, optional
+        :param nearestNeighborsDistances: nearest neighbor distances to use for flagging,
+                i.e. 1 = 1st nearest neighbors, 2 = 2nd nearest neighbors, etc., defaults to 1
+        :type nearestNeighborsDistances: int, optional
+        :param crosstalk_key: _description_, defaults to 'is_crosstalking'
+        :type crosstalk_key: str, optional
+        :param forceNew: whether to re-compute the crosstalk cuts, defaults to False
+        :type forceNew: bool, optional
+        """
 
         def crosstalk_flagging_loop(channelsToCompare):
             ''' Main algorithm for flagging crosstalking pulses in current victim channel,
@@ -2382,21 +2449,29 @@ class MicrocalDataSet:
     @_add_group_loop()
     def set_nearest_neighbors_list(self, mapFilename, nearestNeighborCategory='physical',
                                    distanceType='cartesian', forceNew=False):
-        ''' Finds the nearest neighbors in a given space for all channels in a data set
+        """Finds the nearest neighbors in a given space for all channels in a data set
 
-        Args:
-        mapFilename (str): Location of map file in the following format
-            Column 0 - list of channel numbers.
-            Remaining column(s) - coordinates that define a particular column in a given space.
-                For example, can be the row and column number in a physical space
-                or the frequency order number in a frequency space (umux readout).
-        nearestNeighborCategory (str): name used to categorize the type of nearest neighbor.
+        Map file format is:
+
+        * Column 0 - list of chasennel numbers.
+        * Remaining column(s) - coordinates that define a particular column in a given space.
+            For example, can be the row and column number in a physical space
+            or the frequency order number in a frequency space (umux readout).
+
+
+        :param mapFilename: Location of map file in the format above
+        :type mapFilename: str
+        :param nearestNeighborCategory: name used to categorize the type of nearest neighbor.
             This will be the name given to the subgroup of the hdf5 file under the nearest_neighbor group.
-            This will also be a key for dictionary nearest_neighbors_dictionary
-        distanceType (str): Type of distance to measure between nearest neighbors, i.e. cartesian
-        forceNew (bool): whether to re-compute nearest neighbors list if it exists (default False)
-        '''
-
+            This will also be a key for dictionary nearest_neighbors_dictionary, defaults to 'physical'
+        :type nearestNeighborCategory: str, optional
+        :param distanceType: Type of distance to measure between nearest neighbors, i.e. cartesian, defaults to 'cartesian'
+        :type distanceType: str, optional
+        :param forceNew: hether to re-compute nearest neighbors list if it exists, defaults to False
+        :type forceNew: bool, optional
+        :raises NotImplementedError: _description_
+        :raises Exception: _description_
+        """
         def calculate_cartesian_squared_distances():
             '''
             Stores the cartesian distance from the current channel to all other channels
@@ -2442,7 +2517,7 @@ class MicrocalDataSet:
                     squaredDistanceDictionary[squaredDistance]
 
         def calculate_manhattan_distances():
-            raise Exception("not implemented")
+            raise NotImplementedError("Manhattan distances are not implemented")
 
         def process_matching_channel(positionToCompare):
             '''
@@ -2502,30 +2577,40 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
                        pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
     """Compute a time-based drift correction that minimizes the spectral entropy.
 
-    Args:
-        time: The "time-axis". Correction will be a low-order polynomial in this.
-        uncorrected: A filtered pulse height vector. Same length as indicator.
-            Assumed to have some gain that is linearly related to indicator.
-        w: the kernel width for the Laplace KDE density estimator
-        sec_per_degree: assign as many as one polynomial degree per this many seconds
-        pulses_per_degree: assign as many as one polynomial degree per this many pulses
-        max_degrees: never use more than this many degrees of Legendre polynomial.
-        n_deg: If not None, use this many degrees, regardless of the values of
-               sec_per_degree, pulses_per_degree, and max_degress. In this case, never downsample.
-        limit: The [lower,upper] limit of uncorrected values over which entropy is
-            computed (default None).
-
     The entropy will be computed on corrected values only in the range
-    [limit[0], limit[1]], so limit should be set to a characteristic large value
-    of uncorrected. If limit is None (the default), then it will be computed as
-    25%% larger than the 99%%ile point of uncorrected.
+    `[limit[0], limit[1]]`, so limit should be set to a characteristic large value
+    of `uncorrected`. If limit is None (the default), then it will be computed as
+    25% larger than the 99%ile point of `uncorrected`.
 
     Possible improvements in the future:
+
     * Move this routine to Cython.
     * Allow the parameters to be function arguments with defaults: photons per
       degree of freedom, seconds per degree of freedom, and max degrees of freedom.
     * Figure out how to span the available time with more than one set of legendre
       polynomials, so that we can have more than 20 d.o.f. eventually, for long runs.
+
+    :param time: The "time-axis". Correction will be a low-order polynomial in this.
+    :type time: ndarray
+    :param uncorrected: A filtered pulse height vector. Same length as `indicator`.
+            Assumed to have some gain that is linearly related to `indicator`.
+    :type uncorrected: ndarray
+    :param w: the kernel width for the Laplace KDE density estimator
+    :type w: float
+    :param sec_per_degree: assign as many as one polynomial degree per this many seconds, defaults to 2000
+    :type sec_per_degree: int, optional
+    :param pulses_per_degree: assign as many as one polynomial degree per this many pulses, defaults to 2000
+    :type pulses_per_degree: int, optional
+    :param max_degrees: never use more than this many degrees of Legendre polynomial, defaults to 20
+    :type max_degrees: int, optional
+    :param ndeg: If not None, use this many degrees, regardless of the values of sec_per_degree,
+        pulses_per_degree, and max_degrees. In this case, never downsample. defaults to None
+    :type ndeg: int, optional
+    :param limit: The [lower,upper] limit of uncorrected values over which entropy is
+        computed, defaults to None
+    :type limit: sequence of 2 numbers, optional
+    :return: information sufficient to reconstruct the drift correction later
+    :rtype: dict
     """
     if limit is None:
         pct99 = np.percentile(uncorrected, 99)
