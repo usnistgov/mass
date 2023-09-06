@@ -16,7 +16,7 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
     This is done by convolution, which is computed using DFT methods. The spectrum is padded
     by some reasonable (?) amount to reduce wrap-around effects.
 
-    P_tailfrac and P_tailshare_hi are unitless. 
+    P_tailfrac and P_tailshare_hi are unitless.
     The scale lengths tailtau are in the same units as x, NOT in bins.
 
     :param cleanspectrum_fn: the spectral function to be evaluated
