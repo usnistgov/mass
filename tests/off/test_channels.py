@@ -413,23 +413,23 @@ def test_getAttr_and_recipes_with_coefs():
 
 # pytest style test! way simpler to write
 def test_get_model():
-    m_127 = mass.off.util.get_model(127)
+    m_127 = mass.get_model(127)
     assert m_127.spect.peak_energy == 127
     assert m_127.spect.shortname == "127eVquick_line"
 
-    m_au = mass.off.util.get_model("AuLAlpha")
+    m_au = mass.get_model("AuLAlpha")
     assert m_au.spect.peak_energy == mass.STANDARD_FEATURES["AuLAlpha"]
     assert m_au.spect.shortname == "AuLAlpha"
 
-    m_ti = mass.off.util.get_model("TiKAlpha")
+    m_ti = mass.get_model("TiKAlpha")
     assert m_ti.spect.shortname == "TiKAlpha"
 
     ql = mass.SpectralLine.quick_monochromatic_line("test", 100, 0.001, 0)
-    m_ql = mass.off.util.get_model(ql.model())
+    m_ql = mass.get_model(ql.model())
     assert m_ql.spect.shortname == "testquick_line"
 
-    with pytest.raises(mass.off.util.FailedToGetModelException):
-        mass.off.util.get_model("this is a str but not a standard feature")
+    with pytest.raises(mass.FailedToGetModelException):
+        mass.get_model("this is a str but not a standard feature")
 
 
 def test_duplicate_cuts():

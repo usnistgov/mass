@@ -1,6 +1,5 @@
 """
-Implements MLEModel, CompositeMLEModel, GenericLineModel,
-GenericKAlphaModel
+Implements MLEModel, CompositeMLEModel, GenericLineModel
 """
 
 import lmfit
@@ -12,38 +11,57 @@ VALIDATE_BIN_SIZE = True
 
 def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau,
                             P_tailfrac_hi=0.0, P_tailtau_hi=1):
-    """Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E and/or
-    high-E tail.
     """
+    Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E and/or high-E tail.
+
+    This is done by convolution, which is computed using DFT methods. The spectrum is padded
+    by some reasonable (?) amount to reduce wrap-around effects.
+
+    x - Independent variable of the spectrum function (typically in energy units)
+    P_resolution - resolution (FWHM)
+    P_tailfrac - fraction of events in the low-E tail
+    P_tailtau - exponential scale length for the low-E tail
+    P_tailfrac_hi - fraction of events in the high-E tail
+    P_tailtau_hi - exponential scale length for the high-E tail
+
+    The tail fractions are unitless. The scale lengths tailtau are in the same units as x, NOT in bins.
+    """
+    # TODO: I wanted to ensure that the total of low+high tail fractions was always <= 1, but
+    # we decided to save that for a next step. Leave this as a reminder...
+    # if P_tailfrac + P_tailfrac_hi > 1.0:
+    #     s = P_tailfrac + P_tailfrac_hi
+    #     raise ValueError(f"P_tailfrac+P_tailfrac_hi = {P_tailfrac}+{P_tailfrac_hi} = {s} > 1")
+
     if P_tailfrac <= 1e-6 and P_tailfrac_hi <= 1e-6:
         return cleanspectrum_fn(x)
 
-    # Compute the low-E-tailed spectrum. This is done by
-    # convolution, which is computed using DFT methods.
     # A wider energy range must be used, or wrap-around effects of
     # tails will corrupt the model.
-    dx = x[1] - x[0]
-    nlow = int(min(P_tailtau*6, P_tailtau_hi, 100) / dx + 0.5)
-    nhi = int((P_resolution + min(P_tailtau, P_tailtau_hi*6, 100)) / dx + 0.5)
-    nhi = min(1000, nhi)  # A practical limit
-    nlow = max(nlow, nhi)
-    x_wide = np.arange(-nlow, nhi+len(x)) * dx + x[0]
+    energy_step = x[1] - x[0]
+    nlow = int((P_resolution + max(P_tailtau*6, P_tailtau_hi)) / energy_step + 0.5)
+    nhi = int((P_resolution + max(P_tailtau, P_tailtau_hi*6)) / energy_step + 0.5)
+    # Don't extend WAY past the input energy bins, for practical reasons
+    nlow = min(10*len(x), nlow)
+    nhi = min(10*len(x), nhi)
+    x_wide = np.arange(-nlow, nhi+len(x)) * energy_step + x[0]
     if len(x_wide) > 100000:
         msg = "you're trying to FFT data of length %i (bad fit param?)" % len(x_wide)
         raise ValueError(msg)
 
-    freq = np.fft.rfftfreq(len(x_wide), d=dx)
+    freq = np.fft.rfftfreq(len(x_wide), d=energy_step)  # Units of 1/energy
     rawspectrum = cleanspectrum_fn(x_wide)
     ft = np.fft.rfft(rawspectrum)
-    rescale = np.ones_like(ft)
+
+    filter_effect_fourier = np.ones_like(ft) - (P_tailfrac + P_tailfrac_hi)
     if P_tailfrac > 1e-6:
-        rescale += P_tailfrac * (1.0 / (1 - 2j*np.pi*freq*P_tailtau) - 1)
+        filter_effect_fourier += P_tailfrac / (1 - 2j*np.pi*freq*P_tailtau)
     if P_tailfrac_hi > 1e-6:
-        rescale += P_tailfrac_hi * (1.0 / (1 + 2j*np.pi*freq*P_tailtau_hi) - 1)
-    ft *= rescale
+        filter_effect_fourier += P_tailfrac_hi / (1 + 2j*np.pi*freq*P_tailtau_hi)
+    ft *= filter_effect_fourier
     smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
+
     # In pathological cases, convolution can cause negative values.
-    # Here is a hacky way to protect against that.
+    # Here is a hacky way to prevent that.
     smoothspectrum[smoothspectrum < 0] = 0
     return smoothspectrum[nlow:nlow+len(x)]
 
@@ -232,12 +250,12 @@ class GenericLineModel(MLEModel):
                 bin_width = bin_centers[1]-bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
-                # Convert tau values (in eV units) to
-                # lengths in bin units, which _smear_exponential_tail expects
-                length_lo = tail_tau*dph_de/bin_width
-                length_hi = tail_tau_hi*dph_de/bin_width
+
+                # tail_tau* is in energy units but has to be converted to the same units as `bin_centers`
+                tail_arbs_lo = tail_tau*dph_de
+                tail_arbs_hi = tail_tau_hi*dph_de
                 spectrum = _smear_exponential_tail(
-                    cleanspectrum_fn, energy, fwhm, tail_frac, length_lo, tail_frac_hi, length_hi)
+                    cleanspectrum_fn, energy, fwhm, tail_frac, tail_arbs_lo, tail_frac_hi, tail_arbs_hi)
                 scale_factor = integral * bin_width * dph_de
                 r = _scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
@@ -269,8 +287,9 @@ class GenericLineModel(MLEModel):
         self._set_paramhints_prefix()
 
     def _set_paramhints_prefix(self):
-        self.set_param_hint('fwhm', value=4, min=0)
-        self.set_param_hint('peak_ph', min=0)
+        nominal_peak_energy = self.spect.nominal_peak_energy
+        self.set_param_hint('fwhm', value=nominal_peak_energy/1000, min=nominal_peak_energy/10000, max=nominal_peak_energy)
+        self.set_param_hint('peak_ph', value=nominal_peak_energy, min=0)
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
         self.set_param_hint("integral", value=100, min=0)
         if self._has_linear_background:
@@ -278,17 +297,17 @@ class GenericLineModel(MLEModel):
             self.set_param_hint('bg_slope', value=0, vary=False)
         if self._has_tails:
             self.set_param_hint('tail_frac', value=0.05, min=0, max=1, vary=True)
-            self.set_param_hint('tail_tau', value=30, min=0, max=100, vary=True)
+            self.set_param_hint('tail_tau', value=nominal_peak_energy/200, min=0, max=nominal_peak_energy/10, vary=True)
             self.set_param_hint('tail_frac_hi', value=0, min=0, max=1, vary=False)
-            self.set_param_hint('tail_tau_hi', value=0, min=0, max=100, vary=False)
+            self.set_param_hint('tail_tau_hi', value=nominal_peak_energy/200, min=0, max=nominal_peak_energy/10, vary=False)
 
-    def guess(self, data, bin_centers, **kwargs):
+    def guess(self, data, bin_centers, dph_de, **kwargs):
         "Guess values for the peak_ph, integral, and background."
         order_stat = np.array(data.cumsum(), dtype=float) / data.sum()
 
         def percentiles(p):
             return bin_centers[(order_stat > p).argmax()]
-        fwhm = 0.7*(percentiles(0.75) - percentiles(0.25))
+        fwhm_arb = 0.7*(percentiles(0.75) - percentiles(0.25))
         peak_ph = bin_centers[data.argmax()]
         if len(data) > 20:
             # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
@@ -299,39 +318,8 @@ class GenericLineModel(MLEModel):
         if tcounts_above_bg < 0:
             tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
         pars = self.make_params(peak_ph=peak_ph, background=baseline,
-                                integral=tcounts_above_bg, fwhm=fwhm)
-        return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
-
-
-class GenericKAlphaModel(GenericLineModel):
-    "Overrides GenericLineModel.guess to make guesses appropriate for K-alpha lines."
-
-    def guess(self, data, bin_centers=None, **kwargs):
-        "Guess values for the peak_ph, integral, and background, and dph_de"
-        if data.sum() <= 0:
-            raise ValueError("This histogram has no contents")
-        # Heuristic: find the Ka1 line as the peak bin, and then make
-        # assumptions about the full width (from 1/4-peak to 1/4-peak) and
-        # how that relates to the PH spacing between Ka1 and Ka2
-        peak_val = data.max()
-        peak_ph = bin_centers[data.argmax()]
-        lowqtr = bin_centers[(data > peak_val * 0.25).argmax()]
-        N = len(data)
-        topqtr = bin_centers[N - 1 - (data > peak_val * 0.25)[::-1].argmax()]
-
-        ph_ka1 = peak_ph
-        dph = 0.66 * (topqtr - lowqtr)
-        dE = self.spect.ka12_energy_diff  # eV difference between KAlpha peaks
-        if len(data) > 20:
-            # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
-            baseline = max(data[0:10].mean(), 1.0/len(data))
-        else:
-            baseline = 0.1
-        tcounts_above_bg = data.sum() - baseline*len(data)
-        if tcounts_above_bg < 0:
-            tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
-        pars = self.make_params(peak_ph=ph_ka1, dph_de=dph/dE,
-                                background=baseline, integral=tcounts_above_bg)
+                                integral=tcounts_above_bg, fwhm=fwhm_arb/dph_de,
+                                dph_de=dph_de)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
 

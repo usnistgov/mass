@@ -121,8 +121,6 @@ class CorG:
         binEdges -- pass the binEdges you want as a numpy array
         label -- passed to model.plot
         plot -- passed to model.fit, determine if plot happens
-        params_fixed -- passed to model.fit, model.fit will guess the params on its own if this is None,
-            in either case it will update with params_update
         cutRecipeName -- a function a function taking a MicrocalDataSet and returning a vector like ds.good() would return
         calbration -- a calibration to be passed to hist - will error if used with an "energy..." attr
         require_errorbars -- throw an error if lmfit doesn't return errorbars
@@ -131,7 +129,7 @@ class CorG:
         params_update -- after guessing params, call params.update(params_update)
         minimum_bins_per_fwhm -- passed to model.fit
         """
-        model = util.get_model(
+        model = mass.get_model(
             lineNameOrEnergy, has_linear_background=has_linear_background, has_tails=has_tails)
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         attr_is_energy = attr.startswith("energy") or attr.startswith("p_energy") or calibration is not None
@@ -148,11 +146,8 @@ class CorG:
         bin_centers, counts = self.hist(
             binEdges, attr, states, cutRecipeName, calibration=calibration)
         # print(f"counts.size={counts.size},counts.sum()={counts.sum()}")
-        if params_fixed is None:
-            params = model.guess(counts, bin_centers=bin_centers)
-        else:
-            params = params_fixed
         if attr_is_energy:
+            params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
             params["dph_de"].set(1.0, vary=False)
             unit_str = "eV"
         if calibration is None:

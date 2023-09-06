@@ -184,10 +184,7 @@ class SpectralLine:
 
     def model(self, has_linear_background=True, has_tails=False, prefix="", qemodel=None):
         """Generate a LineModel instance from a SpectralLine"""
-        if self.linetype == "KAlpha":
-            model_class = line_models.GenericKAlphaModel
-        else:
-            model_class = line_models.GenericLineModel
+        model_class = line_models.GenericLineModel
         name = self.element+self.linetype
         m = model_class(name=name, spect=self, has_linear_background=has_linear_background,
                         has_tails=has_tails, prefix=prefix, qemodel=qemodel)
@@ -438,15 +435,8 @@ def make_line_fitter(line):
     """Generate a LineFitter instance from a SpectralLine (deprecated)"""
     if line.fitter_type is not None:
         fitter_class = line.fitter_type
-    elif line.linetype in ["KAlpha", "LAlpha"]:
-        if line.element in ["Al", "Mg"]:
-            fitter_class = line_models.GenericLineModel
-        else:
-            fitter_class = line_models.GenericKAlphaModel
-    elif line.linetype.startswith("KBeta") or "LBeta" in line.linetype:
-        fitter_class = line_models.GenericLineModel
     else:
-        raise ValueError(f"no generic fitter for {line}")
+        fitter_class = line_models.GenericLineModel
     f = fitter_class(line)
     f.name = line.element+line.linetype
     return f
@@ -460,7 +450,7 @@ addline(
     nominal_peak_energy=STANDARD_FEATURES["FeLAlpha"],
     energies=np.array([STANDARD_FEATURES["FeLAlpha"], STANDARD_FEATURES["FeLBeta"]]),
     lorentzian_fwhm=np.array(np.array([3, 3])),
-    reference_amplitude=np.array(np.array([2,1])),
+    reference_amplitude=np.array(np.array([2, 1])),
     reference_amplitude_type=LORENTZIAN_PEAK_HEIGHT,
     ka12_energy_diff=np.abs(STANDARD_FEATURES["FeLAlpha"]-STANDARD_FEATURES["FeLBeta"]),
     reference_plot_instrument_gaussian_fwhm=0.2,  # a total guess

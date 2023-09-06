@@ -89,13 +89,16 @@ The simplest case of line fitting requires only 3 steps: create a model instance
 .. testcode::
 
   model = line.model()
-  params = model.guess(sim, bin_centers=e)
+  params = model.guess(sim, bin_centers=e, dph_de=1)
   resultA = model.fit(sim, params, bin_centers=e)
 
   # Fit again but with dPH/dE held at 1.
+  # dPH/dE will be a free parameter for the fit by default, largely due to the history of MnKAlpha fits being so critical during development.
+  # This will not work for nearly monochromatic lines, however, as the resolution (fwhm) and scale (dph_de) are exactly degenerate.
+  # In practice, most fits are done with dph_de fixed.
   params = resultA.params.copy()
+  resultB = model.fit(sim, params, bin_centers=e, dph_de=1)
   params["dph_de"].set(1.0, vary=False)
-  resultB = model.fit(sim, params, bin_centers=e)
 
   # There are two plotting methods. The first is an LMfit built-in; the other ("mass-style") puts the
   # fit parameters on the plot.
@@ -127,7 +130,7 @@ You can print a nicely formatted fit report with ``fit_report()``:
 .. code-block:: none
 
   [[Model]]
-      GenericKAlphaModel(MnKAlpha)
+      GenericLineModel(MnKAlpha)
   [[Fit Statistics]]
       # fitting method   = least_squares
       # function evals   = 15
@@ -158,7 +161,7 @@ Notice when you report the fit (or check the contents of the ``params`` or ``res
 .. testcode::
 
   model = line.model(has_tails=True)
-  params = model.guess(sim, bin_centers=e)
+  params = model.guess(sim, bin_centers=e, dph_de=1)
   params["dph_de"].set(1.0, vary=False)
   resultC = model.fit(sim, params, bin_centers=e)
   resultC.plot()
@@ -220,7 +223,7 @@ If you want to multiply the line models by a model of the quantum efficiency, yo
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  Fit finds 168810±530 counts before QE, or 100020±310 observed. True value 100000.
+  Fit finds 168810±530 counts before QE, or 100020±320 observed. True value 100000.
 
 .. testcode::
   :hide:
@@ -262,7 +265,7 @@ Fitting a simple Gaussian, Lorentzian, or Voigt function
   line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", e_ctr, 0, 0)
   line.linetype = "Gaussian"
   model = line.model()
-  params = model.guess(c, bin_centers=bin_ctr)
+  params = model.guess(c, bin_centers=bin_ctr, dph_de=1)
   params["fwhm"].set(2.3548*sigma)
   params["background"].set(Nbg/len(c))
   resultG = model.fit(c, params, bin_centers=bin_ctr)
@@ -275,7 +278,7 @@ Fitting a simple Gaussian, Lorentzian, or Voigt function
   line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", e_ctr, hwhm*2, 0)
   line.linetype = "Lorentzian"
   model = line.model()
-  params = model.guess(c, bin_centers=bin_ctr)
+  params = model.guess(c, bin_centers=bin_ctr, dph_de=1)
   params["fwhm"].set(2.3548*sigma)
   params["background"].set(Nbg/len(c))
   resultL = model.fit(c, params, bin_centers=bin_ctr)
@@ -288,7 +291,7 @@ Fitting a simple Gaussian, Lorentzian, or Voigt function
   line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", e_ctr, hwhm*2, sigma)
   line.linetype = "Voigt"
   model = line.model()
-  params = model.guess(c, bin_centers=bin_ctr)
+  params = model.guess(c, bin_centers=bin_ctr, dph_de=1)
   params["fwhm"].set(2.3548*sigma)
   params["background"].set(Nbg/len(c))
   resultV = model.fit(c, params, bin_centers=bin_ctr)
@@ -322,7 +325,7 @@ is an example of using the old fitters. Don't do that!
 An overview of how to convert is:
 
 #. Get a Model object instead of a Fitter object.
-#. Use ``p=model.guess(data, bin_centers=e)`` to create a heuristic for the starting parameters.
+#. Use ``p=model.guess(data, bin_centers=e, dph_de=dph_de)`` to create a heuristic for the starting parameters.
 #. Change starting values and toggle the ``vary`` attribute on parameters, as needed. For example: ``p["dph_de"].set(1.0, vary=False)``
 #. Use ``result=model.fit(data, p, bin_centers=e)`` to perform the fit and store the result.
 #. The result holds many attributes and methods (see `MinimizerResult <https://lmfit.github.io/lmfit-py/fitting.html#minimizerresult-the-optimization-result>`_ for full documentation). These include:
@@ -335,7 +338,8 @@ An overview of how to convert is:
   * ``result.fit_report()`` = return a pretty-printed string reporting on the fit
   * ``result.plot_fit()`` = make a plot of the data and fit
   * ``result.plot_residuals()`` = make a plot of the residuals (fit-data)
-  * ``result.plot()`` = make a plot of the data, fit, and residuals
+  * ``result.plot()`` = make a plot of the data, fit, and residuals, generally `plotm` is preferred
+  * ``result.plotm()`` = make a plot of the data, fit, and fit params with dataset filename in title
 
 
 One detail that's changed: the new models parameterize the tau values (scale lengths of exponential tails) in eV units. The old fitters assumed tau were given in units of bins. Another is that the parameter "integral" refers to the integrated number of counts across all energies; the old parameter "amplitude" was the same but scaled by the bin width in eV. The old way didn't make sense, but that's how it was.

@@ -126,7 +126,7 @@ class TestFitterBehavior:
         Nbins = 100
         e = np.linspace(5800, 5920, Nbins)
         sim = np.random.default_rng(2934).poisson(lam=20, size=Nbins)
-        params = model.guess(sim, bin_centers=e)
+        params = model.guess(sim, bin_centers=e, dph_de=1)
         model.fit(sim, params, bin_centers=e, weights=None)
         with pytest.raises(Exception):
             model.fit(sim, params, bin_centers=e, weights=sim**1.5)
