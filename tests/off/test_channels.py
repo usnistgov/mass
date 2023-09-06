@@ -475,15 +475,15 @@ def test_linefit_has_tail_and_has_linear_background():
     assert "tail_frac" not in result.params.keys()
     result = ds.linefit("O H-Like 2p", states="CO2", has_tails=True)
     assert result.params["tail_frac"].vary is True
-    assert result.params["tail_frac_hi"].vary is False
-    assert result.params["tail_frac_hi"].value == 0
+    assert result.params["tail_share_hi"].vary is False
+    assert result.params["tail_share_hi"].value == 0
     params = lmfit.Parameters()
-    params.add("tail_frac_hi", value=0.01, vary=True, min=0, max=0.5)
+    params.add("tail_share_hi", value=0.01, vary=True, min=0, max=0.5)
     params.add("tail_tau_hi", value=8, vary=True, min=0, max=100)
     result = ds.linefit("O H-Like 2p", states="CO2", has_tails=True, params_update=params)
     assert result.params["tail_frac"].vary is True
-    assert result.params["tail_frac_hi"].vary is True
-    assert result.params["tail_frac_hi"].value > 0
+    assert result.params["tail_share_hi"].vary is True
+    assert result.params["tail_share_hi"].value > 0
     assert result.params["tail_tau_hi"].vary is True
     assert result.params["tail_tau_hi"].value > 0
 

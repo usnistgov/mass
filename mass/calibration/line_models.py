@@ -10,29 +10,34 @@ VALIDATE_BIN_SIZE = True
 
 
 def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tailtau,
-                            P_tailfrac_hi=0.0, P_tailtau_hi=1):
-    """
-    Evaluate cleanspectrum_fn(x), but padded and smeared to add a low-E and/or high-E tail.
+                            P_tailshare_hi=0.0, P_tailtau_hi=1):
+    """Evaluate `cleanspectrum_fn(x)`, but padded and smeared to add a low-E and/or high-E tail.
 
     This is done by convolution, which is computed using DFT methods. The spectrum is padded
     by some reasonable (?) amount to reduce wrap-around effects.
 
-    x - Independent variable of the spectrum function (typically in energy units)
-    P_resolution - resolution (FWHM)
-    P_tailfrac - fraction of events in the low-E tail
-    P_tailtau - exponential scale length for the low-E tail
-    P_tailfrac_hi - fraction of events in the high-E tail
-    P_tailtau_hi - exponential scale length for the high-E tail
+    P_tailfrac and P_tailshare_hi are unitless. 
+    The scale lengths tailtau are in the same units as x, NOT in bins.
 
-    The tail fractions are unitless. The scale lengths tailtau are in the same units as x, NOT in bins.
+    :param cleanspectrum_fn: the spectral function to be evaluated
+    :type cleanspectrum_fn: func
+    :param x: independent variable of the spectrum function (typically in energy units)
+    :type x: ndarray
+    :param P_resolution: resolution (FWHM)
+    :type P_resolution: float
+    :param P_tailfrac: fraction of events in either tail
+    :type P_tailfrac: float
+    :param P_tailtau: exponential scale length for the low-E tail
+    :type P_tailtau: float
+    :param P_tailshare_hi: fraction of tail events that are in the high-E tail, defaults to 0.0
+    :type P_tailshare_hi: float, optional
+    :param P_tailtau_hi: exponential scale length for the high-E tail, defaults to 1
+    :type P_tailtau_hi: int, optional
+    :raises ValueError: _description_
+    :return: _description_
+    :rtype: _type_
     """
-    # TODO: I wanted to ensure that the total of low+high tail fractions was always <= 1, but
-    # we decided to save that for a next step. Leave this as a reminder...
-    # if P_tailfrac + P_tailfrac_hi > 1.0:
-    #     s = P_tailfrac + P_tailfrac_hi
-    #     raise ValueError(f"P_tailfrac+P_tailfrac_hi = {P_tailfrac}+{P_tailfrac_hi} = {s} > 1")
-
-    if P_tailfrac <= 1e-6 and P_tailfrac_hi <= 1e-6:
+    if P_tailfrac <= 1e-6:
         return cleanspectrum_fn(x)
 
     # A wider energy range must be used, or wrap-around effects of
@@ -52,9 +57,11 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
     rawspectrum = cleanspectrum_fn(x_wide)
     ft = np.fft.rfft(rawspectrum)
 
-    filter_effect_fourier = np.ones_like(ft) - (P_tailfrac + P_tailfrac_hi)
-    if P_tailfrac > 1e-6:
-        filter_effect_fourier += P_tailfrac / (1 - 2j*np.pi*freq*P_tailtau)
+    filter_effect_fourier = np.ones_like(ft) - P_tailfrac
+    P_tailfrac_hi = P_tailfrac*P_tailshare_hi
+    P_tailfrac_lo = P_tailfrac - P_tailfrac_hi
+    if P_tailfrac_lo > 1e-6:
+        filter_effect_fourier += P_tailfrac_lo / (1 - 2j*np.pi*freq*P_tailtau)
     if P_tailfrac_hi > 1e-6:
         filter_effect_fourier += P_tailfrac_hi / (1 + 2j*np.pi*freq*P_tailtau_hi)
     ft *= filter_effect_fourier
@@ -245,7 +252,7 @@ class GenericLineModel(MLEModel):
         self._has_linear_background = has_linear_background
         if has_tails:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral,
-                          background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_frac_hi=0, tail_tau_hi=8):
+                          background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_share_hi=0, tail_tau_hi=8):
                 bin_centers = np.asarray(bin_centers, dtype=float)
                 bin_width = bin_centers[1]-bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
@@ -255,7 +262,7 @@ class GenericLineModel(MLEModel):
                 tail_arbs_lo = tail_tau*dph_de
                 tail_arbs_hi = tail_tau_hi*dph_de
                 spectrum = _smear_exponential_tail(
-                    cleanspectrum_fn, energy, fwhm, tail_frac, tail_arbs_lo, tail_frac_hi, tail_arbs_hi)
+                    cleanspectrum_fn, energy, fwhm, tail_frac, tail_arbs_lo, tail_share_hi, tail_arbs_hi)
                 scale_factor = integral * bin_width * dph_de
                 r = _scale_add_bg(spectrum, scale_factor, background, bg_slope)
                 if any(np.isnan(r)) or any(r < 0):
@@ -280,7 +287,7 @@ class GenericLineModel(MLEModel):
         if self._has_linear_background:
             param_names += ["background", "bg_slope"]
         if self._has_tails:
-            param_names += ["tail_frac", "tail_tau", "tail_frac_hi", "tail_tau_hi"]
+            param_names += ["tail_frac", "tail_tau", "tail_share_hi", "tail_tau_hi"]
         kwargs.update({'prefix': prefix, 'nan_policy': nan_policy,
                        'independent_vars': independent_vars, "param_names": param_names})
         super().__init__(modelfunc, **kwargs)
@@ -298,7 +305,7 @@ class GenericLineModel(MLEModel):
         if self._has_tails:
             self.set_param_hint('tail_frac', value=0.05, min=0, max=1, vary=True)
             self.set_param_hint('tail_tau', value=nominal_peak_energy/200, min=0, max=nominal_peak_energy/10, vary=True)
-            self.set_param_hint('tail_frac_hi', value=0, min=0, max=1, vary=False)
+            self.set_param_hint('tail_share_hi', value=0, min=0, max=1, vary=False)
             self.set_param_hint('tail_tau_hi', value=nominal_peak_energy/200, min=0, max=nominal_peak_energy/10, vary=False)
 
     def guess(self, data, bin_centers, dph_de, **kwargs):
