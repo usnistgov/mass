@@ -93,9 +93,9 @@ The simplest case of line fitting requires only 3 steps: create a model instance
   resultA = model.fit(sim, params, bin_centers=e)
 
   # Fit again but with dPH/dE held at 1.
-  # dPH/dE by default will bit a free parameter for the fit, largley due to the history of MnKAlpha fits being so critical during development
-  # however, this will not work for nearly monochromatic lines, as the resolution (fwhm) and scale (dph_de) are degenerate
-  # in practice, most fits are done with dph_de fixed
+  # dPH/dE will be a free parameter for the fit by default, largely due to the history of MnKAlpha fits being so critical during development.
+  # This will not work for nearly monochromatic lines, however, as the resolution (fwhm) and scale (dph_de) are exactly degenerate.
+  # In practice, most fits are done with dph_de fixed.
   params = resultA.params.copy()
   resultB = model.fit(sim, params, bin_centers=e, dph_de=1)
   params["dph_de"].set(1.0, vary=False)
