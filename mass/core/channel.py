@@ -727,7 +727,7 @@ class MicrocalDataSet:
         filter_type = "5lag"
         if version > 0:
             filter_type = filter_group.attrs["filter_type"]  # a string
-            if type(filter_type) == bytes:
+            if isinstance(filter_type, bytes):
                 filter_type = filter_type.decode()
         elif "newfilter" in filter_group.attrs:
             # version 0 hdf5 files either did or did not have the "newfilter" attribute, newfilter corresponds to ats filters

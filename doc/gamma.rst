@@ -357,16 +357,16 @@ me know what you think about it.
       g = plain_ds.good()
       cal = plain_ds.calibration["p_filt_value_dc"]
       counts, _ = np.histogram(cal(ds.filtValueDC[g]), bin_edges)
-      model = mass.off.util.get_model(line)
-      params = model.guess(counts, bin_centers)
+      model = mass.get_model(line)
+      params = model.guess(counts, bin_centers, dph_de=1)
       params["dph_de"].set(1,vary=False)
       result = model.fit(counts, bin_centers=bin_centers, params=params)
       fwhm, unc = result.params["fwhm"].value, result.params["fwhm"].stderr
       print(f"\tchan {ds.channum:3d} fwhm={fwhm:.1f} ± {unc:.1f} (off)")
 
       plain_counts, _ = np.histogram(cal(plain_ds.p_filt_value_dc[g]), bin_edges)
-      plain_model = mass.off.util.get_model(line)
-      plain_params = model.guess(plain_counts, bin_centers)
+      plain_model = mass.get_model(line)
+      plain_params = model.guess(plain_counts, bin_centers, dph_de=1)
       plain_params["dph_de"].set(1,vary=False)
       plain_result = plain_model.fit(plain_counts, bin_centers=bin_centers, params=plain_params)
       plain_fwhm, plain_unc = plain_result.params["fwhm"].value, plain_result.params["fwhm"].stderr

@@ -61,7 +61,7 @@ class TestPhaseCorrect:
             bin_edges = np.arange(-100, 100)+line.peak_energy
             bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
             counts, _ = np.histogram(ds.p_filt_value_phc, bin_edges)
-            params = model.guess(counts, bin_centers=bin_centers)
+            params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
             params["dph_de"].set(1.0, vary=False)
             result = model.fit(counts, params, bin_centers=bin_centers)
             resolutions.append(result.best_values["fwhm"])
@@ -106,7 +106,7 @@ class TestPhaseCorrect:
             bin_edges = np.arange(-100, 100)+line.peak_energy
             bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
             counts, _ = np.histogram(corrected, bin_edges)
-            params = model.guess(counts, bin_centers=bin_centers)
+            params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
             params["dph_de"].set(1.0, vary=False)
             result = model.fit(counts, params, bin_centers=bin_centers)
             resolutions.append(result.best_values["fwhm"])

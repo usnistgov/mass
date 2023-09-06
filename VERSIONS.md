@@ -1,5 +1,10 @@
 ## Note on version numbers of Mass
 
+**0.8.1** September 2023
+
+* Fix bug in fits where E-response has exponential tails (issue 250). Ensure `tail_tau` has consistent meaning indepdenent of energy scale. So keV-scale lines like MnKAlpha have same `tail_tau` meaning as the MeV lines as used in TrueBq.
+* `GenericLineModel.guess` now requires `dph_de` as an argument. This allows the guessed `fwhm` value to be in eV as intended, rather than arbs. This may break some user code.
+
 **0.8.0** August 10, 2023
 
 * Use `np.memmap` on LJH files as well as OFF (issue 160).

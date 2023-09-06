@@ -16,9 +16,9 @@ class TestFilenameHandling:
 
     def test_glob(self):
         assert os.path.join("tests", "regression_test", "regress_chan1.ljh") in \
-                      filename_glob_expand(os.path.join("tests", "regression_test", "regress_chan*.ljh"))
+            filename_glob_expand(os.path.join("tests", "regression_test", "regress_chan*.ljh"))
         assert os.path.join("tests", "regression_test", "regress_noise_chan1.ljh") in \
-                      filename_glob_expand(os.path.join("tests", "regression_test", "regress_noise_chan*.ljh"))
+            filename_glob_expand(os.path.join("tests", "regression_test", "regress_noise_chan*.ljh"))
 
     def test_extract_channum(self):
         assert 1 == ljh_channum("dummy_chan1.ljh")
@@ -118,7 +118,7 @@ class TestFilenameHandling:
             shutil.copy(dest1_name, dest2_name)
 
             cmd = ["bin/ljh_merge", f"{destdir}/test?_chan3.ljh"]
-            ps = subprocess.run(cmd, capture_output=True)
+            ps = subprocess.run(cmd, capture_output=True, check=True)
             assert ps.returncode == 0
 
             result_name = os.path.join(destdir, "merged_chan3.ljh")
@@ -129,10 +129,10 @@ class TestFilenameHandling:
             assert np.all(result.rowcount >= src.rowcount[0])
 
             # Make sure we can't run another merge w/o the --force flag
-            ps = subprocess.run(cmd, capture_output=True)
+            ps = subprocess.run(cmd, capture_output=True, check=False)
             assert ps.returncode != 0
 
             # Make sure we CAN run another merge with the --force flag
             cmdF = ["bin/ljh_merge", "--force", f"{destdir}/test?_chan3.ljh"]
-            ps = subprocess.run(cmdF, capture_output=True)
+            ps = subprocess.run(cmdF, capture_output=True, check=True)
             assert ps.returncode == 0
