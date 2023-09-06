@@ -45,11 +45,12 @@ def _generate_hdf5_filename(rawname):
 def RestoreTESGroup(hdf5filename, hdf5noisename=None):
     """Generate a TESGroup object from a data summary HDF5 file.
 
-    Args:
-        hdf5filename (string): the data summary file
-        hdf5noisename (string): the noise summary file; this can often be inferred from
-            the noise raw filenames, which are stored in the pulse HDF5 file (assuming you
-            aren't doing something weird). (default None)
+    :param hdf5filename: the data summary file
+    :type hdf5filename: string
+    :param hdf5noisename: the noise summary file; this can often be inferred from
+        the noise raw filenames, which are stored in the pulse HDF5 file (assuming you
+        aren't doing something weird), defaults to None
+    :type hdf5noisename: string, optional
     """
     pulsefiles = []
     channum = []
@@ -407,9 +408,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         (No effect for channels already listed as good.)
 
-        Args:
-            *args  Arguments to this function are integers or containers of integers.  Each
-                integer is removed from the bad-channels list.
+        :param args: channels to remove from the bad-channels list
+        :type args: integers or containers of integers
         """
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable) else {x} for x in args])
 
@@ -426,13 +426,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         (No effect for channels already listed as bad.)
 
-        Args:
-            *args  Arguments to this function are integers or containers of integers.  Each
-                integer is added to the bad-channels list.
-
         Examples:
             data.set_chan_bad(1, "too few good pulses")
             data.set_chan_bad(103, [1, 3, 5], "detector unstable")
+
+        :param args: channels to add to the bad-channels list; the last value, if a string, will be
+            taken as the comment (the reason the channel is considered bad)
+        :type args: integers or containers of integers
         """
         added_to_list = set.union(*[set(x) if isinstance(x, Iterable)
                                     else {x} for x in args if not isstr(x)])
@@ -624,14 +624,15 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def read_trace(self, record_num, dataset_num=0, channum=None):
         """Read one trace from cache or disk.
 
-        Args:
-            record_num (int): the pulse record number to read.
-            dataset_num (int): the dataset number to use
-            channum (int): the channel number to use (if both this and dataset_num
-                are given, use channum in preference).
-
-        Returns:
-            an ndarray: the pulse numbered <record_num>
+        :param record_num: the pulse record number to read
+        :type record_num: int
+        :param dataset_num: the dataset number to use, defaults to 0
+        :type dataset_num: int, optional
+        :param channum: the channel number to use (if both this and dataset_num
+            are given, use channum in preference), defaults to None
+        :type channum: int, optional
+        :return: the pulse numbered `record_num`
+        :rtype: ndarray
         """
         ds = self.channel.get(channum, self.datasets[dataset_num])
         return ds.read_trace(record_num)
@@ -640,23 +641,27 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     difference=False, residual=False, valid_status=None, shift1=False):
         """Plot some example pulses, given by record number.
 
-        Args:
-            <pulsenums>   A sequence of record numbers, or a single number.
-            <dataset_num> Dataset index (0 to n_dets-1, inclusive).  Will be used only if
-                          <channum> is invalid.
-            <channum>    Channel number.  If valid, it will be used instead of dataset_num.
-            <pulse_summary> Whether to put text about the first few pulses on the plot
-                (default True)
-            <axis>       A plt axis to plot on (default None, i.e., create a new axis)
-            <difference> Whether to show successive differences (that is, d(pulse)/dt) or the raw data
-                (default False).
-            <residual>   Whether to show the residual between data and opt filtered model,
-                 or just raw data (default False).
-            <valid_status> If None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
-                that have been cut.  If "cut", show only those that have been cut.
-                (default None).
-            <shift1>     Whether to take pulses with p_shift1==True and delay them by
-                1 sample (default False, i.e., show the pure raw data w/o shifting).
+        :param pulsenums: record numbers of pulses to plot
+        :type pulsenums: int or sequence of int
+        :param dataset_num: index of the dataset to plot (ignored unless `channum` is invalid), defaults to 0
+        :type dataset_num: int, optional
+        :param channum: channel number to plot, defaults to None
+        :type channum: int, optional
+        :param pulse_summary: whether to put text about the first few pulses on the plot, defaults to True
+        :type pulse_summary: bool, optional
+        :param axis: a plt axis to plot on (if None, create a new axis), defaults to None
+        :type axis: plt.Axis, optional
+        :param difference: whether to show successive differences (that is, d(pulse)/dt) or the raw data, defaults to False
+        :type difference: bool, optional
+        :param residual: whether to show the residual between data and opt filtered model,
+            or just raw data, defaults to False
+        :type residual: bool, optional
+        :param valid_status: if None, plot all pulses in <pulsenums>.  If "valid" omit any from that set
+                that have been cut.  If "cut", show only those that have been cut, defaults to None
+        :type valid_status: str, optional
+        :param shift1: whether to take pulses with p_shift1==True and delay them by
+                1 sample (if False, show the pure raw data w/o shifting), defaults to False
+        :type shift1: bool, optional
         """
 
         if channum in self.channel:
@@ -666,8 +671,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             dataset = self.datasets[dataset_num]
             if channum is not None:
                 LOG.info("Cannot find channum[%d], so using dataset #%d", channum, dataset_num)
-        return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
-                                   residual, valid_status, shift1)
+        dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
+                            residual, valid_status, shift1)
 
     def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
                        channel_numbers=None, dataset_numbers=None):
@@ -678,33 +683,37 @@ class TESGroup(CutFieldMixin, GroupLooper):
         would rather see all quantities for one channel, then use the group's
         group.channel[i].plot_summaries() method.
 
-        Args:
-            quantity: A case-insensitive whitespace-ignored one of the following list, or the numbers
-               that go with it:
-               "Pulse RMS" (0)
-               "Pulse Avg" (1)
-               "Peak Value" (2)
-               "Pretrig RMS" (3)
-               "Pretrig Mean" (4)
-               "Max PT Deriv" (5)
-               "Rise Time" (6)
-               "Peak Time" (7)
-               "Peak Index" (8)
-
-            valid: The words 'uncut' or 'cut', meaning that only uncut or cut data
-                are to be plotted *OR* None, meaning that all pulses should be plotted.
-
-            downsample (int): To prevent the scatter plots (left panels) from getting too crowded,
+        :param quantity: a case-insensitive whitespace-ignored one of the following list,
+            or the numbers that go with it:
+            "Pulse RMS" (0)
+            "Pulse Avg" (1)
+            "Peak Value" (2)
+            "Pretrig RMS" (3)
+            "Pretrig Mean" (4)
+            "Max PT Deriv" (5)
+            "Rise Time" (6)
+            "Peak Time" (7)
+            "Peak Index" (8)
+        :type quantity: str or int
+        :param valid: the words 'uncut' or 'cut', meaning that only uncut or cut data
+                are to be plotted *OR* None, meaning that all pulses should be plotted, defaults to 'uncut'
+        :type valid: str, optional
+        :param downsample: to prevent the scatter plots (left panels) from getting too crowded,
                  plot only one out of this many samples.  If None, then plot will be
-                 downsampled to 10,000 total points.
-            log (bool): Use logarithmic y-axis on the histograms (right panels).
-            hist_limits: if not None, limit the right-panel histograms to this range.
-            channel_numbers: A sequence of channel numbers to plot. If None, then plot all.
-            dataset_numbers: A sequence of the datasets [0...n_channels-1] to plot.  If None
+                 downsampled to 10,000 total points, defaults to None
+        :type downsample: int, optional
+        :param log: use logarithmic y-axis on the histograms (right panels), defaults to False
+        :type log: bool, optional
+        :param hist_limits: if not None, limit the right-panel histograms to this range, defaults to None
+        :type hist_limits: sequence of 2 int, optional
+        :param channel_numbers: sequence of channel numbers to plot. If None, then plot all, defaults to None
+        :type channel_numbers: sequence of int, optional
+        :param dataset_numbers: sequence of the datasets [0...n_channels-1] to plot.  If None
                 (the default) then plot all datasets in numerical order. But ignored
-                if channel_numbers is not None.
+                if channel_numbers is not None., defaults to None
+        :type dataset_numbers: sequence of int, optional
+        :raises ValueError: `valid` is a str but not one of ("all", "valid", "cut")
         """
-
         plottables = (
             ("p_pulse_rms", 'Pulse RMS', 'magenta', None),
             ("p_pulse_average", 'Pulse Avg', 'purple', [0, 5000]),
@@ -1172,7 +1181,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     def plot_summary_pages(self, x_attr, y_attr, x_range=None, y_range=None, subplot_shape=(3, 4),
                            suffix=None, lines=None, down=10, fileformat='png', one_file=False):
-        '''Make scatter plots of summary quantities for all channels.
+        """Make scatter plots of summary quantities for all channels.
 
         This creates the plots for each good channel, placing multiple plots on
         each page, and saves each page to its own file. Pulses that pass cuts are
@@ -1180,30 +1189,38 @@ class TESGroup(CutFieldMixin, GroupLooper):
         the form "<x_attr>.vs.<y-attr>-<suffix>-<page number>.png". The default
         value for the suffix is that pulsefile's base name.
 
-        Arguments:
-          x_attr -- string containing name of X value attribute
-          y_attr -- string containing name of Y value attribute
-          x_range -- if not None, values to use for x limits. Defaults to None.
-          y_range -- if not None, values to use for y limits. Defaults to None.
-          subplot_shape -- tuple indicating shape of subplots. First element is
-                           number of rows, second is number of columns.
-          suffix -- suffix to use for filenames. Defaults to None, which causes the
-                    function to use the first 15 characters of the pulse filename
-                    for the first data set (which typically will have a value
-                    like '20171017_103454')
-          lines -- if not None, must contain a hashtable, keyed off of channel
-                   number. The value for each channel is a list of numbers. A
-                   dashed horizontal line is plotted for each value in this list.
-                   Defaults to None.
-          down -- downsample by this factor. Defaults to 10
-          fileformat -- output format ('png', 'pdf', etc). Must be a value supported by
-                    your installation of matplotlib.
-          one_file -- If True, combine all pages to one pdf file. If False, use
-                      separate files for all pages. Defaults to False. If format is
-                      something other than 'pdf', this uses the ImageMagick program
-                      `convert` to combine the files. You can install it on ubuntu
-                      via `apt-get install imagemagick`.
-        '''
+        :param x_attr: name of attribute to plot as X value
+        :type x_attr: str
+        :param y_attr: name of attribute to plot as Y value
+        :type y_attr: str
+        :param x_range: values to use for x-axis limits, defaults to None
+        :type x_range: sequence of 2 float, optional
+        :param y_range: values to use for y-axis limits, defaults to None
+        :type y_range: sequence of 2 float, optional
+        :param subplot_shape: tuple indicating shape of subplots. First element is
+            number of rows, second is number of columns, defaults to (3, 4)
+        :type subplot_shape: tuple, optional
+        :param suffix: suffix to use for filenames. Defaults to None, which causes the
+            function to use the first 15 characters of the pulse filename
+            for the first data set (which typically will have a value
+            like '20171017_103454'), defaults to None
+        :type suffix: str, optional
+        :param lines: if not None, must contain a dict, keyed off of channel
+            number. The value for each channel is a list of numbers. A
+            dashed horizontal line is plotted for each value in this list, defaults to None
+        :type lines: dict, optional
+        :param down: downsample by this factor, defaults to 10
+        :type down: int, optional
+        :param fileformat: output format ('png', 'pdf', etc). Must be a value supported by
+                    your installation of matplotlib, defaults to 'png'
+        :type fileformat: str, optional
+        :param one_file: if True, combine all pages to one pdf file. If False, use
+            separate files for all pages. Defaults to False. If format is
+            something other than 'pdf', this uses the ImageMagick program
+            `convert` to combine the files. You can install it on ubuntu
+            via `apt-get install imagemagick`, defaults to False
+        :type one_file: bool, optional
+        """
         if suffix is None:
             suffix = os.path.basename(self.channels[0].datafile.filename)[:15]
 
@@ -1252,7 +1269,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     def plot_histogram_pages(self, attr, valrange, bins, y_range=None, subplot_shape=(3, 4),
                              suffix=None, lines=None, fileformat='png', one_file=False):
-        '''Make plots of histograms for all channels.
+        """Make plots of histograms for all channels.
 
         This creates the plots for each good channel, placing multiple plots on
         each page, and saves each page to its own file. Only pulses that pass cuts
@@ -1260,29 +1277,35 @@ class TESGroup(CutFieldMixin, GroupLooper):
         number>.png". The default value for the suffix is that pulsefile's base
         name.
 
-        Arguments:
-          attr -- string containing name of attribute to plot
-          valrange -- range of value over which to histogram (passed into histogram function)
-          bins -- number of bins (passed into histogram function)
-          y_range -- if not None, values to use for y limits. Defaults to None.
-          subplot_shape -- tuple indicating shape of subplots. First element is
-                           number of rows, second is number of columns.
-          suffix -- suffix to use for filenames. Defaults to None, which causes the
-                    function to use the first 15 characters of the pulse filename
-                    for the first data set (which typically will have a value
-                    like '20171017_103454')
-          lines -- if not None, must contain a hashtable, keyed off of channel
+        :param attr: name of the attribute to plot
+        :type attr: string
+        :param valrange: range of value over which to histogram (passed into histogram function)
+        :type valrange: sequence of 2 floats
+        :param bins: number of bins (passed into histogram function)
+        :type bins: int
+        :param y_range: if not None, values to use for y limits, defaults to None
+        :type y_range: sequence of 2 float, optional
+        :param subplot_shape: sequence of (num_rows, num_columns), defaults to (3, 4)
+        :type subplot_shape: sequence of 2 int, optional
+        :param suffix: suffix to use for filenames. If None, the
+            function to use the first 15 characters of the pulse filename
+            for the first data set (which typically will have a value
+            like '20171017_103454'), defaults to None
+        :type suffix: string, optional
+        :param lines: if not None, must contain a hashtable, keyed off of channel
                    number. The value for each channel is a list of numbers. A
-                   dashed horizontal line is plotted for each value in this list.
-                   Defaults to None.
-          fileformat -- output format ('png', 'pdf', etc). Must be a value supported by
-                    your installation of matplotlib.
-          one_file -- If True, combine all pages to one pdf file. If False, use
+                   dashed horizontal line is plotted for each value in this list, defaults to None
+        :type lines: dict, optional
+        :param fileformat: output format ('png', 'pdf', etc). Must be a value supported by
+                    your installation of matplotlib, defaults to 'png'
+        :type fileformat: str, optional
+        :param one_file: If True, combine all pages to one pdf file. If False, use
                       separate files for all pages. Defaults to False. If format is
                       something other than 'pdf', this uses the ImageMagick program
                       `convert` to combine the files. You can install it on ubuntu
-                      via `apt-get install imagemagick`.
-        '''
+                      via `apt-get install imagemagick`, defaults to False
+        :type one_file: bool, optional
+        """
         if suffix is None:
             suffix = os.path.basename(self.channels[0].datafile.filename)[:15]
 
