@@ -130,7 +130,7 @@ You can print a nicely formatted fit report with ``fit_report()``:
 .. code-block:: none
 
   [[Model]]
-      GenericKAlphaModel(MnKAlpha)
+      GenericLineModel(MnKAlpha)
   [[Fit Statistics]]
       # fitting method   = least_squares
       # function evals   = 15
