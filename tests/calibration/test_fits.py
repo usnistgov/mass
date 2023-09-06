@@ -30,8 +30,8 @@ class Test_ratio_weighted_averages:
             7,  4,  2,  3,  5,  2,  1,  1,  1,  1,  0,  0,  1,  2,  0,  0,  0,
             0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0])
         self.x = np.linspace(-1.98, 1.98, 100)+10
-        line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", 
-                                    energy=10, lorentzian_fwhm=0.0, intrinsic_sigma=0.0)
+        line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line(
+            "testline", energy=10, lorentzian_fwhm=0.0, intrinsic_sigma=0.0)
         line.linetype = "Gaussian"
         self.model = line.model()
         self.params = self.model.guess(self.counts, bin_centers=self.x, dph_de=1)
@@ -131,8 +131,8 @@ class Test_gaussian_basic:
         nbins = 100
         nfits = 30
 
-        line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", 
-                                    energy=ctr, lorentzian_fwhm=0.0, intrinsic_sigma=0.0)
+        line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line(
+            "testline", energy=ctr, lorentzian_fwhm=0.0, intrinsic_sigma=0.0)
         line.linetype = "Gaussian"
         self.model = line.model()
 
@@ -330,7 +330,7 @@ def test_integral_parameter():
             continue
         dph_de = 2
         rescaled_e = e*dph_de
-        params = model.guess(s, bin_centers=rescaled_e, dph_de=1) 
+        params = model.guess(s, bin_centers=rescaled_e, dph_de=1)
         # here we're giving a bad value for dph_de on purpose, the integral should remain unchanged
         result = model.fit(s, params, bin_centers=rescaled_e)
         integral = result.best_values["integral"]
@@ -535,30 +535,32 @@ def test_tail_tau_behaves_same_vs_energy_scale():
     spect2 = get_spectrum_with_tail(escale=1000)
     assert np.allclose(spect1, spect2, rtol=3e-3, atol=0)
 
+
 def test_a_fit_that_was_failing_with_too_small_a_fwhm():
-    counts = np.array([  1,   4,   2,   1,   5,  12,   4,   2,   7,   3,   4,   8,   1,
-         1,   5,   8,   8,   6,   9,  16,  20,  23,  28,  36,  55,  99,
-       114, 152, 189, 224, 199, 191, 143, 108,  83,  71,  30,  34,  15,
-         8,  13,   7,   7,   7,  14,   7,  11,   8,   5,   4,   3,   3,
-         5,   4,   5,   3,   3,   3,   1], dtype="int64")
-    bin_centers = np.array([4341.24137311, 4342.15001601, 4343.05865891, 4343.96730181,
-       4344.87594471, 4345.78458761, 4346.69323051, 4347.60187342,
-       4348.51051632, 4349.41915922, 4350.32780212, 4351.23644502,
-       4352.14508792, 4353.05373082, 4353.96237372, 4354.87101663,
-       4355.77965953, 4356.68830243, 4357.59694533, 4358.50558823,
-       4359.41423113, 4360.32287403, 4361.23151693, 4362.14015983,
-       4363.04880274, 4363.95744564, 4364.86608854, 4365.77473144,
-       4366.68337434, 4367.59201724, 4368.50066014, 4369.40930304,
-       4370.31794594, 4371.22658885, 4372.13523175, 4373.04387465,
-       4373.95251755, 4374.86116045, 4375.76980335, 4376.67844625,
-       4377.58708915, 4378.49573206, 4379.40437496, 4380.31301786,
-       4381.22166076, 4382.13030366, 4383.03894656, 4383.94758946,
-       4384.85623236, 4385.76487526, 4386.67351817, 4387.58216107,
-       4388.49080397, 4389.39944687, 4390.30808977, 4391.21673267,
-       4392.12537557, 4393.03401847, 4393.94266137])
+    counts = np.array([
+        1,   4,   2,   1,   5,  12,   4,   2,   7,   3,   4,   8,   1,
+        1,   5,   8,   8,   6,   9,  16,  20,  23,  28,  36,  55,  99,
+        114, 152, 189, 224, 199, 191, 143, 108,  83,  71,  30,  34,  15,
+        8,  13,   7,   7,   7,  14,   7,  11,   8,   5,   4,   3,   3,
+        5,   4,   5,   3,   3,   3,   1], dtype="int64")
+    bin_centers = np.array([
+        4341.24137311, 4342.15001601, 4343.05865891, 4343.96730181,
+        4344.87594471, 4345.78458761, 4346.69323051, 4347.60187342,
+        4348.51051632, 4349.41915922, 4350.32780212, 4351.23644502,
+        4352.14508792, 4353.05373082, 4353.96237372, 4354.87101663,
+        4355.77965953, 4356.68830243, 4357.59694533, 4358.50558823,
+        4359.41423113, 4360.32287403, 4361.23151693, 4362.14015983,
+        4363.04880274, 4363.95744564, 4364.86608854, 4365.77473144,
+        4366.68337434, 4367.59201724, 4368.50066014, 4369.40930304,
+        4370.31794594, 4371.22658885, 4372.13523175, 4373.04387465,
+        4373.95251755, 4374.86116045, 4375.76980335, 4376.67844625,
+        4377.58708915, 4378.49573206, 4379.40437496, 4380.31301786,
+        4381.22166076, 4382.13030366, 4383.03894656, 4383.94758946,
+        4384.85623236, 4385.76487526, 4386.67351817, 4387.58216107,
+        4388.49080397, 4389.39944687, 4390.30808977, 4391.21673267,
+        4392.12537557, 4393.03401847, 4393.94266137])
     model = mass.get_model(49127.24)
     dph_de_guess = np.mean(bin_centers)/model.spect.nominal_peak_energy
     params = model.guess(counts, bin_centers=bin_centers, dph_de=dph_de_guess)
-    params["dph_de"].set( 0.09086, vary=False)
-    result = model.fit(counts, params, bin_centers=bin_centers, minimum_bins_per_fwhm=1.5)
-
+    params["dph_de"].set(0.09086, vary=False)
+    model.fit(counts, params, bin_centers=bin_centers, minimum_bins_per_fwhm=1.5)
