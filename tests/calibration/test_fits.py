@@ -331,7 +331,8 @@ def test_integral_parameter():
             continue
         dph_de = 2
         rescaled_e = e*dph_de
-        params = model.guess(s, bin_centers=rescaled_e)
+        params = model.guess(s, bin_centers=rescaled_e, dph_de=1) 
+        # here we're giving a bad value for dph_de on purpose, the integral should remain unchanged
         result = model.fit(s, params, bin_centers=rescaled_e)
         integral = result.best_values["integral"]
         assert integral == approx(Nsignal, abs=3*np.sqrt(len(samples)))
@@ -340,7 +341,7 @@ def test_integral_parameter():
         QE = 0.4
         def flat_qemodel(e): return QE+np.zeros_like(e)
         model = line.model(qemodel=flat_qemodel)
-        params = model.guess(s, bin_centers=e)
+        params = model.guess(s, bin_centers=e, dph_de=1)
         result = model.fit(s, params, bin_centers=e)
         integral = result.best_values["integral"]
         assert integral*QE == approx(Nsignal, abs=3*np.sqrt(len(samples)))
