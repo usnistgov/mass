@@ -1,7 +1,8 @@
 ## Note on version numbers of Mass
 
-**master**
- * Ensure `tail_tau` has consistent meaning indepdenent of energy scale. Eg keV scale lines like MnKAlpha have same tail_tau meaning as MeV lines as used in TrueBq.
+**0.8.1** September 2023
+
+* Fix bug in fits where E-response has exponential tails (issue 250). Ensure `tail_tau` has consistent meaning indepdenent of energy scale. So keV-scale lines like MnKAlpha have same `tail_tau` meaning as the MeV lines as used in TrueBq.
 
 **0.8.0** August 10, 2023
 

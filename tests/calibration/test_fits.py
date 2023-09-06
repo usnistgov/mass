@@ -202,7 +202,7 @@ class Test_Gaussian:
 
 class TestMnKA_fitter:
     def do_test(self, n=50000, resolution=2.5, tailfrac=0, tailtau=17, bg=10,
-                nbins=150, vary_bg_slope=False, vary_tail=False, expect_good_redchi=True, shift_peak_ev = 0):
+                nbins=150, vary_bg_slope=False, vary_tail=False, expect_good_redchi=True, shift_peak_ev=0):
         bin_edges = np.arange(5850, 5950, 0.5)
         # generate random x-ray pulse energies following MnKAlpha distribution
         line = mass.calibration.fluorescence_lines.MnKAlpha
@@ -247,14 +247,13 @@ class TestMnKA_fitter:
             inflated_error = expected_error
             if vary_tail and param_name == "background":
                 inflated_error *= 10
-            if vary_bg_slope: # we really want to increase all allowed errors if bg slope is varied?
+            if vary_bg_slope:  # we really want to increase all allowed errors if bg slope is varied?
                 inflated_error *= 10
 
             if not vary_bg_slope and not param_name.startswith("b"):
                 assert expected_value == approx(result.params[param_name].value, abs=2*inflated_error)
             if not vary_tail and not vary_bg_slope and not param_name.startswith("b"):
                 assert expected_error == approx(result.params[param_name].stderr, abs=0.5*inflated_error)
-
 
     def test_MnKA_lmfit(self):
         self.rng = np.random.default_rng(154)
@@ -263,8 +262,8 @@ class TestMnKA_fitter:
         self.do_test(bg=30, tailfrac=0, expect_good_redchi=True)
         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=True, expect_good_redchi=True)
         self.do_test(n=200000, tailtau=10, tailfrac=0.08, vary_tail=False, vary_bg_slope=True, expect_good_redchi=False)
-        self.do_test(n=200000, tailtau=10, tailfrac=0.08, shift_peak_ev=1.5, vary_tail=True, vary_bg_slope=True, expect_good_redchi=True)
-
+        self.do_test(n=200000, tailtau=10, tailfrac=0.08, shift_peak_ev=1.5, vary_tail=True,
+                     vary_bg_slope=True, expect_good_redchi=True)
 
 
 def test_MnKA_float32():
@@ -515,10 +514,11 @@ def test_issue_125():
     params["tail_frac"].set(.1)
     _ = model.fit(contents, params, bin_centers=e)
 
+
 def test_tail_tau_behaves_same_vs_energy_scale():
-    """Issue 250 reports that the tail_tau parameter needs to be very large to have 
+    """Issue 250 reports that the tail_tau parameter needs to be very large to have
     visible tails when peak_ph is in the MeV scale, here we test that we get the same
-    spectrum when looking at the values in each bin when we change the energy scale of 
+    spectrum when looking at the values in each bin when we change the energy scale of
     all energy parameters equally"""
 
     def get_spectrum_with_tail(escale):
@@ -528,12 +528,12 @@ def test_tail_tau_behaves_same_vs_energy_scale():
         params["fwhm"].set(2*escale)
         params["tail_tau"].set(30*escale)
         params["tail_frac"].set(0.5)
-        bin_centers = np.arange(5900,6100,1)*escale
+        bin_centers = np.arange(5900, 6100, 1)*escale
         return model.eval(params=params, bin_centers=bin_centers)
-    
+
     spect1 = get_spectrum_with_tail(escale=1)
     spect2 = get_spectrum_with_tail(escale=1000)
-    assert np.allclose(spect1, spect1, rtol=1e-3, atol=0)
+    assert np.allclose(spect1, spect2, rtol=3e-3, atol=0)
 
 def test_a_fit_that_was_failing_with_too_small_a_fwhm():
     counts = np.array([  1,   4,   2,   1,   5,  12,   4,   2,   7,   3,   4,   8,   1,
@@ -561,3 +561,4 @@ def test_a_fit_that_was_failing_with_too_small_a_fwhm():
     params = model.guess(counts, bin_centers=bin_centers, dph_de=dph_de_guess)
     params["dph_de"].set( 0.09086, vary=False)
     result = model.fit(counts, params, bin_centers=bin_centers, minimum_bins_per_fwhm=1.5)
+
