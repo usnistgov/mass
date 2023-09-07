@@ -180,20 +180,20 @@ By default, the ``has_tails=True`` will set up a non-zero low-energy tail and al
 
 .. testcode::
 
-  # 1. To let the high-E tail vary
-  params["tail_frac_hi"].set(.1, vary=True)
+  # 1. To let the low-E and high-E tail both vary simultaneously
+  params["tail_share_hi"].set(.1, vary=True)
   params["tail_tau_hi"].set(30, vary=True)
 
-  # 2. To fix the low-E tail at a 10% level, tau=30 eV
+  # 2. To fix the sum of low-E and high-E tail at a 10% level, with low-E tau=30 eV, but
+  # the share of the low vs high tail can vary
   params["tail_frac"].set(.1, vary=False)
   params["tail_tau"].set(30, vary=False)
 
   # 3. To turn off low-E tail
-  params["tail_frac"].set(0, vary=False)
+  params["tail_frac"].set(.1, vary=True)
+  params["tail_share_hi"].set(1, vary=False)
   params["tail_tau"].set(vary=False)
 
-
-Adding or removing the ``_hi`` suffix to/from the parameter names in the examples above will allow you to fix the high-E tail (examples 2 or 3) or to re-enable fitting of the low-E tail (example 1).
 
 Fitting with a quantum efficiency model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

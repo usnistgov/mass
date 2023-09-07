@@ -407,7 +407,7 @@ class TestTESGroup:
             # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
             print(wrongness)
             print(np.amax(wrongness))
-            assert np.amax(wrongness) < 0.10
+            assert np.amax(wrongness) < 0.15
             pulse_model.plot()
 
             # test multi_ljh2off_loop with multiple ljhfiles

@@ -4,6 +4,8 @@
 
 * Fix bug in fits where E-response has exponential tails (issue 250). Ensure `tail_tau` has consistent meaning indepdenent of energy scale. So keV-scale lines like MnKAlpha have same `tail_tau` meaning as the MeV lines as used in TrueBq.
 * `GenericLineModel.guess` now requires `dph_de` as an argument. This allows the guessed `fwhm` value to be in eV as intended, rather than arbs. This may break some user code.
+* Change high-E exponential tails models, so we vary _not_ the low and high tail fractions, but the total tail fraction and the share due to the high tail. Thus both can be fixed to the [0,1] range safely (issue 252).
+
 
 **0.8.0** August 10, 2023
 
