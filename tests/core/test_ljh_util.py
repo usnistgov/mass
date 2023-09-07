@@ -66,10 +66,8 @@ class TestFilenameHandling:
         validns = ["dummy_chan%d.ljh" % d for d in (1, 3, 11, 13)]
         remove_unpaired_channel_files(fnames1, fnames2, never_use=(5, 7))
         assert len(validns) == len(fnames1)
-        assert len(validns) == len(fnames2)
-        for v, f1, f2 in zip(validns, fnames1, fnames2):
+        for v, f1 in zip(validns, fnames1):
             assert v == f1
-            assert v == f2
 
     def test_remove_unmatched_channums_with_useonly_nosecondlist(self):
         "remove_unpaired_channel_files needs to work if 2nd list is empty"
@@ -78,10 +76,8 @@ class TestFilenameHandling:
         validns = ["dummy_chan%d.ljh" % d for d in (1, 3, 7)]
         remove_unpaired_channel_files(fnames1, fnames2, use_only=(1, 3, 7))
         assert len(validns) == len(fnames1)
-        assert len(validns) == len(fnames2)
-        for v, f1, f2 in zip(validns, fnames1, fnames2):
+        for v, f1 in zip(validns, fnames1):
             assert v == f1
-            assert v == f2
 
     def test_sort_filenames_numerically(self):
         cnums = [1, 11, 13, 3, 5, 7, 9, 99]
