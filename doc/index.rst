@@ -27,7 +27,6 @@ Hand written documentation (mostly old style mass)
 
    Cuts
    autocal
-   Demos
    hdf5_only
    invert_pulses
    set_chan_bad
