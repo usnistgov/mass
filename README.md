@@ -86,10 +86,6 @@ If you look for files named `test_*.py` they will have examples of how the teste
 
 Run all the tests on your system and make sure they pass!. Do `pytest` in the `mass` directory. Tests require that you install via `pip install -e ...` or `python setup.py develop`.
 
-## Tutorials and demos
-
-These are all probably out of date. They live in `mass/mass/demo`. If you want to contribute to mass, but don't want to do a bunch of programming, updating the demos would be a huge help!
-
 # Development Tips
 
 ## Running Tests
