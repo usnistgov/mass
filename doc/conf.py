@@ -37,6 +37,7 @@ html_last_updated_fmt = "%H:%M %Z %b %d, %Y"
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.doctest',
               'sphinx.ext.coverage',
+              'sphinx.ext.napoleon',
               'sphinx.ext.viewcode',
               'sphinx.ext.autosectionlabel',
               'recommonmark',

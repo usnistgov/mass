@@ -1617,10 +1617,12 @@ class MicrocalDataSet:
         Though you may set `noise_variance` to a value other than 1, this will affect only the
         predicted resolution, and will not change the optimal filters that get computed/used.
 
-        :param noise_variance: what to set as the lag-0 noise autocorrelation, defaults to 1.0
-        :type noise_variance: float, optional
-        :param forceNew: whether to update the noise autocorrelation if it's already been set, defaults to False
-        :type forceNew: bool, optional
+        Parameters
+        ----------
+        noise_variance : float, optional
+            what to set as the lag-0 noise autocorrelation, by default 1.0
+        forceNew : bool, optional
+            whether to update the noise autocorrelation if it's already been set, by default False
         """
         if forceNew or all(self.noise_autocorr[:] == 0):
             self.noise_autocorr[1:] = 0.0
@@ -2206,22 +2208,27 @@ class MicrocalDataSet:
         noise file. "Equivalent" meaning that the noise file was assessed not for
         RMS but for median absolute deviation, normalized to Gaussian distributions.
 
-        :param nsigma_pt_rms:  How big an excursion is allowed in pretrig RMS, defaults to 8.0
-        :type nsigma_pt_rms: float, optional
-        :param nsigma_max_deriv: How big an excursion is allowed in max post-peak derivative, defaults to 8.0
-        :type nsigma_max_deriv: float, optional
-        :param pretrig_rms_percentile: Make upper limit for pretrig_rms at least as large as this percentile
+        Parameters
+        ----------
+        nsigma_pt_rms : float, optional
+            How big an excursion is allowed in pretrig RMS, by default 8.0
+        nsigma_max_deriv : float, optional
+            How big an excursion is allowed in max post-peak derivative, by default 8.0
+        pretrig_rms_percentile : float, optional
+            Make upper limit for pretrig_rms at least as large as this percentile
             of the data. I.e., if you pass in 99, then the upper limit for pretrig_rms will exclude
             no more than the 1 % largest values. This number is a percentage, *not* a fraction. This should not
             be routinely used; it is intended to help auto_cuts work even if there is a problem during a data
-            acquisition that causes large drifts in noise properties., defaults to None
-        :type pretrig_rms_percentile: float, optional
-        :param forceNew: Whether to perform auto-cuts even if cuts already exist, defaults to False
-        :type forceNew: bool, optional
-        :param clearCuts: Whether to clear any existing cuts first, defaults to True
-        :type clearCuts: bool, optional
-        :return: the cuts that were applied
-        :rtype: AnalysisControl
+            acquisition that causes large drifts in noise properties, by default None
+        forceNew : bool, optional
+            Whether to perform auto-cuts even if cuts already exist, by default False
+        clearCuts : bool, optional
+            Whether to clear any existing cuts first, by default True
+
+        Returns
+        -------
+        AnalysisControl
+            the cuts that were applied
         """
         if self.saved_auto_cuts is None:
             forceNew = True
