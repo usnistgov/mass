@@ -155,18 +155,19 @@ def remove_unpaired_channel_files(filenames1, filenames2, never_use=None, use_on
 
 
 def ljh_sort_filenames_numerically(fnames, inclusion_list=None):
-    """Return a sorted sequence of filenames of the form '*_chanXXX.*',
-    sorted according to the numerical value of channel number XXX.
+    """Sort filenames of the form '*_chanXXX.*', according to the numerical value of channel number XXX.
 
-    Args:
-    fnames: A sequence of filenames of the form '*_chan*.*'
-    inclusion_list: If not None, a container with channel numbers. All files
+    Filenames are first sorted by the usual string comparisons, then by channel number. In this way,
+    the standard sort is applied to all files with the same channel number.
+
+    :param fnames: A sequence of filenames of the form '*_chan*.*'
+    :type fnames: list of str
+    :param inclusion_list: If not None, a container with channel numbers. All files
         whose channel numbers are not on this list will be omitted from the
-        output (default None).
-
-    Returns:
-        A list containg the same filenames, sorted
-        according to the numerical value of channel number.
+        output, defaults to None
+    :type inclusion_list: sequence of int, optional
+    :return: A list containg the same filenames, sorted according to the numerical value of channel number.
+    :rtype: list
     """
     if fnames is None or len(fnames) == 0:
         return None
@@ -174,20 +175,22 @@ def ljh_sort_filenames_numerically(fnames, inclusion_list=None):
     if inclusion_list is not None:
         fnames = filter(lambda n: ljh_channum(n) in inclusion_list, fnames)
 
+    # Sort the results first by raw filename, then sort numerically by LJH channel number.
+    # Because string sort and the builtin `sorted` are both stable, we ensure that the first
+    # sort is used to break ties in channel number.
+    fnames.sort()
     return sorted(fnames, key=ljh_channum)
 
 
 def filename_glob_expand(pattern):
     """Return the result of glob-expansion on the input pattern.
 
-    Args:
-        pattern: If a string, treat it as a glob pattern and return the glob-result
-            as a list. If it isn't a string, return it unchanged (presumably then
-            it's already a sequence).
-
-    Returns:
-        A list of 0 or more filenames. The result is sorted by
-        ljh_sort_filenames_numerically().
+    :param pattern: If a string, treat it as a glob pattern and return the glob-result
+        as a list. If it isn't a string, return it unchanged (presumably then
+        it's already a sequence).
+    :type pattern: str
+    :return: filenames; the result is sorted first by str.sort, then by ljh_sort_filenames_numerically()
+    :rtype: list
     """
     if not isstr(pattern):
         return pattern
@@ -196,6 +199,7 @@ def filename_glob_expand(pattern):
     return ljh_sort_filenames_numerically(result)
 
 
+###########################################################################
 # Below here are old code for handling 2 types of files that are not used in new
 # data: the timing-aux file (for translating Posix time and row counts into each
 # other for LJH 2.1 and earlier files); and the microphone file, in which we were
