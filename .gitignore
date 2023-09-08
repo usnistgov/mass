@@ -30,7 +30,6 @@ TAGS
 # Cython produces C source files and can produce HTML
 *.c
 *.html
-mass/demo/sourceroot.py
 *.so
 *.pyd
 
