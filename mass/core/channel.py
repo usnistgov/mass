@@ -501,7 +501,17 @@ class PulseRecords:
 class GroupLooper:
     """A mixin class to allow TESGroup objects to hold methods that loop over
     their constituent channels. (Has to be a mixin, in order to break the import
-    cycle that would otherwise occur.)"""
+    cycle that would otherwise occur.)
+
+    Usage is::
+
+    | class MicrocalDataSet(...):
+    |     ...
+    |     @_add_group_loop()
+    |     def awesome_fuction(self, ...):
+    |         ...
+
+    """
     pass
 
 
@@ -509,17 +519,16 @@ def _add_group_loop():
     """Add MicrocalDataSet method `method` to GroupLooper (and hence, to TESGroup).
 
     This is a decorator to add before method definitions inside class MicrocalDataSet.
-    Usage is::
 
-    | class MicrocalDataSet(...):
-    |     ...
-    |    @_add_group_loop()
-    |     def awesome_fuction(self, ...):
-    |         ...
+    Returns
+    -------
+    fun
+        decorated function
 
-    :raises e: KeyboardInterrupt, or any Exception raised in decorated function
-    :return: decorated function
-    :rtype: fun
+    Raises
+    ------
+    e
+        KeyboardInterrupt, or any Exception raised in decorated function
     """
     is_running_tests = "pytest" in sys.modules
 
@@ -545,7 +554,7 @@ def _add_group_loop():
         wrapper.__name__ = method_name
 
         # Generate a good doc-string.
-        lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
+        lines = [f"Loop over self, calling the {method_name}(...) method for each channel."]
         try:
             argtext = inspect.signature(method)  # Python 3.3 and later
         except AttributeError:
@@ -573,16 +582,18 @@ class MicrocalDataSet:
     HDF5_CHUNK_SIZE = 256
 
     def __init__(self, pulserec_dict, tes_group=None, hdf5_group=None):
-        """
-        Args:
-            pulserec_dict: a dictionary (presumably that of a PulseRecords object)
-                containing the expected attributes that must be copied to this
-                MicrocalDataSet.
-            tes_group: the parent TESGroup object of which this is a member
-                (default None).
-            hdf5_group: the HDF5 group in which the relevant per-pulse data are
-                cached. You really want this to exist, for reasons of both performance
-                and data backup. (default None)
+        """_summary_
+
+        Parameters
+        ----------
+        pulserec_dict : dict
+            a dictionary (presumably that of a `PulseRecords` object) containing the expected
+            attributes that must be copied to this `MicrocalDataSet`
+        tes_group : `TESGroup`, optional
+            the parent TESGroup object of which this is a member, by default None
+        hdf5_group : `h5py.Group`, optional
+            the HDF5 group in which the relevant per-pulse data are cached. You really want this to
+            exist, for reasons of both performance and data backup, by default None
         """
         self.nSamples = 0
         self.nPresamples = 0

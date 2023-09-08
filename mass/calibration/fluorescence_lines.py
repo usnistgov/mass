@@ -369,7 +369,7 @@ def addline(element, linetype, material, reference_short, reference_plot_instrum
             is_default_material=True, allow_replacement=False):
     """Add one line to the mass database of spectral line modesl
 
-    Line shapes are parameterized as a sum of Lorentzian components, so 
+    Line shapes are parameterized as a sum of Lorentzian components, so
     `[energies, lorentzian_fwhm, reference_amplitude]` must be arrays of equal length.
 
     :param element: element for this emission line
