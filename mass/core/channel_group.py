@@ -1317,7 +1317,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)
         
-    def hists(self,bin_edges,attr="p_energy",t0=0,tlast=1e20,category={},g_func=None, stateMask=None):
+    def hists(self,bin_edges,attr="p_energy",t0=0,tlast=1e20,category={},g_func=None):
         """return a tuple of (bin_centers, countsdict). automatically filters out nan values
         where countsdict is a dictionary mapping channel numbers to numpy arrays of counts
         bin_edges -- edges of bins unsed for histogram
@@ -1327,17 +1327,17 @@ class TESGroup(CutFieldMixin, GroupLooper):
             This vector is anded with the vector calculated by the histogrammer    """
         bin_edges = np.array(bin_edges)
         bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
-        countsdict = {ds.channum:ds.hist(bin_edges, attr,t0,tlast,category,g_func, stateMask=stateMask)[1] for ds in self}
+        countsdict = {ds.channum:ds.hist(bin_edges, attr,t0,tlast,category,g_func)[1] for ds in self}
         return bin_centers, countsdict
 
-    def hist(self, bin_edges, attr="p_energy",t0=0,tlast=1e20,category={},g_func=None, stateMask=None):
+    def hist(self, bin_edges, attr="p_energy",t0=0,tlast=1e20,category={},g_func=None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses in all good datasets (use .hists to get the histograms individually). filters out nan values
         bin_edges -- edges of bins unsed for histogram
         attr -- which attribute to histogram "p_energy" or "p_filt_value"
         t0 and tlast -- cuts all pulses outside this timerange before fitting
         g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
             This vector is anded with the vector calculated by the histogrammer    """
-        bin_centers, countsdict = self.hists(bin_edges, attr,t0,tlast,category,g_func,stateMask=stateMask)
+        bin_centers, countsdict = self.hists(bin_edges, attr,t0,tlast,category,g_func)
         counts = np.zeros_like(bin_centers, dtype="int")
         for (k,v) in countsdict.items():
             counts+=v
@@ -1345,8 +1345,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     
     def linefit(self,line_name="MnKAlpha", t0=0,tlast=1e20,axis=None,dlo=50,dhi=50,
                 binsize=1,bin_edges=None, attr="p_energy",label="full",plot=True,
-                guess_params=None, ph_units="eV", category={}, g_func=None,
-                stateMask=None, has_tails=False):
+                guess_params=None, ph_units="eV", category={}, g_func=None, has_tails=False):
         """Do a fit to `line_name` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
         line_name -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
         t0 and tlast -- cuts all pulses outside this timerange before fitting
@@ -1371,7 +1370,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             bin_edges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
 
 
-        bin_centers, counts = self.hist(bin_edges, attr, t0, tlast, category, g_func, stateMask=stateMask)
+        bin_centers, counts = self.hist(bin_edges, attr, t0, tlast, category, g_func)
 
         params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
         params["dph_de"].set(vary=False)

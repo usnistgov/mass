@@ -2497,7 +2497,7 @@ class MicrocalDataSet:
             else:
                 raise Exception('Distance type ' + distanceType + ' not recognized.')
             
-    def hist(self,bin_edges,attr="p_energy",t0=0,tlast=1e20,category={},g_func=None, stateMask=None):
+    def hist(self,bin_edges,attr="p_energy",t0=0,tlast=1e20,category={},g_func=None):
         """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
         bin_edges -- edges of bins unsed for histogram
         attr -- which attribute to histogram "p_energy" or "p_filt_value"
@@ -2513,14 +2513,12 @@ class MicrocalDataSet:
         g = np.logical_and(g,~np.isnan(vals))
         if g_func is not None:
             g=np.logical_and(g,g_func(self))
-        if stateMask is not None:
-            g=np.logical_and(g,stateMask)
 
         counts, _ = np.histogram(vals[g],bin_edges)
         return bin_centers, counts
 
 
-    def plot_hist(self,bin_edges,attr="p_energy",axis=None,label_lines=[],category={},g_func=None, stateMask=None):
+    def plot_hist(self,bin_edges,attr="p_energy",axis=None,label_lines=[],category={},g_func=None):
         """plot a coadded histogram from all good datasets and all good pulses
         bin_edges -- edges of bins unsed for histogram
         attr -- which attribute to histogram "p_energy" or "p_filt_value"
@@ -2531,7 +2529,7 @@ class MicrocalDataSet:
         if axis is None:
             plt.figure()
             axis=plt.gca()
-        x,y = self.hist(bin_edges, attr, category=category, g_func=g_func, stateMask=stateMask)
+        x,y = self.hist(bin_edges, attr, category=category, g_func=g_func)
         axis.plot(x,y,drawstyle="steps-mid")
         axis.set_xlabel(attr)
         axis.set_ylabel("counts per %0.1f unit bin"%(bin_edges[1]-bin_edges[0]))
@@ -2541,7 +2539,7 @@ class MicrocalDataSet:
     def linefit(self,line_name="MnKAlpha", t0=0,tlast=1e20,axis=None,dlo=50,dhi=50,
                 binsize=1,bin_edges=None, attr="p_energy",label="full",plot=True,
                 guess_params=None, ph_units="eV", category={}, g_func=None,
-                stateMask=None, has_tails=False):
+                has_tails=False):
         """Do a fit to `line_name` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
         line_name -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
         t0 and tlast -- cuts all pulses outside this timerange before fitting
@@ -2565,7 +2563,7 @@ class MicrocalDataSet:
             bin_edges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
 
 
-        bin_centers, counts = self.hist(bin_edges, attr, t0, tlast, category, g_func, stateMask=stateMask)
+        bin_centers, counts = self.hist(bin_edges, attr, t0, tlast, category, g_func)
 
         params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
         params["dph_de"].set(vary=False)
