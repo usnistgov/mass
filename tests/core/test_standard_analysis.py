@@ -32,10 +32,15 @@ def test_process1():
     ds.linefit("PdLAlpha", binsize=0.5)
     ds.linefit("MnKAlpha", binsize=0.5)
     result = ds.linefit("MnKAlpha", binsize=0.5, has_tails=True)
-    result_data = data.linefit("MnKAlpha", binsize=0.5, has_tails=False)
+    result_data = data.linefit("MnKAlpha", binsize=0.5, has_tails=False, category={"state":"START"})
 
+    print(data.experimentStateFile)
+    print(data.experimentStateFile.labels)
+    print(data.cut_category_list)
 
-    plt.pause(30)
+    # raise Exception()
+
+    # plt.pause(30)
     
 
 if __name__ == "__main__":
