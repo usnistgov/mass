@@ -36,7 +36,7 @@ def test_process1():
 
     assert result.params["fwhm"].value < 3.6
     assert result2.params["fwhm"].value < 3.1
-    assert result_data.aprams["fwhm"].value < 3.35
+    assert result_data.params["fwhm"].value < 3.35
 
     
 
