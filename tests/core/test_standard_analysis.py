@@ -21,26 +21,23 @@ def test_process1():
     data.compute_noise()
     data.compute_5lag_filter(f_3db=10e3)
     data.filter_data()
-    # here dan chooses a wide range around the highest peak
-    # im skipping that since I get identical results without it
     data.drift_correct()
     data.phase_correct()
     data.calibrate("p_filt_value_phc", ["MnKAlpha", "MnKBeta", "CuKAlpha", "CuKBeta"], fit_range_ev=80,
     bin_size_ev=0.5, diagnose=True, _rethrow=True)
     ds = data.channel[4102]
+    ds2 = data.channel[4109]
     ds.plot_hist(np.arange(0,10000,0.5), attr="p_energy", label_lines=["MnKAlpha", "MnKBeta", "CuKAlpha", "CuKBeta","PdLAlpha"])
     ds.linefit("PdLAlpha", binsize=0.5)
-    ds.linefit("MnKAlpha", binsize=0.5)
-    result = ds.linefit("MnKAlpha", binsize=0.5, has_tails=True)
+    result = ds.linefit("MnKAlpha", binsize=0.5, has_tails=False)
+    result_tail = ds.linefit("MnKAlpha", binsize=0.5, has_tails=True)
+    result2 = ds2.linefit("MnKAlpha", binsize=0.5, has_tails=False)
     result_data = data.linefit("MnKAlpha", binsize=0.5, has_tails=False, category={"state":"START"})
 
-    print(data.experimentStateFile)
-    print(data.experimentStateFile.labels)
-    print(data.cut_category_list)
+    assert result.params["fwhm"].value < 3.6
+    assert result2.params["fwhm"].value < 3.1
+    assert result_data.aprams["fwhm"].value < 3.35
 
-    # raise Exception()
-
-    # plt.pause(30)
     
 
 if __name__ == "__main__":
