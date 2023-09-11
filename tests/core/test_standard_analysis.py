@@ -32,6 +32,7 @@ def test_process1():
     ds.linefit("PdLAlpha", binsize=0.5)
     ds.linefit("MnKAlpha", binsize=0.5)
     result = ds.linefit("MnKAlpha", binsize=0.5, has_tails=True)
+    result_data = data.linefit("MnKAlpha", binsize=0.5, has_tails=False)
 
 
     plt.pause(30)
