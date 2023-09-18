@@ -26,16 +26,17 @@ def merge(out_path, filenames, overwrite):
     f = mass.LJHFile.open(out_path)
     channum = f.channum
     print(f"Combining {len(filenames)} LJH files from channel {channum}")
+    print(f"<-- {filenames[0]}")
 
     for in_fname in filenames[1:]:
         f = mass.LJHFile.open(in_fname)
         if f.channum != channum:
             raise RuntimeError(f"file '{in_fname}' channel={f.channum}, but want {channum}")
-        print(f"-- {in_fname}")
+        print(f"<-- {in_fname}")
         ljh_append_traces(in_fname, out_path)
 
     size = os.stat(out_path).st_size
-    print(f"Wrote file {out_path} size: {size} bytes.")
+    print(f"--> {out_path}    size: {size} bytes.\n")
 
 
 def main():
