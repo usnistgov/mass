@@ -7,6 +7,7 @@ select = [
   "E",  # pycodestyle
   "W",  # pycodestyle
   "E225",  # pycodestyle missing whitespace around operator
+  "E231",  # pycodestyle missing whitespace after ','
   "F",  # pyflakes
   "UP",  # pyupgrade
   "PLE",  # pylint errors

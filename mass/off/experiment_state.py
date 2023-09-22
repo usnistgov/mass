@@ -98,8 +98,8 @@ class ExperimentStateFile:
         When updating pass in the existing statesDict and i0 must be the first label in allLabels that wasn't
         used to calculate the existing statesDict.
         """
-        #unixnanos = timestamps of new records
-        #i0_unixnanos is how many records have been state-indexed
+        # unixnanos = timestamps of new records
+        # i0_unixnanos is how many records have been state-indexed
         if statesDict is None:
             statesDict = collections.OrderedDict()
 
@@ -108,20 +108,20 @@ class ExperimentStateFile:
         if statesDict is None:
             statesDict = collections.OrderedDict()
 
-        #if the statesDict already exists, and there are no new states, update the active state and return the statesDict.
+        # if the statesDict already exists, and there are no new states, update the active state and return the statesDict.
         if len(statesDict.keys()) > 0 and len(newLabels) == 0:
             assert i0_allLabels > 0
             for k in statesDict.keys():
                 last_key = k
             s = statesDict[last_key]
-            s2 = slice(s.start, i0_unixnanos+len(unixnanos)) #set the slice from the start of the state to the last new record
+            s2 = slice(s.start, i0_unixnanos+len(unixnanos))  # set the slice from the start of the state to the last new record
             statesDict[k] = s2
             return statesDict
 
-        #unixnanos = new record timestamps
-        #self.unixnanos[i0_allLabels] is the state start times of the new states
-        #i0_unixnanos is how many records were alraedy indexed
-        #inds is an np.array of the indices where the new states fit
+        # unixnanos = new record timestamps
+        # self.unixnanos[i0_allLabels] is the state start times of the new states
+        # i0_unixnanos is how many records were alraedy indexed
+        # inds is an np.array of the indices where the new states fit
         #   in with the new records
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
         # the state that was active last time calcStatesDict was called may need special handling
