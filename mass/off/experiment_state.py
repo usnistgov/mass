@@ -1,5 +1,5 @@
 import collections
-from typing import Union
+from typing import List, Dict, Union
 import mass
 import numpy as np
 
@@ -26,7 +26,7 @@ class ExperimentStateFile:
             if self.filename is None:
                 raise Exception("pass filename or datasetFilename or _parse=False")
             self.parse()
-        self.labelAliasesDict: dict[str, str] = {}  # map unaliasedLabels to aliasedLabels
+        self.labelAliasesDict: Dict[str, str] = {}  # map unaliasedLabels to aliasedLabels
         self._preventAliasState = False  # causes aliasState to raise an Exception when it wouldn't work as expected
 
     def experimentStateFilenameFromDatasetFilename(self, datasetFilename):
@@ -98,8 +98,8 @@ class ExperimentStateFile:
         When updating pass in the existing statesDict and i0 must be the first label in allLabels that wasn't
         used to calculate the existing statesDict.
         """
-        #unixnanos = timestamps of new records
-        #i0_unixnanos is how many records have been state-indexed
+        # unixnanos = timestamps of new records
+        # i0_unixnanos is how many records have been state-indexed
         if statesDict is None:
             statesDict = collections.OrderedDict()
 
@@ -108,20 +108,20 @@ class ExperimentStateFile:
         if statesDict is None:
             statesDict = collections.OrderedDict()
 
-        #if the statesDict already exists, and there are no new states, update the active state and return the statesDict.
+        # if the statesDict already exists, and there are no new states, update the active state and return the statesDict.
         if len(statesDict.keys()) > 0 and len(newLabels) == 0:
             assert i0_allLabels > 0
             for k in statesDict.keys():
                 last_key = k
             s = statesDict[last_key]
-            s2 = slice(s.start, i0_unixnanos+len(unixnanos)) #set the slice from the start of the state to the last new record
+            s2 = slice(s.start, i0_unixnanos+len(unixnanos))  # set the slice from the start of the state to the last new record
             statesDict[k] = s2
             return statesDict
 
-        #unixnanos = new record timestamps
-        #self.unixnanos[i0_allLabels] is the state start times of the new states
-        #i0_unixnanos is how many records were alraedy indexed
-        #inds is an np.array of the indices where the new states fit
+        # unixnanos = new record timestamps
+        # self.unixnanos[i0_allLabels] is the state start times of the new states
+        # i0_unixnanos is how many records were alraedy indexed
+        # inds is an np.array of the indices where the new states fit
         #   in with the new records
         inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
         # the state that was active last time calcStatesDict was called may need special handling
@@ -162,7 +162,7 @@ class ExperimentStateFile:
     def __repr__(self):
         return "ExperimentStateFile: "+self.filename
 
-    def aliasState(self, unaliasedLabel: Union[str, list[str]], aliasedLabel: str) -> None:
+    def aliasState(self, unaliasedLabel: Union[str, List[str]], aliasedLabel: str) -> None:
         assert isinstance(aliasedLabel, str)
         if self._preventAliasState:
             raise Exception("call aliasState before calculating or re-calculating statesDict")
@@ -175,5 +175,5 @@ class ExperimentStateFile:
             raise Exception(f"invalid type for unaliasedLabel={unaliasedLabel}")
 
     @property
-    def labels(self) -> list[str]:
+    def labels(self) -> List[str]:
         return [self.labelAliasesDict.get(label, label) for label in self.unaliasedLabels]
