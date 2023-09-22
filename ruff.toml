@@ -7,6 +7,7 @@ select = [
   "E",  # pycodestyle
   "W",  # pycodestyle
   "E225",  # pycodestyle missing whitespace around operator
+  "E231",  # pycodestyle missing whitespace after ','
   "F",  # pyflakes
   "UP",  # pyupgrade
   "PLE",  # pylint errors
@@ -34,5 +35,5 @@ ignore = [
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-# Assume Python 3.8 [end of life will be 14 October 2024. See https://endoflife.date/python]
-target-version = "py38"
+# Assume Python 3.9 [end of life will be 5 October 2025. See https://endoflife.date/python]
+target-version = "py39"

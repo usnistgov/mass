@@ -13,9 +13,10 @@ import glob
 import os
 import subprocess
 import logging
-import mass
-
+import numpy as np
 import matplotlib.pylab as plt
+
+import mass
 
 
 class MouseClickReader:
@@ -171,24 +172,25 @@ def plot_multipage(data, subplot_shape, helper, filename_template_per_file,
                 for f in in_files:
                     os.remove(f)
 
-def annotate_lines(axis,label_lines, label_lines_color2=[],color1 = "k",color2="r"):
+
+def annotate_lines(axis, label_lines, label_lines_color2=[], color1="k", color2="r"):
     """Annotate plot on axis with line names.
     label_lines -- eg ["MnKAlpha","TiKBeta"] list of keys of STANDARD_FEATURES
     label_lines_color2 -- optional,eg ["MnKAlpha","TiKBeta"] list of keys of STANDARD_FEATURES
     color1 -- text color for label_lines
     color2 -- text color for label_lines_color2
     """
-    n=len(label_lines)+len(label_lines_color2)
+    n = len(label_lines)+len(label_lines_color2)
     yscale = plt.gca().get_yscale()
-    for (i,label_line) in enumerate(label_lines):
+    for (i, label_line) in enumerate(label_lines):
         energy = mass.STANDARD_FEATURES[label_line]
-        if yscale=="linear":
-            axis.annotate(label_line, (energy, (1+i)*plt.ylim()[1]/float(1.5*n)), xycoords="data",color=color1)
-        elif yscale=="log":
-            axis.annotate(label_line, (energy, np.exp((1+i)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data",color=color1)
-    for (j,label_line) in enumerate(label_lines_color2):
+        if yscale == "linear":
+            axis.annotate(label_line, (energy, (1+i)*plt.ylim()[1]/float(1.5*n)), xycoords="data", color=color1)
+        elif yscale == "log":
+            axis.annotate(label_line, (energy, np.exp((1+i)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data", color=color1)
+    for (j, label_line) in enumerate(label_lines_color2):
         energy = mass.STANDARD_FEATURES[label_line]
-        if yscale=="linear":
-            axis.annotate(label_line, (energy, (2+i+j)*plt.ylim()[1]/float(1.5*n)), xycoords="data",color=color2)
-        elif yscale=="log":
-            axis.annotate(label_line, (energy, np.exp((2+i+j)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data",color=color2)
+        if yscale == "linear":
+            axis.annotate(label_line, (energy, (2+i+j)*plt.ylim()[1]/float(1.5*n)), xycoords="data", color=color2)
+        elif yscale == "log":
+            axis.annotate(label_line, (energy, np.exp((2+i+j)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data", color=color2)

@@ -1316,8 +1316,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)
-        
-    def hists(self,bin_edges,attr="p_energy",t0=0,tlast=1e20,category={},g_func=None):
+
+    def hists(self, bin_edges, attr="p_energy", t0=0, tlast=1e20, category={}, g_func=None):
         """return a tuple of (bin_centers, countsdict). automatically filters out nan values
         where countsdict is a dictionary mapping channel numbers to numpy arrays of counts
         bin_edges -- edges of bins unsed for histogram
@@ -1327,32 +1327,38 @@ class TESGroup(CutFieldMixin, GroupLooper):
             This vector is anded with the vector calculated by the histogrammer    """
         bin_edges = np.array(bin_edges)
         bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
-        countsdict = {ds.channum:ds.hist(bin_edges, attr,t0,tlast,category,g_func)[1] for ds in self}
+        countsdict = {ds.channum: ds.hist(bin_edges, attr, t0, tlast, category, g_func)[1] for ds in self}
         return bin_centers, countsdict
 
-    def hist(self, bin_edges, attr="p_energy",t0=0,tlast=1e20,category={},g_func=None):
-        """return a tuple of (bin_centers, counts) of p_energy of good pulses in all good datasets (use .hists to get the histograms individually). filters out nan values
+    def hist(self, bin_edges, attr="p_energy", t0=0, tlast=1e20, category={}, g_func=None):
+        """return a tuple of (bin_centers, counts) of p_energy of good pulses in all good datasets
+          (use .hists to get the histograms individually). filters out nan values
         bin_edges -- edges of bins unsed for histogram
         attr -- which attribute to histogram "p_energy" or "p_filt_value"
         t0 and tlast -- cuts all pulses outside this timerange before fitting
         g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
-            This vector is anded with the vector calculated by the histogrammer    """
-        bin_centers, countsdict = self.hists(bin_edges, attr,t0,tlast,category,g_func)
+            This vector is anded with the vector calculated by the histogrammer
+        """
+        bin_centers, countsdict = self.hists(bin_edges, attr, t0, tlast, category, g_func)
         counts = np.zeros_like(bin_centers, dtype="int")
-        for (k,v) in countsdict.items():
-            counts+=v
+        for (k, v) in countsdict.items():
+            counts += v
         return bin_centers, counts
-    
-    def linefit(self,line_name="MnKAlpha", t0=0,tlast=1e20,axis=None,dlo=50,dhi=50,
-                binsize=1,bin_edges=None, attr="p_energy",label="full",plot=True,
+
+    def linefit(self, line_name="MnKAlpha", t0=0, tlast=1e20, axis=None, dlo=50, dhi=50,
+                binsize=1, bin_edges=None, attr="p_energy", label="full", plot=True,
                 guess_params=None, ph_units="eV", category={}, g_func=None, has_tails=False):
-        """Do a fit to `line_name` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
+        """Do a fit to `line_name` and return the fitter. You can get the params results with
+        fitter.last_fit_params_dict or any other way you like.
+
         line_name -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
         t0 and tlast -- cuts all pulses outside this timerange before fitting
         axis -- if axis is None and plot==True, will create a new figure, otherwise plot onto this axis
-        dlo and dhi and binsize -- by default it tries to fit with bin edges given by np.arange(fitter.spect.nominal_peak_energy-dlo, fitter.spect.nominal_peak_energy+dhi, binsize)
+        dlo and dhi and binsize -- by default it tries to fit with bin edges given by np.arange(fitter.spect.nominal_peak_energy-dlo,
+            fitter.spect.nominal_peak_energy+dhi, binsize)
         bin_edges -- pass the bin_edges you want as a numpy array
-        attr -- default is "p_energy", you could pick "p_filt_value" or others. be sure to pass in bin_edges as well because the default calculation will probably fail for anything other than p_energy
+        attr -- default is "p_energy", you could pick "p_filt_value" or others. be sure to pass in bin_edges as well because
+            the default calculation will probably fail for anything other than p_energy
         label -- passed to fitter.plot
         plot -- passed to fitter.fit, determine if plot happens
         guess_params -- passed to fitter.fit, fitter.fit will guess the params on its own if this is None
@@ -1369,14 +1375,13 @@ class TESGroup(CutFieldMixin, GroupLooper):
         if bin_edges is None:
             bin_edges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
 
-
         bin_centers, counts = self.hist(bin_edges, attr, t0, tlast, category, g_func)
 
         params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
         params["dph_de"].set(vary=False)
         result = model.fit(counts, params=params, bin_centers=bin_centers)
         if plot:
-            result.plotm(ax=axis, xlabel=f"{attr} ({ph_units})", 
+            result.plotm(ax=axis, xlabel=f"{attr} ({ph_units})",
                          ylabel=f"counts per {binsize:0.2f} ({ph_units}) bin",
                          title=f"{self.shortname}\n{model.spect}")
 

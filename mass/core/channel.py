@@ -2496,29 +2496,47 @@ class MicrocalDataSet:
                 calculate_manhattan_distances()
             else:
                 raise Exception('Distance type ' + distanceType + ' not recognized.')
-            
-    def hist(self,bin_edges,attr="p_energy",t0=0,tlast=1e20,category={},g_func=None):
-        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute). automatically filtes out nan values
-        bin_edges -- edges of bins unsed for histogram
-        attr -- which attribute to histogram "p_energy" or "p_filt_value"
-        t0 and tlast -- cuts all pulses outside this timerange before fitting
-        g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
-            This vector is anded with the vector calculated by the histogrammer    """
+
+    def hist(self, bin_edges, attr="p_energy", t0=0, tlast=1e20, category={}, g_func=None):
+        """return a tuple of (bin_centers, counts) of p_energy of good pulses (or another attribute).
+
+        Automatically filtes out nan values
+
+        Parameters
+        ----------
+        bin_edges : _type_
+            edges of bins unsed for histogram
+        attr : str, optional
+            which attribute to histogram "p_energy" or "p_filt_value", by default "p_energy"
+        t0 : int, optional
+            cuts all pulses before this time before fitting, by default 0
+        tlast : _type_, optional
+            cuts all pulses after this time before fitting, by default 1e20
+        category : dict, optional
+            _description_, by default {}
+        g_func : _type_, optional
+            a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
+            This vector is anded with the vector calculated by the histogrammer, by default None
+
+        Returns
+        -------
+        ndarray, ndarray
+            Histogram bin *centers*, counts
+        """
         bin_edges = np.array(bin_edges)
         bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
         vals = getattr(self, attr)[:]
         # sanitize the data bit
-        tg = np.logical_and(self.p_timestamp[:]>t0,self.p_timestamp[:]<tlast)
-        g = np.logical_and(tg,self.good(**category))
-        g = np.logical_and(g,~np.isnan(vals))
+        tg = np.logical_and(self.p_timestamp[:] > t0, self.p_timestamp[:] < tlast)
+        g = np.logical_and(tg, self.good(**category))
+        g = np.logical_and(g, ~np.isnan(vals))
         if g_func is not None:
-            g=np.logical_and(g,g_func(self))
+            g = g & g_func(self)
 
-        counts, _ = np.histogram(vals[g],bin_edges)
+        counts, _ = np.histogram(vals[g], bin_edges)
         return bin_centers, counts
 
-
-    def plot_hist(self,bin_edges,attr="p_energy",axis=None,label_lines=[],category={},g_func=None):
+    def plot_hist(self, bin_edges, attr="p_energy", axis=None, label_lines=[], category={}, g_func=None):
         """plot a coadded histogram from all good datasets and all good pulses
         bin_edges -- edges of bins unsed for histogram
         attr -- which attribute to histogram "p_energy" or "p_filt_value"
@@ -2528,25 +2546,30 @@ class MicrocalDataSet:
             This vector is anded with the vector calculated by the histogrammer    """
         if axis is None:
             plt.figure()
-            axis=plt.gca()
-        x,y = self.hist(bin_edges, attr, category=category, g_func=g_func)
-        axis.plot(x,y,drawstyle="steps-mid")
+            axis = plt.gca()
+        x, y = self.hist(bin_edges, attr, category=category, g_func=g_func)
+        axis.plot(x, y, drawstyle="steps-mid")
         axis.set_xlabel(attr)
-        axis.set_ylabel("counts per %0.1f unit bin"%(bin_edges[1]-bin_edges[0]))
+        de = bin_edges[1]-bin_edges[0]
+        axis.set_ylabel(f"counts per {de:0.1f} unit bin")
         axis.set_title(self.shortname)
         mass.core.utilities.annotate_lines(axis, label_lines)
 
-    def linefit(self,line_name="MnKAlpha", t0=0,tlast=1e20,axis=None,dlo=50,dhi=50,
-                binsize=1,bin_edges=None, attr="p_energy",label="full",plot=True,
+    def linefit(self, line_name="MnKAlpha", t0=0, tlast=1e20, axis=None, dlo=50, dhi=50,
+                binsize=1, bin_edges=None, attr="p_energy", label="full", plot=True,
                 guess_params=None, ph_units="eV", category={}, g_func=None,
                 has_tails=False):
-        """Do a fit to `line_name` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other way you like.
+        """Do a fit to `line_name` and return the fitter. You can get the params results with fitter.last_fit_params_dict or any other
+        way you like.
+
         line_name -- A string like "MnKAlpha" will get "MnKAlphaFitter", your you can pass in a fitter like a mass.GaussianFitter().
         t0 and tlast -- cuts all pulses outside this timerange before fitting
         axis -- if axis is None and plot==True, will create a new figure, otherwise plot onto this axis
-        dlo and dhi and binsize -- by default it tries to fit with bin edges given by np.arange(fitter.spect.nominal_peak_energy-dlo, fitter.spect.nominal_peak_energy+dhi, binsize)
+        dlo and dhi and binsize -- by default it tries to fit with bin edges given by np.arange(fitter.spect.nominal_peak_energy-dlo,
+            fitter.spect.nominal_peak_energy+dhi, binsize)
         bin_edges -- pass the bin_edges you want as a numpy array
-        attr -- default is "p_energy", you could pick "p_filt_value" or others. be sure to pass in bin_edges as well because the default calculation will probably fail for anything other than p_energy
+        attr -- default is "p_energy", you could pick "p_filt_value" or others. be sure to pass in bin_edges as well because
+            the default calculation will probably fail for anything other than p_energy
         label -- passed to fitter.plot
         plot -- passed to fitter.fit, determine if plot happens
         guess_params -- passed to fitter.fit, fitter.fit will guess the params on its own if this is None
@@ -2562,18 +2585,18 @@ class MicrocalDataSet:
         if bin_edges is None:
             bin_edges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
 
-
         bin_centers, counts = self.hist(bin_edges, attr, t0, tlast, category, g_func)
 
         params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
         params["dph_de"].set(vary=False)
         result = model.fit(counts, params=params, bin_centers=bin_centers)
         if plot:
-            result.plotm(ax=axis, xlabel=f"{attr} ({ph_units})", 
+            result.plotm(ax=axis, xlabel=f"{attr} ({ph_units})",
                          ylabel=f"counts per {binsize:0.2f} ({ph_units}) bin",
                          title=f"{self.shortname}\n{model.spect}")
 
         return result
+
 
 def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
                        pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
@@ -2680,5 +2703,3 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     info["entropies"] = (H1, H2, H3)
     info["model"] = model
     return info
-
-
