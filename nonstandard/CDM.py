@@ -53,9 +53,10 @@ class CDMGroup(BaseChannelGroup):
         pulse_list = []
         noise_list = []
         demod_list = []
-        for i,fname in enumerate(self.filenames):
+        for i, fname in enumerate(self.filenames):
             if noise_filenames is None:
-                pulse, noise = mass.channel.create_pulse_and_noise_records(fname, noise_only=noise_only)
+                pulse, noise = mass.channel.create_pulse_and_noise_records(
+                    fname, noise_only=noise_only)
             else:
                 nf = noise_filenames[i]
                 pulse, noise = mass.channel.create_pulse_and_noise_records(fname, noisename=nf,
@@ -67,7 +68,7 @@ class CDMGroup(BaseChannelGroup):
             demod_list.append(demod)
 
             if self.n_segments is None:
-                for attr in "n_segments","nPulses","nSamples","nPresamples","timebase":
+                for attr in "n_segments", "nPulses", "nSamples", "nPresamples", "timebase":
                     self.__dict__[attr] = pulse.__dict__[attr]
             else:
                 assert self.n_segments == pulse.n_segments
@@ -78,7 +79,7 @@ class CDMGroup(BaseChannelGroup):
 
         self.raw_channels = tuple(pulse_list)
         self.noise_channels = tuple(noise_list)
-        self.datasets= tuple(demod_list)
+        self.datasets = tuple(demod_list)
         self._setup_channels_list()
         for ds in self.datasets:
             if ds.nPulses > self.nPulses:
@@ -87,7 +88,7 @@ class CDMGroup(BaseChannelGroup):
         if len(pulse_list) > 0:
             self.pulses_per_seg = pulse_list[0].datafile.pulses_per_seg
         self.noise_filenames = [n.datafile.filename for n in self.noise_channels]
-        self.REMOVE_INFRAME_DRIFT=True
+        self.REMOVE_INFRAME_DRIFT = True
 
         # Set master timestamp_offset (seconds)
         self.timestamp_offset = self.raw_channels[0].timestamp_offset
@@ -95,8 +96,6 @@ class CDMGroup(BaseChannelGroup):
             if ch.timestamp_offset != self.timestamp_offset:
                 self.timestamp_offset = None
                 break
-
-
 
     def copy(self):
         self.clear_cache()
@@ -110,7 +109,6 @@ class CDMGroup(BaseChannelGroup):
 #        g.filters = tuple([f.copy() for f in self.filters])
         return g
 
-
     def set_segment_size(self, seg_size):
         self.clear_cache()
         self.n_segments = 0
@@ -120,7 +118,6 @@ class CDMGroup(BaseChannelGroup):
         self.pulses_per_seg = self.raw_channels[0].pulses_per_seg
         for chan in self.raw_channels:
             assert chan.pulses_per_seg == self.pulses_per_seg
-
 
     def read_segment(self, segnum, use_cache=True):
         """
@@ -142,7 +139,8 @@ class CDMGroup(BaseChannelGroup):
             dset.times = chan.datafile.datatimes_float
 
         # Remove linear drift
-        seg_size = min([rc.data.shape[0] for rc in self.raw_channels]) # Last seg can be of unequal size!
+        # Last seg can be of unequal size!
+        seg_size = min([rc.data.shape[0] for rc in self.raw_channels])
         mod_data = np.zeros([self.n_channels, seg_size, self.nSamples], dtype=np.int32)
         wide_holder = np.zeros([seg_size, self.nSamples], dtype=np.int32)
 
@@ -163,10 +161,12 @@ class CDMGroup(BaseChannelGroup):
         if self.REMOVE_INFRAME_DRIFT:
             mod_data[0, :, :] *= self.n_channels
             for i in range(1, self.n_channels):
-                wide_holder[:, 1:] = self.raw_channels[i].data[:seg_size,:-1]  # Careful never to mult int16 by more than 4!
-                wide_holder[:, 0] = wide_holder[:, 1]       # Handle boudary case of first sample, where there is no prev value to mix in
+                # Careful never to mult int16 by more than 4!
+                wide_holder[:, 1:] = self.raw_channels[i].data[:seg_size, :-1]
+                # Handle boudary case of first sample, where there is no prev value to mix in
+                wide_holder[:, 0] = wide_holder[:, 1]
                 mod_data[i, :, :] *= (self.n_channels-i)    # Weight to future value
-                mod_data[i, :, :] += i*wide_holder[:,:]     # Weight to prev value
+                mod_data[i, :, :] += i*wide_holder[:, :]     # Weight to prev value
 
         # Demodulate.
         # If we've done INFRAME DRIFT, then mod_data is too large by a factor of n_channels.  Correct for that:
@@ -174,7 +174,7 @@ class CDMGroup(BaseChannelGroup):
         if self.REMOVE_INFRAME_DRIFT:
             demodulation = self.demodulation.copy()/self.n_channels
 
-        for i_det,dset in enumerate(self.datasets):
+        for i_det, dset in enumerate(self.datasets):
 
             # For efficiency, don't create a new dset.data vector is it already exists and is the right shape.
             try:
@@ -185,12 +185,11 @@ class CDMGroup(BaseChannelGroup):
 
             # Multiply by the demodulation matrix
             for j in range(self.n_channels):
-                dset.data += demodulation[i_det,j]*mod_data[j, :, :]
+                dset.data += demodulation[i_det, j]*mod_data[j, :, :]
 
         self._cached_segment = segnum
-        self._cached_pnum_range = first,end
+        self._cached_pnum_range = first, end
         return first, end
-
 
     def summarize_data(self):
         """
@@ -201,8 +200,8 @@ class CDMGroup(BaseChannelGroup):
         BaseChannelGroup.summarize_data(self)
 
         # How many detectors were hit in each record?
-        self.nhits = np.array([d.p_pulse_average>50 for d in self.datasets]).sum(axis=0)
-        print("Summarized data in %.0f seconds"  % (time.time()-t0))
+        self.nhits = np.array([d.p_pulse_average > 50 for d in self.datasets]).sum(axis=0)
+        print("Summarized data in %.0f seconds" % (time.time()-t0))
 
     def compute_average_pulse(self, masks, subtract_mean=True):
         """
@@ -220,10 +219,10 @@ class CDMGroup(BaseChannelGroup):
         If <subtract_mean> is True, then each average pulse will subtract a constant
         to ensure that the pretrigger mean (first self.nPresamples elements) is zero.
         """
-        BaseChannelGroup.compute_average_pulse(self, masks, use_crosstalk_masks=True, subtract_mean=subtract_mean)
+        BaseChannelGroup.compute_average_pulse(
+            self, masks, use_crosstalk_masks=True, subtract_mean=subtract_mean)
 
-
-    def compute_noise_spectra(self, compute_raw_spectra=False):
+    def compute_noise(self, compute_raw_spectra=False):
         """
         Compute the noise power spectral density for demodulated data.
 
@@ -241,16 +240,17 @@ class CDMGroup(BaseChannelGroup):
 
         # Now generate a set of fake channels, where we'll store the demodulated data
         self.noise_channels_demod = [n.copy() for n in self.noise_channels]
-        for nc in self.noise_channels_demod: nc.data=None
-        shape = (nrec,self.noise_channels[0].nSamples)
+        for nc in self.noise_channels_demod:
+            nc.data = None
+        shape = (nrec, self.noise_channels[0].nSamples)
 
         # Demodulate noise
         print("Demodulating noise for nrec=%d" % nrec)
-        for i,nc in enumerate(self.noise_channels_demod):
+        for i, nc in enumerate(self.noise_channels_demod):
             nc.set_fake_data()
             nc.nPulses = nrec
             nc.data = np.zeros(shape, dtype=float)
-            for j,n in enumerate(self.noise_channels):
+            for j, n in enumerate(self.noise_channels):
                 for first, end, _segnum, data in n.datafile.iter_segments():
                     if end > nrec:
                         end = nrec
@@ -268,7 +268,6 @@ class CDMGroup(BaseChannelGroup):
             ds.noise_autocorr = nc.autocorrelation
 #            ds.noise_demodulated = nc
 
-
     def plot_noise(self, show_modulated=False, channels=None, scale_factor=1.0, sqrt_psd=False):
         """Compare the noise power spectra.
 
@@ -284,40 +283,39 @@ class CDMGroup(BaseChannelGroup):
 
         for ds in self.datasets:
             if ds.noise_spectrum is None:
-                self.compute_noise_spectra(compute_raw_spectra=True)
+                self.compute_noise(compute_raw_spectra=True)
                 break
-
 
         plt.clf()
         if show_modulated:
-            ax1=plt.subplot(211)
+            ax1 = plt.subplot(211)
             ax1.set_title("Raw (modulated) channel noise power spectrum")
-            ax2=plt.subplot(212, sharex=ax1, sharey=ax1)
-            axes=(ax1,ax2)
+            ax2 = plt.subplot(212, sharex=ax1, sharey=ax1)
+            axes = (ax1, ax2)
         else:
-            ax2=plt.subplot(111)
-            axes=(ax2,)
+            ax2 = plt.subplot(111)
+            axes = (ax2,)
 
-        ax2.set_title("Demodulated TES noise power spectrum SCALED BY 1/%d"%self.n_cdm)
+        ax2.set_title("Demodulated TES noise power spectrum SCALED BY 1/%d" % self.n_cdm)
         for a in axes:
             a.set_xlabel("Frequency (Hz)")
             a.loglog()
             a.grid()
 
         if show_modulated:
-            for i,n in enumerate(self.noise_channels):
-                n.plot_power_spectrum(axis=ax1, label='Row %d'%i)
+            for i, n in enumerate(self.noise_channels):
+                n.plot_power_spectrum(axis=ax1, label='Row %d' % i)
             plt.legend(loc='upper right')
 
-        for i,ds in enumerate(self.datasets):
-            if i not in channels: continue
+        for i, ds in enumerate(self.datasets):
+            if i not in channels:
+                continue
             yvalue = ds.noise_spectrum.spectrum()*scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
             plt.plot(ds.noise_spectrum.frequencies(), yvalue,
-                       label='TES %d'%i, color=self.colors[i])
+                     label='TES %d' % i, color=self.colors[i])
         plt.legend(loc='lower left')
-
 
     def plot_noise_autocorrelation(self, axis=None, channels=None):
         """Compare the noise autocorrelation functions.
@@ -333,40 +331,42 @@ class CDMGroup(BaseChannelGroup):
             axis = plt.subplot(111)
 
         axis.grid(True)
-        for i,noise in enumerate(self.noise_channels_demod):
-            if i not in channels: continue
-            noise.plot_autocorrelation(axis=axis, label='TES %d'%i, color=self.colors[i%len(self.colors)])
+        for i, noise in enumerate(self.noise_channels_demod):
+            if i not in channels:
+                continue
+            noise.plot_autocorrelation(axis=axis, label='TES %d' %
+                                       i, color=self.colors[i % len(self.colors)])
 #        axis.set_xlim([f[1]*0.9,f[-1]*1.1])
         plt.legend(loc='upper right')
-
 
     def plot_undecimated_noise(self, ndata=None):
         """Show the noise as if """
         np = np.array([nc.nPulses for nc in self.noise_channels]).min()
         if ndata is None:
             ndata = np*self.noise_channels[0].nSamples
-        assert ndata<=1024*1024
-        data = np.asarray(np.vstack([nc.data[:np,:].ravel()[:ndata] for nc in self.noise_channels]), dtype=np.int16)
+        assert ndata <= 1024*1024
+        data = np.asarray(np.vstack([nc.data[:np, :].ravel()[:ndata]
+                          for nc in self.noise_channels]), dtype=np.int16)
         for r in data:
             r -= r.mean()
-        data=data.T.ravel()
+        data = data.T.ravel()
 
-        segfactor=max(8, ndata/1024)
+        segfactor = max(8, ndata/1024)
 
-        freq, psd = mass.power_spectrum.computeSpectrum(data, segfactor=segfactor, dt=self.timebase/self.n_cdm, window=mass.power_spectrum.hamming)
+        freq, psd = mass.power_spectrum.computeSpectrum(
+            data, segfactor=segfactor, dt=self.timebase/self.n_cdm, window=mass.power_spectrum.hamming)
         plt.clf()
         plt.plot(freq, psd)
 
     def update_demodulation(self, relative_response):
         relative_response = np.asmatrix(relative_response)
-        if relative_response.shape != (self.n_channels,self.n_channels):
-            raise ValueError("The relative_response matrix needs to be of shape (%d,%d)"%
+        if relative_response.shape != (self.n_channels, self.n_channels):
+            raise ValueError("The relative_response matrix needs to be of shape (%d,%d)" %
                              (self.n_channels, self.n_channels))
 
-        self.demodulation = np.dot( relative_response.I, self.demodulation)
+        self.demodulation = np.dot(relative_response.I, self.demodulation)
 
-
-    def plot_modulated_demodulated(self, pulsenum=119148, modulated_offsets=np.arange(15000,-1,-5000), xlim=[-5,15.726]):
+    def plot_modulated_demodulated(self, pulsenum=119148, modulated_offsets=np.arange(15000, -1, -5000), xlim=[-5, 15.726]):
         "Plot one record both modulated and demodulated"
 
         self.ms = (np.arange(self.nSamples)-self.nPresamples)*self.timebase*1e3
@@ -376,18 +376,21 @@ class CDMGroup(BaseChannelGroup):
         n = pulsenum - self._cached_pnum_range[0]
         plt.subplot(211)
         if modulated_offsets is None:
-            modulated_offsets = (0,0,0,0)
-        for i,rc in enumerate(self.raw_channels):
-            plt.plot(self.ms, rc.data[n,:]+modulated_offsets[i]-rc.data[n,:self.nPresamples].mean(), color=self.colors[i], label='SQUID sw%d'%i)
-        if xlim is not None: plt.xlim(xlim)
+            modulated_offsets = (0, 0, 0, 0)
+        for i, rc in enumerate(self.raw_channels):
+            plt.plot(self.ms, rc.data[n, :]+modulated_offsets[i]-rc.data[n,
+                     :self.nPresamples].mean(), color=self.colors[i], label='SQUID sw%d' % i)
+        if xlim is not None:
+            plt.xlim(xlim)
         plt.legend(loc='upper left')
         plt.title("Modulated (raw) signal")
 
-
         plt.subplot(212)
-        for i,ds in enumerate(self.datasets):
-            plt.plot(self.ms, ds.data[n,:]-ds.p_pretrig_mean[pulsenum], color=self.colors[i], label='TES %d'%i)
-        if xlim is not None: plt.xlim(xlim)
+        for i, ds in enumerate(self.datasets):
+            plt.plot(self.ms, ds.data[n, :]-ds.p_pretrig_mean[pulsenum],
+                     color=self.colors[i], label='TES %d' % i)
+        if xlim is not None:
+            plt.xlim(xlim)
         plt.legend(loc='upper left')
         plt.title("Demodulated signal")
         plt.xlabel("Time since trigger (ms)")

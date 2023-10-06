@@ -13,6 +13,8 @@ import h5py
 import lmfit
 import scipy.interpolate
 from mass.common import tostr
+import dill
+import gc
 
 # local imports
 import mass
@@ -21,152 +23,10 @@ from .util import GroupLooper, add_group_loop, RecipeBook
 from .util import annotate_lines, SilenceBar, NoCutInds, InvalidStatesException
 from . import util
 from . import fivelag
+from .experiment_state import ExperimentStateFile
 
 
 LOG = logging.getLogger("mass")
-
-
-class ExperimentStateFile():
-    def __init__(self, filename: str = None, datasetFilename: str = None, excludeStates: str = "auto", _parse: bool = True):
-        """
-        excludeStates - when "auto" it either exclude no states when START is the only state or or excludes START, END and IGNORE otherwise pass a list of states to exclude
-        _parse - is only for testing, can be used to prevent parsing on init
-        """
-        if filename is not None:
-            self.filename = filename
-        elif datasetFilename is not None:
-            self.filename = self.experimentStateFilenameFromDatasetFilename(datasetFilename)
-        else:
-            self.filename = None
-        self.excludeStates = excludeStates
-        self.parse_start = 0
-        self.allLabels = []
-        self.unixnanos = np.zeros(0)
-        if _parse:
-            if self.filename is None:
-                raise Exception("pass filename or datasetFilename or _parse=False")
-            self.parse()
-        self.labelAliasesDict: Dict[str, str] = {}  # map unaliasedLabels to aliasedLabels
-        self._preventAliasState = False  # causes aliasState to raise an Exception when it wouldn't work as expected
-
-    def experimentStateFilenameFromDatasetFilename(self, datasetFilename):
-        basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
-        return basename+"_experiment_state.txt"
-
-    def parse(self):
-        with open(self.filename, "r") as f:
-            # if we call parse a second time, we want to add states rather than reparse the whole file
-            f.seek(self.parse_start)
-            lines = f.readlines()
-            parse_end = f.tell()
-        if self.parse_start == 0:
-            header_line = lines[0]
-            if header_line[0] != "#":
-                raise Exception("first line should start with #, was %s" % header_line)
-            lines = lines[1:]
-            if len(lines) == 0:
-                raise Exception("zero lines after header in file")
-        if len(lines) == 0:
-            return  # no new states
-        unixnanos = []
-        labels = []
-        for line in lines:
-            a, b = line.split(",")
-            a = a.strip()
-            b = b.strip()
-            unixnano = int(a)
-            label = b
-            unixnanos.append(unixnano)
-            labels.append(label)
-        self.allLabels += labels
-        self.unixnanos = np.hstack([self.unixnanos, np.array(unixnanos)])
-        self.unaliasedLabels = self.applyExcludesToLabels(self.allLabels)
-        self.parse_start = parse_end  # next call to parse, start from here
-
-    def calculateAutoExcludes(self):
-        if len(self.allLabels) == 1:
-            return []
-        else:
-            return ["START", "END", "STOP", "IGNORE"]
-
-    def applyExcludesToLabels(self, allLabels):
-        """
-        possible recalculate self.excludeStates
-        return a list of state labels that is unique, and contains all entries in allLabels except those in self.excludeStates
-        order in the returned list is that of first appearance in allLables
-        """
-        if self.excludeStates == "auto":
-            self.excludeStates = self.calculateAutoExcludes()
-        r = []
-        for label in allLabels:
-            if label in self.excludeStates or label in r:
-                continue
-            r.append(label)
-        return r
-
-    def calcStatesDict(self, unixnanos, statesDict=None, i0_allLabels=0, i0_unixnanos=0):
-        """
-        calculate statesDict, a dictionary mapping state name to EITHER a slice OR a list of slices
-        equal to unixnanos. Slices are used for unique states; list of slices are used for repeated states.
-        When updating pass in the existing statesDict and i0 must be the first label in allLabels that wasn't
-        used to calculate the existing statesDict.
-        """
-        if statesDict is None:
-            statesDict = collections.OrderedDict()
-        inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
-        # the state that was active last time calcStatesDict was called may need special handling
-        if len(statesDict.keys()) > 0 and len(inds) > 0:
-            assert i0_allLabels > 0
-            for k in statesDict.keys():
-                last_key = k
-            s = statesDict[last_key]
-            s2 = slice(s.start, inds[0])
-            statesDict[k] = s2
-        # iterate over self.allLabels because it corresponds to self.unixnanos
-        for i, label in enumerate(self.allLabels[i0_allLabels:]):
-            if label not in self.unaliasedLabels:
-                continue
-            aliasedLabel = self.labelAliasesDict.get(label, label)
-            if i+1 >= len(inds):
-                s = slice(inds[i], len(unixnanos))
-            else:
-                s = slice(inds[i], inds[i+1])
-            if aliasedLabel in statesDict:
-                # this label is unique, use a list of slices
-                v = statesDict[aliasedLabel]
-                if isinstance(v, slice):
-                    # this label was previously unique... create the list of slices
-                    statesDict[aliasedLabel] = [v, s]
-                elif isinstance(v, list):
-                    # this label was previously not unique... append to the list of slices
-                    statesDict[aliasedLabel] = v+[s]
-                else:
-                    raise Exception("v should be a slice or list of slices, v is a {} for label={}, aliasedlabel={}".format(
-                        type(v), label, aliasedLabel))
-            else:  # this state is unique, use a slice
-                statesDict[aliasedLabel] = s
-        # statesDict values should be slices for unique states and lists of slices for non-unique states
-        self._preventAliasState = True
-        return statesDict
-
-    def __repr__(self):
-        return "ExperimentStateFile: "+self.filename
-
-    def aliasState(self, unaliasedLabel: Union[str, List[str]], aliasedLabel: str) -> None:
-        assert isinstance(aliasedLabel, str)
-        if self._preventAliasState:
-            raise Exception("call aliasState before calculating or re-calculating statesDict")
-        if isinstance(unaliasedLabel, list):
-            for _unaliasedLabel in unaliasedLabel:
-                self.labelAliasesDict[_unaliasedLabel] = aliasedLabel
-        elif isinstance(unaliasedLabel, str):
-            self.labelAliasesDict[unaliasedLabel] = aliasedLabel
-        else:
-            raise Exception(f"invalid type for unaliasedLabel={unaliasedLabel}")
-
-    @property
-    def labels(self) -> List[str]:
-        return [self.labelAliasesDict.get(label, label) for label in self.unaliasedLabels]
 
 
 class DriftCorrection():
@@ -199,7 +59,7 @@ class DriftCorrection():
         medianIndicator = hdf5_group["{}/medianIndicator".format(name)][()]
         slope = hdf5_group["{}/slope".format(name)][()]
         version = hdf5_group["{}/version".format(name)][()]
-        assert(version == cls.version)
+        assert (version == cls.version)
         return cls(indicatorName, uncorrectedName, medianIndicator, slope)
 
     def __eq__(self, other):
@@ -248,7 +108,8 @@ class CorG():
     def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
                 binsize=None, binEdges=None, label="full", plot=True,
                 params_fixed=None, cutRecipeName=None, calibration=None, require_errorbars=True, method="leastsq_refit",
-                has_linear_background=True, has_tails=False, params_update=lmfit.Parameters()):
+                has_linear_background=True, has_tails=False, params_update=lmfit.Parameters(),
+                minimum_bins_per_fwhm=None):
         """Do a fit to `lineNameOrEnergy` and return the result. You can get the params results with result.params
         lineNameOrEnergy -- A string like "MnKAlpha" will get "MnKAlphaModel", your you can pass in a model like a mass.MnKAlphaModel().
         attr -- default is "energyRough". you must pass binEdges if attr is other than "energy" or "energyRough"
@@ -265,12 +126,14 @@ class CorG():
         method -- fit method to use
         has_tails -- used when creating a model, will add both high and low energy tails to the model
         params_update -- after guessing params, call params.update(params_update)
+        minimum_bins_per_fwhm -- passed to model.fit
         """
         model = util.get_model(
             lineNameOrEnergy, has_linear_background=has_linear_background, has_tails=has_tails)
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
+        attr_is_energy = attr.startswith("energy") or attr.startswith("p_energy") or calibration is not None
         if binEdges is None:
-            if attr.startswith("energy") or calibration is not None:
+            if attr_is_energy:
                 pe = model.spect.peak_energy
                 binEdges = np.arange(pe-dlo, pe+dhi, self._handleDefaultBinsize(binsize))
             else:
@@ -285,7 +148,7 @@ class CorG():
             params = model.guess(counts, bin_centers=bin_centers)
         else:
             params = params_fixed
-        if attr.startswith("energy") or calibration is not None:
+        if attr_is_energy:
             params["dph_de"].set(1.0, vary=False)
             unit_str = "eV"
         if calibration is None:
@@ -296,7 +159,8 @@ class CorG():
             attr_str = attr
         params.update(params_update)
         # unit_str and attr_str are used by result.plotm to label the axes properly
-        result = model.fit(counts, params, bin_centers=bin_centers, method=method)
+        result = model.fit(counts, params, bin_centers=bin_centers, method=method,
+                           minimum_bins_per_fwhm=minimum_bins_per_fwhm)
         if states is None:
             states_hint = "all states"
         elif isinstance(states, list):
@@ -322,9 +186,8 @@ class CorG():
             return binsize
 
 
-# wrap up an off file with some conviencine functions
-# like a TESChannel
 class Channel(CorG):
+    """Wrap up an OFF file with some convience functions like a TESChannel"""
     def __init__(self, offFile, experimentStateFile, verbose=True):
         self.offFile = offFile
         self.experimentStateFile = experimentStateFile
@@ -338,7 +201,7 @@ class Channel(CorG):
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
     def _defineDefaultRecipesAndProperties(self):
-        assert(len(self.recipes) == 0)
+        assert (len(self.recipes) == 0)
         t0 = self.offFile["unixnano"][0]
         self.recipes.add("relTimeSec", lambda unixnano: (unixnano-t0)*1e-9, ["unixnano"])
         self.recipes.add("filtPhase", lambda x, y: x/y, ["derivativeLike", "filtValue"])
@@ -460,7 +323,9 @@ class Channel(CorG):
     @property
     def statesDict(self):
         if self._statesDict is None:
-            self._statesDict = self.experimentStateFile.calcStatesDict(self.offFile["unixnano"])
+            unixnano = self.getAttr("unixnano", NoCutInds())
+            esf = self.experimentStateFile
+            self._statesDict = esf.calcStatesDict(unixnano)
         return self._statesDict
 
     @property
@@ -582,7 +447,7 @@ class Channel(CorG):
             raise Exception("attr {} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {}\nRecipeAttrs: {}".format(
                 attr, list(self._offAttrs), list(self._recipeAttrs)))
 
-    def plotAvsB2d(self, nameA, nameB, binEdgesAB, axis=None, states=None, cutRecipeName=None):
+    def plotAvsB2d(self, nameA, nameB, binEdgesAB, axis=None, states=None, cutRecipeName=None, norm=None):
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
         if axis is None:
             plt.figure()
@@ -593,7 +458,7 @@ class Channel(CorG):
         counts, binEdgesA, binEdgesB = np.histogram2d(vA, vB, binEdgesAB)
         binCentersA = 0.5*(binEdgesA[1:]+binEdgesA[:-1])
         binCentersB = 0.5*(binEdgesB[1:]+binEdgesB[:-1])
-        plt.contourf(binCentersA, binCentersB, counts.T)
+        plt.contourf(binCentersA, binCentersB, counts.T, norm=norm)
         plt.xlabel(nameA)
         plt.ylabel(nameB)
         plt.title(f"{self.shortName}\ncutRecipeName={cutRecipeName}")
@@ -816,7 +681,7 @@ class Channel(CorG):
     @add_group_loop
     def alignToReferenceChannel(self, referenceChannel, attr, binEdges, cutRecipeName=None, _peakLocs=None, states=None):
         if _peakLocs is None:
-            assert(len(referenceChannel.calibrationPlan.uncalibratedVals) > 0)
+            assert (len(referenceChannel.calibrationPlan.uncalibratedVals) > 0)
             peakLocs = referenceChannel.calibrationPlan.uncalibratedVals
         else:
             peakLocs = _peakLocs
@@ -940,10 +805,12 @@ class Channel(CorG):
 
     def add5LagRecipes(self, f):
         filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(
-            f, self.offFile.basis)
+            f[:], self.offFile.basis)
         self.recipes.add("cba5Lag", lambda coefs: np.matmul(coefs, filter_5lag_fit_in_basis))
-        self.recipes.add("filtValue5Lag", lambda cba5Lag: fivelag.filtValue5Lag(cba5Lag))
-        self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
+        # self.recipes.add("filtValue5Lag", lambda cba5Lag: fivelag.filtValue5Lag(cba5Lag))
+        self.recipes.add("filtValue5Lag", fivelag.filtValue5Lag, ingredients=["cba5Lag"])
+        # self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
+        self.recipes.add("peakX5Lag", fivelag.peakX5Lag, ingredients=["cba5Lag"])
 
 
 def normalize(x):
@@ -1189,6 +1056,19 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self._channelClass = channelClass
         self.loadChannels()
         self._default_cut_recipe_name = self.firstGoodChannel()._default_cut_recipe_name
+
+    def __del__(self):
+        # We need to recover the limited resource of system file descriptors when we are done with an
+        # off.ChannelGroup object. One way in practice that seems to make a difference is to run the
+        # garbage collector when each one is deleted, to clean up the `np.memmap` objects held by the
+        # `OffFile` objects in the `self.values()` list of `off.Channel` objects.
+
+        # The step can take something like 1 second to run. This seems a reasonable price to pay in
+        # standard usage. If a use-case arises where it's not, then we can make this step conditional?
+        # See issue #212 and PR 200 for discussion.
+
+        # Consider this a partial or temporary solution to a nagging problem.
+        gc.collect()
 
     def _handleDefaultCut(self, cutRecipeName):
         ds = self.firstGoodChannel()
@@ -1476,3 +1356,125 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self._default_cut_recipe_name = cutRecipeName
         for ds in self.values():
             ds.cutSetDefault(cutRecipeName)
+
+    def saveRecipeBooks(self, filename):
+        with open(filename, "wb") as f:
+            d = {}
+            for ds in self.values():
+                d[ds.channum] = ds.recipes
+            dill.dump(d, f)
+
+    def loadRecipeBooks(self, filename):
+        with open(filename, "rb") as f:
+            d = dill.load(f)
+        for channum, recipes in d.items():
+            self[channum].recipes = recipes
+
+
+class ChannelFromNpArray(Channel):
+    def __init__(self, a, channum, shortname, experimentStateFile=None, verbose=True):
+        self.a = a
+        self.offFile = a  # to make methods from a normal channelGroup that access offFile as an array work         self.experimentStateFile = experimentStateFile
+        self.shortName = shortname
+        self.channum = channum
+        self.experimentStateFile = experimentStateFile
+        self.markedBadBool = False
+        self._statesDict = None
+        self.verbose = verbose
+        self.recipes = RecipeBook(list(self.a.dtype.fields.keys()),
+                                  ChannelFromNpArray)
+        # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
+        self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
+
+    def _defineDefaultRecipesAndProperties(self):
+        assert (len(self.recipes) == 0)
+        if "p_timestamp" in self.a.dtype.names:
+            t0 = self.a[0]["p_timestamp"]
+            self.recipes.add("relTimeSec", lambda p_timestamp: (p_timestamp-t0))
+            self.cutAdd("cutNone", lambda p_timestamp: np.ones(
+                len(p_timestamp), dtype="bool"), setDefault=True)
+            if "unixnano" not in self.a.dtype.names:
+                # unixnano is needed for states to work
+                self.recipes.add("unixnano", lambda p_timestamp: np.array(p_timestamp, dtype=np.int64)*10**9)
+        else:
+            first_field = self.a.dtype.names[0]
+            self.cutAdd("cutNone", lambda x: np.ones(
+                len(x), dtype="bool"), [first_field], setDefault=True)
+
+    def __len__(self):
+        return len(self.a)
+
+    def refreshFromFiles(self):
+        raise Exception(f"not implemented for {self.__class__.__name__}")
+
+    def _indexOffWithCuts(self, inds, cutRecipeName=None, _listMethodSelect=2):
+        """
+        inds - a slice or list of slices to index into items with
+        _listMethodSelect - used for debugging and testing, chooses the implmentation of this method used for lists of indicies
+        _indexOffWithCuts(slice(0,10), f) is roughly equivalent to:
+        g = f(offFile[0:10])
+        offFile[0:10][g]
+        """
+        cutRecipeName = self._handleDefaultCut(cutRecipeName)
+        # offAttr can be a list of offAttr names
+        if isinstance(inds, slice):
+            r = self.a[inds]
+            # I'd like to be able to do either r["coefs"] to get all projection coefficients
+            # or r["filtValue"] to get only the filtValue
+            # IngredientsWrapper lets that work within recipes.craft
+            g = self.recipes.craft(cutRecipeName, r)
+            output = r[g]
+        elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
+            # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this method to be more than 10x faster than repeated hstack
+            # and about 2x fatster than temporary bool index, which can be found in commit 063bcce
+            # make sure s.step is None so my simple length calculation will work
+            assert all([isinstance(s, slice) and s.step is None for s in inds])
+            max_length = np.sum([s.stop-s.start for s in inds])
+            output_dtype = self.a.dtype  # get the dtype to preallocate with
+            output_prealloc = np.zeros(max_length, output_dtype)
+            ilo, ihi = 0, 0
+            for s in inds:
+                tmp = self._indexOffWithCuts(s, cutRecipeName)
+                ilo = ihi
+                ihi = ilo+len(tmp)
+                output_prealloc[ilo:ihi] = tmp
+            output = output_prealloc[0:ihi]
+        elif isinstance(inds, list) and _listMethodSelect == 0:  # repeated hstack
+            # this could be removed, along with the _listMethodSelect argument
+            # this is only left in because it is useful for correctness testing for preallocate and truncate method since this is simpler
+            assert all([isinstance(_inds, slice) for _inds in inds])
+            output = self._indexOffWithCuts(inds[0], cutRecipeName)
+            for i in range(1, len(inds)):
+                output = np.hstack((output, self._indexOffWithCuts(inds[i], cutRecipeName)))
+        elif isinstance(inds, NoCutInds):
+            output = self.offFile
+        else:
+            raise Exception("type(inds)={}, should be slice or list or slices".format(type(inds)))
+        return output
+
+    @property
+    def _offAttrs(self):
+        return self.a.dtype.names
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} with shortName={self.shortName}"
+
+
+class ChannelGroupFromNpArrays(ChannelGroup):
+    def __init__(self, channels, shortname,
+                 verbose=True, experimentStateFile=None):
+        collections.OrderedDict.__init__(self)
+        self._shortName = shortname
+        self.verbose = verbose
+        self.experimentStateFile = experimentStateFile
+        self._includeBad = False
+        for ds in channels:
+            self[ds.channum] = ds
+        self._default_cut_recipe_name = self.firstGoodChannel()._default_cut_recipe_name
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} with shortName={self.shortName}"
+
+    @property
+    def shortName(self):
+        return self._shortName

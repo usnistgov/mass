@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 
-import argparse, re
+"""
+Truncate all LJH files that match a pattern to contain only the first N pulse records.
+Write the truncated data to a new (set of) LJH file(s).
+"""
+
+import argparse
+import re
 import mass
 from mass.core.ljh_util import filename_glob_expand
 
@@ -14,20 +20,19 @@ if __name__ == '__main__':
                         help='string to append to basename when creating output filename')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--npulses',
-                        type=int,
-                        help='Number of pulses to keep')
+                       type=int,
+                       help='Number of pulses to keep')
     group.add_argument('--timestamp',
-                        type=float,
-                        help='Keep only pulses before this timestamp')
+                       type=float,
+                       help='Keep only pulses before this timestamp')
     args = parser.parse_args()
 
-    pattern="%s_chan*.ljh" % (args.pattern)
+    pattern = "%s_chan*.ljh" % (args.pattern)
 
     filenames = filename_glob_expand(pattern)
 
     for in_fname in filenames:
-        ch = re.search("chan(\d+)\.ljh", in_fname).groups()[0]
+        ch = re.search(r"chan(\d+)\.ljh", in_fname).groups()[0]
         out_fname = "%s_%s_chan%s.ljh" % (args.pattern, args.out, ch)
-        mass.core.ljh_modify.ljh_truncate(in_fname, out_fname, n_pulses=args.npulses, timestamp=args.timestamp)
-
-        
+        mass.core.ljh_modify.ljh_truncate(
+            in_fname, out_fname, n_pulses=args.npulses, timestamp=args.timestamp)

@@ -13,6 +13,8 @@ import matplotlib.pylab as plt
 import inspect
 import os
 import sys
+from packaging import version
+from deprecated import deprecated
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -29,6 +31,7 @@ from mass.core.utilities import show_progress
 from mass.calibration.energy_calibration import EnergyCalibration
 from mass.calibration.algorithms import EnergyCalibrationAutocal
 from mass.mathstat.entropy import laplace_entropy
+import mass.off
 
 from mass.core import ljh_util
 import logging
@@ -45,7 +48,7 @@ class NoiseRecords(object):
     ALLOWED_TYPES = ("ljh", "virtual")
 
     def __init__(self, filename, records_are_continuous=False, use_records=None,
-                 maxsegmentsize=None, hdf5_group=None):
+                 maxsegmentsize=None):
         """Contain and analyze a noise records file.
 
         Args:
@@ -57,19 +60,18 @@ class NoiseRecords(object):
                 before end.
             maxsegmentsize: the number of bytes to be read at once in a segment
                 (default self.DEFAULT_MAXSEGMENTSIZE)
-            hdf5_group: the HDF5 group to be associated with this noise (default None)
         """
-        self.hdf5_group = hdf5_group
 
         if maxsegmentsize is not None:
             self.maxsegmentsize = maxsegmentsize
         else:
             self.maxsegmentsize = self.DEFAULT_MAXSEGMENTSIZE
 
-        self.channum = None
+        self.channum = ljh_util.ljh_channum(filename)
         self.nSamples = self.nPresamples = self.nPulses = 0
         self.n_segments = 0
         self.timebase = 0.0
+        self.timestamp_offset = 0
 
         self.datafile = None
         self.data = None
@@ -78,21 +80,30 @@ class NoiseRecords(object):
         self.__open_file(filename, use_records=use_records)
         self.continuous = records_are_continuous
         self.noise_psd = None
-        if self.hdf5_group is not None:
-            self.autocorrelation = self.hdf5_group.require_dataset(
-                "autocorrelation", shape=(self.nSamples,),
-                dtype=np.float64)
-            nfreq = 1 + self.nSamples // 2
-            self.noise_psd = self.hdf5_group.require_dataset(
-                'noise_psd', shape=(nfreq,),
-                dtype=np.float64)
+    
+    def set_hdf5_group(self, hdf5_group):
+        if hdf5_group is None:
+            raise ValueError("hdf5_group should not be None")
+
+        self.hdf5_group = hdf5_group
+
+        # Copy up some of the most important attributes
+        for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum", "n_segments"):
+            self.__dict__[attr] = self.datafile.__dict__[attr]
+            self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
+
+        self.autocorrelation = self.hdf5_group.require_dataset(
+            "autocorrelation", shape=(self.nSamples,), dtype=np.float64)
+        nfreq = 1 + self.nSamples // 2
+        self.noise_psd = self.hdf5_group.require_dataset(
+            "noise_psd", shape=(nfreq,), dtype=np.float64)
 
     def __open_file(self, filename, use_records=None, file_format=None):
         """Detect the filetype and open it."""
 
         if file_format is None:
             if isinstance(filename, VirtualFile):
-                file_format = 'virtual'
+                file_format = "virtual"
             elif filename.endswith("ljh"):
                 file_format = "ljh"
             else:
@@ -106,7 +117,7 @@ class NoiseRecords(object):
             vfile = filename  # Aha!  It must not be a string
             self.datafile = vfile
             self.datafile.segmentsize = vfile.nPulses*(6+2*vfile.nSamples)
-            filename = 'Virtual file'
+            filename = "Virtual file"
         else:
             raise RuntimeError("It is a programming error to get here")
         self.filename = filename
@@ -116,12 +127,6 @@ class NoiseRecords(object):
             if use_records < self.datafile.nPulses:
                 self.datafile.nPulses = use_records
                 self.datafile.n_segments = use_records // self.records_per_segment
-
-        # Copy up some of the most important attributes
-        for attr in ("nSamples", "nPresamples", "nPulses", "timebase", "channum", "n_segments"):
-            self.__dict__[attr] = self.datafile.__dict__[attr]
-            if self.hdf5_group is not None:
-                self.hdf5_group.attrs[attr] = self.datafile.__dict__[attr]
 
     def clear_cache(self):
         self.datafile.clear_cache()
@@ -199,7 +204,7 @@ class NoiseRecords(object):
         psd = spectrum.spectrum()
         if self.hdf5_group is not None:
             self.noise_psd[:] = psd
-            self.noise_psd.attrs['delta_f'] = freq[1] - freq[0]
+            self.noise_psd.attrs["delta_f"] = freq[1] - freq[0]
         else:
             self.noise_psd = psd
         return spectrum
@@ -471,12 +476,12 @@ class PulseRecords(object):
         self.nSamples = 0
         self.nPresamples = 0
         self.nPulses = 0
-        self.channum = 0
         self.n_segments = 0
         self.segmentsize = 0
         self.pulses_per_seg = 0
         self.timebase = None
-        self.timestamp_offset = None
+        self.timestamp_offset = 0
+        self.channum = ljh_util.ljh_channum(filename)
 
         self.datafile = None
         self.__open_file(filename, file_format=file_format)
@@ -704,6 +709,24 @@ class MicrocalDataSet(object):
         self.__load_cals_from_hdf5()
         self.__load_auto_cuts()
         self.__load_corrections()
+
+    def toOffStyle(self):
+        a = self._makeNumpyArray()
+        return mass.off.channels.ChannelFromNpArray(a,
+                                                    channum=self.channum,
+                                                    shortname=self.shortname,
+                                                    experimentStateFile=self.tes_group.experimentStateFile)
+
+    def _makeNumpyArray(self, fields=None, prefix="p_"):
+        if fields is None:
+            fields = [k for k in self.__dict__ if k.startswith(prefix)]
+        _dtypes = [self.__dict__[k].dtype for k in fields]
+        dtlist = list(zip(fields, _dtypes))
+        dtype = np.dtype(dtlist)
+        a = np.zeros(len(self.__dict__[fields[0]]), dtype)
+        for k in fields:
+            a[k] = self.__dict__[k][:]
+        return a
 
     def __setup_vectors(self, npulses=None):
         """Given the number of pulses, build arrays to hold the relevant facts
@@ -933,7 +956,11 @@ class MicrocalDataSet(object):
             self.read_segment(0)
         peak_idx = self.data[:, self.cut_pre:self.nSamples
                              - self.cut_post].argmax(axis=1)+self.cut_pre
-        self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
+        if version.parse(sp.__version__) >= version.parse("1.9.0"):
+            self.peak_samplenumber = int(sp.stats.mode(peak_idx, keepdims=False).mode)
+        else:
+            # The old way of using sp.stats.mode is deprecated in sp 1.9.0 and will be removed.
+            self.peak_samplenumber = int(sp.stats.mode(peak_idx)[0][0])
         self.p_peak_index.attrs["peak_samplenumber"] = self.peak_samplenumber
         return self.peak_samplenumber
 
@@ -1088,11 +1115,9 @@ class MicrocalDataSet(object):
         slicedict = esf.calcStatesDict(nano)
 
         state_codes = np.zeros(self.nPulses, dtype=np.uint32)
-        for id, state in enumerate(esf.allLabels):
-            if state == "START":
-                continue
+        for id, state in enumerate(slicedict.keys()):
             slice = slicedict[state]
-            state_codes[slice.start:slice.stop] = id
+            state_codes[slice.start:slice.stop] = id+1
         self.cuts.cut("state", state_codes)
 
     @show_progress("compute_average_pulse")
@@ -1209,6 +1234,15 @@ class MicrocalDataSet(object):
                 vec.attrs['variance'] = self.filter.variances.get(shortname, 0.0)
                 vec.attrs['predicted_v_over_dv'] = self.filter.predicted_v_over_dv.get(
                     shortname, 0.0)
+
+    @property
+    def shortname(self):
+        """return a string containing part of the filename and the channel number, useful for labelling plots"""
+        s = os.path.split(self.filename)[-1]
+        chanstr = "chan%g" % self.channum
+        if chanstr not in s:
+            s += chanstr
+        return s
 
     @_add_group_loop()
     def compute_5lag_filter(self, fmax=None, f_3db=None, cut_pre=0, cut_post=0, category={}, forceNew=False):
@@ -1367,7 +1401,7 @@ class MicrocalDataSet(object):
                 before filtering (default None)
             forceNew: Whether to recompute when already exists (default False)
         """
-        if not(forceNew or all(self.p_filt_value[:] == 0)):
+        if not (forceNew or all(self.p_filt_value[:] == 0)):
             LOG.info('\nchan %d did not filter because results were already loaded', self.channum)
             return
 
@@ -1617,8 +1651,27 @@ class MicrocalDataSet(object):
                 plt.ylim(ymin=contents.min())
 
     @_add_group_loop()
-    def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
-        """Compute the noise power spectrum of this channel.
+    def assume_white_noise(self, noise_variance=1.0, forceNew=False):
+        """Set the noise variance to `noise_variance` and the spectrum to be white.
+
+        This is appropriate when no noise files were taken.
+        Though you may set `noise_variance` to a value other than 1, this will affect only the
+        predicted resolution, and will not change the optimal filters that get computed/used.
+
+        Args:
+            noise_variance(number): what to set as the lag-0 noise autocorrelation.
+            forceNew (bool): whether to update the noise autocorrelation if it's already
+                been set (default False).
+        """
+        if forceNew or all(self.noise_autocorr[:] == 0):
+            self.noise_autocorr[1:] = 0.0
+            self.noise_autocorr[0] = noise_variance
+            psd = 2.0*noise_variance*self.timebase
+            self.noise_psd[:] = psd
+
+    @_add_group_loop()
+    def compute_noise(self, max_excursion=1000, n_lags=None, forceNew=False):
+        """Compute the noise autocorrelation and power spectrum of this channel.
 
         Args:
             max_excursion (number): the biggest excursion from the median allowed
@@ -1642,7 +1695,15 @@ class MicrocalDataSet(object):
             self.noise_psd[:] = self.noise_records.noise_psd[:len(self.noise_psd[:])]
             self.noise_psd.attrs['delta_f'] = self.noise_records.noise_psd.attrs['delta_f']
         else:
-            LOG.info("chan %d skipping compute_noise_spectra because already done", self.channum)
+            LOG.info("chan %d skipping compute_noise because already done", self.channum)
+
+    # Rename compute_noise_spectra -> compute_noise, because the latter is a better name!
+    # But use deprecation to not immediately break all code.
+    @_add_group_loop()
+    @deprecated(version="0.7.9", reason="Use compute_noise(), which is equivalent but better named")
+    def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
+        """Replaced by the equivalent compute_noise(...)"""
+        return self.compute_noise(max_excursion=max_excursion, n_lags=n_lags, forceNew=forceNew)
 
     @_add_group_loop()
     def apply_cuts(self, controls, clear=False, forceNew=True):

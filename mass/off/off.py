@@ -29,7 +29,8 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
                    ("unixnano", np.int64), ("pretriggerMean", np.float32), ("residualStdDev", np.float32)]
     elif offVersion == "0.3.0":
         dt_list = [("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
-                   ("unixnano", np.int64), ("pretriggerMean", np.float32), ("pretriggerDelta", np.float32), ("residualStdDev", np.float32)]
+                   ("unixnano", np.int64), ("pretriggerMean", np.float32), ("pretriggerDelta", np.float32),
+                   ("residualStdDev", np.float32)]
     else:
         raise Exception("dtype for OFF version {} not implemented".format(offVersion))
 
@@ -80,8 +81,16 @@ class OffFile(object):
             self.header["FileFormatVersion"], self.header["NumberOfBases"], descriptive_coefs_names=False)
         self.framePeriodSeconds = float(self.header["FramePeriodSeconds"])
         self.validateHeader()
+        self._mmap = None
+        self.projectors = None
+        self.basis = None
         self._decodeModelInfo()  # calculates afterHeaderPos used by _updateMmap
         self._updateMmap()
+
+    def close(self):
+        del self._mmap
+        del self.projectors
+        del self.basis
 
     def validateHeader(self):
         with open(self.filename, "rb") as f:
@@ -161,7 +170,8 @@ class OffFile(object):
                 basisCols, basisRows, projectorsCols, projectorsRows, self.header["NumberOfBases"]))
 
     def __repr__(self):
-        return "<OFF file> {}, {} records, {} length basis\n".format(self.filename, self.nRecords, self.header["NumberOfBases"])
+        return "<OFF file> {}, {} records, {} length basis\n".format(
+            self.filename, self.nRecords, self.header["NumberOfBases"])
 
     def sampleTimes(self, i):
         """return a vector of sample times for record i, approriate for plotting"""
@@ -179,7 +189,8 @@ class OffFile(object):
         # n = number of basis (eg 3)
         # z = record length (eg 4)
 
-        # .view(self._dtype_non_descriptive) should be a copy-free way of changing the dtype so we can access the coefs all together
+        # .view(self._dtype_non_descriptive) should be a copy-free way of changing
+        # the dtype so we can access the coefs all together
         allVals = np.matmul(self.basis, self._mmap_with_coefs[i]["coefs"])
         return allVals
 

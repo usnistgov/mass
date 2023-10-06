@@ -117,24 +117,26 @@ class LineFitter(object):
             plot:   Whether to make a plot.  If not, then the next few args are ignored
             axis:   If given, and if plot is True, then make the plot on this matplotlib.Axes rather
                     than on the current figure.
-            color:  Color for drawing the histogram contents behind the fit.
+
             label:  (True/False) Label for the fit line to go into the plot (usually used for
                     resolution and uncertainty)
                     "full" label with all fit params including chi sqaured (w/ an "H" if it was held)
-            ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
 
-            vary_resolution Whether to let the Gaussian resolution vary in the fit
+            color:  Color for drawing the histogram contents behind the fit.
+            ph_units: "arb" by default, used in x and y labels on plot (pass "eV" if you have eV!)
+            vary_resolution: Whether to let the Gaussian resolution vary in the fit
             vary_bg:       Whether to let a constant background level vary in the fit
             vary_bg_slope: Whether to let a slope on the background level vary in the fit
             vary_tail:     Whether to let a low-energy exponential tail to vary.
-            hold:      A sequence of parameter numbers to keep fixed.  Resolution, BG
-                       BG slope, or tail will be held if relevant parameter number
-                       appears in the hold sequence OR if relevant boolean vary_* tests False.
-            integrate_n_points: Perform numerical integration across each bin with this many points
-                        per bin. Default: None means use a heuristic to decide. For narrow bins,
-                        generally this will choose 1, i.e., the midpoint method. For wide ones,
-                        Simpson's method for 3, 5, or more will be appropriate
             rethrow: Throw any generated exceptions instead of catching them and setting fit_success=False.
+            hold:  A sequence of parameter numbers to keep fixed.  Resolution, BG
+                    BG slope, or tail will be held if relevant parameter number
+                    appears in the hold sequence OR if relevant boolean vary_* tests False.
+
+            integrate_n_points: Perform numerical integration across each bin with this many points
+                    per bin. Default: None means use a heuristic to decide. For narrow bins,
+                    generally this will choose 1, i.e., the midpoint method. For wide ones,
+                    Simpson's method for 3, 5, or more will be appropriate
 
         Returns:
             (fitparams, covariance)
@@ -329,8 +331,7 @@ Please see mass/doc/LineFitting.md for how to use the new Model objects and LMFI
         Args:
             color = color of the data
             axis = axis on which to plot, if it is None, the current figure is cleared
-            label = True, False or "full"
-                "full" includes more info than True
+            label = True, False or "full"; "full" includes more info than True
             ph_units = used for the ylabel
         """
 
@@ -701,7 +702,9 @@ class MultiLorentzianComplexFitter(LineFitter):
          P_bg, P_bgslope, P_tailfrac, P_tailtau) = params
 
         energy = (x - P_phpeak) / P_dphde + self.spect.peak_energy
-        def cleanspectrum_fn(x): return self.spect.pdf(x, P_gaussfwhm)
+
+        def cleanspectrum_fn(x):
+            return self.spect.pdf(x, P_gaussfwhm)
         spectrum = _smear_exponential_tail(
             cleanspectrum_fn, energy, P_gaussfwhm, P_tailfrac, P_tailtau)
         retval = _scale_add_bg(spectrum, P_amplitude, P_bg, P_bgslope)

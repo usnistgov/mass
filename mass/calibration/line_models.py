@@ -88,11 +88,11 @@ class MLEModel(lmfit.Model):
     #     c.eval = blah
     #     return c
 
-    def fit(self, *args, **kwargs):
+    def fit(self, *args, minimum_bins_per_fwhm=3, **kwargs):
         """as lmfit.Model.fit except
         1. the default method is "least_squares because it gives error bars more often at 1.5-2.0X speed penalty
-        2. supports "leastsq_refit" which uses "leastsq" to fit, but if there are no error bars, refits with "least_squares"
-        call result.set_label_hints(...) then result.plotm() for a nice plot
+        2. supports "leastsq_refit" which uses "leastsq" to fit, but if there are no error bars, refits with
+        "least_squares" call result.set_label_hints(...) then result.plotm() for a nice plot.
         """
         if "method" not in kwargs:
             # change default method
@@ -100,12 +100,8 @@ class MLEModel(lmfit.Model):
             # least_squares always gives uncertainties, while the normal default leastsq often does not
             # leastsq fails to give uncertaities if parameters are near bounds or at their initial value
             # least_squares is about 1.5X to 2.0X slower based on two test case
-        if "minimum_bins_per_fwhm" not in kwargs:
+        if minimum_bins_per_fwhm is None:
             minimum_bins_per_fwhm = 3  # provide default value
-        else:
-            minimum_bins_per_fwhm = kwargs["minimum_bins_per_fwhm"]
-            # remove this argument before passwing kwargs to ._fit
-            del kwargs["minimum_bins_per_fwhm"]
         if "weights" in kwargs and kwargs["weights"] is not None:
             msg = "MLEModel assumes Poisson-distributed data; cannot use weights other than None"
             raise Exception(msg)
@@ -252,6 +248,8 @@ class GenericLineModel(MLEModel):
         else:
             baseline = 0.1
         tcounts_above_bg = data.sum() - baseline*len(data)
+        if tcounts_above_bg < 0:
+            tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
         pars = self.make_params(peak_ph=peak_ph, background=baseline,
                                 integral=tcounts_above_bg, fwhm=fwhm)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
@@ -282,6 +280,8 @@ class GenericKAlphaModel(GenericLineModel):
         else:
             baseline = 0.1
         tcounts_above_bg = data.sum() - baseline*len(data)
+        if tcounts_above_bg < 0:
+            tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
         pars = self.make_params(peak_ph=ph_ka1, dph_de=dph/dE,
                                 background=baseline, integral=tcounts_above_bg)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)

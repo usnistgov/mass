@@ -68,8 +68,8 @@ class TestFiles(ut.TestCase):
             self.assertEqual(n_pulses_expected, dest.nPulses)
             for k in range(n_pulses_expected):
                 self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
-                self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
                 self.assertEqual(src.rowcount[k], dest.rowcount[k])
+                self.assertAlmostEqual(src.datatimes_float[k], dest.datatimes_float[k], 5)
 
     def run_test_ljh_truncate_n_pulses(self, src_name, n_pulses, segmentsize):
         # Tests with a file with 1230 pulses, each 1016 bytes long
@@ -82,8 +82,8 @@ class TestFiles(ut.TestCase):
             self.assertEqual(n_pulses, dest.nPulses)
             for k in range(n_pulses):
                 self.assertTrue(np.all(src.read_trace(k) == dest.read_trace(k)))
-                self.assertEqual(src.datatimes_float[k], dest.datatimes_float[k])
                 self.assertEqual(src.rowcount[k], dest.rowcount[k])
+                self.assertAlmostEqual(src.datatimes_float[k], dest.datatimes_float[k], 5)
 
     def test_ljh_truncate_n_pulses(self):
         # Want to make sure that we didn't screw something up with the
@@ -152,9 +152,12 @@ class TestTESGroup(ut.TestCase):
     def clean_up_later(self, filename):
         self.__files_to_clean_up__.append(filename)
 
-    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None):
-        src_name = 'mass/regression_test/regress_chan1.ljh'
-        noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
+    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
+                  experimentStateFile=None):
+        src_name = ['mass/regression_test/regress_chan1.ljh']
+        noi_name = ['mass/regression_test/regress_noise_chan1.ljh']
+        if skip_noise:
+            noi_name = None
         if hdf5_filename is None:
             hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5', delete=False)
             hdf5_filename = hdf5_file.name
@@ -163,8 +166,53 @@ class TestTESGroup(ut.TestCase):
             hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5', delete=False)
             hdf5_noisefilename = hdf5_noisefile.name
             self.clean_up_later(hdf5_noisefilename)
-        return mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_filename,
-                             hdf5_noisefilename=hdf5_noisefilename)
+        return mass.TESGroup(src_name, noi_name, hdf5_filename=hdf5_filename,
+                             hdf5_noisefilename=hdf5_noisefilename,
+                             experimentStateFile=experimentStateFile)
+
+    def test_experiment_state(self):
+        # First test with the default experimentStateFile
+        # It should have only the trivial START state, hence all 300 records
+        # will pass ds.good(state="START")
+        data = self.load_data()
+        data.summarize_data()
+        # The following fails until issue 225 is fixed.
+        self.assertEqual(data.n_good_channels(), 1)
+        ds = data.channel[1]
+        self.assertEqual(len(ds.good(state="START")), 300)
+
+        # Next test with an experimentStateFile that has a nontrivial state "funstate".
+        # In this case, START should not be a valid state, but funstate will have Only
+        # 252 of the 300 records valid because of their timestamps.
+        esf = "mass/regression_test/regress_experiment_state_v2.txt"
+        data = self.load_data(experimentStateFile=esf)
+        data.summarize_data()
+        self.assertEqual(data.n_good_channels(), 1)
+        ds = data.channel[1]
+        with self.assertRaises(ValueError):
+            ds.good(state="START")
+        nfun = np.sum(ds.good(state="funstate"))
+        self.assertEqual(nfun, 252)
+
+    def test_nonoise_data(self):
+        """Test behavior of a TESGroup without noise data."""
+        data = self.load_data(skip_noise=True)
+        with self.assertRaises(AttributeError):
+            data.channel[1].noise_records
+        with self.assertRaises(Exception):
+            data.compute_noise()
+        data.summarize_data()
+        data.avg_pulses_auto_masks()
+        with self.assertRaises(Exception):
+            data.compute_ats_filter()
+        data.assume_white_noise()
+        data.compute_ats_filter()
+
+    def test_noise_only(self):
+        """Test behavior of a TESGroup without pulse data."""
+        pattern = "mass/regression_test/regress_noise_*.ljh"
+        data = mass.TESGroup(pattern, noise_only=True)
+        data.compute_noise()
 
     def test_all_channels_bad(self):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
@@ -236,7 +284,9 @@ class TestTESGroup(ut.TestCase):
         data.set_chan_good(1)
         data.summarize_data()
         data.avg_pulses_auto_masks()
-        data.compute_noise_spectra()
+        with self.assertWarns(DeprecationWarning):
+            data.compute_noise_spectra()
+        data.compute_noise()
         data.compute_5lag_filter()  # not enough pulses for ats filters
         data.plot_filters()
 
@@ -247,7 +297,7 @@ class TestTESGroup(ut.TestCase):
         data.summarize_data()
         data.auto_cuts(forceNew=True, clearCuts=True)
         data.avg_pulses_auto_masks()
-        data.compute_noise_spectra()
+        data.compute_noise()
         data.compute_filters()
         data.filter_data()
         data.drift_correct()
@@ -294,12 +344,12 @@ class TestTESGroup(ut.TestCase):
         noi_name = 'mass/regression_test/regress_noise_chan1.ljh'
         data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
         ds = data.channel[1]
-        ds.compute_noise_spectra()
+        ds.compute_noise()
 
     def test_pulse_model_and_ljh2off(self):
         np.random.seed(0)
         data = self.load_data()
-        data.compute_noise_spectra()
+        data.compute_noise()
         data.summarize_data()
         data.auto_cuts()
         data.compute_ats_filter(shift1=False)

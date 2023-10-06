@@ -159,9 +159,9 @@ def ljh2off_loop(ljhpath, h5_path, output_dir, max_channels, n_ignore_presamples
     off_basename = os.path.join(output_dir, file_basename)
     ljh_filename_lists, off_filenames = multi_ljh2off_loop([basename], h5_path, off_basename,
                                                            max_channels, n_ignore_presamples, require_experiment_state, show_progress)
-    ljh_filenames = [l[0] for l in ljh_filename_lists]
-    for l in ljh_filename_lists:
-        assert len(l) == 1
+    ljh_filenames = [fname[0] for fname in ljh_filename_lists]
+    for fname in ljh_filename_lists:
+        assert len(fname) == 1
     source_experiment_state_filename = "{}_experiment_state.txt".format(basename)
     sink_experiment_state_filename = "{}_experiment_state.txt".format(off_basename)
     if os.path.isfile(source_experiment_state_filename):

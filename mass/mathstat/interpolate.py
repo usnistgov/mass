@@ -316,7 +316,7 @@ class GPRSpline(CubicSpline):
         if result.success:
             # _marginal_like depends only on the abs(argument), so take minimizer as positive.
             return np.abs(result.x)
-        raise(ValueError("Could not maximimze the marginal likelihood"))
+        raise (ValueError("Could not maximimze the marginal likelihood"))
 
     def _marginal_like(self, sigmaf):
         H = np.vstack((np.ones_like(self.x), self.x))

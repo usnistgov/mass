@@ -17,7 +17,7 @@ class Test_PowerSpectrum(unittest.TestCase):
 
     def test_values(self):
         f, psd = mass.mathstat.power_spectrum.computeSpectrum(
-                np.arange(10), segfactor=1, dt=1)
+            np.arange(10), segfactor=1, dt=1)
         expected = [405., 52.36067977, 14.47213595, 7.63932023, 5.52786405, 5.]
         for a, b in zip(psd, expected):
             self.assertAlmostEqual(a, b)

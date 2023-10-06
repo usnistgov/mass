@@ -490,13 +490,13 @@ class Test_Composites_lmfit(unittest.TestCase):
 
     def test_FitToModelWithoutPrefix(self):
         model1_noprefix = self.line1.model()
-        assert(model1_noprefix.prefix == '')
+        assert (model1_noprefix.prefix == '')
         params1_noprefix = model1_noprefix.guess(self.counts1, bin_centers=self.bin_centers)
         params1_noprefix['dph_de'].set(value=1.0, vary=False)
         result1_noprefix = model1_noprefix.fit(
             self.counts1, params=params1_noprefix, bin_centers=self.bin_centers)
         for iComp in result1_noprefix.components:
-            assert(iComp.prefix == '')
+            assert (iComp.prefix == '')
         result1_noprefix._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
     def test_NonUniqueParamsFails(self):
@@ -510,8 +510,8 @@ class Test_Composites_lmfit(unittest.TestCase):
         prefix2 = 'p2_'
         model1 = self.line1.model(prefix=prefix1)
         model2 = self.line2.model(prefix=prefix2, has_linear_background=False)
-        assert(model1.prefix == prefix1)
-        assert(model2.prefix == prefix2)
+        assert (model1.prefix == prefix1)
+        assert (model2.prefix == prefix2)
         params1 = model1.guess(self.counts1, bin_centers=self.bin_centers)
         params2 = model2.guess(self.counts2, bin_centers=self.bin_centers)
         params1['{}dph_de'.format(prefix1)].set(value=1.0, vary=False)
@@ -520,7 +520,7 @@ class Test_Composites_lmfit(unittest.TestCase):
         result2 = model2.fit(self.counts2, params=params2, bin_centers=self.bin_centers)
         compositeModel = model1 + model2
         modelComponentPrefixes = [iComp.prefix for iComp in compositeModel.components]
-        assert(np.logical_and(prefix1 in modelComponentPrefixes, prefix2 in modelComponentPrefixes))
+        assert (np.logical_and(prefix1 in modelComponentPrefixes, prefix2 in modelComponentPrefixes))
         compositeParams = result1.params + result2.params
         compositeParams['{}fwhm'.format(prefix1)].expr = '{}fwhm'.format(prefix2)
         compositeParams['{}peak_ph'.format(
@@ -531,7 +531,7 @@ class Test_Composites_lmfit(unittest.TestCase):
         compositeResult = compositeModel.fit(
             self.counts, params=compositeParams, bin_centers=self.bin_centers)
         resultComponentPrefixes = [iComp.prefix for iComp in compositeResult.components]
-        assert(np.logical_and(prefix1 in resultComponentPrefixes, prefix2 in resultComponentPrefixes))
+        assert (np.logical_and(prefix1 in resultComponentPrefixes, prefix2 in resultComponentPrefixes))
         compositeResult._validate_bins_per_fwhm(minimum_bins_per_fwhm=3)
 
 

@@ -51,7 +51,7 @@ before you proceed to try running the rest of this demo.
 # <demo> --- stop ---
 
 # Load up the data
-assert(os.path.isdir(DIR))
+assert (os.path.isdir(DIR))
 pulse_pattern = os.path.join(DIR, "ljh", "20150707_D_chan13.ljh")
 noise_pattern = os.path.join(DIR, "ljh", "20150707_C_chan13.noi")
 print(pulse_pattern)
@@ -70,7 +70,7 @@ g = ds.good()
 # <demo> --- stop ---
 
 # Here's the noise PSD
-data.compute_noise_spectra()
+data.compute_noise()
 data.plot_noise()
 # <demo> --- stop ---
 

@@ -9,9 +9,22 @@
 # Installation
 Requires Python 3. You will probably need to add an ssh key to your bitbucket account to get the install to work.
 
-```  
+```
+cd ~/somewhere/to/install/code  
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass
 ```
+In the above instance, mass will be installed as `~/somewhere/to/install/code/src/mass`, with that penultimate directory `src/` as part of pip's rules.
+
+If you want to install a certain branch "branchname", you can go to that directory and use the usual git rules, or you can:
+```
+pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@branchname#egg=mass
+```
+
+If you want to update the installation, you can do so via the usual git (`git pull`) from the installed directory, or you can:
+```
+pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass --upgrade
+```
+It's possible that the above would also help you to re-install if you do something drastic such as change from using Python 3.9 to 3.10. (Not tested!)
 
 See [`nist-qsp-tdm`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) README for instructions to install all tdm python software simultaneously, and how to setup venv.
 

@@ -9,6 +9,7 @@ Joe Fowler
 import unittest
 import numpy as np
 import mass
+import pylab as plt
 
 
 class Test_MnKA_distribution(unittest.TestCase):
@@ -37,10 +38,13 @@ class Test_MnKA_distribution(unittest.TestCase):
         self.assertAlmostEqual(quartiles[1] / 1000, 5896.9 / 1000, 2)
         self.assertAlmostEqual(quartiles[2], 5899.0, 0)
 
+    def test_plot_like_reference(self):
+        line = mass.spectra["MnKAlpha"]
+        line.plot_like_reference()
+        plt.close()
+
     def test_location_against_STANDARD_FEATUES(self):
         for (name, spectrum) in mass.spectra.items():
-            if spectrum.element == "AlOx":
-                continue
             if spectrum.reference_short in ["NIST ASD", "Clementson 2010", "Nilsen 1995"]:
                 continue
             if not spectrum.is_default_material:

@@ -330,7 +330,8 @@ class MaximumLikelihoodHistogramFitter(object):
                 delta_params = sp.linalg.solve(alpha_prime, beta[self.param_free],
                                                overwrite_a=False, overwrite_b=False)
             except (sp.linalg.LinAlgError, ValueError) as ex:
-                LOG.debug('alpha (lambda=%f, iteration %d) is singular or has NaN:' % (lambda_coef, iter_number))
+                LOG.debug('alpha (lambda=%f, iteration %d) is singular or has NaN:' %
+                          (lambda_coef, iter_number))
                 LOG.debug('Internal: ', self.internal)
                 LOG.debug('Params: ', self.params)
                 raise ex

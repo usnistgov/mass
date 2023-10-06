@@ -83,7 +83,7 @@ def output_basename_from_ljh_fname(ljh):
     basename, chan = ljh_basename_channum(ljh)
     dir, fname = path.split(basename)
     if not path.isdir(dir):
-        raise("ValueError %s is not valid directory" % dir)
+        raise ("ValueError %s is not valid directory" % dir)
     outputdir = path.join(dir, "mass_output")
     if not path.isdir(outputdir):
         os.mkdir(outputdir)

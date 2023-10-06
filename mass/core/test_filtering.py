@@ -33,7 +33,7 @@ def process_file(prefix, cuts, do_filter=True):
         ds.clear_cuts()
         ds.apply_cuts(cuts)
 
-    data.compute_noise_spectra()
+    data.compute_noise()
     data.avg_pulses_auto_masks()
     if do_filter:
         data.compute_filters(f_3db=10000)

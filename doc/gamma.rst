@@ -79,7 +79,7 @@ Here we do "plain" mass analysis, basically we just use 5 lag filters, cuts, dri
   # dan does a peak_index cut here, skipping for now
   data_plain.correct_flux_jumps(flux_quant=2**12)
   data_plain.avg_pulses_auto_masks()
-  data_plain.compute_noise_spectra(max_excursion=300)
+  data_plain.compute_noise(max_excursion=300)
   data_plain.compute_5lag_filter(f_3db=10e3)
   data_plain.filter_data()
   # here dan chooses a wide range around the highest peak
@@ -326,11 +326,11 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
   :options: +NORMALIZE_WHITESPACE
 
   energy:
-    20181018_144520 chan3  Ho166m_80 fwhm=60.19+/-1.93
-    20181018_144520 chan13 Ho166m_80 fwhm=62.49+/-2.03
+      20181018_144520 chan3  Ho166m_80 fwhm=60.19+/-1.93
+      20181018_144520 chan13 Ho166m_80 fwhm=62.51+/-2.03
   energyNoDC:
-    20181018_144520 chan3  Ho166m_80 fwhm=64.12+/-2.46
-    20181018_144520 chan13 Ho166m_80 fwhm=70.69+/-2.62
+      20181018_144520 chan3  Ho166m_80 fwhm=64.12+/-2.46
+      20181018_144520 chan13 Ho166m_80 fwhm=70.69+/-2.62
 
 OFF vs Plain Comparision
 ------------------------
@@ -497,6 +497,28 @@ enough and the count rates low enough that we don't see many tails of previous p
   :width: 45%
 
 .. image:: img/gamma_odd6.png
+  :width: 45%
+
+Example investigation - Plot energy vs time for good pulses in a narrow window
+------------------------------------------------------------------------------
+Lets say we want to look at stability of energy vs time, here are some different ways to do that.
+
+.. testcode::
+
+  ds.plotAvsB("relTimeSec", "energy")
+  plt.ylim(121.7e3, 122.4e3)
+  ds.plotAvsB2d("relTimeSec", "energy",  [np.arange(0,7000,300), np.arange(121.7e3,122.4e3,25)])
+
+.. testcode::
+  :hide:
+
+  plt.savefig("img/gamma_evt1.png");plt.close()
+  plt.savefig("img/gamma_evt2.png");plt.close()
+
+.. image:: img/gamma_evt1.png
+  :width: 45%
+
+.. image:: img/gamma_evt2.png
   :width: 45%
 
 Warning about defining recipes and closure scope

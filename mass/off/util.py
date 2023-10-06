@@ -235,7 +235,7 @@ def add_group_loop(method):
                 z = method(ds, *args, **kwargs)
                 returnVals[channum] = z
             except KeyboardInterrupt as e:
-                raise(e)
+                raise (e)
             except Exception as e:
                 ds.markBad("{} during {}".format(e, method_name), e)
                 if rethrow:
@@ -309,7 +309,7 @@ def annotate_lines(axis, labelLines, labelLines_color2=[], color1="k", color2="r
 
 
 class SilenceBar(progress.bar.Bar):
-    "A progres bar that can be turned off by passing silence=True or by setting the log level higher than NOTSET"
+    "A progress bar that can be turned off by passing silence=True or by setting the log level higher than NOTSET"
 
     def __init__(self, message, max, silence):
         self.silence = silence
@@ -317,7 +317,10 @@ class SilenceBar(progress.bar.Bar):
             if not LOG.isEnabledFor(logging.WARN):
                 self.silence = True
         if not self.silence:
-            progress.bar.Bar.__init__(self, message, max=max)
+            super().__init__(message, max=max)
+        else:
+            # The following prevents an ugly warning in the base class destructor.
+            self._hidden_cursor = False
 
     def next(self):
         if not self.silence:

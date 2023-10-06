@@ -121,7 +121,7 @@ data.plot_average_pulses(ALL_CHANS)
 # <demo> --- stop ---
 
 # Now we handle the noise.  Let's compute the power spectrum and the autocorrelation.
-data.compute_noise_spectra()
+data.compute_noise()
 # We'll plot them on 2 panels of the same figure
 plt.clf()
 data.plot_noise(axis=plt.subplot(211))
