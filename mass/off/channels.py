@@ -823,6 +823,28 @@ class Channel(CorG):
         # self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
         self.recipes.add("peakX5Lag", fivelag.peakX5Lag, ingredients=["cba5Lag"])
 
+    @property
+    def rowPeriodSeconds(self):
+        nRows = self.offFile.header["ReadoutInfo"]["NumberOfRows"]
+        rowcount = self.offFile["framecount"] * nRows
+        return self.offFile.framePeriodSeconds/float(nRows)
+
+    @add_group_loop
+    def _calcExternalTriggerTiming(self, external_trigger_rowcount, after_last, until_next, from_nearest):
+        rows_after_last_external_trigger, rows_until_next_external_trigger = \
+            mass.core.analysis_algorithms.nearest_arrivals(external_trigger_rowcount, external_trigger_rowcount)
+        rowPeriodSeconds = self.rowPeriodSeconds
+        if after_last:
+            self.rows_after_last_external_trigger = rows_after_last_external_trigger
+            self.seconds_after_last_external_trigger = rows_after_last_external_trigger*rowPeriodSeconds
+        if until_next:
+            self.rows_until_next_external_trigger = rows_until_next_external_trigger
+            self.seconds_until_next_external_trigger = rows_until_next_external_trigger*rowPeriodSeconds
+        if from_nearest:
+            self.rows_from_nearest_external_trigger = np.fmin(rows_after_last_external_trigger,
+                                       rows_until_next_external_trigger)
+            self.seconds_from_nearest_external_trigger = self.rows_from_nearest_external_trigger*rowPeriodSeconds            
+
 
 def normalize(x):
     return x/float(np.sum(x))
@@ -1224,19 +1246,28 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         self._includeBad = False
         self._includeBadDesired = False
 
-    def histsToHDF5(self, h5File, binEdges, attr="energy", cutRecipeName=None):
+    def histsToHDF5(self, h5File, binEdges, attr="energy", cutRecipeName=None, include_time_after_external_trigger=False):
         for (channum, ds) in self.items():
-            ds.histsToHDF5(h5File, binEdges, attr, cutRecipeName)
+            usedCutRecipeName = self._handleDefaultCut(cutRecipeName)
+            ds.histsToHDF5(h5File, binEdges, attr, usedCutRecipeName)
         grp = h5File.require_group("all_channels")
         for state in self.stateLabels:  # hist for each state
-            binCenters, counts = self.hist(binEdges, attr, state, cutRecipeName)
+            binCenters, counts = self.hist(binEdges, attr, state, usedCutRecipeName)
             grp[f"{state}/bin_centers"] = binCenters
             grp[f"{state}/counts"] = counts
         binCenters, counts = self.hist(
-            binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
+            binEdges, attr, cutRecipeName=usedCutRecipeName)  # all states hist
+        grp["attr"] = attr
+        grp["used_cut_recipe_name"] = usedCutRecipeName
         grp["bin_centers_ev"] = binCenters
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
+        if hasattr(self, "seconds_after_last_external_trigger"):
+            grp["seconds_after_last_external_trigger"] = self.seconds_after_last_external_trigger
+        if hasattr(self, "seconds_until_next_external_trigger"):
+            grp["seconds_until_next_external_trigger"] = self.seconds_until_next_external_trigger
+        if hasattr(self, "seconds_from_nearest_external_trigger"):
+            grp["seconds_from_nearest_external_trigger"] = self.seconds_from_nearest_external_trigger
 
     def markAllGood(self):
         with self.includeBad():
@@ -1382,6 +1413,23 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             d = dill.load(f)
         for channum, recipes in d.items():
             self[channum].recipes = recipes
+
+    def _externalTriggerFilename(self):
+        datasetFilename = self.offFileNames[0]
+        basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
+        return basename+"_external_trigger.bin"
+    
+    def _externalTriggerRowcounts(self, filename = None):
+        if filename is None:
+            filename = self._externalTriggerFilename()
+        f = open(filename,"rb")
+        f.readline() # discard comment line
+        external_trigger_rowcount = np.fromfile(f,"int64")
+        return external_trigger_rowcount
+
+    def calcExternalTriggerTiming(self, after_last=True, until_next=False, from_nearest=False):
+        external_trigger_rowcount = self._externalTriggerRowcounts()
+        self._calcExternalTriggerTiming(external_trigger_rowcount, after_last, until_next, from_nearest)
 
 
 class ChannelFromNpArray(Channel):
