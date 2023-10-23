@@ -1322,49 +1322,13 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                         grp["states"] = str(states)
         return results
 
-    def setOutputDir(self, baseDir=None, deleteAndRecreate=None, suffix="_output"):
-        """Set the output directory to which plots and hdf5 files will go
-        baseDir -- the directory in which the output directory will exist
-        deleteAndRecreate (required keyword arg) -- if True, will delete the whole directory if it already exists
-        (good for if you re-run the same script alot)
-        if False, will attempt to create the directory,
-        if it already exists (like if you rerun the same script), it will error
-        suffix -- added to the first part of shortName to create the output directory name
 
-        Commonly called as one of:
-        data.setOutputDir(baseDir=os.getcwd(), deleteAndRecreate=True)
-        data.setOutputDir(baseDir=os.path.realpath(__file__), deleteAndRecreate=True)
-        """
-        self._baseDir = baseDir
-        dirname = self.shortName.split(" ")[0]+suffix
-        self._outputDir = os.path.join(self._baseDir, dirname)
-        if deleteAndRecreate is None:
-            raise Exception(
-                "deleteAndRecreate should be True or False, you can't use the default value")
-        if deleteAndRecreate:
-            if self.verbose:
-                print(f"deleting and recreating directory {self.outputDir}")
-            try:
-                shutil.rmtree(self.outputDir)
-            except Exception:
-                pass
-        os.mkdir(self.outputDir)
 
-    @property
-    def outputDir(self):
-        if hasattr(self, "_outputDir"):
-            return self._outputDir
-        else:
-            raise Exception("call setOutputDir first")
 
-    @property
-    def outputHDF5(self):
-        if not hasattr(self, "_outputHDF5Filename"):
-            filename = os.path.join(self.outputDir, self.shortName.split(" ")[0]+".hdf5")
-            self._outputHDF5Filename = filename
-            return h5py.File(self._outputHDF5Filename, "w")
-        else:
-            return h5py.File(self._outputHDF5Filename, "a")
+    def outputHDF5Filename(self, outputDir, addToName=""):
+        basename = self.shortName.split(" ")[0]
+        filename = os.path.join(outputDir, f"{basename}_{addToName}.hdf5")
+        return filename
 
     def resultPlot(self, lineName, states=None, binsize=None):
         results = [ds.linefit(lineName, plot=False, states=states, binsize=binsize)
