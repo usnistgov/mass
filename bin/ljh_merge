@@ -40,10 +40,13 @@ def merge(out_path, filenames, overwrite):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Merge a set of LJH files")
-    parser.add_argument("pattern",
+    parser = argparse.ArgumentParser(
+        description="Merge a set of LJH files",
+        epilog="Beware! Python glob does not perform brace-expansion, so braces must be expanded by the shell.")
+    parser.add_argument("patterns",
                         type=str,
-                        help='pattern of files to process, e.g. "20171116_*_chan1.ljh"')
+                        nargs="+",
+                        help='glob pattern of files to process, e.g. "20171116_*_chan1.ljh" (suggest double quotes)')
 
     parser.add_argument(
         "-d", "--outdir",
@@ -54,10 +57,28 @@ def main():
         "-F", "--force",
         action="store_true",
         help="force overwrite of existing target? (default: False)")
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="list files found before merging (default: False)")
+    parser.add_argument(
+        "-n", "--dry-run",
+        action="store_true",
+        help="list files found, then quit without merging (default: False)")
+
     args = parser.parse_args()
 
-    filenames = filename_glob_expand(args.pattern)
+    filenames = []
+    for pattern in args.patterns:
+        filenames.extend(filename_glob_expand(pattern))
     assert len(filenames) > 0
+    if args.verbose or args.dry_run:
+        print(f"Will expand the following {len(filenames)} files:")
+        for f in filenames:
+            print("  - ", f)
+        if args.dry_run:
+            return
+
     f = mass.LJHFile.open(filenames[0])
     channum = f.channum
 
