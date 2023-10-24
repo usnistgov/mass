@@ -99,7 +99,11 @@ class MLEModel(lmfit.Model):
         r2 = y-data
         nonzero = data > 0
         r2[nonzero] += data[nonzero]*np.log((data/y)[nonzero])
-
+        # points that are zero do not effect the chisq value, so should not
+        # be inlcuded in the calculate on ndegrees of freedome, and therefore reduced chisq
+        # GCO tried setting self.ndata here, but it doesn't persist
+        # not clear how to calculate reduced chisq correctly
+        
         # Calculate the sqrt(2*r2) in place into vals.
         # The mask for r2>0 avoids the problem found in MASS issue #217.
         vals = np.zeros_like(r2)
