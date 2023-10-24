@@ -7,6 +7,7 @@
 * Change high-E exponential tails models, so we vary _not_ the low and high tail fractions, but the total tail fraction and the share due to the high tail. Thus both can be fixed to the [0,1] range safely (issue 252).
 * Sort filenames correctly in `bin/ljh_merge` (issue 254).
 * Don't ignore the `use_only` and `never_use` lists in `TESGroup` constructor when making a pulse-only dataset (issue 255).
+* Fix bug in the `p_peak_time` property so that peak times less than 0 are correct (issue 259).
 
 
 **0.8.0** August 10, 2023
