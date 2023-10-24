@@ -138,6 +138,18 @@ class TestFiles:
     def test_ragged_size_file(self):
         "Make sure we can open a file that was truncated during a pulse record."
         mass.LJHFile.open("tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh")
+    
+    def test_peak_time_property(self):
+        "Check that a peak during pretrigger is handled properly (issue 259)"
+        # A clever trick to get pulses that peak during the pretrigger period: use noise records
+        src_name1 = os.path.join('tests', 'regression_test', 'regress_noise_chan1.ljh')
+        data = mass.TESGroup(src_name1)
+        data.summarize_data()
+        ds = data.channel[1]
+        # Find all records where the peak is in the pretrigger period.
+        peak_in_pretrig = ds.p_peak_index[:] < ds.nPresamples
+        assert peak_in_pretrig.sum() > 0
+        assert np.all(ds.p_peak_time[peak_in_pretrig] < 0)
 
 
 class TestTESGroup:
