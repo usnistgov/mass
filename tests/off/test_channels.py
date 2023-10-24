@@ -8,6 +8,7 @@ from mass.calibration import _highly_charged_ion_lines
 import numpy as np
 import pylab as plt
 import lmfit
+import h5py
 import resource
 
 # Remove a warning message
@@ -35,7 +36,6 @@ except NameError:
 filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
 data = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2),
                     verbose=True, channelClass=Channel, excludeStates=["START", "END"])
-data.setOutputDir(baseDir=d, deleteAndRecreate=True)
 data.experimentStateFile.aliasState("B", "Ne")
 data.experimentStateFile.aliasState("C", "W 1")
 data.experimentStateFile.aliasState("D", "Os")
@@ -141,14 +141,11 @@ data.resultPlot("W Ni-20", states=["W 1"])
 
 print(data.whyChanBad)
 
-h5 = data.outputHDF5  # dont use with here, it will hide errors
-results = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
-                                   worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
-                                   resolutionPlot=True, hdf5Group=h5)
-data.histsToHDF5(h5, np.arange(4000))
-# data.recipeToHDF5(h5)
-data.energyTimestampLabelToHDF5(h5)
-h5.close()
+with h5py.File(data.outputHDF5Filename(outputDir=".", addToName="qualitychecklinefit"),"w") as h5:
+    results = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
+                                    worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
+                                    resolutionPlot=True, hdf5Group=h5)
+
 
 # h5 = h5py.File(data.outputHDF5.filename, "r")  # dont use with here, it will hide errors
 # newds = Channel(ds.offFile, ds.experimentStateFile)
@@ -564,3 +561,17 @@ def test_open_many_OFF_files():
     # Use the try...finally to undo our reduction in the limit on number of open files.
     finally:
         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
+
+def test_listmode_to_hdf5():
+    filename = data.outputHDF5Filename(outputDir=".",addToName="listmode")
+    with h5py.File(filename,"w") as h5:
+        data.energyTimestampLabelToHDF5(h5)
+    with h5py.File(filename, "r") as h5:
+       h5["3"]["Ar"]["unixnano"]
+
+def test_hists_to_hdf5():
+    filename = data.outputHDF5Filename(outputDir=".",addToName="hists")
+    with h5py.File(filename,"w") as h5:
+        data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")    
+    with h5py.File(filename, "r") as h5:
+        h5["3"]["Ar"]["counts"]

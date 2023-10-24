@@ -757,19 +757,33 @@ class Channel(CorG):
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
 
+
     @add_group_loop
     def energyTimestampLabelToHDF5(self, h5File, cutRecipeName=None):
+        usedCutRecipeName = self._handleDefaultCut(cutRecipeName)
         grp = h5File.require_group(str(self.channum))
         if len(self.stateLabels) > 0:
             for state in self.stateLabels:
-                energy, unixnano = self.getAttr(["energy", "unixnano"], state, cutRecipeName)
+                energy, unixnano = self.getAttr(["energy", "unixnano"], state, usedCutRecipeName)
                 grp[f"{state}/energy"] = energy
                 grp[f"{state}/unixnano"] = unixnano
+                state_inds = tuple(self.getStatesIndicies(states=[state]))
+                cut_inds_in_state = self.getAttr(usedCutRecipeName, [state], "cutNone")
+                if hasattr(self, "seconds_after_last_external_trigger"):
+                    grp[f"{state}/seconds_after_last_external_trigger"] = self.seconds_after_last_external_trigger[state_inds][cut_inds_in_state]
+                if hasattr(self, "seconds_until_next_external_trigger"):
+                    grp[f"{state}/seconds_until_next_external_trigger"] = self.seconds_until_next_external_trigger[state_inds][cut_inds_in_state]
+                if hasattr(self, "seconds_from_nearest_external_trigger"):
+                    grp[f"{state}/seconds_from_nearest_external_trigger"] = self.seconds_from_nearest_external_trigger[state_inds][cut_inds_in_state]
         else:
             energy, unixnano = self.getAttr(
-                ["energy", "unixnano"], slice(None), cutRecipeName)
+                ["energy", "unixnano"], slice(None), usedCutRecipeName)
             grp[f"{state}/energy"] = energy
             grp[f"{state}/unixnano"] = unixnano
+        grp["off_filename"] = self.offFile.filename
+        grp["used_cut_recipe_name"] = usedCutRecipeName
+
+
 
     @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute=None, thresholdSigmaFromMedianAbsoluteValue=None):
@@ -822,6 +836,32 @@ class Channel(CorG):
         self.recipes.add("filtValue5Lag", fivelag.filtValue5Lag, ingredients=["cba5Lag"])
         # self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
         self.recipes.add("peakX5Lag", fivelag.peakX5Lag, ingredients=["cba5Lag"])
+
+    @property
+    def rowPeriodSeconds(self):
+        nRows = self.offFile.header["ReadoutInfo"]["NumberOfRows"]
+        rowcount = self.offFile["framecount"] * nRows
+        return self.offFile.framePeriodSeconds/float(nRows)
+    
+    @property
+    def rowcount(self):
+        return self.offFile["framecount"] * self.offFile.header["ReadoutInfo"]["NumberOfRows"]
+    
+    @add_group_loop
+    def _calcExternalTriggerTiming(self, external_trigger_rowcount, after_last, until_next, from_nearest):
+        rows_after_last_external_trigger, rows_until_next_external_trigger = \
+            mass.core.analysis_algorithms.nearest_arrivals(self.rowcount, external_trigger_rowcount)
+        rowPeriodSeconds = self.rowPeriodSeconds
+        if after_last:
+            self.rows_after_last_external_trigger = rows_after_last_external_trigger
+            self.seconds_after_last_external_trigger = rows_after_last_external_trigger*rowPeriodSeconds
+        if until_next:
+            self.rows_until_next_external_trigger = rows_until_next_external_trigger
+            self.seconds_until_next_external_trigger = rows_until_next_external_trigger*rowPeriodSeconds
+        if from_nearest:
+            self.rows_from_nearest_external_trigger = np.fmin(rows_after_last_external_trigger,
+                                       rows_until_next_external_trigger)
+            self.seconds_from_nearest_external_trigger = self.rows_from_nearest_external_trigger*rowPeriodSeconds            
 
 
 def normalize(x):
@@ -1226,17 +1266,22 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def histsToHDF5(self, h5File, binEdges, attr="energy", cutRecipeName=None):
         for (channum, ds) in self.items():
-            ds.histsToHDF5(h5File, binEdges, attr, cutRecipeName)
+            usedCutRecipeName = self._handleDefaultCut(cutRecipeName)
+            ds.histsToHDF5(h5File, binEdges, attr, usedCutRecipeName)
         grp = h5File.require_group("all_channels")
         for state in self.stateLabels:  # hist for each state
-            binCenters, counts = self.hist(binEdges, attr, state, cutRecipeName)
+            binCenters, counts = self.hist(binEdges, attr, state, usedCutRecipeName)
             grp[f"{state}/bin_centers"] = binCenters
             grp[f"{state}/counts"] = counts
         binCenters, counts = self.hist(
-            binEdges, attr, cutRecipeName=cutRecipeName)  # all states hist
+            binEdges, attr, cutRecipeName=usedCutRecipeName)  # all states hist
+        grp["off_filename"] = self.offFileNames[0]
+        grp["attr"] = attr
+        grp["used_cut_recipe_name"] = usedCutRecipeName
         grp["bin_centers_ev"] = binCenters
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
+
 
     def markAllGood(self):
         with self.includeBad():
@@ -1277,49 +1322,13 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                         grp["states"] = str(states)
         return results
 
-    def setOutputDir(self, baseDir=None, deleteAndRecreate=None, suffix="_output"):
-        """Set the output directory to which plots and hdf5 files will go
-        baseDir -- the directory in which the output directory will exist
-        deleteAndRecreate (required keyword arg) -- if True, will delete the whole directory if it already exists
-        (good for if you re-run the same script alot)
-        if False, will attempt to create the directory,
-        if it already exists (like if you rerun the same script), it will error
-        suffix -- added to the first part of shortName to create the output directory name
 
-        Commonly called as one of:
-        data.setOutputDir(baseDir=os.getcwd(), deleteAndRecreate=True)
-        data.setOutputDir(baseDir=os.path.realpath(__file__), deleteAndRecreate=True)
-        """
-        self._baseDir = baseDir
-        dirname = self.shortName.split(" ")[0]+suffix
-        self._outputDir = os.path.join(self._baseDir, dirname)
-        if deleteAndRecreate is None:
-            raise Exception(
-                "deleteAndRecreate should be True or False, you can't use the default value")
-        if deleteAndRecreate:
-            if self.verbose:
-                print(f"deleting and recreating directory {self.outputDir}")
-            try:
-                shutil.rmtree(self.outputDir)
-            except Exception:
-                pass
-        os.mkdir(self.outputDir)
 
-    @property
-    def outputDir(self):
-        if hasattr(self, "_outputDir"):
-            return self._outputDir
-        else:
-            raise Exception("call setOutputDir first")
 
-    @property
-    def outputHDF5(self):
-        if not hasattr(self, "_outputHDF5Filename"):
-            filename = os.path.join(self.outputDir, self.shortName.split(" ")[0]+".hdf5")
-            self._outputHDF5Filename = filename
-            return h5py.File(self._outputHDF5Filename, "w")
-        else:
-            return h5py.File(self._outputHDF5Filename, "a")
+    def outputHDF5Filename(self, outputDir, addToName=""):
+        basename = self.shortName.split(" ")[0]
+        filename = os.path.join(outputDir, f"{basename}_{addToName}.hdf5")
+        return filename
 
     def resultPlot(self, lineName, states=None, binsize=None):
         results = [ds.linefit(lineName, plot=False, states=states, binsize=binsize)
@@ -1382,6 +1391,23 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             d = dill.load(f)
         for channum, recipes in d.items():
             self[channum].recipes = recipes
+
+    def _externalTriggerFilename(self):
+        datasetFilename = self.offFileNames[0]
+        basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
+        return basename+"_external_trigger.bin"
+    
+    def _externalTriggerRowcounts(self, filename = None):
+        if filename is None:
+            filename = self._externalTriggerFilename()
+        f = open(filename,"rb")
+        f.readline() # discard comment line
+        external_trigger_rowcount = np.fromfile(f,"int64")
+        return external_trigger_rowcount
+
+    def calcExternalTriggerTiming(self, after_last=True, until_next=False, from_nearest=False):
+        external_trigger_rowcount = self._externalTriggerRowcounts()
+        self._calcExternalTriggerTiming(external_trigger_rowcount, after_last, until_next, from_nearest, _rethrow=True)
 
 
 class ChannelFromNpArray(Channel):
