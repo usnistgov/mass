@@ -138,7 +138,7 @@ class TestFiles:
     def test_ragged_size_file(self):
         "Make sure we can open a file that was truncated during a pulse record."
         mass.LJHFile.open("tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh")
-    
+
     def test_peak_time_property(self):
         "Check that a peak during pretrigger is handled properly (issue 259)"
         # A clever trick to get pulses that peak during the pretrigger period: use noise records
