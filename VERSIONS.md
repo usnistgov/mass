@@ -10,6 +10,7 @@
 * Avoid scipy version 1.11.2, but not earlier or later, as only 1.11.2 makes our tests fail (issue 253).
 * Sort filenames correctly in `bin/ljh_merge` (issue 254).
 * Don't ignore the `use_only` and `never_use` lists in `TESGroup` constructor when making a pulse-only dataset (issue 255).
+* Allow `bin/ljh_merge` to accept multiple patters, enabling shell brace-expansion to work (issue 258).
 * Fix bug in the `p_peak_time` property so that peak times less than 0 are correct (issue 259).
 
 
