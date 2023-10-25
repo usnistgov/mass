@@ -1,10 +1,13 @@
 ## Note on version numbers of Mass
 
-**0.8.1** September 2023
+**0.8.1** September 2023-
 
 * Fix bug in fits where E-response has exponential tails (issue 250). Ensure `tail_tau` has consistent meaning indepdenent of energy scale. So keV-scale lines like MnKAlpha have same `tail_tau` meaning as the MeV lines as used in TrueBq.
 * `GenericLineModel.guess` now requires `dph_de` as an argument. This allows the guessed `fwhm` value to be in eV as intended, rather than arbs. This may break some user code.
 * Change high-E exponential tails models, so we vary _not_ the low and high tail fractions, but the total tail fraction and the share due to the high tail. Thus both can be fixed to the [0,1] range safely (issue 252).
+* Add an example MnKAlpha analysis with normal mass.
+* Updates to use external trigger in processing OFF files, made Oct 2023 at the EBIT.
+* Avoid scipy version 1.11.2, but not earlier or later, as only 1.11.2 makes our tests fail (issue 253).
 * Sort filenames correctly in `bin/ljh_merge` (issue 254).
 * Don't ignore the `use_only` and `never_use` lists in `TESGroup` constructor when making a pulse-only dataset (issue 255).
 * Fix bug in the `p_peak_time` property so that peak times less than 0 are correct (issue 259).
