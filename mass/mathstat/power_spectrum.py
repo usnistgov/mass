@@ -154,6 +154,23 @@ class PowerSpectrum:
         if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
         return np.arange(nbins+1, dtype=float)/(2*self.dt*nbins)
+    
+    def plot(self, axis=None, arb_to_unit_scale_and_label=(1,"arb"), sqrt_psd=True, **plotkwarg):
+        if axis is None:
+            plt.figure()
+            axis = plt.gca()
+        arb_to_unit_scale, unit_label = arb_to_unit_scale_and_label
+        psd = self.spectrum()[1:] * (arb_to_unit_scale**2)
+        freq = self.frequencies()[1:]
+        if sqrt_psd:
+            axis.plot(freq, np.sqrt(psd), **plotkwarg)
+            axis.set_ylabel(f"Amplitude Spectral Density ({unit_label}$^2$ Hz$^{{-1}}$)")
+        else:
+            axis.plot(freq, psd, **plotkwarg)
+            axis.set_ylabel(f"Power Spectral Density ({unit_label}$/\sqrt{{Hz}}$)")
+        plt.loglog()
+        axis.grid()
+        axis.set_xlabel("Frequency (Hz)")
 
 
 class PowerSpectrumOverlap(PowerSpectrum):

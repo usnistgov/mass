@@ -1597,7 +1597,7 @@ class MicrocalDataSet:
             self.noise_psd[:] = psd
 
     @_add_group_loop()
-    def compute_noise(self, max_excursion=1000, n_lags=None, forceNew=False):
+    def compute_noise_nlags(self, n_lags, max_excursion=1000):
         """Compute the noise autocorrelation and power spectrum of this channel.
 
         Args:
@@ -1608,8 +1608,27 @@ class MicrocalDataSet:
                 (default None).
             forceNew (bool): whether to recompute if it already exists (default False).
         """
-        if n_lags is None:
-            n_lags = self.noise_records.nSamples
+        self.noise_records_nlags = NoiseRecords(self.noise_records.filename)
+        self.noise_records_nlags.compute_power_spectrum_reshape(
+            max_excursion=max_excursion, seg_length=n_lags)
+        self.noise_records_nlags.compute_autocorrelation(
+            n_lags=n_lags, plot=False, max_excursion=max_excursion)
+        self.noise_records_nlags.plot_power_spectrum(sqrt_psd=False)
+
+
+    @_add_group_loop()
+    def compute_noise(self, max_excursion=1000, forceNew=False):
+        """Compute the noise autocorrelation and power spectrum of this channel.
+
+        Args:
+            max_excursion (number): the biggest excursion from the median allowed
+                in each data segment, or else it will be ignored (default 1000).
+            n_lags: if not None, the number of lags in each noise spectrum and the max lag
+                for the autocorrelation.  If None, the record length is used
+                (default None).
+            forceNew (bool): whether to recompute if it already exists (default False).
+        """
+        n_lags = self.noise_records.nSamples
         if forceNew or all(self.noise_autocorr[:] == 0):
             self.noise_records.compute_power_spectrum_reshape(
                 max_excursion=max_excursion, seg_length=n_lags)
@@ -1622,6 +1641,26 @@ class MicrocalDataSet:
             self.noise_psd.attrs['delta_f'] = self.noise_records.noise_psd.attrs['delta_f']
         else:
             LOG.info("chan %d skipping compute_noise because already done", self.channum)
+
+    def plot_noie(self, sqrt_psd=True, axis=None):
+        if axis is None:
+            plt.figure()
+            axis = plt.gca()
+        yvalue = self.noise_psd[:] * scale_factor**2
+        if sqrt_psd:
+            yvalue = np.sqrt(yvalue)
+            axis.set_ylabel(f"PSD$^{1/2}$ ({units}/Hz$^{1/2}$)")
+        try:
+            df = self.noise_psd.attrs['delta_f']
+            freq = np.arange(1, 1 + len(yvalue)) * df
+            axis.plot(freq, yvalue, label=f'Chan {channum}',
+                        color=cmap(float(i) / nplot))
+        except Exception:
+            LOG.warning("WARNING: Could not plot channel %4d.", channum)
+        axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
+        axis.set_ylabel(f"Power Spectral Density ({units}^2/Hz)")
+        axis.set_xlabel("Frequency (Hz)")
+        axis.loglog()
 
     # Rename compute_noise_spectra -> compute_noise, because the latter is a better name!
     # But use deprecation to not immediately break all code.
