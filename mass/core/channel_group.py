@@ -188,7 +188,10 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 noise_filenames = (noise_filenames,)
             self.noise_filenames = noise_filenames
             try:
-                self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'a')
+                if overwrite_hdf5_file:
+                    self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'w')
+                else:
+                    self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'a')
             except OSError:
                 # if the noise file is corrupted, we will get an OSError
                 # open with write intent, which will clobber the existing file
