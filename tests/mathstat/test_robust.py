@@ -24,11 +24,11 @@ class Test_Shorth:
         x = np.array([1, 4.6, 6, 8, 11])
         r, shr_mean, shr_ctr = shorth_range(x, normalize=False, location=True)
         assert r == x[3]-x[1], \
-                         "Did not find shortest half range in length-5 list"
+            "Did not find shortest half range in length-5 list"
         assert shr_mean == x[1:4].mean(), \
-                         "Did not find shortest half mean in length-5 list"
+            "Did not find shortest half mean in length-5 list"
         assert shr_ctr == 0.5*(x[1]+x[3]), \
-                         "Did not find shortest half center in length-5 list"
+            "Did not find shortest half center in length-5 list"
 
         r = shorth_range([2, 4, 6, 8, 11, 15], normalize=False)
         assert r == 6, "Did not find shortest half range in length-6 list"
@@ -37,9 +37,9 @@ class Test_Shorth:
         r, shr_mean, shr_ctr = shorth_range(x, normalize=False, location=True)
         assert r == x[4]-x[1], "Did not find shortest half range in length-6 list"
         assert shr_mean == x[1:5].mean(), \
-                         "Did not find shortest half mean in length-6 list"
+            "Did not find shortest half mean in length-6 list"
         assert shr_ctr == 0.5*(x[1]+x[4]), \
-                         "Did not find shortest half center in length-6 list"
+            "Did not find shortest half center in length-6 list"
 
     def test_sort_inplace(self):
         """Verify behavior of the sort_inplace argument."""
@@ -55,7 +55,7 @@ class Test_Shorth:
 
         assert shorth_range(y, sort_inplace=True) is not None
         assert y[0] == 1, \
-                         "shorth_range has not sorted a ndarray in place when requested to do so."
+            "shorth_range has not sorted a ndarray in place when requested to do so."
 
 
 class Test_High_Median:
@@ -81,31 +81,31 @@ class Test_High_Median:
 
         x, w = [1, 2, 3, 4, 5], [3, 1, 1, 1, 3]
         assert high_median(x, w) == 3, \
-                         "Failed high_median on balanced, odd-summed weights."
+            "Failed high_median on balanced, odd-summed weights."
         x, w = scramble(x, w)
         assert high_median(x, w) == 3, \
-                         "Failed high_median on balanced, odd-summed weights."
+            "Failed high_median on balanced, odd-summed weights."
 
         x, w = [1, 2, 3, 4, 5], [3, 1, 2, 1, 3]
         assert high_median(x, w) == 3, \
-                         "Failed high_median on balanced, even-summed weights."
+            "Failed high_median on balanced, even-summed weights."
         x, w = scramble(x, w)
         assert high_median(x, w) == 3, \
-                         "Failed high_median on balanced, even-summed weights."
+            "Failed high_median on balanced, even-summed weights."
 
         x, w = [1, 2, 3, 4, 5], [3, 1, 1, 1, 1]
         assert high_median(x, w) == 2, \
-                         "Failed high_median on unbalanced odd-summed weights."
+            "Failed high_median on unbalanced odd-summed weights."
         x, w = scramble(x, w)
         assert high_median(x, w) == 2, \
-                         "Failed high_median on unbalanced odd-summed weights."
+            "Failed high_median on unbalanced odd-summed weights."
 
         x, w = [1, 2, 3, 4, 5], [4, 1, 1, 1, 1]
         assert high_median(x, w) == 2, \
-                         "Failed high_median on even-summed weights."
+            "Failed high_median on even-summed weights."
         x, w = scramble(x, w)
         assert high_median(x, w) == 2, \
-                         "Failed high_median on even-summed weights."
+            "Failed high_median on even-summed weights."
 
         x, w = [1, 2, 3, 4, 5], [5, 1, 1, 1, 1]
         assert high_median(x, w) == 1, "Failed high_median on answer=lowest."
