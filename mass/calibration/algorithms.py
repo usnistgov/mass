@@ -170,7 +170,7 @@ class FailedFit:
 class FailedToGetModelException(Exception):
     pass
 
-def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
+def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False, prefix=""):
     if isinstance(lineNameOrEnergy, mass.GenericLineModel):
         line = lineNameOrEnergy.spect
     elif isinstance(lineNameOrEnergy, mass.SpectralLine):
@@ -184,6 +184,8 @@ def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
         else:
             raise FailedToGetModelException(
                 f"failed to get line from lineNameOrEnergy={lineNameOrEnergy}")
+    elif isinstance(lineNameOrEnergy, mass.MLEModel):
+        return lineNameOrEnergy
     else:
         try:
             energy = float(lineNameOrEnergy)
@@ -193,7 +195,7 @@ def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
                 "a str in mass.spectra or mass.STANDARD_FEATURES")
         line = mass.SpectralLine.quick_monochromatic_line(
             f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
-    return line.model(has_linear_background=has_linear_background, has_tails=has_tails)
+    return line.model(has_linear_background=has_linear_background, has_tails=has_tails, prefix=prefix)
 # support both names as they were both used historically
 getmodel = get_model
 
