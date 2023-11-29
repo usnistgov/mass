@@ -463,9 +463,7 @@ class ExperimentalFilter(Filter):
         <tau>            Time constant of exponential to filter out (in milliseconds)
         """
 
-        if isinstance(tau, (int, float)):
-            tau = [tau]
-        self.tau = tau  # in milliseconds; can be a sequence of taus
+        self.tau = tau  # in milliseconds
         super(self.__class__, self).__init__(avg_signal, n_pretrigger, noise_psd,
                                              noise_autocorr, sample_time=sample_time, shorten=shorten)
 
@@ -512,20 +510,20 @@ class ExperimentalFilter(Filter):
             ts = mass.mathstat.toeplitz.ToeplitzSolver(R, symmetric=True)
 
             unit = np.ones(n)
-            exps = [np.exp(-expx / tau) for tau in self.tau]
+            exps = np.exp(-expx / self.tau)
             cht1 = sp.special.chebyt(1)(chebyx)
             cht2 = sp.special.chebyt(2)(chebyx)
             cht3 = sp.special.chebyt(3)(chebyx)
             deriv = avg_signal - np.roll(avg_signal, 1)
             deriv[0] = 0
 
-            Rinv_sig = ts(avg_signal)
-            Rinv_unit = ts(unit)
-            Rinv_exps = [ts(e) for e in exps]
-            Rinv_cht1 = ts(cht1)
-            Rinv_cht2 = ts(cht2)
-            Rinv_cht3 = ts(cht3)
-            Rinv_deriv = ts(deriv)
+            Rinvs = {"sig": ts(avg_signal), 
+                     "unit": ts(unit),
+                     "exps": ts(exps),
+                     "cht1": ts(cht1),
+                     "cht2": ts(cht2),
+                     "cht3": ts(cht3),
+                     "deriv": ts(deriv)}
 
             # Band-limit
             def band_limit(vector, fmax, f_3db):
@@ -541,17 +539,14 @@ class ExperimentalFilter(Filter):
                 vector[:] = np.fft.irfft(sig_ft, n=filt_length)
 
             if fmax is not None or f_3db is not None:
-                for vector in Rinv_sig, Rinv_unit, Rinv_cht1, Rinv_cht2, Rinv_cht3, Rinv_deriv:
-                    band_limit(vector, fmax, f_3db)
-                for vector in Rinv_exps:
+                for k, vector in Rinvs.items():
                     band_limit(vector, fmax, f_3db)
 
-            exp_orthogs = ['exps[%d]' % i for i in range(len(self.tau))]
             orthogonalities = {
                 'filt_full': (),
                 'filt_noconst': ('unit',),
-                'filt_noexp': exp_orthogs,
-                'filt_noexpcon': ['unit'] + exp_orthogs,
+                'filt_noexp': ["exps"],
+                'filt_noexpcon': ['unit', "exps"],
                 'filt_noslope': ('cht1',),
                 'filt_nopoly1': ('unit', 'cht1'),
                 'filt_nopoly2': ('unit', 'cht1', 'cht2'),
@@ -562,11 +557,11 @@ class ExperimentalFilter(Filter):
             for shortname in ('full', 'noexp', 'noconst', 'noexpcon', 'nopoly1', 'noderivcon'):
                 name = 'filt_%s' % shortname
                 orthnames = orthogonalities[name]
-                filt = Rinv_sig
+                Rinv_sig = Rinvs["sig"]
 
                 N_orth = len(orthnames)  # To how many vectors are we orthgonal?
                 if N_orth > 0:
-                    u = np.vstack((Rinv_sig, [eval('Rinv_%s' % v) for v in orthnames]))
+                    u = np.vstack((Rinv_sig, [Rinvs[v] for v in orthnames]))
                 else:
                     u = Rinv_sig.reshape((1, n))
                 M = np.zeros((1 + N_orth, 1 + N_orth), dtype=float)
@@ -585,10 +580,10 @@ class ExperimentalFilter(Filter):
                 self.normalize_filter(filt)
                 self.__dict__[name] = filt
 
-                print('%15s' % name),
-                for v in (avg_signal, np.ones(n), np.exp(-expx / self.tau[0]), sp.special.chebyt(1)(chebyx),
-                          sp.special.chebyt(2)(chebyx)):
-                    print('%10.5f ' % np.dot(v, filt)),
+                # print('%15s' % name),
+                # for v in (avg_signal, np.ones(n), np.exp(-expx / self.tau), sp.special.chebyt(1)(chebyx),
+                #           sp.special.chebyt(2)(chebyx)):
+                #     print('%10.5f ' % np.dot(v, filt)),
 
                 self.variances[shortname] = self.bracketR(filt, R)
                 fw = np.sqrt(8 * np.log(2))
@@ -597,7 +592,7 @@ class ExperimentalFilter(Filter):
                 print(f'Res={res:6.3f} eV = {eV:.5f}')
 
             self.filt_baseline = np.dot(avg_signal, Rinv_sig) * \
-                Rinv_unit - Rinv_sig.sum() * Rinv_sig
+                Rinvs["unit"] - Rinv_sig.sum() * Rinv_sig
             self.filt_baseline /= self.filt_baseline.sum()
             self.variances['baseline'] = self.bracketR(self.filt_baseline, R)
 
