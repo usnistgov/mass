@@ -238,7 +238,20 @@ def hamming(n):
     return np.hamming(n)
 
 # Convenience functions
+def autocorrelation_broken_from_pulses(noise_pulses):
+    """noise_pulses[:,0] is the first pulse"""
+    nsamples, npulses = noise_pulses.shape
+    records_used = samples_used = 0
+    ac = np.zeros(nsamples, dtype=float)
 
+    for i in range(npulses):
+        pulse = noise_pulses[:,i]
+        pulse -= pulse.mean()
+        ac += np.correlate(pulse, pulse, 'full')[nsamples-1:]
+
+    ac /= npulses
+    ac /= nsamples - np.arange(nsamples, dtype=float)
+    return ac
 
 def computeSpectrum(data, segfactor=1, dt=None, window=None):
     """Convenience function to compute the power spectrum of a single data array.
