@@ -494,7 +494,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # This is needed because the @_add_group_loop decorator does not preserve warnings
         # and hand them up.
         for ds in self:
-            ds.compute_noise(max_excursion=max_excursion, n_lags=n_lags, forceNew=forceNew)
+            ds.compute_noise(max_excursion=max_excursion, forceNew=forceNew)
 
     def sample2segnum(self, samplenum):
         """Returns the segment number of sample number <samplenum>."""
