@@ -1642,26 +1642,6 @@ class MicrocalDataSet:
         else:
             LOG.info("chan %d skipping compute_noise because already done", self.channum)
 
-    def plot_noie(self, sqrt_psd=True, axis=None):
-        if axis is None:
-            plt.figure()
-            axis = plt.gca()
-        yvalue = self.noise_psd[:] * scale_factor**2
-        if sqrt_psd:
-            yvalue = np.sqrt(yvalue)
-            axis.set_ylabel(f"PSD$^{1/2}$ ({units}/Hz$^{1/2}$)")
-        try:
-            df = self.noise_psd.attrs['delta_f']
-            freq = np.arange(1, 1 + len(yvalue)) * df
-            axis.plot(freq, yvalue, label=f'Chan {channum}',
-                        color=cmap(float(i) / nplot))
-        except Exception:
-            LOG.warning("WARNING: Could not plot channel %4d.", channum)
-        axis.set_xlim([freq[1] * 0.9, freq[-1] * 1.1])
-        axis.set_ylabel(f"Power Spectral Density ({units}^2/Hz)")
-        axis.set_xlabel("Frequency (Hz)")
-        axis.loglog()
-
     # Rename compute_noise_spectra -> compute_noise, because the latter is a better name!
     # But use deprecation to not immediately break all code.
     @_add_group_loop()
