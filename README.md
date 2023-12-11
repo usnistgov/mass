@@ -35,6 +35,11 @@ Mass requires Python version 3.8 or higher. You will might need to add an ssh ke
 cd ~/somewhere/to/install/code
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass
 ```
+or if you don't add an ssh key to your account this can work
+```
+pip install -e git+https://bitbucket.org/joe_fowler/mass#egg=mass
+```
+
 In the above instance, mass will be installed as `~/somewhere/to/install/code/src/mass`. That penultimate directory (`src/`) follows from pip's rules.
 
 If you want to install a certain branch "branchname", you can go to the installation directory and use the usual git commands to change branches, or you can install directly from the branch of choice like this:
