@@ -103,7 +103,7 @@ class MLEModel(lmfit.Model):
         # be inlcuded in the calculate on ndegrees of freedome, and therefore reduced chisq
         # GCO tried setting self.ndata here, but it doesn't persist
         # not clear how to calculate reduced chisq correctly
-        
+
         # Calculate the sqrt(2*r2) in place into vals.
         # The mask for r2>0 avoids the problem found in MASS issue #217.
         vals = np.zeros_like(r2)
@@ -345,14 +345,14 @@ class LineModelResult(lmfit.model.ModelResult):
             if v.vary:
                 if v.stderr is None:
                     sig_figs = 2
-                    s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±None\n"
+                    s += f"{sn.get(k, k):7} {v.value:.{sig_figs}g}±None\n"
                 else:
                     sig_figs = int(np.ceil(np.log10(np.abs(v.value/v.stderr)))+1)
                     sig_figs = max(1, sig_figs)
-                    s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
+                    s += f"{sn.get(k, k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
             else:
                 sig_figs = 2
-                s += f"{sn.get(k,k):7} {v.value:.{sig_figs}g} HELD\n"
+                s += f"{sn.get(k, k):7} {v.value:.{sig_figs}g} HELD\n"
         s += f"redchi  {self.redchi:.2g}"
         return s
 

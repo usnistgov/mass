@@ -141,10 +141,11 @@ data.resultPlot("W Ni-20", states=["W 1"])
 
 print(data.whyChanBad)
 
-with h5py.File(data.outputHDF5Filename(outputDir=".", addToName="qualitychecklinefit"),"w") as h5:
+outfile = data.outputHDF5Filename(outputDir=".", addToName="qualitychecklinefit")
+with h5py.File(outfile, "w") as h5:
     results = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
-                                    worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
-                                    resolutionPlot=True, hdf5Group=h5)
+                                       worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
+                                       resolutionPlot=True, hdf5Group=h5)
 
 
 # h5 = h5py.File(data.outputHDF5.filename, "r")  # dont use with here, it will hide errors
@@ -562,16 +563,18 @@ def test_open_many_OFF_files():
     finally:
         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
+
 def test_listmode_to_hdf5():
-    filename = data.outputHDF5Filename(outputDir=".",addToName="listmode")
-    with h5py.File(filename,"w") as h5:
+    filename = data.outputHDF5Filename(outputDir=".", addToName="listmode")
+    with h5py.File(filename, "w") as h5:
         data.energyTimestampLabelToHDF5(h5)
     with h5py.File(filename, "r") as h5:
-       h5["3"]["Ar"]["unixnano"]
+        h5["3"]["Ar"]["unixnano"]
+
 
 def test_hists_to_hdf5():
-    filename = data.outputHDF5Filename(outputDir=".",addToName="hists")
-    with h5py.File(filename,"w") as h5:
-        data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")    
+    filename = data.outputHDF5Filename(outputDir=".", addToName="hists")
+    with h5py.File(filename, "w") as h5:
+        data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")
     with h5py.File(filename, "r") as h5:
         h5["3"]["Ar"]["counts"]

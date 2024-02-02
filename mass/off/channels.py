@@ -1,6 +1,5 @@
 # std lib imports
 import os
-import shutil
 import logging
 import collections
 
@@ -8,7 +7,6 @@ import collections
 import numpy as np
 import pylab as plt
 import fastdtw
-import h5py
 import lmfit
 import scipy.interpolate
 from mass.common import tostr
@@ -757,7 +755,6 @@ class Channel(CorG):
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
 
-
     @add_group_loop
     def energyTimestampLabelToHDF5(self, h5File, cutRecipeName=None):
         usedCutRecipeName = self._handleDefaultCut(cutRecipeName)
@@ -770,11 +767,14 @@ class Channel(CorG):
                 state_inds = tuple(self.getStatesIndicies(states=[state]))
                 cut_inds_in_state = self.getAttr(usedCutRecipeName, [state], "cutNone")
                 if hasattr(self, "seconds_after_last_external_trigger"):
-                    grp[f"{state}/seconds_after_last_external_trigger"] = self.seconds_after_last_external_trigger[state_inds][cut_inds_in_state]
+                    grp[f"{state}/seconds_after_last_external_trigger"] = \
+                        self.seconds_after_last_external_trigger[state_inds][cut_inds_in_state]
                 if hasattr(self, "seconds_until_next_external_trigger"):
-                    grp[f"{state}/seconds_until_next_external_trigger"] = self.seconds_until_next_external_trigger[state_inds][cut_inds_in_state]
+                    grp[f"{state}/seconds_until_next_external_trigger"] = \
+                        self.seconds_until_next_external_trigger[state_inds][cut_inds_in_state]
                 if hasattr(self, "seconds_from_nearest_external_trigger"):
-                    grp[f"{state}/seconds_from_nearest_external_trigger"] = self.seconds_from_nearest_external_trigger[state_inds][cut_inds_in_state]
+                    grp[f"{state}/seconds_from_nearest_external_trigger"] = \
+                        self.seconds_from_nearest_external_trigger[state_inds][cut_inds_in_state]
         else:
             energy, unixnano = self.getAttr(
                 ["energy", "unixnano"], slice(None), usedCutRecipeName)
@@ -782,8 +782,6 @@ class Channel(CorG):
             grp[f"{state}/unixnano"] = unixnano
         grp["off_filename"] = self.offFile.filename
         grp["used_cut_recipe_name"] = usedCutRecipeName
-
-
 
     @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute=None, thresholdSigmaFromMedianAbsoluteValue=None):
@@ -840,13 +838,13 @@ class Channel(CorG):
     @property
     def rowPeriodSeconds(self):
         nRows = self.offFile.header["ReadoutInfo"]["NumberOfRows"]
-        rowcount = self.offFile["framecount"] * nRows
+        self.offFile["framecount"] * nRows
         return self.offFile.framePeriodSeconds/float(nRows)
-    
+
     @property
     def rowcount(self):
         return self.offFile["framecount"] * self.offFile.header["ReadoutInfo"]["NumberOfRows"]
-    
+
     @add_group_loop
     def _calcExternalTriggerTiming(self, external_trigger_rowcount, after_last, until_next, from_nearest):
         rows_after_last_external_trigger, rows_until_next_external_trigger = \
@@ -860,8 +858,8 @@ class Channel(CorG):
             self.seconds_until_next_external_trigger = rows_until_next_external_trigger*rowPeriodSeconds
         if from_nearest:
             self.rows_from_nearest_external_trigger = np.fmin(rows_after_last_external_trigger,
-                                       rows_until_next_external_trigger)
-            self.seconds_from_nearest_external_trigger = self.rows_from_nearest_external_trigger*rowPeriodSeconds            
+                                                              rows_until_next_external_trigger)
+            self.seconds_from_nearest_external_trigger = self.rows_from_nearest_external_trigger*rowPeriodSeconds
 
 
 def normalize(x):
@@ -1282,7 +1280,6 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         grp["counts"] = counts
         grp["name_of_energy_indicator"] = attr
 
-
     def markAllGood(self):
         with self.includeBad():
             for (channum, ds) in self.items():
@@ -1321,9 +1318,6 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
                             grp[k+"_err"] = v.stderr
                         grp["states"] = str(states)
         return results
-
-
-
 
     def outputHDF5Filename(self, outputDir, addToName=""):
         basename = self.shortName.split(" ")[0]
@@ -1396,13 +1390,13 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         datasetFilename = self.offFileNames[0]
         basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
         return basename+"_external_trigger.bin"
-    
-    def _externalTriggerRowcounts(self, filename = None):
+
+    def _externalTriggerRowcounts(self, filename=None):
         if filename is None:
             filename = self._externalTriggerFilename()
-        f = open(filename,"rb")
-        f.readline() # discard comment line
-        external_trigger_rowcount = np.fromfile(f,"int64")
+        f = open(filename, "rb")
+        f.readline()  # discard comment line
+        external_trigger_rowcount = np.fromfile(f, "int64")
         return external_trigger_rowcount
 
     def calcExternalTriggerTiming(self, after_last=True, until_next=False, from_nearest=False):
