@@ -31,38 +31,58 @@ As of this writing (November 8, 2023), it is 12,000 lines of Python (plus 3000 l
 ## Installation
 Mass requires Python version 3.8 or higher. You will might need to add an ssh key to your bitbucket account to get the installation to work.
 
+You have two choices. You can install inside a virtual environment (recommended) or without one.
+
+### 1. Virtual environment
+
+If you haven't set up a virtual environment, you can do it in a single lines. The following assumes that you want your virtual environment to be name `qsp` (=quantum sensors project):
+```
+python3 -m venv ~/qsp
+source ~/qsp/bin/activate
+pip install --upgrade pip
+pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass
+```
+
+1. The first line is safe (but optional) if you already have a virtualenv at ~/qsp/. If you don't, it creates one.
+2. The second line must be used in every shell where you want that virtualenv to be active.
+3. The third is optional but not a bad idea.
+4. The fourth installs mass in `~/qsp/src/mass/`, which is within your virtual environment.
+
+If you install in a virtual environment, the install location will be inside the `MYVENV/src/mass` where `MYVENV` is the name of your venv. You can switch git branches and update from bitbucket in that directory and have everything take effect immediately (except for compiling changes in Cython; see below).
+
+
+### 2. No virtual environment
+
+To install mass in `~/somewhere/to/install/code` you do this:
 ```
 cd ~/somewhere/to/install/code
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass
 ```
-or if you don't add an ssh key to your account this can work
+
+If you don't add an ssh key to your account this can work
 ```
 pip install -e git+https://bitbucket.org/joe_fowler/mass#egg=mass
 ```
 
 In the above instance, mass will be installed as `~/somewhere/to/install/code/src/mass`. That penultimate directory (`src/`) follows from pip's rules.
 
-If you want to install a certain branch "branchname", you can go to the installation directory and use the usual git commands to change branches, or you can install directly from the branch of choice like this:
+If you want to install a certain branch `branchname``, you can go to the installation directory and use the usual git commands to change branches, or you can install directly from the branch of choice with the syntax `@branchname`, like this:
 ```
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@branchname#egg=mass
 ```
 
-If you want to update the installation, you can do so via the usual git (`git pull`) from the installed directory, or you can:
+### Updating the installation (or recompiling Cython)
+
+The `-e` argument to the `pip install` command makes development really easy: you can change python files, and the next time you import mass the new files will be used. If you change Cython files or other complied files you should install again. That's as simple as a single command issued from within the source directory:
 ```
-pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass --upgrade
+pip install -e .
 ```
-It's possible that the above would also help you to re-install if you do something drastic such as change from using Python 3.9 to 3.10. (Not tested!)
 
-See the [`nist-qsp-tdm README`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) for instructions to install all Python software simultaneously for a TDM operation, and how to setup venv.
+You would also need that command if you change the Cython code, which must be recompiled. (If you change only python code, the step above isn't required.) It's possible that the above would also help you to re-install if you do something drastic such as change from using Python 3.9 to 3.10. (Not tested!)
 
-You may need to install Visual Studio Community Edition in order to run on Windows.
+See the [`nist-qsp-tdm README`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) for further instructions to install all Python software simultaneously for a TDM operation, and how to setup venv.
 
-### Install location
-If you install in a virtual environment (a "venv"), the install location will be inside the `MYVENV/src/mass` where `MYVENV` is the name of your venv.
-Otherwise will will just be in mass relative to where you run the pip command.
-
-### -e
-The `-e` argument to the `pip install` command makes development really easy, you can change python files; the next time you import mass the new files will be used. If you change Cython files or other complied files you should install again. Do `pip install -e .` from within the source directory.
+**Windows users:** You may need to install Visual Studio Community Edition to run on Windows.
 
 
 
@@ -71,7 +91,7 @@ Mass installs 2 scripts (as of November 2023). These are `make_projectors` and `
 
 
 ### Python 2.7
-If you really want to use Python 2.7, know that MASS version 0.7.5 is the last one tested on Python 2.7. You can install it with the following command:
+If you really want to use Python 2.7, know that MASS version 0.7.5 is the last one tested on Python 2.7. You can install the tag `versions/0.7.5` with the following command:
 ```
 pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@versions/0.7.5#egg=mass
 ```

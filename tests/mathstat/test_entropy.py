@@ -122,7 +122,7 @@ class Test_LaplaceEntropy:
         e = laplace_cross_entropy(z, x, .1, "approx")
         assert e == pytest.approx(0.8189687816571245)
         e = laplace_cross_entropy(x, z, .1, "approx")
-        assert e == pytest.approx(0.8189547106424491)
+        assert e == pytest.approx(0.8189542, rel=1e-6)
 
     def test_empty(self):
         """Make sure entropy raises ValueError when either input is empty."""

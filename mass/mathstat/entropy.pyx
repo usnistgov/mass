@@ -129,9 +129,9 @@ cdef laplace_entropy_approx(x, w=1.0):
     kde[kde < kernel.min()] = kernel.min()
 
     # p = normalized probability distribution.
-    cdef double norm = 1.0/sp.integrate.simps(kde, dx=db, even="first")
+    cdef double norm = 1.0/sp.integrate.simpson(kde, dx=db)
     p = kde*norm
-    return -sp.integrate.simps(p*np.log(p), dx=db, even="first")
+    return -sp.integrate.simpson(p*np.log(p), dx=db)
 
 
 @cython.embedsignature(True)
@@ -358,11 +358,11 @@ cdef laplace_cross_entropy_approx(np.ndarray[DTYPE_t, ndim=1] x,
     kde[kde < kernel.min()] = kernel.min()
 
     # p = normalized probability distribution.
-    cdef double norm = 1.0/sp.integrate.simps(kde, dx=db, even="first")
+    cdef double norm = 1.0/sp.integrate.simpson(kde, dx=db)
     p = kde*norm
 
     kde = sp.signal.fftconvolve(cy, kernel, mode="full")[nx:-nx]
     kde[kde < kernel.min()] = kernel.min()
-    norm = 1.0/sp.integrate.simps(kde, dx=db, even="first")
+    norm = 1.0/sp.integrate.simpson(kde, dx=db)
     q = kde*norm
-    return -sp.integrate.simps(p*np.log(q), dx=db, even="first")
+    return -sp.integrate.simpson(p*np.log(q), dx=db)
