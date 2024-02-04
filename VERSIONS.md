@@ -1,5 +1,10 @@
 ## Note on version numbers of Mass
 
+**0.8.2** February 2024-
+
+* Fix bug in reading certain external trigger files (issue 262).
+* Improve installation instructions in README (issue 261).
+
 **0.8.1** February 4, 2024
 
 * Fix bug in fits where E-response has exponential tails (issue 250). Ensure `tail_tau` has consistent meaning indepdenent of energy scale. So keV-scale lines like MnKAlpha have same `tail_tau` meaning as the MeV lines as used in TrueBq.
