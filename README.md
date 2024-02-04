@@ -49,9 +49,9 @@ pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@branchname#egg=ma
 
 If you want to update the installation, you can do so via the usual git (`git pull`) from the installed directory, or you can:
 ```
-pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git#egg=mass --upgrade
+pip install -e git+ssh://git@bitbucket.org/joe_fowler/mass.git@branchname#egg=mass --upgrade
 ```
-It's possible that the above would also help you to re-install if you do something drastic such as change from using Python 3.9 to 3.10. (Not tested!)
+You would also need that command if you change the Cython code, which must be recompiled. (If you change only python code, the step above isn't required.) It's possible that the above would also help you to re-install if you do something drastic such as change from using Python 3.9 to 3.10. (Not tested!)
 
 See the [`nist-qsp-tdm README`](https://bitbucket.org/nist_microcal/nist-qsp-tdm) for instructions to install all Python software simultaneously for a TDM operation, and how to setup venv.
 
@@ -59,7 +59,7 @@ You may need to install Visual Studio Community Edition in order to run on Windo
 
 ### Install location
 If you install in a virtual environment (a "venv"), the install location will be inside the `MYVENV/src/mass` where `MYVENV` is the name of your venv.
-Otherwise will will just be in mass relative to where you run the pip command.
+Otherwise will will just be in the new subdirectory `mass`` relative to your currend directory when you run the pip command.
 
 ### -e
 The `-e` argument to the `pip install` command makes development really easy, you can change python files; the next time you import mass the new files will be used. If you change Cython files or other complied files you should install again. Do `pip install -e .` from within the source directory.
