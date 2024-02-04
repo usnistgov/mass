@@ -66,6 +66,7 @@ class TestSummaries:
     def test_ext_trigger_reading(self):
         ds = self.data.datasets[0]
         dummy = ds.external_trigger_rowcount
+        nt.assert_equal(ds.n_ext_trigger_rows, 64)
 
     def test_summaries(self):
         nt.assert_allclose(self.data.datasets[0].p_peak_index, self.d['p_peak_index'])

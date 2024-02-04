@@ -13,6 +13,7 @@ import matplotlib.pylab as plt
 import inspect
 import os
 import sys
+import re
 from packaging import version
 from deprecated import deprecated
 
@@ -810,10 +811,14 @@ class MicrocalDataSet:
             else:
                 basename, _ = ljh_util.ljh_basename_channum(self.filename)
                 filename = f"{basename}_external_trigger.bin"
+                self.n_ext_trigger_rows = self.number_of_rows
                 with open(filename, "rb") as f:
-                    f.readline()  # read and discard the header comments line
+                    header_text = f.readline().decode()
+                    m = re.match(r".*\(nrow=(.*)\)\n", header_text)
+                    if m is not None:
+                        self.n_ext_trigger_rows = int(m.groups()[0])
                     self._external_trigger_rowcount = np.fromfile(f, dtype="int64")
-            self.row_timebase = self.timebase/float(self.number_of_rows)
+            self.row_timebase = self.timebase/float(self.n_ext_trigger_rows)
         return self._external_trigger_rowcount
 
     @property
@@ -821,7 +826,7 @@ class MicrocalDataSet:
         """This is not a posix timestamp, it is just the external trigger rowcount converted to seconds
         based on the nominal clock rate of the crate.
         """
-        return self.external_trigger_rowcount[:]*self.timebase/float(self.number_of_rows)
+        return self.external_trigger_rowcount[:]*self.timebase/float(self.n_ext_trigger_rows)
 
     @property
     def rows_after_last_external_trigger(self):
