@@ -810,8 +810,8 @@ class MicrocalDataSet:
             else:
                 basename, _ = ljh_util.ljh_basename_channum(self.filename)
                 filename = f"{basename}_external_trigger.bin"
-                with open(filename, "r") as f:
-                    f.readline()  # read the header comments line
+                with open(filename, "rb") as f:
+                    f.readline()  # read and discard the header comments line
                     self._external_trigger_rowcount = np.fromfile(f, dtype="int64")
             self.row_timebase = self.timebase/float(self.number_of_rows)
         return self._external_trigger_rowcount
