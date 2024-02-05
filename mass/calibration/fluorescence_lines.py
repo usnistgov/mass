@@ -1273,6 +1273,64 @@ addline(
 )
 
 
+addline(
+    element="Sm",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Zschornack",
+    nominal_peak_energy=40118.48,
+    energies=np.array([39523.39, 40118.48]),
+    lorentzian_fwhm=np.array([22.8, 22.6]),
+    reference_amplitude=np.array([5.12, 9.27]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=40118.48-39523.39,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Sm",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Zschornack",
+    nominal_peak_energy=45413.0,
+    energies=np.array([45288.6, 45413.0]),
+    lorentzian_fwhm=np.array([26.2, 26.6]),
+    reference_amplitude=np.array([0.927, 1.797]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Tb",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Zschornack",
+    nominal_peak_energy=44482.7,
+    energies=np.array([43744.6, 44482.7]),
+    lorentzian_fwhm=np.array([27.0, 26.9]),
+    reference_amplitude=np.array([6.3, 11.3]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=44482.7-43744.6,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Tb",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Zschornack",
+    nominal_peak_energy=50382.9,
+    energies=np.array([50229.8, 50382.9]),
+    lorentzian_fwhm=np.array([31.7, 31.8]),
+    reference_amplitude=np.array([1.15, 2.33]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
 def plot_all_spectra(maxplots=10):
     """Makes plots showing the line shape and component parts for some lines.
     Intended to replicate plots in the literature giving spectral lineshapes."""
