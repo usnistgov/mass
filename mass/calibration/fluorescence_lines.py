@@ -1303,6 +1303,35 @@ addline(
 
 
 addline(
+    element="Gd",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Zschornack",
+    nominal_peak_energy=42996.72,
+    energies=np.array([42309.30, 42996.72]),
+    lorentzian_fwhm=np.array([25.5, 25.4]),
+    reference_amplitude=np.array([5.9, 10.6]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=42996.72-42309.30,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Gd",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Zschornack",
+    nominal_peak_energy=48696.9,
+    energies=np.array([48555.8, 49696.9]),
+    lorentzian_fwhm=np.array([29.5, 30.0]),
+    reference_amplitude=np.array([1.10, 2.13]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
     element="Tb",
     material="metal",
     linetype="KAlpha",
@@ -1326,6 +1355,64 @@ addline(
     energies=np.array([50229.8, 50382.9]),
     lorentzian_fwhm=np.array([31.7, 31.8]),
     reference_amplitude=np.array([1.15, 2.33]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Dy",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Zschornack",
+    nominal_peak_energy=45998.94,
+    energies=np.array([45208.27, 45998.94]),
+    lorentzian_fwhm=np.array([28.54, 28.41]),
+    reference_amplitude=np.array([6.68, 11.94]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=45998.94-45208.27,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Dy",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Zschornack",
+    nominal_peak_energy=52119.7,
+    energies=np.array([51958.1, 52119.7]),
+    lorentzian_fwhm=np.array([33.5, 33.66]),
+    reference_amplitude=np.array([1.23, 2.376]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Ho",
+    material="metal",
+    linetype="KAlpha",
+    reference_short="Zschornack",
+    nominal_peak_energy=47546.70,
+    energies=np.array([46699.70, 47546.70]),
+    lorentzian_fwhm=np.array([30.16, 30.04]),
+    reference_amplitude=np.array([7.13, 12.69]),
+    reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
+    ka12_energy_diff=47546.70-46699.70,
+    reference_plot_instrument_gaussian_fwhm=None
+)
+
+
+addline(
+    element="Ho",
+    material="metal",
+    linetype="KBeta",
+    reference_short="Zschornack",
+    nominal_peak_energy=53877.0,
+    energies=np.array([53711.0, 53877.0]),
+    lorentzian_fwhm=np.array([35.4, 35.6]),
+    reference_amplitude=np.array([1.31, 2.54]),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
     reference_plot_instrument_gaussian_fwhm=None
 )
