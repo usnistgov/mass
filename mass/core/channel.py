@@ -800,24 +800,25 @@ class MicrocalDataSet:
         peak_index = np.asarray(self.p_peak_index[:], dtype=float)
         return (peak_index - self.nPresamples) * self.timebase
 
+    # TODO: Why is this a per-channel property? Makes no sense!
     @property
     def external_trigger_rowcount(self):
         if self._external_trigger_rowcount is None:
-            filename = ljh_util.ljh_get_extern_trig_fname(self.filename)
-            if os.path.isfile(filename):
-                h5 = h5py.File(filename, "r")
+            possible_files = ljh_util.ljh_get_extern_trig_fnames(self.filename)
+            if os.path.isfile(possible_files["hdf5"]):
+                h5 = h5py.File(possible_files["hdf5"], "r")
                 ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
                 self._external_trigger_rowcount = h5[ds_name]
-            else:
-                basename, _ = ljh_util.ljh_basename_channum(self.filename)
-                filename = f"{basename}_external_trigger.bin"
+            elif os.path.isfile(possible_files["binary"]):
                 self.n_ext_trigger_rows = self.number_of_rows
-                with open(filename, "rb") as f:
+                with open(possible_files["binary"], "rb") as f:
                     header_text = f.readline().decode()
                     m = re.match(r".*\(nrow=(.*)\)\n", header_text)
                     if m is not None:
                         self.n_ext_trigger_rows = int(m.groups()[0])
                     self._external_trigger_rowcount = np.fromfile(f, dtype="int64")
+            else:
+                raise OSError("No external trigger files found: ", possible_files)
             self.row_timebase = self.timebase/float(self.n_ext_trigger_rows)
         return self._external_trigger_rowcount
 

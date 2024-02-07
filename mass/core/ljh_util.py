@@ -74,9 +74,11 @@ def ljh_chan_names(fname, chans):
     return [basename+f"_chan{chan}{ext}" for chan in chans]
 
 
-def ljh_get_extern_trig_fname(fname):
+def ljh_get_extern_trig_fnames(fname):
     basename, _ = ljh_basename_channum(fname)
-    return basename+"_extern_trig.hdf5"
+    possible_names = {"binary": f"{basename}_external_trigger.bin",
+                      "hdf5": f"{basename}_external_trig.hdf5"}
+    return possible_names
 
 
 def output_basename_from_ljh_fname(ljh):
