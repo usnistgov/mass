@@ -583,41 +583,31 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 extra_n_basis_5lag=extra_n_basis_5lag, f_3db_5lag=f_3db_5lag, category=category)
         return hdf5_filename
 
-    def calc_external_trigger_timing(self, after_last=False, until_next=False,
-                                     from_nearest=False, forceNew=False):
-        if not (after_last or until_next or from_nearest):
-            raise ValueError(
-                "at least one of from_last, until_next, or from_nearest should be True")
+    def calc_external_trigger_timing(self, forceNew=False):
         ds = self.first_good_dataset
-
-        # loading this dataset can be slow, so lets do it only once for the whole ChannelGroup
         external_trigger_rowcount = np.asarray(ds.external_trigger_rowcount[:], dtype=np.int64)
 
         for ds in self:
             try:
-                if "rows_after_last_external_trigger" not in ds.hdf5_group and after_last:
-                    forceNew = True
-                if "rows_until_next_external_trigger" not in ds.hdf5_group and until_next:
-                    forceNew = True
-                if "rows_from_nearest_external_trigger" not in ds.hdf5_group and from_nearest:
-                    forceNew = True
-                if forceNew:
-                    rows_after_last_external_trigger, rows_until_next_external_trigger = \
-                        mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:],
-                                                                       external_trigger_rowcount)
-                    if after_last:
-                        g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
-                                                          (ds.nPulses,), dtype=np.int64)
-                        g[:] = rows_after_last_external_trigger
-                    if until_next:
-                        g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger",
-                                                          (ds.nPulses,), dtype=np.int64)
-                        g[:] = rows_until_next_external_trigger
-                    if from_nearest:
-                        g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
-                                                          (ds.nPulses,), dtype=np.int64)
-                        g[:] = np.fmin(rows_after_last_external_trigger,
-                                       rows_until_next_external_trigger)
+                if ("rows_after_last_external_trigger" in ds.hdf5_group) and \
+                    ("rows_until_next_external_trigger" in ds.hdf5_group) and \
+                    ("rows_from_nearest_external_trigger" in ds.hdf5_group) and \
+                    (not forceNew):
+                        continue
+
+                rows_after_last_external_trigger, rows_until_next_external_trigger = \
+                    mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:],
+                                                                   external_trigger_rowcount)
+                g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
+                                                    (ds.nPulses,), dtype=np.int64)
+                g[:] = rows_after_last_external_trigger
+                g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger",
+                                                    (ds.nPulses,), dtype=np.int64)
+                g[:] = rows_until_next_external_trigger
+                g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
+                                                    (ds.nPulses,), dtype=np.int64)
+                g[:] = np.fmin(rows_after_last_external_trigger,
+                                rows_until_next_external_trigger)
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 
