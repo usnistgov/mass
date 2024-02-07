@@ -65,6 +65,10 @@ class MicrocalFile:
         """Make a usable copy of self."""
         raise NotImplementedError(f"{self.__class__.__name__} is an abstract class.")
 
+    def source(self):
+        """Name of the data source"""
+        raise NotImplementedError(f"{self.__class__.__name__} is an abstract class.")
+
 
 class VirtualFile(MicrocalFile):
     """Object to act like a single microcalorimeter data file on disk, though the data are all
@@ -107,6 +111,10 @@ class VirtualFile(MicrocalFile):
         if trace_num >= self.nPulses:
             raise ValueError(f"This VirtualFile has only {self.nPulses} pulses")
         return self.data[trace_num]
+    
+    @property
+    def source(self):
+        return "VirtualFile"
 
 
 def read_ljh_header(filename):
@@ -276,6 +284,10 @@ class LJHFile(MicrocalFile):
     @property
     def alldata(self):
         return self._mm["data"]
+    
+    @property
+    def source(self):
+        return self.header_dict[b"Data source"].decode()
 
     def __getitem__(self, item):
         return self.alldata[item]
