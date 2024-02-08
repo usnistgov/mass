@@ -15,6 +15,11 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 from recommonmark.transform import AutoStructify
+
+# Had some trouble finding mass-as-a-package on one system without inserting .. into the path.
+import os
+import sys
+sys.path.insert(0, os.path.abspath('..'))
 from mass import __version__
 # from better import better_theme_path
 # html_theme_path = [better_theme_path]
@@ -58,7 +63,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'mass'
-copyright = '2017, Joe Fowler, Galen O\'Neil'
+copyright = '2013-2024, Joe Fowler, Galen O\'Neil'
 author = 'Joe Fowler, Galen O\'Neil'
 
 # The version info for the project you're documenting, acts as replacement for
