@@ -337,7 +337,7 @@ class TestTESGroup:
         data.auto_cuts(forceNew=True, clearCuts=True)
         data.avg_pulses_auto_masks()
         data.compute_noise()
-        data.compute_filters()
+        data.compute_5lag_filter()
         data.filter_data()
         data.drift_correct()
         data.phase_correct()
