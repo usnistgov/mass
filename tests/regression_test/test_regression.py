@@ -64,9 +64,10 @@ class TestSummaries:
         cls.data.hdf5_noisefile.close()
 
     def test_ext_trigger_reading(self):
+        _ = self.data.external_trigger_subframe_count
+        nt.assert_equal(self.data.subframe_divisions, 64)
         ds = self.data.datasets[0]
-        _ = ds.external_trigger_rowcount
-        nt.assert_equal(ds.n_ext_trigger_rows, 64)
+        nt.assert_equal(ds.subframe_divisions, 64)
 
     def test_summaries(self):
         nt.assert_allclose(self.data.datasets[0].p_peak_index, self.d['p_peak_index'])

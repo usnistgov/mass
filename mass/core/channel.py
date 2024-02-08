@@ -616,9 +616,8 @@ class MicrocalDataSet:
         self.row_number = None
         self.number_of_columns = None
         self.column_number = None
-        self.row_timebase = None
+        self.subframe_timebase = None
 
-        self._external_trigger_rowcount = None
         self._filter_type = "ats"
 
         self.tes_group = tes_group
@@ -800,35 +799,6 @@ class MicrocalDataSet:
         peak_index = np.asarray(self.p_peak_index[:], dtype=float)
         return (peak_index - self.nPresamples) * self.timebase
 
-    # TODO: Why is this a per-channel property? Makes no sense!
-    @property
-    def external_trigger_rowcount(self):
-        if self._external_trigger_rowcount is None:
-            possible_files = ljh_util.ljh_get_extern_trig_fnames(self.filename)
-            if os.path.isfile(possible_files["hdf5"]):
-                h5 = h5py.File(possible_files["hdf5"], "r")
-                ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
-                self._external_trigger_rowcount = h5[ds_name]
-            elif os.path.isfile(possible_files["binary"]):
-                self.n_ext_trigger_rows = self.number_of_rows
-                with open(possible_files["binary"], "rb") as f:
-                    header_text = f.readline().decode()
-                    m = re.match(r".*\(nrow=(.*)\)\n", header_text)
-                    if m is not None:
-                        self.n_ext_trigger_rows = int(m.groups()[0])
-                    self._external_trigger_rowcount = np.fromfile(f, dtype="int64")
-            else:
-                raise OSError("No external trigger files found: ", possible_files)
-            self.row_timebase = self.timebase/float(self.n_ext_trigger_rows)
-        return self._external_trigger_rowcount
-
-    @property
-    def external_trigger_rowcount_as_seconds(self):
-        """This is not a posix timestamp, it is just the external trigger rowcount converted to seconds
-        based on the nominal clock rate of the crate.
-        """
-        return self.external_trigger_rowcount[:]*self.timebase/float(self.n_ext_trigger_rows)
-
     @property
     def rows_after_last_external_trigger(self):
         try:
@@ -923,14 +893,18 @@ class MicrocalDataSet:
         use_cython: whether to use cython for summarizing the data (default True).
         doPretrigFit: whether to do a linear fit of the pretrigger data
         """
-        # Don't proceed if not necessary and not forced
         self.number_of_rows = self.pulse_records.datafile.number_of_rows
         self.row_number = self.pulse_records.datafile.row_number
         self.number_of_columns = self.pulse_records.datafile.number_of_columns
         self.column_number = self.pulse_records.datafile.column_number
 
         if self.number_of_rows is not None and self.timebase is not None:
-            self.row_timebase = self.timebase / float(self.number_of_rows)
+            if self.pulse_records.datafile.source == "Abaco":
+                # The external trigger file can override this, but assume 64 divisions at first.
+                self.subframe_divisions = 64
+            else:
+                self.subframe_divisions = self.number_of_rows
+            self.subframe_timebase = self.timebase / float(self.subframe_divisions)
 
         not_done = all(self.p_pretrig_mean[:] == 0)
         if not (not_done or forceNew):
@@ -1377,7 +1351,7 @@ class MicrocalDataSet:
         pulse_like_model = f.pulsemodel[:, 0]
         if not len(pulse_like_model) == self.nSamples:
             raise Exception(f"filter length {len(pulse_like_model)} and nSamples {self.nSamples} don't match, "
-                            "you likely need to use shift1=False in compute_filters")
+                            "you likely need to use shift1=False in compute_ats_filter or compute_5lag_filter")
         projectors1 = np.vstack([f.filt_baseline,
                                  f.filt_aterms[0],
                                  f.filt_noconst])
@@ -1677,7 +1651,7 @@ class MicrocalDataSet:
             self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_timestamp))),
                                     c['timestamp_diff_sec'], 'timestamp_diff_sec')
         if c['rowcount_diff_sec'] is not None:
-            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_rowcount[:] * self.row_timebase))),
+            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_rowcount[:] * self.subframe_timebase))),
                                     c['rowcount_diff_sec'], 'rowcount_diff_sec')
         if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum() > 0:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
@@ -2299,7 +2273,7 @@ class MicrocalDataSet:
                 dsToCompare = self.tes_group.channel[compare_channum]
                 # Combine the pulses from all neighboring channels into a single array
                 compareChannelsPulsesList = np.append(compareChannelsPulsesList,
-                                                      dsToCompare.p_rowcount[:] * dsToCompare.row_timebase)
+                                                      dsToCompare.p_rowcount[:] * dsToCompare.subframe_timebase)
             # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
             hist, bin_edges = np.histogram(compareChannelsPulsesList, bins=combinedEdges)
             # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
@@ -2333,7 +2307,7 @@ class MicrocalDataSet:
                 postTime /= 1000.0
 
                 # Create uneven histogram edges, with a specified amount of time before and after a photon event
-                pulseTimes = self.p_rowcount[:] * self.row_timebase
+                pulseTimes = self.p_rowcount[:] * self.subframe_timebase
 
                 # Create start and stop edges around pulses corresponding to veto times
                 startEdges = pulseTimes - priorTime

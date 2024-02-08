@@ -846,9 +846,9 @@ class Channel(CorG):
         return self.offFile["framecount"] * self.offFile.header["ReadoutInfo"]["NumberOfRows"]
 
     @add_group_loop
-    def _calcExternalTriggerTiming(self, external_trigger_rowcount, after_last, until_next, from_nearest):
+    def _calcExternalTriggerTiming(self, external_trigger_subframe_count, after_last, until_next, from_nearest):
         rows_after_last_external_trigger, rows_until_next_external_trigger = \
-            mass.core.analysis_algorithms.nearest_arrivals(self.rowcount, external_trigger_rowcount)
+            mass.core.analysis_algorithms.nearest_arrivals(self.rowcount, external_trigger_subframe_count)
         rowPeriodSeconds = self.rowPeriodSeconds
         if after_last:
             self.rows_after_last_external_trigger = rows_after_last_external_trigger
@@ -1391,17 +1391,17 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
         return basename+"_external_trigger.bin"
 
-    def _externalTriggerRowcounts(self, filename=None):
+    def _externalTriggerSubframes(self, filename=None):
         if filename is None:
             filename = self._externalTriggerFilename()
         f = open(filename, "rb")
         f.readline()  # discard comment line
-        external_trigger_rowcount = np.fromfile(f, "int64")
-        return external_trigger_rowcount
+        external_trigger_subframe_count = np.fromfile(f, "int64")
+        return external_trigger_subframe_count
 
     def calcExternalTriggerTiming(self, after_last=True, until_next=False, from_nearest=False):
-        external_trigger_rowcount = self._externalTriggerRowcounts()
-        self._calcExternalTriggerTiming(external_trigger_rowcount, after_last, until_next, from_nearest, _rethrow=True)
+        external_trigger_subframe_count = self._externalTriggerSubframes()
+        self._calcExternalTriggerTiming(external_trigger_subframe_count, after_last, until_next, from_nearest, _rethrow=True)
 
 
 class ChannelFromNpArray(Channel):

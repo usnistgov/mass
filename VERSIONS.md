@@ -6,7 +6,7 @@
 * Improve installation instructions in README (issue 261).
 * Parse `*external_trigger.bin` file for assumed row count (issue 263).
 * Add K-alpha lines of Sm, Gd, Tb, Dy, and Ho (issue 264).
-* Introduce the idea of SubframeDivisions to get timing info a rates faster than the frame rate for µMUX (issue 265).
+* Introduce the idea of subframe divisions to get timing info a rates faster than the frame rate for µMUX (issue 265).
 
 **0.8.1** February 4, 2024
 

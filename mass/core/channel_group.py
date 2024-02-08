@@ -24,7 +24,7 @@ from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper
 from mass.core.cut import CutFieldMixin
 from mass.core.utilities import InlineUpdater, show_progress, plot_multipage
-from mass.core.ljh_util import remove_unpaired_channel_files, filename_glob_expand
+from mass.core.ljh_util import remove_unpaired_channel_files, filename_glob_expand, ljh_get_extern_trig_fnames
 from ..common import isstr
 
 LOG = logging.getLogger("mass")
@@ -224,6 +224,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         self._allowed_pnum_ranges = None
         self.pulses_per_seg = None
         self._bad_channums = {}
+        self._external_trigger_subframe_count = None
 
         if self.noise_only:
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
@@ -583,9 +584,41 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 extra_n_basis_5lag=extra_n_basis_5lag, f_3db_5lag=f_3db_5lag, category=category)
         return hdf5_filename
 
+    @property
+    def external_trigger_subframe_count(self):
+        if self._external_trigger_subframe_count is None:
+            self.subframe_divisions = self.first_good_dataset.subframe_divisions
+            possible_files = ljh_get_extern_trig_fnames(self.first_good_dataset.filename)
+            if os.path.isfile(possible_files["hdf5"]):
+                h5 = h5py.File(possible_files["hdf5"], "r")
+                ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
+                self._external_trigger_subframe_count = h5[ds_name]
+            elif os.path.isfile(possible_files["binary"]):
+                with open(possible_files["binary"], "rb") as f:
+                    header_text = f.readline().decode()
+                    m = re.match(r".*\(nrow=(.*)\)\n", header_text)
+                    if m is not None:
+                        self.subframe_divisions = int(m.groups()[0])
+                        for ds in self.datasets:
+                            ds.subframe_divisions = self.subframe_divisions
+                    self._external_trigger_subframe_count = np.fromfile(f, dtype="int64")
+            else:
+                raise OSError("No external trigger files found: ", possible_files)
+            self.subframe_timebase = self.timebase/float(self.subframe_divisions)
+            for ds in self.datasets:
+                ds.subframe_timebase = self.subframe_timebase
+        return self._external_trigger_subframe_count
+
+    @property
+    def external_trigger_subframe_as_seconds(self):
+        """This is not a posix timestamp, it is just the external trigger rowcount converted to seconds
+        based on the nominal clock rate of the crate.
+        """
+        return self.external_trigger_subframe_count[:]/float(self.subframe_divisions)*self.timebase
+
     def calc_external_trigger_timing(self, forceNew=False):
         ds = self.first_good_dataset
-        external_trigger_rowcount = np.asarray(ds.external_trigger_rowcount[:], dtype=np.int64)
+        external_trigger_subframe_count = np.asarray(ds.external_trigger_subframe_count[:], dtype=np.int64)
 
         for ds in self:
             try:
@@ -597,7 +630,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
                 rows_after_last_external_trigger, rows_until_next_external_trigger = \
                     mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:],
-                                                                   external_trigger_rowcount)
+                                                                   external_trigger_subframe_count)
                 g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
                                                     (ds.nPulses,), dtype=np.int64)
                 g[:] = rows_after_last_external_trigger
