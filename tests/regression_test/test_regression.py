@@ -62,10 +62,10 @@ class TestSummaries:
     def teardown_class(cls):
         cls.data.hdf5_file.close()
         cls.data.hdf5_noisefile.close()
-        
+
     def test_ext_trigger_reading(self):
         ds = self.data.datasets[0]
-        dummy = ds.external_trigger_rowcount
+        _ = ds.external_trigger_rowcount
         nt.assert_equal(ds.n_ext_trigger_rows, 64)
 
     def test_summaries(self):
