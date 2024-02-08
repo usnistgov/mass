@@ -287,7 +287,10 @@ class LJHFile(MicrocalFile):
     
     @property
     def source(self):
-        return self.header_dict[b"Data source"].decode()
+        "Report the 'Data source' as found in the LJH header."
+        if b"Data source" in self.header_dict:
+            return self.header_dict[b"Data source"].decode()
+        return "Lancero (assumed)"
 
     def __getitem__(self, item):
         return self.alldata[item]
