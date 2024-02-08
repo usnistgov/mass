@@ -2185,12 +2185,11 @@ class MicrocalDataSet:
         peak_time_ms = (MARGIN + self.peak_samplenumber-self.nPresamples)*self.timebase*1000
 
         # Step 2: analyze *noise* so we know how to cut on pretrig rms postpeak_deriv
-        max_deriv = np.zeros(self.noise_records.nPulses)
         pretrigger_rms = np.zeros(self.noise_records.nPulses)
         for i in range(self.noise_records.nPulses):
             data = self.noise_records.datafile.alldata[i]
             pretrigger_rms[i] = data[:self.nPresamples].std()
-            max_deriv[i] = mass.analysis_algorithms.compute_max_deriv(data, ignore_leading=0)
+        max_deriv = mass.analysis_algorithms.compute_max_deriv(data, ignore_leading=0)
 
         # Multiply MAD by 1.4826 to get into terms of sigma, if distribution were Gaussian.
         md_med = np.median(max_deriv)

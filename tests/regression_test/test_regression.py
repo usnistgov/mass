@@ -34,7 +34,7 @@ def process_file(prefix, cuts, do_filter=True):
     data.compute_noise()
     data.avg_pulses_auto_masks()
     if do_filter:
-        data.compute_filters(f_3db=10000)
+        data.compute_ats_filter(f_3db=10000)
         data.summarize_filters(std_energy=600)
         data.filter_data()
         data.drift_correct(forceNew=True)

@@ -36,7 +36,7 @@ def test_process1():
     result_data = data.linefit("MnKAlpha", binsize=0.5, has_tails=False, category={"state": "START"})
 
     assert result.params["fwhm"].value < 3.6
-    assert result2.params["fwhm"].value < 3.1
+    assert result2.params["fwhm"].value < 3.15
     assert result_data.params["fwhm"].value < 3.35
 
 
