@@ -24,7 +24,7 @@ pipelines:
             - pip install --upgrade pip
             - pip install -e .
             - pytest
-      # TEMPORARILY COMMENT OUT Py 3.11 pipeline--too many errors!
+
       - step:
           caches:
             - pip
@@ -40,8 +40,6 @@ pipelines:
             - make clean
             - make doctest
             - make html
-            # TEMPORARILY COMMENT OUT THE DEPLOYMENT OF DOCS, until we fix issue #236.
-            # Now uncomment, to see whether it "just works" (Joe F, 12 July 2023)
             - git config --global user.email "galen.oneil@nist.gov"
             - git config --global user.name "Bitbucket Pipeline Doc Deploy"
             - ./deploy_docs_bitbucket.sh $BITBUCKET_BRANCH

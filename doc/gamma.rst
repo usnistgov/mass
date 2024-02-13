@@ -29,7 +29,7 @@ Imports and such
   import numpy as np
   import lmfit
 
-  # add the lines we will use for calibraiton
+  # add the lines we will use for calibration
   mass.STANDARD_FEATURES['Ho166m_80'] = 80.574e3
   mass.STANDARD_FEATURES['Co57_122'] = 122.06065e3
   mass.STANDARD_FEATURES['Ho166m_184'] = 184.4113e3
@@ -326,12 +326,12 @@ Fit for energy resolution with and without drift correction at the 80 keV line.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  energy:
-      20181018_144520 chan3  Ho166m_80 fwhm=60 ± 1.8
-      20181018_144520 chan13 Ho166m_80 fwhm=62 ± 2.0
-  energyNoDC:
-      20181018_144520 chan3  Ho166m_80 fwhm=64 ± 2.5
-      20181018_144520 chan13 Ho166m_80 fwhm=71 ± 2.6
+    energy:
+    	20181018_144520 chan3  Ho166m_80 fwhm=60 ± 1.9
+    	20181018_144520 chan13 Ho166m_80 fwhm=62 ± 2.0
+    energyNoDC:
+    	20181018_144520 chan3  Ho166m_80 fwhm=64 ± 2.4
+    	20181018_144520 chan13 Ho166m_80 fwhm=71 ± 2.6
 
 OFF vs Plain Comparision
 ------------------------
@@ -378,10 +378,10 @@ me know what you think about it.
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-      chan   3 fwhm=60.2 ± 1.5 (off)
-      chan   3 fwhm=60.1 ± 1.8 (ljh)
-      chan  13 fwhm=60.9 ± 2.0 (off)
-      chan  13 fwhm=61.2 ± 2.0 (ljh)
+    	chan   3 fwhm=60.0 ± 1.8 (off)
+    	chan   3 fwhm=60.1 ± 1.8 (ljh)
+    	chan  13 fwhm=60.8 ± 2.0 (off)
+    	chan  13 fwhm=61.6 ± 1.9 (ljh)
 
 We also plot one fit from one channel for plain and off style.
 
@@ -412,10 +412,10 @@ from the previous section, not the apples to apples comparison where we used the
 .. testoutput::
   :options: +NORMALIZE_WHITESPACE
 
-  ch 3off   ngood=22116 ntot=22930
-  ch 3plain ngood=21959 ntot=22930
-  ch 13off   ngood=21505 ntot=22406
-  ch 13plain ngood=21320 ntot=22406
+    ch 3off   ngood=22112 ntot=22930
+    ch 3plain ngood=21715 ntot=22930
+    ch 13off   ngood=21498 ntot=22406
+    ch 13plain ngood=20423 ntot=22406
 
 
 Looking into odd pulses
