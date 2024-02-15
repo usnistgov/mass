@@ -23,6 +23,7 @@ __all__ = [
 import os
 import logging
 import collections
+from deprecation import deprecated
 
 import numpy as np
 from packaging.version import Version
@@ -365,6 +366,11 @@ class LJHFile2_1(LJHFile):
         if self.frame_count is None:
             self._parse_times()
         return np.array(self.frame_count*self.subframe_divisions + self.subframe_offset, dtype=np.int64)
+
+    @property
+    @deprecated(deprecated_in="0.8.2", details="Use subframecount, which is equivalent but better named")
+    def rowcount(self):
+        return self.subframecount
 
     @property
     def datatimes_float(self):

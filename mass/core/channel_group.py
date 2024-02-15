@@ -11,7 +11,7 @@ import logging
 import re
 from collections.abc import Iterable
 from functools import reduce
-from deprecated import deprecated
+from deprecation import deprecated
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -486,7 +486,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def why_chan_bad(self):
         return self._bad_channums.copy()
 
-    @deprecated(version="0.7.9", reason="Use compute_noise(), which is equivalent but better named")
+    @deprecated(deprecated_in="0.7.9", details="Use compute_noise(), which is equivalent but better named")
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """Replaced by the equivalent compute_noise(...)"""
         # This is needed because the @_add_group_loop decorator does not preserve warnings

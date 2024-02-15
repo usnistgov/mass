@@ -12,6 +12,7 @@ import scipy.interpolate
 from mass.common import tostr
 import dill
 import gc
+from deprecation import deprecated
 
 # local imports
 import mass
@@ -840,6 +841,11 @@ class Channel(CorG):
         nRows = self.offFile.header["ReadoutInfo"]["NumberOfRows"]
         self.offFile["framecount"] * nRows
         return self.offFile.framePeriodSeconds/float(nRows)
+
+    @deprecated(deprecated_in="0.8.2", details="Use subframecount, which is equivalent but better named")
+    @property
+    def rowcount(self):
+        return self.subframecount
 
     @property
     def subframecount(self):

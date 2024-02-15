@@ -15,7 +15,7 @@ import os
 import sys
 import re
 from packaging import version
-from deprecated import deprecated
+from deprecation import deprecated
 
 # MASS modules
 import mass.mathstat.power_spectrum
@@ -804,6 +804,11 @@ class MicrocalDataSet:
                 self.hdf5_group, name="phase_correction")
 
     @property
+    @deprecated(deprecated_in="0.8.2", details="Use subframecount, which is equivalent but better named")
+    def rowcount(self):
+        return self.subframecount
+
+    @property
     def p_peak_time(self):
         peak_index = np.asarray(self.p_peak_index[:], dtype=float)
         return (peak_index - self.nPresamples) * self.timebase
@@ -1355,7 +1360,7 @@ class MicrocalDataSet:
         pulse_like_model = f.pulsemodel[:, 0]
         if not len(pulse_like_model) == self.nSamples:
             raise Exception(f"filter length {len(pulse_like_model)} and nSamples {self.nSamples} don't match, "
-                            "you likely need to use shift1=False in compute_ats_filter or compute_5lag_filter")
+                            "you likely need to use shift1=False in compute_ats_filter")
         projectors1 = np.vstack([f.filt_baseline,
                                  f.filt_aterms[0],
                                  f.filt_noconst])
@@ -1610,7 +1615,7 @@ class MicrocalDataSet:
     # Rename compute_noise_spectra -> compute_noise, because the latter is a better name!
     # But use deprecation to not immediately break all code.
     @_add_group_loop()
-    @deprecated(version="0.7.9", reason="Use compute_noise(), which is equivalent but better named")
+    @deprecated(deprecated_in="0.7.9", details="Use compute_noise(), which is equivalent but better named")
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """Replaced by the equivalent compute_noise(...)"""
         return self.compute_noise(max_excursion=max_excursion, n_lags=n_lags, forceNew=forceNew)
