@@ -194,10 +194,12 @@ class LJHFile(MicrocalFile):
         self.channum = int(filename.split("_chan")[1].split(".")[0])
         self.sample_usec = None
         self.timestamp_offset = None
-        self.row_number = None
-        self.column_number = None
-        self.number_of_rows = None
-        self.number_of_columns = None
+        self.row_number = 0
+        self.column_number = 0
+        self.number_of_rows = 1
+        self.number_of_columns = 1
+        self.subframe_offset = 0
+        self.subframe_divisions = 1
         self.version_str = None
         self._mm = None
         self._parse_header()
@@ -231,9 +233,21 @@ class LJHFile(MicrocalFile):
         if len(col_number_k) > 0:
             self.row_number = int(header_dict[col_number_k[0]])
         self.client = header_dict.get(b"Software Version", b"UNKNOWN")
-        self.number_of_columns = int(header_dict.get(b"Number of columns", -1))
-        self.number_of_rows = int(header_dict.get(b"Number of rows", -1))
+        self.number_of_columns = int(header_dict.get(b"Number of columns", 1))
+        self.number_of_rows = int(header_dict.get(b"Number of rows", 1))
         self.timestamp_offset = float(header_dict.get(b"Timestamp offset (s)", b"-1"))
+
+        # Read the new (Feb 2024) subframe information. If missing, assume the old TDM values pertain
+        # (so # of rows -> subframe divisions, and row # -> subframe offset), unless source is Abaco,
+        # in which case use 64 subframe divisions and offset of 0.
+        default_divisions = self.number_of_rows
+        default_offset = self.row_number
+        if "Abaco" in self.source:
+            # The external trigger file can override this, but assume 64 divisions at first.
+            default_divisions = 64
+            default_offset = 0
+        self.subframe_divisions = int(header_dict.get(b"Subframe divisions", default_divisions))
+        self.subframe_offset = int(header_dict.get(b"Subframe offset", default_offset))
 
         self.version_str = header_dict[b'Save File Format Version']
         self.binary_size = os.stat(filename).st_size - self.header_size
@@ -350,13 +364,13 @@ class LJHFile2_1(LJHFile):
     def subframecount(self):
         if self.frame_count is None:
             self._parse_times()
-        return np.array(self.frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
+        return np.array(self.frame_count*self.subframe_divisions + self.subframe_offset, dtype=np.int64)
 
     @property
     def datatimes_float(self):
         if self.frame_count is None:
             self._parse_times()
-        return (self.frame_count + self.row_number / float(self.number_of_rows))*self.timebase
+        return (self.frame_count + self.subframe_offset / float(self.subframe_divisions))*self.timebase
 
     @property
     def datatimes_raw(self):

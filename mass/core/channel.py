@@ -616,6 +616,8 @@ class MicrocalDataSet:
         self.row_number = None
         self.number_of_columns = None
         self.column_number = None
+        self.subframe_divisions = None
+        self.subframe_offset = None
         self.subframe_timebase = None
 
         self._filter_type = "ats"
@@ -807,25 +809,25 @@ class MicrocalDataSet:
         return (peak_index - self.nPresamples) * self.timebase
 
     @property
-    def rows_after_last_external_trigger(self):
+    def subframes_after_last_external_trigger(self):
         try:
-            return self.hdf5_group["rows_after_last_external_trigger"]
+            return self.hdf5_group["subframes_after_last_external_trigger"]
         except KeyError:
             raise ValueError(
                 "run tes_group.calc_external_trigger_timing before accessing this")
 
     @property
-    def rows_until_next_external_trigger(self):
+    def subframes_until_next_external_trigger(self):
         try:
-            return self.hdf5_group["rows_until_next_external_trigger"]
+            return self.hdf5_group["subframes_until_next_external_trigger"]
         except KeyError:
             raise ValueError(
                 "run tes_group.calc_external_trigger_timing before accessing this")
 
     @property
-    def rows_from_nearest_external_trigger(self):
+    def subframes_from_nearest_external_trigger(self):
         try:
-            return self.hdf5_group["rows_from_nearest_external_trigger"]
+            return self.hdf5_group["subframes_from_nearest_external_trigger"]
         except KeyError:
             raise ValueError(
                 "run tes_group.calc_external_trigger_timing before accessing this")
@@ -904,14 +906,9 @@ class MicrocalDataSet:
         self.row_number = self.pulse_records.datafile.row_number
         self.number_of_columns = self.pulse_records.datafile.number_of_columns
         self.column_number = self.pulse_records.datafile.column_number
-
-        if self.number_of_rows is not None and self.timebase is not None:
-            if self.pulse_records.datafile.source == "Abaco":
-                # The external trigger file can override this, but assume 64 divisions at first.
-                self.subframe_divisions = 64
-            else:
-                self.subframe_divisions = self.number_of_rows
-            self.subframe_timebase = self.timebase / float(self.subframe_divisions)
+        self.subframe_divisions = self.pulse_records.datafile.subframe_divisions
+        self.subframe_offset = self.pulse_records.datafile.subframe_offset
+        self.subframe_timebase = self.timebase / float(self.subframe_divisions)
 
         not_done = all(self.p_pretrig_mean[:] == 0)
         if not (not_done or forceNew):

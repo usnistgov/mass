@@ -622,25 +622,23 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
         for ds in self:
             try:
-                if ("rows_after_last_external_trigger" in ds.hdf5_group) and \
-                    ("rows_until_next_external_trigger" in ds.hdf5_group) and \
-                    ("rows_from_nearest_external_trigger" in ds.hdf5_group) and \
+                if ("subframes_after_last_external_trigger" in ds.hdf5_group) and \
+                    ("subframes_until_next_external_trigger" in ds.hdf5_group) and \
+                    ("subframes_from_nearest_external_trigger" in ds.hdf5_group) and \
                     (not forceNew):
                         continue
 
-                rows_after_last_external_trigger, rows_until_next_external_trigger = \
+                subframes_after_last, subframes_until_next = \
                     mass.core.analysis_algorithms.nearest_arrivals(ds.p_subframecount[:],
                                                                    external_trigger_subframe_count)
-                g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
-                                                    (ds.nPulses,), dtype=np.int64)
-                g[:] = rows_after_last_external_trigger
-                g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger",
-                                                    (ds.nPulses,), dtype=np.int64)
-                g[:] = rows_until_next_external_trigger
-                g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
-                                                    (ds.nPulses,), dtype=np.int64)
-                g[:] = np.fmin(rows_after_last_external_trigger,
-                                rows_until_next_external_trigger)
+                nearest = np.fmin(subframes_after_last, subframes_until_next)
+                for name, values in zip(
+                    ("subframes_after_last_external_trigger",
+                     "subframes_until_next_external_trigger",
+                     "subframes_from_nearest_external_trigger"),
+                    (subframes_after_last, subframes_until_next, nearest)):
+                    h5dset = ds.hdf5_group.require_dataset(name, (ds.nPulses,), dtype=np.int64)
+                    h5dset[:] = values
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 

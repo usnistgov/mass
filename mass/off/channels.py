@@ -847,19 +847,19 @@ class Channel(CorG):
 
     @add_group_loop
     def _calcExternalTriggerTiming(self, external_trigger_subframe_count, after_last, until_next, from_nearest):
-        rows_after_last_external_trigger, rows_until_next_external_trigger = \
+        subframes_after_last_external_trigger, subframes_until_next_external_trigger = \
             mass.core.analysis_algorithms.nearest_arrivals(self.subframecount, external_trigger_subframe_count)
         rowPeriodSeconds = self.rowPeriodSeconds
         if after_last:
-            self.rows_after_last_external_trigger = rows_after_last_external_trigger
-            self.seconds_after_last_external_trigger = rows_after_last_external_trigger*rowPeriodSeconds
+            self.subframes_after_last_external_trigger = subframes_after_last_external_trigger
+            self.seconds_after_last_external_trigger = subframes_after_last_external_trigger*rowPeriodSeconds
         if until_next:
-            self.rows_until_next_external_trigger = rows_until_next_external_trigger
-            self.seconds_until_next_external_trigger = rows_until_next_external_trigger*rowPeriodSeconds
+            self.subframes_until_next_external_trigger = subframes_until_next_external_trigger
+            self.seconds_until_next_external_trigger = subframes_until_next_external_trigger*rowPeriodSeconds
         if from_nearest:
-            self.rows_from_nearest_external_trigger = np.fmin(rows_after_last_external_trigger,
-                                                              rows_until_next_external_trigger)
-            self.seconds_from_nearest_external_trigger = self.rows_from_nearest_external_trigger*rowPeriodSeconds
+            self.subframes_from_nearest_external_trigger = np.fmin(subframes_after_last_external_trigger,
+                                                              subframes_until_next_external_trigger)
+            self.seconds_from_nearest_external_trigger = self.subframes_from_nearest_external_trigger*rowPeriodSeconds
 
 
 def normalize(x):
