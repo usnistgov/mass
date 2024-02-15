@@ -146,7 +146,7 @@ class TestFilenameHandling:
             assert 2*Npulses == result.nPulses
             assert src.nSamples == result.nSamples
             assert np.all(result.datatimes_raw >= src.datatimes_raw[0])
-            assert np.all(result.rowcount >= src.rowcount[0])
+            assert np.all(result.subframecount >= src.subframecount[0])
 
             # Make sure we can't run another merge w/o the --force flag
             ps = subprocess.run(cmd, capture_output=True, check=False)

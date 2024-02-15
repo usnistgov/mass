@@ -97,7 +97,7 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
 
         data = ljhfile.alldata[idx_lo:idx_lo+rec_per_seg]
         timestamps = ljhfile.datatimes_float[idx_lo:idx_hi]
-        rowcounts = ljhfile.rowcount[idx_lo:idx_hi]
+        subframecounts = ljhfile.subframecount[idx_lo:idx_hi]
         projector_record_length = projectors.shape[1]
         data_record_length = data.shape[1]
         assert projector_record_length == data_record_length, \
@@ -116,7 +116,7 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
 
         offdata["recordSamples"] = ljhfile.nSamples
         offdata["recordPreSamples"] = ljhfile.nPresamples
-        offdata["framecount"] = rowcounts // ljhfile.number_of_rows
+        offdata["framecount"] = subframecounts // ljhfile.number_of_rows
         offdata["unixnano"] = timestamps*1e9
         offdata["pretriggerMean"] = pretrig_mean
         offdata["pretriggerDelta"] = pt_delta

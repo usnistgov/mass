@@ -610,7 +610,7 @@ class MicrocalDataSet:
 
         self.data = None
         self.times = None
-        self.rowcount = None
+        self.subframecount = None
 
         self.number_of_rows = None
         self.row_number = None
@@ -686,7 +686,7 @@ class MicrocalDataSet:
                           'filt_value_phc', 'filt_value_tdc',
                           'energy')
         uint16_fields = ('peak_index', 'peak_value', 'min_value')
-        int64_fields = ('rowcount',)
+        int64_fields = ()
         bool_fields = ('shift1',)
         for dtype, fieldnames in ((np.float64, float64_fields),
                                   (np.float32, float32_fields),
@@ -696,6 +696,13 @@ class MicrocalDataSet:
             for field in fieldnames:
                 self.__dict__['p_%s' % field] = h5grp.require_dataset(field, shape=(npulses,),
                                                                       dtype=dtype)
+
+        # Workaround for fact that this value changed names in Feb 2024 from "rowcount" to "subframecount"
+        if "rowcount" in h5grp:
+            self.p_subframecount = h5grp.require_dataset("rowcount", shape=(npulses,), dtype=np.int64)
+        else:
+            self.p_subframecount = h5grp.require_dataset("subframecount", shape=(npulses,), dtype=np.int64)
+
         if "peak_samplenumber" in self.p_peak_index.attrs:
             self.peak_samplenumber = self.p_peak_index.attrs["peak_samplenumber"]
 
@@ -931,7 +938,7 @@ class MicrocalDataSet:
             if self.peak_samplenumber is None:
                 self._compute_peak_samplenumber()
             self.p_timestamp[:] = self.times[:]
-            self.p_rowcount[:] = self.rowcount[:]
+            self.p_subframecount[:] = self.subframecount[:]
 
             sumdata = mass.core.cython_channel.summarize_data_cython
             for segnum in range(self.pulse_records.n_segments):
@@ -979,7 +986,7 @@ class MicrocalDataSet:
             self._compute_peak_samplenumber()
 
         self.p_timestamp[first:end] = self.times[first:end]
-        self.p_rowcount[first:end] = self.rowcount[first:end]
+        self.p_subframecount[first:end] = self.subframecount[first:end]
 
         # Fit line to pretrigger and save the derivative and offset
         if doPretrigFit:
@@ -1650,9 +1657,9 @@ class MicrocalDataSet:
         if c['timestamp_diff_sec'] is not None:
             self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_timestamp))),
                                     c['timestamp_diff_sec'], 'timestamp_diff_sec')
-        if c['rowcount_diff_sec'] is not None:
-            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_rowcount[:] * self.subframe_timebase))),
-                                    c['rowcount_diff_sec'], 'rowcount_diff_sec')
+        if c['subframecount_diff_sec'] is not None:
+            self.cuts.cut_parameter(np.hstack((np.inf, np.diff(self.p_subframecount[:] * self.subframe_timebase))),
+                                    c['subframecount_diff_sec'], 'subframecount_diff_sec')
         if c['pretrigger_mean_departure_from_median'] is not None and self.cuts.good().sum() > 0:
             median = np.median(self.p_pretrig_mean[self.cuts.good()])
             LOG.debug('applying cut on pretrigger mean around its median value of %f', median)
@@ -2273,7 +2280,7 @@ class MicrocalDataSet:
                 dsToCompare = self.tes_group.channel[compare_channum]
                 # Combine the pulses from all neighboring channels into a single array
                 compareChannelsPulsesList = np.append(compareChannelsPulsesList,
-                                                      dsToCompare.p_rowcount[:] * dsToCompare.subframe_timebase)
+                                                      dsToCompare.p_subframecount[:] * dsToCompare.subframe_timebase)
             # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
             hist, bin_edges = np.histogram(compareChannelsPulsesList, bins=combinedEdges)
             # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
@@ -2307,7 +2314,7 @@ class MicrocalDataSet:
                 postTime /= 1000.0
 
                 # Create uneven histogram edges, with a specified amount of time before and after a photon event
-                pulseTimes = self.p_rowcount[:] * self.subframe_timebase
+                pulseTimes = self.p_subframecount[:] * self.subframe_timebase
 
                 # Create start and stop edges around pulses corresponding to veto times
                 startEdges = pulseTimes - priorTime

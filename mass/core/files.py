@@ -300,9 +300,9 @@ class LJHFile(MicrocalFile):
         return self.alldata[trace_num]
 
     def read_trace_with_timing(self, trace_num):
-        """Return a single data trace as (rowcount, posix_usec, pulse_record)."""
+        """Return a single data trace as (subframecount, posix_usec, pulse_record)."""
         pulse_record = self.alldata[trace_num]
-        return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
+        return (self.subframecount[trace_num], self.datatimes_raw[trace_num], pulse_record)
 
 
 class LJHFile2_1(LJHFile):
@@ -347,7 +347,7 @@ class LJHFile2_1(LJHFile):
         self.frame_count = (1 + FOURPOINT) + (datatime_ns - 1) // NS_PER_FRAME
 
     @property
-    def rowcount(self):
+    def subframecount(self):
         if self.frame_count is None:
             self._parse_times()
         return np.array(self.frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
@@ -370,12 +370,12 @@ class LJHFile2_2(LJHFile):
         super().__init__(filename, header_dict, header_size)
 
         # Version 2.2 and later include two pieces of time-like information for each pulse.
-        # 8 bytes - Int64 row count number
+        # 8 bytes - Int64 subframe count number (for TDM, equiv to row count number)
         # 8 bytes - Int64 posix microsecond time since the epoch 1970.
         # Technically both could be read as uint64, but then you get overflows when differencing;
         # we'll happily give up a factor of 2 in dynamic range to avoid that.
         self.dtype = [
-            ("rowcount", np.int64),
+            ("subframecount", np.int64),
             ("posix_usec", np.int64),
             ("data", np.uint16, (self.nSamples,))
         ]
@@ -386,8 +386,8 @@ class LJHFile2_2(LJHFile):
         return 16 + 2 * self.nSamples
 
     @property
-    def rowcount(self):
-        return self._mm["rowcount"]
+    def subframecount(self):
+        return self._mm["subframecount"]
 
     @property
     def datatimes_raw(self):

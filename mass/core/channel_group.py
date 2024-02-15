@@ -317,7 +317,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             ds.pulse_records = pr
             ds.data = pr.datafile.alldata
             ds.times = pr.datafile.datatimes_float
-            ds.rowcount = pr.datafile.rowcount
+            ds.subframecount = pr.datafile.subframecount
             ds.index = index
 
         if len(pulse_list) > 0:
@@ -611,7 +611,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
 
     @property
     def external_trigger_subframe_as_seconds(self):
-        """This is not a posix timestamp, it is just the external trigger rowcount converted to seconds
+        """This is not a posix timestamp, it is just the external trigger subframecount converted to seconds
         based on the nominal clock rate of the crate.
         """
         return self.external_trigger_subframe_count[:]/float(self.subframe_divisions)*self.timebase
@@ -629,7 +629,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                         continue
 
                 rows_after_last_external_trigger, rows_until_next_external_trigger = \
-                    mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:],
+                    mass.core.analysis_algorithms.nearest_arrivals(ds.p_subframecount[:],
                                                                    external_trigger_subframe_count)
                 g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
                                                     (ds.nPulses,), dtype=np.int64)

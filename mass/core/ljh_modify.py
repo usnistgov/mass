@@ -55,7 +55,7 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
             for i in range(infile.nPulses):
                 data = callback(infile.alldata[i])
                 x = np.zeros((1,), dtype=infile.dtype)
-                x["rowcount"] = infile.rowcount
+                x["subframecount"] = infile.subframecount
                 x["posix_usec"] = infile.datatimes_float*1e6
                 x["data"] = data
                 x.tofile(outfile)
@@ -102,8 +102,8 @@ class callback_shift:
 
 
 def helper_write_pulse(dest, src, i):
-    rowcount, timestamp_usec, trace = src.read_trace_with_timing(i)
-    prefix = struct.pack('<Q', int(rowcount))
+    subframecount, timestamp_usec, trace = src.read_trace_with_timing(i)
+    prefix = struct.pack('<Q', int(subframecount))
     dest.write(prefix)
     prefix = struct.pack('<Q', int(timestamp_usec))
     dest.write(prefix)
@@ -210,7 +210,7 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
         for i in range(n_pulses):
             if (timestamp is not None and infile.datatimes_float[i] > timestamp):
                 break
-            prefix = struct.pack('<Q', np.uint64(infile.rowcount[i]))
+            prefix = struct.pack('<Q', np.uint64(infile.subframecount[i]))
             outfile.write(prefix)
             prefix = struct.pack('<Q', np.uint64(infile.datatimes_raw[i]))
             outfile.write(prefix)

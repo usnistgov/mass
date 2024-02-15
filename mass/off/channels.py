@@ -842,13 +842,13 @@ class Channel(CorG):
         return self.offFile.framePeriodSeconds/float(nRows)
 
     @property
-    def rowcount(self):
+    def subframecount(self):
         return self.offFile["framecount"] * self.offFile.header["ReadoutInfo"]["NumberOfRows"]
 
     @add_group_loop
     def _calcExternalTriggerTiming(self, external_trigger_subframe_count, after_last, until_next, from_nearest):
         rows_after_last_external_trigger, rows_until_next_external_trigger = \
-            mass.core.analysis_algorithms.nearest_arrivals(self.rowcount, external_trigger_subframe_count)
+            mass.core.analysis_algorithms.nearest_arrivals(self.subframecount, external_trigger_subframe_count)
         rowPeriodSeconds = self.rowPeriodSeconds
         if after_last:
             self.rows_after_last_external_trigger = rows_after_last_external_trigger
