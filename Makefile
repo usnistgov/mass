@@ -43,7 +43,7 @@ autopep8: $(PEPFILES) Makefile
 
 lint: lint-report.txt
 lint-report.txt: $(PYFILES) Makefile
-	ruff check mass doc tests > $@
+	ruff check --preview mass doc tests > $@
 
 ruff:
-	ruff check mass doc tests
+	ruff check --preview mass doc tests
