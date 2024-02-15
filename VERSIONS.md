@@ -5,6 +5,7 @@
 * Fix bug in reading certain external trigger files (issue 262).
 * Improve installation instructions in README (issue 261).
 * Parse `*external_trigger.bin` file for assumed row count (issue 263).
+* Add Pr, Nd, and Eu K line shape models (issue 266).
 
 **0.8.1** February 4, 2024
 
