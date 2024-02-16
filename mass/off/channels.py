@@ -839,17 +839,26 @@ class Channel(CorG):
     @property
     def rowPeriodSeconds(self):
         nRows = self.offFile.header["ReadoutInfo"]["NumberOfRows"]
-        self.offFile["framecount"] * nRows
         return self.offFile.framePeriodSeconds/float(nRows)
 
     @deprecated(deprecated_in="0.8.2", details="Use subframecount, which is equivalent but better named")
     @property
     def rowcount(self):
         return self.subframecount
+    
+    @property
+    def subframeDivisions(self):
+        hdr = self.offFile.header["ReadoutInfo"]
+        return hdr.get("SubframeDivsions", hdr["NumberOfRows"])
+
+    @property
+    def subframePeriodSeconds(self):
+        nDivs = self.offFile.subframeDivisions
+        return self.offFile.framePeriodSeconds/float(nDivs)
 
     @property
     def subframecount(self):
-        return self.offFile["framecount"] * self.offFile.header["ReadoutInfo"]["NumberOfRows"]
+        return self.offFile["framecount"] * self.subframeDivisions
 
     @add_group_loop
     def _calcExternalTriggerTiming(self, external_trigger_subframe_count, after_last, until_next, from_nearest):
