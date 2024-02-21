@@ -185,12 +185,16 @@ def annotate_lines(axis, label_lines, label_lines_color2=[], color1="k", color2=
     for (i, label_line) in enumerate(label_lines):
         energy = mass.STANDARD_FEATURES[label_line]
         if yscale == "linear":
-            axis.annotate(label_line, (energy, (1 + i) * plt.ylim()[1] / float(1.5 * n)), xycoords="data", color=color1)
+            axis.annotate(label_line, (energy, (1 + i) * plt.ylim()[1] / float(1.5 * n)),
+                          xycoords="data", color=color1)
         elif yscale == "log":
-            axis.annotate(label_line, (energy, np.exp((1 + i) * np.log(plt.ylim()[1]) / float(1.5 * n))), xycoords="data", color=color1)
+            axis.annotate(label_line, (energy, np.exp((1 + i) * np.log(plt.ylim()[1]) / float(1.5 * n))),
+                          xycoords="data", color=color1)
     for (j, label_line) in enumerate(label_lines_color2):
         energy = mass.STANDARD_FEATURES[label_line]
         if yscale == "linear":
-            axis.annotate(label_line, (energy, (2 + i + j) * plt.ylim()[1] / float(1.5 * n)), xycoords="data", color=color2)
+            axis.annotate(label_line, (energy, (2 + i + j) * plt.ylim()[1] / float(1.5 * n)),
+                          xycoords="data", color=color2)
         elif yscale == "log":
-            axis.annotate(label_line, (energy, np.exp((2 + i + j) * np.log(plt.ylim()[1]) / float(1.5 * n))), xycoords="data", color=color2)
+            axis.annotate(label_line, (energy, np.exp((2 + i + j) * np.log(plt.ylim()[1]) / float(1.5 * n))),
+                          xycoords="data", color=color2)

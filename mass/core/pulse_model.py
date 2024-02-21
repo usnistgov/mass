@@ -19,13 +19,14 @@ class PulseModel:
                  noise_autocorr, _from_hdf5=False):
         self.pulses_for_svd = pulses_for_svd
         self.n_basis = n_basis
-        if projectors_so_far.shape[0] < n_basis - extra_n_basis_5lag:
+        dn = n_basis - extra_n_basis_5lag
+        if projectors_so_far.shape[0] < dn:
             self.projectors, self.basis = self._additional_projectors_tsvd(
-                projectors_so_far, basis_so_far, n_basis - extra_n_basis_5lag, pulses_for_svd)
-        elif (projectors_so_far.shape[0] == n_basis - extra_n_basis_5lag) or _from_hdf5:
+                projectors_so_far, basis_so_far, dn, pulses_for_svd)
+        elif (projectors_so_far.shape[0] == dn) or _from_hdf5:
             self.projectors, self.basis = projectors_so_far, basis_so_far
-        else:  # dont throw error on
-            s = f"n_basis-extra_n_basis_5lag={n_basis - extra_n_basis_5lag} < projectors_so_far.shape[0] = {projectors_so_far.shape[0]}"
+        else:  # don't throw error on
+            s = f"n_basis-extra_n_basis_5lag={dn} < projectors_so_far.shape[0] = {projectors_so_far.shape[0]}"
             s += f", extra_n_basis_5lag={extra_n_basis_5lag}"
             raise Exception(s)
         if (not _from_hdf5) and (extra_n_basis_5lag > 0):

@@ -114,7 +114,7 @@ class TestFilters:
         ds = data2.channel[1]
         filter2 = ds.filter
         assert filter_type == ds._filter_type
-        assert type(filter1) == type(filter2)
+        assert type(filter1) is type(filter2)
         if filter_type == "ats":
             for ds in self.data:
                 assert ds.filter.filt_aterms is not None

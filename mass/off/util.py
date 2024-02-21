@@ -334,6 +334,7 @@ class SilenceBar(progress.bar.Bar):
         if not self.silence:
             progress.bar.Bar.finish(self)
 
+
 # ratio between standard deviation and median absolute deviation for a gaussian distribution
 SIGMA_OVER_MAD = 1 / 0.67449
 

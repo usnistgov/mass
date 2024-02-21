@@ -30,7 +30,7 @@ class TestPhaseCorrect:
             if i * 1000 + n > ds.nPulses:
                 n = ds.nPulses - i * 1000
             energies[i * 1000:i * 1000 + n] = spect.rvs(size=n, rng=rng,
-                                                  instrument_gaussian_fwhm=3)
+                                                        instrument_gaussian_fwhm=3)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))
         rng.shuffle(energies)
@@ -89,7 +89,7 @@ class TestPhaseCorrect:
         for i, name in enumerate(line_names):
             spect = mass.spectra[name]
             energies[i * 1000:(i + 1) * 1000] = spect.rvs(size=1000, rng=rng,
-                                                    instrument_gaussian_fwhm=3)
+                                                          instrument_gaussian_fwhm=3)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))
         rng.shuffle(energies)

@@ -1026,7 +1026,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             dt = (ds.p_timestamp[good][-1] * 1.0 - ds.p_timestamp[good][0])  # seconds
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse - 1.0) / dt
-            print(f'chan {ds.channum:3d} {npulse:6d} pulses ({rate:6.3f} Hz over {dt / 3600.:6.4f} hr) {100. * ng / npulse:6.3f}% good')
+            print(f"chan {ds.channum:3d} {npulse:6d} pulses ({rate:6.3f} Hz "
+                  f"over {dt / 3600.:6.4f} hr) {100. * ng / npulse:6.3f}% good")
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None,
                                    legend=True):

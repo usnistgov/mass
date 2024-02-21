@@ -167,8 +167,10 @@ class FailedFit:
         self.hist = hist
         self.bins = bins
 
+
 class FailedToGetModelException(Exception):
     pass
+
 
 def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
     if isinstance(lineNameOrEnergy, mass.GenericLineModel):
@@ -194,8 +196,11 @@ def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
         line = mass.SpectralLine.quick_monochromatic_line(
             f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
     return line.model(has_linear_background=has_linear_background, has_tails=has_tails)
+
+
 # support both names as they were both used historically
 getmodel = get_model
+
 
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph, hide_deprecation=False):
     """
