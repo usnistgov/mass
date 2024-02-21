@@ -279,12 +279,12 @@ Some channels will fail various steps of the analysis, or just not be very good.
                                    resolutionPlot=False)
   # all channels here actually pass, so lets pretend they dont
   ds.markBad("pretend failure")
-  print(data.whyChanBad)
+  print(data.whyChanBad[3])
   ds.markGood()
 
 .. testoutput::
 
-  OrderedDict([(3, 'pretend failure')])
+  pretend failure
 
 Recipes
 -------
