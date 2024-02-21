@@ -7,9 +7,10 @@
 
 pipelines:
   default:
-    # May 23, 2023: our strategy is to test only the oldest and newest python we care about. Save
-    # build minutes by skipping any in-between versions. As of June 27, 2023, Py 3.7 will be beyond its
-    # end-of-life, so we'll consider 3.8 the oldest supported version.
+    # Feb 21, 2024: our strategy is to test only the oldest and newest python we care about. Save
+    # build minutes by skipping any in-between versions. We are using some features in OFF analysis that
+    # require python 3.9. Also, as of October 2024, Py 3.8 will be beyond its end-of-life,
+    # so for these two reasons, we'll consider 3.9 the oldest supported version.
     #
     # For info about available versions, see https://hub.docker.com/_/python/ and
     # https://support.atlassian.com/bitbucket-cloud/docs/use-docker-images-as-build-environments/.
@@ -18,8 +19,8 @@ pipelines:
       - step:
           caches:
             - pip
-          name: python 3.8
-          image: python:3.8
+          name: python 3.9
+          image: python:3.9
           script: # Modify the commands below to build your repository.
             - pip install --upgrade pip
             - pip install -e .
@@ -28,8 +29,8 @@ pipelines:
       - step:
           caches:
             - pip
-          name: python 3.11
-          image: python:3.11
+          name: python 3.12
+          image: python:3.12
           script:
             - pip install --upgrade pip
             - pip install -e .
