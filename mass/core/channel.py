@@ -13,7 +13,9 @@ import matplotlib.pylab as plt
 import inspect
 import os
 import sys
+import traceback
 import re
+import sklearn
 from packaging import version
 from deprecation import deprecated
 
@@ -532,8 +534,6 @@ def _add_group_loop():
                 except KeyboardInterrupt as e:
                     raise e
                 except Exception as e:
-                    import traceback
-                    import sys
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     s = traceback.format_exception(exc_type, exc_value, exc_traceback)
                     if rethrow:
@@ -562,7 +562,7 @@ def _add_group_loop():
     return decorator
 
 
-class MicrocalDataSet:
+class MicrocalDataSet:  # noqa: PLR0904
     """Represent a single microcalorimeter's PROCESSED data."""
 
     # Attributes that all such objects must have.
@@ -1205,7 +1205,7 @@ class MicrocalDataSet:
         return f
 
     @_add_group_loop()
-    def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0,
+    def compute_ats_filter(self, fmax=None, f_3db=None, transform=None, cut_pre=0, cut_post=0,  # noqa: PLR0917, PLR0914
                            category={}, shift1=True, forceNew=False, minimum_n_pulses=20,
                            maximum_n_pulses=4000, optimize_dp_dt=True):
         """Compute a arrival-time-safe filter to model the pulse and its time-derivative.
@@ -1914,7 +1914,7 @@ class MicrocalDataSet:
         return ljh_util.mass_folder_from_ljh_fname(self.filename, filename="ch%d_calibration.pkl" % self.channum)
 
     @_add_group_loop()
-    def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,
+    def calibrate(self, attr, line_names, name_ext="", size_related_to_energy_resolution=10,  # noqa: PLR0917
                   fit_range_ev=200, excl=(), plot_on_fail=False,
                   bin_size_ev=2.0, category={}, forceNew=False, maxacc=0.015, nextra=3,
                   param_adjust_closure=None, curvetype="gain", approximate=False,
@@ -1963,7 +1963,7 @@ class MicrocalDataSet:
         self.p_energy[:] = cal.ph2energy(getattr(self, attr))
         self.last_used_calibration = cal
 
-    def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,
+    def plot_traces(self, pulsenums, pulse_summary=True, axis=None, difference=False,  # noqa: PLR0917
                     residual=False, valid_status=None, shift1=False,
                     subtract_baseline=False, fcut=None):
         """Plot some example pulses, given by sample number.
@@ -2258,13 +2258,12 @@ class MicrocalDataSet:
         """Young! Why is there no doc string here??"""
         # first check to see if this had already been done
         if all(self.cuts.good("smart_cuts")) or forceNew:
-            from sklearn.covariance import MinCovDet
 
             mdata = np.vstack([self.p_pretrig_mean[:n_trainings], self.p_pretrig_rms[:n_trainings],
                                self.p_min_value[:n_trainings], self.p_postpeak_deriv[:n_trainings]])
             mdata = mdata.transpose()
 
-            robust = MinCovDet().fit(mdata)
+            robust = sklearn.covariance.MinCovDet().fit(mdata)
 
             # It excludes only extreme outliers.
             mdata = np.vstack([self.p_pretrig_mean[...], self.p_pretrig_rms[...],
@@ -2571,7 +2570,7 @@ class MicrocalDataSet:
         axis.set_title(self.shortname)
         mass.core.utilities.annotate_lines(axis, label_lines)
 
-    def linefit(self, line_name="MnKAlpha", t0=0, tlast=1e20, axis=None, dlo=50, dhi=50,
+    def linefit(self, line_name="MnKAlpha", t0=0, tlast=1e20, axis=None, dlo=50, dhi=50,  # noqa: PLR0917
                 binsize=1, bin_edges=None, attr="p_energy", label="full", plot=True,
                 guess_params=None, ph_units="eV", category={}, g_func=None,
                 has_tails=False):
@@ -2614,7 +2613,7 @@ class MicrocalDataSet:
         return result
 
 
-def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
+def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,  # noqa: PLR0914
                        pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None):
     """Compute a time-based drift correction that minimizes the spectral entropy.
 

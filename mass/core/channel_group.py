@@ -89,10 +89,10 @@ Instead, you should run RestoreTESGroup with an explicit hdf5noisename argument.
                     hdf5_noisefilename=hdf5noisename)
 
 
-class TESGroup(CutFieldMixin, GroupLooper):
+class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
     """The interface for a group of one or more microcalorimeters."""
 
-    def __init__(self, filenames, noise_filenames=None, noise_only=False,
+    def __init__(self, filenames, noise_filenames=None, noise_only=False,  # noqa: PLR0917
                  noise_is_continuous=True,
                  hdf5_filename=None, hdf5_noisefilename=None,
                  never_use=None, use_only=None, max_chans=None,
@@ -570,9 +570,9 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 if not replace_output:
                     raise Exception(
                         f"file {hdf5_filename} already exists, pass replace_output = True to overwrite")
-            with h5py.File(hdf5_filename, "w") as hdf5_file:
+            with h5py.File(hdf5_filename, "w") as h5:
                 self._pulse_model_to_hdf5(
-                    hdf5_file, n_basis, pulses_for_svd=None,
+                    h5, n_basis, pulses_for_svd=None,
                     extra_n_basis_5lag=extra_n_basis_5lag, maximum_n_pulses=maximum_n_pulses,
                     category=category, noise_weight_basis=noise_weight_basis, f_3db_5lag=f_3db_5lag, _rethrow=_rethrow)
                 LOG.info("writing pulse_model to %s", hdf5_filename)
@@ -657,7 +657,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         ds = self.channel.get(channum, self.datasets[dataset_num])
         return ds.read_trace(record_num)
 
-    def plot_traces(self, pulsenums, dataset_num=0, channum=None, pulse_summary=True, axis=None,
+    def plot_traces(self, pulsenums, dataset_num=0, channum=None, pulse_summary=True, axis=None,  # noqa: PLR0917
                     difference=False, residual=False, valid_status=None, shift1=False):
         """Plot some example pulses, given by record number.
 
@@ -690,7 +690,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
                                    residual, valid_status, shift1)
 
-    def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
+    def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,  # noqa: PLR0914
                        channel_numbers=None, dataset_numbers=None):
         """Plot a summary of one quantity from the data set.
 
@@ -1192,7 +1192,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plt.grid("on")
         plt.legend()
 
-    def plot_summary_pages(self, x_attr, y_attr, x_range=None, y_range=None, subplot_shape=(3, 4),
+    def plot_summary_pages(self, x_attr, y_attr, x_range=None, y_range=None, subplot_shape=(3, 4),  # noqa: PLR0917
                            suffix=None, lines=None, down=10, fileformat='png', one_file=False):
         '''Make scatter plots of summary quantities for all channels.
 
@@ -1272,7 +1272,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)
 
-    def plot_histogram_pages(self, attr, valrange, bins, y_range=None, subplot_shape=(3, 4),
+    def plot_histogram_pages(self, attr, valrange, bins, y_range=None, subplot_shape=(3, 4),  # noqa: PLR0917
                              suffix=None, lines=None, fileformat='png', one_file=False):
         '''Make plots of histograms for all channels.
 
@@ -1367,7 +1367,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             counts += v
         return bin_centers, counts
 
-    def linefit(self, line_name="MnKAlpha", t0=0, tlast=1e20, axis=None, dlo=50, dhi=50,
+    def linefit(self, line_name="MnKAlpha", t0=0, tlast=1e20, axis=None, dlo=50, dhi=50,  # noqa: PLR0917
                 binsize=1, bin_edges=None, attr="p_energy", label="full", plot=True,
                 guess_params=None, ph_units="eV", category={}, g_func=None, has_tails=False):
         """Do a fit to `line_name` and return the fitter. You can get the params results with

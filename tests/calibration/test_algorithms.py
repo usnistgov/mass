@@ -14,7 +14,7 @@ rng = np.random.default_rng(2)
 
 def test_find_opt_assignment():
     known_energies = np.array([3100, 3200, 3300, 3600, 4000, 4500, 5200, 5800,
-                                6500, 8300, 9200, 10200])
+                               6500, 8300, 9200, 10200])
     ph = known_energies**0.95
     combos = itertools.combinations(range(len(ph)), 8)
     tries = 0
@@ -27,6 +27,7 @@ def test_find_opt_assignment():
             passes += 1
     assert passes > tries * 0.9
 
+
 def test_find_local_maxima():
     rng = np.random.default_rng(100)
     ph = rng.standard_normal(10000) + 7000
@@ -36,6 +37,7 @@ def test_find_local_maxima():
     local_maxima, _peak_heights = find_local_maxima(ph, 10)
     rounded = np.round(local_maxima)
     assert all(rounded[:3] == np.array([7000, 4000, 1000]))
+
 
 def test_build_fit_ranges():
     known_energies = np.array([1000, 2000, 2050, 3000])
@@ -63,6 +65,7 @@ def test_build_fit_ranges():
     assert lo == approx(2950)
     assert hi == approx(3025)
 
+
 def test_build_fit_ranges_ph():
     known_energies = np.array([1000, 2000, 2050, 3000])
     # make a 1 to 10 calibration
@@ -88,6 +91,7 @@ def test_build_fit_ranges_ph():
     lo, hi = fit_lo_hi_energy[3]
     assert lo == approx(2950 * 0.1)
     assert hi == approx(3025 * 0.1)
+
 
 def test_complete():
     # generate pulseheights from known spectrum
@@ -116,6 +120,7 @@ def test_complete():
     results = multifit(ph, line_names, fit_lo_hi, np.ones_like(
         slopes_de_dph) * binsize_ev, slopes_de_dph, hide_deprecation=True)
     assert results is not None
+
 
 def test_autocal():
     # generate pulseheights from known spectrum

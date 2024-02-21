@@ -55,7 +55,7 @@ def LineEnergies():
 STANDARD_FEATURES = LineEnergies()
 
 
-class EnergyCalibration:
+class EnergyCalibration:  # noqa: PLR0904
     """Object to store information relevant to one detector's absolute energy
     calibration and to offer conversions between pulse height and energy.
 
@@ -614,7 +614,7 @@ class EnergyCalibration:
         kwargs["plottype"] = "loggain"
         self.plot(**kwargs)
 
-    def plot(self, axis=None, color="blue", markercolor="red", plottype="linear", ph_rescale_power=0.0,
+    def plot(self, axis=None, color="blue", markercolor="red", plottype="linear", ph_rescale_power=0.0,  # noqa: PLR0917
              removeslope=False, energy_x=False, showtext=True, showerrors=True, min_energy=None, max_energy=None):
         # Plot smooth curve
         minph, maxph = self._ph.max() * .001, self._ph.max() * 1.1
@@ -636,7 +636,7 @@ class EnergyCalibration:
             x = self._energies
             xerr = self._de
 
-        import pylab as plt
+        import pylab as plt  # noqa: PLC0415
         if axis is None:
             plt.clf()
             axis = plt.subplot(111)

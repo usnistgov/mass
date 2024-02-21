@@ -35,7 +35,7 @@ class SpectralLine:
 
     """
 
-    def __init__(self, element, material, linetype, energies, lorentzian_fwhm, intrinsic_sigma,
+    def __init__(self, element, material, linetype, energies, lorentzian_fwhm, intrinsic_sigma,  # noqa: PLR0917
                  reference_plot_instrument_gaussian_fwhm, reference_short, reference_amplitude, reference_amplitude_type,
                  normalized_lorentzian_integral_intensity, nominal_peak_energy, fitter_type, position_uncertainty,
                  reference_measurement_type, is_default_material):
@@ -362,7 +362,7 @@ LORENTZIAN_INTEGRAL_INTENSITY = 9999
 VOIGT_PEAK_HEIGHT = 99999
 
 
-def addline(element, linetype, material, reference_short, reference_plot_instrument_gaussian_fwhm,
+def addline(element, linetype, material, reference_short, reference_plot_instrument_gaussian_fwhm,  # noqa: PLR0917
             nominal_peak_energy, energies, lorentzian_fwhm, reference_amplitude,
             reference_amplitude_type, ka12_energy_diff=None, fitter_type=None,
             position_uncertainty=np.nan, intrinsic_sigma=0, reference_measurement_type=None,

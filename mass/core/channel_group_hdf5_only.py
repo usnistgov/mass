@@ -24,7 +24,7 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
             print("REUSING THE EXISTING MASTER HDF5 FILE, %s" % h5master_fname)
             return h5master_fname
 
-    with h5py.File(h5master_fname, "a") as master_hdf5_file:
+    with h5py.File(h5master_fname, "a") as master_hdf5_file:  # noqa: PLR1702
         with h5py.File(hdf5_filenames[0], "r") as single_channel_file:
             # put the data where python mass expects it
             master_hdf5_file.attrs["nsamples"] = single_channel_file["samples_per_record"].value

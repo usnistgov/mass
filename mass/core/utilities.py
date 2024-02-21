@@ -133,7 +133,7 @@ def plot_multipage(data, subplot_shape, helper, filename_template_per_file,
     '''Helper function for multipage printing. See plot_summary_pages() for an example of how to use it. '''
 
     if format == 'pdf' and one_file:
-        from matplotlib.backends.backend_pdf import PdfPages
+        from matplotlib.backends.backend_pdf import PdfPages  # noqa: PLC0415
         pdf = PdfPages(filename_one_file)
 
     (m, n) = subplot_shape

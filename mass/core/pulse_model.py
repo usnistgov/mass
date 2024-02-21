@@ -13,7 +13,7 @@ class PulseModel:
 
     version = 2
 
-    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd,
+    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd,  # noqa: PLR0917
                  v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name,
                  extra_n_basis_5lag, f_5lag, average_pulse_for_5lag, noise_psd, noise_psd_delta_f,
                  noise_autocorr, _from_hdf5=False):
@@ -99,7 +99,8 @@ class PulseModel:
                    pretrig_rms_sigma, file_name, extra_n_basis_5lag, f_5lag, average_pulse_for_5lag,
                    noise_psd, noise_psd_delta_f, noise_autocorr, _from_hdf5=True)
 
-    def _additional_projectors_tsvd(self, projectors, basis, n_basis, pulses_for_svd):
+    @staticmethod
+    def _additional_projectors_tsvd(projectors, basis, n_basis, pulses_for_svd):
         """
         Given an existing basis with projectors, compute a basis with n_basis elements
         by randomized SVD of the residual elements of the training data in pulses_for_svd.

@@ -36,7 +36,7 @@ def band_limit(modelmatrix, sample_time, fmax, f_3db):
 class Filter:
     """A set of optimal filters based on a single signal and noise set."""
 
-    def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
+    def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,  # noqa: PLR0917
                  whitener=None, sample_time=None, shorten=0, cut_pre=0, cut_post=0):
         """Create a set of filters under various assumptions and for various purposes.
 
@@ -269,7 +269,8 @@ class Filter:
         for key in self.variances.keys():
             self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
-    def bracketR(self, q, noise):
+    @staticmethod
+    def bracketR(q, noise):
         """Return the dot product (q^T R q) for vector <q> and matrix R constructed from
         the vector <noise> by R_ij = noise_|i-j|.  We don't want to construct the full matrix
         R because for records as long as 10,000 samples, the matrix will consist of 10^8 floats
@@ -469,7 +470,7 @@ class ExperimentalFilter(Filter):
         super(self.__class__, self).__init__(avg_signal, n_pretrigger, noise_psd,
                                              noise_autocorr, sample_time=sample_time, shorten=shorten)
 
-    def compute(self, fmax=None, f_3db=None):
+    def compute(self, fmax=None, f_3db=None):  # noqa: PLR0914
         """
         Compute a set of filters.  This is called once on construction, but you can call it
         again if you want to change the frequency cutoff or rolloff points.

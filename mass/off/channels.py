@@ -67,6 +67,9 @@ class DriftCorrection:
         else:
             return False
 
+    def __hash__(self):
+        return hash((self.indicatorName, self.uncorrectedName, self.medianIndicator, self.slope))
+
 
 class CorG:
     """
@@ -103,7 +106,7 @@ class CorG:
         annotate_lines(axis, labelLines)
         return axis
 
-    def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,
+    def linefit(self, lineNameOrEnergy="MnKAlpha", attr="energy", states=None, axis=None, dlo=50, dhi=50,  # noqa: PLR0917
                 binsize=None, binEdges=None, label="full", plot=True,
                 params_fixed=None, cutRecipeName=None, calibration=None, require_errorbars=True, method="leastsq_refit",
                 has_linear_background=True, has_tails=False, params_update=lmfit.Parameters(),
@@ -184,7 +187,7 @@ class CorG:
             return binsize
 
 
-class Channel(CorG):
+class Channel(CorG):  # noqa: PLR0904
     """Wrap up an OFF file with some convience functions like a TESChannel"""
 
     def __init__(self, offFile, experimentStateFile, verbose=True):
@@ -244,7 +247,8 @@ class Channel(CorG):
         self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
 
     @add_group_loop
-    def learnResidualStdDevCut(self, n_sigma_equiv=15, newCutRecipeName="cutResidualStdDev", binSizeFv=2000, minFv=150,
+    def learnResidualStdDevCut(self, n_sigma_equiv=15,   # noqa: PLR0914, PLR0917
+                               newCutRecipeName="cutResidualStdDev", binSizeFv=2000, minFv=150,
                                states=None, plot=False, setDefault=True, overwriteRecipe=False, cutRecipeName=None):
         """EXPERIMENTAL: learn a cut based on the residualStdDev. uses the median absolute deviation to estiamte a gaussian sigma
         that is robust to outliers as a function of filt Value, then uses that to set an upper limit based on n_sigma_equiv
@@ -556,7 +560,7 @@ class Channel(CorG):
             phaseCorrection.indicatorName, phaseCorrection.uncorrectedName], overwrite=overwriteRecipe)
 
     @add_group_loop
-    def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,
+    def learnTimeDriftCorrection(self, indicatorName="relTimeSec", uncorrectedName="filtValue", correctedName=None,  # noqa: PLR0917
                                  states=None, cutRecipeName=None, kernel_width=1, sec_per_degree=2000,
                                  pulses_per_degree=2000, max_degrees=20, ndeg=None, limit=None, overwriteRecipe=False):
         """do a polynomial correction based on the indicator
@@ -627,7 +631,7 @@ class Channel(CorG):
         return self.calibrationPlan
 
     @add_group_loop
-    def calibrateFollowingPlan(self, uncalibratedName, calibratedName="energy", curvetype="gain", approximate=False,
+    def calibrateFollowingPlan(self, uncalibratedName, calibratedName="energy", curvetype="gain", approximate=False,  # noqa: PLR0917
                                dlo=50, dhi=50, binsize=None, plan=None, n_iter=1, method="leastsq_refit", overwriteRecipe=False,
                                has_tails=False, params_update=lmfit.Parameters(), cutRecipeName=None):
         if plan is None:
@@ -700,12 +704,12 @@ class Channel(CorG):
         if _peakLocs is None and (self is not referenceChannel):
             self.calibrationPlanInit(referenceChannel.calibrationPlanAttr)
             refCalPlan = referenceChannel.calibrationPlan
-            for (ph, energy, name, states, line) in zip(
+            for (ph, energy, name, states2, line) in zip(
                 refCalPlan.uncalibratedVals, refCalPlan.energies,
                     refCalPlan.names, refCalPlan.states, refCalPlan.lines):
                 self.calibrationPlan.addCalPoint(
                     self.calibrationArbsInRefChannelUnits.energy2ph(ph),
-                    states, line)
+                    states2, line)
         calibrationRough = self.calibrationPlan.getRoughCalibration()
         calibrationRough.uncalibratedName = self.calibrationPlanAttr
         self.recipes.add("energyRough", calibrationRough,
@@ -715,7 +719,7 @@ class Channel(CorG):
         return self.aligner
 
     @add_group_loop
-    def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None,
+    def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None,  # noqa: PLR0917
                             positionToleranceAbsolute=None, attr="energy", states=None,
                             dlo=50, dhi=50, binsize=None, binEdges=None, guessParams=None,
                             cutRecipeName=None, holdvals=None):
@@ -891,7 +895,7 @@ def dtw_same_peaks(bin_edges, ph_a, ph_b, peak_inds_a, scale_by_median, normaliz
     counts_b_median_scaled, _ = np.histogram(ph_b_median_scaled, bin_edges)
     if normalize_before_dtw:
         _distance, path = fastdtw.fastdtw(normalize(counts_a),
-                                         normalize(counts_b_median_scaled))
+                                          normalize(counts_b_median_scaled))
     else:
         _distance, path = fastdtw.fastdtw(counts_a, counts_b_median_scaled)
     i_a = [x[0] for x in path]
@@ -927,7 +931,7 @@ def dtw_same_peaks(bin_edges, ph_a, ph_b, peak_inds_a, scale_by_median, normaliz
 class AlignBToA:
     cm = plt.cm.gist_ncar
 
-    def __init__(self, ds_a, ds_b, peak_xs_a, bin_edges, attr, cutRecipeName, states=None,
+    def __init__(self, ds_a, ds_b, peak_xs_a, bin_edges, attr, cutRecipeName, states=None,  # noqa: PLR0917
                  scale_by_median=True, normalize_before_dtw=True):
         self.ds_a = ds_a
         self.ds_b = ds_b
@@ -1092,7 +1096,7 @@ def getOffFileListFromOneFile(filename, maxChans=None):
     return z
 
 
-class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
+class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):  # noqa: PLR0904
     """
     ChannelGroup is an OrdredDict of Channels with some additional features:
 
@@ -1300,7 +1304,8 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
             for (channum, ds) in self.items():
                 ds.markGood()
 
-    def qualityCheckLinefit(self, line, positionToleranceFitSigma=None, worstAllowedFWHM=None, positionToleranceAbsolute=None,
+    def qualityCheckLinefit(self, line, positionToleranceFitSigma=None,   # noqa: PLR0917
+                            worstAllowedFWHM=None, positionToleranceAbsolute=None,
                             attr='energy', states=None, dlo=50, dhi=50, binsize=None, binEdges=None,
                             guessParams=None, cutRecipeName=None, holdvals=None, resolutionPlot=True, hdf5Group=None,
                             _rethrow=False):

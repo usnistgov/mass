@@ -255,7 +255,7 @@ class GenericLineModel(MLEModel):
         self._has_tails = has_tails
         self._has_linear_background = has_linear_background
         if has_tails:
-            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral,
+            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral,  # noqa: PLR0917
                           background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_share_hi=0, tail_tau_hi=8):
                 bin_centers = np.asarray(bin_centers, dtype=float)
                 bin_width = bin_centers[1] - bin_centers[0]

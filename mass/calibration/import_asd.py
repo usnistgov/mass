@@ -21,7 +21,7 @@ def write_asd_pickle(inputFilename, outputFilename):
     fieldNamesDict = {}
     energyLevelsDict = {}
     with open(inputFilename, 'r', encoding='utf-8') as ASD_file:
-        for line_number, line in enumerate(ASD_file):
+        for line in ASD_file:
             # Create dictionary of field names for various tables
             if line.startswith(createTableString):
                 tableName = re.search(valueSearchString, line).groups()[0]
@@ -33,35 +33,11 @@ def write_asd_pickle(inputFilename, outputFilename):
             elif line.startswith('INSERT INTO `ASD_Levels` VALUES'):
                 partitionedLine = line.partition(' VALUES ')[-1].strip()
                 nullReplacedLine = partitionedLine.replace('NULL', "''")
+                formattedLine = nullReplacedLine
                 if nullReplacedLine[-1] == ';':
                     formattedLine = nullReplacedLine[:-1]
-                lineAsArray = np.array(ast.literal_eval(formattedLine))
-                for iEntry in lineAsArray:
-                    element = iEntry[fieldNamesDict['ASD_Levels'].index('element')]
-                    spectr_charge = int(iEntry[fieldNamesDict['ASD_Levels'].index('spectr_charge')])
-                    # Pull information that will be used to name dictionary keys
-                    conf = iEntry[fieldNamesDict['ASD_Levels'].index('conf')]
-                    term = iEntry[fieldNamesDict['ASD_Levels'].index('term')]
-                    j_val = iEntry[fieldNamesDict['ASD_Levels'].index('j_val')]
-                    # Pull energy and uncertainty
-                    energy = iEntry[fieldNamesDict['ASD_Levels'].index('energy')]  # cm^-1, str
-                    unc = iEntry[fieldNamesDict['ASD_Levels'].index('unc')]  # cm^-1, str
-                    try:
-                        energy_inv_cm = float(energy)  # cm^-1
-                    except ValueError:
-                        energy_inv_cm = np.nan
-                    try:
-                        unc_inv_cm = float(unc)  # cm^-1
-                    except ValueError:
-                        unc_inv_cm = np.nan
-                    if conf and term and term != '*':
-                        # Set up upper level dictionary
-                        if element not in energyLevelsDict.keys():
-                            energyLevelsDict[element] = {}
-                        if spectr_charge not in energyLevelsDict[element].keys():
-                            energyLevelsDict[element][spectr_charge] = {}
-                        levelName = f'{conf} {term} J={j_val}'
-                        energyLevelsDict[element][spectr_charge][levelName] = [energy_inv_cm, unc_inv_cm]
+                parseLine(energyLevelsDict, fieldNamesDict, formattedLine)
+
     # Sort levels within an element/charge state by energy
     outputDict = {}
     for iElement in energyLevelsDict.keys():
@@ -78,6 +54,36 @@ def write_asd_pickle(inputFilename, outputFilename):
     # Write dict to pickle file
     with open(outputFilename, 'wb') as handle:
         pickle.dump(outputDict, handle, protocol=2)
+
+
+def parseLine(energyLevelsDict, fieldNamesDict, formattedLine):
+    lineAsArray = np.array(ast.literal_eval(formattedLine))
+    for iEntry in lineAsArray:
+        element = iEntry[fieldNamesDict['ASD_Levels'].index('element')]
+        spectr_charge = int(iEntry[fieldNamesDict['ASD_Levels'].index('spectr_charge')])
+        # Pull information that will be used to name dictionary keys
+        conf = iEntry[fieldNamesDict['ASD_Levels'].index('conf')]
+        term = iEntry[fieldNamesDict['ASD_Levels'].index('term')]
+        j_val = iEntry[fieldNamesDict['ASD_Levels'].index('j_val')]
+        # Pull energy and uncertainty
+        energy = iEntry[fieldNamesDict['ASD_Levels'].index('energy')]  # cm^-1, str
+        unc = iEntry[fieldNamesDict['ASD_Levels'].index('unc')]  # cm^-1, str
+        try:
+            energy_inv_cm = float(energy)  # cm^-1
+        except ValueError:
+            energy_inv_cm = np.nan
+        try:
+            unc_inv_cm = float(unc)  # cm^-1
+        except ValueError:
+            unc_inv_cm = np.nan
+        if conf and term and term != '*':
+            # Set up upper level dictionary
+            if element not in energyLevelsDict.keys():
+                energyLevelsDict[element] = {}
+            if spectr_charge not in energyLevelsDict[element].keys():
+                energyLevelsDict[element][spectr_charge] = {}
+            levelName = f'{conf} {term} J={j_val}'
+            energyLevelsDict[element][spectr_charge][levelName] = [energy_inv_cm, unc_inv_cm]
 
 
 if __name__ == "__main__":

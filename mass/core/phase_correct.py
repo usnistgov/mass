@@ -142,7 +142,7 @@ def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=N
                           indicatorName, uncorrectedName)
 
 
-def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
+def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,  # noqa: PLR0914
                               method2017=False, nf=10, kernel_width=2.0):
     """Find the way to align (flatten) `pulse_heights` as a function of `phase_indicator`
     working only within the range [peak-delta_ph, peak+delta_ph].

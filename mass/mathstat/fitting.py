@@ -53,8 +53,8 @@ def kink_model(k, x, y):
                   [si, si2, 0],
                   [sj, 0, sj2]])
     v = np.array([y.sum(), (yi * dxi).sum(), (yj * dxj).sum()])
-    a, b, c = abc = np.linalg.solve(A, v)
-    model = np.hstack([a + b * dxi, a + c * dxj])
+    abc = np.linalg.solve(A, v)
+    model = np.hstack([abc[0] + abc[1] * dxi, abc[0] + abc[2] * dxj])
     X2 = ((model - y)**2).sum()
     return model, abc, X2
 

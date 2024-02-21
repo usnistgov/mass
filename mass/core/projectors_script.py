@@ -10,7 +10,7 @@ LOG.setLevel(logging.DEBUG)
 # these are define in core so they can be tested easily, then they'll be run via a script
 
 
-def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_deriv,
+def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_deriv,  # noqa: PLR0917
                     n_basis, maximum_n_pulses, mass_hdf5_path, mass_hdf5_noise_path, invert_data, optimize_dp_dt,
                     extra_n_basis_5lag, noise_weight_basis, f_3db_ats=None, f_3db_5lag=None):
     data = mass.TESGroup(pulse_files, noise_files, overwrite_hdf5_file=True,

@@ -490,7 +490,8 @@ class SmoothingSpline:
         self.Omega = self._compute_Omega(self.x, self.N2)
         self.smooth(chisq=self.maxchisq)
 
-    def _compute_Omega(self, knots, N2):
+    @staticmethod
+    def _compute_Omega(knots, N2):
         """Given the matrix M2 of second derivates at the knots (that is, M2_ij is
         the value of B_j''(x_i), second derivative of basis function #j at knot i),
         compute the matrix Omega, where Omega_ij is the integral over the entire
@@ -600,7 +601,8 @@ class SmoothingSplineFunction(SmoothingSpline, Function):
             return np.zeros_like(x)
         return super().__call__(x, der=self.der + der)
 
-    def variance(self, xtest):
+    @staticmethod
+    def variance(xtest):
         return np.zeros_like(xtest) + np.inf
 
     def __repr__(self):
