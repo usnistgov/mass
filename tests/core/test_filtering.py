@@ -7,6 +7,8 @@ import pytest
 
 import mass
 
+# ruff: noqa: PLR0914
+
 
 ljhdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "regression_test")
 
@@ -75,7 +77,8 @@ class TestFilters:
             raise ValueError(f"filter_type='{filter_type}', should be 'ats' or '5lag'")
         self.verify_filters(self.data, filter_type)
 
-    def verify_filters(self, data, filter_type):
+    @staticmethod
+    def verify_filters(data, filter_type):
         "Check that the filters contain what we expect"
         expected = {"ats": 461.57, "5lag": 456.7}[filter_type]
         for ds in data:
@@ -148,7 +151,8 @@ class TestFilters:
         ds.compute_ats_filter(f_3db=5000)
         assert not np.any(np.isnan(f))
 
-    def test_long_filter(self):
+    @staticmethod
+    def test_long_filter():
         """Be sure we can save and restore a long filter. See issue #208."""
         outfile = tempfile.TemporaryFile(suffix=".hdf5")
         with h5py.File(outfile, "w") as h:
@@ -228,7 +232,8 @@ class TestFilters:
                 assert np.allclose(fS, fL)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
-    def test_dc_insensitive(self):
+    @staticmethod
+    def test_dc_insensitive():
         """When f_3db or fmax applied, filter should not become DC-sensitive.
         Tests for issue #176."""
         nSamples = 100
@@ -268,7 +273,8 @@ class TestFilters:
 class TestWhitener:
     """Test ToeplitzWhitener."""
 
-    def test_trivial(self):
+    @staticmethod
+    def test_trivial():
         """Be sure that the trivial whitener does nothing."""
         w = mass.ToeplitzWhitener([1.0], [1.0])  # the trivial whitener
         r = np.random.default_rng().standard_normal(100)
@@ -277,7 +283,8 @@ class TestWhitener:
         assert np.allclose(r, w.applyWT(r))
         assert np.allclose(r, w.solveWT(r))
 
-    def test_reversible(self):
+    @staticmethod
+    def test_reversible():
         """Use a nontrivial whitener, and make sure that inverse operations are inverses."""
         w = mass.ToeplitzWhitener([1.0, -1.7, 0.72], [1.0, .95])
         r = np.random.default_rng().standard_normal(100)
@@ -298,7 +305,8 @@ class TestWhitener:
         assert not np.allclose(r, w.applyWT(w.applyWT(r)))
         assert not np.allclose(r, w.solveWT(w.solveWT(r)))
 
-    def test_causal(self):
+    @staticmethod
+    def test_causal():
         """Make sure that the whitener and its inverse are causal,
         and that WT and its inverse anti-causal."""
         w = mass.ToeplitzWhitener([1.0, -1.7, 0.72], [1.0, .95])

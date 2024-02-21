@@ -12,7 +12,7 @@ import h5py
 import os
 
 
-def compare_curves(curvetype1, use_approximation1, curvetype2, use_approximation2, refenergy=5100, npoints=10):
+def compare_curves(curvetype1, use_approximation1, curvetype2, use_approximation2, npoints=10):
     cal1 = mass.calibration.energy_calibration.EnergyCalibration()
     cal1.set_curvetype(curvetype1)
     cal1.set_use_approximation(use_approximation1)
@@ -25,6 +25,7 @@ def compare_curves(curvetype1, use_approximation1, curvetype2, use_approximation
 
     # Careful here: don't use a point in linspace(3000,6000,npoints),
     # or you'll get exact agreement when you don't expect/want it.
+    refenergy = 5100.0
     ph1 = cal1.energy2ph(refenergy)
     ph2 = cal2.energy2ph(refenergy)
     e1 = cal1.ph2energy(refenergy**0.8)
@@ -36,14 +37,16 @@ def compare_curves(curvetype1, use_approximation1, curvetype2, use_approximation
 
 class TestLineDatabase:
 
-    def test_synonyms(self):
+    @staticmethod
+    def test_synonyms():
         """Test that there are multiple equivalent synonyms for the K-alpha1 line."""
         E = mass.STANDARD_FEATURES
         e = E["MnKAlpha"]
         for name in ("MnKA", "MnKA1", "MnKL3", "MnKAlpha1"):
             assert e == E[name]
 
-    def check_elements(self):
+    @staticmethod
+    def check_elements():
         """Check that elements appear in the list that were absent before 2017."""
         E = mass.STANDARD_FEATURES
         for element in ("U", "Pr", "Ar", "Pt", "Au", "Hg"):
@@ -54,7 +57,8 @@ class TestLineDatabase:
 @pytest.mark.filterwarnings("ignore:divide by zero encountered")
 class TestJoeStyleEnergyCalibration:
 
-    def test_copy_equality(self):
+    @staticmethod
+    def test_copy_equality():
         """Test that any deep-copied calibration object is equivalent."""
         for curvetype in ['loglog', 'linear', 'linear+0', 'gain', 'invgain', 'loggain']:
             for use_approximation in [True, False]:
@@ -72,80 +76,90 @@ class TestJoeStyleEnergyCalibration:
                 assert e1 == e2
                 assert ph1 == ph2
 
-    def test_loglog_exact_diff(self):
+    @staticmethod
+    def test_loglog_exact_diff():
         # loglog=True makes use_zerozero not matter
-        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
+        ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="loglog", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
-    def test_loglog_approx_diff(self):
-        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
+    @staticmethod
+    def test_loglog_approx_diff():
+        ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="loglog", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
-    def test_zerozero_exact_diff(self):
-        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
+    @staticmethod
+    def test_zerozero_exact_diff():
+        ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="linear+0", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
-    def test_zerozero_approx_diff(self):
-        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
+    @staticmethod
+    def test_zerozero_approx_diff():
+        ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="linear+0", use_approximation1=False,
             curvetype2="linear", use_approximation2=False,)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
-    def test_approx_loglog_diff(self):
-        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
+    @staticmethod
+    def test_approx_loglog_diff():
+        ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="loglog", use_approximation1=True,
             curvetype2="loglog", use_approximation2=False,)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
-    def test_approx_zerozero_diff(self):
-        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
+    @staticmethod
+    def test_approx_zerozero_diff():
+        ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="linear+0", use_approximation1=True,
             curvetype2="linear+0", use_approximation2=False,)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
-    def test_approx_diff(self):
-        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
+    @staticmethod
+    def test_approx_diff():
+        ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="linear", use_approximation1=True,
             curvetype2="linear", use_approximation2=False,)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
-    def test_gain_invgain_diff(self):
-        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
+    @staticmethod
+    def test_gain_invgain_diff():
+        ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="gain", use_approximation1=True,
             curvetype2="invgain", use_approximation2=False,)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
-    def test_gain_loglog_2pts(self):
-        ph1, e1, (drop1e, drop1err), ph2, e2, (drop2e, drop2err), cal1, cal2 = compare_curves(
+    @staticmethod
+    def test_gain_loglog_2pts():
+        ph1, e1, (_drop1e, drop1err), ph2, e2, (_drop2e, drop2err), _cal1, _cal2 = compare_curves(
             curvetype1="gain", use_approximation1=True,
             curvetype2="loglog", use_approximation2=False, npoints=2)
         assert ph1 != ph2
         assert e1 != e2
         assert not all(drop1err == drop2err)
 
-    def test_basic_energy(self):
+    @staticmethod
+    def test_basic_energy():
         cal1 = mass.energy_calibration.EnergyCalibration()
         for energy in np.linspace(3000, 6000, 10):
             ph = energy**0.8
@@ -154,7 +168,8 @@ class TestJoeStyleEnergyCalibration:
             ph = energy**0.8
             assert ph == pytest.approx(cal1.energy2ph(energy), abs=0.1)
 
-    def test_basic_ph(self):
+    @staticmethod
+    def test_basic_ph():
         cal1 = mass.calibration.energy_calibration.EnergyCalibration()
         for energy in np.linspace(3000, 6000, 10):
             ph = energy**0.8
@@ -163,7 +178,8 @@ class TestJoeStyleEnergyCalibration:
             ph = energy**0.8
             assert energy == pytest.approx(cal1.ph2energy(ph), abs=0.1)
 
-    def test_notlog_ph(self):
+    @staticmethod
+    def test_notlog_ph():
         cal1 = mass.calibration.energy_calibration.EnergyCalibration()
         cal1.set_curvetype("linear+0")
         cal1.set_use_approximation(True)
@@ -174,7 +190,8 @@ class TestJoeStyleEnergyCalibration:
             ph = energy**0.8
             assert energy == pytest.approx(cal1.ph2energy(ph), abs=10)
 
-    def test_unordered_entries(self):
+    @staticmethod
+    def test_unordered_entries():
         cal1 = mass.calibration.energy_calibration.EnergyCalibration()
         cal1.set_curvetype("gain")
         cal1.set_use_approximation(True)
@@ -184,7 +201,8 @@ class TestJoeStyleEnergyCalibration:
             cal1.add_cal_point(ph, energy)
         cal1(np.array([2200, 4200, 4400], dtype=float))
 
-    def test_nonmonotonic_fail(self):
+    @staticmethod
+    def test_nonmonotonic_fail():
         "Check that issue 216 is fixed: non-monotone {E,PH} pairs should cause exceptions."
         cal1 = mass.calibration.energy_calibration.EnergyCalibration()
         cal1.set_curvetype("gain")
@@ -195,7 +213,8 @@ class TestJoeStyleEnergyCalibration:
             for ph, energy in zip(phvec, energies):
                 cal1.add_cal_point(ph, energy)
 
-    def test_save_and_load_to_hdf5(self):
+    @staticmethod
+    def test_save_and_load_to_hdf5():
         cal1 = mass.calibration.energy_calibration.EnergyCalibration()
         for energy in np.linspace(3000, 6000, 10):
             ph = energy**0.8
@@ -218,7 +237,8 @@ class TestJoeStyleEnergyCalibration:
             assert cal1._use_approximation == cal2._use_approximation
             os.remove(fname)
 
-    def test_negative_inputs(self):
+    @staticmethod
+    def test_negative_inputs():
         """Negative or zero pulse-heights shouldn't produce NaN or Inf energies."""
         cal = mass.calibration.energy_calibration.EnergyCalibration()
         for energy in np.linspace(3000, 6000, 10):
@@ -233,7 +253,8 @@ class TestJoeStyleEnergyCalibration:
             assert not any(np.isnan(e))
             assert not any(np.isinf(e))
 
-    def test_pre_gprcal(self):
+    @staticmethod
+    def test_pre_gprcal():
         "Test the pre-2021 calibration still works"
         ph = np.array([17157.08056038, 18532.35241609, 18667.38206583, 19942.89858008,
                        20181.77187566, 21382.23254964, 21727.54556571, 22848.99053659,

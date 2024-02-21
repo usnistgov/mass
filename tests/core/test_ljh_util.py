@@ -14,19 +14,22 @@ from mass.core.ljh_modify import LJHFile
 class TestFilenameHandling:
     """Test various functions that handle LJH filenames."""
 
-    def test_glob(self):
+    @staticmethod
+    def test_glob():
         assert os.path.join("tests", "regression_test", "regress_chan1.ljh") in \
             filename_glob_expand(os.path.join("tests", "regression_test", "regress_chan*.ljh"))
         assert os.path.join("tests", "regression_test", "regress_noise_chan1.ljh") in \
             filename_glob_expand(os.path.join("tests", "regression_test", "regress_noise_chan*.ljh"))
 
-    def test_extract_channum(self):
+    @staticmethod
+    def test_extract_channum():
         assert 1 == ljh_channum("dummy_chan1.ljh")
         assert 101 == ljh_channum("dummy_chan101.ljh")
         assert 101 == ljh_channum("path/to/file/dummy_chan101.ljh")
         assert 101 == ljh_channum("path/to/file/dummy_chan101.other_suffix")
 
-    def test_remove_unmatched_channums(self):
+    @staticmethod
+    def test_remove_unmatched_channums():
         fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
         fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
         validns = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7)]
@@ -37,7 +40,8 @@ class TestFilenameHandling:
             assert v == f1
             assert v == f2
 
-    def test_remove_unmatched_channums_with_neveruse(self):
+    @staticmethod
+    def test_remove_unmatched_channums_with_neveruse():
         fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
         fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
         validns = ["dummy_chan%d.ljh" % d for d in (1, 3)]
@@ -48,7 +52,8 @@ class TestFilenameHandling:
             assert v == f1
             assert v == f2
 
-    def test_remove_unmatched_channums_with_useonly(self):
+    @staticmethod
+    def test_remove_unmatched_channums_with_useonly():
         fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
         fnames2 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 9, 15)]
         validns = ["dummy_chan%d.ljh" % d for d in (1, 3)]
@@ -59,7 +64,8 @@ class TestFilenameHandling:
             assert v == f1
             assert v == f2
 
-    def test_remove_unmatched_channums_with_neveruse_nosecondlist(self):
+    @staticmethod
+    def test_remove_unmatched_channums_with_neveruse_nosecondlist():
         "remove_unpaired_channel_files needs to work if 2nd list is empty"
         fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
         fnames2 = []
@@ -69,7 +75,8 @@ class TestFilenameHandling:
         for v, f1 in zip(validns, fnames1):
             assert v == f1
 
-    def test_remove_unmatched_channums_with_useonly_nosecondlist(self):
+    @staticmethod
+    def test_remove_unmatched_channums_with_useonly_nosecondlist():
         "remove_unpaired_channel_files needs to work if 2nd list is empty"
         fnames1 = ["dummy_chan%d.ljh" % d for d in (1, 3, 5, 7, 11, 13)]
         fnames2 = []
@@ -79,7 +86,8 @@ class TestFilenameHandling:
         for v, f1 in zip(validns, fnames1):
             assert v == f1
 
-    def test_sort_filenames_numerically(self):
+    @staticmethod
+    def test_sort_filenames_numerically():
         cnums = [1, 11, 13, 3, 5, 7, 9, 99]
         fnames = ["d_chan%d.ljh" % d for d in cnums]
         fnames.sort()
@@ -90,7 +98,8 @@ class TestFilenameHandling:
         for s, c in zip(sorted_names, correct_order):
             assert s == c
 
-    def test_ljh_basename(self):
+    @staticmethod
+    def test_ljh_basename():
         bname = "/a/b/c/d_chan1.ljh"
         bnamenoi = "/a/b/c/d_noise_chan1.ljh"
         out = ljh_chan_names(bname, [3])
@@ -98,7 +107,8 @@ class TestFilenameHandling:
         assert "/a/b/c/d_chan3.ljh" in out
         assert "/a/b/c/d_noise_chan3.ljh" in outnoi
 
-    def test_ljh_basename_channum(self):
+    @staticmethod
+    def test_ljh_basename_channum():
         basename = "/a/b/c/d"
         bname = basename + "_chan%d.ljh"
         for cnum in [1, 3, 5, 100, 200, 94932]:
@@ -106,12 +116,14 @@ class TestFilenameHandling:
             assert c == cnum
             assert b == basename
 
-    def test_ljh_channum(self):
+    @staticmethod
+    def test_ljh_channum():
         bname = "/a/b/c/d_chan%d.ljh"
         for cnum in [1, 3, 5, 100, 200, 94932]:
             assert ljh_channum(bname % cnum) == cnum
 
-    def test_ljh_sort(self):
+    @staticmethod
+    def test_ljh_sort():
         """Make sure we can sort LJH filenames by channel number."""
         bname = "/a/b/c/d_chan%d.ljh"
         channels = (9, 4, 1, 3, 5, 100, 200, 94932)
@@ -121,7 +133,8 @@ class TestFilenameHandling:
         for x, y in zip(rnames, snames):
             assert x == y
 
-    def test_ljh_merge(self):
+    @staticmethod
+    def test_ljh_merge():
         """Make sure the LJH merge script works."""
         with tempfile.TemporaryDirectory() as destdir:
             dest1_name = os.path.join(destdir, "test1_chan3.ljh")
