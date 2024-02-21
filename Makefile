@@ -4,8 +4,8 @@
 
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
-PYFILES = $(shell find mass -name "*.py")
-CYFILES = $(shell find mass -name "*.pyx")
+PYFILES = $(shell find . -name "*.py")
+CYFILES = $(shell find . -name "*.pyx")
 FORMFILES := $(shell find mass -name "*_form_ui.py")
 
 .PHONY: all build clean clean_hdf5 test pep8 autopep8 lint ruff

@@ -4,12 +4,13 @@ import pytest
 from mass.off import util
 import mass
 from mass.off import ChannelGroup, getOffFileListFromOneFile, Channel, labelPeak, labelPeaks, NoCutInds
-from mass.calibration import _highly_charged_ion_lines
+from mass.calibration import _highly_charged_ion_lines  # noqa
 import numpy as np
 import pylab as plt
 import lmfit
 import h5py
 import resource
+import tempfile
 
 # Remove a warning message
 import matplotlib as mpl
@@ -170,149 +171,156 @@ data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueD
                           cutRecipeName="!cutNearTiKAlpha", _rethrow=True)
 
 
-class TestSummaries:
+def test_calibration_n_iter():
+    ds.calibrateFollowingPlan("filtValue", calibratedName="energy2",
+                              n_iter=2, approximate=False)
+    # it should be a little different from energy
+    assert 0 != np.mean(np.abs(ds.energy - ds.energy2))
+    # but should also be similar... though I had to set rtol higher than I expected for this to pass
+    assert np.allclose(ds.energy, ds.energy2, rtol=1e-1)
 
-    def test_calibration_n_iter(self):
-        ds.calibrateFollowingPlan("filtValue", calibratedName="energy2",
-                                  n_iter=2, approximate=False)
-        # it should be a little different from energy
-        assert 0 != np.mean(np.abs(ds.energy - ds.energy2))
-        # but should also be similar... though I had to set rtol higher than I expected for this to pass
-        assert np.allclose(ds.energy, ds.energy2, rtol=1e-1)
 
-    def test_repeating_the_same_correction_with_new_name_doesnt_change_the_original(self):
-        # repeating the same correciton with new name doesnt change the original
-        orig = ds.filtValueDC[:]
-        ds.learnDriftCorrection(uncorrectedName="filtValueDCPCTC")
-        ds.filtValueDCPCTC[0]
-        assert np.allclose(orig, ds.filtValueDC)
+def test_repeating_the_same_correction_with_new_name_doesnt_change_the_original():
+    # repeating the same correciton with new name doesnt change the original
+    orig = ds.filtValueDC[:]
+    ds.learnDriftCorrection(uncorrectedName="filtValueDCPCTC")
+    ds.filtValueDCPCTC[0]
+    assert np.allclose(orig, ds.filtValueDC)
 
-    def test_fixed_behaviors(self):
-        assert ds.stateLabels == ["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"]
 
-    def test_reading_some_items(self):
-        assert ds.relTimeSec[0] == 0
-        assert np.abs(np.median(ds.filtPhase)) < 0.5
-        assert ds.energy[3] == pytest.approx(ds.energyRough[3], abs=5)
+def test_fixed_behaviors():
+    assert ds.stateLabels == ["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"]
 
-    def test_index_off_with_cuts_with_list_of_inds(self):
-        inds = ds.getStatesIndicies(["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
-        v0 = ds._indexOffWithCuts(inds, _listMethodSelect=0)
-        v2 = ds._indexOffWithCuts(inds, _listMethodSelect=2)
-        assert np.allclose(v0["filtValue"], v2["filtValue"])
-        # this is a test of correctness because
-        # the implementation of method 0 is simpler than method 2
-        # method 2 is the default because it is much faster
 
-    def test_get_attr(self):
-        ds.getAttr("energy", slice(0, 50))  # index with slice
-        ds.getAttr("energy", "Ne")  # index with state
-        e0 = ds.getAttr("energy", ["Ne", "W 1"])  # index with list of states
-        inds = ds.getStatesIndicies(["Ne", "W 1"])
-        e1 = ds.getAttr("energy", inds)  # index with inds from same list of states
-        assert np.allclose(e0, e1)
+def test_reading_some_items():
+    assert ds.relTimeSec[0] == 0
+    assert np.abs(np.median(ds.filtPhase)) < 0.5
+    assert ds.energy[3] == pytest.approx(ds.energyRough[3], abs=5)
 
-    @xfail_on_windows  # we don't need refresh to disk to work on windows, so I didn't investigate why it fails
-    def test_refresh_from_files(self):
-        # ds and data refers to the global variable from the script before the tests
-        # while ds_local and data_local refer to the similar local variables
-        data_local = ChannelGroup([filename], verbose=False)
-        ds_local = data_local.firstGoodChannel()
-        experimentStateFile = data_local.experimentStateFile
-        # reach inside offFile and experimentStateFile to make it look like the files were originally opened during
-        # state E. Then we refresh to learn about states F-I
-        # The numerical constants are chosen to make sense for this scenario; vary one, and you may need to vary all.
-        ds_local.offFile._updateMmap(_nRecords=11600)  # mmap only the first half of records
-        experimentStateFile.allLabels = experimentStateFile.allLabels[:5]
-        experimentStateFile.unixnanos = experimentStateFile.unixnanos[:5]
-        experimentStateFile.unaliasedLabels = experimentStateFile.applyExcludesToLabels(
-            experimentStateFile.allLabels)
-        experimentStateFile.parse_start = 159
-        assert len(ds_local) == 11600
-        assert ds_local.stateLabels == ["B", "C", "D", "E"]
-        # use the global ds a the source of truth
-        for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
-            if k_local == "E":  # since we stoppe data aquisition during E, it won't equal it's final value
-                assert v_local != v
-            else:
-                assert v_local == v
-        n_new_labels, n_new_pulses_dict = data_local.refreshFromFiles()
-        assert len(ds_local) == len(ds)
-        assert ds_local.stateLabels == ["B", "C", "D", "E", "F", "G", "H", "I"]
-        states = ["B", "H", "I"]
-        _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue",
-                                      states=states, cutRecipeName="cutNone")
-        global_states = [data.experimentStateFile.labelAliasesDict[state] for state in states]
-        _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue",
-                          states=global_states, cutRecipeName="cutNone")
-        for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
+
+def test_index_off_with_cuts_with_list_of_inds():
+    inds = ds.getStatesIndicies(["Ne", "W 1", "Os", "Ar", "Re", "W 2", "CO2", "Ir"])
+    v0 = ds._indexOffWithCuts(inds, _listMethodSelect=0)
+    v2 = ds._indexOffWithCuts(inds, _listMethodSelect=2)
+    assert np.allclose(v0["filtValue"], v2["filtValue"])
+    # this is a test of correctness because
+    # the implementation of method 0 is simpler than method 2
+    # method 2 is the default because it is much faster
+
+
+def test_get_attr():
+    ds.getAttr("energy", slice(0, 50))  # index with slice
+    ds.getAttr("energy", "Ne")  # index with state
+    e0 = ds.getAttr("energy", ["Ne", "W 1"])  # index with list of states
+    inds = ds.getStatesIndicies(["Ne", "W 1"])
+    e1 = ds.getAttr("energy", inds)  # index with inds from same list of states
+    assert np.allclose(e0, e1)
+
+
+@xfail_on_windows  # we don't need refresh to disk to work on windows, so I didn't investigate why it fails
+def test_refresh_from_files():
+    # ds and data refers to the global variable from the script before the tests
+    # while ds_local and data_local refer to the similar local variables
+    data_local = ChannelGroup([filename], verbose=False)
+    ds_local = data_local.firstGoodChannel()
+    experimentStateFile = data_local.experimentStateFile
+    # reach inside offFile and experimentStateFile to make it look like the files were originally opened during
+    # state E. Then we refresh to learn about states F-I
+    # The numerical constants are chosen to make sense for this scenario; vary one, and you may need to vary all.
+    ds_local.offFile._updateMmap(_nRecords=11600)  # mmap only the first half of records
+    experimentStateFile.allLabels = experimentStateFile.allLabels[:5]
+    experimentStateFile.unixnanos = experimentStateFile.unixnanos[:5]
+    experimentStateFile.unaliasedLabels = experimentStateFile.applyExcludesToLabels(
+        experimentStateFile.allLabels)
+    experimentStateFile.parse_start = 159
+    assert len(ds_local) == 11600
+    assert ds_local.stateLabels == ["B", "C", "D", "E"]
+    # use the global ds a the source of truth
+    for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
+        if k_local == "E":  # since we stoppe data aquisition during E, it won't equal it's final value
+            assert v_local != v
+        else:
             assert v_local == v
-        assert all(ds.filtValue == ds_local.filtValue)
-        assert all(hist_local == hist)
-        # refresh again without updating the files, make sure it doesnt crash
-        n_new_labels_2, n_new_pulses_dict2 = data.refreshFromFiles()
-        assert n_new_labels_2 == 0
+    _n_new_labels, _n_new_pulses_dict = data_local.refreshFromFiles()
+    assert len(ds_local) == len(ds)
+    assert ds_local.stateLabels == ["B", "C", "D", "E", "F", "G", "H", "I"]
+    states = ["B", "H", "I"]
+    _, hist_local = ds_local.hist(np.arange(0, 4000, 1000), "filtValue",
+                                  states=states, cutRecipeName="cutNone")
+    global_states = [data.experimentStateFile.labelAliasesDict[state] for state in states]
+    _, hist = ds.hist(np.arange(0, 4000, 1000), "filtValue",
+                      states=global_states, cutRecipeName="cutNone")
+    for ((k_local, v_local), (k, v)) in zip(ds_local.statesDict.items(), ds.statesDict.items()):
+        assert v_local == v
+    assert all(ds.filtValue == ds_local.filtValue)
+    assert all(hist_local == hist)
+    # refresh again without updating the files, make sure it doesnt crash
+    n_new_labels_2, _n_new_pulses_dict2 = data.refreshFromFiles()
+    assert n_new_labels_2 == 0
 
-    def test_bad_channels_skipped(self):
-        # try:
-        data_local = ChannelGroup([filename])
-        assert len(data_local.keys()) == 1
-        ds_local = data_local.firstGoodChannel()
-        _, hists_pre_bad = data_local.hists(np.arange(10), "filtValue")
-        assert not ds_local.markedBadBool
-        ds_local.markBad("testing")
-        _, hists_post_bad = data_local.hists(np.arange(10), "filtValue")
-        assert len(hists_pre_bad) == 1
-        assert len(hists_post_bad) == 0
-        assert len(data_local.keys()) == 0
-        assert ds_local.markedBadBool
-        n_include_bad = 0
-        with data_local.includeBad():
-            for ds in data_local:
-                n_include_bad += 1
-        assert n_include_bad == 1
-        n_exclude_bad = 0
-        with data_local.includeBad(False):
-            for ds in data_local:
-                n_exclude_bad += 1
-        assert n_exclude_bad == 0
 
-    @pytest.mark.xfail
-    def test_save_load_recipes(self):
-        data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
-        ds_local = data_local.firstGoodChannel()
-        assert "energy" not in ds_local.__dict__, \
-            "ds_local should not have energy yet, we haven't defined that recipe"
-        pklfilename = "recipe_book_save_test2.rbpkl"
-        data.saveRecipeBooks(pklfilename)
-        ds = data.firstGoodChannel()
-        ds.add5LagRecipes(np.zeros(996))
-        data_local.loadRecipeBooks(pklfilename)
-        for ds in data.values():
-            ds_local = data_local[ds.channum]
-            assert all(ds.energy == ds_local.energy)
+def test_bad_channels_skipped():
+    # try:
+    data_local = ChannelGroup([filename])
+    assert len(data_local.keys()) == 1
+    ds_local = data_local.firstGoodChannel()
+    _, hists_pre_bad = data_local.hists(np.arange(10), "filtValue")
+    assert not ds_local.markedBadBool
+    ds_local.markBad("testing")
+    _, hists_post_bad = data_local.hists(np.arange(10), "filtValue")
+    assert len(hists_pre_bad) == 1
+    assert len(hists_post_bad) == 0
+    assert len(data_local.keys()) == 0
+    assert ds_local.markedBadBool
+    n_include_bad = 0
+    with data_local.includeBad():
+        for ds in data_local:
+            n_include_bad += 1
+    assert n_include_bad == 1
+    n_exclude_bad = 0
+    with data_local.includeBad(False):
+        for ds in data_local:
+            n_exclude_bad += 1
+    assert n_exclude_bad == 0
 
-    def test_experiment_state_file_repeated_states(self):
-        # A better test would create an alternate experiment state file with repeated indicies and use that
-        # rather than reach into the internals of ExperimentStateFile
-        esf = mass.off.ExperimentStateFile(_parse=False)
-        # reach into the internals to simulate the results of parse with repeated states
-        esf.allLabels = ["A", "B", "A", "B", "IGNORE", "A"]
-        esf.unixnanos = np.arange(len(esf.allLabels)) * 100
-        esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
-        unixnanos = np.arange(2 * len(esf.allLabels)) * 50  # two entires per label
-        d = esf.calcStatesDict(unixnanos)
-        assert len(d["A"]) == esf.allLabels.count("A")
-        assert len(d["B"]) == esf.allLabels.count("B")
-        assert "IGNORE" not in d.keys()
-        for s in d["A"] + d["B"]:
-            assert s.stop - s.start == 2
 
-        data_local = ChannelGroup([filename], experimentStateFile=esf)
-        ds_local = data_local.firstGoodChannel()
-        ds_local.stdDevResThreshold = 100
-        inds = ds_local.getStatesIndicies("A")
-        _ = ds_local.getAttr("filtValue", inds)
+@pytest.mark.xfail
+def test_save_load_recipes():
+    data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
+    ds_local = data_local.firstGoodChannel()
+    assert "energy" not in ds_local.__dict__, \
+        "ds_local should not have energy yet, we haven't defined that recipe"
+    pklfilename = "recipe_book_save_test2.rbpkl"
+    data.saveRecipeBooks(pklfilename)
+    ds = data.firstGoodChannel()
+    ds.add5LagRecipes(np.zeros(996))
+    data_local.loadRecipeBooks(pklfilename)
+    for ds in data.values():
+        ds_local = data_local[ds.channum]
+        assert all(ds.energy == ds_local.energy)
+
+
+def test_experiment_state_file_repeated_states():
+    # A better test would create an alternate experiment state file with repeated indicies and use that
+    # rather than reach into the internals of ExperimentStateFile
+    esf = mass.off.ExperimentStateFile(_parse=False)
+    # reach into the internals to simulate the results of parse with repeated states
+    esf.allLabels = ["A", "B", "A", "B", "IGNORE", "A"]
+    esf.unixnanos = np.arange(len(esf.allLabels)) * 100
+    esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
+    unixnanos = np.arange(2 * len(esf.allLabels)) * 50  # two entires per label
+    d = esf.calcStatesDict(unixnanos)
+    assert len(d["A"]) == esf.allLabels.count("A")
+    assert len(d["B"]) == esf.allLabels.count("B")
+    assert "IGNORE" not in d.keys()
+    for s in d["A"] + d["B"]:
+        assert s.stop - s.start == 2
+
+    data_local = ChannelGroup([filename], experimentStateFile=esf)
+    ds_local = data_local.firstGoodChannel()
+    ds_local.stdDevResThreshold = 100
+    inds = ds_local.getStatesIndicies("A")
+    _ = ds_local.getAttr("filtValue", inds)
 
 
 def test_experiment_state_file_add_to_same_state_fake_esf():
@@ -338,8 +346,7 @@ def test_experiment_state_file_add_to_same_state():
     # First, we create an experiment state file, esf, with state labels A and B. Then, more records
     # are added to state B. This test verifies that the slice defining state B gets properly updated.
     # This uses a temporary file f just like a regular experiment state file.
-    import tempfile
-    f = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    f = tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8')
     f.write('#\n')  # header
     f.write('0, A\n')    # state A starts at 0 unixnanos
     f.write('100, B\n')  # state B starts at 100 unixnanos
@@ -377,9 +384,9 @@ def test_experiment_state_file_add_to_same_state():
 def test_we_get_different_histograms_when_using_different_cuts_into_a_channelGroup_function():
     # check that we actually get different histograms when using different cuts
     # into a channel group
-    bc1, counts1 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="cutNearTiKAlpha")
-    bc2, counts2 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="!cutNearTiKAlpha")
-    bc3, counts3 = data.hist(np.arange(500, 5000, 500), "energy")
+    _bc1, counts1 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="cutNearTiKAlpha")
+    _bc2, counts2 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="!cutNearTiKAlpha")
+    _bc3, counts3 = data.hist(np.arange(500, 5000, 500), "energy")
 
     assert np.sum(counts1 - counts2) != 0
     assert np.sum(counts1 - counts3) != 0
@@ -494,7 +501,7 @@ def test_linefit_has_tail_and_has_linear_background():
 
 
 def test_median_absolute_deviation():
-    mad, sigma_equiv, median = util.median_absolute_deviation([1, 1, 2, 3, 4])
+    mad, _, median = util.median_absolute_deviation([1, 1, 2, 3, 4])
     assert mad == 1
     assert median == 2
 

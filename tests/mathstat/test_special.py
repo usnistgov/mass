@@ -14,7 +14,8 @@ from mass.mathstat import special
 class TestVoigtWidth:
     """Test the Voigt width approximation."""
 
-    def test_voigt_gaussian_limit(self):
+    @staticmethod
+    def test_voigt_gaussian_limit():
         """Verify Voigt function in Gaussian limit for a range of x and sigma."""
 
         def gaussian(x, sigma):
@@ -27,7 +28,8 @@ class TestVoigtWidth:
             for vi, xi in zip(v, x):
                 assert vi == pytest.approx(gaussian(xi, sigma=sigma), 7)
 
-    def test_voigt_lorentzian_limit(self):
+    @staticmethod
+    def test_voigt_lorentzian_limit():
         """Verify Voigt function in Lorentzian limit for a range of x and FWHM."""
 
         def lorentzian(x, hwhm):
@@ -39,11 +41,12 @@ class TestVoigtWidth:
             for vi, xi in zip(v, x):
                 assert vi == pytest.approx(lorentzian(xi, hwhm=hwhm), 7)
 
-    # def test_general_voigt(self):
+    # def test_general_voigt():
     #     """I'd love to test the Voigt profile at a generic point, but I don't know how! """
     #     pass
 
-    def test_voigt_width_limits(self):
+    @staticmethod
+    def test_voigt_width_limits():
         """Verify FWHM calculation of Voigt in all-Gaussian and all-Lorentz limits."""
         assert special.voigt_approx_fwhm(0, 0) == 0
         assert special.voigt_approx_fwhm(0, 1) == pytest.approx(1, abs=1e-8)
@@ -51,7 +54,8 @@ class TestVoigtWidth:
         assert special.voigt_approx_fwhm(0, 2) == pytest.approx(2, abs=1e-8)
         assert special.voigt_approx_fwhm(2, 0) == pytest.approx(2, abs=1e-8)
 
-    def test_voigt_width(self):
+    @staticmethod
+    def test_voigt_width():
         """Verify FWHM approximation of Voigt with function results."""
         lor_width = 1.0
         for gauss_width in (.01, .1, .2, .5, 1, 2, 5, 10, 20):

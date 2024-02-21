@@ -36,7 +36,8 @@ def make_drifting_data(distrib, res_fwhm_ev, cps, duration_s, gain_of_t):
 
 class TestTimeDriftCorrection:
 
-    def test_make_arrival_times(self):
+    @staticmethod
+    def test_make_arrival_times():
         for cps in [0.1, 1, 10, 100]:
             for duration_s in [10, 100, 1000, 10000]:
                 t = make_arrival_times(cps, duration_s)
@@ -46,7 +47,8 @@ class TestTimeDriftCorrection:
                 Nexpected = cps * duration_s
                 assert np.abs(len(t) - Nexpected) < 10 * np.sqrt(Nexpected)
 
-    def gain_of_t(self, t):
+    @staticmethod
+    def gain_of_t(t):
         return 1 + 0.005 * np.sin(2 * np.pi * t / 10000.)
 
     def test_make_drifting_data(self):
@@ -55,5 +57,5 @@ class TestTimeDriftCorrection:
         cps = 1
         duration_s = 10000
 
-        t, energy = make_drifting_data(distrib, res_fwhm_ev, cps, duration_s,
-                                       self.gain_of_t)
+        _t, _energy = make_drifting_data(distrib, res_fwhm_ev, cps, duration_s,
+                                         self.gain_of_t)

@@ -16,7 +16,8 @@ from mass.mathstat.robust import shorth_range, high_median, Qscale
 class Test_Shorth:
     """Test the function shorth_range, which computes the range of the shortest half."""
 
-    def test_unnormalized(self):
+    @staticmethod
+    def test_unnormalized():
         """Verify that you get actual shorth when normalize=False for odd and even size lists."""
         r = shorth_range([1, 4, 6, 8, 11], normalize=False)
         assert r == 4, "Did not find shortest half range in length-5 list"
@@ -41,7 +42,8 @@ class Test_Shorth:
         assert shr_ctr == 0.5 * (x[1] + x[4]), \
             "Did not find shortest half center in length-6 list"
 
-    def test_sort_inplace(self):
+    @staticmethod
+    def test_sort_inplace():
         """Verify behavior of the sort_inplace argument."""
         x = [7, 1, 2, 3, 4, 5, 6]
         y = np.array(x)
@@ -61,7 +63,8 @@ class Test_Shorth:
 class Test_High_Median:
     """"Test the function high_median, which returns the high weighted median of a data set."""
 
-    def test_unweighted(self):
+    @staticmethod
+    def test_unweighted():
         """Verify high_median when the weights are implied equal to 1"""
         x = np.arange(7)
         assert high_median(x) == 3, "Did not get HM([0,1...6]) = 3."
@@ -72,7 +75,8 @@ class Test_High_Median:
         x = np.array([4])
         assert high_median(x) == 4, "Did not get HM([4]) = 4."
 
-    def test_weighted(self):
+    @staticmethod
+    def test_weighted():
         """Verify simple cases of high_median."""
         new_order = [3, 0, 1, 4, 2]
 
@@ -131,11 +135,13 @@ class Test_High_Median:
 class Test_Qscale:
     """Test the Qscale() statistic."""
 
-    def test_simple(self):
+    @staticmethod
+    def test_simple():
         x = np.array([1, 4, 5, 6, 8], dtype=float)
         assert Qscale(x) == pytest.approx(2.0 * 2.2219 * .844, abs=1e-3)
 
-    def test_inplace(self):
+    @staticmethod
+    def test_inplace():
         _ = Qscale([1, 2, 3, 4], sort_inplace=False)
         pytest.raises(ValueError, Qscale, [1, 2, 3, 4], sort_inplace=True)
 
@@ -145,7 +151,8 @@ class Test_Qscale:
         _ = Qscale(x, sort_inplace=True)
         assert x[3] == 4, "Qscale did not sort data when asked to sort."
 
-    def Qslow(self, x):
+    @staticmethod
+    def Qslow(x):
         """Compute Q the simple, slow way, an O(n^2) calculation to verify the fast one."""
         x = np.array(x)
         x.sort()

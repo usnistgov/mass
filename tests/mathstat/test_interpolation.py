@@ -14,7 +14,8 @@ from mass.mathstat.interpolate import k_spline, GPRSpline
 
 class Test_SmoothingSpline:
 
-    def test_issue74(self):
+    @staticmethod
+    def test_issue74():
         """This is a regression test to ensure that issue #74 is fixed and
         remains fixed.
         """
@@ -41,12 +42,14 @@ class Test_SmoothingSpline:
 
 class Test_GPR:
 
-    def test_spline_covar(self):
+    @staticmethod
+    def test_spline_covar():
         for x in np.linspace(0, 10):
             assert x**3 / 3 == k_spline(x, x)
             assert k_spline(x, 5.5) == k_spline(5.5, x)
 
-    def test_gprspline(self):
+    @staticmethod
+    def test_gprspline():
         x = np.linspace(2, 10, 9)
         s = 1.0
         delta = np.array([-0.08414947, 0.25100057, 0.70287457, -0.9225354, -0.56127467,

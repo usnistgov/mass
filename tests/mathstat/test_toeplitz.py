@@ -14,6 +14,7 @@ from mass.mathstat.toeplitz import ToeplitzSolver
 import numpy as np
 from scipy import linalg
 import time
+import pylab as plt
 
 rng = np.random.default_rng()
 
@@ -194,7 +195,6 @@ class toeplitzSpeed:
         return dt
 
     def plot(self):
-        import pylab as plt
         plt.clf()
         plt.plot(self.sizes, self.ts_time, label='Toeplitz solver')
         plt.plot(self.sizes, self.build_time, label='Matrix build')
