@@ -27,15 +27,15 @@ class TestPhaseCorrect:
         for i, name in enumerate(line_names):
             spect = mass.spectra[name]
             n = 1000
-            if i*1000+n > ds.nPulses:
-                n = ds.nPulses-i*1000
-            energies[i*1000:i*1000+n] = spect.rvs(size=n, rng=rng,
+            if i * 1000 + n > ds.nPulses:
+                n = ds.nPulses - i * 1000
+            energies[i * 1000:i * 1000 + n] = spect.rvs(size=n, rng=rng,
                                                   instrument_gaussian_fwhm=3)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))
         rng.shuffle(energies)
         rng.shuffle(phase)
-        ph = energies+phase*10  # this pushes the resolution up to roughly 10 eV
+        ph = energies + phase * 10  # this pushes the resolution up to roughly 10 eV
 
         assert ds.nPulses == len(energies)
         ds.p_filt_value_dc[:] = ph[:]
@@ -58,8 +58,8 @@ class TestPhaseCorrect:
         for name in line_names:
             line = mass.spectra[name]
             model = line.model()
-            bin_edges = np.arange(-100, 100)+line.peak_energy
-            bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+            bin_edges = np.arange(-100, 100) + line.peak_energy
+            bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
             counts, _ = np.histogram(ds.p_filt_value_phc, bin_edges)
             params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
             params["dph_de"].set(1.0, vary=False)
@@ -88,13 +88,13 @@ class TestPhaseCorrect:
         line_names = ["MnKAlpha", "FeKAlpha", "CuKAlpha", "CrKAlpha"]
         for i, name in enumerate(line_names):
             spect = mass.spectra[name]
-            energies[i*1000:(i+1)*1000] = spect.rvs(size=1000, rng=rng,
+            energies[i * 1000:(i + 1) * 1000] = spect.rvs(size=1000, rng=rng,
                                                     instrument_gaussian_fwhm=3)
             ph_peaks.append(spect.nominal_peak_energy)
         phase = np.linspace(-0.6, 0.6, len(energies))
         rng.shuffle(energies)
         rng.shuffle(phase)
-        ph = energies+phase*10  # this pushes the resolution up to roughly 10 eV
+        ph = energies + phase * 10  # this pushes the resolution up to roughly 10 eV
 
         phaseCorrector = mass.core.phase_correct.phase_correct(phase, ph, ph_peaks=ph_peaks)
         corrected = phaseCorrector(phase, ph)
@@ -103,8 +103,8 @@ class TestPhaseCorrect:
         for name in line_names:
             line = mass.spectra[name]
             model = line.model()
-            bin_edges = np.arange(-100, 100)+line.peak_energy
-            bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+            bin_edges = np.arange(-100, 100) + line.peak_energy
+            bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
             counts, _ = np.histogram(corrected, bin_edges)
             params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
             params["dph_de"].set(1.0, vary=False)
@@ -147,7 +147,7 @@ def fix_screwed_up_LJH_file():
                 fout.write(padding)
                 fout.write(data)
             while True:
-                data = fin.read(binary_length+10)
-                if len(data) < binary_length+10:
+                data = fin.read(binary_length + 10)
+                if len(data) < binary_length + 10:
                     break
                 fout.write(data)

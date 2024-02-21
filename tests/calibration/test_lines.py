@@ -53,11 +53,11 @@ class Test_MnKA_distribution:
             if "KBeta24" in name:
                 continue
             target = mass.STANDARD_FEATURES[name]
-            result = np.abs(spectrum.nominal_peak_energy-target) < 0.5
+            result = np.abs(spectrum.nominal_peak_energy - target) < 0.5
             if not result:
                 print("{} spectrum.nominal_peak_energy={}, mass.STANDARD_FEATURES={}, abs diff={}".format(
                     name, spectrum.nominal_peak_energy, target,
-                    np.abs(spectrum.nominal_peak_energy-target)))
+                    np.abs(spectrum.nominal_peak_energy - target)))
             assert result
 
             # test that basic funtionality works for all instances
@@ -79,7 +79,7 @@ class TestAddFitter:
                 reference_short='NIST ASD',
                 fitter_type=mass.GenericLineModel,
                 reference_plot_instrument_gaussian_fwhm=0.5,
-                nominal_peak_energy=(653.679946*2+653.493657*1)/3,
+                nominal_peak_energy=(653.679946 * 2 + 653.493657 * 1) / 3,
                 energies=np.array([653.493657, 653.679946]), lorentzian_fwhm=np.array([0.1, 0.1]),
                 allow_replacement=replace,
                 reference_amplitude=np.array([1, 2]),
@@ -103,13 +103,13 @@ class TestAddFitter:
         e = np.linspace(5880, 5910, 31)
         y1 = line(e, instrument_gaussian_fwhm=0)
         y2 = line(e, instrument_gaussian_fwhm=8)
-        line.intrinsic_sigma = 8/2.3548
+        line.intrinsic_sigma = 8 / 2.3548
         y3 = line(e, instrument_gaussian_fwhm=0)
-        maxdiff = np.abs(y1-y2).max()
+        maxdiff = np.abs(y1 - y2).max()
         assert maxdiff > 1e-4, "Setting resolution=8 eV should change line"
-        maxdiff = np.abs(y1-y3).max()
+        maxdiff = np.abs(y1 - y3).max()
         assert maxdiff > 1e-4, "Setting instrinsic_sigma to 3.40 eV should change line"
-        maxdiff = np.abs(y2-y3).max()
+        maxdiff = np.abs(y2 - y3).max()
         assert maxdiff < 1e-5, "Setting resolution=8 eV or intrinsic_sigma=3.40 eV should be equivalent"
         line.intrinsic_sigma = 0.0
 

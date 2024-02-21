@@ -100,7 +100,7 @@ class TestFilenameHandling:
 
     def test_ljh_basename_channum(self):
         basename = "/a/b/c/d"
-        bname = basename+"_chan%d.ljh"
+        bname = basename + "_chan%d.ljh"
         for cnum in [1, 3, 5, 100, 200, 94932]:
             b, c = ljh_basename_channum(bname % cnum)
             assert c == cnum
@@ -131,7 +131,7 @@ class TestFilenameHandling:
             Npulses = min(20, src.nPulses)
             wordsize = 2
             timing_size = 16
-            truncated_length = src.header_size + Npulses*(src.nSamples*wordsize+timing_size)
+            truncated_length = src.header_size + Npulses * (src.nSamples * wordsize + timing_size)
 
             shutil.copy(src_name, dest1_name)
             os.truncate(dest1_name, truncated_length)
@@ -143,7 +143,7 @@ class TestFilenameHandling:
 
             result_name = os.path.join(destdir, "merged_chan3.ljh")
             result = LJHFile.open(result_name)
-            assert 2*Npulses == result.nPulses
+            assert 2 * Npulses == result.nPulses
             assert src.nSamples == result.nSamples
             assert np.all(result.datatimes_raw >= src.datatimes_raw[0])
             assert np.all(result.subframecount >= src.subframecount[0])

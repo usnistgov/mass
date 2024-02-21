@@ -16,7 +16,7 @@ class TestNumpyHistogramBug:
         a64 = np.array([25552.234, 26000])
 
         # Make a histogram from these two values. Put the lower bin limit just above the lower value.
-        bin_limits = (a64[0]+0.0005, 26200)
+        bin_limits = (a64[0] + 0.0005, 26200)
         counts, binedges = np.histogram(a64, 10, bin_limits)
         assert counts[0] == 0
 

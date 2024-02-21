@@ -226,7 +226,7 @@ class TestJoeStyleEnergyCalibration:
             cal.add_cal_point(ph, energy)
         cal.set_use_approximation(True)
 
-        ph = np.arange(-10, 10, dtype=float)*1000.
+        ph = np.arange(-10, 10, dtype=float) * 1000.
         for ct in cal.CURVETYPE:
             cal.set_curvetype(ct)
             e = cal(ph)
@@ -253,15 +253,15 @@ class TestJoeStyleEnergyCalibration:
             for a, b, c, d in zip(ph, e, dph, de):
                 cal.add_cal_point(a, b, pht_error=c, e_error=d, name=f"{b:.3f} eV")
             cal._update_converters()
-        assert (np.abs(cal1(ph)-e) < 1.2*dph).all()
-        assert (np.abs(cal2(ph)-e) < 0.7*dph).all()
+        assert (np.abs(cal1(ph) - e) < 1.2 * dph).all()
+        assert (np.abs(cal2(ph) - e) < 0.7 * dph).all()
 
         # Be sure that the old-style (non-GPR) spline finds the right curvature
         assert cal1._underlying_spline.actualchisq == pytest.approx(len(ph), abs=0.01)
 
         # Test for a problem in extrapolated gain that I had: gain was extrapolated with zero slope!
         for cal in (cal1, cal2):
-            g1k = 10000/cal(10000)
-            g4k = 40000/cal(40000)
+            g1k = 10000 / cal(10000)
+            g4k = 40000 / cal(40000)
             assert g1k > 3.2
             assert g4k < 2.9

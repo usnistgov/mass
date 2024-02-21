@@ -48,11 +48,11 @@ data.experimentStateFile.aliasState("I", "Ir")
 data.learnResidualStdDevCut(plot=True, _rethrow=True)
 data.setDefaultBinsize(0.5)
 ds = data.firstGoodChannel()
-ds.plotAvsB("relTimeSec", "residualStdDev",  includeBad=True)
+ds.plotAvsB("relTimeSec", "residualStdDev", includeBad=True)
 ds.plotAvsB("relTimeSec", "pretriggerMean", includeBad=True)
 ds.plotAvsB("relTimeSec", "filtValue", includeBad=False)
 ds.plotAvsB2d("relTimeSec", "filtValue",
-              [np.arange(0, 3600*2, 300), np.arange(0, 40000, 500)])
+              [np.arange(0, 3600 * 2, 300), np.arange(0, 40000, 500)])
 ds.plotHist(np.arange(0, 40000, 4), "filtValue")
 ds.plotHist(np.arange(0, 40000, 4), "filtValue", coAddStates=False)
 
@@ -117,7 +117,7 @@ data.plotHists(np.arange(0, 4000, 1), "energy")
 plt.figure(figsize=(12, 6))
 ax = plt.gca()
 data.plotHist(np.arange(1000, 4000, 1), "energy", coAddStates=False, states=["W 1", "Os"], axis=ax)
-ax.set_ylim(0, 1.2*np.amax([np.amax(line.get_ydata()) for line in ax.lines]))
+ax.set_ylim(0, 1.2 * np.amax([np.amax(line.get_ydata()) for line in ax.lines]))
 names = [f"W Ni-{i}" for i in range(1, 27)]
 n = collections.OrderedDict()
 # line = ax.lines[0]
@@ -160,10 +160,10 @@ ds.filtValueDCPCTC[0]  # this will error if the attr doesnt exist
 
 # test cutRecipes
 data.cutAdd("cutNearTiKAlpha", lambda energyRough: np.abs(
-    energyRough-mass.STANDARD_FEATURES["TiKAlpha"]) < 60)
+    energyRough - mass.STANDARD_FEATURES["TiKAlpha"]) < 60)
 selectedEnergies = ds.energyRough[ds.cutNearTiKAlpha]
 assert len(selectedEnergies) == np.sum(
-    np.abs(ds.energyRough-mass.STANDARD_FEATURES["TiKAlpha"]) < 60)
+    np.abs(ds.energyRough - mass.STANDARD_FEATURES["TiKAlpha"]) < 60)
 data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueDCCutTest",
                           cutRecipeName="cutNearTiKAlpha", _rethrow=True)
 data.learnDriftCorrection(uncorrectedName="filtValue", correctedName="filtValueDCCutTestInv",
@@ -176,7 +176,7 @@ class TestSummaries:
         ds.calibrateFollowingPlan("filtValue", calibratedName="energy2",
                                   n_iter=2, approximate=False)
         # it should be a little different from energy
-        assert 0 != np.mean(np.abs(ds.energy-ds.energy2))
+        assert 0 != np.mean(np.abs(ds.energy - ds.energy2))
         # but should also be similar... though I had to set rtol higher than I expected for this to pass
         assert np.allclose(ds.energy, ds.energy2, rtol=1e-1)
 
@@ -298,15 +298,15 @@ class TestSummaries:
         esf = mass.off.ExperimentStateFile(_parse=False)
         # reach into the internals to simulate the results of parse with repeated states
         esf.allLabels = ["A", "B", "A", "B", "IGNORE", "A"]
-        esf.unixnanos = np.arange(len(esf.allLabels))*100
+        esf.unixnanos = np.arange(len(esf.allLabels)) * 100
         esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
-        unixnanos = np.arange(2*len(esf.allLabels))*50  # two entires per label
+        unixnanos = np.arange(2 * len(esf.allLabels)) * 50  # two entires per label
         d = esf.calcStatesDict(unixnanos)
         assert len(d["A"]) == esf.allLabels.count("A")
         assert len(d["B"]) == esf.allLabels.count("B")
         assert "IGNORE" not in d.keys()
-        for s in d["A"]+d["B"]:
-            assert s.stop-s.start == 2
+        for s in d["A"] + d["B"]:
+            assert s.stop - s.start == 2
 
         data_local = ChannelGroup([filename], experimentStateFile=esf)
         ds_local = data_local.firstGoodChannel()
@@ -322,7 +322,7 @@ def test_experiment_state_file_add_to_same_state_fake_esf():
     esf = mass.off.ExperimentStateFile(_parse=False)
     # reach into the internals to simulate the results of parse with repeated states
     esf.allLabels = ["A", "B"]
-    esf.unixnanos = np.arange(len(esf.allLabels))*100
+    esf.unixnanos = np.arange(len(esf.allLabels)) * 100
     esf.unaliasedLabels = esf.applyExcludesToLabels(esf.allLabels)
     unixnanos = [25, 75, 125, 175]  # four timestamps representing four records. two records per state.
     d = esf.calcStatesDict(unixnanos)
@@ -365,7 +365,7 @@ def test_experiment_state_file_add_to_same_state():
     d_empty_state = esf.calcStatesDict(
         [301, 302], statesDict=d_updated,
         i0_allLabels=old_states_len,
-        i0_unixnanos=len(unixnanos)+len(new_unixnanos))
+        i0_unixnanos=len(unixnanos) + len(new_unixnanos))
 
     assert d_empty_state['A'] == slice(0, 2, None)
     assert d_empty_state['B'] == slice(2, 6, None)
@@ -381,9 +381,9 @@ def test_we_get_different_histograms_when_using_different_cuts_into_a_channelGro
     bc2, counts2 = data.hist(np.arange(500, 5000, 500), "energy", cutRecipeName="!cutNearTiKAlpha")
     bc3, counts3 = data.hist(np.arange(500, 5000, 500), "energy")
 
-    assert np.sum(counts1-counts2) != 0
-    assert np.sum(counts1-counts3) != 0
-    assert np.sum(counts2-counts3) != 0
+    assert np.sum(counts1 - counts2) != 0
+    assert np.sum(counts1 - counts3) != 0
+    assert np.sum(counts2 - counts3) != 0
 
 
 def test_getAttr_with_list_of_slice():
@@ -405,8 +405,8 @@ def test_getAttr_and_recipes_with_coefs():
     assert np.allclose(coefs[:, 2], filtValue)
     ds.recipes.add("coefsSum", lambda coefs: coefs.sum(axis=1))
     assert np.allclose(ds.getAttr("coefsSum", ind), coefs.sum(axis=1))
-    ds.recipes.add("coefsSumPlusFiltvalue", lambda filtValue, coefs: coefs.sum(axis=1)+filtValue)
-    assert np.allclose(ds.getAttr("coefsSumPlusFiltvalue", ind), coefs.sum(axis=1)+filtValue)
+    ds.recipes.add("coefsSumPlusFiltvalue", lambda filtValue, coefs: coefs.sum(axis=1) + filtValue)
+    assert np.allclose(ds.getAttr("coefsSumPlusFiltvalue", ind), coefs.sum(axis=1) + filtValue)
     # test access as with NoCutInds
     ds.getAttr("coefs", NoCutInds())
     ds.getAttr("coefsSum", NoCutInds())
@@ -448,27 +448,27 @@ def test_recipes():
     rb = util.RecipeBook(baseIngredients=["x", "y", "z"])
 
     def funa(x, y):
-        return x+y
+        return x + y
 
     def funb(a, z):
-        return a+z
+        return a + z
 
     rb.add("a", funa)
     rb.add("b", funb)
-    rb.add("c", lambda a, b: a+b)
+    rb.add("c", lambda a, b: a + b)
     with pytest.raises(AssertionError):
         # should fail because f isn't in baseIngredients and hasn't been added
         rb.add("e", lambda a, b, c, d, f: a)
     with pytest.raises(AssertionError):
         # should fail because ingredients is longer than argument list
-        rb.add("f", lambda a, b: a+b, ingredients=["a", "b", "c"])
+        rb.add("f", lambda a, b: a + b, ingredients=["a", "b", "c"])
     args = {"x": 1, "y": 2, "z": 3}
     assert rb.craft("a", args) == 3
     assert rb.craft("b", args) == 6
     assert rb.craft("c", args) == 9
     assert rb.craft("c", args) == 9
-    assert rb._craftWithFunction(lambda a, b, c: a+b+c, args) == 18
-    assert rb.craft(lambda a, b, c: a+b+c, args) == 18
+    assert rb._craftWithFunction(lambda a, b, c: a + b + c, args) == 18
+    assert rb.craft(lambda a, b, c: a + b + c, args) == 18
 
 
 def test_linefit_has_tail_and_has_linear_background():
@@ -543,7 +543,7 @@ def test_open_many_OFF_files():
     resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
     try:
         maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
-        NFilesToOpen = maxfiles//2 + 10
+        NFilesToOpen = maxfiles // 2 + 10
 
         filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
         filelist = getOffFileListFromOneFile(filename, maxChans=2)
@@ -553,8 +553,8 @@ def test_open_many_OFF_files():
 
         # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
         # only open it once, not twice.
-        NFilePairsToOpen = (maxfiles-12)//6
-        filelist = NFilePairsToOpen*filelist
+        NFilePairsToOpen = (maxfiles - 12) // 6
+        filelist = NFilePairsToOpen * filelist
         for _ in range(3):
             _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
                              excludeStates=["START", "END"])

@@ -23,11 +23,11 @@ class Test_Shorth:
 
         x = np.array([1, 4.6, 6, 8, 11])
         r, shr_mean, shr_ctr = shorth_range(x, normalize=False, location=True)
-        assert r == x[3]-x[1], \
+        assert r == x[3] - x[1], \
             "Did not find shortest half range in length-5 list"
         assert shr_mean == x[1:4].mean(), \
             "Did not find shortest half mean in length-5 list"
-        assert shr_ctr == 0.5*(x[1]+x[3]), \
+        assert shr_ctr == 0.5 * (x[1] + x[3]), \
             "Did not find shortest half center in length-5 list"
 
         r = shorth_range([2, 4, 6, 8, 11, 15], normalize=False)
@@ -35,10 +35,10 @@ class Test_Shorth:
 
         x = np.array([1, 4.6, 6, 8, 11, 100])
         r, shr_mean, shr_ctr = shorth_range(x, normalize=False, location=True)
-        assert r == x[4]-x[1], "Did not find shortest half range in length-6 list"
+        assert r == x[4] - x[1], "Did not find shortest half range in length-6 list"
         assert shr_mean == x[1:5].mean(), \
             "Did not find shortest half mean in length-6 list"
-        assert shr_ctr == 0.5*(x[1]+x[4]), \
+        assert shr_ctr == 0.5 * (x[1] + x[4]), \
             "Did not find shortest half center in length-6 list"
 
     def test_sort_inplace(self):
@@ -133,7 +133,7 @@ class Test_Qscale:
 
     def test_simple(self):
         x = np.array([1, 4, 5, 6, 8], dtype=float)
-        assert Qscale(x) == pytest.approx(2.0*2.2219*.844, abs=1e-3)
+        assert Qscale(x) == pytest.approx(2.0 * 2.2219 * .844, abs=1e-3)
 
     def test_inplace(self):
         _ = Qscale([1, 2, 3, 4], sort_inplace=False)
@@ -155,14 +155,14 @@ class Test_Qscale:
         if n <= 9:
             prefactor *= [0, 0, 0.399, 0.994, 0.512, 0.844, 0.611, 0.857, 0.669, 0.872][n]
         elif n % 2 == 1:
-            prefactor *= n/(n+1.4)
+            prefactor *= n / (n + 1.4)
         else:
-            prefactor *= n/(n+3.8)
+            prefactor *= n / (n + 3.8)
 
-        dist = np.hstack([x[j]-x[:j] for j in range(1, n)])
+        dist = np.hstack([x[j] - x[:j] for j in range(1, n)])
         dist.sort()
         h = n // 2 + 1
-        k = h*(h-1) // 2 - 1
+        k = h * (h - 1) // 2 - 1
         return prefactor * dist[k]
 
     def test_random(self):

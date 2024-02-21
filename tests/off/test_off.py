@@ -38,7 +38,7 @@ class TestOff:
         resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
         try:
             maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
-            NFilesToOpen = maxfiles//3 + 10
+            NFilesToOpen = maxfiles // 3 + 10
 
             filename = os.path.join(d, "data_for_test/off_with_binary_projectors_and_basis.off")
             for _ in range(NFilesToOpen):

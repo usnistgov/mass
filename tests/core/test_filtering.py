@@ -169,7 +169,7 @@ class TestFilters:
             ds.average_pulse[:ds.nPresamples] = 0.0
             # ds.compute_ats_filter(f_3db=5000)
             aterms = np.zeros_like(ds.average_pulse)
-            aterms[ds.nPresamples+1] = 1.0
+            aterms[ds.nPresamples + 1] = 1.0
             model = np.vstack([ds.average_pulse, aterms]).T
             modelpeak = np.max(ds.average_pulse)
 
@@ -191,8 +191,8 @@ class TestFilters:
 
         # Test that filters actually have zero weight where they are supposed to.
         PREMAX, POSTMAX = 50, 200
-        for pre in [0, PREMAX//2, PREMAX]:
-            for post in [0, POSTMAX//2, POSTMAX]:
+        for pre in [0, PREMAX // 2, PREMAX]:
+            for post in [0, POSTMAX // 2, POSTMAX]:
                 ds.filter.compute(f_3db=5000, cut_pre=pre, cut_post=post)
                 f = ds.filter.filt_noconst
                 resultsA = np.dot(d, f)
@@ -212,19 +212,19 @@ class TestFilters:
 
         pulse = np.zeros((N, 1), dtype=float)
         pulse[:, 0] = ds.average_pulse[:]
-        noise = np.exp(-np.arange(N)*.01)
+        noise = np.exp(-np.arange(N) * .01)
         filterL = mass.ArrivalTimeSafeFilter(pulse, n_pre, noise_autocorr=noise, sample_time=dt)
 
-        for cut_pre in (0, n_pre//10, n_pre//4):
-            for cut_post in (0, (N-n_pre)//10, (N-n_pre)//4):
-                thispulse = pulse[cut_pre:N-cut_post]
-                filterS = mass.ArrivalTimeSafeFilter(thispulse, n_pre-cut_pre,
+        for cut_pre in (0, n_pre // 10, n_pre // 4):
+            for cut_post in (0, (N - n_pre) // 10, (N - n_pre) // 4):
+                thispulse = pulse[cut_pre:N - cut_post]
+                filterS = mass.ArrivalTimeSafeFilter(thispulse, n_pre - cut_pre,
                                                      noise_autocorr=noise, sample_time=dt)
                 filterS.compute()
                 fS = filterS.filt_noconst
 
                 filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
-                fL = filterL.filt_noconst[cut_pre:N-cut_post]
+                fL = filterL.filt_noconst[cut_pre:N - cut_post]
                 assert np.allclose(fS, fL)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
@@ -233,10 +233,10 @@ class TestFilters:
         Tests for issue #176."""
         nSamples = 100
         nPresamples = 50
-        nPost = nSamples-nPresamples
+        nPost = nSamples - nPresamples
 
         # Some fake data
-        pulse_like = np.append(np.zeros(nPresamples), np.linspace(nPost-1, 0, nPost))
+        pulse_like = np.append(np.zeros(nPresamples), np.linspace(nPost - 1, 0, nPost))
         deriv_like = np.append(np.zeros(nPresamples), -np.ones(nPost))
         model = np.column_stack((pulse_like, deriv_like))
 
@@ -254,15 +254,15 @@ class TestFilters:
             test_filter.compute(f_3db=None, fmax=None)
             std = np.median(np.abs(test_filter.filt_noconst))
             mean = test_filter.filt_noconst.mean()
-            assert mean < 1e-10*std, f"{test_filter.name} failed DC test w/o lowpass"
+            assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/o lowpass"
 
             test_filter.compute(f_3db=1e4, fmax=None)
             mean = test_filter.filt_noconst.mean()
-            assert mean < 1e-10*std, f"{test_filter.name} failed DC test w/ f_3db"
+            assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ f_3db"
 
             test_filter.compute(f_3db=None, fmax=1e4)
             mean = test_filter.filt_noconst.mean()
-            assert mean < 1e-10*std, f"{test_filter.name} failed DC test w/ fmax"
+            assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ fmax"
 
 
 class TestWhitener:

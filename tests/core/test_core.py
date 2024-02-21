@@ -54,7 +54,7 @@ class TestFiles:
             dest_name = destfile.name
 
             def func():
-                ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054*500)
+                ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054 * 500)
             pytest.raises(Exception, func)
 
     def run_test_ljh_truncate_timestamp(self, src_name, n_pulses_expected, timestamp, segmentsize):
@@ -92,25 +92,25 @@ class TestFiles:
         self.run_test_ljh_truncate_n_pulses(src_name, 1000, None)
         self.run_test_ljh_truncate_n_pulses(src_name, 0, None)
         self.run_test_ljh_truncate_n_pulses(src_name, 1, None)
-        self.run_test_ljh_truncate_n_pulses(src_name, 100, 1016*2000)
-        self.run_test_ljh_truncate_n_pulses(src_name, 49, 1016*50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 50, 1016*50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 51, 1016*50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 75, 1016*50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 334, 1016*50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 100, 1016 * 2000)
+        self.run_test_ljh_truncate_n_pulses(src_name, 49, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 50, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 51, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 75, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 334, 1016 * 50)
 
     def test_ljh_truncate_timestamp(self):
         # Want to make sure that we didn't screw something up with the
         # segmentation, so try various lengths
         # Tests with a file with 1230 pulses, each 1016 bytes long
         src_name = os.path.join('tests', 'regression_test', 'regress_chan3.ljh')
-        self.run_test_ljh_truncate_timestamp(src_name, 1000, 1510871067891481/1e6, None)
-        self.run_test_ljh_truncate_timestamp(src_name,  100, 1510871020202899/1e6, 1016*2000)
-        self.run_test_ljh_truncate_timestamp(src_name,   49, 1510871016889751/1e6, 1016*50)
-        self.run_test_ljh_truncate_timestamp(src_name,   50, 1510871016919543/1e6, 1016*50)
-        self.run_test_ljh_truncate_timestamp(src_name,   51, 1510871017096192/1e6, 1016*50)
-        self.run_test_ljh_truncate_timestamp(src_name,   75, 1510871018591985/1e6, 1016*50)
-        self.run_test_ljh_truncate_timestamp(src_name,  334, 1510871031629499/1e6, 1016*50)
+        self.run_test_ljh_truncate_timestamp(src_name, 1000, 1510871067891481 / 1e6, None)
+        self.run_test_ljh_truncate_timestamp(src_name, 100, 1510871020202899 / 1e6, 1016 * 2000)
+        self.run_test_ljh_truncate_timestamp(src_name, 49, 1510871016889751 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(src_name, 50, 1510871016919543 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(src_name, 51, 1510871017096192 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(src_name, 75, 1510871018591985 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(src_name, 334, 1510871031629499 / 1e6, 1016 * 50)
 
     def test_ljh_dastard_other_reading(self):
         "Make sure we read DASTARD vs non-DASTARD LJH files correctly"
@@ -178,7 +178,7 @@ class TestTESGroup:
         ds = data.channel[1]
 
         # Make segments be short enough that even this small test file contains > 1 of them.
-        ds.pulse_records.set_segment_size(512*1024)
+        ds.pulse_records.set_segment_size(512 * 1024)
         assert ds.pulse_records.pulses_per_seg < ds.nPulses
 
         # Summarize with Cython
@@ -314,7 +314,7 @@ class TestTESGroup:
         cuts = ds.auto_cuts(forceNew=False, clearCuts=False)
         assert cuts is not None, "auto_cuts not run after other cuts (issue 147)"
         ngood = ds.good().sum()
-        assert ngood < ds.nPulses-arbcut.sum()
+        assert ngood < ds.nPulses - arbcut.sum()
         assert ngood > 0
 
     def test_plot_filters(self, tmp_path):
@@ -369,12 +369,12 @@ class TestTESGroup:
             data.set_chan_good(1)
             dc = ds.p_filt_value_dc[:]
             top = 6000.0
-            bin = np.digitize(dc, np.linspace(0, top, 1+NBINS))-1
+            bin = np.digitize(dc, np.linspace(0, top, 1 + NBINS)) - 1
             ds.p_filt_value_dc[np.logical_or(bin >= NBINS, bin < lowestbin)] = 5898.8
             data.phase_correct(method2017=True, forceNew=True, save_to_hdf5=False)
             if ds.channum not in data.good_channels:
                 raise ValueError("Failed issue156 test with %d valid bins (lowestbin=%d)" %
-                                 (NBINS-lowestbin, lowestbin))
+                                 (NBINS - lowestbin, lowestbin))
 
     def test_noncontinuous_noise(self):
         "Test for issue 157: failure when noise_is_continuous=False"
@@ -415,7 +415,7 @@ class TestTESGroup:
             assert np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc)
 
             should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
-            wrongness = np.abs(should_be_identity-np.identity(n_basis))
+            wrongness = np.abs(should_be_identity - np.identity(n_basis))
             # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
             print(wrongness)
             print(np.amax(wrongness))
@@ -428,14 +428,14 @@ class TestTESGroup:
             prefix = os.path.split(basename)[1]
             offbase = f"{output_dir}/{prefix}"
             ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
-                [basename]*2, hdf5_filename, offbase, max_channels,
+                [basename] * 2, hdf5_filename, offbase, max_channels,
                 n_ignore_presamples)
             assert ds.filename == ljh_filename_lists[0][0]
             off_multi = mass.off.off.OffFile(off_filenames_multi[0])
-            assert 2*N == len(off_multi)
+            assert 2 * N == len(off_multi)
             assert off[7] == off_multi[7]
-            assert off[7] == off_multi[N+7]
-            assert off[7] != off_multi[N+6]
+            assert off[7] == off_multi[N + 7]
+            assert off[7] != off_multi[N + 6]
 
     def test_ljh_records_to_off(self, tmp_path):
         """Be sure ljh_records_to_off works with ljh files of 2 or more segments."""
@@ -449,7 +449,7 @@ class TestTESGroup:
         # Reduce the segment size, so we test that this works with LJH files having
         # 2 or more segments. Here choose 3 segments
         bsize = np.max([ds.pulse_records.datafile.binary_size for ds in data])
-        segsize = (bsize+3*4096)//3
+        segsize = (bsize + 3 * 4096) // 3
         segsize -= segsize % 4096
 
         ljhfile = LJHFile.open(data.channel[1].filename)
