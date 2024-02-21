@@ -67,7 +67,7 @@ class TestFiles:
             assert n_pulses_expected == dest.nPulses
             for k in range(n_pulses_expected):
                 assert np.all(src.read_trace(k) == dest.read_trace(k))
-                assert src.rowcount[k] == dest.rowcount[k]
+                assert src.subframecount[k] == dest.subframecount[k]
                 assert src.datatimes_float[k] == pytest.approx(dest.datatimes_float[k], abs=1e-5)
 
     def run_test_ljh_truncate_n_pulses(self, src_name, n_pulses, segmentsize):
@@ -81,7 +81,7 @@ class TestFiles:
             assert n_pulses == dest.nPulses
             for k in range(n_pulses):
                 assert np.all(src.read_trace(k) == dest.read_trace(k))
-                assert src.rowcount[k] == dest.rowcount[k]
+                assert src.subframecount[k] == dest.subframecount[k]
                 assert src.datatimes_float[k] == pytest.approx(dest.datatimes_float[k], abs=1e-5)
 
     def test_ljh_truncate_n_pulses(self):

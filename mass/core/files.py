@@ -23,6 +23,7 @@ __all__ = [
 import os
 import logging
 import collections
+from deprecation import deprecated
 
 import numpy as np
 from packaging.version import Version
@@ -63,6 +64,10 @@ class MicrocalFile:
 
     def copy(self):
         """Make a usable copy of self."""
+        raise NotImplementedError(f"{self.__class__.__name__} is an abstract class.")
+
+    def source(self):
+        """Name of the data source"""
         raise NotImplementedError(f"{self.__class__.__name__} is an abstract class.")
 
 
@@ -107,6 +112,10 @@ class VirtualFile(MicrocalFile):
         if trace_num >= self.nPulses:
             raise ValueError(f"This VirtualFile has only {self.nPulses} pulses")
         return self.data[trace_num]
+    
+    @property
+    def source(self):
+        return "VirtualFile"
 
 
 def read_ljh_header(filename):
@@ -186,10 +195,12 @@ class LJHFile(MicrocalFile):
         self.channum = int(filename.split("_chan")[1].split(".")[0])
         self.sample_usec = None
         self.timestamp_offset = None
-        self.row_number = None
-        self.column_number = None
-        self.number_of_rows = None
-        self.number_of_columns = None
+        self.row_number = 0
+        self.column_number = 0
+        self.number_of_rows = 1
+        self.number_of_columns = 1
+        self.subframe_offset = 0
+        self.subframe_divisions = 1
         self.version_str = None
         self._mm = None
         self._parse_header()
@@ -223,9 +234,21 @@ class LJHFile(MicrocalFile):
         if len(col_number_k) > 0:
             self.row_number = int(header_dict[col_number_k[0]])
         self.client = header_dict.get(b"Software Version", b"UNKNOWN")
-        self.number_of_columns = int(header_dict.get(b"Number of columns", -1))
-        self.number_of_rows = int(header_dict.get(b"Number of rows", -1))
+        self.number_of_columns = int(header_dict.get(b"Number of columns", 1))
+        self.number_of_rows = int(header_dict.get(b"Number of rows", 1))
         self.timestamp_offset = float(header_dict.get(b"Timestamp offset (s)", b"-1"))
+
+        # Read the new (Feb 2024) subframe information. If missing, assume the old TDM values pertain
+        # (so # of rows -> subframe divisions, and row # -> subframe offset), unless source is Abaco,
+        # in which case use 64 subframe divisions and offset of 0.
+        default_divisions = self.number_of_rows
+        default_offset = self.row_number
+        if "Abaco" in self.source:
+            # The external trigger file can override this, but assume 64 divisions at first.
+            default_divisions = 64
+            default_offset = 0
+        self.subframe_divisions = int(header_dict.get(b"Subframe divisions", default_divisions))
+        self.subframe_offset = int(header_dict.get(b"Subframe offset", default_offset))
 
         self.version_str = header_dict[b'Save File Format Version']
         self.binary_size = os.stat(filename).st_size - self.header_size
@@ -276,6 +299,13 @@ class LJHFile(MicrocalFile):
     @property
     def alldata(self):
         return self._mm["data"]
+    
+    @property
+    def source(self):
+        "Report the 'Data source' as found in the LJH header."
+        if b"Data source" in self.header_dict:
+            return self.header_dict[b"Data source"].decode()
+        return "Lancero (assumed)"
 
     def __getitem__(self, item):
         return self.alldata[item]
@@ -285,9 +315,9 @@ class LJHFile(MicrocalFile):
         return self.alldata[trace_num]
 
     def read_trace_with_timing(self, trace_num):
-        """Return a single data trace as (rowcount, posix_usec, pulse_record)."""
+        """Return a single data trace as (subframecount, posix_usec, pulse_record)."""
         pulse_record = self.alldata[trace_num]
-        return (self.rowcount[trace_num], self.datatimes_raw[trace_num], pulse_record)
+        return (self.subframecount[trace_num], self.datatimes_raw[trace_num], pulse_record)
 
 
 class LJHFile2_1(LJHFile):
@@ -332,16 +362,21 @@ class LJHFile2_1(LJHFile):
         self.frame_count = (1 + FOURPOINT) + (datatime_ns - 1) // NS_PER_FRAME
 
     @property
-    def rowcount(self):
+    def subframecount(self):
         if self.frame_count is None:
             self._parse_times()
-        return np.array(self.frame_count*self.number_of_rows+self.row_number, dtype=np.int64)
+        return np.array(self.frame_count*self.subframe_divisions + self.subframe_offset, dtype=np.int64)
+
+    @property
+    @deprecated(deprecated_in="0.8.2", details="Use subframecount, which is equivalent but better named")
+    def rowcount(self):
+        return self.subframecount
 
     @property
     def datatimes_float(self):
         if self.frame_count is None:
             self._parse_times()
-        return (self.frame_count + self.row_number / float(self.number_of_rows))*self.timebase
+        return (self.frame_count + self.subframe_offset / float(self.subframe_divisions))*self.timebase
 
     @property
     def datatimes_raw(self):
@@ -355,12 +390,12 @@ class LJHFile2_2(LJHFile):
         super().__init__(filename, header_dict, header_size)
 
         # Version 2.2 and later include two pieces of time-like information for each pulse.
-        # 8 bytes - Int64 row count number
+        # 8 bytes - Int64 subframe count number (for TDM, equiv to row count number)
         # 8 bytes - Int64 posix microsecond time since the epoch 1970.
         # Technically both could be read as uint64, but then you get overflows when differencing;
         # we'll happily give up a factor of 2 in dynamic range to avoid that.
         self.dtype = [
-            ("rowcount", np.int64),
+            ("subframecount", np.int64),
             ("posix_usec", np.int64),
             ("data", np.uint16, (self.nSamples,))
         ]
@@ -371,8 +406,8 @@ class LJHFile2_2(LJHFile):
         return 16 + 2 * self.nSamples
 
     @property
-    def rowcount(self):
-        return self._mm["rowcount"]
+    def subframecount(self):
+        return self._mm["subframecount"]
 
     @property
     def datatimes_raw(self):

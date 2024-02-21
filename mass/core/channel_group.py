@@ -11,7 +11,7 @@ import logging
 import re
 from collections.abc import Iterable
 from functools import reduce
-from deprecated import deprecated
+from deprecation import deprecated
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -24,7 +24,7 @@ from mass.calibration.energy_calibration import EnergyCalibration
 from mass.core.channel import MicrocalDataSet, PulseRecords, NoiseRecords, GroupLooper
 from mass.core.cut import CutFieldMixin
 from mass.core.utilities import InlineUpdater, show_progress, plot_multipage
-from mass.core.ljh_util import remove_unpaired_channel_files, filename_glob_expand
+from mass.core.ljh_util import remove_unpaired_channel_files, filename_glob_expand, ljh_get_extern_trig_fnames
 from ..common import isstr
 
 LOG = logging.getLogger("mass")
@@ -224,6 +224,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         self._allowed_pnum_ranges = None
         self.pulses_per_seg = None
         self._bad_channums = {}
+        self._external_trigger_subframe_count = None
 
         if self.noise_only:
             self._setup_per_channel_objects_noiseonly(noise_is_continuous)
@@ -316,7 +317,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             ds.pulse_records = pr
             ds.data = pr.datafile.alldata
             ds.times = pr.datafile.datatimes_float
-            ds.rowcount = pr.datafile.rowcount
+            ds.subframecount = pr.datafile.subframecount
             ds.index = index
 
         if len(pulse_list) > 0:
@@ -485,7 +486,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def why_chan_bad(self):
         return self._bad_channums.copy()
 
-    @deprecated(version="0.7.9", reason="Use compute_noise(), which is equivalent but better named")
+    @deprecated(deprecated_in="0.7.9", details="Use compute_noise(), which is equivalent but better named")
     def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
         """Replaced by the equivalent compute_noise(...)"""
         # This is needed because the @_add_group_loop decorator does not preserve warnings
@@ -583,41 +584,61 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 extra_n_basis_5lag=extra_n_basis_5lag, f_3db_5lag=f_3db_5lag, category=category)
         return hdf5_filename
 
-    def calc_external_trigger_timing(self, after_last=False, until_next=False,
-                                     from_nearest=False, forceNew=False):
-        if not (after_last or until_next or from_nearest):
-            raise ValueError(
-                "at least one of from_last, until_next, or from_nearest should be True")
-        ds = self.first_good_dataset
+    @property
+    def external_trigger_subframe_count(self):
+        if self._external_trigger_subframe_count is None:
+            self.subframe_divisions = self.first_good_dataset.subframe_divisions
+            possible_files = ljh_get_extern_trig_fnames(self.first_good_dataset.filename)
+            if os.path.isfile(possible_files["hdf5"]):
+                h5 = h5py.File(possible_files["hdf5"], "r")
+                ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
+                self._external_trigger_subframe_count = h5[ds_name]
+            elif os.path.isfile(possible_files["binary"]):
+                with open(possible_files["binary"], "rb") as f:
+                    header_text = f.readline().decode()
+                    m = re.match(r".*\(nrow=(.*)\)\n", header_text)
+                    if m is not None:
+                        self.subframe_divisions = int(m.groups()[0])
+                        for ds in self.datasets:
+                            ds.subframe_divisions = self.subframe_divisions
+                    self._external_trigger_subframe_count = np.fromfile(f, dtype="int64")
+            else:
+                raise OSError("No external trigger files found: ", possible_files)
+            self.subframe_timebase = self.timebase/float(self.subframe_divisions)
+            for ds in self.datasets:
+                ds.subframe_timebase = self.subframe_timebase
+        return self._external_trigger_subframe_count
 
-        # loading this dataset can be slow, so lets do it only once for the whole ChannelGroup
-        external_trigger_rowcount = np.asarray(ds.external_trigger_rowcount[:], dtype=np.int64)
+    @property
+    def external_trigger_subframe_as_seconds(self):
+        """This is not a posix timestamp, it is just the external trigger subframecount converted to seconds
+        based on the nominal clock rate of the crate.
+        """
+        return self.external_trigger_subframe_count[:]/float(self.subframe_divisions)*self.timebase
+
+    def calc_external_trigger_timing(self, forceNew=False):
+        ds = self.first_good_dataset
+        external_trigger_subframe_count = np.asarray(ds.external_trigger_subframe_count[:], dtype=np.int64)
 
         for ds in self:
             try:
-                if "rows_after_last_external_trigger" not in ds.hdf5_group and after_last:
-                    forceNew = True
-                if "rows_until_next_external_trigger" not in ds.hdf5_group and until_next:
-                    forceNew = True
-                if "rows_from_nearest_external_trigger" not in ds.hdf5_group and from_nearest:
-                    forceNew = True
-                if forceNew:
-                    rows_after_last_external_trigger, rows_until_next_external_trigger = \
-                        mass.core.analysis_algorithms.nearest_arrivals(ds.p_rowcount[:],
-                                                                       external_trigger_rowcount)
-                    if after_last:
-                        g = ds.hdf5_group.require_dataset("rows_after_last_external_trigger",
-                                                          (ds.nPulses,), dtype=np.int64)
-                        g[:] = rows_after_last_external_trigger
-                    if until_next:
-                        g = ds.hdf5_group.require_dataset("rows_until_next_external_trigger",
-                                                          (ds.nPulses,), dtype=np.int64)
-                        g[:] = rows_until_next_external_trigger
-                    if from_nearest:
-                        g = ds.hdf5_group.require_dataset("rows_from_nearest_external_trigger",
-                                                          (ds.nPulses,), dtype=np.int64)
-                        g[:] = np.fmin(rows_after_last_external_trigger,
-                                       rows_until_next_external_trigger)
+                if ("subframes_after_last_external_trigger" in ds.hdf5_group) and \
+                    ("subframes_until_next_external_trigger" in ds.hdf5_group) and \
+                    ("subframes_from_nearest_external_trigger" in ds.hdf5_group) and \
+                    (not forceNew):
+                        continue
+
+                subframes_after_last, subframes_until_next = \
+                    mass.core.analysis_algorithms.nearest_arrivals(ds.p_subframecount[:],
+                                                                   external_trigger_subframe_count)
+                nearest = np.fmin(subframes_after_last, subframes_until_next)
+                for name, values in zip(
+                    ("subframes_after_last_external_trigger",
+                     "subframes_until_next_external_trigger",
+                     "subframes_from_nearest_external_trigger"),
+                    (subframes_after_last, subframes_until_next, nearest)):
+                    h5dset = ds.hdf5_group.require_dataset(name, (ds.nPulses,), dtype=np.int64)
+                    h5dset[:] = values
             except Exception:
                 self.set_chan_bad(ds.channum, "calc_external_trigger_timing")
 

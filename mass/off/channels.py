@@ -12,6 +12,7 @@ import scipy.interpolate
 from mass.common import tostr
 import dill
 import gc
+from deprecation import deprecated
 
 # local imports
 import mass
@@ -838,28 +839,42 @@ class Channel(CorG):
     @property
     def rowPeriodSeconds(self):
         nRows = self.offFile.header["ReadoutInfo"]["NumberOfRows"]
-        self.offFile["framecount"] * nRows
         return self.offFile.framePeriodSeconds/float(nRows)
 
+    @deprecated(deprecated_in="0.8.2", details="Use subframecount, which is equivalent but better named")
     @property
     def rowcount(self):
-        return self.offFile["framecount"] * self.offFile.header["ReadoutInfo"]["NumberOfRows"]
+        return self.subframecount
+    
+    @property
+    def subframeDivisions(self):
+        hdr = self.offFile.header["ReadoutInfo"]
+        return hdr.get("SubframeDivsions", hdr["NumberOfRows"])
+
+    @property
+    def subframePeriodSeconds(self):
+        nDivs = self.offFile.subframeDivisions
+        return self.offFile.framePeriodSeconds/float(nDivs)
+
+    @property
+    def subframecount(self):
+        return self.offFile["framecount"] * self.subframeDivisions
 
     @add_group_loop
-    def _calcExternalTriggerTiming(self, external_trigger_rowcount, after_last, until_next, from_nearest):
-        rows_after_last_external_trigger, rows_until_next_external_trigger = \
-            mass.core.analysis_algorithms.nearest_arrivals(self.rowcount, external_trigger_rowcount)
+    def _calcExternalTriggerTiming(self, external_trigger_subframe_count, after_last, until_next, from_nearest):
+        subframes_after_last_external_trigger, subframes_until_next_external_trigger = \
+            mass.core.analysis_algorithms.nearest_arrivals(self.subframecount, external_trigger_subframe_count)
         rowPeriodSeconds = self.rowPeriodSeconds
         if after_last:
-            self.rows_after_last_external_trigger = rows_after_last_external_trigger
-            self.seconds_after_last_external_trigger = rows_after_last_external_trigger*rowPeriodSeconds
+            self.subframes_after_last_external_trigger = subframes_after_last_external_trigger
+            self.seconds_after_last_external_trigger = subframes_after_last_external_trigger*rowPeriodSeconds
         if until_next:
-            self.rows_until_next_external_trigger = rows_until_next_external_trigger
-            self.seconds_until_next_external_trigger = rows_until_next_external_trigger*rowPeriodSeconds
+            self.subframes_until_next_external_trigger = subframes_until_next_external_trigger
+            self.seconds_until_next_external_trigger = subframes_until_next_external_trigger*rowPeriodSeconds
         if from_nearest:
-            self.rows_from_nearest_external_trigger = np.fmin(rows_after_last_external_trigger,
-                                                              rows_until_next_external_trigger)
-            self.seconds_from_nearest_external_trigger = self.rows_from_nearest_external_trigger*rowPeriodSeconds
+            self.subframes_from_nearest_external_trigger = np.fmin(subframes_after_last_external_trigger,
+                                                              subframes_until_next_external_trigger)
+            self.seconds_from_nearest_external_trigger = self.subframes_from_nearest_external_trigger*rowPeriodSeconds
 
 
 def normalize(x):
@@ -1391,17 +1406,17 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
         basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
         return basename+"_external_trigger.bin"
 
-    def _externalTriggerRowcounts(self, filename=None):
+    def _externalTriggerSubframes(self, filename=None):
         if filename is None:
             filename = self._externalTriggerFilename()
         f = open(filename, "rb")
         f.readline()  # discard comment line
-        external_trigger_rowcount = np.fromfile(f, "int64")
-        return external_trigger_rowcount
+        external_trigger_subframe_count = np.fromfile(f, "int64")
+        return external_trigger_subframe_count
 
     def calcExternalTriggerTiming(self, after_last=True, until_next=False, from_nearest=False):
-        external_trigger_rowcount = self._externalTriggerRowcounts()
-        self._calcExternalTriggerTiming(external_trigger_rowcount, after_last, until_next, from_nearest, _rethrow=True)
+        external_trigger_subframe_count = self._externalTriggerSubframes()
+        self._calcExternalTriggerTiming(external_trigger_subframe_count, after_last, until_next, from_nearest, _rethrow=True)
 
 
 class ChannelFromNpArray(Channel):
