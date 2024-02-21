@@ -443,7 +443,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             new_comment = self._bad_channums.get(channum, []) + [comment]
             self._bad_channums[channum] = new_comment
             LOG.warning('WARNING: Chan %s flagged bad because %s', channum, comment)
-            self.hdf5_file[f"chan{channum}"].attrs['why_bad'] =  \
+            self.hdf5_file[f"chan{channum}"].attrs['why_bad'] = \
                 np.asarray(new_comment, dtype=np.bytes_)
 
     def set_all_chan_good(self):
@@ -509,7 +509,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def shortname(self):
         """Return a string containing part of the filename and the number of good channels"""
         ngoodchan = len([ds for ds in self])
-        return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0]+f", {ngoodchan} chans"
+        return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0] + f", {ngoodchan} chans"
 
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
@@ -565,7 +565,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             category = {}
         if hdf5_file is None:
             basename, _ = self.datasets[0].filename.split("chan")
-            hdf5_filename = basename+"model.hdf5"
+            hdf5_filename = basename + "model.hdf5"
             if os.path.isfile(hdf5_filename):
                 if not replace_output:
                     raise Exception(
@@ -760,7 +760,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # Plot timeseries with 0 = the last 00 UT during or before the run.
         last_record = np.max([ds.p_timestamp[-1] for ds in self])
         last_midnight = last_record - (last_record % 86400)
-        hour_offset = last_midnight/3600.
+        hour_offset = last_midnight / 3600.
 
         plt.clf()
         ny_plots = len(datasets)
@@ -809,7 +809,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 plt.subplot(ny_plots, 2, 1 + i * 2, sharex=ax_master)
 
             if len(vect) > 0:
-                plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
+                plt.plot(hour - hour_offset, vect[::downsample], '.', ms=1, color=color)
             else:
                 plt.text(.5, .5, 'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
@@ -952,7 +952,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             avg_pulse = ds.average_pulse[:].copy()
             if fcut is not None:
                 avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(
-                    avg_pulse, 1./self.timebase, fcut)
+                    avg_pulse, 1. / self.timebase, fcut)
             plt.plot(dt, avg_pulse, label=f"Chan {ds.channum}", color=cmap(float(i) / nplot))
 
         plt.title("Average pulse for each channel when it is hit")
@@ -1026,7 +1026,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             dt = (ds.p_timestamp[good][-1] * 1.0 - ds.p_timestamp[good][0])  # seconds
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse - 1.0) / dt
-            print(f'chan {ds.channum:3d} {npulse:6d} pulses ({rate:6.3f} Hz over {dt/3600.:6.4f} hr) {100.*ng/npulse:6.3f}% good')
+            print(f'chan {ds.channum:3d} {npulse:6d} pulses ({rate:6.3f} Hz over {dt / 3600.:6.4f} hr) {100. * ng / npulse:6.3f}% good')
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None,
                                    legend=True):
@@ -1120,7 +1120,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             yvalue = ds.noise_psd[:] * scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
-                axis.set_ylabel(f"PSD$^{1/2}$ ({units}/Hz$^{1/2}$)")
+                axis.set_ylabel(f"PSD$^{1 / 2}$ ({units}/Hz$^{1 / 2}$)")
             try:
                 df = ds.noise_psd.attrs['delta_f']
                 freq = np.arange(1, 1 + len(yvalue)) * df
@@ -1243,8 +1243,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             y_b = getattr(ds, y_attr)[b][::down]
 
             if x_attr == 'p_timestamp':
-                x_g = (x_g - getattr(ds, x_attr)[0]) / (60*60)
-                x_b = (x_b - getattr(ds, x_attr)[0]) / (60*60)
+                x_g = (x_g - getattr(ds, x_attr)[0]) / (60 * 60)
+                x_b = (x_b - getattr(ds, x_attr)[0]) / (60 * 60)
 
             plt.plot(x_b, y_b, '.', markersize=2.5, color='gray')
             plt.plot(x_g, y_g, '.', markersize=2.5, color='blue')
@@ -1347,7 +1347,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
             This vector is anded with the vector calculated by the histogrammer    """
         bin_edges = np.array(bin_edges)
-        bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+        bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
         countsdict = {ds.channum: ds.hist(bin_edges, attr, t0, tlast, category, g_func)[1] for ds in self}
         return bin_centers, countsdict
 
@@ -1394,7 +1394,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         model = mass.getmodel(line_name, has_tails=has_tails)
         nominal_peak_energy = model.spect.nominal_peak_energy
         if bin_edges is None:
-            bin_edges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
+            bin_edges = np.arange(nominal_peak_energy - dlo, nominal_peak_energy + dhi, binsize)
 
         bin_centers, counts = self.hist(bin_edges, attr, t0, tlast, category, g_func)
 

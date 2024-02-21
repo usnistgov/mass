@@ -134,7 +134,7 @@ class NISTXrayLine:
         if column_defs is None:
             column_defs = self.DEFAULT_COLUMN_DEFS
         for name, colrange in column_defs.items():
-            a = colrange[0]-1
+            a = colrange[0] - 1
             b = colrange[1]
             self.__dict__[name] = textline[a:b].rstrip()
         self.peak = float(self.peak)
@@ -173,11 +173,11 @@ def plot_line_uncertainties():
     NX, NY = 3, 4
     plt.clf()
     for i, tr in enumerate(transitions):
-        axes[i] = plt.subplot(NY, NX, i+1)
+        axes[i] = plt.subplot(NY, NX, i + 1)
         plt.loglog()
         plt.grid(True)
         plt.title(titles[tr])
-        if i >= NX*(NY-1):
+        if i >= NX * (NY - 1):
             plt.xlabel("Line energy (eV)")
         if i % NX == 0:
             plt.ylabel("Line uncertainty (eV)")
@@ -204,7 +204,7 @@ def plot_line_energies():
         lines = db.get_lines_by_type(linetype)
         z = [ATOMIC_NUMBERS[line.element] for line in lines]
         e = [line.peak for line in lines]
-        plt.loglog(z, e, 'o-', color=cm(float(i)/len(transitions)), label=linetype)
+        plt.loglog(z, e, 'o-', color=cm(float(i) / len(transitions)), label=linetype)
     plt.legend(loc='upper left')
     plt.xlim([6, 100])
     plt.grid()

@@ -60,7 +60,7 @@ class FilterStack:
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        ax.plot(xray_energies_eV, efficiency*100.0, label="total", lw=2)
+        ax.plot(xray_energies_eV, efficiency * 100.0, label="total", lw=2)
         ax.set_xlabel('Energy (keV)')
         ax.set_ylabel('Efficiency (%)')
         ax.set_title(self.name)
@@ -68,7 +68,7 @@ class FilterStack:
 
         for k, v in self.components.items():
             efficiency = v.get_efficiency(xray_energies_eV)
-            ax.plot(xray_energies_eV, efficiency*100.0, "--", label=v.name)
+            ax.plot(xray_energies_eV, efficiency * 100.0, "--", label=v.name)
 
         ax.legend()
 
@@ -114,7 +114,7 @@ class Film(FilterStack):
         assert np.logical_xor(area_density_g_per_cm2 is None,
                               thickness_nm is None), 'must specify either areal density or thickness, not both'
         if thickness_nm is not None:
-            thickness_cm = np.array(thickness_nm, ndmin=1)*1e-7
+            thickness_cm = np.array(thickness_nm, ndmin=1) * 1e-7
         elif area_density_g_per_cm2 is not None:
             area_density_g_per_cm2 = np.array(area_density_g_per_cm2, ndmin=1)
             thickness_cm = area_density_g_per_cm2 / self.density_g_per_cm3
@@ -143,7 +143,7 @@ class Film(FilterStack):
     def __repr__(self):
         s = f"{type(self)}("
         for (material, density, thick) in zip(self.material, self.density_g_per_cm3, self.thickness_cm):
-            area_density = density*thick
+            area_density = density * thick
             s += f"{material} {area_density:.3g} g/cm^2, "
         s += f"fill_fraction={self.fill_fraction:.3f}, absorber={self.absorber})"
         return s
@@ -171,8 +171,8 @@ class AlFilmWithOxide(Film):
         arbE = 5000.  # an arbitrary energy (5 keV) is used to get answers from material_mu_components()
         oxide_dict = xraydb.material_mu_components('sapphire', arbE)
         oxide_material = oxide_dict['elements']
-        oxide_mass_fractions = [oxide_dict[x][0]*oxide_dict[x]
-                                [1]/oxide_dict['mass'] for x in oxide_material]
+        oxide_mass_fractions = [oxide_dict[x][0] * oxide_dict[x]
+                                [1] / oxide_dict['mass'] for x in oxide_material]
 
         # Assume oxidized surfaces are each 3 nm thick.
         num_oxide_elements = len(oxide_material)
@@ -182,7 +182,7 @@ class AlFilmWithOxide(Film):
 
         material = np.hstack(['Al', oxide_material])
         density_g_per_cm3 = np.hstack(
-            [Al_density_g_per_cm3, oxide_density_g_per_cm3*oxide_mass_fractions])
+            [Al_density_g_per_cm3, oxide_density_g_per_cm3 * oxide_mass_fractions])
         thickness_nm = np.hstack([Al_thickness_nm, oxide_thickness_nm])
         super().__init__(name=name, material=material,
                          density_g_per_cm3=density_g_per_cm3, thickness_nm=thickness_nm)
@@ -215,24 +215,24 @@ class AlFilmWithPolymer(Film):
         oxide_dict = xraydb.material_mu_components('sapphire', arbE)
         oxide_thickness_nm = num_oxidized_surfaces * 3.0  # assume 3 nm per oxidized surface
         oxide_material = oxide_dict['elements']
-        oxide_mass_fractions = [oxide_dict[x][0]*oxide_dict[x]
-                                [1]/oxide_dict['mass'] for x in oxide_material]
+        oxide_mass_fractions = [oxide_dict[x][0] * oxide_dict[x]
+                                [1] / oxide_dict['mass'] for x in oxide_material]
         if oxide_density_g_per_cm3 is None:
-            oxide_density_g_per_cm3 = oxide_dict['density']*np.ones(len(oxide_material))
+            oxide_density_g_per_cm3 = oxide_dict['density'] * np.ones(len(oxide_material))
 
         polymer_dict = xraydb.material_mu_components('kapton', arbE)
         polymer_material = polymer_dict['elements']
-        polymer_thickness_nm = polymer_thickness_nm*np.ones(len(polymer_material))
-        polymer_mass_fractions = [polymer_dict[x][0]*polymer_dict[x][1]
+        polymer_thickness_nm = polymer_thickness_nm * np.ones(len(polymer_material))
+        polymer_mass_fractions = [polymer_dict[x][0] * polymer_dict[x][1]
                                   / polymer_dict['mass'] for x in polymer_material]
         if polymer_density_g_per_cm3 is None:
-            polymer_density_g_per_cm3 = polymer_dict['density']*np.ones(len(polymer_material))
+            polymer_density_g_per_cm3 = polymer_dict['density'] * np.ones(len(polymer_material))
 
         material = np.hstack(['Al', oxide_material, polymer_material])
         density_g_per_cm3 = np.hstack([
             Al_density_g_per_cm3,
-            oxide_density_g_per_cm3*oxide_mass_fractions,
-            polymer_density_g_per_cm3*polymer_mass_fractions])
+            oxide_density_g_per_cm3 * oxide_mass_fractions,
+            polymer_density_g_per_cm3 * polymer_mass_fractions])
         thickness_nm = np.hstack([Al_thickness_nm, oxide_thickness_nm, polymer_thickness_nm])
 
         super().__init__(name=name, material=material,

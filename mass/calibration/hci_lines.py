@@ -150,7 +150,7 @@ def add_hci_line(element, spectr_ch, line_identifier, energies, widths, ratios, 
     widths = np.array(widths)
     ratios = np.array(ratios)
     if nominal_peak_energy is None:
-        nominal_peak_energy = np.dot(energies, ratios)/np.sum(ratios)
+        nominal_peak_energy = np.dot(energies, ratios) / np.sum(ratios)
     linetype = f"{int(spectr_ch)} {line_identifier}"
 
     spectrum_class = fluorescence_lines.addline(
@@ -175,7 +175,7 @@ def add_H_like_lines_from_asd(asd, element, maxLevels=None):
     added_lines = []
     if maxLevels is not None:
         levelsDict = asd.getAvailableLevels(
-            element, spectralCharge=spectr_ch, maxLevels=maxLevels+1)
+            element, spectralCharge=spectr_ch, maxLevels=maxLevels + 1)
     else:
         levelsDict = asd.getAvailableLevels(element, spectralCharge=spectr_ch)
     for iLevel in list(levelsDict.keys()):
@@ -188,11 +188,11 @@ def add_H_like_lines_from_asd(asd, element, maxLevels=None):
 
 
 def add_He_like_lines_from_asd(asd, element, maxLevels=None):
-    spectr_ch = xraydb.atomic_number(element)-1
+    spectr_ch = xraydb.atomic_number(element) - 1
     added_lines = []
     if maxLevels is not None:
         levelsDict = asd.getAvailableLevels(
-            element, spectralCharge=spectr_ch, maxLevels=maxLevels+1)
+            element, spectralCharge=spectr_ch, maxLevels=maxLevels + 1)
     else:
         levelsDict = asd.getAvailableLevels(element, spectralCharge=spectr_ch)
     for iLevel in list(levelsDict.keys()):

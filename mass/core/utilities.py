@@ -139,24 +139,24 @@ def plot_multipage(data, subplot_shape, helper, filename_template_per_file,
     (m, n) = subplot_shape
     plt.clf()
     for (k, ds) in enumerate(data.iter_channels()):
-        ax = plt.subplot(m, n, k % (m*n) + 1)
+        ax = plt.subplot(m, n, k % (m * n) + 1)
         helper(ds, ax)
 
-        if ((k+1) % (m*n)) == 0:
+        if ((k + 1) % (m * n)) == 0:
             plt.tight_layout(True)
             if format == 'pdf' and one_file:
                 pdf.savefig()
             else:
-                plt.savefig(filename_template_per_file % ((k+1)//(m*n)))
+                plt.savefig(filename_template_per_file % ((k + 1) // (m * n)))
             plt.clf()
 
     # If final page is not full of plots, it hasn't yet been saved, so need to save it.
-    if ((k+1) % (m*n) != 0):
+    if ((k + 1) % (m * n) != 0):
         plt.tight_layout(True)
         if format == 'pdf' and one_file:
             pdf.savefig()
         else:
-            plt.savefig(filename_template_per_file % ((k+1)//(m*n) + 1))
+            plt.savefig(filename_template_per_file % ((k + 1) // (m * n) + 1))
 
     if format == 'pdf' and one_file:
         pdf.close()
@@ -180,17 +180,17 @@ def annotate_lines(axis, label_lines, label_lines_color2=[], color1="k", color2=
     color1 -- text color for label_lines
     color2 -- text color for label_lines_color2
     """
-    n = len(label_lines)+len(label_lines_color2)
+    n = len(label_lines) + len(label_lines_color2)
     yscale = plt.gca().get_yscale()
     for (i, label_line) in enumerate(label_lines):
         energy = mass.STANDARD_FEATURES[label_line]
         if yscale == "linear":
-            axis.annotate(label_line, (energy, (1+i)*plt.ylim()[1]/float(1.5*n)), xycoords="data", color=color1)
+            axis.annotate(label_line, (energy, (1 + i) * plt.ylim()[1] / float(1.5 * n)), xycoords="data", color=color1)
         elif yscale == "log":
-            axis.annotate(label_line, (energy, np.exp((1+i)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data", color=color1)
+            axis.annotate(label_line, (energy, np.exp((1 + i) * np.log(plt.ylim()[1]) / float(1.5 * n))), xycoords="data", color=color1)
     for (j, label_line) in enumerate(label_lines_color2):
         energy = mass.STANDARD_FEATURES[label_line]
         if yscale == "linear":
-            axis.annotate(label_line, (energy, (2+i+j)*plt.ylim()[1]/float(1.5*n)), xycoords="data", color=color2)
+            axis.annotate(label_line, (energy, (2 + i + j) * plt.ylim()[1] / float(1.5 * n)), xycoords="data", color=color2)
         elif yscale == "log":
-            axis.annotate(label_line, (energy, np.exp((2+i+j)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data", color=color2)
+            axis.annotate(label_line, (energy, np.exp((2 + i + j) * np.log(plt.ylim()[1]) / float(1.5 * n))), xycoords="data", color=color2)

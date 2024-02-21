@@ -80,10 +80,10 @@ class CubicSpline:
         self._compute_y2()
 
     def _compute_y2(self):
-        self.ystep = self._y[1:]-self._y[:-1]
+        self.ystep = self._y[1:] - self._y[:-1]
         self.xstep = self._x[1:] - self._x[:-1]
 
-        u = self.ystep/self.xstep
+        u = self.ystep / self.xstep
         u[1:] = u[1:] - u[:-1]
 
         # For natural boundary conditions, u[0]=y2[0]=0.
@@ -91,33 +91,33 @@ class CubicSpline:
             u[0] = 0
             self._y2[0] = 0
         else:
-            u[0] = (3.0/self.xstep[0])*(self.ystep[0]/self.xstep[0]-self.yprime1)
+            u[0] = (3.0 / self.xstep[0]) * (self.ystep[0] / self.xstep[0] - self.yprime1)
             self._y2[0] = -0.5
 
-        for i in range(1, self._n-1):
-            sig = self.xstep[i-1]/(self._x[i+1]-self._x[i-1])
-            p = sig*self._y2[i-1]+2.0
-            self._y2[i] = (sig-1.0)/p
-            u[i] = (6*u[i]/(self._x[i+1]-self._x[i-1])-sig*u[i-1])/p
+        for i in range(1, self._n - 1):
+            sig = self.xstep[i - 1] / (self._x[i + 1] - self._x[i - 1])
+            p = sig * self._y2[i - 1] + 2.0
+            self._y2[i] = (sig - 1.0) / p
+            u[i] = (6 * u[i] / (self._x[i + 1] - self._x[i - 1]) - sig * u[i - 1]) / p
 
         # Again, the following is only for natural boundary conditions
         if self.yprimeN is None:
             qn = un = 0.0
         else:
             qn = 0.5
-            un = (3.0/self.xstep[-1])*(self.yprimeN-self.ystep[-1]/self.xstep[-1])
-        self._y2[self._n-1] = (un-qn*u[self._n-2])/(qn*self._y2[self._n-2]+1.0)
+            un = (3.0 / self.xstep[-1]) * (self.yprimeN - self.ystep[-1] / self.xstep[-1])
+        self._y2[self._n - 1] = (un - qn * u[self._n - 2]) / (qn * self._y2[self._n - 2] + 1.0)
 
         # Backsubstitution:
-        for k in range(self._n-2, -1, -1):
-            self._y2[k] = self._y2[k]*self._y2[k+1]+u[k]
+        for k in range(self._n - 2, -1, -1):
+            self._y2[k] = self._y2[k] * self._y2[k + 1] + u[k]
 
         if self.yprime1 is None:
-            self.yprime1 = self.ystep[0]/self.xstep[0] - \
-                self.xstep[0]*(self._y2[0]/3.+self._y2[1]/6.)
+            self.yprime1 = self.ystep[0] / self.xstep[0] - \
+                self.xstep[0] * (self._y2[0] / 3. + self._y2[1] / 6.)
         if self.yprimeN is None:
-            self.yprimeN = self.ystep[-1]/self.xstep[-1] + \
-                self.xstep[-1]*(self._y2[-2]/6.+self._y2[-1]/3.)
+            self.yprimeN = self.ystep[-1] / self.xstep[-1] + \
+                self.xstep[-1] * (self._y2[-2] / 6. + self._y2[-1] / 3.)
 
     def __call__(self, x, der=0):
         scalar = np.isscalar(x)
@@ -129,34 +129,34 @@ class CubicSpline:
         result = np.zeros_like(x, dtype=float)
 
         # Find which interval 0,...self._n-2 contains the points (or extrapolates to the points)
-        position = np.searchsorted(self._x, x)-1
+        position = np.searchsorted(self._x, x) - 1
 
         # Here, position == -1 means extrapolate below the first interval.
         extrap_low = position < 0
         if extrap_low.any():
             if der == 0:
-                h = x[extrap_low]-self._x[0]  # will be negative
-                result[extrap_low] = self._y[0] + h*self.yprime1
+                h = x[extrap_low] - self._x[0]  # will be negative
+                result[extrap_low] = self._y[0] + h * self.yprime1
             elif der == 1:
                 result[extrap_low] = self.yprime1
             elif der > 1:
                 result[extrap_low] = .0
 
         # position = self._n-1 means extrapolate above the last interval.
-        extrap_hi = position >= self._n-1
+        extrap_hi = position >= self._n - 1
         if extrap_hi.any():
             if der == 0:
                 h = x[extrap_hi] - self._x[-1]  # will be positive
-                result[extrap_hi] = self._y[-1] + h*self.yprimeN
+                result[extrap_hi] = self._y[-1] + h * self.yprimeN
             elif der == 1:
                 result[extrap_hi] = self.yprimeN
             elif der > 1:
                 result[extrap_hi] = .0
 
-        interp = np.logical_and(position >= 0, position < self._n-1)
+        interp = np.logical_and(position >= 0, position < self._n - 1)
         if interp.any():
             klo = position[interp]
-            khi = klo+1
+            khi = klo + 1
             dx = self.xstep[klo]
             a = (self._x[khi] - x[interp]) / dx
             b = (x[interp] - self._x[klo]) / dx
@@ -164,7 +164,7 @@ class CubicSpline:
             if der == 0:
                 result[interp] = a * self._y[klo] + b * self._y[khi] \
                                                   + ((a**3 - a) * self._y2[klo]
-                                                     + (b**3 - b)*self._y2[khi]) * dx * dx / 6.0
+                                                     + (b**3 - b) * self._y2[khi]) * dx * dx / 6.0
             elif der == 1:
                 result[interp] = -self._y[klo] / dx + self._y[khi] / dx \
                                                     + ((-a**2 + 1.0 / 3) * self._y2[klo]
@@ -217,7 +217,7 @@ class LinterpCubicSpline(CubicSpline):
             raise ValueError("Splines must have same abscissa values to be interpolated")
 
         def wtsum(a, b, frac):
-            return a*frac + b*(1-frac)
+            return a * frac + b * (1 - frac)
 
         self._n = s1._n
         self._x = s1._x
@@ -232,7 +232,7 @@ class LinterpCubicSpline(CubicSpline):
 def k_spline(x, y):
     """Compute the spline covariance kernel, R&W eq 6.28."""
     v = np.minimum(x, y)
-    return v**3/3 + v**2/2*np.abs(x-y)
+    return v**3 / 3 + v**2 / 2 * np.abs(x - y)
 
 
 class GPRSpline(CubicSpline):
@@ -276,7 +276,7 @@ class GPRSpline(CubicSpline):
             self.dx = np.array(dx)
             roughfit = np.polyfit(x, y, 2)
             slope = np.poly1d(np.polyder(roughfit, 1))(x)
-            self.err = np.sqrt((dx*slope)**2 + dy**2)
+            self.err = np.sqrt((dx * slope)**2 + dy**2)
         assert self.Nk == len(self.dx)
         assert self.Nk == len(self.err)
 
@@ -288,9 +288,9 @@ class GPRSpline(CubicSpline):
         K = np.zeros((self.Nk, self.Nk), dtype=float)
         sf2 = sigmaf**2
         for i in range(self.Nk):
-            K[i, i] = sf2*k_spline(self.x[i], self.x[i])
-            for j in range(i+1, self.Nk):
-                K[i, j] = K[j, i] = sf2*k_spline(self.x[i], self.x[j])
+            K[i, i] = sf2 * k_spline(self.x[i], self.x[i])
+            for j in range(i + 1, self.Nk):
+                K[i, j] = K[j, i] = sf2 * k_spline(self.x[i], self.x[j])
         Ky = K + np.diag(self.err**2)
         L = np.linalg.cholesky(Ky)
         LH = np.linalg.solve(L, H.T)
@@ -303,16 +303,16 @@ class GPRSpline(CubicSpline):
 
         # Compute at test points = self.x
         # We know that these are the knots of a natural cubic spline
-        R = H-KinvHT.T.dot(K)
+        R = H - KinvHT.T.dot(K)
         fbar = np.linalg.solve(L.T, np.linalg.solve(L, K)).T.dot(y)
         gbar = fbar + R.T.dot(beta)
         CubicSpline.__init__(self, self.x, gbar)
 
     def best_sigmaf(self):
         """Return the sigmaf value that maximizes the marginal Bayesian likelihood."""
-        guess = np.median(self.err/self.y)
+        guess = np.median(self.err / self.y)
         result = sp.optimize.minimize_scalar(
-            lambda x: -self._marginal_like(x), [guess/1e4, guess*1e4])
+            lambda x: -self._marginal_like(x), [guess / 1e4, guess * 1e4])
         if result.success:
             # _marginal_like depends only on the abs(argument), so take minimizer as positive.
             return np.abs(result.x)
@@ -323,9 +323,9 @@ class GPRSpline(CubicSpline):
         K = np.zeros((self.Nk, self.Nk), dtype=float)
         sf2 = sigmaf**2
         for i in range(self.Nk):
-            K[i, i] = sf2*k_spline(self.x[i], self.x[i])
-            for j in range(i+1, self.Nk):
-                K[i, j] = K[j, i] = sf2*k_spline(self.x[i], self.x[j])
+            K[i, i] = sf2 * k_spline(self.x[i], self.x[i])
+            for j in range(i + 1, self.Nk):
+                K[i, j] = K[j, i] = sf2 * k_spline(self.x[i], self.x[j])
         Ky = K + np.diag(self.err**2)
         L = np.linalg.cholesky(Ky)
         LH = np.linalg.solve(L, H.T)
@@ -335,7 +335,7 @@ class GPRSpline(CubicSpline):
         yCy = self.y.dot(C.dot(self.y))
         Linvy = np.linalg.solve(L, self.y)
         yKinvy = Linvy.dot(Linvy)
-        return -0.5*((self.Nk-2)*np.log(2*np.pi)+np.linalg.slogdet(A)[1]+np.linalg.slogdet(Ky)[1]-yCy+yKinvy)
+        return -0.5 * ((self.Nk - 2) * np.log(2 * np.pi) + np.linalg.slogdet(A)[1] + np.linalg.slogdet(Ky)[1] - yCy + yKinvy)
 
     def variance(self, xtest):
         """Returns the variance for function evaluations at the test points `xtest`.
@@ -344,9 +344,9 @@ class GPRSpline(CubicSpline):
         this method computes only the diagonal and should therefore be faster."""
         v = []
         for x in np.asarray(xtest):
-            Ktest = self.sigmaf**2*k_spline(x, self.x)
+            Ktest = self.sigmaf**2 * k_spline(x, self.x)
             LinvKtest = np.linalg.solve(self.L, Ktest)
-            cov_ftest = self.sigmaf**2*k_spline(x, x) - (LinvKtest**2).sum()
+            cov_ftest = self.sigmaf**2 * k_spline(x, x) - (LinvKtest**2).sum()
             R = np.array((1, x)) - self.KinvHT.T.dot(Ktest)
             v.append(cov_ftest + R.dot(np.linalg.solve(self.A, R)))
         if np.isscalar(xtest):
@@ -359,9 +359,9 @@ class GPRSpline(CubicSpline):
             return self.variance(xtest)
         xtest = np.asarray(xtest)
 
-        Ktest = self.sigmaf**2*np.vstack([k_spline(x, self.x) for x in xtest]).T
+        Ktest = self.sigmaf**2 * np.vstack([k_spline(x, self.x) for x in xtest]).T
         LinvKtest = np.linalg.solve(self.L, Ktest)
-        cov_ftest = self.sigmaf**2*np.vstack([k_spline(x, xtest) for x in xtest])
+        cov_ftest = self.sigmaf**2 * np.vstack([k_spline(x, xtest) for x in xtest])
         cov_ftest -= LinvKtest.T.dot(LinvKtest)
         R = np.vstack((np.ones(len(xtest)), xtest))
         R -= self.KinvHT.T.dot(Ktest)
@@ -416,7 +416,7 @@ class NaturalBsplineBasis:
         if id < 2:
             coef[0] = self.coef_b[id]
         elif id >= self.Nk - 2:
-            coef[-1] = self.coef_e[self.Nk-id-1]
+            coef[-1] = self.coef_e[self.Nk - id - 1]
         return splev(x, (self.padknots, coef, 3), der=der)
 
     def values_matrix(self, der=0):
@@ -429,8 +429,8 @@ class NaturalBsplineBasis:
         """Given coefficients of this length-Nk basis, return the coefficients
         needed by FITPACK, which are of length Nk+2."""
         c = np.hstack([[0], beta, [0]])
-        c[0] = beta[0]*self.coef_b[0] + beta[1]*self.coef_b[1]
-        c[-1] = beta[-1]*self.coef_e[0] + beta[-2]*self.coef_e[1]
+        c[0] = beta[0] * self.coef_b[0] + beta[1] * self.coef_b[1]
+        c[-1] = beta[-1] * self.coef_e[0] + beta[-2] * self.coef_e[1]
         return c
 
 
@@ -469,13 +469,13 @@ class SmoothingSpline:
         else:
             roughfit = np.polyfit(x, y, 2)
             slope = np.poly1d(np.polyder(roughfit, 1))(x)
-            err = np.sqrt((dx*slope)**2 + dy*dy)
+            err = np.sqrt((dx * slope)**2 + dy * dy)
 
         self.x = np.array(x)
         self.xscale = (x**2).mean()**0.5
         self.x /= self.xscale
         self.y = np.array(y)
-        self.dx = np.array(dx)/self.xscale
+        self.dx = np.array(dx) / self.xscale
         self.dy = np.array(dy)
         self.err = err
         self.Nk = len(x)
@@ -502,12 +502,12 @@ class SmoothingSpline:
         assert N2.shape[1] == Nk
         Omega = np.zeros_like(N2)
         for i in range(Nk):
-            for j in range(i+1):
-                for k in range(Nk-1):
-                    Omega[i, j] += (N2[k+1, i]*N2[k, j]+N2[k+1, j]*N2[k, i]) * \
-                        (knots[k+1]-knots[k])/6.0
+            for j in range(i + 1):
+                for k in range(Nk - 1):
+                    Omega[i, j] += (N2[k + 1, i] * N2[k, j] + N2[k + 1, j] * N2[k, i]) * \
+                        (knots[k + 1] - knots[k]) / 6.0
                 for k in range(Nk):
-                    Omega[i, j] += N2[k, i]*N2[k, j]*(knots[min(k+1, Nk-1)]-knots[max(0, k-1)])/3.0
+                    Omega[i, j] += N2[k, i] * N2[k, j] * (knots[min(k + 1, Nk - 1)] - knots[max(0, k - 1)]) / 3.0
                 Omega[j, i] = Omega[i, j]
         return Omega
 
@@ -521,10 +521,10 @@ class SmoothingSpline:
         Dinv = self.err**(-2)  # Vector but stands for diagonals of a diagonal matrix.
         NTDinv = self.N0.T * Dinv
         lhs = np.dot(NTDinv, self.N0)
-        rhs = np.dot(self.N0.T, Dinv*self.y)
+        rhs = np.dot(self.N0.T, Dinv * self.y)
 
         def best_params(p):
-            return np.linalg.solve(p*(lhs-self.Omega) + self.Omega, p * rhs)
+            return np.linalg.solve(p * (lhs - self.Omega) + self.Omega, p * rhs)
 
         def chisq_difference(p, target_chisq):
             # If curvature is too small, the computation can become singular.
@@ -534,7 +534,7 @@ class SmoothingSpline:
             except np.linalg.LinAlgError:
                 return 1e99
             ys = np.dot(self.N0, beta)
-            chisq = np.sum(((self.y-ys)/self.err)**2)
+            chisq = np.sum(((self.y - ys) / self.err)**2)
             return chisq - target_chisq
 
         mincurvature = 1e-20
@@ -542,12 +542,12 @@ class SmoothingSpline:
         beta = best_params(pbest)
         self.coeff = self.basis.expand_coeff(beta)
         ys = np.dot(self.N0, beta)
-        self.actualchisq = np.sum(((self.y-ys)/self.err)**2)
+        self.actualchisq = np.sum(((self.y - ys) / self.err)**2)
 
         # Store the linear extrapolation outside the knotted region.
-        endpoints = np.array([self.x[0], self.x[-1]])*self.xscale
+        endpoints = np.array([self.x[0], self.x[-1]]) * self.xscale
         val = self.__eval(endpoints, 0)
-        slope = self.__eval(endpoints, 1)*self.xscale
+        slope = self.__eval(endpoints, 1) * self.xscale
         self.lowline = np.poly1d([slope[0], val[0]])
         self.highline = np.poly1d([slope[1], val[1]])
 
@@ -555,7 +555,7 @@ class SmoothingSpline:
         """Return the value of (the `der`th derivative of) the smoothing spline
                 at data points `x`."""
         scalar = np.isscalar(x)
-        x = np.asarray(x)/self.xscale
+        x = np.asarray(x) / self.xscale
         splresult = splev(x, (self.basis.padknots, self.coeff, 3), der=der)
         low = x < self.x[0]
         high = x > self.x[-1]
@@ -601,7 +601,7 @@ class SmoothingSplineFunction(SmoothingSpline, Function):
         return super().__call__(x, der=self.der + der)
 
     def variance(self, xtest):
-        return np.zeros_like(xtest)+np.inf
+        return np.zeros_like(xtest) + np.inf
 
     def __repr__(self):
         return "SmoothingSpline{}(x)".format("'" * self.der)
@@ -613,7 +613,7 @@ class SmoothingSplineLog:
             raise ValueError("The x and y data must all be positive to use a SmoothingSplineLog")
         if dx is not None:
             dx /= x
-        self.linear_model = SmoothingSpline(np.log(x), np.log(y), dy/y, dx, maxchisq=maxchisq)
+        self.linear_model = SmoothingSpline(np.log(x), np.log(y), dy / y, dx, maxchisq=maxchisq)
 
     def __call__(self, x, der=0):
         return np.exp(self.linear_model(np.log(x), der=der))

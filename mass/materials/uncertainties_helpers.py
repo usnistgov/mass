@@ -29,8 +29,8 @@ def ensure_uncertain(x):
 
 def with_fractional_uncertainty(x, fractional_uncertainty):
     if isinstance(x, float):
-        return uncertainties.ufloat(x, x*fractional_uncertainty)
+        return uncertainties.ufloat(x, x * fractional_uncertainty)
     elif isinstance(x, np.ndarray):
-        return unp.uarray(x, x*fractional_uncertainty)
+        return unp.uarray(x, x * fractional_uncertainty)
     else:
         raise Exception(f"{x} of type {type(x)} not supported")

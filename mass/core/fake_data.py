@@ -38,18 +38,18 @@ class FakeDataGenerator:
         self.sample_time_us = sample_time  # in us
         self.n_samples = n_samples
         if n_presamples is None:
-            self.n_presamples = self.n_samples/4
+            self.n_presamples = self.n_samples / 4
         else:
             self.n_presamples = n_presamples
         self.compute_model(model_peak=model_peak)
 
     def compute_model(self, model_peak=None):
         """Compute the noise-free model pulse shape, given the 2 time constants."""
-        dt_us = (np.arange(self.n_samples) - self.n_presamples-0.5) * self.sample_time_us
-        self.model = np.exp(-dt_us/self.fall_speed_us) - np.exp(-dt_us/self.rise_speed_us)
+        dt_us = (np.arange(self.n_samples) - self.n_presamples - 0.5) * self.sample_time_us
+        self.model = np.exp(-dt_us / self.fall_speed_us) - np.exp(-dt_us / self.rise_speed_us)
         self.model[dt_us <= 0] = 0
         if model_peak is not None:
-            self.model = model_peak * self.model/self.model.max()
+            self.model = model_peak * self.model / self.model.max()
 
     def _generate_virtual_file(self, n_pulses, distributions=None,
                                distribution_weights=None, rate=1.0, channum=1):
@@ -64,13 +64,13 @@ class FakeDataGenerator:
         """
 
         data = np.zeros((n_pulses, self.n_samples), dtype=np.uint16)
-        pulse_times = self.rng.exponential(1.0/rate, size=n_pulses).cumsum()
+        pulse_times = self.rng.exponential(1.0 / rate, size=n_pulses).cumsum()
 
         if distributions is None:
             scale = np.ones(n_pulses, dtype=float)
         else:
             weights = np.asarray(distribution_weights, dtype=float)
-            weights = n_pulses * weights/weights.sum()
+            weights = n_pulses * weights / weights.sum()
             weights = np.asarray(weights, dtype=int)
             weights[weights.argmax()] += n_pulses - weights.sum()
             scale = []
@@ -80,11 +80,11 @@ class FakeDataGenerator:
             self.rng.shuffle(scale)
 
         for i in range(n_pulses):
-            data[i, :] = self.model*scale[i] + self.pretrig_level + \
-                0.5+self.rng.standard_normal(self.n_samples)*self.white_noise
+            data[i, :] = self.model * scale[i] + self.pretrig_level + \
+                0.5 + self.rng.standard_normal(self.n_samples) * self.white_noise
         vfile = VirtualFile(data, times=pulse_times)
         vfile.filename = "virtual_file_chan%d.vtf" % channum
-        vfile.timebase = self.sample_time_us/1e6
+        vfile.timebase = self.sample_time_us / 1e6
         vfile.nPresamples = self.n_presamples
         return vfile
 
@@ -97,15 +97,15 @@ class FakeDataGenerator:
 
         print('Making fake noise')
         data = np.zeros((n_pulses, self.n_samples), dtype=np.uint16)
-        pulse_times = np.arange(n_pulses, dtype=float)*self.sample_time_us/1e6
+        pulse_times = np.arange(n_pulses, dtype=float) * self.sample_time_us / 1e6
 
-        raw_noise = self.rng.standard_normal((n_pulses, self.n_samples))*self.white_noise
+        raw_noise = self.rng.standard_normal((n_pulses, self.n_samples)) * self.white_noise
         for i in range(lowpass_kludge):
-            raw_noise = 0.5*(raw_noise + np.roll(raw_noise, 2**i))
+            raw_noise = 0.5 * (raw_noise + np.roll(raw_noise, 2**i))
 
-        data[:, :] = 0.5+raw_noise
+        data[:, :] = 0.5 + raw_noise
         vfile = VirtualFile(data, times=pulse_times)
-        vfile.timebase = self.sample_time_us/1e6
+        vfile.timebase = self.sample_time_us / 1e6
         vfile.nPresamples = self.n_presamples
         return vfile
 
@@ -134,7 +134,7 @@ class FakeDataGenerator:
 
         # Have to fake the channel numbers, b/c they aren't encoded in filename
         for i, ds in enumerate(data.datasets):
-            ds.channum = i*2+1
+            ds.channum = i * 2 + 1
         data.channel = {}
         for ds in data.datasets:
             data.channel[ds.channum] = ds

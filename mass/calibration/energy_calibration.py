@@ -293,10 +293,10 @@ class EnergyCalibration:
     def _remove_cal_point_idx(self, idx):
         """Remove calibration point number `idx` from the calibration."""
         self._names.pop(idx)
-        self._ph = np.hstack((self._ph[:idx], self._ph[idx+1:]))
-        self._energies = np.hstack((self._energies[:idx], self._energies[idx+1:]))
-        self._dph = np.hstack((self._dph[:idx], self._dph[idx+1:]))
-        self._de = np.hstack((self._de[:idx], self._de[idx+1:]))
+        self._ph = np.hstack((self._ph[:idx], self._ph[idx + 1:]))
+        self._energies = np.hstack((self._energies[:idx], self._energies[idx + 1:]))
+        self._dph = np.hstack((self._dph[:idx], self._dph[idx + 1:]))
+        self._de = np.hstack((self._de[:idx], self._de[idx + 1:]))
         self.npts -= 1
         self._model_is_stale = True
 
@@ -313,7 +313,7 @@ class EnergyCalibration:
 
     def remove_cal_point_energy(self, energy, de):
         """Remove cal points at energies with <de> of <energy>"""
-        idxs = np.nonzero(np.abs(self._energies-energy) < de)[0]
+        idxs = np.nonzero(np.abs(self._energies - energy) < de)[0]
 
         for idx in idxs:
             self._remove_cal_point_idx(idx)
@@ -359,7 +359,7 @@ class EnergyCalibration:
                                  + " from mass.energy_calibration.STANDARD_FEATURES")
 
         if pht_error is None:
-            pht_error = pht*0.001
+            pht_error = pht * 0.001
         if e_error is None:
             e_error = 0.01  # Assume 0.01 eV error if none given
 
@@ -370,11 +370,11 @@ class EnergyCalibration:
                     "Calibration point '%s' is already known and overwrite is False" % name)
             update_index = self._names.index(name)
 
-        elif self.npts > 0 and np.abs(energy-self._energies).min() <= e_error:  # Update existing point
+        elif self.npts > 0 and np.abs(energy - self._energies).min() <= e_error:  # Update existing point
             if not overwrite:
                 raise ValueError(
                     "Calibration point at energy %.2f eV is already known and overwrite is False" % energy)
-            update_index = np.abs(energy-self._energies).argmin()
+            update_index = np.abs(energy - self._energies).argmin()
 
         if update_index is None:   # Add a new point
             self._ph = np.hstack((self._ph, pht))
@@ -424,14 +424,14 @@ class EnergyCalibration:
         assert self.npts == len(self._energies)
         assert self.npts == len(self._de)
 
-        self._max_ph = 2*np.max(self._ph)
+        self._max_ph = 2 * np.max(self._ph)
         # Compute cal curve inverse and (if GPRSplined, the variance) at these points
         ph = self._ph
         ph_pts = [np.linspace(0, ph[0], 51)[1:]]
-        for i in range(len(ph)-1):
-            npts = 2+int(0.5+(ph[i+1]/ph[i]-1)*100)
-            ph_pts.append(np.linspace(ph[i], ph[i+1], npts)[1:])
-        ph_pts.append(np.linspace(ph[-1], 2*ph[-1], 101)[1:])
+        for i in range(len(ph) - 1):
+            npts = 2 + int(0.5 + (ph[i + 1] / ph[i] - 1) * 100)
+            ph_pts.append(np.linspace(ph[i], ph[i + 1], npts)[1:])
+        ph_pts.append(np.linspace(ph[-1], 2 * ph[-1], 101)[1:])
         ph_pts = np.hstack(ph_pts)
 
         if self._use_approximation and self.npts >= 3:
@@ -463,7 +463,7 @@ class EnergyCalibration:
         ph, dph, e, de = self._ph, self._dph, self._energies, self._de
 
         if self.curvename() == "loglog":
-            underlying_spline = PreferredSpline(np.log(ph), np.log(e), de/e, dph/ph)
+            underlying_spline = PreferredSpline(np.log(ph), np.log(e), de / e, dph / ph)
             self._ph2e = ExponentialFunction() << underlying_spline << LogFunction()
             cal_uncert = underlying_spline(ph_pts) * underlying_spline.variance(np.log(ph_pts))**0.5
 
@@ -471,22 +471,22 @@ class EnergyCalibration:
             if ("+0" in self.curvename()) and (0.0 not in ph):
                 ph = np.hstack([[0], ph])
                 e = np.hstack([[0], e])
-                de = np.hstack([[de.min()*0.1], de])
-                dph = np.hstack([[dph.min()*0.1], dph])
+                de = np.hstack([[de.min() * 0.1], de])
+                dph = np.hstack([[dph.min() * 0.1], dph])
             underlying_spline = PreferredSpline(ph, e, de, dph)
             self._ph2e = underlying_spline
             cal_uncert = underlying_spline.variance(ph_pts)**0.5
 
         elif self.curvename() == "gain":
-            g = ph/e
+            g = ph / e
             m = np.polyfit(ph, g, 1)[0]
-            dg = g*(((m*ph/g-1)*dph/ph)**2+(de/e)**2)**0.5
+            dg = g * (((m * ph / g - 1) * dph / ph)**2 + (de / e)**2)**0.5
             underlying_spline = PreferredSpline(ph, g, dg)
             p = Identity()
             self._ph2e = p / (underlying_spline << p)
             est_g = underlying_spline(ph_pts)
-            est_e = ph_pts/est_g
-            cal_uncert = underlying_spline.variance(ph_pts)**0.5*est_e/est_g
+            est_e = ph_pts / est_g
+            cal_uncert = underlying_spline.variance(ph_pts)**0.5 * est_e / est_g
 
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
             trial_phmax = 10 * self._ph.max()
@@ -494,30 +494,30 @@ class EnergyCalibration:
                 self._max_ph = trial_phmax
 
         elif self.curvename() == "invgain":
-            ig = e/ph
+            ig = e / ph
             m = np.polyfit(ph, ig, 1)[0]
-            d_ig = ig * (((1+m*ph/ig)*dph/ph)**2+(de/e)**2)**0.5
+            d_ig = ig * (((1 + m * ph / ig) * dph / ph)**2 + (de / e)**2)**0.5
             p = Identity()
             underlying_spline = PreferredSpline(ph, ig, d_ig)
             self._ph2e = p * (underlying_spline << p)
-            cal_uncert = underlying_spline.variance(ph_pts)**0.5*ph_pts
+            cal_uncert = underlying_spline.variance(ph_pts)**0.5 * ph_pts
 
         elif self.curvename() == "loggain":
-            lg = np.log(ph/e)
+            lg = np.log(ph / e)
             m = np.polyfit(ph, lg, 1)[0]
-            d_lg = (((m*ph-1)*dph/ph)**2+(de/e)**2)**0.5
+            d_lg = (((m * ph - 1) * dph / ph)**2 + (de / e)**2)**0.5
             p = Identity()
             underlying_spline = PreferredSpline(ph, lg, d_lg)
             self._ph2e = p * (ExponentialFunction() << (-underlying_spline << p))
             e_pts = self._ph2e(ph_pts)
             dfdp = underlying_spline(ph_pts, der=1)
-            cal_uncert = underlying_spline.variance(ph_pts)**0.5*e_pts*np.abs(dfdp)
+            cal_uncert = underlying_spline.variance(ph_pts)**0.5 * e_pts * np.abs(dfdp)
 
         self._underlying_spline = underlying_spline
         if self._use_GPR:
             self._uncertainty = CubicSplineFunction(ph_pts, cal_uncert)
         else:
-            self._uncertainty = lambda x: np.zeros_like(x)
+            self._uncertainty = np.zeros_like
 
     def _update_exactcurves(self):
         """Update the E(P) curve; assume exact interpolation of calibration data."""
@@ -536,7 +536,7 @@ class EnergyCalibration:
             if self.curvename() == "loglog":
                 self._ph2e = e1 * (Identity() / p1)**self.nonlinearity
             elif self.curvename() in ["gain", "invgain"]:
-                self._ph2e = (e1/p1)*Identity()
+                self._ph2e = (e1 / p1) * Identity()
             else:
                 raise Exception(f"curvename={self.curvename()} not implemented for npts=1")
 
@@ -566,7 +566,7 @@ class EnergyCalibration:
             self._ph2e = Identity() / underlying_spline
 
             # Gain curves have a problem: gain<0 screws it all up. Avoid that region.
-            trial_phmax = 10*self._ph.max()
+            trial_phmax = 10 * self._ph.max()
             if underlying_spline(trial_phmax) > 0:
                 self._max_ph = trial_phmax
             else:
@@ -574,7 +574,7 @@ class EnergyCalibration:
 
         elif self.curvename() == "invgain":
             x = self._ph
-            y = self._energies/x
+            y = self._energies / x
             # self._underlying_spline = CubicSpline(x, y)
             # self._ph2e = lambda p: p*self._underlying_spline(p)
             underlying_spline = CubicSplineFunction(x, y)
@@ -590,10 +590,10 @@ class EnergyCalibration:
 
         ph = self._ph
         ph_pts = [np.linspace(0, ph[0], 51)[1:]]
-        for i in range(len(ph)-1):
-            npts = 2+int(0.5+(ph[i+1]/ph[i]-1)*100)
-            ph_pts.append(np.linspace(ph[i], ph[i+1], npts)[1:])
-        ph_pts.append(np.linspace(ph[-1], 2*ph[-1], 101)[1:])
+        for i in range(len(ph) - 1):
+            npts = 2 + int(0.5 + (ph[i + 1] / ph[i] - 1) * 100)
+            ph_pts.append(np.linspace(ph[i], ph[i + 1], npts)[1:])
+        ph_pts.append(np.linspace(ph[-1], 2 * ph[-1], 101)[1:])
         ph_pts = np.hstack(ph_pts)
         self._e2ph = CubicSplineFunction(self._ph2e(ph_pts), ph_pts)
 
@@ -617,7 +617,7 @@ class EnergyCalibration:
     def plot(self, axis=None, color="blue", markercolor="red", plottype="linear", ph_rescale_power=0.0,
              removeslope=False, energy_x=False, showtext=True, showerrors=True, min_energy=None, max_energy=None):
         # Plot smooth curve
-        minph, maxph = self._ph.max()*.001, self._ph.max()*1.1
+        minph, maxph = self._ph.max() * .001, self._ph.max() * 1.1
         if min_energy is not None:
             minph = self.e2ph(min_energy)
         if max_energy is not None:
@@ -661,21 +661,21 @@ class EnergyCalibration:
         elif plottype == "gain":
             yplot = gplot
             if self._use_approximation:
-                dyplot = self.ph2uncertainty(phplot)/eplot*gplot
+                dyplot = self.ph2uncertainty(phplot) / eplot * gplot
             y = gains
             ylabel = "Gain (PH/eV)"
             axis.set_title("Energy calibration curve, gain")
         elif plottype == "invgain":
-            yplot = 1.0/gplot
+            yplot = 1.0 / gplot
             if self._use_approximation:
-                dyplot = self.ph2uncertainty(phplot)/phplot
-            y = 1.0/gains
+                dyplot = self.ph2uncertainty(phplot) / phplot
+            y = 1.0 / gains
             ylabel = "Inverse Gain (eV/PH)"
             axis.set_title("Energy calibration curve, inverse gain")
         elif plottype == "loggain":
             yplot = np.log(gplot)
             if self._use_approximation:
-                dyplot = self.ph2uncertainty(phplot)/eplot
+                dyplot = self.ph2uncertainty(phplot) / eplot
             y = np.log(gains)
             ylabel = "Log Gain: log(eV/PH)"
             axis.set_title("Energy calibration curve, log gain")
@@ -683,10 +683,10 @@ class EnergyCalibration:
             yplot = np.log(eplot)
             xplot = np.log(phplot)
             if self._use_approximation:
-                dyplot = self.ph2uncertainty(phplot)/eplot
+                dyplot = self.ph2uncertainty(phplot) / eplot
             y = np.log(self._energies)
             x = np.log(self._ph)
-            xerr = (self._dph/self._ph)
+            xerr = (self._dph / self._ph)
             ylabel = "Log energy/1 eV"
             axis.set_xlabel("log(Pulse height/arbs)")
             axis.set_title("Energy calibration curve, log gain")
@@ -694,17 +694,17 @@ class EnergyCalibration:
             raise ValueError("plottype must be one of ('linear', 'gain','loggain','invgain').")
 
         if removeslope:
-            slope = (y[-1]-y[0])/(x[-1]-x[0])
-            yplot -= slope*xplot
+            slope = (y[-1] - y[0]) / (x[-1] - x[0])
+            yplot -= slope * xplot
 
         axis.plot(xplot, yplot, color=color)
         if dyplot is not None and showerrors:
-            axis.plot(xplot, yplot+dyplot, color=color, alpha=0.35)
-            axis.plot(xplot, yplot-dyplot, color=color, alpha=0.35)
+            axis.plot(xplot, yplot + dyplot, color=color, alpha=0.35)
+            axis.plot(xplot, yplot - dyplot, color=color, alpha=0.35)
 
         # Plot and label cal points
-        dy = ((self._de/self._energies)**2 + (self._dph/self._ph)**2)**0.5 * y
-        axis.errorbar(x, y-slope*x, yerr=dy, xerr=xerr, fmt='o',
+        dy = ((self._de / self._energies)**2 + (self._dph / self._ph)**2)**0.5 * y
+        axis.errorbar(x, y - slope * x, yerr=dy, xerr=xerr, fmt='o',
                       mec='black', mfc=markercolor, capsize=0)
         axis.grid(True)
         if removeslope:
@@ -712,7 +712,7 @@ class EnergyCalibration:
         axis.set_ylabel(ylabel)
         if showtext:
             for xval, name, yval in zip(x, self._names, y):
-                axis.text(xval, yval-slope*xval, name+'  ', ha='right')
+                axis.text(xval, yval - slope * xval, name + '  ', ha='right')
 
     def drop_one_errors(self):
         """For each calibration point, calculate the difference between the 'correct' energy
@@ -724,7 +724,7 @@ class EnergyCalibration:
             cal2 = self.copy()
             cal2._remove_cal_point_idx(i)
             predicted_energy = cal2.ph2energy(drop_one_pulseheight)
-            drop_one_energy_diff[i] = predicted_energy-drop_one_energy
+            drop_one_energy_diff[i] = predicted_energy - drop_one_energy
         perm = np.argsort(self._energies)
         return self._energies[perm], drop_one_energy_diff[perm]
 

@@ -265,7 +265,7 @@ def add_group_loop(method):
     wrapper.__doc__ = "\n".join(lines)
 
     setattr(GroupLooper, method_name, wrapper)
-    setattr(GroupLooper, "_"+method_name, wrapper)
+    setattr(GroupLooper, "_" + method_name, wrapper)
     return method
 
 
@@ -274,8 +274,8 @@ def labelPeak(axis, name, energy, line=None, deltaELocalMaximum=5, color=None):
         line = axis.lines[0]
     if color is None:
         color = line.get_color()
-    ydataLocalMaximum = np.amax([np.interp(energy+de, line.get_xdata(), line.get_ydata(),
-                                           right=0, left=0) for de in np.linspace(-1, 1, 10)*deltaELocalMaximum])
+    ydataLocalMaximum = np.amax([np.interp(energy + de, line.get_xdata(), line.get_ydata(),
+                                           right=0, left=0) for de in np.linspace(-1, 1, 10) * deltaELocalMaximum])
     plt.annotate(name, (energy, ydataLocalMaximum), (0, 10), textcoords='offset points',
                  rotation=90, verticalalignment='top', horizontalalignment="center", color=color)
 
@@ -292,24 +292,24 @@ def annotate_lines(axis, labelLines, labelLines_color2=[], color1="k", color2="r
     color1 -- text color for labelLines
     color2 -- text color for labelLines_color2
     """
-    n = len(labelLines)+len(labelLines_color2)
+    n = len(labelLines) + len(labelLines_color2)
     yscale = plt.gca().get_yscale()
     for (i, labelLine) in enumerate(labelLines):
         energy = mass.STANDARD_FEATURES[labelLine]
         if yscale == "linear":
-            axis.annotate(labelLine, (energy, (1+i)*plt.ylim()
-                                      [1]/float(1.5*n)), xycoords="data", color=color1)
+            axis.annotate(labelLine, (energy, (1 + i) * plt.ylim()
+                                      [1] / float(1.5 * n)), xycoords="data", color=color1)
         elif yscale == "log":
             axis.annotate(labelLine, (energy, np.exp(
-                (1+i)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data", color=color1)
+                (1 + i) * np.log(plt.ylim()[1]) / float(1.5 * n))), xycoords="data", color=color1)
     for (j, labelLine) in enumerate(labelLines_color2):
         energy = mass.STANDARD_FEATURES[labelLine]
         if yscale == "linear":
-            axis.annotate(labelLine, (energy, (2+i+j)*plt.ylim()
-                                      [1]/float(1.5*n)), xycoords="data", color=color2)
+            axis.annotate(labelLine, (energy, (2 + i + j) * plt.ylim()
+                                      [1] / float(1.5 * n)), xycoords="data", color=color2)
         elif yscale == "log":
             axis.annotate(labelLine, (energy, np.exp(
-                (2+i+j)*np.log(plt.ylim()[1])/float(1.5*n))), xycoords="data", color=color2)
+                (2 + i + j) * np.log(plt.ylim()[1]) / float(1.5 * n))), xycoords="data", color=color2)
 
 
 class SilenceBar(progress.bar.Bar):
@@ -334,8 +334,8 @@ class SilenceBar(progress.bar.Bar):
         if not self.silence:
             progress.bar.Bar.finish(self)
 
-#ratio between standard deviation and median absolute deviation for a gaussian distribution
-SIGMA_OVER_MAD = 1/0.67449
+# ratio between standard deviation and median absolute deviation for a gaussian distribution
+SIGMA_OVER_MAD = 1 / 0.67449
 
 
 def median_absolute_deviation(x):
@@ -343,8 +343,8 @@ def median_absolute_deviation(x):
     returns mad, sigma_equiv, median
     """
     median = np.median(x)
-    mad = np.median(np.abs(x-median))
-    sigma_equiv = mad*SIGMA_OVER_MAD
+    mad = np.median(np.abs(x - median))
+    sigma_equiv = mad * SIGMA_OVER_MAD
     return mad, sigma_equiv, median
 
 

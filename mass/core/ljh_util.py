@@ -71,7 +71,7 @@ def ljh_channum(name):
 def ljh_chan_names(fname, chans):
     basename, _ = ljh_basename_channum(fname)
     ext = path.splitext(fname)[1]
-    return [basename+f"_chan{chan}{ext}" for chan in chans]
+    return [basename + f"_chan{chan}{ext}" for chan in chans]
 
 
 def ljh_get_extern_trig_fnames(fname):
@@ -150,9 +150,9 @@ def remove_unpaired_channel_files(filenames1, filenames2, never_use=None, use_on
         valid_cnum = valid_cnum.intersection(set(use_only))
 
     # Remove invalid channel numbers
-    for c in (cnum1-valid_cnum):
+    for c in (cnum1 - valid_cnum):
         filenames1.remove(names1[c])
-    for c in (cnum2-valid_cnum):
+    for c in (cnum2 - valid_cnum):
         filenames2.remove(names2[c])
 
 
@@ -210,7 +210,7 @@ def filename_glob_expand(pattern):
 
 def ljh_get_aux_fname(fname):
     basename, _ = ljh_basename_channum(fname)
-    return basename+".timing_aux"
+    return basename + ".timing_aux"
 
 
 def ljh_get_mic_fname(fname):
@@ -220,7 +220,7 @@ def ljh_get_mic_fname(fname):
 def load_aux_file(fname):
     fname = ljh_get_aux_fname(fname)
     raw = np.fromfile(fname, dtype=np.uint64)
-    raw.shape = (len(raw)/2, 2)
+    raw.shape = (len(raw) / 2, 2)
     crate_epoch_usec = raw[:, 1]
     crate_frame = raw[:, 0]
     return crate_epoch_usec, crate_frame
@@ -228,4 +228,4 @@ def load_aux_file(fname):
 
 def load_mic_file(fname):
     fname = ljh_get_mic_fname(fname)
-    return np.array(np.loadtxt(fname)*1e6, dtype=np.int64)
+    return np.array(np.loadtxt(fname) * 1e6, dtype=np.int64)
