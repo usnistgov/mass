@@ -117,7 +117,7 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
         offdata["recordSamples"] = ljhfile.nSamples
         offdata["recordPreSamples"] = ljhfile.nPresamples
         offdata["framecount"] = subframecounts // ljhfile.subframe_divisions
-        offdata["unixnano"] = timestamps*1e9
+        offdata["unixnano"] = timestamps * 1e9
         offdata["pretriggerMean"] = pretrig_mean
         offdata["pretriggerDelta"] = pt_delta
         offdata["residualStdDev"] = residual_std_dev

@@ -843,13 +843,13 @@ class Channel(CorG):  # noqa: PLR0904
     @property
     def rowPeriodSeconds(self):
         nRows = self.offFile.header["ReadoutInfo"]["NumberOfRows"]
-        return self.offFile.framePeriodSeconds/float(nRows)
+        return self.offFile.framePeriodSeconds / float(nRows)
 
     @deprecated(deprecated_in="0.8.2", details="Use subframecount, which is equivalent but better named")
     @property
     def rowcount(self):
         return self.subframecount
-    
+
     @property
     def subframeDivisions(self):
         hdr = self.offFile.header["ReadoutInfo"]
@@ -858,7 +858,7 @@ class Channel(CorG):  # noqa: PLR0904
     @property
     def subframePeriodSeconds(self):
         nDivs = self.offFile.subframeDivisions
-        return self.offFile.framePeriodSeconds/float(nDivs)
+        return self.offFile.framePeriodSeconds / float(nDivs)
 
     @property
     def subframecount(self):
@@ -871,14 +871,14 @@ class Channel(CorG):  # noqa: PLR0904
         rowPeriodSeconds = self.rowPeriodSeconds
         if after_last:
             self.subframes_after_last_external_trigger = subframes_after_last_external_trigger
-            self.seconds_after_last_external_trigger = subframes_after_last_external_trigger*rowPeriodSeconds
+            self.seconds_after_last_external_trigger = subframes_after_last_external_trigger * rowPeriodSeconds
         if until_next:
             self.subframes_until_next_external_trigger = subframes_until_next_external_trigger
-            self.seconds_until_next_external_trigger = subframes_until_next_external_trigger*rowPeriodSeconds
+            self.seconds_until_next_external_trigger = subframes_until_next_external_trigger * rowPeriodSeconds
         if from_nearest:
             self.subframes_from_nearest_external_trigger = np.fmin(subframes_after_last_external_trigger,
-                                                              subframes_until_next_external_trigger)
-            self.seconds_from_nearest_external_trigger = self.subframes_from_nearest_external_trigger*rowPeriodSeconds
+                                                                   subframes_until_next_external_trigger)
+            self.seconds_from_nearest_external_trigger = self.subframes_from_nearest_external_trigger * rowPeriodSeconds
 
 
 def normalize(x):

@@ -604,7 +604,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                     self._external_trigger_subframe_count = np.fromfile(f, dtype="int64")
             else:
                 raise OSError("No external trigger files found: ", possible_files)
-            self.subframe_timebase = self.timebase/float(self.subframe_divisions)
+            self.subframe_timebase = self.timebase / float(self.subframe_divisions)
             for ds in self.datasets:
                 ds.subframe_timebase = self.subframe_timebase
         return self._external_trigger_subframe_count
@@ -614,7 +614,7 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         """This is not a posix timestamp, it is just the external trigger subframecount converted to seconds
         based on the nominal clock rate of the crate.
         """
-        return self.external_trigger_subframe_count[:]/float(self.subframe_divisions)*self.timebase
+        return self.external_trigger_subframe_count[:] / float(self.subframe_divisions) * self.timebase
 
     def calc_external_trigger_timing(self, forceNew=False):
         ds = self.first_good_dataset
@@ -623,20 +623,18 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         for ds in self:
             try:
                 if ("subframes_after_last_external_trigger" in ds.hdf5_group) and \
-                    ("subframes_until_next_external_trigger" in ds.hdf5_group) and \
-                    ("subframes_from_nearest_external_trigger" in ds.hdf5_group) and \
-                    (not forceNew):
-                        continue
+                   ("subframes_until_next_external_trigger" in ds.hdf5_group) and \
+                   ("subframes_from_nearest_external_trigger" in ds.hdf5_group) and (not forceNew):
+                    continue
 
                 subframes_after_last, subframes_until_next = \
                     mass.core.analysis_algorithms.nearest_arrivals(ds.p_subframecount[:],
                                                                    external_trigger_subframe_count)
                 nearest = np.fmin(subframes_after_last, subframes_until_next)
-                for name, values in zip(
-                    ("subframes_after_last_external_trigger",
-                     "subframes_until_next_external_trigger",
-                     "subframes_from_nearest_external_trigger"),
-                    (subframes_after_last, subframes_until_next, nearest)):
+                for name, values in zip(("subframes_after_last_external_trigger",
+                                         "subframes_until_next_external_trigger",
+                                         "subframes_from_nearest_external_trigger"),
+                                        (subframes_after_last, subframes_until_next, nearest)):
                     h5dset = ds.hdf5_group.require_dataset(name, (ds.nPulses,), dtype=np.int64)
                     h5dset[:] = values
             except Exception:

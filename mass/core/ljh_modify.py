@@ -56,7 +56,7 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
                 data = callback(infile.alldata[i])
                 x = np.zeros((1,), dtype=infile.dtype)
                 x["subframecount"] = infile.subframecount
-                x["posix_usec"] = infile.datatimes_float*1e6
+                x["posix_usec"] = infile.datatimes_float * 1e6
                 x["data"] = data
                 x.tofile(outfile)
                 if i % 100 == 0:

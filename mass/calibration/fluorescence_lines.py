@@ -1283,7 +1283,7 @@ addline(
     lorentzian_fwhm=np.array([19.08, 1887]),
     reference_amplitude=np.array([4.15, 7.57]),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
-    ka12_energy_diff=36026.71-35550.59,
+    ka12_energy_diff=36026.71 - 35550.59,
     reference_plot_instrument_gaussian_fwhm=None
 )
 
@@ -1312,7 +1312,7 @@ addline(
     lorentzian_fwhm=np.array([20.25, 20.05]),
     reference_amplitude=np.array([4.51, 8.21]),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
-    ka12_energy_diff=37360.74-36847.50,
+    ka12_energy_diff=37360.74 - 36847.50,
     reference_plot_instrument_gaussian_fwhm=None
 )
 
@@ -1370,7 +1370,7 @@ addline(
     lorentzian_fwhm=np.array([24.1, 23.93]),
     reference_amplitude=np.array([5.54, 10.00]),
     reference_amplitude_type=LORENTZIAN_INTEGRAL_INTENSITY,
-    ka12_energy_diff=41542.63-40902.33,
+    ka12_energy_diff=41542.63 - 40902.33,
     reference_plot_instrument_gaussian_fwhm=None
 )
 

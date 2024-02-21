@@ -34,7 +34,7 @@ class AnalysisControl(PrmDictBase):
             'min_value': None,
             'timestamp_sec': None,
             'pretrigger_mean_departure_from_median': None,
-            'timestamp_diff_sec':  None,
+            'timestamp_diff_sec': None,
             'subframecount_diff_sec': None,
             'energy': None,
         }
