@@ -165,7 +165,7 @@ class AlFilmWithOxide(Film):
             oxide_density_g_per_cm3: Al2O3 oxide density, in g/cm3, defaults to bulk xraydb value
 
         '''
-        assert num_oxidized_surfaces in [1, 2], 'only 1 or 2 oxidzed surfaces allowed'
+        assert num_oxidized_surfaces in {1, 2}, 'only 1 or 2 oxidzed surfaces allowed'
         if Al_density_g_per_cm3 is None:
             Al_density_g_per_cm3 = xraydb.atomic_density('Al')
         arbE = 5000.  # an arbitrary energy (5 keV) is used to get answers from material_mu_components()
@@ -207,7 +207,7 @@ class AlFilmWithPolymer(Film):
             polymer_fractions: elemental mass fractions of polymer used, defaults to Kapton
             polymer_density_g_per_cm3: Polymer density, in g/cm3, defaults to Kapton
         '''
-        assert num_oxidized_surfaces in [1, 2], 'only 1 or 2 oxidzed surfaces allowed'
+        assert num_oxidized_surfaces in {1, 2}, 'only 1 or 2 oxidzed surfaces allowed'
         if Al_density_g_per_cm3 is None:
             Al_density_g_per_cm3 = xraydb.atomic_density('Al')
 

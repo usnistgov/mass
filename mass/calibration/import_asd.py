@@ -20,7 +20,7 @@ def write_asd_pickle(inputFilename, outputFilename):
     tableName = ''
     fieldNamesDict = {}
     energyLevelsDict = {}
-    with open(inputFilename, 'r') as ASD_file:
+    with open(inputFilename, 'r', encoding='utf-8') as ASD_file:
         for line_number, line in enumerate(ASD_file):
             # Create dictionary of field names for various tables
             if line.startswith(createTableString):

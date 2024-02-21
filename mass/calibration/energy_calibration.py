@@ -535,7 +535,7 @@ class EnergyCalibration:
             e1 = self._energies[0]
             if self.curvename() == "loglog":
                 self._ph2e = e1 * (Identity() / p1)**self.nonlinearity
-            elif self.curvename() in ["gain", "invgain"]:
+            elif self.curvename() in {"gain", "invgain"}:
                 self._ph2e = (e1 / p1) * Identity()
             else:
                 raise Exception(f"curvename={self.curvename()} not implemented for npts=1")

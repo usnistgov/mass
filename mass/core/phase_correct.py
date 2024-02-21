@@ -183,7 +183,7 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
                 yadj[bins == i] += shift
                 return mass.mathstat.entropy.laplace_entropy(yadj, kernel_width)
             brack = 0.003 * np.array([-1, 1], dtype=float)
-            sbest, KLbest, niter, _ = sp.optimize.brent(
+            sbest, _KLbest, niter, _ = sp.optimize.brent(
                 target, (), brack=brack, full_output=True, tol=3e-4)
             iter1 += niter
             yknot[i] = sbest
@@ -200,7 +200,7 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
                 yadj[bins == i] += shift
                 return mass.mathstat.entropy.laplace_entropy(yadj, kernel_width)
             brack = 0.002 * np.array([-1, 1], dtype=float)
-            sbest, KLbest, niter, _ = sp.optimize.brent(
+            sbest, _KLbest, niter, _ = sp.optimize.brent(
                 target, (), brack=brack, full_output=True, tol=1e-4)
             iter2 += niter
             yknot2[i] = sbest

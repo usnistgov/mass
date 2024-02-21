@@ -187,13 +187,13 @@ def find_range_randomly(A, nl, q=1):
         msg = "The number of power iterations q=%d needs to be at least 0" % q
         raise ValueError(msg)
     A = np.asarray(A)
-    m, n = A.shape
+    _m, n = A.shape
     Omega = rng.standard_normal((n, nl))
     Y = np.dot(A, Omega)
     for _ in range(q):
         Y = np.dot(A.T, Y)
         Y = np.dot(A, Y)
-    Q, R = np.linalg.qr(Y)
+    Q, _R = np.linalg.qr(Y)
     return Q
 
 

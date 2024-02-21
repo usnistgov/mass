@@ -10,7 +10,7 @@ from . import channel
 
 
 def hdf5jl_name_from_ljh_name(ljh_name):
-    b, ext = os.path.splitext(ljh_name)
+    b, _ext = os.path.splitext(ljh_name)
     return b + "_jl.hdf5"
 
 

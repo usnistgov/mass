@@ -369,8 +369,8 @@ def addline(element, linetype, material, reference_short, reference_plot_instrum
             is_default_material=True, allow_replacement=False):
 
     # require exactly one method of specifying the amplitude of each component
-    assert reference_amplitude_type in [LORENTZIAN_PEAK_HEIGHT,
-                                        LORENTZIAN_INTEGRAL_INTENSITY, VOIGT_PEAK_HEIGHT]
+    assert reference_amplitude_type in {LORENTZIAN_PEAK_HEIGHT,
+                                        LORENTZIAN_INTEGRAL_INTENSITY, VOIGT_PEAK_HEIGHT}
     # require the reference exists in lineshape_references
     assert reference_short in lineshape_references
 

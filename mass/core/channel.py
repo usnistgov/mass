@@ -1991,7 +1991,7 @@ class MicrocalDataSet:
             except AttributeError:
                 pulse_summary = False
 
-        if valid_status not in (None, "valid", "cut"):
+        if valid_status not in {None, "valid", "cut"}:
             raise ValueError("valid_status must be one of [None, 'valid', or 'cut']")
         if residual and difference:
             raise ValueError("Only one of residual and difference can be True.")
@@ -2312,7 +2312,7 @@ class MicrocalDataSet:
                 compareChannelsPulsesList = np.append(compareChannelsPulsesList,
                                                       dsToCompare.p_subframecount[:] * dsToCompare.subframe_timebase)
             # Create a histogram of the neighboring channel pulses using the bin edges from the channel you are flagging
-            hist, bin_edges = np.histogram(compareChannelsPulsesList, bins=combinedEdges)
+            hist, _bin_edges = np.histogram(compareChannelsPulsesList, bins=combinedEdges)
             # Even corresponds to bins with a photon in channel 1 (crosstalk), odd are empty bins (no crosstalk)
             badCountsHist = hist[::2]
             # Even only histogram indices map directly to previously good flagged pulse indices for victim channel
@@ -2698,7 +2698,7 @@ def time_drift_correct(time, uncorrected, w, sec_per_degree=2000,
     model = np.poly1d([0])
     info["coefficients"] = np.zeros(ndeg, dtype=float)
     for i in range(ndeg):
-        result, fval, iter, funcalls = sp.optimize.brent(
+        result, _fval, _iter, funcalls = sp.optimize.brent(
             cost1, (i, param, uncorrected, w, basis), [-.001, .001], tol=1e-5, full_output=True)
         param[i] = result
         fc += funcalls

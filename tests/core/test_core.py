@@ -7,7 +7,6 @@ import tempfile
 import pytest
 
 import logging
-import locale
 
 import mass
 from mass.core.ljh_modify import LJHFile, ljh_copy_traces, ljh_append_traces, ljh_truncate
@@ -523,7 +522,7 @@ class TestTESGroup:
 10491427707840, B
 """
                 esfname = f"{dir.name}/regress_experiment_state.txt"
-                with open(esfname, "w", encoding=locale.getpreferredencoding(False)) as fp:
+                with open(esfname, "w", encoding="utf-8") as fp:
                     fp.write(contents)
             return mass.TESGroup([src_name], hdf5_filename=hdf5_filename), dir
 

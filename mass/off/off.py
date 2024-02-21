@@ -23,7 +23,7 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
     For True, the names will be `derivLike`, `pulseLike`, and if nBasis>3, also `extraCoefs`
     For False, they will all have the single name `coefs`. False is to make implementing recordXY and other
     methods that want access to all coefs simultaneously easier"""
-    if offVersion in ("0.1.0", "0.2.0"):
+    if offVersion in {"0.1.0", "0.2.0"}:
         # start of the dtype is identical for all cases
         dt_list = [("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
                    ("unixnano", np.int64), ("pretriggerMean", np.float32), ("residualStdDev", np.float32)]

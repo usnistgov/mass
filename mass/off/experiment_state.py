@@ -1,5 +1,5 @@
 import collections
-from typing import List, Dict, Union
+from typing import Union
 import mass
 import numpy as np
 
@@ -26,15 +26,16 @@ class ExperimentStateFile:
             if self.filename is None:
                 raise Exception("pass filename or datasetFilename or _parse=False")
             self.parse()
-        self.labelAliasesDict: Dict[str, str] = {}  # map unaliasedLabels to aliasedLabels
+        self.labelAliasesDict: dict[str, str] = {}  # map unaliasedLabels to aliasedLabels
         self._preventAliasState = False  # causes aliasState to raise an Exception when it wouldn't work as expected
 
-    def experimentStateFilenameFromDatasetFilename(self, datasetFilename):
-        basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
+    @staticmethod
+    def experimentStateFilenameFromDatasetFilename(datasetFilename):
+        basename, _channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
         return basename + "_experiment_state.txt"
 
     def parse(self):
-        with open(self.filename, "r") as f:
+        with open(self.filename, "r", encoding="utf-8") as f:
             # if we call parse a second time, we want to add states rather than reparse the whole file
             f.seek(self.parse_start)
             lines = f.readlines()
@@ -162,7 +163,7 @@ class ExperimentStateFile:
     def __repr__(self):
         return "ExperimentStateFile: " + self.filename
 
-    def aliasState(self, unaliasedLabel: Union[str, List[str]], aliasedLabel: str) -> None:
+    def aliasState(self, unaliasedLabel: Union[str, list[str]], aliasedLabel: str) -> None:
         assert isinstance(aliasedLabel, str)
         if self._preventAliasState:
             raise Exception("call aliasState before calculating or re-calculating statesDict")
@@ -175,5 +176,5 @@ class ExperimentStateFile:
             raise Exception(f"invalid type for unaliasedLabel={unaliasedLabel}")
 
     @property
-    def labels(self) -> List[str]:
+    def labels(self) -> list[str]:
         return [self.labelAliasesDict.get(label, label) for label in self.unaliasedLabels]

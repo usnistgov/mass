@@ -26,6 +26,6 @@ def filtValue5Lag(cba):
 
 
 def peakX5Lag(cba):
-    c, b, a = cba.T
+    _c, b, a = cba.T
     peak_x = -0.5 * b / a
     return peak_x

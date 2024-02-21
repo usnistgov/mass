@@ -263,7 +263,7 @@ class Channel(CorG):
             inds = np.logical_and(filtValue > lo, filtValue < hi)
             if len(inds) <= 4:
                 continue
-            mad, sigma_equiv, median = mass.off.util.median_absolute_deviation(residualStdDev[inds])
+            _mad, sigma_equiv, median = mass.off.util.median_absolute_deviation(residualStdDev[inds])
             sigmas.append(sigma_equiv)
             medians.append(median)
             fv_mids.append((lo + hi) / 2)
@@ -787,7 +787,7 @@ class Channel(CorG):
     @add_group_loop
     def qualityCheckDropOneErrors(self, thresholdAbsolute=None, thresholdSigmaFromMedianAbsoluteValue=None):
         calibration = self.recipes["energy"].f
-        energies, errors = calibration.drop_one_errors()
+        _energies, errors = calibration.drop_one_errors()
         maxAbsError = np.amax(np.abs(errors))
         medianAbsoluteValue = np.median(np.abs(errors))
         k = 1.4826  # https://en.wikipedia.org/wiki/Median_absolute_deviation
@@ -828,7 +828,7 @@ class Channel(CorG):
         plt.tight_layout()
 
     def add5LagRecipes(self, f):
-        filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(
+        _filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(
             f[:], self.offFile.basis)
         self.recipes.add("cba5Lag", lambda coefs: np.matmul(coefs, filter_5lag_fit_in_basis))
         # self.recipes.add("filtValue5Lag", lambda cba5Lag: fivelag.filtValue5Lag(cba5Lag))
@@ -890,10 +890,10 @@ def dtw_same_peaks(bin_edges, ph_a, ph_b, peak_inds_a, scale_by_median, normaliz
     counts_a, _ = np.histogram(ph_a, bin_edges)
     counts_b_median_scaled, _ = np.histogram(ph_b_median_scaled, bin_edges)
     if normalize_before_dtw:
-        distance, path = fastdtw.fastdtw(normalize(counts_a),
+        _distance, path = fastdtw.fastdtw(normalize(counts_a),
                                          normalize(counts_b_median_scaled))
     else:
-        distance, path = fastdtw.fastdtw(counts_a, counts_b_median_scaled)
+        _distance, path = fastdtw.fastdtw(counts_a, counts_b_median_scaled)
     i_a = [x[0] for x in path]
     i_b_median_scaled = [x[1] for x in path]
     peak_inds_b_median_scaled = np.array(
@@ -1403,7 +1403,7 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):
 
     def _externalTriggerFilename(self):
         datasetFilename = self.offFileNames[0]
-        basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
+        basename, _channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
         return basename + "_external_trigger.bin"
 
     def _externalTriggerSubframes(self, filename=None):
