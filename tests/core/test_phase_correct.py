@@ -5,8 +5,6 @@ import os
 
 import pylab as plt
 
-# ruff: noqa: PLR0914
-
 
 def load_data(clear_hdf5=True):
     name = 'tests/regression_test/phase_correct_test_data_4k_pulses_mass.hdf5'

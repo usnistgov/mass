@@ -9,8 +9,6 @@ from mass.calibration.algorithms import find_opt_assignment, find_local_maxima, 
     build_fit_ranges_ph, multifit, EnergyCalibration, EnergyCalibrationAutocal
 import itertools
 
-# ruff: noqa: PLR0914
-
 rng = np.random.default_rng(2)
 
 

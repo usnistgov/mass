@@ -7,8 +7,6 @@ import pytest
 
 import mass
 
-# ruff: noqa: PLR0914
-
 
 ljhdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "regression_test")
 

@@ -9,7 +9,7 @@ from pytest import approx
 import numpy as np
 import mass
 
-# ruff: noqa: PLR0914, PLR0917
+# ruff: noqa: PLR0917
 
 rng = np.random.default_rng(34234)
 
