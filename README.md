@@ -123,6 +123,41 @@ Realtime analysis is implemented by writing filtered values as well as "SVD comp
 
 # Development Tips
 
+## Code style
+
+We are using the tools `ruff` and `pycodestyle` to check for violations of Python programming norms. You can manually check for these by running either of these two complementary commands from the top-level directory of the MASS repository:
+
+```
+make ruff
+
+# That's equivalent to
+# ruff --check mass doc tests
+```
+
+or
+
+```
+make pep8
+cat pep8-report.txt
+```
+
+You'll need to install `ruff` via pip, macports, or whatever for the first to work. For the second, you will need `pycodestyle` installed.
+
+Ideally, you'll have zero warnings from ruff and no contents in the `pep8-report.txt` file. This was not true for a very long time, but we finally reached full compliance with MASS release `v0.8.2`.
+
+To _automate_ these tests so that it's easy to notice noncompliant new code as you develop MASS, there are tools you can install and activate within the VS Code development platform.
+
+1. Install the tool `Ruff` for VS code, offical identifier: `charliermarsh.ruff`.
+2. Checking its settings (there are 15 of them at this time, which you can find by checking the VS code settings for `@ext:charliermarsh.ruff`). I found most default settings worked fine, but I did have to change:
+   a. To `Ruff > Lint: Args` setting, I added two lines to make it run the way we want:
+      * `--line-length=135`
+      * `--preview`
+   b. I chose to have Ruff run `onType` rather than `onSave`, because the former did not cause noticeable burdens.
+3. Install the tool `Flake8` for VS code, official identifier: `ms-python.flake8`
+4. In its settings, add the line `--max-line-length 135` to the setting `Flake8: Args`
+
+
+
 ## Tests
 
 If you look for files in the `tests/` directory, they will have examples of how the tested functions are called. You can learn a fair amount from looking at them.
@@ -142,4 +177,4 @@ Change directory into `doc` then
 Read about RST (reStructuredText) format. It is weird. My most common mistake is forgetting the blank line between `.. blah` statements and the following text. See the [Sphinx docs](https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html) for details about its syntax.
 
 # massGui, the GUI for Mass
-massGui is an attempt to bring the core features of Mass into a graphical user interface (GUI). You can find more information and install it [here](https://github.com/gmondee/massGui).
+massGui is an attempt to bring the core features of Mass into a graphical user interface (GUI). You can find more information and install it at [https://github.com/gmondee/massGui](https://github.com/gmondee/massGui).
