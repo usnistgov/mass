@@ -6,17 +6,22 @@ import shutil
 import tempfile
 import pytest
 
+import logging
+
 import mass
 from mass.core.ljh_modify import LJHFile, ljh_copy_traces, ljh_append_traces, ljh_truncate
 import mass.off
+import mass.core.projectors_script
 
-import logging
 LOG = logging.getLogger("mass")
+
+# ruff: noqa: PLR0914
 
 
 class TestFiles:
 
-    def test_ljh_copy_and_append_traces(self):
+    @staticmethod
+    def test_ljh_copy_and_append_traces():
         """Test copying and appending traces to LJH files."""
         src_name = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
         src = LJHFile.open(src_name)
@@ -47,17 +52,19 @@ class TestFiles:
             for i, st in enumerate(source_traces):
                 assert np.all(src.read_trace(st) == dest.read_trace(i))
 
-    def test_ljh_truncate_wrong_format(self):
+    @staticmethod
+    def test_ljh_truncate_wrong_format():
         # First a file using LJH format 2.1.0 - should raise an exception
         src_name = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
 
             def func():
-                ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054*500)
+                ljh_truncate(src_name, dest_name, n_pulses=100, segmentsize=2054 * 500)
             pytest.raises(Exception, func)
 
-    def run_test_ljh_truncate_timestamp(self, src_name, n_pulses_expected, timestamp, segmentsize):
+    @staticmethod
+    def run_test_ljh_truncate_timestamp(src_name, n_pulses_expected, timestamp, segmentsize):
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
             ljh_truncate(src_name, dest_name, timestamp=timestamp, segmentsize=segmentsize)
@@ -70,7 +77,8 @@ class TestFiles:
                 assert src.subframecount[k] == dest.subframecount[k]
                 assert src.datatimes_float[k] == pytest.approx(dest.datatimes_float[k], abs=1e-5)
 
-    def run_test_ljh_truncate_n_pulses(self, src_name, n_pulses, segmentsize):
+    @staticmethod
+    def run_test_ljh_truncate_n_pulses(src_name, n_pulses, segmentsize):
         # Tests with a file with 1230 pulses, each 1016 bytes long
         with tempfile.NamedTemporaryFile(suffix="_chan1.ljh") as destfile:
             dest_name = destfile.name
@@ -92,27 +100,28 @@ class TestFiles:
         self.run_test_ljh_truncate_n_pulses(src_name, 1000, None)
         self.run_test_ljh_truncate_n_pulses(src_name, 0, None)
         self.run_test_ljh_truncate_n_pulses(src_name, 1, None)
-        self.run_test_ljh_truncate_n_pulses(src_name, 100, 1016*2000)
-        self.run_test_ljh_truncate_n_pulses(src_name, 49, 1016*50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 50, 1016*50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 51, 1016*50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 75, 1016*50)
-        self.run_test_ljh_truncate_n_pulses(src_name, 334, 1016*50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 100, 1016 * 2000)
+        self.run_test_ljh_truncate_n_pulses(src_name, 49, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 50, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 51, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 75, 1016 * 50)
+        self.run_test_ljh_truncate_n_pulses(src_name, 334, 1016 * 50)
 
     def test_ljh_truncate_timestamp(self):
         # Want to make sure that we didn't screw something up with the
         # segmentation, so try various lengths
         # Tests with a file with 1230 pulses, each 1016 bytes long
         src_name = os.path.join('tests', 'regression_test', 'regress_chan3.ljh')
-        self.run_test_ljh_truncate_timestamp(src_name, 1000, 1510871067891481/1e6, None)
-        self.run_test_ljh_truncate_timestamp(src_name,  100, 1510871020202899/1e6, 1016*2000)
-        self.run_test_ljh_truncate_timestamp(src_name,   49, 1510871016889751/1e6, 1016*50)
-        self.run_test_ljh_truncate_timestamp(src_name,   50, 1510871016919543/1e6, 1016*50)
-        self.run_test_ljh_truncate_timestamp(src_name,   51, 1510871017096192/1e6, 1016*50)
-        self.run_test_ljh_truncate_timestamp(src_name,   75, 1510871018591985/1e6, 1016*50)
-        self.run_test_ljh_truncate_timestamp(src_name,  334, 1510871031629499/1e6, 1016*50)
+        self.run_test_ljh_truncate_timestamp(src_name, 1000, 1510871067891481 / 1e6, None)
+        self.run_test_ljh_truncate_timestamp(src_name, 100, 1510871020202899 / 1e6, 1016 * 2000)
+        self.run_test_ljh_truncate_timestamp(src_name, 49, 1510871016889751 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(src_name, 50, 1510871016919543 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(src_name, 51, 1510871017096192 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(src_name, 75, 1510871018591985 / 1e6, 1016 * 50)
+        self.run_test_ljh_truncate_timestamp(src_name, 334, 1510871031629499 / 1e6, 1016 * 50)
 
-    def test_ljh_dastard_other_reading(self):
+    @staticmethod
+    def test_ljh_dastard_other_reading():
         "Make sure we read DASTARD vs non-DASTARD LJH files correctly"
         src_name1 = os.path.join('tests', 'regression_test', 'regress_chan1.ljh')
         src_name2 = os.path.join('tests', 'regression_test', 'regress_dastard_chan1.ljh')
@@ -135,11 +144,13 @@ class TestFiles:
         assert ds1.p_pretrig_rms[0] == ds2.p_pretrig_rms[0]
         assert ds1.p_pulse_average[0] == ds2.p_pulse_average[0]
 
-    def test_ragged_size_file(self):
+    @staticmethod
+    def test_ragged_size_file():
         "Make sure we can open a file that was truncated during a pulse record."
         mass.LJHFile.open("tests/regression_test/phase_correct_test_data_4k_pulses_chan1.ljh")
 
-    def test_peak_time_property(self):
+    @staticmethod
+    def test_peak_time_property():
         "Check that a peak during pretrigger is handled properly (issue 259)"
         # A clever trick to get pulses that peak during the pretrigger period: use noise records
         src_name1 = os.path.join('tests', 'regression_test', 'regress_noise_chan1.ljh')
@@ -155,7 +166,8 @@ class TestFiles:
 class TestTESGroup:
     """Basic tests of the TESGroup object."""
 
-    def load_data(self, hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
+    @staticmethod
+    def load_data(hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
                   experimentStateFile=None, hdf5dir=None):
         if hdf5_filename is None or hdf5_noisefilename is None:
             assert hdf5dir is not None
@@ -178,7 +190,7 @@ class TestTESGroup:
         ds = data.channel[1]
 
         # Make segments be short enough that even this small test file contains > 1 of them.
-        ds.pulse_records.set_segment_size(512*1024)
+        ds.pulse_records.set_segment_size(512 * 1024)
         assert ds.pulse_records.pulses_per_seg < ds.nPulses
 
         # Summarize with Cython
@@ -247,7 +259,8 @@ class TestTESGroup:
         data.assume_white_noise()
         data.compute_ats_filter()
 
-    def test_noise_only(self):
+    @staticmethod
+    def test_noise_only():
         """Test behavior of a TESGroup without pulse data."""
         pattern = "tests/regression_test/regress_noise_*.ljh"
         data = mass.TESGroup(pattern, noise_only=True)
@@ -314,7 +327,7 @@ class TestTESGroup:
         cuts = ds.auto_cuts(forceNew=False, clearCuts=False)
         assert cuts is not None, "auto_cuts not run after other cuts (issue 147)"
         ngood = ds.good().sum()
-        assert ngood < ds.nPulses-arbcut.sum()
+        assert ngood < ds.nPulses - arbcut.sum()
         assert ngood > 0
 
     def test_plot_filters(self, tmp_path):
@@ -369,14 +382,15 @@ class TestTESGroup:
             data.set_chan_good(1)
             dc = ds.p_filt_value_dc[:]
             top = 6000.0
-            bin = np.digitize(dc, np.linspace(0, top, 1+NBINS))-1
+            bin = np.digitize(dc, np.linspace(0, top, 1 + NBINS)) - 1
             ds.p_filt_value_dc[np.logical_or(bin >= NBINS, bin < lowestbin)] = 5898.8
             data.phase_correct(method2017=True, forceNew=True, save_to_hdf5=False)
             if ds.channum not in data.good_channels:
                 raise ValueError("Failed issue156 test with %d valid bins (lowestbin=%d)" %
-                                 (NBINS-lowestbin, lowestbin))
+                                 (NBINS - lowestbin, lowestbin))
 
-    def test_noncontinuous_noise(self):
+    @staticmethod
+    def test_noncontinuous_noise():
         "Test for issue 157: failure when noise_is_continuous=False"
         src_name = 'tests/regression_test/regress_chan1.ljh'
         noi_name = 'tests/regression_test/regress_noise_chan1.ljh'
@@ -404,7 +418,7 @@ class TestTESGroup:
             off = mass.off.off.OffFile(off_filenames[0])
             assert np.allclose(off._mmap_with_coefs["coefs"][:, 2], ds.p_filt_value[:])
 
-            x, y = off.recordXY(0)
+            _x, _y = off.recordXY(0)
 
             with h5py.File(hdf5_filename, "r") as h5:
                 group = h5["1"]
@@ -415,7 +429,7 @@ class TestTESGroup:
             assert np.allclose(off._mmap_with_coefs["coefs"][0, :], mpc)
 
             should_be_identity = np.matmul(pulse_model.projectors, pulse_model.basis)
-            wrongness = np.abs(should_be_identity-np.identity(n_basis))
+            wrongness = np.abs(should_be_identity - np.identity(n_basis))
             # ideally we could set this lower, like 1e-9, but the linear algebra needs more work
             print(wrongness)
             print(np.amax(wrongness))
@@ -423,19 +437,19 @@ class TestTESGroup:
             pulse_model.plot()
 
             # test multi_ljh2off_loop with multiple ljhfiles
-            basename, channum = mass.ljh_util.ljh_basename_channum(ds.filename)
+            basename, _channum = mass.ljh_util.ljh_basename_channum(ds.filename)
             N = len(off)
             prefix = os.path.split(basename)[1]
             offbase = f"{output_dir}/{prefix}"
             ljh_filename_lists, off_filenames_multi = mass.ljh2off.multi_ljh2off_loop(
-                [basename]*2, hdf5_filename, offbase, max_channels,
+                [basename] * 2, hdf5_filename, offbase, max_channels,
                 n_ignore_presamples)
             assert ds.filename == ljh_filename_lists[0][0]
             off_multi = mass.off.off.OffFile(off_filenames_multi[0])
-            assert 2*N == len(off_multi)
+            assert 2 * N == len(off_multi)
             assert off[7] == off_multi[7]
-            assert off[7] == off_multi[N+7]
-            assert off[7] != off_multi[N+6]
+            assert off[7] == off_multi[N + 7]
+            assert off[7] != off_multi[N + 6]
 
     def test_ljh_records_to_off(self, tmp_path):
         """Be sure ljh_records_to_off works with ljh files of 2 or more segments."""
@@ -449,7 +463,7 @@ class TestTESGroup:
         # Reduce the segment size, so we test that this works with LJH files having
         # 2 or more segments. Here choose 3 segments
         bsize = np.max([ds.pulse_records.datafile.binary_size for ds in data])
-        segsize = (bsize+3*4096)//3
+        segsize = (bsize + 3 * 4096) // 3
         segsize -= segsize % 4096
 
         ljhfile = LJHFile.open(data.channel[1].filename)
@@ -463,8 +477,8 @@ class TestTESGroup:
             dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
             mass.ljh2off.ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype)
 
-    def test_projectors_script(self):
-        import mass.core.projectors_script
+    @staticmethod
+    def test_projectors_script():
 
         class Args:
             def __init__(self):
@@ -492,7 +506,8 @@ class TestTESGroup:
 
         mass.core.projectors_script.main(Args())
 
-    def test_expt_state_files(self):
+    @staticmethod
+    def test_expt_state_files():
         """Check that experiment state files are loaded and turned into categorical cuts
         with category "state" if the file exists."""
         def make_data(have_esf):
@@ -507,7 +522,7 @@ class TestTESGroup:
 10491427707840, B
 """
                 esfname = f"{dir.name}/regress_experiment_state.txt"
-                with open(esfname, "w") as fp:
+                with open(esfname, "w", encoding="utf-8") as fp:
                     fp.write(contents)
             return mass.TESGroup([src_name], hdf5_filename=hdf5_filename), dir
 
@@ -531,7 +546,8 @@ class TestTESGroup:
 class TestTESHDF5Only:
     """Basic tests of the TESGroup object when we use the HDF5-only variant."""
 
-    def test_basic_hdf5_only(self):
+    @staticmethod
+    def test_basic_hdf5_only():
         """Make sure it mass can open a mass generated file in HDF5 Only mode."""
         src_name = 'tests/regression_test/regress_chan1.ljh'
         noi_name = 'tests/regression_test/regress_noise_chan1.ljh'
@@ -544,7 +560,8 @@ class TestTESHDF5Only:
         LOG.info("Testing printing of a TESGroupHDF5")
         LOG.info(data2)
 
-    def test_ordering_hdf5only(self):
+    @staticmethod
+    def test_ordering_hdf5only():
         src_name = "tests/regression_test/regress_chan1.ljh"
         with tempfile.TemporaryDirectory() as dir:
             dest_name = "%s/temporary_chan%d.ljh"

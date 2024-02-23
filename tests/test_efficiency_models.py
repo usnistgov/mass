@@ -36,7 +36,7 @@ def test_ensure_uncertain():
     assert c[1].std_dev == 1
     assert len(c) == 5
 
-    d = uncertainties_helpers.ensure_uncertain(unp.uarray(np.arange(5), .1*np.arange(5)))
+    d = uncertainties_helpers.ensure_uncertain(unp.uarray(np.arange(5), .1 * np.arange(5)))
     assert d[1].nominal_value == 1
     assert d[1].std_dev == .1
     assert len(d) == 5

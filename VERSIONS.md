@@ -1,6 +1,6 @@
 ## Note on version numbers of Mass
 
-**0.8.2** February 2024-
+**0.8.2** February 23, 2024
 
 * Fix bug in reading certain external trigger files (issue 262).
 * Improve installation instructions in README (issue 261).
@@ -8,6 +8,8 @@
 * Add K-alpha lines of Sm, Gd, Tb, Dy, and Ho (issue 264).
 * Introduce the idea of subframe divisions to get timing info a rates faster than the frame rate for µMUX (issue 265).
 * Add Pr, Nd, and Eu K line shape models (issue 266).
+* Run ruff and pycodestyle until warnings are gone or disabled one-by-one (issue 267).
+
 
 **0.8.1** February 4, 2024
 

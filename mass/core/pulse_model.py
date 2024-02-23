@@ -13,26 +13,27 @@ class PulseModel:
 
     version = 2
 
-    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd,
+    def __init__(self, projectors_so_far, basis_so_far, n_basis, pulses_for_svd,  # noqa: PLR0917
                  v_dv, pretrig_rms_median, pretrig_rms_sigma, file_name,
                  extra_n_basis_5lag, f_5lag, average_pulse_for_5lag, noise_psd, noise_psd_delta_f,
                  noise_autocorr, _from_hdf5=False):
         self.pulses_for_svd = pulses_for_svd
         self.n_basis = n_basis
-        if projectors_so_far.shape[0] < n_basis-extra_n_basis_5lag:
+        dn = n_basis - extra_n_basis_5lag
+        if projectors_so_far.shape[0] < dn:
             self.projectors, self.basis = self._additional_projectors_tsvd(
-                projectors_so_far, basis_so_far, n_basis-extra_n_basis_5lag, pulses_for_svd)
-        elif (projectors_so_far.shape[0] == n_basis-extra_n_basis_5lag) or _from_hdf5:
+                projectors_so_far, basis_so_far, dn, pulses_for_svd)
+        elif (projectors_so_far.shape[0] == dn) or _from_hdf5:
             self.projectors, self.basis = projectors_so_far, basis_so_far
-        else:  # dont throw error on
-            s = f"n_basis-extra_n_basis_5lag={n_basis-extra_n_basis_5lag} < projectors_so_far.shape[0] = {projectors_so_far.shape[0]}"
+        else:  # don't throw error on
+            s = f"n_basis-extra_n_basis_5lag={dn} < projectors_so_far.shape[0] = {projectors_so_far.shape[0]}"
             s += f", extra_n_basis_5lag={extra_n_basis_5lag}"
             raise Exception(s)
         if (not _from_hdf5) and (extra_n_basis_5lag > 0):
-            filters_5lag = np.zeros((len(f_5lag)+4, 5))
+            filters_5lag = np.zeros((len(f_5lag) + 4, 5))
             for i in range(5):
                 if i < 4:
-                    filters_5lag[i:-4+i, i] = projectors_so_far[2, 2:-2]
+                    filters_5lag[i:-4 + i, i] = projectors_so_far[2, 2:-2]
                 else:
                     filters_5lag[i:, i] = projectors_so_far[2, 2:-2]
             self.projectors, self.basis = self._additional_projectors_tsvd(
@@ -98,7 +99,8 @@ class PulseModel:
                    pretrig_rms_sigma, file_name, extra_n_basis_5lag, f_5lag, average_pulse_for_5lag,
                    noise_psd, noise_psd_delta_f, noise_autocorr, _from_hdf5=True)
 
-    def _additional_projectors_tsvd(self, projectors, basis, n_basis, pulses_for_svd):
+    @staticmethod
+    def _additional_projectors_tsvd(projectors, basis, n_basis, pulses_for_svd):
         """
         Given an existing basis with projectors, compute a basis with n_basis elements
         by randomized SVD of the residual elements of the training data in pulses_for_svd.
@@ -124,7 +126,7 @@ class PulseModel:
         mpc = np.matmul(projectors, pulses_for_svd)  # modeled pulse coefs
         mp = np.matmul(basis, mpc)  # modeled pulse
         residuals = pulses_for_svd - mp
-        Q = mass.mathstat.utilities.find_range_randomly(residuals, n_basis-n_existing)
+        Q = mass.mathstat.utilities.find_range_randomly(residuals, n_basis - n_existing)
 
         projectors2 = np.linalg.pinv(Q)  # = Q.T, perhaps??
         projectors2 -= projectors2.dot(basis).dot(projectors)
@@ -136,24 +138,24 @@ class PulseModel:
 
     def labels(self):
         labels = ["const", "deriv", "pulse"]
-        for i in range(self.n_basis-3):
-            if i > self.n_basis-3-self.extra_n_basis_5lag:
-                labels = labels + [f"5lag{i+2-self.extra_n_basis_5lag}"]
+        for i in range(self.n_basis - 3):
+            if i > self.n_basis - 3 - self.extra_n_basis_5lag:
+                labels = labels + [f"5lag{i + 2 - self.extra_n_basis_5lag}"]
             else:
                 labels = labels + [f"svd{i}"]
         return labels
 
     def plot(self, fig1=None, fig2=None):
-        #plots information about a pulse model
-        #fig1 and fig2 are optional matplotlib.pyplot (plt) figures if you need to embed the plots.
-        #you can pass in the reference like fig=plt.figure() call or the figure's number, e.g. fig.number
+        # plots information about a pulse model
+        # fig1 and fig2 are optional matplotlib.pyplot (plt) figures if you need to embed the plots.
+        # you can pass in the reference like fig=plt.figure() call or the figure's number, e.g. fig.number
         #   fig1 has modeled pulse vs true pulse
         #   fig2 has projectors, basis, "from ljh", residuals, and a measure of "wrongness"
 
         labels = self.labels()
         mpc = np.matmul(self.projectors, self.pulses_for_svd)
         mp = np.matmul(self.basis, mpc)
-        residuals = self.pulses_for_svd-mp
+        residuals = self.pulses_for_svd - mp
 
         if fig1 is None:
             fig = plt.figure(figsize=(10, 14))
@@ -183,7 +185,7 @@ class PulseModel:
         plt.grid(True)
         should_be_identity = np.matmul(self.projectors, self.basis)
         identity = np.identity(self.n_basis)
-        wrongness = np.abs(should_be_identity-identity)
+        wrongness = np.abs(should_be_identity - identity)
         plt.subplot(515)
         plt.imshow(np.log10(wrongness))
         plt.title("log10(abs(projectors*basis-identity))")

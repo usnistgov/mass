@@ -52,7 +52,7 @@ class MicrocalFile:
     def __str__(self):
         """Summary for the print function"""
         return f"{self.__class__.__name__} path '{self.filename}'\n"\
-            f"{self.nSamples} samples ({self.nPresamples} pretrigger) at {1e6*self.timebase:.2f} µs sample time"
+            f"{self.nSamples} samples ({self.nPresamples} pretrigger) at {1e6 * self.timebase:.2f} µs sample time"
 
     def __repr__(self):
         """Compact representation of how to construct from a filename."""
@@ -112,7 +112,7 @@ class VirtualFile(MicrocalFile):
         if trace_num >= self.nPulses:
             raise ValueError(f"This VirtualFile has only {self.nPulses} pulses")
         return self.data[trace_num]
-    
+
     @property
     def source(self):
         return "VirtualFile"
@@ -272,7 +272,7 @@ class LJHFile(MicrocalFile):
             LOG.warning("%06s", filename)
 
         # It's handy to precompute the times of each sample in a record (in µs)
-        self.sample_usec = (np.arange(self.nSamples)-self.nPresamples) * self.timebase * 1e6
+        self.sample_usec = (np.arange(self.nSamples) - self.nPresamples) * self.timebase * 1e6
 
     def set_segment_size(self, segmentsize=None):
         """Set the `segmentsize` in bytes.
@@ -288,7 +288,7 @@ class LJHFile(MicrocalFile):
         if maxitems < 1:
             raise ValueError("segmentsize=%d is not permitted to be smaller than pulse record (%d bytes)" %
                              (segmentsize, self.pulse_size_bytes))
-        self.segmentsize = maxitems*self.pulse_size_bytes
+        self.segmentsize = maxitems * self.pulse_size_bytes
         self.pulses_per_seg = self.segmentsize // self.pulse_size_bytes
         self.n_segments = 1 + (self.binary_size - 1) // self.segmentsize
 
@@ -299,7 +299,7 @@ class LJHFile(MicrocalFile):
     @property
     def alldata(self):
         return self._mm["data"]
-    
+
     @property
     def source(self):
         "Report the 'Data source' as found in the LJH header."
@@ -354,10 +354,10 @@ class LJHFile2_1(LJHFile):
         # Store times as seconds in floating point.  Max value is 2^32 ms = 4.3x10^6
         NS_PER_4USEC_TICK = 4000
         NS_PER_MSEC = 1000000
-        datatime_ns = NS_PER_4USEC_TICK*np.asarray(self._mm["internal_us"], dtype=np.int64)
-        datatime_ns[:] += NS_PER_MSEC*np.asarray(self._mm["internal_ms"], dtype=np.int64)
+        datatime_ns = NS_PER_4USEC_TICK * np.asarray(self._mm["internal_us"], dtype=np.int64)
+        datatime_ns[:] += NS_PER_MSEC * np.asarray(self._mm["internal_ms"], dtype=np.int64)
 
-        NS_PER_FRAME = np.int64(self.timebase*1e9)
+        NS_PER_FRAME = np.int64(self.timebase * 1e9)
         FOURPOINT = 3  # account for 4-point triggering algorithm
         self.frame_count = (1 + FOURPOINT) + (datatime_ns - 1) // NS_PER_FRAME
 
@@ -365,7 +365,7 @@ class LJHFile2_1(LJHFile):
     def subframecount(self):
         if self.frame_count is None:
             self._parse_times()
-        return np.array(self.frame_count*self.subframe_divisions + self.subframe_offset, dtype=np.int64)
+        return np.array(self.frame_count * self.subframe_divisions + self.subframe_offset, dtype=np.int64)
 
     @property
     @deprecated(deprecated_in="0.8.2", details="Use subframecount, which is equivalent but better named")
@@ -376,7 +376,7 @@ class LJHFile2_1(LJHFile):
     def datatimes_float(self):
         if self.frame_count is None:
             self._parse_times()
-        return (self.frame_count + self.subframe_offset / float(self.subframe_divisions))*self.timebase
+        return (self.frame_count + self.subframe_offset / float(self.subframe_divisions)) * self.timebase
 
     @property
     def datatimes_raw(self):
@@ -415,7 +415,7 @@ class LJHFile2_2(LJHFile):
 
     @property
     def datatimes_float(self):
-        return self.datatimes_raw/1e6
+        return self.datatimes_raw / 1e6
 
 
 def make_ljh_header(header_dict):

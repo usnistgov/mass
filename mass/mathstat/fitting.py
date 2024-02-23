@@ -43,8 +43,8 @@ def kink_model(k, x, y):
         xmax = x.max()
         raise ValueError(f"k={k:g} should be in range [xmin,xmax], or [{xmin:g},{xmax:g}].")
 
-    dxi = xi-k
-    dxj = xj-k
+    dxi = xi - k
+    dxj = xj - k
     si = dxi.sum()
     sj = dxj.sum()
     si2 = (dxi**2).sum()
@@ -52,10 +52,10 @@ def kink_model(k, x, y):
     A = np.array([[N, si, sj],
                   [si, si2, 0],
                   [sj, 0, sj2]])
-    v = np.array([y.sum(), (yi*dxi).sum(), (yj*dxj).sum()])
-    a, b, c = abc = np.linalg.solve(A, v)
-    model = np.hstack([a+b*dxi, a+c*dxj])
-    X2 = ((model-y)**2).sum()
+    v = np.array([y.sum(), (yi * dxi).sum(), (yj * dxj).sum()])
+    abc = np.linalg.solve(A, v)
+    model = np.hstack([abc[0] + abc[1] * dxi, abc[0] + abc[2] * dxj])
+    X2 = ((model - y)**2).sum()
     return model, abc, X2
 
 

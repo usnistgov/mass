@@ -36,7 +36,7 @@ def band_limit(modelmatrix, sample_time, fmax, f_3db):
 class Filter:
     """A set of optimal filters based on a single signal and noise set."""
 
-    def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,
+    def __init__(self, avg_signal, n_pretrigger, noise_psd=None, noise_autocorr=None,  # noqa: PLR0917
                  whitener=None, sample_time=None, shorten=0, cut_pre=0, cut_post=0):
         """Create a set of filters under various assumptions and for various purposes.
 
@@ -77,25 +77,25 @@ class Filter:
         if self.cut_pre < 0 or self.cut_post < 0:
             raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative" %
                              (self.cut_pre, self.cut_post))
-        if self.cut_pre+self.cut_post >= self.ns-2*self.shorten:
+        if self.cut_pre + self.cut_post >= self.ns - 2 * self.shorten:
             raise ValueError("cut_pre+cut_post = %d but should be < %d" % (
-                             self.cut_pre+self.cut_post, self.ns-2*self.shorten))
+                             self.cut_pre + self.cut_post, self.ns - 2 * self.shorten))
 
-        pre_avg = avg_signal[self.cut_pre:n_pretrigger-1].mean()
+        pre_avg = avg_signal[self.cut_pre:n_pretrigger - 1].mean()
 
         # If signal is negative-going,
-        a = avg_signal[self.cut_pre:self.ns-self.cut_post].min()
-        b = avg_signal[self.cut_pre:self.ns-self.cut_post].max()
+        a = avg_signal[self.cut_pre:self.ns - self.cut_post].min()
+        b = avg_signal[self.cut_pre:self.ns - self.cut_post].max()
         is_negative = (a - pre_avg) / (b - pre_avg) < -1
         if is_negative:
-            self.peak_signal = avg_signal[self.cut_pre:self.ns-self.cut_post].min() - pre_avg
+            self.peak_signal = avg_signal[self.cut_pre:self.ns - self.cut_post].min() - pre_avg
         else:
-            self.peak_signal = avg_signal[self.cut_pre:self.ns-self.cut_post].max() - pre_avg
+            self.peak_signal = avg_signal[self.cut_pre:self.ns - self.cut_post].max() - pre_avg
 
         # self.avg_signal is normalized to have unit peak
         self.avg_signal = (avg_signal - pre_avg) / self.peak_signal
         self.avg_signal[:n_pretrigger] = 0.0
-        self.avg_signal = self.avg_signal[self.cut_pre:self.ns-self.cut_post]
+        self.avg_signal = self.avg_signal[self.cut_pre:self.ns - self.cut_post]
 
         self.n_pretrigger = n_pretrigger
         if noise_psd is None:
@@ -105,7 +105,7 @@ class Filter:
         if noise_autocorr is None:
             self.noise_autocorr = None
         else:
-            self.noise_autocorr = np.asarray(noise_autocorr[:self.ns-(self.cut_pre+self.cut_post)])
+            self.noise_autocorr = np.asarray(noise_autocorr[:self.ns - (self.cut_pre + self.cut_post)])
         self.whitener = whitener
         if noise_psd is None and noise_autocorr is None and whitener is None:
             raise ValueError("Filter must have noise_psd, noise_autocorr, or whitener arguments")
@@ -248,9 +248,9 @@ class Filter:
 
         try:
             Rpretrig = sp.linalg.toeplitz(
-                self.noise_autocorr[:self.n_pretrigger-self.cut_pre] / self.peak_signal**2)
+                self.noise_autocorr[:self.n_pretrigger - self.cut_pre] / self.peak_signal**2)
             self.filt_baseline_pretrig = np.linalg.solve(
-                Rpretrig, np.ones(self.n_pretrigger-self.cut_pre))
+                Rpretrig, np.ones(self.n_pretrigger - self.cut_pre))
             self.filt_baseline_pretrig /= self.filt_baseline_pretrig.sum()
             self.variances['baseline_pretrig'] = self.bracketR(
                 self.filt_baseline_pretrig, Rpretrig[0, :])
@@ -269,7 +269,8 @@ class Filter:
         for key in self.variances.keys():
             self.predicted_v_over_dv[key] = 1 / (np.sqrt(np.log(2) * 8) * self.variances[key]**0.5)
 
-    def bracketR(self, q, noise):
+    @staticmethod
+    def bracketR(q, noise):
         """Return the dot product (q^T R q) for vector <q> and matrix R constructed from
         the vector <noise> by R_ij = noise_|i-j|.  We don't want to construct the full matrix
         R because for records as long as 10,000 samples, the matrix will consist of 10^8 floats
@@ -369,9 +370,9 @@ class ArrivalTimeSafeFilter(Filter):
             raise ValueError("(cut_pre,cut_post)=(%d,%d), but neither can be negative" %
                              (cut_pre, cut_post))
         ns = self.pulsemodel.shape[0]
-        if cut_pre+cut_post >= ns:
+        if cut_pre + cut_post >= ns:
             raise ValueError("cut_pre+cut_post = %d but should be < %d" % (
-                             cut_pre+cut_post, ns))
+                             cut_pre + cut_post, ns))
 
         self.fmax = fmax
         self.f_3db = f_3db
@@ -380,7 +381,7 @@ class ArrivalTimeSafeFilter(Filter):
         n = len(self.avg_signal) - 2 * self.shorten
         unit = np.ones(n)
         MT = np.vstack((self.pulsemodel.T, unit))
-        MT = MT[:, cut_pre:n-cut_post]
+        MT = MT[:, cut_pre:n - cut_post]
         n = n - (cut_pre + cut_post)
 
         if self.whitener is not None:
@@ -469,7 +470,7 @@ class ExperimentalFilter(Filter):
         super(self.__class__, self).__init__(avg_signal, n_pretrigger, noise_psd,
                                              noise_autocorr, sample_time=sample_time, shorten=shorten)
 
-    def compute(self, fmax=None, f_3db=None):
+    def compute(self, fmax=None, f_3db=None):  # noqa: PLR0914
         """
         Compute a set of filters.  This is called once on construction, but you can call it
         again if you want to change the frequency cutoff or rolloff points.
@@ -657,8 +658,8 @@ class ToeplitzWhitener:
         """
         self.theta = np.array(thetacoef)
         self.phi = np.array(phicoef)
-        self.p = len(phicoef)-1
-        self.q = len(thetacoef)-1
+        self.p = len(phicoef) - 1
+        self.q = len(thetacoef) - 1
 
     def whiten(self, v):
         "Return whitened vector (or matrix of column vectors) Wv"
@@ -677,8 +678,8 @@ class ToeplitzWhitener:
         N = len(v)
         # Multiply by the Toeplitz AR matrix to make the MA*w vector.
         y = self.phi[0] * v
-        for i in range(1, 1+self.p):
-            y[i:] += self.phi[i]*v[:-i]
+        for i in range(1, 1 + self.p):
+            y[i:] += self.phi[i] * v[:-i]
         # Second, solve the MA matrix (also a banded Toeplitz matrix with
         # q non-zero subdiagonals.)
         y[0] /= self.theta[0]
@@ -686,11 +687,11 @@ class ToeplitzWhitener:
             return y
         for i in range(1, min(self.q, N)):
             for j in range(i):
-                y[i] -= y[j]*self.theta[i-j]
+                y[i] -= y[j] * self.theta[i - j]
             y[i] /= self.theta[0]
         for i in range(self.q, N):
-            for j in range(i-self.q, i):
-                y[i] -= y[j]*self.theta[i-j]
+            for j in range(i - self.q, i):
+                y[i] -= y[j] * self.theta[i - j]
             y[i] /= self.theta[0]
         return y
 
@@ -707,8 +708,8 @@ class ToeplitzWhitener:
         N = len(v)
         # Multiply by the Toeplitz MA matrix to make the AR*w vector.
         y = self.theta[0] * v
-        for i in range(1, 1+self.q):
-            y[i:] += self.theta[i]*v[:-i]
+        for i in range(1, 1 + self.q):
+            y[i:] += self.theta[i] * v[:-i]
         # Second, solve the AR matrix (also a banded Toeplitz matrix with
         # q non-zero subdiagonals.)
         y[0] /= self.phi[0]
@@ -716,11 +717,11 @@ class ToeplitzWhitener:
             return y
         for i in range(1, min(self.p, N)):
             for j in range(i):
-                y[i] -= y[j]*self.phi[i-j]
+                y[i] -= y[j] * self.phi[i - j]
             y[i] /= self.phi[0]
         for i in range(self.p, N):
-            for j in range(i-self.p, i):
-                y[i] -= y[j]*self.phi[i-j]
+            for j in range(i - self.p, i):
+                y[i] -= y[j] * self.phi[i - j]
             y[i] /= self.phi[0]
         return y
 
@@ -736,10 +737,10 @@ class ToeplitzWhitener:
 
         N = len(v)
         y = np.array(v)
-        y[N-1] /= self.phi[0]
-        for i in range(N-2, -1, -1):
-            f = min(self.p+1, N-i)
-            y[i] -= np.dot(y[i+1:i+f], self.phi[1:f])
+        y[N - 1] /= self.phi[0]
+        for i in range(N - 2, -1, -1):
+            f = min(self.p + 1, N - i)
+            y[i] -= np.dot(y[i + 1:i + f], self.phi[1:f])
             y[i] /= self.phi[0]
         return np.correlate(y, self.theta, "full")[self.q:]
 
@@ -755,10 +756,10 @@ class ToeplitzWhitener:
 
         N = len(v)
         y = np.array(v)
-        y[N-1] /= self.theta[0]
-        for i in range(N-2, -1, -1):
-            f = min(self.q+1, N-i)
-            y[i] -= np.dot(y[i+1:i+f], self.theta[1:f])
+        y[N - 1] /= self.theta[0]
+        for i in range(N - 2, -1, -1):
+            f = min(self.q + 1, N - i)
+            y[i] -= np.dot(y[i + 1:i + f], self.theta[1:f])
             y[i] /= self.theta[0]
         return np.correlate(y, self.phi, "full")[self.p:]
 
@@ -771,8 +772,8 @@ class ToeplitzWhitener:
         AR = np.zeros((N, N), dtype=float)
         MA = np.zeros((N, N), dtype=float)
         for i in range(N):
-            for j in range(max(0, i-self.p), i+1):
-                AR[i, j] = self.phi[i-j]
-            for j in range(max(0, i-self.q), i+1):
-                MA[i, j] = self.theta[i-j]
+            for j in range(max(0, i - self.p), i + 1):
+                AR[i, j] = self.phi[i - j]
+            for j in range(max(0, i - self.q), i + 1):
+                MA[i, j] = self.theta[i - j]
         return np.linalg.solve(MA, AR)

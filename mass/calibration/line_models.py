@@ -43,12 +43,12 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
     # A wider energy range must be used, or wrap-around effects of
     # tails will corrupt the model.
     energy_step = x[1] - x[0]
-    nlow = int((P_resolution + max(P_tailtau*6, P_tailtau_hi)) / energy_step + 0.5)
-    nhi = int((P_resolution + max(P_tailtau, P_tailtau_hi*6)) / energy_step + 0.5)
+    nlow = int((P_resolution + max(P_tailtau * 6, P_tailtau_hi)) / energy_step + 0.5)
+    nhi = int((P_resolution + max(P_tailtau, P_tailtau_hi * 6)) / energy_step + 0.5)
     # Don't extend WAY past the input energy bins, for practical reasons
-    nlow = min(10*len(x), nlow)
-    nhi = min(10*len(x), nhi)
-    x_wide = np.arange(-nlow, nhi+len(x)) * energy_step + x[0]
+    nlow = min(10 * len(x), nlow)
+    nhi = min(10 * len(x), nhi)
+    x_wide = np.arange(-nlow, nhi + len(x)) * energy_step + x[0]
     if len(x_wide) > 100000:
         msg = "you're trying to FFT data of length %i (bad fit param?)" % len(x_wide)
         raise ValueError(msg)
@@ -58,19 +58,19 @@ def _smear_exponential_tail(cleanspectrum_fn, x, P_resolution, P_tailfrac, P_tai
     ft = np.fft.rfft(rawspectrum)
 
     filter_effect_fourier = np.ones_like(ft) - P_tailfrac
-    P_tailfrac_hi = P_tailfrac*P_tailshare_hi
+    P_tailfrac_hi = P_tailfrac * P_tailshare_hi
     P_tailfrac_lo = P_tailfrac - P_tailfrac_hi
     if P_tailfrac_lo > 1e-6:
-        filter_effect_fourier += P_tailfrac_lo / (1 - 2j*np.pi*freq*P_tailtau)
+        filter_effect_fourier += P_tailfrac_lo / (1 - 2j * np.pi * freq * P_tailtau)
     if P_tailfrac_hi > 1e-6:
-        filter_effect_fourier += P_tailfrac_hi / (1 + 2j*np.pi*freq*P_tailtau_hi)
+        filter_effect_fourier += P_tailfrac_hi / (1 + 2j * np.pi * freq * P_tailtau_hi)
     ft *= filter_effect_fourier
     smoothspectrum = np.fft.irfft(ft, n=len(x_wide))
 
     # In pathological cases, convolution can cause negative values.
     # Here is a hacky way to prevent that.
     smoothspectrum[smoothspectrum < 0] = 0
-    return smoothspectrum[nlow:nlow+len(x)]
+    return smoothspectrum[nlow:nlow + len(x)]
 
 
 def _scale_add_bg(spectrum, P_integral, P_bg=0, P_bgslope=0):
@@ -96,9 +96,9 @@ class MLEModel(lmfit.Model):
         y = self.eval(params, **kwargs)
         if data is None:
             return y
-        r2 = y-data
+        r2 = y - data
         nonzero = data > 0
-        r2[nonzero] += data[nonzero]*np.log((data/y)[nonzero])
+        r2[nonzero] += data[nonzero] * np.log((data / y)[nonzero])
         # points that are zero do not effect the chisq value, so should not
         # be inlcuded in the calculate on ndegrees of freedome, and therefore reduced chisq
         # GCO tried setting self.ndata here, but it doesn't persist
@@ -108,7 +108,7 @@ class MLEModel(lmfit.Model):
         # The mask for r2>0 avoids the problem found in MASS issue #217.
         vals = np.zeros_like(r2)
         nonneg = r2 > 0
-        vals[nonneg] = np.sqrt(2*r2[nonneg])
+        vals[nonneg] = np.sqrt(2 * r2[nonneg])
         vals[y < data] *= -1
         return vals
 
@@ -220,10 +220,10 @@ class CompositeMLEModel(MLEModel, lmfit.CompositeModel):
         y = self.eval(params, **kwargs)
         if data is None:
             return y
-        r2 = y-data
+        r2 = y - data
         nonzero = data > 0
-        r2[nonzero] += data[nonzero]*np.log((data/y)[nonzero])
-        vals = (2*r2) ** 0.5
+        r2[nonzero] += data[nonzero] * np.log((data / y)[nonzero])
+        vals = (2 * r2) ** 0.5
         vals[y < data] *= -1
         return vals
 
@@ -255,16 +255,16 @@ class GenericLineModel(MLEModel):
         self._has_tails = has_tails
         self._has_linear_background = has_linear_background
         if has_tails:
-            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral,
+            def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral,  # noqa: PLR0917
                           background=0, bg_slope=0, tail_frac=0, tail_tau=8, tail_share_hi=0, tail_tau_hi=8):
                 bin_centers = np.asarray(bin_centers, dtype=float)
-                bin_width = bin_centers[1]-bin_centers[0]
+                bin_width = bin_centers[1] - bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
 
                 # tail_tau* is in energy units but has to be converted to the same units as `bin_centers`
-                tail_arbs_lo = tail_tau*dph_de
-                tail_arbs_hi = tail_tau_hi*dph_de
+                tail_arbs_lo = tail_tau * dph_de
+                tail_arbs_hi = tail_tau_hi * dph_de
                 spectrum = _smear_exponential_tail(
                     cleanspectrum_fn, energy, fwhm, tail_frac, tail_arbs_lo, tail_share_hi, tail_arbs_hi)
                 scale_factor = integral * bin_width * dph_de
@@ -273,11 +273,11 @@ class GenericLineModel(MLEModel):
                     raise ValueError("some entry in r is nan or negative")
                 if qemodel is None:
                     return r
-                return r*qemodel(energy)
+                return r * qemodel(energy)
         else:
             def modelfunc(bin_centers, fwhm, peak_ph, dph_de, integral, background=0, bg_slope=0):
                 bin_centers = np.asarray(bin_centers, dtype=float)
-                bin_width = bin_centers[1]-bin_centers[0]
+                bin_width = bin_centers[1] - bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
                 spectrum = self.spect.pdf(energy, fwhm)
                 scale_factor = integral * bin_width / dph_de
@@ -286,7 +286,7 @@ class GenericLineModel(MLEModel):
                     raise ValueError("some entry in r is nan or negative")
                 if qemodel is None:
                     return r
-                return r*qemodel(energy)
+                return r * qemodel(energy)
         param_names = ["fwhm", "peak_ph", "dph_de", "integral"]
         if self._has_linear_background:
             param_names += ["background", "bg_slope"]
@@ -299,7 +299,7 @@ class GenericLineModel(MLEModel):
 
     def _set_paramhints_prefix(self):
         nominal_peak_energy = self.spect.nominal_peak_energy
-        self.set_param_hint('fwhm', value=nominal_peak_energy/1000, min=nominal_peak_energy/10000, max=nominal_peak_energy)
+        self.set_param_hint('fwhm', value=nominal_peak_energy / 1000, min=nominal_peak_energy / 10000, max=nominal_peak_energy)
         self.set_param_hint('peak_ph', value=nominal_peak_energy, min=0)
         self.set_param_hint("dph_de", value=1, min=.01, max=100)
         self.set_param_hint("integral", value=100, min=0)
@@ -308,9 +308,9 @@ class GenericLineModel(MLEModel):
             self.set_param_hint('bg_slope', value=0, vary=False)
         if self._has_tails:
             self.set_param_hint('tail_frac', value=0.05, min=0, max=1, vary=True)
-            self.set_param_hint('tail_tau', value=nominal_peak_energy/200, min=0, max=nominal_peak_energy/10, vary=True)
+            self.set_param_hint('tail_tau', value=nominal_peak_energy / 200, min=0, max=nominal_peak_energy / 10, vary=True)
             self.set_param_hint('tail_share_hi', value=0, min=0, max=1, vary=False)
-            self.set_param_hint('tail_tau_hi', value=nominal_peak_energy/200, min=0, max=nominal_peak_energy/10, vary=False)
+            self.set_param_hint('tail_tau_hi', value=nominal_peak_energy / 200, min=0, max=nominal_peak_energy / 10, vary=False)
 
     def guess(self, data, bin_centers, dph_de, **kwargs):
         "Guess values for the peak_ph, integral, and background."
@@ -318,18 +318,18 @@ class GenericLineModel(MLEModel):
 
         def percentiles(p):
             return bin_centers[(order_stat > p).argmax()]
-        fwhm_arb = 0.7*(percentiles(0.75) - percentiles(0.25))
+        fwhm_arb = 0.7 * (percentiles(0.75) - percentiles(0.25))
         peak_ph = bin_centers[data.argmax()]
         if len(data) > 20:
             # Ensure baseline guess > 0 (see Issue #152). Guess at least 1 background across all bins
-            baseline = max(data[0:10].mean(), 1.0/len(data))
+            baseline = max(data[0:10].mean(), 1.0 / len(data))
         else:
             baseline = 0.1
-        tcounts_above_bg = data.sum() - baseline*len(data)
+        tcounts_above_bg = data.sum() - baseline * len(data)
         if tcounts_above_bg < 0:
             tcounts_above_bg = data.sum()  # lets avoid negative estimates for the integral
         pars = self.make_params(peak_ph=peak_ph, background=baseline,
-                                integral=tcounts_above_bg, fwhm=fwhm_arb/dph_de,
+                                integral=tcounts_above_bg, fwhm=fwhm_arb / dph_de,
                                 dph_de=dph_de)
         return lmfit.models.update_param_vals(pars, self.prefix, **kwargs)
 
@@ -347,7 +347,7 @@ class LineModelResult(lmfit.model.ModelResult):
                     sig_figs = 2
                     s += f"{sn.get(k, k):7} {v.value:.{sig_figs}g}±None\n"
                 else:
-                    sig_figs = int(np.ceil(np.log10(np.abs(v.value/v.stderr)))+1)
+                    sig_figs = int(np.ceil(np.log10(np.abs(v.value / v.stderr))) + 1)
                     sig_figs = max(1, sig_figs)
                     s += f"{sn.get(k, k):7} {v.value:.{sig_figs}g}±{v.stderr:.2g}\n"
             else:
@@ -391,7 +391,7 @@ class LineModelResult(lmfit.model.ModelResult):
             if xlabel is None:
                 xlabel = f"{self._attr_str} ({self._unit_str})"
         elif ylabel is None and "bin_centers" in self.userkws:
-            binsize = self.userkws["bin_centers"][1]-self.userkws["bin_centers"][0]
+            binsize = self.userkws["bin_centers"][1] - self.userkws["bin_centers"][0]
             ylabel = f"counts per {binsize:g} unit bin"
         return title, xlabel, ylabel
 
@@ -401,16 +401,16 @@ class LineModelResult(lmfit.model.ModelResult):
         if not VALIDATE_BIN_SIZE:
             return
         bin_centers = self.userkws["bin_centers"]
-        bin_size = bin_centers[1]-bin_centers[0]
+        bin_size = bin_centers[1] - bin_centers[0]
         for iComp in self.components:
             prefix = iComp.prefix
             dphde = f"{prefix}dph_de"
             fwhm = f"{prefix}fwhm"
             if (dphde in self.params) and (fwhm in self.params):
-                bin_size_energy = bin_size/self.params[dphde]
+                bin_size_energy = bin_size / self.params[dphde]
                 instrument_gaussian_fwhm = self.params[fwhm].value
                 minimum_fwhm_energy = iComp.spect.minimum_fwhm(instrument_gaussian_fwhm)
-                bins_per_fwhm = minimum_fwhm_energy/bin_size_energy
+                bins_per_fwhm = minimum_fwhm_energy / bin_size_energy
                 if bins_per_fwhm < minimum_bins_per_fwhm:
                     msg = f"""bins are too large.
 Bin size (energy units) = {bin_size_energy:.3g}, fit FWHM (energy units) = {instrument_gaussian_fwhm:.3g}

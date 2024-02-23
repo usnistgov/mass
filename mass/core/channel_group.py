@@ -89,10 +89,10 @@ Instead, you should run RestoreTESGroup with an explicit hdf5noisename argument.
                     hdf5_noisefilename=hdf5noisename)
 
 
-class TESGroup(CutFieldMixin, GroupLooper):
+class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
     """The interface for a group of one or more microcalorimeters."""
 
-    def __init__(self, filenames, noise_filenames=None, noise_only=False,
+    def __init__(self, filenames, noise_filenames=None, noise_only=False,  # noqa: PLR0917
                  noise_is_continuous=True,
                  hdf5_filename=None, hdf5_noisefilename=None,
                  never_use=None, use_only=None, max_chans=None,
@@ -443,7 +443,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             new_comment = self._bad_channums.get(channum, []) + [comment]
             self._bad_channums[channum] = new_comment
             LOG.warning('WARNING: Chan %s flagged bad because %s', channum, comment)
-            self.hdf5_file[f"chan{channum}"].attrs['why_bad'] =  \
+            self.hdf5_file[f"chan{channum}"].attrs['why_bad'] = \
                 np.asarray(new_comment, dtype=np.bytes_)
 
     def set_all_chan_good(self):
@@ -509,7 +509,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
     def shortname(self):
         """Return a string containing part of the filename and the number of good channels"""
         ngoodchan = len([ds for ds in self])
-        return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0]+f", {ngoodchan} chans"
+        return mass.ljh_util.ljh_basename_channum(os.path.split(self.datasets[0].filename)[-1])[0] + f", {ngoodchan} chans"
 
     @show_progress("summarize_data")
     def summarize_data(self, peak_time_microsec=None, pretrigger_ignore_microsec=None,
@@ -565,14 +565,14 @@ class TESGroup(CutFieldMixin, GroupLooper):
             category = {}
         if hdf5_file is None:
             basename, _ = self.datasets[0].filename.split("chan")
-            hdf5_filename = basename+"model.hdf5"
+            hdf5_filename = basename + "model.hdf5"
             if os.path.isfile(hdf5_filename):
                 if not replace_output:
                     raise Exception(
                         f"file {hdf5_filename} already exists, pass replace_output = True to overwrite")
-            with h5py.File(hdf5_filename, "w") as hdf5_file:
+            with h5py.File(hdf5_filename, "w") as h5:
                 self._pulse_model_to_hdf5(
-                    hdf5_file, n_basis, pulses_for_svd=None,
+                    h5, n_basis, pulses_for_svd=None,
                     extra_n_basis_5lag=extra_n_basis_5lag, maximum_n_pulses=maximum_n_pulses,
                     category=category, noise_weight_basis=noise_weight_basis, f_3db_5lag=f_3db_5lag, _rethrow=_rethrow)
                 LOG.info("writing pulse_model to %s", hdf5_filename)
@@ -604,7 +604,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                     self._external_trigger_subframe_count = np.fromfile(f, dtype="int64")
             else:
                 raise OSError("No external trigger files found: ", possible_files)
-            self.subframe_timebase = self.timebase/float(self.subframe_divisions)
+            self.subframe_timebase = self.timebase / float(self.subframe_divisions)
             for ds in self.datasets:
                 ds.subframe_timebase = self.subframe_timebase
         return self._external_trigger_subframe_count
@@ -614,7 +614,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         """This is not a posix timestamp, it is just the external trigger subframecount converted to seconds
         based on the nominal clock rate of the crate.
         """
-        return self.external_trigger_subframe_count[:]/float(self.subframe_divisions)*self.timebase
+        return self.external_trigger_subframe_count[:] / float(self.subframe_divisions) * self.timebase
 
     def calc_external_trigger_timing(self, forceNew=False):
         ds = self.first_good_dataset
@@ -623,20 +623,18 @@ class TESGroup(CutFieldMixin, GroupLooper):
         for ds in self:
             try:
                 if ("subframes_after_last_external_trigger" in ds.hdf5_group) and \
-                    ("subframes_until_next_external_trigger" in ds.hdf5_group) and \
-                    ("subframes_from_nearest_external_trigger" in ds.hdf5_group) and \
-                    (not forceNew):
-                        continue
+                   ("subframes_until_next_external_trigger" in ds.hdf5_group) and \
+                   ("subframes_from_nearest_external_trigger" in ds.hdf5_group) and (not forceNew):
+                    continue
 
                 subframes_after_last, subframes_until_next = \
                     mass.core.analysis_algorithms.nearest_arrivals(ds.p_subframecount[:],
                                                                    external_trigger_subframe_count)
                 nearest = np.fmin(subframes_after_last, subframes_until_next)
-                for name, values in zip(
-                    ("subframes_after_last_external_trigger",
-                     "subframes_until_next_external_trigger",
-                     "subframes_from_nearest_external_trigger"),
-                    (subframes_after_last, subframes_until_next, nearest)):
+                for name, values in zip(("subframes_after_last_external_trigger",
+                                         "subframes_until_next_external_trigger",
+                                         "subframes_from_nearest_external_trigger"),
+                                        (subframes_after_last, subframes_until_next, nearest)):
                     h5dset = ds.hdf5_group.require_dataset(name, (ds.nPulses,), dtype=np.int64)
                     h5dset[:] = values
             except Exception:
@@ -657,7 +655,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         ds = self.channel.get(channum, self.datasets[dataset_num])
         return ds.read_trace(record_num)
 
-    def plot_traces(self, pulsenums, dataset_num=0, channum=None, pulse_summary=True, axis=None,
+    def plot_traces(self, pulsenums, dataset_num=0, channum=None, pulse_summary=True, axis=None,  # noqa: PLR0917
                     difference=False, residual=False, valid_status=None, shift1=False):
         """Plot some example pulses, given by record number.
 
@@ -690,7 +688,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         return dataset.plot_traces(pulsenums, pulse_summary, axis, difference,
                                    residual, valid_status, shift1)
 
-    def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,
+    def plot_summaries(self, quantity, valid='uncut', downsample=None, log=False, hist_limits=None,  # noqa: PLR0914
                        channel_numbers=None, dataset_numbers=None):
         """Plot a summary of one quantity from the data set.
 
@@ -760,7 +758,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         # Plot timeseries with 0 = the last 00 UT during or before the run.
         last_record = np.max([ds.p_timestamp[-1] for ds in self])
         last_midnight = last_record - (last_record % 86400)
-        hour_offset = last_midnight/3600.
+        hour_offset = last_midnight / 3600.
 
         plt.clf()
         ny_plots = len(datasets)
@@ -809,7 +807,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
                 plt.subplot(ny_plots, 2, 1 + i * 2, sharex=ax_master)
 
             if len(vect) > 0:
-                plt.plot(hour-hour_offset, vect[::downsample], '.', ms=1, color=color)
+                plt.plot(hour - hour_offset, vect[::downsample], '.', ms=1, color=color)
             else:
                 plt.text(.5, .5, 'empty', ha='center', va='center', size='large',
                          transform=plt.gca().transAxes)
@@ -952,7 +950,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             avg_pulse = ds.average_pulse[:].copy()
             if fcut is not None:
                 avg_pulse = mass.core.analysis_algorithms.filter_signal_lowpass(
-                    avg_pulse, 1./self.timebase, fcut)
+                    avg_pulse, 1. / self.timebase, fcut)
             plt.plot(dt, avg_pulse, label=f"Chan {ds.channum}", color=cmap(float(i) / nplot))
 
         plt.title("Average pulse for each channel when it is hit")
@@ -1026,7 +1024,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             dt = (ds.p_timestamp[good][-1] * 1.0 - ds.p_timestamp[good][0])  # seconds
             npulse = np.arange(len(good))[good][-1] - good.argmax() + 1
             rate = (npulse - 1.0) / dt
-            print(f'chan {ds.channum:3d} {npulse:6d} pulses ({rate:6.3f} Hz over {dt/3600.:6.4f} hr) {100.*ng/npulse:6.3f}% good')
+            print(f"chan {ds.channum:3d} {npulse:6d} pulses ({rate:6.3f} Hz "
+                  f"over {dt / 3600.:6.4f} hr) {100. * ng / npulse:6.3f}% good")
 
     def plot_noise_autocorrelation(self, axis=None, channels=None, cmap=None,
                                    legend=True):
@@ -1120,7 +1119,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             yvalue = ds.noise_psd[:] * scale_factor**2
             if sqrt_psd:
                 yvalue = np.sqrt(yvalue)
-                axis.set_ylabel(f"PSD$^{1/2}$ ({units}/Hz$^{1/2}$)")
+                axis.set_ylabel(f"PSD$^{1 / 2}$ ({units}/Hz$^{1 / 2}$)")
             try:
                 df = ds.noise_psd.attrs['delta_f']
                 freq = np.arange(1, 1 + len(yvalue)) * df
@@ -1191,7 +1190,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plt.grid("on")
         plt.legend()
 
-    def plot_summary_pages(self, x_attr, y_attr, x_range=None, y_range=None, subplot_shape=(3, 4),
+    def plot_summary_pages(self, x_attr, y_attr, x_range=None, y_range=None, subplot_shape=(3, 4),  # noqa: PLR0917
                            suffix=None, lines=None, down=10, fileformat='png', one_file=False):
         '''Make scatter plots of summary quantities for all channels.
 
@@ -1243,8 +1242,8 @@ class TESGroup(CutFieldMixin, GroupLooper):
             y_b = getattr(ds, y_attr)[b][::down]
 
             if x_attr == 'p_timestamp':
-                x_g = (x_g - getattr(ds, x_attr)[0]) / (60*60)
-                x_b = (x_b - getattr(ds, x_attr)[0]) / (60*60)
+                x_g = (x_g - getattr(ds, x_attr)[0]) / (60 * 60)
+                x_b = (x_b - getattr(ds, x_attr)[0]) / (60 * 60)
 
             plt.plot(x_b, y_b, '.', markersize=2.5, color='gray')
             plt.plot(x_g, y_g, '.', markersize=2.5, color='blue')
@@ -1271,7 +1270,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         plot_multipage(self, subplot_shape, helper, filename_template_per_file,
                        filename_template_glob, filename_one_file, format, one_file)
 
-    def plot_histogram_pages(self, attr, valrange, bins, y_range=None, subplot_shape=(3, 4),
+    def plot_histogram_pages(self, attr, valrange, bins, y_range=None, subplot_shape=(3, 4),  # noqa: PLR0917
                              suffix=None, lines=None, fileformat='png', one_file=False):
         '''Make plots of histograms for all channels.
 
@@ -1347,7 +1346,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         g_func -- a function a function taking a MicrocalDataSet and returnning a vector like ds.good() would return
             This vector is anded with the vector calculated by the histogrammer    """
         bin_edges = np.array(bin_edges)
-        bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+        bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
         countsdict = {ds.channum: ds.hist(bin_edges, attr, t0, tlast, category, g_func)[1] for ds in self}
         return bin_centers, countsdict
 
@@ -1366,7 +1365,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
             counts += v
         return bin_centers, counts
 
-    def linefit(self, line_name="MnKAlpha", t0=0, tlast=1e20, axis=None, dlo=50, dhi=50,
+    def linefit(self, line_name="MnKAlpha", t0=0, tlast=1e20, axis=None, dlo=50, dhi=50,  # noqa: PLR0917
                 binsize=1, bin_edges=None, attr="p_energy", label="full", plot=True,
                 guess_params=None, ph_units="eV", category={}, g_func=None, has_tails=False):
         """Do a fit to `line_name` and return the fitter. You can get the params results with
@@ -1394,7 +1393,7 @@ class TESGroup(CutFieldMixin, GroupLooper):
         model = mass.getmodel(line_name, has_tails=has_tails)
         nominal_peak_energy = model.spect.nominal_peak_energy
         if bin_edges is None:
-            bin_edges = np.arange(nominal_peak_energy-dlo, nominal_peak_energy+dhi, binsize)
+            bin_edges = np.arange(nominal_peak_energy - dlo, nominal_peak_energy + dhi, binsize)
 
         bin_centers, counts = self.hist(bin_edges, attr, t0, tlast, category, g_func)
 

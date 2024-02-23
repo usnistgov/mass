@@ -10,7 +10,7 @@ LOG.setLevel(logging.DEBUG)
 # these are define in core so they can be tested easily, then they'll be run via a script
 
 
-def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_deriv,
+def make_projectors(pulse_files, noise_files, h5, n_sigma_pt_rms, n_sigma_max_deriv,  # noqa: PLR0917
                     n_basis, maximum_n_pulses, mass_hdf5_path, mass_hdf5_noise_path, invert_data, optimize_dp_dt,
                     extra_n_basis_5lag, noise_weight_basis, f_3db_ats=None, f_3db_5lag=None):
     data = mass.TESGroup(pulse_files, noise_files, overwrite_hdf5_file=True,
@@ -34,7 +34,7 @@ def parse_args(fake):
         return mass.ljh2off.FakeArgs()
     example_usage = """python make_projectors.py pulse_path noise_path"""
     parser = argparse.ArgumentParser(
-        description="convert ljh files to off files, example:\n"+example_usage)
+        description="convert ljh files to off files, example:\n" + example_usage)
     parser.add_argument(
         "pulse_path", help="path a a single ljh file with pulses, other channel numbers will be found automatically")
     parser.add_argument(
@@ -101,11 +101,11 @@ def main(args=None):
         raise Exception(f"no channels found for files matching {args.pulse_path} and {args.noise_path}")
     pulse_basename, _ = mass.ljh_util.ljh_basename_channum(args.pulse_path)
     noise_basename, _ = mass.ljh_util.ljh_basename_channum(args.noise_path)
-    pulse_files = [pulse_basename+f"_chan{channum}.ljh" for channum in channums]
-    noise_files = [noise_basename+f"_chan{channum}.ljh" for channum in channums]
+    pulse_files = [pulse_basename + f"_chan{channum}.ljh" for channum in channums]
+    noise_files = [noise_basename + f"_chan{channum}.ljh" for channum in channums]
     # handle output filename
     if args.output_path is None:
-        args.output_path = pulse_basename+"_model.hdf5"
+        args.output_path = pulse_basename + "_model.hdf5"
     # handle replace_output
     if os.path.isfile(args.output_path) and not args.replace_output:
         print(f"output: {args.output_path} already exists, pass --replace_output or -r to overwrite")

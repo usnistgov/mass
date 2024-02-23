@@ -23,7 +23,7 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
     For True, the names will be `derivLike`, `pulseLike`, and if nBasis>3, also `extraCoefs`
     For False, they will all have the single name `coefs`. False is to make implementing recordXY and other
     methods that want access to all coefs simultaneously easier"""
-    if offVersion in ("0.1.0", "0.2.0"):
+    if offVersion in {"0.1.0", "0.2.0"}:
         # start of the dtype is identical for all cases
         dt_list = [("recordSamples", np.int32), ("recordPreSamples", np.int32), ("framecount", np.int64),
                    ("unixnano", np.int64), ("pretriggerMean", np.float32), ("residualStdDev", np.float32)]
@@ -38,7 +38,7 @@ def recordDtype(offVersion, nBasis, descriptive_coefs_names=True):
         dt_list += [("pulseMean", np.float32), ("derivativeLike",
                                                 np.float32), ("filtValue", np.float32)]
         if nBasis > 3:
-            dt_list += [("extraCoefs", np.float32, (nBasis-3))]
+            dt_list += [("extraCoefs", np.float32, (nBasis - 3))]
     else:
         dt_list += [("coefs", np.float32, (nBasis))]
     return np.dtype(dt_list)
@@ -94,7 +94,7 @@ class OffFile:
 
     def validateHeader(self):
         with open(self.filename, "rb") as f:
-            f.seek(self.headerStringLength-2)
+            f.seek(self.headerStringLength - 2)
             if not f.readline().decode("utf-8") == "}\n":
                 raise Exception("failed to find end of header")
         if self.header["FileFormat"] != "OFF":
@@ -106,9 +106,9 @@ class OffFile:
         _nRecords is for testing only, mmap exaclty _nRecords records
         """
         fileSize = os.path.getsize(self.filename)
-        recordSize = fileSize-self.afterHeaderPos
+        recordSize = fileSize - self.afterHeaderPos
         if _nRecords is None:
-            self.nRecords = recordSize//self.dtype.itemsize
+            self.nRecords = recordSize // self.dtype.itemsize
         else:  # for testing only
             self.nRecords = _nRecords
         self._mmap = np.memmap(self.filename, self.dtype, mode="r",
@@ -158,7 +158,7 @@ class OffFile:
         basisRows = int(self.header["ModelInfo"]["Basis"]["Rows"])
         basisCols = int(self.header["ModelInfo"]["Basis"]["Cols"])
         # 8 for float64, basis and projectors have the same number of elements and therefore of bytes
-        nBytes = basisCols*basisRows*8
+        nBytes = basisCols * basisRows * 8
         projectorsPos = self.headerStringLength
         basisPos = projectorsPos + nBytes
         self.afterHeaderPos = basisPos + nBytes
@@ -179,7 +179,7 @@ class OffFile:
         """return a vector of sample times for record i, approriate for plotting"""
         recordSamples = self[i]["recordSamples"]
         recordPreSamples = self[i]["recordPreSamples"]
-        return np.arange(-recordPreSamples, recordSamples-recordPreSamples)*self.framePeriodSeconds
+        return np.arange(-recordPreSamples, recordSamples - recordPreSamples) * self.framePeriodSeconds
 
     def modeledPulse(self, i):
         """return a vector of the modeled pulse samples, the best available value of the actual raw samples"""

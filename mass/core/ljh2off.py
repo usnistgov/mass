@@ -56,7 +56,7 @@ def off_header_dict_from_ljhfile(ljhfile, projectors, basis, h5_path):
 
 def off_header_string_from_ljhfile(ljhfile, projectors, basis, h5_path):
     d = off_header_dict_from_ljhfile(ljhfile, projectors, basis, h5_path)
-    return json.dumps(d, indent=4)+"\n"
+    return json.dumps(d, indent=4) + "\n"
 
 
 def ljh2off(ljhpath, offpath, projectors, basis, n_ignore_presamples, h5_path, off_version=_OFF_VERSION):
@@ -95,7 +95,7 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
         records_this_seg = idx_hi - idx_lo
         records_written += records_this_seg
 
-        data = ljhfile.alldata[idx_lo:idx_lo+rec_per_seg]
+        data = ljhfile.alldata[idx_lo:idx_lo + rec_per_seg]
         timestamps = ljhfile.datatimes_float[idx_lo:idx_hi]
         subframecounts = ljhfile.subframecount[idx_lo:idx_hi]
         projector_record_length = projectors.shape[1]
@@ -105,19 +105,19 @@ def ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype
             f"but {ljhfile} has records of length {data_record_length}"
         mpc = np.matmul(projectors, data.T)  # modeled pulse coefs
         mp = np.matmul(basis, mpc)  # modeled pulse
-        residuals = mp-data.T
+        residuals = mp - data.T
         residual_std_dev = np.std(residuals, axis=0)
-        pretrig_mean = data[:, :ljhfile.nPresamples-n_ignore_presamples].mean(axis=1)
+        pretrig_mean = data[:, :ljhfile.nPresamples - n_ignore_presamples].mean(axis=1)
         offdata = np.zeros(records_this_seg, dtype)
-        pfit_pt_delta = np.polyfit(np.arange(ljhfile.nPresamples-n_ignore_presamples),
-                                   data[:, :ljhfile.nPresamples-n_ignore_presamples].T, deg=1)
+        pfit_pt_delta = np.polyfit(np.arange(ljhfile.nPresamples - n_ignore_presamples),
+                                   data[:, :ljhfile.nPresamples - n_ignore_presamples].T, deg=1)
         pt_delta = np.polyval(pfit_pt_delta, ljhfile.nPresamples
-                              - n_ignore_presamples-1) - np.polyval(pfit_pt_delta, 0)
+                              - n_ignore_presamples - 1) - np.polyval(pfit_pt_delta, 0)
 
         offdata["recordSamples"] = ljhfile.nSamples
         offdata["recordPreSamples"] = ljhfile.nPresamples
         offdata["framecount"] = subframecounts // ljhfile.subframe_divisions
-        offdata["unixnano"] = timestamps*1e9
+        offdata["unixnano"] = timestamps * 1e9
         offdata["pretriggerMean"] = pretrig_mean
         offdata["pretriggerDelta"] = pt_delta
         offdata["residualStdDev"] = residual_std_dev
@@ -200,7 +200,7 @@ def parse_args(fake):
     example_usage = """ python ljh2off.py data/20190924/0010/20190924_run0010_chan1.ljh """
     example_usage += """data/20190923/0003/20190923_run0003_model.hdf5 test_ljh2off -m 4 -r"""
     parser = argparse.ArgumentParser(
-        description="convert ljh files to off files, example:\n"+example_usage,
+        description="convert ljh files to off files, example:\n" + example_usage,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "ljh_path", help="path a a single ljh file, other channel numbers will be found automatically")

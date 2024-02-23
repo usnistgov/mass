@@ -56,20 +56,20 @@ def LJHModify(input_filename, output_filename, callback, overwrite=False):
                 data = callback(infile.alldata[i])
                 x = np.zeros((1,), dtype=infile.dtype)
                 x["subframecount"] = infile.subframecount
-                x["posix_usec"] = infile.datatimes_float*1e6
+                x["posix_usec"] = infile.datatimes_float * 1e6
                 x["data"] = data
                 x.tofile(outfile)
                 if i % 100 == 0:
-                    updater.update(float(i+1)/infile.nPulses)
+                    updater.update(float(i + 1) / infile.nPulses)
 
         else:
             for i in range(infile.nPulses):
                 data = callback(infile.alldata[i])
-                x = np.zeros((1, 3+infile.nSamples), dtype=np.uint16)
+                x = np.zeros((1, 3 + infile.nSamples), dtype=np.uint16)
                 x[:, 3:] = data
                 x.tofile(outfile)
                 if i % 100 == 0:
-                    updater.update(float(i+1)/infile.nPulses)
+                    updater.update(float(i + 1) / infile.nPulses)
 
         updater.update(1.0)
 
@@ -86,7 +86,7 @@ def dummy_callback(data):
 
 def callback_invert(record):
     assert record.dtype == np.uint16
-    return 0xffff-record
+    return 0xffff - record
 
 
 # Here's how to supply a callback with a free parameter (some kind of "state").
@@ -182,7 +182,7 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
     if (n_pulses is None and timestamp is None) or \
             (n_pulses is not None and timestamp is not None):
         msg = "Must specify exactly one of n_pulses, timestamp."
-        msg = msg+f" Values were {str(n_pulses)}, {str(timestamp)}"
+        msg = msg + f" Values were {str(n_pulses)}, {str(timestamp)}"
         raise Exception(msg)
 
     # Check for file problems, then open the input and output LJH files.
@@ -201,7 +201,7 @@ def ljh_truncate(input_filename, output_filename, n_pulses=None, timestamp=None,
     with open(output_filename, "wb") as outfile:
         # write the header as a single string.
         for (k, v) in infile.header_dict.items():
-            outfile.write(k+b": "+v+b"\r\n")
+            outfile.write(k + b": " + v + b"\r\n")
         outfile.write(b"#End of Header\r\n")
 
         # Write pulses. Stop reading segments from the original file as soon as possible.
