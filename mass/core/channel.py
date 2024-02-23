@@ -6,7 +6,6 @@ Single-channel classes:
 * MicrocalDataSet: encapsulate basically everything about 1 channel's pulses and noise
 """
 
-import h5py
 import numpy as np
 import scipy as sp
 import matplotlib.pylab as plt
@@ -14,7 +13,6 @@ import inspect
 import os
 import sys
 import traceback
-import re
 import sklearn
 from packaging import version
 from deprecation import deprecated
@@ -814,35 +812,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         return (peak_index - self.nPresamples) * self.timebase
 
     @property
-    def external_trigger_rowcount(self):
-        if self._external_trigger_rowcount is None:
-            filename = ljh_util.ljh_get_extern_trig_fname(self.filename)
-            if os.path.isfile(filename):
-                h5 = h5py.File(filename, "r")
-                ds_name = "trig_times_w_offsets" if "trig_times_w_offsets" in h5 else "trig_times"
-                self._external_trigger_rowcount = h5[ds_name]
-            else:
-                basename, _ = ljh_util.ljh_basename_channum(self.filename)
-                filename = f"{basename}_external_trigger.bin"
-                self.n_ext_trigger_rows = self.number_of_rows
-                with open(filename, "rb") as f:
-                    header_text = f.readline().decode()
-                    m = re.match(r".*\(nrow=(.*)\)\n", header_text)
-                    if m is not None:
-                        self.n_ext_trigger_rows = int(m.groups()[0])
-                    self._external_trigger_rowcount = np.fromfile(f, dtype="int64")
-            self.row_timebase = self.timebase / float(self.n_ext_trigger_rows)
-        return self._external_trigger_rowcount
-
-    @property
-    def external_trigger_rowcount_as_seconds(self):
-        """This is not a posix timestamp, it is just the external trigger rowcount converted to seconds
-        based on the nominal clock rate of the crate.
-        """
-        return self.external_trigger_rowcount[:] * self.timebase / float(self.n_ext_trigger_rows)
-
-    @property
-    def rows_after_last_external_trigger(self):
+    def subframes_after_last_external_trigger(self):
         try:
             return self.hdf5_group["subframes_after_last_external_trigger"]
         except KeyError:
