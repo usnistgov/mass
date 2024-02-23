@@ -2,6 +2,8 @@
 
 line-length = 135
 
+lint.preview = true
+
 lint.select = [
   "E",  # pycodestyle
   "W",  # pycodestyle

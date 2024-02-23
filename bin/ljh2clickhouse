@@ -15,9 +15,11 @@ import argparse
 import glob
 import os
 import sys
+import time
 from collections import OrderedDict
-import clickhouse_connect
 import numpy as np
+import pandas as pd
+import clickhouse_connect
 import mass
 
 
@@ -28,21 +30,36 @@ class clickDB:
     def close(self):
         self.client.close()
 
+    @staticmethod
+    def split_sql(filename):
+        "Read a SQL file, removing blank or comment lines, and splitting into queries at the semicolons"
+        with open(filename, "r", encoding="utf-8") as script:
+            lines = script.readlines()
+        nocomments = [line for line in lines if not line.lstrip().startswith("--")]
+        noblanks = [line for line in nocomments if line.strip()]
+        queries = [q for q in "".join(noblanks).split(";") if q.strip()]
+        return queries
+
     def create(self, dbname, force=False):
+        self.dbname = dbname
+        setup_queries = []
         if force:
             q = f"DROP DATABASE IF EXISTS {dbname}"
+            setup_queries.append(q)
+
+        setup_queries.extend([
+            f"CREATE DATABASE {dbname}",
+            f"USE {dbname}"
+        ])
+        for q in setup_queries:
             self.client.command(q)
 
-        q = f"CREATE DATABASE {dbname}"
-        self.client.command(q)
-
-        q = f"USE {dbname}"
-        self.client.command(q)
-
-        q = """CREATE TABLE pulses"""
-        # Create 3 key tables
-        # Maybe create experiment-state table?
-        # Maybe create external trigger table?
+        # Create 3 key tables + any aux tables
+        dir, _ = os.path.split(__file__)
+        sqlfile = os.path.normpath(os.path.join(dir, "..", "clickhouse/create_db.sql"))
+        create_queries = self.split_sql(sqlfile)
+        for q in create_queries:
+            self.client.command(q)
         self.runs = 0
 
     def fill_one_run(self, dir, files):
@@ -52,21 +69,90 @@ class clickDB:
         timebase = ljh.timebase
         nSamples = ljh.nSamples
         nPresamples = ljh.nPresamples
-        base = os.path.split(dir)[1]
+        p, base = os.path.split(dir)
+        datecode = os.path.split(p)[1]
+        date_run_code = f"{datecode}/{base}"
+        creator = "ljh2clickhouse"
+        startstring = ljh.header_dict.get(b"Server Start Time", b"01 Jan 2000, 00:00:00 MST").decode()
+        server_start = time.mktime(time.strptime(startstring, "%d %b %Y, %H:%M:%S %Z"))
+        server_start_microsec = int(1e6 * server_start + 0.5)
+
+        nchan = int(ljh.header_dict.get(b"Number of channels", b"0").decode())
+        daqver = ljh.header_dict.get(b"Software Version", b"").decode()
+        githash = ljh.header_dict.get(b"Software Git Hash", b"").decode()
+
         # Insert into dataruns table, using base directory name
+        self.runs += 1
+        column_names = [
+            'id',
+            'date_run_code',
+            'creator',
+            'datasource',
+            'timebase',
+            'server_start',
+            'number_channels',
+            'daq_version',
+            'daq_githash'
+            ]
+        data = [self.runs, date_run_code, creator, ljh.source, ljh.timebase, server_start_microsec, nchan, daqver, githash]
+        if ljh.source != "Abaco":
+            column_names.extend(["number_rows", "number_columns"])
+            data.extend([ljh.number_of_rows, ljh.number_of_columns])
+        chgrp = ljh.header_dict.get(b"Channel Group", b"").decode()
+        if chgrp:
+            column_names.append("channel_group")
+            data.append(chgrp)
+        self.client.insert("dataruns", [data], column_names=column_names)
+
         for ljh in ljhfiles:
             assert timebase == ljh.timebase
             assert nSamples == ljh.nSamples
             assert nPresamples == ljh.nPresamples
-            # Insert into channels table
-            # Insert into pulses table
+            self.fill_one_ljhfile(ljh)
+
+    def fill_one_ljhfile(self, ljh):
+        # Insert into channels table
+        sfd = ljh.number_of_rows
+        sfo = ljh.row_number
+        if ljh.source == "Abaco":
+            sfd = 64
+            sfo = 0
+
+        firstrecstring = ljh.header_dict[b"First Record Time"].decode()
+        first_record = time.mktime(time.strptime(firstrecstring, "%d %b %Y, %H:%M:%S %Z"))
+        first_record_ns = int(1e9 * first_record + 0.5)
+        column_names = [
+            'datarun_id',
+            'channel_number',
+            'subframe_divisions',
+            'subframe_offset',
+            'presamples',
+            'total_samples',
+            'first_record_time'
+            ]
+        data = [self.runs, ljh.channum, sfd, sfo, ljh.nPresamples, ljh.nSamples, first_record_ns]
+        if ljh.source != "Abaco":
+            column_names.extend(['row_number', 'column_number'])
+            data.extend([ljh.row_number, ljh.column_number, ])
+        self.client.insert("channels", [data], column_names=column_names)
+
+        # Insert into pulses table
+        datarun_id = np.repeat(self.runs, ljh.nPulses)
+        channel_number = np.repeat(ljh.channum, ljh.nPulses)
+        df = pd.DataFrame({
+            "datarun_id": datarun_id,
+            "channel_number": channel_number,
+            "subframe_count": ljh.subframecount
+        })
+        df["pulse"] = list(ljh.alldata)
+        self.client.insert("pulses", df)
 
 
 def convert(args):
     allfiles = glob_files(args.directory)
     print(args)
     Ndir = len(allfiles)
-    Nljh = np.sum([len(v) for v in allfiles.values()])
+    Nljh = sum([len(v) for v in allfiles.values()])
     print(f"Found {Nljh} LJH files in {Ndir} directories")
     if Nljh <= 0:
         print("The directory argument(s) had no LJH files")
