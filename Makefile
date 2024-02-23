@@ -4,7 +4,8 @@
 
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
-PYFILES = $(shell find . -name "*.py")
+PYSCRIPTS = bin/hdf5print bin/ljh_merge bin/ljh_truncate
+PYFILES = $(shell find . -name "*.py") $(PYSCRIPTS)
 CYFILES = $(shell find . -name "*.pyx")
 FORMFILES := $(shell find mass -name "*_form_ui.py")
 
@@ -46,4 +47,4 @@ lint-report.txt: $(PYFILES) Makefile
 	ruff check --preview mass doc tests > $@
 
 ruff:
-	ruff check --preview mass doc tests
+	ruff check --preview mass doc tests $(PYSCRIPTS)

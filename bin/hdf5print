@@ -22,13 +22,13 @@ def printHDF5(node, depth=0, maxchan=1):
         return
 
     # Print the object
-    name = '/'+node.name.split('/')[-1]
+    name = '/' + node.name.split('/')[-1]
     prefix = prefix_attr = ''
     if depth > 0:
         prefix_attr = '|\t' * depth
-        prefix = '|\t'*(depth-1) + '+ - - -'
+        prefix = '|\t' * (depth - 1) + '+ - - -'
     if isinstance(node, h5py.Dataset):
-        print('%s %s (shape=%s dtype=%s)' % (prefix, name, node.shape, node.dtype))
+        print(f'{prefix} {name} (shape={node.shape} dtype={node.dtype})')
     elif isinstance(node, h5py.File):
         print('HDF5 file "%s"' % node.filename)
     else:
@@ -36,7 +36,7 @@ def printHDF5(node, depth=0, maxchan=1):
 
     # Print its attributes
     for ak, av in node.attrs.iteritems():
-        print('%s|-{%s=%s}' % (prefix_attr, ak, str(av)))
+        print(f'{prefix_attr}|-{{{ak}={str(av)}}}')
 
     # Print its children
     seenchan = 0
@@ -47,7 +47,7 @@ def printHDF5(node, depth=0, maxchan=1):
                 if seenchan > maxchan:
                     # print '\t'*(1+depth)+'Skipping %s'%key
                     continue
-            printHDF5(val, depth+1)
+            printHDF5(val, depth + 1)
 
 
 if __name__ == '__main__':
