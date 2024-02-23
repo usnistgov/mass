@@ -1,5 +1,10 @@
 ## Note on version numbers of Mass
 
+**0.8.3** February 2024-
+
+* Experimental `bin/ljh2clickhouse` conversion tool.
+
+
 **0.8.2** February 23, 2024
 
 * Fix bug in reading certain external trigger files (issue 262).
