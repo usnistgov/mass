@@ -118,7 +118,11 @@ class clickDB:
             sfd = 64
             sfo = 0
 
-        firstrecstring = ljh.header_dict[b"First Record Time"].decode()
+        firstrecstring = "1 Jan 1970, 00:00:00 GMT"
+        for k in (b"File First Record Time", b"First Record Time"):
+            if k in ljh.header_dict:
+                firstrecstring = ljh.header_dict[k].decode()
+                break
         first_record = time.mktime(time.strptime(firstrecstring, "%d %b %Y, %H:%M:%S %Z"))
         first_record_ns = int(1e9 * first_record + 0.5)
         column_names = [
