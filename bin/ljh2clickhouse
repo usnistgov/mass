@@ -141,15 +141,21 @@ class clickDB:
         self.client.insert("channels", [data], column_names=column_names)
 
         # Insert into pulses table
-        datarun_id = np.repeat(self.runs, ljh.nPulses)
-        channel_number = np.repeat(ljh.channum, ljh.nPulses)
-        df = pd.DataFrame({
-            "datarun_id": datarun_id,
-            "channel_number": channel_number,
-            "subframe_count": ljh.subframecount
-        })
-        df["pulse"] = list(ljh.alldata)
-        self.client.insert("pulses", df)
+        # Do so GroupSize pulses at a time, up to MaxPulses (experimental)
+        GroupSize = 128
+        MaxPulses = min(5000, ljh.nPulses)
+        for i in range(0, MaxPulses, GroupSize):
+            j = min(i + GroupSize, ljh.nPulses)
+            datarun_id = np.repeat(self.runs, j - i)
+            channel_number = np.repeat(ljh.channum, j - i)
+            df = pd.DataFrame({
+                "datarun_id": datarun_id,
+                "channel_number": channel_number,
+                "subframe_count": ljh.subframecount[i:j]
+            })
+            print("Converting ljh.alldata of size ", ljh.alldata[i:j, :].shape, " into list")
+            df["pulse"] = list(ljh.alldata[i:j])
+            self.client.insert("pulses", df)
 
 
 def convert(args):
