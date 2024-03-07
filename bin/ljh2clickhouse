@@ -62,7 +62,7 @@ class clickDB:
             self.client.command(q)
         self.runs = 0
 
-    def fill_one_run(self, dir, files, max_records=None):
+    def fill_one_run(self, dir, files, max_records=None, exclude=set()):
         ljhfiles = [mass.files.LJHFile.open(f) for f in files]
         assert len(ljhfiles)
         ljh = ljhfiles[0]
@@ -105,6 +105,8 @@ class clickDB:
         self.client.insert("dataruns", [data], column_names=column_names)
 
         for ljh in ljhfiles:
+            if ljh.channum in exclude:
+                continue
             assert timebase == ljh.timebase
             assert nSamples == ljh.nSamples
             assert nPresamples == ljh.nPresamples
@@ -170,11 +172,13 @@ def convert(args):
         print("The directory argument(s) had no LJH files")
         sys.exit(1)
 
+    excluded_channels = {int(x) for x in args.exclude_channels.strip("][").split(",")}
+
     try:
         DB = clickDB()
         DB.create(args.database, args.force)
         for (d, files) in allfiles.items():
-            DB.fill_one_run(d, files, max_records=args.max_records)
+            DB.fill_one_run(d, files, max_records=args.max_records, exclude=excluded_channels)
     finally:
         DB.close()
 
@@ -196,13 +200,15 @@ def main():
                         help='whether to truncate all tables in named database, if they exist')
     parser.add_argument('-M', '--max-records', type=int,
                         help='max number of pulse records to store per channel')
+    parser.add_argument('--exclude_channels',
+                        help='comma-separated list of channel numbers to exclude from storage')
     parser.add_argument('database',
                         type=str,
                         help='database name to store in')
     parser.add_argument('directory',
                         type=str,
                         nargs='+',
-                        help='string to append to basename when creating output filename')
+                        help='1 or more directories containing LJH files')
     args = parser.parse_args()
     convert(args)
 
