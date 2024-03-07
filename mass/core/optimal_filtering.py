@@ -327,7 +327,11 @@ class Filter:
         for f in filters:
             try:
                 var = self.variances[f]
-                v_dv = var**(-.5) / np.sqrt(8 * np.log(2))
+                if var < 0:
+                    v_dv = np.nan # don't want to take a sqrt of negative number
+                    # avoid printing warnings
+                else:
+                    v_dv = var**(-.5) / np.sqrt(8 * np.log(2))
                 fwhm_eV = std_energy / v_dv
                 print(f"{f} {v_dv=:.2f} {var=:.2f} {fwhm_eV=:.2f} at {std_energy=:.2f} eV")
             except KeyError:
@@ -582,16 +586,8 @@ class ExperimentalFilter(Filter):
                 self.normalize_filter(filt)
                 self.__dict__[name] = filt
 
-                # print('%15s' % name),
-                # for v in (avg_signal, np.ones(n), np.exp(-expx / self.tau), sp.special.chebyt(1)(chebyx),
-                #           sp.special.chebyt(2)(chebyx)):
-                #     print('%10.5f ' % np.dot(v, filt)),
-
                 self.variances[shortname] = self.bracketR(filt, R)
-                fw = np.sqrt(8 * np.log(2))
-                res = 5898.801 * fw * self.variances[shortname]**.5
-                eV = (self.variances[shortname] / self.variances['full'])**.5
-                print(f'Res={res:6.3f} eV = {eV:.5f}')
+
 
             self.filt_baseline = np.dot(avg_signal, Rinv_sig) * \
                 Rinvs["unit"] - Rinv_sig.sum() * Rinv_sig

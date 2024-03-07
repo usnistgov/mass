@@ -240,7 +240,11 @@ def hamming(n):
 
 # Convenience functions
 def autocorrelation_broken_from_pulses(noise_pulses):
-    """noise_pulses[:,0] is the first pulse"""
+    """calculate autocorrelation of pulses in noise_pulses where
+    noise_pulses[:,0] is the first pulse
+    the word broken in the function name has no meaning, but is preserved for backwards 
+    compatibility with True Bq analysis
+    of Oct23 data"""
     nsamples, npulses = noise_pulses.shape
     ac = np.zeros(nsamples, dtype=float)
 
