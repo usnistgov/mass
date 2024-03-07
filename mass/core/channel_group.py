@@ -188,7 +188,8 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
                 noise_filenames = (noise_filenames,)
             self.noise_filenames = noise_filenames
             try:
-                self.hdf5_noisefile = h5py.File(hdf5_noisefilename, 'a')
+                intent = "w" if overwrite_hdf5_file else "a"
+                self.hdf5_noisefile = h5py.File(hdf5_noisefilename, intent)
             except OSError:
                 # if the noise file is corrupted, we will get an OSError
                 # open with write intent, which will clobber the existing file
@@ -487,12 +488,12 @@ class TESGroup(CutFieldMixin, GroupLooper):  # noqa: PLR0904, PLR0917
         return self._bad_channums.copy()
 
     @deprecated(deprecated_in="0.7.9", details="Use compute_noise(), which is equivalent but better named")
-    def compute_noise_spectra(self, max_excursion=1000, n_lags=None, forceNew=False):
+    def compute_noise_spectra(self, max_excursion=1000, forceNew=False):
         """Replaced by the equivalent compute_noise(...)"""
         # This is needed because the @_add_group_loop decorator does not preserve warnings
         # and hand them up.
         for ds in self:
-            ds.compute_noise(max_excursion=max_excursion, n_lags=n_lags, forceNew=forceNew)
+            ds.compute_noise(max_excursion=max_excursion, forceNew=forceNew)
 
     def sample2segnum(self, samplenum):
         """Returns the segment number of sample number <samplenum>."""
