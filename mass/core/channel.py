@@ -1585,7 +1585,8 @@ class MicrocalDataSet:  # noqa: PLR0904
 
     @_add_group_loop()
     def compute_noise_nlags(self, n_lags, max_excursion=1000):
-        """Compute the noise autocorrelation and power spectrum of this channel.
+        """Compute the noise autocorrelation and power spectrum of this channel using records of length nlags. Treats 
+        data in separate noise traces as continuous.
 
         Args:
             max_excursion (number): the biggest excursion from the median allowed
