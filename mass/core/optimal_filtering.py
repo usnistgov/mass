@@ -328,7 +328,7 @@ class Filter:
             try:
                 var = self.variances[f]
                 if var < 0:
-                    v_dv = np.nan # don't want to take a sqrt of negative number
+                    v_dv = np.nan  # don't want to take a sqrt of negative number
                     # avoid printing warnings
                 else:
                     v_dv = var**(-.5) / np.sqrt(8 * np.log(2))
@@ -587,7 +587,6 @@ class ExperimentalFilter(Filter):
                 self.__dict__[name] = filt
 
                 self.variances[shortname] = self.bracketR(filt, R)
-
 
             self.filt_baseline = np.dot(avg_signal, Rinv_sig) * \
                 Rinvs["unit"] - Rinv_sig.sum() * Rinv_sig
