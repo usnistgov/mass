@@ -232,7 +232,7 @@ class LJHFile(MicrocalFile):
             self.row_number = int(header_dict[row_number_k[0]])
         col_number_k = [k for k in header_dict.keys() if k.startswith(b"Column number")]
         if len(col_number_k) > 0:
-            self.row_number = int(header_dict[col_number_k[0]])
+            self.col_number = int(header_dict[col_number_k[0]])
         self.client = header_dict.get(b"Software Version", b"UNKNOWN")
         self.number_of_columns = int(header_dict.get(b"Number of columns", 1))
         self.number_of_rows = int(header_dict.get(b"Number of rows", 1))
