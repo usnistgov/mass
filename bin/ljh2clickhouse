@@ -62,7 +62,7 @@ class clickDB:
             self.client.command(q)
         self.runs = 0
 
-    def fill_one_run(self, dir, files):
+    def fill_one_run(self, dir, files, max_records=None):
         ljhfiles = [mass.files.LJHFile.open(f) for f in files]
         assert len(ljhfiles)
         ljh = ljhfiles[0]
@@ -108,9 +108,9 @@ class clickDB:
             assert timebase == ljh.timebase
             assert nSamples == ljh.nSamples
             assert nPresamples == ljh.nPresamples
-            self.fill_one_ljhfile(ljh)
+            self.fill_one_ljhfile(ljh, max_records=max_records)
 
-    def fill_one_ljhfile(self, ljh):
+    def fill_one_ljhfile(self, ljh, max_records=None):
         # Insert into channels table
         sfd = ljh.number_of_rows
         sfo = ljh.row_number
@@ -144,8 +144,10 @@ class clickDB:
         # Do so GroupSize pulses at a time, up to MaxPulses (experimental)
         GroupSize = 128
         MaxPulses = min(5000, ljh.nPulses)
+        if max_records is not None:
+            MaxPulses = min(MaxPulses, max_records)
         for i in range(0, MaxPulses, GroupSize):
-            j = min(i + GroupSize, ljh.nPulses)
+            j = min(i + GroupSize, MaxPulses)
             datarun_id = np.repeat(self.runs, j - i)
             channel_number = np.repeat(ljh.channum, j - i)
             df = pd.DataFrame({
@@ -172,7 +174,7 @@ def convert(args):
         DB = clickDB()
         DB.create(args.database, args.force)
         for (d, files) in allfiles.items():
-            DB.fill_one_run(d, files)
+            DB.fill_one_run(d, files, max_records=args.max_records)
     finally:
         DB.close()
 
@@ -192,6 +194,8 @@ def main():
     parser = argparse.ArgumentParser(description='Import a set of LJH files into a clickhouse database')
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='whether to truncate all tables in named database, if they exist')
+    parser.add_argument('-M', '--max-records', type=int,
+                        help='max number of pulse records to store per channel')
     parser.add_argument('database',
                         type=str,
                         help='database name to store in')
