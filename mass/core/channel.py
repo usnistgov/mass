@@ -1584,7 +1584,7 @@ class MicrocalDataSet:  # noqa: PLR0904
             self.noise_psd[:] = psd
 
     @_add_group_loop()
-    def compute_noise_nlags(self, n_lags, max_excursion=1000):
+    def compute_noise_nlags(self, n_lags, max_excursion=1000, plot=False):
         """Compute the noise autocorrelation and power spectrum of this channel using records of length nlags. Treats 
         data in separate noise traces as continuous.
 
@@ -1601,7 +1601,8 @@ class MicrocalDataSet:  # noqa: PLR0904
             max_excursion=max_excursion, seg_length=n_lags)
         self.noise_records_nlags.compute_autocorrelation(
             n_lags=n_lags, plot=False, max_excursion=max_excursion)
-        self.noise_records_nlags.plot_power_spectrum(sqrt_psd=False)
+        if plot:
+            self.noise_records_nlags.plot_power_spectrum(sqrt_psd=False)
 
     @_add_group_loop()
     def compute_noise(self, max_excursion=1000, forceNew=False):
