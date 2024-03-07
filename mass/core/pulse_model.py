@@ -186,6 +186,7 @@ class PulseModel:
         should_be_identity = np.matmul(self.projectors, self.basis)
         identity = np.identity(self.n_basis)
         wrongness = np.abs(should_be_identity - identity)
+        wrongness[wrongness < 1e-20] = 1e-20  # avoid warnings
         plt.subplot(515)
         plt.imshow(np.log10(wrongness))
         plt.title("log10(abs(projectors*basis-identity))")
