@@ -340,6 +340,7 @@ def test_integral_parameter():
 
         # And check that integral _times QE_ = Nsignal for a nontrivial QE model.
         QE = 0.4
+
         def flat_qemodel(e): return QE + np.zeros_like(e)
         model = line.model(qemodel=flat_qemodel)
         params = model.guess(s, bin_centers=e, dph_de=1)

@@ -260,6 +260,7 @@ class GenericLineModel(MLEModel):
                 bin_centers = np.asarray(bin_centers, dtype=float)
                 bin_width = bin_centers[1] - bin_centers[0]
                 energy = (bin_centers - peak_ph) / dph_de + self.spect.peak_energy
+
                 def cleanspectrum_fn(x): return self.spect.pdf(x, instrument_gaussian_fwhm=fwhm)
 
                 # tail_tau* is in energy units but has to be converted to the same units as `bin_centers`

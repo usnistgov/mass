@@ -228,7 +228,9 @@ class EnergyCalibration:  # noqa: PLR0904
         return self.ph2uncertainty(ph)
 
     def e2ph(self, energy): return self.energy2ph(energy)
+
     def e2dedph(self, energy): return self.energy2dedph(energy)
+
     def e2uncertainty(self, energy): return self.energy2uncertainty(energy)
 
     def __str__(self):
