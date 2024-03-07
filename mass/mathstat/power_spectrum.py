@@ -155,6 +155,23 @@ class PowerSpectrum:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
         return np.arange(nbins + 1, dtype=float) / (2 * self.dt * nbins)
 
+    def plot(self, axis=None, arb_to_unit_scale_and_label=(1, "arb"), sqrt_psd=True, **plotkwarg):
+        if axis is None:
+            plt.figure()
+            axis = plt.gca()
+        arb_to_unit_scale, unit_label = arb_to_unit_scale_and_label
+        psd = self.spectrum()[1:] * (arb_to_unit_scale**2)
+        freq = self.frequencies()[1:]
+        if sqrt_psd:
+            axis.plot(freq, np.sqrt(psd), **plotkwarg)
+            axis.set_ylabel(f"Amplitude Spectral Density ({unit_label}$^2$ Hz$^{{-1}}$)")
+        else:
+            axis.plot(freq, psd, **plotkwarg)
+            axis.set_ylabel(f"Power Spectral Density ({unit_label}$/\\sqrt{{Hz}}$)")
+        plt.loglog()
+        axis.grid()
+        axis.set_xlabel("Frequency (Hz)")
+
 
 class PowerSpectrumOverlap(PowerSpectrum):
     """Object for power spectral estimation using overlapping data segments.
@@ -220,7 +237,29 @@ def hamming(n):
     """A Hamming window (0.08 + 0.92*sine-squared) of length n"""
     return np.hamming(n)
 
+
 # Convenience functions
+def autocorrelation_broken_from_pulses(noise_pulses):
+    """calculate autocorrelation of pulses in noise_pulses
+    where noise_pulses[:,0] is the first pulse.
+
+    WARNING! noise_pulses appears to be the **transpose** of the usual array of pulses as memmapped from
+    an LJH raw data file. For backward compatibility, we keep it this way, even though it gives Joe a sad.
+
+    The word broken in the function name has no meaning, but is preserved for backwards
+    compatibility with True Bq analysis of Oct23 data.
+    """
+    nsamples, npulses = noise_pulses.shape
+    ac = np.zeros(nsamples, dtype=float)
+
+    for i in range(npulses):
+        pulse = noise_pulses[:, i]
+        pulse -= pulse.mean()
+        ac += np.correlate(pulse, pulse, 'full')[nsamples - 1:]
+
+    ac /= npulses
+    ac /= nsamples - np.arange(nsamples, dtype=float)
+    return ac
 
 
 def computeSpectrum(data, segfactor=1, dt=None, window=None):

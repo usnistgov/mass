@@ -48,6 +48,7 @@ Create a clean working directory, ensure all temp files go there. In principle I
     shutil.rmtree(d)
   os.mkdir(d)
   model_mass_hdf5 = os.path.join(d, "20181018_144520_mass_for_model.hdf5")
+  model_mass_noise_hdf5 = os.path.join(d, "20181018_144520_noise_mass_for_model.hdf5")
   model_hdf5 = os.path.join(d, "20181018_144520_model.hdf5")
   mass_hdf5 = os.path.join(d, "20181018_144520_mass.hdf5")
   mass_noise_hdf5 = os.path.join(d, "20181018_144325_noise_mass.hdf5")
@@ -111,7 +112,7 @@ Most of the time the defaults should work fine.
           n_basis=5,
           maximum_n_pulses=5000,
           mass_hdf5_path=model_mass_hdf5,
-          mass_hdf5_noise_path=mass_noise_hdf5,
+          mass_hdf5_noise_path=model_mass_noise_hdf5,
           invert_data=False,
           optimize_dp_dt=False, # seems to work better for gamma data
           extra_n_basis_5lag=0, # mostly for testing, might help you make a more efficient basis for gamma rays, but doesn't seem neccesary

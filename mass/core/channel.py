@@ -1584,7 +1584,28 @@ class MicrocalDataSet:  # noqa: PLR0904
             self.noise_psd[:] = psd
 
     @_add_group_loop()
-    def compute_noise(self, max_excursion=1000, n_lags=None, forceNew=False):
+    def compute_noise_nlags(self, n_lags, max_excursion=1000, plot=False):
+        """Compute the noise autocorrelation and power spectrum of this channel using records of length nlags.
+        Treats data in separate noise traces as continuous.
+
+        Args:
+            max_excursion (number): the biggest excursion from the median allowed
+                in each data segment, or else it will be ignored (default 1000).
+            n_lags: if not None, the number of lags in each noise spectrum and the max lag
+                for the autocorrelation.  If None, the record length is used
+                (default None).
+            forceNew (bool): whether to recompute if it already exists (default False).
+        """
+        self.noise_records_nlags = NoiseRecords(self.noise_records.filename)
+        self.noise_records_nlags.compute_power_spectrum_reshape(
+            max_excursion=max_excursion, seg_length=n_lags)
+        self.noise_records_nlags.compute_autocorrelation(
+            n_lags=n_lags, plot=False, max_excursion=max_excursion)
+        if plot:
+            self.noise_records_nlags.plot_power_spectrum(sqrt_psd=False)
+
+    @_add_group_loop()
+    def compute_noise(self, max_excursion=1000, forceNew=False):
         """Compute the noise autocorrelation and power spectrum of this channel.
 
         Args:
@@ -1595,8 +1616,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                 (default None).
             forceNew (bool): whether to recompute if it already exists (default False).
         """
-        if n_lags is None:
-            n_lags = self.noise_records.nSamples
+        n_lags = self.noise_records.nSamples
         if forceNew or all(self.noise_autocorr[:] == 0):
             self.noise_records.compute_power_spectrum_reshape(
                 max_excursion=max_excursion, seg_length=n_lags)

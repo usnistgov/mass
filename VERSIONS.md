@@ -3,6 +3,7 @@
 **0.8.3** February 2024-
 
 * Read LJH file row number correctly (issue 268).
+* Improve behavior of powerspectrum and `ExperimentalFilter` objects.
 
 
 **0.8.2** February 23, 2024
