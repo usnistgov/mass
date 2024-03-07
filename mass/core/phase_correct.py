@@ -93,10 +93,10 @@ def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=N
     corrections = []
     median_phase = []
     if kernel_width is None:
-        kernel_width = np.max(ph_peaks)/1000.0
+        kernel_width = np.max(ph_peaks) / 1000.0
     for pk in ph_peaks:
         nextcorr, mphase = _phasecorr_find_alignment(
-            phase, pheight, pk, .012*np.mean(ph_peaks),
+            phase, pheight, pk, .012 * np.mean(ph_peaks),
             method2017=method2017, kernel_width=kernel_width)
         corrections.append(nextcorr)
         median_phase.append(mphase)
@@ -110,8 +110,8 @@ def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=N
         # Too few peaks to spline, so just bin and take the median per bin, then
         # interpolated (approximating) spline through/near these points.
         NBINS = 10
-        top = min(pheight.max(), 1.2*np.percentile(pheight, 98))
-        bin = np.digitize(pheight, np.linspace(0, top, 1+NBINS))-1
+        top = min(pheight.max(), 1.2 * np.percentile(pheight, 98))
+        bin = np.digitize(pheight, np.linspace(0, top, 1 + NBINS)) - 1
         x = np.zeros(NBINS, dtype=float)
         y = np.zeros(NBINS, dtype=float)
         w = np.zeros(NBINS, dtype=float)
@@ -128,9 +128,9 @@ def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=N
         # because that one can have natural boundary conditions instead of insane
         # cubic functions in the extrapolation.
         if nonempty.sum() > 1:
-            spline_order = min(3, nonempty.sum()-1)
+            spline_order = min(3, nonempty.sum() - 1)
             crazy_spline = sp.interpolate.UnivariateSpline(
-                x[nonempty], y[nonempty], w=w[nonempty]*(12**-0.5),
+                x[nonempty], y[nonempty], w=w[nonempty] * (12**-0.5),
                 k=spline_order)
             phase_uniformifier_x = crazy_spline._data[0]
             phase_uniformifier_y = crazy_spline._data[1]
@@ -142,7 +142,7 @@ def phase_correct(phase, pheight, ph_peaks=None, method2017=True, kernel_width=N
                           indicatorName, uncorrectedName)
 
 
-def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
+def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,  # noqa: PLR0914
                               method2017=False, nf=10, kernel_width=2.0):
     """Find the way to align (flatten) `pulse_heights` as a function of `phase_indicator`
     working only within the range [peak-delta_ph, peak+delta_ph].
@@ -153,8 +153,8 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
     `method2017==False` (the 2015 way) is subject to particular problems when
     there are not a lot of counts in the peak.
     """
-    phrange = np.array([-delta_ph, delta_ph])+peak
-    use = np.logical_and(np.abs(pulse_heights[:]-peak) < delta_ph,
+    phrange = np.array([-delta_ph, delta_ph]) + peak
+    use = np.logical_and(np.abs(pulse_heights[:] - peak) < delta_ph,
                          np.abs(phase_indicator) < 2)
     low_phase, median_phase, high_phase = \
         np.percentile(phase_indicator[use], [3, 50, 97])
@@ -166,11 +166,11 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         NBINS = max(3, NBINS)
         NBINS = min(12, NBINS)
 
-        bin_edge = np.linspace(low_phase, high_phase, NBINS+1)
-        dx = high_phase-low_phase
+        bin_edge = np.linspace(low_phase, high_phase, NBINS + 1)
+        dx = high_phase - low_phase
         bin_edge[0] -= dx
         bin_edge[-1] += dx
-        bins = np.digitize(x, bin_edge)-1
+        bins = np.digitize(x, bin_edge) - 1
 
         knots = np.zeros(NBINS, dtype=float)
         yknot = np.zeros(NBINS, dtype=float)
@@ -182,8 +182,8 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
                 yadj = y.copy()
                 yadj[bins == i] += shift
                 return mass.mathstat.entropy.laplace_entropy(yadj, kernel_width)
-            brack = 0.003*np.array([-1, 1], dtype=float)
-            sbest, KLbest, niter, _ = sp.optimize.brent(
+            brack = 0.003 * np.array([-1, 1], dtype=float)
+            sbest, _KLbest, niter, _ = sp.optimize.brent(
                 target, (), brack=brack, full_output=True, tol=3e-4)
             iter1 += niter
             yknot[i] = sbest
@@ -199,26 +199,26 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
                 yadj = ycorr.copy()
                 yadj[bins == i] += shift
                 return mass.mathstat.entropy.laplace_entropy(yadj, kernel_width)
-            brack = 0.002*np.array([-1, 1], dtype=float)
-            sbest, KLbest, niter, _ = sp.optimize.brent(
+            brack = 0.002 * np.array([-1, 1], dtype=float)
+            sbest, _KLbest, niter, _ = sp.optimize.brent(
                 target, (), brack=brack, full_output=True, tol=1e-4)
             iter2 += niter
             yknot2[i] = sbest
-        correction = CubicSpline(knots, yknot+yknot2)
+        correction = CubicSpline(knots, yknot + yknot2)
         H0 = mass.mathstat.entropy.laplace_entropy(y, kernel_width)
         H1 = mass.mathstat.entropy.laplace_entropy(ycorr, kernel_width)
-        H2 = mass.mathstat.entropy.laplace_entropy(y+correction(x), kernel_width)
+        H2 = mass.mathstat.entropy.laplace_entropy(y + correction(x), kernel_width)
         LOG.info("Laplace entropy before/middle/after: %.4f, %.4f %.4f (%d+%d iterations, %d phase groups)",
                  H0, H1, H2, iter1, iter2, NBINS)
 
-        curve = CubicSpline(knots-median_phase, peak-(yknot+yknot2))
+        curve = CubicSpline(knots - median_phase, peak - (yknot + yknot2))
         return curve, median_phase
 
     # Below here is "method2015", in which we perform correlations and fit to quadratics.
     # It is basically unsuitable for small statistics, so it is no longer preferred.
-    Pedges = np.linspace(low_phase, high_phase, nf+1)
-    Pctrs = 0.5*(Pedges[1:]+Pedges[:-1])
-    Pbin = np.digitize(phase_indicator, Pedges)-1
+    Pedges = np.linspace(low_phase, high_phase, nf + 1)
+    Pctrs = 0.5 * (Pedges[1:] + Pedges[:-1])
+    Pbin = np.digitize(phase_indicator, Pedges) - 1
 
     NBINS = 200
     hists = np.zeros((nf, NBINS), dtype=float)
@@ -226,7 +226,7 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         use = (Pbin == i)
         c, b = np.histogram(pulse_heights[use], NBINS, phrange)
         hists[i] = c
-    bctr = 0.5*(b[1]-b[0])+b[:-1]
+    bctr = 0.5 * (b[1] - b[0]) + b[:-1]
 
     kernel = np.mean(hists, axis=0)[::-1]
     peaks = np.zeros(nf, dtype=float)
@@ -237,7 +237,7 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
         m = conv.argmax()
         if conv[m] <= 0:
             continue
-        p = np.poly1d(np.polyfit(bctr[m-2:m+3], conv[m-2:m+3], 2))
+        p = np.poly1d(np.polyfit(bctr[m - 2:m + 3], conv[m - 2:m + 3], 2))
         # p = np.poly1d(np.polyfit(b[m-2:m+3], conv[m-2:m+3], 2))
         peak = p.deriv(m=1).r[0]
         # if peak < bctr[m-2]: peak = bctr[m]
@@ -248,7 +248,7 @@ def _phasecorr_find_alignment(phase_indicator, pulse_heights, peak, delta_ph,
     #     curve = CubicSpline(Pctrs[use]-median_phase, peaks[use])
     # else:
     #     curve = CubicSpline(Pctrs-median_phase, np.mean(phrange)+np.zeros_like(Pctrs))
-    curve = CubicSpline(Pctrs-median_phase, peaks)
+    curve = CubicSpline(Pctrs - median_phase, peaks)
     return curve, median_phase
 
 
@@ -266,22 +266,22 @@ def _phase_corrected_filtvals(phase, uncorrected, corrections):
 
     ph = np.hstack([0] + [c(0) for c in corrections])
     assert (ph[1:] > ph[:-1]).all()  # corrections should be sorted by PH
-    corr = np.zeros((NC+1, NP), dtype=float)
+    corr = np.zeros((NC + 1, NP), dtype=float)
     for i, c in enumerate(corrections):
-        corr[i+1] = c(0) - c(phase)
+        corr[i + 1] = c(0) - c(phase)
 
     # Now apply the appropriate correction (a linear interp between 2 neighboring values)
     corrected = uncorrected.copy()
     binnum = np.digitize(uncorrected, ph)
     for b in range(NC):
         # Don't correct binnum=0, which would be negative PH
-        use = (binnum == 1+b)
-        if b+1 == NC:  # For the last bin, extrapolate
-            use = (binnum >= 1+b)
+        use = (binnum == 1 + b)
+        if b + 1 == NC:  # For the last bin, extrapolate
+            use = (binnum >= 1 + b)
         if use.sum() == 0:
             continue
-        frac = (uncorrected[use]-ph[b])/(ph[b+1]-ph[b])
-        corrected[use] += frac*corr[b+1, use] + (1-frac)*corr[b, use]
+        frac = (uncorrected[use] - ph[b]) / (ph[b + 1] - ph[b])
+        corrected[use] += frac * corr[b + 1, use] + (1 - frac) * corr[b, use]
     return corrected
 
 
@@ -303,7 +303,7 @@ def _find_peaks_heuristic(phnorm):
     median_scale = np.median(phnorm)
 
     # First make histogram with bins = 0.2% of median PH
-    hist, bins = np.histogram(phnorm, 1000, [0, 2*median_scale])
+    hist, bins = np.histogram(phnorm, 1000, [0, 2 * median_scale])
     binctr = bins[1:] - 0.5 * (bins[1] - bins[0])
 
     # Scipy continuous wavelet transform
@@ -312,7 +312,7 @@ def _find_peaks_heuristic(phnorm):
     # A peak must contain 0.5% of the data or 500 events, whichever is more,
     # but the requirement is not more than 5% of data (for meager data sets)
     Ntotal = len(phnorm)
-    MinCountsInPeak = min(max(500, Ntotal//200), Ntotal//20)
+    MinCountsInPeak = min(max(500, Ntotal // 200), Ntotal // 20)
     pk2 = pk1[hist[pk1] > MinCountsInPeak]
 
     # Now take peaks from highest to lowest, provided they are at least 40 bins from any neighbor
@@ -321,7 +321,7 @@ def _find_peaks_heuristic(phnorm):
     peaks = [pk2[0]]
 
     for pk in pk2[1:]:
-        if (np.abs(peaks-pk) > 10).all():
+        if (np.abs(peaks - pk) > 10).all():
             peaks.append(pk)
     peaks.sort()
     return np.array(binctr[peaks])

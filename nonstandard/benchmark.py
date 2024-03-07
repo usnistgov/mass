@@ -46,7 +46,7 @@ def summarize_v1(data):
             ds._compute_peak_samplenumber()
 
         ds.p_timestamp[:] = ds.times[:]
-        ds.p_rowcount[:] = ds.rowcount[:]
+        ds.p_subframecount[:] = ds.subframecount[:]
         for idx in range(ds.nPulses):
             ptm, ptr = analyze_pretrig(ds.data[idx,ds.cut_pre:ds.nPresamples-ds.pretrigger_ignore_samples])
             ds.p_pretrig_mean[idx] = ptm

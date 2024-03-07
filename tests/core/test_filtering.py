@@ -75,7 +75,8 @@ class TestFilters:
             raise ValueError(f"filter_type='{filter_type}', should be 'ats' or '5lag'")
         self.verify_filters(self.data, filter_type)
 
-    def verify_filters(self, data, filter_type):
+    @staticmethod
+    def verify_filters(data, filter_type):
         "Check that the filters contain what we expect"
         expected = {"ats": 461.57, "5lag": 456.7}[filter_type]
         for ds in data:
@@ -114,7 +115,7 @@ class TestFilters:
         ds = data2.channel[1]
         filter2 = ds.filter
         assert filter_type == ds._filter_type
-        assert type(filter1) == type(filter2)
+        assert type(filter1) is type(filter2)
         if filter_type == "ats":
             for ds in self.data:
                 assert ds.filter.filt_aterms is not None
@@ -148,7 +149,8 @@ class TestFilters:
         ds.compute_ats_filter(f_3db=5000)
         assert not np.any(np.isnan(f))
 
-    def test_long_filter(self):
+    @staticmethod
+    def test_long_filter():
         """Be sure we can save and restore a long filter. See issue #208."""
         outfile = tempfile.TemporaryFile(suffix=".hdf5")
         with h5py.File(outfile, "w") as h:
@@ -169,7 +171,7 @@ class TestFilters:
             ds.average_pulse[:ds.nPresamples] = 0.0
             # ds.compute_ats_filter(f_3db=5000)
             aterms = np.zeros_like(ds.average_pulse)
-            aterms[ds.nPresamples+1] = 1.0
+            aterms[ds.nPresamples + 1] = 1.0
             model = np.vstack([ds.average_pulse, aterms]).T
             modelpeak = np.max(ds.average_pulse)
 
@@ -191,8 +193,8 @@ class TestFilters:
 
         # Test that filters actually have zero weight where they are supposed to.
         PREMAX, POSTMAX = 50, 200
-        for pre in [0, PREMAX//2, PREMAX]:
-            for post in [0, POSTMAX//2, POSTMAX]:
+        for pre in [0, PREMAX // 2, PREMAX]:
+            for post in [0, POSTMAX // 2, POSTMAX]:
                 ds.filter.compute(f_3db=5000, cut_pre=pre, cut_post=post)
                 f = ds.filter.filt_noconst
                 resultsA = np.dot(d, f)
@@ -212,31 +214,32 @@ class TestFilters:
 
         pulse = np.zeros((N, 1), dtype=float)
         pulse[:, 0] = ds.average_pulse[:]
-        noise = np.exp(-np.arange(N)*.01)
+        noise = np.exp(-np.arange(N) * .01)
         filterL = mass.ArrivalTimeSafeFilter(pulse, n_pre, noise_autocorr=noise, sample_time=dt)
 
-        for cut_pre in (0, n_pre//10, n_pre//4):
-            for cut_post in (0, (N-n_pre)//10, (N-n_pre)//4):
-                thispulse = pulse[cut_pre:N-cut_post]
-                filterS = mass.ArrivalTimeSafeFilter(thispulse, n_pre-cut_pre,
+        for cut_pre in (0, n_pre // 10, n_pre // 4):
+            for cut_post in (0, (N - n_pre) // 10, (N - n_pre) // 4):
+                thispulse = pulse[cut_pre:N - cut_post]
+                filterS = mass.ArrivalTimeSafeFilter(thispulse, n_pre - cut_pre,
                                                      noise_autocorr=noise, sample_time=dt)
                 filterS.compute()
                 fS = filterS.filt_noconst
 
                 filterL.compute(cut_pre=cut_pre, cut_post=cut_post)
-                fL = filterL.filt_noconst[cut_pre:N-cut_post]
+                fL = filterL.filt_noconst[cut_pre:N - cut_post]
                 assert np.allclose(fS, fL)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
-    def test_dc_insensitive(self):
+    @staticmethod
+    def test_dc_insensitive():
         """When f_3db or fmax applied, filter should not become DC-sensitive.
         Tests for issue #176."""
         nSamples = 100
         nPresamples = 50
-        nPost = nSamples-nPresamples
+        nPost = nSamples - nPresamples
 
         # Some fake data
-        pulse_like = np.append(np.zeros(nPresamples), np.linspace(nPost-1, 0, nPost))
+        pulse_like = np.append(np.zeros(nPresamples), np.linspace(nPost - 1, 0, nPost))
         deriv_like = np.append(np.zeros(nPresamples), -np.ones(nPost))
         model = np.column_stack((pulse_like, deriv_like))
 
@@ -254,21 +257,22 @@ class TestFilters:
             test_filter.compute(f_3db=None, fmax=None)
             std = np.median(np.abs(test_filter.filt_noconst))
             mean = test_filter.filt_noconst.mean()
-            assert mean < 1e-10*std, f"{test_filter.name} failed DC test w/o lowpass"
+            assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/o lowpass"
 
             test_filter.compute(f_3db=1e4, fmax=None)
             mean = test_filter.filt_noconst.mean()
-            assert mean < 1e-10*std, f"{test_filter.name} failed DC test w/ f_3db"
+            assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ f_3db"
 
             test_filter.compute(f_3db=None, fmax=1e4)
             mean = test_filter.filt_noconst.mean()
-            assert mean < 1e-10*std, f"{test_filter.name} failed DC test w/ fmax"
+            assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ fmax"
 
 
 class TestWhitener:
     """Test ToeplitzWhitener."""
 
-    def test_trivial(self):
+    @staticmethod
+    def test_trivial():
         """Be sure that the trivial whitener does nothing."""
         w = mass.ToeplitzWhitener([1.0], [1.0])  # the trivial whitener
         r = np.random.default_rng().standard_normal(100)
@@ -277,7 +281,8 @@ class TestWhitener:
         assert np.allclose(r, w.applyWT(r))
         assert np.allclose(r, w.solveWT(r))
 
-    def test_reversible(self):
+    @staticmethod
+    def test_reversible():
         """Use a nontrivial whitener, and make sure that inverse operations are inverses."""
         w = mass.ToeplitzWhitener([1.0, -1.7, 0.72], [1.0, .95])
         r = np.random.default_rng().standard_normal(100)
@@ -298,7 +303,8 @@ class TestWhitener:
         assert not np.allclose(r, w.applyWT(w.applyWT(r)))
         assert not np.allclose(r, w.solveWT(w.solveWT(r)))
 
-    def test_causal(self):
+    @staticmethod
+    def test_causal():
         """Make sure that the whitener and its inverse are causal,
         and that WT and its inverse anti-causal."""
         w = mass.ToeplitzWhitener([1.0, -1.7, 0.72], [1.0, .95])

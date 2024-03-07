@@ -4,8 +4,9 @@
 
 TARGET_ZIP = mass.zip
 TARGET_TAR = mass.tgz
-PYFILES = $(shell find mass -name "*.py")
-CYFILES = $(shell find mass -name "*.pyx")
+PYSCRIPTS = bin/hdf5print bin/ljh_merge bin/ljh_truncate
+PYFILES = $(shell find . -name "*.py") $(PYSCRIPTS)
+CYFILES = $(shell find . -name "*.pyx")
 FORMFILES := $(shell find mass -name "*_form_ui.py")
 
 .PHONY: all build clean clean_hdf5 test pep8 autopep8 lint ruff
@@ -43,7 +44,7 @@ autopep8: $(PEPFILES) Makefile
 
 lint: lint-report.txt
 lint-report.txt: $(PYFILES) Makefile
-	ruff check mass doc tests > $@
+	ruff check --preview mass doc tests > $@
 
 ruff:
-	ruff check mass doc tests
+	ruff check --preview mass doc tests $(PYSCRIPTS)

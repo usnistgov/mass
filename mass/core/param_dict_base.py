@@ -179,7 +179,8 @@ class PrmDictBase:
                 print(cmd)
                 exec(cmd, global_namespace, locals())
 
-    def dicts2namespace(self, namespace, dicts, overwrite=True):
+    @staticmethod
+    def dicts2namespace(namespace, dicts, overwrite=True):
         """Make namespace variables out of dict items."""
         # can be tuned in subclasses
         for d in dicts:
@@ -192,14 +193,16 @@ class PrmDictBase:
                     else:
                         namespace[key] = d[key]
 
-    def dicts2namespace2(self, namespace, dicts):
+    @staticmethod
+    def dicts2namespace2(namespace, dicts):
         """As dicts2namespace2, but use exec."""
         # can be tuned in subclasses
         for d in dicts:
             for key in d:
                 exec(f'{key}={repr(d[key])}', globals(), namespace)
 
-    def namespace2dicts(self, namespace, dicts):
+    @staticmethod
+    def namespace2dicts(namespace, dicts):
         """Update dicts from variables in a namespace."""
         keys = []    # all keys in namespace that are keys in dicts
         for key in namespace:

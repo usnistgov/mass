@@ -34,7 +34,7 @@ def process_file(prefix, cuts, do_filter=True):
     data.compute_noise()
     data.avg_pulses_auto_masks()
     if do_filter:
-        data.compute_filters(f_3db=10000)
+        data.compute_ats_filter(f_3db=10000)
         data.summarize_filters(std_energy=600)
         data.filter_data()
         data.drift_correct(forceNew=True)
@@ -62,6 +62,12 @@ class TestSummaries:
     def teardown_class(cls):
         cls.data.hdf5_file.close()
         cls.data.hdf5_noisefile.close()
+
+    def test_ext_trigger_reading(self):
+        _ = self.data.external_trigger_subframe_count
+        nt.assert_equal(self.data.subframe_divisions, 64)
+        ds = self.data.datasets[0]
+        nt.assert_equal(ds.subframe_divisions, 64)
 
     def test_summaries(self):
         nt.assert_allclose(self.data.datasets[0].p_peak_index, self.d['p_peak_index'])
@@ -93,11 +99,10 @@ class TestSummaries:
         nt.assert_allclose(ppd1, ppd2)
 
 
-class TestStoredFilters:
+def test_filters_in_old_hdf5_files():
     """Make sure we can read filters stored by MASS v0.7.0"""
 
-    def test_filters_in_old_hdf5_files(self):
-        fname = f"{ljhdir}/regress_mass_v0_7_0.hdf5"
-        # The following will error if cannot read pre-v0.7.1 filters.
-        data = mass.TESGroupHDF5(fname, read_only=True)
-        assert isinstance(data, mass.core.channel_group_hdf5_only.TESGroupHDF5)
+    fname = f"{ljhdir}/regress_mass_v0_7_0.hdf5"
+    # The following will error if cannot read pre-v0.7.1 filters.
+    data = mass.TESGroupHDF5(fname, read_only=True)
+    assert isinstance(data, mass.core.channel_group_hdf5_only.TESGroupHDF5)

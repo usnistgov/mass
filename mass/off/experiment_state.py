@@ -1,5 +1,5 @@
 import collections
-from typing import List, Dict, Union
+from typing import Union
 import mass
 import numpy as np
 
@@ -26,15 +26,16 @@ class ExperimentStateFile:
             if self.filename is None:
                 raise Exception("pass filename or datasetFilename or _parse=False")
             self.parse()
-        self.labelAliasesDict: Dict[str, str] = {}  # map unaliasedLabels to aliasedLabels
+        self.labelAliasesDict: dict[str, str] = {}  # map unaliasedLabels to aliasedLabels
         self._preventAliasState = False  # causes aliasState to raise an Exception when it wouldn't work as expected
 
-    def experimentStateFilenameFromDatasetFilename(self, datasetFilename):
-        basename, channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
-        return basename+"_experiment_state.txt"
+    @staticmethod
+    def experimentStateFilenameFromDatasetFilename(datasetFilename):
+        basename, _channum = mass.ljh_util.ljh_basename_channum(datasetFilename)
+        return basename + "_experiment_state.txt"
 
     def parse(self):
-        with open(self.filename, "r") as f:
+        with open(self.filename, "r", encoding="utf-8") as f:
             # if we call parse a second time, we want to add states rather than reparse the whole file
             f.seek(self.parse_start)
             lines = f.readlines()
@@ -114,7 +115,7 @@ class ExperimentStateFile:
             for k in statesDict.keys():
                 last_key = k
             s = statesDict[last_key]
-            s2 = slice(s.start, i0_unixnanos+len(unixnanos))  # set the slice from the start of the state to the last new record
+            s2 = slice(s.start, i0_unixnanos + len(unixnanos))  # set the slice from the start of the state to the last new record
             statesDict[k] = s2
             return statesDict
 
@@ -123,7 +124,7 @@ class ExperimentStateFile:
         # i0_unixnanos is how many records were alraedy indexed
         # inds is an np.array of the indices where the new states fit
         #   in with the new records
-        inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:])+i0_unixnanos
+        inds = np.searchsorted(unixnanos, self.unixnanos[i0_allLabels:]) + i0_unixnanos
         # the state that was active last time calcStatesDict was called may need special handling
         if len(statesDict.keys()) > 0 and len(newLabels) > 0:
             assert i0_allLabels > 0
@@ -137,10 +138,10 @@ class ExperimentStateFile:
             if label not in self.unaliasedLabels:
                 continue
             aliasedLabel = self.labelAliasesDict.get(label, label)
-            if i+1 >= len(inds):
-                s = slice(inds[i], len(unixnanos)+i0_unixnanos)
+            if i + 1 >= len(inds):
+                s = slice(inds[i], len(unixnanos) + i0_unixnanos)
             else:
-                s = slice(inds[i], inds[i+1])
+                s = slice(inds[i], inds[i + 1])
             if aliasedLabel in statesDict:
                 # this label is not unique; use a list of slices
                 v = statesDict[aliasedLabel]
@@ -149,7 +150,7 @@ class ExperimentStateFile:
                     statesDict[aliasedLabel] = [v, s]
                 elif isinstance(v, list):
                     # this label was previously not unique... append to the list of slices
-                    statesDict[aliasedLabel] = v+[s]
+                    statesDict[aliasedLabel] = v + [s]
                 else:
                     raise Exception("v should be a slice or list of slices, v is a {} for label={}, aliasedlabel={}".format(
                         type(v), label, aliasedLabel))
@@ -160,9 +161,9 @@ class ExperimentStateFile:
         return statesDict
 
     def __repr__(self):
-        return "ExperimentStateFile: "+self.filename
+        return "ExperimentStateFile: " + self.filename
 
-    def aliasState(self, unaliasedLabel: Union[str, List[str]], aliasedLabel: str) -> None:
+    def aliasState(self, unaliasedLabel: Union[str, list[str]], aliasedLabel: str) -> None:
         assert isinstance(aliasedLabel, str)
         if self._preventAliasState:
             raise Exception("call aliasState before calculating or re-calculating statesDict")
@@ -175,5 +176,5 @@ class ExperimentStateFile:
             raise Exception(f"invalid type for unaliasedLabel={unaliasedLabel}")
 
     @property
-    def labels(self) -> List[str]:
+    def labels(self) -> list[str]:
         return [self.labelAliasesDict.get(label, label) for label in self.unaliasedLabels]

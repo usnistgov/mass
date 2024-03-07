@@ -1,6 +1,17 @@
 ## Note on version numbers of Mass
 
-**0.8.1** September 2023-
+**0.8.2** February 23, 2024
+
+* Fix bug in reading certain external trigger files (issue 262).
+* Improve installation instructions in README (issue 261).
+* Parse `*external_trigger.bin` file for assumed row count (issue 263).
+* Add K-alpha lines of Sm, Gd, Tb, Dy, and Ho (issue 264).
+* Introduce the idea of subframe divisions to get timing info a rates faster than the frame rate for µMUX (issue 265).
+* Add Pr, Nd, and Eu K line shape models (issue 266).
+* Run ruff and pycodestyle until warnings are gone or disabled one-by-one (issue 267).
+
+
+**0.8.1** February 4, 2024
 
 * Fix bug in fits where E-response has exponential tails (issue 250). Ensure `tail_tau` has consistent meaning indepdenent of energy scale. So keV-scale lines like MnKAlpha have same `tail_tau` meaning as the MeV lines as used in TrueBq.
 * `GenericLineModel.guess` now requires `dph_de` as an argument. This allows the guessed `fwhm` value to be in eV as intended, rather than arbs. This may break some user code.

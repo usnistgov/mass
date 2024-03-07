@@ -10,8 +10,8 @@ from . import channel
 
 
 def hdf5jl_name_from_ljh_name(ljh_name):
-    b, ext = os.path.splitext(ljh_name)
-    return b+"_jl.hdf5"
+    b, _ext = os.path.splitext(ljh_name)
+    return b + "_jl.hdf5"
 
 
 def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=False,
@@ -24,7 +24,7 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
             print("REUSING THE EXISTING MASTER HDF5 FILE, %s" % h5master_fname)
             return h5master_fname
 
-    with h5py.File(h5master_fname, "a") as master_hdf5_file:
+    with h5py.File(h5master_fname, "a") as master_hdf5_file:  # noqa: PLR1702
         with h5py.File(hdf5_filenames[0], "r") as single_channel_file:
             # put the data where python mass expects it
             master_hdf5_file.attrs["nsamples"] = single_channel_file["samples_per_record"].value
@@ -32,7 +32,7 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
             master_hdf5_file.attrs["frametime"] = single_channel_file["filter/frametime"].value
         for h5fname in hdf5_filenames:
             i = h5fname.find("_chan")
-            channum = int(h5fname[i+5:-8])
+            channum = int(h5fname[i + 5:-8])
             try:
                 with h5py.File(h5fname, "r+") as single_channel_file:
                     if ("clean_exit_posix_timestamp_s" in single_channel_file
@@ -77,7 +77,7 @@ class TESGroupHDF5(channel_group.TESGroup):
                              "nPulses": len(grp["filt_value"]),
                              "channum": grp.attrs["channum"],
                              "timestamp_offset": 0,
-                             "filename": "from HDF5 file: "+self.hdf5_file.filename}
+                             "filename": "from HDF5 file: " + self.hdf5_file.filename}
             dset_list.append(channel.MicrocalDataSet(pulserec_dict, tes_group=self, hdf5_group=grp))
 
         # Sort datasets by channel number
@@ -93,7 +93,7 @@ class TESGroupHDF5(channel_group.TESGroup):
         for ds in self:
             grp = ds.hdf5_group
             if "timestamp_posix_usec" in grp:
-                ds.p_timestamp = grp["timestamp_posix_usec"][:]*1e-6
+                ds.p_timestamp = grp["timestamp_posix_usec"][:] * 1e-6
 
     def __repr__(self):
         return f"{self.__class__.__name__:s}(hdf5_file={os.path.realpath(self.hdf5_file.filename):s})"

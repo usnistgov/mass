@@ -52,17 +52,17 @@ def plot_as_stepped_hist(axis, data, bins, **kwargs):
             the bin centers.
         **kwargs: All other keyword arguments will be passed to axis.plot().
     """
-    if len(bins) == len(data)+1:
+    if len(bins) == len(data) + 1:
         bin_edges = bins
-        x = np.zeros(2*len(bin_edges), dtype=float)
+        x = np.zeros(2 * len(bin_edges), dtype=float)
         x[0::2] = bin_edges
         x[1::2] = bin_edges
     else:
-        x = np.zeros(2+2*len(bins), dtype=float)
-        dx = bins[1]-bins[0]
-        x[0:-2:2] = bins-dx*.5
-        x[1:-2:2] = bins-dx*.5
-        x[-2:] = bins[-1]+dx*.5
+        x = np.zeros(2 + 2 * len(bins), dtype=float)
+        dx = bins[1] - bins[0]
+        x[0:-2:2] = bins - dx * .5
+        x[1:-2:2] = bins - dx * .5
+        x[-2:] = bins[-1] + dx * .5
 
     y = np.zeros_like(x)
     y[1:-1:2] = data
@@ -86,18 +86,18 @@ def plot_stepped_hist_poisson_errors(axis, counts, bin_ctrs, scale=1.0, offset=0
         offset: Plot counts*scale+offset if you need to convert counts to some physical units.
         **kwargs: All other keyword arguments will be passed to axis.plot().
     """
-    if len(bin_ctrs) == len(counts)+1:
-        bin_ctrs = 0.5*(bin_ctrs[1:]+bin_ctrs[:-1])
+    if len(bin_ctrs) == len(counts) + 1:
+        bin_ctrs = 0.5 * (bin_ctrs[1:] + bin_ctrs[:-1])
     elif len(bin_ctrs) != len(counts):
         raise ValueError("bin_ctrs must be either the same length as counts, or 1 longer.")
-    smooth_counts = savitzky_golay(counts*scale, 7, 4)
-    errors = np.sqrt(counts)*scale
-    fill_lower = smooth_counts-errors
-    fill_upper = smooth_counts+errors
+    smooth_counts = savitzky_golay(counts * scale, 7, 4)
+    errors = np.sqrt(counts) * scale
+    fill_lower = smooth_counts - errors
+    fill_upper = smooth_counts + errors
     fill_lower[fill_lower < 0] = 0
     fill_upper[fill_upper < 0] = 0
-    axis.fill_between(bin_ctrs, fill_lower+offset, fill_upper+offset, alpha=0.25, **kwargs)
-    plot_as_stepped_hist(axis, counts*scale+offset, bin_ctrs, **kwargs)
+    axis.fill_between(bin_ctrs, fill_lower + offset, fill_upper + offset, alpha=0.25, **kwargs)
+    plot_as_stepped_hist(axis, counts * scale + offset, bin_ctrs, **kwargs)
 
 
 def savitzky_golay(y, window_size, order, deriv=0):
@@ -158,15 +158,15 @@ def savitzky_golay(y, window_size, order, deriv=0):
         raise TypeError("window_size size must be a positive odd number")
     if window_size < order + 2:
         raise TypeError("window_size is too small for the polynomials order")
-    order_range = range(order+1)
-    half_window = (window_size-1) // 2
+    order_range = range(order + 1)
+    half_window = (window_size - 1) // 2
     # precompute coefficients
-    b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
+    b = np.asmatrix([[k**i for i in order_range] for k in range(-half_window, half_window + 1)])
     m = np.linalg.pinv(b).A[deriv]
     # pad the signal at the extremes with
     # values taken from the signal itself
-    firstvals = y[0] - np.abs(y[1:half_window+1][::-1] - y[0])
-    lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
+    firstvals = y[0] - np.abs(y[1:half_window + 1][::-1] - y[0])
+    lastvals = y[-1] + np.abs(y[-half_window - 1:-1][::-1] - y[-1])
     y = np.concatenate((firstvals, y, lastvals))
     return np.convolve(m, y, mode='valid')
 
@@ -187,13 +187,13 @@ def find_range_randomly(A, nl, q=1):
         msg = "The number of power iterations q=%d needs to be at least 0" % q
         raise ValueError(msg)
     A = np.asarray(A)
-    m, n = A.shape
+    _m, n = A.shape
     Omega = rng.standard_normal((n, nl))
     Y = np.dot(A, Omega)
     for _ in range(q):
         Y = np.dot(A.T, Y)
         Y = np.dot(A, Y)
-    Q, R = np.linalg.qr(Y)
+    Q, _R = np.linalg.qr(Y)
     return Q
 
 

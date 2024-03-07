@@ -16,7 +16,7 @@ import os
 import shutil
 import mass
 from mass.core.ljh_util import filename_glob_expand
-from mass.core.ljh_modify import LJHModify, ljh_append_traces
+from mass.core.ljh_modify import ljh_append_traces
 
 
 def merge(out_path, filenames, overwrite):
@@ -83,7 +83,7 @@ def main():
     channum = f.channum
 
     out_dir = args.outdir
-    if out_dir == "":
+    if not out_dir:
         out_dir = os.path.split(filenames[0])[0]
     out_path = os.path.join(out_dir, f"merged_chan{channum}.ljh")
 

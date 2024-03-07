@@ -19,6 +19,9 @@ ${MASS_HOME}/mass/calibration/nist_xray_data.dat):
 J. Fowler, NIST
 February 2014
 """
+import os
+import urllib
+import pylab as plt
 
 ELEMENTS = ('', 'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg',
             'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr',
@@ -43,7 +46,6 @@ class NISTXrayDBFile:
         self.lines = {}
         self.alllines = set()
 
-        import os
         if not filenames:
             path = os.path.split(__file__)[0]
             filenames = [os.path.join(path, df) for df in self.DEFAULT_FILENAMES]
@@ -51,7 +53,7 @@ class NISTXrayDBFile:
         self.loaded_filenames = []
         for filename in filenames:
             try:
-                fp = open(filename, "r")
+                fp = open(filename, "r", encoding="utf-8")
             except OSError:
                 print("'%s' is not a readable file with X-ray database info! Continuing..." % filename)
                 continue
@@ -134,7 +136,7 @@ class NISTXrayLine:
         if column_defs is None:
             column_defs = self.DEFAULT_COLUMN_DEFS
         for name, colrange in column_defs.items():
-            a = colrange[0]-1
+            a = colrange[0] - 1
             b = colrange[1]
             self.__dict__[name] = textline[a:b].rstrip()
         self.peak = float(self.peak)
@@ -150,7 +152,6 @@ class NISTXrayLine:
 
 
 def plot_line_uncertainties():
-    import pylab as plt
     db = NISTXrayDBFile()
     transitions = ('KL3', 'KL2', 'KM3', 'KM5', 'L3M5', 'L3M4', 'L2M4', 'L3N5', 'L2N4', 'L1M3', 'L3N7', 'L3M1')
     titles = {
@@ -173,11 +174,11 @@ def plot_line_uncertainties():
     NX, NY = 3, 4
     plt.clf()
     for i, tr in enumerate(transitions):
-        axes[i] = plt.subplot(NY, NX, i+1)
+        axes[i] = plt.subplot(NY, NX, i + 1)
         plt.loglog()
         plt.grid(True)
         plt.title(titles[tr])
-        if i >= NX*(NY-1):
+        if i >= NX * (NY - 1):
             plt.xlabel("Line energy (eV)")
         if i % NX == 0:
             plt.ylabel("Line uncertainty (eV)")
@@ -195,7 +196,6 @@ def plot_line_uncertainties():
 
 def plot_line_energies():
     db = NISTXrayDBFile()
-    import pylab as plt
     plt.clf()
     cm = plt.cm.nipy_spectral
     transitions = ('KL2', 'KL3', 'KM5', 'KM3', 'KM2', 'L3M5', 'L3M4', 'L3M1', 'L2M4', 'L2N4', 'L3N5',
@@ -204,7 +204,7 @@ def plot_line_energies():
         lines = db.get_lines_by_type(linetype)
         z = [ATOMIC_NUMBERS[line.element] for line in lines]
         e = [line.peak for line in lines]
-        plt.loglog(z, e, 'o-', color=cm(float(i)/len(transitions)), label=linetype)
+        plt.loglog(z, e, 'o-', color=cm(float(i) / len(transitions)), label=linetype)
     plt.legend(loc='upper left')
     plt.xlim([6, 100])
     plt.grid()
@@ -233,9 +233,8 @@ def _NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
     get = f'{form}{joined_args}&{joined_lines}'
     print('Grabbing %s' % get)
 
-    import urllib
     page = urllib.urlopen(get)
-    fp = open(savefile, "w")
+    fp = open(savefile, "w", encoding="utf-8")
     fp.writelines(page)
     fp.close()
 

@@ -74,9 +74,9 @@ class PowerSpectrum:
         """Sets up to estimate PSD at m+1 frequencies (counting DC) given
         data segments of length 2m.  Optional dt is the time step Delta"""
         self.m = m
-        self.m2 = 2*m
+        self.m2 = 2 * m
         self.nsegments = 0
-        self.specsum = np.zeros(m+1, dtype=float)
+        self.specsum = np.zeros(m + 1, dtype=float)
         self.dt = dt
         if dt is None:
             self.dt = 1.0
@@ -107,27 +107,27 @@ class PowerSpectrum:
                 w = window(self.m2)
             except TypeError:
                 w = np.array(window)
-            wksp = w*data
+            wksp = w * data
             sum_window = (w**2).sum()
 
-        scale_factor = 2./(sum_window*self.m2)
+        scale_factor = 2. / (sum_window * self.m2)
         if True:  # we want real units
-            scale_factor *= self.dt*self.m2
+            scale_factor *= self.dt * self.m2
         wksp = np.fft.rfft(wksp)
 
         # The first line adds 2x too much to the first/last bins.
         ps = np.abs(wksp)**2
-        self.specsum += scale_factor*ps
+        self.specsum += scale_factor * ps
         self.nsegments += 1
 
     def addLongData(self, data, window=None):
         """Process a long vector of data as non-overlapping segments of length 2m."""
         nt = len(data)
-        nk = nt//self.m2
+        nk = nt // self.m2
         for k in range(nk):
-            noff = k*self.m2
+            noff = k * self.m2
             PowerSpectrum.addDataSegment(self,
-                                         data[noff:noff+self.m2],
+                                         data[noff:noff + self.m2],
                                          window=window)
 
     def spectrum(self, nbins=None):
@@ -137,11 +137,11 @@ class PowerSpectrum:
         if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
 
-        newbin = np.asarray(0.5+np.arange(self.m+1, dtype=float)/(self.m+1)*nbins, dtype=int)
-        result = np.zeros(nbins+1, dtype=float)
-        for i in range(nbins+1):
+        newbin = np.asarray(0.5 + np.arange(self.m + 1, dtype=float) / (self.m + 1) * nbins, dtype=int)
+        result = np.zeros(nbins + 1, dtype=float)
+        for i in range(nbins + 1):
             result[i] = self.specsum[newbin == i].mean()
-        return result/self.nsegments
+        return result / self.nsegments
 
     def autocorrelation(self):
         """Return the autocorrelation (the DFT of this power spectrum)"""
@@ -153,9 +153,9 @@ class PowerSpectrum:
             nbins = self.m
         if nbins > self.m:
             raise ValueError("Cannot rebin into more than m=%d bins" % self.m)
-        return np.arange(nbins+1, dtype=float)/(2*self.dt*nbins)
-    
-    def plot(self, axis=None, arb_to_unit_scale_and_label=(1,"arb"), sqrt_psd=True, **plotkwarg):
+        return np.arange(nbins + 1, dtype=float) / (2 * self.dt * nbins)
+
+    def plot(self, axis=None, arb_to_unit_scale_and_label=(1, "arb"), sqrt_psd=True, **plotkwarg):
         if axis is None:
             plt.figure()
             axis = plt.gca()
@@ -167,7 +167,7 @@ class PowerSpectrum:
             axis.set_ylabel(f"Amplitude Spectral Density ({unit_label}$^2$ Hz$^{{-1}}$)")
         else:
             axis.plot(freq, psd, **plotkwarg)
-            axis.set_ylabel(f"Power Spectral Density ({unit_label}$/\sqrt{{Hz}}$)")
+            axis.set_ylabel(f"Power Spectral Density ({unit_label}$/\\sqrt{{Hz}}$)")
         plt.loglog()
         axis.grid()
         axis.set_xlabel("Frequency (Hz)")
@@ -201,15 +201,15 @@ class PowerSpectrumOverlap(PowerSpectrum):
         """Process a long vector of data as overlapping segments of
         length 2m."""
         nt = len(data)
-        nk = (nt-1)//self.m
+        nk = (nt - 1) // self.m
         if nk > 1:
-            delta_el = (nt-self.m2)/(nk-1.0)
+            delta_el = (nt - self.m2) / (nk - 1.0)
         else:
             delta_el = 0.0
         for k in range(nk):
-            noff = int(k*delta_el+0.5)
+            noff = int(k * delta_el + 0.5)
             PowerSpectrum.addDataSegment(self,
-                                         data[noff:noff+self.m2],
+                                         data[noff:noff + self.m2],
                                          window=window)
 
 # Commonly used window functions
@@ -222,7 +222,7 @@ def bartlett(n):
 
 def welch(n):
     """A Welch window (parabolic) of length n"""
-    return 1 - (2*np.arange(n, dtype=float)/(n - 1.) - 1)**2
+    return 1 - (2 * np.arange(n, dtype=float) / (n - 1.) - 1)**2
 
 
 def hann(n):
@@ -237,21 +237,22 @@ def hamming(n):
     """A Hamming window (0.08 + 0.92*sine-squared) of length n"""
     return np.hamming(n)
 
+
 # Convenience functions
 def autocorrelation_broken_from_pulses(noise_pulses):
     """noise_pulses[:,0] is the first pulse"""
     nsamples, npulses = noise_pulses.shape
-    records_used = samples_used = 0
     ac = np.zeros(nsamples, dtype=float)
 
     for i in range(npulses):
-        pulse = noise_pulses[:,i]
+        pulse = noise_pulses[:, i]
         pulse -= pulse.mean()
-        ac += np.correlate(pulse, pulse, 'full')[nsamples-1:]
+        ac += np.correlate(pulse, pulse, 'full')[nsamples - 1:]
 
     ac /= npulses
     ac /= nsamples - np.arange(nsamples, dtype=float)
     return ac
+
 
 def computeSpectrum(data, segfactor=1, dt=None, window=None):
     """Convenience function to compute the power spectrum of a single data array.
@@ -273,20 +274,20 @@ def computeSpectrum(data, segfactor=1, dt=None, window=None):
     """
 
     N = len(data)
-    M = N//(2*segfactor)
+    M = N // (2 * segfactor)
     try:
-        window = window(2*M)  # precompute
+        window = window(2 * M)  # precompute
     except TypeError:
         window = None
 
     if segfactor == 1:
         spec = PowerSpectrum(M, dt=dt)
         # Ensure that the datasegment has even length
-        spec.addDataSegment(data[:2*(len(data)//2)], window=window)
+        spec.addDataSegment(data[:2 * (len(data) // 2)], window=window)
     else:
         spec = PowerSpectrumOverlap(M, dt=dt)
-        for i in range(2*segfactor-1):
-            spec.addDataSegment(data[i*M:(i+1)*M], window=window)
+        for i in range(2 * segfactor - 1):
+            spec.addDataSegment(data[i * M:(i + 1) * M], window=window)
 
     if dt is None:
         return spec.spectrum()

@@ -9,11 +9,13 @@ from pytest import approx
 import numpy as np
 import mass
 
+# ruff: noqa: PLR0917
+
 rng = np.random.default_rng(34234)
 
 
 def weightavg(a, w):
-    return (a*w).sum() / w.sum()
+    return (a * w).sum() / w.sum()
 
 
 class Test_ratio_weighted_averages:
@@ -23,13 +25,13 @@ class Test_ratio_weighted_averages:
     @pytest.fixture(autouse=True)
     def set_up_weighted_average_tests(self):
         self.counts = np.array([
-            0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  1,  0,  0,
-            0,  0,  1,  1,  0,  2,  0,  2,  1,  1,  3,  2,  2,  6,  2,  5,  3,
-            6,  5, 15, 17,  9, 18, 12,  9, 17, 17, 14, 11, 22, 28, 21, 16, 14,
-            19, 16, 14, 24, 16, 7, 15,  8,  5, 15, 12, 13,  6,  8,  6,  6,  7,
-            7,  4,  2,  3,  5,  2,  1,  1,  1,  1,  0,  0,  1,  2,  0,  0,  0,
-            0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0])
-        self.x = np.linspace(-1.98, 1.98, 100)+10
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+            0, 0, 1, 1, 0, 2, 0, 2, 1, 1, 3, 2, 2, 6, 2, 5, 3,
+            6, 5, 15, 17, 9, 18, 12, 9, 17, 17, 14, 11, 22, 28, 21, 16, 14,
+            19, 16, 14, 24, 16, 7, 15, 8, 5, 15, 12, 13, 6, 8, 6, 6, 7,
+            7, 4, 2, 3, 5, 2, 1, 1, 1, 1, 0, 0, 1, 2, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        self.x = np.linspace(-1.98, 1.98, 100) + 10
         line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line(
             "testline", energy=10, lorentzian_fwhm=0.0, intrinsic_sigma=0.0)
         line.linetype = "Gaussian"
@@ -85,21 +87,21 @@ class Test_gaussian_basic:
         n_signal = rng.poisson(N)
         n_bg = rng.poisson(expected_bg)
 
-        data = rng.standard_normal(size=n_signal)*fwhm/np.sqrt(8*np.log(2))
+        data = rng.standard_normal(size=n_signal) * fwhm / np.sqrt(8 * np.log(2))
         if n_bg > 0:
-            data = np.hstack((data, rng.uniform(size=n_bg)*4.0-2.0))
-        counts, _ = np.histogram(data, np.linspace(-2, 2, nbins+1))
+            data = np.hstack((data, rng.uniform(size=n_bg) * 4.0 - 2.0))
+        counts, _ = np.histogram(data, np.linspace(-2, 2, nbins + 1))
         self.sum = counts.sum()
-        self.mean = (counts*self.x).sum()/counts.sum()
-        self.var = (counts*self.x**2).sum()/counts.sum() - self.mean**2
+        self.mean = (counts * self.x).sum() / counts.sum()
+        self.var = (counts * self.x**2).sum() / counts.sum() - self.mean**2
         self.counts = counts
 
-        self.true_params = (fwhm, self.mean, N/fwhm*4.0/nbins/1.06, expected_bg*1.0/nbins, 0, 0, 25)
+        self.true_params = (fwhm, self.mean, N / fwhm * 4.0 / nbins / 1.06, expected_bg * 1.0 / nbins, 0, 0, 25)
         self.guess = np.array([1.09, 0, 17.7, 0.0, 0.0, 0, 25])
 
     def run_several_fits(self, N=1000, nfits=10, fwhm=1.0, ctr=0.0, nbins=100, N_bg=10):
-        bin_edges = np.linspace(-2, 2, nbins+1)+ctr
-        self.x = 0.5*(bin_edges[1]-bin_edges[0]) + bin_edges[:-1]
+        bin_edges = np.linspace(-2, 2, nbins + 1) + ctr
+        self.x = 0.5 * (bin_edges[1] - bin_edges[0]) + bin_edges[:-1]
 
         for _ in range(nfits):
             self.generate_data(N, fwhm, ctr, nbins, N_bg)
@@ -113,15 +115,15 @@ class Test_gaussian_basic:
             params["bg_slope"].set(0, vary=False)
             result = self.model.fit(self.counts, params, bin_centers=self.x)
 
-            assert result.params["fwhm"] == approx(fwhm, rel=5/N**0.5)
-            assert result.params["peak_ph"] == approx(ctr, abs=3*fwhm/N**0.5)
-            assert result.params["integral"] == approx(N, abs=3*N**0.5)
-            assert result.params["fwhm"].stderr < 2*fwhm/N**0.5
-            assert result.params["peak_ph"].stderr < 2*fwhm/N**0.5
-            assert result.params["integral"].stderr < 2*N**0.5
+            assert result.params["fwhm"] == approx(fwhm, rel=5 / N**0.5)
+            assert result.params["peak_ph"] == approx(ctr, abs=3 * fwhm / N**0.5)
+            assert result.params["integral"] == approx(N, abs=3 * N**0.5)
+            assert result.params["fwhm"].stderr < 2 * fwhm / N**0.5
+            assert result.params["peak_ph"].stderr < 2 * fwhm / N**0.5
+            assert result.params["integral"].stderr < 2 * N**0.5
             if N_bg > 0:
-                assert result.params["background"] == approx(N_bg/nbins, abs=10*N**0.5)
-                assert result.params["background"].stderr < 10*N**0.5
+                assert result.params["background"] == approx(N_bg / nbins, abs=10 * N**0.5)
+                assert result.params["background"].stderr < 10 * N**0.5
 
     def test_gauss(self):
         "Run 30 fits apiece with 3 background levels; verify consistent parameters"
@@ -146,20 +148,20 @@ class Test_Gaussian:
     @pytest.fixture(autouse=True)
     def setUp(self):
         sigma = 1.5
-        self.fwhm = sigma*(8*np.log(2))**0.5
+        self.fwhm = sigma * (8 * np.log(2))**0.5
         self.center = 15
         self.integral = 1000
         Nbg = 0
         self.x = np.linspace(10, 20, 200)
-        self.y = np.exp(-0.5*(self.x-self.center)**2/(sigma**2))
-        self.y *= self.integral/self.y.sum()
+        self.y = np.exp(-0.5 * (self.x - self.center)**2 / (sigma**2))
+        self.y *= self.integral / self.y.sum()
 
         line = mass.fluorescence_lines.SpectralLine.quick_monochromatic_line("testline", self.center, 0, 0)
         line.linetype = "Gaussian"
         self.model = line.model()
         self.params = self.model.guess(self.y, bin_centers=self.x, dph_de=1)
-        self.params["fwhm"].set(2.3548*sigma)
-        self.params["background"].set(Nbg/len(self.y))
+        self.params["fwhm"].set(2.3548 * sigma)
+        self.params["background"].set(Nbg / len(self.y))
 
     def test_fit(self):
         result = self.model.fit(self.y, self.params, bin_centers=self.x)
@@ -171,7 +173,7 @@ class Test_Gaussian:
 
     def test_fit_offset(self):
         self.params["peak_ph"].set(0)
-        result = self.model.fit(self.y, self.params, bin_centers=self.x-self.center)
+        result = self.model.fit(self.y, self.params, bin_centers=self.x - self.center)
         param = result.best_values
         assert result.success
         assert param["fwhm"] == approx(self.fwhm, abs=1)
@@ -190,12 +192,12 @@ class Test_Gaussian:
 
     def test_negative_background_issue126(self):
         """This fit gives negative BG in all bins before the fix of issue #126."""
-        obs = np.exp(-0.5*(self.x-self.center)**2/(self.fwhm/2.3548)**2) + 0
+        obs = np.exp(-0.5 * (self.x - self.center)**2 / (self.fwhm / 2.3548)**2) + 0
         result = self.model.fit(obs, self.params, bin_centers=self.x)
         param = result.best_values
         assert result.success
         bg_bin0 = param["background"]
-        bg_binEnd = bg_bin0 + (len(self.x)-1)*param["bg_slope"]
+        bg_binEnd = bg_bin0 + (len(self.x) - 1) * param["bg_slope"]
         assert bg_bin0 >= 0
         assert bg_binEnd >= 0
 
@@ -210,21 +212,21 @@ class TestMnKA_fitter:
 
         values = line.rvs(size=n, instrument_gaussian_fwhm=0, rng=self.rng)
         # add Gaussian noise to each x-ray energy
-        sigma = resolution/2.3548
-        values += sigma*self.rng.standard_normal(size=n)
+        sigma = resolution / 2.3548
+        values += sigma * self.rng.standard_normal(size=n)
 
         tweak = self.rng.uniform(0, 1, size=n) < tailfrac
         ntweak = tweak.sum()
         if ntweak > 0:
-            values[tweak] -= self.rng.standard_exponential(size=ntweak)*tailtau
+            values[tweak] -= self.rng.standard_exponential(size=ntweak) * tailtau
         values += shift_peak_ev
 
         # histogram
         counts, _ = np.histogram(values, bin_edges)
         if bg > 0:
             counts += rng.poisson(lam=bg, size=len(counts))
-        bin_width = bin_edges[1]-bin_edges[0]
-        bin_centers = 0.5*bin_width + bin_edges[:-1]
+        bin_width = bin_edges[1] - bin_edges[0]
+        bin_centers = 0.5 * bin_width + bin_edges[:-1]
         params = model.guess(counts, bin_centers=bin_centers, dph_de=1)
         if vary_tail:
             params["tail_frac"].set(.1, vary=True)
@@ -237,11 +239,11 @@ class TestMnKA_fitter:
             assert result.redchi < 1.5, "redcued chi squared too high for good fit"
             assert result.redchi > 0.5, "reducec chi squared too low for good fit"
         expect = {
-            "fwhm": (2.516, 3.73*resolution*n**-0.5),
-            "peak_ph": (line.peak_energy+shift_peak_ev, 3.3*n**-0.5),
+            "fwhm": (2.516, 3.73 * resolution * n**-0.5),
+            "peak_ph": (line.peak_energy + shift_peak_ev, 3.3 * n**-0.5),
             "integral": (n, n**0.5),
             "bg_slope": (0, 0.5),
-            "background": (bg, 60*n**-0.5),
+            "background": (bg, 60 * n**-0.5),
         }
         for param_name, (expected_value, expected_error) in expect.items():
             inflated_error = expected_error
@@ -251,9 +253,9 @@ class TestMnKA_fitter:
                 inflated_error *= 10
 
             if not vary_bg_slope and not param_name.startswith("b"):
-                assert expected_value == approx(result.params[param_name].value, abs=2*inflated_error)
+                assert expected_value == approx(result.params[param_name].value, abs=2 * inflated_error)
             if not vary_tail and not vary_bg_slope and not param_name.startswith("b"):
-                assert expected_error == approx(result.params[param_name].stderr, abs=0.5*inflated_error)
+                assert expected_error == approx(result.params[param_name].stderr, abs=0.5 * inflated_error)
 
     def test_MnKA_lmfit(self):
         self.rng = np.random.default_rng(154)
@@ -278,7 +280,7 @@ def test_MnKA_float32():
     # bin_edges will be float32 b/c e32 is.
     sim, bin_edges = np.histogram(e32, 120, [5865, 5925])
     binsize = bin_edges[1] - bin_edges[0]
-    bctr = bin_edges[:-1] + 0.5*binsize
+    bctr = bin_edges[:-1] + 0.5 * binsize
     params = model.guess(sim, bin_centers=bctr, dph_de=1)
     params["peak_ph"].set(value=5899)
     result = model.fit(sim, params, bin_centers=bctr)
@@ -296,11 +298,11 @@ def test_MnKA_narrowbins():
     energies = line.rvs(size=N, instrument_gaussian_fwhm=4.0, rng=rng)  # draw from the distribution
 
     for SCALE in (0.1, 1, 10.):
-        sim, bin_edges = np.histogram(energies*SCALE, 60, [5865*SCALE, 5925*SCALE])
+        sim, bin_edges = np.histogram(energies * SCALE, 60, [5865 * SCALE, 5925 * SCALE])
         binsize = bin_edges[1] - bin_edges[0]
-        bctr = bin_edges[:-1] + 0.5*binsize
+        bctr = bin_edges[:-1] + 0.5 * binsize
         params = model.guess(sim, bin_centers=bctr, dph_de=1)
-        params["peak_ph"].set(value=5899*SCALE)
+        params["peak_ph"].set(value=5899 * SCALE)
         _ = model.fit(sim, params, bin_centers=bctr)
         # If the above never errors, then problem solved.
 
@@ -313,37 +315,37 @@ def test_integral_parameter():
     Nsignal = 10000
     rng = np.random.default_rng(3038)
     sig = line.rvs(Nsignal, instrument_gaussian_fwhm=5, rng=rng)
-    bg = rng.uniform(5850, 5950, 100*bgperev)
+    bg = rng.uniform(5850, 5950, 100 * bgperev)
     samples = np.hstack((bg, sig))
     for nbins in (100, 200, 300):
         s, b = np.histogram(samples, nbins, [5850, 5950])
-        e = b[:-1] + 0.5*(b[1]-b[0])
+        e = b[:-1] + 0.5 * (b[1] - b[0])
 
         model = line.model()
         params = model.guess(s, bin_centers=e, dph_de=1)
         result = model.fit(s, params, bin_centers=e)
         integral = result.best_values["integral"]
-        assert integral == approx(Nsignal, abs=3*np.sqrt(len(samples)))
+        assert integral == approx(Nsignal, abs=3 * np.sqrt(len(samples)))
 
         # Now check that the integral still works even when dph_de = 2
         if nbins > 100:  # only need to check once
             continue
         dph_de = 2
-        rescaled_e = e*dph_de
+        rescaled_e = e * dph_de
         params = model.guess(s, bin_centers=rescaled_e, dph_de=1)
         # here we're giving a bad value for dph_de on purpose, the integral should remain unchanged
         result = model.fit(s, params, bin_centers=rescaled_e)
         integral = result.best_values["integral"]
-        assert integral == approx(Nsignal, abs=3*np.sqrt(len(samples)))
+        assert integral == approx(Nsignal, abs=3 * np.sqrt(len(samples)))
 
         # And check that integral _times QE_ = Nsignal for a nontrivial QE model.
         QE = 0.4
-        def flat_qemodel(e): return QE+np.zeros_like(e)
+        def flat_qemodel(e): return QE + np.zeros_like(e)
         model = line.model(qemodel=flat_qemodel)
         params = model.guess(s, bin_centers=e, dph_de=1)
         result = model.fit(s, params, bin_centers=e)
         integral = result.best_values["integral"]
-        assert integral*QE == approx(Nsignal, abs=3*np.sqrt(len(samples)))
+        assert integral * QE == approx(Nsignal, abs=3 * np.sqrt(len(samples)))
 
 
 class Test_Composites_lmfit:
@@ -380,7 +382,7 @@ class Test_Composites_lmfit:
         resolution = 4.0
         n1 = 10000
         n2 = 20000
-        self.n = n1+n2
+        self.n = n1 + n2
         self.line1 = mass.spectrum_classes['dummy1']()
         self.line2 = mass.spectrum_classes['dummy2']()
         self.nominal_separation = self.line2.nominal_peak_energy - self.line1.nominal_peak_energy
@@ -389,7 +391,7 @@ class Test_Composites_lmfit:
         self.counts1, _ = np.histogram(values1, bin_edges)
         self.counts2, _ = np.histogram(values2, bin_edges)
         self.counts = self.counts1 + self.counts2
-        self.bin_centers = 0.5*(bin_edges[1:]+bin_edges[:-1])
+        self.bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
 
     def test_FitToModelWithoutPrefix(self):
         model1_noprefix = self.line1.model()
@@ -489,13 +491,13 @@ def test_issue_125():
     If this returns, then consider that a passing test."""
 
     e = np.linspace(5870.25, 5909.25, 80)
-    e = e[:-1] + 0.5*(e[1]-e[0])
+    e = e[:-1] + 0.5 * (e[1] - e[0])
     contents = np.array([
-        36,  49,  39,  41,  46,  46,  42,  42,  46,  52,  51,  53,  54,  48,  58,  46,  57,  51,
-        61,   68,  63,  68,  73,  79,  66,  84,  78,  94,  84,  84,  74,  85,  76,  81,  83,  84,
-        100,  95,  93,  82,  74,  83,  93, 102,  98,  79, 100, 113,  95,  88, 104,  94,  95, 110,
-        112,  81, 106, 104, 110,  97, 105,  95, 103,  97,  95, 103,  84,  97,  79,  85,  84,  87,
-        80,   71,  77,  89,  83,  81,  59])
+        36, 49, 39, 41, 46, 46, 42, 42, 46, 52, 51, 53, 54, 48, 58, 46, 57, 51,
+        61, 68, 63, 68, 73, 79, 66, 84, 78, 94, 84, 84, 74, 85, 76, 81, 83, 84,
+        100, 95, 93, 82, 74, 83, 93, 102, 98, 79, 100, 113, 95, 88, 104, 94, 95, 110,
+        112, 81, 106, 104, 110, 97, 105, 95, 103, 97, 95, 103, 84, 97, 79, 85, 84, 87,
+        80, 71, 77, 89, 83, 81, 59])
     line = mass.MnKAlpha
     model = line.model()
     params = model.guess(contents, bin_centers=e, dph_de=1)
@@ -522,13 +524,13 @@ def test_tail_tau_behaves_same_vs_energy_scale():
     all energy parameters equally"""
 
     def get_spectrum_with_tail(escale):
-        peak_ph = 6000*escale
+        peak_ph = 6000 * escale
         model = mass.get_model(peak_ph, has_tails=True)
         params = model.make_params()
-        params["fwhm"].set(2*escale)
-        params["tail_tau"].set(30*escale)
+        params["fwhm"].set(2 * escale)
+        params["tail_tau"].set(30 * escale)
         params["tail_frac"].set(0.5)
-        bin_centers = np.arange(5900, 6100, 1)*escale
+        bin_centers = np.arange(5900, 6100, 1) * escale
         return model.eval(params=params, bin_centers=bin_centers)
 
     spect1 = get_spectrum_with_tail(escale=1)
@@ -538,11 +540,11 @@ def test_tail_tau_behaves_same_vs_energy_scale():
 
 def test_a_fit_that_was_failing_with_too_small_a_fwhm():
     counts = np.array([
-        1,   4,   2,   1,   5,  12,   4,   2,   7,   3,   4,   8,   1,
-        1,   5,   8,   8,   6,   9,  16,  20,  23,  28,  36,  55,  99,
-        114, 152, 189, 224, 199, 191, 143, 108,  83,  71,  30,  34,  15,
-        8,  13,   7,   7,   7,  14,   7,  11,   8,   5,   4,   3,   3,
-        5,   4,   5,   3,   3,   3,   1], dtype="int64")
+        1, 4, 2, 1, 5, 12, 4, 2, 7, 3, 4, 8, 1,
+        1, 5, 8, 8, 6, 9, 16, 20, 23, 28, 36, 55, 99,
+        114, 152, 189, 224, 199, 191, 143, 108, 83, 71, 30, 34, 15,
+        8, 13, 7, 7, 7, 14, 7, 11, 8, 5, 4, 3, 3,
+        5, 4, 5, 3, 3, 3, 1], dtype="int64")
     bin_centers = np.array([
         4341.24137311, 4342.15001601, 4343.05865891, 4343.96730181,
         4344.87594471, 4345.78458761, 4346.69323051, 4347.60187342,
@@ -560,7 +562,7 @@ def test_a_fit_that_was_failing_with_too_small_a_fwhm():
         4388.49080397, 4389.39944687, 4390.30808977, 4391.21673267,
         4392.12537557, 4393.03401847, 4393.94266137])
     model = mass.get_model(49127.24)
-    dph_de_guess = np.mean(bin_centers)/model.spect.nominal_peak_energy
+    dph_de_guess = np.mean(bin_centers) / model.spect.nominal_peak_energy
     params = model.guess(counts, bin_centers=bin_centers, dph_de=dph_de_guess)
     params["dph_de"].set(0.09086, vary=False)
     model.fit(counts, params, bin_centers=bin_centers, minimum_bins_per_fwhm=1.5)

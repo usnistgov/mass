@@ -91,7 +91,7 @@ def find_opt_assignment(peak_positions, line_names, nextra=2, nincrement=3, next
         assign = np.array(list(itertools.combinations(sel_positions, len(line_names))))
         assign.sort(axis=1)
         fracs = np.divide(energies[1:-1] - energies[:-2], energies[2:] - energies[:-2])
-        est_pos = assign[:, :-2]*(1 - fracs) + assign[:, 2:]*fracs
+        est_pos = assign[:, :-2] * (1 - fracs) + assign[:, 2:] * fracs
         acc_est = np.linalg.norm(np.divide(est_pos - assign[:, 1:-1],
                                            assign[:, 2:] - assign[:, :-2]), axis=1)
 
@@ -115,7 +115,7 @@ def build_fit_ranges_ph(line_names, excluded_line_names, approx_ecal, fit_width_
     """Call build_fit_ranges() to get (lo,hi) for fitranges in energy units,
     then convert to ph using approx_ecal"""
     e_e, fit_lo_hi_energy, slopes_de_dph = build_fit_ranges(
-        line_names, excluded_line_names,  approx_ecal, fit_width_ev)
+        line_names, excluded_line_names, approx_ecal, fit_width_ev)
     fit_lo_hi_ph = []
     for lo, hi in fit_lo_hi_energy:
         lo_ph = approx_ecal.energy2ph(lo)
@@ -138,7 +138,7 @@ def build_fit_ranges(line_names, excluded_line_names, approx_ecal, fit_width_ev)
     """
     _names, e_e = line_names_and_energies(line_names)
     _excl_names, excl_e_e = line_names_and_energies(excluded_line_names)
-    half_width_ev = fit_width_ev/2.0
+    half_width_ev = fit_width_ev / 2.0
     all_e = np.sort(np.hstack((e_e, excl_e_e)))
     assert (len(all_e) == len(np.unique(all_e)))
     fit_lo_hi_energy = []
@@ -167,8 +167,10 @@ class FailedFit:
         self.hist = hist
         self.bins = bins
 
+
 class FailedToGetModelException(Exception):
     pass
+
 
 def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
     if isinstance(lineNameOrEnergy, mass.GenericLineModel):
@@ -194,8 +196,11 @@ def get_model(lineNameOrEnergy, has_linear_background=True, has_tails=False):
         line = mass.SpectralLine.quick_monochromatic_line(
             f"{lineNameOrEnergy}eV", float(lineNameOrEnergy), 0.001, 0)
     return line.model(has_linear_background=has_linear_background, has_tails=has_tails)
+
+
 # support both names as they were both used historically
 getmodel = get_model
+
 
 def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph, hide_deprecation=False):
     """
@@ -215,8 +220,8 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph, hide_deprecat
 
     for i, name in enumerate(name_e):
         lo, hi = fit_lo_hi[i]
-        dP_dE = 1/slopes_de_dph[i]
-        binsize_ph = binsize_ev[i]*dP_dE
+        dP_dE = 1 / slopes_de_dph[i]
+        binsize_ph = binsize_ev[i] * dP_dE
         result = singlefit(ph, name, lo, hi, binsize_ph, dP_dE)
         results.append(result)
         peak_ph.append(result.best_values["peak_ph"])
@@ -226,11 +231,11 @@ def multifit(ph, line_names, fit_lo_hi, binsize_ev, slopes_de_dph, hide_deprecat
 
 
 def singlefit(ph, name, lo, hi, binsize_ph, approx_dP_dE):
-    nbins = (hi-lo)/binsize_ph
+    nbins = (hi - lo) / binsize_ph
     if nbins > 5000:
         raise Exception("too damn many bins, dont like running out of memory")
     counts, bin_edges = np.histogram(ph, np.arange(lo, hi, binsize_ph))
-    e = bin_edges[:-1] + 0.5*(bin_edges[1]-bin_edges[0])
+    e = bin_edges[:-1] + 0.5 * (bin_edges[1] - bin_edges[0])
     model = getmodel(name)
     guess_params = model.guess(counts, bin_centers=e, dph_de=approx_dP_dE)
     if "Gaussian" not in model.name:
@@ -341,9 +346,9 @@ class EnergyCalibrationAutocal:
                                (h - vs) / n])
             ax.xaxis.set_major_locator(MaxNLocator(4, integer=True))
 
-            binsize = result.energies[1]-result.energies[0]
-            bin_edges = np.linspace(result.energies[0] - binsize/2.0,
-                                    result.energies[-1] + binsize/2.0, len(result.energies)+1)
+            binsize = result.energies[1] - result.energies[0]
+            bin_edges = np.linspace(result.energies[0] - binsize / 2.0,
+                                    result.energies[-1] + binsize / 2.0, len(result.energies) + 1)
             ax.fill(np.repeat(bin_edges, 2), np.hstack([[0], np.repeat(result.data, 2), [0]]),
                     lw=1, fc="#4c4ce6", ec="#1a1aff", alpha=0.8)
 

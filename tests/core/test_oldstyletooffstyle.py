@@ -34,7 +34,7 @@ def test_oldstyletooffstyle():
     dsoffstyle.learnDriftCorrection("p_pretrig_mean", "p_filt_value")
     dsoffstyle.hist(np.arange(0, 1000, 10,), "p_filt_valueDC")
     dsoffstyle.plotAvsB("relTimeSec", "p_filt_valueDC")
-    assert dsoffstyle.getAttr("unixnano", slice(0, 1))[0]*1e-9 == round(dsold.p_timestamp[0])
+    assert dsoffstyle.getAttr("unixnano", slice(0, 1))[0] * 1e-9 == round(dsold.p_timestamp[0])
 
     dataoffstyle = dataold.toOffStyle()
     dataoffstyle.hist(np.arange(0, 1000, 10), "p_filt_value")
