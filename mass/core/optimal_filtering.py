@@ -329,7 +329,6 @@ class Filter:
                 var = self.variances[f]
                 v_dv = var**(-.5) / np.sqrt(8 * np.log(2))
                 fwhm_eV = std_energy / v_dv
-                # print("%-20s  %10.3f  %10.4e" % (f, v_dv, var))
                 print(f"{f} {v_dv=:.2f} {var=:.2f} {fwhm_eV=:.2f} at {std_energy=:.2f} eV")
             except KeyError:
                 print("%-20s not known" % f)
