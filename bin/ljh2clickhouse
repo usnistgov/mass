@@ -62,7 +62,7 @@ class clickDB:
             self.client.command(q)
         self.runs = 0
 
-    def fill_one_run(self, dir, files, max_records=None, exclude=set()):
+    def fill_one_run(self, dir, files, max_records=None, exclude=set(), include=set()):
         ljhfiles = [mass.files.LJHFile.open(f) for f in files]
         assert len(ljhfiles)
         ljh = ljhfiles[0]
@@ -106,6 +106,8 @@ class clickDB:
 
         for ljh in ljhfiles:
             if ljh.channum in exclude:
+                continue
+            if len(include) > 0 and ljh.channum not in include:
                 continue
             assert timebase == ljh.timebase
             assert nSamples == ljh.nSamples
@@ -172,13 +174,18 @@ def convert(args):
         print("The directory argument(s) had no LJH files")
         sys.exit(1)
 
-    excluded_channels = {int(x) for x in args.exclude_channels.strip("][").split(",")}
+    excluded_channels = set()
+    included_channels = set()
+    if args.exclude_channels is not None:
+        excluded_channels = {int(x) for x in args.exclude_channels.strip("][").split(",")}
+    if args.include_channels is not None:
+        included_channels = {int(x) for x in args.include_channels.strip("][").split(",")}
 
     try:
         DB = clickDB()
         DB.create(args.database, args.force)
         for (d, files) in allfiles.items():
-            DB.fill_one_run(d, files, max_records=args.max_records, exclude=excluded_channels)
+            DB.fill_one_run(d, files, max_records=args.max_records, exclude=excluded_channels, include=included_channels)
     finally:
         DB.close()
 
@@ -198,10 +205,13 @@ def main():
     parser = argparse.ArgumentParser(description='Import a set of LJH files into a clickhouse database')
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='whether to truncate all tables in named database, if they exist')
-    parser.add_argument('-M', '--max-records', type=int,
+    parser.add_argument('-M', '--max-records', type=int, metavar='MR',
                         help='max number of pulse records to store per channel')
-    parser.add_argument('--exclude_channels',
-                        help='comma-separated list of channel numbers to exclude from storage')
+    chanlist = parser.add_mutually_exclusive_group()
+    chanlist.add_argument('--exclude_channels', metavar='EXCL',
+                          help='comma-separated list of channel numbers to exclude from database')
+    chanlist.add_argument('--include_channels', metavar="INCL",
+                          help='comma-separated list of channel numbers to include in database')
     parser.add_argument('database',
                         type=str,
                         help='database name to store in')
