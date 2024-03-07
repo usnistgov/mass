@@ -2,6 +2,7 @@
 
 **0.8.3** February 2024-
 
+* Read LJH file row number correctly (issue 268).
 * Experimental `bin/ljh2clickhouse` conversion tool.
 
 

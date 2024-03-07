@@ -163,6 +163,16 @@ class TestFiles:
         assert np.all(ds.p_peak_time[peak_in_pretrig] < 0)
 
 
+def test_ljh_file_rownum():
+    "Check for bug (issue 268) where LJH row number is read incorrectly."
+    src_name = os.path.join('tests', 'ljh_files', '20230626', '0001', '20230626_run0001_chan4109.ljh')
+    ljh = mass.LJHFile.open(src_name)
+    assert ljh.row_number == 13
+    assert ljh.col_number == 0
+    assert ljh.number_of_rows == 33
+    assert ljh.number_of_columns == 1
+
+
 class TestTESGroup:
     """Basic tests of the TESGroup object."""
 
