@@ -147,7 +147,7 @@ class clickDB:
         # Insert into pulses table
         # Do so GroupSize pulses at a time, up to MaxPulses (experimental)
         GroupSize = 128
-        MaxPulses = min(5000, ljh.nPulses)
+        MaxPulses = ljh.nPulses
         if max_records is not None:
             MaxPulses = min(MaxPulses, max_records)
         for i in range(0, MaxPulses, GroupSize):
@@ -205,7 +205,7 @@ def main():
     parser = argparse.ArgumentParser(description='Import a set of LJH files into a clickhouse database')
     parser.add_argument('-f', '--force', action='store_true', default=False,
                         help='whether to truncate all tables in named database, if they exist')
-    parser.add_argument('-M', '--max-records', type=int, metavar='MR',
+    parser.add_argument('-M', '--max-records', type=int, metavar='MR', default=None,
                         help='max number of pulse records to store per channel')
     chanlist = parser.add_mutually_exclusive_group()
     chanlist.add_argument('--exclude_channels', metavar='EXCL',
