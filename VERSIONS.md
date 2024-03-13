@@ -4,6 +4,7 @@
 
 * Read LJH file row number correctly (issue 268).
 * Improve behavior of powerspectrum and `ExperimentalFilter` objects.
+* Make tests pass under version 8 of pytest (issue 269).
 * Experimental `bin/ljh2clickhouse` conversion tool.
 
 
