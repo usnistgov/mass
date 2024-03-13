@@ -4,6 +4,7 @@
 
 * Read LJH file row number correctly (issue 268).
 * Improve behavior of powerspectrum and `ExperimentalFilter` objects.
+* Make tests pass under version 8 of pytest (issue 269).
 
 
 **0.8.2** February 23, 2024

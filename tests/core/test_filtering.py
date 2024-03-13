@@ -149,40 +149,6 @@ class TestFilters:
         ds.compute_ats_filter(f_3db=5000)
         assert not np.any(np.isnan(f))
 
-    @staticmethod
-    def test_long_filter():
-        """Be sure we can save and restore a long filter. See issue #208."""
-        outfile = tempfile.TemporaryFile(suffix=".hdf5")
-        with h5py.File(outfile, "w") as h:
-            g = h.require_group("blah")
-            pulserec = {
-                "nSamples": 20000,
-                "nPresamples": 5000,
-                "nPulses": 5,
-                "timebase": 10e-6,
-                "channum": 1,
-                "timestamp_offset": 0,
-            }
-            ds = mass.MicrocalDataSet(pulserec, hdf5_group=g)
-            nc = np.zeros(20000, dtype=float)
-            nc[0:3] = [1, .3, .1]
-            ds.noise_autocorr = nc
-            ds.average_pulse = np.ones(ds.nSamples, dtype=float)
-            ds.average_pulse[:ds.nPresamples] = 0.0
-            # ds.compute_ats_filter(f_3db=5000)
-            aterms = np.zeros_like(ds.average_pulse)
-            aterms[ds.nPresamples + 1] = 1.0
-            model = np.vstack([ds.average_pulse, aterms]).T
-            modelpeak = np.max(ds.average_pulse)
-
-            f = mass.core.optimal_filtering.ArrivalTimeSafeFilter(
-                model, ds.nPresamples, ds.noise_autocorr,
-                sample_time=ds.timebase, peak=modelpeak)
-            f.compute(f_3db=5000)
-            ds.filter = f
-            ds._filter_type = "ats"
-            ds._filter_to_hdf5()
-
     def test_masked_filter(self):
         """Test that zero-weighting samples from the beginning and end works."""
         ds = self.data.channel[1]
@@ -229,43 +195,77 @@ class TestFilters:
                 fL = filterL.filt_noconst[cut_pre:N - cut_post]
                 assert np.allclose(fS, fL)
 
-    @pytest.mark.filterwarnings("ignore:invalid value encountered")
-    @staticmethod
-    def test_dc_insensitive():
-        """When f_3db or fmax applied, filter should not become DC-sensitive.
-        Tests for issue #176."""
-        nSamples = 100
-        nPresamples = 50
-        nPost = nSamples - nPresamples
 
-        # Some fake data
-        pulse_like = np.append(np.zeros(nPresamples), np.linspace(nPost - 1, 0, nPost))
-        deriv_like = np.append(np.zeros(nPresamples), -np.ones(nPost))
-        model = np.column_stack((pulse_like, deriv_like))
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+def test_dc_insensitive():
+    """When f_3db or fmax applied, filter should not become DC-sensitive.
+    Tests for issue #176."""
+    nSamples = 100
+    nPresamples = 50
+    nPost = nSamples - nPresamples
 
-        fake_noise = np.random.default_rng().standard_normal(nSamples)
-        fake_noise[0] = 10.0
-        whitener = None
-        dt = 6.72e-6
+    # Some fake data
+    pulse_like = np.append(np.zeros(nPresamples), np.linspace(nPost - 1, 0, nPost))
+    deriv_like = np.append(np.zeros(nPresamples), -np.ones(nPost))
+    model = np.column_stack((pulse_like, deriv_like))
 
-        fnew = mass.ArrivalTimeSafeFilter(
-            model, nPresamples, fake_noise, whitener, dt, np.max(pulse_like))
-        fold = mass.Filter(pulse_like, nPresamples, noise_autocorr=fake_noise, sample_time=dt)
-        fnew.name = "AT Safe filter"
-        fold.name = "Classic filter"
-        for test_filter in (fold, fnew):
-            test_filter.compute(f_3db=None, fmax=None)
-            std = np.median(np.abs(test_filter.filt_noconst))
-            mean = test_filter.filt_noconst.mean()
-            assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/o lowpass"
+    fake_noise = np.random.default_rng().standard_normal(nSamples)
+    fake_noise[0] = 10.0
+    whitener = None
+    dt = 6.72e-6
 
-            test_filter.compute(f_3db=1e4, fmax=None)
-            mean = test_filter.filt_noconst.mean()
-            assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ f_3db"
+    fnew = mass.ArrivalTimeSafeFilter(
+        model, nPresamples, fake_noise, whitener, dt, np.max(pulse_like))
+    fold = mass.Filter(pulse_like, nPresamples, noise_autocorr=fake_noise, sample_time=dt)
+    fnew.name = "AT Safe filter"
+    fold.name = "Classic filter"
+    for test_filter in (fold, fnew):
+        test_filter.compute(f_3db=None, fmax=None)
+        std = np.median(np.abs(test_filter.filt_noconst))
+        mean = test_filter.filt_noconst.mean()
+        assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/o lowpass"
 
-            test_filter.compute(f_3db=None, fmax=1e4)
-            mean = test_filter.filt_noconst.mean()
-            assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ fmax"
+        test_filter.compute(f_3db=1e4, fmax=None)
+        mean = test_filter.filt_noconst.mean()
+        assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ f_3db"
+
+        test_filter.compute(f_3db=None, fmax=1e4)
+        mean = test_filter.filt_noconst.mean()
+        assert mean < 1e-10 * std, f"{test_filter.name} failed DC test w/ fmax"
+
+
+def test_long_filter():
+    """Be sure we can save and restore a long filter. See issue #208."""
+    outfile = tempfile.TemporaryFile(suffix=".hdf5")
+    with h5py.File(outfile, "w") as h:
+        g = h.require_group("blah")
+        pulserec = {
+            "nSamples": 20000,
+            "nPresamples": 5000,
+            "nPulses": 5,
+            "timebase": 10e-6,
+            "channum": 1,
+            "timestamp_offset": 0,
+        }
+        ds = mass.MicrocalDataSet(pulserec, hdf5_group=g)
+        nc = np.zeros(20000, dtype=float)
+        nc[0:3] = [1, .3, .1]
+        ds.noise_autocorr = nc
+        ds.average_pulse = np.ones(ds.nSamples, dtype=float)
+        ds.average_pulse[:ds.nPresamples] = 0.0
+        # ds.compute_ats_filter(f_3db=5000)
+        aterms = np.zeros_like(ds.average_pulse)
+        aterms[ds.nPresamples + 1] = 1.0
+        model = np.vstack([ds.average_pulse, aterms]).T
+        modelpeak = np.max(ds.average_pulse)
+
+        f = mass.core.optimal_filtering.ArrivalTimeSafeFilter(
+            model, ds.nPresamples, ds.noise_autocorr,
+            sample_time=ds.timebase, peak=modelpeak)
+        f.compute(f_3db=5000)
+        ds.filter = f
+        ds._filter_type = "ats"
+        ds._filter_to_hdf5()
 
 
 class TestWhitener:
