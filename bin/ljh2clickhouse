@@ -12,7 +12,6 @@ will create a database named `dbname` based on the LJH files in the named direct
 """
 
 import argparse
-import glob
 import os
 import sys
 import time
@@ -195,7 +194,13 @@ def glob_files(directories):
     for d in directories:
         if not os.path.isdir(d):
             continue
-        files = glob.glob(f"{d}/*_chan*.ljh")
+        fn = mass.ljh_util.filename_glob_expand(f"{d}/*_chan*.noi")
+        fl = mass.ljh_util.filename_glob_expand(f"{d}/*_chan*.ljh")
+        files = []
+        if fn is not None:
+            files += fn
+        if fl is not None:
+            files += fl
         if len(files) > 0:
             allfiles[d] = files
     return allfiles
