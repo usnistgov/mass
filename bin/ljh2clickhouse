@@ -180,6 +180,21 @@ def convert(args):
     if args.include_channels is not None:
         included_channels = {int(x) for x in args.include_channels.strip("][").split(",")}
 
+    if args.practice:
+        print("Would have put these files in the DB:")
+
+        # The real (non-practice) run will include/exclude based on the *internal* channel number.
+        # Here, we will give the practice report assuming that the chan* in the filename is accurate.
+        for filenames in allfiles.values():
+            for f in filenames:
+                channum = mass.ljh_util.ljh_channum(f)
+                if channum in excluded_channels:
+                    continue
+                if len(included_channels) > 0 and channum not in included_channels:
+                    continue
+                print(f)
+        return
+
     try:
         DB = clickDB()
         DB.create(args.database, args.force)
@@ -212,6 +227,7 @@ def main():
                         help='whether to truncate all tables in named database, if they exist')
     parser.add_argument('-M', '--max-records', type=int, metavar='MR', default=None,
                         help='max number of pulse records to store per channel')
+    parser.add_argument('-n', '--practice', action='store_true', default=False)
     chanlist = parser.add_mutually_exclusive_group()
     chanlist.add_argument('--exclude_channels', metavar='EXCL',
                           help='comma-separated list of channel numbers to exclude from database')
