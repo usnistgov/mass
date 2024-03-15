@@ -39,27 +39,34 @@ class clickDB:
         queries = [q for q in "".join(noblanks).split(";") if q.strip()]
         return queries
 
-    def create(self, dbname, force=False):
+    def create(self, dbname, force=False, append=True):
         self.dbname = dbname
         setup_queries = []
         if force:
             q = f"DROP DATABASE IF EXISTS {dbname}"
             setup_queries.append(q)
 
-        setup_queries.extend([
-            f"CREATE DATABASE {dbname}",
-            f"USE {dbname}"
-        ])
+        if force or not append:
+            setup_queries.append(f"CREATE DATABASE {dbname}")
+
+        setup_queries.append(f"USE {dbname}")
         for q in setup_queries:
             self.client.command(q)
 
-        # Create 3 key tables + any aux tables
-        dir, _ = os.path.split(__file__)
-        sqlfile = os.path.normpath(os.path.join(dir, "..", "clickhouse/create_db.sql"))
-        create_queries = self.split_sql(sqlfile)
-        for q in create_queries:
-            self.client.command(q)
-        self.runs = 0
+        # Create 3 key tables + any aux tables.
+        # The exact schema are found in mass/clickhouse/create_db.sql
+        if not append:
+            dir, _ = os.path.split(__file__)
+            sqlfile = os.path.normpath(os.path.join(dir, "..", "clickhouse/create_db.sql"))
+            create_queries = self.split_sql(sqlfile)
+            for q in create_queries:
+                self.client.command(q)
+        self.runs = self.query_runs()
+        print("Will start after datarun_id = ", self.runs)
+
+    def query_runs(self):
+        q = "SELECT max(id) FROM dataruns"
+        return int(self.client.command(q))
 
     def fill_one_run(self, dir, files, max_records=None, exclude=set(), include=set()):
         ljhfiles = [mass.files.LJHFile.open(f) for f in files]
@@ -197,7 +204,7 @@ def convert(args):
 
     try:
         DB = clickDB()
-        DB.create(args.database, args.force)
+        DB.create(args.database, force=args.force, append=args.append)
         for (d, files) in allfiles.items():
             DB.fill_one_run(d, files, max_records=args.max_records, exclude=excluded_channels, include=included_channels)
     finally:
@@ -228,6 +235,7 @@ def main():
     parser.add_argument('-M', '--max-records', type=int, metavar='MR', default=None,
                         help='max number of pulse records to store per channel')
     parser.add_argument('-n', '--practice', action='store_true', default=False)
+    parser.add_argument('-a', '--append', action='store_true', default=False)
     chanlist = parser.add_mutually_exclusive_group()
     chanlist.add_argument('--exclude_channels', metavar='EXCL',
                           help='comma-separated list of channel numbers to exclude from database')
