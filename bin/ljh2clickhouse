@@ -152,7 +152,7 @@ class clickDB:
 
         # Insert into pulses table
         # Do so GroupSize pulses at a time, up to MaxPulses (experimental)
-        GroupSize = 128
+        GroupSize = 32768
         MaxPulses = ljh.nPulses
         if max_records is not None:
             MaxPulses = min(MaxPulses, max_records)
@@ -166,7 +166,7 @@ class clickDB:
                 "subframe_count": ljh.subframecount[i:j]
             })
             print("Converting ljh.alldata of size ", ljh.alldata[i:j, :].shape, " into list")
-            df["pulse"] = list(ljh.alldata[i:j])
+            df["pulse"] = [v.tobytes() for v in ljh.alldata[i:j]]
             self.client.insert("pulses", df)
 
 

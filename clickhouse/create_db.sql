@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS pulses (
     `channel_number`  UInt32,
     -- `timestamp`       DateTime64(9) Comment 'PC clock time at the moment of the trigger. Might want to skip this?',
     `subframe_count`  Int64 Comment 'Subframe counts (since Dastard started) at the moment of the trigger',
-    `pulse`           Array(UInt16) Comment 'Pulse data record',
-) 
+    `pulse`           String Comment 'Pulse data record (decode as uint16)',
+)
     ENGINE = MergeTree()
     PRIMARY KEY (datarun_id, channel_number)
     ORDER BY (datarun_id, channel_number, subframe_count)
