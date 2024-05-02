@@ -162,12 +162,12 @@ class PowerSpectrum:
         arb_to_unit_scale, unit_label = arb_to_unit_scale_and_label
         psd = self.spectrum()[1:] * (arb_to_unit_scale**2)
         freq = self.frequencies()[1:]
-        if not sqrt_psd:
+        if sqrt_psd:
             axis.plot(freq, np.sqrt(psd), **plotkwarg)
-            axis.set_ylabel(f"Amplitude Spectral Density ({unit_label}$^2$ Hz$^{{-1}}$)")
+            axis.set_ylabel(f"Power Spectral Density ({unit_label}$/\\sqrt{{Hz}}$)")
         else:
             axis.plot(freq, psd, **plotkwarg)
-            axis.set_ylabel(f"Power Spectral Density ({unit_label}$/\\sqrt{{Hz}}$)")
+            axis.set_ylabel(f"Amplitude Spectral Density ({unit_label}$^2$ Hz$^{{-1}}$)")
         plt.loglog()
         axis.grid()
         axis.set_xlabel("Frequency (Hz)")
