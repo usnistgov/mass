@@ -715,7 +715,7 @@ class Channel(CorG):  # noqa: PLR0904
         self.recipes.add("energyRough", calibrationRough,
                          [calibrationRough.uncalibratedName], inverse=calibrationRough.energy2ph, overwrite=True)
         self.recipes.add("arbsInRefChannelUnits", self.calibrationArbsInRefChannelUnits.ph2energy, [
-            self.calibrationArbsInRefChannelUnits.uncalibratedName])
+            self.calibrationArbsInRefChannelUnits.uncalibratedName], overwrite=True)
         return self.aligner
 
     @add_group_loop
