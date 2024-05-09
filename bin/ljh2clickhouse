@@ -24,7 +24,12 @@ import mass
 
 class clickDB:
     def __init__(self, host="localhost", username="default", password=""):
-        self.client = clickhouse_connect.get_client(host=host, username=username, password=password)
+        settings = {
+            "async_insert": 1,
+            "wait_for_async_insert": 0,
+        }
+        self.client = clickhouse_connect.get_client(host=host, username=username,
+                                                    password=password, settings=settings)
 
     def close(self):
         self.client.close()
@@ -156,6 +161,10 @@ class clickDB:
         MaxPulses = ljh.nPulses
         if max_records is not None:
             MaxPulses = min(MaxPulses, max_records)
+        settings = {
+            "async_insert": 1,
+            "wait_for_async_insert": 0,
+        }
         for i in range(0, MaxPulses, GroupSize):
             j = min(i + GroupSize, MaxPulses)
             datarun_id = np.repeat(self.runs, j - i)
@@ -167,7 +176,7 @@ class clickDB:
             })
             print("Converting ljh.alldata of size ", ljh.alldata[i:j, :].shape, " into list")
             df["pulse"] = [v.tobytes() for v in ljh.alldata[i:j]]
-            self.client.insert("pulses", df)
+            self.client.insert("pulses", df, settings=settings)
 
 
 def convert(args):
