@@ -2018,7 +2018,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                 # Careful! The following was `data -= model`, but that fails because data
                 # is now a read-only memmap.
                 # `data = data - model` rebinds data to a numpy vector, which is allowed.
-                data = data - model
+                data -= model
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
             if fcut is not None:
@@ -2027,7 +2027,7 @@ class MicrocalDataSet:  # noqa: PLR0904
             if subtract_baseline:
                 # Recalculate the pretrigger mean here, to avoid issues due to flux slipping when
                 # plotting umux data
-                data = data - np.mean(data[:self.nPresamples - self.pretrigger_ignore_samples])
+                data -= np.mean(data[:self.nPresamples - self.pretrigger_ignore_samples])
 
             cutchar, alpha, linestyle, linewidth = ' ', 1.0, '-', 1
 
@@ -2371,7 +2371,7 @@ class MicrocalDataSet:  # noqa: PLR0904
                         else:
                             msg = "channel %d skipping %s crosstalk cuts because" % (
                                 self.channum, neighborCategory)
-                            msg = msg * " no nearest neighbors matching criteria in category"
+                            msg += " no nearest neighbors matching criteria in category"
                             LOG.info(msg)
 
             else:
@@ -2532,7 +2532,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         g = np.logical_and(tg, self.good(**category))
         g = np.logical_and(g, ~np.isnan(vals))
         if g_func is not None:
-            g = g & g_func(self)
+            g &= g_func(self)
 
         counts, _ = np.histogram(vals[g], bin_edges)
         return bin_centers, counts

@@ -10,4 +10,4 @@ def test_hci_models():
         params = model.make_params()
         model.eval(bin_centers=bin_centers, params=params)
     model = models["O 660eV Region"]
-    result = model.fit(counts, bin_centers=bin_centers)  # just testing that it runs, the input data is nonsense
+    model.fit(counts, bin_centers=bin_centers)  # just testing that it runs, the input data is nonsense
