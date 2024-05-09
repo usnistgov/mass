@@ -384,7 +384,7 @@ class Cuts:
                 else:
                     raise ValueError(cut_num + " field is not found.")
         else:
-            raise ValueError("cut_num should be a number or a string but is '%s'" % type(cut_num))
+            raise ValueError(f"cut_num should be a number or a string but is '{type(cut_num)}'")
 
     def cut_categorical(self, field, booldict):
         """Set the value of one categorical cut.
@@ -403,7 +403,7 @@ class Cuts:
             labels[catbool] = category_names[category]
         for (category, catbool) in booldict.items():
             if not all(labels[booldict[category]] == category_names[category]):
-                raise ValueError("bools passed for %s conflict with some other" % category)
+                raise ValueError(f"bools passed for {category} conflict with some other")
         self.cut(field, labels)
 
     def cut_parameter(self, data, allowed, cut_id):
@@ -452,8 +452,7 @@ class Cuts:
                         cut_vec[index] = False
                     except Exception:
                         raise ValueError(
-                            '%s passed as a cut element, only two element lists or tuples are valid' %
-                            str(element))
+                            f'{str(element)} passed as a cut element, only two element lists or tuples are valid')
                 elif element == 'invert':
                     doInvert = True
             if doInvert:
@@ -471,8 +470,7 @@ class Cuts:
                     if b is not None:
                         self.cut(cut_id, data[:] >= b)
             except ValueError:
-                raise ValueError('%s was passed as a cut element, but only two-element sequences are valid.'
-                                 % str(allowed))
+                raise ValueError(f'{str(allowed)} was passed as a cut element, but only two-element sequences are valid.')
 
     def select_category(self, **kwargs):
         """Select pulses belongs to all of specified categories.

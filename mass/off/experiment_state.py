@@ -43,7 +43,7 @@ class ExperimentStateFile:
         if self.parse_start == 0:
             header_line = lines[0]
             if header_line[0] != "#":
-                raise Exception("first line should start with #, was %s" % header_line)
+                raise Exception(f"first line should start with #, was {header_line}")
             lines = lines[1:]
             if len(lines) == 0:
                 raise Exception("zero lines after header in file")

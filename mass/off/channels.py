@@ -244,7 +244,7 @@ class Channel(CorG):  # noqa: PLR0904
 
     def learnChannumAndShortname(self):
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFile.filename)
-        self.shortName = os.path.split(basename)[-1] + " chan%g" % self.channum
+        self.shortName = os.path.split(basename)[-1] + f" chan{self.channum:g}"
 
     @add_group_loop
     def learnResidualStdDevCut(self, n_sigma_equiv=15,   # noqa: PLR0914, PLR0917
@@ -323,7 +323,7 @@ class Channel(CorG):  # noqa: PLR0904
         return inds
 
     def __repr__(self):
-        return "Channel based on %s" % self.offFile
+        return f"Channel based on {self.offFile}"
 
     @property
     def statesDict(self):

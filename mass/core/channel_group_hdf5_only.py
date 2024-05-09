@@ -21,7 +21,7 @@ def make_or_get_master_hdf5_from_julia_hdf5_file(hdf5_filenames=None, forceNew=F
         if forceNew:
             os.remove(h5master_fname)
         else:
-            print("REUSING THE EXISTING MASTER HDF5 FILE, %s" % h5master_fname)
+            print(f"REUSING THE EXISTING MASTER HDF5 FILE, {h5master_fname}")
             return h5master_fname
 
     with h5py.File(h5master_fname, "a") as master_hdf5_file:  # noqa: PLR1702

@@ -55,7 +55,7 @@ class NISTXrayDBFile:
             try:
                 fp = open(filename, "r", encoding="utf-8")
             except OSError:
-                print("'%s' is not a readable file with X-ray database info! Continuing..." % filename)
+                print(f"'{filename}' is not a readable file with X-ray database info! Continuing...")
                 continue
 
             while True:
@@ -121,7 +121,7 @@ class NISTXrayDBFile:
         if lcline in self.LINE_NICKNAMES:
             key = f"{element} {self.LINE_NICKNAMES[lcline]}"
             return self.lines[key]
-        raise KeyError("%s is not a known line or line nickname" % key)
+        raise KeyError(f"{key} is not a known line or line nickname")
 
 
 class NISTXrayLine:
@@ -229,9 +229,9 @@ def _NISTXrayDBRetrieve(line_names, savefile, min_E=150, max_E=25000):
             'lower': str(min_E),
             'upper': str(max_E)}
     joined_args = '&'.join([f'{k}={v}' for (k, v) in args.items()])
-    joined_lines = '&'.join(['trans=%s' % name for name in line_names])
+    joined_lines = '&'.join([f'trans={name}' for name in line_names])
     get = f'{form}{joined_args}&{joined_lines}'
-    print('Grabbing %s' % get)
+    print(f'Grabbing {get}')
 
     page = urllib.urlopen(get)
     fp = open(savefile, "w", encoding="utf-8")

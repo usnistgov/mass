@@ -100,7 +100,7 @@ def fit_kink_model(x, y, kbounds=None):
     if kbounds is None:
         kbounds = (x.min(), x.max())
     elif kbounds[0] < x.min() or kbounds[1] > x.max():
-        raise ValueError("kbounds (%s) must be within the range of x data" % kbounds)
+        raise ValueError(f"kbounds ({kbounds}) must be within the range of x data")
     optimum = sp.optimize.minimize_scalar(penalty, args=(x, y), method="Bounded",
                                           bounds=kbounds)
     kbest = optimum.x

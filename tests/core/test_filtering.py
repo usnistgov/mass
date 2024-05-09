@@ -16,13 +16,13 @@ def process_file(prefix, cuts, do_filter=True):
     channels = (1,)
     pulse_files = [os.path.join(ljhdir, "%s_chan%d.ljh" % (prefix, c)) for c in channels]
     noise_files = [os.path.join(ljhdir, "%s_noise_chan%d.ljh" % (prefix, c)) for c in channels]
-    pulse_files = os.path.join(ljhdir, "%s_chan*.ljh" % prefix)
-    noise_files = os.path.join(ljhdir, "%s_noise_chan*.ljh" % prefix)
+    pulse_files = os.path.join(ljhdir, f"{prefix}_chan*.ljh")
+    noise_files = os.path.join(ljhdir, f"{prefix}_noise_chan*.ljh")
 
     # Start from clean slate by removing any hdf5 files
-    for fl in glob.glob(os.path.join(ljhdir, "%s_mass.hdf5" % prefix)):
+    for fl in glob.glob(os.path.join(ljhdir, f"{prefix}_mass.hdf5")):
         os.remove(fl)
-    for fl in glob.glob(os.path.join(ljhdir, "%s_noise_mass.hdf5" % prefix)):
+    for fl in glob.glob(os.path.join(ljhdir, f"{prefix}_noise_mass.hdf5")):
         os.remove(fl)
 
     data = mass.TESGroup(pulse_files, noise_files)

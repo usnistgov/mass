@@ -50,7 +50,7 @@ class TestLineDatabase:
         """Check that elements appear in the list that were absent before 2017."""
         E = mass.STANDARD_FEATURES
         for element in ("U", "Pr", "Ar", "Pt", "Au", "Hg"):
-            assert E["%sKAlpha" % element] > 0.0
+            assert E[f"{element}KAlpha"] > 0.0
         assert E["MnKAlpha1"] > E["MnKAlpha2"]
 
 

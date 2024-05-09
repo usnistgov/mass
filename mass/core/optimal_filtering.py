@@ -347,8 +347,7 @@ class ArrivalTimeSafeFilter(Filter):
     def __init__(self, pulsemodel, n_pretrigger, noise_autocorr=None,
                  whitener=None, sample_time=None, peak=1.0):
         if noise_autocorr is None and whitener is None:
-            raise ValueError("%s requires either noise_autocorr or whitener to be set" %
-                             (self.__class__.__name__))
+            raise ValueError(f"{self.__class__.__name__} requires either noise_autocorr or whitener to be set")
         noise_psd = None
 
         avg_signal = pulsemodel[:, 0]
@@ -561,7 +560,7 @@ class ExperimentalFilter(Filter):
             }
 
             for shortname in ('full', 'noexp', 'noconst', 'noexpcon', 'nopoly1', 'noderivcon'):
-                name = 'filt_%s' % shortname
+                name = f'filt_{shortname}'
                 orthnames = orthogonalities[name]
                 Rinv_sig = Rinvs["sig"]
 
