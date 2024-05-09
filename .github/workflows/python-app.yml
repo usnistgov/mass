@@ -37,20 +37,28 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest
+        pip install flake8 ruff pytest
         pip install -e .
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint with flake8
+    - name: Lint with flake8 and ruff (only on oldest Python version)
+      if: ${{ matrix.python-version == 3.9 }}
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --extend-exclude nonstandard
-        # exit-zero treats all errors as warnings. The GitHub editor is 135 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=135 --statistics --extend-exclude nonstandard
+        # Return ||true so that ruff TEMPORARILY reports results but can't stop the action.
+        ruff check --preview mass doc tests bin/hdf5print bin/ljh* || true
     - name: Test with pytest
       run: |
         pytest
 
-# TO DO: run doctest, but only on one of the two tested Py versions.
+    - name: Run doctests (only on oldest Python version)
+      if: ${{ matrix.python-version == 3.9 }}
+      run: |
+        pip install recommonmark sphinx
+        cd doc
+        make clean
+        make doctest
+
 # TO DO: generate docs automatically and deploy them.
 #
 # The following comes from the old bitbucket-pipelines.yml.
