@@ -693,23 +693,25 @@ class MicrocalDataSet:  # noqa: PLR0904
                                   (bool, bool_fields),
                                   (np.int64, int64_fields)):
             for field in fieldnames:
-                self.__dict__[f'p_{field}'] = h5grp.require_dataset(field, shape=(npulses,),
-                                                                      dtype=dtype)
+                self.__dict__[f'p_{field}'] = h5grp.require_dataset(
+                    field, shape=(npulses,), dtype=dtype)
 
         # Workaround for fact that this value changed names in Feb 2024 from "rowcount" to "subframecount"
         if "rowcount" in h5grp:
-            self.p_subframecount = h5grp.require_dataset("rowcount", shape=(npulses,), dtype=np.int64)
+            self.p_subframecount = h5grp.require_dataset(
+                "rowcount", shape=(npulses,), dtype=np.int64)
         else:
-            self.p_subframecount = h5grp.require_dataset("subframecount", shape=(npulses,), dtype=np.int64)
+            self.p_subframecount = h5grp.require_dataset(
+                "subframecount", shape=(npulses,), dtype=np.int64)
 
         if "peak_samplenumber" in self.p_peak_index.attrs:
             self.peak_samplenumber = self.p_peak_index.attrs["peak_samplenumber"]
 
         # Other vectors needed per-channel
-        self.average_pulse = h5grp.require_dataset('average_pulse', shape=(self.nSamples,),
-                                                   dtype=np.float32)
-        self.noise_autocorr = h5grp.require_dataset('noise_autocorr', shape=(self.nSamples,),
-                                                    dtype=np.float64)
+        self.average_pulse = h5grp.require_dataset(
+            'average_pulse', shape=(self.nSamples,), dtype=np.float32)
+        self.noise_autocorr = h5grp.require_dataset(
+            'noise_autocorr', shape=(self.nSamples,), dtype=np.float64)
         nfreq = 1 + self.nSamples // 2
         self.noise_psd = h5grp.require_dataset('noise_psd', shape=(nfreq,),
                                                dtype=np.float64)
@@ -2015,10 +2017,9 @@ class MicrocalDataSet:  # noqa: PLR0904
                 data[0] = 0
             elif residual:
                 model = self.p_filt_value[pn] * self.average_pulse[:] / np.max(self.average_pulse)
-                # Careful! The following was `data -= model`, but that fails because data
-                # is now a read-only memmap.
                 # `data = data - model` rebinds data to a numpy vector, which is allowed.
-                data -= model
+                # Disable QA test for augmented assignment, b/c we're replacing a memmap with a vector
+                data = data - model  # NOQA: PLR6104
             if shift1 and self.p_shift1[pn]:
                 data = np.hstack([data[0], data[:-1]])
             if fcut is not None:
@@ -2026,8 +2027,9 @@ class MicrocalDataSet:  # noqa: PLR0904
                     data, 1. / self.timebase, fcut)
             if subtract_baseline:
                 # Recalculate the pretrigger mean here, to avoid issues due to flux slipping when
-                # plotting umux data
-                data -= np.mean(data[:self.nPresamples - self.pretrigger_ignore_samples])
+                # plotting umux data.
+                # Disable QA test for augmented assignment, b/c we're replacing a memmap with a vector
+                data = data - np.mean(data[:self.nPresamples - self.pretrigger_ignore_samples])  # NOQA: PLR6104
 
             cutchar, alpha, linestyle, linewidth = ' ', 1.0, '-', 1
 
