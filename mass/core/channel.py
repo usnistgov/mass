@@ -273,8 +273,7 @@ class NoiseRecords:
         samples_per_segment = self.records_per_segment * self.nSamples
         if n_lags is None:
             n_lags = samples_per_segment
-        if n_lags > samples_per_segment:
-            n_lags = samples_per_segment
+        n_lags = min(n_lags, samples_per_segment)
 
         def padded_length(n):
             """Return a sensible number in the range [n, 2n] which is not too
@@ -974,8 +973,7 @@ class MicrocalDataSet:  # noqa: PLR0904
         first, end = idx_range
         if first >= self.nPulses:
             return
-        if end > self.nPulses:
-            end = self.nPulses
+        end = min(end, self.nPulses)
 
         if len(self.p_timestamp) <= 0:
             self.__setup_vectors(npulses=self.nPulses)
@@ -1512,15 +1510,13 @@ class MicrocalDataSet:  # noqa: PLR0904
             nrecs = valid.sum()
             if downsample is None:
                 downsample = nrecs // 10000
-                if downsample < 1:
-                    downsample = 1
+                downsample = max(downsample, 1)
             hour = self.p_timestamp[valid][::downsample] / 3600.0
         else:
             nrecs = self.nPulses
             if downsample is None:
                 downsample = self.nPulses // 10000
-                if downsample < 1:
-                    downsample = 1
+                downsample = max(downsample, 1)
             hour = self.p_timestamp[::downsample] / 3600.0
         LOG.info("%s (%d records; %d in scatter plots)", status, nrecs, len(hour))
 

@@ -272,8 +272,7 @@ class CutFieldMixin:
 
         for _ in range(num_bits):
             bit_pos = self.__lowest_available_cut_bit(cut_used_bit_flags | bit_mask)
-            if bit_pos < lowest_bit_pos:
-                lowest_bit_pos = bit_pos
+            lowest_bit_pos = min(bit_pos, lowest_bit_pos)
             bit_mask |= (uint32_one << bit_pos)
             individual_bit_masks.insert(0, uint32_one << bit_pos)
 
