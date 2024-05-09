@@ -47,4 +47,4 @@ lint-report.txt: $(PYFILES) Makefile
 	ruff check --preview mass doc tests > $@
 
 ruff:
-	ruff check --preview mass doc tests $(PYSCRIPTS)
+	ruff check --preview
