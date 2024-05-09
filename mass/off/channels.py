@@ -452,7 +452,8 @@ class Channel(CorG):  # noqa: PLR0904
         elif self.isOffAttr(attr):
             return offAttrValues[attr]
         else:
-            raise Exception(f"attr {attr} must be an OffAttr or a RecipeAttr or a list. OffAttrs: {list(self._offAttrs)}\nRecipeAttrs: {list(self._recipeAttrs)}")
+            raise Exception(f"attr {attr} must be an OffAttr or a RecipeAttr or a list. OffAttrs: " +
+                            f"{list(self._offAttrs)}\nRecipeAttrs: {list(self._recipeAttrs)}")
 
     def plotAvsB2d(self, nameA, nameB, binEdgesAB, axis=None, states=None, cutRecipeName=None, norm=None):
         cutRecipeName = self._handleDefaultCut(cutRecipeName)
@@ -802,7 +803,9 @@ class Channel(CorG):  # noqa: PLR0904
                     "thresholdSigmaFromMedianAbsoluteValue"))
         if thresholdAbsolute is not None:
             if maxAbsError > thresholdAbsolute:
-                self.markBad(f"qualityCheckDropOneErrors: maximum absolute drop one error {maxAbsError} > theshold {thresholdAbsolute} (thresholdAbsolute)")
+                msg = f"qualityCheckDropOneErrors: maximum absolute drop one error {maxAbsError} >" + \
+                    f" theshold {thresholdAbsolute} (thresholdAbsolute)"
+                self.markBad(msg)
 
     def diagnoseCalibration(self, calibratedName="energy", fig=None, filtValuePlotBinEdges=np.arange(0, 16000, 4)):
         calibration = self.recipes[calibratedName].f

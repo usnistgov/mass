@@ -66,8 +66,8 @@ def initialize_hci_composite_model(composite_name, individual_models, has_linear
                                            expr=f'{composite_model.peak_prefix}dph_de')
             # Fixed energy separation based on database values
             separation = line_component_energies[i] - composite_model.peak_energy
-            composite_model.set_param_hint(f'{line_component_prefixes[i]}peak_ph',
-                                           expr=f'({separation} * {composite_model.peak_prefix}dph_de) + {composite_model.peak_prefix}peak_ph')
+            hint = f'({separation} * {composite_model.peak_prefix}dph_de) + {composite_model.peak_prefix}peak_ph'
+            composite_model.set_param_hint(f'{line_component_prefixes[i]}peak_ph', expr=hint)
     composite_model.shortname = composite_name
     return composite_model
 

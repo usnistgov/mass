@@ -59,7 +59,9 @@ class Test_MnKA_distribution:
             target = mass.STANDARD_FEATURES[name]
             result = np.abs(spectrum.nominal_peak_energy - target) < 0.5
             if not result:
-                print(f"{name} spectrum.nominal_peak_energy={spectrum.nominal_peak_energy}, mass.STANDARD_FEATURES={target}, abs diff={np.abs(spectrum.nominal_peak_energy - target)}")
+                msg = f"{name} spectrum.nominal_peak_energy={spectrum.nominal_peak_energy}, mass.STANDARD_FEATURES={target}"
+                msg += f", abs diff={np.abs(spectrum.nominal_peak_energy - target)}"
+                print(msg)
             assert result
 
             # test that basic funtionality works for all instances

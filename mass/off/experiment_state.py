@@ -152,7 +152,8 @@ class ExperimentStateFile:
                     # this label was previously not unique... append to the list of slices
                     statesDict[aliasedLabel] = v + [s]
                 else:
-                    raise Exception(f"v should be a slice or list of slices, v is a {type(v)} for label={label}, aliasedlabel={aliasedLabel}")
+                    msg = f"v should be a slice or list of slices, v is a {type(v)} for label={label}, aliasedlabel={aliasedLabel}"
+                    raise Exception(msg)
             else:  # this state is unique, use a slice
                 statesDict[aliasedLabel] = s
         # statesDict values should be slices for unique states and lists of slices for non-unique states
