@@ -5,6 +5,7 @@
 * Read LJH file row number correctly (issue 268).
 * Improve behavior of powerspectrum and `ExperimentalFilter` objects.
 * Make tests pass under version 8 of pytest (issue 269).
+* Move primary repository to GitHub. Update README.
 * Set up GitHub Actions for our new hosting service (issues 273, 274)
 * Make ruff warnings go away (issue 277).
 
