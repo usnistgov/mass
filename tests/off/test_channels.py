@@ -561,7 +561,7 @@ def test_open_many_OFF_files():
         # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
         # only open it once, not twice.
         NFilePairsToOpen = (maxfiles - 12) // 6
-        filelist = NFilePairsToOpen * filelist
+        filelist *= NFilePairsToOpen
         for _ in range(3):
             _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
                              excludeStates=["START", "END"])
