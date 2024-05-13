@@ -12,7 +12,6 @@ import mass.calibration.hci_lines
 import xraydb
 
 
-
 def initialize_hci_line_model(line_name, has_linear_background=False, has_tails=False):
     '''Initializes a single lorentzian hci lmfit model. Reformats line_name to create a lmfit valid prefix.
 
@@ -67,8 +66,8 @@ def initialize_hci_composite_model(composite_name, individual_models, has_linear
                                            expr=f'{composite_model.peak_prefix}dph_de')
             # Fixed energy separation based on database values
             separation = line_component_energies[i] - composite_model.peak_energy
-            composite_model.set_param_hint(f'{line_component_prefixes[i]}peak_ph',
-                                           expr='({0} * {1}dph_de) + {1}peak_ph'.format(separation, composite_model.peak_prefix))
+            hint = f'({separation} * {composite_model.peak_prefix}dph_de) + {composite_model.peak_prefix}peak_ph'
+            composite_model.set_param_hint(f'{line_component_prefixes[i]}peak_ph', expr=hint)
     composite_model.shortname = composite_name
     return composite_model
 

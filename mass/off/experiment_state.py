@@ -43,7 +43,7 @@ class ExperimentStateFile:
         if self.parse_start == 0:
             header_line = lines[0]
             if header_line[0] != "#":
-                raise Exception("first line should start with #, was %s" % header_line)
+                raise Exception(f"first line should start with #, was {header_line}")
             lines = lines[1:]
             if len(lines) == 0:
                 raise Exception("zero lines after header in file")
@@ -152,8 +152,8 @@ class ExperimentStateFile:
                     # this label was previously not unique... append to the list of slices
                     statesDict[aliasedLabel] = v + [s]
                 else:
-                    raise Exception("v should be a slice or list of slices, v is a {} for label={}, aliasedlabel={}".format(
-                        type(v), label, aliasedLabel))
+                    msg = f"v should be a slice or list of slices, v is a {type(v)} for label={label}, aliasedlabel={aliasedLabel}"
+                    raise Exception(msg)
             else:  # this state is unique, use a slice
                 statesDict[aliasedLabel] = s
         # statesDict values should be slices for unique states and lists of slices for non-unique states

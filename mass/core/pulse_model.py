@@ -140,9 +140,9 @@ class PulseModel:
         labels = ["const", "deriv", "pulse"]
         for i in range(self.n_basis - 3):
             if i > self.n_basis - 3 - self.extra_n_basis_5lag:
-                labels = labels + [f"5lag{i + 2 - self.extra_n_basis_5lag}"]
+                labels += [f"5lag{i + 2 - self.extra_n_basis_5lag}"]
             else:
-                labels = labels + [f"svd{i}"]
+                labels += [f"svd{i}"]
         return labels
 
     def plot(self, fig1=None, fig2=None):

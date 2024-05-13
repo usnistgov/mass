@@ -67,12 +67,10 @@ class InlineUpdater:
         if self.logger.getEffectiveLevel() >= logging.WARNING:
             return
         self.fracDone = fracDone
-        sys.stdout.write('\r' + self.baseString
-                         + f' {self.fracDone * 100.0:.1f}% done, estimated {self.timeRemainingStr} left')
+        sys.stdout.write(f'\r{self.baseString} {self.fracDone * 100.0:.1f}% done, estimated {self.timeRemainingStr} left')
         sys.stdout.flush()
         if fracDone >= 1:
-            sys.stdout.write('\n' + self.baseString + ' finished in %s' %
-                             self.elapsedTimeStr + '\n')
+            sys.stdout.write(f'\n{self.baseString} finished in {self.elapsedTimeStr}\n')
 
     @property
     def timeRemaining(self):

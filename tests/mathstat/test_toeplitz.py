@@ -191,7 +191,7 @@ class toeplitzSpeed:
 
         else:
             dt.extend(4 * [np.nan])
-        print(size, ['%6.3f' % t for t in dt])
+        print(size, [f'{t:6.3f}' for t in dt])
         return dt
 
     def plot(self):

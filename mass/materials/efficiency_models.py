@@ -222,7 +222,7 @@ class AlFilmWithPolymer(Film):
 
         polymer_dict = xraydb.material_mu_components('kapton', arbE)
         polymer_material = polymer_dict['elements']
-        polymer_thickness_nm = polymer_thickness_nm * np.ones(len(polymer_material))
+        polymer_thickness_nm *= np.ones(len(polymer_material))
         polymer_mass_fractions = [polymer_dict[x][0] * polymer_dict[x][1]
                                   / polymer_dict['mass'] for x in polymer_material]
         if polymer_density_g_per_cm3 is None:

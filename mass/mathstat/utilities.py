@@ -30,11 +30,11 @@ class CheckForMissingLibrary:
 
     def __init__(self, libname):
         self.libname = libname
-        self.error = ImportError("""This copy of Mass could not import the compiled '%s'
+        self.error = ImportError(f"""This copy of Mass could not import the compiled '{self.libname}'
 This happens when you run from a source tree, among other possibilities.  You can
 either try using an installed version or do a 'python setup.py build' and copy
 the .so file from build/lib*/mass/mathstat/ to mass/mathstat/  Note that this is
-a delayed error.  If it is raised, then you know that you needed the library!""" % self.libname)
+a delayed error.  If it is raised, then you know that you needed the library!""")
 
     def __getattr__(self, attr):
         raise self.error
@@ -153,7 +153,7 @@ def savitzky_golay(y, window_size, order, deriv=0):
         window_size = np.abs(int(window_size))
         order = np.abs(int(order))
     except ValueError as _msg:
-        raise ValueError("window_size and order have to be of type int: %s" % _msg)
+        raise ValueError(f"window_size and order have to be of type int: {_msg}")
     if window_size % 2 != 1 or window_size < 1:
         raise TypeError("window_size size must be a positive odd number")
     if window_size < order + 2:
