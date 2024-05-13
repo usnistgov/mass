@@ -1444,7 +1444,8 @@ class ChannelFromNpArray(Channel):
         self._statesDict = None
         self.verbose = verbose
         self.recipes = RecipeBook(list(self.a.dtype.fields.keys()),
-                                  ChannelFromNpArray)
+                                  propertyClass=ChannelFromNpArray, 
+                                  coefs_dtype=None)
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
     def _defineDefaultRecipesAndProperties(self):

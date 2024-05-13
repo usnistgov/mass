@@ -42,3 +42,9 @@ class SubtractThenScale:
 class DivideTwo:
     def __call__(self, x, y):
         return x/y
+
+@dataclass
+class ScalarMultAndTurnToInt64:
+    mult: float
+    def __call__(self, x):
+        return np.array(x, dtype=np.int64)*self.mult
