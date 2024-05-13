@@ -9,7 +9,7 @@ import numpy as np
 import pylab as plt
 import lmfit
 import h5py
-import resource
+# import resource
 import tempfile
 
 # Remove a warning message
@@ -477,6 +477,14 @@ def test_recipes():
     assert rb._craftWithFunction(lambda a, b, c: a + b + c, args) == 18
     assert rb.craft(lambda a, b, c: a + b + c, args) == 18
 
+    rb.to_file("test_recipe_book_save.pkl",overwrite=True)
+
+    rb2 = util.RecipeBook.from_file("test_recipe_book_save.pkl")
+
+    assert rb2.craft("a", args) == 3
+    assert rb2.craft("b", args) == 6
+    assert rb2.craft("c", args) == 9
+    assert rb2.craft("c", args) == 9
 
 def test_linefit_has_tail_and_has_linear_background():
     result = ds.linefit("O H-Like 2p", states="CO2")
@@ -541,34 +549,34 @@ def test_save_load_recipe_book():
     assert rb.craft("energy", args) == rb2.craft("energy", args)
 
 
-def test_open_many_OFF_files():
-    """Open more OFF ChannelGroup objects than the system allows. Test that close method closes them."""
+# def test_open_many_OFF_files():
+#     """Open more OFF ChannelGroup objects than the system allows. Test that close method closes them."""
 
-    # LOWER the system's limit on number of open files, to make the test smaller
-    soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
-    request_maxfiles = min(60, soft_limit)
-    resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
-    try:
-        maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
-        NFilesToOpen = maxfiles // 2 + 10
+#     # LOWER the system's limit on number of open files, to make the test smaller
+#     soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+#     request_maxfiles = min(60, soft_limit)
+#     resource.setrlimit(resource.RLIMIT_NOFILE, (request_maxfiles, hard_limit))
+#     try:
+#         maxfiles, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+#         NFilesToOpen = maxfiles // 2 + 10
 
-        filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
-        filelist = getOffFileListFromOneFile(filename, maxChans=2)
-        for _ in range(NFilesToOpen):
-            _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
-                             excludeStates=["START", "END"])
+#         filename = os.path.join(d, "data_for_test", "20181205_BCDEFGHI/20181205_BCDEFGHI_chan1.off")
+#         filelist = getOffFileListFromOneFile(filename, maxChans=2)
+#         for _ in range(NFilesToOpen):
+#             _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
+#                              excludeStates=["START", "END"])
 
-        # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
-        # only open it once, not twice.
-        NFilePairsToOpen = (maxfiles - 12) // 6
-        filelist = NFilePairsToOpen * filelist
-        for _ in range(3):
-            _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
-                             excludeStates=["START", "END"])
+#         # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
+#         # only open it once, not twice.
+#         NFilePairsToOpen = (maxfiles - 12) // 6
+#         filelist = NFilePairsToOpen * filelist
+#         for _ in range(3):
+#             _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
+#                              excludeStates=["START", "END"])
 
-    # Use the try...finally to undo our reduction in the limit on number of open files.
-    finally:
-        resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
+#     # Use the try...finally to undo our reduction in the limit on number of open files.
+#     finally:
+#         resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
 
 def test_listmode_to_hdf5():

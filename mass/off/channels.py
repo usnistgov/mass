@@ -13,6 +13,7 @@ from mass.common import tostr
 import dill
 import gc
 from deprecation import deprecated
+import h5py
 
 # local imports
 import mass
@@ -22,6 +23,7 @@ from .util import annotate_lines, SilenceBar, NoCutInds, InvalidStatesException
 from . import util
 from . import fivelag
 from .experiment_state import ExperimentStateFile
+from . import recipe_classes
 
 
 LOG = logging.getLogger("mass")
@@ -205,10 +207,10 @@ class Channel(CorG):  # noqa: PLR0904
     def _defineDefaultRecipesAndProperties(self):
         assert (len(self.recipes) == 0)
         t0 = self.offFile["unixnano"][0]
-        self.recipes.add("relTimeSec", lambda unixnano: (unixnano - t0) * 1e-9, ["unixnano"])
-        self.recipes.add("filtPhase", lambda x, y: x / y, ["derivativeLike", "filtValue"])
-        self.cutAdd("cutNone", lambda filtValue: np.ones(
-            len(filtValue), dtype="bool"), setDefault=True)
+        self.recipes.add("relTimeSec", 
+                         recipe_classes.SubtractThenScale(sub=t0, scale=1e-9), ["unixnano"])
+        self.recipes.add("filtPhase", recipe_classes.DivideTwo(), ["derivativeLike", "filtValue"])        
+        self.cutAdd("cutNone", recipe_classes.TruesOfSameSize(), ["unixnano"], setDefault=True)
 
     @add_group_loop
     def cutAdd(self, cutRecipeName, f, ingredients=None, overwrite=False, setDefault=False):
@@ -834,10 +836,9 @@ class Channel(CorG):  # noqa: PLR0904
     def add5LagRecipes(self, f):
         _filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(
             f[:], self.offFile.basis)
-        self.recipes.add("cba5Lag", lambda coefs: np.matmul(coefs, filter_5lag_fit_in_basis))
-        # self.recipes.add("filtValue5Lag", lambda cba5Lag: fivelag.filtValue5Lag(cba5Lag))
+        self.recipes.add("cba5Lag", recipe_classes.MatMulAB_FixedB(B=filter_5lag_fit_in_basis), 
+                         ingredients=["coefs"])
         self.recipes.add("filtValue5Lag", fivelag.filtValue5Lag, ingredients=["cba5Lag"])
-        # self.recipes.add("peakX5Lag", lambda cba5Lag: fivelag.peakX5Lag(cba5Lag))
         self.recipes.add("peakX5Lag", fivelag.peakX5Lag, ingredients=["cba5Lag"])
 
     @property
@@ -1150,6 +1151,18 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):  # noqa: PLR0904
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFileNames[0])
         return os.path.split(basename)[-1] + f" {len(self)} chans"
 
+
+    def add5LagRecipes(self, model_hdf5_path):
+        with h5py.File(model_hdf5_path,"r") as h5:
+            models = {int(ch) : mass.pulse_model.PulseModel.fromHDF5(h5[ch]) for ch in h5.keys()}
+        for channum, ds in self.items():
+            # define recipes for "filtValue5Lag", "peakX5Lag" and "cba5Lag"
+            # where cba refers to the coefficiencts of a polynomial fit to the 5 lags of the filter
+            ds.model = models[ds.channum]
+            filter_5lag = ds.model.f_5lag
+            ds.add5LagRecipes(filter_5lag)
+        return models
+
     def loadChannels(self):
         bar = SilenceBar('Parse OFF File Headers', max=len(
             self.offFileNames), silence=not self.verbose)
@@ -1431,29 +1444,28 @@ class ChannelFromNpArray(Channel):
         self.experimentStateFile = experimentStateFile
         self.shortName = shortname
         self.channum = channum
-        self.experimentStateFile = experimentStateFile
         self.markedBadBool = False
         self._statesDict = None
         self.verbose = verbose
         self.recipes = RecipeBook(list(self.a.dtype.fields.keys()),
                                   ChannelFromNpArray)
-        # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
     def _defineDefaultRecipesAndProperties(self):
         assert (len(self.recipes) == 0)
         if "p_timestamp" in self.a.dtype.names:
             t0 = self.a[0]["p_timestamp"]
-            self.recipes.add("relTimeSec", lambda p_timestamp: (p_timestamp - t0))
-            self.cutAdd("cutNone", lambda p_timestamp: np.ones(
-                len(p_timestamp), dtype="bool"), setDefault=True)
+            self.recipes.add("relTimeSec", recipe_classes.Subtract(t0), ingredients=["p_timestamp"])
+            self.cutAdd("cutNone", recipe_classes.TruesOfSameSize(),
+                        ingredients=["p_timestamp"], setDefault=True)
             if "unixnano" not in self.a.dtype.names:
                 # unixnano is needed for states to work
-                self.recipes.add("unixnano", lambda p_timestamp: np.array(p_timestamp, dtype=np.int64) * 10**9)
+                self.recipes.add("unixnano", recipe_classes.ScalarMultAndTurnToInt64(1e9), 
+                                 ingredients=["p_timestamp"])
         else:
             first_field = self.a.dtype.names[0]
-            self.cutAdd("cutNone", lambda x: np.ones(
-                len(x), dtype="bool"), [first_field], setDefault=True)
+            self.cutAdd("cutNone", recipe_classes.TruesOfSameSize(), 
+                        [first_field], setDefault=True)
 
     def __len__(self):
         return len(self.a)
