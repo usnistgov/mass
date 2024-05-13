@@ -284,7 +284,6 @@ def test_bad_channels_skipped():
     assert n_exclude_bad == 0
 
 
-@pytest.mark.xfail
 def test_save_load_recipes():
     data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
     ds_local = data_local.firstGoodChannel()
@@ -452,7 +451,8 @@ def test_duplicate_cuts():
 
 
 def test_recipes():
-    rb = util.RecipeBook(baseIngredients=["x", "y", "z"])
+    rb = util.RecipeBook(baseIngredients=["x", "y", "z"], propertyClass=None,
+                         coefs_dtype=None)
 
     def funa(x, y):
         return x + y
@@ -537,7 +537,6 @@ def test_iterstates():
         ds.plotHist(np.arange(100, 2500, 50), 'energy', states="BC", coAddStates=False)
 
 
-@pytest.mark.xfail
 def test_save_load_recipe_book():
     rb = ds.recipes
     save_path = os.path.join(d, "recipe_book_save_test.rbpkl")

@@ -199,8 +199,8 @@ class Channel(CorG):  # noqa: PLR0904
         self._statesDict = None
         self.verbose = verbose
         self.learnChannumAndShortname()
-        self.recipes = RecipeBook(self._offAttrs, Channel,
-                                  wrapper=lambda x: util.IngredientsWrapper(x, self.offFile._dtype_non_descriptive))
+        self.recipes = RecipeBook(self._offAttrs, propertyClass=Channel,
+                                  coefs_dtype=self.offFile._dtype_non_descriptive)
         # wrapper is part of a hack to allow "coefs" and "filtValue" to be recipe ingredients
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
@@ -385,11 +385,7 @@ class Channel(CorG):  # noqa: PLR0904
         # offAttr can be a list of offAttr names
         if isinstance(inds, slice):
             r = self.offFile[inds]
-            # I'd like to be able to do either r["coefs"] to get all projection coefficients
-            # or r["filtValue"] to get only the filtValue
-            # IngredientsWrapper lets that work within recipes.craft
-            g = self.recipes.craft(cutRecipeName, util.IngredientsWrapper(
-                r, self.offFile._dtype_non_descriptive))
+            g = self.recipes.craft(cutRecipeName, r)
             output = r[g]
         elif isinstance(inds, list) and _listMethodSelect == 2:  # preallocate and truncate
             # testing on the 20191219_0002 TOMCAT dataset with len(inds)=432 showed this
