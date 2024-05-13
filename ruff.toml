@@ -1,8 +1,18 @@
 # Configuration file for ruff, the one lint tool to rule them all.
 
-line-length = 135
+# Assume Python 3.9 [end of life will be October 2025. See https://endoflife.date/python]
+target-version = "py39"
 
-lint.select = [
+exclude = [
+  "bin/rebuild",
+  "nonstandard",
+]
+
+line-length = 135
+preview = true
+
+[lint]
+select = [
   "E",  # pycodestyle
   "W",  # pycodestyle
   "E225",  # pycodestyle missing whitespace around operator
@@ -18,7 +28,7 @@ lint.select = [
   # "D",   # pydocstyle
 ]
 
-lint.ignore = [
+ignore = [
     # "E501",  # line too long
     "UP015",  # Unneccessary open mode parameters ("r" is now the default, I guess)
     # "UP031",  # use f-string instead of percent format
@@ -30,12 +40,6 @@ lint.ignore = [
     "PLR0915",  # too many statements
     # "NPY002"
 ]
-
-# Allow unused variables when underscore-prefixed.
-lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-# Assume Python 3.9 [end of life will be October 2025. See https://endoflife.date/python]
-target-version = "py39"
 
 # Loosen default allowed number of positional arguments and local variables (was 5, 15) -> (8, 20).
 [lint.pylint]

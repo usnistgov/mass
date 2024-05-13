@@ -1,0 +1,73 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python application
+
+on:
+  push:
+  # If you don't have a "branches: [...]" entry here, the action runs on any push.
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+    strategy:
+      # By default, GitHub will maximize the number of jobs run in parallel
+      # depending on the available runners on GitHub-hosted virtual machines.
+      # max-parallel: 8
+      fail-fast: false
+      matrix:
+        include:
+        - python-version: 3.9
+        - python-version: 3.12
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Display Python version
+      run: python -c "import sys; print(sys.version)"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 ruff pytest
+        pip install -e .
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Lint with flake8 and ruff (only on oldest Python version)
+      if: ${{ matrix.python-version == 3.9 }}
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --extend-exclude nonstandard
+        # Run ruff, but don't fail tests regarless of result.
+        ruff check --preview || ruff check --preview --statistics --exit-zero
+    - name: Test with pytest
+      run: |
+        pytest
+
+    - name: Run doctests (only on oldest Python version)
+      if: ${{ matrix.python-version == 3.9 }}
+      run: |
+        pip install recommonmark sphinx
+        cd doc
+        make clean
+        make doctest
+
+# TO DO: generate docs automatically and deploy them.
+#
+# The following comes from the old bitbucket-pipelines.yml.
+# It shows how to make and deploy documentation. We'll need to use pages.nist.gov when we re-enable this.
+# - pip install recommonmark sphinx
+# - cd doc
+# - make clean
+# - make doctest
+# - make html
+# - git config --global user.email "galen.oneil@nist.gov"
+# - git config --global user.name "Bitbucket Pipeline Doc Deploy"
+# - ./deploy_docs_bitbucket.sh $BITBUCKET_BRANCH
