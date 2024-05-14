@@ -293,7 +293,7 @@ class TestTESGroup:
         data2.set_chan_good(1)
         LOG.info("Testing printing of a TESGroup")
         LOG.info(data2)
-        del data
+        del data2
 
     def test_save_hdf5_calibration_storage(self, tmp_path):
         "calibrate a dataset, make sure it saves to hdf5"
