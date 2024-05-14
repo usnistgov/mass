@@ -26,16 +26,16 @@ class InvalidStatesException(Exception):
 
 
 class RecipeBook:
-    def __init__(self, baseIngredients, propertyClass=None, wrapper=lambda x: x):
+    def __init__(self, baseIngredients, propertyClass, coefs_dtype):
         """
         propertyClass - which class to add properties to, if they are to be added
-        wrapper - used in Recipe.craft to allow both "coefs" and "filtValue" to be ingredients,
+        coefs_dtype - used in Recipe.craft to allow both "coefs" and "filtValue" to be ingredients,
             while "filtValue" refers to a sub-array of "coefs"
         """
         self.craftedIngredients = collections.OrderedDict()
         self.baseIngredients = baseIngredients  # list of names of base ingredients that will be passed to craft
         self.propertyClass = propertyClass  # class that properites will be added to
-        self.wrapper = wrapper
+        self.coefs_dtype = coefs_dtype
 
     def add(self, recipeName, f, ingredients=None, overwrite=False, inverse=None, createProperty=True):
         """
@@ -75,7 +75,7 @@ class RecipeBook:
                 assert ingredient in self.baseIngredients or ingredient in self.craftedIngredients
                 i2a[ingredient] = inspectedArgName
 
-        recipe = Recipe(f, i2a, inverse, recipeName, self.wrapper)
+        recipe = Recipe(f, i2a, inverse, recipeName, self.coefs_dtype)
         for ingredient in i2a:
             if ingredient in self.craftedIngredients:
                 recipe._setIngredientToRecipe(ingredient, self.craftedIngredients[ingredient])
@@ -171,13 +171,17 @@ class Recipe:
     reads to the off file.
     """
 
-    def __init__(self, f, i2a, inverse, name, ingredientWrapper):
+    def __init__(self, f, i2a, inverse, name, coefs_dtype=None):
         assert not isinstance(f, Recipe)
         self.f = f
         self.inverse = inverse
         self.i2a = i2a
         self.name = name
-        self.ingredientWrapper = ingredientWrapper
+        # coefs dtype is used to allow either indexing into the offFile with
+        # "filtValue", "derivativeLike", etc OR
+        # "coefs"
+        # it's a hardcoded hack
+        self.coefs_dtype = coefs_dtype
 
     def _setIngredientToRecipe(self, ingredient, r):
         assert isinstance(r, Recipe)
@@ -189,9 +193,15 @@ class Recipe:
         for (k, v) in self.i2a.items():
             if isinstance(v, Recipe):
                 args.append(v(ingredientSource))
+            elif k == "coefs":
+                # special behavior for coefs to enable using coefs or filtValue names
+                # this was probalby a mistake to implement in the first place
+                # but painful to get rid of
+                ingredientSource_coefs_view = ingredientSource.view(self.coefs_dtype)
+                args.append(ingredientSource_coefs_view["coefs"])
             else:
-                wrapped = self.ingredientWrapper(ingredientSource)
-                args.append(wrapped[k])
+                args.append(ingredientSource[k])
+
         # call functions with positional arguments so names don't need to match
         return self.f(*args)
 
@@ -250,7 +260,7 @@ def add_group_loop(method):
     wrapper.__name__ = method_name
 
     # Generate a good doc-string.
-    lines = ["Loop over self, calling the %s(...) method for each channel." % method_name]
+    lines = [f"Loop over self, calling the {method_name}(...) method for each channel."]
     lines.append("pass _rethrow=True to see stacktrace from first error")
     try:
         argtext = inspect.signature(method)  # Python 3.3 and later
@@ -347,31 +357,6 @@ def median_absolute_deviation(x):
     mad = np.median(np.abs(x - median))
     sigma_equiv = mad * SIGMA_OVER_MAD
     return mad, sigma_equiv, median
-
-
-class IngredientsWrapper:
-    """
-    I'd like to be able to do either ingredient_source["coefs"] to get all projection coefficients
-    or ingredient_source["filtValue"] to get only the filtValue
-    IngredientsWrapper lets that work within recipes.craft
-    IngredientWrapper is part of that hack
-
-    ingredient_source - an ndarray read from an off file with dtype that defined "filtValue"
-    coefs_dtype - an alternate dtype that defines "coefs"
-    """
-
-    def __init__(self, ingredient_source, coefs_dtype):
-        self.ingredient_source = ingredient_source
-        self.coefs_dtype = coefs_dtype
-
-    def __getitem__(self, k):
-        if k == "coefs":
-            return self.ingredient_source.view(self.coefs_dtype)["coefs"]
-        else:
-            return self.ingredient_source[k]
-
-    def view(self, coefs_dtype):
-        return self.ingredient_source.view(coefs_dtype)
 
 
 def iterstates(states):

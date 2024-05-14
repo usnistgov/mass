@@ -30,7 +30,7 @@ class PhaseCorrector:
                 if overwrite:
                     del group[name]
                 else:
-                    raise AttributeError("Cannot overwrite phase correction dataset '%s'" % name)
+                    raise AttributeError(f"Cannot overwrite phase correction dataset '{name}'")
             group[name] = vector
         h5group_update("phase_uniformifier_x", self.phase_uniformifier_x)
         h5group_update("phase_uniformifier_y", self.phase_uniformifier_y)

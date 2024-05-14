@@ -120,7 +120,7 @@ class MLEModel(lmfit.Model):
         out = self._name
         opts = []
         if len(self._prefix) > 0:
-            opts.append("prefix='%s'" % (self._prefix))
+            opts.append(f"prefix='{self._prefix}'")
         if long:
             for k, v in self.opts.items():
                 opts.append(f"{k}='{v}'")
@@ -421,5 +421,5 @@ To avoid this error:
 1. use smaller bins, or
 2. pass a smaller value of `minimum_bins_per_fwhm` to .fit, or
 3. set `mass.line_models.VALIDATE_BIN_SIZE = False`.
-See https://bitbucket.org/joe_fowler/mass/issues/162 for discussion on this issue"""
+See https://github.com/usnistgov/mass/issues/162 for discussion on this issue"""
                     raise ValueError(msg)
