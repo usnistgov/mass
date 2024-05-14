@@ -565,13 +565,13 @@ def test_save_load_recipe_book():
 #             _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
 #                              excludeStates=["START", "END"])
 
-        # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
-        # only open it once, not twice.
-        NFilePairsToOpen = (maxfiles - 12) // 6
-        filelist *= NFilePairsToOpen
-        for _ in range(3):
-            _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
-                             excludeStates=["START", "END"])
+#         # Now open one ChannelGroup with too many files. If the resources aren't freed, we can
+#         # only open it once, not twice.
+#         NFilePairsToOpen = (maxfiles - 12) // 6
+#         filelist *= NFilePairsToOpen
+#         for _ in range(3):
+#             _ = ChannelGroup(filelist, verbose=True, channelClass=Channel,
+#                              excludeStates=["START", "END"])
 
 #     # Use the try...finally to undo our reduction in the limit on number of open files.
 #     finally:
