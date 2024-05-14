@@ -6,7 +6,6 @@ import tempfile
 import pytest
 
 
-
 def test_off_5lag_with_saving_and_loading_recipes():
     d = os.path.dirname(os.path.realpath(__file__))
 
@@ -93,8 +92,8 @@ def test_off_5lag_with_saving_and_loading_recipes():
     assert data[3].recipes["energy"].f.uncalibratedName == data2[3].recipes["energy"].f.uncalibratedName
     assert data[3].recipes["energy"].f._names == data2[3].recipes["energy"].f._names
 
-    data3= mass.off.ChannelGroup(off_filenames)
+    data3 = mass.off.ChannelGroup(off_filenames)
     data3[3].learnCalibrationPlanFromEnergiesAndPeaks("filtValue",
-        states=None, ph_fwhm=100, line_names=['ErKAlpha1', 'Ho166m_80', 'Co57_122', 'Ho166m_184'], 
+        states=None, ph_fwhm=100, line_names=['ErKAlpha1', 'Ho166m_80', 'Co57_122', 'Ho166m_184'],
         maxacc=0.1)
-    assert data3[3].calibrationPlan.uncalibratedVals[0] == pytest.approx(4333.8,rel=1e-3)
+    assert data3[3].calibrationPlan.uncalibratedVals[0] == pytest.approx(4333.8, rel=1e-3)
