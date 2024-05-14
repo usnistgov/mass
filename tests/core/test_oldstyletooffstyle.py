@@ -9,10 +9,11 @@ try:
 except NameError:
     d = os.getcwd()
 
+
 def load_data(hdf5_filename=None, hdf5_noisefilename=None, skip_noise=False,
               experimentStateFile=None):
-    src_name = os.path.normpath(os.path.join(d, os.pardir,"regression_test","regress_chan1.ljh"))
-    noi_name = os.path.normpath(os.path.join(d, os.pardir,"regression_test","regress_noise_chan1.ljh"))
+    src_name = os.path.normpath(os.path.join(d, os.pardir, "regression_test", "regress_chan1.ljh"))
+    noi_name = os.path.normpath(os.path.join(d, os.pardir, "regression_test", "regress_noise_chan1.ljh"))
     if skip_noise:
         noi_name = None
     if hdf5_filename is None:

@@ -207,9 +207,9 @@ class Channel(CorG):  # noqa: PLR0904
     def _defineDefaultRecipesAndProperties(self):
         assert (len(self.recipes) == 0)
         t0 = self.offFile["unixnano"][0]
-        self.recipes.add("relTimeSec", 
+        self.recipes.add("relTimeSec",
                          recipe_classes.SubtractThenScale(sub=t0, scale=1e-9), ["unixnano"])
-        self.recipes.add("filtPhase", recipe_classes.DivideTwo(), ["derivativeLike", "filtValue"])        
+        self.recipes.add("filtPhase", recipe_classes.DivideTwo(), ["derivativeLike", "filtValue"])
         self.cutAdd("cutNone", recipe_classes.TruesOfSameSize(), ["unixnano"], setDefault=True)
 
     @add_group_loop
@@ -833,7 +833,7 @@ class Channel(CorG):  # noqa: PLR0904
     def add5LagRecipes(self, f):
         _filter_5lag_in_basis, filter_5lag_fit_in_basis = fivelag.calc_5lag_fit_matrix(
             f[:], self.offFile.basis)
-        self.recipes.add("cba5Lag", recipe_classes.MatMulAB_FixedB(B=filter_5lag_fit_in_basis), 
+        self.recipes.add("cba5Lag", recipe_classes.MatMulAB_FixedB(B=filter_5lag_fit_in_basis),
                          ingredients=["coefs"])
         self.recipes.add("filtValue5Lag", fivelag.filtValue5Lag, ingredients=["cba5Lag"])
         self.recipes.add("peakX5Lag", fivelag.peakX5Lag, ingredients=["cba5Lag"])
@@ -1148,10 +1148,9 @@ class ChannelGroup(CorG, GroupLooper, collections.OrderedDict):  # noqa: PLR0904
         basename, self.channum = mass.ljh_util.ljh_basename_channum(self.offFileNames[0])
         return os.path.split(basename)[-1] + f" {len(self)} chans"
 
-
     def add5LagRecipes(self, model_hdf5_path):
-        with h5py.File(model_hdf5_path,"r") as h5:
-            models = {int(ch) : mass.pulse_model.PulseModel.fromHDF5(h5[ch]) for ch in h5.keys()}
+        with h5py.File(model_hdf5_path, "r") as h5:
+            models = {int(ch): mass.pulse_model.PulseModel.fromHDF5(h5[ch]) for ch in h5.keys()}
         for channum, ds in self.items():
             # define recipes for "filtValue5Lag", "peakX5Lag" and "cba5Lag"
             # where cba refers to the coefficiencts of a polynomial fit to the 5 lags of the filter
@@ -1445,7 +1444,7 @@ class ChannelFromNpArray(Channel):
         self._statesDict = None
         self.verbose = verbose
         self.recipes = RecipeBook(list(self.a.dtype.fields.keys()),
-                                  propertyClass=ChannelFromNpArray, 
+                                  propertyClass=ChannelFromNpArray,
                                   coefs_dtype=None)
         self._defineDefaultRecipesAndProperties()  # sets _default_cut_recipe_name
 
@@ -1458,11 +1457,11 @@ class ChannelFromNpArray(Channel):
                         ingredients=["p_timestamp"], setDefault=True)
             if "unixnano" not in self.a.dtype.names:
                 # unixnano is needed for states to work
-                self.recipes.add("unixnano", recipe_classes.ScalarMultAndTurnToInt64(1e9), 
+                self.recipes.add("unixnano", recipe_classes.ScalarMultAndTurnToInt64(1e9),
                                  ingredients=["p_timestamp"])
         else:
             first_field = self.a.dtype.names[0]
-            self.cutAdd("cutNone", recipe_classes.TruesOfSameSize(), 
+            self.cutAdd("cutNone", recipe_classes.TruesOfSameSize(),
                         [first_field], setDefault=True)
 
     def __len__(self):

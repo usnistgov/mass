@@ -477,7 +477,7 @@ def test_recipes():
     assert rb._craftWithFunction(lambda a, b, c: a + b + c, args) == 18
     assert rb.craft(lambda a, b, c: a + b + c, args) == 18
 
-    rb.to_file("test_recipe_book_save.pkl",overwrite=True)
+    rb.to_file("test_recipe_book_save.pkl", overwrite=True)
 
     rb2 = util.RecipeBook.from_file("test_recipe_book_save.pkl")
 
@@ -485,6 +485,7 @@ def test_recipes():
     assert rb2.craft("b", args) == 6
     assert rb2.craft("c", args) == 9
     assert rb2.craft("c", args) == 9
+
 
 def test_linefit_has_tail_and_has_linear_background():
     result = ds.linefit("O H-Like 2p", states="CO2")

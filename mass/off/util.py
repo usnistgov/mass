@@ -171,7 +171,7 @@ class Recipe:
     reads to the off file.
     """
 
-    def __init__(self, f, i2a, inverse, name, coefs_dtype = None):
+    def __init__(self, f, i2a, inverse, name, coefs_dtype=None):
         assert not isinstance(f, Recipe)
         self.f = f
         self.inverse = inverse
@@ -193,15 +193,14 @@ class Recipe:
         for (k, v) in self.i2a.items():
             if isinstance(v, Recipe):
                 args.append(v(ingredientSource))
+            elif k == "coefs":
+                # special behavior for coefs to enable using coefs or filtValue names
+                # this was probalby a mistake to implement in the first place
+                # but painful to get rid of
+                ingredientSource_coefs_view = ingredientSource.view(self.coefs_dtype)
+                args.append(ingredientSource_coefs_view["coefs"])
             else:
-                if k == "coefs":
-                    # special behavior for coefs to enable using coefs or filtValue names
-                    # this was probalby a mistake to implement in the first place
-                    # but painful to get rid of
-                    ingredientSource_coefs_view = ingredientSource.view(self.coefs_dtype)
-                    args.append(ingredientSource_coefs_view["coefs"])
-                else:
-                    args.append(ingredientSource[k])
+                args.append(ingredientSource[k])
 
         # call functions with positional arguments so names don't need to match
         return self.f(*args)
@@ -358,7 +357,6 @@ def median_absolute_deviation(x):
     mad = np.median(np.abs(x - median))
     sigma_equiv = mad * SIGMA_OVER_MAD
     return mad, sigma_equiv, median
-
 
 
 def iterstates(states):
