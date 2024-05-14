@@ -142,11 +142,12 @@ data.resultPlot("W Ni-20", states=["W 1"])
 
 print(data.whyChanBad)
 
-outfile = data.outputHDF5Filename(outputDir=".", addToName="qualitychecklinefit")
-with h5py.File(outfile, "w") as h5:
-    results = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
-                                       worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
-                                       resolutionPlot=True, hdf5Group=h5)
+with tempfile.TemporaryDirectory() as tdir:
+    outfile = data.outputHDF5Filename(outputDir=tdir, addToName="qualitychecklinefit")
+    with h5py.File(outfile, "w") as h5:
+        results = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
+                                           worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
+                                           resolutionPlot=True, hdf5Group=h5)
 
 
 # h5 = h5py.File(data.outputHDF5.filename, "r")  # dont use with here, it will hide errors
@@ -578,16 +579,18 @@ def test_open_many_OFF_files():
 
 
 def test_listmode_to_hdf5():
-    filename = data.outputHDF5Filename(outputDir=".", addToName="listmode")
-    with h5py.File(filename, "w") as h5:
-        data.energyTimestampLabelToHDF5(h5)
-    with h5py.File(filename, "r") as h5:
-        h5["3"]["Ar"]["unixnano"]
+    with tempfile.TemporaryDirectory() as tdir:
+        filename = data.outputHDF5Filename(outputDir=tdir, addToName="listmode")
+        with h5py.File(filename, "w") as h5:
+            data.energyTimestampLabelToHDF5(h5)
+        with h5py.File(filename, "r") as h5:
+            h5["3"]["Ar"]["unixnano"]
 
 
 def test_hists_to_hdf5():
-    filename = data.outputHDF5Filename(outputDir=".", addToName="hists")
-    with h5py.File(filename, "w") as h5:
-        data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")
-    with h5py.File(filename, "r") as h5:
-        h5["3"]["Ar"]["counts"]
+    with tempfile.TemporaryDirectory() as tdir:
+        filename = data.outputHDF5Filename(outputDir=tdir, addToName="hists")
+        with h5py.File(filename, "w") as h5:
+            data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")
+        with h5py.File(filename, "r") as h5:
+            h5["3"]["Ar"]["counts"]
