@@ -142,11 +142,12 @@ data.resultPlot("W Ni-20", states=["W 1"])
 
 print(data.whyChanBad)
 
-outfile = data.outputHDF5Filename(outputDir=".", addToName="qualitychecklinefit")
-with h5py.File(outfile, "w") as h5:
-    results = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
-                                       worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
-                                       resolutionPlot=True, hdf5Group=h5)
+with tempfile.TemporaryDirectory() as tdir:
+    outfile = data.outputHDF5Filename(outputDir=tdir, addToName="qualitychecklinefit")
+    with h5py.File(outfile, "w") as h5:
+        results = data.qualityCheckLinefit("Ne H-Like 3p", positionToleranceAbsolute=2,
+                                           worstAllowedFWHM=4.5, states="Ne", _rethrow=True,
+                                           resolutionPlot=True, hdf5Group=h5)
 
 
 # h5 = h5py.File(data.outputHDF5.filename, "r")  # dont use with here, it will hide errors
@@ -284,20 +285,20 @@ def test_bad_channels_skipped():
     assert n_exclude_bad == 0
 
 
-@pytest.mark.xfail
 def test_save_load_recipes():
     data_local = ChannelGroup(getOffFileListFromOneFile(filename, maxChans=2))
     ds_local = data_local.firstGoodChannel()
     assert "energy" not in ds_local.__dict__, \
         "ds_local should not have energy yet, we haven't defined that recipe"
-    pklfilename = "recipe_book_save_test2.rbpkl"
-    data.saveRecipeBooks(pklfilename)
-    ds = data.firstGoodChannel()
-    ds.add5LagRecipes(np.zeros(996))
-    data_local.loadRecipeBooks(pklfilename)
-    for ds in data.values():
-        ds_local = data_local[ds.channum]
-        assert all(ds.energy == ds_local.energy)
+    with tempfile.TemporaryDirectory() as tdir:
+        pklfilename = os.path.join(tdir, "recipe_book_save_test2.rbpkl")
+        data.saveRecipeBooks(pklfilename)
+        ds = data.firstGoodChannel()
+        ds.add5LagRecipes(np.zeros(996))
+        data_local.loadRecipeBooks(pklfilename)
+        for ds in data.values():
+            ds_local = data_local[ds.channum]
+            assert all(ds.energy == ds_local.energy)
 
 
 def test_experiment_state_file_repeated_states():
@@ -452,7 +453,8 @@ def test_duplicate_cuts():
 
 
 def test_recipes():
-    rb = util.RecipeBook(baseIngredients=["x", "y", "z"])
+    rb = util.RecipeBook(baseIngredients=["x", "y", "z"], propertyClass=None,
+                         coefs_dtype=None)
 
     def funa(x, y):
         return x + y
@@ -473,9 +475,16 @@ def test_recipes():
     assert rb.craft("a", args) == 3
     assert rb.craft("b", args) == 6
     assert rb.craft("c", args) == 9
-    assert rb.craft("c", args) == 9
     assert rb._craftWithFunction(lambda a, b, c: a + b + c, args) == 18
     assert rb.craft(lambda a, b, c: a + b + c, args) == 18
+
+    with tempfile.NamedTemporaryFile(suffix=".rbpkl") as pklfile:
+        rb.to_file(pklfile.name, overwrite=True)
+        rb2 = util.RecipeBook.from_file(pklfile.name)
+
+        assert rb2.craft("a", args) == 3
+        assert rb2.craft("b", args) == 6
+        assert rb2.craft("c", args) == 9
 
 
 def test_linefit_has_tail_and_has_linear_background():
@@ -529,16 +538,16 @@ def test_iterstates():
         ds.plotHist(np.arange(100, 2500, 50), 'energy', states="BC", coAddStates=False)
 
 
-@pytest.mark.xfail
 def test_save_load_recipe_book():
     rb = ds.recipes
-    save_path = os.path.join(d, "recipe_book_save_test.rbpkl")
-    rb.to_file(save_path, overwrite=True)
-    rb2 = util.RecipeBook.from_file(save_path)
-    assert rb.craftedIngredients.keys() == rb2.craftedIngredients.keys()
-    args = {"pretriggerMean": 1, "filtValue": 2}
-    print(rb.craftedIngredients["energy"])
-    assert rb.craft("energy", args) == rb2.craft("energy", args)
+    with tempfile.NamedTemporaryFile(suffix=".rbpkl") as rbfile:
+        save_path = rbfile.name
+        rb.to_file(save_path, overwrite=True)
+        rb2 = util.RecipeBook.from_file(save_path)
+        assert rb.craftedIngredients.keys() == rb2.craftedIngredients.keys()
+        args = {"pretriggerMean": 1, "filtValue": 2}
+        print(rb.craftedIngredients["energy"])
+        assert rb.craft("energy", args) == rb2.craft("energy", args)
 
 
 def test_open_many_OFF_files():
@@ -572,16 +581,18 @@ def test_open_many_OFF_files():
 
 
 def test_listmode_to_hdf5():
-    filename = data.outputHDF5Filename(outputDir=".", addToName="listmode")
-    with h5py.File(filename, "w") as h5:
-        data.energyTimestampLabelToHDF5(h5)
-    with h5py.File(filename, "r") as h5:
-        h5["3"]["Ar"]["unixnano"]
+    with tempfile.TemporaryDirectory() as tdir:
+        filename = data.outputHDF5Filename(outputDir=tdir, addToName="listmode")
+        with h5py.File(filename, "w") as h5:
+            data.energyTimestampLabelToHDF5(h5)
+        with h5py.File(filename, "r") as h5:
+            h5["3"]["Ar"]["unixnano"]
 
 
 def test_hists_to_hdf5():
-    filename = data.outputHDF5Filename(outputDir=".", addToName="hists")
-    with h5py.File(filename, "w") as h5:
-        data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")
-    with h5py.File(filename, "r") as h5:
-        h5["3"]["Ar"]["counts"]
+    with tempfile.TemporaryDirectory() as tdir:
+        filename = data.outputHDF5Filename(outputDir=tdir, addToName="hists")
+        with h5py.File(filename, "w") as h5:
+            data.histsToHDF5(h5, binEdges=np.arange(4000), attr="energy")
+        with h5py.File(filename, "r") as h5:
+            h5["3"]["Ar"]["counts"]

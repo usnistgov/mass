@@ -8,6 +8,7 @@
 * Move primary repository to GitHub. Update README.
 * Set up GitHub Actions for our new hosting service (issues 273, 274)
 * Make ruff warnings go away (issue 277).
+* Update/fix how we save (pickle) OFF recipes.
 
 
 **0.8.2** February 23, 2024
