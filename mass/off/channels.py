@@ -670,6 +670,15 @@ class Channel(CorG):  # noqa: PLR0904
                          [calibration.uncalibratedName], overwrite=overwriteRecipe)
         return results
 
+    @add_group_loop
+    def learnCalibrationPlanFromEnergiesAndPeaks(self, attr, states, ph_fwhm, line_names, maxacc):
+        peak_ph_vals, _peak_heights = mass.algorithms.find_local_maxima(self.getAttr(attr, indsOrStates=states), ph_fwhm)
+        _name_e, _energies_out, opt_assignments = mass.algorithms.find_opt_assignment(peak_ph_vals, line_names, maxacc=maxacc)
+
+        self.calibrationPlanInit(attr)
+        for ph, name in zip(opt_assignments, _name_e):
+            self.calibrationPlanAddPoint(ph, name, states=states)
+
     def markBad(self, reason, extraInfo=None):
         self.markedBadReason = reason
         self.markedBadExtraInfo = extraInfo
