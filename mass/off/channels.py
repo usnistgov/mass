@@ -855,7 +855,7 @@ class Channel(CorG):  # noqa: PLR0904
 
     @property
     def subframePeriodSeconds(self):
-        nDivs = self.offFile.subframeDivisions
+        nDivs = self.subframeDivisions
         return self.offFile.framePeriodSeconds / float(nDivs)
 
     @property
