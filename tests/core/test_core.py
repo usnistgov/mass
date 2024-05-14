@@ -223,6 +223,7 @@ class TestTESGroup:
             # print(results_cython[k])
             # print(results_cython[k]/results_python[k])
             assert results_cython[k] == pytest.approx(results_python[k], rel=0.003)
+        del data
 
     def test_experiment_state(self, tmp_path):
         # First test with the default experimentStateFile
@@ -254,6 +255,7 @@ class TestTESGroup:
             ds.good(state="START")
         nfun = np.sum(ds.good(state="funstate"))
         assert nfun == 252
+        del data
 
     def test_nonoise_data(self, tmp_path):
         """Test behavior of a TESGroup without noise data."""
@@ -268,6 +270,7 @@ class TestTESGroup:
             data.compute_ats_filter()
         data.assume_white_noise()
         data.compute_ats_filter()
+        del data
 
     @staticmethod
     def test_noise_only():
@@ -275,6 +278,7 @@ class TestTESGroup:
         pattern = "tests/regression_test/regress_noise_*.ljh"
         data = mass.TESGroup(pattern, noise_only=True)
         data.compute_noise()
+        del data
 
     def test_all_channels_bad(self, tmp_path):
         """Make sure it isn't an error to load a data set where all channels are marked bad"""
@@ -289,6 +293,7 @@ class TestTESGroup:
         data2.set_chan_good(1)
         LOG.info("Testing printing of a TESGroup")
         LOG.info(data2)
+        del data
 
     def test_save_hdf5_calibration_storage(self, tmp_path):
         "calibrate a dataset, make sure it saves to hdf5"
@@ -307,6 +312,7 @@ class TestTESGroup:
         # These 2 checks test issue #102.
         assert ds2.peak_samplenumber is not None
         assert ds2.peak_samplenumber == ds.peak_samplenumber
+        del data
 
     def test_make_auto_cuts(self, tmp_path):
         """Make sure that non-trivial auto-cuts are generated and reloadable from file."""
@@ -323,6 +329,7 @@ class TestTESGroup:
         for ds in data2:
             assert ds.saved_auto_cuts.cuts_prm["postpeak_deriv"][1] > 0.
             assert ds.saved_auto_cuts.cuts_prm["pretrigger_rms"][1] > 0.
+        del data
 
     def test_auto_cuts_after_others(self, tmp_path):
         """Make sure that non-trivial auto-cuts are generated even if other cuts are made first.
@@ -339,6 +346,7 @@ class TestTESGroup:
         ngood = ds.good().sum()
         assert ngood < ds.nPulses - arbcut.sum()
         assert ngood > 0
+        del data
 
     def test_plot_filters(self, tmp_path):
         "Check that issue 105 is fixed: data.plot_filters() doesn't fail on 1 channel."
@@ -351,6 +359,7 @@ class TestTESGroup:
         data.compute_noise()
         data.compute_5lag_filter()  # not enough pulses for ats filters
         data.plot_filters()
+        del data
 
     @pytest.mark.filterwarnings("ignore:divide by zero encountered")
     def test_time_drift_correct(self, tmp_path):
@@ -365,6 +374,7 @@ class TestTESGroup:
         data.drift_correct()
         data.phase_correct()
         data.time_drift_correct()
+        del data
 
     @pytest.mark.xfail
     def test_invert_data(self, tmp_path):
@@ -376,6 +386,7 @@ class TestTESGroup:
         ds.invert_data = True
         raw2 = ds.data
         assert np.all(rawinv == raw2)
+        del data
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered")
     def test_issue156(self, tmp_path):
@@ -398,6 +409,7 @@ class TestTESGroup:
             if ds.channum not in data.good_channels:
                 raise ValueError("Failed issue156 test with %d valid bins (lowestbin=%d)" %
                                  (NBINS - lowestbin, lowestbin))
+        del data
 
     @staticmethod
     def test_noncontinuous_noise():
@@ -407,6 +419,7 @@ class TestTESGroup:
         data = mass.TESGroup(src_name, noi_name, noise_is_continuous=False)
         ds = data.channel[1]
         ds.compute_noise()
+        del data
 
     def test_pulse_model_and_ljh2off(self, tmp_path):
         data = self.load_data(hdf5dir=tmp_path)
@@ -460,6 +473,7 @@ class TestTESGroup:
             assert off[7] == off_multi[7]
             assert off[7] == off_multi[N + 7]
             assert off[7] != off_multi[N + 6]
+        del data
 
     def test_ljh_records_to_off(self, tmp_path):
         """Be sure ljh_records_to_off works with ljh files of 2 or more segments."""
@@ -486,6 +500,7 @@ class TestTESGroup:
             off_version = "0.3.0"
             dtype = mass.off.off.recordDtype(off_version, nbasis, descriptive_coefs_names=False)
             mass.ljh2off.ljh_records_to_off(ljhfile, f, projectors, basis, n_ignore_presamples, dtype)
+        del data
 
     @staticmethod
     def test_projectors_script():
@@ -515,6 +530,8 @@ class TestTESGroup:
                 self.f_3db_5lag = None
 
         mass.core.projectors_script.main(Args())
+        import gc
+        gc.collect()
 
     @staticmethod
     def test_expt_state_files():
@@ -551,6 +568,7 @@ class TestTESGroup:
                 with pytest.raises(ValueError):
                     ds.good(state="A")
             dir.cleanup()
+            del data
 
 
 class TestTESHDF5Only:
@@ -563,12 +581,14 @@ class TestTESHDF5Only:
         noi_name = 'tests/regression_test/regress_noise_chan1.ljh'
         hdf5_file = tempfile.NamedTemporaryFile(suffix='_mass.hdf5')
         hdf5_noisefile = tempfile.NamedTemporaryFile(suffix='_mass_noise.hdf5')
-        mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_file.name,
+        data = mass.TESGroup([src_name], [noi_name], hdf5_filename=hdf5_file.name,
                       hdf5_noisefilename=hdf5_noisefile.name)
 
         data2 = mass.TESGroupHDF5(hdf5_file.name)
         LOG.info("Testing printing of a TESGroupHDF5")
         LOG.info(data2)
+        del data
+        del data2
 
     @staticmethod
     def test_ordering_hdf5only():
@@ -592,3 +612,4 @@ class TestTESHDF5Only:
             data = mass.TESGroupHDF5(fname)
             for i, ds in enumerate(data):
                 assert ds.channum == cnums[i]
+            del data
