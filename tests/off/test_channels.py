@@ -290,14 +290,15 @@ def test_save_load_recipes():
     ds_local = data_local.firstGoodChannel()
     assert "energy" not in ds_local.__dict__, \
         "ds_local should not have energy yet, we haven't defined that recipe"
-    pklfilename = "recipe_book_save_test2.rbpkl"
-    data.saveRecipeBooks(pklfilename)
-    ds = data.firstGoodChannel()
-    ds.add5LagRecipes(np.zeros(996))
-    data_local.loadRecipeBooks(pklfilename)
-    for ds in data.values():
-        ds_local = data_local[ds.channum]
-        assert all(ds.energy == ds_local.energy)
+    with tempfile.TemporaryDirectory() as tdir:
+        pklfilename = os.path.join(tdir, "recipe_book_save_test2.rbpkl")
+        data.saveRecipeBooks(pklfilename)
+        ds = data.firstGoodChannel()
+        ds.add5LagRecipes(np.zeros(996))
+        data_local.loadRecipeBooks(pklfilename)
+        for ds in data.values():
+            ds_local = data_local[ds.channum]
+            assert all(ds.energy == ds_local.energy)
 
 
 def test_experiment_state_file_repeated_states():
@@ -477,13 +478,13 @@ def test_recipes():
     assert rb._craftWithFunction(lambda a, b, c: a + b + c, args) == 18
     assert rb.craft(lambda a, b, c: a + b + c, args) == 18
 
-    rb.to_file("test_recipe_book_save.pkl", overwrite=True)
+    with tempfile.NamedTemporaryFile(suffix=".rbpkl") as pklfile:
+        rb.to_file(pklfile.name, overwrite=True)
+        rb2 = util.RecipeBook.from_file(pklfile.name)
 
-    rb2 = util.RecipeBook.from_file("test_recipe_book_save.pkl")
-
-    assert rb2.craft("a", args) == 3
-    assert rb2.craft("b", args) == 6
-    assert rb2.craft("c", args) == 9
+        assert rb2.craft("a", args) == 3
+        assert rb2.craft("b", args) == 6
+        assert rb2.craft("c", args) == 9
 
 
 def test_linefit_has_tail_and_has_linear_background():
@@ -539,13 +540,14 @@ def test_iterstates():
 
 def test_save_load_recipe_book():
     rb = ds.recipes
-    save_path = os.path.join(d, "recipe_book_save_test.rbpkl")
-    rb.to_file(save_path, overwrite=True)
-    rb2 = util.RecipeBook.from_file(save_path)
-    assert rb.craftedIngredients.keys() == rb2.craftedIngredients.keys()
-    args = {"pretriggerMean": 1, "filtValue": 2}
-    print(rb.craftedIngredients["energy"])
-    assert rb.craft("energy", args) == rb2.craft("energy", args)
+    with tempfile.NamedTemporaryFile(suffix=".rbpkl") as rbfile:
+        save_path = rbfile.name
+        rb.to_file(save_path, overwrite=True)
+        rb2 = util.RecipeBook.from_file(save_path)
+        assert rb.craftedIngredients.keys() == rb2.craftedIngredients.keys()
+        args = {"pretriggerMean": 1, "filtValue": 2}
+        print(rb.craftedIngredients["energy"])
+        assert rb.craft("energy", args) == rb2.craft("energy", args)
 
 
 def test_open_many_OFF_files():
